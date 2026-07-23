@@ -635,11 +635,10 @@ class ShadowPass
                           const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                           Rendering::Dx12FrameOwner& renderFrame,
                           Rendering::Dx12TextureOwner& renderTextures,
-                          bool renderTerrain,
-                          bool renderObjects,
                           const Rendering::RenderInstanceStore& renderInstances,
                           const Physics::ColliderStore& colliders,
                           Threading::WorkerPool* renderWorkerPool,
+                          bool renderTerrain,
                           bool shadowParallelPrep,
                           const Rendering::ShadowCasterBatches* objectCasters );
 

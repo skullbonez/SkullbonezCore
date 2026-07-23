@@ -345,7 +345,20 @@ class InGameUI
         return m_sceneNavigation;
     }
 
-    InGameUIInputResult UpdateInput( const InGameUIInputFrame& frame );
+    InputControl::UIInputSnapshot CaptureInputSnapshot( const Runtime::DeviceInputFrame& deviceFrame,
+                                                        const Runtime::RuntimeMouseEdges& mouse ) const;
+    InGameUIInputResult UpdateInput( const InputControl::UIInputSnapshot& input,
+                                     int screenWidth,
+                                     int screenHeight,
+                                     double now,
+                                     bool editorModeEnabled,
+                                     bool editorPlacementMode,
+                                     bool editorPlaceStatic,
+                                     bool editorTerrainAlign,
+                                     int cameraModeIndex,
+                                     uint32_t cameraModeEnabledMask,
+                                     std::span<const char* const> sceneOptions,
+                                     int selectedSceneOption );
     void Draw( const InGameUIFrameData& data, const UIRenderContext& render );
 
   private:

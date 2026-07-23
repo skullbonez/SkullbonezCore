@@ -250,8 +250,12 @@ static bool LoadSdfAtlasFromFile( Dx12TextureOwner& renderTextures, const char* 
 
     // SDF rendering requires linear filtering; nearest-neighbour would staircase
     // the distance gradient and make glyph edges look aliased.
-    Text2d::fontTexture = renderTextures.CreateTexture2D(
-        { pixels.get(), FONT_ATLAS_W, FONT_ATLAS_H, 1, TextureMipPolicy::SingleLevel, TextureFilterPolicy::Linear } );
+    Text2d::fontTexture = renderTextures.CreateTexture2D( pixels.get(),
+                                                          FONT_ATLAS_W,
+                                                          FONT_ATLAS_H,
+                                                          1,
+                                                          TextureMipPolicy::SingleLevel,
+                                                          TextureFilterPolicy::Linear );
     return true;
 }
 

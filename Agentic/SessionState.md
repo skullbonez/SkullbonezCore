@@ -1,6 +1,6 @@
 # SkullbonezCore Session State
 
-Date: 2026-07-22
+Date: 2026-07-23
 
 Keep this file operational and short. Detailed evidence belongs in plans,
 reports, and git history. `Agentic/Plans/MASTER-PLAN.md` is the authoritative
@@ -11,16 +11,59 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-22nd-JUL-26` |
-| Current baseline | Wide-signature reduction is closed: 301 → 285, all 16 ruled defects removed, every survivor ruled, and the no-bag review is clear. Legacy remains the development default. |
-| Current objective | No active architecture campaign; await the owner's next task. |
-| Active/future progress | 0 / 0 live tasks; 100%. |
+| Current baseline | Wide-signature round 3 reached an empty threshold-13 scan, but its closure claim is reopened because several replacements are mechanical parameter objects. Legacy remains the development default. |
+| Current objective | Remove every mechanical parameter object introduced or repurposed by the three wide-signature campaigns without hiding owners or exceeding 12 parameters. |
+| Active/future progress | 5/6 tasks; 83%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | W4 closure `validate_full` passes in 102.49 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | W4 reconciliation is 285/285 with zero defect survivors; independent review PASS. All Replay gates and the DX12 stress lane pass. |
+| Last broad local gate | T5 `validate_full` passes in 99.5 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
+| Validation for current edits | B4 final incremental Profile build passes (10.9 s); 53 focused Replay doctests / 799 assertions pass (2.3 s); threshold-13 inventory and removed-type scan are empty. |
 
 ## Live Queue
 
-NOW. The 2026-07-22 architecture follow-up round-2 campaign is closed. Wide
+NOW. `wide-signature-parameter-bag-remediation` is active (5/6).
+The owner rejected replacements such as `RenderModelPassInput` that merely
+bundle arguments for immediate unpacking. B0 reopened the three prior
+wide-signature closure claims and inventories every campaign-introduced or
+repurposed parameter object. Mechanical input/request/descriptor/context
+shapes must be removed through actual action or phase decomposition; real
+body-state values, emitted diagnostics, and producer result records retain
+their independent domain identity. PR #131 remains draft while this is fixed.
+B1 removes `InGameUIInputFrame`, both Scene-tab frame packets, and all tornado
+quad call packs. Scene-selection controls now belong to `UISceneTabState`; UI
+consumes its pre-existing normalized input snapshot plus explicit facts under
+the 12-parameter ceiling. The ten touched source files pass the comment audit,
+the threshold-13 scan is empty, and `validate_fast` passes. B2 is now complete:
+narrowphase borrows behavior from the sleep owner instead of a row
+pack; texture and mesh creation consume explicit cold-upload facts; main and
+reflection model submission are separate APIs with compile-time visibility;
+and object shadow submission is structural. Fifteen touched source files pass
+the comment audit. Physics, DX12, one-minute graphics stress, and performance
+gates pass without baseline refresh, validation errors, allocation violations,
+or performance regressions. B3 removes the Replay cause-tree and velocity
+source packs, the loaded-presentation request, and the scrub-gesture packet.
+Cause-tree surface/activation, velocity gizmo/target picking, artifact
+reset/arming, and scrub/prediction-horizon gestures are now distinct operations.
+`ReplayWorkspaceFrameInput` remains only at `TickWorkspace`; no extracted
+operation receives or copies it. Nine touched source files pass the comment
+audit, the Profile build and focused Replay tests pass, and the threshold-13
+scan remains empty. B4 removes the Replay prediction frame request, the
+additionally discovered prediction-job descriptor, the render-preparation
+packet, and the restore-diagnostic input packet. Prediction and render now use
+ordered owner operations, and restore sites directly build the real emitted
+diagnostic. Six touched source files pass the comment audit; the Profile build,
+53 focused Replay doctests / 799 assertions, removed-type scan, and threshold-13
+inventory pass. Next: B5 reconciles campaign history and source, runs the
+hostile no-bag review and final gates, and supersedes the earlier closure claims.
+
+`wide-signature-decomposition-round-2` closed D0-D4 (5/5) and left the
+live ledger. All eight reopened threshold-16 rows were removed without a
+context/service bag, hidden mutable owner, or forwarding facade. The final scan
+is empty; dependency/Replay-boundary proofs, allocation and Replay artifact
+gates, scrub/visual fidelity, the broad gate, and independent review pass.
+Evidence is in
+`Agentic/Reports/2026-07-23/wide-signature-decomposition-round-2-closure.md`.
+The prior
+2026-07-22 architecture follow-up round-2 campaign remains closed. Wide
 signature reduction removed all 16 ruled defect rows without introducing a
 context bag; the final 285 rows all retain explicit owner rulings. The closure
 report is `Agentic/Reports/2026-07-23/wide-signature-reduction-closure.md`.
@@ -312,9 +355,6 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Complete `wide-signature-reduction` W3. Replace the ruled DX12 mesh, texture,
-and raster call shapes with named Rendering-owned values, then replace the six
-Replay diagnostic forwarding rows with bounded schema records. Run mandatory
-DX12 stress and Replay gates without introducing owner bags or growth
-privileges. Follow the round-2 campaign's standing rules in
-`Agentic/Plans/MASTER-PLAN.md`.
+No active architecture campaign. Preserve the empty threshold-13 inventory and
+owner-safe value boundaries. Closure evidence is in
+`Agentic/Reports/2026-07-23/wide-signature-decomposition-round-3-closure.md`.

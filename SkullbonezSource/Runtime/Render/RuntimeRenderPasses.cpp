@@ -861,11 +861,10 @@ void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target,
                                   const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                   Rendering::Dx12FrameOwner& renderFrame,
                                   Rendering::Dx12TextureOwner& renderTextures,
-                                  bool renderTerrain,
-                                  bool renderObjects,
                                   const Rendering::RenderInstanceStore& renderInstances,
                                   const Physics::ColliderStore& colliders,
                                   SkullbonezCore::Threading::WorkerPool* renderWorkerPool,
+                                  bool renderTerrain,
                                   bool shadowParallelPrep,
                                   const Rendering::ShadowCasterBatches* objectCasters )
 {
@@ -876,7 +875,7 @@ void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target,
     {
         return;
     }
-    if ( ( !renderTerrain || !cinematic.shadow.terrainCasts ) && ( !renderObjects || !cinematic.shadow.objectsCast ) )
+    if ( ( !renderTerrain || !cinematic.shadow.terrainCasts ) && !cinematic.shadow.objectsCast )
     {
         return;
     }
@@ -912,7 +911,7 @@ void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target,
                                             &cinematic );
     }
 
-    if ( renderObjects && cinematic.shadow.objectsCast && !m_activeCollisionVisualizerVisible )
+    if ( cinematic.shadow.objectsCast && !m_activeCollisionVisualizerVisible )
     {
         PROFILE_SCOPED( m_profiler, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
         DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
@@ -1006,11 +1005,10 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
                                  *inputs.cinematic,
                                  RenderFrameOwner( inputs.frame ),
                                  RenderTextureOwner( inputs.frame ),
-                                 true,
-                                 true,
                                  *inputs.frame.renderInstances,
                                  *inputs.frame.colliders,
                                  inputs.frame.renderWorkerPool,
+                                 true,
                                  inputs.frame.shadowParallelPrep,
                                  &objectCasters );
             }
@@ -1031,11 +1029,10 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
                                  *inputs.cinematic,
                                  RenderFrameOwner( inputs.frame ),
                                  RenderTextureOwner( inputs.frame ),
-                                 false,
-                                 true,
                                  *inputs.frame.renderInstances,
                                  *inputs.frame.colliders,
                                  inputs.frame.renderWorkerPool,
+                                 false,
                                  inputs.frame.shadowParallelPrep,
                                  &objectCasters );
             }
@@ -1274,7 +1271,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
             if ( SelectRenderTexture( inputs.frame, TEXTURE_BOUNDING_SPHERE, "Frame/Render/Reflection/Balls" ) &&
                  inputs.frame.renderInstances && inputs.frame.colliders )
             {
-                Rendering::RenderInstanceRenderer::RenderModels(
+                Rendering::RenderInstanceRenderer::RenderReflectionModels(
                     PrimitiveRenderContextForFrame( inputs.frame, m_config ),
                     *inputs.frame.renderInstances,
                     *inputs.frame.colliders,
@@ -1284,10 +1281,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
                     inputs.frame.lightPosition,
                     inputs.cinematic,
                     inputs.objectShadow,
-                    inputs.bodyAlpha,
-                    nullptr,
-                    true,
-                    Rendering::RenderVisibilityView::Reflection );
+                    inputs.bodyAlpha );
             }
         }
         PrimitiveBatchRendererForFrame( inputs.frame ).SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );

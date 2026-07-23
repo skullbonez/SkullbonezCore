@@ -122,22 +122,26 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
                                                                toolOverlay.attachedFollow } );
     const uint64_t replayGrowthEventCount = CoreAllocation::RuntimeReserveAllocator::GrowthEventCount();
     const bool debugTransparentBodyPass = debug.isPhysicsDebugTransparent && debug.physicsDebugAlpha < 1.0f;
-    const ReplayRenderFrameView replayFrame =
-        m_replayRuntime.PrepareRenderFrame( m_sceneController.Scene().MutableRenderInstances(),
-                                            m_sceneController.Scene().RenderPresentationRecords(),
-                                            m_sceneController.Scene().Physics(),
-                                            m_sceneController.Scene().Entities(),
-                                            m_runtimeTools,
-                                            m_runtimeTools.EditorTracer(),
-                                            renderModels.modelCount,
-                                            m_runtimeTools.Editor().editorModeEnabled,
-                                            m_interaction.Gesture(),
-                                            m_sceneController.State().currentFrame,
-                                            debug.isCollisionVisualizer,
-                                            debugTransparentBodyPass,
-                                            m_sceneController.Scene().Cameras().GetRenderCameraTranslation(),
-                                            m_sceneController.Scene().Cameras().GetRenderCameraUp(),
-                                            replayGrowthEventCount );
+    const ReplayPresentationSelection replaySelection =
+        m_replayRuntime.ApplyRenderPose( m_sceneController.Scene().MutableRenderInstances(),
+                                         m_sceneController.Scene().Physics(),
+                                         m_runtimeTools );
+    m_replayRuntime.PrepareRenderOverlay( m_sceneController.Scene().Physics(),
+                                          m_sceneController.Scene().Entities(),
+                                          m_runtimeTools.EditorTracer(),
+                                          m_runtimeTools.Editor().editorModeEnabled,
+                                          m_interaction.Gesture(),
+                                          m_sceneController.State().currentFrame,
+                                          m_sceneController.Scene().RenderPresentationRecords() );
+    m_replayRuntime.PublishRenderPacket( m_runtimeTools.EditorTracer(),
+                                         m_sceneController.Scene().Cameras().GetRenderCameraTranslation(),
+                                         m_sceneController.Scene().Cameras().GetRenderCameraUp(),
+                                         replayGrowthEventCount );
+    const ReplayRenderFrameView replayFrame = m_replayRuntime.BuildRenderFrameView( replaySelection,
+                                                                                    m_sceneController.Scene().Physics(),
+                                                                                    renderModels.modelCount,
+                                                                                    debug.isCollisionVisualizer,
+                                                                                    debugTransparentBodyPass );
     const RenderReplayOverlayView replayOverlay{ replayFrame };
     const bool replayPredictionEnabled = replayFrame.predictionEnabled;
     Gameplay::TornadoVisualTimeCandidates visualTime;

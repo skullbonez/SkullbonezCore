@@ -273,6 +273,20 @@ struct RunReplayPredictionState
     RunReplayPredictionRevealClock revealClock;
 };
 
+enum class ReplayPredictionSourcePreparation : uint8_t
+{
+    Declined,
+    ClearCommitted,
+    PreserveCommitted
+};
+
+enum class ReplayPredictionFrameSourceAction : uint8_t
+{
+    Stop,
+    Continue,
+    Begin
+};
+
 // Value-only effects emitted by prediction update/preparation for the
 // composition root to apply to the scrubber and presentation owners. Keeping
 // these counters out of callbacks prevents the private owner from reaching
@@ -450,25 +464,48 @@ class ReplayPrediction
                          int modelCount,
                          int beginTickIndex,
                          int endTickIndex );
-    void UpdateFrame( Physics::PhysicsEngine& physicsEngine,
-                      const Gameplay::TornadoGameplay& tornadoGameplay,
-                      const SceneEntityStore& entities,
-                      const SkullbonezCore::Core::EngineConfig& config,
-                      const Physics::PhysicsWorldForces& worldForces,
-                      Threading::WorkerPool& workerPool,
-                      const ReplaySolverFrameSample* latestSolverSample,
-                      Physics::PhysicsSceneObjectId targetId,
-                      Physics::ModelRowHint targetModelRow,
-                      bool targetAvailable,
-                      bool liveAdvanceHeld,
-                      bool historicalSamplePaused,
-                      float solverTrackPosition,
-                      float solverPresentTrackPosition,
-                      bool scenePhysics,
-                      double fallbackSourceSimulationSeconds,
-                      double simulationTotalSeconds,
-                      double budgetMilliseconds,
-                      ReplayPredictionUpdateResult& result );
+    ReplayPredictionFrameSourceAction SelectFrameSource( const ReplaySolverFrameSample* latestSolverSample,
+                                                         Physics::PhysicsSceneObjectId targetId,
+                                                         bool targetAvailable,
+                                                         bool liveAdvanceHeld,
+                                                         double simulationTotalSeconds,
+                                                         bool& outWasDirty,
+                                                         bool& outWasPendingLatestRestart );
+    void PrepareFrameRebuild( Physics::PhysicsSceneObjectId targetId,
+                              Physics::ModelRowHint targetModelRow,
+                              ReplayPredictionUpdateResult& result );
+    ReplayPredictionSourcePreparation BeginFrameSource( Physics::PhysicsEngine& physicsEngine,
+                                                        const SkullbonezCore::Core::EngineConfig& config,
+                                                        bool scenePhysics,
+                                                        double fallbackSourceSimulationSeconds,
+                                                        double simulationTotalSeconds,
+                                                        const ReplaySolverFrameSample* latestSolverSample,
+                                                        Physics::PhysicsSceneObjectId requestedTargetId,
+                                                        Physics::ModelRowHint requestedTargetModelRow,
+                                                        bool targetAvailable,
+                                                        const std::chrono::steady_clock::time_point& budgetStart,
+                                                        double budgetMilliseconds,
+                                                        ReplayPredictionUpdateResult& result );
+    bool BeginFrameSimulation( Physics::PhysicsEngine& physicsEngine,
+                               const Gameplay::TornadoGameplay& tornadoGameplay,
+                               const SceneEntityStore& entities,
+                               const SkullbonezCore::Core::EngineConfig& config,
+                               const Physics::PhysicsWorldForces& worldForces,
+                               Threading::WorkerPool& workerPool,
+                               ReplayPredictionSourcePreparation preparation );
+    void CompleteFrameSourceBegin( bool began, bool wasDirty, bool wasPendingLatestRestart ) noexcept;
+    bool BeginFrameBudgetExpired( const std::chrono::steady_clock::time_point& budgetStart,
+                                  double budgetMilliseconds,
+                                  ReplayPredictionUpdateResult& result );
+    bool AdvanceFrameWorker( Threading::WorkerPool& workerPool,
+                             double simulationTotalSeconds,
+                             bool historicalSamplePaused,
+                             float solverTrackPosition,
+                             float solverPresentTrackPosition,
+                             const std::chrono::steady_clock::time_point& budgetStart,
+                             double budgetMilliseconds,
+                             ReplayPredictionUpdateResult& result );
+    void PublishCompletedFrame( const SceneEntityStore& entities, Physics::PhysicsSceneObjectId targetId );
     void PreparePresentation( const SceneEntityStore& entities,
                               const Physics::ColliderStore& colliderStore,
                               Physics::PhysicsSceneObjectId targetId,

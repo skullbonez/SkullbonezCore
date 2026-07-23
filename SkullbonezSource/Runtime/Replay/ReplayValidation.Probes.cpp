@@ -1242,23 +1242,39 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::VerifyLoadedPresentation( Repl
     }
 
     const bool armed =
-        ReplayPresentationOperations::ActivateLoadedPresentation( hasLoadedPresentation(),
-                                                                  std::clamp( normalized, 0.0f, 1.0f ),
-                                                                  now,
-                                                                  scrubber,
-                                                                  presentation,
-                                                                  authoring,
-                                                                  prediction,
-                                                                  &transaction.sampleOwners.world.Cameras(),
-                                                                  transaction.timelineOwners.terrain,
-                                                                  transaction.timelineOwners.camera,
-                                                                  mousePickup,
-                                                                  normalizedCurrentMode,
-                                                                  transaction.timelineOwners.normalizedRestoreMode,
-                                                                  transaction.timelineOwners.attachedFollow,
-                                                                  transaction.timelineOwners.directorGrabbed,
-                                                                  transaction.timelineOwners.interaction,
-                                                                  transaction.timelineOwners.inputRouter );
+        ReplayPresentationOperations::BeginLoadedPresentationActivation( hasLoadedPresentation(),
+                                                                         scrubber,
+                                                                         presentation,
+                                                                         authoring,
+                                                                         transaction.timelineOwners.interaction,
+                                                                         transaction.timelineOwners.inputRouter );
+    if ( armed )
+    {
+        ReplayPresentationOperations::ExitInspectionCamera( presentation,
+                                                            authoring,
+                                                            &transaction.sampleOwners.world.Cameras(),
+                                                            transaction.timelineOwners.terrain,
+                                                            transaction.timelineOwners.camera,
+                                                            transaction.timelineOwners.normalizedRestoreMode,
+                                                            transaction.timelineOwners.attachedFollow,
+                                                            transaction.timelineOwners.directorGrabbed,
+                                                            transaction.timelineOwners.interaction,
+                                                            transaction.timelineOwners.inputRouter );
+        ReplayPresentationOperations::ArmLoadedPresentation( std::clamp( normalized, 0.0f, 1.0f ),
+                                                             now,
+                                                             scrubber,
+                                                             presentation,
+                                                             authoring,
+                                                             prediction,
+                                                             transaction.timelineOwners.interaction );
+        ReplayPresentationOperations::EnterInspectionCamera( presentation,
+                                                             &transaction.sampleOwners.world.Cameras(),
+                                                             transaction.timelineOwners.camera,
+                                                             normalizedCurrentMode,
+                                                             transaction.timelineOwners.interaction,
+                                                             transaction.timelineOwners.inputRouter,
+                                                             mousePickup );
+    }
     if ( !armed )
     {
         return ReplayProbeFailure( "replay load probe could not arm the loaded presentation scrubber" );
@@ -1605,23 +1621,38 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::PrepareBranchFileProbe( Replay
     {
         return ReplayProbeFailure( "replay restore branch probe failed to load v2 presentation scrub source" );
     }
-    (void)ReplayPresentationOperations::ActivateLoadedPresentation( true,
-                                                                    0.25f,
-                                                                    now,
-                                                                    scrubber,
-                                                                    presentation,
-                                                                    authoring,
-                                                                    prediction,
-                                                                    &transaction.sampleOwners.world.Cameras(),
-                                                                    transaction.timelineOwners.terrain,
-                                                                    transaction.timelineOwners.camera,
-                                                                    mousePickup,
-                                                                    normalizedCurrentMode,
-                                                                    transaction.timelineOwners.normalizedRestoreMode,
-                                                                    transaction.timelineOwners.attachedFollow,
-                                                                    transaction.timelineOwners.directorGrabbed,
-                                                                    transaction.timelineOwners.interaction,
-                                                                    transaction.timelineOwners.inputRouter );
+    if ( ReplayPresentationOperations::BeginLoadedPresentationActivation( true,
+                                                                          scrubber,
+                                                                          presentation,
+                                                                          authoring,
+                                                                          transaction.timelineOwners.interaction,
+                                                                          transaction.timelineOwners.inputRouter ) )
+    {
+        ReplayPresentationOperations::ExitInspectionCamera( presentation,
+                                                            authoring,
+                                                            &transaction.sampleOwners.world.Cameras(),
+                                                            transaction.timelineOwners.terrain,
+                                                            transaction.timelineOwners.camera,
+                                                            transaction.timelineOwners.normalizedRestoreMode,
+                                                            transaction.timelineOwners.attachedFollow,
+                                                            transaction.timelineOwners.directorGrabbed,
+                                                            transaction.timelineOwners.interaction,
+                                                            transaction.timelineOwners.inputRouter );
+        ReplayPresentationOperations::ArmLoadedPresentation( 0.25f,
+                                                             now,
+                                                             scrubber,
+                                                             presentation,
+                                                             authoring,
+                                                             prediction,
+                                                             transaction.timelineOwners.interaction );
+        ReplayPresentationOperations::EnterInspectionCamera( presentation,
+                                                             &transaction.sampleOwners.world.Cameras(),
+                                                             transaction.timelineOwners.camera,
+                                                             normalizedCurrentMode,
+                                                             transaction.timelineOwners.interaction,
+                                                             transaction.timelineOwners.inputRouter,
+                                                             mousePickup );
+    }
     scrubber.SetHistoricalSamplePaused( true );
     scrubber.SelectTrack( RunReplayTrack::Presentation );
     scrubber.SetTrackPosition( RunReplayTrack::Presentation, 1.0f );

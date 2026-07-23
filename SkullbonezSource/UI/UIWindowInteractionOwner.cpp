@@ -65,12 +65,8 @@ UIWindowInteractionOwner::WidgetView UIWindowInteractionOwner::Widgets()
              m_timelineToggle,
              m_histogramToggle,
              m_hitboxToggle,
-             m_resetSceneButton,
-             m_resetDefaultsButton,
-             m_saveDefaultsButton,
              m_rendererCombo,
              m_reflectionCombo,
-             m_sceneCombo,
              m_renderTargetCombo,
              m_cameraModeCombo,
              m_cinematicMasterToggle,
@@ -290,8 +286,8 @@ bool UIWindowInteractionOwner::BlocksCameraMouse() const
 bool UIWindowInteractionOwner::BlocksKeyboard() const
 {
     return m_window.isVisible && !m_window.isMinimized &&
-           ( m_sceneCombo.IsOpen() || CinematicTab::IsComboOpen( m_cinematicTab ) || m_editorTab.objectCombo.IsOpen() ||
-             m_renderTargetCombo.IsOpen() );
+           ( m_sceneTab.combo.IsOpen() || CinematicTab::IsComboOpen( m_cinematicTab ) ||
+             m_editorTab.objectCombo.IsOpen() || m_renderTargetCombo.IsOpen() );
 }
 
 
@@ -364,7 +360,7 @@ void UIWindowInteractionOwner::SetWaterComboOpen( bool open )
 
 void UIWindowInteractionOwner::SetSceneComboOpen( bool open )
 {
-    m_sceneCombo.SetOpen( open );
+    m_sceneTab.combo.SetOpen( open );
     if ( open )
     {
         m_rendererCombo.Close();
@@ -520,41 +516,42 @@ int UIWindowInteractionOwner::ContentHeight() const
 
 void UIWindowInteractionOwner::CloseSceneCombo()
 {
-    SceneTab::CloseCombo( m_sceneTab, m_sceneCombo );
+    SceneTab::CloseCombo( m_sceneTab );
 }
 
 
-InGameUIInputResult UIWindowInteractionOwner::UpdateInput( Core::Profiler* profiler, const InGameUIInputFrame& frame )
+InputControl::UIInputSnapshot
+UIWindowInteractionOwner::CaptureInputSnapshot( const Runtime::DeviceInputFrame& deviceFrame,
+                                                const Runtime::RuntimeMouseEdges& mouse ) const
 {
-    PROFILE_SCOPED( profiler, "Frame/UI/Input" );
+    return InputControl::CaptureSnapshot( deviceFrame, mouse, m_hasMouseOverride, m_mouseOverrideX, m_mouseOverrideY );
+}
+
+
+InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& input,
+                                                           int screenWidth,
+                                                           int screenHeight,
+                                                           double now,
+                                                           bool editorModeEnabled,
+                                                           bool editorPlacementMode,
+                                                           bool editorPlaceStatic,
+                                                           bool editorTerrainAlign,
+                                                           int cameraModeIndex,
+                                                           uint32_t cameraModeEnabledMask,
+                                                           std::span<const char* const> sceneOptionView,
+                                                           int selectedSceneOption )
+{
     InGameUIInputResult result;
-    // Concept: one UI-owned value freezes the caller's frame facts while this
-    // owner mutates only its widgets and gesture state. Local aliases keep the
-    // existing interaction algorithm unchanged and make non-const clamps local.
-    const Runtime::DeviceInputFrame& deviceFrame = frame.deviceFrame;
-    const Runtime::RuntimeMouseEdges& mouse = frame.mouse;
-    int screenW = frame.screenWidth;
-    int screenH = frame.screenHeight;
-    const double now = frame.now;
-    const bool editorModeEnabled = frame.editorModeEnabled;
-    const bool editorPlacementMode = frame.editorPlacementMode;
-    const bool editorPlaceStatic = frame.editorPlaceStatic;
-    const bool editorTerrainAlign = frame.editorTerrainAlign;
-    int editorObjectType = frame.editorObjectType;
-    int cameraModeIndex = frame.cameraModeIndex;
-    uint32_t cameraModeEnabledMask = frame.cameraModeEnabledMask;
-    const char* const* sceneOptions = frame.sceneOptions.data();
-    const int sceneOptionCount = static_cast<int>( frame.sceneOptions.size() );
-    const int selectedSceneOption = frame.selectedSceneOption;
+    assert( input.keys );
+    int screenW = screenWidth;
+    int screenH = screenHeight;
+    const char* const* sceneOptions = sceneOptionView.data();
+    const int sceneOptionCount = static_cast<int>( sceneOptionView.size() );
     // Concept: UI input produces command intents and capture state. The run loop
     // owns applying scene, physics, renderer, and editor mutations.
-    editorObjectType = std::clamp( editorObjectType, 0, EditorTab::OBJECT_TYPE_COUNT - 1 );
-    (void)editorObjectType;
     cameraModeIndex = std::clamp( cameraModeIndex, 0, CAMERA_MODE_OPTION_COUNT - 1 );
     cameraModeEnabledMask &= ( 1u << CAMERA_MODE_OPTION_COUNT ) - 1u;
     m_interaction.blocksCameraMouse = false;
-    const InputControl::UIInputSnapshot input =
-        InputControl::CaptureSnapshot( deviceFrame, mouse, m_hasMouseOverride, m_mouseOverrideX, m_mouseOverrideY );
     const int wheelDelta = input.wheelDelta;
     result.unhandledWheelDelta = wheelDelta;
     m_mouseX = input.mouseX;
@@ -913,22 +910,16 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( Core::Profiler* profi
 
     if ( m_activeTab == InGameUITab::Scene )
     {
-        SceneTab::UpdateFilterTyping( m_sceneTab,
-                                      m_sceneCombo,
-                                      result,
-                                      deviceFrame.keys,
-                                      sceneOptions,
-                                      sceneOptionCount );
+        SceneTab::UpdateFilterTyping( m_sceneTab, result, *input.keys, sceneOptions, sceneOptionCount );
     }
 
     bool wheelHandled = false;
-    if ( wheelDelta != 0 && m_sceneCombo.IsOpen() && m_activeTab == InGameUITab::Scene )
+    if ( wheelDelta != 0 && m_sceneTab.combo.IsOpen() && m_activeTab == InGameUITab::Scene )
     {
         const float contentX = static_cast<float>( inputX + contentPad );
         const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
         const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
         wheelHandled = SceneTab::HandleComboWheel( m_sceneTab,
-                                                   m_sceneCombo,
                                                    sceneOptions,
                                                    sceneOptionCount,
                                                    m_mouseX,
@@ -982,7 +973,7 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( Core::Profiler* profi
                 m_scrollbarVisibleUntil = now + 1.0;
             }
         }
-        else if ( m_sceneCombo.IsOpen() )
+        else if ( m_sceneTab.combo.IsOpen() )
         {
             if ( m_activeTab == InGameUITab::Scene )
             {
@@ -990,10 +981,6 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( Core::Profiler* profi
                 const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
                 const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
                 SceneTab::HandleOpenComboClick( m_sceneTab,
-                                                m_sceneCombo,
-                                                m_resetSceneButton,
-                                                m_resetDefaultsButton,
-                                                m_saveDefaultsButton,
                                                 result,
                                                 sceneOptions,
                                                 sceneOptionCount,
@@ -1171,22 +1158,29 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( Core::Profiler* profi
             const float contentX = static_cast<float>( inputX + contentPad );
             const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
             const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-            const bool sceneClickHandled = SceneTab::HandleContentClick( m_sceneTab,
-                                                                         m_sceneCombo,
-                                                                         m_resetSceneButton,
-                                                                         m_resetDefaultsButton,
-                                                                         m_saveDefaultsButton,
-                                                                         result,
-                                                                         deviceFrame.keys,
-                                                                         m_activeSlider,
-                                                                         sceneOptions,
-                                                                         sceneOptionCount,
-                                                                         selectedSceneOption,
-                                                                         m_mouseX,
-                                                                         m_mouseY,
-                                                                         contentX,
-                                                                         rowBase,
-                                                                         contentW );
+            bool sceneClickHandled =
+                SceneTab::HandleHeaderClick( m_sceneTab, result, m_mouseX, m_mouseY, contentX, rowBase, contentW );
+            if ( !sceneClickHandled )
+            {
+                sceneClickHandled = SceneTab::HandleClosedComboClick( m_sceneTab,
+                                                                      *input.keys,
+                                                                      sceneOptions,
+                                                                      sceneOptionCount,
+                                                                      selectedSceneOption,
+                                                                      m_mouseX,
+                                                                      m_mouseY );
+            }
+            if ( !sceneClickHandled )
+            {
+                sceneClickHandled = SceneTab::HandleTimeScaleClick( m_sceneTab,
+                                                                    result,
+                                                                    m_activeSlider,
+                                                                    m_mouseX,
+                                                                    m_mouseY,
+                                                                    contentX,
+                                                                    rowBase,
+                                                                    contentW );
+            }
             m_rendererCombo.Close();
             if ( sceneClickHandled )
             {

@@ -39,6 +39,7 @@ Related:
 #include "ReplayTimeline.h"
 #include "ReplayRuntime.h"
 #include "../InputRouter.h"
+#include "../RuntimeDiagnostics.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../Scene/SceneController.h"
 #include "../../Assets/AssetSystem.h"
@@ -328,64 +329,14 @@ void WriteReplayProbeReason( char* outReason, std::size_t reasonSize, const char
     }
 }
 
+#ifdef _DEBUG
 void LogReplayV2TargetRestoreDiagnostic( DiagnosticsRuntime& diagnosticsRuntime,
                                          RunSceneState& scene,
-                                         const char* restoreSource,
-                                         ReplayFrameIndex requestedFrame,
-                                         ReplayFrameIndex latestNonCheckpointTarget,
-                                         const char* failureReason,
-                                         const ReplayV2SolverHashSample* diagnosticTarget,
-                                         const ReplaySolverFrameSample* diagnosticCheckpoint,
-                                         uint64_t restoredSolverHash,
-                                         uint64_t restoredPresentationHash,
-                                         std::size_t restoredBodyCount,
-                                         bool hashCaptured,
-                                         bool hashMatched,
-                                         bool fallbackAttempted,
-                                         bool fallbackRestored )
+                                         const ReplayRestoreResultDiagnostic& result )
 {
-#ifdef _DEBUG
-    const ReplayFrameIndex targetFrame = diagnosticTarget
-                                             ? diagnosticTarget->frameIndex
-                                             : ( requestedFrame == latestNonCheckpointTarget ? 0 : requestedFrame );
-    ReplayRestoreResultDiagnostic result;
-    result.restoreSource = restoreSource;
-    result.targetReplayFrame = targetFrame;
-    result.targetSceneFrame = diagnosticTarget ? diagnosticTarget->sceneFrame : scene.currentFrame;
-    result.checkpointReplayFrame = diagnosticCheckpoint ? diagnosticCheckpoint->frameIndex : 0;
-    result.targetSolverHash = diagnosticTarget ? diagnosticTarget->solverHash : 0;
-    result.targetPresentationHash = diagnosticTarget ? diagnosticTarget->presentationHash : 0;
-    result.targetBodyCount = diagnosticTarget ? diagnosticTarget->bodyCount : 0;
-    result.restoredSolverHash = restoredSolverHash;
-    result.restoredPresentationHash = restoredPresentationHash;
-    result.restoredBodyCount = restoredBodyCount;
-    result.contactCount = diagnosticCheckpoint ? diagnosticCheckpoint->contactCount : 0;
-    result.pipelineRecordCount = diagnosticCheckpoint ? diagnosticCheckpoint->pipelineRecordCount : 0;
-    result.checkpointBoundary = diagnosticCheckpoint ? diagnosticCheckpoint->checkpointBoundary : false;
-    result.hashCaptured = hashCaptured;
-    result.hashMatched = hashMatched;
-    result.fallbackAttempted = fallbackAttempted;
-    result.fallbackRestored = fallbackRestored;
-    result.failureReason = failureReason;
     diagnosticsRuntime.LogReplayRestoreResult( scene, result );
-#else
-    (void)diagnosticsRuntime;
-    (void)scene;
-    (void)restoreSource;
-    (void)requestedFrame;
-    (void)latestNonCheckpointTarget;
-    (void)failureReason;
-    (void)diagnosticTarget;
-    (void)diagnosticCheckpoint;
-    (void)restoredSolverHash;
-    (void)restoredPresentationHash;
-    (void)restoredBodyCount;
-    (void)hashCaptured;
-    (void)hashMatched;
-    (void)fallbackAttempted;
-    (void)fallbackRestored;
-#endif
 }
+#endif
 
 // Lifetime: one decoded restore event borrows the concrete scene-lifetime
 // world as a single authority. Physics, terrain, environment, and entity rows
@@ -1309,27 +1260,37 @@ void PopulateReplayRestoreTargetResult( RunReplayV2TargetRestoreResult& outResul
 void LogReplayRestoreTargetSuccess( DiagnosticsRuntime& diagnosticsRuntime,
                                     RunSceneState& scene,
                                     const char* restoreSource,
-                                    ReplayFrameIndex requestedFrame,
-                                    ReplayFrameIndex latestNonCheckpointTarget,
                                     const ReplayV2SolverHashSample& target,
                                     const ReplaySolverFrameSample& checkpoint,
                                     const ReplayRestoreTargetHashResult& targetHash )
 {
-    LogReplayV2TargetRestoreDiagnostic( diagnosticsRuntime,
-                                        scene,
-                                        restoreSource,
-                                        requestedFrame,
-                                        latestNonCheckpointTarget,
-                                        "",
-                                        &target,
-                                        &checkpoint,
-                                        targetHash.solverHash,
-                                        targetHash.presentationHash,
-                                        targetHash.bodyCount,
-                                        true,
-                                        true,
-                                        false,
-                                        false );
+#ifdef _DEBUG
+    ReplayRestoreResultDiagnostic result;
+    result.restoreSource = restoreSource;
+    result.targetReplayFrame = target.frameIndex;
+    result.targetSceneFrame = target.sceneFrame;
+    result.checkpointReplayFrame = checkpoint.frameIndex;
+    result.targetSolverHash = target.solverHash;
+    result.targetPresentationHash = target.presentationHash;
+    result.targetBodyCount = target.bodyCount;
+    result.restoredSolverHash = targetHash.solverHash;
+    result.restoredPresentationHash = targetHash.presentationHash;
+    result.restoredBodyCount = targetHash.bodyCount;
+    result.contactCount = checkpoint.contactCount;
+    result.pipelineRecordCount = checkpoint.pipelineRecordCount;
+    result.checkpointBoundary = checkpoint.checkpointBoundary;
+    result.hashCaptured = true;
+    result.hashMatched = true;
+    result.failureReason = "";
+    LogReplayV2TargetRestoreDiagnostic( diagnosticsRuntime, scene, result );
+#else
+    (void)diagnosticsRuntime;
+    (void)scene;
+    (void)restoreSource;
+    (void)target;
+    (void)checkpoint;
+    (void)targetHash;
+#endif
 }
 
 // Lifetime: the cold restore transaction composes domain owners without
@@ -1604,17 +1565,26 @@ ReplayStartupResult ReplayRuntime::RunStartupWorkflows( const ReplayStartupLoadI
     }
     if ( startup.loadPath[0] != '\0' )
     {
-        ActivateLoadedPresentationScrubber( loadInput.now,
-                                            loadInput.timelineOwners.inputRouter,
-                                            loadInput.timelineOwners.interaction,
-                                            loadInput.cameras,
-                                            loadInput.timelineOwners.terrain,
-                                            loadInput.timelineOwners.camera,
-                                            loadInput.mousePickup,
-                                            loadInput.normalizedCurrentMode,
-                                            loadInput.timelineOwners.normalizedRestoreMode,
-                                            loadInput.timelineOwners.attachedFollow,
-                                            loadInput.timelineOwners.directorGrabbed );
+        if ( BeginLoadedPresentationActivationScrubber( HasLoadedPresentation(),
+                                                        loadInput.timelineOwners.inputRouter,
+                                                        loadInput.timelineOwners.interaction ) )
+        {
+            ExitInspectionCamera( loadInput.cameras,
+                                  loadInput.timelineOwners.terrain,
+                                  loadInput.timelineOwners.camera,
+                                  loadInput.timelineOwners.normalizedRestoreMode,
+                                  loadInput.timelineOwners.attachedFollow,
+                                  loadInput.timelineOwners.directorGrabbed,
+                                  loadInput.timelineOwners.interaction,
+                                  loadInput.timelineOwners.inputRouter );
+            ArmLoadedPresentationScrubber( 0.25f, loadInput.now, loadInput.timelineOwners.interaction );
+            EnterInspectionCamera( loadInput.cameras,
+                                   loadInput.timelineOwners.camera,
+                                   loadInput.normalizedCurrentMode,
+                                   loadInput.timelineOwners.interaction,
+                                   loadInput.timelineOwners.inputRouter,
+                                   loadInput.mousePickup );
+        }
     }
 
 #ifdef _DEBUG
@@ -1686,21 +1656,41 @@ bool ReplayRuntime::RestoreV2ArtifactTargetStateImpl( const ReplayRestoreTransac
                                    bool fallbackAttempted = false,
                                    bool fallbackRestored = false ) -> bool
     {
-        LogReplayV2TargetRestoreDiagnostic( transaction.diagnostics,
-                                            transaction.sampleOwners.scene,
-                                            restoreSource,
-                                            requestedFrame,
-                                            LATEST_NON_CHECKPOINT_TARGET,
-                                            message,
-                                            diagnosticTarget,
-                                            diagnosticCheckpoint,
-                                            restoredSolverHash,
-                                            restoredPresentationHash,
-                                            restoredBodyCount,
-                                            hashCaptured,
-                                            hashMatched,
-                                            fallbackAttempted,
-                                            fallbackRestored );
+#ifdef _DEBUG
+        ReplayRestoreResultDiagnostic result;
+        result.restoreSource = restoreSource;
+        result.targetReplayFrame = diagnosticTarget
+                                       ? diagnosticTarget->frameIndex
+                                       : ( requestedFrame == LATEST_NON_CHECKPOINT_TARGET ? 0 : requestedFrame );
+        result.targetSceneFrame =
+            diagnosticTarget ? diagnosticTarget->sceneFrame : transaction.sampleOwners.scene.currentFrame;
+        result.checkpointReplayFrame = diagnosticCheckpoint ? diagnosticCheckpoint->frameIndex : 0;
+        result.targetSolverHash = diagnosticTarget ? diagnosticTarget->solverHash : 0;
+        result.targetPresentationHash = diagnosticTarget ? diagnosticTarget->presentationHash : 0;
+        result.targetBodyCount = diagnosticTarget ? diagnosticTarget->bodyCount : 0;
+        result.restoredSolverHash = restoredSolverHash;
+        result.restoredPresentationHash = restoredPresentationHash;
+        result.restoredBodyCount = restoredBodyCount;
+        result.contactCount = diagnosticCheckpoint ? diagnosticCheckpoint->contactCount : 0;
+        result.pipelineRecordCount = diagnosticCheckpoint ? diagnosticCheckpoint->pipelineRecordCount : 0;
+        result.checkpointBoundary = diagnosticCheckpoint ? diagnosticCheckpoint->checkpointBoundary : false;
+        result.hashCaptured = hashCaptured;
+        result.hashMatched = hashMatched;
+        result.fallbackAttempted = fallbackAttempted;
+        result.fallbackRestored = fallbackRestored;
+        result.failureReason = message;
+        LogReplayV2TargetRestoreDiagnostic( transaction.diagnostics, transaction.sampleOwners.scene, result );
+#else
+        (void)diagnosticTarget;
+        (void)diagnosticCheckpoint;
+        (void)restoredSolverHash;
+        (void)restoredPresentationHash;
+        (void)restoredBodyCount;
+        (void)hashCaptured;
+        (void)hashMatched;
+        (void)fallbackAttempted;
+        (void)fallbackRestored;
+#endif
         writeReason( message );
         return false;
     };
@@ -1902,8 +1892,6 @@ bool ReplayRuntime::RestoreV2ArtifactTargetStateImpl( const ReplayRestoreTransac
     LogReplayRestoreTargetSuccess( transaction.diagnostics,
                                    transaction.sampleOwners.scene,
                                    restoreSource,
-                                   requestedFrame,
-                                   LATEST_NON_CHECKPOINT_TARGET,
                                    *target,
                                    *checkpoint,
                                    targetHash );

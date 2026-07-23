@@ -107,6 +107,9 @@ struct ReplayWorkspaceOutput
     ReplayLiveRestoreRequest restoreRequest;
     bool consumesMouse = false;
     bool enterInteractive = false;
+    // Cold native-file selection remains at TickWorkspace, after the scrubber
+    // has completed its pointer and visibility phase.
+    bool loadPresentationRequested = false;
 };
 
 // Semantic transport actions are independent of the legacy overlay and the

@@ -233,25 +233,31 @@ inline const RunDebugState& ScenePresentationForFollowingRequest( const RunDebug
                : submitted;
 }
 
-// Applies one completed transaction's value effects at the excluded consumer
-// boundaries. Call exactly once after Load/ExecutePending, including failures
-// that progressed past scene clearing and therefore emitted reset effects.
-void ApplySceneLoadConsumerOutputs( SceneLoadConsumerOutputs& outputs,
-                                    Window& window,
-                                    UI::InGameUI& operatorUi,
-                                    RuntimeValidationHarness& validationHarness,
-                                    const RunLaunchOptions& launchOptions,
-                                    Rendering::Dx12RenderDevice* renderDevice,
-                                    bool rendererVsyncEnabled,
-                                    RunTimerState& timers,
-                                    RuntimeOverlayDiagnostics& overlays,
-                                    SceneController& sceneController,
-                                    InputRouter& inputRouter,
-                                    RuntimeInteractionController& interaction,
-                                    RunCameraState& camera,
-                                    AttachedCameraController& attachedCamera,
-                                    RuntimeTools& runtimeTools,
-                                    ReplayRuntime& replayRuntime );
+// Applies one completed transaction to runtime owners before any external
+// window/UI/validation presentation. Call after Load/ExecutePending, including
+// failures that progressed past scene clearing and emitted reset effects.
+void ApplySceneLoadRuntimeReactions( SceneLoadConsumerOutputs& outputs,
+                                     const RunLaunchOptions& launchOptions,
+                                     RunTimerState& timers,
+                                     RuntimeOverlayDiagnostics& overlays,
+                                     SceneController& sceneController,
+                                     InputRouter& inputRouter,
+                                     RuntimeInteractionController& interaction,
+                                     RunCameraState& camera,
+                                     AttachedCameraController& attachedCamera,
+                                     RuntimeTools& runtimeTools,
+                                     ReplayRuntime& replayRuntime );
+
+// Publishes external presentation only after ApplySceneLoadRuntimeReactions
+// has advanced every runtime owner to the completed lifecycle generation.
+void ApplySceneLoadPresentationOutputs( SceneLoadConsumerOutputs& outputs,
+                                        Window& window,
+                                        UI::InGameUI& operatorUi,
+                                        RuntimeValidationHarness& validationHarness,
+                                        const RunLaunchOptions& launchOptions,
+                                        Rendering::Dx12RenderDevice* renderDevice,
+                                        bool rendererVsyncEnabled,
+                                        SceneController& sceneController );
 
 class SceneController
 {
