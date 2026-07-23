@@ -1460,7 +1460,13 @@ navigation model).
 |---|---|---:|---|
 | [source-blemish-remediation](../Reports/2026-07-23/source-blemish-remediation-closure.md) | Complete | 6/6 | Hot/cold collider data, diagnostic registration, honest Runtime names, profiler placement, owner ruling, independent review, and final gates complete |
 | [ui-runtime-separation](../Reports/2026-07-23/ui-runtime-separation-closure.md) | Complete | 5/5 | Zero UI→Runtime includes; independent review finding remediated; all standing proofs and final gates pass |
-| [runtime-package-decomposition](TODO/runtime-package-decomposition.md) | Active | 4/5 | R4 records the single-owner Input flow; R5 performs the one independent review and closure gates |
+| [runtime-package-decomposition](../Reports/2026-07-23/runtime-package-decomposition-closure.md) | Complete | 5/5 | 80 exact moves, one top-level residue, operational package proofs, independent review, and all closure gates pass |
+
+Architecture Follow-Up Campaign Round 3 closed on 2026-07-23. Its 16/16
+registered tasks are complete, so the active/future denominator returns
+16 → 0 under rule 4. Runtime now has policed physical packages, UI is a
+one-way presentation dependency below Runtime, and all five source blemishes
+are resolved. Closure evidence is linked from the table above.
 
 ## Features
 

@@ -114,6 +114,70 @@ must return no rows:
 rg -n '^#include[[:space:]]+.*Runtime/' SkullbonezSource/UI
 ```
 
+## Runtime Package Direction Rule
+
+Physical sub-packages inside `SkullbonezSource/Runtime/` expose ownership and
+must not collapse back into a flat Runtime god package. `App` is the composition
+root; `RuntimeFrameViews.h` is the only allowed top-level source-bearing file
+and contains values/forward declarations only. A package may include itself,
+lower engine layers allowed by the standing dependency rules, and only these
+Runtime targets:
+
+| Source package | Allowed Runtime package targets |
+|---|---|
+| `App` | Every Runtime package |
+| `Automation` | `App`, `Camera`, `Capture`, `DevelopmentTools`, `Diagnostics`, `Direction`, `Editor`, `Input`, `Interaction`, `Replay`, top-level frame views, `Scene`, `Tools` |
+| `Camera` | `App` process values, `Direction`, `Input`, `Interaction`, `Scene`; never `Render` |
+| `Capture` | `App`, `Automation`, `Camera`, `Diagnostics`, `Input`, `Interaction`, `Render`, `Replay`, top-level frame views, `Scene`, `Simulation`, `Tools` |
+| `DevelopmentTools` | `App`, `Input`, `Replay` |
+| `Diagnostics` | `App`, `Automation`, `Capture`, `Debug`, `Input`, `Render`, `Replay`, `Scene` |
+| `Direction` | `Camera`, `Capture`, `Scene`, `Tools` |
+| `Editor` | `App`, `Camera`, `Capture`, `Diagnostics`, `Input`, `Interaction`, `Replay`, top-level frame views, `Scene`, `Tools` |
+| `Input` | `App/Window` platform capability, `Camera`, `Interaction`, `ReplayEventCommand`, `SceneLifecycle`; never `Render`, `UI`, or `DevelopmentTools` |
+| `Interaction` | `Camera`, `Diagnostics`, `Render`, `Scene`, `Simulation` |
+| `Render` | `App`, `Camera`, `Debug`, `DevelopmentTools`, `Diagnostics`, `Input`, `Interaction`, `Replay`, top-level frame views, `Scene`, `Tools`, `UI` |
+| `Replay` | `Camera`, `Diagnostics`, `Editor`, `Input`, `Interaction`, `Render`, `Scene`, `Simulation`, `Tools`, `UI`; Replay remains an upper Runtime consumer |
+| `Scene` | `App`, `Automation`, `Camera`, `Debug`, `Diagnostics`, `Editor`, `Input`, `Interaction`, `Render`, `Replay`, `Simulation`, `Tools` |
+| `Simulation` | `Interaction`, `Scene` |
+| `Startup` | `App`, `Replay`, `Scene` |
+| `Tools` | `Camera`, `Editor`, `Input`, `Interaction`, `Replay`, `Scene` |
+| `UI` | `App`, `Automation`, `Capture`, `Diagnostics`, `Editor`, `Replay`, top-level frame views, `Scene` |
+| `Debug` | No other Runtime package |
+| top-level frame views | No Runtime package |
+
+`InputRouter` is the only retained input routing/context/pointer owner.
+`Input` samples devices, `InputController.Bindings` owns the immutable binding
+table, `InputFrame` assembles frame-local values, `InputFrameExecution`
+sequences the turn, `InputRouter.Interactions` remains part of the same router
+owner, and stateless `InputController` applies mode/camera policy. Do not add a
+second retained input state owner or move frame orchestration down into Input.
+
+Before closing a Runtime package change, run every proof below; every command
+must return no rows. Each pattern is the complement of the source package's
+allowed Runtime targets, so a new edge requires an owner-approved table and
+proof update rather than a forwarding header, callback facade, or context bag:
+
+```powershell
+rg -n '^#include[[:space:]]+\x22(\.\./)?(Debug|Render|Simulation|Startup|UI)/' SkullbonezSource/Runtime/Automation
+rg -n '^#include[[:space:]]+\x22((\.\./)?(Automation|Capture|Debug|DevelopmentTools|Diagnostics|Editor|Render|Replay|Simulation|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Camera
+rg -n '^#include[[:space:]]+\x22(\.\./)?(Debug|DevelopmentTools|Direction|Editor|Startup|UI)/' SkullbonezSource/Runtime/Capture
+rg -n '^#include[[:space:]]+\x22((\.\./)?(Automation|Camera|Capture|Debug|Diagnostics|Direction|Editor|Interaction|Render|Scene|Simulation|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/DevelopmentTools
+rg -n '^#include[[:space:]]+\x22((\.\./)?(Camera|DevelopmentTools|Direction|Editor|Interaction|Simulation|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Diagnostics
+rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Debug|DevelopmentTools|Diagnostics|Editor|Input|Interaction|Render|Replay|Simulation|Startup|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Direction
+rg -n '^#include[[:space:]]+\x22(\.\./)?(Automation|Debug|DevelopmentTools|Direction|Render|Simulation|Startup|UI)/' SkullbonezSource/Runtime/Editor
+rg -n '^#include[[:space:]]+\x22((\.\./)?(Automation|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Render|Simulation|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Input
+rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Capture|Debug|DevelopmentTools|Direction|Editor|Input|Replay|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Interaction
+rg -n '^#include[[:space:]]+\x22(\.\./)?(Automation|Capture|Direction|Editor|Simulation|Startup)/' SkullbonezSource/Runtime/Render
+rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Capture|Debug|DevelopmentTools|Direction|Startup)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Replay
+rg -n '^#include[[:space:]]+\x22((\.\./)?(Capture|DevelopmentTools|Direction|Startup|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Scene
+rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Camera|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Input|Render|Replay|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Simulation
+rg -n '^#include[[:space:]]+\x22((\.\./)?(Automation|Camera|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Input|Interaction|Render|Simulation|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Startup
+rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Render|Simulation|Startup|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Tools
+rg -n '^#include[[:space:]]+\x22(\.\./)?(Camera|Debug|DevelopmentTools|Direction|Input|Interaction|Render|Simulation|Startup|Tools)/' SkullbonezSource/Runtime/UI
+rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Camera|Capture|DevelopmentTools|Diagnostics|Direction|Editor|Input|Interaction|Render|Replay|Scene|Simulation|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Debug
+rg -n '^#include[[:space:]]+\x22(\.\./)?(App|Automation|Camera|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Input|Interaction|Render|Replay|Scene|Simulation|Startup|Tools|UI)/' SkullbonezSource/Runtime/RuntimeFrameViews.h
+```
+
 ## Replay Boundary Rule
 
 Replay is an upper Runtime consumer, not a type provider to engine layers.
