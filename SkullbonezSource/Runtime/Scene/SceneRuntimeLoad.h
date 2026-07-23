@@ -62,7 +62,7 @@ struct SceneRuntimeLoadBeginResult
 };
 
 SceneRuntimeLoadBeginResult PrepareSceneRuntimeLoad( const SceneController& controller,
-                                                     const RunSceneUIOverrideState& uiOverrides,
+                                                     const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
                                                      const RuntimeRenderer& renderer,
                                                      const OverlayDebugState& debug,
                                                      const CameraControlState& camera,
@@ -74,8 +74,9 @@ SceneRuntimeLoadBeginResult PrepareSceneRuntimeLoad( const SceneController& cont
 void CommitSceneRuntimeLoad( SceneController& controller,
                              SceneLoadNavigationState& navigation,
                              const SceneRuntimeLoadBeginResult& prepared );
-void RefreshSceneBrowserList( RunSceneBrowserState& sceneBrowser );
-int CurrentSceneBrowserIndex( const SceneController& controller, const RunSceneBrowserState& sceneBrowser );
+void RefreshSceneBrowserList( SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser );
+int CurrentSceneBrowserIndex( const SceneController& controller,
+                              const SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser );
 
 } // namespace Runtime
 } // namespace SkullbonezCore

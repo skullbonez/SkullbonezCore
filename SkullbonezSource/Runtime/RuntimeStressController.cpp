@@ -317,7 +317,7 @@ void ApplyUIStressAction( SkullbonezCore::UI::InGameUI& ui,
 SceneRuntimeStyleContext
 BuildGraphicsStressStyleContext( RunLaunchOptions& launchOptions,
                                  SceneSessionState& scene,
-                                 RunSceneBrowserState& browser,
+                                 SkullbonezCore::UI::RunSceneBrowserState& browser,
                                  SceneWorld& world,
                                  const SkullbonezCore::Assets::AssetSystem& assets,
                                  SkullbonezCore::Core::EngineConfig& config,
@@ -1203,7 +1203,7 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
         {
             selectedSceneIndex = stress.NextInt( static_cast<int>( ui.SceneNavigation().browser.paths.size() ) );
             selectedSceneSource = "browser";
-            request = ui.SceneNavigation().LoadSceneFromBrowserIndex( selectedSceneIndex, sceneController.Runtime() );
+            request = LoadSceneFromBrowserIndex( ui.SceneNavigation(), selectedSceneIndex, sceneController.Runtime() );
         }
 
         if ( executeSceneLoadRequest( request ) )

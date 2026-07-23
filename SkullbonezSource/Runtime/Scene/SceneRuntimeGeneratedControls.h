@@ -59,7 +59,7 @@ struct SceneGeneratedControlPolicy
 struct SceneGeneratedControlPresentation
 {
     // Lifetime: these UI/camera borrows live only for one rebuild command.
-    RunSceneUIOverrideState& uiOverrides;
+    SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides;
     CameraControlState& camera;
 };
 

@@ -49,7 +49,7 @@ struct SceneRuntimeStyleContext
 {
     RunLaunchOptions& launchOptions;
     SceneSessionState& scene;
-    RunSceneBrowserState& sceneBrowser;
+    SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser;
     // Lifetime: live-style code borrows the one scene-lifetime owner and then
     // resolves its entity/collider rows locally. Do not republish sibling
     // subowners or reach back through SceneController.

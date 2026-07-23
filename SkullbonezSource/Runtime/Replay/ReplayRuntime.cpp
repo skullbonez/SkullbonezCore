@@ -237,7 +237,7 @@ ReplayFrameIntentResult ReplayRuntime::ApplyFrameIntent( const ReplayFrameIntent
 
 ReplaySceneTimelineResetInput
 ReplayTimelineOperations::DescribeReplaySceneTimeline( const SceneController& sceneController,
-                                                       const RunSceneUIOverrideState& uiOverrides,
+                                                       const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
                                                        const SceneSessionState& scene,
                                                        int sceneObjectCapacity,
                                                        uint32_t generatedObjectTypeOverride )

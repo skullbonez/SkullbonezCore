@@ -141,7 +141,7 @@ struct SceneDefaultsSaveView
     const OverlayDebugState& debug;
     const RuntimeRenderer& renderer;
     const CameraControlState& camera;
-    const RunSceneUIOverrideState& uiOverrides;
+    const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides;
 };
 
 // Concept: scene loading borrows phase-oriented transaction inputs instead of

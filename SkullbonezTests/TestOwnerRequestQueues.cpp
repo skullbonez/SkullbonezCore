@@ -241,22 +241,22 @@ TEST_CASE( "UI scene navigation owns browser queue and demo decisions" )
     SceneRuntime scene( std::vector<std::string>{ "SkullbonezData/scenes/alpha.scene.json" } );
     scene.BeginLoad( 0 );
 
-    const SceneLoadRequest current = navigation.LoadSceneFromBrowserIndex( 0, scene );
+    const SceneLoadRequest current = LoadSceneFromBrowserIndex( navigation, 0, scene );
     CHECK( current.accepted );
     CHECK_FALSE( current.HasLoad() );
     CHECK( current.enterInteractiveSceneRun );
 
-    const SceneLoadRequest appended = navigation.LoadSceneFromBrowserIndex( 1, scene );
+    const SceneLoadRequest appended = LoadSceneFromBrowserIndex( navigation, 1, scene );
     CHECK( appended.HasLoad() );
     CHECK( appended.index == 1 );
     CHECK( scene.PathAt( 1 ) == "SkullbonezData/scenes/beta.scene.json" );
-    CHECK_FALSE( navigation.LoadSceneFromBrowserIndex( -1, scene ).accepted );
+    CHECK_FALSE( LoadSceneFromBrowserIndex( navigation, -1, scene ).accepted );
 
-    const SceneLoadRequest demo = navigation.LoadDemoScene( scene );
+    const SceneLoadRequest demo = LoadDemoScene( scene );
     CHECK( demo.HasLoad() );
     CHECK( demo.index == 2 );
     CHECK( scene.PathAt( 2 ).empty() );
-    CHECK( navigation.LoadDemoScene( scene ).index == 2 );
+    CHECK( LoadDemoScene( scene ).index == 2 );
 }
 
 TEST_CASE( "Scene load navigation snapshot is detached from the UI owner" )
@@ -302,11 +302,11 @@ TEST_CASE( "UI scene navigation cycles cinematic browser rows" )
     SceneRuntime scene( std::vector<std::string>{ "ordinary.scene.json" } );
     scene.BeginLoad( 0 );
 
-    CHECK( navigation.AdjacentCinematicModeBrowserIndex( 1, 0, false ) == 3 );
-    CHECK( navigation.AdjacentCinematicModeBrowserIndex( -1, 0, false ) == 3 );
-    CHECK( navigation.AdjacentCinematicModeBrowserIndex( 0, 0, true ) == -1 );
+    CHECK( AdjacentCinematicModeBrowserIndex( navigation, 1, 0, false ) == 3 );
+    CHECK( AdjacentCinematicModeBrowserIndex( navigation, -1, 0, false ) == 3 );
+    CHECK( AdjacentCinematicModeBrowserIndex( navigation, 0, 0, true ) == -1 );
 
-    const SceneLoadRequest adjacent = navigation.LoadAdjacentScene( 1, 1, scene );
+    const SceneLoadRequest adjacent = LoadAdjacentScene( navigation, 1, 1, scene );
     CHECK( adjacent.HasLoad() );
     CHECK( scene.PathAt( adjacent.index ) == "cinematic_two.scene.json" );
 }

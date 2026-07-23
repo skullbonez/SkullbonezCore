@@ -1287,7 +1287,7 @@ struct ReplayRestoreOwnerContext
     SkullbonezCore::Assets::AssetSystem& assets;
     SkullbonezCore::Threading::WorkerPool& workerPool;
     SceneWorld& world;
-    RunSceneUIOverrideState& uiOverrides;
+    SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides;
     GeneratedObjectTypeOverride& generatedObjectTypeOverride;
     int sceneObjectCapacity = 0;
 };

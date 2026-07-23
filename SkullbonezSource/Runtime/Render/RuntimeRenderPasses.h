@@ -133,6 +133,11 @@ class PrimitiveBatchRenderer;
 struct PrimitiveRenderContext;
 } // namespace Rendering
 
+namespace UI
+{
+struct RunSceneBrowserState;
+}
+
 namespace Runtime
 {
 class DiagnosticsRuntime;
@@ -163,7 +168,6 @@ struct ReplayOverlayRenderContext;
 }
 struct RuntimeRenderModelFrameView;
 struct RuntimeViewModel;
-struct RunSceneBrowserState;
 struct SceneSessionState;
 struct RunTimerState;
 struct RunReplayPredictionFrame;
@@ -409,7 +413,7 @@ struct UiTextPassState
     const RuntimeInputContext& runtimeInput;
     const CameraControlState& camera;
     const RuntimeViewModel& runtimeViewModel;
-    const RunSceneBrowserState& sceneBrowser;
+    const SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser;
     const RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews;
     const UI::OperatorEditorFrameView& operatorEditorView;
     Threading::WorkerPool* workerPool = nullptr;

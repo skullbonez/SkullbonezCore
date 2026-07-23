@@ -223,7 +223,7 @@ void Render( RuntimeFrameHostView& host,
     RunLaunchOptions& launchOptions = sceneOwners.launchOptions;
     // Lifetime: the two owner views and value-only facts exist only for this
     // late UI call; no render or UI owner retains them.
-    const RunSceneBrowserState& uiSceneBrowser = ui.SceneNavigation().browser;
+    const SkullbonezCore::UI::RunSceneBrowserState& uiSceneBrowser = ui.SceneNavigation().browser;
     const std::string* uiScenePath = sceneController.CurrentPath();
     const ReplayHudStatus sharedReplayHud = replayRuntime.BuildHudStatus( false );
     const SkullbonezCore::Core::CinematicRenderConfig& sharedCinematic = ActiveSceneCinematicConfig( scene, config );

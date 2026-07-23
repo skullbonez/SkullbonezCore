@@ -1534,6 +1534,9 @@
     <ClInclude Include="SkullbonezSource\UI\UIScrollBar.h">
       <Filter>Header Files\UI</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\UISceneNavigationModel.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UISlider.h">
       <Filter>Header Files\UI</Filter>
     </ClInclude>

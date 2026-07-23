@@ -36,6 +36,7 @@ Related:
 #include "UIInput.h"
 #include "UIScrollBar.h"
 #include "UISlider.h"
+#include "UISceneNavigationModel.h"
 #include "UIState.h"
 #include "UITabBar.h"
 #include "UITabCinematic.h"
@@ -48,7 +49,6 @@ Related:
 #include "UITabScene.h"
 #include "UITabSky.h"
 #include "UILayout.h"
-#include "../Runtime/Scene/SceneControllerState.h"
 
 #include <cstdint>
 #include <span>

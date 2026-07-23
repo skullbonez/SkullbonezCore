@@ -953,7 +953,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
             LogSceneLoadFailure( generatedSetup.status, scenePath );
             return m_lastSceneLoadResult;
         }
-        RunSceneBrowserState styleBrowser;
+        SkullbonezCore::UI::RunSceneBrowserState styleBrowser;
         styleBrowser.paths = sceneNavigation.browserPaths;
         styleBrowser.selectedCineModeSceneIndex = sceneNavigation.selectedCineModeSceneIndex;
         ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext{ launchOptions,

@@ -1,10 +1,10 @@
 # UI / Runtime Separation
 
 Date: 2026-07-23
-Status: TODO — drafted from the 2026-07-23 from-source architecture review of
+Status: IN PROGRESS — drafted from the 2026-07-23 from-source architecture review of
 `nightrunner-22nd-JUL-26`. Registered in `MASTER-PLAN.md` on 2026-07-23 as
 plan 2 of the Architecture Follow-Up Campaign Round 3; starts after
-`source-blemish-remediation` B3 renames land. 0/5 phases complete.
+`source-blemish-remediation` B3 renames land. 1/5 phases complete.
 Impact area: `SkullbonezSource/UI/` includes, `Runtime/Scene` navigation
 value ownership, input snapshot boundary, physics-debug-visualizer UI tab
 Owner: runtime + UI
@@ -101,7 +101,7 @@ rules, and no behavior, layout, binding, or rendering output changes.
 
 ## Phases
 
-- [ ] **U1 — Move the scene navigation model to its owner.** Relocate the
+- [x] **U1 — Move the scene navigation model to its owner.** Relocate the
   UI-owned value types in `Runtime/Scene/SceneControllerState.h`
   (`RunSceneBrowserState`, `RunSceneUIOverrideState`, `SceneNavigationModel`,
   and `SceneLoadNavigationState` if the census confirms it is UI-owned
@@ -116,6 +116,41 @@ rules, and no behavior, layout, binding, or rendering output changes.
   the Runtime-owned remainder; no forwarding header. Acceptance: `UI.h` and
   `UIWindowInteractionOwner.h` include no Runtime header for navigation
   state; scene browser and override behavior unchanged.
+
+  Completed 2026-07-23. `UISceneNavigationModel.h` now physically owns
+  `RunSceneBrowserState`, `RunSceneUIOverrideState`, and the passive
+  `SceneNavigationModel` under `SkullbonezCore::UI`. The new header has no
+  Runtime include, forward declaration, pointer, callback, or policy method.
+  Runtime queue decisions are free functions in the reduced
+  `SceneControllerState.h`/`SceneNavigationModel.cpp` seam; every cross-layer
+  reference is fully qualified to avoid the unrelated nested `Runtime::UI`
+  helper namespace. `UI.h` and `UIWindowInteractionOwner.h` now include the
+  UI-owned value header and no Runtime navigation header.
+
+  Execution-time ownership decision: `SceneLoadNavigationState` remains in
+  `Runtime/Scene`. It is a detached, cold load-transaction value that owns
+  copied browser paths plus the selected cinematic row and override values,
+  and its load operations synchronously borrow the concrete `SceneRuntime`
+  queue owner. It is not retained presentation state. The former mixed header
+  is therefore reduced to this Runtime-owned snapshot and queue policy rather
+  than deleted. Existing type spellings remain unchanged as required.
+
+  The focused Profile build passes in 14.42 s with zero warnings/errors after
+  correcting the first build's `Runtime::UI` namespace lookup collision. Five
+  navigation tests pass with 43 assertions. All 23 touched source-bearing files
+  pass the comment audit with zero deferrals. The current UI→Runtime include
+  census drops from ten to eight rows, exactly removing the two navigation
+  includes; no authored data, baseline, golden, config, schema, or shader
+  changes.
+
+  Final `tools\validate_full.bat` passes in 156.50 s after the first preflight
+  correctly requested the repository header-alignment pass: 747/747
+  project/filter items, zero-warning builds, CPU/coverage and five runtime
+  lanes, zero DX12 validation errors, accepted captures, and the byte-exact
+  44,401-line physics CSV. The cumulative Replay mapping is satisfied by one
+  `tools\validate_replay_visual_fidelity.bat` invocation in 434.52 s: one
+  engine process/generation/presentation, the full 2,401-tick durable/causal
+  oracle, and all negative controls pass.
 
 - [ ] **U2 — Input crosses as a UI-owned value snapshot.** UI already
   defines `UIInputSnapshot`; make it the boundary. Move snapshot

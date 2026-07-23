@@ -167,7 +167,7 @@ struct RunSimulationUICommandContext
     // edits persist through scene UI overrides, seed edits mutate scene RNG, and
     // worker edits delegate immediately to WorkerPool.
     SceneSessionState& scene;
-    RunSceneUIOverrideState& uiOverrides;
+    SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides;
     SkullbonezCore::Core::EngineConfig& config;
     Threading::WorkerPool& workerPool;
 };

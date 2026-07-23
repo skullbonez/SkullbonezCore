@@ -11,22 +11,23 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-23rd-JUL-26` |
-| Current baseline | `source-blemish-remediation` is complete at 6/6: independent review and all final dependency, physics, performance, broad, and profiler-marker proofs pass. Legacy remains the development default. |
-| Current objective | Implement `ui-runtime-separation` U1: move the UI-owned navigation model out of `Runtime/Scene`. |
-| Active/future progress | 6/16 registered architecture follow-up tasks; 38%. |
+| Current baseline | UI/runtime U1 is complete: the passive scene-navigation model lives in UI while Runtime retains only the detached load-transaction snapshot and queue policy. Legacy remains the development default. |
+| Current objective | Implement `ui-runtime-separation` U2: build `UIInputSnapshot` on the Runtime side and remove UI input-authority includes. |
+| Active/future progress | 7/16 registered architecture follow-up tasks; 44%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | Source-blemish B6 `validate_full` passes in 102.27 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | B6 final-tip physics (43.28 s), performance (69.90 s), broad (102.27 s), dependency/Replay-boundary, and bounded profiler-marker gates pass. |
+| Last broad local gate | UI/runtime U1 `validate_full` passes in 156.50 s: 747/747 project/filter items, CPU/coverage and five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
+| Validation for current edits | U1 focused Profile build and 5 navigation tests / 43 assertions pass; the broad gate passes; one Replay visual-fidelity invocation passes in 434.52 s with one generation and the full 2,401-tick oracle. |
 
 ## Live Queue
 
-NOW. `source-blemish-remediation` is complete at 6/6. The independent review
-found no material source or ownership defect; all four dependency/Replay
-proofs and the final physics, performance, broad, and profiler-marker gates
-pass. Closure evidence is in
-`Agentic/Reports/2026-07-23/source-blemish-remediation-closure.md`.
-`ui-runtime-separation` is active at 0/5; U1 moves the UI-owned navigation
-model from `Runtime/Scene` to UI without introducing a Runtime dependency.
+NOW. `ui-runtime-separation` is active at 1/5. U1 moves the passive browser,
+override, and navigation values into `UI/UISceneNavigationModel.h`; the new
+header contains no Runtime authority. `SceneLoadNavigationState` remains in
+Runtime because it is a detached cold load-transaction snapshot whose policy
+borrows the concrete scene queue. The two UI navigation includes are gone,
+focused navigation tests and the broad/Replay gates pass, and no baseline or
+golden changed. U2 moves `UIInputSnapshot` construction to Runtime and removes
+the remaining UI input-authority includes.
 
 NOW. `wide-signature-parameter-bag-remediation` is complete (6/6).
 The owner rejected replacements such as `RenderModelPassInput` that merely
@@ -370,6 +371,7 @@ targeted Automation and final full passes.
 ## Next Handoff
 
 Architecture follow-up implementation is active in
-`Agentic/Plans/TODO/ui-runtime-separation.md` at 0/5. Preserve the empty
-threshold-13 inventory, source-blemish owner boundaries, and the direction
-rule that Runtime may include UI while UI must never include Runtime.
+`Agentic/Plans/TODO/ui-runtime-separation.md` at 1/5; U2 is next. Preserve the
+empty threshold-13 inventory, source-blemish owner boundaries, and the
+direction rule that Runtime may include UI while UI must never include
+Runtime.

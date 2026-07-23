@@ -117,7 +117,7 @@ int SceneBrowserIndexForPath( const std::vector<std::string>& browserPaths, cons
 } // namespace
 
 
-void RefreshSceneBrowserList( RunSceneBrowserState& sceneBrowser )
+void RefreshSceneBrowserList( SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser )
 {
     // Concept: The browser owns three parallel arrays: normalized paths, display
     // names, and stable c-string pointers into the display-name storage.
@@ -174,7 +174,8 @@ void RefreshSceneBrowserList( RunSceneBrowserState& sceneBrowser )
 }
 
 
-int CurrentSceneBrowserIndex( const SceneController& controller, const RunSceneBrowserState& sceneBrowser )
+int CurrentSceneBrowserIndex( const SceneController& controller,
+                              const SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser )
 {
     const std::string* currentScenePath = controller.CurrentPath();
     if ( !currentScenePath )
@@ -187,7 +188,7 @@ int CurrentSceneBrowserIndex( const SceneController& controller, const RunSceneB
 
 
 SceneRuntimeLoadBeginResult PrepareSceneRuntimeLoad( const SceneController& controller,
-                                                     const RunSceneUIOverrideState& uiOverrides,
+                                                     const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
                                                      const RuntimeRenderer& renderer,
                                                      const OverlayDebugState& debug,
                                                      const CameraControlState& camera,

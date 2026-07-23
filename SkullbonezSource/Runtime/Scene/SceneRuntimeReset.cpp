@@ -35,11 +35,12 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot( const SceneController& controller,
-                                                            const RunSceneUIOverrideState& uiOverrides,
-                                                            const RuntimeRenderer& renderer,
-                                                            const OverlayDebugState& debug,
-                                                            const CameraControlState& camera )
+SceneRuntimeResetSnapshot
+CaptureSceneRuntimeResetSnapshot( const SceneController& controller,
+                                  const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+                                  const RuntimeRenderer& renderer,
+                                  const OverlayDebugState& debug,
+                                  const CameraControlState& camera )
 {
     SceneRuntimeResetSnapshot snapshot;
     const SceneSessionState& scene = controller.State();
@@ -84,7 +85,7 @@ SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot( const SceneControlle
 
 
 void RestoreSceneRuntimeResetSnapshot( SceneController& controller,
-                                       RunSceneUIOverrideState& uiOverrides,
+                                       SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
                                        RuntimeRenderer& renderer,
                                        OverlayDebugState& debug,
                                        CameraControlState& camera,
@@ -129,7 +130,7 @@ void RestoreSceneRuntimeResetSnapshot( SceneController& controller,
 }
 
 
-void ClearSceneRuntimeUIOverrides( RunSceneUIOverrideState& uiOverrides )
+void ClearSceneRuntimeUIOverrides( SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides )
 {
     // Concept: Reset-to-defaults hands authority back to authored scene data by
     // clearing UI-generated setup overrides.

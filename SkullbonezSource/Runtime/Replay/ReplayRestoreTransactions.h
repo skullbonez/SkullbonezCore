@@ -35,6 +35,10 @@ namespace Threading
 {
 class WorkerPool;
 }
+namespace UI
+{
+struct RunSceneUIOverrideState;
+}
 namespace Runtime
 {
 class DiagnosticsRuntime;
@@ -46,7 +50,6 @@ class RuntimeTools;
 enum class GeneratedObjectTypeOverride;
 struct OverlayDebugState;
 struct SceneSessionState;
-struct RunSceneUIOverrideState;
 struct ReplaySolverSampleRestoreContext
 {
     // Lifetime: the composition root builds this from live owners for one
@@ -88,7 +91,7 @@ struct ReplayArtifactTopologyOwners
     const SkullbonezCore::Core::EngineConfig& config;
     Assets::AssetSystem& assets;
     Threading::WorkerPool& workerPool;
-    RunSceneUIOverrideState& uiOverrides;
+    SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides;
     GeneratedObjectTypeOverride& generatedObjectTypeOverride;
     int sceneObjectCapacity = 0;
 };
