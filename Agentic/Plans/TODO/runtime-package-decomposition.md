@@ -1,10 +1,10 @@
 # Runtime Package Decomposition
 
 Date: 2026-07-23
-Status: TODO — drafted from the 2026-07-23 from-source architecture review of
+Status: IN PROGRESS — drafted from the 2026-07-23 from-source architecture review of
 `nightrunner-22nd-JUL-26`. Registered in `MASTER-PLAN.md` on 2026-07-23 as
 plan 3 of the Architecture Follow-Up Campaign Round 3; starts after
-`ui-runtime-separation` closes. 0/5 phases complete.
+`ui-runtime-separation` closes. 1/5 phases complete.
 Impact area: `SkullbonezSource/Runtime/` package structure, includes, project
 files, intra-Runtime dependency rules
 Owner: runtime
@@ -79,32 +79,114 @@ edge-declaration plan.
   broad `RuntimeContext` — moves land in owning sub-packages directly, per
   the Dependency Direction Rule.
 
-## Target Package Map (R1 refines this; current best assignment)
+## Ratified Target Package Map (R1, 2026-07-23)
 
-| Sub-package | Takes (from top level) |
-|-------------|------------------------|
-| `Runtime/App/` | `Run.h/.cpp`, `RunFrame.cpp`, `InputRouter.Interactions.cpp`, `RunRender.cpp`, `RunLaunchOptions*`, `RunStartupState.h`, `RunTimerState.h`, `OverlayDebugState.h`, `ApplicationExitState*`, `Window*`, `Init.cpp` |
-| `Runtime/Input/` | `Input*`, `InputController*`, `InputFrame*`, `InputFrameExecution.cpp`, `InputRouter*` |
-| `Runtime/Interaction/` | `RuntimeInteractionController*`, `RuntimeInteractionCommands.h`, `OperatorCommandApplier*`, `RuntimePickGeometry*`, `RuntimePickService*` |
-| `Runtime/Camera/` | `Camera*`, `CameraCollection*`, `AttachedCameraController*`, `CameraControlState*`, `RuntimeCameraMode.h` |
-| `Runtime/Capture/` | `CaptureController*`, `CaptureSystem*`, `GraphicsStressController.h`, `RuntimeStressController*` |
-| `Runtime/Automation/` | `InteractionAutomationController*`, `InteractionAutomationInputDriver*`, `InteractionAutomationReportWriter*`, `RuntimeValidationHarness*` |
-| `Runtime/Direction/` | `DemoDirector*`, `DemoDirectorPlayback*`, `LiveStyleController*` |
-| `Runtime/Simulation/` | `SimulationSystem*` |
-| existing `Runtime/Diagnostics/` | `DiagnosticsController*`, `RuntimeDiagnostics*`, `RuntimeOverlayDiagnostics*`, `RuntimeFileWriter*` |
-| existing `Runtime/Render/` | `RenderDefaultsStore*`, `RuntimeViewModel*`, `UiTextPass.cpp` (or `Runtime/UI/` — decide in R1) |
-| stay put | `Runtime/Scene/`, `Runtime/Startup/`, `Runtime/Editor/`, `Runtime/Debug/`, `Runtime/DevelopmentTools/`, `Runtime/Tools/`, `Runtime/UI/`, `Runtime/Replay/` (frozen) |
-| top level (allowed residue) | `RuntimeFrameViews.h` (the frame borrow slices genuinely span sub-packages) |
+The required execution-time `git ls-files` census finds exactly 81 tracked
+top-level Runtime `.cpp`/`.h` files. The target package list is final:
+
+| Sub-package | Single purpose |
+|-------------|----------------|
+| `Runtime/App/` | Process composition, startup/shutdown, OS message pumping, and top-level frame/render sequencing. |
+| `Runtime/Input/` | Device sampling, bindings, semantic routing state, and one-frame input assembly/execution. |
+| `Runtime/Interaction/` | Owner-neutral interaction commands, picking, and synchronous application to scene/editor owners. |
+| `Runtime/Camera/` | Camera values, collections, attachment policy, and camera-control state. |
+| `Runtime/Capture/` | Screenshot/readback ownership plus deterministic UI/graphics stress controllers that exercise capture/resource lifetime. |
+| `Runtime/Automation/` | CLI interaction drivers, reports, and validation-harness orchestration. |
+| `Runtime/Direction/` | High-level demo playback and live style direction of already-owned Runtime systems. |
+| `Runtime/Simulation/` | Deterministic simulation timing, accumulator, pause, and committed-tick policy. |
+| `Runtime/Diagnostics/` | Runtime diagnostics, overlay presentation state/resources, and diagnostic command/status policy. |
+| `Runtime/Render/` | Runtime-side render defaults, render sequencing support, and concrete UI/text render-pass implementation. |
+| `Runtime/UI/` | Detached Runtime presentation view models and operator-editor frame composition. |
+| `Runtime/Tools/` | Shared cold artifact path/file utilities and explicit runtime tool owners. |
+| existing packages | `Scene`, `Startup`, `Editor`, `Debug`, and `DevelopmentTools` retain their current cohesive owners; `Replay` remains frozen. |
+| top-level residue | `RuntimeFrameViews.h` alone defines cross-package synchronous frame borrows used to keep App from passing itself around. |
+
+The four deliberate refinements from the draft map are ownership decisions:
+
+- `OverlayDebugState.h` moves to `Diagnostics`, beside the owner that mutates
+  and publishes it, rather than to App.
+- `RuntimeFileWriter.*` moves to `Tools`; it owns generic cold artifact path
+  policy and no diagnostic schema.
+- `RuntimeViewModel.*` moves to existing `Runtime/UI`; it is a detached
+  presentation snapshot, not render execution.
+- `UiTextPass.cpp` moves to `Runtime/Render`; its class is declared in
+  `Render/RuntimeRenderPasses.h` and scheduled as a concrete render-graph pass.
+
+Stress remains in `Capture` because the paired controllers own deterministic
+UI/graphics resource-lifetime churn and borrow Automation/App only for
+execution. `InputRouter.Interactions.cpp` moves to App because that partial
+implementation synchronously sequences Camera, Editor, Replay, Scene, Tools,
+and overlay owners; it is intentionally not part of the lower Input package.
+
+### Complete top-level assignment
+
+Counts reconcile to all 81 tracked files with no overlap.
+
+| Current top-level file/family | Count | Destination |
+|---|---:|---|
+| `ApplicationExitState.cpp/.h` | 2 | `App/` |
+| `Init.cpp` | 1 | `App/` |
+| `InputRouter.Interactions.cpp` | 1 | `App/` |
+| `Run.cpp/.h` | 2 | `App/` |
+| `RunFrame.cpp` | 1 | `App/` |
+| `RunLaunchOptions.h`, `RunLaunchOptions.Renderer.h` | 2 | `App/` |
+| `RunRender.cpp` | 1 | `App/` |
+| `RunStartupState.h`, `RunTimerState.h` | 2 | `App/` |
+| `Window.cpp/.h` | 2 | `App/` |
+| `Input.cpp/.h` | 2 | `Input/` |
+| `InputController.cpp/.h`, `InputController.Bindings.cpp/.h` | 4 | `Input/` |
+| `InputFrame.cpp/.h`, `InputFrameExecution.cpp` | 3 | `Input/` |
+| `InputRouter.cpp/.h` | 2 | `Input/` |
+| `OperatorCommandApplier.cpp/.h` | 2 | `Interaction/` |
+| `RuntimeInteractionCommands.h` | 1 | `Interaction/` |
+| `RuntimeInteractionController.cpp/.h` | 2 | `Interaction/` |
+| `RuntimePickGeometry.cpp/.h` | 2 | `Interaction/` |
+| `RuntimePickService.cpp/.h` | 2 | `Interaction/` |
+| `AttachedCameraController.cpp/.h` | 2 | `Camera/` |
+| `Camera.cpp/.h` | 2 | `Camera/` |
+| `CameraCollection.cpp/.h` | 2 | `Camera/` |
+| `CameraControlState.cpp/.h` | 2 | `Camera/` |
+| `RuntimeCameraMode.h` | 1 | `Camera/` |
+| `CaptureController.cpp/.h` | 2 | `Capture/` |
+| `CaptureSystem.cpp/.h` | 2 | `Capture/` |
+| `GraphicsStressController.h` | 1 | `Capture/` |
+| `RuntimeStressController.cpp/.h` | 2 | `Capture/` |
+| `InteractionAutomationController.cpp/.h` | 2 | `Automation/` |
+| `InteractionAutomationInputDriver.cpp/.h` | 2 | `Automation/` |
+| `InteractionAutomationReportWriter.cpp/.h` | 2 | `Automation/` |
+| `RuntimeValidationHarness.cpp/.h` | 2 | `Automation/` |
+| `DemoDirector.cpp/.h` | 2 | `Direction/` |
+| `DemoDirectorPlayback.cpp/.h` | 2 | `Direction/` |
+| `LiveStyleController.cpp/.h` | 2 | `Direction/` |
+| `SimulationSystem.cpp/.h` | 2 | `Simulation/` |
+| `DiagnosticsController.cpp/.h` | 2 | `Diagnostics/` |
+| `OverlayDebugState.h` | 1 | `Diagnostics/` |
+| `RuntimeDiagnostics.cpp/.h` | 2 | `Diagnostics/` |
+| `RuntimeOverlayDiagnostics.cpp/.h` | 2 | `Diagnostics/` |
+| `RenderDefaultsStore.cpp/.h` | 2 | `Render/` |
+| `UiTextPass.cpp` | 1 | `Render/` |
+| `RuntimeViewModel.cpp/.h` | 2 | `UI/` |
+| `RuntimeFileWriter.cpp/.h` | 2 | `Tools/` |
+| `RuntimeFrameViews.h` | 1 | top-level residue |
+| **Total** | **81** | **81 assigned exactly once** |
 
 ## Phases
 
-- [ ] **R1 — Census and ratified map.** Generate the complete top-level
+- [x] **R1 — Census and ratified map.** Generate the complete top-level
   inventory with `git ls-files 'SkullbonezSource/Runtime/*.cpp'
   'SkullbonezSource/Runtime/*.h'` (not `rg`), reconcile it against the table
   above, and resolve every "decide in R1" row plus any file the table
   missed. Each row gets a one-line purpose statement for its sub-package.
   Acceptance: every tracked top-level Runtime file has exactly one assigned
   destination recorded in this plan, and the sub-package list is final.
+
+  Completed 2026-07-23. The required tracked-file census returns exactly 81
+  rows, and the complete assignment table above reconciles all 81 exactly
+  once. Every target package has one stated purpose. The prior
+  `UiTextPass.cpp` decision is resolved to `Render`; the other three ownership
+  refinements are recorded explicitly. `RuntimeFrameViews.h` is the sole
+  allowed residue. This phase changes documentation only, so repository
+  validation is not required.
 
 - [ ] **R2 — Declare the intra-Runtime dependency direction.** Before moving
   anything, write the allowed edges into this plan and `AGENTS.md` (same

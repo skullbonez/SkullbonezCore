@@ -11,12 +11,12 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-23rd-JUL-26` |
-| Current baseline | `ui-runtime-separation` is complete at 5/5: UI has zero Runtime includes, the independent review finding is remediated, all five standing proofs are empty, and final gates pass. Legacy remains the development default. |
-| Current objective | Implement `runtime-package-decomposition` R1: current top-level census, ownership classification, and ratified target package map. |
-| Active/future progress | 11/16 registered architecture follow-up tasks; 69%. |
+| Current baseline | Runtime-package R1 ratifies the post-rename/post-navigation map: all 81 tracked top-level Runtime files have exactly one destination and `RuntimeFrameViews.h` is the sole allowed residue. |
+| Current objective | Implement runtime-package R2: declare the complete allowed edge table, enumerate existing violations as R3 work, and ratify exact no-row proofs. |
+| Active/future progress | 12/16 registered architecture follow-up tasks; 75%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | UI/runtime U3 review remediation `validate_full` passes with exit 0 in 101.8 s: 749/749 project/filter items, all CPU/coverage floors, zero-warning builds, accepted DX12 images with zero errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | U5 closure is documentation-only after accepted source commit `9ed2a9ea`; all five exact dependency/UI/Replay proofs pass with zero rows in 0.22 s. |
+| Validation for current edits | R1 is documentation-only; no repository validation is required. The required `git ls-files` census returns 81 rows and the plan table reconciles 81/81. |
 
 ## Live Queue
 
@@ -28,9 +28,11 @@ command-to-state-to-status coverage. All standing proofs and final gates pass.
 Closure evidence is in
 `Agentic/Reports/2026-07-23/ui-runtime-separation-closure.md`.
 
-NOW. `runtime-package-decomposition` is active at 0/5. R1 re-measures the final
-post-rename, post-navigation-move Runtime top-level, classifies every file by
-owner, and ratifies the target package map before any moves.
+NOW. `runtime-package-decomposition` is active at 1/5. R1 assigns all 81
+tracked top-level files exactly once across App, Input, Interaction, Camera,
+Capture, Automation, Direction, Simulation, Diagnostics, Render, UI, Tools,
+and one explicit top-level frame-view residue. R2 now declares the complete
+edge direction and converts every current violation into explicit R3 work.
 
 NOW. `wide-signature-parameter-bag-remediation` is complete (6/6).
 The owner rejected replacements such as `RenderModelPassInput` that merely
