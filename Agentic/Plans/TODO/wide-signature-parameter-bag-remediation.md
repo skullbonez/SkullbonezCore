@@ -134,8 +134,8 @@ records a concrete domain identity and a non-adapter consumer.
 - [x] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp`
 - [x] `SkullbonezSource/Runtime/RuntimeStressController.cpp`
 - [x] `SkullbonezSource/Runtime/Editor/EditorPlacementAssets.h`
-- [x] `SkullbonezSource/Runtime/Editor/RunEditorPlacementAssets.cpp`
-- [x] `SkullbonezSource/Runtime/Editor/RunEditorTracer.cpp`
+- [x] `SkullbonezSource/Runtime/Editor/EditorPlacementAssets.cpp`
+- [x] `SkullbonezSource/Runtime/Editor/EditorTracer.cpp`
 - [x] `SkullbonezSource/Runtime/Render/RuntimeRenderFrameValues.h`
 - [x] `SkullbonezSource/Runtime/Render/RenderModelFramePublisher.h`
 - [x] `SkullbonezSource/Runtime/Render/RuntimeRenderer.h`

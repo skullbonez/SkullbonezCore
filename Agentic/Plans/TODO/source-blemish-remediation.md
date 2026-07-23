@@ -1,10 +1,10 @@
 # Source Blemish Remediation
 
 Date: 2026-07-23
-Status: IN PROGRESS — drafted from the 2026-07-23 from-source architecture review of
+Status: COMPLETE — drafted from the 2026-07-23 from-source architecture review of
 `nightrunner-22nd-JUL-26`. Registered in `MASTER-PLAN.md` on 2026-07-23 as
 plan 1 of the Architecture Follow-Up Campaign Round 3; starts after
-`wide-signature-parameter-bag-remediation` closes. 5/6 phases complete.
+`wide-signature-parameter-bag-remediation` closes. 6/6 phases complete.
 Impact area: Physics store layout, physics step API, Runtime editor file
 naming, profiler unit placement, development-tools TU size
 Owner: physics + runtime
@@ -207,7 +207,8 @@ seams.
   concrete type. No aliases or forwarding headers remain. The only surviving
   `Run`-prefixed physical files are `Run.h/.cpp`, `RunFrame.cpp`, and
   `RunRender.cpp`, which declare/define `Run`, plus `RunLaunchOptions*` and
-  `RunStartupState.h`, whose matching values are direct `Run` members.
+  `RunStartupState.h`/`RunTimerState.h`, whose matching values are direct
+  `Run` members.
 
   The production/test/project rename surface is whitespace-insensitive
   lexical-equivalent in 122/124 files after applying the declared rename map;
@@ -296,9 +297,44 @@ seams.
   lanes, so this documentation-only ruling requires no additional repository
   validation.
 
-- [ ] **B6 — Final review and gates.** Re-run the dependency-direction proofs
+- [x] **B6 — Final review and gates.** Re-run the dependency-direction proofs
   from `AGENTS.md` (all must return no rows), run the mapped validation set
   below, and paste command output in the closing commit body.
+
+  Completed 2026-07-23. Independent rubber-duck review found no material
+  source, ownership, allocation, replay-boundary, or behavioral defect. It
+  found two active-document spelling/state defects: `AGENTS.md` still mapped
+  replay-facing validation through the retired `RunEditorTracer*` spelling,
+  and two `SessionState.md` passages still said this campaign had not started.
+  Both are corrected, along with stale renamed-file entries in the historical
+  comment-audit and wide-signature checklists. One non-operational
+  `trajectory_ribbon.hlsl` related-file comment still names a historical
+  `RunEditorTracer` path; it is deliberately retained because changing HLSL
+  source would create shader-source and generated-artifact scope unrelated to
+  this non-behavioral naming campaign.
+
+  All four dependency and Replay-boundary proofs return zero rows. The final
+  source census confirms that the hot `ColliderRecord` has no name bytes,
+  `ColliderAuthoringRecord` owns `contactMaterialName[32]`, both
+  `PhysicsEngine::Step` overloads have no diagnostic-name parameters, and the
+  eight remaining case-sensitive `Run`-prefixed files honestly declare or
+  implement direct `Run` state. Profiler ownership is 48 Core definitions and
+  six renderer presentation/GPU definitions. The plan-base diff changes no
+  authored data, baseline, golden, config, schema, or shader path.
+
+  Final-tip gates pass: `tools\validate_physics.bat` in 43.28 s with the
+  byte-exact 44,401-line CSV; `tools\validate_perf.bat` in 69.90 s with zero
+  allocation-policy errors or regressions; `tools\validate_full.bat` in
+  102.27 s with all CPU/coverage and five runtime lanes, accepted DX12
+  captures, zero DX12 validation errors, and byte-exact physics; and
+  `Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers --frames 2` in
+  1.24 s with exit 0 and marker emission requested/enabled.
+
+  Rubber-duck accounting: run
+  `source-blemish-remediation-duck-01`, prompt 1,430 characters, response
+  1,391 characters, token counts unavailable, elapsed 3m42s. Verdict: PASS
+  after the active-document corrections above; no code remediation or
+  follow-up plan is required.
 
 ## Dependencies And Decisions
 

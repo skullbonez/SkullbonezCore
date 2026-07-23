@@ -1458,8 +1458,8 @@ navigation model).
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [source-blemish-remediation](TODO/source-blemish-remediation.md) | In progress | 5/6 | B5 records the owner decision to keep the cohesive ImGui editor transaction; B6 runs the independent review and final closure gates |
-| [ui-runtime-separation](TODO/ui-runtime-separation.md) | Registered | 0/5 | Starts after source-blemish-remediation B3 renames land; U1 moves the UI-owned navigation model out of Runtime/Scene |
+| [source-blemish-remediation](../Reports/2026-07-23/source-blemish-remediation-closure.md) | Complete | 6/6 | Hot/cold collider data, diagnostic registration, honest Runtime names, profiler placement, owner ruling, independent review, and final gates complete |
+| [ui-runtime-separation](TODO/ui-runtime-separation.md) | In progress | 0/5 | Source-blemish remediation is closed; U1 moves the UI-owned navigation model out of Runtime/Scene |
 | [runtime-package-decomposition](TODO/runtime-package-decomposition.md) | Registered | 0/5 | Starts after ui-runtime-separation closes; R1 top-level census and ratified package map |
 
 ## Features

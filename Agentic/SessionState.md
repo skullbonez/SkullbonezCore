@@ -11,22 +11,22 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-23rd-JUL-26` |
-| Current baseline | Source-blemish B5 is complete: the owner keeps the cohesive ImGui editor shell after the optional TU-split census showed a physical-only split cannot meet the target. Legacy remains the development default. |
-| Current objective | Close `source-blemish-remediation` with B6's independent review and final dependency/validation gates. |
-| Active/future progress | 5/16 registered architecture follow-up tasks; 31%. |
+| Current baseline | `source-blemish-remediation` is complete at 6/6: independent review and all final dependency, physics, performance, broad, and profiler-marker proofs pass. Legacy remains the development default. |
+| Current objective | Implement `ui-runtime-separation` U1: move the UI-owned navigation model out of `Runtime/Scene`. |
+| Active/future progress | 6/16 registered architecture follow-up tasks; 38%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | B4 `validate_full` passes in 170.04 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | B5 is a documentation-only owner ruling; no new validation is required. B4's final-source full gate and development-tools build remain green. |
+| Last broad local gate | Source-blemish B6 `validate_full` passes in 102.27 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
+| Validation for current edits | B6 final-tip physics (43.28 s), performance (69.90 s), broad (102.27 s), dependency/Replay-boundary, and bounded profiler-marker gates pass. |
 
 ## Live Queue
 
-NOW. `source-blemish-remediation` is active at 5/6. B5 records the owner
-decision to keep `ImGuiEditorOwner.cpp` as one cohesive unit: its 1,969-line
-`BuildEditorShell` transaction alone exceeds the target, while layout, input,
-and causality policies are already separate. A size-only split would require
-an unauthorized owner/API redesign or new callback/context bags. This
-documentation-only ruling changes no source or behavior. B6 independent review
-and final dependency/validation gates are next.
+NOW. `source-blemish-remediation` is complete at 6/6. The independent review
+found no material source or ownership defect; all four dependency/Replay
+proofs and the final physics, performance, broad, and profiler-marker gates
+pass. Closure evidence is in
+`Agentic/Reports/2026-07-23/source-blemish-remediation-closure.md`.
+`ui-runtime-separation` is active at 0/5; U1 moves the UI-owned navigation
+model from `Runtime/Scene` to UI without introducing a Runtime dependency.
 
 NOW. `wide-signature-parameter-bag-remediation` is complete (6/6).
 The owner rejected replacements such as `RenderModelPassInput` that merely
@@ -66,8 +66,8 @@ descriptors plus `RuntimeRenderInputs` and `RuntimeRenderServices`. The final
 allocation/artifact/scrub-visual-fidelity gates, and broad gate pass. Closure
 evidence is in
 `Agentic/Reports/2026-07-23/wide-signature-parameter-bag-remediation-closure.md`.
-The next registered campaign is `source-blemish-remediation`; no implementation
-has started.
+The subsequent `source-blemish-remediation` campaign is complete at 6/6; its
+closure evidence is recorded at the top of this file.
 
 `wide-signature-decomposition-round-2` closed D0-D4 (5/5) and left the
 live ledger. All eight reopened threshold-16 rows were removed without a
@@ -369,8 +369,7 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-No architecture follow-up implementation is active. Preserve the empty
-threshold-13 inventory and owner-safe value boundaries. The next registered
-plan is `Agentic/Plans/TODO/source-blemish-remediation.md`; closure evidence for
-the completed current work is in
-`Agentic/Reports/2026-07-23/wide-signature-parameter-bag-remediation-closure.md`.
+Architecture follow-up implementation is active in
+`Agentic/Plans/TODO/ui-runtime-separation.md` at 0/5. Preserve the empty
+threshold-13 inventory, source-blemish owner boundaries, and the direction
+rule that Runtime may include UI while UI must never include Runtime.

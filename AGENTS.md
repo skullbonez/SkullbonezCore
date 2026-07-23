@@ -390,7 +390,7 @@ render, or tool gate; it does not replace it.
 | Other physics CSV baselines or `TestOutput/baselines/physics_query*.json` | `validate_physics_deep` |
 | `Common.h` | `validate_full` |
 | `SkullbonezTests/*`, `SKULLBONEZ_TESTS.vcxproj`, `SKULLBONEZ_TESTS.vcxproj.filters` | `validate_tests`; add `validate_coverage` when the tests are intended to raise subsystem coverage |
-| `SkullbonezSource/Runtime/Replay/*`, `RunReplay*`, or replay-facing presentation/submission changes in `RunEditorTracer*` or `RuntimeRender*` | `validate_replay_visual_fidelity.bat` in addition to the normal mapped gate |
+| `SkullbonezSource/Runtime/Replay/*`, `RunReplay*`, or replay-facing presentation/submission changes in `EditorTracer*` or `RuntimeRender*` | `validate_replay_visual_fidelity.bat` in addition to the normal mapped gate |
 | `SkullbonezTests/TestReplay*` or replay artifact/presentation test changes | `validate_tests`, then `validate_replay_visual_fidelity.bat` |
 | `SkullbonezData/scenes/prediction_ragdoll_wall_200.scene.json`, `SkullbonezData/interaction/prediction_ragdoll_wall_200_*.json`, or `TestOutput/baselines/replay_visual_fidelity_200_box*.json` | `validate_replay_visual_fidelity.bat` |
 | `tools/check_replay_visual_fidelity.py`, `tools/replay_query.py`, `tools/validate_replay_visual_fidelity.bat`, or `tools/validate_replay_scrub.bat` | `validate_fast`, then `validate_replay_visual_fidelity.bat` |
