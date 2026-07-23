@@ -442,7 +442,7 @@ void Render( RuntimeFrameHostView& host,
                                                                      config.runtimeRender.presentationInterpolation,
                                                                      facts.presentationPinned,
                                                                      facts.presentationAlpha } );
-        renderTargetPreviews = renderer.BuildRenderTargetPreviewSnapshot(
+        renderTargetPreviews = renderer.ResourceLifecycle().BuildRenderTargetPreviewSnapshot(
             sharedShadows,
             sharedCinematicRendering,
             sharedCinematicRendering && sharedCinematic.volumetricLightingEnabled );
@@ -537,7 +537,7 @@ void Render( RuntimeFrameHostView& host,
     }
     renderer.PrepareUiFrameTarget();
 
-    if ( renderer.ShouldRenderUiText( uiTextState, ui ) )
+    if ( renderer.ResourceLifecycle().ShouldRenderUiText( uiTextState, ui ) )
     {
         runtimeViewModel =
             RuntimeViewModelBuilder::Build( RuntimeViewModelContext{ sceneController.State(),
@@ -551,31 +551,15 @@ void Render( RuntimeFrameHostView& host,
         const bool uiCinematicRendering = IsSceneCinematicRenderingEnabled( scene, config, launchOptions, debug, true );
         const bool shadowsAvailable =
             uiCinematicRendering ? uiCinematic.shadow.enabled : config.ordinaryRender.shadow.enabled;
-        renderTargetPreviews =
-            renderer.BuildRenderTargetPreviewSnapshot( shadowsAvailable,
-                                                       uiCinematicRendering,
-                                                       uiCinematicRendering && uiCinematic.volumetricLightingEnabled );
+        renderTargetPreviews = renderer.ResourceLifecycle().BuildRenderTargetPreviewSnapshot(
+            shadowsAvailable,
+            uiCinematicRendering,
+            uiCinematicRendering && uiCinematic.volumetricLightingEnabled );
         const ReplayOverlay::ReplayOverlayRenderContext replayOverlayContext{ *uiRender.textures,
                                                                               *uiRender.geometry,
                                                                               host.profiler,
-                                                                              replayOverlay.scrubber,
-                                                                              replayOverlay.prediction,
-                                                                              replayOverlay.pathVisualizer,
-                                                                              replayOverlay.velocityEdit,
-                                                                              replayOverlay.causeTree,
-                                                                              replayOverlay.solverStats,
-                                                                              replayOverlay.selectedPresentation,
-                                                                              replayOverlay.latestPresentation,
-                                                                              replayOverlay.selectedSolver,
-                                                                              replayOverlay.latestSolver,
-                                                                              replayOverlay.selectedPrediction,
-                                                                              replayOverlay.currentPresentation,
-                                                                              replayOverlay.currentSolver,
-                                                                              replayOverlay.solverPresentTrackPosition,
-                                                                              replayOverlay.loadedPresentation,
-                                                                              replayOverlay.predictionTimelineAvailable,
+                                                                              replayOverlay,
                                                                               facts.legacyDevelopmentUiActive,
-                                                                              replayOverlay.shouldRenderScrubber,
                                                                               runtimeTools.Editor().editorModeEnabled,
                                                                               ui.IsVisible(),
                                                                               ui.IsMinimized(),
@@ -592,18 +576,21 @@ void Render( RuntimeFrameHostView& host,
         {
             CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Render );
             DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Frame/UI" );
-            renderer.RenderUiText( renderDiagnostics,
-                                   uiRender,
-                                   uiTextState,
-                                   timers,
-                                   ui,
-                                   renderModels,
-                                   diagnosticsRuntime,
-                                   replayHud,
-                                   replayOverlayContext,
-                                   uiCinematic,
-                                   uiCinematicRendering,
-                                   facts.secondsPerFrame );
+            // Lifetime: every reference in this stack record remains valid until
+            // the renderer executes the synchronous UI-text graph callback below.
+            const UiTextPassInputs uiTextInputs{ uiTextState,
+                                                 timers,
+                                                 ui,
+                                                 renderDiagnostics,
+                                                 uiRender,
+                                                 renderModels,
+                                                 diagnosticsRuntime,
+                                                 replayHud,
+                                                 replayOverlayContext,
+                                                 uiCinematic,
+                                                 uiCinematicRendering,
+                                                 facts.secondsPerFrame };
+            renderer.RenderUiText( uiTextInputs );
         }
         PROFILE_END( host.profiler, "Frame/UI" );
         const int uiDrawCallEnd = renderDiagnostics.GetFrameDrawCallCount();

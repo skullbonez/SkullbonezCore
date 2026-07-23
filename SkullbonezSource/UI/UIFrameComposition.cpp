@@ -39,7 +39,7 @@ namespace SkullbonezCore::UI::FrameComposition
 namespace
 {
 constexpr Rendering::PassRasterStateBucket PREVIEW_RASTER_STATE =
-    Rendering::MakePassRasterStateBucket( 0, false, false, false );
+    Rendering::MakePassRasterStateBucket( 0, { false, false, false } );
 }
 
 uint32_t HashCombine( uint32_t seed, uint32_t value )

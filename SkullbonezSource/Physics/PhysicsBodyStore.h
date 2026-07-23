@@ -131,6 +131,24 @@ struct PhysicsBodyCreateRecord
     PhysicsBodyHotState hot;
 };
 
+struct PhysicsBodyRestoreState
+{
+    // Concept: one Physics-owned body state crosses cold replay/validation
+    // restore boundaries. It carries identity and values only—never a Replay
+    // type, mutable store, or callback—and is consumed synchronously.
+    PhysicsBodyHandle body;
+    PhysicsSceneObjectId sceneObjectId;
+    bool fixed = false;
+    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
+    Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
+    float mass = 0.0f;
+    float inverseMass = 0.0f;
+    Math::Vector::Vector3 rotationalInertia = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 inverseRotationalInertia = Math::Vector::ZERO_VECTOR;
+};
+
 using PhysicsBodyRecordList = PhysicsFixedList<PhysicsBodyRecord, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 using PhysicsBodyHandleList = PhysicsFixedList<PhysicsBodyHandle, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 using PhysicsHandleGenerationList = PhysicsFixedList<uint32_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
@@ -338,17 +356,7 @@ class PhysicsBodyStore
     bool TrimToCount( int bodyCount );
     // Restores sampled replay values into the authoritative hot-field arrays.
     // The scene id must match so stale handles cannot mutate a reused body slot.
-    bool RestoreReplayBodyState( PhysicsBodyHandle body,
-                                 PhysicsSceneObjectId sceneObjectId,
-                                 bool fixed,
-                                 const Math::Vector::Vector3& position,
-                                 const Math::Orientation::Quaternion& orientation,
-                                 const Math::Vector::Vector3& linearVelocity,
-                                 const Math::Vector::Vector3& angularVelocity,
-                                 float mass,
-                                 float inverseMass,
-                                 const Math::Vector::Vector3& rotationalInertia,
-                                 const Math::Vector::Vector3& inverseRotationalInertia );
+    bool RestoreReplayBodyState( const PhysicsBodyRestoreState& restore );
     void RefreshRecordFromDescriptorAt( const PhysicsBodyCreateDesc& desc, int modelIndex );
     void CopySleepStatesFrom( std::span<const uint8_t> sleepStates );
     void CopySleepStatesTo( std::vector<uint8_t>& sleepStates ) const;

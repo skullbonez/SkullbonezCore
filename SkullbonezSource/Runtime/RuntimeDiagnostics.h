@@ -47,9 +47,6 @@ class PhysicsEngine;
 }
 namespace Runtime
 {
-struct ReplayBodyPresentationSample;
-struct ReplayPresentationSample;
-struct ReplaySolverFrameSample;
 struct RunSceneState;
 
 struct RunPerfLogState
@@ -76,6 +73,77 @@ struct RunPhysicsDiagnosticsState
     bool isRunActive = false;                       // True after a run row and before the matching end row
     bool fixedStepForcedByDiagnostics = false;      // True when --physics-diag forced fixed-step mode
     int runSequence = 0;                            // Incremented on every scene/generated load
+};
+
+struct ReplayScrubProbeDiagnostic
+{
+    // Lifetime: bodyName is consumed synchronously while one NDJSON row is
+    // written. Every other field is a value snapshot of that probe result.
+    uint64_t selectedReplayFrame = 0;
+    uint64_t liveReplayFrame = 0;
+    int selectedSceneFrame = 0;
+    int liveSceneFrame = 0;
+    uint64_t selectedStateHash = 0;
+    uint64_t liveStateHash = 0;
+    uint32_t bodyId = 0;
+    int modelIndex = 0;
+    const char* bodyName = nullptr;
+    float selectedPosition[3] = {};
+    float livePosition[3] = {};
+    float normalized = 0.0f;
+    float distanceSquared = 0.0f;
+    std::size_t selectedBodyCount = 0;
+    std::size_t liveBodyCount = 0;
+    bool applied = false;
+    bool restored = false;
+    float preLiveDeltaSquared = 0.0f;
+    float appliedDeltaSquared = 0.0f;
+    float restoredDeltaSquared = 0.0f;
+};
+
+struct ReplayRestoreProbeDiagnostic
+{
+    // Value snapshot used to translate the retained-solver probe into the
+    // stable replay_restore NDJSON schema without borrowing replay owners.
+    uint64_t targetReplayFrame = 0;
+    int targetSceneFrame = 0;
+    uint64_t targetSolverHash = 0;
+    uint64_t targetPresentationHash = 0;
+    std::size_t targetBodyCount = 0;
+    uint64_t restoredSolverHash = 0;
+    uint64_t restoredPresentationHash = 0;
+    std::size_t restoredBodyCount = 0;
+    uint16_t contactCount = 0;
+    uint16_t pipelineRecordCount = 0;
+    bool checkpointBoundary = false;
+    bool hashCaptured = false;
+    bool hashMatched = false;
+    bool fallbackAttempted = false;
+    bool fallbackRestored = false;
+};
+
+struct ReplayRestoreResultDiagnostic
+{
+    // Lifetime: strings are borrowed only for the synchronous log write; this
+    // schema carries no replay, scene, or diagnostics ownership.
+    const char* restoreSource = nullptr;
+    uint64_t targetReplayFrame = 0;
+    int targetSceneFrame = 0;
+    uint64_t checkpointReplayFrame = 0;
+    uint64_t targetSolverHash = 0;
+    uint64_t targetPresentationHash = 0;
+    std::size_t targetBodyCount = 0;
+    uint64_t restoredSolverHash = 0;
+    uint64_t restoredPresentationHash = 0;
+    std::size_t restoredBodyCount = 0;
+    uint16_t contactCount = 0;
+    uint16_t pipelineRecordCount = 0;
+    bool checkpointBoundary = false;
+    bool hashCaptured = false;
+    bool hashMatched = false;
+    bool fallbackAttempted = false;
+    bool fallbackRestored = false;
+    const char* failureReason = nullptr;
 };
 #endif
 
@@ -135,47 +203,13 @@ class RuntimeDiagnostics
                                             const char* rendererName );
     static void LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagnostics,
                                      const RunSceneState& scene,
-                                     const ReplayPresentationSample& selected,
-                                     const ReplayPresentationSample& live,
-                                     const ReplayBodyPresentationSample& selectedBody,
-                                     const ReplayBodyPresentationSample& liveBody,
-                                     float normalized,
-                                     float distanceSquared,
-                                     bool applied,
-                                     bool restored,
-                                     float preLiveDeltaSquared,
-                                     float appliedDeltaSquared,
-                                     float restoredDeltaSquared );
+                                     const ReplayScrubProbeDiagnostic& probe );
     static void LogReplayRestoreProbe( RunPhysicsDiagnosticsState& diagnostics,
                                        const RunSceneState& scene,
-                                       const ReplaySolverFrameSample& selected,
-                                       uint64_t restoredSolverHash,
-                                       uint64_t restoredPresentationHash,
-                                       std::size_t restoredBodyCount,
-                                       bool hashCaptured,
-                                       bool hashMatched,
-                                       bool fallbackAttempted,
-                                       bool fallbackRestored );
+                                       const ReplayRestoreProbeDiagnostic& probe );
     static void LogReplayRestoreResult( RunPhysicsDiagnosticsState& diagnostics,
                                         const RunSceneState& scene,
-                                        const char* restoreSource,
-                                        uint64_t targetReplayFrame,
-                                        int targetSceneFrame,
-                                        uint64_t checkpointReplayFrame,
-                                        uint64_t targetSolverHash,
-                                        uint64_t targetPresentationHash,
-                                        std::size_t targetBodyCount,
-                                        uint64_t restoredSolverHash,
-                                        uint64_t restoredPresentationHash,
-                                        std::size_t restoredBodyCount,
-                                        uint16_t contactCount,
-                                        uint16_t pipelineRecordCount,
-                                        bool checkpointBoundary,
-                                        bool hashCaptured,
-                                        bool hashMatched,
-                                        bool fallbackAttempted,
-                                        bool fallbackRestored,
-                                        const char* failureReason );
+                                        const ReplayRestoreResultDiagnostic& result );
     static void
     EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics, const RunSceneState& scene, const char* status );
 #endif

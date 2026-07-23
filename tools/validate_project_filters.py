@@ -445,11 +445,13 @@ RUNTIME_REPLAY_PREFIXES = (
 )
 
 RUNTIME_RENDER_PREFIXES = (
+    "RenderModelFramePublisher",
+    "RenderResourceLifecycle",
     "RenderDefaultsStore",
     "RenderPresentationSettings",
     "RunRender",
     "RuntimeRenderHost",
-    "RuntimeRenderInputs",
+    "RuntimeRenderFrameValues",
     "RuntimeRenderPasses",
     "RuntimeRenderResources",
     "RuntimeRenderer",

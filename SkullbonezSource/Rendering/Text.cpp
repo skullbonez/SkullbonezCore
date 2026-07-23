@@ -79,7 +79,7 @@ static constexpr int QUAD_BATCH_VERTS_PER_TRIANGLE = TextBatch::QUAD_VERTICES_PE
 namespace
 {
 constexpr PassRasterStateBucket TEXT_RASTER_STATE =
-    MakePassRasterStateBucket( 0, false, false, true, BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );
+    MakePassRasterStateBucket( 0, { false, false, true, BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha } );
 
 struct FileCloser
 {
@@ -250,7 +250,12 @@ static bool LoadSdfAtlasFromFile( Dx12TextureOwner& renderTextures, const char* 
 
     // SDF rendering requires linear filtering; nearest-neighbour would staircase
     // the distance gradient and make glyph edges look aliased.
-    Text2d::fontTexture = renderTextures.CreateTexture2D( pixels.get(), FONT_ATLAS_W, FONT_ATLAS_H, 1, false, true );
+    Text2d::fontTexture = renderTextures.CreateTexture2D( pixels.get(),
+                                                          FONT_ATLAS_W,
+                                                          FONT_ATLAS_H,
+                                                          1,
+                                                          TextureMipPolicy::SingleLevel,
+                                                          TextureFilterPolicy::Linear );
     return true;
 }
 

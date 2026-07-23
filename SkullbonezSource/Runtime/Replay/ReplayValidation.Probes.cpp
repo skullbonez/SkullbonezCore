@@ -227,67 +227,6 @@ const ReplaySolverFrameSample* ReplayProbeCurrentSolverSample( const ReplayTimel
     return timeline.Solver().SampleAtNormalized( ReplaySolverNormalizedFromTrack( position, present ) );
 }
 
-// Lifetime: the cold probe borrows production owners only while deriving one
-// packet; it cannot schedule prediction or retain a probe-only presentation.
-struct ReplayProbeVisualProjectionDesc
-{
-    ReplayTimeline& timeline;
-    ReplayScrubber& scrubber;
-    ReplayPresentation& presentation;
-    ReplayAuthoring& authoring;
-    ReplayPrediction& prediction;
-    PhysicsEngine& physics;
-    const SceneEntityStore& entities;
-    std::span<const SkullbonezCore::Rendering::RenderInstancePresentationRecord> presentationRecords;
-    const PhysicsBodyStore& bodyStore;
-    RuntimeTools& runtimeTools;
-    const Vector3& cameraEye;
-    const Vector3& cameraUp;
-    uint64_t replayReserveGrowthEvents = 0;
-};
-
-ReplayVisualPacket BuildReplayProbeVisualProjection( const ReplayProbeVisualProjectionDesc& desc )
-{
-    ReplayTimeline& timeline = desc.timeline;
-    ReplayScrubber& scrubber = desc.scrubber;
-    ReplayPresentation& presentation = desc.presentation;
-    ReplayAuthoring& authoring = desc.authoring;
-    ReplayPrediction& prediction = desc.prediction;
-    PhysicsEngine& physics = desc.physics;
-    const SceneEntityStore& entities = desc.entities;
-    const PhysicsBodyStore& bodyStore = desc.bodyStore;
-    RuntimeTools& runtimeTools = desc.runtimeTools;
-    // Invariant: this cold projection uses the production presentation owners
-    // and fixed-capacity tracer; it does not invent a probe-only packet shape.
-    RunEditorTracer& tracer = runtimeTools.EditorTracer();
-    const ReplayPredictionPresentationView predictionView = prediction.PresentationView();
-    const ReplaySolverFrameSample* currentSolver = ReplayProbeCurrentSolverSample( timeline, scrubber, prediction );
-    const ReplaySolverFrameSample* presentSolver = currentSolver ? currentSolver : timeline.Solver().LatestSample();
-    presentation.RenderPathVisualizer( predictionView, presentSolver, physics, entities, tracer );
-    presentation.RenderCauseFocusOverlay( authoring.CauseTree(),
-                                          predictionView,
-                                          currentSolver,
-                                          bodyStore,
-                                          PhysicsEngine::ReadColliders( physics ),
-                                          entities,
-                                          tracer );
-    const RunReplayPathVisualizerState& path = presentation.PathVisualizer();
-    authoring.AppendVelocityEditOverlay( path.targetId,
-                                         path.targetModelRow,
-                                         physics,
-                                         runtimeTools.Editor().editorModeEnabled,
-                                         RuntimeInteractionGesture{},
-                                         tracer );
-    (void)presentation.BuildPredictionGhostDrawRequests( predictionView, desc.presentationRecords, bodyStore );
-    ReplayVisualPacket packet = tracer.BuildReplayVisualPacket( desc.cameraEye, desc.cameraUp );
-    presentation.PublishVisualPacket( packet,
-                                      predictionView,
-                                      timeline.Solver().LatestSample(),
-                                      desc.replayReserveGrowthEvents );
-    return presentation.PublishedVisualPacketView();
-}
-
-
 Vector3 RenderProbeMatrixTranslation( const Matrix4& matrix )
 {
     return Vector3( matrix.m[12], matrix.m[13], matrix.m[14] );
@@ -975,18 +914,32 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::TickScrubProbe( const ReplayRe
             "replay scrub probe did not restore the live model after applying the selected sample" );
     }
 
-    transaction.diagnostics.LogReplayScrubProbe( transaction.sampleOwners.scene,
-                                                 *selected,
-                                                 *live,
-                                                 *selectedBody,
-                                                 *liveBody,
-                                                 probe.normalized,
-                                                 bestDistanceSquared,
-                                                 applied,
-                                                 restored,
-                                                 preLiveDeltaSquared,
-                                                 appliedDeltaSquared,
-                                                 restoredDeltaSquared );
+    ReplayScrubProbeDiagnostic scrubDiagnostic;
+    scrubDiagnostic.selectedReplayFrame = selected->frameIndex;
+    scrubDiagnostic.liveReplayFrame = live->frameIndex;
+    scrubDiagnostic.selectedSceneFrame = selected->sceneFrame;
+    scrubDiagnostic.liveSceneFrame = live->sceneFrame;
+    scrubDiagnostic.selectedStateHash = selected->stateHash;
+    scrubDiagnostic.liveStateHash = live->stateHash;
+    scrubDiagnostic.bodyId = selectedBody->id.value;
+    scrubDiagnostic.modelIndex = liveBody->modelRow.value;
+    scrubDiagnostic.bodyName = selectedBody->name;
+    scrubDiagnostic.selectedPosition[0] = selectedBody->position.x;
+    scrubDiagnostic.selectedPosition[1] = selectedBody->position.y;
+    scrubDiagnostic.selectedPosition[2] = selectedBody->position.z;
+    scrubDiagnostic.livePosition[0] = liveBody->position.x;
+    scrubDiagnostic.livePosition[1] = liveBody->position.y;
+    scrubDiagnostic.livePosition[2] = liveBody->position.z;
+    scrubDiagnostic.normalized = probe.normalized;
+    scrubDiagnostic.distanceSquared = bestDistanceSquared;
+    scrubDiagnostic.selectedBodyCount = selected->bodies.size();
+    scrubDiagnostic.liveBodyCount = live->bodies.size();
+    scrubDiagnostic.applied = applied;
+    scrubDiagnostic.restored = restored;
+    scrubDiagnostic.preLiveDeltaSquared = preLiveDeltaSquared;
+    scrubDiagnostic.appliedDeltaSquared = appliedDeltaSquared;
+    scrubDiagnostic.restoredDeltaSquared = restoredDeltaSquared;
+    transaction.diagnostics.LogReplayScrubProbe( transaction.sampleOwners.scene, scrubDiagnostic );
 
     probe.completed = true;
     printf(
@@ -1194,20 +1147,42 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::VerifyLoadedPresentation( Repl
                                                       prediction,
                                                       world.Physics(),
                                                       world.Entities() );
-            const ReplayVisualPacket projected = BuildReplayProbeVisualProjection(
-                ReplayProbeVisualProjectionDesc{ .timeline = timeline,
-                                                 .scrubber = scrubber,
-                                                 .presentation = presentation,
-                                                 .authoring = authoring,
-                                                 .prediction = prediction,
-                                                 .physics = world.Physics(),
-                                                 .entities = world.Entities(),
-                                                 .presentationRecords = world.RenderPresentationRecords(),
-                                                 .bodyStore = world.BodyStore(),
-                                                 .runtimeTools = runtimeTools,
-                                                 .cameraEye = expected.cameraEye,
-                                                 .cameraUp = expected.cameraUp,
-                                                 .replayReserveGrowthEvents = expected.replayReserveGrowthEvents } );
+            // Invariant: this cold probe runs production overlay and
+            // publication phases directly. Every owner borrow is loop-local;
+            // no probe-only parameter packet can become a second owner graph.
+            const ReplayPredictionPresentationView predictionView = prediction.PresentationView();
+            const ReplaySolverFrameSample* currentSolver =
+                ReplayProbeCurrentSolverSample( timeline, scrubber, prediction );
+            const ReplaySolverFrameSample* presentSolver =
+                currentSolver ? currentSolver : timeline.Solver().LatestSample();
+            presentation.RenderPathVisualizer( predictionView,
+                                               presentSolver,
+                                               world.Physics(),
+                                               world.Entities(),
+                                               tracer );
+            presentation.RenderCauseFocusOverlay( authoring.CauseTree(),
+                                                  predictionView,
+                                                  currentSolver,
+                                                  world.BodyStore(),
+                                                  PhysicsEngine::ReadColliders( world.Physics() ),
+                                                  world.Entities(),
+                                                  tracer );
+            const RunReplayPathVisualizerState& path = presentation.PathVisualizer();
+            authoring.AppendVelocityEditOverlay( path.targetId,
+                                                 path.targetModelRow,
+                                                 world.Physics(),
+                                                 runtimeTools.Editor().editorModeEnabled,
+                                                 RuntimeInteractionGesture{},
+                                                 tracer );
+            (void)presentation.BuildPredictionGhostDrawRequests( predictionView,
+                                                                 world.RenderPresentationRecords(),
+                                                                 world.BodyStore() );
+            ReplayVisualPacket packet = tracer.BuildReplayVisualPacket( expected.cameraEye, expected.cameraUp );
+            presentation.PublishVisualPacket( packet,
+                                              predictionView,
+                                              timeline.Solver().LatestSample(),
+                                              expected.replayReserveGrowthEvents );
+            const ReplayVisualPacket projected = presentation.PublishedVisualPacketView();
             const ReplayVisualPacketFingerprint fingerprint =
                 BuildReplayVisualPacketFingerprint( projected, trajectoryDigests );
             if ( fingerprint.visualStateHash != expected.visualStateHash )
@@ -1228,23 +1203,39 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::VerifyLoadedPresentation( Repl
     }
 
     const bool armed =
-        ReplayPresentationOperations::ActivateLoadedPresentation( hasLoadedPresentation(),
-                                                                  std::clamp( normalized, 0.0f, 1.0f ),
-                                                                  now,
-                                                                  scrubber,
-                                                                  presentation,
-                                                                  authoring,
-                                                                  prediction,
-                                                                  &transaction.sampleOwners.world.Cameras(),
-                                                                  transaction.timelineOwners.terrain,
-                                                                  transaction.timelineOwners.camera,
-                                                                  mousePickup,
-                                                                  normalizedCurrentMode,
-                                                                  transaction.timelineOwners.normalizedRestoreMode,
-                                                                  transaction.timelineOwners.attachedFollow,
-                                                                  transaction.timelineOwners.directorGrabbed,
-                                                                  transaction.timelineOwners.interaction,
-                                                                  transaction.timelineOwners.inputRouter );
+        ReplayPresentationOperations::BeginLoadedPresentationActivation( hasLoadedPresentation(),
+                                                                         scrubber,
+                                                                         presentation,
+                                                                         authoring,
+                                                                         transaction.timelineOwners.interaction,
+                                                                         transaction.timelineOwners.inputRouter );
+    if ( armed )
+    {
+        ReplayPresentationOperations::ExitInspectionCamera( presentation,
+                                                            authoring,
+                                                            &transaction.sampleOwners.world.Cameras(),
+                                                            transaction.timelineOwners.terrain,
+                                                            transaction.timelineOwners.camera,
+                                                            transaction.timelineOwners.normalizedRestoreMode,
+                                                            transaction.timelineOwners.attachedFollow,
+                                                            transaction.timelineOwners.directorGrabbed,
+                                                            transaction.timelineOwners.interaction,
+                                                            transaction.timelineOwners.inputRouter );
+        ReplayPresentationOperations::ArmLoadedPresentation( std::clamp( normalized, 0.0f, 1.0f ),
+                                                             now,
+                                                             scrubber,
+                                                             presentation,
+                                                             authoring,
+                                                             prediction,
+                                                             transaction.timelineOwners.interaction );
+        ReplayPresentationOperations::EnterInspectionCamera( presentation,
+                                                             &transaction.sampleOwners.world.Cameras(),
+                                                             transaction.timelineOwners.camera,
+                                                             normalizedCurrentMode,
+                                                             transaction.timelineOwners.interaction,
+                                                             transaction.timelineOwners.inputRouter,
+                                                             mousePickup );
+    }
     if ( !armed )
     {
         return ReplayProbeFailure( "replay load probe could not arm the loaded presentation scrubber" );
@@ -1591,23 +1582,38 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::PrepareBranchFileProbe( Replay
     {
         return ReplayProbeFailure( "replay restore branch probe failed to load v2 presentation scrub source" );
     }
-    (void)ReplayPresentationOperations::ActivateLoadedPresentation( true,
-                                                                    0.25f,
-                                                                    now,
-                                                                    scrubber,
-                                                                    presentation,
-                                                                    authoring,
-                                                                    prediction,
-                                                                    &transaction.sampleOwners.world.Cameras(),
-                                                                    transaction.timelineOwners.terrain,
-                                                                    transaction.timelineOwners.camera,
-                                                                    mousePickup,
-                                                                    normalizedCurrentMode,
-                                                                    transaction.timelineOwners.normalizedRestoreMode,
-                                                                    transaction.timelineOwners.attachedFollow,
-                                                                    transaction.timelineOwners.directorGrabbed,
-                                                                    transaction.timelineOwners.interaction,
-                                                                    transaction.timelineOwners.inputRouter );
+    if ( ReplayPresentationOperations::BeginLoadedPresentationActivation( true,
+                                                                          scrubber,
+                                                                          presentation,
+                                                                          authoring,
+                                                                          transaction.timelineOwners.interaction,
+                                                                          transaction.timelineOwners.inputRouter ) )
+    {
+        ReplayPresentationOperations::ExitInspectionCamera( presentation,
+                                                            authoring,
+                                                            &transaction.sampleOwners.world.Cameras(),
+                                                            transaction.timelineOwners.terrain,
+                                                            transaction.timelineOwners.camera,
+                                                            transaction.timelineOwners.normalizedRestoreMode,
+                                                            transaction.timelineOwners.attachedFollow,
+                                                            transaction.timelineOwners.directorGrabbed,
+                                                            transaction.timelineOwners.interaction,
+                                                            transaction.timelineOwners.inputRouter );
+        ReplayPresentationOperations::ArmLoadedPresentation( 0.25f,
+                                                             now,
+                                                             scrubber,
+                                                             presentation,
+                                                             authoring,
+                                                             prediction,
+                                                             transaction.timelineOwners.interaction );
+        ReplayPresentationOperations::EnterInspectionCamera( presentation,
+                                                             &transaction.sampleOwners.world.Cameras(),
+                                                             transaction.timelineOwners.camera,
+                                                             normalizedCurrentMode,
+                                                             transaction.timelineOwners.interaction,
+                                                             transaction.timelineOwners.inputRouter,
+                                                             mousePickup );
+    }
     scrubber.SetHistoricalSamplePaused( true );
     scrubber.SelectTrack( RunReplayTrack::Presentation );
     scrubber.SetTrackPosition( RunReplayTrack::Presentation, 1.0f );

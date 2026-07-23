@@ -8,6 +8,11 @@ Summary:
   describe frame-indexed input/runtime commands. Concrete input and report
   owners hold synthetic device state and bounded evidence outside the sequencer.
 
+Mental model:
+  The controller interprets one scheduled script turn into typed value requests
+  and assertion inputs. Concrete runtime owners apply those requests; the
+  controller retains only script progress and bounded report evidence.
+
 Glossary:
   Automation action: One scheduled command from an interaction script.
   Assertion report: Machine-readable proof row for one expected runtime state.
@@ -74,7 +79,8 @@ namespace Runtime
 namespace DevelopmentTools
 {
 class ImGuiEditorOwner;
-}
+struct ImGuiEditorStatus;
+} // namespace DevelopmentTools
 class AttachedCameraController;
 class CaptureController;
 class InputRouter;
@@ -266,6 +272,15 @@ struct InteractionAutomationController
     ApplyDevelopmentUiCommands( const InteractionAutomationFrameResult& frame,
                                 Window& window,
                                 DevelopmentTools::ImGuiEditorOwner& editor ) const;
+    // Interprets the automation-owned replay command and submits it through
+    // the same bounded queue used by real editor widgets.
+    SkullbonezCore::Core::SbResult SubmitOperatorEditorReplayCommand( const InteractionAutomationFrameResult& frame,
+                                                                      UI::OperatorEditorCommandQueues& commands ) const;
+    // Projects copied editor facts into the exact after-render assertion view;
+    // no editor owner or mutable renderer state crosses this value boundary.
+    InteractionAutomationDevelopmentUiView BuildDevelopmentUiView( const DevelopmentTools::ImGuiEditorStatus& editor,
+                                                                   bool legacyVisible,
+                                                                   bool legacyReplayPresentationActive ) const;
 #endif
 };
 

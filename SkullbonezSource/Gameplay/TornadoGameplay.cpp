@@ -213,11 +213,14 @@ void TornadoGameplay::SetReplayState( const std::vector<float>& captureSeconds,
                   ejectCooldownSeconds.size(),
                   m_ejectCooldownSeconds.capacity() );
     }
-    m_captureSeconds = captureSeconds;
-    m_ejectCooldownSeconds = ejectCooldownSeconds;
     m_field.SetConfig( fieldConfig );
     SetSystemConfig( systemConfig );
     m_system.SetElapsedSeconds( systemElapsedSeconds );
+    // Invariant: SetSystemConfig clears live timers when every tornado source is
+    // disabled. Replay restoration must apply its retained per-body timers after
+    // that normalization so the recaptured solver snapshot remains byte-faithful.
+    m_captureSeconds = captureSeconds;
+    m_ejectCooldownSeconds = ejectCooldownSeconds;
 }
 
 const std::vector<float>& TornadoGameplay::CaptureSeconds() const

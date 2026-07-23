@@ -26,7 +26,9 @@ Related:
   - SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h
 */
 #include "ReplayAuthoring.h"
+#include "ReplayCoordination.h"
 #include "ReplayPrediction.h"
+#include "ReplayPredictionPublicationOperations.h"
 #include "ReplayPresentation.h"
 #include "../../Assets/AssetKeys.h"
 #include "../CameraCollection.h"
@@ -48,6 +50,7 @@ using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Physics;
 namespace Physics = SkullbonezCore::Physics;
 using namespace SkullbonezCore::Runtime::ReplayOverlay;
+using namespace SkullbonezCore::Runtime::ReplayPredictionPublicationOperations;
 
 namespace
 {
@@ -186,103 +189,10 @@ bool ResolveReplayCauseTreeBodyPosition( Physics::PhysicsSceneObjectId id,
     }
     return false;
 }
-// Concept: replay body lookup is sample-shaped, not subsystem-shaped.
-//
-// Solver samples and prediction frames both expose body rows keyed by
-// Physics::PhysicsSceneObjectId, while modelIndex remains only a fast hint into each row array.
-// Invariant: wrappers keep the old negative-modelIndex behavior for callers
-// that still distinguish solver samples from prediction samples.
-template <typename FrameSample, typename BodySample>
-const BodySample* FindReplayBodyByIdInSample( const FrameSample& sample, Physics::PhysicsSceneObjectId id );
-
-template <typename FrameSample, typename BodySample, bool AllowNegativeModelIndex>
-const BodySample* FindReplayBodyByModelIndexInSample( const FrameSample& sample, int modelIndex );
-
-template <typename FrameSample, typename BodySample, bool AllowNegativeModelIndex>
-Physics::PhysicsSceneObjectId SceneObjectIdForModelIndexInSample( const FrameSample& sample, int modelIndex );
-
-const ReplaySolverBodySample* FindReplayBodyById( const ReplaySolverFrameSample& sample,
-                                                  Physics::PhysicsSceneObjectId id )
-{
-    return FindReplayBodyByIdInSample<ReplaySolverFrameSample, ReplaySolverBodySample>( sample, id );
-}
-
-template <typename FrameSample, typename BodySample>
-const BodySample* FindReplayBodyByIdInSample( const FrameSample& sample, Physics::PhysicsSceneObjectId id )
-{
-    for ( const BodySample& body : sample.bodies )
-    {
-        if ( body.id.value == id.value )
-        {
-            return &body;
-        }
-    }
-    return nullptr;
-}
-
 Physics::PhysicsSceneObjectId SceneObjectIdForModelIndex( const ReplaySolverFrameSample& sample, int modelIndex )
 {
     return SceneObjectIdForModelIndexInSample<ReplaySolverFrameSample, ReplaySolverBodySample, false>( sample,
                                                                                                        modelIndex );
-}
-
-Vector3 ReplayNormalizeOr( Vector3 value, const Vector3& fallback )
-{
-    const float magSq = VectorMagSquared( value );
-    if ( magSq <= TOLERANCE * TOLERANCE )
-    {
-        return fallback;
-    }
-    value /= sqrtf( magSq );
-    return value;
-}
-
-const ReplaySolverBodySample* FindReplayBodyByModelIndex( const ReplaySolverFrameSample& sample, int modelIndex )
-{
-    return FindReplayBodyByModelIndexInSample<ReplaySolverFrameSample, ReplaySolverBodySample, true>( sample,
-                                                                                                      modelIndex );
-}
-
-template <typename FrameSample, typename BodySample, bool AllowNegativeModelIndex>
-const BodySample* FindReplayBodyByModelIndexInSample( const FrameSample& sample, int modelIndex )
-{
-    if constexpr ( !AllowNegativeModelIndex )
-    {
-        if ( modelIndex < 0 )
-        {
-            return nullptr;
-        }
-    }
-
-    if ( modelIndex >= 0 && modelIndex < static_cast<int>( sample.bodies.size() ) )
-    {
-        const BodySample& body = sample.bodies[static_cast<std::size_t>( modelIndex )];
-        if ( body.modelRow.value == modelIndex )
-        {
-            return &body;
-        }
-    }
-
-    for ( const BodySample& body : sample.bodies )
-    {
-        if ( body.modelRow.value == modelIndex )
-        {
-            return &body;
-        }
-    }
-    return nullptr;
-}
-
-template <typename FrameSample, typename BodySample, bool AllowNegativeModelIndex>
-Physics::PhysicsSceneObjectId SceneObjectIdForModelIndexInSample( const FrameSample& sample, int modelIndex )
-{
-    if ( const BodySample* body =
-             FindReplayBodyByModelIndexInSample<FrameSample, BodySample, AllowNegativeModelIndex>( sample,
-                                                                                                   modelIndex ) )
-    {
-        return body->id;
-    }
-    return Physics::PhysicsSceneObjectId{};
 }
 
 bool ReplayContactHasModelIndex( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
@@ -943,66 +853,30 @@ void ReplayAuthoring::SetCauseTreeFocus( int rowIndex, Physics::PhysicsSceneObje
 }
 
 
-bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
-                                          ReplayScrubber& scrubberOwner,
-                                          const RunReplayPredictionState& prediction,
-                                          std::span<const RunReplayPredictionFrame> activePredictionFrames,
-                                          const ReplaySolverFrameSample* currentSolverSample,
-                                          bool uiBlocksMouse,
-                                          int wheelDelta,
-                                          InputRouter& inputRouter,
-                                          RuntimeInteractionController& interaction,
-                                          const PhysicsBodyStore& bodyStore,
-                                          const ColliderStore& colliderStore,
-                                          std::span<const Rendering::RenderInstancePresentationRecord> presentation,
-                                          Environment::CameraCollection* cameras,
-                                          Geometry::Terrain* terrain,
-                                          RunCameraState& camera,
-                                          RunMousePickupState& mousePickup,
-                                          RunCameraMode normalizedCurrentMode,
-                                          RunCameraMode normalizedRestoreMode,
-                                          bool attachedFollow,
-                                          bool directorGrabbed,
-                                          bool editorModeEnabled,
-                                          int screenWidth,
-                                          int screenHeight,
-                                          bool& outEnterInteractive )
+bool ReplayAuthoring::ActivateCauseTreeRow( int rowIndex,
+                                            ReplayPresentation& presentationOwner,
+                                            ReplayScrubber& scrubberOwner,
+                                            const RunReplayPredictionState& prediction,
+                                            std::span<const RunReplayPredictionFrame> activePredictionFrames,
+                                            const ReplaySolverFrameSample* currentSolverSample,
+                                            const PhysicsBodyStore& bodyStore,
+                                            const ColliderStore& colliderStore,
+                                            RuntimeInteractionController& interaction,
+                                            Vector3& outTargetPosition,
+                                            float& outTargetRadius )
 {
-    InputRouter& m_inputRouter = inputRouter;
-    RuntimeInteractionController& m_interaction = interaction;
-    const auto enterInspectionCamera = [&]()
+    RunReplayCauseTreeRow row;
+    if ( !TryGetCauseTreeRow( rowIndex, row ) )
     {
-        ReplayPresentationOperations::EnterInspectionCamera( presentationOwner,
-                                                             cameras,
-                                                             camera,
-                                                             normalizedCurrentMode,
-                                                             m_interaction,
-                                                             m_inputRouter,
-                                                             mousePickup );
-    };
-    const auto exitInspectionCamera = [&]()
-    {
-        ReplayPresentationOperations::ExitInspectionCamera( presentationOwner,
-                                                            *this,
-                                                            cameras,
-                                                            terrain,
-                                                            camera,
-                                                            normalizedRestoreMode,
-                                                            attachedFollow,
-                                                            directorGrabbed,
-                                                            m_interaction,
-                                                            m_inputRouter );
-    };
-    PROFILE_SCOPED( m_profiler, "Frame/Replay/CauseTree/Input" );
-    // Concept: Cause-tree input owns the explanatory replay window state while
-    // body focus resolves from explicit prediction, solver, and live-store
-    // views captured for this input turn.
-    const RuntimeMouseEdges& pointer = m_inputRouter.UiSnapshot().mouse;
-    const bool leftPressed = pointer.leftPressed;
-    const bool leftReleased = pointer.leftReleased;
-    BeginCauseTreeInputFrame();
+        return false;
+    }
+
+    PROFILE_SCOPED( m_profiler, "Frame/Replay/CauseTree/Focus" );
+    Vector3 targetPosition = row.point;
+    float targetRadius = 2.0f;
+    RunReplayCameraFocusKind focusKind = RunReplayCameraFocusKind::Body;
     const Physics::PhysicsSceneObjectId pathTargetId = presentationOwner.PathVisualizer().targetId;
-    const auto resolveCauseTreeBody = [&]( Physics::PhysicsSceneObjectId id, Vector3& outPosition, float* outRadius )
+    const auto resolveBody = [&]( Physics::PhysicsSceneObjectId id, Vector3& outPosition, float* outRadius )
     {
         return ResolveReplayCauseTreeBodyPosition( id,
                                                    prediction.enabled,
@@ -1016,122 +890,123 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
                                                    outRadius );
     };
 
-    const auto activateReplayCameraForCauseRow = [&]( const RunReplayCauseTreeRow& row, int rowIndex )
+    // Lifetime: replay focus borrows already-prepared physics store views for
+    // this one selection. No source reference is retained by ReplayAuthoring.
+    switch ( row.kind )
     {
-        PROFILE_SCOPED( m_profiler, "Frame/Replay/CauseTree/Focus" );
-        Vector3 targetPosition = row.point;
-        float targetRadius = 2.0f;
-        RunReplayCameraFocusKind focusKind = RunReplayCameraFocusKind::Body;
-        // Lifetime: replay focus borrows already-prepared physics store views
-        // for one UI action. Topology repair belongs to the runtime/frame
-        // boundary, not this read-only cause-tree lookup.
-        switch ( row.kind )
+    case RunReplayCauseTreeRowKind::Body:
+        if ( !resolveBody( row.id, targetPosition, &targetRadius ) )
         {
-        case RunReplayCauseTreeRowKind::Body:
-        {
-            const bool bodyResolved = resolveCauseTreeBody( row.id, targetPosition, &targetRadius );
-            if ( !bodyResolved )
-            {
-                return;
-            }
-            focusKind = RunReplayCameraFocusKind::Body;
-            break;
+            return false;
         }
-        case RunReplayCauseTreeRowKind::Manifold:
-            resolveCauseTreeBody( row.id, targetPosition, &targetRadius );
-            targetPosition = row.point;
-            targetRadius = (std::max)( targetRadius * 0.55f, 2.0f );
-            focusKind = RunReplayCameraFocusKind::Manifold;
-            break;
-        case RunReplayCauseTreeRowKind::SolverRow:
-            resolveCauseTreeBody( row.id, targetPosition, &targetRadius );
-            targetPosition = row.point;
-            targetRadius = (std::max)( targetRadius * 0.45f, 1.5f );
-            focusKind = RunReplayCameraFocusKind::SolverRow;
-            break;
-        case RunReplayCauseTreeRowKind::PredictionContact:
-        case RunReplayCauseTreeRowKind::PredictionMotion:
-            resolveCauseTreeBody( row.id, targetPosition, &targetRadius );
-            targetPosition = row.point;
-            targetRadius = (std::max)( targetRadius * 0.45f, 1.5f );
-            focusKind = row.kind == RunReplayCauseTreeRowKind::PredictionContact
-                            ? RunReplayCameraFocusKind::PredictionContact
-                            : RunReplayCameraFocusKind::PredictionMotion;
-            break;
-        default:
-            return;
-        }
+        focusKind = RunReplayCameraFocusKind::Body;
+        break;
+    case RunReplayCauseTreeRowKind::Manifold:
+        resolveBody( row.id, targetPosition, &targetRadius );
+        targetPosition = row.point;
+        targetRadius = (std::max)( targetRadius * 0.55f, 2.0f );
+        focusKind = RunReplayCameraFocusKind::Manifold;
+        break;
+    case RunReplayCauseTreeRowKind::SolverRow:
+        resolveBody( row.id, targetPosition, &targetRadius );
+        targetPosition = row.point;
+        targetRadius = (std::max)( targetRadius * 0.45f, 1.5f );
+        focusKind = RunReplayCameraFocusKind::SolverRow;
+        break;
+    case RunReplayCauseTreeRowKind::PredictionContact:
+    case RunReplayCauseTreeRowKind::PredictionMotion:
+        resolveBody( row.id, targetPosition, &targetRadius );
+        targetPosition = row.point;
+        targetRadius = (std::max)( targetRadius * 0.45f, 1.5f );
+        focusKind = row.kind == RunReplayCauseTreeRowKind::PredictionContact
+                        ? RunReplayCameraFocusKind::PredictionContact
+                        : RunReplayCameraFocusKind::PredictionMotion;
+        break;
+    default:
+        return false;
+    }
 
-        if ( VectorMagSquared( targetPosition ) <= TOLERANCE * TOLERANCE &&
-             row.kind != RunReplayCauseTreeRowKind::Body )
-        {
-            return;
-        }
+    if ( VectorMagSquared( targetPosition ) <= TOLERANCE * TOLERANCE && row.kind != RunReplayCauseTreeRowKind::Body )
+    {
+        return false;
+    }
 
-        outEnterInteractive = true;
-        const bool hadReplayCameraFocus = presentationOwner.CameraView().focusKind != RunReplayCameraFocusKind::None;
-        if ( !scrubberOwner.View().liveAdvanceHeld )
+    const bool hadReplayCameraFocus = presentationOwner.CameraView().focusKind != RunReplayCameraFocusKind::None;
+    if ( !scrubberOwner.View().liveAdvanceHeld )
+    {
+        if ( scrubberOwner.SetLiveAdvanceHeld( true ) && !IsReplayCauseTreeToolOwner( interaction.Owner() ) )
         {
-            if ( scrubberOwner.SetLiveAdvanceHeld( true ) && !IsReplayCauseTreeToolOwner( m_interaction.Owner() ) )
-            {
-                interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
-                                                                 WorldInteractionOwner::ReplayScrub,
-                                                                 InteractionExitReason::EnterReplay );
-            }
-            presentationOwner.SetCameraPauseOwnership( true );
+            interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
+                                                             WorldInteractionOwner::ReplayScrub,
+                                                             InteractionExitReason::EnterReplay );
         }
-        else if ( !hadReplayCameraFocus )
-        {
-            presentationOwner.SetCameraPauseOwnership( false );
-        }
-        enterInspectionCamera();
+        presentationOwner.SetCameraPauseOwnership( true );
+    }
+    else if ( !hadReplayCameraFocus )
+    {
+        presentationOwner.SetCameraPauseOwnership( false );
+    }
 
-        ReplayCameraFocusRequest focus;
-        focus.focusKind = focusKind;
-        focus.focusedId = row.id;
-        focus.counterpartId = row.counterpartId;
-        focus.focusedRow = rowIndex;
-        focus.focusRowKind = row.kind;
-        focus.focusModelRow = row.modelRow;
-        focus.focusCounterpartModelRow = row.counterpartModelRow;
-        focus.focusContactIndex = row.contactIndex;
-        focus.focusSolverRowIndex = row.solverRowIndex;
-        focus.focusFeatureId = row.featureId;
-        focus.focusTerrain = row.terrain;
-        focus.targetPoint = targetPosition;
-        focus.targetNormal = ReplayCauseTreeNormalizeOr( row.normal, Vector3( 0.0f, 1.0f, 0.0f ) );
-        focus.impulseVector = row.impulse;
-        focus.targetRadius = targetRadius;
-        presentationOwner.ApplyCameraFocus( focus );
-        SetCauseTreeFocus( rowIndex, row.id );
+    ReplayCameraFocusRequest focus;
+    focus.focusKind = focusKind;
+    focus.focusedId = row.id;
+    focus.counterpartId = row.counterpartId;
+    focus.focusedRow = rowIndex;
+    focus.focusRowKind = row.kind;
+    focus.focusModelRow = row.modelRow;
+    focus.focusCounterpartModelRow = row.counterpartModelRow;
+    focus.focusContactIndex = row.contactIndex;
+    focus.focusSolverRowIndex = row.solverRowIndex;
+    focus.focusFeatureId = row.featureId;
+    focus.focusTerrain = row.terrain;
+    focus.targetPoint = targetPosition;
+    focus.targetNormal = ReplayCauseTreeNormalizeOr( row.normal, Vector3( 0.0f, 1.0f, 0.0f ) );
+    focus.impulseVector = row.impulse;
+    focus.targetRadius = targetRadius;
+    presentationOwner.ApplyCameraFocus( focus );
+    SetCauseTreeFocus( rowIndex, row.id );
+    outTargetPosition = targetPosition;
+    outTargetRadius = targetRadius;
+    return true;
+}
 
-        if ( cameras )
-        {
-            const Vector3 eye = cameras->GetRenderCameraTranslation();
-            Vector3 direction = ReplayCauseTreeNormalizeOr( eye - targetPosition, Vector3( 0.45f, 0.28f, 0.85f ) );
-            direction = ReplayCauseTreeNormalizeOr( direction, Vector3( 0.45f, 0.28f, 0.85f ) );
-            const float distance = (std::max)( 12.0f, targetRadius * 5.5f );
-            const Vector3 newEye = targetPosition + direction * distance + Vector3( 0.0f, targetRadius * 0.35f, 0.0f );
-            cameras->TweenPrimaryToPose( newEye, targetPosition, cameras->GetRenderCameraUp() );
-            cameras->ResetRelativity();
-        }
-        InputController::ResetMouseLook( camera );
-        m_inputRouter.RequestCursorVisible( true );
-    };
 
+bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
+                                          ReplayScrubber& scrubberOwner,
+                                          InputRouter& inputRouter,
+                                          RuntimeInteractionController& interaction,
+                                          bool rowsReady,
+                                          bool uiBlocksMouse,
+                                          int wheelDelta,
+                                          bool editorModeEnabled,
+                                          int screenWidth,
+                                          int screenHeight,
+                                          int& outFocusRow,
+                                          bool& outExitInspectionCamera )
+{
+    outFocusRow = -1;
+    outExitInspectionCamera = false;
+    PROFILE_SCOPED( m_profiler, "Frame/Replay/CauseTree/Input" );
+    // Concept: this phase owns only the explanatory window and reports row or
+    // exit actions. ReplayRuntime resolves a selected row from current stores
+    // before performing any host-camera transition.
+    const RuntimeMouseEdges& pointer = inputRouter.UiSnapshot().mouse;
+    const bool leftPressed = pointer.leftPressed;
+    const bool leftReleased = pointer.leftReleased;
+    BeginCauseTreeInputFrame();
     const int screenW = screenWidth;
     const int screenH = screenHeight;
     const auto causeTreeDragMode = [&]()
     {
-        const RuntimeInteractionGesture& gesture = m_interaction.Gesture();
+        const RuntimeInteractionGesture& gesture = interaction.Gesture();
         return gesture.kind == RuntimeInteractionGestureKind::ReplayCauseTreeDrag ? gesture.axis : -1;
     };
     const auto endCauseTreeDragIfReleased = [&]()
     {
         if ( leftReleased && causeTreeDragMode() >= 0 )
         {
-            m_inputRouter.ReleaseNativeCapture();
-            m_interaction.EndGestureIfKind( RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
+            inputRouter.ReleaseNativeCapture();
+            interaction.EndGestureIfKind( RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
         }
     };
     if ( editorModeEnabled || screenW <= 0 || screenH <= 0 )
@@ -1140,26 +1015,14 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
         return false;
     }
 
-    int focusedCameraRow = -1;
-    if ( !BuildCauseTreeRows( presentationOwner.PathVisualizer(),
-                              prediction,
-                              activePredictionFrames,
-                              currentSolverSample,
-                              presentation,
-                              bodyStore,
-                              presentationOwner.CameraView(),
-                              focusedCameraRow ) )
+    if ( !rowsReady )
     {
         endCauseTreeDragIfReleased();
         return false;
     }
-    if ( focusedCameraRow >= 0 )
-    {
-        presentationOwner.SetCameraFocusedRow( focusedCameraRow );
-    }
 
     EnsureCauseTreeWindowPlacement( screenW, screenH );
-    const RuntimePointerEvent& runtimePointer = m_inputRouter.RuntimeSnapshot().pointer;
+    const RuntimePointerEvent& runtimePointer = inputRouter.RuntimeSnapshot().pointer;
     if ( !runtimePointer.hasClientPosition )
     {
         endCauseTreeDragIfReleased();
@@ -1185,8 +1048,8 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
         MoveCauseTreeWindow( mouse.x, mouse.y, screenW, screenH );
         if ( leftReleased )
         {
-            m_inputRouter.ReleaseNativeCapture();
-            m_interaction.EndGestureIfKind( RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
+            inputRouter.ReleaseNativeCapture();
+            interaction.EndGestureIfKind( RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
         }
         return true;
     }
@@ -1196,8 +1059,8 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
         ResizeCauseTreeWindow( mouse.x, mouse.y, screenW, screenH );
         if ( leftReleased )
         {
-            m_inputRouter.ReleaseNativeCapture();
-            m_interaction.EndGestureIfKind( RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
+            inputRouter.ReleaseNativeCapture();
+            interaction.EndGestureIfKind( RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
         }
         return true;
     }
@@ -1225,14 +1088,14 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
         gesture.startX = mouse.x;
         gesture.startY = mouse.y;
         gesture.axis = 1;
-        if ( !m_interaction.BeginOwnedToolGesture( RuntimeWorkspace::Replay,
-                                                   WorldInteractionOwner::ReplayCauseTree,
-                                                   gesture ) )
+        if ( !interaction.BeginOwnedToolGesture( RuntimeWorkspace::Replay,
+                                                 WorldInteractionOwner::ReplayCauseTree,
+                                                 gesture ) )
         {
             return false;
         }
         BeginCauseTreeResize( mouse.x, mouse.y );
-        m_inputRouter.RequestNativeCapture();
+        inputRouter.RequestNativeCapture();
         return true;
     }
 
@@ -1244,14 +1107,14 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
         gesture.startX = mouse.x;
         gesture.startY = mouse.y;
         gesture.axis = 0;
-        if ( !m_interaction.BeginOwnedToolGesture( RuntimeWorkspace::Replay,
-                                                   WorldInteractionOwner::ReplayCauseTree,
-                                                   gesture ) )
+        if ( !interaction.BeginOwnedToolGesture( RuntimeWorkspace::Replay,
+                                                 WorldInteractionOwner::ReplayCauseTree,
+                                                 gesture ) )
         {
             return false;
         }
         BeginCauseTreeMove( mouse.x, mouse.y );
-        m_inputRouter.RequestNativeCapture();
+        inputRouter.RequestNativeCapture();
         return true;
     }
 
@@ -1267,7 +1130,7 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
                 interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
                                                                  WorldInteractionOwner::ReplayCauseTree,
                                                                  InteractionExitReason::EnterReplay );
-                activateReplayCameraForCauseRow( selectedRow, rowIndex );
+                outFocusRow = rowIndex;
             }
         }
         else if ( leftPressed )
@@ -1282,7 +1145,7 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
             presentationOwner.ClearPathState();
             ResetCauseTreeRows();
             QueuePredictionCacheReset();
-            exitInspectionCamera();
+            outExitInspectionCamera = true;
         }
     }
 

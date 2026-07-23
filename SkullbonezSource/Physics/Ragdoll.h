@@ -73,6 +73,7 @@ struct PointJointConstraint
 {
     static constexpr uint8_t FLAG_LIMIT_NECK_SWING = 1u << 0;
 
+    PhysicsConstraintHandle handle;          // Stable identity; dense solver-row movement never retargets it.
     PhysicsBodyHandle bodyA;
     PhysicsBodyHandle bodyB;
     Math::Vector::Vector3 localAnchorA = Math::Vector::ZERO_VECTOR;

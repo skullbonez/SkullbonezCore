@@ -300,15 +300,21 @@ class Dx12TextureOwner
     void AdoptGenerateMipsShaderReload( ID3D12PipelineState* candidate );
     void Shutdown();
     uint32_t CreateTexture2D( Dx12TextureCommands& commands,
-                              const uint8_t* data,
+                              const uint8_t* pixels,
                               int width,
                               int height,
                               int channels,
-                              bool generateMips,
-                              bool linearFilter,
+                              TextureMipPolicy mipPolicy,
+                              TextureFilterPolicy filterPolicy,
                               bool& graphicsStateInvalidated );
-    uint32_t
-    CreateTexture2D( const uint8_t* data, int width, int height, int channels, bool generateMips, bool linearFilter );
+    // Lifetime: pixel bytes are consumed synchronously while the cold upload
+    // command is recorded; the texture owner retains only the created resource.
+    uint32_t CreateTexture2D( const uint8_t* pixels,
+                              int width,
+                              int height,
+                              int channels,
+                              TextureMipPolicy mipPolicy,
+                              TextureFilterPolicy filterPolicy );
     void BindTexture( uint32_t handle, int slot );
     void DeleteTexture( Dx12TextureCommands& commands, uint32_t handle );
     void DeleteTexture( uint32_t handle );
@@ -504,34 +510,19 @@ class Dx12GeometryOwner
                                         Dx12DrawGate& drawGate,
                                         Dx12Diagnostics& diagnostics,
                                         const RasterStateDesc& rasterState );
-    uint32_t CreateInstancedMesh( const float* staticData,
-                                  int staticVertCount,
-                                  int staticFloatsPerVert,
-                                  int instanceFloats,
-                                  int instanceStartAttrib,
-                                  const int* instanceAttribSizes,
-                                  int numInstanceAttribs,
-                                  const int* staticAttribSizes,
-                                  int numStaticAttribs,
-                                  ID3D12Device* device,
-                                  ID3D12GraphicsCommandList* commandList,
-                                  ID3D12Resource* uploadResource,
-                                  D3D12_GPU_VIRTUAL_ADDRESS uploadAddress,
-                                  uint8_t* uploadPointer );
     void BindResourceOwners( Dx12RenderDevice& device,
                              Dx12FrameOwner& frame,
                              Dx12PipelineOwner& pipeline,
                              Dx12Diagnostics& diagnostics );
-    uint32_t CreateInstancedMesh( const float* staticData,
-                                  int staticVertCount,
-                                  int staticFloatsPerVert,
-                                  int maxInstances,
+    // Lifetime: vertex bytes and layout spans are consumed synchronously by
+    // cold resource creation and are never retained by the geometry owner.
+    uint32_t CreateInstancedMesh( const float* staticVertices,
+                                  int staticVertexCount,
+                                  int staticFloatsPerVertex,
                                   int instanceFloats,
-                                  int instanceStartAttrib,
-                                  const int* instanceAttribSizes,
-                                  int numInstanceAttribs,
-                                  const int* staticAttribSizes = nullptr,
-                                  int numStaticAttribs = 0 );
+                                  int instanceStartAttribute,
+                                  std::span<const int> instanceAttributeSizes,
+                                  std::span<const int> staticAttributeSizes );
     void UploadInstanceData( uint32_t handle,
                              std::span<const float> packedInstances,
                              D3D12_GPU_VIRTUAL_ADDRESS address,
@@ -566,6 +557,18 @@ class Dx12GeometryOwner
     void Shutdown();
 
   private:
+    uint32_t CreateInstancedMesh( const float* staticVertices,
+                                  int staticVertexCount,
+                                  int staticFloatsPerVertex,
+                                  int instanceFloats,
+                                  int instanceStartAttribute,
+                                  std::span<const int> instanceAttributeSizes,
+                                  std::span<const int> staticAttributeSizes,
+                                  ID3D12Device* device,
+                                  ID3D12GraphicsCommandList* commandList,
+                                  ID3D12Resource* uploadResource,
+                                  D3D12_GPU_VIRTUAL_ADDRESS uploadAddress,
+                                  uint8_t* uploadPointer );
     static constexpr size_t MAX_DYNAMIC_VERTEX_BUFFERS = 32;
     static constexpr size_t MAX_GRID_LINE_PSOS = 4;
     static constexpr size_t TRANSIENT_TRIANGLE_STYLE_COUNT = 4;

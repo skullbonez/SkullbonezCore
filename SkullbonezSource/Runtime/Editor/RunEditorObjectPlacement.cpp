@@ -100,7 +100,7 @@ PhysicsColliderCreateDesc MakeEditorColliderDesc( CollisionShape shape, float re
 }
 
 
-PhysicsBodyCreateDesc MakeEditorBodyDesc( CollisionShape shape,
+PhysicsBodyCreateDesc MakeEditorBodyDesc( const CollisionShape& shape,
                                           const Vector3& position,
                                           const Quaternion& orientation,
                                           const Vector3& linearVelocity,
@@ -227,6 +227,11 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         // render rows together before the returned handle becomes observable.
         // Physics sleep state must be seeded immediately, while the returned
         // placement result reports only the before/after count.
+        if ( bodyDesc.shape.valueless_by_exception() )
+        {
+            SB_FATAL( "Runtime/EditorObjectPlacement",
+                      "Cannot place editor object: body collision shape is valueless before scene registration." );
+        }
         bodyDesc.motionKind = modelFixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic;
         if ( !model.sceneObjectId.IsValid() )
         {
@@ -305,18 +310,22 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         model.SetName( name );
         const Vector3 inertia = CalculateBoxInertiaForHalfExtents( halfExtents, mass );
         const BoundingBox shape( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) );
-        addModel( std::move( model ),
-                  MakeEditorBodyDesc( shape,
-                                      center,
-                                      alignToTerrain ? placementOrientation : IDENTITY_QUATERNION,
-                                      Vector3( 0.0f, 0.0f, 0.0f ),
-                                      Vector3( 0.0f, 0.0f, 0.0f ),
-                                      inertia,
-                                      mass,
-                                      0.25f,
-                                      terrain ),
-                  MakeEditorColliderDesc( shape, 0.25f ),
-                  placementFixed );
+        // Lifetime: materialize the variant once before descriptor creation.
+        // The body helper borrows this stable value and the collider helper gets
+        // its own copy, avoiding an implicit by-value conversion temporary.
+        const CollisionShape bodyShape = shape;
+        PhysicsBodyCreateDesc bodyDesc =
+            MakeEditorBodyDesc( bodyShape,
+                                center,
+                                alignToTerrain ? placementOrientation : IDENTITY_QUATERNION,
+                                Vector3( 0.0f, 0.0f, 0.0f ),
+                                Vector3( 0.0f, 0.0f, 0.0f ),
+                                inertia,
+                                mass,
+                                0.25f,
+                                terrain );
+        PhysicsColliderCreateDesc colliderDesc = MakeEditorColliderDesc( shape, 0.25f );
+        addModel( std::move( model ), std::move( bodyDesc ), std::move( colliderDesc ), placementFixed );
     };
 
     auto addHull = [&]( EditorHullAsset asset )

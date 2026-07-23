@@ -243,16 +243,11 @@ TEST_CASE( "Replay overlay: surface description publishes owner availability as 
     stats.enabled = true;
     stats.sampleCount = 2u;
 
-    ReplayScrubberSurfaceDesc desc{ scrubber, stats };
-    desc.pathTargetAvailable = true;
-    desc.predictionTimelineAvailable = true;
-    desc.currentSolverAvailable = true;
-    desc.scenePhysicsEnabled = true;
-    desc.screenW = 1920;
-    desc.screenH = 1080;
-    desc.gesture = RuntimeInteractionGestureKind::ReplayScrubDrag;
-
-    const ReplayScrubberSurfaceInput input = DescribeReplayScrubberSurface( desc );
+    ReplayScrubberSurfaceInput input =
+        DescribeReplayScrubberAvailability( scrubber, stats, false, true, true, false, true, true );
+    input.screenW = 1920;
+    input.screenH = 1080;
+    input.gesture = RuntimeInteractionGestureKind::ReplayScrubDrag;
     CHECK( input.track == RunReplayTrack::Solver );
     CHECK( input.solverToolsEnabled );
     CHECK( input.predictionToolsEnabled );
@@ -292,11 +287,9 @@ TEST_CASE( "Replay overlay: loaded and unavailable surfaces block invalid action
     stats.enabled = true;
     stats.sampleCount = 1u;
 
-    ReplayScrubberSurfaceDesc loadedDesc{ scrubber, stats };
-    loadedDesc.loadedPresentation = true;
-    loadedDesc.currentPresentationAvailable = true;
-    loadedDesc.uiBlocksMouse = true;
-    const ReplayScrubberSurfaceInput loaded = DescribeReplayScrubberSurface( loadedDesc );
+    ReplayScrubberSurfaceInput loaded =
+        DescribeReplayScrubberAvailability( scrubber, stats, true, false, false, true, false, false );
+    loaded.hotZoneEnabled = false;
     CHECK( loaded.track == RunReplayTrack::Presentation );
     CHECK_FALSE( loaded.solverToolsEnabled );
     CHECK_FALSE( loaded.predictionToolsEnabled );
@@ -310,10 +303,10 @@ TEST_CASE( "Replay overlay: loaded and unavailable surfaces block invalid action
     REQUIRE( pause != nullptr );
     CHECK_FALSE( pause->visible );
 
-    ReplayScrubberSurfaceDesc unavailableDesc{ scrubber, stats };
-    unavailableDesc.screenW = 1280;
-    unavailableDesc.screenH = 720;
-    const ReplayScrubberSurfaceInput unavailable = DescribeReplayScrubberSurface( unavailableDesc );
+    ReplayScrubberSurfaceInput unavailable =
+        DescribeReplayScrubberAvailability( scrubber, stats, false, false, false, false, false, false );
+    unavailable.screenW = 1280;
+    unavailable.screenH = 720;
     CHECK_FALSE( unavailable.solverToolsEnabled );
     CHECK_FALSE( unavailable.scrubTrackDragEnabled );
     ReplayScrubberSurface unavailableSurface;

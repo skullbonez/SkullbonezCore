@@ -62,6 +62,7 @@ Related:
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <span>
 
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Runtime::ReplayTimelineOperations;
@@ -500,9 +501,10 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( Window& window,
 
     const int selectedSceneBrowserIndex = CurrentSceneBrowserIndex( sceneController, ui.SceneNavigation().browser );
     const HWND windowHandle = window.NativeWindowHandle();
+    const SkullbonezCore::UI::InputControl::UIInputSnapshot uiInput =
+        ui.CaptureInputSnapshot( inputRouter.DeviceFrame(), inputRouter.UiSnapshot().mouse );
     InGameUIInputResult UIResult = ui.UpdateInput(
-        inputRouter.DeviceFrame(),
-        inputRouter.UiSnapshot().mouse,
+        uiInput,
         window.ClientWidth(),
         window.ClientHeight(),
         timers.simulationTimer.GetTotalTime(),
@@ -510,11 +512,11 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( Window& window,
         runtimeTools.Editor().placementModeEnabled,
         runtimeTools.Editor().placeStaticObject,
         runtimeTools.Editor().autoTerrainAlign,
-        runtimeTools.Editor().objectType,
         static_cast<int>( camera.mode ),
         facts.cameraModeEnabledMask,
-        ui.SceneNavigation().browser.namePtrs.empty() ? nullptr : ui.SceneNavigation().browser.namePtrs.data(),
-        static_cast<int>( ui.SceneNavigation().browser.namePtrs.size() ),
+        std::span<const char* const>(
+            ui.SceneNavigation().browser.namePtrs.empty() ? nullptr : ui.SceneNavigation().browser.namePtrs.data(),
+            ui.SceneNavigation().browser.namePtrs.size() ),
         selectedSceneBrowserIndex );
     switch ( UIResult.nativeMouseCapture )
     {

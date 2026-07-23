@@ -48,14 +48,21 @@ Related:
 #include "../Core/FatalError.h"
 
 #include <cassert>
+#include <cmath>
 #include <cstddef>
 #include <cstring>
+#include <limits>
 #include <utility>
 #include <variant>
 
 using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
+using SkullbonezCore::Math::CollisionDetection::GetShapeBoundingRadius;
+using SkullbonezCore::Math::CollisionDetection::GetShapePosition;
+using SkullbonezCore::Math::Transformation::RotationMatrix;
+using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Math::Vector::VectorMag;
 using SkullbonezCore::Physics::BodySimulationLimits;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderShapeKind;
@@ -67,9 +74,13 @@ using SkullbonezCore::Physics::PhysicsAuthoredBodyRegistration;
 using SkullbonezCore::Physics::PhysicsBodyCount;
 using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
+using SkullbonezCore::Physics::PhysicsBodyHotFieldsConstView;
+using SkullbonezCore::Physics::PhysicsBodyOrientation;
+using SkullbonezCore::Physics::PhysicsBodyPosition;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsBodyUpdateDesc;
+using SkullbonezCore::Physics::PhysicsBroadphaseQueryResultView;
 using SkullbonezCore::Physics::PhysicsColliderCount;
 using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
@@ -78,6 +89,7 @@ using SkullbonezCore::Physics::PhysicsDebugContact;
 using SkullbonezCore::Physics::PhysicsEngine;
 using SkullbonezCore::Physics::PhysicsMaterial;
 using SkullbonezCore::Physics::PhysicsPipelineRecord;
+using SkullbonezCore::Physics::PhysicsRayCastHit;
 using SkullbonezCore::Physics::PhysicsRuntimeSettings;
 using SkullbonezCore::Physics::PointJointConstraint;
 
@@ -134,6 +146,76 @@ ColliderRecord MakeColliderRecordFromDesc( const PhysicsColliderCreateDesc& desc
     record.projectedSurfaceArea = desc.projectedSurfaceArea;
     record.dragCoefficient = desc.dragCoefficient;
     return record;
+}
+
+
+bool BodyPassesQueryFilters( const PhysicsBodyHotFieldsConstView& hotFields,
+                             std::size_t bodyIndex,
+                             bool includeFixedBodies,
+                             bool includeSleepingBodies,
+                             bool sleepEnabled )
+{
+    if ( !includeFixedBodies && hotFields.fixed[bodyIndex] != 0u )
+    {
+        return false;
+    }
+    return includeSleepingBodies || !sleepEnabled || hotFields.awake[bodyIndex] != 0u;
+}
+
+
+float EffectiveColliderRadius( const ColliderRecord& collider )
+{
+    // Invariant: a conservative query sphere must include a collider's local
+    // offset or a broadphase candidate can disappear before exact testing.
+    const float shapeRadius =
+        GetShapeBoundingRadius( collider.shape ) + VectorMag( GetShapePosition( collider.shape ) );
+    return collider.boundingRadius > shapeRadius ? collider.boundingRadius : shapeRadius;
+}
+
+
+Vector3 ColliderWorldCenter( const PhysicsBodyHotFieldsConstView& hotFields,
+                             std::size_t bodyIndex,
+                             const ColliderRecord& collider )
+{
+    const RotationMatrix rotation = PhysicsBodyOrientation( hotFields, bodyIndex ).GetOrientationMatrix();
+    return PhysicsBodyPosition( hotFields, bodyIndex ) + rotation * GetShapePosition( collider.shape );
+}
+
+
+bool IntersectRaySphere( const Vector3& rayOrigin,
+                         const Vector3& rayDirection,
+                         const Vector3& center,
+                         float radius,
+                         float& outDistance )
+{
+    const Vector3 originToCenter = rayOrigin - center;
+    const float directionProjection = originToCenter * rayDirection;
+    const float distanceTerm = ( originToCenter * originToCenter ) - radius * radius;
+    if ( distanceTerm > 0.0f && directionProjection > 0.0f )
+    {
+        return false;
+    }
+    const float discriminant = directionProjection * directionProjection - distanceTerm;
+    if ( discriminant < 0.0f )
+    {
+        return false;
+    }
+    outDistance = -directionProjection - sqrtf( discriminant );
+    if ( outDistance < 0.0f )
+    {
+        outDistance = 0.0f;
+    }
+    return true;
+}
+
+
+bool SphereOverlapsAabb( const Vector3& center, float radius, const Vector3& min, const Vector3& max )
+{
+    const float closestX = center.x < min.x ? min.x : ( center.x > max.x ? max.x : center.x );
+    const float closestY = center.y < min.y ? min.y : ( center.y > max.y ? max.y : center.y );
+    const float closestZ = center.z < min.z ? min.z : ( center.z > max.z ? max.z : center.z );
+    return SkullbonezCore::Math::Vector::DistanceSquared( center, Vector3( closestX, closestY, closestZ ) ) <=
+           radius * radius;
 }
 } // namespace
 
@@ -306,7 +388,18 @@ void PhysicsEngine::LoadBodyDescriptors( const std::vector<PhysicsBodyCreateDesc
 PhysicsAuthoredBodyRegistration PhysicsEngine::RegisterAuthoredBody( const PhysicsBodyCreateDesc& bodyDesc,
                                                                      PhysicsColliderCreateDesc colliderDesc )
 {
+    // Invariant: authored registration must never let an invalid variant reach
+    // std::visit, whose exception-disabled failure otherwise loses the owning
+    // subsystem and descriptor stage from captured automation logs.
+    if ( bodyDesc.shape.valueless_by_exception() )
+    {
+        SB_FATAL( "Physics/PhysicsEngine", "Cannot register authored body: input collision shape is valueless." );
+    }
     PhysicsBodyCreateDesc authoredDesc = bodyDesc;
+    if ( authoredDesc.shape.valueless_by_exception() )
+    {
+        SB_FATAL( "Physics/PhysicsEngine", "Cannot register authored body: copied collision shape is valueless." );
+    }
     ApplyAuthoredBodyPolicy( authoredDesc );
     m_authoredBodyDescs.push_back( authoredDesc );
     const PhysicsBodyHandle body = m_bodyStore.CreateBodyRecord( authoredDesc, m_world.IsPhysicsSleepEnabled() );
@@ -511,29 +604,9 @@ bool PhysicsEngine::TrimCollidersToCount( PhysicsColliderCount colliderCount )
 }
 
 
-bool PhysicsEngine::RestoreReplayBodyState( PhysicsBodyHandle body,
-                                            PhysicsSceneObjectId sceneObjectId,
-                                            bool fixed,
-                                            const Math::Vector::Vector3& position,
-                                            const Math::Orientation::Quaternion& orientation,
-                                            const Math::Vector::Vector3& linearVelocity,
-                                            const Math::Vector::Vector3& angularVelocity,
-                                            float mass,
-                                            float inverseMass,
-                                            const Math::Vector::Vector3& rotationalInertia,
-                                            const Math::Vector::Vector3& inverseRotationalInertia )
+bool PhysicsEngine::RestoreReplayBodyState( const PhysicsBodyRestoreState& restore )
 {
-    const bool restored = m_bodyStore.RestoreReplayBodyState( body,
-                                                              sceneObjectId,
-                                                              fixed,
-                                                              position,
-                                                              orientation,
-                                                              linearVelocity,
-                                                              angularVelocity,
-                                                              mass,
-                                                              inverseMass,
-                                                              rotationalInertia,
-                                                              inverseRotationalInertia );
+    const bool restored = m_bodyStore.RestoreReplayBodyState( restore );
     if ( restored )
     {
         m_world.InvalidateBodyTopology();
@@ -849,6 +922,141 @@ PhysicsConstraintHandle PhysicsEngine::CreatePointJoint( const PhysicsPointJoint
     }
 
     return m_world.CreatePointJoint( desc );
+}
+
+
+bool PhysicsEngine::UpdatePointJoint( const PhysicsPointJointUpdateDesc& desc )
+{
+    const bool updatesBodies = ( desc.updateMask & PHYSICS_POINT_JOINT_UPDATE_BODIES ) != 0u;
+    if ( updatesBodies &&
+         ( !m_bodyStore.Contains( desc.bodyA ) || !m_bodyStore.Contains( desc.bodyB ) || desc.bodyA == desc.bodyB ) )
+    {
+        return false;
+    }
+    const bool updated = m_world.UpdatePointJoint( desc );
+    if ( updated && updatesBodies )
+    {
+        m_world.InvalidateBodyTopology();
+    }
+    return updated;
+}
+
+
+bool PhysicsEngine::DestroyConstraint( PhysicsConstraintHandle constraint )
+{
+    const bool destroyed = m_world.DestroyConstraint( constraint );
+    if ( destroyed )
+    {
+        m_world.InvalidateBodyTopology();
+    }
+    return destroyed;
+}
+
+
+PhysicsRayCastHit PhysicsEngine::RayCast( const PhysicsRayCastDesc& desc ) const
+{
+    PhysicsRayCastHit closestHit;
+    if ( desc.maxDistance < 0.0f )
+    {
+        return closestHit;
+    }
+
+    const float directionLength = VectorMag( desc.direction );
+    if ( directionLength == 0.0f )
+    {
+        return closestHit;
+    }
+    const Vector3 direction = desc.direction / directionLength;
+    float closestDistance = ( std::numeric_limits<float>::max )();
+    const auto hotFields = m_bodyStore.HotFields();
+
+    // Concept: the public ray is a conservative store query, not a second
+    // narrowphase. It returns stable physics identities and leaves exact
+    // collision/contact generation to the shipping solver.
+    for ( const ColliderRecord& collider : m_colliderStore.Records() )
+    {
+        const PhysicsBodyRecord* body = m_bodyStore.RecordForHandle( collider.body );
+        const int bodyIndex = m_bodyStore.ModelIndexForHandle( collider.body );
+        if ( !body || bodyIndex < 0 ||
+             !BodyPassesQueryFilters( hotFields,
+                                      static_cast<std::size_t>( bodyIndex ),
+                                      desc.includeFixedBodies,
+                                      desc.includeSleepingBodies,
+                                      IsSleepEnabled() ) )
+        {
+            continue;
+        }
+
+        float distance = 0.0f;
+        const Vector3 center = ColliderWorldCenter( hotFields, static_cast<std::size_t>( bodyIndex ), collider );
+        if ( !IntersectRaySphere( desc.origin, direction, center, EffectiveColliderRadius( collider ), distance ) ||
+             distance > desc.maxDistance || distance >= closestDistance )
+        {
+            continue;
+        }
+
+        closestDistance = distance;
+        closestHit.body = body->handle;
+        closestHit.collider = collider.handle;
+        closestHit.sceneObjectId = collider.sceneObjectId.IsValid() ? collider.sceneObjectId : body->sceneObjectId;
+        closestHit.distance = distance;
+        closestHit.point = desc.origin + direction * distance;
+        closestHit.normal = closestHit.point - center;
+        const float normalLength = VectorMag( closestHit.normal );
+        closestHit.normal = normalLength > 0.0f ? closestHit.normal / normalLength : -direction;
+        closestHit.hit = true;
+    }
+    return closestHit;
+}
+
+
+PhysicsBroadphaseQueryResultView PhysicsEngine::QueryBroadphaseCells( const PhysicsBroadphaseCellQueryDesc& desc ) const
+{
+    m_broadphaseQueryScratch.clear();
+    const auto bodies = m_bodyStore.Records();
+    const auto hotFields = m_bodyStore.HotFields();
+    const auto colliders = m_colliderStore.Records();
+    for ( std::size_t bodyIndex = 0; bodyIndex < bodies.size(); ++bodyIndex )
+    {
+        const PhysicsBodyRecord& body = bodies[bodyIndex];
+        if ( !BodyPassesQueryFilters( hotFields,
+                                      bodyIndex,
+                                      desc.includeFixedBodies,
+                                      desc.includeSleepingBodies,
+                                      IsSleepEnabled() ) )
+        {
+            continue;
+        }
+
+        bool overlaps = hotFields.boundingRadius[bodyIndex] > 0.0f &&
+                        SphereOverlapsAabb( PhysicsBodyPosition( hotFields, bodyIndex ),
+                                            hotFields.boundingRadius[bodyIndex],
+                                            desc.min,
+                                            desc.max );
+        for ( const ColliderRecord& collider : colliders )
+        {
+            if ( overlaps )
+            {
+                break;
+            }
+            if ( collider.body == body.handle )
+            {
+                overlaps = SphereOverlapsAabb( ColliderWorldCenter( hotFields, bodyIndex, collider ),
+                                               EffectiveColliderRadius( collider ),
+                                               desc.min,
+                                               desc.max );
+            }
+        }
+        if ( overlaps )
+        {
+            m_broadphaseQueryScratch.push_back( body.handle );
+        }
+    }
+
+    PhysicsBroadphaseQueryResultView view;
+    view.bodies = m_broadphaseQueryScratch.empty() ? nullptr : m_broadphaseQueryScratch.data();
+    view.bodyCount = static_cast<uint32_t>( m_broadphaseQueryScratch.size() );
+    return view;
 }
 
 

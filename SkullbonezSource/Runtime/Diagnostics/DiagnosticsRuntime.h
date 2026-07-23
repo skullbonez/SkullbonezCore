@@ -181,46 +181,9 @@ class DiagnosticsRuntime
                                      const SkullbonezCore::Core::EngineConfig& config,
                                      const char* scenePath,
                                      const char* rendererName );
-    void LogReplayScrubProbe( const RunSceneState& scene,
-                              const ReplayPresentationSample& selected,
-                              const ReplayPresentationSample& live,
-                              const ReplayBodyPresentationSample& selectedBody,
-                              const ReplayBodyPresentationSample& liveBody,
-                              float normalized,
-                              float distanceSquared,
-                              bool applied,
-                              bool restored,
-                              float preLiveDeltaSquared,
-                              float appliedDeltaSquared,
-                              float restoredDeltaSquared );
-    void LogReplayRestoreProbe( const RunSceneState& scene,
-                                const ReplaySolverFrameSample& selected,
-                                uint64_t restoredSolverHash,
-                                uint64_t restoredPresentationHash,
-                                std::size_t restoredBodyCount,
-                                bool hashCaptured,
-                                bool hashMatched,
-                                bool fallbackAttempted,
-                                bool fallbackRestored );
-    void LogReplayRestoreResult( const RunSceneState& scene,
-                                 const char* restoreSource,
-                                 uint64_t targetReplayFrame,
-                                 int targetSceneFrame,
-                                 uint64_t checkpointReplayFrame,
-                                 uint64_t targetSolverHash,
-                                 uint64_t targetPresentationHash,
-                                 std::size_t targetBodyCount,
-                                 uint64_t restoredSolverHash,
-                                 uint64_t restoredPresentationHash,
-                                 std::size_t restoredBodyCount,
-                                 uint16_t contactCount,
-                                 uint16_t pipelineRecordCount,
-                                 bool checkpointBoundary,
-                                 bool hashCaptured,
-                                 bool hashMatched,
-                                 bool fallbackAttempted,
-                                 bool fallbackRestored,
-                                 const char* failureReason );
+    void LogReplayScrubProbe( const RunSceneState& scene, const ReplayScrubProbeDiagnostic& probe );
+    void LogReplayRestoreProbe( const RunSceneState& scene, const ReplayRestoreProbeDiagnostic& probe );
+    void LogReplayRestoreResult( const RunSceneState& scene, const ReplayRestoreResultDiagnostic& result );
     void EndPhysicsDiagnosticsRun( const RunSceneState& scene, const char* status );
 #endif
     // Consumes BeforeSceneUnload while the old scene identity is still live.

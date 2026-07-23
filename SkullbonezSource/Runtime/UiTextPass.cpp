@@ -1,12 +1,14 @@
 /*
 File: SkullbonezSource/Runtime/UiTextPass.cpp
 Purpose:
-  Implements the UI/Text render pass owned by RuntimeRenderer.
+  Implements the cohesive UI/Text render pass owner.
 
 Summary:
   World rendering can be skipped, redirected, or post-processed, but UI/text is
-  a late pass over the final window. It owns font lifetime, text-only output,
-  HUD overlays, and the in-game UI draw payload.
+  a late pass over the final window. This owner holds font/text-batch lifetime,
+  profiler/timing and ray-tracing presentation capabilities, text-only output,
+  HUD overlays, and the in-game UI draw payload. RuntimeRenderer schedules it
+  through one frame input record.
 
 Glossary:
   HUD (Heads-Up Display): Lightweight text diagnostics drawn over the scene.
@@ -29,16 +31,26 @@ Invariants:
     glyphs into later frame work.
   - Development-tool status is copied into the UI snapshot; draw code never
     reaches back into the live Tracy owner.
+  - UiTextPassInputs is borrowed only during the synchronous graph callback;
+    no replay, diagnostics, model, or operator-UI reference is retained.
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.h
   - SkullbonezSource/UI/UI.h
   - Agentic/Reference/comment-style-guide.md
 */
-#include "Run.h"
+#include "Render/RuntimeRenderPasses.h"
+#include "Render/RuntimeRenderFrameValues.h"
+#include "InputController.h"
+#include "RunCameraState.h"
+#include "RunDebugState.h"
 #include "RuntimeFrameViews.h"
 #include "RuntimeViewModel.h"
+#include "RunTimerState.h"
+#include "Scene/SceneControllerState.h"
 #include "Scene/SceneRuntime.h"
+#include "Scene/SceneWorld.h"
+#include "Tools/RuntimeTools.h"
 #include "../Core/Allocation/RuntimeReserveAllocator.h"
 #include "../Core/TracyClientOwner.h"
 #include "Diagnostics/DiagnosticsRuntime.h"
@@ -121,14 +133,13 @@ BuildMainMemoryOverlayStats( const DiagnosticsRuntime& diagnosticsRuntime,
     return stats;
 }
 
-void RenderReplayScrubberOverlayFromInputs( const UiTextPassInputs& inputs )
+void RenderReplayScrubberOverlayFromInputs( SkullbonezCore::Text::TextBatch& textBatch, const UiTextPassInputs& inputs )
 {
-    ReplayOverlay::RenderReplayScrubberOverlay( inputs.textBatch, inputs.replayOverlayContext );
+    ReplayOverlay::RenderReplayScrubberOverlay( textBatch, inputs.replayOverlayContext );
 }
 
-void RenderReplayDivergenceCounter( const UiTextPassInputs& inputs )
+void RenderReplayDivergenceCounter( SkullbonezCore::Text::TextBatch& textBatch, const UiTextPassInputs& inputs )
 {
-    SkullbonezCore::Text::TextBatch& textBatch = inputs.textBatch;
     if ( !inputs.state.debug.isTopTextHidden || !inputs.replayHud.divergenceValid )
     {
         return;
@@ -158,15 +169,14 @@ void RenderReplayDivergenceCounter( const UiTextPassInputs& inputs )
 }
 } // namespace
 
-SkullbonezCore::Core::SbResult UiTextPass::EnsureGpuResources( Text::TextBatch& textBatch,
-                                                               Rendering::Dx12ResourceBuilder& renderResources,
+SkullbonezCore::Core::SbResult UiTextPass::EnsureGpuResources( Rendering::Dx12ResourceBuilder& renderResources,
                                                                Rendering::Dx12TextureOwner& renderTextures,
                                                                Rendering::Dx12GeometryOwner& renderGeometry,
                                                                const Assets::AssetSystem& assets,
                                                                int screenW,
                                                                int screenH )
 {
-    return Text2d::BuildFont( textBatch,
+    return Text2d::BuildFont( m_textBatch,
                               renderResources,
                               renderTextures,
                               renderGeometry,
@@ -177,11 +187,11 @@ SkullbonezCore::Core::SbResult UiTextPass::EnsureGpuResources( Text::TextBatch& 
 }
 
 
-void UiTextPass::ReleaseGpuResources( Text::TextBatch& textBatch,
-                                      Rendering::Dx12TextureOwner* renderTextures,
+void UiTextPass::ReleaseGpuResources( Rendering::Dx12TextureOwner* renderTextures,
                                       Rendering::Dx12GeometryOwner* renderGeometry )
 {
-    Text2d::DeleteFont( textBatch, renderTextures, renderGeometry );
+    Text2d::DeleteFont( m_textBatch, renderTextures, renderGeometry );
+    m_renderRayTracing = nullptr;
 }
 
 
@@ -197,20 +207,27 @@ bool UiTextPass::ShouldRender( const UiTextPassState& state, const UI::InGameUI&
 }
 
 
+void UiTextPass::SetRayTracingCapability( Rendering::Dx12RaytracingOwner* renderRayTracing )
+{
+    m_renderRayTracing = renderRayTracing;
+}
+
+
 void UiTextPass::Render( const UiTextPassInputs& inputs )
 {
     const UiTextPassState& state = inputs.state;
-    Text::TextBatch& textBatch = inputs.textBatch;
+    Text::TextBatch& textBatch = m_textBatch;
     Text2d::RebuildProjection( textBatch, (std::max)( 1, state.screenW ), (std::max)( 1, state.screenH ) );
     const int uiPassDrawCallStart = inputs.renderDiagnostics.GetFrameDrawCallCount();
     assert( inputs.uiRender.IsReady() );
     Rendering::Dx12TextureOwner& renderTextures = *inputs.uiRender.textures;
     Rendering::Dx12GeometryOwner& renderCommands = *inputs.uiRender.geometry;
     UI::UIRenderContext uiRender = inputs.uiRender;
+    uiRender.gpuTiming = m_gpuTiming;
     uiRender.textBatch = &textBatch;
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-    assert( inputs.profiler && "UiTextPass requires a startup-bound profiler in profile builds." );
-    const SkullbonezCore::Core::Profiler& profiler = *inputs.profiler;
+    assert( m_profiler && "UiTextPass requires a startup-bound profiler in profile builds." );
+    const SkullbonezCore::Core::Profiler& profiler = *m_profiler;
     const Rendering::ProfilerOverlayPresenter profilerOverlay;
 #endif
 
@@ -469,7 +486,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 
     renderScenePauseBadge();
     renderRuntimeModeBadge();
-    RenderReplayDivergenceCounter( inputs );
+    RenderReplayDivergenceCounter( textBatch, inputs );
 
     // Crosshair - always visible when launcher mode is active, regardless of overlay state.
     // A tiny center gap keeps the target visible instead of covering it.
@@ -556,7 +573,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 
     if ( inputs.ui.NeedsUiTextPass() )
     {
-        PROFILE_BEGIN( inputs.profiler, "Frame/UI/BuildData" );
+        PROFILE_BEGIN( m_profiler, "Frame/UI/BuildData" );
         InGameUIFrameData UIData;
         UIData.screenW = state.screenW;
         UIData.screenH = state.screenH;
@@ -988,8 +1005,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                             source.hdr );
             }
 
-            const uint32_t dxrReflection =
-                inputs.renderRayTracing ? inputs.renderRayTracing->GetReflectionUAVTexture() : 0;
+            const uint32_t dxrReflection = m_renderRayTracing ? m_renderRayTracing->GetReflectionUAVTexture() : 0;
             addPreview( "DXR Reflection",
                         dxrReflection,
                         state.screenW * 2,
@@ -998,25 +1014,25 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                         false,
                         false );
         }
-        PROFILE_END( inputs.profiler, "Frame/UI/BuildData" );
+        PROFILE_END( m_profiler, "Frame/UI/BuildData" );
 
-        PROFILE_BEGIN( inputs.profiler, "Frame/UI/PreFlushText" );
+        PROFILE_BEGIN( m_profiler, "Frame/UI/PreFlushText" );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "PreFlushText" );
             Text2d::FlushText( textBatch, renderTextures, renderCommands );
         }
-        PROFILE_END( inputs.profiler, "Frame/UI/PreFlushText" );
+        PROFILE_END( m_profiler, "Frame/UI/PreFlushText" );
         UIData.drawCallsBeforeUI = uiPassDrawCallStart;
         inputs.ui.Draw( UIData, uiRender );
-        PROFILE_BEGIN( inputs.profiler, "Frame/UI/PostFlushText" );
+        PROFILE_BEGIN( m_profiler, "Frame/UI/PostFlushText" );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "Frame/UI/PostFlushText" );
             Text2d::FlushText( textBatch, renderTextures, renderCommands );
         }
-        PROFILE_END( inputs.profiler, "Frame/UI/PostFlushText" );
+        PROFILE_END( m_profiler, "Frame/UI/PostFlushText" );
         if ( inputs.ui.IsVisible() )
         {
-            RenderReplayScrubberOverlayFromInputs( inputs );
+            RenderReplayScrubberOverlayFromInputs( textBatch, inputs );
             return;
         }
     }
@@ -1024,7 +1040,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     // --- Overlay: None ---
     if ( state.debug.overlayMode == OverlayMode::None )
     {
-        RenderReplayScrubberOverlayFromInputs( inputs );
+        RenderReplayScrubberOverlayFromInputs( textBatch, inputs );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "HUD" );
             Text2d::FlushText( textBatch, renderTextures, renderCommands );
@@ -1073,7 +1089,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                                    0.85f,
                                    "Scene Energy: %.6f",
                                    sceneEnergyForDisplay );
-        RenderReplayScrubberOverlayFromInputs( inputs );
+        RenderReplayScrubberOverlayFromInputs( textBatch, inputs );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "SceneStats" );
             Text2d::FlushText( textBatch, renderTextures, renderCommands );
@@ -1095,7 +1111,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const bool absolute = ( state.debug.overlayMode == OverlayMode::BarsAbsolute );
         profilerOverlay
             .RenderBarOverlay( profiler.FrameView(), textBatch, renderCommands, panX, panY, panW, panH, absolute );
-        RenderReplayScrubberOverlayFromInputs( inputs );
+        RenderReplayScrubberOverlayFromInputs( textBatch, inputs );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "ProfilerBars" );
             Text2d::FlushText( textBatch, renderTextures, renderCommands );
@@ -1194,7 +1210,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
             Text2d::Render2dTextColor( textBatch, col2Desc, y, entrySz, 0.85f, 0.85f, 0.85f, "%s", kRight[i].desc );
         }
 
-        RenderReplayScrubberOverlayFromInputs( inputs );
+        RenderReplayScrubberOverlayFromInputs( textBatch, inputs );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "Keys" );
             Text2d::FlushText( textBatch, renderTextures, renderCommands );
@@ -1222,7 +1238,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     }
 #endif
 
-    RenderReplayScrubberOverlayFromInputs( inputs );
+    RenderReplayScrubberOverlayFromInputs( textBatch, inputs );
     {
         DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "ProfilerOverlay" );
         Text2d::FlushText( textBatch, renderTextures, renderCommands );

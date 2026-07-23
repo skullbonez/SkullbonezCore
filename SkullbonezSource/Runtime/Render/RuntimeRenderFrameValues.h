@@ -1,27 +1,21 @@
 /*
-File: SkullbonezSource/Runtime/Render/RuntimeRenderInputs.h
+File: SkullbonezSource/Runtime/Render/RuntimeRenderFrameValues.h
 Purpose:
-  Names the borrowed runtime inputs consumed by frame rendering.
+  Names value-only frame policy and model data consumed by frame rendering.
 
 Summary:
-  Runtime render code should receive a small view of the systems and state it
-  needs for one frame, not the entire Run object. These structs are references
-  only; ownership remains in concrete renderer, scene, UI, and tool owners.
+  Run publishes model/store borrows and presentation policy for one frame.
+  RuntimeRenderer supplies its own persistent resources rather than receiving
+  them back through a broad service packet.
 
 Glossary:
-  Render services: Borrowed references to systems required by render passes.
-  Render inputs: One-frame wrapper around the current render services.
-  Borrowed pointer: Nullable dependency retained by a concrete process or scene
-    owner.
-  DXR (DirectX Raytracing): Optional render capability used for hardware ray
-  traversal when the active backend publishes it.
+  Model frame view: One-frame collection of scene-owned render/store spans.
+  Frame policy: Value-only presentation choices sampled after input.
 
 Invariants:
-  - RuntimeRenderInputs is rebuilt for the current render call and is not
-    stored by render passes.
-  - References and pointers here do not transfer ownership.
-  - Optional pointers remain nullable to match the current Run-owned subsystem
-    lifetime.
+  - Model-frame references and spans are consumed synchronously and never stored.
+  - Persistent assets, cameras, window, terrain, and backend resources come
+    from RuntimeRenderer's concrete owners, not this frame view.
 
 Related:
   - SkullbonezSource/Runtime/Run.h
@@ -151,31 +145,5 @@ struct RuntimeRenderModelFrameView
     SkullbonezCore::Core::MainMemoryGameObjectStats gameObjectMemory;
 };
 
-struct RuntimeRenderServices
-{
-    Assets::AssetSystem& assets;
-    Textures::TextureCollection& textures;
-    RuntimeRenderModelFrameView models;
-    Environment::WorldEnvironment& world;
-    Geometry::Terrain* terrain;
-    Environment::CameraCollection& cameras;
-    Window& window;
-    UI::InGameUI& ui;
-    RuntimeTools& runtimeTools;
-    const ReplayRenderFrameView& replayFrame;
-    const RenderToolOverlayView& toolOverlay;
-    const Rendering::WorldRenderExtensionRegistration& worldExtension;
-    const RuntimeRenderFramePolicy& framePolicy;
-    Geometry::SkyBox* skyBox;
-    // Lifetime: selected once by Run for this render call. Passes use this
-    // snapshot instead of asking Run to reopen scene/config state.
-    const SkullbonezCore::Core::CinematicRenderConfig& cinematic;
-    bool cinematicEnabled = false;
-};
-
-struct RuntimeRenderInputs
-{
-    RuntimeRenderServices services;
-};
 } // namespace Runtime
 } // namespace SkullbonezCore

@@ -341,8 +341,18 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     if ( !ParseCommandLine( commandLine, cfg, args ) )
     {
         const char* error = GetCommandLineError();
+        SkullbonezCore::Core::Log().WriteEventf( "startup_failure owner=\"Startup/CommandLine\" message=\"%s\"",
+                                                 error );
         fprintf( stderr, "FATAL: %s\n", error );
-        MessageBoxA( nullptr, error, "Command line parse failed", MB_OK | MB_ICONERROR );
+        fflush( stderr );
+        SkullbonezCore::Core::Log().FlushAll();
+        // Hazard: validation owns no interactive desktop. A modal parse-error
+        // dialog would hide the already-reported failure behind an infinite
+        // wait, so hidden automation receives the same diagnostic and exits.
+        if ( !HasOption( commandLine, "--automation-hidden-window" ) )
+        {
+            MessageBoxA( nullptr, error, "Command line parse failed", MB_OK | MB_ICONERROR | MB_SETFOREGROUND );
+        }
         CoUninitialize();
         return 1;
     }

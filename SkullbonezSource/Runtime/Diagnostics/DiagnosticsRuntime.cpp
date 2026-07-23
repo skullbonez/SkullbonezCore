@@ -1130,101 +1130,25 @@ void DiagnosticsRuntime::BeginPhysicsDiagnosticsRun( Physics::PhysicsEngine& phy
 }
 
 
-void DiagnosticsRuntime::LogReplayScrubProbe( const RunSceneState& scene,
-                                              const ReplayPresentationSample& selected,
-                                              const ReplayPresentationSample& live,
-                                              const ReplayBodyPresentationSample& selectedBody,
-                                              const ReplayBodyPresentationSample& liveBody,
-                                              float normalized,
-                                              float distanceSquared,
-                                              bool applied,
-                                              bool restored,
-                                              float preLiveDeltaSquared,
-                                              float appliedDeltaSquared,
-                                              float restoredDeltaSquared )
+void DiagnosticsRuntime::LogReplayScrubProbe( const RunSceneState& scene, const ReplayScrubProbeDiagnostic& probe )
 {
-    RuntimeDiagnostics::LogReplayScrubProbe( m_diagnostics.PhysicsDiagnostics(),
-                                             scene,
-                                             selected,
-                                             live,
-                                             selectedBody,
-                                             liveBody,
-                                             normalized,
-                                             distanceSquared,
-                                             applied,
-                                             restored,
-                                             preLiveDeltaSquared,
-                                             appliedDeltaSquared,
-                                             restoredDeltaSquared );
+    RuntimeDiagnostics::LogReplayScrubProbe( m_diagnostics.PhysicsDiagnostics(), scene, probe );
 }
 
 
-void DiagnosticsRuntime::LogReplayRestoreProbe( const RunSceneState& scene,
-                                                const ReplaySolverFrameSample& selected,
-                                                uint64_t restoredSolverHash,
-                                                uint64_t restoredPresentationHash,
-                                                std::size_t restoredBodyCount,
-                                                bool hashCaptured,
-                                                bool hashMatched,
-                                                bool fallbackAttempted,
-                                                bool fallbackRestored )
+void DiagnosticsRuntime::LogReplayRestoreProbe( const RunSceneState& scene, const ReplayRestoreProbeDiagnostic& probe )
 {
-    RuntimeDiagnostics::LogReplayRestoreProbe( m_diagnostics.PhysicsDiagnostics(),
-                                               scene,
-                                               selected,
-                                               restoredSolverHash,
-                                               restoredPresentationHash,
-                                               restoredBodyCount,
-                                               hashCaptured,
-                                               hashMatched,
-                                               fallbackAttempted,
-                                               fallbackRestored );
+    RuntimeDiagnostics::LogReplayRestoreProbe( m_diagnostics.PhysicsDiagnostics(), scene, probe );
 }
 
 
 void DiagnosticsRuntime::LogReplayRestoreResult( const RunSceneState& scene,
-                                                 const char* restoreSource,
-                                                 uint64_t targetReplayFrame,
-                                                 int targetSceneFrame,
-                                                 uint64_t checkpointReplayFrame,
-                                                 uint64_t targetSolverHash,
-                                                 uint64_t targetPresentationHash,
-                                                 std::size_t targetBodyCount,
-                                                 uint64_t restoredSolverHash,
-                                                 uint64_t restoredPresentationHash,
-                                                 std::size_t restoredBodyCount,
-                                                 uint16_t contactCount,
-                                                 uint16_t pipelineRecordCount,
-                                                 bool checkpointBoundary,
-                                                 bool hashCaptured,
-                                                 bool hashMatched,
-                                                 bool fallbackAttempted,
-                                                 bool fallbackRestored,
-                                                 const char* failureReason )
+                                                 const ReplayRestoreResultDiagnostic& result )
 {
     // Invariant: Replay restore diagnostics are forwarded with their exact
     // hashes, counts, and flags so SkullScope queries can distinguish checkpoint
     // restores from fallback restores.
-    RuntimeDiagnostics::LogReplayRestoreResult( m_diagnostics.PhysicsDiagnostics(),
-                                                scene,
-                                                restoreSource,
-                                                targetReplayFrame,
-                                                targetSceneFrame,
-                                                checkpointReplayFrame,
-                                                targetSolverHash,
-                                                targetPresentationHash,
-                                                targetBodyCount,
-                                                restoredSolverHash,
-                                                restoredPresentationHash,
-                                                restoredBodyCount,
-                                                contactCount,
-                                                pipelineRecordCount,
-                                                checkpointBoundary,
-                                                hashCaptured,
-                                                hashMatched,
-                                                fallbackAttempted,
-                                                fallbackRestored,
-                                                failureReason );
+    RuntimeDiagnostics::LogReplayRestoreResult( m_diagnostics.PhysicsDiagnostics(), scene, result );
 }
 
 

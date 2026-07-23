@@ -80,7 +80,6 @@ Related:
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include <limits>
 #include <memory>
 #include <thread>
 
@@ -175,7 +174,6 @@ bool StepPredictionEngineTick( PhysicsEngine& engine,
 // Why: the 200-brick prediction scene needs more than the old 100-node cap to
 // show the full contact spread instead of clipping the visual explanation.
 constexpr std::size_t REPLAY_PATH_MAX_FUTURE_NODES = REPLAY_VISUAL_FUTURE_NODE_CAPACITY;
-constexpr std::size_t REPLAY_PATH_MAX_SEGMENTS = 260;
 constexpr std::size_t REPLAY_RIBBON_SEGMENTS_PER_PATH_SEGMENT = 1;
 constexpr float REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ = 0.0001f;
 // Why: rest markers and auxiliary trails still need an instantaneous "moving"
@@ -212,374 +210,7 @@ constexpr uint32_t REPLAY_PREDICTION_CAPTURE_BODY_WORKER_HASH =
 constexpr uint32_t REPLAY_PREDICTION_CAPTURE_SAMPLE_WORKER_HASH =
     HashStr( "Frame/Replay/Prediction/CaptureSample/WorkerBodies" );
 
-// Concept: prediction helper section.
-//
-// These helpers remain in this translation unit because retained path drawing,
-// cause-focus markers, and prediction drawing still share file-local constants
-// and helper templates.
-double ReplayPredictionElapsedMilliseconds( const std::chrono::steady_clock::time_point& start )
-{
-    return std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - start ).count();
-}
-
-bool ReplayPredictionBudgetExpired( const std::chrono::steady_clock::time_point& start, double budgetMilliseconds )
-{
-    return budgetMilliseconds > 0.0 && ReplayPredictionElapsedMilliseconds( start ) >= budgetMilliseconds;
-}
-
-// Why: Stage-0 replay diagnostics need to know which visualizer pass lost work.
-// Keep the accounting beside the existing budget checks so later stages can
-// delete the budgets without hunting for a separate telemetry path.
-bool ReplayPredictionBudgetExpiredForPass( ReplayPredictionUpdateResult& result,
-                                           SkullbonezCore::Core::MainMemoryReplayBudgetPass pass,
-                                           const std::chrono::steady_clock::time_point& start,
-                                           double budgetMilliseconds )
-{
-    if ( !ReplayPredictionBudgetExpired( start, budgetMilliseconds ) )
-    {
-        return false;
-    }
-    const std::size_t passIndex = static_cast<std::size_t>( pass );
-    if ( passIndex < result.budgetExpiries.size() )
-    {
-        ++result.budgetExpiries[passIndex];
-    }
-    return true;
-}
-
-double ReplayPredictionRemainingMilliseconds( const std::chrono::steady_clock::time_point& start,
-                                              double budgetMilliseconds )
-{
-    if ( budgetMilliseconds <= 0.0 )
-    {
-        return 0.0;
-    }
-    return (std::max)( 0.0, budgetMilliseconds - ReplayPredictionElapsedMilliseconds( start ) );
-}
-
-double ReplayPredictionRevealSecondsPerSecond( const RunReplayPredictionState& prediction )
-{
-    // Why: authored shot-list data is allowed to be imperfect. Non-positive
-    // rates fall back to real-time pacing instead of freezing the reveal cursor
-    // or dividing by zero while the prediction build catches up.
-    return prediction.revealClock.secondsPerSecond > 0.0 ? prediction.revealClock.secondsPerSecond : 1.0;
-}
-
-// Concept: reveal cursor - the wall-clock playhead of the causal-unfold animation.
-//
-// Every prediction draw pass clamps to the frame this returns, so the pace of
-// the visible tree comes from real time, not from how fast the build job
-// happened to finish. While the job is still building, the cursor also clamps
-// to the populated prefix and re-anchors at that edge, so a slow build paces
-// the unfold without banking "reveal debt" that would snap the animation
-// forward the moment the job completes.
-// Invariant: the cursor is MONOTONIC per prediction. It plays 0 -> horizon
-// exactly once and then holds there, so every revealed line and causal box
-// stays on screen. A refresh with no committed same-target future resets the
-// anchor; same-target auto-refresh keeps the anchor and waits until the new
-// prefix reaches the visible cursor.
-ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& prediction,
-                                                   ReplayFrameIndex lastAvailableFrame )
-{
-    if ( prediction.revealClock.deterministicFrameEnabled )
-    {
-        prediction.revealClock.presentedFrame =
-            (std::min)( lastAvailableFrame, prediction.revealClock.deterministicFrame );
-        return prediction.revealClock.presentedFrame;
-    }
-    if ( prediction.build.buildMode == ReplayPredictionBuildMode::Instant )
-    {
-        // Why: instant mode presents the completed future at once. The causal
-        // unfold clock remains an amortized-mode presentation affordance.
-        prediction.revealClock.presentedFrame = lastAvailableFrame;
-        return prediction.revealClock.presentedFrame;
-    }
-    const auto now = std::chrono::steady_clock::now();
-    if ( !prediction.revealClock.anchorValid )
-    {
-        prediction.revealClock.anchor = now;
-        prediction.revealClock.anchorValid = true;
-        prediction.revealClock.presentedFrame = 0;
-        return prediction.revealClock.presentedFrame;
-    }
-
-    const double availableSeconds = static_cast<double>( lastAvailableFrame ) * PHYSICS_FIXED_DT;
-    const double elapsedSeconds =
-        (std::max)( 0.0, std::chrono::duration<double>( now - prediction.revealClock.anchor ).count() );
-    const double revealSecondsPerSecond = ReplayPredictionRevealSecondsPerSecond( prediction );
-    double revealSeconds = elapsedSeconds * revealSecondsPerSecond;
-    if ( prediction.build.building && revealSeconds > availableSeconds )
-    {
-        revealSeconds = availableSeconds;
-        prediction.revealClock.anchor =
-            now - std::chrono::duration_cast<std::chrono::steady_clock::duration>(
-                      std::chrono::duration<double>( availableSeconds / revealSecondsPerSecond ) );
-    }
-
-    const double revealFrame = revealSeconds / static_cast<double>( PHYSICS_FIXED_DT );
-    prediction.revealClock.presentedFrame =
-        (std::min)( lastAvailableFrame, static_cast<ReplayFrameIndex>( revealFrame ) );
-    return prediction.revealClock.presentedFrame;
-}
-
-std::size_t ReplayPredictionBuildPresentationFrameCountForRefresh( RunReplayPredictionState& prediction,
-                                                                   Physics::PhysicsSceneObjectId requestedTargetId )
-{
-    if ( requestedTargetId.value == 0 || prediction.simulation.targetId.value != requestedTargetId.value ||
-         prediction.simulation.frames.size() < 2u )
-    {
-        return 2u;
-    }
-
-    // Why: auto-refresh should replace the old future only after the rebuilding
-    // prefix catches the causal story the user can already see.
-    const ReplayFrameIndex lastCommittedFrame = prediction.simulation.frames.back().frameIndex;
-    const ReplayFrameIndex revealFrame = ReplayPredictionRevealFrameIndex( prediction, lastCommittedFrame );
-    return (std::max)( std::size_t{ 2u }, static_cast<std::size_t>( revealFrame ) + 1u );
-}
-
-constexpr int REPLAY_PREDICTION_FRAME_CAPACITY =
-    static_cast<int>( ReplayOverlay::REPLAY_PREDICTION_MAX_SECONDS / PHYSICS_FIXED_DT ) + 2;
-constexpr int REPLAY_PREDICTION_PATH_BUDGET = 100;
 constexpr int REPLAY_PREDICTION_TICKS_PER_WORKER_SUBMIT = 8;
-constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN = 512u;
-constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MAX = 2048u;
-constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_GROWTH_CHUNK = 4096u;
-
-template <typename T> bool ReplayPredictionCapacityBytes( std::size_t capacity, uint64_t& outBytes )
-{
-    constexpr uint64_t elementBytes = static_cast<uint64_t>( sizeof( T ) );
-    const uint64_t maxCapacity = ( std::numeric_limits<uint64_t>::max )() / elementBytes;
-    if ( capacity > maxCapacity )
-    {
-        return false;
-    }
-    outBytes = static_cast<uint64_t>( capacity ) * elementBytes;
-    return true;
-}
-
-template <typename T> uint64_t ReplayPredictionVectorCapacityBytes( const std::vector<T>& values )
-{
-    uint64_t bytes = 0;
-    return ReplayPredictionCapacityBytes<T>( values.capacity(), bytes ) ? bytes : 0;
-}
-
-uint64_t ReplayPredictionWorldSnapshotMemoryBytes( const SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& snapshot )
-{
-    const SkullbonezCore::Physics::PhysicsSolverSnapshot& physics = snapshot.physics;
-    uint64_t bytes = 0;
-    bytes += ReplayPredictionVectorCapacityBytes( physics.timeRemaining );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepSupportedThisFrame );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepInhibitedThisFrame );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepState );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepCounter );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.underwaterSleepLocked );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.tornadoCaptureSeconds );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.tornadoEjectCooldownSeconds );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.collisionVisualContacts );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandVisualId );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandAssignedVisualId );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepSupportEdges );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandParent );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandRank );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandHasAwake );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandHasSupportAnchor );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandEligible );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandCanSleep );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.persistentContacts );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.persistentContactCache );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.persistentContactCounts );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.persistentRestingContactCounts );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.debugContacts );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.pipelineTrace );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.collisionCellKeys );
-    return bytes;
-}
-
-void AddReplayPredictionFrameCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories,
-                                            const RunReplayPredictionFrame& frame )
-{
-    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
-        categories,
-        SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionFrameBodies,
-        ReplayPredictionVectorCapacityBytes( frame.bodies ) );
-    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
-        categories,
-        SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionDebugContacts,
-        ReplayPredictionVectorCapacityBytes( frame.debugContacts ) );
-}
-
-template <typename T>
-bool ReplayPredictionFramePayloadBytes( std::size_t frameCount, std::size_t capacityPerFrame, uint64_t& outBytes )
-{
-    uint64_t bytesPerFrame = 0;
-    if ( !ReplayPredictionCapacityBytes<T>( capacityPerFrame, bytesPerFrame ) )
-    {
-        return false;
-    }
-    const uint64_t maxValue = ( std::numeric_limits<uint64_t>::max )();
-    const uint64_t maxFrameCount = bytesPerFrame > 0 ? maxValue / bytesPerFrame : maxValue;
-    if ( frameCount > maxFrameCount )
-    {
-        return false;
-    }
-    outBytes = static_cast<uint64_t>( frameCount ) * bytesPerFrame;
-    return true;
-}
-
-std::size_t RoundUpReplayPredictionCapacity( std::size_t requestedCapacity, std::size_t chunk )
-{
-    if ( chunk == 0 || requestedCapacity == 0 )
-    {
-        return requestedCapacity;
-    }
-    const std::size_t remainder = requestedCapacity % chunk;
-    return remainder == 0 ? requestedCapacity : requestedCapacity + ( chunk - remainder );
-}
-
-std::size_t ReplayPredictionInitialDebugContactCapacity( int modelCount )
-{
-    const std::size_t modelScaled = static_cast<std::size_t>( (std::max)( modelCount, 1 ) ) * 8u;
-    return std::clamp( modelScaled,
-                       REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN,
-                       REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MAX );
-}
-
-std::size_t ReplayPredictionNextDebugContactCapacity( std::size_t currentCapacity, std::size_t requiredCapacity )
-{
-    const std::size_t chunked =
-        RoundUpReplayPredictionCapacity( requiredCapacity, REPLAY_PREDICTION_DEBUG_CONTACT_GROWTH_CHUNK );
-    const std::size_t doubled =
-        currentCapacity > 0 ? currentCapacity * 2u : REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN;
-    return (std::max)( chunked, doubled );
-}
-
-uint64_t ReplayPredictionEngineMemoryBytes( const PhysicsEngine& engine )
-{
-    // Why: seeding the private engine copies several physics-owned vectors.
-    // Estimate the live working set before requesting the replay growth scope so
-    // those copy allocations are approved under one bounded prediction owner.
-    uint64_t bytes = static_cast<uint64_t>( sizeof( PhysicsEngine ) );
-    bytes += engine.CollectPhysicsWorldMemoryBytes();
-    bytes += engine.CollectDebugAndBroadphaseMemoryBytes();
-    bytes += static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).RecordCapacity() ) *
-             sizeof( PhysicsBodyRecord );
-    bytes += static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngine::ReadColliders( engine ).RecordCapacity() ) *
-             sizeof( ColliderRecord );
-    return bytes;
-}
-
-int ReplayPredictionEngineReserveBytes( const PhysicsEngine& engine )
-{
-    const uint64_t bytes = ReplayPredictionEngineMemoryBytes( engine );
-    if ( bytes == 0 || bytes > static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) ||
-         bytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) )
-    {
-        return 0;
-    }
-    return static_cast<int>( bytes );
-}
-
-template <typename T>
-bool ReserveReplayPredictionVector( std::vector<T>& values,
-                                    std::size_t requestedCapacity,
-                                    int frameNumber,
-                                    const char* targetName )
-{
-    if ( requestedCapacity <= values.capacity() )
-    {
-        return true;
-    }
-    uint64_t oldBytes = 0;
-    uint64_t requestedBytes = 0;
-    if ( !ReplayPredictionCapacityBytes<T>( values.capacity(), oldBytes ) ||
-         !ReplayPredictionCapacityBytes<T>( requestedCapacity, requestedBytes ) ||
-         requestedBytes > static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) )
-    {
-        return false;
-    }
-
-    CoreAllocation::RuntimeReserveGrowthResult result = {};
-    if ( !RequestReplayPredictionReserveGrowth( targetName,
-                                                frameNumber,
-                                                static_cast<int>( oldBytes ),
-                                                static_cast<int>( requestedBytes ),
-                                                1,
-                                                result ) )
-    {
-        return false;
-    }
-
-    const CoreAllocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-    CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
-    CoreAllocation::RuntimeReserveOwnerScope ownerScope( owner );
-    CoreAllocation::RuntimeReserveGrowthScope growthScope( owner, CoreAllocation::RuntimeReservePhase::Replay, result );
-    values.reserve( requestedCapacity );
-    return requestedCapacity <= values.capacity();
-}
-
-template <typename T>
-bool ReserveReplayPredictionFramePayloadVectors( std::vector<RunReplayPredictionFrame>& frames,
-                                                 std::size_t requestedFrameCount,
-                                                 std::size_t requestedCapacityPerFrame,
-                                                 int frameNumber,
-                                                 const char* targetName,
-                                                 std::vector<T> RunReplayPredictionFrame::* member )
-{
-    // Runtime allocation policy: prediction captures many future frames. Batch
-    // the per-frame payload reserves under one replay approval so validation
-    // sees one setup event instead of one growth request per future frame.
-    if ( requestedCapacityPerFrame == 0 )
-    {
-        return true;
-    }
-
-    uint64_t oldBytes = 0;
-    for ( std::size_t i = 0; i < requestedFrameCount; ++i )
-    {
-        uint64_t frameBytes = 0;
-        if ( !ReplayPredictionCapacityBytes<T>( ( frames[i].*member ).capacity(), frameBytes ) ||
-             oldBytes > ( std::numeric_limits<uint64_t>::max )() - frameBytes )
-        {
-            return false;
-        }
-        oldBytes += frameBytes;
-    }
-    uint64_t requestedBytes = 0;
-    if ( !ReplayPredictionFramePayloadBytes<T>( requestedFrameCount, requestedCapacityPerFrame, requestedBytes ) )
-    {
-        return false;
-    }
-    if ( requestedBytes <= oldBytes )
-    {
-        return true;
-    }
-    if ( requestedBytes > static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) )
-    {
-        return false;
-    }
-
-    CoreAllocation::RuntimeReserveGrowthResult result = {};
-    if ( !RequestReplayPredictionReserveGrowth( targetName,
-                                                frameNumber,
-                                                static_cast<int>( oldBytes ),
-                                                static_cast<int>( requestedBytes ),
-                                                1,
-                                                result ) )
-    {
-        return false;
-    }
-
-    const CoreAllocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-    CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
-    CoreAllocation::RuntimeReserveOwnerScope ownerScope( owner );
-    CoreAllocation::RuntimeReserveGrowthScope growthScope( owner, CoreAllocation::RuntimeReservePhase::Replay, result );
-    for ( std::size_t i = 0; i < requestedFrameCount; ++i )
-    {
-        ( frames[i].*member ).reserve( requestedCapacityPerFrame );
-    }
-    return true;
-}
 
 // Concept: future-node building is an incremental cache.
 //
@@ -673,17 +304,18 @@ bool ApplyReplayPredictionBodyState( PhysicsEngine& physicsEngine,
         {
             return false;
         }
-        if ( !physicsEngine.RestoreReplayBodyState( bodyHandle,
-                                                    backup.id,
-                                                    backup.fixed,
-                                                    backup.position,
-                                                    backup.orientation,
-                                                    backup.linearVelocity,
-                                                    backup.angularVelocity,
-                                                    backup.mass,
-                                                    backup.inverseMass,
-                                                    backup.rotationalInertia,
-                                                    backup.inverseRotationalInertia ) )
+        const PhysicsBodyRestoreState restore{ bodyHandle,
+                                               backup.id,
+                                               backup.fixed,
+                                               backup.position,
+                                               backup.orientation,
+                                               backup.linearVelocity,
+                                               backup.angularVelocity,
+                                               backup.mass,
+                                               backup.inverseMass,
+                                               backup.rotationalInertia,
+                                               backup.inverseRotationalInertia };
+        if ( !physicsEngine.RestoreReplayBodyState( restore ) )
         {
             return false;
         }
@@ -1033,56 +665,24 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayPrediction& predictionOwner
     return true;
 }
 
-// Lifetime: the desc itself is synchronous. Begin copies predictionOwner,
-// config, and workerPool pointers into ReplayPredictionSimulationSlice; those
-// owners must outlive the task until cancellation waits for in-flight work.
-// Every other reference is consumed before BeginReplayPredictionJob returns.
-struct ReplayPredictionJobDesc
-{
-    ReplayPrediction& predictionOwner;
-    RunReplayPredictionState& prediction;
-    PhysicsEngine& physicsEngine;
-    const Gameplay::TornadoGameplay& tornadoGameplay;
-    const SceneEntityStore& entities;
-    const SkullbonezCore::Core::EngineConfig& config;
-    const SkullbonezCore::Physics::PhysicsWorldForces& worldForces;
-    SkullbonezCore::Threading::WorkerPool& workerPool;
-    bool scenePhysics = false;
-    double fallbackSourceSimulationSeconds = 0.0;
-    double simulationTotalSeconds = 0.0;
-    const ReplaySolverFrameSample* latestSolverSample = nullptr;
-    Physics::PhysicsSceneObjectId requestedTargetId;
-    ModelRowHint requestedTargetModelRow;
-    bool targetAvailable = false;
-    ReplayFrameIndex sourceFrameIndex;
-    uint64_t sourceSolverHash = 0;
-    const std::chrono::steady_clock::time_point& budgetStart;
-    double budgetMilliseconds = 0.0;
-    ReplayPredictionUpdateResult& result;
-};
+} // namespace
 
-bool BeginReplayPredictionJob( const ReplayPredictionJobDesc& desc )
+ReplayPredictionSourcePreparation
+ReplayPrediction::BeginFrameSource( PhysicsEngine& physicsEngine,
+                                    const SkullbonezCore::Core::EngineConfig& config,
+                                    bool scenePhysics,
+                                    double fallbackSourceSimulationSeconds,
+                                    double simulationTotalSeconds,
+                                    const ReplaySolverFrameSample* latestSolverSample,
+                                    Physics::PhysicsSceneObjectId requestedTargetId,
+                                    ModelRowHint requestedTargetModelRow,
+                                    bool targetAvailable,
+                                    const std::chrono::steady_clock::time_point& budgetStart,
+                                    double budgetMilliseconds,
+                                    ReplayPredictionUpdateResult& result )
 {
-    ReplayPrediction& predictionOwner = desc.predictionOwner;
-    RunReplayPredictionState& prediction = desc.prediction;
-    PhysicsEngine& physicsEngine = desc.physicsEngine;
-    const Gameplay::TornadoGameplay& tornadoGameplay = desc.tornadoGameplay;
-    const SceneEntityStore& entities = desc.entities;
-    const SkullbonezCore::Core::EngineConfig& config = desc.config;
-    const SkullbonezCore::Physics::PhysicsWorldForces& worldForces = desc.worldForces;
-    SkullbonezCore::Threading::WorkerPool& workerPool = desc.workerPool;
-    const bool scenePhysics = desc.scenePhysics;
-    const double fallbackSourceSimulationSeconds = desc.fallbackSourceSimulationSeconds;
-    const double simulationTotalSeconds = desc.simulationTotalSeconds;
-    const ReplaySolverFrameSample* latestSolverSample = desc.latestSolverSample;
-    const Physics::PhysicsSceneObjectId requestedTargetId = desc.requestedTargetId;
-    const ModelRowHint requestedTargetModelRow = desc.requestedTargetModelRow;
-    const bool targetAvailable = desc.targetAvailable;
-    const ReplayFrameIndex sourceFrameIndex = desc.sourceFrameIndex;
-    const uint64_t sourceSolverHash = desc.sourceSolverHash;
-    const std::chrono::steady_clock::time_point& budgetStart = desc.budgetStart;
-    const double budgetMilliseconds = desc.budgetMilliseconds;
-    ReplayPredictionUpdateResult& result = desc.result;
+    ReplayPrediction& predictionOwner = *this;
+    RunReplayPredictionState& prediction = m_state;
     PROFILE_SCOPED( predictionOwner.ProfilerBorrow(), "Frame/Replay/Prediction/BeginJob" );
     if ( !predictionOwner.GenerationPermitted() )
     {
@@ -1090,7 +690,7 @@ bool BeginReplayPredictionJob( const ReplayPredictionJobDesc& desc )
         // snapshot, reserve, worker, or trajectory mutation makes a second
         // visual prediction impossible in that process.
         prediction.build.dirty = false;
-        return false;
+        return ReplayPredictionSourcePreparation::Declined;
     }
     // Hazard: begin captures the initial prediction snapshot. Budget may stop
     // us before setup starts, but once replay scratch and solver state are
@@ -1101,9 +701,10 @@ bool BeginReplayPredictionJob( const ReplayPredictionJobDesc& desc )
                                                budgetStart,
                                                budgetMilliseconds ) )
     {
-        return false;
+        return ReplayPredictionSourcePreparation::Declined;
     }
-
+    const ReplayFrameIndex sourceFrameIndex = latestSolverSample ? latestSolverSample->frameIndex : 0;
+    const uint64_t sourceSolverHash = latestSolverSample ? latestSolverSample->solverHash : 0;
     const ReplayFrameIndex previousSourceFrameIndex = prediction.simulation.sourceFrameIndex;
     const uint64_t previousSourceSolverHash = prediction.simulation.sourceSolverHash;
     const bool preserveCommittedFuture = prediction.enabled && scenePhysics && requestedTargetId.value != 0 &&
@@ -1128,7 +729,7 @@ bool BeginReplayPredictionJob( const ReplayPredictionJobDesc& desc )
 
     if ( !prediction.enabled || !scenePhysics )
     {
-        return false;
+        return ReplayPredictionSourcePreparation::Declined;
     }
 
     prediction.simulation.sourceFrameIndex = sourceFrameIndex;
@@ -1158,6 +759,7 @@ bool BeginReplayPredictionJob( const ReplayPredictionJobDesc& desc )
         prediction.simulation.calibratedModelCount = modelCount;
     }
     prediction.build.buildMode = ReplayPredictionBuildMode::Undecided;
+    prediction.build.buildPresentationFrameCount = buildPresentationFrameCount;
     const PhysicsBodyStore& liveBodyStore = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physicsEngine );
     if ( targetAvailable && requestedTargetId.value != 0 )
     {
@@ -1169,18 +771,41 @@ bool BeginReplayPredictionJob( const ReplayPredictionJobDesc& desc )
                                                    budgetMilliseconds ) )
         {
             prediction.build.dirty = true;
-            return false;
+            return ReplayPredictionSourcePreparation::Declined;
         }
         if ( !TryResolveReplayBodyModelIndex( liveBodyStore, requestedTargetId, targetHint, modelCount, targetIndex ) )
         {
             result.repairedTargetModelRow = targetHint;
             result.targetModelRowRepaired = true;
-            return false;
+            return ReplayPredictionSourcePreparation::Declined;
         }
         prediction.simulation.targetModelRow.value = targetIndex;
         result.repairedTargetModelRow = targetHint;
         result.targetModelRowRepaired = true;
     }
+
+    return clearSamplesOnCancel ? ReplayPredictionSourcePreparation::ClearCommitted
+                                : ReplayPredictionSourcePreparation::PreserveCommitted;
+}
+
+
+bool ReplayPrediction::BeginFrameSimulation( PhysicsEngine& physicsEngine,
+                                             const Gameplay::TornadoGameplay& tornadoGameplay,
+                                             const SceneEntityStore& entities,
+                                             const SkullbonezCore::Core::EngineConfig& config,
+                                             const SkullbonezCore::Physics::PhysicsWorldForces& worldForces,
+                                             SkullbonezCore::Threading::WorkerPool& workerPool,
+                                             ReplayPredictionSourcePreparation preparation )
+{
+    ReplayPrediction& predictionOwner = *this;
+    RunReplayPredictionState& prediction = m_state;
+    if ( preparation == ReplayPredictionSourcePreparation::Declined )
+    {
+        return false;
+    }
+    const bool clearSamplesOnCancel = preparation == ReplayPredictionSourcePreparation::ClearCommitted;
+    const int modelCount = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physicsEngine ).Count();
+    const PhysicsBodyStore& liveBodyStore = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physicsEngine );
 
     prediction.simulation.horizonSeconds = std::clamp( prediction.simulation.horizonSeconds,
                                                        ReplayOverlay::REPLAY_PREDICTION_MIN_SECONDS,
@@ -1201,7 +826,6 @@ bool BeginReplayPredictionJob( const ReplayPredictionJobDesc& desc )
     }
     prediction.build.buildFrames.resize( buildFrameCapacity );
     prediction.ResetBuildFramePublication();
-    prediction.build.buildPresentationFrameCount = buildPresentationFrameCount;
     if ( !ReserveReplayPredictionFramePayloadVectors( prediction.build.buildFrames,
                                                       buildFrameCapacity,
                                                       static_cast<std::size_t>( modelCount ),
@@ -1299,6 +923,9 @@ bool BeginReplayPredictionJob( const ReplayPredictionJobDesc& desc )
         CoreAllocation::RuntimeReserveOwnerScope ownerScope( ReplayPredictionReserveOwner() );
         // Runtime allocation policy: the task lives in the build state's fixed
         // optional slot; each generation reconstructs it without heap growth.
+        // Lifetime: the slice borrows EngineConfig and WorkerPool from Run's
+        // process-lifetime owners. CancelJob/WaitForJobIdle joins the slice
+        // before either borrow can be retired or replay build state is cleared.
         prediction.build.schedule.Begin(
             prediction.build.targetTickCount,
             REPLAY_PREDICTION_TICKS_PER_WORKER_SUBMIT,
@@ -1311,6 +938,8 @@ bool BeginReplayPredictionJob( const ReplayPredictionJobDesc& desc )
     return !prediction.build.buildFrames.empty();
 }
 
+namespace
+{
 
 bool StepReplayPredictionJob( ReplayPrediction& predictionOwner,
                               RunReplayPredictionState& prediction,
@@ -1403,30 +1032,23 @@ bool StepReplayPredictionJob( ReplayPrediction& predictionOwner,
 }
 
 
-void UpdateReplayPrediction( ReplayPrediction& predictionOwner,
-                             RunReplayPredictionState& prediction,
-                             PhysicsEngine& physicsEngine,
-                             const Gameplay::TornadoGameplay& tornadoGameplay,
-                             const SceneEntityStore& entities,
-                             const SkullbonezCore::Core::EngineConfig& config,
-                             const SkullbonezCore::Physics::PhysicsWorldForces& worldForces,
-                             SkullbonezCore::Threading::WorkerPool& workerPool,
-                             const ReplaySolverFrameSample* latestSolverSample,
-                             Physics::PhysicsSceneObjectId targetId,
-                             ModelRowHint targetModelRow,
-                             bool targetAvailable,
-                             bool liveAdvanceHeld,
-                             bool historicalSamplePaused,
-                             float solverTrackPosition,
-                             float solverPresentTrackPosition,
-                             bool scenePhysics,
-                             double fallbackSourceSimulationSeconds,
-                             double simulationTotalSeconds,
-                             const std::chrono::steady_clock::time_point& budgetStart,
-                             double budgetMilliseconds,
-                             ReplayPredictionUpdateResult& result )
+} // namespace
+
+ReplayPredictionFrameSourceAction
+ReplayPrediction::SelectFrameSource( const ReplaySolverFrameSample* latestSolverSample,
+                                     Physics::PhysicsSceneObjectId targetId,
+                                     bool targetAvailable,
+                                     bool liveAdvanceHeld,
+                                     double simulationTotalSeconds,
+                                     bool& outWasDirty,
+                                     bool& outWasPendingLatestRestart )
 {
-    PROFILE_SCOPED( predictionOwner.ProfilerBorrow(), "Frame/Replay/Prediction/Update" );
+    ReplayPrediction& predictionOwner = *this;
+    RunReplayPredictionState& prediction = m_state;
+    outWasDirty = false;
+    outWasPendingLatestRestart = false;
+
+    PROFILE_SCOPED( predictionOwner.ProfilerBorrow(), "Frame/Replay/Prediction/SelectSource" );
     if ( !targetAvailable )
     {
         predictionOwner.ClearFutureNodeCache();
@@ -1437,7 +1059,7 @@ void UpdateReplayPrediction( ReplayPrediction& predictionOwner,
         {
             predictionOwner.CancelJob( false );
         }
-        return;
+        return ReplayPredictionFrameSourceAction::Stop;
     }
     if ( !predictionOwner.GenerationPermitted() )
     {
@@ -1450,7 +1072,7 @@ void UpdateReplayPrediction( ReplayPrediction& predictionOwner,
         // retired the worker. Cancelling here would invalidate the restored
         // complete/build and trajectory state before the CPU projection reads
         // it, producing a different packet without starting new simulation.
-        return;
+        return ReplayPredictionFrameSourceAction::Stop;
     }
 
     const ReplayFrameIndex latestFrame = latestSolverSample ? latestSolverSample->frameIndex : 0;
@@ -1482,84 +1104,90 @@ void UpdateReplayPrediction( ReplayPrediction& predictionOwner,
     const bool beginRequested = coalescerAction == ReplayPredictionCoalescerAction::Begin ||
                                 coalescerAction == ReplayPredictionCoalescerAction::CancelAndBegin ||
                                 automaticRefreshRequested;
-    if ( beginRequested )
+    if ( !beginRequested )
     {
-        if ( ReplayPredictionBudgetExpiredForPass( result,
-                                                   SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionBegin,
-                                                   budgetStart,
-                                                   budgetMilliseconds ) )
+        return ReplayPredictionFrameSourceAction::Continue;
+    }
+
+    outWasDirty = prediction.build.dirty;
+    outWasPendingLatestRestart = prediction.build.pendingLatestRestart;
+    return ReplayPredictionFrameSourceAction::Begin;
+}
+
+
+void ReplayPrediction::PrepareFrameRebuild( Physics::PhysicsSceneObjectId targetId,
+                                            ModelRowHint targetModelRow,
+                                            ReplayPredictionUpdateResult& result )
+{
+    RunReplayPredictionState& prediction = m_state;
+    // Invariant: the caller performs the outer begin-budget check first. Cause
+    // accounting and baseline capture therefore occur only on a pass that is
+    // actually allowed to begin replacement work, matching the original
+    // single-operation ordering.
+    if ( prediction.build.dirty )
+    {
+        ++result.rebuildCauses[static_cast<std::size_t>( SkullbonezCore::Core::MainMemoryReplayRebuildCause::Dirty )];
+    }
+    else
+    {
+        ++result.rebuildCauses[static_cast<std::size_t>(
+            SkullbonezCore::Core::MainMemoryReplayRebuildCause::AutomaticRefresh )];
+    }
+    if ( prediction.baseline.comparisonActive && !prediction.baseline.valid &&
+         prediction.simulation.frames.size() >= 2 )
+    {
+        if ( !CaptureReplayPredictionBaselineSnapshot( prediction,
+                                                       prediction.simulation.frames,
+                                                       prediction.simulation.frames.size(),
+                                                       targetId,
+                                                       targetModelRow.value ) )
         {
-            return;
-        }
-        if ( prediction.build.dirty )
-        {
-            ++result
-                  .rebuildCauses[static_cast<std::size_t>( SkullbonezCore::Core::MainMemoryReplayRebuildCause::Dirty )];
-        }
-        else
-        {
-            ++result.rebuildCauses[static_cast<std::size_t>(
-                SkullbonezCore::Core::MainMemoryReplayRebuildCause::AutomaticRefresh )];
-        }
-        const bool wasDirty = prediction.build.dirty;
-        const bool wasPendingLatestRestart = prediction.build.pendingLatestRestart;
-        if ( prediction.baseline.comparisonActive && !prediction.baseline.valid &&
-             prediction.simulation.frames.size() >= 2 )
-        {
-            if ( !CaptureReplayPredictionBaselineSnapshot( prediction,
-                                                           prediction.simulation.frames,
-                                                           prediction.simulation.frames.size(),
-                                                           targetId,
-                                                           targetModelRow.value ) )
-            {
-                prediction.baseline.comparisonActive = false;
-            }
-        }
-        const bool began = BeginReplayPredictionJob(
-            ReplayPredictionJobDesc{ .predictionOwner = predictionOwner,
-                                     .prediction = prediction,
-                                     .physicsEngine = physicsEngine,
-                                     .tornadoGameplay = tornadoGameplay,
-                                     .entities = entities,
-                                     .config = config,
-                                     .worldForces = worldForces,
-                                     .workerPool = workerPool,
-                                     .scenePhysics = scenePhysics,
-                                     .fallbackSourceSimulationSeconds = fallbackSourceSimulationSeconds,
-                                     .simulationTotalSeconds = simulationTotalSeconds,
-                                     .latestSolverSample = latestSolverSample,
-                                     .requestedTargetId = targetId,
-                                     .requestedTargetModelRow = targetModelRow,
-                                     .targetAvailable = targetAvailable,
-                                     .sourceFrameIndex = latestFrame,
-                                     .sourceSolverHash = latestHash,
-                                     .budgetStart = budgetStart,
-                                     .budgetMilliseconds = budgetMilliseconds,
-                                     .result = result } );
-        if ( began )
-        {
-            if ( wasPendingLatestRestart )
-            {
-                ++prediction.build.latestRestartBeginCount;
-            }
-            prediction.build.pendingLatestRestart = false;
-        }
-        else
-        {
-            // Hazard: begin can decline after the shared frame budget expires.
-            // Restore the request token so the newest velocity is retried next
-            // pass instead of leaving the previous committed future visible.
-            prediction.build.dirty = prediction.build.dirty || wasDirty;
-            prediction.build.pendingLatestRestart = prediction.build.pendingLatestRestart || wasPendingLatestRestart;
-        }
-        if ( ReplayPredictionBudgetExpiredForPass( result,
-                                                   SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionBegin,
-                                                   budgetStart,
-                                                   budgetMilliseconds ) )
-        {
-            return;
+            prediction.baseline.comparisonActive = false;
         }
     }
+}
+
+
+void ReplayPrediction::CompleteFrameSourceBegin( bool began, bool wasDirty, bool wasPendingLatestRestart ) noexcept
+{
+    if ( began )
+    {
+        if ( wasPendingLatestRestart )
+        {
+            ++m_state.build.latestRestartBeginCount;
+        }
+        m_state.build.pendingLatestRestart = false;
+        return;
+    }
+
+    // Hazard: begin can decline after the shared frame budget expires. Restore
+    // the request token so the newest velocity is retried next pass.
+    m_state.build.dirty = m_state.build.dirty || wasDirty;
+    m_state.build.pendingLatestRestart = m_state.build.pendingLatestRestart || wasPendingLatestRestart;
+}
+
+
+bool ReplayPrediction::BeginFrameBudgetExpired( const std::chrono::steady_clock::time_point& budgetStart,
+                                                double budgetMilliseconds,
+                                                ReplayPredictionUpdateResult& result )
+{
+    return ReplayPredictionBudgetExpiredForPass( result,
+                                                 SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionBegin,
+                                                 budgetStart,
+                                                 budgetMilliseconds );
+}
+
+
+bool ReplayPrediction::AdvanceFrameWorker( SkullbonezCore::Threading::WorkerPool& workerPool,
+                                           double simulationTotalSeconds,
+                                           bool historicalSamplePaused,
+                                           float solverTrackPosition,
+                                           float solverPresentTrackPosition,
+                                           const std::chrono::steady_clock::time_point& budgetStart,
+                                           double budgetMilliseconds,
+                                           ReplayPredictionUpdateResult& result )
+{
+    RunReplayPredictionState& prediction = m_state;
     bool predictionCompletedThisPass = false;
     if ( prediction.build.building )
     {
@@ -1567,7 +1195,7 @@ void UpdateReplayPrediction( ReplayPrediction& predictionOwner,
         if ( remainingMilliseconds > 0.0 )
         {
             const bool wasBuilding = prediction.build.building;
-            StepReplayPredictionJob( predictionOwner,
+            StepReplayPredictionJob( *this,
                                      prediction,
                                      workerPool,
                                      simulationTotalSeconds,
@@ -1593,58 +1221,13 @@ void UpdateReplayPrediction( ReplayPrediction& predictionOwner,
                 budgetMilliseconds );
         }
     }
-    if ( predictionCompletedThisPass )
-    {
-        RebuildReplayPredictionCommittedTreeAfterWorkerCompletion( prediction, entities, targetId );
-    }
+    return predictionCompletedThisPass;
 }
 
 
-} // namespace
-
-void ReplayPrediction::UpdateFrame( PhysicsEngine& physicsEngine,
-                                    const Gameplay::TornadoGameplay& tornadoGameplay,
-                                    const SceneEntityStore& entities,
-                                    const SkullbonezCore::Core::EngineConfig& config,
-                                    const SkullbonezCore::Physics::PhysicsWorldForces& worldForces,
-                                    SkullbonezCore::Threading::WorkerPool& workerPool,
-                                    const ReplaySolverFrameSample* latestSolverSample,
-                                    Physics::PhysicsSceneObjectId targetId,
-                                    ModelRowHint targetModelRow,
-                                    bool targetAvailable,
-                                    bool liveAdvanceHeld,
-                                    bool historicalSamplePaused,
-                                    float solverTrackPosition,
-                                    float solverPresentTrackPosition,
-                                    bool scenePhysics,
-                                    double fallbackSourceSimulationSeconds,
-                                    double simulationTotalSeconds,
-                                    double budgetMilliseconds,
-                                    ReplayPredictionUpdateResult& result )
+void ReplayPrediction::PublishCompletedFrame( const SceneEntityStore& entities, Physics::PhysicsSceneObjectId targetId )
 {
-    const auto budgetStart = std::chrono::steady_clock::now();
-    UpdateReplayPrediction( *this,
-                            m_state,
-                            physicsEngine,
-                            tornadoGameplay,
-                            entities,
-                            config,
-                            worldForces,
-                            workerPool,
-                            latestSolverSample,
-                            targetId,
-                            targetModelRow,
-                            targetAvailable,
-                            liveAdvanceHeld,
-                            historicalSamplePaused,
-                            solverTrackPosition,
-                            solverPresentTrackPosition,
-                            scenePhysics,
-                            fallbackSourceSimulationSeconds,
-                            simulationTotalSeconds,
-                            budgetStart,
-                            budgetMilliseconds,
-                            result );
+    RebuildReplayPredictionCommittedTreeAfterWorkerCompletion( m_state, entities, targetId );
 }
 
 

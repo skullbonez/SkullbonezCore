@@ -27,6 +27,7 @@ Related:
 
 #include "ReplayAuthoring.h"
 #include "ReplayPrediction.h"
+#include "ReplayPredictionPublicationOperations.h"
 #include "ReplayPresentation.h"
 #include "../Editor/EditorTools.h"
 #include "../Scene/SceneEntityStore.h"
@@ -42,6 +43,7 @@ using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
+using namespace SkullbonezCore::Runtime::ReplayPredictionPublicationOperations;
 using SkullbonezCore::Math::Vector::Vector3;
 
 namespace
@@ -69,55 +71,14 @@ bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore,
 }
 
 const SkullbonezCore::Runtime::ReplaySolverBodySample*
-FindReplayBodyById( const SkullbonezCore::Runtime::ReplaySolverFrameSample& sample, PhysicsSceneObjectId id )
+FindReplayNonNegativeBodyByModelIndex( const SkullbonezCore::Runtime::ReplaySolverFrameSample& sample, int modelIndex )
 {
-    for ( const SkullbonezCore::Runtime::ReplaySolverBodySample& body : sample.bodies )
-    {
-        if ( body.id.value == id.value )
-        {
-            return &body;
-        }
-    }
-    return nullptr;
-}
-
-const SkullbonezCore::Runtime::ReplaySolverBodySample*
-FindReplayBodyByModelIndex( const SkullbonezCore::Runtime::ReplaySolverFrameSample& sample, int modelIndex )
-{
-    if ( modelIndex < 0 )
-    {
-        return nullptr;
-    }
-    for ( const SkullbonezCore::Runtime::ReplaySolverBodySample& body : sample.bodies )
-    {
-        if ( body.modelRow.value == modelIndex )
-        {
-            return &body;
-        }
-    }
-    return nullptr;
-}
-
-int ReplayRagdollTorsoModelIndexForPart( const SkullbonezCore::Runtime::SceneEntityStore& entities, int modelIndex )
-{
-    const SkullbonezCore::Runtime::SceneEntityRecord* entity = entities.TryGet( modelIndex );
-    if ( !entity || entity->behaviorGroup.kind != SkullbonezCore::Runtime::SceneBehaviorGroupKind::SimpleRagdoll )
-    {
-        return modelIndex;
-    }
-    const int rootRow = entities.FindBySceneObjectId( entity->behaviorGroup.rootObjectId );
-    return rootRow >= 0 ? rootRow : modelIndex;
-}
-
-Vector3 ReplayNormalizeOr( Vector3 value, const Vector3& fallback )
-{
-    const float magSq = VectorMagSquared( value );
-    if ( magSq <= TOLERANCE * TOLERANCE )
-    {
-        return fallback;
-    }
-    value /= sqrtf( magSq );
-    return value;
+    // Why: CauseFocus has always rejected the terrain/world negative sentinel,
+    // while the shared solver wrapper retains the Prediction domain's legacy
+    // negative-row scan. Select that policy explicitly instead of changing it.
+    return FindReplayBodyByModelIndexInSample<SkullbonezCore::Runtime::ReplaySolverFrameSample,
+                                              SkullbonezCore::Runtime::ReplaySolverBodySample,
+                                              false>( sample, modelIndex );
 }
 
 bool ReplayContactHasModelIndex( const PhysicsSolverPersistentContactSample& contact, int modelIndex )
@@ -142,12 +103,12 @@ Vector3 ReplayContactPoint( const SkullbonezCore::Runtime::ReplaySolverFrameSamp
                             const PhysicsSolverPersistentContactSample& contact )
 {
     if ( const SkullbonezCore::Runtime::ReplaySolverBodySample* bodyA =
-             FindReplayBodyByModelIndex( sample, contact.bodyA ) )
+             FindReplayNonNegativeBodyByModelIndex( sample, contact.bodyA ) )
     {
         return bodyA->position + contact.rA;
     }
     if ( const SkullbonezCore::Runtime::ReplaySolverBodySample* bodyB =
-             FindReplayBodyByModelIndex( sample, contact.bodyB ) )
+             FindReplayNonNegativeBodyByModelIndex( sample, contact.bodyB ) )
     {
         return bodyB->position + contact.rB;
     }

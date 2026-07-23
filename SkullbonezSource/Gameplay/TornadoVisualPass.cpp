@@ -51,12 +51,12 @@ constexpr float FX_KIND_RIBBON = 0.0f;
 constexpr float FX_KIND_DUST = 1.0f;
 constexpr Rendering::PassRasterStateBucket VISUAL_RASTER =
     Rendering::MakePassRasterStateBucket( 0,
-                                          true,
-                                          false,
-                                          true,
-                                          Rendering::BlendFactor::SrcAlpha,
-                                          Rendering::BlendFactor::OneMinusSrcAlpha,
-                                          Rendering::CullMode::None );
+                                          { true,
+                                            false,
+                                            true,
+                                            Rendering::BlendFactor::SrcAlpha,
+                                            Rendering::BlendFactor::OneMinusSrcAlpha,
+                                            Rendering::CullMode::None } );
 
 float Clamp01( float value )
 {
@@ -110,29 +110,6 @@ void EmitFxVertex( std::vector<float>& vertices,
     vertices.push_back( v );
     vertices.push_back( fxKind );
     vertices.push_back( terrainY );
-}
-
-void EmitFxQuad( std::vector<float>& vertices,
-                 const Vector3& a,
-                 const Vector3& b,
-                 const Vector3& c,
-                 const Vector3& d,
-                 float r,
-                 float g,
-                 float blue,
-                 float alpha,
-                 float fxKind,
-                 float terrainA,
-                 float terrainB,
-                 float terrainC,
-                 float terrainD )
-{
-    EmitFxVertex( vertices, a, r, g, blue, alpha, 0.0f, 0.0f, fxKind, terrainA );
-    EmitFxVertex( vertices, b, r, g, blue, alpha, 1.0f, 0.0f, fxKind, terrainB );
-    EmitFxVertex( vertices, c, r, g, blue, alpha, 1.0f, 1.0f, fxKind, terrainC );
-    EmitFxVertex( vertices, a, r, g, blue, alpha, 0.0f, 0.0f, fxKind, terrainA );
-    EmitFxVertex( vertices, c, r, g, blue, alpha, 1.0f, 1.0f, fxKind, terrainC );
-    EmitFxVertex( vertices, d, r, g, blue, alpha, 0.0f, 1.0f, fxKind, terrainD );
 }
 
 void ClearAllRenderTextureSlots( Rendering::Dx12TextureOwner& renderTextures )
@@ -394,20 +371,18 @@ bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& 
                     const float gapFade = 0.72f + 0.28f * sinf( phase + t0 * twoPi * 4.0f );
                     const float alpha = shellAlpha * baseFade * topFade * gapFade;
                     const float cool = 0.72f + 0.08f * t0;
-                    EmitFxQuad( m_vertices,
-                                p0 - side * width,
-                                p1 - side * width,
-                                p1 + side * width,
-                                p0 + side * width,
-                                cool,
-                                0.78f,
-                                0.84f,
-                                alpha,
-                                FX_KIND_RIBBON,
-                                0.0f,
-                                0.0f,
-                                0.0f,
-                                0.0f );
+                    const Vector3 a = p0 - side * width;
+                    const Vector3 b = p1 - side * width;
+                    const Vector3 c = p1 + side * width;
+                    const Vector3 d = p0 + side * width;
+                    // Invariant: every effect quad is emitted as two clockwise
+                    // triangles with identical style at all six vertices.
+                    EmitFxVertex( m_vertices, a, cool, 0.78f, 0.84f, alpha, 0.0f, 0.0f, FX_KIND_RIBBON, 0.0f );
+                    EmitFxVertex( m_vertices, b, cool, 0.78f, 0.84f, alpha, 1.0f, 0.0f, FX_KIND_RIBBON, 0.0f );
+                    EmitFxVertex( m_vertices, c, cool, 0.78f, 0.84f, alpha, 1.0f, 1.0f, FX_KIND_RIBBON, 0.0f );
+                    EmitFxVertex( m_vertices, a, cool, 0.78f, 0.84f, alpha, 0.0f, 0.0f, FX_KIND_RIBBON, 0.0f );
+                    EmitFxVertex( m_vertices, c, cool, 0.78f, 0.84f, alpha, 1.0f, 1.0f, FX_KIND_RIBBON, 0.0f );
+                    EmitFxVertex( m_vertices, d, cool, 0.78f, 0.84f, alpha, 0.0f, 1.0f, FX_KIND_RIBBON, 0.0f );
                 }
             }
         }
@@ -446,20 +421,16 @@ bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& 
                     const Vector3 d = field.center + CylindricalOffset( outerRadius, angle0 ) +
                                       Vector3( 0.0f, y0 - field.center.y, 0.0f );
                     const float alpha = dustAlpha * ( 0.42f - 0.08f * bandT );
-                    EmitFxQuad( m_vertices,
-                                a,
-                                b,
-                                c,
-                                d,
-                                0.58f,
-                                0.47f,
-                                0.31f,
-                                alpha,
-                                FX_KIND_DUST,
-                                terrainHeightFor( a ),
-                                terrainHeightFor( b ),
-                                terrainHeightFor( c ),
-                                terrainHeightFor( d ) );
+                    const float terrainA = terrainHeightFor( a );
+                    const float terrainB = terrainHeightFor( b );
+                    const float terrainC = terrainHeightFor( c );
+                    const float terrainD = terrainHeightFor( d );
+                    EmitFxVertex( m_vertices, a, 0.58f, 0.47f, 0.31f, alpha, 0.0f, 0.0f, FX_KIND_DUST, terrainA );
+                    EmitFxVertex( m_vertices, b, 0.58f, 0.47f, 0.31f, alpha, 1.0f, 0.0f, FX_KIND_DUST, terrainB );
+                    EmitFxVertex( m_vertices, c, 0.58f, 0.47f, 0.31f, alpha, 1.0f, 1.0f, FX_KIND_DUST, terrainC );
+                    EmitFxVertex( m_vertices, a, 0.58f, 0.47f, 0.31f, alpha, 0.0f, 0.0f, FX_KIND_DUST, terrainA );
+                    EmitFxVertex( m_vertices, c, 0.58f, 0.47f, 0.31f, alpha, 1.0f, 1.0f, FX_KIND_DUST, terrainC );
+                    EmitFxVertex( m_vertices, d, 0.58f, 0.47f, 0.31f, alpha, 0.0f, 1.0f, FX_KIND_DUST, terrainD );
                 }
             }
 
@@ -483,20 +454,16 @@ bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& 
                 const Vector3 b = center + right - up;
                 const Vector3 c = center + right + up;
                 const Vector3 d = center - right + up;
-                EmitFxQuad( m_vertices,
-                            a,
-                            b,
-                            c,
-                            d,
-                            0.68f,
-                            0.52f,
-                            0.34f,
-                            alpha,
-                            FX_KIND_DUST,
-                            terrainHeightFor( a ),
-                            terrainHeightFor( b ),
-                            terrainHeightFor( c ),
-                            terrainHeightFor( d ) );
+                const float terrainA = terrainHeightFor( a );
+                const float terrainB = terrainHeightFor( b );
+                const float terrainC = terrainHeightFor( c );
+                const float terrainD = terrainHeightFor( d );
+                EmitFxVertex( m_vertices, a, 0.68f, 0.52f, 0.34f, alpha, 0.0f, 0.0f, FX_KIND_DUST, terrainA );
+                EmitFxVertex( m_vertices, b, 0.68f, 0.52f, 0.34f, alpha, 1.0f, 0.0f, FX_KIND_DUST, terrainB );
+                EmitFxVertex( m_vertices, c, 0.68f, 0.52f, 0.34f, alpha, 1.0f, 1.0f, FX_KIND_DUST, terrainC );
+                EmitFxVertex( m_vertices, a, 0.68f, 0.52f, 0.34f, alpha, 0.0f, 0.0f, FX_KIND_DUST, terrainA );
+                EmitFxVertex( m_vertices, c, 0.68f, 0.52f, 0.34f, alpha, 1.0f, 1.0f, FX_KIND_DUST, terrainC );
+                EmitFxVertex( m_vertices, d, 0.68f, 0.52f, 0.34f, alpha, 0.0f, 1.0f, FX_KIND_DUST, terrainD );
             }
         }
     }

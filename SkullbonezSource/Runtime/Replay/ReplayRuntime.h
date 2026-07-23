@@ -151,7 +151,6 @@ struct RunSceneState;
 struct ReplayV2SaveResult;
 struct ReplaySolverSampleRestoreContext;
 
-
 class ReplayRuntime
 {
   public:
@@ -177,22 +176,30 @@ class ReplayRuntime
     // Selects at most one historical track plus the prediction preview for the
     // current render turn; returned sample pointers are frame-local borrows.
     ReplayPresentationSelection BuildPresentationSelection() const;
-    ReplayRenderFrameView
-    PrepareRenderFrame( Rendering::RenderInstanceStore& renderInstances,
-                        std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
-                        Physics::PhysicsEngine& physics,
-                        const SceneEntityStore& entities,
-                        RuntimeTools& runtimeTools,
-                        RunEditorTracer& tracer,
-                        int modelCount,
-                        bool editorModeEnabled,
-                        const RuntimeInteractionGesture& gesture,
-                        int sceneFrame,
-                        bool collisionVisualizer,
-                        bool debugTransparentBodyPass,
-                        const Math::Vector::Vector3& cameraTranslation,
-                        const Math::Vector::Vector3& cameraUp,
-                        uint64_t replayReserveGrowthEvents );
+    // Render preparation is deliberately phased: pose mutation, overlay/ghost
+    // construction, packet publication, then focus-mask/view selection.
+    ReplayPresentationSelection ApplyRenderPose( Rendering::RenderInstanceStore& renderInstances,
+                                                 Physics::PhysicsEngine& physics,
+                                                 RuntimeTools& runtimeTools );
+    void PrepareRenderOverlay( Physics::PhysicsEngine& physics,
+                               const SceneEntityStore& entities,
+                               RunEditorTracer& tracer,
+                               bool editorModeEnabled,
+                               const RuntimeInteractionGesture& gesture,
+                               int sceneFrame,
+                               std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords );
+    void PublishRenderPacket( RunEditorTracer& tracer,
+                              const Math::Vector::Vector3& cameraTranslation,
+                              const Math::Vector::Vector3& cameraUp,
+                              uint64_t replayReserveGrowthEvents );
+    ReplayRenderFrameView BuildRenderFrameView( const ReplayPresentationSelection& selection,
+                                                Physics::PhysicsEngine& physics,
+                                                int modelCount,
+                                                bool collisionVisualizer,
+                                                bool debugTransparentBodyPass );
+    // Domain command: advances ReplayPresentation's consequence fade once for
+    // a frame that will reach world rendering and returns a copied scalar.
+    float AdvanceConsequenceGrade( bool requested ) noexcept;
     void CompleteRenderFrame( bool submissionRendered,
                               int sceneFrame,
                               uint64_t replayReserveGrowthEvents,
@@ -399,46 +406,28 @@ class ReplayRuntime
     // Owns scrubber save sequencing and status publication; file decode and
     // loaded-track state belong to ReplayTimeline.
     bool SavePresentationFromScrubber( double now );
-    // Applies the visible replay-owner and host-camera reaction after a
-    // successful ReplayTimeline load; this operation performs no file I/O.
-    void ActivateLoadedPresentationScrubber( double now,
-                                             InputRouter& inputRouter,
-                                             RuntimeInteractionController& interaction,
-                                             Environment::CameraCollection* cameras,
-                                             Geometry::Terrain* terrain,
-                                             RunCameraState& camera,
-                                             RunMousePickupState& mousePickup,
-                                             RunCameraMode normalizedCurrentMode,
-                                             RunCameraMode normalizedRestoreMode,
-                                             bool attachedFollow,
-                                             bool directorGrabbed );
+    bool BeginLoadedPresentationActivationScrubber( bool hasLoadedPresentation,
+                                                    InputRouter& inputRouter,
+                                                    RuntimeInteractionController& interaction );
+    void ArmLoadedPresentationScrubber( float normalized, double now, RuntimeInteractionController& interaction );
     void ClearCameraFocusForRestore();
     ReplayPathPickResult ApplyPathPick( const ReplayPathPickInput& input,
                                         const SceneEntityStore& entities,
                                         const Physics::PhysicsBodyStore& bodyStore,
                                         const Physics::ColliderStore& colliderStore,
                                         std::span<const Rendering::RenderInstancePresentationRecord> presentation );
-    bool TickScrubberInput( HWND hwnd,
-                            bool uiBlocksMouse,
-                            InputRouter& inputRouter,
-                            RuntimeInteractionController& interaction,
-                            Environment::CameraCollection* cameras,
-                            Geometry::Terrain* terrain,
-                            RunCameraState& camera,
-                            RunMousePickupState& mousePickup,
-                            RunCameraMode normalizedCurrentMode,
-                            RunCameraMode normalizedRestoreMode,
-                            bool attachedFollow,
-                            bool directorGrabbed,
-                            bool editorModeEnabled,
-                            bool scenePhysicsEnabled,
-                            bool uiVisible,
-                            bool uiMinimized,
-                            int screenWidth,
-                            int screenHeight,
-                            double now,
-                            bool& outEnterInteractive,
-                            ReplayLiveRestoreRequest& outRestoreRequest );
+    ReplayInspectionCameraAction TickScrubberInput( bool uiBlocksMouse,
+                                                    bool editorModeEnabled,
+                                                    bool scenePhysicsEnabled,
+                                                    bool uiVisible,
+                                                    bool uiMinimized,
+                                                    int screenWidth,
+                                                    int screenHeight,
+                                                    double now,
+                                                    InputRouter& inputRouter,
+                                                    RuntimeInteractionController& interaction,
+                                                    RunCameraState& camera,
+                                                    ReplayWorkspaceOutput& output );
 
   private:
     float SolverPresentTrackPosition() const;

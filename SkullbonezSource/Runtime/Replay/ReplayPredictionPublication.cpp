@@ -25,8 +25,6 @@ Related:
 #include "ReplayOverlayLayout.h"
 #include "ReplayPredictionReserve.h"
 #include "ReplayScrubber.h"
-#include "../../Core/Allocation/RuntimeAllocationTracker.h"
-#include "../../Core/Allocation/RuntimeReserveAllocator.h"
 #include "../../Core/Config.h"
 #include "../../Core/SceneCapacity.h"
 #include "../../Physics/ColliderStore.h"
@@ -38,7 +36,6 @@ Related:
 
 #include <algorithm>
 #include <atomic>
-#include <chrono>
 #include <cfloat>
 #include <cmath>
 #include <cstddef>
@@ -64,8 +61,6 @@ using SkullbonezCore::Assets::EditorHullAssetDefaultsToContactRelease;
 using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
 using SkullbonezCore::Math::Vector::Vector3;
-namespace CoreAllocation = SkullbonezCore::Core::Allocation;
-
 namespace SkullbonezCore::Runtime::ReplayPredictionPublicationOperations
 {
 namespace
@@ -82,295 +77,16 @@ constexpr ReplayFrameIndex REPLAY_PREDICTION_REST_GRACE_FRAMES =
     static_cast<ReplayFrameIndex>( REPLAY_PREDICTION_REST_GRACE_SECONDS / PHYSICS_FIXED_DT );
 constexpr float REPLAY_PREDICTION_REST_POSITION_EPSILON_SQ = 0.5f * 0.5f;
 
-double ReplayPredictionElapsedMilliseconds( const std::chrono::steady_clock::time_point& start )
-{
-    return std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - start ).count();
-}
-
-bool ReplayPredictionBudgetExpired( const std::chrono::steady_clock::time_point& start, double budgetMilliseconds )
-{
-    return budgetMilliseconds > 0.0 && ReplayPredictionElapsedMilliseconds( start ) >= budgetMilliseconds;
-}
-
-// Why: Stage-0 replay diagnostics need to know which visualizer pass lost work.
-// Keep the accounting beside the existing budget checks so later stages can
-// delete the budgets without hunting for a separate telemetry path.
-bool ReplayPredictionBudgetExpiredForPass( ReplayPredictionUpdateResult& result,
-                                           SkullbonezCore::Core::MainMemoryReplayBudgetPass pass,
-                                           const std::chrono::steady_clock::time_point& start,
-                                           double budgetMilliseconds )
-{
-    if ( !ReplayPredictionBudgetExpired( start, budgetMilliseconds ) )
-    {
-        return false;
-    }
-    const std::size_t passIndex = static_cast<std::size_t>( pass );
-    if ( passIndex < result.budgetExpiries.size() )
-    {
-        ++result.budgetExpiries[passIndex];
-    }
-    return true;
-}
-
-double ReplayPredictionRevealSecondsPerSecond( const RunReplayPredictionState& prediction )
-{
-    // Why: authored shot-list data is allowed to be imperfect. Non-positive
-    // rates fall back to real-time pacing instead of freezing the reveal cursor
-    // or dividing by zero while the prediction build catches up.
-    return prediction.revealClock.secondsPerSecond > 0.0 ? prediction.revealClock.secondsPerSecond : 1.0;
-}
-
-// Concept: reveal cursor - the wall-clock playhead of the causal-unfold animation.
-//
-// Every prediction draw pass clamps to the frame this returns, so the pace of
-// the visible tree comes from real time, not from how fast the build job
-// happened to finish. While the job is still building, the cursor also clamps
-// to the populated prefix and re-anchors at that edge, so a slow build paces
-// the unfold without banking "reveal debt" that would snap the animation
-// forward the moment the job completes.
-// Invariant: the cursor is MONOTONIC per prediction. It plays 0 -> horizon
-// exactly once and then holds there, so every revealed line and causal box
-// stays on screen. A refresh with no committed same-target future resets the
-// anchor; same-target auto-refresh keeps the anchor and waits until the new
-// prefix reaches the visible cursor.
-ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& prediction,
-                                                   ReplayFrameIndex lastAvailableFrame )
-{
-    if ( prediction.revealClock.deterministicFrameEnabled )
-    {
-        prediction.revealClock.presentedFrame =
-            (std::min)( lastAvailableFrame, prediction.revealClock.deterministicFrame );
-        return prediction.revealClock.presentedFrame;
-    }
-    if ( prediction.build.buildMode == ReplayPredictionBuildMode::Instant )
-    {
-        // Why: instant mode presents the completed future at once. The causal
-        // unfold clock remains an amortized-mode presentation affordance.
-        prediction.revealClock.presentedFrame = lastAvailableFrame;
-        return prediction.revealClock.presentedFrame;
-    }
-    const auto now = std::chrono::steady_clock::now();
-    if ( !prediction.revealClock.anchorValid )
-    {
-        prediction.revealClock.anchor = now;
-        prediction.revealClock.anchorValid = true;
-        prediction.revealClock.presentedFrame = 0;
-        return prediction.revealClock.presentedFrame;
-    }
-
-    const double availableSeconds = static_cast<double>( lastAvailableFrame ) * PHYSICS_FIXED_DT;
-    const double elapsedSeconds =
-        (std::max)( 0.0, std::chrono::duration<double>( now - prediction.revealClock.anchor ).count() );
-    const double revealSecondsPerSecond = ReplayPredictionRevealSecondsPerSecond( prediction );
-    double revealSeconds = elapsedSeconds * revealSecondsPerSecond;
-    if ( prediction.build.building && revealSeconds > availableSeconds )
-    {
-        revealSeconds = availableSeconds;
-        prediction.revealClock.anchor =
-            now - std::chrono::duration_cast<std::chrono::steady_clock::duration>(
-                      std::chrono::duration<double>( availableSeconds / revealSecondsPerSecond ) );
-    }
-
-    const double revealFrame = revealSeconds / static_cast<double>( PHYSICS_FIXED_DT );
-    prediction.revealClock.presentedFrame =
-        (std::min)( lastAvailableFrame, static_cast<ReplayFrameIndex>( revealFrame ) );
-    return prediction.revealClock.presentedFrame;
-}
-
-std::size_t ReplayPredictionBuildPresentationFrameCountForRefresh( RunReplayPredictionState& prediction,
-                                                                   Physics::PhysicsSceneObjectId requestedTargetId )
-{
-    if ( prediction.simulation.frames.empty() || prediction.simulation.targetId.value != requestedTargetId.value )
-    {
-        return 2u;
-    }
-
-    const ReplayFrameIndex lastCommittedFrame = prediction.simulation.frames.back().frameIndex;
-    const ReplayFrameIndex revealFrame = ReplayPredictionRevealFrameIndex( prediction, lastCommittedFrame );
-    return (std::max)( std::size_t{ 2u }, static_cast<std::size_t>( revealFrame ) + 1u );
-}
-
-constexpr int REPLAY_PREDICTION_FRAME_CAPACITY =
-    static_cast<int>( ReplayOverlay::REPLAY_PREDICTION_MAX_SECONDS / PHYSICS_FIXED_DT ) + 2;
-constexpr int REPLAY_PREDICTION_PATH_BUDGET = 100;
-constexpr int REPLAY_PREDICTION_TICKS_PER_WORKER_SUBMIT = 8;
-constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN = 512u;
-constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MAX = 2048u;
-constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_GROWTH_CHUNK = 4096u;
-
-template <typename T> bool ReplayPredictionCapacityBytes( std::size_t capacity, uint64_t& outBytes )
-{
-    constexpr uint64_t elementBytes = static_cast<uint64_t>( sizeof( T ) );
-    const uint64_t maxCapacity = ( std::numeric_limits<uint64_t>::max )() / elementBytes;
-    if ( capacity > maxCapacity )
-    {
-        return false;
-    }
-    outBytes = static_cast<uint64_t>( capacity ) * elementBytes;
-    return true;
-}
-
-template <typename T> uint64_t ReplayPredictionVectorCapacityBytes( const std::vector<T>& values )
-{
-    uint64_t bytes = 0;
-    return ReplayPredictionCapacityBytes<T>( values.capacity(), bytes ) ? bytes : 0;
-}
-
-uint64_t ReplayPredictionWorldSnapshotMemoryBytes( const SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& snapshot )
-{
-    const SkullbonezCore::Physics::PhysicsSolverSnapshot& physics = snapshot.physics;
-    uint64_t bytes = 0;
-    bytes += ReplayPredictionVectorCapacityBytes( physics.timeRemaining );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepSupportedThisFrame );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepInhibitedThisFrame );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepState );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepCounter );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.underwaterSleepLocked );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.tornadoCaptureSeconds );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.tornadoEjectCooldownSeconds );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.collisionVisualContacts );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandVisualId );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandAssignedVisualId );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepSupportEdges );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandParent );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandRank );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandHasAwake );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandHasSupportAnchor );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandEligible );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandCanSleep );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.persistentContacts );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.persistentContactCache );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.persistentContactCounts );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.persistentRestingContactCounts );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.debugContacts );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.pipelineTrace );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.collisionCellKeys );
-    return bytes;
-}
-
-void AddReplayPredictionFrameCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories,
-                                            const RunReplayPredictionFrame& frame )
-{
-    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
-        categories,
-        SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionFrameBodies,
-        ReplayPredictionVectorCapacityBytes( frame.bodies ) );
-    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
-        categories,
-        SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionDebugContacts,
-        ReplayPredictionVectorCapacityBytes( frame.debugContacts ) );
-}
-
-template <typename T>
-bool ReplayPredictionFramePayloadBytes( std::size_t frameCount, std::size_t capacityPerFrame, uint64_t& outBytes )
-{
-    uint64_t bytesPerFrame = 0;
-    if ( !ReplayPredictionCapacityBytes<T>( capacityPerFrame, bytesPerFrame ) )
-    {
-        return false;
-    }
-    const uint64_t maxValue = ( std::numeric_limits<uint64_t>::max )();
-    const uint64_t maxFrameCount = bytesPerFrame > 0 ? maxValue / bytesPerFrame : maxValue;
-    if ( frameCount > maxFrameCount )
-    {
-        return false;
-    }
-    outBytes = static_cast<uint64_t>( frameCount ) * bytesPerFrame;
-    return true;
-}
-
-std::size_t RoundUpReplayPredictionCapacity( std::size_t requestedCapacity, std::size_t chunk )
-{
-    if ( chunk == 0 || requestedCapacity == 0 )
-    {
-        return requestedCapacity;
-    }
-    const std::size_t remainder = requestedCapacity % chunk;
-    return remainder == 0 ? requestedCapacity : requestedCapacity + ( chunk - remainder );
-}
-
-std::size_t ReplayPredictionInitialDebugContactCapacity( int modelCount )
-{
-    const std::size_t modelScaled = static_cast<std::size_t>( (std::max)( modelCount, 1 ) ) * 8u;
-    return std::clamp( modelScaled,
-                       REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN,
-                       REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MAX );
-}
-
-std::size_t ReplayPredictionNextDebugContactCapacity( std::size_t currentCapacity, std::size_t requiredCapacity )
-{
-    const std::size_t chunked =
-        RoundUpReplayPredictionCapacity( requiredCapacity, REPLAY_PREDICTION_DEBUG_CONTACT_GROWTH_CHUNK );
-    const std::size_t doubled =
-        currentCapacity > 0 ? currentCapacity * 2u : REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN;
-    return (std::max)( chunked, doubled );
-}
-
-uint64_t ReplayPredictionEngineMemoryBytes( const PhysicsEngine& engine )
-{
-    // Why: seeding the private engine copies several physics-owned vectors.
-    // Estimate the live working set before requesting the replay growth scope so
-    // those copy allocations are approved under one bounded prediction owner.
-    uint64_t bytes = static_cast<uint64_t>( sizeof( PhysicsEngine ) );
-    bytes += engine.CollectPhysicsWorldMemoryBytes();
-    bytes += engine.CollectDebugAndBroadphaseMemoryBytes();
-    bytes += static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).RecordCapacity() ) *
-             sizeof( PhysicsBodyRecord );
-    bytes += static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngine::ReadColliders( engine ).RecordCapacity() ) *
-             sizeof( ColliderRecord );
-    return bytes;
-}
-
-int ReplayPredictionEngineReserveBytes( const PhysicsEngine& engine )
-{
-    const uint64_t bytes = ReplayPredictionEngineMemoryBytes( engine );
-    if ( bytes == 0 || bytes > static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) ||
-         bytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) )
-    {
-        return 0;
-    }
-    return static_cast<int>( bytes );
-}
-
-template <typename T>
-bool ReserveReplayPredictionVector( std::vector<T>& values,
-                                    std::size_t requestedCapacity,
-                                    int frameNumber,
-                                    const char* targetName )
-{
-    if ( requestedCapacity <= values.capacity() )
-    {
-        return true;
-    }
-    uint64_t oldBytes = 0;
-    uint64_t requestedBytes = 0;
-    if ( !ReplayPredictionCapacityBytes<T>( values.capacity(), oldBytes ) ||
-         !ReplayPredictionCapacityBytes<T>( requestedCapacity, requestedBytes ) ||
-         requestedBytes > static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) )
-    {
-        return false;
-    }
-
-    CoreAllocation::RuntimeReserveGrowthResult result = {};
-    if ( !RequestReplayPredictionReserveGrowth( targetName,
-                                                frameNumber,
-                                                static_cast<int>( oldBytes ),
-                                                static_cast<int>( requestedBytes ),
-                                                1,
-                                                result ) )
-    {
-        return false;
-    }
-
-    const CoreAllocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-    CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
-    CoreAllocation::RuntimeReserveOwnerScope ownerScope( owner );
-    CoreAllocation::RuntimeReserveGrowthScope growthScope( owner, CoreAllocation::RuntimeReservePhase::Replay, result );
-    values.reserve( requestedCapacity );
-    return requestedCapacity <= values.capacity();
-}
-
 } // namespace
+
+std::size_t ReplayPredictionPathStrideForSampleCount( std::size_t sampleCount ) noexcept
+{
+    if ( sampleCount <= REPLAY_PATH_MAX_SEGMENTS )
+    {
+        return 1;
+    }
+    return ( sampleCount + REPLAY_PATH_MAX_SEGMENTS - 1 ) / REPLAY_PATH_MAX_SEGMENTS;
+}
 
 void ClearReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction )
 {
@@ -389,66 +105,6 @@ void ClearReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction 
     prediction.trajectoryBuild.topologyVersion = 0;
 }
 
-
-// Concept: retained replay and prediction samples share body identity rules.
-//
-// Physics::PhysicsSceneObjectId is authority; modelIndex is a cache hint into the current sample.
-// Invariant: solver lookup preserves its legacy negative-sentinel scan, while
-// prediction lookup rejects negative hints before scanning.
-template <typename FrameSample, typename BodySample>
-const BodySample* FindReplayBodyByIdInSample( const FrameSample& sample, Physics::PhysicsSceneObjectId id )
-{
-    for ( const BodySample& body : sample.bodies )
-    {
-        if ( body.id.value == id.value )
-        {
-            return &body;
-        }
-    }
-    return nullptr;
-}
-
-template <typename FrameSample, typename BodySample, bool AllowNegativeModelIndex>
-const BodySample* FindReplayBodyByModelIndexInSample( const FrameSample& sample, int modelIndex )
-{
-    if constexpr ( !AllowNegativeModelIndex )
-    {
-        if ( modelIndex < 0 )
-        {
-            return nullptr;
-        }
-    }
-
-    if ( modelIndex >= 0 && modelIndex < static_cast<int>( sample.bodies.size() ) )
-    {
-        const BodySample& body = sample.bodies[static_cast<std::size_t>( modelIndex )];
-        if ( body.modelRow.value == modelIndex )
-        {
-            return &body;
-        }
-    }
-
-    for ( const BodySample& body : sample.bodies )
-    {
-        if ( body.modelRow.value == modelIndex )
-        {
-            return &body;
-        }
-    }
-    return nullptr;
-}
-
-template <typename FrameSample, typename BodySample, bool AllowNegativeModelIndex>
-Physics::PhysicsSceneObjectId SceneObjectIdForModelIndexInSample( const FrameSample& sample, int modelIndex )
-{
-    if ( const BodySample* body =
-             FindReplayBodyByModelIndexInSample<FrameSample, BodySample, AllowNegativeModelIndex>( sample,
-                                                                                                   modelIndex ) )
-    {
-        return body->id;
-    }
-    return Physics::PhysicsSceneObjectId{};
-}
 
 const ReplaySolverBodySample* FindReplayBodyById( const ReplaySolverFrameSample& sample,
                                                   Physics::PhysicsSceneObjectId id )
@@ -529,13 +185,6 @@ Vector3 ReplayNormalizeOr( Vector3 value, const Vector3& fallback )
     }
     value /= sqrtf( magSq );
     return value;
-}
-
-Quaternion ReplaySolverBodyOrientation( const ReplaySolverBodySample& body )
-{
-    Quaternion orientation( body.orientation[0], body.orientation[1], body.orientation[2], body.orientation[3] );
-    orientation.Normalise();
-    return orientation;
 }
 
 const RunReplayPredictionBodySample* FindReplayPredictionBodyByIdWithHint( const RunReplayPredictionFrame& frame,
@@ -1009,6 +658,84 @@ void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction
 bool ReplayPredictionBodyHasVisibleLinearMotion( const RunReplayPredictionBodySample& body )
 {
     return VectorMagSquared( body.linearVelocity ) >= REPLAY_PREDICTION_CHILD_LINEAR_SPEED_SQ;
+}
+
+std::size_t BuildReplayPredictionAffectedBodyTrails( std::span<const RunReplayPredictionFrame> frames,
+                                                     std::size_t frameCount,
+                                                     ReplayFrameIndex revealFrame,
+                                                     Physics::PhysicsSceneObjectId rootId,
+                                                     int rootModelIndex,
+                                                     std::span<const RunReplayPathTraceNode> futureNodes,
+                                                     const SceneEntityStore& entities,
+                                                     std::span<ReplayPredictionAffectedBodyTrail> outTrails )
+{
+    frameCount = (std::min)( frameCount, frames.size() );
+    if ( frameCount < 2 || rootId.value == 0 || outTrails.empty() )
+    {
+        return 0;
+    }
+
+    const auto idIsAlreadyPublished = [futureNodes]( Physics::PhysicsSceneObjectId id )
+    {
+        for ( const RunReplayPathTraceNode& node : futureNodes )
+        {
+            if ( node.id.value == id.value )
+            {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    // Concept: affected-body trails are visual evidence, not contact authority.
+    // The future-node cache is authoritative when it already names a body; this
+    // bounded fallback derives only bodies whose motion is visible by revealFrame.
+    std::size_t trailCount = 0;
+    const RunReplayPredictionFrame& firstFrame = frames.front();
+    for ( const RunReplayPredictionBodySample& initialBody : firstFrame.bodies )
+    {
+        if ( trailCount >= outTrails.size() )
+        {
+            break;
+        }
+        if ( initialBody.id.value == 0 || initialBody.id.value == rootId.value ||
+             initialBody.modelRow.value == rootModelIndex || idIsAlreadyPublished( initialBody.id ) ||
+             ReplayModelIndexIsRagdollPart( entities, initialBody.modelRow.value ) )
+        {
+            continue;
+        }
+
+        for ( std::size_t frameSlot = 1; frameSlot < frameCount; ++frameSlot )
+        {
+            // Why: delaying construction until the first revealed motion keeps
+            // both marker publication and drawing from pre-spawning the body.
+            if ( frames[frameSlot].frameIndex > revealFrame )
+            {
+                break;
+            }
+
+            const RunReplayPredictionBodySample* body =
+                FindReplayPredictionBodyByIdWithHint( frames[frameSlot], initialBody.id, initialBody.modelRow.value );
+            if ( !body || !ReplayPredictionBodyHasVisibleLinearMotion( *body ) )
+            {
+                continue;
+            }
+
+            ReplayPredictionAffectedBodyTrail& trail = outTrails[trailCount++];
+            trail.id = initialBody.id;
+            trail.modelRow.value = body->modelRow.value;
+            trail.firstFrameSlot = frameSlot;
+            trail.firstFrame = frames[frameSlot].frameIndex;
+            trail.lastMotionFrame = frames[frameSlot].frameIndex;
+            trail.previous = initialBody.position;
+            trail.entryPosition = initialBody.position;
+            trail.entryOrientation = initialBody.orientation;
+            trail.entryOrientation.Normalise();
+            break;
+        }
+    }
+
+    return trailCount;
 }
 
 // Concept: rest is decided by how the story ends, never by a momentary pause.

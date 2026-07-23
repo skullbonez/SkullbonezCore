@@ -4,9 +4,12 @@ Purpose:
   Declares the runtime renderer owner for ordered render passes.
 
 Summary:
-  RuntimeRenderer owns pass objects and backend-resource lifetime. One live
-  RenderGraph owns the frame pass order. Five named owner views supply lifetime-stable dependencies;
-  immutable per-frame records carry submission facts and completed overlays.
+  RuntimeRenderer owns pass objects and frame ordering. RenderResourceLifecycle
+  owns backend-epoch state behind one explicit surface. Established owner views
+  supply lifetime-stable dependencies; immutable per-frame records carry
+  submission facts and completed overlays.
+  UiTextPass owns its font batch and presentation capabilities; this class
+  contributes only the late graph-scheduling edge for UI text.
   A content-neutral extension scope lets higher composition append one typed
   world pass at the renderer-owned post-water scheduling point.
 
@@ -16,8 +19,8 @@ Glossary:
     water, post effects, and UI/text.
   Lane R result: Recoverable resource setup or GPU-drain failure reported
     through an owner/message result instead of throwing through the render owner.
-  Consequence grade: Frame-local dark/cool presentation override used when
-    replay prediction wants causal overlays to dominate the image.
+  Consequence grade: Replay-owned [0,1] scalar copied into one frame to make
+    causal overlays dominate the image; RuntimeRenderer stores no fade state.
   Resource context: Creation/rebuild-only view of the renderer factory and
   resize-sensitive dimensions.
   Backend-owned resource: GPU object that must be released before backend
@@ -32,6 +35,7 @@ Invariants:
   - Backend resource release begins only after a successful GPU drain, then
     keeps consumer passes ahead of producer passes.
   - The world-extension registration is consumed before its stack scope ends.
+  - UI-text input is one stack record consumed synchronously by UiTextPass.
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h
@@ -41,38 +45,20 @@ Related:
 #pragma once
 
 #include "RuntimeRenderHost.h"
-#include "RuntimeRenderInputs.h"
+#include "RuntimeRenderFrameValues.h"
 #include "RuntimeRenderPasses.h"
-#include "RuntimeRenderResources.h"
+#include "RenderResourceLifecycle.h"
 #include "RenderPresentationSettings.h"
-#include "../../Assets/TextureCollection.h"
-#include "../../Rendering/PrimitiveBatchRenderer.h"
-#include "../../Rendering/RenderGpuTimingOwner.h"
 #include "../../Rendering/RenderGraph.h"
 #include "../../Rendering/RenderSceneSnapshot.h"
 #include "../../Rendering/WorldRenderExtension.h"
-#include "../../Rendering/Text.h"
 
 #include <array>
-#include <chrono>
 #include <cstdint>
-#include <optional>
 #include <vector>
 
 namespace SkullbonezCore
 {
-namespace Runtime
-{
-class SceneWorld;
-}
-namespace Physics
-{
-class PhysicsEngine;
-}
-namespace Threading
-{
-class WorkerPool;
-}
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 namespace Runtime::DevelopmentTools
 {
@@ -87,10 +73,6 @@ class RuntimeRenderer
     struct BackendResourceReleaseContext
     {
         const char* phaseName = nullptr;
-        Rendering::Dx12FrameOwner* renderFrame = nullptr;
-        Rendering::Dx12ResourceBuilder* renderResources = nullptr;
-        Rendering::Dx12TextureOwner* renderTextures = nullptr;
-        Rendering::Dx12GeometryOwner* renderGeometry = nullptr;
         UI::InGameUI& ui;
         RuntimeTools& tools;
     };
@@ -98,27 +80,16 @@ class RuntimeRenderer
     struct FrameEntryContext
     {
         const RuntimeRenderModelFrameView& renderModels;
-        UI::InGameUI& ui;
         RuntimeRenderFramePolicy framePolicy;
         const RenderReplayOverlayView& replayOverlay;
         const RenderToolOverlayView& toolOverlay;
         const Rendering::WorldRenderExtensionRegistration& worldExtension;
         const SkullbonezCore::Core::CinematicRenderConfig& cinematic;
-        float presentationAlpha = 1.0f;                   // Exact solver state is 1; live frames may use the accumulator fraction.
         bool cinematicRequested = false;
-        bool consequenceGradeRequested = false;           // True while replay prediction should fade into the causality look.
+        float consequenceGradeStrength = 0.0f;            // Replay-owned [0,1] fade copied for this frame.
     };
 
-    RuntimeRenderer( Rendering::Dx12RenderDevice* renderDevice,
-                     Rendering::Dx12FrameOwner* renderFrame,
-                     Rendering::Dx12GraphTransientPool* renderGraph,
-                     Rendering::Dx12ResourceBuilder* renderResources,
-                     Rendering::Dx12TextureOwner* renderTextures,
-                     Rendering::Dx12GeometryOwner* renderGeometry,
-                     Rendering::Dx12Diagnostics* renderDiagnostics,
-                     Rendering::Dx12RaytracingOwner* renderRayTracing,
-                     const RenderWorldView& world,
-                     RunSceneState& scene );
+    RuntimeRenderer( RuntimeRenderBackendView backend, const RenderWorldView& world, RunSceneState& scene );
     ~RuntimeRenderer();
 
     // Runs after Core FrameBegin and before draw-call counters reset. This
@@ -139,49 +110,16 @@ class RuntimeRenderer
     void ResetSceneRuntimePolicyFromConfig();
 
     void EnsureFrameResources( const RenderResourceContext& resources );
-    // Packages model-owned render/debug views before the frame passes consume them.
-    RuntimeRenderModelFrameView BuildModelFrameView( Runtime::SceneWorld& scene,
-                                                     Threading::WorkerPool& workerPool,
-                                                     const SkullbonezCore::Core::EngineConfig& config ) const;
     bool RenderFrameEntry( const FrameEntryContext& context );
-    bool RenderFrame( const RuntimeRenderInputs& renderInputs );
-    void ReleaseBackendOwnedResources( Rendering::Dx12TextureOwner* renderTextures,
-                                       Rendering::Dx12GeometryOwner* renderGeometry );
     SkullbonezCore::Core::SbResult ReleaseBackendOwnedRuntimeResources( const BackendResourceReleaseContext& context );
-    SkullbonezCore::Core::SbResult InitialiseProcessResources( Rendering::Dx12ResourceBuilder& renderResources,
-                                                               Rendering::Dx12TextureOwner& renderTextures,
-                                                               Rendering::Dx12GeometryOwner& renderGeometry,
-                                                               const SkullbonezCore::Core::EngineConfig& config,
-                                                               bool dumpTextureAssets );
-    // Scene activation asks the renderer to warm its optional ray-tracing
-    // geometry. The renderer uses its startup-bound concrete owners; scene code
-    // supplies only the active capacity while mesh selection and capability
-    // checks stay here.
-    SkullbonezCore::Core::SbResult InitialiseSceneRayTracing( int modelCapacity );
-    // Projects framebuffer metadata into values safe for the UI to retain for
-    // the current draw; no framebuffer or pass-resource ownership escapes.
-    RuntimeRenderTargetPreviewSnapshot BuildRenderTargetPreviewSnapshot( bool shadowsAvailable,
-                                                                         bool cinematicTargetsAvailable,
-                                                                         bool volumetricAvailable ) const;
-    Rendering::PrimitiveBatchRenderer& PrimitiveBatches()
+    RenderResourceLifecycle& ResourceLifecycle()
     {
-        assert( m_primitiveBatches.has_value() );
-        return *m_primitiveBatches;
+        return m_resources;
     }
-    const Rendering::PrimitiveBatchRenderer& PrimitiveBatches() const
+    const RenderResourceLifecycle& ResourceLifecycle() const
     {
-        assert( m_primitiveBatches.has_value() );
-        return *m_primitiveBatches;
+        return m_resources;
     }
-
-    SkullbonezCore::Core::SbResult EnsureUiTextResources( Rendering::Dx12ResourceBuilder& renderResources,
-                                                          Rendering::Dx12TextureOwner& renderTextures,
-                                                          Rendering::Dx12GeometryOwner& renderGeometry,
-                                                          const Assets::AssetSystem& assets,
-                                                          int screenW,
-                                                          int screenH );
-    bool ShouldRenderUiText( const UiTextPassState& state, const UI::InGameUI& ui ) const;
-    void SetUiTextRayTracingCapability( Rendering::Dx12RaytracingOwner* renderRayTracing );
     // Opens the one frame-owned graph before Run chooses world or text-only
     // rendering. The caller must close it exactly once through a finalizer below.
     void BeginFrameGraph( Rendering::Dx12GraphTransientPool& renderGraph );
@@ -195,25 +133,17 @@ class RuntimeRenderer
     // Validates a restart frame with no Present edge, then releases every
     // callback/resource borrow before capture automation can replace the scene.
     void FinalizeCaptureOnlyFrameGraph();
-    void RenderUiText( Rendering::Dx12Diagnostics& renderDiagnostics,
-                       const UI::UIRenderContext& uiRender,
-                       const UiTextPassState& state,
-                       RunTimerState& timers,
-                       UI::InGameUI& ui,
-                       const RuntimeRenderModelFrameView& models,
-                       DiagnosticsRuntime& diagnosticsRuntime,
-                       const ReplayHudStatus& replayHud,
-                       const ReplayOverlay::ReplayOverlayRenderContext& replayOverlayContext,
-                       const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                       bool cinematicRendering,
-                       double dSecondsPerFrame );
+    // Schedules the cohesive UI-text owner with one stack-only frame record.
+    // RuntimeRenderer owns graph order, not HUD/replay/operator composition.
+    void RenderUiText( const UiTextPassInputs& inputs );
 
   private:
     struct CinematicPostFrameOutput
     {
         bool volumetricPassExecuted = false;              // Volumetric callback was scheduled for this post chain.
         bool volumetricReady = false;                     // Volumetric target was produced and can be sampled by tonemap.
-        uint32_t volumetricTextureHandle = 0;             // Renderer texture handle resolved from the graph-managed transient SRV.
+        uint32_t volumetricTextureHandle =
+            0;                                            // Renderer texture handle resolved from the graph-managed transient Shader Resource View (SRV).
         uint32_t volumetricWidth = 0;                     // Materialized graph transient width for diagnostics.
         uint32_t volumetricHeight = 0;                    // Materialized graph transient height for diagnostics.
     };
@@ -303,14 +233,18 @@ class RuntimeRenderer
     struct DebugOverlayGraphInputs
     {
         const RenderFrameContext& frame;
-        const RuntimeRenderServices& services;
+        const DebugOverlaySnapshot& snapshot;
+        RuntimeTools& runtimeTools;
+        const ReplayVisualPacket* replayVisualPacket = nullptr;
         bool useCinematicTarget = false;
     };
-    RenderFrameContext BuildRenderFrameContext( const RuntimeRenderInputs& renderInputs,
+    bool RenderPreparedFrame( const FrameEntryContext& context,
+                              const SkullbonezCore::Core::CinematicRenderConfig& renderConfig,
+                              bool cinematicRender );
+    RenderFrameContext BuildRenderFrameContext( const RuntimeRenderModelFrameView& models,
                                                 bool cinematicRender,
                                                 const SkullbonezCore::Core::CinematicRenderConfig& renderConfig );
-    RenderResourceContext BuildRenderResourceContext( const RuntimeRenderInputs& renderInputs,
-                                                      bool cinematicRender ) const;
+    RenderResourceContext BuildRenderResourceContext( bool cinematicRender );
     Rendering::RenderGraph& BeginRenderPassGraph();
     const Rendering::RenderGraphCompileResult& CompileRenderPassGraph( Rendering::RenderGraph& graph );
     void
@@ -324,58 +258,30 @@ class RuntimeRenderer
     void ExecuteTerrainThroughRenderGraph( const TerrainGraphInputs& inputs );
     void ExecuteWaterThroughRenderGraph( const WaterGraphInputs& inputs );
     bool ExecuteWorldExtensionThroughRenderGraph( const WorldExtensionGraphInputs& inputs );
-    DebugOverlaySnapshot BuildDebugOverlaySnapshot( const RuntimeRenderServices& services ) const;
+    DebugOverlaySnapshot BuildDebugOverlaySnapshot( const RuntimeRenderModelFrameView& models,
+                                                    const RenderToolOverlayView& toolOverlay,
+                                                    const RuntimeRenderFramePolicy& policy ) const;
     void ExecuteReplayGhostsThroughRenderGraph( const ReplayGhostGraphInputs& inputs );
     bool ExecuteDebugOverlayThroughRenderGraph( const DebugOverlayGraphInputs& inputs );
     CinematicPostFrameOutput ExecuteCinematicPostThroughRenderGraph( const CinematicPostGraphInputs& inputs );
-    void ExecuteUiTextThroughRenderGraph( Rendering::Dx12Diagnostics& renderDiagnostics,
-                                          const UI::UIRenderContext& uiRender,
-                                          const UiTextPassState& state,
-                                          RunTimerState& timers,
-                                          UI::InGameUI& ui,
-                                          const RuntimeRenderModelFrameView& models,
-                                          DiagnosticsRuntime& diagnosticsRuntime,
-                                          const ReplayHudStatus& replayHud,
-                                          const ReplayOverlay::ReplayOverlayRenderContext& replayOverlayContext,
-                                          const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                                          bool cinematicRendering,
-                                          Rendering::Dx12RaytracingOwner* renderRayTracing,
-                                          double secondsPerFrame );
-    // Lifetime: startup binds the exact concrete DX12 owners used by this
-    // cohesive renderer. Frame records never republish this authority, and the
-    // pointers remain valid until the enclosing Run/backend lifetime ends.
-    Rendering::Dx12FrameOwner* m_renderFrame = nullptr;
-    Rendering::Dx12GraphTransientPool* m_renderGraph = nullptr;
-    Rendering::Dx12ResourceBuilder* m_renderResources = nullptr;
-    Rendering::Dx12TextureOwner* m_renderTextures = nullptr;
-    Rendering::Dx12GeometryOwner* m_renderGeometry = nullptr;
-    Rendering::Dx12Diagnostics* m_renderDiagnostics = nullptr;
-    Rendering::Dx12RaytracingOwner* m_renderRayTracing = nullptr;
-    RenderResourceLifecycleLog m_lifecycleLog;            // Concrete renderer-owned lifecycle diagnostic writer.
-    Assets::AssetSystem& m_assets;                        // Registered render asset/shader lookup owner.
-    Textures::TextureCollection m_textures;               // Stable texture handle/select owner.
+    void ExecuteUiTextThroughRenderGraph( const UiTextPassInputs& inputs );
+    void ReleaseBackendOwnedResources( Rendering::Dx12GeometryOwner* renderGeometry );
+    // Owner: backend-epoch state and cold setup live behind one resource seam;
+    // frame graph and pass scheduling below retain no duplicate backend borrows.
+    RenderResourceLifecycle m_resources;
     Environment::CameraCollection& m_cameras;             // Active render-camera owner.
-    SceneTerrain& m_terrain;                              // Scene terrain owner borrowed by terrain/debug passes.
-    std::unique_ptr<Geometry::SkyBox> m_skyBox;           // Sky resource lifetime released before backend teardown.
     Window& m_window;                                     // Client dimensions sampled for render targets.
-    RuntimeRenderPassResources m_passResources;           // GPU objects owned by named RuntimeRenderer passes.
-    SkullbonezCore::Core::EngineConfig& m_config;         // Process config that owns ordinary render style.
     // Owner: render presentation policy survives backend rebuilds here; physics
     // state remains in its respective owner.
     RenderPresentationSettings m_presentationSettings;
     Environment::WorldEnvironment& m_world;               // Fluid surface and gravity owner for pass contexts.
-    std::optional<Rendering::PrimitiveBatchRenderer>
-        m_primitiveBatches;                               // Backend-lifetime primitive render cache and batch scratch.
     Physics::CollisionVisualizer& m_collisionVisualizer;
     Physics::BroadphaseVisualizer& m_broadphaseVisualizer;
     Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;
     SkullbonezCore::Core::Profiler* m_profiler = nullptr; // Startup-bound diagnostics source; null in non-profile builds.
-    Rendering::RenderGpuTimingOwner m_renderGpuTiming;    // Concrete renderer query/event owner; Core receives values only.
-    float m_consequenceGradeStrength = 0.0f;              // Render-owned fade strength for the frame-local consequence grade.
-    std::chrono::steady_clock::time_point
-        m_consequenceGradeLastTick;                       // Wall-clock anchor for the grade crossfade; zero means uninitialized.
     std::array<Math::Transformation::Matrix4, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
-        m_dxrReflectionTransforms = {};                   // Scratch matrices for DXR TLAS instance upload.
+        m_dxrReflectionTransforms =
+            {};                                           // Scratch matrices for DXR Top-Level Acceleration Structure (TLAS) instance upload.
     FullscreenQuadPass m_fullscreenQuadPass;              // Shared full-screen vertex buffer pass used by sky/post effects.
     SkyPass m_skyPass;                                    // Background sky pass, reused by reflection and scene target passes.
     SceneTargetPass m_sceneTargetPass;                    // Cinematic HDR scene-target begin/release pass.
@@ -387,10 +293,6 @@ class RuntimeRenderer
     DebugOverlayPass m_debugOverlayPass;                  // Broadphase and physics debug overlay pass.
     VolumetricPass m_volumetricPass;                      // Half-resolution cinematic light-shaft pass.
     TonemapPass m_tonemapPass;                            // HDR-to-backbuffer resolve pass.
-    // Lifetime: fixed-capacity CPU vertex/projection state lives with the
-    // renderer process owner and is synchronously borrowed by UI/text calls.
-    Text::TextBatch m_textBatch;
-    UiTextPass m_uiTextPass;                              // HUD/UI/text pass.
     // Runtime allocation policy: one owner scratch graph accumulates the whole
     // frame. Pass labels are borrowed literals and pass/resource lists are
     // bounded, so steady render frames do not create graph heaps.
@@ -399,9 +301,6 @@ class RuntimeRenderer
     Rendering::RenderSceneSnapshot m_frameGraphSnapshot;
     Rendering::Dx12GraphTransientPool* m_frameGraphRenderGraph = nullptr;
     bool m_frameGraphFinalized = false;
-    // Lifetime: borrowed only for the next UI pass after world rendering, then
-    // refreshed or cleared before backend release and text-only frames.
-    Rendering::Dx12RaytracingOwner* m_uiTextRayTracing = nullptr;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

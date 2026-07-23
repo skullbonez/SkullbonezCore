@@ -559,24 +559,14 @@ void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState&
 
 void RuntimeDiagnostics::LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagnostics,
                                               const RunSceneState& scene,
-                                              const ReplayPresentationSample& selected,
-                                              const ReplayPresentationSample& live,
-                                              const ReplayBodyPresentationSample& selectedBody,
-                                              const ReplayBodyPresentationSample& liveBody,
-                                              float normalized,
-                                              float distanceSquared,
-                                              bool applied,
-                                              bool restored,
-                                              float preLiveDeltaSquared,
-                                              float appliedDeltaSquared,
-                                              float restoredDeltaSquared )
+                                              const ReplayScrubProbeDiagnostic& probe )
 {
     if ( !diagnostics.isEnabled || !diagnostics.isRunActive )
     {
         return;
     }
 
-    std::string escapedName = JsonEscape( selectedBody.name );
+    std::string escapedName = JsonEscape( probe.bodyName );
     SkullbonezCore::Core::Log().Writef(
         diagnostics.path,
         "{\"kind\":\"replay_scrub\",\"run\":\"%s\",\"frame\":%d,\"normalized\":%.6f,\"selected_replay_"
@@ -587,94 +577,71 @@ void RuntimeDiagnostics::LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagno
         "\"applied_delta_sq\":%.9f,\"restored_delta_sq\":%.9f}\n",
         diagnostics.currentRunId,
         scene.currentFrame,
-        normalized,
-        static_cast<unsigned long long>( selected.frameIndex ),
-        static_cast<unsigned long long>( live.frameIndex ),
-        selected.sceneFrame,
-        live.sceneFrame,
-        static_cast<unsigned long long>( selected.stateHash ),
-        static_cast<unsigned long long>( live.stateHash ),
-        selectedBody.id.value,
-        liveBody.modelRow.value,
+        probe.normalized,
+        static_cast<unsigned long long>( probe.selectedReplayFrame ),
+        static_cast<unsigned long long>( probe.liveReplayFrame ),
+        probe.selectedSceneFrame,
+        probe.liveSceneFrame,
+        static_cast<unsigned long long>( probe.selectedStateHash ),
+        static_cast<unsigned long long>( probe.liveStateHash ),
+        probe.bodyId,
+        probe.modelIndex,
         escapedName.c_str(),
-        selectedBody.position.x,
-        selectedBody.position.y,
-        selectedBody.position.z,
-        liveBody.position.x,
-        liveBody.position.y,
-        liveBody.position.z,
-        distanceSquared,
-        selected.bodies.size(),
-        live.bodies.size(),
-        applied ? 1 : 0,
-        restored ? 1 : 0,
-        preLiveDeltaSquared,
-        appliedDeltaSquared,
-        restoredDeltaSquared );
+        probe.selectedPosition[0],
+        probe.selectedPosition[1],
+        probe.selectedPosition[2],
+        probe.livePosition[0],
+        probe.livePosition[1],
+        probe.livePosition[2],
+        probe.distanceSquared,
+        probe.selectedBodyCount,
+        probe.liveBodyCount,
+        probe.applied ? 1 : 0,
+        probe.restored ? 1 : 0,
+        probe.preLiveDeltaSquared,
+        probe.appliedDeltaSquared,
+        probe.restoredDeltaSquared );
     SkullbonezCore::Core::Log().FlushAll();
 }
 
 void RuntimeDiagnostics::LogReplayRestoreProbe( RunPhysicsDiagnosticsState& diagnostics,
                                                 const RunSceneState& scene,
-                                                const ReplaySolverFrameSample& selected,
-                                                uint64_t restoredSolverHash,
-                                                uint64_t restoredPresentationHash,
-                                                std::size_t restoredBodyCount,
-                                                bool hashCaptured,
-                                                bool hashMatched,
-                                                bool fallbackAttempted,
-                                                bool fallbackRestored )
+                                                const ReplayRestoreProbeDiagnostic& probe )
 {
-    LogReplayRestoreResult( diagnostics,
-                            scene,
-                            "retained_solver",
-                            selected.frameIndex,
-                            selected.sceneFrame,
-                            selected.checkpointBoundary ? selected.frameIndex : 0,
-                            selected.solverHash,
-                            selected.presentationHash,
-                            selected.bodies.size(),
-                            restoredSolverHash,
-                            restoredPresentationHash,
-                            restoredBodyCount,
-                            selected.contactCount,
-                            selected.pipelineRecordCount,
-                            selected.checkpointBoundary,
-                            hashCaptured,
-                            hashMatched,
-                            fallbackAttempted,
-                            fallbackRestored,
-                            hashMatched ? "" : "retained solver restore hash mismatch" );
+    ReplayRestoreResultDiagnostic result;
+    result.restoreSource = "retained_solver";
+    result.targetReplayFrame = probe.targetReplayFrame;
+    result.targetSceneFrame = probe.targetSceneFrame;
+    result.checkpointReplayFrame = probe.checkpointBoundary ? probe.targetReplayFrame : 0;
+    result.targetSolverHash = probe.targetSolverHash;
+    result.targetPresentationHash = probe.targetPresentationHash;
+    result.targetBodyCount = probe.targetBodyCount;
+    result.restoredSolverHash = probe.restoredSolverHash;
+    result.restoredPresentationHash = probe.restoredPresentationHash;
+    result.restoredBodyCount = probe.restoredBodyCount;
+    result.contactCount = probe.contactCount;
+    result.pipelineRecordCount = probe.pipelineRecordCount;
+    result.checkpointBoundary = probe.checkpointBoundary;
+    result.hashCaptured = probe.hashCaptured;
+    result.hashMatched = probe.hashMatched;
+    result.fallbackAttempted = probe.fallbackAttempted;
+    result.fallbackRestored = probe.fallbackRestored;
+    result.failureReason = probe.hashMatched ? "" : "retained solver restore hash mismatch";
+    LogReplayRestoreResult( diagnostics, scene, result );
 }
 
 void RuntimeDiagnostics::LogReplayRestoreResult( RunPhysicsDiagnosticsState& diagnostics,
                                                  const RunSceneState& scene,
-                                                 const char* restoreSource,
-                                                 uint64_t targetReplayFrame,
-                                                 int targetSceneFrame,
-                                                 uint64_t checkpointReplayFrame,
-                                                 uint64_t targetSolverHash,
-                                                 uint64_t targetPresentationHash,
-                                                 std::size_t targetBodyCount,
-                                                 uint64_t restoredSolverHash,
-                                                 uint64_t restoredPresentationHash,
-                                                 std::size_t restoredBodyCount,
-                                                 uint16_t contactCount,
-                                                 uint16_t pipelineRecordCount,
-                                                 bool checkpointBoundary,
-                                                 bool hashCaptured,
-                                                 bool hashMatched,
-                                                 bool fallbackAttempted,
-                                                 bool fallbackRestored,
-                                                 const char* failureReason )
+                                                 const ReplayRestoreResultDiagnostic& result )
 {
     if ( !diagnostics.isEnabled || !diagnostics.isRunActive )
     {
         return;
     }
 
-    std::string escapedSource = JsonEscape( restoreSource && restoreSource[0] != '\0' ? restoreSource : "unknown" );
-    std::string escapedReason = JsonEscape( failureReason ? failureReason : "" );
+    std::string escapedSource =
+        JsonEscape( result.restoreSource && result.restoreSource[0] != '\0' ? result.restoreSource : "unknown" );
+    std::string escapedReason = JsonEscape( result.failureReason ? result.failureReason : "" );
 
     SkullbonezCore::Core::Log().Writef(
         diagnostics.path,
@@ -687,23 +654,23 @@ void RuntimeDiagnostics::LogReplayRestoreResult( RunPhysicsDiagnosticsState& dia
         "\"fallback_restored\":%d,\"failure_reason\":\"%s\"}\n",
         diagnostics.currentRunId,
         scene.currentFrame,
-        static_cast<unsigned long long>( targetReplayFrame ),
+        static_cast<unsigned long long>( result.targetReplayFrame ),
         escapedSource.c_str(),
-        static_cast<unsigned long long>( checkpointReplayFrame ),
-        targetSceneFrame,
-        static_cast<unsigned long long>( targetSolverHash ),
-        static_cast<unsigned long long>( targetPresentationHash ),
-        static_cast<unsigned long long>( restoredSolverHash ),
-        static_cast<unsigned long long>( restoredPresentationHash ),
-        targetBodyCount,
-        restoredBodyCount,
-        static_cast<unsigned>( contactCount ),
-        static_cast<unsigned>( pipelineRecordCount ),
-        checkpointBoundary ? 1 : 0,
-        hashCaptured ? 1 : 0,
-        hashMatched ? 1 : 0,
-        fallbackAttempted ? 1 : 0,
-        fallbackRestored ? 1 : 0,
+        static_cast<unsigned long long>( result.checkpointReplayFrame ),
+        result.targetSceneFrame,
+        static_cast<unsigned long long>( result.targetSolverHash ),
+        static_cast<unsigned long long>( result.targetPresentationHash ),
+        static_cast<unsigned long long>( result.restoredSolverHash ),
+        static_cast<unsigned long long>( result.restoredPresentationHash ),
+        result.targetBodyCount,
+        result.restoredBodyCount,
+        static_cast<unsigned>( result.contactCount ),
+        static_cast<unsigned>( result.pipelineRecordCount ),
+        result.checkpointBoundary ? 1 : 0,
+        result.hashCaptured ? 1 : 0,
+        result.hashMatched ? 1 : 0,
+        result.fallbackAttempted ? 1 : 0,
+        result.fallbackRestored ? 1 : 0,
         escapedReason.c_str() );
     SkullbonezCore::Core::Log().FlushAll();
 }

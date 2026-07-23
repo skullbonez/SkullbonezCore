@@ -5,12 +5,13 @@
       "path": "SkullbonezSource/Runtime/Startup/StartupProbeHarnesses.cpp",
       "patterns": [
         "std::make_unique<SkullbonezCore::Runtime::SceneController>",
-        "std::make_unique<PhysicsBodyStore>"
+        "std::make_unique<PhysicsBodyStore>",
+        "std::make_unique<PhysicsEngine>"
       ],
-      "owner": "Standalone physics smoke bootstrap",
+      "owner": "Physics engine lifecycle smoke bootstrap",
       "phase": "startup_validation",
-      "reason": "The runtime handle smoke constructs isolated runtime owners before WorkerPool, Window, renderer, or Run startup; fixed-array physics stores stay off the bounded launcher stack.",
-      "cap": "Three owner allocations when --physics-standalone-smoke is requested.",
+      "reason": "The engine lifecycle and runtime-handle probes construct isolated owners before WorkerPool, Window, renderer, or Run startup; fixed-array physics stores stay off the bounded launcher stack.",
+      "cap": "Two sequential PhysicsEngine owners plus one SceneController and one PhysicsBodyStore owner when --physics-standalone-smoke is requested.",
       "removal_or_wrapper_plan": "Keep this validation-only path outside steady gameplay and retain explicit heap ownership for MAX_SCENE_OBJECTS fixed stores."
     },
     {
@@ -60,11 +61,11 @@
       "removal_or_wrapper_plan": "Replace with composition-root arena storage if process-lifetime runtime owners move to a typed startup allocator."
     },
     {
-      "path": "SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp",
+      "path": "SkullbonezSource/Runtime/Render/RenderResourceLifecycle.cpp",
       "patterns": [
         "std::make_unique<Geometry::SkyBox>"
       ],
-      "owner": "RuntimeRenderer sky resource owner",
+      "owner": "RenderResourceLifecycle sky resource owner",
       "phase": "scene_load_backend_resource_init",
       "reason": "The skybox owner is rebuilt during scene/resource initialization, not ordinary gameplay simulation.",
       "cap": "One skybox owner for the active scene/resource set.",
@@ -129,6 +130,17 @@
       "reason": "Prediction frames, frame payload pools, private prediction engine storage, and trajectory records share one registered replay growth gate.",
       "cap": "ReplayRetainedMemory policy registers replay_prediction_working_set with a 256 MiB hard byte cap; the strict two-generation probe measured 110,979,828 bytes high-water.",
       "removal_or_wrapper_plan": "Keep prediction growth behind RequestReplayPredictionReserveGrowth/ReserveReplayPredictionVector or replace the working set with a fixed prediction arena."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Replay/ReplayPredictionReserve.h",
+      "patterns": [
+        ".reserve("
+      ],
+      "owner": "ReplayPrediction private working set",
+      "phase": "replay",
+      "reason": "C2 centralizes the existing vector and batched frame-payload reserve calls behind replay_prediction_working_set; their request bytes, phase gate, owner scopes, and growth counters are unchanged.",
+      "cap": "The existing replay_prediction_working_set registration remains capped at 256 MiB with its existing high-water and growth counters.",
+      "removal_or_wrapper_plan": "Move prediction buffers behind a fixed replay prediction arena, then delete this mechanically relocated row."
     },
     {
       "path": "SkullbonezSource/Runtime/Replay/ReplayPrediction.cpp",
@@ -304,11 +316,11 @@
         ".push_back(",
         ".resize("
       ],
-      "owner": "Standalone physics API and cold validation probe",
-      "phase": "cold_validation_and_preallocated_public_views",
-      "reason": "Public query/contact vectors are bounded standalone-world storage; the validation-only smoke allocates its fixed-array world off the launcher stack before any gameplay phase.",
-      "cap": "At most nine scenario-specific PhysicsStandaloneWorld owners per synchronous smoke invocation; public view/contact rows remain bounded by MAX_SCENE_OBJECTS and fixed constraint/query inputs.",
-      "removal_or_wrapper_plan": "Keep the smoke owner cold; replace public view vectors with fixed stores if the standalone API is promoted into steady runtime."
+      "owner": "ColliderStore cold authoring storage",
+      "phase": "startup_preallocation_and_scene_mutation",
+      "reason": "Collider records and generation tables are sized during cold scene authoring; steady gameplay reads the preallocated dense store without growing it.",
+      "cap": "Bounded by MAX_SCENE_OBJECTS collider rows and handle-generation slots.",
+      "removal_or_wrapper_plan": "Replace the remaining cold vectors with fixed-capacity storage, then remove these patterns."
     },
     {
       "path": "SkullbonezSource/Physics/DisjointSet.h",
@@ -327,31 +339,6 @@
         ".assign(",
         ".push_back(",
         ".reserve("
-      ],
-      "owner": "Physics preallocated/replay static STL surface",
-      "phase": "startup_preallocation_scene_load_replay",
-      "reason": "Existing physics vectors are pre-sized or reserved around scene/model capacity, public API views, debug traces, or replay snapshot paths; unapproved steady gameplay heap traffic is still caught by the runtime allocation guard.",
-      "cap": "Bounded by scene model/body/contact capacities or replay snapshot hard caps; no new physics runtime allocation exception is approved by this row.",
-      "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
-    },
-    {
-      "path": "SkullbonezSource/Physics/PhysicsApi.cpp",
-      "patterns": [
-        ".assign(",
-        ".push_back(",
-        ".resize(",
-        "std::make_unique<PhysicsStandaloneWorld>"
-      ],
-      "owner": "Physics preallocated/replay static STL surface",
-      "phase": "startup_preallocation_scene_load_replay",
-      "reason": "Existing physics vectors are pre-sized or reserved around scene/model capacity, public API views, debug traces, or replay snapshot paths; unapproved steady gameplay heap traffic is still caught by the runtime allocation guard.",
-      "cap": "Bounded by scene model/body/contact capacities or replay snapshot hard caps; no new physics runtime allocation exception is approved by this row.",
-      "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
-    },
-    {
-      "path": "SkullbonezSource/Physics/PhysicsApi.h",
-      "patterns": [
-        "std::vector<"
       ],
       "owner": "Physics preallocated/replay static STL surface",
       "phase": "startup_preallocation_scene_load_replay",
@@ -1164,12 +1151,11 @@
       "path": "SkullbonezSource/Runtime/Replay/ReplayPredictionPublication.cpp",
       "patterns": [
         ".push_back(",
-        ".reserve(",
         ".resize("
       ],
       "owner": "ReplayPrediction private working set",
       "phase": "replay",
-      "reason": "RC2 moved the existing trajectory and baseline publication growth calls behind the same replay_prediction_working_set owner; no registration, phase gate, cap, or counter changed.",
+      "reason": "RC2 moved the existing trajectory and baseline publication growth calls behind the same replay_prediction_working_set owner; C2 relocated its reserve primitive to ReplayPredictionReserve.h without changing registration, phase gate, cap, or counters.",
       "cap": "The existing replay_prediction_working_set registration remains capped at 256 MiB with its existing high-water and growth counters.",
       "removal_or_wrapper_plan": "Move publication buffers behind a fixed replay prediction arena, then delete this mechanically relocated row."
     },
@@ -1269,15 +1255,15 @@
       "removal_or_wrapper_plan": "Replace requirement vectors with bounded validation storage when the validation schema gains hard row caps."
     },
     {
-      "path": "SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp",
+      "path": "SkullbonezSource/Runtime/Render/RenderResourceLifecycle.cpp",
       "patterns": [
         ".emplace("
       ],
-      "owner": "RuntimeRenderer primitive-batch lifecycle",
+      "owner": "RenderResourceLifecycle primitive-batch owner",
       "phase": "startup_and_backend_rebuild",
       "reason": "The optional PrimitiveBatchRenderer reconstructs its single backend-bound value only after a successful device/resource rebuild.",
       "cap": "Exactly one optional PrimitiveBatchRenderer instance.",
-      "removal_or_wrapper_plan": "Replace optional emplacement with an in-place RuntimeRenderer-owned value when backend rebuild can rebind the resource factory without reconstructing the owner."
+      "removal_or_wrapper_plan": "Replace optional emplacement with an in-place lifecycle-owned value when backend rebuild can rebind the resource factory without reconstructing the owner."
     },
     {
       "path": "SkullbonezSource/Runtime/Scene/SceneRuntime.cpp",

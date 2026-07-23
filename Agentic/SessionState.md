@@ -1,6 +1,6 @@
 # SkullbonezCore Session State
 
-Date: 2026-07-22
+Date: 2026-07-23
 
 Keep this file operational and short. Detailed evidence belongs in plans,
 reports, and git history. `Agentic/Plans/MASTER-PLAN.md` is the authoritative
@@ -10,30 +10,83 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner` |
-| Current baseline | The 2026-07-22 architecture follow-up campaign is closed: render interface retirement, owner fan-out reduction, and Replay subsystem consolidation are complete. Legacy remains the development default. |
-| Current objective | Begin the 2026-07-22 architecture follow-up round-2 campaign: `physics-standalone-world-unification` PU0 is the next task. |
-| Active/future progress | 0 / 24 live tasks; 0%. |
+| Branch | `nightrunner-22nd-JUL-26` |
+| Current baseline | Wide-signature parameter-bag remediation is complete: campaign-created mechanical packs are absent and the threshold-13 scan is empty. Legacy remains the development default. |
+| Current objective | The next registered architecture campaign begins with `source-blemish-remediation` B1 when the owner starts it. |
+| Active/future progress | 0/16 registered architecture follow-up tasks; 0%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | RC6 `validate_full` passes in 104.4 s: mandatory CPU umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact physics. |
-| Validation for current edits | Authorized provenance-only reconciliation changes exactly two hash fields; the replay visual-fidelity gate now passes all 2,401 ticks and negative controls in 435.3 s. |
+| Last broad local gate | B5 `validate_full` passes in 115.7 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
+| Validation for current edits | B5 threshold/static proofs, fast, Replay allocation/artifact/scrub-visual-fidelity, broad, and hostile no-bag review all pass. |
 
 ## Live Queue
 
-NOW. The 2026-07-22 architecture follow-up round-2 campaign is registered at
-0/24 with binding order: `physics-standalone-world-unification` (5),
-`run-execute-frame-phase-decomposition` (4), `runtime-renderer-decomposition`
-(6), `replay-deduplication-audit` (4), `wide-signature-reduction` (5). Plans
-live under `Agentic/Plans/TODO/`; the campaign section in
+NOW. `wide-signature-parameter-bag-remediation` is complete (6/6).
+The owner rejected replacements such as `RenderModelPassInput` that merely
+bundle arguments for immediate unpacking. B0 reopened the three prior
+wide-signature closure claims and inventories every campaign-introduced or
+repurposed parameter object. Mechanical input/request/descriptor/context
+shapes must be removed through actual action or phase decomposition; real
+body-state values, emitted diagnostics, and producer result records retain
+their independent domain identity. PR #131 remains draft while this is fixed.
+B1 removes `InGameUIInputFrame`, both Scene-tab frame packets, and all tornado
+quad call packs. Scene-selection controls now belong to `UISceneTabState`; UI
+consumes its pre-existing normalized input snapshot plus explicit facts under
+the 12-parameter ceiling. The ten touched source files pass the comment audit,
+the threshold-13 scan is empty, and `validate_fast` passes. B2 is now complete:
+narrowphase borrows behavior from the sleep owner instead of a row
+pack; texture and mesh creation consume explicit cold-upload facts; main and
+reflection model submission are separate APIs with compile-time visibility;
+and object shadow submission is structural. Fifteen touched source files pass
+the comment audit. Physics, DX12, one-minute graphics stress, and performance
+gates pass without baseline refresh, validation errors, allocation violations,
+or performance regressions. B3 removes the Replay cause-tree and velocity
+source packs, the loaded-presentation request, and the scrub-gesture packet.
+Cause-tree surface/activation, velocity gizmo/target picking, artifact
+reset/arming, and scrub/prediction-horizon gestures are now distinct operations.
+`ReplayWorkspaceFrameInput` remains only at `TickWorkspace`; no extracted
+operation receives or copies it. Nine touched source files pass the comment
+audit, the Profile build and focused Replay tests pass, and the threshold-13
+scan remains empty. B4 removes the Replay prediction frame request, the
+additionally discovered prediction-job descriptor, the render-preparation
+packet, and the restore-diagnostic input packet. Prediction and render now use
+ordered owner operations, and restore sites directly build the real emitted
+diagnostic. Six touched source files pass the comment audit; the Profile build,
+53 focused Replay doctests / 799 assertions, removed-type scan, and threshold-13
+inventory pass. B5's history reconstruction finds and removes six additional
+descriptors plus `RuntimeRenderInputs` and `RuntimeRenderServices`. The final
+55/55 comment audit, threshold/static proofs, hostile no-bag review, Replay
+allocation/artifact/scrub-visual-fidelity gates, and broad gate pass. Closure
+evidence is in
+`Agentic/Reports/2026-07-23/wide-signature-parameter-bag-remediation-closure.md`.
+The next registered campaign is `source-blemish-remediation`; no implementation
+has started.
+
+`wide-signature-decomposition-round-2` closed D0-D4 (5/5) and left the
+live ledger. All eight reopened threshold-16 rows were removed without a
+context/service bag, hidden mutable owner, or forwarding facade. The final scan
+is empty; dependency/Replay-boundary proofs, allocation and Replay artifact
+gates, scrub/visual fidelity, the broad gate, and independent review pass.
+Evidence is in
+`Agentic/Reports/2026-07-23/wide-signature-decomposition-round-2-closure.md`.
+The prior
+2026-07-22 architecture follow-up round-2 campaign remains closed. Wide
+signature reduction removed all 16 ruled defect rows without introducing a
+context bag; the final 285 rows all retain explicit owner rulings. The closure
+report is `Agentic/Reports/2026-07-23/wide-signature-reduction-closure.md`.
+The campaign section in
 `Agentic/Plans/MASTER-PLAN.md` carries the ratified owner decisions,
 including that replay is the engine's most important subsystem and its audit
-is an internal-quality pass, not a slimming exercise. The prior 2026-07-22
+was an internal-quality pass, not a slimming exercise. Replay deduplication
+closed RD0-RD3 with evidence in
+`Agentic/Reports/2026-07-22/replay-deduplication-closure.md`. The prior 2026-07-22
 architecture follow-up campaign is closed: render interface retirement closed
 RH0-RH5, owner fan-out reduction closed OF0-OF5, and Replay subsystem
 consolidation closed RC0-RC6. Evidence is in
 `Agentic/Reports/2026-07-22/render-interface-retirement-closure.md`,
 `Agentic/Reports/2026-07-22/owner-fanout-reduction-of5-closure-census.md`, and
-`Agentic/Reports/2026-07-22/replay-subsystem-consolidation-closure.md`. The prior architecture-review campaign is
+`Agentic/Reports/2026-07-22/replay-subsystem-consolidation-closure.md`.
+RuntimeRenderer decomposition also closed RR0-RR5; evidence is in
+`Agentic/Reports/2026-07-22/runtime-renderer-decomposition-closure.md`. The prior architecture-review campaign is
 closed through replay policy, and the owner accepted ImGui/Tracy E17 for
 extended hands-on use on 2026-07-21; closure evidence is in
 `Agentic/Reports/2026-07-21/imgui-tracy-editor-campaign-closure.md`.
@@ -239,6 +292,68 @@ are not certified. Full evidence:
 | allocation self-test + repository scan (RC2) | 9.4 s | PASS; 414 files, zero allowlist errors; same three registered owners/caps |
 | replay visual fidelity (RC2, one engine generation) | 422.9 s | BLOCKED; launcher shape and 16/72 controls pass, then unchanged config-provenance mismatch; no retry or metadata edit |
 | `tools\validate_full.bat` (RC2 final) | 108.2 s | PASS; CPU/coverage umbrella and five runtime lanes, accepted DX12 images, byte-exact 44,401-line physics CSV |
+| focused Profile build (RR3 final) | 17.1 s | PASS; zero warnings/errors after lifecycle extraction and formatting |
+| `tools\validate_fast.bat` (RR3 final) | 58.2 s | PASS; format, 743/743 project/filter items, tests, and Profile/Debug builds |
+| allocation self-test + repository scan (RR3) | 9.3 s | PASS; 427 files, zero allowlist errors; existing cold-owner rows relocated only |
+| `tools\validate_dx12_renderer.bat` (RR3) | 24.7 s | PASS; zero InfoQueue errors and all three committed images accepted |
+| `tools\run_graphics_stress.bat 1` (RR3) | 60.9 s | PASS; PID 47480 bounded stop, crash-free |
+| `tools\validate_full.bat` (RR3 final) | 121.2 s | PASS; CPU/coverage and five runtime lanes, accepted DX12 images, byte-exact physics |
+| focused Profile build (RR4 final) | 17.1 s | PASS; zero warnings/errors after exact backend-view narrowing |
+| `tools\validate_dx12_renderer.bat` (RR4) | 39.8 s | PASS; zero InfoQueue errors and all three committed images accepted |
+| `tools\run_graphics_stress.bat 1` (RR4) | 60.9 s | PASS; PID 46552 bounded stop, crash-free |
+| `tools\validate_full.bat` (RR4 final) | 118.7 s | PASS; CPU/coverage and five runtime lanes, accepted DX12 images, byte-exact physics |
+| focused Profile build (RR5 remediation final) | 8.17 s | PASS; zero warnings/errors after extracting `RenderModelFramePublisher` |
+| `tools\validate_full.bat` (RR5 final) | 145.30 s | PASS; CPU/coverage and five runtime lanes, zero DX12 errors, accepted images, physics hash `0x953D97A226665242`, byte-exact 44,401-line CSV |
+| three final `tools\validate_dx12_renderer.bat` repeats (RR5) | 23.23 / 23.38 / 23.34 s | PASS; every repeat reported zero InfoQueue errors and accepted all committed images |
+| `tools\run_graphics_stress.bat 1` (RR5) | 60.91 s | PASS; PID 61432 bounded stop, crash-free |
+| replay visual fidelity (RD0, sole invocation) | 432.83 s | PASS; one process/generation, 2,401 ticks, 17 cases / 75 assertions, all controls, zero refresh |
+| replay visual fidelity (RD1, sole invocation) | 430.23 s | PASS; one process/generation, 2,401 ticks, 17 cases / 75 assertions, all controls, zero refresh |
+| focused Profile build + Replay doctests (RD2 C1) | 3.56 s + 1.87 s | PASS; zero warnings/errors, 52 cases / 786 assertions |
+| `tools\validate_format.bat` (RD2 C1 final) | 13.37 s | PASS; all implementation and header formatting clean |
+| `tools\validate_tests.bat` (RD2 C1 final) | 11.34 s | PASS; 345 cases / 68,702 assertions, zero warnings/errors |
+| replay visual fidelity (RD2 C1, sole invocation) | 442.68 s | PASS; one process/generation/presentation, 2,401 ticks, all positive/negative controls, zero refresh |
+| focused Profile build + Replay doctests (RD2 C2) | 10.86 s + 0.05 s | PASS; zero build errors, 52 cases / 786 assertions |
+| allocation self-test + repository scan (RD2 C2) | 9.20 s | PASS; 429 files, zero allowlist errors; allowlist relocation only |
+| `tools\validate_fast.bat` (RD2 C2 final) | 44.73 s | PASS; format/metadata and zero-warning Profile/Debug builds |
+| strict two-generation Replay allocation (RD2 C2) | 15.98 s | PASS; frame 180, exactly two generations, zero gameplay/policy violations |
+| replay visual fidelity (RD2 C2, sole invocation) | 430.84 s | PASS; one process/generation/presentation, 2,401 ticks, all controls, zero refresh |
+| focused Profile build + Replay doctests (RD2 C3) | 4.19 s + 2.41 s | PASS; zero build errors, 53 cases / 791 assertions including lookup policy |
+| `tools\validate_format.bat` (RD2 C3 final) | 13.48 s | PASS; all implementation and header formatting clean |
+| `tools\validate_tests.bat` (RD2 C3 final) | 8.75 s | PASS; 346 cases / 68,707 assertions, zero warnings/errors |
+| replay visual fidelity (RD2 C3, sole invocation) | 439.01 s | PASS; one process/generation/presentation, 2,401 ticks, all controls, zero refresh |
+| focused Profile build + Replay doctests (RD2 C4) | 4.32 s + 1.91 s | PASS; zero warnings/errors, 53 cases / 791 assertions |
+| replay visual fidelity (RD2 C4, sole invocation) | 444.30 s | PASS; one process/generation/presentation, 2,401 ticks, all positive/negative controls, zero refresh |
+| focused Profile build + Replay/causality doctests (RD2 C5) | 11.37 s + 2.32 s + 0.02 s | PASS; zero warnings/errors, 53 Replay cases / 791 assertions and 1 causality case / 16 assertions |
+| `tools\validate_format.bat` (RD2 C5 final) | 13.42 s | PASS; all implementation and header formatting clean |
+| `tools\validate_tests.bat` (RD2 C5 final) | 3.42 s | PASS; 346 cases / 68,707 assertions, zero warnings/errors |
+| replay visual fidelity (RD2 C5, sole invocation) | 443.75 s | PASS; one process/generation/presentation, 2,401 ticks, all positive/negative controls, zero refresh |
+| Profile startup log probe (RD3) | 4.49 s build + 3.13 s run | PASS; stdout ERROR, stderr FATAL, exit 1, no modal/hang |
+| `tools\validate_tests.bat` (RD3 final) | 10.54 s | PASS; 346 cases / 68,715 assertions |
+| strict Replay allocation (RD3 final) | 12.78 s | PASS; two-generation policy clean |
+| `tools\validate_replay_v2_artifact.bat` (RD3 final) | 54.67 s | PASS; save/restore and hash verification |
+| replay visual fidelity (RD3 final) | 471.77 s | PASS; one process/generation/presentation, 2,401 ticks, all controls |
+| `tools\validate_physics.bat` (RD3 final) | 23.08 s | PASS; 44,401-line CSV byte-exact |
+| `tools\validate_full.bat` (RD3 final) | 136.17 s | PASS; CPU umbrella, five runtime lanes, zero DX12 errors |
+| wide-signature W1-corrected self-test + scan | 26.71 s | PASS; explicit stdout self-test/301-row PASS lines and `EXIT=0` |
+| `tools\validate_fast.bat` (wide-signature W0) | 23.46 s | PASS; 346 cases / 68,715 assertions, zero warnings/errors, captured terminal pass line |
+| wide-signature W1 corrected scan + rulings | 26.52 s | PASS; 301/301 rows ruled, explicit stdout PASS and `EXIT=0` |
+| `tools\validate_fast.bat` (wide-signature W1) | 24.32 s | PASS; 346 cases / 68,715 assertions, zero warnings/errors |
+| Profile build (wide-signature W2 UI input) | 11.63 s | PASS; zero warnings/errors |
+| corrected inventory (wide-signature W2 UI input) | 26.44 s | PASS; 299 rows, both UI targets absent |
+| `tools\validate_full.bat` (wide-signature W2 UI first attempt) | 7.12 s | BLOCKED then resolved; one touched file needed formatting |
+| `tools\validate_full.bat` (wide-signature W2 UI input) | 131.72 s | PASS; CPU umbrella, five runtime lanes, byte-exact physics |
+| `tools\validate_full.bat` (wide-signature W2 UI final tip) | 124.39 s | PASS; CPU umbrella, five runtime lanes, byte-exact physics |
+| Profile build (wide-signature W2 Physics first attempt) | 22.78 s | BLOCKED then resolved; three missing namespace qualifiers |
+| Profile build (wide-signature W2 Physics final) | 10.44 s | PASS; zero warnings/errors |
+| focused Replay doctests (wide-signature W2 Physics) | 2.47 s | PASS; 53 cases / 799 assertions |
+| corrected inventory (wide-signature W2 Physics) | 26.62 s | PASS; 297 rows, both restore targets absent |
+| `tools\validate_full.bat` (wide-signature W2 Physics first attempt) | 13.55 s | BLOCKED then resolved; touched header formatting |
+| `tools\validate_format.bat` (wide-signature W2 Physics) | 13.94 s | PASS |
+| `tools\validate_full.bat` (wide-signature W2 Physics final) | 178.81 s | PASS; CPU umbrella, five runtime lanes, byte-exact physics |
+| Replay visual fidelity (wide-signature W2 Physics) | 427.18 s | PASS; one process/generation/presentation, 2,401 ticks, all controls |
+| Replay allocation policy (wide-signature W2 Physics) | 4.22 s | PASS; strict two-generation policy clean |
+| Replay v2 artifact (wide-signature W2 Physics) | 33.16 s | PASS |
+| Replay scrub (wide-signature W2 Physics) | 431.04 s | PASS; one-presentation fidelity and all false-pass controls |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -246,10 +361,8 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Begin `physics-standalone-world-unification` PU0: census every symbol in
-`PhysicsApi.h`/`PhysicsApi.cpp` and every consumer (production, tests, tools,
-validation scripts), classifying contract types versus standalone-only
-simulation code. Follow the round-2 campaign's binding order and standing
-rules in `Agentic/Plans/MASTER-PLAN.md`. ImGui/Tracy E17 remains accepted;
-Legacy remains the default until a separate owner decision changes that
-policy.
+No architecture follow-up implementation is active. Preserve the empty
+threshold-13 inventory and owner-safe value boundaries. The next registered
+plan is `Agentic/Plans/TODO/source-blemish-remediation.md`; closure evidence for
+the completed current work is in
+`Agentic/Reports/2026-07-23/wide-signature-parameter-bag-remediation-closure.md`.

@@ -1,14 +1,13 @@
 /*
 File: SkullbonezSource/Physics/PhysicsBodyStore.cpp
 Purpose:
-  Owns deterministic body-order mutable physics state for runtime scenes and
-  standalone physics worlds.
+  Owns deterministic body-order mutable physics state for PhysicsEngine.
 
 Summary:
   Descriptor reload copies cold metadata and initial hot state into separate
-  store arrays at authoring boundaries. Standalone creation appends dense rows
-  directly. PhysicsWorld and standalone steps mutate the aligned hot-field
-  arrays through narrow borrowed views.
+  store arrays at authoring boundaries. PhysicsEngine creation appends dense
+  rows directly. PhysicsWorld mutates the aligned hot-field arrays through
+  narrow borrowed views.
 
 Glossary:
   Body: Simulated object state such as position, orientation, velocity, mass,
@@ -25,7 +24,7 @@ Invariants:
   - Runtime cold records and hot arrays stay in scene/model slot order
     for current solver traversal, but public body handles are allocator-owned
     slots.
-  - Standalone body rows are dense and handle-addressed; deletion may move
+  - PhysicsEngine body rows are dense and handle-addressed; deletion may move
     the last row to close a hole without changing live handles.
   - Pending impulses and sleep state are preserved across descriptor refresh
     by handle identity, even if a descriptor refresh reorders slots.
@@ -1300,9 +1299,8 @@ void PhysicsBodyStore::Clear()
     }
     m_freeHandleSlots.clear();
     // Invariant: CreateBodyRecord pops from the back of the free list. Push in
-    // reverse so a full Clear() reuses low handle indices first, matching the
-    // standalone world's pre-store public handle order while still advancing
-    // generations for stale-handle rejection.
+    // reverse so a full Clear() reuses low handle indices first while still
+    // advancing generations for stale-handle rejection.
     for ( uint32_t remaining = static_cast<uint32_t>( m_handleGenerations.size() ); remaining > 0; --remaining )
     {
         m_freeHandleSlots.push_back( remaining - 1u );
@@ -1500,35 +1498,25 @@ bool PhysicsBodyStore::TrimToCount( int bodyCount )
 //
 // Presentation owners may cache draw-facing state, but the body record must not
 // reload pose, velocity, mass, or inertia from presentation rows.
-bool PhysicsBodyStore::RestoreReplayBodyState( PhysicsBodyHandle body,
-                                               PhysicsSceneObjectId sceneObjectId,
-                                               bool fixed,
-                                               const Vector3& position,
-                                               const Math::Orientation::Quaternion& orientation,
-                                               const Vector3& linearVelocity,
-                                               const Vector3& angularVelocity,
-                                               float mass,
-                                               float inverseMass,
-                                               const Vector3& rotationalInertia,
-                                               const Vector3& inverseRotationalInertia )
+bool PhysicsBodyStore::RestoreReplayBodyState( const PhysicsBodyRestoreState& restore )
 {
-    PhysicsBodyRecord* record = MutableRecordForHandle( body );
-    if ( !record || record->sceneObjectId != sceneObjectId )
+    PhysicsBodyRecord* record = MutableRecordForHandle( restore.body );
+    if ( !record || record->sceneObjectId != restore.sceneObjectId )
     {
         return false;
     }
 
-    const int modelIndex = ModelIndexForHandle( body );
+    const int modelIndex = ModelIndexForHandle( restore.body );
     PhysicsBodyHotState hot = HotStateForModelIndex( modelIndex );
-    hot.position = position;
-    hot.orientation = orientation;
-    hot.linearVelocity = linearVelocity;
-    hot.angularVelocity = angularVelocity;
-    record->mass = mass;
-    hot.inverseMass = fixed ? 0.0f : inverseMass;
-    record->rotationalInertia = rotationalInertia;
-    hot.inverseRotationalInertia = fixed ? ZERO_VECTOR : inverseRotationalInertia;
-    hot.fixed = fixed;
+    hot.position = restore.position;
+    hot.orientation = restore.orientation;
+    hot.linearVelocity = restore.linearVelocity;
+    hot.angularVelocity = restore.angularVelocity;
+    record->mass = restore.mass;
+    hot.inverseMass = restore.fixed ? 0.0f : restore.inverseMass;
+    record->rotationalInertia = restore.rotationalInertia;
+    hot.inverseRotationalInertia = restore.fixed ? ZERO_VECTOR : restore.inverseRotationalInertia;
+    hot.fixed = restore.fixed;
     record->pendingImpulse = ZERO_VECTOR;
     record->pendingImpulseApplicationPoint = ZERO_VECTOR;
     record->hasPendingImpulse = false;
@@ -1959,8 +1947,8 @@ bool PhysicsBodyStore::ApplyBodyImpulse( PhysicsBodyHandle body,
 
 // Concept: pending impulses are one-shot velocity edits owned by hot arrays.
 //
-// Runtime force integration and standalone stepping both consume them through
-// this store hook so impulse math stays in one cache-local body path.
+// Runtime force integration consumes them through this store hook so impulse
+// math stays in one cache-local body path.
 bool PhysicsBodyStore::ConsumePendingBodyImpulse( int modelIndex )
 {
     PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );

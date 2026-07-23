@@ -397,7 +397,11 @@ bool FailCommandLineParse( const char* fmt, ... )
     va_start( args, fmt );
     vsprintf_s( g_commandLineError, sizeof( g_commandLineError ), fmt, args );
     va_end( args );
-    fprintf( stderr, "ERROR: %s\n", g_commandLineError );
+    fprintf( stdout, "ERROR: %s\n", g_commandLineError );
+    // Invariant: validation harnesses retain stdout as their primary build log.
+    // Publish the parser-owned diagnostic before WinMain can show a modal dialog
+    // or terminate, otherwise the harness sees only a stalled process.
+    fflush( stdout );
     return false;
 }
 const char* GetCommandLineError()

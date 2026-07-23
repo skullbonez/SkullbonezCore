@@ -247,14 +247,14 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw,
     {
     case InGameUITab::Scene:
         DrawComboHitboxes( draw,
-                           widgets.sceneCombo,
+                           widgets.sceneTab.combo,
                            SceneDropdownHitboxOptionCount( widgets.sceneTab, data ),
                            contentR,
                            contentG,
                            contentB );
-        DrawHitboxRect( draw, widgets.resetSceneButton.Bounds(), buttonR, buttonG, buttonB );
-        DrawHitboxRect( draw, widgets.resetDefaultsButton.Bounds(), buttonR, buttonG, buttonB );
-        DrawHitboxRect( draw, widgets.saveDefaultsButton.Bounds(), buttonR, buttonG, buttonB );
+        DrawHitboxRect( draw, widgets.sceneTab.resetSceneButton.Bounds(), buttonR, buttonG, buttonB );
+        DrawHitboxRect( draw, widgets.sceneTab.resetDefaultsButton.Bounds(), buttonR, buttonG, buttonB );
+        DrawHitboxRect( draw, widgets.sceneTab.saveDefaultsButton.Bounds(), buttonR, buttonG, buttonB );
         DrawHitboxRect( draw, widgets.sceneTab.timeScaleSlider.Bounds(), contentR, contentG, contentB );
         break;
     case InGameUITab::Editor:
@@ -352,37 +352,38 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw,
 }
 
 
-InGameUIInputResult InGameUI::UpdateInput( const Runtime::DeviceInputFrame& deviceFrame,
-                                           const Runtime::RuntimeMouseEdges& mouse,
-                                           int screenW,
-                                           int screenH,
+InputControl::UIInputSnapshot InGameUI::CaptureInputSnapshot( const Runtime::DeviceInputFrame& deviceFrame,
+                                                              const Runtime::RuntimeMouseEdges& mouse ) const
+{
+    return m_windowInteraction.CaptureInputSnapshot( deviceFrame, mouse );
+}
+
+
+InGameUIInputResult InGameUI::UpdateInput( const InputControl::UIInputSnapshot& input,
+                                           int screenWidth,
+                                           int screenHeight,
                                            double now,
                                            bool editorModeEnabled,
                                            bool editorPlacementMode,
                                            bool editorPlaceStatic,
                                            bool editorTerrainAlign,
-                                           int editorObjectType,
                                            int cameraModeIndex,
                                            uint32_t cameraModeEnabledMask,
-                                           const char* const* sceneOptions,
-                                           int sceneOptionCount,
+                                           std::span<const char* const> sceneOptions,
                                            int selectedSceneOption )
 {
-    return m_windowInteraction.UpdateInput( m_profiler,
-                                            deviceFrame,
-                                            mouse,
-                                            screenW,
-                                            screenH,
+    PROFILE_SCOPED( m_profiler, "Frame/UI/Input" );
+    return m_windowInteraction.UpdateInput( input,
+                                            screenWidth,
+                                            screenHeight,
                                             now,
                                             editorModeEnabled,
                                             editorPlacementMode,
                                             editorPlaceStatic,
                                             editorTerrainAlign,
-                                            editorObjectType,
                                             cameraModeIndex,
                                             cameraModeEnabledMask,
                                             sceneOptions,
-                                            sceneOptionCount,
                                             selectedSceneOption );
 }
 void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& render )
@@ -632,7 +633,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
                                                                  widgets.mouseY,
                                                                  widgets.rendererCombo.IsOpen(),
                                                                  widgets.reflectionCombo.IsOpen(),
-                                                                 widgets.sceneCombo.IsOpen(),
+                                                                 widgets.sceneTab.combo.IsOpen(),
                                                                  CinematicTab::IsComboOpen( widgets.cinematicTab ),
                                                                  widgets.editorTab.objectCombo.IsOpen(),
                                                                  widgets.renderTargetCombo.IsOpen(),
@@ -725,10 +726,6 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
     else if ( widgets.activeTab == InGameUITab::Scene )
     {
         SceneTab::Draw( widgets.sceneTab,
-                        widgets.sceneCombo,
-                        widgets.resetSceneButton,
-                        widgets.resetDefaultsButton,
-                        widgets.saveDefaultsButton,
                         draw,
                         data,
                         contentX,

@@ -26,6 +26,7 @@ Related:
 #include "ReplayAuthoringPackets.h"
 #include "ReplayPredictionView.h"
 #include "ReplayPathPackets.h"
+#include "ReplayPresentationPackets.h"
 #include "ReplayTimelinePackets.h"
 #include "../RuntimeInteractionController.h"
 
@@ -60,17 +61,9 @@ struct ReplayOverlayStateView
     const RunReplayVelocityEditState& velocityEdit;
     const RunReplayCauseTreeState& causeTree;
     ReplayRecorderStats solverStats;
-    const ReplayPresentationSample* selectedPresentation = nullptr;
-    const ReplayPresentationSample* latestPresentation = nullptr;
-    const ReplaySolverFrameSample* selectedSolver = nullptr;
-    const ReplaySolverFrameSample* latestSolver = nullptr;
-    const RunReplayPredictionFrame* selectedPrediction = nullptr;
-    const ReplayPresentationSample* currentPresentation = nullptr;
-    const ReplaySolverFrameSample* currentSolver = nullptr;
-    float solverPresentTrackPosition = 1.0f;
-    std::size_t loadedSampleCount = 0u;
-    bool loadedPresentation = false;
-    bool predictionTimelineAvailable = false;
+    // Concept: overlay consumers receive the Presentation owner's one answer to
+    // selection; they do not flatten or independently resolve timeline state.
+    ReplayPresentationSelection selection;
     bool shouldRenderScrubber = false;
     bool recordingConfigured = false;
     bool recordingEnabled = false;
@@ -82,24 +75,10 @@ struct ReplayOverlayRenderContext
     Rendering::Dx12TextureOwner& renderTextures;
     Rendering::Dx12GeometryOwner& renderCommands;
     Core::Profiler* profiler = nullptr;
-    ReplayScrubberView scrubber;
-    const ReplayPredictionPresentationView& prediction;
-    const RunReplayPathVisualizerState& pathVisualizer;
-    const RunReplayVelocityEditState& velocityEdit;
-    const RunReplayCauseTreeState& causeTree;
-    ReplayRecorderStats solverStats;
-    const ReplayPresentationSample* selectedPresentation = nullptr;
-    const ReplayPresentationSample* latestPresentation = nullptr;
-    const ReplaySolverFrameSample* selectedSolver = nullptr;
-    const ReplaySolverFrameSample* latestSolver = nullptr;
-    const RunReplayPredictionFrame* selectedPrediction = nullptr;
-    const ReplayPresentationSample* currentPresentation = nullptr;
-    const ReplaySolverFrameSample* currentSolver = nullptr;
-    float solverPresentTrackPosition = 1.0f;
-    bool loadedPresentation = false;
-    bool predictionTimelineAvailable = false;
+    // Lifetime: this immutable view is consumed synchronously by the UI-text
+    // graph callback and cannot outlive the frame-local selection borrows.
+    const ReplayOverlayStateView& replay;
     bool legacyReplaySurfaceActive = true;
-    bool shouldRenderScrubber = false;
     bool editorModeEnabled = false;
     bool uiVisible = false;
     bool uiMinimized = false;

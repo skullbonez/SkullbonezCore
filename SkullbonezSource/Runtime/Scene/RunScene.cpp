@@ -570,22 +570,17 @@ void SceneLoadConsumerOutputs::ResetForLoad()
 }
 
 
-void SkullbonezCore::Runtime::ApplySceneLoadConsumerOutputs( SceneLoadConsumerOutputs& outputs,
-                                                             Window& window,
-                                                             UI::InGameUI& operatorUi,
-                                                             RuntimeValidationHarness& validationHarness,
-                                                             const RunLaunchOptions& launchOptions,
-                                                             Rendering::Dx12RenderDevice* renderDevice,
-                                                             bool rendererVsyncEnabled,
-                                                             RunTimerState& timers,
-                                                             RuntimeOverlayDiagnostics& overlays,
-                                                             SceneController& sceneController,
-                                                             InputRouter& inputRouter,
-                                                             RuntimeInteractionController& interaction,
-                                                             RunCameraState& camera,
-                                                             AttachedCameraController& attachedCamera,
-                                                             RuntimeTools& runtimeTools,
-                                                             ReplayRuntime& replayRuntime )
+void SkullbonezCore::Runtime::ApplySceneLoadRuntimeReactions( SceneLoadConsumerOutputs& outputs,
+                                                              const RunLaunchOptions& launchOptions,
+                                                              RunTimerState& timers,
+                                                              RuntimeOverlayDiagnostics& overlays,
+                                                              SceneController& sceneController,
+                                                              InputRouter& inputRouter,
+                                                              RuntimeInteractionController& interaction,
+                                                              RunCameraState& camera,
+                                                              AttachedCameraController& attachedCamera,
+                                                              RuntimeTools& runtimeTools,
+                                                              ReplayRuntime& replayRuntime )
 {
     // Lifetime: lifecycle identity stays owned by SceneController. Consumers
     // sample this reference synchronously and retain only their generation.
@@ -694,6 +689,22 @@ void SkullbonezCore::Runtime::ApplySceneLoadConsumerOutputs( SceneLoadConsumerOu
             0,
             request.type == SceneRequestType::CreateScene ? request.text : ReplayOwnerEventName( eventCode ) ) );
     }
+}
+
+
+void SkullbonezCore::Runtime::ApplySceneLoadPresentationOutputs( SceneLoadConsumerOutputs& outputs,
+                                                                 Window& window,
+                                                                 UI::InGameUI& operatorUi,
+                                                                 RuntimeValidationHarness& validationHarness,
+                                                                 const RunLaunchOptions& launchOptions,
+                                                                 Rendering::Dx12RenderDevice* renderDevice,
+                                                                 bool rendererVsyncEnabled,
+                                                                 SceneController& sceneController )
+{
+    // Invariant: callers run ApplySceneLoadRuntimeReactions first, so external
+    // presentation cannot expose a lifecycle generation that runtime owners
+    // have not observed.
+    const SceneLifecyclePacket& lifecycle = sceneController.LifecyclePacket();
     validationHarness.SceneGates().ObserveSceneLifecycle( lifecycle, std::move( outputs.automationGates ) );
     // Invariant: device swap policy commits only with a fully activated scene;
     // partial loads may publish clear/populate reactions but not presentation.
@@ -1373,8 +1384,8 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
                                                    rendererName );
 #endif
 
-    const SkullbonezCore::Core::SbResult rayTracingResult =
-        renderer.InitialiseSceneRayTracing( SkullbonezCore::Core::ActiveSceneObjectCapacity( config ) );
+    const SkullbonezCore::Core::SbResult rayTracingResult = renderer.ResourceLifecycle().InitialiseSceneRayTracing(
+        SkullbonezCore::Core::ActiveSceneObjectCapacity( config ) );
     if ( !rayTracingResult.ok )
     {
         m_lastSceneLoadResult = rayTracingResult;

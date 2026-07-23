@@ -22,7 +22,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/RuntimeOverlayDiagnostics.h
   - SkullbonezSource/Runtime/Scene/SceneWorld.h
-  - SkullbonezSource/Runtime/Render/RuntimeRenderInputs.h
+  - SkullbonezSource/Runtime/Render/RuntimeRenderFrameValues.h
 */
 #include "RuntimeOverlayDiagnostics.h"
 #include "RuntimeValidationHarness.h"
@@ -30,7 +30,7 @@ Related:
 #include <algorithm>
 
 #include "../Core/Allocation/RuntimeAllocationTracker.h"
-#include "Render/RuntimeRenderInputs.h"
+#include "Render/RuntimeRenderFrameValues.h"
 #include "RunLaunchOptions.h"
 #include "Scene/SceneWorld.h"
 #include "../Core/Profiler.h"

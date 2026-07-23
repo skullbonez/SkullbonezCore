@@ -56,7 +56,7 @@ order and stops before any engine launch when a CPU target fails:
 4. The Debug build, DX12 renderer gate, and core physics determinism gate run
    only after the mandatory CPU and automation lanes pass. Automation launches
    two engine processes, rendering launches one, and physics launches its
-   standalone smoke and regression scene, for five engine processes in total.
+    engine lifecycle smoke and regression scene, for five engine processes in total.
 
 ## Unit Coverage Floors
 
@@ -182,7 +182,7 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `validate_dx12_renderer.bat` | Build or reuse Profile, run only DX12 render-test scenes, check InfoQueue, and compare screenshots against DX12 baselines |
 | `validate_dx12_fault_injection.bat` | Build Debug, inject immediately before the first DX12 queue submission, and verify nonzero exit, bounded diagnostics, zero submissions, and zero InfoQueue errors |
 | `validate_deep.bat` | Opt-in broad validation pipeline for expensive sweeps |
-| `validate_physics.bat` | Build or reuse Debug, run the standalone physics API smoke, and compare all 44,401 rows from `physics_bench_varied.scene.json` against `physics_regression_varied.csv` byte-for-byte |
+| `validate_physics.bat` | Build or reuse Debug, run the shipping PhysicsEngine lifecycle smoke, and compare all 44,401 rows from `physics_bench_varied.scene.json` against `physics_regression_varied.csv` byte-for-byte |
 | `validate_physics_deep.bat` | Run the old broad physics sweep, known-issue checks, shooting reaction check, and SkullScope query baseline |
 | `watch_ui_stress.bat [--test ui\|demo] [--iterations N] [--sleep N] [--forever]` | Repeated stress watcher; defaults to a finite 25-lap UI-only run and requires `--forever` for an intentional soak |
 | `watch_demo_stress.bat [--iterations N] [--sleep N] [--forever]` | Convenience wrapper for repeated generated demo interaction stress |

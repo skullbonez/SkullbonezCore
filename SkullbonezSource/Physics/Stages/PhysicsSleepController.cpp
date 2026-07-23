@@ -172,7 +172,7 @@ void PhysicsSleepController::ApplyRuntimeSettings( const SleepSettings& settings
 PhysicsSleepStepPolicy PhysicsSleepController::ResolveStepPolicy( const SleepSettings& settings ) const
 {
     // Why: sleep eligibility and wake-energy thresholds are sleep-domain
-    // policy. The facade sequences the resulting value without re-deciding it.
+    // policy. PhysicsWorld sequences the resulting value without re-deciding it.
     const float linearSpeed = (std::max)( 0.0f, settings.linearSpeed );
     const float angularSpeed = (std::max)( 0.0f, settings.angularSpeed );
     return PhysicsSleepStepPolicy{ linearSpeed * linearSpeed,

@@ -109,24 +109,6 @@ struct ReplayScrubberSurfaceInput
     bool hotZoneEnabled = true;
 };
 
-// Lifetime: this request borrows replay views only for one synchronous layout
-// derivation; the returned surface input contains value facts only.
-struct ReplayScrubberSurfaceDesc
-{
-    const ReplayScrubberView& scrubber;
-    const ReplayRecorderStats& solverStats;
-    bool loadedPresentation = false;
-    bool pathTargetAvailable = false;
-    bool predictionTimelineAvailable = false;
-    bool currentPresentationAvailable = false;
-    bool currentSolverAvailable = false;
-    bool scenePhysicsEnabled = false;
-    bool uiBlocksMouse = false;
-    int screenW = 1;
-    int screenH = 1;
-    RuntimeInteractionGestureKind gesture = RuntimeInteractionGestureKind::None;
-};
-
 using ReplayScrubberSurface = RuntimeUiSurface<13>;
 
 enum class ReplayCauseWindowControl : uint32_t
@@ -145,7 +127,16 @@ inline RuntimeUiControlId ReplayCauseWindowControlId( ReplayCauseWindowControl c
 
 using ReplayCauseWindowSurface = RuntimeUiSurface<4>;
 
-ReplayScrubberSurfaceInput DescribeReplayScrubberSurface( const ReplayScrubberSurfaceDesc& desc );
+// Derives track/tool availability from replay state. Callers then add their
+// one-frame screen, gesture, and pointer-blocking facts before surface layout.
+ReplayScrubberSurfaceInput DescribeReplayScrubberAvailability( const ReplayScrubberView& scrubber,
+                                                               const ReplayRecorderStats& solverStats,
+                                                               bool loadedPresentation,
+                                                               bool pathTargetAvailable,
+                                                               bool predictionTimelineAvailable,
+                                                               bool currentPresentationAvailable,
+                                                               bool currentSolverAvailable,
+                                                               bool scenePhysicsEnabled );
 void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, ReplayScrubberSurface& outSurface );
 void BuildReplayCauseWindowSurface( const RunReplayCauseTreeState& state, ReplayCauseWindowSurface& outSurface );
 

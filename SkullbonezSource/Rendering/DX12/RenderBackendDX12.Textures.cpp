@@ -549,18 +549,26 @@ bool Dx12TextureOwner::GenerateMips( Dx12TextureCommands& commands,
 
 
 uint32_t Dx12TextureOwner::CreateTexture2D( Dx12TextureCommands& commands,
-                                            const uint8_t* data,
-                                            int w,
-                                            int h,
+                                            const uint8_t* pixels,
+                                            int width,
+                                            int height,
                                             int channels,
-                                            bool generateMips,
-                                            bool /*linearFilter*/,
+                                            TextureMipPolicy mipPolicy,
+                                            TextureFilterPolicy filterPolicy,
                                             bool& graphicsStateInvalidated )
 {
     if ( !commands.EnsureOpen().ok )
     {
         return 0;
     }
+
+    const uint8_t* data = pixels;
+    const int w = width;
+    const int h = height;
+    const bool generateMips = mipPolicy == TextureMipPolicy::Generate;
+    // Why: filtering is part of the creation contract even though the current
+    // bindless raster path selects fixed samplers at shader-contract scope.
+    (void)filterPolicy;
 
     DXGI_FORMAT fmt;
     int bytesPerPixel;
@@ -998,23 +1006,23 @@ void Dx12TextureOwner::BindResourceOwners( Dx12RenderDevice& device,
 }
 
 
-uint32_t Dx12TextureOwner::CreateTexture2D( const uint8_t* data,
+uint32_t Dx12TextureOwner::CreateTexture2D( const uint8_t* pixels,
                                             int width,
                                             int height,
                                             int channels,
-                                            bool generateMips,
-                                            bool linearFilter )
+                                            TextureMipPolicy mipPolicy,
+                                            TextureFilterPolicy filterPolicy )
 {
     assert( m_resourceDevice && m_resourceFrame && m_resourcePipeline );
     bool graphicsStateInvalidated = false;
     Dx12TextureCommands textureCommands( *m_resourceDevice, *m_resourceFrame );
     const uint32_t handle = CreateTexture2D( textureCommands,
-                                             data,
+                                             pixels,
                                              width,
                                              height,
                                              channels,
-                                             generateMips,
-                                             linearFilter,
+                                             mipPolicy,
+                                             filterPolicy,
                                              graphicsStateInvalidated );
     if ( graphicsStateInvalidated )
     {

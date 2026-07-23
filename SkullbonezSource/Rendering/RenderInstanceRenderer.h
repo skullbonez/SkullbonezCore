@@ -61,19 +61,32 @@ namespace Rendering
 class RenderInstanceRenderer
 {
   public:
+    // Submits the main view. The optional mask chooses either the marked or
+    // unmarked model rows; all borrows end before this call returns.
     static void RenderModels( const Rendering::PrimitiveRenderContext& primitiveContext,
                               const Rendering::RenderInstanceStore& renderStore,
                               const Physics::ColliderStore& colliderStore,
                               bool renderCollisionVolumes,
                               const Math::Transformation::Matrix4& view,
-                              const Math::Transformation::Matrix4& proj,
-                              const float lightPos[4],
+                              const Math::Transformation::Matrix4& projection,
+                              const float ( &lightPosition )[4],
                               const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                               const Rendering::ShadowFrameData* shadow,
                               float materialAlpha,
-                              const std::vector<uint8_t>* modelMask = nullptr,
-                              bool drawMaskedModels = true,
-                              Rendering::RenderVisibilityView visibilityView = Rendering::RenderVisibilityView::Main );
+                              const std::vector<uint8_t>* modelMask,
+                              bool drawMaskedModels );
+    // Submits the mirrored view. Reflection clipping is structural, so callers
+    // cannot accidentally select main-view visibility or supply a model mask.
+    static void RenderReflectionModels( const Rendering::PrimitiveRenderContext& primitiveContext,
+                                        const Rendering::RenderInstanceStore& renderStore,
+                                        const Physics::ColliderStore& colliderStore,
+                                        bool renderCollisionVolumes,
+                                        const Math::Transformation::Matrix4& view,
+                                        const Math::Transformation::Matrix4& projection,
+                                        const float ( &lightPosition )[4],
+                                        const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
+                                        const Rendering::ShadowFrameData* shadow,
+                                        float materialAlpha );
     static void BuildShadowCasterBatches( Core::Profiler* profiler,
                                           const Rendering::RenderInstanceStore& renderStore,
                                           const Physics::ColliderStore& colliderStore,

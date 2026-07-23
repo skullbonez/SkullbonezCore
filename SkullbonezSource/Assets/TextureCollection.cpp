@@ -286,8 +286,13 @@ SkullbonezCore::Core::SbResult TextureCollection::LoadJpegTextureIntoSlot( int s
                                                         hash );
     }
 
-    const uint32_t backendHandle =
-        m_renderResources->CreateTexture2D( data.get(), width, height, requestedChannels, generateMips, linearFilter );
+    const uint32_t backendHandle = m_renderResources->CreateTexture2D(
+        data.get(),
+        width,
+        height,
+        requestedChannels,
+        generateMips ? Rendering::TextureMipPolicy::Generate : Rendering::TextureMipPolicy::SingleLevel,
+        linearFilter ? Rendering::TextureFilterPolicy::Linear : Rendering::TextureFilterPolicy::Nearest );
     if ( backendHandle == 0 )
     {
         return SkullbonezCore::Core::SbResult::Failure(

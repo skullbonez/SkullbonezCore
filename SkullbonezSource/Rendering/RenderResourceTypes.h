@@ -22,6 +22,9 @@ Related:
 */
 #pragma once
 
+#include <cstdint>
+#include <span>
+
 namespace SkullbonezCore::Rendering
 {
 enum class FramebufferColorFormat
@@ -29,4 +32,17 @@ enum class FramebufferColorFormat
     RGBA8,
     RGBA16F
 };
+
+enum class TextureMipPolicy : uint8_t
+{
+    SingleLevel,
+    Generate
+};
+
+enum class TextureFilterPolicy : uint8_t
+{
+    Nearest,
+    Linear
+};
+
 } // namespace SkullbonezCore::Rendering

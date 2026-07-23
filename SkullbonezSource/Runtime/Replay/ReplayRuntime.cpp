@@ -281,6 +281,19 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( const ReplayRestoreTransaction& t
         return false;
     }
 
+    const uint64_t materializedSolverHash = ReplaySolverHashForSample( sample );
+    if ( materializedSolverHash != sample.solverHash )
+    {
+        char payloadReason[224] = {};
+        sprintf_s( payloadReason,
+                   sizeof( payloadReason ),
+                   "restore checkpoint payload hash mismatch: materialized=0x%016llX recorded=0x%016llX",
+                   static_cast<unsigned long long>( materializedSolverHash ),
+                   static_cast<unsigned long long>( sample.solverHash ) );
+        writeReason( payloadReason );
+        return false;
+    }
+
     char applyReason[128] = {};
     if ( !ReplayRestoreService::ApplySolverSampleState( transaction.sampleOwners,
                                                         sample,
@@ -291,14 +304,13 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( const ReplayRestoreTransaction& t
         return false;
     }
 
-    uint64_t restoredSolverHash = 0;
-    uint64_t restoredPresentationHash = 0;
-    std::size_t restoredBodyCount = 0;
-    const bool hashCaptured = ReplayRestoreService::CaptureCurrentSolverHash( transaction.sampleOwners,
-                                                                              sample,
-                                                                              restoredSolverHash,
-                                                                              restoredPresentationHash,
-                                                                              restoredBodyCount );
+    ReplaySolverFrameSample restoredSample;
+    const bool hashCaptured =
+        ReplayRestoreService::CaptureCurrentSolverSample( transaction.sampleOwners, sample, restoredSample );
+    const uint64_t restoredSolverHash = hashCaptured ? restoredSample.solverHash : 0;
+    const uint64_t restoredPresentationHash = hashCaptured ? restoredSample.presentationHash : 0;
+    const std::size_t restoredBodyCount = hashCaptured ? restoredSample.bodies.size() : 0;
+    (void)restoredPresentationHash;
     const bool hashMatched = hashCaptured && restoredSolverHash == sample.solverHash;
     bool fallbackRestored = false;
     if ( !hashMatched )
@@ -311,15 +323,23 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( const ReplayRestoreTransaction& t
     }
 
 #ifdef _DEBUG
-    transaction.diagnostics.LogReplayRestoreProbe( transaction.sampleOwners.scene,
-                                                   sample,
-                                                   restoredSolverHash,
-                                                   restoredPresentationHash,
-                                                   restoredBodyCount,
-                                                   hashCaptured,
-                                                   hashMatched,
-                                                   !hashMatched,
-                                                   fallbackRestored );
+    ReplayRestoreProbeDiagnostic restoreProbe;
+    restoreProbe.targetReplayFrame = sample.frameIndex;
+    restoreProbe.targetSceneFrame = sample.sceneFrame;
+    restoreProbe.targetSolverHash = sample.solverHash;
+    restoreProbe.targetPresentationHash = sample.presentationHash;
+    restoreProbe.targetBodyCount = sample.bodies.size();
+    restoreProbe.restoredSolverHash = restoredSolverHash;
+    restoreProbe.restoredPresentationHash = restoredPresentationHash;
+    restoreProbe.restoredBodyCount = restoredBodyCount;
+    restoreProbe.contactCount = sample.contactCount;
+    restoreProbe.pipelineRecordCount = sample.pipelineRecordCount;
+    restoreProbe.checkpointBoundary = sample.checkpointBoundary;
+    restoreProbe.hashCaptured = hashCaptured;
+    restoreProbe.hashMatched = hashMatched;
+    restoreProbe.fallbackAttempted = !hashMatched;
+    restoreProbe.fallbackRestored = fallbackRestored;
+    transaction.diagnostics.LogReplayRestoreProbe( transaction.sampleOwners.scene, restoreProbe );
 #endif
 
     // Hazard: a recoverable restore failure may return only after the live
@@ -337,8 +357,28 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( const ReplayRestoreTransaction& t
     }
     if ( !hashMatched )
     {
-        writeReason( fallbackRestored ? "restore hash mismatch; live state restored"
-                                      : "restore hash mismatch; fallback unavailable" );
+        char mismatchReason[256] = {};
+        // Why: this result crosses the automation boundary. Preserve the exact
+        // expected/actual values in the returned reason so the caller's captured
+        // log is actionable without attaching a debugger or opening SkullScope.
+        const ReplaySolverHashBreakdown expectedBreakdown = ReplaySolverHashBreakdownForSample( sample );
+        const ReplaySolverHashBreakdown restoredBreakdown = ReplaySolverHashBreakdownForSample( restoredSample );
+        const char* mismatchStage = expectedBreakdown.world != restoredBreakdown.world         ? "world"
+                                    : expectedBreakdown.counts != restoredBreakdown.counts     ? "counts"
+                                    : expectedBreakdown.launcher != restoredBreakdown.launcher ? "launcher"
+                                    : expectedBreakdown.snapshot != restoredBreakdown.snapshot ? "snapshot"
+                                                                                               : "bodies";
+        sprintf_s( mismatchReason,
+                   sizeof( mismatchReason ),
+                   "restore solver hash mismatch stage=%s restored=0x%016llX expected=0x%016llX bodies=%llu "
+                   "expected_bodies=%llu; %s",
+                   mismatchStage,
+                   static_cast<unsigned long long>( restoredSolverHash ),
+                   static_cast<unsigned long long>( sample.solverHash ),
+                   static_cast<unsigned long long>( restoredBodyCount ),
+                   static_cast<unsigned long long>( sample.bodies.size() ),
+                   fallbackRestored ? "live state restored" : "fallback unavailable" );
+        writeReason( mismatchReason );
         return false;
     }
 
@@ -475,17 +515,7 @@ ReplayRuntime::BuildOverlayStateView( bool editorModeEnabled,
              m_authoring.VelocityEdit(),
              m_authoring.CauseTree(),
              m_timeline.Solver().GetStats(),
-             selection.selectedPresentation,
-             selection.latestPresentation,
-             selection.selectedSolver,
-             selection.latestSolver,
-             selection.selectedPrediction,
-             selection.currentPresentation,
-             selection.currentSolver,
-             selection.solverPresentTrackPosition,
-             selection.loadedSampleCount,
-             selection.loadedPresentation,
-             selection.predictionTimelineAvailable,
+             selection,
              ShouldRenderScrubber( editorModeEnabled, uiVisible, uiMinimized, gesture ),
              m_timeline.RecordingConfigured(),
              m_timeline.RecordingEnabled(),
@@ -522,28 +552,14 @@ ReplayPresentationSelection ReplayRuntime::BuildPresentationSelection() const
     return selection;
 }
 
-ReplayRenderFrameView
-ReplayRuntime::PrepareRenderFrame( Rendering::RenderInstanceStore& renderInstances,
-                                   std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
-                                   PhysicsEngine& physics,
-                                   const SceneEntityStore& entities,
-                                   RuntimeTools& runtimeTools,
-                                   RunEditorTracer& tracer,
-                                   int modelCount,
-                                   bool editorModeEnabled,
-                                   const RuntimeInteractionGesture& gesture,
-                                   int sceneFrame,
-                                   bool collisionVisualizer,
-                                   bool debugTransparentBodyPass,
-                                   const Math::Vector::Vector3& cameraTranslation,
-                                   const Math::Vector::Vector3& cameraUp,
-                                   uint64_t replayReserveGrowthEvents )
+ReplayPresentationSelection ReplayRuntime::ApplyRenderPose( Rendering::RenderInstanceStore& renderInstances,
+                                                            PhysicsEngine& physics,
+                                                            RuntimeTools& runtimeTools )
 {
     const ReplayPresentationSelection selection = BuildPresentationSelection();
     const RunReplayPredictionFrame* predictionFrame = selection.selectedPrediction;
     const ReplayPresentationSample* presentationSample = selection.currentPresentation;
     const ReplaySolverFrameSample* solverSample = selection.currentSolver;
-    const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
 
     {
         SkullbonezCore::Core::Allocation::RuntimeAllocationScope replayAllocationScope(
@@ -575,7 +591,20 @@ ReplayRuntime::PrepareRenderFrame( Rendering::RenderInstanceStore& renderInstanc
             }
         }
     }
+    return selection;
+}
 
+
+void ReplayRuntime::PrepareRenderOverlay(
+    PhysicsEngine& physics,
+    const SceneEntityStore& entities,
+    RunEditorTracer& tracer,
+    bool editorModeEnabled,
+    const RuntimeInteractionGesture& gesture,
+    int sceneFrame,
+    std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords )
+{
+    const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
     AppendOverlayTrace( physics,
                         entities,
                         tracer,
@@ -584,15 +613,36 @@ ReplayRuntime::PrepareRenderFrame( Rendering::RenderInstanceStore& renderInstanc
     (void)m_visualPresentation.BuildPredictionGhostDrawRequests( prediction,
                                                                  presentationRecords,
                                                                  PhysicsEngine::ReadBodies( physics ) );
+}
+
+
+void ReplayRuntime::PublishRenderPacket( RunEditorTracer& tracer,
+                                         const Math::Vector::Vector3& cameraTranslation,
+                                         const Math::Vector::Vector3& cameraUp,
+                                         uint64_t replayReserveGrowthEvents )
+{
+    const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
     ReplayVisualPacket packet = tracer.BuildReplayVisualPacket( cameraTranslation, cameraUp );
     m_visualPresentation.PublishVisualPacket( packet,
                                               prediction,
                                               m_timeline.Solver().LatestSample(),
                                               replayReserveGrowthEvents );
+}
 
-    const ReplayInputView input = BuildInputView();
+
+ReplayRenderFrameView ReplayRuntime::BuildRenderFrameView( const ReplayPresentationSelection& selection,
+                                                           PhysicsEngine& physics,
+                                                           int modelCount,
+                                                           bool collisionVisualizer,
+                                                           bool debugTransparentBodyPass )
+{
+    const RunReplayPredictionFrame* predictionFrame = selection.selectedPrediction;
+    const ReplayPresentationSample* presentationSample = selection.currentPresentation;
+    const ReplaySolverFrameSample* solverSample = selection.currentSolver;
+    const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
+    const ReplayInputView inputView = BuildInputView();
     bool focusFadeActive = false;
-    if ( !input.predictionEnabled && !collisionVisualizer && !debugTransparentBodyPass )
+    if ( !inputView.predictionEnabled && !collisionVisualizer && !debugTransparentBodyPass )
     {
         SkullbonezCore::Core::Allocation::RuntimeAllocationScope replayAllocationScope(
             SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay );
@@ -609,9 +659,14 @@ ReplayRuntime::PrepareRenderFrame( Rendering::RenderInstanceStore& renderInstanc
              ( presentationSample || solverSample ) ? nullptr : predictionFrame,
              &m_visualPresentation.PublishedVisualPacketView(),
              focusFadeActive ? &m_visualPresentation.FocusModelMaskView() : nullptr,
-             input.predictionEnabled,
-             input.liveAdvanceHeld,
+             inputView.predictionEnabled,
+             inputView.liveAdvanceHeld,
              focusFadeActive };
+}
+
+float ReplayRuntime::AdvanceConsequenceGrade( bool requested ) noexcept
+{
+    return m_visualPresentation.AdvanceConsequenceGrade( requested );
 }
 
 void ReplayRuntime::CompleteRenderFrame( bool submissionRendered,
@@ -1486,26 +1541,67 @@ void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics,
     // applied after the worker/publication transition returns.
     const RunReplayPathVisualizerState& path = m_visualPresentation.PathVisualizer();
     const ReplayScrubberView scrubber = m_scrubberOwner.View();
+    const ReplaySolverFrameSample* latestSolverSample = m_timeline.Solver().LatestSample();
+    const float solverTrackPosition = m_scrubberOwner.TrackPosition( RunReplayTrack::Solver );
+    const float solverPresentTrackPosition = SolverPresentTrackPosition();
+    const auto budgetStart = std::chrono::steady_clock::now();
     ReplayPredictionUpdateResult result;
-    m_predictionOwner.UpdateFrame( physics,
-                                   tornadoGameplay,
-                                   entities,
-                                   config,
-                                   worldForces,
-                                   workerPool,
-                                   m_timeline.Solver().LatestSample(),
-                                   path.targetId,
-                                   path.targetModelRow,
-                                   path.hasTarget,
-                                   scrubber.liveAdvanceHeld,
-                                   scrubber.historicalSamplePaused,
-                                   m_scrubberOwner.TrackPosition( RunReplayTrack::Solver ),
-                                   SolverPresentTrackPosition(),
-                                   scenePhysicsEnabled,
-                                   simulationTimeSinceLastStart,
-                                   simulationTotalTime,
-                                   REPLAY_PREDICTION_MAX_WORK_MILLISECONDS,
-                                   result );
+    bool wasDirty = false;
+    bool wasPendingLatestRestart = false;
+    const ReplayPredictionFrameSourceAction sourceAction =
+        m_predictionOwner.SelectFrameSource( latestSolverSample,
+                                             path.targetId,
+                                             path.hasTarget,
+                                             scrubber.liveAdvanceHeld,
+                                             simulationTotalTime,
+                                             wasDirty,
+                                             wasPendingLatestRestart );
+    bool stopFrame = sourceAction == ReplayPredictionFrameSourceAction::Stop;
+    if ( sourceAction == ReplayPredictionFrameSourceAction::Begin )
+    {
+        stopFrame =
+            m_predictionOwner.BeginFrameBudgetExpired( budgetStart, REPLAY_PREDICTION_MAX_WORK_MILLISECONDS, result );
+        if ( !stopFrame )
+        {
+            m_predictionOwner.PrepareFrameRebuild( path.targetId, path.targetModelRow, result );
+            const ReplayPredictionSourcePreparation preparation =
+                m_predictionOwner.BeginFrameSource( physics,
+                                                    config,
+                                                    scenePhysicsEnabled,
+                                                    simulationTimeSinceLastStart,
+                                                    simulationTotalTime,
+                                                    latestSolverSample,
+                                                    path.targetId,
+                                                    path.targetModelRow,
+                                                    path.hasTarget,
+                                                    budgetStart,
+                                                    REPLAY_PREDICTION_MAX_WORK_MILLISECONDS,
+                                                    result );
+            const bool began = preparation != ReplayPredictionSourcePreparation::Declined &&
+                               m_predictionOwner.BeginFrameSimulation( physics,
+                                                                       tornadoGameplay,
+                                                                       entities,
+                                                                       config,
+                                                                       worldForces,
+                                                                       workerPool,
+                                                                       preparation );
+            m_predictionOwner.CompleteFrameSourceBegin( began, wasDirty, wasPendingLatestRestart );
+            stopFrame = m_predictionOwner.BeginFrameBudgetExpired( budgetStart,
+                                                                   REPLAY_PREDICTION_MAX_WORK_MILLISECONDS,
+                                                                   result );
+        }
+    }
+    if ( !stopFrame && m_predictionOwner.AdvanceFrameWorker( workerPool,
+                                                             simulationTotalTime,
+                                                             scrubber.historicalSamplePaused,
+                                                             solverTrackPosition,
+                                                             solverPresentTrackPosition,
+                                                             budgetStart,
+                                                             REPLAY_PREDICTION_MAX_WORK_MILLISECONDS,
+                                                             result ) )
+    {
+        m_predictionOwner.PublishCompletedFrame( entities, path.targetId );
+    }
     ApplyPredictionUpdateResult( result );
     PreparePredictionPresentation( physics, entities );
 }

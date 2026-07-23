@@ -1357,7 +1357,7 @@ TEST_CASE( "Compact causality projection is bounded and exposes explicit edge st
 
     ReplaySolverFrameSample selectedSolver;
     selectedSolver.frameIndex = 42u;
-    replay.selectedSolver = &selectedSolver;
+    replay.selection.selectedSolver = &selectedSolver;
     replay.prediction.enabled = true;
     replay.prediction.building = true;
     replay.prediction.targetId.value = 17u;

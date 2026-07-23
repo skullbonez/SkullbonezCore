@@ -10,6 +10,11 @@ Summary:
   delegates DX12 device resources and draw recording to the concrete renderer
   owner and delegates native event translation to the pinned Win32 backend.
 
+Mental model:
+  One owner surrounds every Dear ImGui call with the sole current context. Each
+  completed frame leaves behind bounded presentation, input, command, and
+  status values; no runtime subsystem borrows the context or widget state.
+
 Glossary:
   Embedded vector fallback: Dear ImGui's pinned, scalable built-in font used
     when the optional repository font asset is absent or invalid.
@@ -42,6 +47,7 @@ Related:
 */
 #include "ImGuiEditorOwner.h"
 #include "ImGuiEditorCausalityProjection.h"
+#include "../InputRouter.h"
 
 #include "../../Core/Allocation/DevelopmentToolAllocation.h"
 #include "../../Core/FatalError.h"
@@ -655,6 +661,26 @@ ImGuiEditorInputFrameState ImGuiEditorOwner::ConsumeInputFrameState() noexcept
     state.nativePointerStateTouched = m_nativePointerStateTouched;
     m_nativePointerStateTouched = false;
     return state;
+}
+
+UiInputCaptureIntent ImGuiEditorOwner::ConsumeInputCaptureIntent() noexcept
+{
+    const ImGuiEditorInputFrameState input = ConsumeInputFrameState();
+    // Concept: the editor owns the fitted viewport geometry and completed-frame
+    // capture request. Publish them together so Run does not reinterpret either.
+    UiInputCaptureIntent intent{ input.capture.mouse,
+                                 input.capture.keyboard,
+                                 input.capture.text,
+                                 input.nativePointerStateTouched };
+    intent.gameViewportMappingActive = input.gameViewport.valid;
+    intent.gameViewportMinX = input.gameViewport.imageMinX;
+    intent.gameViewportMinY = input.gameViewport.imageMinY;
+    intent.gameViewportWidth = input.gameViewport.imageWidth;
+    intent.gameViewportHeight = input.gameViewport.imageHeight;
+    intent.gameViewportDpiScale = input.gameViewport.dpiScale;
+    intent.gameViewportSourceWidth = input.gameViewport.sourceWidth;
+    intent.gameViewportSourceHeight = input.gameViewport.sourceHeight;
+    return intent;
 }
 
 void ImGuiEditorOwner::SetGameViewportInputState( bool hovered, bool focused ) noexcept
@@ -2703,27 +2729,28 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
     {
         if ( ImGui::Begin( ImGuiEditorPanel::Replay, &m_showReplay ) )
         {
-            const bool loaded = replay.loadedPresentation;
+            const ReplayPresentationSelection& selection = replay.selection;
+            const bool loaded = selection.loadedPresentation;
             const bool hasRetainedTimeline =
-                loaded ? replay.loadedSampleCount >= 2u : replay.solverStats.sampleCount >= 2u;
-            const bool hasTimeline = hasRetainedTimeline || replay.predictionTimelineAvailable;
+                loaded ? selection.loadedSampleCount >= 2u : replay.solverStats.sampleCount >= 2u;
+            const bool hasTimeline = hasRetainedTimeline || selection.predictionTimelineAvailable;
             const bool compact = ImGui::GetContentRegionAvail().x < 1180.0f * m_frameInput.dpiScale;
             const float trackPosition = loaded ? replay.scrubber.presentationPosition : replay.scrubber.solverPosition;
             ReplayFrameIndex selectedTick = 0;
             bool hasSelectedTick = false;
-            if ( replay.selectedPrediction )
+            if ( selection.selectedPrediction )
             {
-                selectedTick = replay.selectedPrediction->frameIndex;
+                selectedTick = selection.selectedPrediction->frameIndex;
                 hasSelectedTick = true;
             }
-            else if ( replay.selectedSolver )
+            else if ( selection.selectedSolver )
             {
-                selectedTick = replay.selectedSolver->frameIndex;
+                selectedTick = selection.selectedSolver->frameIndex;
                 hasSelectedTick = true;
             }
-            else if ( replay.selectedPresentation )
+            else if ( selection.selectedPresentation )
             {
-                selectedTick = replay.selectedPresentation->frameIndex;
+                selectedTick = selection.selectedPresentation->frameIndex;
                 hasSelectedTick = true;
             }
 
@@ -2785,15 +2812,15 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                 ImGui::TextDisabled( "%s  tick %llu  %zu/%zu",
                                      loaded ? "FILE" : "SOLVER",
                                      static_cast<unsigned long long>( selectedTick ),
-                                     loaded ? replay.loadedSampleCount : replay.solverStats.sampleCount,
-                                     loaded ? replay.loadedSampleCount : replay.solverStats.sampleCapacity );
+                                     loaded ? selection.loadedSampleCount : replay.solverStats.sampleCount,
+                                     loaded ? selection.loadedSampleCount : replay.solverStats.sampleCapacity );
             }
             else
             {
                 ImGui::TextDisabled( "%s  tick --  %zu/%zu",
                                      loaded ? "FILE" : "SOLVER",
-                                     loaded ? replay.loadedSampleCount : replay.solverStats.sampleCount,
-                                     loaded ? replay.loadedSampleCount : replay.solverStats.sampleCapacity );
+                                     loaded ? selection.loadedSampleCount : replay.solverStats.sampleCount,
+                                     loaded ? selection.loadedSampleCount : replay.solverStats.sampleCapacity );
             }
 
             float scrubPosition = trackPosition;
@@ -2807,7 +2834,8 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             ImGui::EndDisabled();
             const ImVec2 trackMin = ImGui::GetItemRectMin();
             const ImVec2 trackMax = ImGui::GetItemRectMax();
-            const float presentPosition = loaded ? 1.0f : std::clamp( replay.solverPresentTrackPosition, 0.0f, 1.0f );
+            const float presentPosition =
+                loaded ? 1.0f : std::clamp( selection.solverPresentTrackPosition, 0.0f, 1.0f );
             const float presentX = trackMin.x + ( trackMax.x - trackMin.x ) * presentPosition;
             // Concept: the thin marker exposes the replay owner's live-present
             // boundary without making this panel calculate timeline ranges.
@@ -2956,6 +2984,7 @@ ImGuiEditorStatus ImGuiEditorOwner::CopyStatus() const noexcept
     status.frameActive = m_frameActive;
     status.dockingEnabled = m_context != nullptr;
     status.platformViewportsEnabled = false;
+    status.selectedSurface = m_selectedSurface;
     status.layoutVersion = LAYOUT_VERSION;
     status.completedFrames = m_completedFrames;
     status.sharedViewFingerprint = m_sharedViewFingerprint;

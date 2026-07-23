@@ -87,6 +87,7 @@ using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyHotState;
 using SkullbonezCore::Physics::PhysicsBodyMotionKind;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
+using SkullbonezCore::Physics::PhysicsBodyRestoreState;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsEngine;
 using SkullbonezCore::Physics::PhysicsSceneObjectId;
@@ -425,6 +426,16 @@ TEST_CASE( "Tornado owner edits and replay restore reuse bounded vortex storage"
     gameplay.SetReplayState( captureSeconds, cooldownSeconds, {}, system, 2.0f );
     CHECK( gameplay.GetSystemConfig().vortices.data() == storage );
     CHECK( gameplay.GetSystemConfig().vortices.capacity() == capacity );
+
+    SkullbonezCore::Gameplay::TornadoSystemConfig disabledSystem;
+    gameplay.SetReplayState( captureSeconds, cooldownSeconds, {}, disabledSystem, 3.0f );
+    REQUIRE( gameplay.CaptureSeconds().size() == captureSeconds.size() );
+    REQUIRE( gameplay.EjectCooldownSeconds().size() == cooldownSeconds.size() );
+    for ( std::size_t i = 0; i < captureSeconds.size(); ++i )
+    {
+        CHECK( gameplay.CaptureSeconds()[i] == captureSeconds[i] );
+        CHECK( gameplay.EjectCooldownSeconds()[i] == cooldownSeconds[i] );
+    }
 }
 
 TEST_CASE( "Replay prediction world reset preserves reserved Gameplay snapshot storage" )
@@ -868,17 +879,17 @@ void RestoreMicroWorldSnapshot( PhysicsEngine& engine, const MicroWorldSnapshot&
                                                  MakePhysicsBodyCountFromNonNegativeInt( kMicroBodyCount ) ) );
     for ( const BodyReplayState& state : snapshot.bodies )
     {
-        REQUIRE( engine.RestoreReplayBodyState( state.handle,
-                                                state.sceneObjectId,
-                                                state.fixed,
-                                                state.position,
-                                                state.orientation,
-                                                state.linearVelocity,
-                                                state.angularVelocity,
-                                                state.mass,
-                                                state.inverseMass,
-                                                state.rotationalInertia,
-                                                state.inverseRotationalInertia ) );
+        REQUIRE( engine.RestoreReplayBodyState( PhysicsBodyRestoreState{ state.handle,
+                                                                         state.sceneObjectId,
+                                                                         state.fixed,
+                                                                         state.position,
+                                                                         state.orientation,
+                                                                         state.linearVelocity,
+                                                                         state.angularVelocity,
+                                                                         state.mass,
+                                                                         state.inverseMass,
+                                                                         state.rotationalInertia,
+                                                                         state.inverseRotationalInertia } ) );
     }
 }
 
@@ -899,17 +910,17 @@ void RestoreMicroWorldReplaySample( PhysicsEngine& engine, const ReplaySolverFra
         const PhysicsBodyRecord* record =
             SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).RecordForModelIndex( body.modelRow.value );
         REQUIRE( record != nullptr );
-        REQUIRE( engine.RestoreReplayBodyState( record->handle,
-                                                body.id,
-                                                body.fixed,
-                                                body.position,
-                                                orientation,
-                                                body.linearVelocity,
-                                                body.angularVelocity,
-                                                body.mass,
-                                                body.inverseMass,
-                                                body.rotationalInertia,
-                                                body.inverseRotationalInertia ) );
+        REQUIRE( engine.RestoreReplayBodyState( PhysicsBodyRestoreState{ record->handle,
+                                                                         body.id,
+                                                                         body.fixed,
+                                                                         body.position,
+                                                                         orientation,
+                                                                         body.linearVelocity,
+                                                                         body.angularVelocity,
+                                                                         body.mass,
+                                                                         body.inverseMass,
+                                                                         body.rotationalInertia,
+                                                                         body.inverseRotationalInertia } ) );
     }
 }
 
