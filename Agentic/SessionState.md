@@ -1,6 +1,6 @@
 # SkullbonezCore Session State
 
-Date: 2026-07-22
+Date: 2026-07-23
 
 Keep this file operational and short. Detailed evidence belongs in plans,
 reports, and git history. `Agentic/Plans/MASTER-PLAN.md` is the authoritative
@@ -11,25 +11,23 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-22nd-JUL-26` |
-| Current baseline | Wide-signature reduction is closed: 301 → 285, all 16 ruled defects removed, every survivor ruled, and the no-bag review is clear. Legacy remains the development default. |
-| Current objective | Complete `wide-signature-decomposition-round-2`: remove all eight current threshold-16 signatures without owner bags. |
-| Active/future progress | 4 / 5 live tasks; 80%. |
+| Current baseline | Wide-signature round 2 is closed: all eight reopened threshold-16 rows are removed, the final scan is empty, and independent no-bag review is clear. Legacy remains the development default. |
+| Current objective | No active architecture campaign; preserve the zero-row threshold-16 baseline. |
+| Active/future progress | 0 / 0 live tasks; 0%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | D3 `validate_full` passes in 135.0 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | D3 threshold-16 scan is 2 → 0; Profile/full gates and the sole 425.5 s Replay fidelity invocation pass. |
+| Last broad local gate | D4 `validate_full` passes in 101.7 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
+| Validation for current edits | D4 inventory/static proofs, allocation, Replay artifact, scrub/visual, independent review, and full gate all pass. |
 
 ## Live Queue
 
-NOW. `wide-signature-decomposition-round-2` is active at D3 complete (4/5).
-The owner reopened the eight surviving threshold-16 rows with new evidence:
-existing owner-free Replay frame input, a redundant prediction forwarding
-chain, and separable UI/scene phases. D1 split UI scene-tab input and scene-load
-runtime reactions from external presentation without a context bag; the
-threshold-16 inventory fell to six Replay-only rows. D2 reused the existing
-owner-free Replay workspace frame input and added only bounded read-only source
-views/scalar activation policy. D3 removes the redundant prediction forwarding
-helper and gives `ReplayPrediction::UpdateFrame` one value-only frame request;
-the threshold-16 inventory is empty and all mutable owners remain explicit. The prior
+DONE. `wide-signature-decomposition-round-2` closed D0-D4 (5/5) and left the
+live ledger. All eight reopened threshold-16 rows were removed without a
+context/service bag, hidden mutable owner, or forwarding facade. The final scan
+is empty; dependency/Replay-boundary proofs, allocation and Replay artifact
+gates, scrub/visual fidelity, the broad gate, and independent review pass.
+Evidence is in
+`Agentic/Reports/2026-07-23/wide-signature-decomposition-round-2-closure.md`.
+The prior
 2026-07-22 architecture follow-up round-2 campaign remains closed. Wide
 signature reduction removed all 16 ruled defect rows without introducing a
 context bag; the final 285 rows all retain explicit owner rulings. The closure
@@ -322,6 +320,5 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Complete `wide-signature-decomposition-round-2` D4: reconcile the zero-row
-threshold-16 inventory, run the dependency/Replay-boundary proofs and final
-Replay gates, obtain one independent no-bag review, and archive closure.
+No active architecture campaign. Preserve the zero-row threshold-16 baseline
+and use the closure report above for the eight replacements and gate evidence.

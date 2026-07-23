@@ -383,18 +383,14 @@ owner ruling, and the independent no-bag review and final broad gate are clear.
 Evidence is recorded in
 `../Reports/2026-07-23/wide-signature-reduction-closure.md`.
 
-The owner reopened the eight surviving threshold-16 rows on 2026-07-23 after
-the first campaign closed. `wide-signature-decomposition-round-2` adds five
-live tasks under rule 4. D0 is complete: current CodeGraph/source evidence
-identifies owner-free frame values, a redundant prediction forwarding chain,
-and real UI/scene phase boundaries that were not considered by the original
-accepted-with-reason rulings. D1 splits the UI scene-tab actions and separates
-scene-load runtime reactions from external presentation, removing both original
-16-parameter rows. D2 reuses the owner-free Replay workspace frame input,
-bounded read-only cause/velocity views, and scalar loaded-presentation policy;
-then D3 collapses the one-caller 22/19 prediction chain into the prediction
-owner and one value-only frame request. The threshold-16 inventory is empty;
-mutable subsystem owners remain explicit. Active/future progress is 4/5.
+The active/future denominator returned 5 → 0 when
+`wide-signature-decomposition-round-2` closed D0-D4 and left the ledger under
+rule 4. All eight reopened threshold-16 rows were removed through real action,
+lifecycle, and value-lifetime boundaries. The final threshold-16 inventory is
+empty, mutable subsystem owners remain explicit, and independent no-bag,
+allocation, dependency, Replay, and broad validation are clear. Evidence is
+recorded in
+`../Reports/2026-07-23/wide-signature-decomposition-round-2-closure.md`.
 
 The active/future denominator returned 13 → 7 when
 `owner-fanout-reduction` closed OF0-OF5 and left the ledger under rule 4.
@@ -1369,7 +1365,7 @@ a census records. Execution order is binding: 1 physics unification,
 |---|---|---:|---|
 | [replay-deduplication-audit](../Reports/2026-07-22/replay-deduplication-closure.md) | Complete | 4/4 | C1-C5 consolidated; C6-C7 retained; all Replay/full gates pass |
 | [wide-signature-reduction](../Reports/2026-07-23/wide-signature-reduction-closure.md) | Complete | 5/5 | 301 → 285; all survivors ruled; independent review and final broad gate pass |
-| [wide-signature-decomposition-round-2](TODO/wide-signature-decomposition-round-2.md) | In progress | 4/5 | Complete D4 closure proofs, independent no-bag review, and final gates |
+| [wide-signature-decomposition-round-2](../Reports/2026-07-23/wide-signature-decomposition-round-2-closure.md) | Complete | 5/5 | 8 → 0 threshold-16 rows; independent review and all closure gates pass |
 
 ## Features
 
