@@ -11,22 +11,26 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-23rd-JUL-26` |
-| Current baseline | UI/runtime U4 is complete and the U5 review's sole blocking evidence gap is remediated: `DiagnosticsPhysicsUI` proves typed command application through detached status publication. Legacy remains the development default. |
-| Current objective | Finish `ui-runtime-separation` U5 closure evidence, rerun the exact standing proofs, commit, push, and advance to runtime-package decomposition R1. |
-| Active/future progress | 10/16 registered architecture follow-up tasks; 63%. |
+| Current baseline | `ui-runtime-separation` is complete at 5/5: UI has zero Runtime includes, the independent review finding is remediated, all five standing proofs are empty, and final gates pass. Legacy remains the development default. |
+| Current objective | Implement `runtime-package-decomposition` R1: current top-level census, ownership classification, and ratified target package map. |
+| Active/future progress | 11/16 registered architecture follow-up tasks; 69%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | UI/runtime U3 review remediation `validate_full` passes with exit 0 in 101.8 s: 749/749 project/filter items, all CPU/coverage floors, zero-warning builds, accepted DX12 images with zero errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | Focused Profile build passes in 11.7 s; two physics-UI owner cases pass 58 assertions; `validate_ui` passes in 42.3 s; all nine touched source-bearing files pass comment audit with zero deferrals. |
+| Validation for current edits | U5 closure is documentation-only after accepted source commit `9ed2a9ea`; all five exact dependency/UI/Replay proofs pass with zero rows in 0.22 s. |
 
 ## Live Queue
 
-NOW. `ui-runtime-separation` is active at 4/5. Its single independent review
-found no architecture defect but reopened U3's evidence because the row-policy
-test stopped before Runtime application and status publication.
-`DiagnosticsPhysicsUI` now owns both mappings, and the new owner-side case
-closes that command-to-state-to-status path. Focused, UI, and broad gates pass;
-U5 now records the review/remediation, reruns all exact proofs, and publishes
-the closure report.
+NOW. `ui-runtime-separation` is complete at 5/5. UI is physically below
+Runtime, has zero Runtime includes, and crosses through cohesive navigation,
+input, command, and status values. Its single independent review found one test
+depth gap, remediated by the focused `DiagnosticsPhysicsUI` owner and exact
+command-to-state-to-status coverage. All standing proofs and final gates pass.
+Closure evidence is in
+`Agentic/Reports/2026-07-23/ui-runtime-separation-closure.md`.
+
+NOW. `runtime-package-decomposition` is active at 0/5. R1 re-measures the final
+post-rename, post-navigation-move Runtime top-level, classifies every file by
+owner, and ratifies the target package map before any moves.
 
 NOW. `wide-signature-parameter-bag-remediation` is complete (6/6).
 The owner rejected replacements such as `RenderModelPassInput` that merely

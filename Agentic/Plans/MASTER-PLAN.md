@@ -1459,8 +1459,8 @@ navigation model).
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
 | [source-blemish-remediation](../Reports/2026-07-23/source-blemish-remediation-closure.md) | Complete | 6/6 | Hot/cold collider data, diagnostic registration, honest Runtime names, profiler placement, owner ruling, independent review, and final gates complete |
-| [ui-runtime-separation](TODO/ui-runtime-separation.md) | In progress | 4/5 | U4 ratifies the UI direction rule and all standing dependency/Replay proofs return zero rows; U5 independent review and final gates |
-| [runtime-package-decomposition](TODO/runtime-package-decomposition.md) | Registered | 0/5 | Starts after ui-runtime-separation closes; R1 top-level census and ratified package map |
+| [ui-runtime-separation](../Reports/2026-07-23/ui-runtime-separation-closure.md) | Complete | 5/5 | Zero UI→Runtime includes; independent review finding remediated; all standing proofs and final gates pass |
+| [runtime-package-decomposition](TODO/runtime-package-decomposition.md) | Active | 0/5 | R1 top-level census and ratified package map |
 
 ## Features
 
