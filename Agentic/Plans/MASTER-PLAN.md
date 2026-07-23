@@ -1459,7 +1459,7 @@ navigation model).
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
 | [source-blemish-remediation](../Reports/2026-07-23/source-blemish-remediation-closure.md) | Complete | 6/6 | Hot/cold collider data, diagnostic registration, honest Runtime names, profiler placement, owner ruling, independent review, and final gates complete |
-| [ui-runtime-separation](TODO/ui-runtime-separation.md) | In progress | 1/5 | U1 moves the passive navigation model into UI and retains only the genuine load-transaction snapshot/policy in Runtime; U2 moves input snapshot construction to Runtime |
+| [ui-runtime-separation](TODO/ui-runtime-separation.md) | In progress | 2/5 | U2 detaches UI input from Runtime authority with an owning UI snapshot; U3 replaces direct physics-debug visualizer access with typed commands/status |
 | [runtime-package-decomposition](TODO/runtime-package-decomposition.md) | Registered | 0/5 | Starts after ui-runtime-separation closes; R1 top-level census and ratified package map |
 
 ## Features

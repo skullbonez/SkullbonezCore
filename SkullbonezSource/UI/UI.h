@@ -67,12 +67,6 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Runtime
-{
-struct DeviceInputFrame;
-struct RuntimeMouseEdges;
-} // namespace Runtime
-
 namespace Core
 {
 class Profiler;
@@ -345,8 +339,9 @@ class InGameUI
         return m_sceneNavigation;
     }
 
-    InputControl::UIInputSnapshot CaptureInputSnapshot( const Runtime::DeviceInputFrame& deviceFrame,
-                                                        const Runtime::RuntimeMouseEdges& mouse ) const;
+    // Returns the UI-owned automation pointer substitution by value so Runtime
+    // can apply it while constructing the detached input snapshot.
+    InputControl::UIPointerOverride InputOverride() const;
     InGameUIInputResult UpdateInput( const InputControl::UIInputSnapshot& input,
                                      int screenWidth,
                                      int screenHeight,

@@ -4,7 +4,7 @@ Date: 2026-07-23
 Status: IN PROGRESS — drafted from the 2026-07-23 from-source architecture review of
 `nightrunner-22nd-JUL-26`. Registered in `MASTER-PLAN.md` on 2026-07-23 as
 plan 2 of the Architecture Follow-Up Campaign Round 3; starts after
-`source-blemish-remediation` B3 renames land. 1/5 phases complete.
+`source-blemish-remediation` B3 renames land. 2/5 phases complete.
 Impact area: `SkullbonezSource/UI/` includes, `Runtime/Scene` navigation
 value ownership, input snapshot boundary, physics-debug-visualizer UI tab
 Owner: runtime + UI
@@ -152,7 +152,7 @@ rules, and no behavior, layout, binding, or rendering output changes.
   engine process/generation/presentation, the full 2,401-tick durable/causal
   oracle, and all negative controls pass.
 
-- [ ] **U2 — Input crosses as a UI-owned value snapshot.** UI already
+- [x] **U2 — Input crosses as a UI-owned value snapshot.** UI already
   defines `UIInputSnapshot`; make it the boundary. Move snapshot
   construction to the Runtime side of the seam (the caller that already owns
   `DeviceInputFrame`/`RuntimeMouseEdges` — `InputRouter.Interactions.cpp` /
@@ -164,6 +164,40 @@ rules, and no behavior, layout, binding, or rendering output changes.
   bit-identical — the same sampled values cross, only the packaging moves.
   Acceptance: no UI file includes Runtime input headers; interactive UI
   behavior (drag, capture, hover, shortcuts) unchanged.
+
+  Completed 2026-07-23. `UIInputSnapshot` is now an owning UI value: four
+  64-bit keyboard words plus pointer position, wheel delta, button level, and
+  press/release edges. It retains no Runtime reference or pointer. Runtime's
+  `BuildUIInputSnapshot` copies those facts from the already-sampled
+  `DeviceInputFrame` and `RuntimeMouseEdges`; the small `UIPointerOverride`
+  carries only UI-owned automation coordinates back to that construction
+  site. UI key helpers and the Scene tab now consume the detached snapshot.
+  All `Runtime/Input.h`, `Runtime/InputRouter.h`, `DeviceInputFrame`,
+  `RuntimeMouseEdges`, and `InputKeySnapshot` dependencies are absent from
+  `SkullbonezSource/UI/`.
+
+  The first focused compile exposed three stale unqualified `keys` references,
+  unused namespace imports that had depended on transitive Runtime visibility,
+  and the standalone test target's missing pure-UI input implementation. Those
+  issues were corrected by using the snapshot parameter, removing the unused
+  imports, and adding `UIInput.cpp` to the test project and filter. No
+  forwarding header or compatibility alias was introduced.
+
+  The final focused Profile build passes in 4.85 s with zero warnings/errors.
+  The input-policy selection passes 28 cases / 1,170 assertions in 1.73 s, and
+  the exact detached-boundary case passes 1 case / 16 assertions in 0.07 s,
+  including source-mutation independence and pointer override behavior. All 15
+  touched source-bearing files pass the comment audit with zero deferrals.
+  `tools\validate_ui.bat` passes in 53.91 s, exercising visible UI states and
+  DX12 presentation while the CPU input tests cover capture, focus, pointer
+  edges, and shortcut routing.
+
+  Final `tools\validate_full.bat` passes in 124.96 s: all CPU/coverage floors,
+  747/747 project/filter entries, zero-warning Profile and Debug builds, zero
+  DX12 validation errors with accepted committed images, and the byte-exact
+  44,401-line physics CSV. The remaining UI→Runtime source include census is
+  exactly the three `PhysicsDebugVisualizer.h` rows assigned to U3. No authored
+  data, baseline, golden, config, schema, or shader changed.
 
 - [ ] **U3 — Physics debug visualizer goes behind typed commands.** Replace
   UI's direct `PhysicsDebugVisualizer` access with the existing command

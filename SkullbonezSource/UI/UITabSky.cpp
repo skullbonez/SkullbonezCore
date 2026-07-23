@@ -33,7 +33,6 @@ Related:
 #include <algorithm>
 #include <cstdio>
 
-using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::UI::Layout;
 using namespace SkullbonezCore::UI::Widgets;
 

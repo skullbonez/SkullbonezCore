@@ -11,23 +11,22 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-23rd-JUL-26` |
-| Current baseline | UI/runtime U1 is complete: the passive scene-navigation model lives in UI while Runtime retains only the detached load-transaction snapshot and queue policy. Legacy remains the development default. |
-| Current objective | Implement `ui-runtime-separation` U2: build `UIInputSnapshot` on the Runtime side and remove UI input-authority includes. |
-| Active/future progress | 7/16 registered architecture follow-up tasks; 44%. |
+| Current baseline | UI/runtime U2 is complete: UI owns a detached keyboard/pointer snapshot, Runtime constructs it from sampled device/edge state, and UI has no Runtime input-authority dependency. Legacy remains the development default. |
+| Current objective | Implement `ui-runtime-separation` U3: replace direct UI access to `PhysicsDebugVisualizer` with typed commands and a value status snapshot. |
+| Active/future progress | 8/16 registered architecture follow-up tasks; 50%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | UI/runtime U1 `validate_full` passes in 156.50 s: 747/747 project/filter items, CPU/coverage and five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | U1 focused Profile build and 5 navigation tests / 43 assertions pass; the broad gate passes; one Replay visual-fidelity invocation passes in 434.52 s with one generation and the full 2,401-tick oracle. |
+| Last broad local gate | UI/runtime U2 `validate_full` passes in 124.96 s: all CPU/coverage floors, 747/747 project/filter items, zero-warning Profile/Debug builds, accepted DX12 images with zero errors, and byte-exact 44,401-line physics CSV. |
+| Validation for current edits | U2 final Profile build passes in 4.85 s; input policy passes 28 cases / 1,170 assertions and the detached-boundary case passes 1 / 16; `validate_ui` passes in 53.91 s; 15/15 source files pass comment audit. |
 
 ## Live Queue
 
-NOW. `ui-runtime-separation` is active at 1/5. U1 moves the passive browser,
-override, and navigation values into `UI/UISceneNavigationModel.h`; the new
-header contains no Runtime authority. `SceneLoadNavigationState` remains in
-Runtime because it is a detached cold load-transaction snapshot whose policy
-borrows the concrete scene queue. The two UI navigation includes are gone,
-focused navigation tests and the broad/Replay gates pass, and no baseline or
-golden changed. U2 moves `UIInputSnapshot` construction to Runtime and removes
-the remaining UI input-authority includes.
+NOW. `ui-runtime-separation` is active at 2/5. U2 makes `UIInputSnapshot` an
+owning UI keyboard/pointer value and constructs it on the Runtime side from
+the sampled device frame and mouse edges. UI has no Runtime input types or
+input includes; focused input tests, the UI interaction gate, and the broad
+gate pass with no baseline or golden change. The only three UI→Runtime source
+include rows all name `PhysicsDebugVisualizer.h`; U3 replaces them with typed
+commands and a detached status value.
 
 NOW. `wide-signature-parameter-bag-remediation` is complete (6/6).
 The owner rejected replacements such as `RenderModelPassInput` that merely
@@ -371,7 +370,7 @@ targeted Automation and final full passes.
 ## Next Handoff
 
 Architecture follow-up implementation is active in
-`Agentic/Plans/TODO/ui-runtime-separation.md` at 1/5; U2 is next. Preserve the
+`Agentic/Plans/TODO/ui-runtime-separation.md` at 2/5; U3 is next. Preserve the
 empty threshold-13 inventory, source-blemish owner boundaries, and the
 direction rule that Runtime may include UI while UI must never include
 Runtime.

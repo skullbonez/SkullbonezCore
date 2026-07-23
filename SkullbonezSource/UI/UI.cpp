@@ -31,7 +31,6 @@ Related:
 #include "UI.h"
 #include "../Assets/AssetKeys.h"
 #include "UIFrameComposition.h"
-#include "../Runtime/InputRouter.h"
 #include "../Assets/AssetSystem.h"
 #include "../Rendering/RenderCommandTypes.h"
 #include "../Rendering/DX12/Dx12Diagnostics.h"
@@ -352,10 +351,9 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw,
 }
 
 
-InputControl::UIInputSnapshot InGameUI::CaptureInputSnapshot( const Runtime::DeviceInputFrame& deviceFrame,
-                                                              const Runtime::RuntimeMouseEdges& mouse ) const
+InputControl::UIPointerOverride InGameUI::InputOverride() const
 {
-    return m_windowInteraction.CaptureInputSnapshot( deviceFrame, mouse );
+    return m_windowInteraction.InputOverride();
 }
 
 

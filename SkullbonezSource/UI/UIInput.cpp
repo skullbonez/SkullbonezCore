@@ -1,35 +1,28 @@
 /*
 File: SkullbonezSource/UI/UIInput.cpp
 Purpose:
-  Converts immutable runtime input snapshots into UI-local pointer and keyboard
-  values without polling hardware or owning native capture.
+  Queries detached UI keyboard levels and derives scene-filter key edges.
 
 Summary:
-  UIInput.cpp implements UI Input widgets, layout, drawing, or UI state for
-  the in-engine controls. As an implementation unit, keep edits anchored on UI
-  request, layout, hit-test, and draw-command flow and on the
-  glossary/invariants below.
+  Runtime has already copied one immutable input turn into UIInputSnapshot.
+  These helpers read its keyboard words and maintain widget-local prior levels
+  without reaching back into Runtime or polling hardware.
 
 Glossary:
-  Draw command: Lightweight record describing a UI shape or text batch to
-  render later in the frame.
-  Hit box: Screen-space rectangle used to decide whether mouse input targets a
-  widget.
+  Virtual key: Integer code used by UI controls to identify a keyboard level.
+  Prior level: Widget-owned bit recording whether that key was down on the
+    preceding UI interaction turn.
 
 Invariants:
-  - Draw geometry and hit testing must be derived from the same layout
-    constants.
-  - Pointer levels and router-owned button edges are copied, never recomputed.
-  - Keyboard state is borrowed synchronously from the same immutable device
-    frame and is never retained beyond UI command production.
+  - Key indexing matches Runtime's four-word, 256-key capture layout.
+  - UI derives press edges only from the copied current level and its own prior
+    level; pointer edges remain the Runtime-produced values in the snapshot.
 
 Related:
   - SkullbonezSource/UI/UIInput.h
   - Agentic/Reference/comment-style-guide.md
 */
 #include "UIInput.h"
-#include "../Runtime/Input.h"
-#include "../Runtime/InputRouter.h"
 
 namespace SkullbonezCore
 {
@@ -38,66 +31,43 @@ namespace UI
 namespace InputControl
 {
 
-UIInputSnapshot CaptureSnapshot( const Runtime::DeviceInputFrame& frame,
-                                 const Runtime::RuntimeMouseEdges& mouse,
-                                 bool hasMouseOverride,
-                                 int overrideX,
-                                 int overrideY )
-{
-    UIInputSnapshot snapshot;
-    snapshot.keys = &frame.keys;
-    snapshot.wheelDelta = frame.wheelDelta;
-
-    if ( hasMouseOverride )
-    {
-        snapshot.mouseX = overrideX;
-        snapshot.mouseY = overrideY;
-    }
-    else
-    {
-        if ( frame.hasClientPosition )
-        {
-            snapshot.mouseX = frame.clientX;
-            snapshot.mouseY = frame.clientY;
-        }
-    }
-
-    snapshot.leftDown = mouse.leftDown;
-    snapshot.leftPressed = mouse.leftPressed;
-    snapshot.leftReleased = mouse.leftReleased;
-    return snapshot;
-}
-
-
-void CaptureKeyStates( bool keyWasDown[256], const Runtime::InputKeySnapshot& keys )
+void CaptureKeyStates( bool keyWasDown[UIInputSnapshot::VIRTUAL_KEY_COUNT], const UIInputSnapshot& input )
 {
     if ( !keyWasDown )
     {
         return;
     }
-    for ( int key = 0; key < 256; ++key )
+    for ( int key = 0; key < UIInputSnapshot::VIRTUAL_KEY_COUNT; ++key )
     {
-        keyWasDown[key] = IsVirtualKeyDown( keys, key );
+        keyWasDown[key] = IsVirtualKeyDown( input, key );
     }
 }
 
 
-bool ConsumeKeyPress( bool keyWasDown[256], const Runtime::InputKeySnapshot& keys, int virtualKey )
+bool ConsumeKeyPress( bool keyWasDown[UIInputSnapshot::VIRTUAL_KEY_COUNT],
+                      const UIInputSnapshot& input,
+                      int virtualKey )
 {
-    if ( !keyWasDown || virtualKey < 0 || virtualKey >= 256 )
+    if ( !keyWasDown || virtualKey < 0 || virtualKey >= UIInputSnapshot::VIRTUAL_KEY_COUNT )
     {
         return false;
     }
-    const bool isDown = IsVirtualKeyDown( keys, virtualKey );
+    const bool isDown = IsVirtualKeyDown( input, virtualKey );
     const bool wasPressed = isDown && !keyWasDown[virtualKey];
     keyWasDown[virtualKey] = isDown;
     return wasPressed;
 }
 
 
-bool IsVirtualKeyDown( const Runtime::InputKeySnapshot& keys, int virtualKey )
+bool IsVirtualKeyDown( const UIInputSnapshot& input, int virtualKey )
 {
-    return keys.IsDown( virtualKey );
+    if ( virtualKey < 0 || virtualKey >= UIInputSnapshot::VIRTUAL_KEY_COUNT )
+    {
+        return false;
+    }
+    const std::size_t word = static_cast<std::size_t>( virtualKey ) / 64u;
+    const uint64_t bit = uint64_t{ 1 } << ( static_cast<unsigned int>( virtualKey ) & 63u );
+    return ( input.keyWords[word] & bit ) != 0u;
 }
 
 

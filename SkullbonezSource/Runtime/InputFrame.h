@@ -39,6 +39,7 @@ Related:
 #include "Replay/ReplayRuntime.h"
 #include "RuntimeFrameViews.h"
 #include "../UI/UICommands.h"
+#include "../UI/UIInput.h"
 
 namespace SkullbonezCore
 {
@@ -114,6 +115,31 @@ struct RuntimeInputFrameFacts
     // or scene-authored stress actions during this input turn.
     bool legacyDevelopmentUiActive = true;
 };
+
+// Copies one sampled Runtime input turn into the passive UI-owned value. The
+// returned snapshot retains no router, device-frame, or UI-owner reference.
+inline UI::InputControl::UIInputSnapshot BuildUIInputSnapshot( const DeviceInputFrame& frame,
+                                                               const RuntimeMouseEdges& mouse,
+                                                               UI::InputControl::UIPointerOverride pointerOverride )
+{
+    UI::InputControl::UIInputSnapshot snapshot;
+    snapshot.keyWords = frame.keys.Words();
+    snapshot.wheelDelta = frame.wheelDelta;
+    if ( pointerOverride.enabled )
+    {
+        snapshot.mouseX = pointerOverride.x;
+        snapshot.mouseY = pointerOverride.y;
+    }
+    else if ( frame.hasClientPosition )
+    {
+        snapshot.mouseX = frame.clientX;
+        snapshot.mouseY = frame.clientY;
+    }
+    snapshot.leftDown = mouse.leftDown;
+    snapshot.leftPressed = mouse.leftPressed;
+    snapshot.leftReleased = mouse.leftReleased;
+    return snapshot;
+}
 
 // Shared value-policy helpers used by the stateless coordinator and the
 // InputRouter methods that commit accepted transitions.

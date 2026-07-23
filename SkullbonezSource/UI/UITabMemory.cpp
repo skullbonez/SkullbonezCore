@@ -45,8 +45,6 @@ Related:
 #include <cstdio>
 #include <cstring>
 
-using namespace SkullbonezCore::Runtime;
-
 namespace
 {
 constexpr float MEMORY_SUMMARY_BLOCK_H = 310.0f;

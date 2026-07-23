@@ -1,28 +1,24 @@
 /*
 File: SkullbonezSource/UI/UIInput.h
 Purpose:
-  Converts the runtime's immutable device/pointer snapshots into UI-local input
-  values and applies scene-filter keyboard edges without polling hardware.
+  Defines the detached keyboard/pointer value consumed by UI interaction.
 
 Summary:
-  UIInput.h implements UI Input widgets, layout, drawing, or UI state for the
-  in-engine controls. As a public header, keep edits anchored on UI request,
-  layout, hit-test, and draw-command flow and on the glossary/invariants
-  below.
+  Runtime copies its sampled device levels and router-owned pointer edges into
+  UIInputSnapshot. UI then derives widget edges from this passive value without
+  polling hardware or naming Runtime input authority.
 
 Glossary:
-  Draw command: Lightweight record describing a UI shape or text batch to
-  render later in the frame.
-  Hit box: Screen-space rectangle used to decide whether mouse input targets a
-  widget.
+  Virtual key word: One 64-bit group of keyboard levels; four words cover all
+    256 Windows virtual-key codes.
+  Pointer override: UI-owned automation value that substitutes a deterministic
+    client position while preserving sampled button levels and edges.
 
 Invariants:
-  - Draw geometry and hit testing must be derived from the same layout
-    constants.
-  - UI input receives InputRouter-owned levels/edges and never samples Win32
-    keyboard, pointer, wheel, or cursor state itself.
-  - UIInputSnapshot's keyboard pointer is a synchronous borrow from the device
-    frame used to create it.
+  - UI input receives copied levels/edges and never samples keyboard, pointer,
+    wheel, or cursor state itself.
+  - The snapshot owns every input bit it exposes and contains no Runtime type,
+    owner pointer, callback, or borrowed lifetime.
 
 Related:
   - SkullbonezSource/UI/UIInput.cpp
@@ -30,17 +26,12 @@ Related:
 */
 #pragma once
 
-#include "../Core/Common.h"
+#include <array>
+#include <cstddef>
+#include <cstdint>
 
 namespace SkullbonezCore
 {
-namespace Runtime
-{
-struct DeviceInputFrame;
-class InputKeySnapshot;
-struct RuntimeMouseEdges;
-} // namespace Runtime
-
 namespace UI
 {
 namespace InputControl
@@ -48,9 +39,9 @@ namespace InputControl
 
 struct UIInputSnapshot
 {
-    // Lifetime: keyboard state is borrowed from the same immutable device
-    // frame whose pointer levels were normalized into this snapshot.
-    const Runtime::InputKeySnapshot* keys = nullptr;
+    static constexpr int VIRTUAL_KEY_COUNT = 256;
+    static constexpr std::size_t KEY_WORD_COUNT = VIRTUAL_KEY_COUNT / 64;
+    std::array<uint64_t, KEY_WORD_COUNT> keyWords = {};
     int mouseX = 0;
     int mouseY = 0;
     int wheelDelta = 0;
@@ -59,15 +50,18 @@ struct UIInputSnapshot
     bool leftReleased = false;
 };
 
-UIInputSnapshot CaptureSnapshot( const Runtime::DeviceInputFrame& frame,
-                                 const Runtime::RuntimeMouseEdges& mouse,
-                                 bool hasMouseOverride,
-                                 int overrideX,
-                                 int overrideY );
+struct UIPointerOverride
+{
+    bool enabled = false;
+    int x = 0;
+    int y = 0;
+};
 
-void CaptureKeyStates( bool keyWasDown[256], const Runtime::InputKeySnapshot& keys );
-bool ConsumeKeyPress( bool keyWasDown[256], const Runtime::InputKeySnapshot& keys, int virtualKey );
-bool IsVirtualKeyDown( const Runtime::InputKeySnapshot& keys, int virtualKey );
+void CaptureKeyStates( bool keyWasDown[UIInputSnapshot::VIRTUAL_KEY_COUNT], const UIInputSnapshot& input );
+bool ConsumeKeyPress( bool keyWasDown[UIInputSnapshot::VIRTUAL_KEY_COUNT],
+                      const UIInputSnapshot& input,
+                      int virtualKey );
+bool IsVirtualKeyDown( const UIInputSnapshot& input, int virtualKey );
 
 } // namespace InputControl
 } // namespace UI

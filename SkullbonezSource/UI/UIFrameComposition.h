@@ -31,7 +31,6 @@ Related:
 #include "UIRenderAuthoringCatalog.h"
 
 #include "UI.h"
-#include "../Runtime/InputRouter.h"
 #include "../Assets/AssetSystem.h"
 #include "../Rendering/RenderCommandTypes.h"
 #include "../Rendering/DX12/Dx12Diagnostics.h"

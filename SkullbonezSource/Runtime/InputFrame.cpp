@@ -502,7 +502,7 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( Window& window,
     const int selectedSceneBrowserIndex = CurrentSceneBrowserIndex( sceneController, ui.SceneNavigation().browser );
     const HWND windowHandle = window.NativeWindowHandle();
     const SkullbonezCore::UI::InputControl::UIInputSnapshot uiInput =
-        ui.CaptureInputSnapshot( inputRouter.DeviceFrame(), inputRouter.UiSnapshot().mouse );
+        BuildUIInputSnapshot( inputRouter.DeviceFrame(), inputRouter.UiSnapshot().mouse, ui.InputOverride() );
     InGameUIInputResult UIResult = ui.UpdateInput(
         uiInput,
         window.ClientWidth(),
