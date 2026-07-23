@@ -151,6 +151,22 @@ struct RunSceneState;
 struct ReplayV2SaveResult;
 struct ReplaySolverSampleRestoreContext;
 
+// Value-only facts for one synchronous replay render preparation. Lifetime:
+// spans and references remain caller-owned for the duration of the call;
+// mutable render, physics, tool, and tracer owners stay explicit parameters.
+struct ReplayRenderPreparationInput
+{
+    std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords;
+    int modelCount = 0;
+    bool editorModeEnabled = false;
+    const RuntimeInteractionGesture& gesture;
+    int sceneFrame = 0;
+    bool collisionVisualizer = false;
+    bool debugTransparentBodyPass = false;
+    const Math::Vector::Vector3& cameraTranslation;
+    const Math::Vector::Vector3& cameraUp;
+    uint64_t replayReserveGrowthEvents = 0;
+};
 
 class ReplayRuntime
 {
@@ -177,22 +193,12 @@ class ReplayRuntime
     // Selects at most one historical track plus the prediction preview for the
     // current render turn; returned sample pointers are frame-local borrows.
     ReplayPresentationSelection BuildPresentationSelection() const;
-    ReplayRenderFrameView
-    PrepareRenderFrame( Rendering::RenderInstanceStore& renderInstances,
-                        std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
-                        Physics::PhysicsEngine& physics,
-                        const SceneEntityStore& entities,
-                        RuntimeTools& runtimeTools,
-                        RunEditorTracer& tracer,
-                        int modelCount,
-                        bool editorModeEnabled,
-                        const RuntimeInteractionGesture& gesture,
-                        int sceneFrame,
-                        bool collisionVisualizer,
-                        bool debugTransparentBodyPass,
-                        const Math::Vector::Vector3& cameraTranslation,
-                        const Math::Vector::Vector3& cameraUp,
-                        uint64_t replayReserveGrowthEvents );
+    ReplayRenderFrameView PrepareRenderFrame( Rendering::RenderInstanceStore& renderInstances,
+                                              Physics::PhysicsEngine& physics,
+                                              const SceneEntityStore& entities,
+                                              RuntimeTools& runtimeTools,
+                                              RunEditorTracer& tracer,
+                                              const ReplayRenderPreparationInput& input );
     // Domain command: advances ReplayPresentation's consequence fade once for
     // a frame that will reach world rendering and returns a copied scalar.
     float AdvanceConsequenceGrade( bool requested ) noexcept;

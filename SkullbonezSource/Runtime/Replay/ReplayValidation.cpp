@@ -328,62 +328,58 @@ void WriteReplayProbeReason( char* outReason, std::size_t reasonSize, const char
     }
 }
 
+// Bounded diagnostic schema for one restore attempt. Lifetime: sample pointers
+// and message strings are read synchronously while the concrete diagnostics
+// and scene owners remain explicit parameters.
+struct ReplayV2TargetRestoreDiagnosticInput
+{
+    const char* restoreSource = nullptr;
+    ReplayFrameIndex requestedFrame = 0;
+    ReplayFrameIndex latestNonCheckpointTarget = 0;
+    const char* failureReason = nullptr;
+    const ReplayV2SolverHashSample* diagnosticTarget = nullptr;
+    const ReplaySolverFrameSample* diagnosticCheckpoint = nullptr;
+    uint64_t restoredSolverHash = 0;
+    uint64_t restoredPresentationHash = 0;
+    std::size_t restoredBodyCount = 0;
+    bool hashCaptured = false;
+    bool hashMatched = false;
+    bool fallbackAttempted = false;
+    bool fallbackRestored = false;
+};
+
 void LogReplayV2TargetRestoreDiagnostic( DiagnosticsRuntime& diagnosticsRuntime,
                                          RunSceneState& scene,
-                                         const char* restoreSource,
-                                         ReplayFrameIndex requestedFrame,
-                                         ReplayFrameIndex latestNonCheckpointTarget,
-                                         const char* failureReason,
-                                         const ReplayV2SolverHashSample* diagnosticTarget,
-                                         const ReplaySolverFrameSample* diagnosticCheckpoint,
-                                         uint64_t restoredSolverHash,
-                                         uint64_t restoredPresentationHash,
-                                         std::size_t restoredBodyCount,
-                                         bool hashCaptured,
-                                         bool hashMatched,
-                                         bool fallbackAttempted,
-                                         bool fallbackRestored )
+                                         const ReplayV2TargetRestoreDiagnosticInput& input )
 {
 #ifdef _DEBUG
-    const ReplayFrameIndex targetFrame = diagnosticTarget
-                                             ? diagnosticTarget->frameIndex
-                                             : ( requestedFrame == latestNonCheckpointTarget ? 0 : requestedFrame );
+    const ReplayFrameIndex targetFrame =
+        input.diagnosticTarget ? input.diagnosticTarget->frameIndex
+                               : ( input.requestedFrame == input.latestNonCheckpointTarget ? 0 : input.requestedFrame );
     ReplayRestoreResultDiagnostic result;
-    result.restoreSource = restoreSource;
+    result.restoreSource = input.restoreSource;
     result.targetReplayFrame = targetFrame;
-    result.targetSceneFrame = diagnosticTarget ? diagnosticTarget->sceneFrame : scene.currentFrame;
-    result.checkpointReplayFrame = diagnosticCheckpoint ? diagnosticCheckpoint->frameIndex : 0;
-    result.targetSolverHash = diagnosticTarget ? diagnosticTarget->solverHash : 0;
-    result.targetPresentationHash = diagnosticTarget ? diagnosticTarget->presentationHash : 0;
-    result.targetBodyCount = diagnosticTarget ? diagnosticTarget->bodyCount : 0;
-    result.restoredSolverHash = restoredSolverHash;
-    result.restoredPresentationHash = restoredPresentationHash;
-    result.restoredBodyCount = restoredBodyCount;
-    result.contactCount = diagnosticCheckpoint ? diagnosticCheckpoint->contactCount : 0;
-    result.pipelineRecordCount = diagnosticCheckpoint ? diagnosticCheckpoint->pipelineRecordCount : 0;
-    result.checkpointBoundary = diagnosticCheckpoint ? diagnosticCheckpoint->checkpointBoundary : false;
-    result.hashCaptured = hashCaptured;
-    result.hashMatched = hashMatched;
-    result.fallbackAttempted = fallbackAttempted;
-    result.fallbackRestored = fallbackRestored;
-    result.failureReason = failureReason;
+    result.targetSceneFrame = input.diagnosticTarget ? input.diagnosticTarget->sceneFrame : scene.currentFrame;
+    result.checkpointReplayFrame = input.diagnosticCheckpoint ? input.diagnosticCheckpoint->frameIndex : 0;
+    result.targetSolverHash = input.diagnosticTarget ? input.diagnosticTarget->solverHash : 0;
+    result.targetPresentationHash = input.diagnosticTarget ? input.diagnosticTarget->presentationHash : 0;
+    result.targetBodyCount = input.diagnosticTarget ? input.diagnosticTarget->bodyCount : 0;
+    result.restoredSolverHash = input.restoredSolverHash;
+    result.restoredPresentationHash = input.restoredPresentationHash;
+    result.restoredBodyCount = input.restoredBodyCount;
+    result.contactCount = input.diagnosticCheckpoint ? input.diagnosticCheckpoint->contactCount : 0;
+    result.pipelineRecordCount = input.diagnosticCheckpoint ? input.diagnosticCheckpoint->pipelineRecordCount : 0;
+    result.checkpointBoundary = input.diagnosticCheckpoint ? input.diagnosticCheckpoint->checkpointBoundary : false;
+    result.hashCaptured = input.hashCaptured;
+    result.hashMatched = input.hashMatched;
+    result.fallbackAttempted = input.fallbackAttempted;
+    result.fallbackRestored = input.fallbackRestored;
+    result.failureReason = input.failureReason;
     diagnosticsRuntime.LogReplayRestoreResult( scene, result );
 #else
     (void)diagnosticsRuntime;
     (void)scene;
-    (void)restoreSource;
-    (void)requestedFrame;
-    (void)latestNonCheckpointTarget;
-    (void)failureReason;
-    (void)diagnosticTarget;
-    (void)diagnosticCheckpoint;
-    (void)restoredSolverHash;
-    (void)restoredPresentationHash;
-    (void)restoredBodyCount;
-    (void)hashCaptured;
-    (void)hashMatched;
-    (void)fallbackAttempted;
-    (void)fallbackRestored;
+    (void)input;
 #endif
 }
 
@@ -1315,21 +1311,22 @@ void LogReplayRestoreTargetSuccess( DiagnosticsRuntime& diagnosticsRuntime,
                                     const ReplaySolverFrameSample& checkpoint,
                                     const ReplayRestoreTargetHashResult& targetHash )
 {
-    LogReplayV2TargetRestoreDiagnostic( diagnosticsRuntime,
-                                        scene,
-                                        restoreSource,
-                                        requestedFrame,
-                                        latestNonCheckpointTarget,
-                                        "",
-                                        &target,
-                                        &checkpoint,
-                                        targetHash.solverHash,
-                                        targetHash.presentationHash,
-                                        targetHash.bodyCount,
-                                        true,
-                                        true,
-                                        false,
-                                        false );
+    LogReplayV2TargetRestoreDiagnostic(
+        diagnosticsRuntime,
+        scene,
+        ReplayV2TargetRestoreDiagnosticInput{ .restoreSource = restoreSource,
+                                              .requestedFrame = requestedFrame,
+                                              .latestNonCheckpointTarget = latestNonCheckpointTarget,
+                                              .failureReason = "",
+                                              .diagnosticTarget = &target,
+                                              .diagnosticCheckpoint = &checkpoint,
+                                              .restoredSolverHash = targetHash.solverHash,
+                                              .restoredPresentationHash = targetHash.presentationHash,
+                                              .restoredBodyCount = targetHash.bodyCount,
+                                              .hashCaptured = true,
+                                              .hashMatched = true,
+                                              .fallbackAttempted = false,
+                                              .fallbackRestored = false } );
 }
 
 // Lifetime: the cold restore transaction composes domain owners without
@@ -1690,21 +1687,22 @@ bool ReplayRuntime::RestoreV2ArtifactTargetStateImpl( const ReplayRestoreTransac
                                    bool fallbackAttempted = false,
                                    bool fallbackRestored = false ) -> bool
     {
-        LogReplayV2TargetRestoreDiagnostic( transaction.diagnostics,
-                                            transaction.sampleOwners.scene,
-                                            restoreSource,
-                                            requestedFrame,
-                                            LATEST_NON_CHECKPOINT_TARGET,
-                                            message,
-                                            diagnosticTarget,
-                                            diagnosticCheckpoint,
-                                            restoredSolverHash,
-                                            restoredPresentationHash,
-                                            restoredBodyCount,
-                                            hashCaptured,
-                                            hashMatched,
-                                            fallbackAttempted,
-                                            fallbackRestored );
+        LogReplayV2TargetRestoreDiagnostic(
+            transaction.diagnostics,
+            transaction.sampleOwners.scene,
+            ReplayV2TargetRestoreDiagnosticInput{ .restoreSource = restoreSource,
+                                                  .requestedFrame = requestedFrame,
+                                                  .latestNonCheckpointTarget = LATEST_NON_CHECKPOINT_TARGET,
+                                                  .failureReason = message,
+                                                  .diagnosticTarget = diagnosticTarget,
+                                                  .diagnosticCheckpoint = diagnosticCheckpoint,
+                                                  .restoredSolverHash = restoredSolverHash,
+                                                  .restoredPresentationHash = restoredPresentationHash,
+                                                  .restoredBodyCount = restoredBodyCount,
+                                                  .hashCaptured = hashCaptured,
+                                                  .hashMatched = hashMatched,
+                                                  .fallbackAttempted = fallbackAttempted,
+                                                  .fallbackRestored = fallbackRestored } );
         writeReason( message );
         return false;
     };

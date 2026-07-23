@@ -552,22 +552,12 @@ ReplayPresentationSelection ReplayRuntime::BuildPresentationSelection() const
     return selection;
 }
 
-ReplayRenderFrameView
-ReplayRuntime::PrepareRenderFrame( Rendering::RenderInstanceStore& renderInstances,
-                                   std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
-                                   PhysicsEngine& physics,
-                                   const SceneEntityStore& entities,
-                                   RuntimeTools& runtimeTools,
-                                   RunEditorTracer& tracer,
-                                   int modelCount,
-                                   bool editorModeEnabled,
-                                   const RuntimeInteractionGesture& gesture,
-                                   int sceneFrame,
-                                   bool collisionVisualizer,
-                                   bool debugTransparentBodyPass,
-                                   const Math::Vector::Vector3& cameraTranslation,
-                                   const Math::Vector::Vector3& cameraUp,
-                                   uint64_t replayReserveGrowthEvents )
+ReplayRenderFrameView ReplayRuntime::PrepareRenderFrame( Rendering::RenderInstanceStore& renderInstances,
+                                                         PhysicsEngine& physics,
+                                                         const SceneEntityStore& entities,
+                                                         RuntimeTools& runtimeTools,
+                                                         RunEditorTracer& tracer,
+                                                         const ReplayRenderPreparationInput& input )
 {
     const ReplayPresentationSelection selection = BuildPresentationSelection();
     const RunReplayPredictionFrame* predictionFrame = selection.selectedPrediction;
@@ -610,19 +600,19 @@ ReplayRuntime::PrepareRenderFrame( Rendering::RenderInstanceStore& renderInstanc
                         entities,
                         tracer,
                         prediction,
-                        ReplayOverlayBuildInput{ editorModeEnabled, gesture, sceneFrame } );
+                        ReplayOverlayBuildInput{ input.editorModeEnabled, input.gesture, input.sceneFrame } );
     (void)m_visualPresentation.BuildPredictionGhostDrawRequests( prediction,
-                                                                 presentationRecords,
+                                                                 input.presentationRecords,
                                                                  PhysicsEngine::ReadBodies( physics ) );
-    ReplayVisualPacket packet = tracer.BuildReplayVisualPacket( cameraTranslation, cameraUp );
+    ReplayVisualPacket packet = tracer.BuildReplayVisualPacket( input.cameraTranslation, input.cameraUp );
     m_visualPresentation.PublishVisualPacket( packet,
                                               prediction,
                                               m_timeline.Solver().LatestSample(),
-                                              replayReserveGrowthEvents );
+                                              input.replayReserveGrowthEvents );
 
-    const ReplayInputView input = BuildInputView();
+    const ReplayInputView inputView = BuildInputView();
     bool focusFadeActive = false;
-    if ( !input.predictionEnabled && !collisionVisualizer && !debugTransparentBodyPass )
+    if ( !inputView.predictionEnabled && !input.collisionVisualizer && !input.debugTransparentBodyPass )
     {
         SkullbonezCore::Core::Allocation::RuntimeAllocationScope replayAllocationScope(
             SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay );
@@ -630,8 +620,9 @@ ReplayRuntime::PrepareRenderFrame( Rendering::RenderInstanceStore& renderInstanc
             prediction.enabled
                 ? prediction.futureNodes
                 : std::span<const RunReplayPathTraceNode>( m_visualPresentation.PathVisualizer().futureNodes );
-        focusFadeActive =
-            m_visualPresentation.BuildFocusModelMask( PhysicsEngine::ReadBodies( physics ), modelCount, focusNodes );
+        focusFadeActive = m_visualPresentation.BuildFocusModelMask( PhysicsEngine::ReadBodies( physics ),
+                                                                    input.modelCount,
+                                                                    focusNodes );
     }
 
     return { presentationSample,
@@ -639,8 +630,8 @@ ReplayRuntime::PrepareRenderFrame( Rendering::RenderInstanceStore& renderInstanc
              ( presentationSample || solverSample ) ? nullptr : predictionFrame,
              &m_visualPresentation.PublishedVisualPacketView(),
              focusFadeActive ? &m_visualPresentation.FocusModelMaskView() : nullptr,
-             input.predictionEnabled,
-             input.liveAdvanceHeld,
+             inputView.predictionEnabled,
+             inputView.liveAdvanceHeld,
              focusFadeActive };
 }
 

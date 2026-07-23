@@ -68,7 +68,7 @@ inventory may be refreshed.
   sleep-row capability and keep all external physics owners explicit.
 - [x] T3 — Rendering. Narrow model and shadow submission without hiding
   backend/store/worker ownership or adding hot-path allocation.
-- [ ] T4 — Replay. Narrow restore diagnostics, render preparation, and scrubber
+- [x] T4 — Replay. Narrow restore diagnostics, render preparation, and scrubber
   gesture input without broadening Replay authority.
 - [ ] T5 — Closure. Reconcile the zero-row threshold-13 inventory, complete the
   touched-file comment audit, run dependency/allocation proofs and mapped
@@ -114,11 +114,11 @@ inventory may be refreshed.
 - [x] `SkullbonezSource/Rendering/RenderInstanceRenderer.cpp`
 - [x] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h`
 - [x] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayRuntime.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayScrubberTools.cpp`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayValidation.cpp`
-- [ ] `SkullbonezSource/Runtime/RunRender.cpp`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayRuntime.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayScrubberTools.cpp`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayValidation.cpp`
+- [x] `SkullbonezSource/Runtime/RunRender.cpp`
 
 ## Evidence
 
@@ -150,3 +150,16 @@ inventory may be refreshed.
 - T3 `tools\validate_perf.bat`: PASS in 76.8 s.
 - T3 `tools\run_graphics_stress.bat 1`: PASS in 60.9 s; PID 53472 completed
   the bounded one-minute run without a crash.
+- T4 threshold-13 inventory: 3 → 0; restore diagnostics, render preparation,
+  and scrubber gesture rows are absent.
+- T4 ownership review: diagnostic, render-preparation, and gesture records carry
+  only synchronous values/borrows. Mutable Replay, physics, scene, tool,
+  tracer, input, and interaction owners remain explicit parameters.
+- T4 comment audit: 5/5 checked, 0 deferred; the campaign checklist is 16/16.
+- T4 focused Profile build: PASS in 10.4 s, 0 warnings, 0 errors.
+- T4 `tools\validate_replay_visual_fidelity.bat`: PASS in 431.4 s; one engine
+  process/generation, 2,401 ticks, durable artifact and causal proof, and all
+  false-pass controls.
+- T4 `tools\validate_full.bat`: PASS in 114.0 s; CPU umbrella, five runtime
+  lanes, accepted DX12 captures, zero DX12 errors, and byte-exact 44,401-line
+  physics regression.

@@ -1106,36 +1106,45 @@ bool HandleReplayScrubPressed( ReplayScrubber& scrubber,
 }
 
 
+// Value-only pointer facts for one active Replay scrubber gesture. Lifetime:
+// the copied rectangle and scalars are consumed synchronously; mutable Replay
+// and input/interaction owners remain explicit parameters.
+struct ReplayScrubberGestureInput
+{
+    float solverPresentTrackPosition = 0.0f;
+    bool loadedPresentation = false;
+    int mouseX = 0;
+    int screenWidth = 0;
+    int screenHeight = 0;
+    SkullbonezCore::UI::UIRect predictionHorizon;
+    bool leftReleased = false;
+    double now = 0.0;
+};
+
 bool TickReplayScrubberGesture( ReplayPrediction& predictionOwner,
                                 ReplayScrubber& scrubber,
-                                float solverPresentTrackPosition,
                                 InputRouter& inputRouter,
                                 RuntimeInteractionController& interaction,
-                                bool loadedPresentation,
-                                int mouseX,
-                                int screenW,
-                                int screenH,
-                                const SkullbonezCore::UI::UIRect& predictionHorizon,
-                                bool leftReleased,
-                                double now,
-                                bool& outEnterInteractive )
+                                bool& outEnterInteractive,
+                                const ReplayScrubberGestureInput& input )
 {
     switch ( interaction.Gesture().kind )
     {
     case RuntimeInteractionGestureKind::ReplayScrubDrag:
     {
         const RunReplayTrack activeTrack = scrubber.View().activeTrack;
-        scrubber.SetTrackPosition( activeTrack,
-                                   ReplayScrubberPositionFromMouse( mouseX, screenW, screenH, activeTrack ) );
-        if ( loadedPresentation )
+        scrubber.SetTrackPosition(
+            activeTrack,
+            ReplayScrubberPositionFromMouse( input.mouseX, input.screenWidth, input.screenHeight, activeTrack ) );
+        if ( input.loadedPresentation )
         {
             scrubber.SetHistoricalSamplePaused( true );
         }
         else
         {
-            if ( ReplayAtPresentTrackPosition( scrubber.View().position, solverPresentTrackPosition ) )
+            if ( ReplayAtPresentTrackPosition( scrubber.View().position, input.solverPresentTrackPosition ) )
             {
-                scrubber.SetTrackPosition( activeTrack, solverPresentTrackPosition );
+                scrubber.SetTrackPosition( activeTrack, input.solverPresentTrackPosition );
                 scrubber.SetHistoricalSamplePaused( false );
             }
             else
@@ -1143,7 +1152,7 @@ bool TickReplayScrubberGesture( ReplayPrediction& predictionOwner,
                 scrubber.SetHistoricalSamplePaused( true );
             }
         }
-        if ( leftReleased )
+        if ( input.leftReleased )
         {
             EndReplayScrubberGesture( inputRouter, interaction, RuntimeInteractionGestureKind::ReplayScrubDrag );
         }
@@ -1153,12 +1162,12 @@ bool TickReplayScrubberGesture( ReplayPrediction& predictionOwner,
         SetReplayPredictionHorizonFromPointer( predictionOwner,
                                                scrubber,
                                                interaction,
-                                               predictionHorizon,
-                                               mouseX,
-                                               now,
+                                               input.predictionHorizon,
+                                               input.mouseX,
+                                               input.now,
                                                false,
                                                outEnterInteractive );
-        if ( leftReleased )
+        if ( input.leftReleased )
         {
             EndReplayScrubberGesture( inputRouter,
                                       interaction,
@@ -1745,19 +1754,20 @@ bool ReplayRuntime::TickScrubberInput( const ReplayWorkspaceFrameInput& input,
         break;
     }
 
-    const bool scrubberGestureHandled = TickReplayScrubberGesture( m_predictionOwner,
-                                                                   m_scrubberOwner,
-                                                                   solverPresentTrackPosition,
-                                                                   m_inputRouter,
-                                                                   m_interaction,
-                                                                   loadedPresentation,
-                                                                   mouse.x,
-                                                                   screenW,
-                                                                   screenH,
-                                                                   predictHorizon,
-                                                                   leftReleased,
-                                                                   now,
-                                                                   outEnterInteractive );
+    const bool scrubberGestureHandled =
+        TickReplayScrubberGesture( m_predictionOwner,
+                                   m_scrubberOwner,
+                                   m_inputRouter,
+                                   m_interaction,
+                                   outEnterInteractive,
+                                   ReplayScrubberGestureInput{ solverPresentTrackPosition,
+                                                               loadedPresentation,
+                                                               mouse.x,
+                                                               screenW,
+                                                               screenH,
+                                                               predictHorizon,
+                                                               leftReleased,
+                                                               now } );
     consumesMouse = consumesMouse || scrubberGestureHandled;
     ReplayScrubberView scrubber = m_scrubberOwner.View();
     if ( !scrubberGestureHandled && !loadedPresentation && !scrubber.historicalSamplePaused )
