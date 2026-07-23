@@ -1026,9 +1026,14 @@ void RenderReplayPorkchopOverlay( Text::TextBatch& textBatch, const ReplayOverla
     {
         sprintf_s( title,
                    sizeof( title ),
-                   "PORKCHOP  64x48  MIN %.3f u/s  %.2f ms",
+                   "PORKCHOP  64x48  MIN %.3f u/s  TOTAL %.2f ms  MAX %.2f ms",
                    porkchop.minimumDeltaV,
-                   porkchop.refreshComputeMilliseconds );
+                   porkchop.refreshComputeMilliseconds,
+                   porkchop.maximumFrameComputeMilliseconds );
+    }
+    else if ( porkchop.evaluated )
+    {
+        sprintf_s( title, sizeof( title ), "PORKCHOP  64x48  NO SOLUTION" );
     }
     else
     {
@@ -1038,7 +1043,7 @@ void RenderReplayPorkchopOverlay( Text::TextBatch& textBatch, const ReplayOverla
     draw.Text( panel.x + 14.0f, panel.y + 16.0f, 11.0f, titleColor.r, titleColor.g, titleColor.b, title );
 
     // Concept: low transfer cost is the cool/strong accent; increasingly
-    // expensive cells blend toward the existing warning accent. Failed cells
+    // expensive cells blend toward the existing neutral control color. Failed cells
     // remain the quiet window color and are never selectable.
     // Why: extreme window edges can be orders of magnitude above the useful
     // basin. Clamp only the display range so structure remains visible; the
@@ -1090,14 +1095,14 @@ void RenderReplayPorkchopOverlay( Text::TextBatch& textBatch, const ReplayOverla
                palette.textMuted.r,
                palette.textMuted.g,
                palette.textMuted.b,
-               "WAIT 0s" );
+               "SNAPSHOT +0s" );
     draw.Text( grid.x + grid.w - 48.0f,
                grid.y + grid.h + 9.0f,
                9.0f,
                palette.textMuted.r,
                palette.textMuted.g,
                palette.textMuted.b,
-               "48s" );
+               "+48s" );
     draw.Text( grid.x - 30.0f, grid.y, 8.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, "2s" );
     draw.Text( grid.x - 34.0f,
                grid.y + grid.h - 8.0f,
@@ -1117,12 +1122,20 @@ void RenderReplayPorkchopOverlay( Text::TextBatch& textBatch, const ReplayOverla
          porkchop.deltaV[static_cast<std::size_t>( readoutCell )] >= 0.0f )
     {
         const std::size_t index = static_cast<std::size_t>( readoutCell );
+        const float remainingWait =
+            (std::max)( 0.0f,
+                        ReplayPorkchopPanel::DepartureDelaySeconds( index % REPLAY_PORKCHOP_COLUMNS ) -
+                            porkchop.sweepAgeSeconds );
         sprintf_s( readout,
                    sizeof( readout ),
-                   "WAIT %.2fs   TOF %.2fs   DV %.3f u/s   CLICK TO SEED TRIP TOF",
-                   ReplayPorkchopPanel::DepartureDelaySeconds( index % REPLAY_PORKCHOP_COLUMNS ),
+                   "WAIT %.2fs NOW   TOF %.2fs   DV %.3f u/s   CLICK TO SEED TRIP TOF",
+                   remainingWait,
                    ReplayPorkchopPanel::TimeOfFlightSeconds( index / REPLAY_PORKCHOP_COLUMNS ),
                    porkchop.deltaV[index] );
+    }
+    else if ( readoutCell >= 0 )
+    {
+        sprintf_s( readout, sizeof( readout ), "NO SOLUTION FOR THIS CELL" );
     }
     if ( porkchop.selectedCell >= 0 )
     {

@@ -603,6 +603,10 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "replayPorkchopMinimumTimeOfFlightMax";
     case RunInteractionAutomationAssertKind::ReplayPorkchopRefreshMillisecondsMax:
         return "replayPorkchopRefreshMillisecondsMax";
+    case RunInteractionAutomationAssertKind::ReplayPorkchopMaximumFrameMillisecondsMax:
+        return "replayPorkchopMaximumFrameMillisecondsMax";
+    case RunInteractionAutomationAssertKind::ReplayPorkchopSweepAgeSecondsMax:
+        return "replayPorkchopSweepAgeSecondsMax";
     case RunInteractionAutomationAssertKind::ReplayPorkchopSelected:
         return "replayPorkchopSelected";
     case RunInteractionAutomationAssertKind::ReplayTripPlannerTimeOfFlightMin:
@@ -1945,6 +1949,16 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
             outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPorkchopRefreshMillisecondsMax;
             outAction.numberValue = member.value().get<float>();
         }
+        else if ( name == "replayPorkchopMaximumFrameMillisecondsMax" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPorkchopMaximumFrameMillisecondsMax;
+            outAction.numberValue = member.value().get<float>();
+        }
+        else if ( name == "replayPorkchopSweepAgeSecondsMax" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPorkchopSweepAgeSecondsMax;
+            outAction.numberValue = member.value().get<float>();
+        }
         else if ( name == "replayPorkchopSelected" )
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPorkchopSelected;
@@ -2374,6 +2388,17 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
         evaluation.actual = std::to_string( replay.porkchop.refreshComputeMilliseconds );
         evaluation.passed =
             replay.porkchop.complete && replay.porkchop.refreshComputeMilliseconds <= action.numberValue;
+        break;
+    case RunInteractionAutomationAssertKind::ReplayPorkchopMaximumFrameMillisecondsMax:
+        evaluation.expected = "<=" + std::to_string( action.numberValue );
+        evaluation.actual = std::to_string( replay.porkchop.maximumFrameComputeMilliseconds );
+        evaluation.passed =
+            replay.porkchop.complete && replay.porkchop.maximumFrameComputeMilliseconds <= action.numberValue;
+        break;
+    case RunInteractionAutomationAssertKind::ReplayPorkchopSweepAgeSecondsMax:
+        evaluation.expected = "<=" + std::to_string( action.numberValue );
+        evaluation.actual = std::to_string( replay.porkchop.sweepAgeSeconds );
+        evaluation.passed = replay.porkchop.complete && replay.porkchop.sweepAgeSeconds <= action.numberValue;
         break;
     case RunInteractionAutomationAssertKind::ReplayPorkchopSelected:
         evaluation.expected = BoolString( action.boolValue );

@@ -86,6 +86,7 @@ void ReplayPorkchopPanel::BeginSweep( const ReplayPorkchopSweepInput& input ) no
     m_refreshRequested = false;
     m_view.targetId = input.target.id;
     m_lastMutualGravityEnabled = input.mutualGravityEnabled;
+    m_sweepEpochSeconds = input.epochSeconds;
     if ( !m_view.visible || !input.mutualGravityEnabled || !ValidBody( input.sun ) || !ValidBody( input.departure ) ||
          !ValidBody( input.target ) || input.sun.id == input.departure.id || input.sun.id == input.target.id ||
          input.departure.id == input.target.id || input.gravitationalConstant <= 0.0f ||
@@ -110,9 +111,21 @@ void ReplayPorkchopPanel::BeginSweep( const ReplayPorkchopSweepInput& input ) no
     m_view.building = true;
 }
 
-void ReplayPorkchopPanel::AdvanceSweep() noexcept
+void ReplayPorkchopPanel::AdvanceSweep( double nowSeconds ) noexcept
 {
-    if ( !m_view.visible || !m_view.building )
+    if ( !m_view.visible )
+    {
+        return;
+    }
+    const double ageSeconds =
+        std::isfinite( nowSeconds ) && nowSeconds > m_sweepEpochSeconds ? nowSeconds - m_sweepEpochSeconds : 0.0;
+    m_view.sweepAgeSeconds = static_cast<float>( (std::min)( ageSeconds, 48.0 ) );
+    if ( m_view.selectedCell >= 0 )
+    {
+        m_view.selectedDepartureDelaySeconds =
+            (std::max)( 0.0f, m_selectedDepartureOffsetSeconds - m_view.sweepAgeSeconds );
+    }
+    if ( !m_view.building )
     {
         return;
     }
@@ -136,11 +149,15 @@ void ReplayPorkchopPanel::AdvanceSweep() noexcept
         ++m_view.completedCells;
     }
     const auto finished = std::chrono::steady_clock::now();
-    m_view.refreshComputeMilliseconds += std::chrono::duration<double, std::milli>( finished - started ).count();
+    const double frameComputeMilliseconds = std::chrono::duration<double, std::milli>( finished - started ).count();
+    m_view.refreshComputeMilliseconds += frameComputeMilliseconds;
+    m_view.maximumFrameComputeMilliseconds =
+        (std::max)( m_view.maximumFrameComputeMilliseconds, frameComputeMilliseconds );
 
     if ( m_view.completedCells == REPLAY_PORKCHOP_CELL_COUNT )
     {
         m_view.building = false;
+        m_view.evaluated = true;
         m_view.complete = m_view.minimumDeltaV >= 0.0f;
     }
 }
@@ -195,7 +212,9 @@ bool ReplayPorkchopPanel::SelectCell( std::size_t cellIndex ) noexcept
         return false;
     }
     m_view.selectedCell = static_cast<int>( cellIndex );
-    m_view.selectedDepartureDelaySeconds = DepartureDelaySeconds( cellIndex % REPLAY_PORKCHOP_COLUMNS );
+    m_selectedDepartureOffsetSeconds = DepartureDelaySeconds( cellIndex % REPLAY_PORKCHOP_COLUMNS );
+    m_view.selectedDepartureDelaySeconds =
+        (std::max)( 0.0f, m_selectedDepartureOffsetSeconds - m_view.sweepAgeSeconds );
     m_view.selectedTimeOfFlightSeconds = TimeOfFlightSeconds( cellIndex / REPLAY_PORKCHOP_COLUMNS );
     m_view.selectedDeltaV = m_deltaV[cellIndex];
     return true;
@@ -241,9 +260,14 @@ void ReplayPorkchopPanel::ClearSweep() noexcept
     m_view.selectedDepartureDelaySeconds = 0.0f;
     m_view.selectedTimeOfFlightSeconds = 0.0f;
     m_view.selectedDeltaV = REPLAY_PORKCHOP_FAILED_DELTA_V;
+    m_view.sweepAgeSeconds = 0.0f;
     m_view.refreshComputeMilliseconds = 0.0;
+    m_view.maximumFrameComputeMilliseconds = 0.0;
     m_view.available = false;
     m_view.building = false;
+    m_view.evaluated = false;
     m_view.complete = false;
+    m_selectedDepartureOffsetSeconds = 0.0f;
+    m_sweepEpochSeconds = 0.0;
 }
 } // namespace SkullbonezCore::Runtime

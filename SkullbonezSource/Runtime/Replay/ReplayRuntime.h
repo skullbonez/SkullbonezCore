@@ -365,6 +365,7 @@ class ReplayRuntime
     // Applies one typed leave-replay command. External camera/input owners are
     // synchronous operands and are never retained by ReplayRuntime.
     bool ApplyInteractionExit( const ReplayInteractionExitInput& input,
+                               Physics::PhysicsEngine& physics,
                                Environment::CameraCollection* cameras,
                                Geometry::Terrain* terrain,
                                CameraControlState& camera,
@@ -434,7 +435,8 @@ class ReplayRuntime
                           double nowSeconds );
     void UpdatePorkchopPanel( Physics::PhysicsEngine& physics,
                               const SceneEntityStore& entities,
-                              const Physics::PhysicsWorldForces& worldForces );
+                              const Physics::PhysicsWorldForces& worldForces,
+                              double nowSeconds );
     void BeginTripPlannerFrame( Physics::PhysicsEngine& physics,
                                 const SceneEntityStore& entities,
                                 const Physics::PhysicsWorldForces& worldForces );

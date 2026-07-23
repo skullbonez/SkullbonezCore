@@ -1,6 +1,6 @@
 # MASTER PLAN — Authoritative Remaining Work
 
-Date: 2026-07-20
+Date: 2026-07-24
 Status: Authoritative inventory of every live repository plan
 
 ## Binding Owner Directive — 2026-07-19: Finish UI, Then Resolve Physics
@@ -514,13 +514,10 @@ historical work per commit-contract rule 4.
 
 ## Current Execution Priority
 
-The active priority is
-`TODO/solar-system-trajectory-planner.md` in binding order SS0→SS6. SS0 is
-complete through SS3: bounded orbital math, the proved four-body scene, the
-incremental Replay intercept readout, and cold analytic planet guide arcs.
-SS4 is complete with the bounded trip planner, and SS5 completes the analytic
-porkchop launch-window panel. SS6 now performs the final audit, independent
-review, boundary/allocation proofs, broad gate, and closure reconciliation.
+No active/future implementation plan is registered. The solar-system trajectory
+planner closed SS0-SS6 on 2026-07-24 after its independent review findings were
+remediated and all final gates passed. Closure evidence is in
+[`solar-system-trajectory-planner-closure`](../Reports/2026-07-24/solar-system-trajectory-planner-closure.md).
 
 The 2026-07-18 adversarial-review round-7 lane is closed. Scene-controller
 round 2, DX12 backend ownership, naming/identity debt, and small-findings
@@ -1485,7 +1482,10 @@ Core are frozen for this plan.
 
 | Plan | State | Verified phase count | Next action |
 |---|---|---:|---|
-| [solar-system-trajectory-planner](TODO/solar-system-trajectory-planner.md) | Active | 6/7 | SS6 closes with audit, independent review, proofs, and final broad gate |
+| [solar-system-trajectory-planner](../Reports/2026-07-24/solar-system-trajectory-planner-closure.md) | Complete | 7/7 | SS0-SS6 complete; rollback, state gating, default-off, epoch, review, and final gates closed |
+
+The plan closed 7/7 on 2026-07-24 and leaves the live ledger under inventory
+rule 4. The active/future denominator returns 7 → 0.
 
 ## Features
 

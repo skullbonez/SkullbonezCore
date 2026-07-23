@@ -21,6 +21,7 @@ Related:
 */
 #include "doctest/doctest.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayTripPlanner.h"
+#include "../SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h"
 
 #include <cmath>
 #include <vector>
@@ -97,7 +98,7 @@ ReplayTripPlannerPredictionInput Prediction( const std::vector<RunReplayPredicti
     input.intercept.targetId.value = 3;
     input.intercept.missDistance = miss;
     input.intercept.intercept = miss <= SkullbonezCore::Runtime::REPLAY_TRIP_PLANNER_INTERCEPT_DISTANCE +
-                                           SkullbonezCore::Runtime::REPLAY_INTERCEPT_CONTACT_SLOP;
+                                            SkullbonezCore::Runtime::REPLAY_INTERCEPT_CONTACT_SLOP;
     input.intercept.etaSeconds = eta;
     input.intercept.shipPosition = shipPosition;
     input.intercept.targetPosition = targetPosition;
@@ -179,19 +180,24 @@ TEST_CASE( "Replay trip planner applies bound correction then reports honest fai
     CHECK( planner.View().state == ReplayTripPlannerState::Idle );
 }
 
-TEST_CASE( "Replay trip planner abort edges clear transient state" )
+TEST_CASE( "Replay trip planner cancellation edges restore the original live velocity" )
 {
     ReplayTripPlanner planner;
     ReplayTripPlannerLiveInput live = DesignWindow();
     BeginDesignPlan( planner, live );
     live.liveAdvanceHeld = true;
-    CHECK_FALSE( planner.BeginFrame( live ).requested );
+    const auto liveAdvanceRestore = planner.BeginFrame( live );
+    REQUIRE( liveAdvanceRestore.requested );
+    CHECK( liveAdvanceRestore.linearVelocity.x == doctest::Approx( live.ship.linearVelocity.x ) );
+    CHECK( liveAdvanceRestore.linearVelocity.y == doctest::Approx( live.ship.linearVelocity.y ) );
     CHECK( planner.View().state == ReplayTripPlannerState::Idle );
 
     live = DesignWindow();
     BeginDesignPlan( planner, live );
     live.targetSelected = false;
-    CHECK_FALSE( planner.BeginFrame( live ).requested );
+    const auto targetLossRestore = planner.BeginFrame( live );
+    REQUIRE( targetLossRestore.requested );
+    CHECK( targetLossRestore.linearVelocity.y == doctest::Approx( live.ship.linearVelocity.y ) );
     CHECK( planner.View().state == ReplayTripPlannerState::Idle );
 
     live = DesignWindow();
@@ -202,13 +208,61 @@ TEST_CASE( "Replay trip planner abort edges clear transient state" )
     cancelled.targetId.value = 3;
     cancelled.cancelled = true;
     cancelled.targetAvailable = true;
-    CHECK_FALSE( planner.ObservePrediction( cancelled ).requested );
+    const auto cancellationRestore = planner.ObservePrediction( cancelled );
+    REQUIRE( cancellationRestore.requested );
+    CHECK( cancellationRestore.linearVelocity.y == doctest::Approx( live.ship.linearVelocity.y ) );
     CHECK( planner.View().state == ReplayTripPlannerState::Idle );
 
     BeginDesignPlan( planner, live );
-    planner.Reset();
+    planner.ResetForSceneDiscard();
     CHECK( planner.View().state == ReplayTripPlannerState::Idle );
     CHECK_FALSE( planner.View().visible );
+}
+
+TEST_CASE( "Replay trip planner terminal states reject replanning and TOF mutation until resolved" )
+{
+    ReplayTripPlanner planner;
+    const ReplayTripPlannerLiveInput live = DesignWindow();
+    BeginDesignPlan( planner, live );
+
+    std::vector<RunReplayPredictionFrame> frames{
+        Frame( 0, live.ship.position, live.target.position ),
+        Frame( 954, Vector3( -121.0f, 0.0f, 0.0f ), Vector3( -120.0f, 0.0f, 0.0f ) ) };
+    (void)planner.ObservePrediction(
+        Prediction( frames, 1, 1.0f, 15.9f, Vector3( -121.0f, 0.0f, 0.0f ), Vector3( -120.0f, 0.0f, 0.0f ) ) );
+    REQUIRE( planner.View().state == ReplayTripPlannerState::Converged );
+    const float originalTof = planner.View().timeOfFlightSeconds;
+    const Vector3 originalCandidate = planner.View().candidateVelocity;
+    SkullbonezCore::Runtime::ReplayOverlay::ReplayTripPlannerSurface surface;
+    SkullbonezCore::Runtime::ReplayOverlay::BuildReplayTripPlannerSurface( planner.View(), 1800, surface );
+    REQUIRE( surface.Find( SkullbonezCore::Runtime::ReplayOverlay::ReplayTripPlannerControlId(
+        SkullbonezCore::Runtime::ReplayOverlay::ReplayTripPlannerControl::Plan ) ) );
+    CHECK_FALSE( surface
+                     .Find( SkullbonezCore::Runtime::ReplayOverlay::ReplayTripPlannerControlId(
+                         SkullbonezCore::Runtime::ReplayOverlay::ReplayTripPlannerControl::Plan ) )
+                     ->enabled );
+    CHECK_FALSE( surface
+                     .Find( SkullbonezCore::Runtime::ReplayOverlay::ReplayTripPlannerControlId(
+                         SkullbonezCore::Runtime::ReplayOverlay::ReplayTripPlannerControl::TimeOfFlightDecrease ) )
+                     ->enabled );
+    CHECK( surface
+               .Find( SkullbonezCore::Runtime::ReplayOverlay::ReplayTripPlannerControlId(
+                   SkullbonezCore::Runtime::ReplayOverlay::ReplayTripPlannerControl::Commit ) )
+               ->enabled );
+
+    REQUIRE( planner.QueueCommand( { ReplayTripPlannerCommandKind::SetTimeOfFlight, 2.0f } ) );
+    REQUIRE( planner.QueueCommand( { ReplayTripPlannerCommandKind::Plan } ) );
+    CHECK_FALSE( planner.BeginFrame( live ).requested );
+    CHECK( planner.View().state == ReplayTripPlannerState::Converged );
+    CHECK( planner.View().timeOfFlightSeconds == doctest::Approx( originalTof ) );
+    CHECK( planner.View().candidateVelocity.x == doctest::Approx( originalCandidate.x ) );
+    CHECK( planner.View().candidateVelocity.y == doctest::Approx( originalCandidate.y ) );
+
+    REQUIRE( planner.QueueCommand( { ReplayTripPlannerCommandKind::Cancel } ) );
+    const auto restore = planner.BeginFrame( live );
+    REQUIRE( restore.requested );
+    CHECK( restore.linearVelocity.y == doctest::Approx( live.ship.linearVelocity.y ) );
+    CHECK( planner.View().state == ReplayTripPlannerState::Idle );
 }
 
 TEST_CASE( "Replay trip planner TOF and command queue remain bounded" )

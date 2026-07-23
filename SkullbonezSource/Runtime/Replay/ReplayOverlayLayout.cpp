@@ -150,6 +150,7 @@ void BuildReplayTripPlannerSurface( const ReplayTripPlannerView& planner,
     const bool awaiting = planner.state == ReplayTripPlannerState::Seeding ||
                           planner.state == ReplayTripPlannerState::AwaitingPrediction ||
                           planner.state == ReplayTripPlannerState::Correcting;
+    const bool idle = planner.state == ReplayTripPlannerState::Idle;
     const bool canCancel = awaiting || planner.state == ReplayTripPlannerState::Converged ||
                            planner.state == ReplayTripPlannerState::Failed;
 
@@ -181,17 +182,17 @@ void BuildReplayTripPlannerSurface( const ReplayTripPlannerView& planner,
          ReplayTripPlannerCommandKind::DecreaseTimeOfFlight,
          RuntimeUiControlKind::Button,
          decrease,
-         !awaiting );
+         idle );
     add( ReplayTripPlannerControl::TimeOfFlightIncrease,
          ReplayTripPlannerCommandKind::IncreaseTimeOfFlight,
          RuntimeUiControlKind::Button,
          increase,
-         !awaiting );
+         idle );
     add( ReplayTripPlannerControl::Plan,
          ReplayTripPlannerCommandKind::Plan,
          RuntimeUiControlKind::Button,
          plan,
-         planner.available && !awaiting );
+         planner.available && idle );
     add( ReplayTripPlannerControl::Commit,
          ReplayTripPlannerCommandKind::Commit,
          RuntimeUiControlKind::Button,

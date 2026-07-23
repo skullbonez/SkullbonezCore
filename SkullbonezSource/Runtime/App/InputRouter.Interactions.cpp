@@ -96,6 +96,7 @@ void InputRouter::ApplyInteractionTransitionCleanup( const RuntimeInteractionTra
                                                                         replayRestoreCameraMode,
                                                                         attachedCameraFollow,
                                                                         directorGrabbed },
+                                            models.Scene().Physics(),
                                             &cameras,
                                             terrain,
                                             camera,

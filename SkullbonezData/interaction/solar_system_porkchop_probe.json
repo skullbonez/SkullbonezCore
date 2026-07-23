@@ -12,6 +12,8 @@
     { "frame": 60, "assert": { "replayPorkchopMinimumTimeOfFlightMin": 14.0 } },
     { "frame": 60, "assert": { "replayPorkchopMinimumTimeOfFlightMax": 18.0 } },
     { "frame": 60, "assert": { "replayPorkchopRefreshMillisecondsMax": 100.0 } },
+    { "frame": 60, "assert": { "replayPorkchopMaximumFrameMillisecondsMax": 10.0 } },
+    { "frame": 60, "assert": { "replayPorkchopSweepAgeSecondsMax": 2.0 } },
     { "frame": 61, "moveMouse": [585, 469] },
     { "frame": 62, "clickPoint": [585, 469], "button": "left" },
     { "frame": 64, "assert": { "replayPorkchopSelected": true } },

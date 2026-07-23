@@ -1104,11 +1104,13 @@ bool ReplayRuntime::HasActiveInteractionState() const
            m_interceptReadout.HasTarget() || !m_visualPresentation.PathVisualizer().targets.empty() ||
            m_predictionOwner.State().enabled || m_predictionOwner.State().build.building ||
            m_authoring.VelocityEdit().enabled || m_authoring.CauseTree().selectedRow >= 0 ||
-           !m_authoring.CauseTree().rows.empty();
+           !m_authoring.CauseTree().rows.empty() || m_guideArcs.Enabled() || m_porkchopPanel.Visible() ||
+           m_tripPlanner.RequiresLiveInput();
 }
 
 
 bool ReplayRuntime::ApplyInteractionExit( const ReplayInteractionExitInput& input,
+                                          PhysicsEngine& physics,
                                           Environment::CameraCollection* cameras,
                                           Geometry::Terrain* terrain,
                                           CameraControlState& camera,
@@ -1120,6 +1122,9 @@ bool ReplayRuntime::ApplyInteractionExit( const ReplayInteractionExitInput& inpu
         return false;
     }
 
+    // Invariant: leaving Replay is a cancellation edge. Restore the pre-plan
+    // velocity through the same typed mutation path before reset hides the owner.
+    (void)ApplyTripPlannerMutation( physics, m_tripPlanner.CancelActivePlan() );
     if ( ClearInteractionForRuntimeTransition( interaction, inputRouter ) )
     {
         ReplayPresentationOperations::ExitInspectionCamera( m_visualPresentation,
@@ -1170,7 +1175,7 @@ void ReplayRuntime::ClearInteractionForSceneLoad( RuntimeInteractionController& 
     // zero-cost default before an early interaction-cleanup return.
     m_guideArcs.Reset();
     m_porkchopPanel.Reset();
-    m_tripPlanner.Reset();
+    m_tripPlanner.ResetForSceneDiscard();
     const RuntimeInteractionTransition transition = interaction.ResetForScene( InteractionExitReason::LoadScene );
     const bool previousOwnerWasReplay = transition.previousOwner == WorldInteractionOwner::ReplayScrub ||
                                         transition.previousOwner == WorldInteractionOwner::ReplayVelocityEdit ||
@@ -1227,7 +1232,7 @@ bool ReplayRuntime::ClearInteractionForRuntimeTransition( RuntimeInteractionCont
     ClearPathVisualizerState();
     m_predictionOwner.DisableAndClearCache();
     m_porkchopPanel.Reset();
-    m_tripPlanner.Reset();
+    m_tripPlanner.ResetForSceneDiscard();
     m_authoring.ResetVelocityEdit();
     m_authoring.ResetCauseTreeRows();
     return exitInspectionCamera;
@@ -1858,7 +1863,7 @@ void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics,
     UpdateInterceptReadout( physics, worldForces.mutualGravity.enabled );
     ObserveTripPlannerPrediction( physics );
     UpdateGuideArcs( physics, entities, worldForces, simulationTotalTime );
-    UpdatePorkchopPanel( physics, entities, worldForces );
+    UpdatePorkchopPanel( physics, entities, worldForces, simulationTotalTime );
 }
 
 
@@ -1868,9 +1873,24 @@ void ReplayRuntime::UpdateInterceptReadout( PhysicsEngine& physics, bool mutualG
     // readout scans it synchronously and retains only its aggregate minimum.
     const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
     const RunReplayPathVisualizerState& path = m_visualPresentation.PathVisualizer();
+    ReplayInterceptUpdateInput input;
+    input.frames = prediction.frames;
+    input.shipId = path.targetId;
+    input.targetId = m_interceptReadout.TargetId();
+    input.generation = prediction.generation;
+    input.topologyVersion = prediction.topologyVersion;
+    input.usingBuildFrames = prediction.usingBuildFrames;
+    input.enabled = mutualGravityEnabled && prediction.enabled && path.hasTarget && m_interceptReadout.HasTarget();
+    if ( !input.enabled )
+    {
+        // Invariant: the default-off path resets the value owner before any
+        // body/collider store borrow or ID resolution.
+        m_interceptReadout.Update( input );
+        return;
+    }
+
     const PhysicsBodyStore& bodyStore = PhysicsEngine::ReadBodies( physics );
     const ColliderStore& colliderStore = PhysicsEngine::ReadColliders( physics );
-
     Physics::ModelRowHint targetRow = m_interceptReadout.TargetModelRow();
     const Physics::PhysicsBodyHandle targetHandle =
         bodyStore.HandleForSceneObjectId( m_interceptReadout.TargetId(), targetRow.value );
@@ -1879,18 +1899,10 @@ void ReplayRuntime::UpdateInterceptReadout( PhysicsEngine& physics, bool mutualG
         m_interceptReadout.SetTarget( m_interceptReadout.TargetId(), targetRow );
     }
 
-    ReplayInterceptUpdateInput input;
-    input.frames = prediction.frames;
-    input.shipId = path.targetId;
-    input.targetId = m_interceptReadout.TargetId();
     // Invariant: classification uses exact Physics-owned broadphase radii, not
     // a UI approximation, so topology repair and replay agree on contact size.
     input.shipRadius = ReplayRuntimeColliderRadius( colliderStore, input.shipId );
     input.targetRadius = ReplayRuntimeColliderRadius( colliderStore, input.targetId );
-    input.generation = prediction.generation;
-    input.topologyVersion = prediction.topologyVersion;
-    input.usingBuildFrames = prediction.usingBuildFrames;
-    input.enabled = mutualGravityEnabled && prediction.enabled && path.hasTarget && m_interceptReadout.HasTarget();
     m_interceptReadout.Update( input );
 }
 
@@ -1919,7 +1931,8 @@ void ReplayRuntime::UpdateGuideArcs( PhysicsEngine& physics,
 
 void ReplayRuntime::UpdatePorkchopPanel( PhysicsEngine& physics,
                                          const SceneEntityStore& entities,
-                                         const Physics::PhysicsWorldForces& worldForces )
+                                         const Physics::PhysicsWorldForces& worldForces,
+                                         double nowSeconds )
 {
     // Invariant: the default-hidden path returns before any entity lookup,
     // body-store borrow, orbital propagation, or grid iteration.
@@ -1933,7 +1946,11 @@ void ReplayRuntime::UpdatePorkchopPanel( PhysicsEngine& physics,
     {
         ReplayPorkchopSweepInput input;
         input.gravitationalConstant = worldForces.mutualGravity.gravitationalConstant;
+        input.epochSeconds = nowSeconds;
         input.mutualGravityEnabled = worldForces.mutualGravity.enabled;
+        // Invariant: even an unavailable target publishes the requested ID so
+        // NeedsRefresh does not rebuild the same invalid sweep every frame.
+        input.target.id = targetId;
         if ( input.mutualGravityEnabled && targetId.IsValid() )
         {
             // Lifetime: scene and Physics values are copied into the pure-math
@@ -1951,7 +1968,7 @@ void ReplayRuntime::UpdatePorkchopPanel( PhysicsEngine& physics,
         }
         m_porkchopPanel.BeginSweep( input );
     }
-    m_porkchopPanel.AdvanceSweep();
+    m_porkchopPanel.AdvanceSweep( nowSeconds );
 }
 
 void ReplayRuntime::BeginTripPlannerFrame( PhysicsEngine& physics,
@@ -2024,12 +2041,34 @@ bool ReplayRuntime::ApplyTripPlannerMutation( PhysicsEngine& physics,
     const Physics::PhysicsBodyHotFieldsConstView hot = bodyStore.HotFields();
     if ( bodyIndex < 0 || static_cast<std::size_t>( bodyIndex ) >= hot.angularVelocityX.size() )
     {
+        // Lane R: editor/scene mutation may retire the body between planning and
+        // application. No live body remains to carry an implicit candidate.
+        std::fprintf( stderr,
+                      "ReplayTripPlanner: velocity mutation target %u is no longer available; plan cancelled.\n",
+                      mutation.bodyId.value );
         m_tripPlanner.Abort();
         return false;
     }
     const Vector3 angularVelocity = Physics::PhysicsBodyAngularVelocity( hot, static_cast<std::size_t>( bodyIndex ) );
     if ( !physics.SetBodyVelocity( handle, mutation.linearVelocity, angularVelocity, true ) )
     {
+        if ( !mutation.restoresPrePlanVelocity )
+        {
+            // Invariant: a rejected candidate must not become an implicit
+            // commit. Best-effort rollback uses the same Physics transaction.
+            const ReplayTripPlannerVelocityMutation restore = m_tripPlanner.CancelActivePlan();
+            if ( restore.requested && physics.SetBodyVelocity( handle, restore.linearVelocity, angularVelocity, true ) )
+            {
+                m_predictionOwner.CommitVelocityMutation();
+                return false;
+            }
+        }
+        // Lane R: the live owner rejected both the requested mutation and any
+        // available rollback. Surface the failure instead of implying success.
+        std::fprintf( stderr,
+                      "ReplayTripPlanner: Physics rejected %s velocity mutation for scene object %u.\n",
+                      mutation.restoresPrePlanVelocity ? "rollback" : "candidate",
+                      mutation.bodyId.value );
         m_tripPlanner.Abort();
         return false;
     }

@@ -155,6 +155,8 @@ enum class RunInteractionAutomationAssertKind
     ReplayPorkchopMinimumTimeOfFlightMin,
     ReplayPorkchopMinimumTimeOfFlightMax,
     ReplayPorkchopRefreshMillisecondsMax,
+    ReplayPorkchopMaximumFrameMillisecondsMax,
+    ReplayPorkchopSweepAgeSecondsMax,
     ReplayPorkchopSelected,
     ReplayTripPlannerTimeOfFlightMin,
     ReplayTripPlannerTimeOfFlightMax,

@@ -70,7 +70,8 @@ ReplayPorkchopSweepInput SolarDesignWindow()
 TEST_CASE( "Replay porkchop sweep is bounded and finds the low-cost transfer neighbourhood" )
 {
     ReplayPorkchopPanel panel;
-    const ReplayPorkchopSweepInput input = SolarDesignWindow();
+    ReplayPorkchopSweepInput input = SolarDesignWindow();
+    input.epochSeconds = 100.0;
     CHECK_FALSE( panel.Visible() );
     CHECK_FALSE( panel.NeedsRefresh( input.target.id, true ) );
 
@@ -80,9 +81,11 @@ TEST_CASE( "Replay porkchop sweep is bounded and finds the low-cost transfer nei
     REQUIRE( panel.View().building );
 
     std::size_t previous = 0u;
+    double nowSeconds = input.epochSeconds;
     while ( panel.View().building )
     {
-        panel.AdvanceSweep();
+        nowSeconds += 1.0 / 60.0;
+        panel.AdvanceSweep( nowSeconds );
         const auto view = panel.View();
         CHECK( view.completedCells - previous <= REPLAY_PORKCHOP_CELLS_PER_FRAME );
         previous = view.completedCells;
@@ -97,6 +100,8 @@ TEST_CASE( "Replay porkchop sweep is bounded and finds the low-cost transfer nei
     CHECK( ReplayPorkchopPanel::TimeOfFlightSeconds( view.minimumCell / 64u ) > 14.0f );
     CHECK( ReplayPorkchopPanel::TimeOfFlightSeconds( view.minimumCell / 64u ) < 18.0f );
     CHECK( view.refreshComputeMilliseconds >= 0.0 );
+    CHECK( view.maximumFrameComputeMilliseconds >= 0.0 );
+    CHECK( view.maximumFrameComputeMilliseconds <= view.refreshComputeMilliseconds );
 
     REQUIRE( panel.SelectCell( view.minimumCell ) );
     const auto selected = panel.View();
@@ -104,6 +109,18 @@ TEST_CASE( "Replay porkchop sweep is bounded and finds the low-cost transfer nei
     CHECK( selected.selectedDeltaV == doctest::Approx( view.minimumDeltaV ) );
     CHECK( selected.selectedTimeOfFlightSeconds ==
            doctest::Approx( ReplayPorkchopPanel::TimeOfFlightSeconds( view.minimumCell / 64u ) ) );
+
+    std::size_t lateCell = 63u;
+    while ( lateCell < selected.deltaV.size() && selected.deltaV[lateCell] < 0.0f )
+    {
+        lateCell += 64u;
+    }
+    REQUIRE( lateCell < selected.deltaV.size() );
+    REQUIRE( panel.SelectCell( lateCell ) );
+    panel.AdvanceSweep( input.epochSeconds + 5.0 );
+    CHECK( panel.View().sweepAgeSeconds == doctest::Approx( 5.0f ) );
+    CHECK( panel.View().selectedDepartureDelaySeconds ==
+           doctest::Approx( ReplayPorkchopPanel::DepartureDelaySeconds( 63u ) - 5.0f ) );
 }
 
 TEST_CASE( "Replay porkchop invalid source state stays unavailable and failed" )
@@ -114,7 +131,7 @@ TEST_CASE( "Replay porkchop invalid source state stays unavailable and failed" )
     input.target.linearVelocity = input.sun.linearVelocity;
     panel.Toggle();
     panel.BeginSweep( input );
-    panel.AdvanceSweep();
+    panel.AdvanceSweep( input.epochSeconds );
 
     const auto view = panel.View();
     CHECK( view.visible );
@@ -123,6 +140,7 @@ TEST_CASE( "Replay porkchop invalid source state stays unavailable and failed" )
     CHECK_FALSE( view.complete );
     CHECK( view.completedCells == 0u );
     CHECK_FALSE( panel.SelectCell( 0u ) );
+    CHECK_FALSE( panel.NeedsRefresh( input.target.id, true ) );
 }
 
 TEST_CASE( "Replay porkchop refresh follows visibility and target identity" )
@@ -131,7 +149,7 @@ TEST_CASE( "Replay porkchop refresh follows visibility and target identity" )
     const ReplayPorkchopSweepInput input = SolarDesignWindow();
     panel.Toggle();
     panel.BeginSweep( input );
-    panel.AdvanceSweep();
+    panel.AdvanceSweep( input.epochSeconds );
     CHECK_FALSE( panel.NeedsRefresh( input.target.id, true ) );
 
     auto replacementId = input.target.id;
@@ -141,7 +159,7 @@ TEST_CASE( "Replay porkchop refresh follows visibility and target identity" )
 
     const std::size_t completed = panel.View().completedCells;
     panel.Toggle();
-    panel.AdvanceSweep();
+    panel.AdvanceSweep( input.epochSeconds + 1.0 );
     CHECK( panel.View().completedCells == completed );
     panel.Reset();
     CHECK_FALSE( panel.Visible() );

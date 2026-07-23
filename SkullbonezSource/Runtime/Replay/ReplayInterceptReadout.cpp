@@ -14,8 +14,8 @@ Glossary:
 
 Invariants:
   - Missing ship or target rows are skipped without advancing a false minimum.
-  - Intercept classification is strict: miss distance must be less than the
-    sum of the two collider radii.
+  - Intercept classification includes the engine's 0.005 contact slop and
+    accepts distance at or below the two collider radii plus that slop.
   - ETA uses the prediction-local frame index and physics fixed-step duration.
 
 Related:

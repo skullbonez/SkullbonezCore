@@ -66,6 +66,7 @@ struct ReplayPorkchopSweepInput
     ReplayPorkchopBodyState departure;
     ReplayPorkchopBodyState target;
     float gravitationalConstant = 0.0f;
+    double epochSeconds = 0.0;
     bool mutualGravityEnabled = false;
 };
 
@@ -82,10 +83,13 @@ struct ReplayPorkchopPanelView
     float selectedDepartureDelaySeconds = 0.0f;
     float selectedTimeOfFlightSeconds = 0.0f;
     float selectedDeltaV = REPLAY_PORKCHOP_FAILED_DELTA_V;
+    float sweepAgeSeconds = 0.0f;
     double refreshComputeMilliseconds = 0.0;
+    double maximumFrameComputeMilliseconds = 0.0;
     bool visible = false;
     bool available = false;
     bool building = false;
+    bool evaluated = false;
     bool complete = false;
 };
 
@@ -96,7 +100,7 @@ class ReplayPorkchopPanel
     void Reset() noexcept;
     bool NeedsRefresh( Physics::PhysicsSceneObjectId targetId, bool mutualGravityEnabled ) const noexcept;
     void BeginSweep( const ReplayPorkchopSweepInput& input ) noexcept;
-    void AdvanceSweep() noexcept;
+    void AdvanceSweep( double nowSeconds ) noexcept;
     void SetHoveredCell( int cellIndex ) noexcept;
     bool SelectCell( std::size_t cellIndex ) noexcept;
 
@@ -117,6 +121,8 @@ class ReplayPorkchopPanel
     Math::Orbital::OrbitalElements m_departureOrbit;
     Math::Orbital::OrbitalElements m_targetOrbit;
     float m_mu = 0.0f;
+    float m_selectedDepartureOffsetSeconds = 0.0f;
+    double m_sweepEpochSeconds = 0.0;
     bool m_refreshRequested = false;
     bool m_lastMutualGravityEnabled = false;
 };

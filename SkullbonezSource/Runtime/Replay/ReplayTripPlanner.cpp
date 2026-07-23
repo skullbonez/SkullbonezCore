@@ -82,7 +82,10 @@ ReplayTripPlannerVelocityMutation ReplayTripPlanner::BeginFrame( const ReplayTri
 
     if ( ( input.liveAdvanceHeld || !m_view.available ) && PlanningState( m_view.state ) )
     {
-        Abort();
+        // Invariant: losing the planning preconditions is cancellation, not an
+        // implicit commit of the last candidate already applied to live Physics.
+        m_commandCount = 0;
+        return CancelActivePlan();
     }
 
     ReplayTripPlannerVelocityMutation mutation;
@@ -95,16 +98,22 @@ ReplayTripPlannerVelocityMutation ReplayTripPlanner::BeginFrame( const ReplayTri
             m_view.visible = !m_view.visible;
             break;
         case ReplayTripPlannerCommandKind::DecreaseTimeOfFlight:
-            m_view.timeOfFlightSeconds =
-                (std::max)( REPLAY_TRIP_PLANNER_MIN_TOF_SECONDS, m_view.timeOfFlightSeconds - 0.5f );
+            if ( m_view.state == ReplayTripPlannerState::Idle )
+            {
+                m_view.timeOfFlightSeconds =
+                    (std::max)( REPLAY_TRIP_PLANNER_MIN_TOF_SECONDS, m_view.timeOfFlightSeconds - 0.5f );
+            }
             break;
         case ReplayTripPlannerCommandKind::IncreaseTimeOfFlight:
-            m_view.timeOfFlightSeconds =
-                (std::min)( (std::max)( REPLAY_TRIP_PLANNER_MIN_TOF_SECONDS, input.predictionHorizonSeconds ),
-                            m_view.timeOfFlightSeconds + 0.5f );
+            if ( m_view.state == ReplayTripPlannerState::Idle )
+            {
+                m_view.timeOfFlightSeconds =
+                    (std::min)( (std::max)( REPLAY_TRIP_PLANNER_MIN_TOF_SECONDS, input.predictionHorizonSeconds ),
+                                m_view.timeOfFlightSeconds + 0.5f );
+            }
             break;
         case ReplayTripPlannerCommandKind::SetTimeOfFlight:
-            if ( std::isfinite( command.timeOfFlightSeconds ) )
+            if ( m_view.state == ReplayTripPlannerState::Idle && std::isfinite( command.timeOfFlightSeconds ) )
             {
                 m_view.timeOfFlightSeconds =
                     std::clamp( command.timeOfFlightSeconds,
@@ -113,7 +122,7 @@ ReplayTripPlannerVelocityMutation ReplayTripPlanner::BeginFrame( const ReplayTri
             }
             break;
         case ReplayTripPlannerCommandKind::Plan:
-            if ( !mutation.requested )
+            if ( m_view.state == ReplayTripPlannerState::Idle && !mutation.requested )
             {
                 mutation = BeginPlan( input );
             }
@@ -127,7 +136,7 @@ ReplayTripPlannerVelocityMutation ReplayTripPlanner::BeginFrame( const ReplayTri
         case ReplayTripPlannerCommandKind::Cancel:
             if ( !mutation.requested )
             {
-                mutation = CancelPlan();
+                mutation = CancelActivePlan();
             }
             break;
         case ReplayTripPlannerCommandKind::None:
@@ -224,7 +233,7 @@ ReplayTripPlanner::ObservePrediction( const ReplayTripPlannerPredictionInput& in
     {
         if ( PlanningState( m_view.state ) )
         {
-            Abort();
+            return CancelActivePlan();
         }
         return mutation;
     }
@@ -294,7 +303,7 @@ Math::Vector::Vector3 ReplayTripPlanner::FirstOrderCorrection( const Math::Vecto
            ( targetAtClosest - shipAtClosest ) * ( REPLAY_TRIP_PLANNER_CORRECTION_GAIN / closestTimeSeconds );
 }
 
-ReplayTripPlannerVelocityMutation ReplayTripPlanner::CancelPlan() noexcept
+ReplayTripPlannerVelocityMutation ReplayTripPlanner::CancelActivePlan() noexcept
 {
     ReplayTripPlannerVelocityMutation mutation;
     if ( m_prePlanVelocityValid && m_view.shipId.value != 0 )
@@ -302,6 +311,7 @@ ReplayTripPlannerVelocityMutation ReplayTripPlanner::CancelPlan() noexcept
         mutation.bodyId = m_view.shipId;
         mutation.linearVelocity = m_prePlanVelocity;
         mutation.requested = true;
+        mutation.restoresPrePlanVelocity = true;
     }
     ClearPlanState();
     return mutation;
@@ -371,7 +381,7 @@ void ReplayTripPlanner::ClearPlanState() noexcept
     m_hasPreviousMiss = false;
 }
 
-void ReplayTripPlanner::Reset() noexcept
+void ReplayTripPlanner::ResetForSceneDiscard() noexcept
 {
     m_commands = {};
     m_commandCount = 0;
