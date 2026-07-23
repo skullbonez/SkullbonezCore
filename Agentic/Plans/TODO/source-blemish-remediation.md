@@ -4,7 +4,7 @@ Date: 2026-07-23
 Status: IN PROGRESS — drafted from the 2026-07-23 from-source architecture review of
 `nightrunner-22nd-JUL-26`. Registered in `MASTER-PLAN.md` on 2026-07-23 as
 plan 1 of the Architecture Follow-Up Campaign Round 3; starts after
-`wide-signature-parameter-bag-remediation` closes. 4/6 phases complete.
+`wide-signature-parameter-bag-remediation` closes. 5/6 phases complete.
 Impact area: Physics store layout, physics step API, Runtime editor file
 naming, profiler unit placement, development-tools TU size
 Owner: physics + runtime
@@ -265,7 +265,7 @@ seams.
   exits 0 in 1.26 s with marker emission requested and enabled. No baseline,
   golden, schema, config, allocation policy, or runtime behavior changed.
 
-- [ ] **B5 — Split `ImGuiEditorOwner.cpp` along its policy seams
+- [x] **B5 — Split `ImGuiEditorOwner.cpp` along its policy seams
   (owner-optional).** Development-tools builds only. Use the existing
   `ImGuiEditor*Policy`/projection headers as the split map; each new TU keeps
   the same owner type — this is a mechanical TU split, not an ownership
@@ -274,6 +274,27 @@ seams.
   dev-tool TU; record the decision here either way. Acceptance: no TU in
   `Runtime/DevelopmentTools/` exceeds ~1,500 lines, or a recorded owner
   decision to keep it.
+
+  Owner decision recorded 2026-07-23: keep the cohesive owner unit. The
+  execution-time census measures `ImGuiEditorOwner.cpp` at 3,077 lines, of
+  which the single `BuildEditorShell` transaction occupies 1,969 lines
+  (lines 962-2,930). The existing seams are already physical:
+  `ImGuiEditorLayoutPolicy.cpp` is 384 lines,
+  `ImGuiEditorInputPolicy.h` is 166 lines, and
+  `ImGuiEditorCausalityProjection.h` is 277 lines.
+
+  Moving whole owner methods cannot satisfy the approximate 1,500-line target
+  because `BuildEditorShell` alone exceeds it. Reaching that target would
+  require decomposing the method's one balanced ImGui shell transaction and
+  either duplicating or packaging its local command submission, preview/commit
+  edit, parameterized edit, and Tracy-launch lambdas. That is an ownership/API
+  redesign, not the mechanical translation-unit split authorized by this
+  optional phase, and risks creating the context/callback bags prohibited by
+  the repository's god-object and migration rules. The owner therefore prefers
+  the honest large cohesive unit. No source or behavior changed; B4's
+  final-source full gate already proves the development-tools build and runtime
+  lanes, so this documentation-only ruling requires no additional repository
+  validation.
 
 - [ ] **B6 — Final review and gates.** Re-run the dependency-direction proofs
   from `AGENTS.md` (all must return no rows), run the mapped validation set
