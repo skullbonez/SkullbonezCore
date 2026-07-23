@@ -11,22 +11,21 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-23rd-JUL-26` |
-| Current baseline | UI/runtime U3 is complete: UI has zero Runtime includes, physics-debug intent crosses as a typed UI enum, and Runtime publishes one detached status value. Legacy remains the development default. |
-| Current objective | Implement `ui-runtime-separation` U4: ratify the UI direction rule in `AGENTS.md` and run all standing dependency/replay proofs. |
-| Active/future progress | 9/16 registered architecture follow-up tasks; 56%. |
+| Current baseline | UI/runtime U4 is complete: `AGENTS.md` ratifies UI below Runtime, and every standing dependency/Replay include proof returns zero rows. Legacy remains the development default. |
+| Current objective | Implement `ui-runtime-separation` U5: one independent ownership review, remediate any findings, run final gates, and publish closure evidence. |
+| Active/future progress | 10/16 registered architecture follow-up tasks; 63%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | UI/runtime U3 `validate_full` passes in 127.12 s: all CPU/coverage floors, 747/747 project/filter items, zero-warning Profile/Debug builds, accepted DX12 images with zero errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | U3 Profile build passes in 15.89 s; all 13 Physics-tab toggles plus invalid bounds pass 28 assertions; 8 operator-editor cases pass 207 assertions; `validate_ui` passes in 45.73 s; 12/12 source files pass comment audit. |
+| Validation for current edits | U4 is documentation-only, so no repository validation is required. All five exact dependency/UI/Replay include proofs pass in 0.19 s with zero rows. |
 
 ## Live Queue
 
-NOW. `ui-runtime-separation` is active at 3/5. U3 removes the final three
-UI→Runtime includes. The Physics tab emits a typed UI overlay enum, Runtime
-maps it to Physics-owned flags, and `UiTextPass` publishes one detached status
-record with decoded toggle values. All 13 toggle rows, both operator surfaces,
-the visible Physics-tab state, and the broad gate pass with no baseline or
-golden change. U4 records the direction rule in `AGENTS.md` and runs every
-standing dependency/replay proof.
+NOW. `ui-runtime-separation` is active at 4/5. U4 ratifies UI as a
+presentation library below Runtime: Runtime may compose UI, while UI consumes
+detached values, emits typed commands, and never includes Runtime. Core,
+Physics/Rendering, Gameplay, UI, and downward Replay include proofs all return
+zero rows. U5 runs the plan's single independent ownership review, remediates
+any findings, runs final gates, and publishes the closure report.
 
 NOW. `wide-signature-parameter-bag-remediation` is complete (6/6).
 The owner rejected replacements such as `RenderModelPassInput` that merely
@@ -370,7 +369,7 @@ targeted Automation and final full passes.
 ## Next Handoff
 
 Architecture follow-up implementation is active in
-`Agentic/Plans/TODO/ui-runtime-separation.md` at 3/5; U4 is next. Preserve the
+`Agentic/Plans/TODO/ui-runtime-separation.md` at 4/5; U5 is next. Preserve the
 empty threshold-13 inventory, source-blemish owner boundaries, and the
 direction rule that Runtime may include UI while UI must never include
 Runtime.

@@ -4,7 +4,7 @@ Date: 2026-07-23
 Status: IN PROGRESS — drafted from the 2026-07-23 from-source architecture review of
 `nightrunner-22nd-JUL-26`. Registered in `MASTER-PLAN.md` on 2026-07-23 as
 plan 2 of the Architecture Follow-Up Campaign Round 3; starts after
-`source-blemish-remediation` B3 renames land. 3/5 phases complete.
+`source-blemish-remediation` B3 renames land. 4/5 phases complete.
 Impact area: `SkullbonezSource/UI/` includes, `Runtime/Scene` navigation
 value ownership, input snapshot boundary, physics-debug-visualizer UI tab
 Owner: runtime + UI
@@ -240,11 +240,24 @@ rules, and no behavior, layout, binding, or rendering output changes.
   command has zero source/test rows. No authored data, baseline, golden,
   config, schema, or shader changed.
 
-- [ ] **U4 — Proof, rule, and guard.** Add the ruling and its proof to
+- [x] **U4 — Proof, rule, and guard.** Add the ruling and its proof to
   `AGENTS.md` beside the existing dependency proofs:
   `rg -n '^#include[[:space:]]+.*Runtime/' SkullbonezSource/UI` must return
   no rows. Re-run all standing dependency and replay proofs. Acceptance: all
   proofs no-rows; `AGENTS.md` documents the UI direction rule.
+
+  Completed 2026-07-23. `AGENTS.md` now states that UI is a presentation
+  library below Runtime: Runtime may include UI for composition, while UI must
+  consume detached values, emit typed commands, and never include Runtime.
+  The rule explicitly rejects forwarding headers, aliases, callback packs,
+  service bags, and broad contexts as dependency laundering.
+
+  All five exact standing proofs pass in 0.19 s with zero rows: Core has no
+  upward engine includes; Physics/Rendering have no Gameplay/Runtime/UI
+  includes; Gameplay has no Assets/Scene/World/Runtime/UI includes; UI has no
+  Runtime includes; and Physics/Rendering/Scene/World/Core have no downward
+  Replay includes. This slice changes documentation only, so repository
+  validation is not required.
 
 - [ ] **U5 — Independent review and gates.** Fresh review checks: (a) no
   forwarding header, alias, or callback pack was introduced to launder a

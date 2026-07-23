@@ -100,6 +100,20 @@ If an edge cannot be inverted in the owning task, record it in that task's
 exception table with the owner, reason, and deletion condition. An unrecorded
 edge or a compatibility spelling that hides it is a closure failure.
 
+UI is a presentation library below Runtime. Runtime may include UI to compose,
+route, and draw the operator surface; UI must not include Runtime. UI consumes
+detached value snapshots and emits typed command values that Runtime owners
+apply. Move misplaced values into UI or build them at the Runtime call site
+instead of hiding an upward edge behind a forwarding header, alias, callback
+pack, service bag, or broad context object.
+
+Before closing a UI/Runtime dependency change, run this exact review proof; it
+must return no rows:
+
+```powershell
+rg -n '^#include[[:space:]]+.*Runtime/' SkullbonezSource/UI
+```
+
 ## Replay Boundary Rule
 
 Replay is an upper Runtime consumer, not a type provider to engine layers.
