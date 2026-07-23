@@ -65,6 +65,7 @@ Related:
 
 #include "ReplayAuthoring.h"
 #include "ReplayCoordination.h"
+#include "ReplayGuideArcs.h"
 #include "ReplayInterceptReadout.h"
 #include "ReplayIdentity.h"
 #include "ReplayPrediction.h"
@@ -236,6 +237,8 @@ class ReplayRuntime
     // Forwards the presentation-only palette command; prediction/capture state
     // and published trajectory records are not rebuilt.
     ReplayPathColorMode CyclePathColorMode() noexcept;
+    void ToggleGuideArcs() noexcept;
+    void SetGuideArcsEnabled( bool enabled ) noexcept;
 
     ReplayKeyboardVelocityEditResult ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input );
 
@@ -421,6 +424,10 @@ class ReplayRuntime
                                                    const Physics::PhysicsBodyStore& bodyStore,
                                                    const Physics::ColliderStore& colliderStore );
     void UpdateInterceptReadout( Physics::PhysicsEngine& physics, bool mutualGravityEnabled );
+    void UpdateGuideArcs( Physics::PhysicsEngine& physics,
+                          const SceneEntityStore& entities,
+                          const Physics::PhysicsWorldForces& worldForces,
+                          double nowSeconds );
     ReplayInspectionCameraAction TickScrubberInput( bool uiBlocksMouse,
                                                     bool editorModeEnabled,
                                                     bool scenePhysicsEnabled,
@@ -481,6 +488,7 @@ class ReplayRuntime
     ReplayAuthoring m_authoring;
     ReplayPrediction m_predictionOwner;
     ReplayInterceptReadout m_interceptReadout;
+    ReplayGuideArcs m_guideArcs;
     SceneLifecycleGenerationObserver m_sceneClearObserver;
     SceneLifecycleGenerationObserver m_sceneActivationObserver;
 };

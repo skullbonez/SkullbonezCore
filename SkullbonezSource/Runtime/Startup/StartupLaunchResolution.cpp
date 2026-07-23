@@ -645,6 +645,7 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
     launch.graphicsStressActions = args.graphicsStressActions;
     launch.graphicsStressSceneIntervalFrames = args.graphicsStressSceneIntervalFrames;
     launch.graphicsStressMemoryIntervalFrames = args.graphicsStressMemoryIntervalFrames;
+    launch.replayGuideArcsAtStartup = args.replayGuideArcsAtStartup;
     launch.allocationGuardMode = args.allocationGuardMode;
     launch.generatedObjectTypeOverride = args.objectTypeOverride;
     launch.hasPhysicsDebugFlagsOverride = args.hasPhysicsDebugFlagsOverride;

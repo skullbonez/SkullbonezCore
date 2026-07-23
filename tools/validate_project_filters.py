@@ -407,6 +407,7 @@ RUNTIME_REPLAY_PREFIXES = (
     "ReplayEventCommand",
     "ReplayIdentity",
     "ReplayInteractionController",
+    "ReplayGuideArcs",
     "ReplayInterceptReadout",
     "ReplayOverlayLayout",
     "ReplayOverlayPackets",

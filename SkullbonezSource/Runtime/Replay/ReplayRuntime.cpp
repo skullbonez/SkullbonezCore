@@ -95,6 +95,61 @@ float ReplayRuntimeColliderRadius( const ColliderStore& colliderStore,
     return collider ? collider->boundingRadius : 0.0f;
 }
 
+bool ReadReplayGuideBodyState( const SceneEntityStore& entities,
+                               const PhysicsBodyStore& bodyStore,
+                               int entityIndex,
+                               ReplayGuideBodyState& outState ) noexcept
+{
+    const SceneEntityRecord* entity = entities.TryGet( entityIndex );
+    if ( !entity )
+    {
+        return false;
+    }
+
+    // Lifetime: the entity's handle is durable across Physics swap-last moves;
+    // the dense row hint is consumed synchronously and repaired when stale.
+    Physics::ModelRowHint row{ entityIndex };
+    const int resolvedRow = bodyStore.ResolveModelRow( entity->body, row );
+    const std::span<const PhysicsBodyRecord> records = bodyStore.Records();
+    const Physics::PhysicsBodyHotFieldsConstView hot = bodyStore.HotFields();
+    if ( resolvedRow < 0 || static_cast<std::size_t>( resolvedRow ) >= records.size() ||
+         static_cast<std::size_t>( resolvedRow ) >= hot.positionX.size() )
+    {
+        return false;
+    }
+
+    const std::size_t bodyIndex = static_cast<std::size_t>( resolvedRow );
+    outState.id = records[bodyIndex].sceneObjectId;
+    outState.position = Physics::PhysicsBodyPosition( hot, bodyIndex );
+    outState.linearVelocity = Physics::PhysicsBodyLinearVelocity( hot, bodyIndex );
+    outState.mass = records[bodyIndex].mass;
+    outState.valid = true;
+    return true;
+}
+
+bool ReadReplayGuideSunState( const PhysicsBodyStore& bodyStore, ReplayGuideBodyState& outState ) noexcept
+{
+    const std::span<const PhysicsBodyRecord> records = bodyStore.Records();
+    const Physics::PhysicsBodyHotFieldsConstView hot = bodyStore.HotFields();
+    float heaviestFixedMass = 0.0f;
+    // Concept: authored solar scenes identify the central attractor by policy,
+    // not a Replay-owned name. The heaviest fixed body is the bounded lookup.
+    for ( std::size_t bodyIndex = 0; bodyIndex < records.size() && bodyIndex < hot.fixed.size(); ++bodyIndex )
+    {
+        if ( hot.fixed[bodyIndex] == 0 || records[bodyIndex].mass <= heaviestFixedMass )
+        {
+            continue;
+        }
+        heaviestFixedMass = records[bodyIndex].mass;
+        outState.id = records[bodyIndex].sceneObjectId;
+        outState.position = Physics::PhysicsBodyPosition( hot, bodyIndex );
+        outState.linearVelocity = Physics::PhysicsBodyLinearVelocity( hot, bodyIndex );
+        outState.mass = heaviestFixedMass;
+        outState.valid = true;
+    }
+    return outState.valid;
+}
+
 constexpr double REPLAY_PREDICTION_MAX_WORK_MILLISECONDS = 5.0;
 
 const ReplayPresentationSample*
@@ -447,6 +502,29 @@ void ReplayRuntime::AppendOverlayTrace( PhysicsEngine& physics,
         tracer.AddReplayContactMarker( intercept.shipPosition, Math::Vector::ZERO_VECTOR, color.x, color.y, color.z );
         tracer.AddReplayContactMarker( intercept.targetPosition, Math::Vector::ZERO_VECTOR, color.x, color.y, color.z );
         tracer.AddReplayPathSegment( intercept.shipPosition, intercept.targetPosition, color.x, color.y, color.z );
+    }
+
+    const ReplayGuideArcsView guideArcs = m_guideArcs.View();
+    if ( guideArcs.enabled && guideArcs.valid )
+    {
+        // Concept: guide rings use the thin baseline ribbon lane so they remain
+        // subordinate to the brighter simulated ship prediction.
+        for ( std::size_t pointIndex = 0; pointIndex < REPLAY_GUIDE_ARC_POINT_COUNT; ++pointIndex )
+        {
+            const std::size_t nextIndex = ( pointIndex + 1u ) % REPLAY_GUIDE_ARC_POINT_COUNT;
+            tracer.AddReplayBaselinePathSegment( guideArcs.earthPoints[pointIndex],
+                                                 guideArcs.earthPoints[nextIndex],
+                                                 0.06f,
+                                                 0.16f,
+                                                 0.28f,
+                                                 0.35f );
+            tracer.AddReplayBaselinePathSegment( guideArcs.marsPoints[pointIndex],
+                                                 guideArcs.marsPoints[nextIndex],
+                                                 0.25f,
+                                                 0.09f,
+                                                 0.03f,
+                                                 0.35f );
+        }
     }
 }
 
@@ -810,6 +888,19 @@ ReplayPathColorMode ReplayRuntime::CyclePathColorMode() noexcept
     return m_visualPresentation.CyclePathColorMode();
 }
 
+
+void ReplayRuntime::ToggleGuideArcs() noexcept
+{
+    m_guideArcs.Toggle();
+}
+
+
+void ReplayRuntime::SetGuideArcsEnabled( bool enabled ) noexcept
+{
+    m_guideArcs.SetEnabled( enabled );
+}
+
+
 ReplayPathPickResult
 ReplayRuntime::ApplyPathPick( const ReplayPathPickInput& input,
                               const SceneEntityStore& entities,
@@ -987,6 +1078,9 @@ void ReplayRuntime::ApplyInputFocusLoss( Environment::CameraCollection* cameras,
 
 void ReplayRuntime::ClearInteractionForSceneLoad( RuntimeInteractionController& interaction, InputRouter& inputRouter )
 {
+    // Invariant: guide visibility is scene-local and always returns to its
+    // zero-cost default before an early interaction-cleanup return.
+    m_guideArcs.Reset();
     const RuntimeInteractionTransition transition = interaction.ResetForScene( InteractionExitReason::LoadScene );
     const bool previousOwnerWasReplay = transition.previousOwner == WorldInteractionOwner::ReplayScrub ||
                                         transition.previousOwner == WorldInteractionOwner::ReplayVelocityEdit ||
@@ -1669,6 +1763,7 @@ void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics,
     ApplyPredictionUpdateResult( result );
     PreparePredictionPresentation( physics, entities );
     UpdateInterceptReadout( physics, worldForces.mutualGravity.enabled );
+    UpdateGuideArcs( physics, entities, worldForces, simulationTotalTime );
 }
 
 
@@ -1702,6 +1797,29 @@ void ReplayRuntime::UpdateInterceptReadout( PhysicsEngine& physics, bool mutualG
     input.usingBuildFrames = prediction.usingBuildFrames;
     input.enabled = mutualGravityEnabled && prediction.enabled && path.hasTarget && m_interceptReadout.HasTarget();
     m_interceptReadout.Update( input );
+}
+
+
+void ReplayRuntime::UpdateGuideArcs( PhysicsEngine& physics,
+                                     const SceneEntityStore& entities,
+                                     const Physics::PhysicsWorldForces& worldForces,
+                                     double nowSeconds )
+{
+    ReplayGuideArcsUpdateInput input;
+    input.nowSeconds = nowSeconds;
+    input.mutualGravityEnabled = worldForces.mutualGravity.enabled;
+    input.gravitationalConstant = worldForces.mutualGravity.gravitationalConstant;
+
+    // Why: disabled, non-mutual-gravity, and between-refresh frames do not scan
+    // entity/body stores. The cold owner controls the five-second deadline.
+    if ( m_guideArcs.RefreshDue( nowSeconds ) && input.mutualGravityEnabled )
+    {
+        const PhysicsBodyStore& bodyStore = PhysicsEngine::ReadBodies( physics );
+        (void)ReadReplayGuideSunState( bodyStore, input.sun );
+        (void)ReadReplayGuideBodyState( entities, bodyStore, entities.FindByDisplayName( "earth" ), input.earth );
+        (void)ReadReplayGuideBodyState( entities, bodyStore, entities.FindByDisplayName( "mars" ), input.mars );
+    }
+    m_guideArcs.Update( input );
 }
 
 

@@ -120,6 +120,7 @@ enum class RuntimeInputAction
     ReportRendererRuntimeRetired,
     ReloadShadersFromSource,
     CycleReplayPathColorMode,
+    ToggleReplayGuideArcs,
     ToggleBroadphaseOverlay,
     ToggleUIVisibility,
     TogglePerformanceHistogram,

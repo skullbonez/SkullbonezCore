@@ -1058,10 +1058,17 @@ void EditorTracer::AddReplayCausalTrailSegment( const Vector3& start, const Vect
 }
 
 
-void EditorTracer::AddReplayBaselinePathSegment( const Vector3& start, const Vector3& end, float r, float g, float b )
+void EditorTracer::AddReplayBaselinePathSegment( const Vector3& start,
+                                                 const Vector3& end,
+                                                 float r,
+                                                 float g,
+                                                 float b,
+                                                 float opacity )
 {
-    const ReplayRibbonStyle glow = REPLAY_BASELINE_STYLE;
-    const ReplayRibbonStyle core = REPLAY_BASELINE_STYLE;
+    ReplayRibbonStyle glow = REPLAY_BASELINE_STYLE;
+    ReplayRibbonStyle core = REPLAY_BASELINE_STYLE;
+    glow.alpha = std::clamp( opacity, 0.0f, 1.0f );
+    core.alpha = glow.alpha;
     EmitReplayRibbonGlowPairTo( m_replayRibbonSegments,
                                 start,
                                 end,

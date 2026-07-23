@@ -89,6 +89,7 @@ struct RunLaunchOptions
     int graphicsStressActions = 12;                                        // CLI --graphics-stress-actions
     int graphicsStressSceneIntervalFrames = 45;                            // CLI --graphics-stress-scene-interval
     int graphicsStressMemoryIntervalFrames = 1800;                         // CLI --graphics-stress-memory-interval
+    bool replayGuideArcsAtStartup = false;                                 // CLI --guide-arcs re-enables the default-off Legacy guide after scene load.
     SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode allocationGuardMode =
         SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Off; // CLI --allocation-guard tracking mode for
                                                                            // runtime heap evidence.

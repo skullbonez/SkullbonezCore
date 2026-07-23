@@ -11,22 +11,23 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-23rd-JUL-26` |
-| Current baseline | Solar-system SS0-SS2 provide allocation-free orbital math, the proved four-body scene, and an incremental Replay closest-approach/intercept readout with independent target selection. |
-| Current objective | Implement SS3: add allocation-free analytic Earth/Mars guide arcs to Replay presentation. |
-| Active/future progress | Solar-system plan 3/7; 43%. |
+| Current baseline | Solar-system SS0-SS3 provide allocation-free orbital math, the proved four-body scene, an incremental Replay closest-approach/intercept readout, and cold analytic Earth/Mars guide arcs. |
+| Current objective | Implement SS4: add the bounded Lambert-seeded trip planner and shooting refinement. |
+| Active/future progress | Solar-system plan 4/7; 57%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | Solar-system SS2 `validate_full` passes with exit 0 in 155.3 s: 358/358 tests and 68,861/68,861 assertions, all CPU/coverage floors, 753/753 production project/filter rows, zero-warning builds, accepted DX12 images with zero errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | SS2 focused tests pass 3/3 and 13/13 assertions; `validate_full` passes; the exactly-one replay visual-fidelity run passes in 433.3 s with one process/generation, 2,401 ticks, 200 causal nodes, zero reserve growth, all controls, and no refresh. |
+| Last broad local gate | Solar-system SS3 `validate_full` passes with exit 0 in 273.8 s: 360/360 tests and 69,220/69,220 assertions, all CPU/coverage floors, 755/755 production project/filter rows, zero-warning builds, accepted DX12 images with zero errors, and byte-exact 44,401-line physics CSV. |
+| Validation for current edits | SS3 focused guide-arc tests pass 2/2 and 313/313 assertions; `validate_full` passes; the exactly-one replay visual-fidelity run passes in 434.4 s with 17/17 controls, one process/generation, 2,401 ticks, 200 causal nodes, zero reserve growth, all controls, and no refresh. |
 
 ## Live Queue
 
-NOW. `solar-system-trajectory-planner` is active at 3/7. SS0 supplies bounded,
+NOW. `solar-system-trajectory-planner` is active at 4/7. SS0 supplies bounded,
 allocation-free orbital math. SS1's interactive four-body scene loads cleanly,
 holds planet radii for 3.085 Mars periods, repeats its exact final state, keeps
 all movable bodies awake, and proves the authored first transfer window. SS2
 adds the bounded incremental Replay intercept consumer, independent target
 selection, Legacy markers/text, focused coverage, and one-generation fidelity
-proof. SS3 now adds analytic Earth/Mars guide arcs.
+proof. SS3 adds cold, fixed-capacity analytic Earth/Mars guide arcs with
+default-off zero-cost behavior. SS4 now adds the bounded trip planner.
 
 NOW. `ui-runtime-separation` is complete at 5/5. UI is physically below
 Runtime, has zero Runtime includes, and crosses through cohesive navigation,

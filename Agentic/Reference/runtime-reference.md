@@ -88,6 +88,7 @@ consumer parameter.
 | `--graphics-stress-scene-interval` | `1..600` | Minimum graphics stress frames between forced scene reloads. Alias: `--graphics_stress_scene_interval`. |
 | `--graphics-stress-memory-interval` | `0..36000` | Emit `[graphics-stress-memory]` stdout records every N graphics stress frames; `0` disables engine-side memory records. The records include process memory, engine buckets, DXGI local/non-local usage, descriptor pressure, upload arena pressure, and cache/pool counts. Alias: `--graphics_stress_memory_interval`. |
 | `--hide-top-text` | flag | Hide the always-on top HUD rows while leaving profiler/key overlays available. Alias: `--no-top-text`. |
+| `--guide-arcs` | flag | Start each loaded scene with the Legacy analytic planet guide toggle enabled; non-mutual-gravity scenes still draw nothing. Alias: `--replay-guide-arcs`. |
 | `--broadphase-visualizer` | flag | Start with the broadphase spatial grid visualizer enabled. Alias: `--broadphase-overlay`. |
 | `--all-balls` | flag | Force generated object populations to spawn as balls. |
 | `--all-boxes` | flag | Force generated object populations to spawn as boxes and use the solver path for those objects. |
@@ -334,6 +335,7 @@ Physics regression CSV output is command-line only via `--physics-regression-log
 | V | Toggle collision visualiser. |
 | C | Cycle physics debug overlay: none, axes, contacts, sleep, all. |
 | O | Toggle terrain contact probe overlay for rolling sphere terrain inspection. |
+| H | In Legacy development UI, toggle the faint heliocentric Earth and Mars guide rings for mutual-gravity scenes. The rings default off and hide automatically in other scenes. |
 | F7 / F8 | Step the physics pipeline debug overlay to the previous or next Catto stage. |
 | G | Toggle broadphase visualizer, or cycle the tracked ball when ball tracking is active and the visualizer is off. |
 

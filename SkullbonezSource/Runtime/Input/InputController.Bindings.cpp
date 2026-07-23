@@ -81,6 +81,7 @@ const RuntimeInputKeyBinding kTakeInputKeyboardBindings[] = {
     { 'Q', RuntimeInputAction::ReportRendererRuntimeRetired, kKeyboardUnblockedContext },
     { VK_F9, RuntimeInputAction::ReloadShadersFromSource, kKeyboardUnblockedContext },
     { VK_OEM_COMMA, RuntimeInputAction::CycleReplayPathColorMode, kKeyboardUnblockedContext },
+    { 'H', RuntimeInputAction::ToggleReplayGuideArcs, kKeyboardUnblockedContext },
     { 'P', RuntimeInputAction::ToggleCrossScenePause, kKeyboardUnblockedContext },
     { 'G', RuntimeInputAction::ToggleBroadphaseOverlay, kKeyboardUnblockedContext },
     { '0', RuntimeInputAction::ToggleUIVisibility, kKeyboardUnblockedContext },

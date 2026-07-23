@@ -604,13 +604,14 @@ class EditorTracer
                                       float g,
                                       float b );
     // Draws the cold baseline root path with its thinner comparison style. The
-    // presentation owner supplies color so every replay path color mode uses
-    // the same deterministic resolver.
+    // presentation owner supplies color and bounded opacity so ordinary
+    // baselines retain their established style while teaching guides can fade.
     void AddReplayBaselinePathSegment( const Math::Vector::Vector3& start,
                                        const Math::Vector::Vector3& end,
                                        float r,
                                        float g,
-                                       float b );
+                                       float b,
+                                       float opacity = 1.0f );
     void AddReplayContactMarker( const Math::Vector::Vector3& point,
                                  const Math::Vector::Vector3& normal,
                                  float r,

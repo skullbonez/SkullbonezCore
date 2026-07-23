@@ -645,6 +645,12 @@ void SkullbonezCore::Runtime::ApplySceneLoadRuntimeReactions( SceneLoadConsumerO
                                      static_cast<uint32_t>( launchOptions.generatedObjectTypeOverride ) );
     ReplaySceneTimelineResetOwners activationOwners = replayOwners( camera );
     replayRuntime.ObserveSceneLifecycleAfterActivation( lifecycle, timelineReset, activationOwners );
+    if ( launchOptions.replayGuideArcsAtStartup && lifecycle.event == SceneRuntimeLifecycleEvent::AfterSceneActivated )
+    {
+        // Why: clear-phase processing restores the product's default-off state.
+        // An explicit cold CLI request is reapplied only after activation.
+        replayRuntime.SetGuideArcsEnabled( true );
+    }
     // Invariant: only a successfully completed defaults write enters this
     // batch, so a failed Lane-R save cannot advance the editor clean cursor.
     for ( std::size_t index = 0; index < outputs.completedRequests.count; ++index )

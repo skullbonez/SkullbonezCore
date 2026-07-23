@@ -1597,6 +1597,12 @@ bool DebugOverlayPass::HasOverlayWork( const DebugOverlayPassInputs& inputs ) co
     {
         return true;
     }
+    // Invariant: replay owns a complete frame packet. Its fixed-capacity lines
+    // and ribbons are sufficient pass work even when editor tools are hidden.
+    if ( inputs.replayVisualPacket.HasGeometry() )
+    {
+        return true;
+    }
 
     return snapshot.editorOverlayWorkVisible;
 }

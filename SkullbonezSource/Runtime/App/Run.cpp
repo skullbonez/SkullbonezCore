@@ -157,6 +157,10 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch, RunLaunchOptions&
     {
         target.demoHeroStyle = true;
     }
+    if ( launch.replayGuideArcsAtStartup )
+    {
+        target.replayGuideArcsAtStartup = true;
+    }
     target.dumpTextureAssets = launch.dumpTextureAssets;
     if ( launch.interactiveSceneRun )
     {
@@ -385,6 +389,12 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     ApplyDevelopmentUiMode();
 #endif
+    if ( launch.replayGuideArcsAtStartup )
+    {
+        // Why: startup overrides are applied after the initial scene transaction;
+        // later scene loads reapply the same explicit request after activation.
+        m_replayRuntime.SetGuideArcsEnabled( true );
+    }
     if ( m_validationHarness->ConfigureStartup( overrides, m_launchOptions ) )
     {
         m_launchOptions.interactiveSceneRun = true;

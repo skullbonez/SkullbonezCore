@@ -1,7 +1,7 @@
 # Solar System Trajectory Planner
 
 Date: 2026-07-23
-Status: IN PROGRESS — 2/7 phases complete. Drafted from the 2026-07-23 owner
+Status: IN PROGRESS — 4/7 phases complete. Drafted from the 2026-07-23 owner
 conversation requesting a solar-system intercept demo built on the replay
 prediction system. All scoping questions below are owner-ratified; this
 document is the implementation contract.
@@ -445,13 +445,30 @@ transfer.
 
 Progress:
 
-- [ ] SS3.1 `ReplayGuideArcs` implemented (fixed buffers, cold refresh).
-- [ ] SS3.2 Toggle affordance wired; key table updated.
-- [ ] SS3.3 Evidence: rings coincide with simulated planet paths inside the
+- [x] SS3.1 `ReplayGuideArcs` implemented (fixed buffers, cold refresh).
+- [x] SS3.2 Toggle affordance wired; key table updated.
+- [x] SS3.3 Evidence: rings coincide with simulated planet paths inside the
       prediction horizon (screenshot); zero draw when off.
-- [ ] SS3.4 Comment audit on touched files.
-- [ ] SS3.5 Gates: `tools\validate_full.bat` + one
+- [x] SS3.4 Comment audit on touched files.
+- [x] SS3.5 Gates: `tools\validate_full.bat` + one
       `tools\validate_replay_visual_fidelity.bat` invocation recorded.
+
+SS3 evidence (2026-07-24): `ReplayGuideArcs` publishes fixed 96-point
+Earth/Mars rings only after a complete cold refresh, remains disabled and
+cost-free by default, and is exposed through the Legacy `H` binding plus the
+deterministic `--guide-arcs` startup control. Visual witnesses
+`TestOutput/ss3_visual_on/guide_arcs_on_final_faint.bmp` and
+`TestOutput/ss3_visual_off/guide_arcs_off_final_source.bmp` show respectively
+that the faint analytic rings coincide with both simulated planet paths and
+that disabled mode submits no guide geometry. Focused coverage passes 2/2
+cases and 313/313 assertions. The touched-file comment audit checked 21/21
+source-bearing files with zero deferrals. The final `validate_full` run passes
+in 273.8 s: 360/360 cases, 69,220/69,220 assertions, 755/755 production
+project/filter rows, zero warnings, zero DX12 errors, accepted captures, and
+the byte-exact 44,401-line physics baseline. The exactly-one
+replay-visual-fidelity invocation passes in 434.4 s with 17/17 controls, one
+engine process, one generation, 2,401 ticks, 200 causal nodes, zero reserve
+growth, every false-pass control detected, and no golden refresh.
 
 ---
 

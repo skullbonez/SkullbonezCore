@@ -746,6 +746,14 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
             // trajectory samples remain immutable and are recolored next draw.
             m_replayRuntime.CyclePathColorMode();
             break;
+        case RuntimeInputAction::ToggleReplayGuideArcs:
+            // Why: guide rings remain a Legacy-only teaching aid while ImGui
+            // owns its separate development-tool presentation contract.
+            if ( legacyDevelopmentUiActive )
+            {
+                m_replayRuntime.ToggleGuideArcs();
+            }
+            break;
         case RuntimeInputAction::ToggleCrossScenePause:
             // P locks scene automation without turning the run interactive;
             // SceneController preserves the policy across load transactions.
