@@ -383,6 +383,13 @@ owner ruling, and the independent no-bag review and final broad gate are clear.
 Evidence is recorded in
 `../Reports/2026-07-23/wide-signature-reduction-closure.md`.
 
+The owner reopened the eight surviving threshold-16 rows on 2026-07-23 after
+the first campaign closed. `wide-signature-decomposition-round-2` adds five
+live tasks under rule 4. D0 is complete: current CodeGraph/source evidence
+identifies owner-free frame values, a redundant prediction forwarding chain,
+and real UI/scene phase boundaries that were not considered by the original
+accepted-with-reason rulings. Active/future progress is 1/5.
+
 The active/future denominator returned 13 → 7 when
 `owner-fanout-reduction` closed OF0-OF5 and left the ledger under rule 4.
 Scene-load inputs are 18→10, consumer outputs are 20→11, view-parameter slots
@@ -1356,6 +1363,7 @@ a census records. Execution order is binding: 1 physics unification,
 |---|---|---:|---|
 | [replay-deduplication-audit](../Reports/2026-07-22/replay-deduplication-closure.md) | Complete | 4/4 | C1-C5 consolidated; C6-C7 retained; all Replay/full gates pass |
 | [wide-signature-reduction](../Reports/2026-07-23/wide-signature-reduction-closure.md) | Complete | 5/5 | 301 → 285; all survivors ruled; independent review and final broad gate pass |
+| [wide-signature-decomposition-round-2](TODO/wide-signature-decomposition-round-2.md) | In progress | 1/5 | Implement D1 UI and scene composition decomposition |
 
 ## Features
 
