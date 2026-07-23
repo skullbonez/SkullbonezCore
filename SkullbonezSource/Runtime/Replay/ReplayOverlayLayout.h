@@ -33,7 +33,7 @@ Related:
 #include "ReplayOverlaySurface.h"
 #include "ReplayRecorder.h"
 #include "ReplayScrubber.h"
-#include "../RuntimeInteractionController.h"
+#include "../Interaction/RuntimeInteractionController.h"
 #include "../UI/RuntimeUiSurface.h"
 #include "../../UI/UIDraw.h"
 

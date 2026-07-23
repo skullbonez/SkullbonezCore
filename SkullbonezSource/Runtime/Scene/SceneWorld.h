@@ -45,7 +45,7 @@ Related:
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Rendering/RenderInstanceStore.h"
-#include "../CameraCollection.h"
+#include "../Camera/CameraCollection.h"
 #include "../../World/WorldEnvironment.h"
 
 #include <span>

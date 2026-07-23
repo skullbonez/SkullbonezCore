@@ -28,7 +28,7 @@
 @rem Related:
 @rem   - tools\validate_full.bat
 @rem   - tools\validate_replay_visual_fidelity.bat
-@rem   - SkullbonezSource\Runtime\InteractionAutomationController.cpp
+@rem   - SkullbonezSource\Runtime\Automation\InteractionAutomationController.cpp
 @echo off
 setlocal EnableExtensions
 

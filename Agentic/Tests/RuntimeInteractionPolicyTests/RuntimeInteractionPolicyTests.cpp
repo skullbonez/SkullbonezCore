@@ -31,13 +31,13 @@ Invariants:
 Related:
   - AGENTS.md
   - Agentic/Reports/2026-07-11/interaction-state-machine-closure-review.md
-  - SkullbonezSource/Runtime/RuntimeInteractionController.h
-  - SkullbonezSource/Runtime/RuntimePickGeometry.h
+  - SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h
+  - SkullbonezSource/Runtime/Interaction/RuntimePickGeometry.h
   - SkullbonezSource/Runtime/UI/RuntimeUiSurface.h
 */
-#include "Runtime/RuntimeInteractionController.h"
-#include "Runtime/RuntimeInteractionCommands.h"
-#include "Runtime/RuntimePickGeometry.h"
+#include "Runtime/Interaction/RuntimeInteractionController.h"
+#include "Runtime/Interaction/RuntimeInteractionCommands.h"
+#include "Runtime/Interaction/RuntimePickGeometry.h"
 #include "Runtime/UI/RuntimeUiSurface.h"
 
 #include <cmath>

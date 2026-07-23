@@ -28,10 +28,10 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "../Tools/RuntimeTools.h"
-#include "../InputRouter.h"
-#include "../RuntimeInteractionController.h"
-#include "../RuntimeInteractionCommands.h"
-#include "../RuntimePickService.h"
+#include "../Input/InputRouter.h"
+#include "../Interaction/RuntimeInteractionController.h"
+#include "../Interaction/RuntimeInteractionCommands.h"
+#include "../Interaction/RuntimePickService.h"
 #include "../Scene/SceneWorld.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"

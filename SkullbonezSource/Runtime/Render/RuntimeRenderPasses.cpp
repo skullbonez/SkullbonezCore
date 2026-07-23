@@ -50,7 +50,7 @@ Related:
 #include "../Replay/ReplayVisualPacket.h"
 #include "../Tools/RuntimeTools.h"
 #include "../Scene/SceneTerrain.h"
-#include "../OperatorCommandApplier.h"
+#include "../Interaction/OperatorCommandApplier.h"
 #include "../../Assets/TextureCollection.h"
 #include "../../Core/PlatformProfiler.h"
 #include "../../Core/Profiler.h"

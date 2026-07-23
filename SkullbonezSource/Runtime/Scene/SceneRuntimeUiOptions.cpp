@@ -27,7 +27,7 @@ Related:
 */
 #include "SceneRuntimeUiOptions.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
-#include "../OverlayDebugState.h"
+#include "../Diagnostics/OverlayDebugState.h"
 #include "../../Scene/AuthoredScene.h"
 #include "../../UI/UI.h"
 

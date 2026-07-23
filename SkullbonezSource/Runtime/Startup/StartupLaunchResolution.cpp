@@ -32,7 +32,7 @@ Related:
 #include "StartupLaunchResolution.h"
 #include "StartupCommandLine.h"
 #include "../../Core/Common.h"
-#include "../RunLaunchOptions.h"
+#include "../App/RunLaunchOptions.h"
 #include "../../Core/WindowConstants.h"
 #include <algorithm>
 #include <cstdint>

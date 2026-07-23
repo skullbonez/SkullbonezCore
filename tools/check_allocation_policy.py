@@ -392,9 +392,9 @@ def check_sources(repo: Path, allowlist_path: Path) -> tuple[list[str], int, int
 def run_self_tests() -> int:
     repo = Path("__self_test_repo__")
     rows: dict[str, list[dict[str, object]]] = {
-        "SkullbonezSource/Runtime/Init.cpp": [
+        "SkullbonezSource/Runtime/App/Init.cpp": [
             {
-                "path": "SkullbonezSource/Runtime/Init.cpp",
+                "path": "SkullbonezSource/Runtime/App/Init.cpp",
                 "patterns": ["free( envValue )"],
                 "owner": "startup",
                 "phase": "startup",
@@ -427,7 +427,7 @@ def run_self_tests() -> int:
         ],
     }
     direct_heap_forms = find_banned_patterns_in_text(
-        "SkullbonezSource/Runtime/RunFrame.cpp",
+        "SkullbonezSource/Runtime/App/RunFrame.cpp",
         "auto* a = new int; auto* b = ::new Widget; auto* c = new (std::nothrow) Widget;\n",
     )
     if sum(1 for finding in direct_heap_forms if finding.kind == "new") != 3:
@@ -435,26 +435,26 @@ def run_self_tests() -> int:
         return 1
 
     placement_new = find_banned_patterns_in_text(
-        "SkullbonezSource/Runtime/RunFrame.cpp",
+        "SkullbonezSource/Runtime/App/RunFrame.cpp",
         "void* storage = nullptr; auto* value = new (storage) Widget;\n",
     )
     if any(finding.kind == "new" for finding in placement_new):
         print("SELF_TEST_FAIL: placement new was rejected as heap allocation", file=sys.stderr)
         return 1
 
-    bad = Finding("SkullbonezSource/Runtime/RunFrame.cpp", 1, "new", "auto* value = new int;", 14, 18)
+    bad = Finding("SkullbonezSource/Runtime/App/RunFrame.cpp", 1, "new", "auto* value = new int;", 14, 18)
     matched: set[tuple[str, str]] = set()
     if is_allowed(bad, rows, matched):
         print("SELF_TEST_FAIL: unallowlisted direct new was accepted", file=sys.stderr)
         return 1
 
-    good = Finding("SkullbonezSource/Runtime/Init.cpp", 2, "free", "free( envValue );", 0, 5)
+    good = Finding("SkullbonezSource/Runtime/App/Init.cpp", 2, "free", "free( envValue );", 0, 5)
     if not is_allowed(good, rows, matched):
         print("SELF_TEST_FAIL: allowlisted startup cleanup was rejected", file=sys.stderr)
         return 1
 
     same_line = find_banned_patterns_in_text(
-        "SkullbonezSource/Runtime/Init.cpp",
+        "SkullbonezSource/Runtime/App/Init.cpp",
         "void f() { free( envValue ); free( hotPathValue ); }\n",
     )
     same_line_unallowed = [finding for finding in same_line if not is_allowed(finding, rows, matched)]
@@ -530,7 +530,7 @@ def run_self_tests() -> int:
 
     comment_source = "void f() { /* new int */ const char* s = \"malloc(\"; const char* g = \".reserve(\"; }\n"
     if BANNED_PATTERNS[4][1].search(strip_comments_and_strings(comment_source)) or find_stl_growth_patterns_in_text(
-        "SkullbonezSource/Runtime/RunFrame.cpp", comment_source
+        "SkullbonezSource/Runtime/App/RunFrame.cpp", comment_source
     ):
         print("SELF_TEST_FAIL: comment/string stripping left a false allocation finding", file=sys.stderr)
         return 1

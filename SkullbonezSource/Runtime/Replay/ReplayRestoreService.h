@@ -25,7 +25,7 @@ Invariants:
   - The service must not store context borrows after returning.
 
 Related:
-  - SkullbonezSource/Runtime/Run.cpp
+  - SkullbonezSource/Runtime/App/Run.cpp
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
   - SkullbonezSource/Physics/PhysicsEngine.h
 */
@@ -33,8 +33,8 @@ Related:
 
 #include "ReplayRecorder.h"
 #include "ReplayRestoreTransactions.h"
-#include "../CameraCollection.h"
-#include "../OverlayDebugState.h"
+#include "../Camera/CameraCollection.h"
+#include "../Diagnostics/OverlayDebugState.h"
 #include "../Render/RuntimeRenderer.h"
 #include "../Scene/SceneWorld.h"
 #include "../Scene/SceneRuntime.h"

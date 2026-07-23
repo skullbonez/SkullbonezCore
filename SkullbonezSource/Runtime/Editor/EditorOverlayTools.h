@@ -30,12 +30,12 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
-  - SkullbonezSource/Runtime/Run.cpp
+  - SkullbonezSource/Runtime/App/Run.cpp
 */
 #pragma once
 
 #include "../../Maths/Vector3.h"
-#include "../RuntimeInteractionController.h"
+#include "../Interaction/RuntimeInteractionController.h"
 
 namespace SkullbonezCore
 {

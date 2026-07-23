@@ -23,7 +23,7 @@ Related:
 */
 #include "DiagnosticsPhysicsUI.h"
 
-#include "../OverlayDebugState.h"
+#include "OverlayDebugState.h"
 #include "../../Physics/PhysicsDebugData.h"
 #include "../../UI/UICommands.h"
 

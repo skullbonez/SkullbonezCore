@@ -15,7 +15,7 @@
       "removal_or_wrapper_plan": "Keep this validation-only path outside steady gameplay and retain explicit heap ownership for MAX_SCENE_OBJECTS fixed stores."
     },
     {
-      "path": "SkullbonezSource/Runtime/Init.cpp",
+      "path": "SkullbonezSource/Runtime/App/Init.cpp",
       "patterns": [
         "std::make_unique<RenderBackendDX12>",
         "std::make_unique<Run>",
@@ -28,7 +28,7 @@
       "removal_or_wrapper_plan": "Leave as startup composition-root ownership unless process bootstrap moves to arena-backed lifetime storage."
     },
     {
-      "path": "SkullbonezSource/Runtime/Run.cpp",
+      "path": "SkullbonezSource/Runtime/App/Run.cpp",
       "patterns": [
         "std::make_unique<SkullbonezCore::UI::InGameUI>"
       ],
@@ -39,7 +39,7 @@
       "removal_or_wrapper_plan": "Replace with composition-root arena storage if process-lifetime runtime owners move to a typed startup allocator."
     },
     {
-      "path": "SkullbonezSource/Runtime/RuntimeOverlayDiagnostics.cpp",
+      "path": "SkullbonezSource/Runtime/Diagnostics/RuntimeOverlayDiagnostics.cpp",
       "patterns": [
         "std::make_unique<RuntimeOverlayDiagnostics>"
       ],
@@ -50,7 +50,7 @@
       "removal_or_wrapper_plan": "Replace with composition-root arena storage if process-lifetime runtime owners move to a typed startup allocator."
     },
     {
-      "path": "SkullbonezSource/Runtime/RuntimeValidationHarness.cpp",
+      "path": "SkullbonezSource/Runtime/Automation/RuntimeValidationHarness.cpp",
       "patterns": [
         "std::make_unique<RuntimeValidationHarness>"
       ],
@@ -931,7 +931,7 @@
       "removal_or_wrapper_plan": "Replace staging vectors with fixed debug/tool buffers when those tools are converted to strict static storage."
     },
     {
-      "path": "SkullbonezSource/Runtime/DemoDirector.cpp",
+      "path": "SkullbonezSource/Runtime/Direction/DemoDirector.cpp",
       "patterns": [
         ".push_back("
       ],
@@ -1194,7 +1194,7 @@
       "removal_or_wrapper_plan": "Move replay buffers behind fixed replay arenas or typed replay owner wrappers, then delete this row for the converted file."
     },
     {
-      "path": "SkullbonezSource/Runtime/InteractionAutomationController.cpp",
+      "path": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",
       "patterns": [
         ".push_back(",
         ".reserve("
@@ -1206,7 +1206,7 @@
       "removal_or_wrapper_plan": "Keep growth inside the cold validation harness; replace the parser vector with bounded validation storage if the script schema gains a hard action cap."
     },
     {
-      "path": "SkullbonezSource/Runtime/InteractionAutomationReportWriter.cpp",
+      "path": "SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.cpp",
       "patterns": [
         ".emplace_back(",
         ".push_back(",
@@ -1220,7 +1220,7 @@
       "removal_or_wrapper_plan": "Keep growth inside the cold report owner; replace its vectors with bounded validation storage when report schemas gain hard row caps."
     },
     {
-      "path": "SkullbonezSource/Runtime/InteractionAutomationReportWriter.h",
+      "path": "SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.h",
       "patterns": [
         "std::vector<"
       ],
@@ -1231,7 +1231,7 @@
       "removal_or_wrapper_plan": "Replace report vectors with bounded validation storage when report schemas gain hard row caps."
     },
     {
-      "path": "SkullbonezSource/Runtime/RuntimeValidationHarness.cpp",
+      "path": "SkullbonezSource/Runtime/Automation/RuntimeValidationHarness.cpp",
       "patterns": [
         ".push_back(",
         ".reserve("

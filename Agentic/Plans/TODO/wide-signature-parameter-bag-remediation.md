@@ -108,7 +108,7 @@ records a concrete domain identity and a non-adapter consumer.
 
 ## Comment-Audit Checklist
 
-- [x] `SkullbonezSource/Runtime/InputFrame.cpp`
+- [x] `SkullbonezSource/Runtime/App/InputFrame.cpp`
 - [x] `SkullbonezSource/UI/UIWindowInteractionOwner.h`
 - [x] `SkullbonezSource/UI/UIWindowInteractionOwner.cpp`
 - [x] `SkullbonezSource/UI/UI.h`
@@ -132,7 +132,7 @@ records a concrete domain identity and a non-adapter consumer.
 - [x] `SkullbonezSource/Runtime/Debug/CollisionVisualizer.cpp`
 - [x] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h`
 - [x] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp`
-- [x] `SkullbonezSource/Runtime/RuntimeStressController.cpp`
+- [x] `SkullbonezSource/Runtime/Capture/RuntimeStressController.cpp`
 - [x] `SkullbonezSource/Runtime/Editor/EditorPlacementAssets.h`
 - [x] `SkullbonezSource/Runtime/Editor/EditorPlacementAssets.cpp`
 - [x] `SkullbonezSource/Runtime/Editor/EditorTracer.cpp`
@@ -140,8 +140,8 @@ records a concrete domain identity and a non-adapter consumer.
 - [x] `SkullbonezSource/Runtime/Render/RenderModelFramePublisher.h`
 - [x] `SkullbonezSource/Runtime/Render/RuntimeRenderer.h`
 - [x] `SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp`
-- [x] `SkullbonezSource/Runtime/RuntimeOverlayDiagnostics.cpp`
-- [x] `SkullbonezSource/Runtime/UiTextPass.cpp`
+- [x] `SkullbonezSource/Runtime/Diagnostics/RuntimeOverlayDiagnostics.cpp`
+- [x] `SkullbonezSource/Runtime/Render/UiTextPass.cpp`
 - [x] `SkullbonezSource/Rendering/RenderCommandTypes.h`
 - [x] `SkullbonezSource/Runtime/Replay/ReplayCoordination.h`
 - [x] `SkullbonezSource/Runtime/Replay/ReplayAuthoring.h`
@@ -159,7 +159,7 @@ records a concrete domain identity and a non-adapter consumer.
 - [x] `SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp`
 - [x] `SkullbonezSource/Runtime/Replay/ReplayValidation.cpp`
 - [x] `SkullbonezSource/Runtime/Replay/ReplayValidation.Probes.cpp`
-- [x] `SkullbonezSource/Runtime/RunRender.cpp`
+- [x] `SkullbonezSource/Runtime/App/RunRender.cpp`
 - [x] `SkullbonezTests/TestRuntimeValueSeams.cpp`
 - [x] `tools/validate_project_filters.py`
 - [x] `Agentic/Manuals/SkullbonezCoreManual/build_manual.py`

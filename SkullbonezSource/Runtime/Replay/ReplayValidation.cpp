@@ -27,7 +27,7 @@ Invariants:
   - Target stepping consumes post-step presentation outputs in live-frame order.
 
 Related:
-  - SkullbonezSource/Runtime/RunFrame.cpp
+  - SkullbonezSource/Runtime/App/RunFrame.cpp
   - SkullbonezSource/Runtime/Replay/ReplayValidation.Probes.cpp
   - SkullbonezSource/Runtime/Replay/ReplayValidation.Internal.h
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h
@@ -38,13 +38,13 @@ Related:
 #include "ReplayScrubber.h"
 #include "ReplayTimeline.h"
 #include "ReplayRuntime.h"
-#include "../InputRouter.h"
-#include "../RuntimeDiagnostics.h"
+#include "../Input/InputRouter.h"
+#include "../Diagnostics/RuntimeDiagnostics.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../Scene/SceneController.h"
 #include "../../Assets/AssetSystem.h"
 #include "../../Core/WorkerPool.h"
-#include "../OperatorCommandApplier.h"
+#include "../Interaction/OperatorCommandApplier.h"
 #include "../Editor/EditorTools.h"
 #include "ReplayRestoreService.h"
 #include "ReplayRestoreTransactions.h"
@@ -54,7 +54,7 @@ Related:
 
 #include "../../Core/FatalError.h"
 #include "../../Core/Profiler.h"
-#include "../SimulationSystem.h"
+#include "../Simulation/SimulationSystem.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsEngine.h"

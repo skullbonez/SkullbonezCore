@@ -259,17 +259,17 @@
     <ClCompile Include="SkullbonezSource\Core\Allocation\DevelopmentToolAllocation.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Camera.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\CameraCollection.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\DemoDirector.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\SimulationSystem.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\ApplicationExitState.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\InputController.Bindings.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\InputRouter.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\CaptureController.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\CaptureSystem.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Camera\Camera.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Camera\CameraCollection.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Direction\DemoDirector.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Simulation\SimulationSystem.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\App\ApplicationExitState.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Input\InputController.Bindings.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Input\InputRouter.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Capture\CaptureController.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Capture\CaptureSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\RenderDefaultsStore.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Render\RenderDefaultsStore.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsPhysicsUI.cpp" />
     <ClCompile Include="SkullbonezSource\UI\OperatorEditorExchange.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIInput.cpp" />
@@ -281,8 +281,8 @@
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeDefaults.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupCommandLine.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupLaunchResolution.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\RuntimeFileWriter.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\RuntimeInteractionController.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Tools\RuntimeFileWriter.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Interaction\RuntimeInteractionController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayArtifactHashLog.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.cpp" />

@@ -29,15 +29,15 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.h
-  - SkullbonezSource/Runtime/DiagnosticsController.cpp
+  - SkullbonezSource/Runtime/Diagnostics/DiagnosticsController.cpp
   - SkullbonezSource/Runtime/Replay/ReplayPresentation.cpp
 */
 #include "DiagnosticsRuntime.h"
 #include "DiagnosticsPhysicsUI.h"
 
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
-#include "../InputController.h"
-#include "../OverlayDebugState.h"
+#include "../Input/InputController.h"
+#include "OverlayDebugState.h"
 #include "../Scene/SceneRuntime.h"
 #include "../Scene/SceneController.h"
 #include "../../Physics/PhysicsDebugData.h"

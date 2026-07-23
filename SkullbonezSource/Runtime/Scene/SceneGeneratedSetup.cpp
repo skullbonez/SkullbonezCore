@@ -31,7 +31,7 @@ Related:
 #include "SceneGeneratedSetup.h"
 #include "../../Assets/AssetKeys.h"
 #include "SceneRuntime.h"
-#include "../CameraCollection.h"
+#include "../Camera/CameraCollection.h"
 #include "../../Core/Common.h"
 #include "SceneController.h"
 #include "../../Maths/Vector3.h"

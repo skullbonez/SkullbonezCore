@@ -28,7 +28,7 @@ Related:
 */
 #include "SceneRuntimeStyle.h"
 #include "../../Core/WindowConstants.h"
-#include "../OverlayDebugState.h"
+#include "../Diagnostics/OverlayDebugState.h"
 #include "SceneWorld.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Scene/AuthoredScene.h"

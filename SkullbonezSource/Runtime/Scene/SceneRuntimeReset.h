@@ -27,8 +27,8 @@ Related:
 #pragma once
 
 #include "SceneControllerState.h"
-#include "../CameraControlState.h"
-#include "../OverlayDebugState.h"
+#include "../Camera/CameraControlState.h"
+#include "../Diagnostics/OverlayDebugState.h"
 #include "../Render/RenderPresentationSettings.h"
 #include "../../Gameplay/TornadoField.h"
 #include "../../Gameplay/TornadoVisualPass.h"

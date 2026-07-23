@@ -20,13 +20,13 @@ Invariants:
   - The shared table is the source under test; do not mirror it wholesale here.
 
 Related:
-  - SkullbonezSource/Runtime/InputController.Bindings.h
-  - SkullbonezSource/Runtime/InputRouter.Interactions.cpp
+  - SkullbonezSource/Runtime/Input/InputController.Bindings.h
+  - SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp
   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 
-#include "../SkullbonezSource/Runtime/InputController.Bindings.h"
+#include "../SkullbonezSource/Runtime/Input/InputController.Bindings.h"
 
 using SkullbonezCore::Runtime::RuntimeInputAction;
 using SkullbonezCore::Runtime::RuntimeInputBindingContext;

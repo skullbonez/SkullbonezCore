@@ -683,7 +683,7 @@ W1_DEFECT_RULES = (
     {
         "files": (
             "SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.cpp",
-            "SkullbonezSource/Runtime/RuntimeDiagnostics.cpp",
+            "SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.cpp",
         ),
         "names": (
             "DiagnosticsRuntime::LogReplayRestoreResult",

@@ -33,7 +33,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/UI/UICommands.h
-  - SkullbonezSource/Runtime/InputFrame.cpp
+  - SkullbonezSource/Runtime/App/InputFrame.cpp
   - SkullbonezSource/Runtime/DevelopmentTools editor owner
   - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E8-E15)
 */

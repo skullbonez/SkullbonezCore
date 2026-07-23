@@ -23,7 +23,7 @@ Invariants:
     next frame rebuilds ShadowPassResources.
 
 Related:
-  - SkullbonezSource/Runtime/Run.h
+  - SkullbonezSource/Runtime/App/Run.h
   - SkullbonezSource/Runtime/RunPasses.cpp
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h
 */

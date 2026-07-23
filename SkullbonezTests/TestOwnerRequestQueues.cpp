@@ -38,19 +38,19 @@ Invariants:
     lifecycle generation at most once.
 
 Related:
-  - SkullbonezSource/Runtime/CaptureController.h
+  - SkullbonezSource/Runtime/Capture/CaptureController.h
   - SkullbonezSource/Runtime/Scene/SceneRequestQueue.h
-  - SkullbonezSource/Runtime/RenderDefaultsStore.h
+  - SkullbonezSource/Runtime/Render/RenderDefaultsStore.h
   - SkullbonezSource/UI/OperatorEditorExchange.h
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 
-#include "../SkullbonezSource/Runtime/CaptureController.h"
+#include "../SkullbonezSource/Runtime/Capture/CaptureController.h"
 #include "../SkullbonezSource/Runtime/Diagnostics/DiagnosticsPhysicsUI.h"
-#include "../SkullbonezSource/Runtime/OverlayDebugState.h"
-#include "../SkullbonezSource/Runtime/RenderDefaultsStore.h"
-#include "../SkullbonezSource/Runtime/RunTimerState.h"
+#include "../SkullbonezSource/Runtime/Diagnostics/OverlayDebugState.h"
+#include "../SkullbonezSource/Runtime/Render/RenderDefaultsStore.h"
+#include "../SkullbonezSource/Runtime/App/RunTimerState.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorLayoutPolicy.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"

@@ -34,16 +34,16 @@ Invariants:
     cursor-reset request.
 
 Related:
-  - SkullbonezSource/Runtime/InputRouter.h
+  - SkullbonezSource/Runtime/Input/InputRouter.h
   - SkullbonezTests/TestRuntimeInputBindings.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 
-#include "../SkullbonezSource/Runtime/InputRouter.h"
-#include "../SkullbonezSource/Runtime/InputFrame.h"
+#include "../SkullbonezSource/Runtime/Input/InputRouter.h"
+#include "../SkullbonezSource/Runtime/App/InputFrame.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorInputPolicy.h"
-#include "../SkullbonezSource/Runtime/RuntimeInteractionController.h"
+#include "../SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h"
 
 #include <initializer_list>
 

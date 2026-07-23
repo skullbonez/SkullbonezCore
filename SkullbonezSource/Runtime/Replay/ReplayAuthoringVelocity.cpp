@@ -33,7 +33,7 @@ Related:
 #include "../../Assets/AssetKeys.h"
 #include "../Editor/EditorTools.h"
 #include "../Tools/RuntimeTools.h"
-#include "../InputRouter.h"
+#include "../Input/InputRouter.h"
 #include "../Scene/SceneEntityStore.h"
 #include "../../Core/Profiler.h"
 

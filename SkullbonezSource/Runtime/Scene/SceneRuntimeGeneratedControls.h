@@ -32,7 +32,7 @@ Related:
 
 #include "SceneControllerState.h"
 #include "SceneGeneratedSetup.h"
-#include "../CameraControlState.h"
+#include "../Camera/CameraControlState.h"
 #include "../../Core/SbResult.h"
 
 namespace SkullbonezCore

@@ -11,12 +11,12 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-23rd-JUL-26` |
-| Current baseline | Runtime-package R2 projects every Runtime include onto the final map: 463 cross-package rows / 135 directed pairs, one InputFrame→App correction, zero unrecorded forbidden edges, and 18 ratified proof commands. |
-| Current objective | Implement runtime-package R3: move all 81 assigned files, rewrite includes/projects/filters, build clean, and run all intra-Runtime proofs. |
-| Active/future progress | 13/16 registered architecture follow-up tasks; 81%. |
+| Current baseline | Runtime-package R3 physically moves all 80 assigned files into owner packages; RuntimeFrameViews.h is the sole top-level residue, all 18 edge proofs are empty, and Profile/Debug builds pass. |
+| Current objective | Implement runtime-package R4: document the Input package's single-owner flow in its central header without changing behavior. |
+| Active/future progress | 14/16 registered architecture follow-up tasks; 88%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | UI/runtime U3 review remediation `validate_full` passes with exit 0 in 101.8 s: 749/749 project/filter items, all CPU/coverage floors, zero-warning builds, accepted DX12 images with zero errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | R2 is documentation-only; no repository validation is required. The projected graph covers all tracked Runtime source-bearing files and reconciles 463 cross-package include rows. |
+| Validation for current edits | R3 passes the 18 edge proofs, 749/749 production and 102/102 test project/filter checks, allocation-policy checks, all ten direct coverage floors, and `validate_fast` with zero warnings. |
 
 ## Live Queue
 
@@ -28,12 +28,12 @@ command-to-state-to-status coverage. All standing proofs and final gates pass.
 Closure evidence is in
 `Agentic/Reports/2026-07-23/ui-runtime-separation-closure.md`.
 
-NOW. `runtime-package-decomposition` is active at 2/5. R2 ratifies the exact
-per-source package allowlist and 18 complementary `rg` proofs. The projected
-graph covers 463 cross-package include rows / 135 directed pairs, moves
-InputFrame assembly/execution to App, and has zero unrecorded forbidden edges.
-R3 now makes all 81 paths real, updates includes/projects/filters, and executes
-the proof suite.
+NOW. `runtime-package-decomposition` is active at 3/5. R3 moves all 80 assigned
+files into the R1 owner packages, rewrites includes and operational references,
+and leaves only `RuntimeFrameViews.h` at top level. All 18 R2 proofs return zero
+rows; project/filter, allocation-policy, direct coverage, and `validate_fast`
+gates pass. R4 now records the Input package's single-owner flow in its central
+header.
 
 NOW. `wide-signature-parameter-bag-remediation` is complete (6/6).
 The owner rejected replacements such as `RenderModelPassInput` that merely

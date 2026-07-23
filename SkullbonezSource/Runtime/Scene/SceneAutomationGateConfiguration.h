@@ -20,7 +20,7 @@ Invariants:
   - Moving a configuration into validation performs no scene lookup or callback.
 
 Related:
-  - SkullbonezSource/Runtime/RuntimeValidationHarness.h
+  - SkullbonezSource/Runtime/Automation/RuntimeValidationHarness.h
   - SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
 */

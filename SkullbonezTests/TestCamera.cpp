@@ -18,8 +18,8 @@
 //   - Missing or cancelling up vectors resolve according to their documented owner.
 //
 // Related:
-//   - SkullbonezSource/Runtime/Camera.cpp
-//   - SkullbonezSource/Runtime/CameraCollection.cpp
+//   - SkullbonezSource/Runtime/Camera/Camera.cpp
+//   - SkullbonezSource/Runtime/Camera/CameraCollection.cpp
 //   - Agentic/Reports/2026-07-15/math-fatal-call-site-survey.md
 //
 
@@ -27,7 +27,7 @@
 
 #include "../SkullbonezSource/Assets/AssetSystem.h"
 #include "../SkullbonezSource/Core/Config.h"
-#include "../SkullbonezSource/Runtime/CameraCollection.h"
+#include "../SkullbonezSource/Runtime/Camera/CameraCollection.h"
 
 using SkullbonezCore::Assets::AssetSystem;
 using SkullbonezCore::Core::EngineConfig;

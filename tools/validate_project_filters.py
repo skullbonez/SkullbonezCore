@@ -76,13 +76,13 @@ JSON_HEADER = "ThirdPtySource/nlohmann/json.hpp"
 JSON_COLD_BOUNDARY_TRANSLATION_UNITS = frozenset(
     {
         "Rendering/DX12/ShaderBytecodeManifest.cpp",
-        "Runtime/DemoDirector.cpp",
+        "Runtime/Direction/DemoDirector.cpp",
         "Runtime/Editor/EditorInteractionTools.cpp",
         "Runtime/Editor/EditorObjectPlacement.cpp",
         "Runtime/Editor/EditorPlacementAssets.cpp",
         "Runtime/Editor/EditorTracer.cpp",
-        "Runtime/InteractionAutomationController.cpp",
-        "Runtime/InteractionAutomationReportWriter.cpp",
+        "Runtime/Automation/InteractionAutomationController.cpp",
+        "Runtime/Automation/InteractionAutomationReportWriter.cpp",
         "Runtime/Replay/ReplayV2Artifact.cpp",
         "Runtime/Scene/SceneController.Load.cpp",
         "Runtime/Scene/SceneRuntimeCreate.cpp",

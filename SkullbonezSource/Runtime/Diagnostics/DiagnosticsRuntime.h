@@ -22,13 +22,13 @@ Invariants:
   - Existing output paths and command-line behavior must not drift here.
 
 Related:
-  - SkullbonezSource/Runtime/CaptureController.h
-  - SkullbonezSource/Runtime/DiagnosticsController.h
+  - SkullbonezSource/Runtime/Capture/CaptureController.h
+  - SkullbonezSource/Runtime/Diagnostics/DiagnosticsController.h
 */
 #pragma once
 
-#include "../CaptureController.h"
-#include "../DiagnosticsController.h"
+#include "../Capture/CaptureController.h"
+#include "DiagnosticsController.h"
 
 namespace SkullbonezCore
 {

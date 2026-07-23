@@ -29,7 +29,7 @@ Invariants:
 
 Related:
   - Agentic/Reports/2026-07-11/runtime-ui-control-u6-review.md
-  - SkullbonezSource/Runtime/RuntimeInteractionController.h
+  - SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h
   - SkullbonezSource/UI/UIDraw.h
 */
 #pragma once

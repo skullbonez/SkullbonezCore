@@ -27,7 +27,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntime.cpp
-  - SkullbonezSource/Runtime/Run.cpp
+  - SkullbonezSource/Runtime/App/Run.cpp
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reference/runtime-reference.md
 */

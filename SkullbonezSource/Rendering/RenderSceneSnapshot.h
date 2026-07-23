@@ -22,7 +22,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Rendering/RenderPipeline.h
-  - SkullbonezSource/Runtime/RunRender.cpp
+  - SkullbonezSource/Runtime/App/RunRender.cpp
   - Agentic/Reference/comment-style-guide.md
 */
 #pragma once

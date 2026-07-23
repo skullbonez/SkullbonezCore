@@ -19,7 +19,7 @@ Invariants:
   - GPU default heaps are not included in these totals.
 
 Related:
-  - SkullbonezSource/Runtime/RuntimeDiagnostics.h
+  - SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.h
 */
 #pragma once
 

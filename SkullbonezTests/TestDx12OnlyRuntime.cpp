@@ -18,13 +18,13 @@ Invariants:
   - `d3d12` remains a compatibility alias for older automation and scripts.
 
 Related:
-  - SkullbonezSource/Runtime/RunLaunchOptions.Renderer.h owns the table.
+  - SkullbonezSource/Runtime/App/RunLaunchOptions.Renderer.h owns the table.
   - AGENTS.md documents the DX12-only runtime contract.
 */
 
 #include "../ThirdPtySource/doctest/doctest.h"
 
-#include "../SkullbonezSource/Runtime/RunLaunchOptions.Renderer.h"
+#include "../SkullbonezSource/Runtime/App/RunLaunchOptions.Renderer.h"
 
 #include <string>
 

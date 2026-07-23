@@ -24,13 +24,13 @@ Invariants:
     erase work accumulated after that reset.
 
 Related:
-  - SkullbonezSource/Runtime/SimulationSystem.h
+  - SkullbonezSource/Runtime/Simulation/SimulationSystem.h
   - Agentic/Reports/2026-07-12/sim-render-interpolation-closure.md
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Physics/PhysicsTimestep.h"
-#include "../SkullbonezSource/Runtime/SimulationSystem.h"
+#include "../SkullbonezSource/Runtime/Simulation/SimulationSystem.h"
 
 using namespace SkullbonezCore::Runtime;
 

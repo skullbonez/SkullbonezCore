@@ -25,7 +25,7 @@ Invariants:
     its own exclusive surface.
 
 Related:
-  - SkullbonezSource/Runtime/UiTextPass.cpp
+  - SkullbonezSource/Runtime/Render/UiTextPass.cpp
   - SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h
 */
 #pragma once

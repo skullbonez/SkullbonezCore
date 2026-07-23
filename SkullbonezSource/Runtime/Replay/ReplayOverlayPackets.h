@@ -28,7 +28,7 @@ Related:
 #include "ReplayPathPackets.h"
 #include "ReplayPresentationPackets.h"
 #include "ReplayTimelinePackets.h"
-#include "../RuntimeInteractionController.h"
+#include "../Interaction/RuntimeInteractionController.h"
 
 namespace SkullbonezCore::Rendering
 {

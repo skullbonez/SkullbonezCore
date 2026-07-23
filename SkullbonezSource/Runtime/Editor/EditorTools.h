@@ -24,7 +24,7 @@ Invariants:
   - Preview, preflight, and commit contexts must borrow the same asset registry.
 
 Related:
-  - SkullbonezSource/Runtime/InputRouter.Interactions.cpp
+  - SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp
   - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
 */
 #pragma once
@@ -32,9 +32,9 @@ Related:
 
 #include "EditorHullAssets.h"
 #include "../Replay/ReplayAuthoringPackets.h"
-#include "../InputController.h"
-#include "../RuntimeCameraMode.h"
-#include "../RuntimeInteractionController.h"
+#include "../Input/InputController.h"
+#include "../Camera/RuntimeCameraMode.h"
+#include "../Interaction/RuntimeInteractionController.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Maths/Vector3.h"
 #include "../../Physics/CollisionShape.h"

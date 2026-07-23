@@ -29,7 +29,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SceneController.h"
-#include "../RuntimeValidationHarness.h"
+#include "../Automation/RuntimeValidationHarness.h"
 #include "../Tools/RuntimeTools.h"
 #include "SceneRuntimeCreate.h"
 #include "../../Core/FatalError.h"

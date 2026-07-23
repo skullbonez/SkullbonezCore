@@ -28,9 +28,9 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "../Tools/RuntimeTools.h"
-#include "../CameraCollection.h"
-#include "../OverlayDebugState.h"
-#include "../RunLaunchOptions.h"
+#include "../Camera/CameraCollection.h"
+#include "../Diagnostics/OverlayDebugState.h"
+#include "../App/RunLaunchOptions.h"
 #include "../Scene/SceneGeneratedSetup.h"
 #include "../Scene/SceneRuntime.h"
 #include "../Scene/SceneWorld.h"

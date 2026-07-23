@@ -4,7 +4,7 @@ Date: 2026-07-23
 Status: IN PROGRESS — drafted from the 2026-07-23 from-source architecture review of
 `nightrunner-22nd-JUL-26`. Registered in `MASTER-PLAN.md` on 2026-07-23 as
 plan 3 of the Architecture Follow-Up Campaign Round 3; starts after
-`ui-runtime-separation` closes. 2/5 phases complete.
+`ui-runtime-separation` closes. 3/5 phases complete.
 Impact area: `SkullbonezSource/Runtime/` package structure, includes, project
 files, intra-Runtime dependency rules
 Owner: runtime
@@ -228,24 +228,24 @@ complete complement of its source package's allowed set; a new Runtime edge
 therefore fails until an owner updates this table and `AGENTS.md`.
 
 ```powershell
-rg -n '^#include[[:space:]]+.*(Debug|Render|Simulation|Startup|UI)/' SkullbonezSource/Runtime/Automation
-rg -n '^#include[[:space:]]+.*(Automation|Capture|Debug|DevelopmentTools|Diagnostics|Editor|Render|Replay|Simulation|Startup|Tools|UI)/' SkullbonezSource/Runtime/Camera
-rg -n '^#include[[:space:]]+.*(Debug|DevelopmentTools|Direction|Editor|Startup|UI)/' SkullbonezSource/Runtime/Capture
-rg -n '^#include[[:space:]]+.*(Automation|Camera|Capture|Debug|Diagnostics|Direction|Editor|Interaction|Render|Scene|Simulation|Startup|Tools|UI)/' SkullbonezSource/Runtime/DevelopmentTools
-rg -n '^#include[[:space:]]+.*(Camera|DevelopmentTools|Direction|Editor|Interaction|Simulation|Startup|Tools|UI)/' SkullbonezSource/Runtime/Diagnostics
-rg -n '^#include[[:space:]]+.*(App|Automation|Debug|DevelopmentTools|Diagnostics|Editor|Input|Interaction|Render|Replay|Simulation|Startup|UI)/' SkullbonezSource/Runtime/Direction
-rg -n '^#include[[:space:]]+.*(Automation|Debug|DevelopmentTools|Direction|Render|Simulation|Startup|UI)/' SkullbonezSource/Runtime/Editor
-rg -n '^#include[[:space:]]+.*(Automation|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Render|Simulation|Startup|Tools|UI)/' SkullbonezSource/Runtime/Input
-rg -n '^#include[[:space:]]+.*(App|Automation|Capture|Debug|DevelopmentTools|Direction|Editor|Input|Replay|Startup|Tools|UI)/' SkullbonezSource/Runtime/Interaction
-rg -n '^#include[[:space:]]+.*(Automation|Capture|Direction|Editor|Simulation|Startup)/' SkullbonezSource/Runtime/Render
-rg -n '^#include[[:space:]]+.*(App|Automation|Capture|Debug|DevelopmentTools|Direction|Startup)/' SkullbonezSource/Runtime/Replay
-rg -n '^#include[[:space:]]+.*(Capture|DevelopmentTools|Direction|Startup|UI)/' SkullbonezSource/Runtime/Scene
-rg -n '^#include[[:space:]]+.*(App|Automation|Camera|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Input|Render|Replay|Startup|Tools|UI)/' SkullbonezSource/Runtime/Simulation
-rg -n '^#include[[:space:]]+.*(Automation|Camera|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Input|Interaction|Render|Simulation|Tools|UI)/' SkullbonezSource/Runtime/Startup
-rg -n '^#include[[:space:]]+.*(App|Automation|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Render|Simulation|Startup|UI)/' SkullbonezSource/Runtime/Tools
-rg -n '^#include[[:space:]]+.*(Camera|Debug|DevelopmentTools|Direction|Input|Interaction|Render|Simulation|Startup|Tools)/' SkullbonezSource/Runtime/UI
-rg -n '^#include[[:space:]]+.*(App|Automation|Camera|Capture|DevelopmentTools|Diagnostics|Direction|Editor|Input|Interaction|Render|Replay|Scene|Simulation|Startup|Tools|UI)/' SkullbonezSource/Runtime/Debug
-rg -n '^#include[[:space:]]+.*(App|Automation|Camera|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Input|Interaction|Render|Replay|Scene|Simulation|Startup|Tools|UI)/' SkullbonezSource/Runtime/RuntimeFrameViews.h
+rg -n '^#include[[:space:]]+"(\.\./)?(Debug|Render|Simulation|Startup|UI)/' SkullbonezSource/Runtime/Automation
+rg -n '^#include[[:space:]]+"(\.\./)?(Automation|Capture|Debug|DevelopmentTools|Diagnostics|Editor|Render|Replay|Simulation|Startup|Tools|UI)/' SkullbonezSource/Runtime/Camera
+rg -n '^#include[[:space:]]+"(\.\./)?(Debug|DevelopmentTools|Direction|Editor|Startup|UI)/' SkullbonezSource/Runtime/Capture
+rg -n '^#include[[:space:]]+"(\.\./)?(Automation|Camera|Capture|Debug|Diagnostics|Direction|Editor|Interaction|Render|Scene|Simulation|Startup|Tools|UI)/' SkullbonezSource/Runtime/DevelopmentTools
+rg -n '^#include[[:space:]]+"(\.\./)?(Camera|DevelopmentTools|Direction|Editor|Interaction|Simulation|Startup|Tools|UI)/' SkullbonezSource/Runtime/Diagnostics
+rg -n '^#include[[:space:]]+"(\.\./)?(App|Automation|Debug|DevelopmentTools|Diagnostics|Editor|Input|Interaction|Render|Replay|Simulation|Startup|UI)/' SkullbonezSource/Runtime/Direction
+rg -n '^#include[[:space:]]+"(\.\./)?(Automation|Debug|DevelopmentTools|Direction|Render|Simulation|Startup|UI)/' SkullbonezSource/Runtime/Editor
+rg -n '^#include[[:space:]]+"(\.\./)?(Automation|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Render|Simulation|Startup|Tools|UI)/' SkullbonezSource/Runtime/Input
+rg -n '^#include[[:space:]]+"(\.\./)?(App|Automation|Capture|Debug|DevelopmentTools|Direction|Editor|Input|Replay|Startup|Tools|UI)/' SkullbonezSource/Runtime/Interaction
+rg -n '^#include[[:space:]]+"(\.\./)?(Automation|Capture|Direction|Editor|Simulation|Startup)/' SkullbonezSource/Runtime/Render
+rg -n '^#include[[:space:]]+"(\.\./)?(App|Automation|Capture|Debug|DevelopmentTools|Direction|Startup)/' SkullbonezSource/Runtime/Replay
+rg -n '^#include[[:space:]]+"(\.\./)?(Capture|DevelopmentTools|Direction|Startup|UI)/' SkullbonezSource/Runtime/Scene
+rg -n '^#include[[:space:]]+"(\.\./)?(App|Automation|Camera|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Input|Render|Replay|Startup|Tools|UI)/' SkullbonezSource/Runtime/Simulation
+rg -n '^#include[[:space:]]+"(\.\./)?(Automation|Camera|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Input|Interaction|Render|Simulation|Tools|UI)/' SkullbonezSource/Runtime/Startup
+rg -n '^#include[[:space:]]+"(\.\./)?(App|Automation|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Render|Simulation|Startup|UI)/' SkullbonezSource/Runtime/Tools
+rg -n '^#include[[:space:]]+"(\.\./)?(Camera|Debug|DevelopmentTools|Direction|Input|Interaction|Render|Simulation|Startup|Tools)/' SkullbonezSource/Runtime/UI
+rg -n '^#include[[:space:]]+"(\.\./)?(App|Automation|Camera|Capture|DevelopmentTools|Diagnostics|Direction|Editor|Input|Interaction|Render|Replay|Scene|Simulation|Startup|Tools|UI)/' SkullbonezSource/Runtime/Debug
+rg -n '^#include[[:space:]]+"(\.\./)?(App|Automation|Camera|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Input|Interaction|Render|Replay|Scene|Simulation|Startup|Tools|UI)/' SkullbonezSource/Runtime/RuntimeFrameViews.h
 ```
 
 R2 projected every current quoted include onto the ratified future package
@@ -283,14 +283,15 @@ updates, and execution of these proofs against the real layout.
   nothing but `App`, `Automation`, and `Editor` may include
   `DevelopmentTools`. Each allowed edge gets a matching `rg` proof of the
   forbidden direction, in the style of the existing rules, e.g.:
-  `rg -n '^#include[[:space:]]+.*(Render|Scene|Replay|UI)/' SkullbonezSource/Runtime/Input`
+  `rg -n '^#include[[:space:]]+"(\.\./)?(Render|Scene|Replay|UI)/' SkullbonezSource/Runtime/Input`
   must return no rows. Acceptance: a complete edge table plus one proof
   command per forbidden edge, all returning no rows against the *planned*
   layout (violations found here become explicit R3 work items, not silent
   allowances).
 
   Completed 2026-07-23. The projected include graph covers every tracked
-  Runtime source-bearing file and all 81 future moves. The exact allowed-target
+  Runtime source-bearing file and all 81 assignments (80 moves plus the one
+  retained top-level frame-view header). The exact allowed-target
   table and 18 complementary proof commands above are final. The projection
   corrected `InputFrame*` into App and then found zero unrecorded forbidden
   edges across 463 cross-package rows / 135 directed pairs. R3 must make the
@@ -298,7 +299,7 @@ updates, and execution of these proofs against the real layout.
   and proofs into `AGENTS.md`. This phase changes documentation only, so
   repository validation is not required.
 
-- [ ] **R3 — Execute the moves.** Move files per the R1 map, update every
+- [x] **R3 — Execute the moves.** Move files per the R1 map, update every
   include, `SKULLBONEZ_CORE.vcxproj`, and filters. No forwarding headers, no
   compatibility includes, no namespace changes required (namespace stays
   `SkullbonezCore::Runtime`; only physical layout moves). Where a move
@@ -308,6 +309,20 @@ updates, and execution of these proofs against the real layout.
   after the `source-blemish-remediation` B3 renames to avoid double
   project-file churn. Acceptance: top-level residue is only the files the R1
   map explicitly allows; build clean at `/W4`; all R2 proofs return no rows.
+
+  Completed 2026-07-23. All 80 mapped files now live in their owner packages;
+  `RuntimeFrameViews.h` is the only remaining top-level file. Mechanical path
+  repair changed 573 include lines in 129 files plus 471 operational
+  references in 130 files, with no namespace or behavior change. All 18 R2
+  proofs return zero rows in 1.2 seconds. Project/filter checks pass at 749/749
+  production items and 102/102 test items. The staged source review classified
+  1,638 changed lines as include/comment paths except for the manual's added
+  learning-header Summary; Replay's 70 changed lines are all include/comment
+  paths. The 245-file comment audit has zero findings (one trivial batch-file
+  exemption). Allocation-policy self-test/repository scan pass in 9.3 seconds,
+  direct coverage passes all ten floors in 31.6 seconds, and
+  `tools\validate_fast.bat` passes formatting, project metadata, staged-size,
+  Profile/Debug `/W4` builds, and tests in 75.7 seconds with zero warnings.
 
 - [ ] **R4 — Input ownership statement.** With `Runtime/Input/` assembled,
   write one package-level statement (in the package's most central header)
@@ -324,8 +339,10 @@ updates, and execution of these proofs against the real layout.
 - [ ] **R5 — Independent ownership review and closure.** A fresh review
   checks: (a) no move recreated a bag/forwarding shape banned by the
   God-Object Closure Rule; (b) the R2 edge table matches reality (all proofs
-  no-rows); (c) `Runtime/Replay/` is untouched (`git diff --stat` for that
-  path is empty); (d) the standing `AGENTS.md` dependency and replay proofs
+  no-rows); (c) `Runtime/Replay/` files did not move and their diff is limited
+  to mechanical include/comment path rewrites—no symbol body, namespace,
+  state, allocation, or behavior change; (d) the standing `AGENTS.md`
+  dependency and replay proofs
   still return no rows. Findings reopen R3/R4. Acceptance: review recorded,
   edge table and proofs land in `AGENTS.md`, gates below green with output
   pasted.
@@ -350,7 +367,7 @@ updates, and execution of these proofs against the real layout.
 Runtime has a ratified sub-package map with ≤ a handful of explicitly-allowed
 top-level files; every sub-package has a stated purpose and a policed edge
 list with `rg` proofs in `AGENTS.md`; input ownership is written down; Replay
-is untouched; no behavior change anywhere.
+has no semantic or organizational change; no behavior change anywhere.
 
 ## Validation
 

@@ -37,10 +37,10 @@ Related:
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #include "SceneAuthoredSetup.h"
-#include "../RuntimeValidationHarness.h"
+#include "../Automation/RuntimeValidationHarness.h"
 #include "../../Assets/AssetKeys.h"
 #include "SceneRuntime.h"
-#include "../CameraCollection.h"
+#include "../Camera/CameraCollection.h"
 #include "../Editor/EditorHullAssets.h"
 #include "SceneController.h"
 #include "../../Maths/Quaternion.h"

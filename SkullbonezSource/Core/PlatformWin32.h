@@ -20,7 +20,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Core/Common.h owns the platform-free legacy prelude.
-  - SkullbonezSource/Runtime/Window.h owns the application window handle.
+  - SkullbonezSource/Runtime/App/Window.h owns the application window handle.
   - SkullbonezSource/Rendering/DX12/RenderBackendDX12.h owns the native render startup boundary.
 */
 #pragma once

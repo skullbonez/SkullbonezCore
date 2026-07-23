@@ -19,13 +19,13 @@
 //     later director phases.
 //
 // Related:
-//   - SkullbonezSource/Runtime/DemoDirector.h
+//   - SkullbonezSource/Runtime/Direction/DemoDirector.h
 //   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
 
-#include "../SkullbonezSource/Runtime/DemoDirector.h"
+#include "../SkullbonezSource/Runtime/Direction/DemoDirector.h"
 
 #include <cstdio>
 #include <fstream>

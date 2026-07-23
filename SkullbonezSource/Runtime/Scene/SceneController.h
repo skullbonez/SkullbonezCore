@@ -43,8 +43,8 @@ Related:
 #include "SceneRuntimeCoordinator.h"
 #include "SceneRuntimeUiOptions.h"
 #include "SceneWorld.h"
-#include "../CameraControlState.h"
-#include "../OverlayDebugState.h"
+#include "../Camera/CameraControlState.h"
+#include "../Diagnostics/OverlayDebugState.h"
 #include "../../Core/SbResult.h"
 #include "../../Maths/Vector3.h"
 

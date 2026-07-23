@@ -24,10 +24,10 @@ Related:
 */
 #include "EditorTools.h"
 
-#include "../CameraCollection.h"
-#include "../CaptureController.h"
-#include "../InputController.h"
-#include "../RuntimeFileWriter.h"
+#include "../Camera/CameraCollection.h"
+#include "../Capture/CaptureController.h"
+#include "../Input/InputController.h"
+#include "../Tools/RuntimeFileWriter.h"
 #include "../Scene/SceneRuntime.h"
 #include "../Tools/RuntimeTools.h"
 #include "../../Core/Common.h"

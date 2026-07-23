@@ -27,7 +27,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntime.cpp
 */
 #include "SceneController.h"
-#include "../RuntimeValidationHarness.h"
+#include "../Automation/RuntimeValidationHarness.h"
 
 #include "../../Core/FatalError.h"
 #include "../../Core/Config.h"

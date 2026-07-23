@@ -18,7 +18,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Core/Profiler.h
-  - SkullbonezSource/Runtime/UiTextPass.cpp
+  - SkullbonezSource/Runtime/Render/UiTextPass.cpp
 */
 #pragma once
 
