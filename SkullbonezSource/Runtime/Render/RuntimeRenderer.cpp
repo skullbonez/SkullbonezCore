@@ -8,7 +8,7 @@ Summary:
   callbacks to one live graph in the order the image is produced.
 
 Glossary:
-  Render pass: Named slice of RuntimeRenderer::RenderFrame() with explicit
+  Render pass: Named slice of RuntimeRenderer::RenderPreparedFrame() with explicit
   inputs, outputs, and resource ownership.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
@@ -172,7 +172,7 @@ void ApplyConsequenceGrade( SkullbonezCore::Core::CinematicRenderConfig& cinemat
 // scratch records. The graph API invokes C-style callbacks, so each payload
 // carries only the pass object and frame/view borrows needed by that pass.
 //
-// Lifetime: payloads are stack objects consumed during the same RenderFrame()
+// Lifetime: payloads are stack objects consumed during the same RenderPreparedFrame()
 // call. Never cache these pointers across graph execution or use them as a
 // wider runtime service boundary.
 //
@@ -1361,9 +1361,7 @@ void RuntimeRenderer::ExecuteReplayGhostsThroughRenderGraph( const ReplayGhostGr
 bool RuntimeRenderer::ExecuteDebugOverlayThroughRenderGraph( const DebugOverlayGraphInputs& inputs )
 {
     const RenderFrameContext& frame = inputs.frame;
-    const RuntimeRenderServices& services = inputs.services;
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
-    const DebugOverlaySnapshot snapshot = BuildDebugOverlaySnapshot( services );
     const Rendering::RenderGraphResourceHandle colorTarget =
         graph.AddExternalResource( inputs.useCinematicTarget ? "CinematicSceneColor" : "SwapchainBackbuffer",
                                    Rendering::RenderGraphResourceAccess::RenderTarget );
@@ -1378,9 +1376,9 @@ bool RuntimeRenderer::ExecuteDebugOverlayThroughRenderGraph( const DebugOverlayG
     DebugOverlayGraphCallbackData callbackData;
     callbackData.debugOverlayPass = &m_debugOverlayPass;
     callbackData.frame = &frame;
-    callbackData.snapshot = &snapshot;
-    callbackData.runtimeTools = &services.runtimeTools;
-    callbackData.replayVisualPacket = services.replayFrame.visualPacket;
+    callbackData.snapshot = &inputs.snapshot;
+    callbackData.runtimeTools = &inputs.runtimeTools;
+    callbackData.replayVisualPacket = inputs.replayVisualPacket;
     graph.SetPassCallback<ExecuteDebugOverlayGraphCallback>( debugPass,
                                                              callbackData,
                                                              true,
@@ -1395,15 +1393,16 @@ bool RuntimeRenderer::ExecuteDebugOverlayThroughRenderGraph( const DebugOverlayG
 }
 
 
-DebugOverlaySnapshot RuntimeRenderer::BuildDebugOverlaySnapshot( const RuntimeRenderServices& services ) const
+DebugOverlaySnapshot RuntimeRenderer::BuildDebugOverlaySnapshot( const RuntimeRenderModelFrameView& models,
+                                                                 const RenderToolOverlayView& toolOverlay,
+                                                                 const RuntimeRenderFramePolicy& policy ) const
 {
-    const RuntimeRenderFramePolicy& policy = services.framePolicy;
     DebugOverlaySnapshot snapshot;
     snapshot.broadphaseOverlayVisible = policy.broadphaseOverlay;
-    snapshot.worldExtensionDebugLines = services.models.worldExtensionDebugLines;
+    snapshot.worldExtensionDebugLines = models.worldExtensionDebugLines;
     snapshot.physicsDebugFlags = policy.physicsDebugFlags;
     snapshot.physicsDebugPipelineStageCursor = policy.physicsDebugPipelineStageCursor;
-    snapshot.editorOverlayWorkVisible = services.toolOverlay.editorOverlayWorkVisible;
+    snapshot.editorOverlayWorkVisible = toolOverlay.editorOverlayWorkVisible;
     return snapshot;
 }
 
@@ -1548,33 +1547,32 @@ void RuntimeRenderer::ExecuteUiTextThroughRenderGraph( const UiTextPassInputs& i
 
 
 RenderFrameContext
-RuntimeRenderer::BuildRenderFrameContext( const RuntimeRenderInputs& renderInputs,
+RuntimeRenderer::BuildRenderFrameContext( const RuntimeRenderModelFrameView& models,
                                           bool cinematicRender,
                                           const SkullbonezCore::Core::CinematicRenderConfig& renderConfig )
 {
-    const RuntimeRenderServices& services = renderInputs.services;
     RenderFrameContext frame;
     frame.cinematicEnabled = cinematicRender;
     frame.cinematic = cinematicRender ? &renderConfig : nullptr;
-    frame.renderInstances = &services.models.renderInstances;
-    frame.colliders = &services.models.colliders;
-    frame.bodyStore = &services.models.bodyStore;
-    frame.physicsEngine = &services.models.physicsEngine;
-    frame.presentationRecords = services.models.presentationRecords;
-    frame.collisionVisualContacts = &services.models.collisionVisualContacts;
-    frame.sleepStates = services.models.sleepStates;
-    frame.sleepIslandVisualIds = services.models.sleepIslandVisualIds;
-    frame.sleepSupportedStates = services.models.sleepSupportedStates;
-    frame.sleepInhibitedStates = services.models.sleepInhibitedStates;
-    frame.physicsDebugContacts = &services.models.physicsDebugContacts;
-    frame.physicsPipelineTrace = &services.models.physicsPipelineTrace;
-    frame.renderWorkerPool = services.models.renderWorkerPool;
-    frame.modelCount = services.models.modelCount;
-    frame.renderCollisionVolumes = services.models.renderCollisionVolumes;
-    frame.shadowParallelPrep = services.models.shadowParallelPrep;
-    frame.sceneKineticEnergy = services.models.sceneKineticEnergy;
-    frame.assets = &services.assets;
-    frame.textures = &services.textures;
+    frame.renderInstances = &models.renderInstances;
+    frame.colliders = &models.colliders;
+    frame.bodyStore = &models.bodyStore;
+    frame.physicsEngine = &models.physicsEngine;
+    frame.presentationRecords = models.presentationRecords;
+    frame.collisionVisualContacts = &models.collisionVisualContacts;
+    frame.sleepStates = models.sleepStates;
+    frame.sleepIslandVisualIds = models.sleepIslandVisualIds;
+    frame.sleepSupportedStates = models.sleepSupportedStates;
+    frame.sleepInhibitedStates = models.sleepInhibitedStates;
+    frame.physicsDebugContacts = &models.physicsDebugContacts;
+    frame.physicsPipelineTrace = &models.physicsPipelineTrace;
+    frame.renderWorkerPool = models.renderWorkerPool;
+    frame.modelCount = models.modelCount;
+    frame.renderCollisionVolumes = models.renderCollisionVolumes;
+    frame.shadowParallelPrep = models.shadowParallelPrep;
+    frame.sceneKineticEnergy = models.sceneKineticEnergy;
+    frame.assets = &m_resources.Assets();
+    frame.textures = &m_resources.Textures();
     frame.renderResources = m_resources.Backend().renderResources;
     frame.renderTextures = m_resources.Backend().renderTextures;
     frame.renderGeometry = m_resources.Backend().renderGeometry;
@@ -1603,13 +1601,13 @@ RuntimeRenderer::BuildRenderFrameContext( const RuntimeRenderInputs& renderInput
     // transitions, the selected camera and render camera can differ; all passes
     // must consume the interpolated render camera so reflection, sky, and water
     // sample the same view.
-    frame.baseView = services.cameras.GetViewMatrix();
-    frame.projection = services.window.GetProjectionMatrix();
+    frame.baseView = m_cameras.GetViewMatrix();
+    frame.projection = m_window.GetProjectionMatrix();
     frame.viewProjection = frame.projection * frame.baseView;
-    frame.eye = services.cameras.GetRenderCameraTranslation();
-    frame.viewCenter = services.cameras.GetRenderCameraView();
-    frame.up = services.cameras.GetRenderCameraUp();
-    frame.waterY = services.world.GetFluidSurfaceHeight();
+    frame.eye = m_cameras.GetRenderCameraTranslation();
+    frame.viewCenter = m_cameras.GetRenderCameraView();
+    frame.up = m_cameras.GetRenderCameraUp();
+    frame.waterY = m_world.GetFluidSurfaceHeight();
     frame.reflectionEye = Vector3( frame.eye.x, 2.0f * frame.waterY - frame.eye.y, frame.eye.z );
     frame.reflectionCenter =
         Vector3( frame.viewCenter.x, 2.0f * frame.waterY - frame.viewCenter.y, frame.viewCenter.z );
@@ -1620,12 +1618,10 @@ RuntimeRenderer::BuildRenderFrameContext( const RuntimeRenderInputs& renderInput
 }
 
 
-RenderResourceContext RuntimeRenderer::BuildRenderResourceContext( const RuntimeRenderInputs& renderInputs,
-                                                                   bool cinematicRender ) const
+RenderResourceContext RuntimeRenderer::BuildRenderResourceContext( bool cinematicRender )
 {
-    const RuntimeRenderServices& services = renderInputs.services;
     return RenderResourceContext{ cinematicRender,
-                                  services.assets,
+                                  m_resources.Assets(),
                                   *m_resources.Backend().renderResources,
                                   *m_resources.Backend().renderTextures,
                                   *m_resources.Backend().renderGeometry,
@@ -1757,22 +1753,22 @@ void RuntimeRenderer::EnsureFrameResources( const RenderResourceContext& resourc
 }
 
 
-bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
+bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
+                                           const SkullbonezCore::Core::CinematicRenderConfig& renderConfig,
+                                           bool cinematicRender )
 {
     // Invariant: Run opens graph ownership before choosing a world or text-only
-    // path. RenderFrame may only append to that active frame and may never
+    // path. RenderPreparedFrame may only append to that active frame and may never
     // replace the graph after earlier frame work has been recorded.
     if ( m_frameGraphFinalized || m_frameGraphRenderGraph != m_resources.Backend().renderGraph )
     {
         SB_FATAL( "RunRender", "World rendering requires the current active frame graph." );
     }
 
-    const RuntimeRenderServices& services = renderInputs.services;
-    const RuntimeRenderFramePolicy& policy = services.framePolicy;
-    const ReplayRenderFrameView& replayFrame = services.replayFrame;
+    const RuntimeRenderFramePolicy& policy = context.framePolicy;
+    const ReplayRenderFrameView& replayFrame = context.replayOverlay.replayFrame;
+    RuntimeTools& runtimeTools = context.toolOverlay.tools;
     m_resources.UiText().SetRayTracingCapability( m_resources.Backend().raytracing );
-    const bool cinematicRender = services.cinematicEnabled;
-    const SkullbonezCore::Core::CinematicRenderConfig& renderConfig = services.cinematic;
     const SkullbonezCore::Core::OrdinaryRenderConfig& ordinaryRender = m_resources.Config().ordinaryRender;
     SkullbonezCore::Core::CinematicRenderConfig ordinaryShadowConfig = renderConfig;
     ordinaryShadowConfig.shadow = ordinaryRender.shadow;
@@ -1783,7 +1779,7 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
                              backend.renderTextures && backend.renderGeometry && backend.renderDiagnostics;
     const bool shadowMapsEnabled = activeShadowStyle.shadow.enabled && renderReady && !policy.textOnly;
 
-    const RenderResourceContext resourceContext = BuildRenderResourceContext( renderInputs, cinematicRender );
+    const RenderResourceContext resourceContext = BuildRenderResourceContext( cinematicRender );
     {
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
         EnsureFrameResources( resourceContext );
@@ -1793,7 +1789,7 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
 
     // Build the shared pass contract once, after camera update and before any
     // pass can bind targets. All extracted passes consume this same frame view.
-    RenderFrameContext frame = BuildRenderFrameContext( renderInputs, cinematicRender, renderConfig );
+    RenderFrameContext frame = BuildRenderFrameContext( context.renderModels, cinematicRender, renderConfig );
 
     // These passes currently borrow subsystem-owned mesh/material resources,
     // but keeping the ensure calls in the frame story gives future extraction
@@ -1826,13 +1822,13 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
                                                  *backend.renderTextures,
                                                  *backend.renderGeometry,
                                                  *backend.renderDiagnostics,
-                                                 services.assets,
+                                                 m_resources.Assets(),
                                                  m_resources.Config(),
                                                  m_resources.PrimitiveBatches() };
         m_resources.PrimitiveBatches().EnsureShadowDepthPrimitiveResources( primitiveContext );
-        if ( services.terrain )
+        if ( Geometry::Terrain* terrain = m_resources.Terrain().Get() )
         {
-            services.terrain->EnsureShadowDepthResources();
+            terrain->EnsureShadowDepthResources();
         }
         m_shadowPass.EnsureGpuResources( resourceContext, *activeShadowConfig );
     }
@@ -1935,7 +1931,7 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
                                       static_cast<float>( policy.simulationSeconds ) } );
 
     const bool worldExtensionRendered =
-        ExecuteWorldExtensionThroughRenderGraph( { frame, services.worldExtension, useCinematicTarget } );
+        ExecuteWorldExtensionThroughRenderGraph( { frame, context.worldExtension, useCinematicTarget } );
 
     if ( debugTransparentBodyPass )
     {
@@ -1970,7 +1966,10 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
             { frame, *replayFrame.visualPacket, useCinematicTarget, activeCinematic, objectShadowFrame } );
     }
 
-    const bool debugOverlayRendered = ExecuteDebugOverlayThroughRenderGraph( { frame, services, useCinematicTarget } );
+    const DebugOverlaySnapshot debugSnapshot =
+        BuildDebugOverlaySnapshot( context.renderModels, context.toolOverlay, policy );
+    const bool debugOverlayRendered = ExecuteDebugOverlayThroughRenderGraph(
+        { frame, debugSnapshot, runtimeTools, replayFrame.visualPacket, useCinematicTarget } );
 
     bool volumetricReady = false;
     CinematicPostFrameOutput cinematicPostOutput;
@@ -2257,8 +2256,6 @@ void RuntimeRenderer::RenderUiText( const UiTextPassInputs& inputs )
 bool RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
 {
     m_resources.UiText().SetRayTracingCapability( nullptr );
-    const ReplayRenderFrameView& replayFrame = context.replayOverlay.replayFrame;
-    RuntimeTools& runtimeTools = context.toolOverlay.tools;
     const RuntimeRenderFramePolicy& policy = context.framePolicy;
 
     if ( policy.textOnly )
@@ -2280,24 +2277,8 @@ bool RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
 
     const bool cinematicRender =
         ( context.cinematicRequested || consequenceGradeStrength > 0.01f ) && renderReady && !policy.textOnly;
-    // Why: this call constructs the one-frame render record directly. Field
-    // labels keep every live borrow visible and prevent positional drift when
-    // RuntimeRenderServices changes; RenderFrame does not retain the record.
-    return RenderFrame(
-        RuntimeRenderInputs{ .services = RuntimeRenderServices{ .assets = m_resources.Assets(),
-                                                                .textures = m_resources.Textures(),
-                                                                .models = context.renderModels,
-                                                                .world = m_world,
-                                                                .terrain = m_resources.Terrain().Get(),
-                                                                .cameras = m_cameras,
-                                                                .window = m_window,
-                                                                .ui = context.ui,
-                                                                .runtimeTools = runtimeTools,
-                                                                .replayFrame = replayFrame,
-                                                                .toolOverlay = context.toolOverlay,
-                                                                .worldExtension = context.worldExtension,
-                                                                .framePolicy = policy,
-                                                                .skyBox = m_resources.SkyBox(),
-                                                                .cinematic = frameCinematic,
-                                                                .cinematicEnabled = cinematicRender } } );
+    // Why: persistent render owners are already members of RuntimeRenderer.
+    // Only the top-level frame transaction and derived cinematic values cross
+    // into pass sequencing; no duplicate service/input bag is constructed.
+    return RenderPreparedFrame( context, frameCinematic, cinematicRender );
 }

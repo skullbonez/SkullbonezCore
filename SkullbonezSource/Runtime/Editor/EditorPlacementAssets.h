@@ -77,29 +77,6 @@ struct EditorTreePartDefinition
     float contactReleaseImpulseThreshold = 1.0f;
 };
 
-// Named constexpr input for one tree recipe row. The normalization helper
-// derives contact-release policy before publishing EditorTreePartDefinition.
-struct EditorTreePartDesc
-{
-    Assets::EditorHullAsset hullAsset;
-    const char* suffix;
-    float offsetX;
-    float offsetY;
-    float offsetZ;
-    float restitution;
-    Rendering::RenderMaterialKind materialKind;
-    const char* materialName;
-    float colorR;
-    float colorG;
-    float colorB;
-    float roughness;
-    float specular;
-    float stylization;
-    bool startsFixed = false;
-    bool contactReleaseOnImpact = false;
-    float contactReleaseImpulseThreshold = 1.0f;
-};
-
 
 struct EditorTreeDefinition
 {

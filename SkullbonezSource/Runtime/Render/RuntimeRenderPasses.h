@@ -170,7 +170,7 @@ struct RunReplayPredictionFrame;
 
 // Concept: these private pass contracts are the extraction boundary.
 //
-// RuntimeRenderer::RenderFrame() owns pass order, and each pass receives a named
+// RuntimeRenderer::RenderPreparedFrame() owns pass order, and each pass receives a named
 // input bundle or explicit long-lived resources. Frame references are rebuilt
 // each pass, while GPU resources stay in RuntimeRenderPassResources.
 enum class SkyPassMode
@@ -207,7 +207,7 @@ struct RenderFrameContext
 {
     // Shared inputs for the ordered world-render passes. This is a borrowed
     // per-frame contract: every value is rebuilt after SetCamera(), consumed
-    // during RuntimeRenderer::RenderFrame(), and discarded before the next frame.
+    // during RuntimeRenderer::RenderPreparedFrame(), and discarded before the next frame.
     Math::Transformation::Matrix4 baseView;
     Math::Transformation::Matrix4 projection;
     Math::Transformation::Matrix4 viewProjection;
@@ -253,25 +253,23 @@ struct RenderFrameContext
     bool shadowParallelPrep = false;
     double sceneKineticEnergy = 0.0;
 
-    // Lifetime: borrowed from RuntimeRenderInputs for this frame only. It is
-    // non-null after RuntimeRenderer::BuildRenderFrameContext(), and pass code
-    // must not store it beyond the current RenderFrame call.
+    // Lifetime: borrowed from RuntimeRenderer's resource owner for this frame
+    // only. Pass code must not store it beyond RenderPreparedFrame.
     Assets::AssetSystem* assets = nullptr;
     // Lifetime: borrowed texture binding service for this frame only. Pass code
     // uses it to resolve legacy texture handles without reopening Run state.
     Textures::TextureCollection* textures = nullptr;
-    // Lifetime: borrowed from RuntimeRenderInputs for lazy debug resource
-    // creation in this frame only.
+    // Lifetime: borrowed from RuntimeRenderer's backend owner for lazy debug
+    // resource creation in this frame only.
     Rendering::Dx12ResourceBuilder* renderResources = nullptr;
     Rendering::Dx12TextureOwner* renderTextures = nullptr;
     Rendering::Dx12GeometryOwner* renderGeometry = nullptr;
-    // Lifetime: borrowed from RuntimeRenderInputs for this frame only. It is
-    // non-null after RuntimeRenderer::BuildRenderFrameContext(), and pass code
-    // must not store it beyond the current RenderFrame call.
+    // Lifetime: borrowed from RuntimeRenderer's backend owner for this frame
+    // only. Pass code must not store it beyond RenderPreparedFrame.
     Rendering::Dx12FrameOwner* renderFrame = nullptr;
     Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
-    // Lifetime: borrowed from RuntimeRenderInputs for capability checks and
-    // tracing decisions in this frame only.
+    // Lifetime: borrowed from RuntimeRenderer's backend owner for capability
+    // checks and tracing decisions in this frame only.
     Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
     // Lifetime: RuntimeRenderer-owned concrete GPU timing boundary borrowed by
     // pass recording for this frame only.
@@ -505,7 +503,7 @@ struct ShadowPassInputs
 struct ShadowPassOutput
 {
     // Borrowed pointers into ShadowPassResources. Receivers must consume
-    // them during the same RuntimeRenderer::RenderFrame() call; ShadowPass resource
+    // them during the same RuntimeRenderer::RenderPreparedFrame() call; ShadowPass resource
     // release and the next frame both invalidate them.
     const Rendering::ShadowFrameData* terrainShadow = nullptr;
     const Rendering::ShadowFrameData* objectShadow = nullptr;
@@ -599,7 +597,7 @@ class SceneTargetPass
 
     Builds terrain/object shadow maps before receiver passes run. It owns
     the shadow targets and the per-frame receiver payloads that terrain and
-    object shaders borrow for the rest of RuntimeRenderer::RenderFrame().
+    object shaders borrow for the rest of RuntimeRenderer::RenderPreparedFrame().
 -------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class ShadowPass
 {

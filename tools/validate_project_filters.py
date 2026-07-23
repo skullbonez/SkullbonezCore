@@ -451,7 +451,7 @@ RUNTIME_RENDER_PREFIXES = (
     "RenderPresentationSettings",
     "RunRender",
     "RuntimeRenderHost",
-    "RuntimeRenderInputs",
+    "RuntimeRenderFrameValues",
     "RuntimeRenderPasses",
     "RuntimeRenderResources",
     "RuntimeRenderer",

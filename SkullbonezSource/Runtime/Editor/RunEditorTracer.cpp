@@ -169,49 +169,6 @@ uint64_t HashReplaySubmissionCanonicalRecords( const std::vector<float>& values,
     return hash;
 }
 
-// Value payload encoded identically into each of a segment's six vertices.
-// Vector references are consumed synchronously and never stored by the tracer.
-struct ReplayRibbonVertexDesc
-{
-    const Vector3& previous;
-    const Vector3& start;
-    const Vector3& end;
-    const Vector3& next;
-    float r = 0.0f;
-    float g = 0.0f;
-    float b = 0.0f;
-    float alpha = 0.0f;
-    float width = 0.0f;
-    float edgeFeather = 0.0f;
-    float emphasis = 0.0f;
-};
-
-void AppendReplayRibbonVertex( std::vector<float>& vertexData, const ReplayRibbonVertexDesc& desc )
-{
-    const Vector3& previous = desc.previous;
-    const Vector3& start = desc.start;
-    const Vector3& end = desc.end;
-    const Vector3& next = desc.next;
-    vertexData.push_back( start.x );
-    vertexData.push_back( start.y );
-    vertexData.push_back( start.z );
-    vertexData.push_back( end.x );
-    vertexData.push_back( end.y );
-    vertexData.push_back( end.z );
-    vertexData.push_back( desc.width );
-    vertexData.push_back( desc.r );
-    vertexData.push_back( desc.g );
-    vertexData.push_back( desc.b );
-    vertexData.push_back( desc.alpha );
-    vertexData.push_back( desc.edgeFeather );
-    vertexData.push_back( desc.emphasis );
-    vertexData.push_back( previous.x );
-    vertexData.push_back( previous.y );
-    vertexData.push_back( previous.z );
-    vertexData.push_back( next.x );
-    vertexData.push_back( next.y );
-    vertexData.push_back( next.z );
-}
 } // namespace
 
 
@@ -780,18 +737,28 @@ void RunEditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const
             // SV_VertexID still selects the endpoint and side in the shader.
             for ( int vertex = 0; vertex < 6; ++vertex )
             {
-                AppendReplayRibbonVertex( m_replayRibbonVertexData,
-                                          ReplayRibbonVertexDesc{ .previous = previous,
-                                                                  .start = a,
-                                                                  .end = b,
-                                                                  .next = next,
-                                                                  .r = r,
-                                                                  .g = g,
-                                                                  .b = bl,
-                                                                  .alpha = alpha,
-                                                                  .width = width,
-                                                                  .edgeFeather = edgeFeather,
-                                                                  .emphasis = emphasis } );
+                // Why: all six shader-expanded vertices carry the same segment
+                // record. Emitting that record here keeps the wire layout
+                // visible without inventing a one-call parameter descriptor.
+                m_replayRibbonVertexData.push_back( a.x );
+                m_replayRibbonVertexData.push_back( a.y );
+                m_replayRibbonVertexData.push_back( a.z );
+                m_replayRibbonVertexData.push_back( b.x );
+                m_replayRibbonVertexData.push_back( b.y );
+                m_replayRibbonVertexData.push_back( b.z );
+                m_replayRibbonVertexData.push_back( width );
+                m_replayRibbonVertexData.push_back( r );
+                m_replayRibbonVertexData.push_back( g );
+                m_replayRibbonVertexData.push_back( bl );
+                m_replayRibbonVertexData.push_back( alpha );
+                m_replayRibbonVertexData.push_back( edgeFeather );
+                m_replayRibbonVertexData.push_back( emphasis );
+                m_replayRibbonVertexData.push_back( previous.x );
+                m_replayRibbonVertexData.push_back( previous.y );
+                m_replayRibbonVertexData.push_back( previous.z );
+                m_replayRibbonVertexData.push_back( next.x );
+                m_replayRibbonVertexData.push_back( next.y );
+                m_replayRibbonVertexData.push_back( next.z );
             }
         }
     };

@@ -227,67 +227,6 @@ const ReplaySolverFrameSample* ReplayProbeCurrentSolverSample( const ReplayTimel
     return timeline.Solver().SampleAtNormalized( ReplaySolverNormalizedFromTrack( position, present ) );
 }
 
-// Lifetime: the cold probe borrows production owners only while deriving one
-// packet; it cannot schedule prediction or retain a probe-only presentation.
-struct ReplayProbeVisualProjectionDesc
-{
-    ReplayTimeline& timeline;
-    ReplayScrubber& scrubber;
-    ReplayPresentation& presentation;
-    ReplayAuthoring& authoring;
-    ReplayPrediction& prediction;
-    PhysicsEngine& physics;
-    const SceneEntityStore& entities;
-    std::span<const SkullbonezCore::Rendering::RenderInstancePresentationRecord> presentationRecords;
-    const PhysicsBodyStore& bodyStore;
-    RuntimeTools& runtimeTools;
-    const Vector3& cameraEye;
-    const Vector3& cameraUp;
-    uint64_t replayReserveGrowthEvents = 0;
-};
-
-ReplayVisualPacket BuildReplayProbeVisualProjection( const ReplayProbeVisualProjectionDesc& desc )
-{
-    ReplayTimeline& timeline = desc.timeline;
-    ReplayScrubber& scrubber = desc.scrubber;
-    ReplayPresentation& presentation = desc.presentation;
-    ReplayAuthoring& authoring = desc.authoring;
-    ReplayPrediction& prediction = desc.prediction;
-    PhysicsEngine& physics = desc.physics;
-    const SceneEntityStore& entities = desc.entities;
-    const PhysicsBodyStore& bodyStore = desc.bodyStore;
-    RuntimeTools& runtimeTools = desc.runtimeTools;
-    // Invariant: this cold projection uses the production presentation owners
-    // and fixed-capacity tracer; it does not invent a probe-only packet shape.
-    RunEditorTracer& tracer = runtimeTools.EditorTracer();
-    const ReplayPredictionPresentationView predictionView = prediction.PresentationView();
-    const ReplaySolverFrameSample* currentSolver = ReplayProbeCurrentSolverSample( timeline, scrubber, prediction );
-    const ReplaySolverFrameSample* presentSolver = currentSolver ? currentSolver : timeline.Solver().LatestSample();
-    presentation.RenderPathVisualizer( predictionView, presentSolver, physics, entities, tracer );
-    presentation.RenderCauseFocusOverlay( authoring.CauseTree(),
-                                          predictionView,
-                                          currentSolver,
-                                          bodyStore,
-                                          PhysicsEngine::ReadColliders( physics ),
-                                          entities,
-                                          tracer );
-    const RunReplayPathVisualizerState& path = presentation.PathVisualizer();
-    authoring.AppendVelocityEditOverlay( path.targetId,
-                                         path.targetModelRow,
-                                         physics,
-                                         runtimeTools.Editor().editorModeEnabled,
-                                         RuntimeInteractionGesture{},
-                                         tracer );
-    (void)presentation.BuildPredictionGhostDrawRequests( predictionView, desc.presentationRecords, bodyStore );
-    ReplayVisualPacket packet = tracer.BuildReplayVisualPacket( desc.cameraEye, desc.cameraUp );
-    presentation.PublishVisualPacket( packet,
-                                      predictionView,
-                                      timeline.Solver().LatestSample(),
-                                      desc.replayReserveGrowthEvents );
-    return presentation.PublishedVisualPacketView();
-}
-
-
 Vector3 RenderProbeMatrixTranslation( const Matrix4& matrix )
 {
     return Vector3( matrix.m[12], matrix.m[13], matrix.m[14] );
@@ -1208,20 +1147,42 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::VerifyLoadedPresentation( Repl
                                                       prediction,
                                                       world.Physics(),
                                                       world.Entities() );
-            const ReplayVisualPacket projected = BuildReplayProbeVisualProjection(
-                ReplayProbeVisualProjectionDesc{ .timeline = timeline,
-                                                 .scrubber = scrubber,
-                                                 .presentation = presentation,
-                                                 .authoring = authoring,
-                                                 .prediction = prediction,
-                                                 .physics = world.Physics(),
-                                                 .entities = world.Entities(),
-                                                 .presentationRecords = world.RenderPresentationRecords(),
-                                                 .bodyStore = world.BodyStore(),
-                                                 .runtimeTools = runtimeTools,
-                                                 .cameraEye = expected.cameraEye,
-                                                 .cameraUp = expected.cameraUp,
-                                                 .replayReserveGrowthEvents = expected.replayReserveGrowthEvents } );
+            // Invariant: this cold probe runs production overlay and
+            // publication phases directly. Every owner borrow is loop-local;
+            // no probe-only parameter packet can become a second owner graph.
+            const ReplayPredictionPresentationView predictionView = prediction.PresentationView();
+            const ReplaySolverFrameSample* currentSolver =
+                ReplayProbeCurrentSolverSample( timeline, scrubber, prediction );
+            const ReplaySolverFrameSample* presentSolver =
+                currentSolver ? currentSolver : timeline.Solver().LatestSample();
+            presentation.RenderPathVisualizer( predictionView,
+                                               presentSolver,
+                                               world.Physics(),
+                                               world.Entities(),
+                                               tracer );
+            presentation.RenderCauseFocusOverlay( authoring.CauseTree(),
+                                                  predictionView,
+                                                  currentSolver,
+                                                  world.BodyStore(),
+                                                  PhysicsEngine::ReadColliders( world.Physics() ),
+                                                  world.Entities(),
+                                                  tracer );
+            const RunReplayPathVisualizerState& path = presentation.PathVisualizer();
+            authoring.AppendVelocityEditOverlay( path.targetId,
+                                                 path.targetModelRow,
+                                                 world.Physics(),
+                                                 runtimeTools.Editor().editorModeEnabled,
+                                                 RuntimeInteractionGesture{},
+                                                 tracer );
+            (void)presentation.BuildPredictionGhostDrawRequests( predictionView,
+                                                                 world.RenderPresentationRecords(),
+                                                                 world.BodyStore() );
+            ReplayVisualPacket packet = tracer.BuildReplayVisualPacket( expected.cameraEye, expected.cameraUp );
+            presentation.PublishVisualPacket( packet,
+                                              predictionView,
+                                              timeline.Solver().LatestSample(),
+                                              expected.replayReserveGrowthEvents );
+            const ReplayVisualPacket projected = presentation.PublishedVisualPacketView();
             const ReplayVisualPacketFingerprint fingerprint =
                 BuildReplayVisualPacketFingerprint( projected, trajectoryDigests );
             if ( fingerprint.visualStateHash != expected.visualStateHash )

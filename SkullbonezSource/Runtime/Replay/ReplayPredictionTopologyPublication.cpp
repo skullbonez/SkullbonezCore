@@ -180,79 +180,6 @@ void AssignReplayFutureNode( RunReplayPathTraceNode& node,
     node.contactDerived = contactDerived;
 }
 
-// Value payload for one future-node insertion. Vector storage remains the
-// operation-specific argument so this record cannot retain cache ownership.
-struct ReplayFutureNodeDesc
-{
-    Physics::PhysicsSceneObjectId rootId;
-    Physics::PhysicsSceneObjectId parentId;
-    int parentModelIndex = -1;
-    Physics::PhysicsSceneObjectId id;
-    int modelIndex = -1;
-    ReplayFrameIndex firstFrame;
-    const Vector3& contactPoint;
-    const Vector3& contactNormal;
-    int depth = 0;
-    bool contactDerived = false;
-    bool replaceMotionFallback = false;
-};
-
-template <typename NodeContainer>
-void AddReplayFutureNodeToNodes( NodeContainer& nodes, const ReplayFutureNodeDesc& desc )
-{
-    const Physics::PhysicsSceneObjectId rootId = desc.rootId;
-    const Physics::PhysicsSceneObjectId parentId = desc.parentId;
-    const int parentModelIndex = desc.parentModelIndex;
-    const Physics::PhysicsSceneObjectId id = desc.id;
-    const int modelIndex = desc.modelIndex;
-    const ReplayFrameIndex firstFrame = desc.firstFrame;
-    const Vector3& contactPoint = desc.contactPoint;
-    const Vector3& contactNormal = desc.contactNormal;
-    const int depth = desc.depth;
-    const bool contactDerived = desc.contactDerived;
-    const bool replaceMotionFallback = desc.replaceMotionFallback;
-    if ( id.value == 0 || id.value == rootId.value )
-    {
-        return;
-    }
-
-    if ( RunReplayPathTraceNode* existing = FindReplayFutureNodeInNodes( nodes, id ) )
-    {
-        if ( replaceMotionFallback && contactDerived && !existing->contactDerived )
-        {
-            AssignReplayFutureNode( *existing,
-                                    parentId,
-                                    parentModelIndex,
-                                    id,
-                                    modelIndex,
-                                    firstFrame,
-                                    contactPoint,
-                                    contactNormal,
-                                    depth,
-                                    true );
-        }
-        return;
-    }
-
-    if ( nodes.size() >= REPLAY_PATH_MAX_FUTURE_NODES )
-    {
-        return;
-    }
-
-    RunReplayPathTraceNode node;
-    AssignReplayFutureNode( node,
-                            parentId,
-                            parentModelIndex,
-                            id,
-                            modelIndex,
-                            firstFrame,
-                            contactPoint,
-                            contactNormal,
-                            depth,
-                            contactDerived );
-    nodes.push_back( node );
-}
-
 bool ReplayFutureNodeTopologyEquals( const RunReplayPathTraceNode& a, const RunReplayPathTraceNode& b )
 {
     return a.id.value == b.id.value && a.parentId.value == b.parentId.value && a.modelRow.value == b.modelRow.value &&
@@ -823,18 +750,44 @@ void AddReplayPredictionFutureNode( ReplayPredictionFutureContext& context,
         return;
     }
 
-    AddReplayFutureNodeToNodes( *context.nodes,
-                                ReplayFutureNodeDesc{ .rootId = context.rootId,
-                                                      .parentId = parentId,
-                                                      .parentModelIndex = parentModelIndex,
-                                                      .id = id,
-                                                      .modelIndex = modelIndex,
-                                                      .firstFrame = firstFrame,
-                                                      .contactPoint = contactPoint,
-                                                      .contactNormal = contactNormal,
-                                                      .depth = depth,
-                                                      .contactDerived = contactDerived,
-                                                      .replaceMotionFallback = true } );
+    std::vector<RunReplayPathTraceNode>& nodes = *context.nodes;
+    if ( RunReplayPathTraceNode* existing = FindReplayFutureNodeInNodes( nodes, id ) )
+    {
+        // Why: a real contact edge carries stronger causal evidence than an
+        // earlier motion-only fallback for the same future body.
+        if ( contactDerived && !existing->contactDerived )
+        {
+            AssignReplayFutureNode( *existing,
+                                    parentId,
+                                    parentModelIndex,
+                                    id,
+                                    modelIndex,
+                                    firstFrame,
+                                    contactPoint,
+                                    contactNormal,
+                                    depth,
+                                    true );
+        }
+        return;
+    }
+
+    if ( nodes.size() >= REPLAY_PATH_MAX_FUTURE_NODES )
+    {
+        return;
+    }
+
+    RunReplayPathTraceNode node;
+    AssignReplayFutureNode( node,
+                            parentId,
+                            parentModelIndex,
+                            id,
+                            modelIndex,
+                            firstFrame,
+                            contactPoint,
+                            contactNormal,
+                            depth,
+                            contactDerived );
+    nodes.push_back( node );
 }
 
 bool BuildReplayPredictionFutureNodes( const RunReplayPredictionFrame& frame,

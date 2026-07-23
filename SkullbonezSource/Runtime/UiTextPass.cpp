@@ -40,7 +40,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Render/RuntimeRenderPasses.h"
-#include "Render/RuntimeRenderInputs.h"
+#include "Render/RuntimeRenderFrameValues.h"
 #include "InputController.h"
 #include "RunCameraState.h"
 #include "RunDebugState.h"

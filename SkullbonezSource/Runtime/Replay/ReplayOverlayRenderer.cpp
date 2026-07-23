@@ -123,19 +123,18 @@ void RenderReplayScrubberOverlay( Text::TextBatch& textBatch, const ReplayOverla
     }
 
     const RunReplayTrack activeTrack = loadedPresentation ? RunReplayTrack::Presentation : RunReplayTrack::Solver;
-    const ReplayScrubberSurfaceInput surfaceInput = DescribeReplayScrubberSurface(
-        ReplayScrubberSurfaceDesc{ .scrubber = scrubber,
-                                   .solverStats = solverReplayStats,
-                                   .loadedPresentation = loadedPresentation,
-                                   .pathTargetAvailable = replay.pathVisualizer.hasTarget,
-                                   .predictionTimelineAvailable = replay.selection.predictionTimelineAvailable,
-                                   .currentPresentationAvailable = replay.selection.currentPresentation != nullptr,
-                                   .currentSolverAvailable = replay.selection.currentSolver != nullptr,
-                                   .scenePhysicsEnabled = context.scenePhysicsEnabled,
-                                   .uiBlocksMouse = false,
-                                   .screenW = screenW,
-                                   .screenH = screenH,
-                                   .gesture = context.gesture } );
+    ReplayScrubberSurfaceInput surfaceInput =
+        DescribeReplayScrubberAvailability( scrubber,
+                                            solverReplayStats,
+                                            loadedPresentation,
+                                            replay.pathVisualizer.hasTarget,
+                                            replay.selection.predictionTimelineAvailable,
+                                            replay.selection.currentPresentation != nullptr,
+                                            replay.selection.currentSolver != nullptr,
+                                            context.scenePhysicsEnabled );
+    surfaceInput.screenW = screenW;
+    surfaceInput.screenH = screenH;
+    surfaceInput.gesture = context.gesture;
     ReplayScrubberSurface surface;
     BuildReplayScrubberSurface( surfaceInput, surface );
     surface.ResolvePointer( scrubber.mouseX, scrubber.mouseY );

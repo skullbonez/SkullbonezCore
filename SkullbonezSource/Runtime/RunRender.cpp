@@ -175,13 +175,11 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
         framePolicy.textOnly ? 0.0f : m_replayRuntime.AdvanceConsequenceGrade( replayPredictionEnabled );
     const bool replaySubmissionRendered =
         m_renderer.RenderFrameEntry( RuntimeRenderer::FrameEntryContext{ renderModels,
-                                                                         *m_operatorUi,
                                                                          framePolicy,
                                                                          replayOverlay,
                                                                          toolOverlay,
                                                                          worldExtension,
                                                                          activeCinematic,
-                                                                         presentationAlpha,
                                                                          cinematicRequested,
                                                                          consequenceGradeStrength } );
     m_replayRuntime.CompleteRenderFrame( replaySubmissionRendered,

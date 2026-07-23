@@ -408,8 +408,8 @@ round-3 report records the original closure evidence.
 The denominator grew 0 to 6 again on 2026-07-23 when the owner rejected the
 campaign's mechanical parameter objects. The reopened audit found input,
 request, descriptor, and context values that existed mainly to conceal
-arguments and were immediately unpacked or forwarded. The active
-`wide-signature-parameter-bag-remediation` plan removes those shapes through
+arguments and were immediately unpacked or forwarded.
+`wide-signature-parameter-bag-remediation` removes those shapes through
 real operation decomposition while preserving the accepted 12-parameter
 ceiling. B0 records the complete campaign-introduced census and explicit
 retain/remove rulings. B1 removes the broad UI input record, gives Scene-tab
@@ -424,8 +424,12 @@ the shadow selection packet. Main/reflection visibility and object-shadow
   frame request, the additionally discovered prediction-job descriptor, the
   render-preparation packet, and the restore-diagnostic input packet. Prediction
   and render work now advance through explicit ordered owner phases, while
-  restore producers construct the real emitted diagnostic. Active/future
-  progress is 5/6.
+  restore producers construct the real emitted diagnostic. B5 reconstructs the
+  campaign history, removes six additional missed descriptors plus
+  `RuntimeRenderInputs` and `RuntimeRenderServices`, and closes with an empty
+  threshold-13 inventory, exact 55/55 comment audit, hostile no-bag approval,
+  and all mapped gates clear. The denominator returns 6 to 0; evidence is in
+  `../Reports/2026-07-23/wide-signature-parameter-bag-remediation-closure.md`.
 
 The denominator grew 6 → 22 on 2026-07-23 when the owner registered the
 three-plan architecture follow-up round-3 campaign from the same-day
@@ -1414,7 +1418,7 @@ a census records. Execution order is binding: 1 physics unification,
 | [wide-signature-reduction](../Reports/2026-07-23/wide-signature-reduction-closure.md) | Complete | 5/5 | 301 → 285; all survivors ruled; independent review and final broad gate pass |
 | [wide-signature-decomposition-round-2](../Reports/2026-07-23/wide-signature-decomposition-round-2-closure.md) | Complete | 5/5 | 8 → 0 threshold-16 rows; independent review and all closure gates pass |
 | [wide-signature-decomposition-round-3](../Reports/2026-07-23/wide-signature-decomposition-round-3-closure.md) | Complete | 6/6 | 9 → 0 threshold-13 rows; independent review and all closure gates pass |
-| [wide-signature-parameter-bag-remediation](TODO/wide-signature-parameter-bag-remediation.md) | In progress | 5/6 | Reconcile campaign history, run the hostile no-bag review and final gates, and supersede prior closure claims |
+| [wide-signature-parameter-bag-remediation](../Reports/2026-07-23/wide-signature-parameter-bag-remediation-closure.md) | Complete | 6/6 | Mechanical campaign packs removed; empty threshold-13 scan, hostile review, and all closure gates pass |
 
 ## Architecture Follow-Up Campaign Round 3 (2026-07-23)
 

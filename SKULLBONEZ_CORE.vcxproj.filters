@@ -1063,7 +1063,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderHost.h">
       <Filter>Header Files\Runtime\Render</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderInputs.h">
+    <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderFrameValues.h">
       <Filter>Header Files\Runtime\Render</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Render\RenderModelFramePublisher.h">

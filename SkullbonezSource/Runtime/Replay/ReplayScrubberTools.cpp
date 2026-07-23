@@ -1369,19 +1369,18 @@ ReplayScrubberPointerDecision ReplayScrubber::ResolvePointerAction( const Replay
     const bool scrubDragActive = frame.gesture == RuntimeInteractionGestureKind::ReplayScrubDrag;
     const bool horizonDragActive = frame.gesture == RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag;
 
-    const ReplayScrubberSurfaceInput surfaceInput = DescribeReplayScrubberSurface(
-        ReplayScrubberSurfaceDesc{ .scrubber = View(),
-                                   .solverStats = frame.solverStats,
-                                   .loadedPresentation = frame.loadedPresentation,
-                                   .pathTargetAvailable = frame.pathTargetAvailable,
-                                   .predictionTimelineAvailable = frame.predictionTimelineAvailable,
-                                   .currentPresentationAvailable = frame.currentPresentationAvailable,
-                                   .currentSolverAvailable = frame.currentSolverAvailable,
-                                   .scenePhysicsEnabled = frame.scenePhysicsEnabled,
-                                   .uiBlocksMouse = frame.uiBlocksMouse,
-                                   .screenW = frame.screenWidth,
-                                   .screenH = frame.screenHeight,
-                                   .gesture = frame.gesture } );
+    ReplayScrubberSurfaceInput surfaceInput = DescribeReplayScrubberAvailability( View(),
+                                                                                  frame.solverStats,
+                                                                                  frame.loadedPresentation,
+                                                                                  frame.pathTargetAvailable,
+                                                                                  frame.predictionTimelineAvailable,
+                                                                                  frame.currentPresentationAvailable,
+                                                                                  frame.currentSolverAvailable,
+                                                                                  frame.scenePhysicsEnabled );
+    surfaceInput.hotZoneEnabled = !frame.uiBlocksMouse;
+    surfaceInput.screenW = frame.screenWidth;
+    surfaceInput.screenH = frame.screenHeight;
+    surfaceInput.gesture = frame.gesture;
     decision.track = surfaceInput.track;
     ReplayScrubberSurface surface;
     BuildReplayScrubberSurface( surfaceInput, surface );

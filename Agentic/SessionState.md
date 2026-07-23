@@ -11,16 +11,16 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-22nd-JUL-26` |
-| Current baseline | Wide-signature round 3 reached an empty threshold-13 scan, but its closure claim is reopened because several replacements are mechanical parameter objects. Legacy remains the development default. |
-| Current objective | Remove every mechanical parameter object introduced or repurposed by the three wide-signature campaigns without hiding owners or exceeding 12 parameters. |
-| Active/future progress | 5/6 tasks; 83%. |
+| Current baseline | Wide-signature parameter-bag remediation is complete: campaign-created mechanical packs are absent and the threshold-13 scan is empty. Legacy remains the development default. |
+| Current objective | The next registered architecture campaign begins with `source-blemish-remediation` B1 when the owner starts it. |
+| Active/future progress | 0/16 registered architecture follow-up tasks; 0%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | T5 `validate_full` passes in 99.5 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | B4 final incremental Profile build passes (10.9 s); 53 focused Replay doctests / 799 assertions pass (2.3 s); threshold-13 inventory and removed-type scan are empty. |
+| Last broad local gate | B5 `validate_full` passes in 115.7 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
+| Validation for current edits | B5 threshold/static proofs, fast, Replay allocation/artifact/scrub-visual-fidelity, broad, and hostile no-bag review all pass. |
 
 ## Live Queue
 
-NOW. `wide-signature-parameter-bag-remediation` is active (5/6).
+NOW. `wide-signature-parameter-bag-remediation` is complete (6/6).
 The owner rejected replacements such as `RenderModelPassInput` that merely
 bundle arguments for immediate unpacking. B0 reopened the three prior
 wide-signature closure claims and inventories every campaign-introduced or
@@ -52,8 +52,14 @@ packet, and the restore-diagnostic input packet. Prediction and render now use
 ordered owner operations, and restore sites directly build the real emitted
 diagnostic. Six touched source files pass the comment audit; the Profile build,
 53 focused Replay doctests / 799 assertions, removed-type scan, and threshold-13
-inventory pass. Next: B5 reconciles campaign history and source, runs the
-hostile no-bag review and final gates, and supersedes the earlier closure claims.
+inventory pass. B5's history reconstruction finds and removes six additional
+descriptors plus `RuntimeRenderInputs` and `RuntimeRenderServices`. The final
+55/55 comment audit, threshold/static proofs, hostile no-bag review, Replay
+allocation/artifact/scrub-visual-fidelity gates, and broad gate pass. Closure
+evidence is in
+`Agentic/Reports/2026-07-23/wide-signature-parameter-bag-remediation-closure.md`.
+The next registered campaign is `source-blemish-remediation`; no implementation
+has started.
 
 `wide-signature-decomposition-round-2` closed D0-D4 (5/5) and left the
 live ledger. All eight reopened threshold-16 rows were removed without a
@@ -355,6 +361,8 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-No active architecture campaign. Preserve the empty threshold-13 inventory and
-owner-safe value boundaries. Closure evidence is in
-`Agentic/Reports/2026-07-23/wide-signature-decomposition-round-3-closure.md`.
+No architecture follow-up implementation is active. Preserve the empty
+threshold-13 inventory and owner-safe value boundaries. The next registered
+plan is `Agentic/Plans/TODO/source-blemish-remediation.md`; closure evidence for
+the completed current work is in
+`Agentic/Reports/2026-07-23/wide-signature-parameter-bag-remediation-closure.md`.

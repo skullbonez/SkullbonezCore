@@ -34,7 +34,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/Dx12FrameOwner.h
   - SkullbonezSource/Rendering/DX12/Dx12GraphTransientPool.h
   - SkullbonezSource/Rendering/DX12/RenderBackendDX12.h
-  - SkullbonezSource/Runtime/Render/RuntimeRenderInputs.h
+  - SkullbonezSource/Runtime/Render/RuntimeRenderFrameValues.h
 */
 #pragma once
 

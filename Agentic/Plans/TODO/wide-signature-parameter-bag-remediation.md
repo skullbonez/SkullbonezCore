@@ -2,7 +2,7 @@
 
 Date: 2026-07-23
 Owner: skullbonez
-State: In progress
+State: Complete
 Ledger tasks: 6 (B0-B5)
 Branch: `nightrunner-22nd-JUL-26`
 PR: `#131`
@@ -28,22 +28,34 @@ reach-back.
 | `SceneTabOpenComboFrame` | Mechanical bag | Split option/reset actions or use explicit values under the ceiling |
 | `SceneTabDrawFrame` | Mechanical bag | Split Scene-tab draw phases by responsibility |
 | `FxQuadCorners`, `FxQuadStyle`, `FxQuadTerrain` | Mechanical call packs | Remove `EmitFxQuad`; emit four vertices through the existing vertex primitive |
+| `EditorTreePartDesc` | Mechanical duplicate recipe | Normalize the real `EditorTreePartDefinition` value directly |
+| `ReplayRibbonVertexDesc` | Mechanical one-call payload | Emit the repeated shader record at its sole loop |
 | `PhysicsNarrowphaseWakeAccess::SleepRows` | Mechanical constructor pack | Establish a real sleep-row owner/capability boundary |
 | `Texture2DUploadDesc` | Mechanical creation descriptor introduced for arity | Use spans, derived counts, and explicit typed policy |
 | `InstancedMeshCreateDesc` | Mechanical creation descriptor introduced for arity | Split static and instance layout creation phases |
 | `InstancedMeshUploadTarget` | Mechanical private call pack | Read bound cold-upload owners in the owning operation |
 | `RenderModelPassInput` | Mechanical bag | Decompose visibility selection and primitive submission |
 | `ShadowMapRenderSelection` | Mechanical bag | Make invariant object rendering structural and terrain choice explicit |
+| `RuntimeRenderInputs` / `RuntimeRenderServices` | Mechanical wrapper and service bag blessed by the first campaign | Use the top-level frame transaction plus `RuntimeRenderer`'s concrete owners |
 | `ReplayCauseTreeInputSources` | Mechanical source pack | Split cause-tree actions around the data each action uses |
 | `ReplayVelocityEditInputSources` | Mechanical source pack | Split target picking and drag mutation phases |
 | `ReplayWorkspaceFrameInput` passed wholesale to extracted operations | Mechanical reuse | Keep it only at `TickWorkspace`; pass action facts onward |
 | `ReplayLoadedPresentationActivationRequest` | Mechanical bag | Split activation, camera exit, scrubber arming, and camera entry |
 | `ReplayPredictionFrameRequest` | Mechanical bag | Split source/rebuild decision, worker advancement, and publication |
 | `ReplayPredictionJobDesc` | Mechanical bag missed by B0 | Split source preparation from private-simulation startup |
+| `ReplayFutureNodeDesc` | Mechanical one-call payload missed by B0 | Perform node replacement/insertion in the owning topology operation |
+| `ReplayProbeVisualProjectionDesc` | Mechanical probe owner bag missed by B0 | Sequence production projection phases directly in the cold probe |
 | `ReplayRenderPreparationInput` | Mechanical bag | Split pose, overlay/ghost, packet publication, and focus masking |
+| `ReplayRestoreEditorPlaceEventDesc` | Mechanical transaction duplicate missed by B0 | Reuse the existing restore transaction boundary and keep event facts explicit |
 | `ReplayScrubberGestureInput` | Mechanical bag | Separate scrub-drag and prediction-horizon operations |
+| `ReplayScrubberSurfaceDesc` | Mechanical layout request missed by B0 | Derive availability separately, then add caller-owned frame facts |
 | `ReplayV2TargetRestoreDiagnosticInput` | Mechanical bag | Build the real result diagnostic at each producer |
 | `PhysicsBodyRestoreState` | Retain: real domain value | One complete body-state restore record |
+| `PhysicsBodyCreateDesc` | Retain: real domain value | Stored and mutated authored-body record consumed by PhysicsBodyStore |
+| `RuntimeRenderModelFrameView` | Retain: real publication | Scene-owned stores and spans published once for the render frame |
+| `ReplayScrubberSurfaceInput` | Retain: real derived value | Normalized control availability and frame layout consumed by surface construction |
+| `ReplayPathPickInput` | Retain: real interaction value | Pointer ray and camera facts shared by replay target-picking operations |
+| `ReplayOverlayBuildInput` | Retain: cohesive three-field operation value | Editor mode, gesture, and scene frame used across overlay producers |
 | `ReplayScrubProbeDiagnostic`, `ReplayRestoreProbeDiagnostic`, `ReplayRestoreResultDiagnostic` | Retain: real emitted records | Stable NDJSON event payloads |
 | `ReplayPredictionUpdateResult` and other result/output records | Retain: real effects | Producer-owned effects, not input indirection |
 
@@ -63,7 +75,7 @@ records a concrete domain identity and a non-adapter consumer.
   gesture shortcuts and split the actual actions.
 - [x] B4 — Replay prediction, rendering, and restore diagnostics. Remove the
   frame/job/render/diagnostic input packets and expose cohesive owner operations.
-- [ ] B5 — Closure. Reconcile this census against campaign history and current
+- [x] B5 — Closure. Reconcile this census against campaign history and current
   source, audit every touched source file, prove threshold-13 and dependency/
   allocation rules, run one independent hostile no-bag review, execute every
   mapped gate, supersede the three earlier closure claims, and update PR #131.
@@ -91,7 +103,8 @@ records a concrete domain identity and a non-adapter consumer.
 - B3-B4: focused Replay doctests while iterating.
 - B5: inventory/static proofs, `tools\validate_replay_allocation_policy.bat`,
   `tools\validate_replay_v2_artifact.bat`, `tools\validate_replay_scrub.bat`,
-  and `tools\validate_full.bat`; mapped render/physics gates remain cumulative.
+  `tools\validate_replay_visual_fidelity.bat`, and `tools\validate_full.bat`;
+  mapped render/physics gates remain cumulative.
 
 ## Comment-Audit Checklist
 
@@ -120,19 +133,36 @@ records a concrete domain identity and a non-adapter consumer.
 - [x] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h`
 - [x] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp`
 - [x] `SkullbonezSource/Runtime/RuntimeStressController.cpp`
+- [x] `SkullbonezSource/Runtime/Editor/EditorPlacementAssets.h`
+- [x] `SkullbonezSource/Runtime/Editor/RunEditorPlacementAssets.cpp`
+- [x] `SkullbonezSource/Runtime/Editor/RunEditorTracer.cpp`
+- [x] `SkullbonezSource/Runtime/Render/RuntimeRenderFrameValues.h`
+- [x] `SkullbonezSource/Runtime/Render/RenderModelFramePublisher.h`
+- [x] `SkullbonezSource/Runtime/Render/RuntimeRenderer.h`
+- [x] `SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp`
+- [x] `SkullbonezSource/Runtime/RuntimeOverlayDiagnostics.cpp`
+- [x] `SkullbonezSource/Runtime/UiTextPass.cpp`
+- [x] `SkullbonezSource/Rendering/RenderCommandTypes.h`
 - [x] `SkullbonezSource/Runtime/Replay/ReplayCoordination.h`
 - [x] `SkullbonezSource/Runtime/Replay/ReplayAuthoring.h`
 - [x] `SkullbonezSource/Runtime/Replay/ReplayAuthoringCauseTree.cpp`
 - [x] `SkullbonezSource/Runtime/Replay/ReplayAuthoringVelocity.cpp`
 - [x] `SkullbonezSource/Runtime/Replay/ReplayScrubberTools.cpp`
 - [x] `SkullbonezSource/Runtime/Replay/ReplayPresentation.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.cpp`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayOverlayRenderer.cpp`
 - [x] `SkullbonezSource/Runtime/Replay/ReplayPrediction.h`
 - [x] `SkullbonezSource/Runtime/Replay/ReplayPrediction.cpp`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayPredictionTopologyPublication.cpp`
 - [x] `SkullbonezSource/Runtime/Replay/ReplayRuntime.h`
 - [x] `SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp`
 - [x] `SkullbonezSource/Runtime/Replay/ReplayValidation.cpp`
 - [x] `SkullbonezSource/Runtime/Replay/ReplayValidation.Probes.cpp`
 - [x] `SkullbonezSource/Runtime/RunRender.cpp`
+- [x] `SkullbonezTests/TestRuntimeValueSeams.cpp`
+- [x] `tools/validate_project_filters.py`
+- [x] `Agentic/Manuals/SkullbonezCoreManual/build_manual.py`
 
 The checklist is reconciled against `git diff --name-only b827f276..HEAD` plus
 the uncommitted closure diff. Newly touched source files must be added and

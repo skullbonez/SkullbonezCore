@@ -20,13 +20,13 @@ Invariants:
   - RuntimeRenderer receives the completed view and cannot reopen scene state.
 
 Related:
-  - SkullbonezSource/Runtime/Render/RuntimeRenderInputs.h defines the view.
+  - SkullbonezSource/Runtime/Render/RuntimeRenderFrameValues.h defines the view.
   - SkullbonezSource/Runtime/RunFrame.cpp sequences frame publication.
   - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
 
-#include "RuntimeRenderInputs.h"
+#include "RuntimeRenderFrameValues.h"
 
 namespace SkullbonezCore
 {

@@ -427,32 +427,20 @@ bool TryApplyReplayRestoreWorldLauncherEvent( ReplayRestoreEventContext& context
     }
 }
 
-// Lifetime: restore borrows live editor/scene owners for one decoded event.
-// The request callback remains separate because it is operation sequencing,
-// not part of the editor-place value payload.
-struct ReplayRestoreEditorPlaceEventDesc
-{
-    RuntimeTools& runtimeTools;
-    SceneWorld& world;
-    RunSceneState& scene;
-    SkullbonezCore::Assets::AssetSystem& assets;
-    int sceneObjectCapacity = 0;
-    const ReplayEventSample& event;
-    char* eventOutReason = nullptr;
-    std::size_t eventReasonSize = 0;
-};
-
 template <typename RequestInteractiveScene>
-bool ApplyReplayRestoreEditorPlaceEvent( const ReplayRestoreEditorPlaceEventDesc& desc,
+bool ApplyReplayRestoreEditorPlaceEvent( ReplayRestoreEventContext& context,
+                                         const ReplayEventSample& event,
+                                         char* eventOutReason,
+                                         std::size_t eventReasonSize,
                                          RequestInteractiveScene requestInteractiveScene )
 {
-    RuntimeTools& runtimeTools = desc.runtimeTools;
-    SceneWorld& world = desc.world;
-    RunSceneState& scene = desc.scene;
-    SkullbonezCore::Assets::AssetSystem& assets = desc.assets;
-    const ReplayEventSample& event = desc.event;
-    char* eventOutReason = desc.eventOutReason;
-    const std::size_t eventReasonSize = desc.eventReasonSize;
+    // Lifetime: restore's existing transaction context owns the synchronous
+    // scene/editor borrows. The decoded event and reason buffer stay explicit
+    // because they belong only to this event operation.
+    RuntimeTools& runtimeTools = context.runtimeTools;
+    SceneWorld& world = context.world;
+    RunSceneState& scene = context.scene;
+    SkullbonezCore::Assets::AssetSystem& assets = context.assets;
     Vector3 terrainPoint;
     Vector3 placementScale;
     float placementYawRadians = 0.0f;
@@ -479,7 +467,7 @@ bool ApplyReplayRestoreEditorPlaceEvent( const ReplayRestoreEditorPlaceEventDesc
                                                    world,
                                                    scene,
                                                    assets,
-                                                   desc.sceneObjectCapacity };
+                                                   context.sceneObjectCapacity };
     EditorObjectPlacementRequest placementRequest{ event.value0,
                                                    ( event.flags & REPLAY_EDITOR_PLACE_FIXED ) != 0,
                                                    terrainPoint };
@@ -691,16 +679,11 @@ bool ApplyReplayRestoreEventForTarget( ReplayRestoreEventContext& context,
         WriteReplayProbeReason( eventOutReason, eventReasonSize, "unsupported timeline mutation event" );
         return false;
     case ReplayEventKind::EditorPlace:
-        return ApplyReplayRestoreEditorPlaceEvent(
-            ReplayRestoreEditorPlaceEventDesc{ .runtimeTools = context.runtimeTools,
-                                               .world = context.world,
-                                               .scene = context.scene,
-                                               .assets = context.assets,
-                                               .sceneObjectCapacity = context.sceneObjectCapacity,
-                                               .event = event,
-                                               .eventOutReason = eventOutReason,
-                                               .eventReasonSize = eventReasonSize },
-            requestInteractiveScene );
+        return ApplyReplayRestoreEditorPlaceEvent( context,
+                                                   event,
+                                                   eventOutReason,
+                                                   eventReasonSize,
+                                                   requestInteractiveScene );
     case ReplayEventKind::EditorTransform:
         return ApplyReplayRestoreEditorTransformEvent( context.world, event, eventOutReason, eventReasonSize );
     default:

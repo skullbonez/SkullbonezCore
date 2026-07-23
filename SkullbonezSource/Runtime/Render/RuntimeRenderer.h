@@ -45,7 +45,7 @@ Related:
 #pragma once
 
 #include "RuntimeRenderHost.h"
-#include "RuntimeRenderInputs.h"
+#include "RuntimeRenderFrameValues.h"
 #include "RuntimeRenderPasses.h"
 #include "RenderResourceLifecycle.h"
 #include "RenderPresentationSettings.h"
@@ -80,13 +80,11 @@ class RuntimeRenderer
     struct FrameEntryContext
     {
         const RuntimeRenderModelFrameView& renderModels;
-        UI::InGameUI& ui;
         RuntimeRenderFramePolicy framePolicy;
         const RenderReplayOverlayView& replayOverlay;
         const RenderToolOverlayView& toolOverlay;
         const Rendering::WorldRenderExtensionRegistration& worldExtension;
         const SkullbonezCore::Core::CinematicRenderConfig& cinematic;
-        float presentationAlpha = 1.0f;                   // Exact solver state is 1; live frames may use the accumulator fraction.
         bool cinematicRequested = false;
         float consequenceGradeStrength = 0.0f;            // Replay-owned [0,1] fade copied for this frame.
     };
@@ -113,7 +111,6 @@ class RuntimeRenderer
 
     void EnsureFrameResources( const RenderResourceContext& resources );
     bool RenderFrameEntry( const FrameEntryContext& context );
-    bool RenderFrame( const RuntimeRenderInputs& renderInputs );
     SkullbonezCore::Core::SbResult ReleaseBackendOwnedRuntimeResources( const BackendResourceReleaseContext& context );
     RenderResourceLifecycle& ResourceLifecycle()
     {
@@ -236,14 +233,18 @@ class RuntimeRenderer
     struct DebugOverlayGraphInputs
     {
         const RenderFrameContext& frame;
-        const RuntimeRenderServices& services;
+        const DebugOverlaySnapshot& snapshot;
+        RuntimeTools& runtimeTools;
+        const ReplayVisualPacket* replayVisualPacket = nullptr;
         bool useCinematicTarget = false;
     };
-    RenderFrameContext BuildRenderFrameContext( const RuntimeRenderInputs& renderInputs,
+    bool RenderPreparedFrame( const FrameEntryContext& context,
+                              const SkullbonezCore::Core::CinematicRenderConfig& renderConfig,
+                              bool cinematicRender );
+    RenderFrameContext BuildRenderFrameContext( const RuntimeRenderModelFrameView& models,
                                                 bool cinematicRender,
                                                 const SkullbonezCore::Core::CinematicRenderConfig& renderConfig );
-    RenderResourceContext BuildRenderResourceContext( const RuntimeRenderInputs& renderInputs,
-                                                      bool cinematicRender ) const;
+    RenderResourceContext BuildRenderResourceContext( bool cinematicRender );
     Rendering::RenderGraph& BeginRenderPassGraph();
     const Rendering::RenderGraphCompileResult& CompileRenderPassGraph( Rendering::RenderGraph& graph );
     void
@@ -257,7 +258,9 @@ class RuntimeRenderer
     void ExecuteTerrainThroughRenderGraph( const TerrainGraphInputs& inputs );
     void ExecuteWaterThroughRenderGraph( const WaterGraphInputs& inputs );
     bool ExecuteWorldExtensionThroughRenderGraph( const WorldExtensionGraphInputs& inputs );
-    DebugOverlaySnapshot BuildDebugOverlaySnapshot( const RuntimeRenderServices& services ) const;
+    DebugOverlaySnapshot BuildDebugOverlaySnapshot( const RuntimeRenderModelFrameView& models,
+                                                    const RenderToolOverlayView& toolOverlay,
+                                                    const RuntimeRenderFramePolicy& policy ) const;
     void ExecuteReplayGhostsThroughRenderGraph( const ReplayGhostGraphInputs& inputs );
     bool ExecuteDebugOverlayThroughRenderGraph( const DebugOverlayGraphInputs& inputs );
     CinematicPostFrameOutput ExecuteCinematicPostThroughRenderGraph( const CinematicPostGraphInputs& inputs );
