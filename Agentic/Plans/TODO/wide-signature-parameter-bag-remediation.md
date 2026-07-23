@@ -58,7 +58,7 @@ records a concrete domain identity and a non-adapter consumer.
   tornado quad call packs through real phase decomposition.
 - [x] B2 — Physics and Rendering. Remove the sleep-row constructor pack, DX12
   creation packs, render-model pass packet, and shadow selection packet.
-- [ ] B3 — Replay interaction and authoring. Remove workspace/source/activation/
+- [x] B3 — Replay interaction and authoring. Remove workspace/source/activation/
   gesture shortcuts and split the actual actions.
 - [ ] B4 — Replay prediction, rendering, and restore diagnostics. Remove the
   frame/render/diagnostic input packets and expose cohesive owner operations.
@@ -119,15 +119,18 @@ records a concrete domain identity and a non-adapter consumer.
 - [x] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h`
 - [x] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp`
 - [x] `SkullbonezSource/Runtime/RuntimeStressController.cpp`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayCoordination.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayAuthoring.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayScrubberTools.cpp`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayPresentation.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayCoordination.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayAuthoring.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayAuthoringCauseTree.cpp`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayAuthoringVelocity.cpp`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayScrubberTools.cpp`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayPresentation.h`
 - [ ] `SkullbonezSource/Runtime/Replay/ReplayPrediction.h`
 - [ ] `SkullbonezSource/Runtime/Replay/ReplayPrediction.cpp`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayRuntime.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayRuntime.h`
 - [ ] `SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayValidation.cpp`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayValidation.cpp`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayValidation.Probes.cpp`
 - [ ] `SkullbonezSource/Runtime/RunRender.cpp`
 
 The checklist is reconciled against `git diff --name-only b827f276..HEAD` plus

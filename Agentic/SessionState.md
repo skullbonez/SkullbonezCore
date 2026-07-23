@@ -13,14 +13,14 @@ plan inventory.
 | Branch | `nightrunner-22nd-JUL-26` |
 | Current baseline | Wide-signature round 3 reached an empty threshold-13 scan, but its closure claim is reopened because several replacements are mechanical parameter objects. Legacy remains the development default. |
 | Current objective | Remove every mechanical parameter object introduced or repurposed by the three wide-signature campaigns without hiding owners or exceeding 12 parameters. |
-| Active/future progress | 3/6 tasks; 50%. |
+| Active/future progress | 4/6 tasks; 67%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | T5 `validate_full` passes in 99.5 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | B2 passes Profile build, physics (76.2 s), DX12 renderer (54.4 s, zero errors), graphics stress (61.2 s), and performance (82.3 s, no regressions). |
+| Validation for current edits | B3 final incremental Profile build passes (1.0 s); 53 focused Replay doctests / 799 assertions pass (0.1 s). |
 
 ## Live Queue
 
-NOW. `wide-signature-parameter-bag-remediation` is active (3/6).
+NOW. `wide-signature-parameter-bag-remediation` is active (4/6).
 The owner rejected replacements such as `RenderModelPassInput` that merely
 bundle arguments for immediate unpacking. B0 reopened the three prior
 wide-signature closure claims and inventories every campaign-introduced or
@@ -39,8 +39,15 @@ reflection model submission are separate APIs with compile-time visibility;
 and object shadow submission is structural. Fifteen touched source files pass
 the comment audit. Physics, DX12, one-minute graphics stress, and performance
 gates pass without baseline refresh, validation errors, allocation violations,
-or performance regressions. Next: B3 removes Replay interaction and authoring
-source/workspace/activation/gesture shortcuts.
+or performance regressions. B3 removes the Replay cause-tree and velocity
+source packs, the loaded-presentation request, and the scrub-gesture packet.
+Cause-tree surface/activation, velocity gizmo/target picking, artifact
+reset/arming, and scrub/prediction-horizon gestures are now distinct operations.
+`ReplayWorkspaceFrameInput` remains only at `TickWorkspace`; no extracted
+operation receives or copies it. Nine touched source files pass the comment
+audit, the Profile build and focused Replay tests pass, and the threshold-13
+scan remains empty. Next: B4 removes Replay prediction/render/restore-diagnostic
+input packets.
 
 `wide-signature-decomposition-round-2` closed D0-D4 (5/5) and left the
 live ledger. All eight reopened threshold-16 rows were removed without a

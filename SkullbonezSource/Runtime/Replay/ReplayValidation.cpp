@@ -1601,21 +1601,26 @@ ReplayStartupResult ReplayRuntime::RunStartupWorkflows( const ReplayStartupLoadI
     }
     if ( startup.loadPath[0] != '\0' )
     {
-        const ReplayLoadedPresentationActivationRequest activation{
-            .hasLoadedPresentation = HasLoadedPresentation(),
-            .normalized = 0.25f,
-            .now = loadInput.now,
-            .normalizedCurrentMode = loadInput.normalizedCurrentMode,
-            .normalizedRestoreMode = loadInput.timelineOwners.normalizedRestoreMode,
-            .attachedFollow = loadInput.timelineOwners.attachedFollow,
-            .directorGrabbed = loadInput.timelineOwners.directorGrabbed };
-        ActivateLoadedPresentationScrubber( activation,
-                                            loadInput.timelineOwners.inputRouter,
-                                            loadInput.timelineOwners.interaction,
-                                            loadInput.cameras,
-                                            loadInput.timelineOwners.terrain,
-                                            loadInput.timelineOwners.camera,
-                                            loadInput.mousePickup );
+        if ( BeginLoadedPresentationActivationScrubber( HasLoadedPresentation(),
+                                                        loadInput.timelineOwners.inputRouter,
+                                                        loadInput.timelineOwners.interaction ) )
+        {
+            ExitInspectionCamera( loadInput.cameras,
+                                  loadInput.timelineOwners.terrain,
+                                  loadInput.timelineOwners.camera,
+                                  loadInput.timelineOwners.normalizedRestoreMode,
+                                  loadInput.timelineOwners.attachedFollow,
+                                  loadInput.timelineOwners.directorGrabbed,
+                                  loadInput.timelineOwners.interaction,
+                                  loadInput.timelineOwners.inputRouter );
+            ArmLoadedPresentationScrubber( 0.25f, loadInput.now, loadInput.timelineOwners.interaction );
+            EnterInspectionCamera( loadInput.cameras,
+                                   loadInput.timelineOwners.camera,
+                                   loadInput.normalizedCurrentMode,
+                                   loadInput.timelineOwners.interaction,
+                                   loadInput.timelineOwners.inputRouter,
+                                   loadInput.mousePickup );
+        }
     }
 
 #ifdef _DEBUG

@@ -114,17 +114,13 @@ struct ReplayPathPickResult
     bool exitInspectionCamera = false;
 };
 
-// Scalar policy for one committed artifact activation. Mutable replay, camera,
-// interaction, and input owners remain explicit operands of the operation.
-struct ReplayLoadedPresentationActivationRequest
+// Host-camera effect emitted by replay interaction phases. The action carries
+// no camera owner or frame data and is applied synchronously by ReplayRuntime.
+enum class ReplayInspectionCameraAction : uint8_t
 {
-    bool hasLoadedPresentation = false;
-    float normalized = 0.0f;
-    double now = 0.0;
-    RunCameraMode normalizedCurrentMode = RunCameraMode::Demo;
-    RunCameraMode normalizedRestoreMode = RunCameraMode::Demo;
-    bool attachedFollow = false;
-    bool directorGrabbed = false;
+    None,
+    Enter,
+    Exit
 };
 
 namespace ReplayPresentationOperations
@@ -150,20 +146,22 @@ void ExitInspectionCamera( ReplayPresentation& presentation,
                            RuntimeInteractionController& interaction,
                            InputRouter& inputRouter );
 
-// Applies the replay-owner and host-camera reaction after ReplayTimeline has
-// committed a presentation artifact. Production startup and Debug probes share
-// this operation so validation cannot drift from the operator-visible path.
-bool ActivateLoadedPresentation( const ReplayLoadedPresentationActivationRequest& request,
-                                 ReplayScrubber& scrubber,
-                                 ReplayPresentation& presentation,
-                                 ReplayAuthoring& authoring,
-                                 ReplayPrediction& prediction,
-                                 Environment::CameraCollection* cameras,
-                                 Geometry::Terrain* terrain,
-                                 RunCameraState& camera,
-                                 RunMousePickupState& mousePickup,
-                                 RuntimeInteractionController& interaction,
-                                 InputRouter& inputRouter );
+// A committed load first releases gesture/camera ownership, then the caller
+// exits the host camera before arming the new scrub position. Keeping these
+// phases explicit prevents the load transaction from becoming a parameter bag.
+bool BeginLoadedPresentationActivation( bool hasLoadedPresentation,
+                                        ReplayScrubber& scrubber,
+                                        ReplayPresentation& presentation,
+                                        ReplayAuthoring& authoring,
+                                        RuntimeInteractionController& interaction,
+                                        InputRouter& inputRouter );
+void ArmLoadedPresentation( float normalized,
+                            double now,
+                            ReplayScrubber& scrubber,
+                            ReplayPresentation& presentation,
+                            ReplayAuthoring& authoring,
+                            ReplayPrediction& prediction,
+                            RuntimeInteractionController& interaction );
 } // namespace ReplayPresentationOperations
 
 struct ReplayWorldPointerInput

@@ -408,30 +408,28 @@ class ReplayRuntime
     // Owns scrubber save sequencing and status publication; file decode and
     // loaded-track state belong to ReplayTimeline.
     bool SavePresentationFromScrubber( double now );
-    // Applies the visible replay-owner and host-camera reaction after a
-    // successful ReplayTimeline load; this operation performs no file I/O.
-    void ActivateLoadedPresentationScrubber( const ReplayLoadedPresentationActivationRequest& request,
-                                             InputRouter& inputRouter,
-                                             RuntimeInteractionController& interaction,
-                                             Environment::CameraCollection* cameras,
-                                             Geometry::Terrain* terrain,
-                                             RunCameraState& camera,
-                                             RunMousePickupState& mousePickup );
+    bool BeginLoadedPresentationActivationScrubber( bool hasLoadedPresentation,
+                                                    InputRouter& inputRouter,
+                                                    RuntimeInteractionController& interaction );
+    void ArmLoadedPresentationScrubber( float normalized, double now, RuntimeInteractionController& interaction );
     void ClearCameraFocusForRestore();
     ReplayPathPickResult ApplyPathPick( const ReplayPathPickInput& input,
                                         const SceneEntityStore& entities,
                                         const Physics::PhysicsBodyStore& bodyStore,
                                         const Physics::ColliderStore& colliderStore,
                                         std::span<const Rendering::RenderInstancePresentationRecord> presentation );
-    bool TickScrubberInput( const ReplayWorkspaceFrameInput& input,
-                            InputRouter& inputRouter,
-                            RuntimeInteractionController& interaction,
-                            Environment::CameraCollection* cameras,
-                            Geometry::Terrain* terrain,
-                            RunCameraState& camera,
-                            RunMousePickupState& mousePickup,
-                            bool& outEnterInteractive,
-                            ReplayLiveRestoreRequest& outRestoreRequest );
+    ReplayInspectionCameraAction TickScrubberInput( bool uiBlocksMouse,
+                                                    bool editorModeEnabled,
+                                                    bool scenePhysicsEnabled,
+                                                    bool uiVisible,
+                                                    bool uiMinimized,
+                                                    int screenWidth,
+                                                    int screenHeight,
+                                                    double now,
+                                                    InputRouter& inputRouter,
+                                                    RuntimeInteractionController& interaction,
+                                                    RunCameraState& camera,
+                                                    ReplayWorkspaceOutput& output );
 
   private:
     float SolverPresentTrackPosition() const;

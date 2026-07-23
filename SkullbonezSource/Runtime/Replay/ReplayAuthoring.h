@@ -63,7 +63,6 @@ class RunEditorTracer;
 class RuntimeInteractionController;
 class SceneEntityStore;
 struct ReplayPathPickInput;
-struct ReplayWorkspaceFrameInput;
 struct ReplayKeyboardVelocityEditInput;
 struct ReplayKeyboardVelocityEditResult;
 struct RunReplayCameraState;
@@ -73,6 +72,7 @@ struct RunReplayPredictionState;
 struct RunCameraState;
 struct RunMousePickupState;
 enum class RunCameraMode;
+enum class ReplayInspectionCameraAction : uint8_t;
 struct RuntimeInteractionGesture;
 struct ReplayAuthoringPredictionRequest
 {
@@ -80,28 +80,6 @@ struct ReplayAuthoringPredictionRequest
     bool refreshPrediction = false;
     bool clearPredictionCache = false;
     bool prepareVelocityMutationBaseline = false;
-};
-
-// Read-only publications needed to resolve one cause-tree input turn. Lifetime:
-// every reference is borrowed from ReplayRuntime::TickWorkspace and cannot
-// escape the synchronous authoring call.
-struct ReplayCauseTreeInputSources
-{
-    const RunReplayPredictionState& prediction;
-    std::span<const RunReplayPredictionFrame> activePredictionFrames;
-    const ReplaySolverFrameSample* currentSolverSample = nullptr;
-    const Physics::PhysicsBodyStore& bodyStore;
-    const Physics::ColliderStore& colliderStore;
-    std::span<const Rendering::RenderInstancePresentationRecord> presentation;
-};
-
-// Read-only publications used to pick a velocity-edit target. Mutable physics
-// remains an explicit operand of TickVelocityEditInput.
-struct ReplayVelocityEditInputSources
-{
-    const ReplaySolverFrameSample* currentSolverSample = nullptr;
-    const SceneEntityStore& entities;
-    std::span<const Rendering::RenderInstancePresentationRecord> presentation;
 };
 
 struct ReplayVelocityEditDragStart
@@ -220,27 +198,60 @@ class ReplayAuthoring
                              int& outCameraFocusedRow );
     bool TickCauseTreeInput( ReplayPresentation& presentationOwner,
                              ReplayScrubber& scrubberOwner,
-                             const ReplayCauseTreeInputSources& sources,
-                             const ReplayWorkspaceFrameInput& input,
                              InputRouter& inputRouter,
                              RuntimeInteractionController& interaction,
-                             Environment::CameraCollection* cameras,
-                             Geometry::Terrain* terrain,
-                             RunCameraState& camera,
-                             RunMousePickupState& mousePickup,
-                             bool& outEnterInteractive );
+                             bool rowsReady,
+                             bool uiBlocksMouse,
+                             int wheelDelta,
+                             bool editorModeEnabled,
+                             int screenWidth,
+                             int screenHeight,
+                             int& outFocusRow,
+                             bool& outExitInspectionCamera );
+    // Resolves and commits a selected cause row without retaining any frame
+    // publication. Host-camera movement remains a separate ReplayRuntime phase.
+    bool ActivateCauseTreeRow( int rowIndex,
+                               ReplayPresentation& presentationOwner,
+                               ReplayScrubber& scrubberOwner,
+                               const RunReplayPredictionState& prediction,
+                               std::span<const RunReplayPredictionFrame> activePredictionFrames,
+                               const ReplaySolverFrameSample* currentSolverSample,
+                               const Physics::PhysicsBodyStore& bodyStore,
+                               const Physics::ColliderStore& colliderStore,
+                               RuntimeInteractionController& interaction,
+                               Math::Vector::Vector3& outTargetPosition,
+                               float& outTargetRadius );
+    // Unwinds a stale drag when velocity editing cannot run this frame. The
+    // following gizmo and target-pick phases are invoked only when this succeeds.
+    bool PrepareVelocityEditInput( bool editorModeEnabled,
+                                   bool scenePhysicsEnabled,
+                                   int screenWidth,
+                                   int screenHeight,
+                                   InputRouter& inputRouter,
+                                   RuntimeInteractionController& interaction );
     bool TickVelocityEditInput( ReplayPresentation& presentationOwner,
                                 ReplayScrubber& scrubberOwner,
-                                const ReplayVelocityEditInputSources& sources,
-                                const ReplayWorkspaceFrameInput& input,
+                                const ReplayPathPickInput& pointerRay,
+                                bool uiBlocksMouse,
+                                double now,
                                 InputRouter& inputRouter,
                                 RuntimeInteractionController& interaction,
                                 Physics::PhysicsEngine& physics,
-                                Environment::CameraCollection* cameras,
-                                Geometry::Terrain* terrain,
-                                RunCameraState& camera,
-                                RunMousePickupState& mousePickup,
-                                bool& outEnterInteractive );
+                                std::size_t entityCount,
+                                bool& outEnterInteractive,
+                                bool& outPathPickRequested,
+                                ReplayInspectionCameraAction& outInspectionCameraAction );
+    bool TryPickVelocityEditTarget( ReplayPresentation& presentationOwner,
+                                    ReplayScrubber& scrubberOwner,
+                                    const ReplaySolverFrameSample* currentSolverSample,
+                                    const SceneEntityStore& entities,
+                                    std::span<const Rendering::RenderInstancePresentationRecord> presentation,
+                                    Physics::PhysicsEngine& physics,
+                                    const ReplayPathPickInput& pointerRay,
+                                    RuntimeInteractionController& interaction,
+                                    double now,
+                                    bool& outEnterInteractive,
+                                    ReplayInspectionCameraAction& outInspectionCameraAction );
     ReplayKeyboardVelocityEditResult ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input,
                                                                 ReplayScrubber& scrubberOwner,
                                                                 const ReplayPresentation& presentationOwner );
