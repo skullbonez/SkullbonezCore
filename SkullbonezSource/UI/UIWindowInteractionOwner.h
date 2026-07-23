@@ -4,7 +4,7 @@ Purpose:
   Owns the persistent window, widget, and pointer-interaction state used by the in-game UI.
 
 Summary:
-  UIWindowInteractionOwner translates one device frame into typed UI commands
+  UIWindowInteractionOwner translates normalized UI input into typed commands
   while retaining the widget geometry and gesture state that drawing consumes.
   InGameUI remains the draw/resource composer and borrows WidgetView only for
   the duration of one draw call.
@@ -33,6 +33,7 @@ Related:
 #include "UICheckBox.h"
 #include "UIComboBox.h"
 #include "UICommands.h"
+#include "UIInput.h"
 #include "UIScrollBar.h"
 #include "UISlider.h"
 #include "UIState.h"
@@ -54,11 +55,6 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Core
-{
-class Profiler;
-}
-
 namespace Runtime
 {
 struct DeviceInputFrame;
@@ -69,27 +65,6 @@ namespace UI
 {
 
 enum class InGameUITab;
-
-struct InGameUIInputFrame
-{
-    // Lifetime: device/mouse snapshots and scene-name pointers are borrowed only
-    // for the synchronous UpdateInput call. This record contains no mutable
-    // subsystem owner and cannot outlive the runtime frame that writes it.
-    const Runtime::DeviceInputFrame& deviceFrame;
-    const Runtime::RuntimeMouseEdges& mouse;
-    int screenWidth = 1;
-    int screenHeight = 1;
-    double now = 0.0;
-    bool editorModeEnabled = false;
-    bool editorPlacementMode = false;
-    bool editorPlaceStatic = true;
-    bool editorTerrainAlign = false;
-    int editorObjectType = EditorTab::OBJECT_BOX;
-    int cameraModeIndex = 0;
-    uint32_t cameraModeEnabledMask = 0x7Fu;
-    std::span<const char* const> sceneOptions;
-    int selectedSceneOption = -1;
-};
 
 class UIWindowInteractionOwner
 {
@@ -106,12 +81,8 @@ class UIWindowInteractionOwner
         UICheckBox& timelineToggle;
         UICheckBox& histogramToggle;
         UICheckBox& hitboxToggle;
-        UIButton& resetSceneButton;
-        UIButton& resetDefaultsButton;
-        UIButton& saveDefaultsButton;
         UIComboBox& rendererCombo;
         UIComboBox& reflectionCombo;
-        UIComboBox& sceneCombo;
         UIComboBox& renderTargetCombo;
         UIComboBox& cameraModeCombo;
         UICheckBox& cinematicMasterToggle;
@@ -191,7 +162,25 @@ class UIWindowInteractionOwner
     int ContentHeight() const;
     WidgetView Widgets();
 
-    InGameUIInputResult UpdateInput( Core::Profiler* profiler, const InGameUIInputFrame& frame );
+    // Normalizes router-owned device levels and button edges while applying the
+    // optional test mouse override. The returned keyboard borrow lasts only as
+    // long as deviceFrame.
+    InputControl::UIInputSnapshot CaptureInputSnapshot( const Runtime::DeviceInputFrame& deviceFrame,
+                                                        const Runtime::RuntimeMouseEdges& mouse ) const;
+    // Consumes one normalized input turn and explicit presentation facts. Scene
+    // and runtime mutations are returned as commands rather than applied here.
+    InGameUIInputResult UpdateInput( const InputControl::UIInputSnapshot& input,
+                                     int screenWidth,
+                                     int screenHeight,
+                                     double now,
+                                     bool editorModeEnabled,
+                                     bool editorPlacementMode,
+                                     bool editorPlaceStatic,
+                                     bool editorTerrainAlign,
+                                     int cameraModeIndex,
+                                     uint32_t cameraModeEnabledMask,
+                                     std::span<const char* const> sceneOptions,
+                                     int selectedSceneOption );
 
   private:
     void CloseSceneCombo();
@@ -208,12 +197,8 @@ class UIWindowInteractionOwner
     UICheckBox m_timelineToggle;
     UICheckBox m_histogramToggle;
     UICheckBox m_hitboxToggle;
-    UIButton m_resetSceneButton;
-    UIButton m_resetDefaultsButton;
-    UIButton m_saveDefaultsButton;
     UIComboBox m_rendererCombo;
     UIComboBox m_reflectionCombo;
-    UIComboBox m_sceneCombo;
     UIComboBox m_renderTargetCombo;
     UIComboBox m_cameraModeCombo;
     UICheckBox m_cinematicMasterToggle;

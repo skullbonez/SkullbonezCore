@@ -327,9 +327,9 @@ void SetFilter( UISceneTabState& state, const char* filter )
 }
 
 
-void CloseCombo( UISceneTabState& state, UIComboBox& combo )
+void CloseCombo( UISceneTabState& state )
 {
-    combo.Close();
+    state.combo.Close();
     ClearFilter( state );
 }
 
@@ -347,12 +347,12 @@ void ResetPreviewState( UISceneTabState& state )
 
 
 void UpdateFilterTyping( UISceneTabState& state,
-                         UIComboBox& combo,
                          InGameUIInputResult& result,
                          const Runtime::InputKeySnapshot& keys,
                          const char* const* sceneOptions,
                          int sceneOptionCount )
 {
+    UIComboBox& combo = state.combo;
     if ( !combo.IsOpen() )
     {
         return;
@@ -415,7 +415,7 @@ void UpdateFilterTyping( UISceneTabState& state,
         }
         else
         {
-            CloseCombo( state, combo );
+            CloseCombo( state );
         }
         result.commands.ui.userInteracted = true;
     }
@@ -429,31 +429,30 @@ void UpdateFilterTyping( UISceneTabState& state,
         if ( sceneIndex == NEW_SCENE_BROWSER_INDEX )
         {
             RequestNewScene( state, result );
-            CloseCombo( state, combo );
+            CloseCombo( state );
         }
         else if ( sceneIndex == DEMO_SCENE_BROWSER_INDEX )
         {
             result.commands.scene.requestDemoScene = true;
-            CloseCombo( state, combo );
+            CloseCombo( state );
             result.commands.ui.userInteracted = true;
         }
         else if ( sceneIndex >= 0 )
         {
             result.commands.scene.requestedSceneIndex = sceneIndex;
-            CloseCombo( state, combo );
+            CloseCombo( state );
             result.commands.ui.userInteracted = true;
         }
         else if ( state.filter[0] != '\0' )
         {
             RequestNewScene( state, result );
-            CloseCombo( state, combo );
+            CloseCombo( state );
         }
     }
 }
 
 
 bool HandleComboWheel( UISceneTabState& state,
-                       UIComboBox& combo,
                        const char* const* sceneOptions,
                        int sceneOptionCount,
                        int mouseX,
@@ -463,6 +462,7 @@ bool HandleComboWheel( UISceneTabState& state,
                        float rowBase,
                        float contentW )
 {
+    UIComboBox& combo = state.combo;
     if ( wheelDelta == 0 || !combo.IsOpen() )
     {
         return false;
@@ -485,22 +485,19 @@ bool HandleComboWheel( UISceneTabState& state,
 
 
 bool HandleOpenComboClick( UISceneTabState& state,
-                           UIComboBox& combo,
-                           UIButton& resetSceneButton,
-                           UIButton& resetDefaultsButton,
-                           UIButton& saveDefaultsButton,
                            InGameUIInputResult& result,
-                           const SceneTabOpenComboFrame& frame )
+                           const char* const* sceneOptions,
+                           int sceneOptionCount,
+                           int mouseX,
+                           int mouseY,
+                           float contentX,
+                           float rowBase,
+                           float contentW )
 {
-    // The frame is a synchronous scalar snapshot; the UI owners above remain
-    // explicit so this value cannot become a replacement widget context.
-    const char* const* sceneOptions = frame.sceneOptions;
-    const int sceneOptionCount = frame.sceneOptionCount;
-    const int mouseX = frame.mouseX;
-    const int mouseY = frame.mouseY;
-    const float contentX = frame.contentX;
-    const float rowBase = frame.rowBase;
-    const float contentW = frame.contentW;
+    UIComboBox& combo = state.combo;
+    UIButton& resetSceneButton = state.resetSceneButton;
+    UIButton& resetDefaultsButton = state.resetDefaultsButton;
+    UIButton& saveDefaultsButton = state.saveDefaultsButton;
     if ( !combo.IsOpen() )
     {
         return false;
@@ -522,17 +519,17 @@ bool HandleOpenComboClick( UISceneTabState& state,
     if ( resetSceneButton.HitTest( mouseX, mouseY ) )
     {
         result.commands.scene.resetScene = true;
-        CloseCombo( state, combo );
+        CloseCombo( state );
     }
     else if ( resetDefaultsButton.HitTest( mouseX, mouseY ) )
     {
         result.commands.scene.resetSceneDefaults = true;
-        CloseCombo( state, combo );
+        CloseCombo( state );
     }
     else if ( saveDefaultsButton.HitTest( mouseX, mouseY ) )
     {
         result.commands.scene.saveSceneDefaults = true;
-        CloseCombo( state, combo );
+        CloseCombo( state );
     }
     else if ( filteredSceneCount > 0 && option >= 0 && option < visibleSceneOptions )
     {
@@ -550,21 +547,17 @@ bool HandleOpenComboClick( UISceneTabState& state,
         {
             result.commands.scene.requestedSceneIndex = sceneIndex;
         }
-        CloseCombo( state, combo );
+        CloseCombo( state );
     }
     else
     {
-        CloseCombo( state, combo );
+        CloseCombo( state );
     }
     return true;
 }
 
 
 bool HandleHeaderClick( UISceneTabState& state,
-                        UIComboBox& combo,
-                        UIButton& resetSceneButton,
-                        UIButton& resetDefaultsButton,
-                        UIButton& saveDefaultsButton,
                         InGameUIInputResult& result,
                         int mouseX,
                         int mouseY,
@@ -572,6 +565,10 @@ bool HandleHeaderClick( UISceneTabState& state,
                         float rowBase,
                         float contentW )
 {
+    UIComboBox& combo = state.combo;
+    UIButton& resetSceneButton = state.resetSceneButton;
+    UIButton& resetDefaultsButton = state.resetDefaultsButton;
+    UIButton& saveDefaultsButton = state.saveDefaultsButton;
     // Invariant: Scene selection, reset, and save buttons return command
     // intents. Scene load/reset side effects stay outside UI.
     SetSceneHeaderBounds( combo,
@@ -584,19 +581,19 @@ bool HandleHeaderClick( UISceneTabState& state,
     if ( resetSceneButton.HitTest( mouseX, mouseY ) )
     {
         result.commands.scene.resetScene = true;
-        CloseCombo( state, combo );
+        CloseCombo( state );
         return true;
     }
     if ( resetDefaultsButton.HitTest( mouseX, mouseY ) )
     {
         result.commands.scene.resetSceneDefaults = true;
-        CloseCombo( state, combo );
+        CloseCombo( state );
         return true;
     }
     if ( saveDefaultsButton.HitTest( mouseX, mouseY ) )
     {
         result.commands.scene.saveSceneDefaults = true;
-        CloseCombo( state, combo );
+        CloseCombo( state );
         return true;
     }
     return false;
@@ -604,7 +601,6 @@ bool HandleHeaderClick( UISceneTabState& state,
 
 
 bool HandleClosedComboClick( UISceneTabState& state,
-                             UIComboBox& combo,
                              const Runtime::InputKeySnapshot& keys,
                              const char* const* sceneOptions,
                              int sceneOptionCount,
@@ -612,6 +608,7 @@ bool HandleClosedComboClick( UISceneTabState& state,
                              int mouseX,
                              int mouseY )
 {
+    UIComboBox& combo = state.combo;
     // Invariant: HandleHeaderClick establishes the shared draw/hit-test bounds
     // before this closed-combo action runs.
     if ( combo.HitBox( mouseX, mouseY ) )
@@ -678,21 +675,20 @@ bool CommitActiveSlider( UISceneTabState& state, int activeSlider, InGameUIInput
 
 
 void Draw( UISceneTabState& state,
-           UIComboBox& combo,
-           UIButton& resetSceneButton,
-           UIButton& resetDefaultsButton,
-           UIButton& saveDefaultsButton,
            const UIDrawContext& draw,
            const InGameUIFrameData& data,
-           const SceneTabDrawFrame& frame )
+           float contentX,
+           float contentY,
+           float contentW,
+           float contentH,
+           float scrolledY,
+           int mouseX,
+           int mouseY )
 {
-    const float contentX = frame.contentX;
-    const float contentY = frame.contentY;
-    const float contentW = frame.contentW;
-    const float contentH = frame.contentH;
-    const float scrolledY = frame.scrolledY;
-    const int mouseX = frame.mouseX;
-    const int mouseY = frame.mouseY;
+    UIComboBox& combo = state.combo;
+    UIButton& resetSceneButton = state.resetSceneButton;
+    UIButton& resetDefaultsButton = state.resetDefaultsButton;
+    UIButton& saveDefaultsButton = state.saveDefaultsButton;
     char buf[160];
     char filterDisplay[80] = {};
     const bool sceneFilterActive = state.filter[0] != '\0';

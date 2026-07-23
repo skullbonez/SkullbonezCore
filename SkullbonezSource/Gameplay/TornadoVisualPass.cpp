@@ -112,47 +112,6 @@ void EmitFxVertex( std::vector<float>& vertices,
     vertices.push_back( terrainY );
 }
 
-// Value-only hot-path records preserve the four-corner relationship without
-// copying Vector3 values. Lifetime: corner references are consumed completely
-// during this call, including references bound to call-site temporaries.
-struct FxQuadCorners
-{
-    const Vector3& a;
-    const Vector3& b;
-    const Vector3& c;
-    const Vector3& d;
-};
-
-struct FxQuadStyle
-{
-    float r = 0.0f;
-    float g = 0.0f;
-    float b = 0.0f;
-    float alpha = 0.0f;
-    float kind = 0.0f;
-};
-
-struct FxQuadTerrain
-{
-    float a = 0.0f;
-    float b = 0.0f;
-    float c = 0.0f;
-    float d = 0.0f;
-};
-
-void EmitFxQuad( std::vector<float>& vertices,
-                 const FxQuadCorners& corners,
-                 const FxQuadStyle& style,
-                 const FxQuadTerrain& terrain )
-{
-    EmitFxVertex( vertices, corners.a, style.r, style.g, style.b, style.alpha, 0.0f, 0.0f, style.kind, terrain.a );
-    EmitFxVertex( vertices, corners.b, style.r, style.g, style.b, style.alpha, 1.0f, 0.0f, style.kind, terrain.b );
-    EmitFxVertex( vertices, corners.c, style.r, style.g, style.b, style.alpha, 1.0f, 1.0f, style.kind, terrain.c );
-    EmitFxVertex( vertices, corners.a, style.r, style.g, style.b, style.alpha, 0.0f, 0.0f, style.kind, terrain.a );
-    EmitFxVertex( vertices, corners.c, style.r, style.g, style.b, style.alpha, 1.0f, 1.0f, style.kind, terrain.c );
-    EmitFxVertex( vertices, corners.d, style.r, style.g, style.b, style.alpha, 0.0f, 1.0f, style.kind, terrain.d );
-}
-
 void ClearAllRenderTextureSlots( Rendering::Dx12TextureOwner& renderTextures )
 {
     for ( int slot = 0; slot < RENDER_TEXTURE_SLOT_COUNT; ++slot )
@@ -412,11 +371,18 @@ bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& 
                     const float gapFade = 0.72f + 0.28f * sinf( phase + t0 * twoPi * 4.0f );
                     const float alpha = shellAlpha * baseFade * topFade * gapFade;
                     const float cool = 0.72f + 0.08f * t0;
-                    EmitFxQuad(
-                        m_vertices,
-                        FxQuadCorners{ p0 - side * width, p1 - side * width, p1 + side * width, p0 + side * width },
-                        FxQuadStyle{ cool, 0.78f, 0.84f, alpha, FX_KIND_RIBBON },
-                        FxQuadTerrain{} );
+                    const Vector3 a = p0 - side * width;
+                    const Vector3 b = p1 - side * width;
+                    const Vector3 c = p1 + side * width;
+                    const Vector3 d = p0 + side * width;
+                    // Invariant: every effect quad is emitted as two clockwise
+                    // triangles with identical style at all six vertices.
+                    EmitFxVertex( m_vertices, a, cool, 0.78f, 0.84f, alpha, 0.0f, 0.0f, FX_KIND_RIBBON, 0.0f );
+                    EmitFxVertex( m_vertices, b, cool, 0.78f, 0.84f, alpha, 1.0f, 0.0f, FX_KIND_RIBBON, 0.0f );
+                    EmitFxVertex( m_vertices, c, cool, 0.78f, 0.84f, alpha, 1.0f, 1.0f, FX_KIND_RIBBON, 0.0f );
+                    EmitFxVertex( m_vertices, a, cool, 0.78f, 0.84f, alpha, 0.0f, 0.0f, FX_KIND_RIBBON, 0.0f );
+                    EmitFxVertex( m_vertices, c, cool, 0.78f, 0.84f, alpha, 1.0f, 1.0f, FX_KIND_RIBBON, 0.0f );
+                    EmitFxVertex( m_vertices, d, cool, 0.78f, 0.84f, alpha, 0.0f, 1.0f, FX_KIND_RIBBON, 0.0f );
                 }
             }
         }
@@ -455,13 +421,16 @@ bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& 
                     const Vector3 d = field.center + CylindricalOffset( outerRadius, angle0 ) +
                                       Vector3( 0.0f, y0 - field.center.y, 0.0f );
                     const float alpha = dustAlpha * ( 0.42f - 0.08f * bandT );
-                    EmitFxQuad( m_vertices,
-                                FxQuadCorners{ a, b, c, d },
-                                FxQuadStyle{ 0.58f, 0.47f, 0.31f, alpha, FX_KIND_DUST },
-                                FxQuadTerrain{ terrainHeightFor( a ),
-                                               terrainHeightFor( b ),
-                                               terrainHeightFor( c ),
-                                               terrainHeightFor( d ) } );
+                    const float terrainA = terrainHeightFor( a );
+                    const float terrainB = terrainHeightFor( b );
+                    const float terrainC = terrainHeightFor( c );
+                    const float terrainD = terrainHeightFor( d );
+                    EmitFxVertex( m_vertices, a, 0.58f, 0.47f, 0.31f, alpha, 0.0f, 0.0f, FX_KIND_DUST, terrainA );
+                    EmitFxVertex( m_vertices, b, 0.58f, 0.47f, 0.31f, alpha, 1.0f, 0.0f, FX_KIND_DUST, terrainB );
+                    EmitFxVertex( m_vertices, c, 0.58f, 0.47f, 0.31f, alpha, 1.0f, 1.0f, FX_KIND_DUST, terrainC );
+                    EmitFxVertex( m_vertices, a, 0.58f, 0.47f, 0.31f, alpha, 0.0f, 0.0f, FX_KIND_DUST, terrainA );
+                    EmitFxVertex( m_vertices, c, 0.58f, 0.47f, 0.31f, alpha, 1.0f, 1.0f, FX_KIND_DUST, terrainC );
+                    EmitFxVertex( m_vertices, d, 0.58f, 0.47f, 0.31f, alpha, 0.0f, 1.0f, FX_KIND_DUST, terrainD );
                 }
             }
 
@@ -485,13 +454,16 @@ bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& 
                 const Vector3 b = center + right - up;
                 const Vector3 c = center + right + up;
                 const Vector3 d = center - right + up;
-                EmitFxQuad( m_vertices,
-                            FxQuadCorners{ a, b, c, d },
-                            FxQuadStyle{ 0.68f, 0.52f, 0.34f, alpha, FX_KIND_DUST },
-                            FxQuadTerrain{ terrainHeightFor( a ),
-                                           terrainHeightFor( b ),
-                                           terrainHeightFor( c ),
-                                           terrainHeightFor( d ) } );
+                const float terrainA = terrainHeightFor( a );
+                const float terrainB = terrainHeightFor( b );
+                const float terrainC = terrainHeightFor( c );
+                const float terrainD = terrainHeightFor( d );
+                EmitFxVertex( m_vertices, a, 0.68f, 0.52f, 0.34f, alpha, 0.0f, 0.0f, FX_KIND_DUST, terrainA );
+                EmitFxVertex( m_vertices, b, 0.68f, 0.52f, 0.34f, alpha, 1.0f, 0.0f, FX_KIND_DUST, terrainB );
+                EmitFxVertex( m_vertices, c, 0.68f, 0.52f, 0.34f, alpha, 1.0f, 1.0f, FX_KIND_DUST, terrainC );
+                EmitFxVertex( m_vertices, a, 0.68f, 0.52f, 0.34f, alpha, 0.0f, 0.0f, FX_KIND_DUST, terrainA );
+                EmitFxVertex( m_vertices, c, 0.68f, 0.52f, 0.34f, alpha, 1.0f, 1.0f, FX_KIND_DUST, terrainC );
+                EmitFxVertex( m_vertices, d, 0.68f, 0.52f, 0.34f, alpha, 0.0f, 1.0f, FX_KIND_DUST, terrainD );
             }
         }
     }

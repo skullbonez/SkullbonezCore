@@ -21,6 +21,8 @@ Invariants:
     constants.
   - UI input receives InputRouter-owned levels/edges and never samples Win32
     keyboard, pointer, wheel, or cursor state itself.
+  - UIInputSnapshot's keyboard pointer is a synchronous borrow from the device
+    frame used to create it.
 
 Related:
   - SkullbonezSource/UI/UIInput.cpp
@@ -46,6 +48,9 @@ namespace InputControl
 
 struct UIInputSnapshot
 {
+    // Lifetime: keyboard state is borrowed from the same immutable device
+    // frame whose pointer levels were normalized into this snapshot.
+    const Runtime::InputKeySnapshot* keys = nullptr;
     int mouseX = 0;
     int mouseY = 0;
     int wheelDelta = 0;

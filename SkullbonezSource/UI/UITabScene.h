@@ -27,6 +27,8 @@ Related:
 */
 #pragma once
 
+#include "UIButton.h"
+#include "UIComboBox.h"
 #include "UICommands.h"
 #include "UISlider.h"
 
@@ -40,8 +42,6 @@ class InputKeySnapshot;
 namespace UI
 {
 
-class UIButton;
-class UIComboBox;
 class UIDrawContext;
 struct InGameUIFrameData;
 
@@ -59,33 +59,15 @@ struct UISceneTabState
     char filter[64] = {};
     bool filterKeyWasDown[256] = {};
     int comboScroll = 0;
+    // Concept: scene-selection controls belong to the Scene tab because their
+    // open state, bounds, filtering, and commands form one interaction.
+    UIComboBox combo;
+    UIButton resetSceneButton;
+    UIButton resetDefaultsButton;
+    UIButton saveDefaultsButton;
     UISlider timeScaleSlider;
     float previewTimeScale = -1.0f;
     bool filterKeySyncPending = true;
-};
-
-// Value-only snapshots keep the public Scene-tab operations aligned with one
-// input or draw turn. Widgets and command output remain explicit owners.
-struct SceneTabOpenComboFrame
-{
-    const char* const* sceneOptions = nullptr;
-    int sceneOptionCount = 0;
-    int mouseX = 0;
-    int mouseY = 0;
-    float contentX = 0.0f;
-    float rowBase = 0.0f;
-    float contentW = 0.0f;
-};
-
-struct SceneTabDrawFrame
-{
-    float contentX = 0.0f;
-    float contentY = 0.0f;
-    float contentW = 0.0f;
-    float contentH = 0.0f;
-    float scrolledY = 0.0f;
-    int mouseX = 0;
-    int mouseY = 0;
 };
 
 int ContentHeight();
@@ -96,19 +78,17 @@ int FilteredPositionForIndex( const char* const* options, int optionCount, const
 
 void ClearFilter( UISceneTabState& state );
 void SetFilter( UISceneTabState& state, const char* filter );
-void CloseCombo( UISceneTabState& state, UIComboBox& combo );
+void CloseCombo( UISceneTabState& state );
 void RequestFilterKeySync( UISceneTabState& state );
 void ResetPreviewState( UISceneTabState& state );
 
 void UpdateFilterTyping( UISceneTabState& state,
-                         UIComboBox& combo,
                          InGameUIInputResult& result,
                          const Runtime::InputKeySnapshot& keys,
                          const char* const* sceneOptions,
                          int sceneOptionCount );
 
 bool HandleComboWheel( UISceneTabState& state,
-                       UIComboBox& combo,
                        const char* const* sceneOptions,
                        int sceneOptionCount,
                        int mouseX,
@@ -119,18 +99,16 @@ bool HandleComboWheel( UISceneTabState& state,
                        float contentW );
 
 bool HandleOpenComboClick( UISceneTabState& state,
-                           UIComboBox& combo,
-                           UIButton& resetSceneButton,
-                           UIButton& resetDefaultsButton,
-                           UIButton& saveDefaultsButton,
                            InGameUIInputResult& result,
-                           const SceneTabOpenComboFrame& frame );
+                           const char* const* sceneOptions,
+                           int sceneOptionCount,
+                           int mouseX,
+                           int mouseY,
+                           float contentX,
+                           float rowBase,
+                           float contentW );
 
 bool HandleHeaderClick( UISceneTabState& state,
-                        UIComboBox& combo,
-                        UIButton& resetSceneButton,
-                        UIButton& resetDefaultsButton,
-                        UIButton& saveDefaultsButton,
                         InGameUIInputResult& result,
                         int mouseX,
                         int mouseY,
@@ -139,7 +117,6 @@ bool HandleHeaderClick( UISceneTabState& state,
                         float contentW );
 
 bool HandleClosedComboClick( UISceneTabState& state,
-                             UIComboBox& combo,
                              const Runtime::InputKeySnapshot& keys,
                              const char* const* sceneOptions,
                              int sceneOptionCount,
@@ -160,13 +137,15 @@ bool UpdateActiveSlider( UISceneTabState& state, int activeSlider, int mouseX, I
 bool CommitActiveSlider( UISceneTabState& state, int activeSlider, InGameUIInputResult& result );
 
 void Draw( UISceneTabState& state,
-           UIComboBox& combo,
-           UIButton& resetSceneButton,
-           UIButton& resetDefaultsButton,
-           UIButton& saveDefaultsButton,
            const UIDrawContext& draw,
            const InGameUIFrameData& data,
-           const SceneTabDrawFrame& frame );
+           float contentX,
+           float contentY,
+           float contentW,
+           float contentH,
+           float scrolledY,
+           int mouseX,
+           int mouseY );
 
 } // namespace SceneTab
 } // namespace UI

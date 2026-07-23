@@ -19,7 +19,9 @@ Glossary:
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
     constants.
-  - Device levels and router-owned button edges are copied, never recomputed.
+  - Pointer levels and router-owned button edges are copied, never recomputed.
+  - Keyboard state is borrowed synchronously from the same immutable device
+    frame and is never retained beyond UI command production.
 
 Related:
   - SkullbonezSource/UI/UIInput.h
@@ -43,6 +45,7 @@ UIInputSnapshot CaptureSnapshot( const Runtime::DeviceInputFrame& frame,
                                  int overrideY )
 {
     UIInputSnapshot snapshot;
+    snapshot.keys = &frame.keys;
     snapshot.wheelDelta = frame.wheelDelta;
 
     if ( hasMouseOverride )

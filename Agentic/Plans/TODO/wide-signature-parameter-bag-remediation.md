@@ -54,7 +54,7 @@ records a concrete domain identity and a non-adapter consumer.
 
 - [x] B0 — Reopen the closure claim, inventory all campaign-introduced or
   repurposed parameter objects, and ratify the rulings above.
-- [ ] B1 — UI and Gameplay. Remove the broad UI/Scene input/draw packets and
+- [x] B1 — UI and Gameplay. Remove the broad UI/Scene input/draw packets and
   tornado quad call packs through real phase decomposition.
 - [ ] B2 — Physics and Rendering. Remove the sleep-row constructor pack, DX12
   creation packs, render-model pass packet, and shadow selection packet.
@@ -94,13 +94,16 @@ records a concrete domain identity and a non-adapter consumer.
 
 ## Comment-Audit Checklist
 
-- [ ] `SkullbonezSource/UI/UIWindowInteractionOwner.h`
-- [ ] `SkullbonezSource/UI/UIWindowInteractionOwner.cpp`
-- [ ] `SkullbonezSource/UI/UI.h`
-- [ ] `SkullbonezSource/UI/UI.cpp`
-- [ ] `SkullbonezSource/UI/UITabScene.h`
-- [ ] `SkullbonezSource/UI/UITabScene.cpp`
-- [ ] `SkullbonezSource/Gameplay/TornadoVisualPass.cpp`
+- [x] `SkullbonezSource/Runtime/InputFrame.cpp`
+- [x] `SkullbonezSource/UI/UIWindowInteractionOwner.h`
+- [x] `SkullbonezSource/UI/UIWindowInteractionOwner.cpp`
+- [x] `SkullbonezSource/UI/UI.h`
+- [x] `SkullbonezSource/UI/UI.cpp`
+- [x] `SkullbonezSource/UI/UIInput.h`
+- [x] `SkullbonezSource/UI/UIInput.cpp`
+- [x] `SkullbonezSource/UI/UITabScene.h`
+- [x] `SkullbonezSource/UI/UITabScene.cpp`
+- [x] `SkullbonezSource/Gameplay/TornadoVisualPass.cpp`
 - [ ] `SkullbonezSource/Physics/Stages/PhysicsSleepController.h`
 - [ ] `SkullbonezSource/Physics/Stages/PhysicsSleepController.Wake.cpp`
 - [ ] `SkullbonezSource/Rendering/RenderResourceTypes.h`

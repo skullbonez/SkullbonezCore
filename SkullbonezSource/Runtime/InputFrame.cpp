@@ -501,11 +501,10 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( Window& window,
 
     const int selectedSceneBrowserIndex = CurrentSceneBrowserIndex( sceneController, ui.SceneNavigation().browser );
     const HWND windowHandle = window.NativeWindowHandle();
-    // Concept: runtime writes one immutable UI-input value after all frame facts
-    // are known. UI consumes it synchronously and retains none of its borrows.
-    const SkullbonezCore::UI::InGameUIInputFrame uiInput{
-        inputRouter.DeviceFrame(),
-        inputRouter.UiSnapshot().mouse,
+    const SkullbonezCore::UI::InputControl::UIInputSnapshot uiInput =
+        ui.CaptureInputSnapshot( inputRouter.DeviceFrame(), inputRouter.UiSnapshot().mouse );
+    InGameUIInputResult UIResult = ui.UpdateInput(
+        uiInput,
         window.ClientWidth(),
         window.ClientHeight(),
         timers.simulationTimer.GetTotalTime(),
@@ -513,14 +512,12 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( Window& window,
         runtimeTools.Editor().placementModeEnabled,
         runtimeTools.Editor().placeStaticObject,
         runtimeTools.Editor().autoTerrainAlign,
-        runtimeTools.Editor().objectType,
         static_cast<int>( camera.mode ),
         facts.cameraModeEnabledMask,
         std::span<const char* const>(
             ui.SceneNavigation().browser.namePtrs.empty() ? nullptr : ui.SceneNavigation().browser.namePtrs.data(),
             ui.SceneNavigation().browser.namePtrs.size() ),
-        selectedSceneBrowserIndex };
-    InGameUIInputResult UIResult = ui.UpdateInput( uiInput );
+        selectedSceneBrowserIndex );
     switch ( UIResult.nativeMouseCapture )
     {
     case InGameUIInputResult::NativeMouseCaptureRequest::Acquire:
