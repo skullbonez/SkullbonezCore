@@ -97,6 +97,7 @@ void RenderReplayScrubberOverlay( Text::TextBatch& textBatch, const ReplayOverla
     }
     RenderReplayInterceptOverlay( textBatch, context );
     RenderReplayTripPlannerOverlay( textBatch, context );
+    RenderReplayPorkchopOverlay( textBatch, context );
     const ReplayScrubberView& scrubber = replay.scrubber;
     Rendering::Dx12TextureOwner& renderTextures = context.renderTextures;
     Rendering::Dx12GeometryOwner& renderCommands = context.renderCommands;
@@ -986,6 +987,159 @@ void RenderReplayTripPlannerOverlay( Text::TextBatch& textBatch, const ReplayOve
     button( ReplayTripPlannerControl::Plan, "PLAN" );
     button( ReplayTripPlannerControl::Commit, "COMMIT" );
     button( ReplayTripPlannerControl::Cancel, "CANCEL" );
+    Text2d::FlushQuads( textBatch, renderCommands );
+    Text2d::FlushText( textBatch, renderTextures, renderCommands );
+}
+
+void RenderReplayPorkchopOverlay( Text::TextBatch& textBatch, const ReplayOverlayRenderContext& context )
+{
+    const ReplayPorkchopPanelView& porkchop = context.replay.porkchop;
+    if ( !context.legacyReplaySurfaceActive || !porkchop.visible || context.screenW <= 0 || context.screenH <= 0 )
+    {
+        return;
+    }
+
+    Rendering::Dx12TextureOwner& renderTextures = context.renderTextures;
+    Rendering::Dx12GeometryOwner& renderCommands = context.renderCommands;
+    const UI::UIDrawContext draw( context.screenW,
+                                  context.screenH,
+                                  nullptr,
+                                  &renderTextures,
+                                  &renderCommands,
+                                  &textBatch );
+    const UI::Style::UIPalette& palette = UI::Style::Palette();
+    const UI::Style::UIRadii& radii = UI::Style::Radii();
+    const UI::UIRect panel = ReplayPorkchopPanelRect( context.screenW );
+    const UI::UIRect grid = ReplayPorkchopGridRect( context.screenW );
+    draw.RoundedPanel( panel, radii.control, palette.windowSubtle, palette.innerBorder );
+
+    char title[128] = {};
+    if ( porkchop.building )
+    {
+        sprintf_s( title,
+                   sizeof( title ),
+                   "PORKCHOP  64x48  BUILDING %zu/%zu",
+                   porkchop.completedCells,
+                   REPLAY_PORKCHOP_CELL_COUNT );
+    }
+    else if ( porkchop.complete )
+    {
+        sprintf_s( title,
+                   sizeof( title ),
+                   "PORKCHOP  64x48  MIN %.3f u/s  %.2f ms",
+                   porkchop.minimumDeltaV,
+                   porkchop.refreshComputeMilliseconds );
+    }
+    else
+    {
+        sprintf_s( title, sizeof( title ), "PORKCHOP  SELECT EARTH DEPARTURE + ORBIT TARGET" );
+    }
+    const UI::Style::UIColor titleColor = porkchop.available ? palette.textPrimary : palette.warningAccent;
+    draw.Text( panel.x + 14.0f, panel.y + 16.0f, 11.0f, titleColor.r, titleColor.g, titleColor.b, title );
+
+    // Concept: low transfer cost is the cool/strong accent; increasingly
+    // expensive cells blend toward the existing warning accent. Failed cells
+    // remain the quiet window color and are never selectable.
+    // Why: extreme window edges can be orders of magnitude above the useful
+    // basin. Clamp only the display range so structure remains visible; the
+    // retained values and cell selection stay exact.
+    const float displayMaximum = (std::min)( porkchop.maximumDeltaV, porkchop.minimumDeltaV + 20.0f );
+    const float costRange = (std::max)( 0.001f, displayMaximum - porkchop.minimumDeltaV );
+    for ( std::size_t cellIndex = 0; cellIndex < porkchop.completedCells && cellIndex < porkchop.deltaV.size();
+          ++cellIndex )
+    {
+        const float deltaV = porkchop.deltaV[cellIndex];
+        const UI::UIRect cell = ReplayPorkchopCellRect( context.screenW, cellIndex );
+        if ( deltaV < 0.0f )
+        {
+            draw.Rect( cell.x,
+                       cell.y,
+                       cell.w + 0.25f,
+                       cell.h + 0.25f,
+                       palette.windowSubtle.r,
+                       palette.windowSubtle.g,
+                       palette.windowSubtle.b,
+                       0.72f );
+            continue;
+        }
+        const float t = std::clamp( ( deltaV - porkchop.minimumDeltaV ) / costRange, 0.0f, 1.0f );
+        const float r = palette.accentStrong.r + ( palette.control.r - palette.accentStrong.r ) * t;
+        const float g = palette.accentStrong.g + ( palette.control.g - palette.accentStrong.g ) * t;
+        const float b = palette.accentStrong.b + ( palette.control.b - palette.accentStrong.b ) * t;
+        draw.Rect( cell.x, cell.y, cell.w + 0.25f, cell.h + 0.25f, r, g, b, 0.90f );
+    }
+
+    const auto outlineCell = [&]( int cellIndex, const UI::Style::UIColor& color, float thickness )
+    {
+        if ( cellIndex < 0 || static_cast<std::size_t>( cellIndex ) >= porkchop.deltaV.size() )
+        {
+            return;
+        }
+        const UI::UIRect cell = ReplayPorkchopCellRect( context.screenW, static_cast<std::size_t>( cellIndex ) );
+        draw.Rect( cell.x, cell.y, cell.w, thickness, color.r, color.g, color.b, 1.0f );
+        draw.Rect( cell.x, cell.y + cell.h - thickness, cell.w, thickness, color.r, color.g, color.b, 1.0f );
+        draw.Rect( cell.x, cell.y, thickness, cell.h, color.r, color.g, color.b, 1.0f );
+        draw.Rect( cell.x + cell.w - thickness, cell.y, thickness, cell.h, color.r, color.g, color.b, 1.0f );
+    };
+    outlineCell( porkchop.selectedCell, palette.textPrimary, 1.5f );
+    outlineCell( porkchop.hoveredCell, palette.accentStrong, 1.0f );
+
+    draw.Text( grid.x,
+               grid.y + grid.h + 9.0f,
+               9.0f,
+               palette.textMuted.r,
+               palette.textMuted.g,
+               palette.textMuted.b,
+               "WAIT 0s" );
+    draw.Text( grid.x + grid.w - 48.0f,
+               grid.y + grid.h + 9.0f,
+               9.0f,
+               palette.textMuted.r,
+               palette.textMuted.g,
+               palette.textMuted.b,
+               "48s" );
+    draw.Text( grid.x - 30.0f, grid.y, 8.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, "2s" );
+    draw.Text( grid.x - 34.0f,
+               grid.y + grid.h - 8.0f,
+               8.0f,
+               palette.textMuted.r,
+               palette.textMuted.g,
+               palette.textMuted.b,
+               "20s" );
+
+    int readoutCell = porkchop.hoveredCell;
+    if ( readoutCell < 0 && porkchop.complete )
+    {
+        readoutCell = static_cast<int>( porkchop.minimumCell );
+    }
+    char readout[160] = {};
+    if ( readoutCell >= 0 && static_cast<std::size_t>( readoutCell ) < porkchop.deltaV.size() &&
+         porkchop.deltaV[static_cast<std::size_t>( readoutCell )] >= 0.0f )
+    {
+        const std::size_t index = static_cast<std::size_t>( readoutCell );
+        sprintf_s( readout,
+                   sizeof( readout ),
+                   "WAIT %.2fs   TOF %.2fs   DV %.3f u/s   CLICK TO SEED TRIP TOF",
+                   ReplayPorkchopPanel::DepartureDelaySeconds( index % REPLAY_PORKCHOP_COLUMNS ),
+                   ReplayPorkchopPanel::TimeOfFlightSeconds( index / REPLAY_PORKCHOP_COLUMNS ),
+                   porkchop.deltaV[index] );
+    }
+    if ( porkchop.selectedCell >= 0 )
+    {
+        sprintf_s( readout,
+                   sizeof( readout ),
+                   "RECOMMENDED WAIT %.2fs   SEEDED TOF %.2fs   DV %.3f u/s",
+                   porkchop.selectedDepartureDelaySeconds,
+                   porkchop.selectedTimeOfFlightSeconds,
+                   porkchop.selectedDeltaV );
+    }
+    draw.Text( panel.x + 14.0f,
+               panel.y + panel.h - 28.0f,
+               10.0f,
+               palette.accentStrong.r,
+               palette.accentStrong.g,
+               palette.accentStrong.b,
+               readout );
     Text2d::FlushQuads( textBatch, renderCommands );
     Text2d::FlushText( textBatch, renderTextures, renderCommands );
 }

@@ -337,6 +337,7 @@ Physics regression CSV output is command-line only via `--physics-regression-log
 | O | Toggle terrain contact probe overlay for rolling sphere terrain inspection. |
 | H | In Legacy development UI, toggle the faint heliocentric Earth and Mars guide rings for mutual-gravity scenes. The rings default off and hide automatically in other scenes. |
 | J | In Legacy development UI, toggle the solar-system trip planner. Select the ship path and intercept target first; the panel offers TOF, PLAN, COMMIT, and CANCEL controls. |
+| I | In Legacy development UI, toggle the 64 by 48 solar porkchop panel. Hover a cell to inspect wait time, flight time, and delta-v; click a valid cell to seed the trip planner TOF while retaining the recommended wait. |
 | F7 / F8 | Step the physics pipeline debug overlay to the previous or next Catto stage. |
 | G | Toggle broadphase visualizer, or cycle the tracked ball when ball tracking is active and the visualizer is off. |
 

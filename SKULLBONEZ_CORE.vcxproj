@@ -346,6 +346,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayGuideArcs.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayInterceptReadout.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayTripPlanner.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPorkchopPanel.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayArtifactHashLog.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionReserve.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPresentation.cpp" />
@@ -664,6 +665,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayGuideArcs.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayInterceptReadout.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayTripPlanner.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPorkchopPanel.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPathPackets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPredictionPackets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPredictionView.h" />

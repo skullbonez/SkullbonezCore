@@ -232,6 +232,7 @@
     <ClCompile Include="SkullbonezTests\TestReplayPredictionScheduling.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayGuideArcs.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayTripPlanner.cpp" />
+    <ClCompile Include="SkullbonezTests\TestReplayPorkchopPanel.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayInterceptReadout.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayVisualPacket.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayArtifact.cpp" />
@@ -290,6 +291,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayGuideArcs.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayTripPlanner.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPorkchopPanel.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayInterceptReadout.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayArtifactHashLog.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.cpp" />

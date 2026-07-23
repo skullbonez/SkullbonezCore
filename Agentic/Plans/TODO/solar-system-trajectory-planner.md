@@ -598,17 +598,53 @@ determinism.
 
 Progress:
 
-- [ ] SS5.1 Grid sweep implemented (bounded budget, sentinel for failed
+- [x] SS5.1 Grid sweep implemented (bounded budget, sentinel for failed
       cells, refresh triggers).
-- [ ] SS5.2 Legacy heatmap panel + hover readout + click-to-seed
+- [x] SS5.2 Legacy heatmap panel + hover readout + click-to-seed
       implemented.
-- [ ] SS5.3 Evidence: Δv minimum sits in the Hohmann-window neighborhood
+- [x] SS5.3 Evidence: Δv minimum sits in the Hohmann-window neighborhood
       (screenshot + numeric minimum cell vs analytic ≈ 2.2 + ≈ 2.0);
       refresh wall time recorded.
-- [ ] SS5.4 Comment audit on touched files.
-- [ ] SS5.5 Gates: `tools\validate_full.bat`, `tools\validate_perf.bat`,
+- [x] SS5.4 Comment audit on touched files.
+- [x] SS5.5 Gates: `tools\validate_full.bat`, `tools\validate_perf.bat`,
       + one `tools\validate_replay_visual_fidelity.bat` invocation
       recorded.
+
+SS5 implementation evidence (2026-07-24): the fixed 3,072-cell owner evaluates
+96 row-major cells per frame and retains failed solves as `-1.0f`. The focused
+doctest lane passes 4/4 cases and 63/63 assertions, including the shared
+draw/hit geometry. The normal Automation input route (`I`, then a physical
+`clickPoint`) reports a minimum total delta-v of `4.179023 u/s` at a
+`0.000000 s` departure delay and `15.787234 s` flight time. The full refresh
+used `15.108800 ms` of measured compute across 32 frames (about
+`0.472 ms/frame`), and the clicked cell seeded the trip planner to
+`15.787234 s`. Visual evidence is
+`TestOutput/interaction/solar_system_porkchop.bmp`; the machine-readable report
+is `TestOutput/interaction/solar_system_porkchop_probe_report.json`.
+
+The SS5 touched-source comment audit covers 21/21 files with zero deferrals.
+Every file has the required learning-header sections; the new owner and test
+define the porkchop vocabulary, bounded-work invariants, and failure semantics.
+Nearby comments in runtime coordination, overlay layout/rendering, and pointer
+routing document default-hidden zero work, frame-local borrows, exact draw/hit
+geometry, display-only cost clamping, and advisory wait versus TOF mutation.
+
+SS5 final gates pass. `tools\validate_full.bat` completed in `250.1 s` with
+368/368 tests and 69,457/69,457 assertions, all coverage floors, 759/759
+project/filter rows, zero-warning builds, zero DX12 validation errors, accepted
+renderer captures, and a byte-exact 44,401-line physics baseline.
+`tools\validate_perf.bat` completed in `104.1 s`: the allocation guard reports
+zero steady-gameplay violations and both DX12 and physics-bench comparisons
+report no regressions. Its first timing sample had failed on broadphase noise
+and also exposed that hidden input/overlay composition copied the publication
+packet; the owner now retains one stable view and both consumers borrow it.
+The final gate proves that remediation. The one and only SS5
+`tools\validate_replay_visual_fidelity.bat` invocation completed in `434.5 s`
+with 17/17 tests, one engine process, one prediction generation, one presented
+cascade, 2,401 ticks, 200 causal nodes, and every false-pass control detected.
+Logs are `TestOutput/validation/ss5_validate_full_final.log`,
+`ss5_validate_perf_final.log`, and
+`ss5_validate_replay_visual_fidelity_final.log`.
 
 ---
 

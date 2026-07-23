@@ -591,6 +591,24 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "replayTripPlannerMissMax";
     case RunInteractionAutomationAssertKind::ReplayTripPlannerMissesImprove:
         return "replayTripPlannerMissesImprove";
+    case RunInteractionAutomationAssertKind::ReplayPorkchopComplete:
+        return "replayPorkchopComplete";
+    case RunInteractionAutomationAssertKind::ReplayPorkchopMinimumDeltaVMax:
+        return "replayPorkchopMinimumDeltaVMax";
+    case RunInteractionAutomationAssertKind::ReplayPorkchopMinimumDepartureDelayMax:
+        return "replayPorkchopMinimumDepartureDelayMax";
+    case RunInteractionAutomationAssertKind::ReplayPorkchopMinimumTimeOfFlightMin:
+        return "replayPorkchopMinimumTimeOfFlightMin";
+    case RunInteractionAutomationAssertKind::ReplayPorkchopMinimumTimeOfFlightMax:
+        return "replayPorkchopMinimumTimeOfFlightMax";
+    case RunInteractionAutomationAssertKind::ReplayPorkchopRefreshMillisecondsMax:
+        return "replayPorkchopRefreshMillisecondsMax";
+    case RunInteractionAutomationAssertKind::ReplayPorkchopSelected:
+        return "replayPorkchopSelected";
+    case RunInteractionAutomationAssertKind::ReplayTripPlannerTimeOfFlightMin:
+        return "replayTripPlannerTimeOfFlightMin";
+    case RunInteractionAutomationAssertKind::ReplayTripPlannerTimeOfFlightMax:
+        return "replayTripPlannerTimeOfFlightMax";
     case RunInteractionAutomationAssertKind::ReplayPastTrajectoryFullRebuildCountMax:
         return "replayPastTrajectoryFullRebuildCountMax";
     case RunInteractionAutomationAssertKind::ReplayPastTrajectoryIncrementalTrimCountMin:
@@ -1788,18 +1806,23 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         const bool expectsInteger = name == "directorPhaseIndex" || name == "editorUndoDepth" ||
                                     name == "editorRedoDepth" || name == "editorSelectionMatchesCapture" ||
                                     name == "imguiPanelMask";
-        const bool expectsNumber = name == "replayPastTrajectoryFullRebuildCountMax" ||
-                                   name == "replayPastTrajectoryIncrementalTrimCountMin" ||
-                                   name == "replayPastTrajectoryPublishedPointCountMin" ||
-                                   name == "replayTripPlannerIterationMax" || name == "replayTripPlannerMissMax" ||
-                                   name == "predictionSupersededRestartCountMin" || name == "predictionDivergenceMin" ||
-                                   name == "predictionTargetDisplacementMin" || name == "imguiLayoutResetCountMin" ||
-                                   name == "imguiFocusCountMin" || name == "imguiDpiScale" ||
-                                   name == "imguiDescriptorHighWaterMax" || name == "imguiViewportRecreationsMin";
+        const bool expectsNumber =
+            name == "replayPastTrajectoryFullRebuildCountMax" ||
+            name == "replayPastTrajectoryIncrementalTrimCountMin" ||
+            name == "replayPastTrajectoryPublishedPointCountMin" || name == "replayTripPlannerIterationMax" ||
+            name == "replayTripPlannerMissMax" || name == "replayPorkchopMinimumDeltaVMax" ||
+            name == "replayPorkchopMinimumDepartureDelayMax" || name == "replayPorkchopMinimumTimeOfFlightMin" ||
+            name == "replayPorkchopMinimumTimeOfFlightMax" || name == "replayPorkchopRefreshMillisecondsMax" ||
+            name == "replayTripPlannerTimeOfFlightMin" || name == "replayTripPlannerTimeOfFlightMax" ||
+            name == "predictionSupersededRestartCountMin" || name == "predictionDivergenceMin" ||
+            name == "predictionTargetDisplacementMin" || name == "imguiLayoutResetCountMin" ||
+            name == "imguiFocusCountMin" || name == "imguiDpiScale" || name == "imguiDescriptorHighWaterMax" ||
+            name == "imguiViewportRecreationsMin";
         const bool expectsBool =
             name == "directorGrabbed" || name == "replayPredictionEnabled" || name == "predictionPathVisible" ||
             name == "predictionFullHorizonComplete" || name == "predictionBaselineVisible" ||
-            name == "replayTripPlannerMissesImprove" || name == "replaySolverTrackAtPresent" ||
+            name == "replayTripPlannerMissesImprove" || name == "replayPorkchopComplete" ||
+            name == "replayPorkchopSelected" || name == "replaySolverTrackAtPresent" ||
             name == "predictionScrubFrameActive" || name == "liveSolverHashStableAcrossPrediction" ||
             name == "predictionTrajectoryFingerprintReady" || name == "gizmoVisible" || name == "mousePickupActive" ||
             name == "nativeCaptureRequested" || name == "cursorVisibleRequested" || name == "uiBlocksMouse" ||
@@ -1891,6 +1914,51 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::ReplayTripPlannerMissesImprove;
             outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "replayPorkchopComplete" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPorkchopComplete;
+            outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "replayPorkchopMinimumDeltaVMax" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPorkchopMinimumDeltaVMax;
+            outAction.numberValue = member.value().get<float>();
+        }
+        else if ( name == "replayPorkchopMinimumDepartureDelayMax" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPorkchopMinimumDepartureDelayMax;
+            outAction.numberValue = member.value().get<float>();
+        }
+        else if ( name == "replayPorkchopMinimumTimeOfFlightMin" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPorkchopMinimumTimeOfFlightMin;
+            outAction.numberValue = member.value().get<float>();
+        }
+        else if ( name == "replayPorkchopMinimumTimeOfFlightMax" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPorkchopMinimumTimeOfFlightMax;
+            outAction.numberValue = member.value().get<float>();
+        }
+        else if ( name == "replayPorkchopRefreshMillisecondsMax" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPorkchopRefreshMillisecondsMax;
+            outAction.numberValue = member.value().get<float>();
+        }
+        else if ( name == "replayPorkchopSelected" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPorkchopSelected;
+            outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "replayTripPlannerTimeOfFlightMin" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayTripPlannerTimeOfFlightMin;
+            outAction.numberValue = member.value().get<float>();
+        }
+        else if ( name == "replayTripPlannerTimeOfFlightMax" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayTripPlannerTimeOfFlightMax;
+            outAction.numberValue = member.value().get<float>();
         }
         else if ( name == "replayPastTrajectoryFullRebuildCountMax" )
         {
@@ -2268,6 +2336,60 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
         evaluation.passed = improves == action.boolValue;
         break;
     }
+    case RunInteractionAutomationAssertKind::ReplayPorkchopComplete:
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( replay.porkchop.complete );
+        evaluation.passed = replay.porkchop.complete == action.boolValue;
+        break;
+    case RunInteractionAutomationAssertKind::ReplayPorkchopMinimumDeltaVMax:
+        evaluation.expected = "<=" + std::to_string( action.numberValue );
+        evaluation.actual = std::to_string( replay.porkchop.minimumDeltaV );
+        evaluation.passed =
+            replay.porkchop.minimumDeltaV >= 0.0f && replay.porkchop.minimumDeltaV <= action.numberValue;
+        break;
+    case RunInteractionAutomationAssertKind::ReplayPorkchopMinimumDepartureDelayMax:
+    {
+        const float departure =
+            ReplayPorkchopPanel::DepartureDelaySeconds( replay.porkchop.minimumCell % REPLAY_PORKCHOP_COLUMNS );
+        evaluation.expected = "<=" + std::to_string( action.numberValue );
+        evaluation.actual = std::to_string( departure );
+        evaluation.passed = replay.porkchop.complete && departure <= action.numberValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::ReplayPorkchopMinimumTimeOfFlightMin:
+    case RunInteractionAutomationAssertKind::ReplayPorkchopMinimumTimeOfFlightMax:
+    {
+        const float tof =
+            ReplayPorkchopPanel::TimeOfFlightSeconds( replay.porkchop.minimumCell / REPLAY_PORKCHOP_COLUMNS );
+        const bool minimum =
+            action.assertKind == RunInteractionAutomationAssertKind::ReplayPorkchopMinimumTimeOfFlightMin;
+        evaluation.expected = std::string( minimum ? ">=" : "<=" ) + std::to_string( action.numberValue );
+        evaluation.actual = std::to_string( tof );
+        evaluation.passed =
+            replay.porkchop.complete && ( minimum ? tof >= action.numberValue : tof <= action.numberValue );
+        break;
+    }
+    case RunInteractionAutomationAssertKind::ReplayPorkchopRefreshMillisecondsMax:
+        evaluation.expected = "<=" + std::to_string( action.numberValue );
+        evaluation.actual = std::to_string( replay.porkchop.refreshComputeMilliseconds );
+        evaluation.passed =
+            replay.porkchop.complete && replay.porkchop.refreshComputeMilliseconds <= action.numberValue;
+        break;
+    case RunInteractionAutomationAssertKind::ReplayPorkchopSelected:
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( replay.porkchop.selectedCell >= 0 );
+        evaluation.passed = ( replay.porkchop.selectedCell >= 0 ) == action.boolValue;
+        break;
+    case RunInteractionAutomationAssertKind::ReplayTripPlannerTimeOfFlightMin:
+        evaluation.expected = ">=" + std::to_string( action.numberValue );
+        evaluation.actual = std::to_string( replay.tripPlanner.timeOfFlightSeconds );
+        evaluation.passed = replay.tripPlanner.timeOfFlightSeconds >= action.numberValue;
+        break;
+    case RunInteractionAutomationAssertKind::ReplayTripPlannerTimeOfFlightMax:
+        evaluation.expected = "<=" + std::to_string( action.numberValue );
+        evaluation.actual = std::to_string( replay.tripPlanner.timeOfFlightSeconds );
+        evaluation.passed = replay.tripPlanner.timeOfFlightSeconds <= action.numberValue;
+        break;
     case RunInteractionAutomationAssertKind::ReplayPastTrajectoryFullRebuildCountMax:
     {
         const uint64_t rebuildCount = replay.path.pastTrajectory.fullRebuildCount;

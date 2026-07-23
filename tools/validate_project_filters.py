@@ -410,6 +410,7 @@ RUNTIME_REPLAY_PREFIXES = (
     "ReplayGuideArcs",
     "ReplayInterceptReadout",
     "ReplayTripPlanner",
+    "ReplayPorkchopPanel",
     "ReplayOverlayLayout",
     "ReplayOverlayPackets",
     "ReplayOverlaySurface",

@@ -760,6 +760,12 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                 (void)m_replayRuntime.QueueTripPlannerCommand( { ReplayTripPlannerCommandKind::TogglePanel } );
             }
             break;
+        case RuntimeInputAction::ToggleReplayPorkchopPanel:
+            if ( legacyDevelopmentUiActive )
+            {
+                m_replayRuntime.TogglePorkchopPanel();
+            }
+            break;
         case RuntimeInputAction::ToggleCrossScenePause:
             // P locks scene automation without turning the run interactive;
             // SceneController preserves the policy across load transactions.

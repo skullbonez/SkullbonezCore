@@ -25,6 +25,7 @@ Related:
 #include "ReplayCapturePackets.h"
 #include "ReplayAuthoringPackets.h"
 #include "ReplayInterceptReadout.h"
+#include "ReplayPorkchopPanel.h"
 #include "ReplayTripPlanner.h"
 #include "ReplayPredictionView.h"
 #include "ReplayPathPackets.h"
@@ -60,6 +61,7 @@ struct ReplayOverlayStateView
     ReplayScrubberView scrubber;
     ReplayPredictionPresentationView prediction;
     ReplayInterceptView intercept;
+    const ReplayPorkchopPanelView& porkchop;
     const ReplayTripPlannerView& tripPlanner;
     const RunReplayPathVisualizerState& pathVisualizer;
     const RunReplayVelocityEditState& velocityEdit;

@@ -83,6 +83,7 @@ const RuntimeInputKeyBinding kTakeInputKeyboardBindings[] = {
     { VK_OEM_COMMA, RuntimeInputAction::CycleReplayPathColorMode, kKeyboardUnblockedContext },
     { 'H', RuntimeInputAction::ToggleReplayGuideArcs, kKeyboardUnblockedContext },
     { 'J', RuntimeInputAction::ToggleReplayTripPlanner, kKeyboardUnblockedContext },
+    { 'I', RuntimeInputAction::ToggleReplayPorkchopPanel, kKeyboardUnblockedContext },
     { 'P', RuntimeInputAction::ToggleCrossScenePause, kKeyboardUnblockedContext },
     { 'G', RuntimeInputAction::ToggleBroadphaseOverlay, kKeyboardUnblockedContext },
     { '0', RuntimeInputAction::ToggleUIVisibility, kKeyboardUnblockedContext },

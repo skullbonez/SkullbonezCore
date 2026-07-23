@@ -122,6 +122,7 @@ enum class RuntimeInputAction
     CycleReplayPathColorMode,
     ToggleReplayGuideArcs,
     ToggleReplayTripPlanner,
+    ToggleReplayPorkchopPanel,
     ToggleBroadphaseOverlay,
     ToggleUIVisibility,
     TogglePerformanceHistogram,

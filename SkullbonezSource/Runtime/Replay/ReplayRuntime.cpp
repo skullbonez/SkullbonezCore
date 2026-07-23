@@ -189,6 +189,17 @@ bool ReadReplayPlannerSunState( const PhysicsBodyStore& bodyStore, ReplayTripPla
     return true;
 }
 
+ReplayPorkchopBodyState ReplayPorkchopBody( const ReplayGuideBodyState& state ) noexcept
+{
+    ReplayPorkchopBodyState result;
+    result.id = state.id;
+    result.position = state.position;
+    result.linearVelocity = state.linearVelocity;
+    result.mass = state.mass;
+    result.valid = state.valid;
+    return result;
+}
+
 constexpr double REPLAY_PREDICTION_MAX_WORK_MILLISECONDS = 5.0;
 
 const ReplayPresentationSample*
@@ -622,6 +633,7 @@ ReplayInputView ReplayRuntime::BuildInputView() const noexcept
 ReplayAutomationView ReplayRuntime::BuildAutomationView() const
 {
     return { m_predictionOwner.State(),
+             m_porkchopPanel.View(),
              m_tripPlanner.View(),
              m_visualPresentation.PathVisualizer(),
              m_timeline.Presentation(),
@@ -671,6 +683,7 @@ ReplayRuntime::BuildOverlayStateView( bool editorModeEnabled,
     return { scrubber,
              m_predictionOwner.PresentationView(),
              m_interceptReadout.View(),
+             m_porkchopPanel.View(),
              m_tripPlanner.View(),
              m_visualPresentation.PathVisualizer(),
              m_authoring.VelocityEdit(),
@@ -965,6 +978,11 @@ void ReplayRuntime::SetGuideArcsEnabled( bool enabled ) noexcept
     m_guideArcs.SetEnabled( enabled );
 }
 
+void ReplayRuntime::TogglePorkchopPanel() noexcept
+{
+    m_porkchopPanel.Toggle();
+}
+
 bool ReplayRuntime::QueueTripPlannerCommand( const ReplayTripPlannerCommand& command ) noexcept
 {
     return m_tripPlanner.QueueCommand( command );
@@ -1151,6 +1169,7 @@ void ReplayRuntime::ClearInteractionForSceneLoad( RuntimeInteractionController& 
     // Invariant: guide visibility is scene-local and always returns to its
     // zero-cost default before an early interaction-cleanup return.
     m_guideArcs.Reset();
+    m_porkchopPanel.Reset();
     m_tripPlanner.Reset();
     const RuntimeInteractionTransition transition = interaction.ResetForScene( InteractionExitReason::LoadScene );
     const bool previousOwnerWasReplay = transition.previousOwner == WorldInteractionOwner::ReplayScrub ||
@@ -1207,6 +1226,7 @@ bool ReplayRuntime::ClearInteractionForRuntimeTransition( RuntimeInteractionCont
     ClearCameraFocusForRestore();
     ClearPathVisualizerState();
     m_predictionOwner.DisableAndClearCache();
+    m_porkchopPanel.Reset();
     m_tripPlanner.Reset();
     m_authoring.ResetVelocityEdit();
     m_authoring.ResetCauseTreeRows();
@@ -1838,6 +1858,7 @@ void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics,
     UpdateInterceptReadout( physics, worldForces.mutualGravity.enabled );
     ObserveTripPlannerPrediction( physics );
     UpdateGuideArcs( physics, entities, worldForces, simulationTotalTime );
+    UpdatePorkchopPanel( physics, entities, worldForces );
 }
 
 
@@ -1894,6 +1915,43 @@ void ReplayRuntime::UpdateGuideArcs( PhysicsEngine& physics,
         (void)ReadReplayGuideBodyState( entities, bodyStore, entities.FindByDisplayName( "mars" ), input.mars );
     }
     m_guideArcs.Update( input );
+}
+
+void ReplayRuntime::UpdatePorkchopPanel( PhysicsEngine& physics,
+                                         const SceneEntityStore& entities,
+                                         const Physics::PhysicsWorldForces& worldForces )
+{
+    // Invariant: the default-hidden path returns before any entity lookup,
+    // body-store borrow, orbital propagation, or grid iteration.
+    if ( !m_porkchopPanel.Visible() )
+    {
+        return;
+    }
+
+    const Physics::PhysicsSceneObjectId targetId = m_interceptReadout.TargetId();
+    if ( m_porkchopPanel.NeedsRefresh( targetId, worldForces.mutualGravity.enabled ) )
+    {
+        ReplayPorkchopSweepInput input;
+        input.gravitationalConstant = worldForces.mutualGravity.gravitationalConstant;
+        input.mutualGravityEnabled = worldForces.mutualGravity.enabled;
+        if ( input.mutualGravityEnabled && targetId.IsValid() )
+        {
+            // Lifetime: scene and Physics values are copied into the pure-math
+            // sweep packet; ReplayPorkchopPanel retains no owner borrow.
+            const PhysicsBodyStore& bodyStore = PhysicsEngine::ReadBodies( physics );
+            ReplayGuideBodyState sun;
+            ReplayGuideBodyState earth;
+            ReplayGuideBodyState target;
+            (void)ReadReplayGuideSunState( bodyStore, sun );
+            (void)ReadReplayGuideBodyState( entities, bodyStore, entities.FindByDisplayName( "earth" ), earth );
+            (void)ReadReplayGuideBodyState( entities, bodyStore, entities.FindBySceneObjectId( targetId ), target );
+            input.sun = ReplayPorkchopBody( sun );
+            input.departure = ReplayPorkchopBody( earth );
+            input.target = ReplayPorkchopBody( target );
+        }
+        m_porkchopPanel.BeginSweep( input );
+    }
+    m_porkchopPanel.AdvanceSweep();
 }
 
 void ReplayRuntime::BeginTripPlannerFrame( PhysicsEngine& physics,

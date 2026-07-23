@@ -32,6 +32,7 @@ Related:
 
 #include "ReplayAuthoring.h"
 #include "ReplayPrediction.h"
+#include "ReplayPorkchopPanel.h"
 #include "ReplayPresentation.h"
 #include "ReplayScrubber.h"
 #include "ReplayTimeline.h"
@@ -202,6 +203,7 @@ struct ReplayInteractionExitInput
 struct ReplayAutomationView
 {
     const RunReplayPredictionState& prediction;
+    const ReplayPorkchopPanelView& porkchop;
     const ReplayTripPlannerView& tripPlanner;
     const RunReplayPathVisualizerState& path;
     // Cold artifact writers borrow recorder owners only for the synchronous

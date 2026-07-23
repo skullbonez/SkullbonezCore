@@ -518,8 +518,9 @@ The active priority is
 `TODO/solar-system-trajectory-planner.md` in binding order SS0→SS6. SS0 is
 complete through SS3: bounded orbital math, the proved four-body scene, the
 incremental Replay intercept readout, and cold analytic planet guide arcs.
-SS4 is complete with the bounded trip planner; SS5 now adds the analytic
-porkchop launch-window panel.
+SS4 is complete with the bounded trip planner, and SS5 completes the analytic
+porkchop launch-window panel. SS6 now performs the final audit, independent
+review, boundary/allocation proofs, broad gate, and closure reconciliation.
 
 The 2026-07-18 adversarial-review round-7 lane is closed. Scene-controller
 round 2, DX12 backend ownership, naming/identity debt, and small-findings
@@ -1484,7 +1485,7 @@ Core are frozen for this plan.
 
 | Plan | State | Verified phase count | Next action |
 |---|---|---:|---|
-| [solar-system-trajectory-planner](TODO/solar-system-trajectory-planner.md) | Active | 5/7 | SS5 adds the fixed-grid porkchop launch-window panel |
+| [solar-system-trajectory-planner](TODO/solar-system-trajectory-planner.md) | Active | 6/7 | SS6 closes with audit, independent review, proofs, and final broad gate |
 
 ## Features
 

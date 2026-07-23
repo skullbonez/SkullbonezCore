@@ -392,6 +392,8 @@ const char* InputController::DescribeAction( RuntimeInputAction action )
         return "ToggleReplayGuideArcs";
     case RuntimeInputAction::ToggleReplayTripPlanner:
         return "ToggleReplayTripPlanner";
+    case RuntimeInputAction::ToggleReplayPorkchopPanel:
+        return "ToggleReplayPorkchopPanel";
     case RuntimeInputAction::ToggleCinematicRendering:
         return "ToggleCinematicRendering";
     case RuntimeInputAction::SelectCinematicScene:

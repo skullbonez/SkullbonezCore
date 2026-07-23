@@ -79,6 +79,62 @@ UI::UIRect ReplayTripPlannerPanelRect( int screenW )
              REPLAY_TRIP_PLANNER_PANEL_HEIGHT };
 }
 
+UI::UIRect ReplayPorkchopPanelRect( int screenW )
+{
+    const float width = (std::min)( REPLAY_PORKCHOP_PANEL_WIDTH, static_cast<float>( screenW ) );
+    return { ( static_cast<float>( screenW ) - width ) * 0.5f,
+             REPLAY_PORKCHOP_PANEL_TOP,
+             width,
+             REPLAY_PORKCHOP_PANEL_HEIGHT };
+}
+
+UI::UIRect ReplayPorkchopGridRect( int screenW )
+{
+    const UI::UIRect panel = ReplayPorkchopPanelRect( screenW );
+    return { panel.x + REPLAY_PORKCHOP_GRID_MARGIN_X,
+             panel.y + REPLAY_PORKCHOP_GRID_TOP,
+             (std::max)( 1.0f, panel.w - 2.0f * REPLAY_PORKCHOP_GRID_MARGIN_X ),
+             REPLAY_PORKCHOP_GRID_HEIGHT };
+}
+
+UI::UIRect ReplayPorkchopCellRect( int screenW, std::size_t cellIndex )
+{
+    const UI::UIRect grid = ReplayPorkchopGridRect( screenW );
+    const std::size_t bounded = (std::min)( cellIndex, REPLAY_PORKCHOP_CELL_COUNT - 1u );
+    const std::size_t column = bounded % REPLAY_PORKCHOP_COLUMNS;
+    const std::size_t row = bounded / REPLAY_PORKCHOP_COLUMNS;
+    const float cellWidth = grid.w / static_cast<float>( REPLAY_PORKCHOP_COLUMNS );
+    const float cellHeight = grid.h / static_cast<float>( REPLAY_PORKCHOP_ROWS );
+    return { grid.x + static_cast<float>( column ) * cellWidth,
+             grid.y + static_cast<float>( row ) * cellHeight,
+             cellWidth,
+             cellHeight };
+}
+
+bool ReplayPorkchopCellAtPointer( int screenW, int pointerX, int pointerY, std::size_t& outCellIndex )
+{
+    const UI::UIRect grid = ReplayPorkchopGridRect( screenW );
+    const float x = static_cast<float>( pointerX );
+    const float y = static_cast<float>( pointerY );
+    if ( x < grid.x || y < grid.y || x >= grid.x + grid.w || y >= grid.y + grid.h )
+    {
+        return false;
+    }
+
+    // Invariant: row-major mapping mirrors ReplayPorkchopPanel's sweep order,
+    // so one pixel cell names the same departure/TOF pair in draw and input.
+    const float normalizedX = ( x - grid.x ) / grid.w;
+    const float normalizedY = ( y - grid.y ) / grid.h;
+    const std::size_t column =
+        (std::min)( REPLAY_PORKCHOP_COLUMNS - 1u,
+                    static_cast<std::size_t>( normalizedX * static_cast<float>( REPLAY_PORKCHOP_COLUMNS ) ) );
+    const std::size_t row =
+        (std::min)( REPLAY_PORKCHOP_ROWS - 1u,
+                    static_cast<std::size_t>( normalizedY * static_cast<float>( REPLAY_PORKCHOP_ROWS ) ) );
+    outCellIndex = row * REPLAY_PORKCHOP_COLUMNS + column;
+    return true;
+}
+
 void BuildReplayTripPlannerSurface( const ReplayTripPlannerView& planner,
                                     int screenW,
                                     ReplayTripPlannerSurface& outSurface )

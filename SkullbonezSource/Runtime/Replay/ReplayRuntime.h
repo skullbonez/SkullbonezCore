@@ -67,6 +67,7 @@ Related:
 #include "ReplayCoordination.h"
 #include "ReplayGuideArcs.h"
 #include "ReplayInterceptReadout.h"
+#include "ReplayPorkchopPanel.h"
 #include "ReplayTripPlanner.h"
 #include "ReplayIdentity.h"
 #include "ReplayPrediction.h"
@@ -240,6 +241,7 @@ class ReplayRuntime
     ReplayPathColorMode CyclePathColorMode() noexcept;
     void ToggleGuideArcs() noexcept;
     void SetGuideArcsEnabled( bool enabled ) noexcept;
+    void TogglePorkchopPanel() noexcept;
     bool QueueTripPlannerCommand( const ReplayTripPlannerCommand& command ) noexcept;
 
     ReplayKeyboardVelocityEditResult ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input );
@@ -430,6 +432,9 @@ class ReplayRuntime
                           const SceneEntityStore& entities,
                           const Physics::PhysicsWorldForces& worldForces,
                           double nowSeconds );
+    void UpdatePorkchopPanel( Physics::PhysicsEngine& physics,
+                              const SceneEntityStore& entities,
+                              const Physics::PhysicsWorldForces& worldForces );
     void BeginTripPlannerFrame( Physics::PhysicsEngine& physics,
                                 const SceneEntityStore& entities,
                                 const Physics::PhysicsWorldForces& worldForces );
@@ -496,6 +501,7 @@ class ReplayRuntime
     ReplayPrediction m_predictionOwner;
     ReplayInterceptReadout m_interceptReadout;
     ReplayGuideArcs m_guideArcs;
+    ReplayPorkchopPanel m_porkchopPanel;
     ReplayTripPlanner m_tripPlanner;
     SceneLifecycleGenerationObserver m_sceneClearObserver;
     SceneLifecycleGenerationObserver m_sceneActivationObserver;

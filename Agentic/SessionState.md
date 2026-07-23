@@ -11,16 +11,16 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-23rd-JUL-26` |
-| Current baseline | Solar-system SS0-SS4 provide allocation-free orbital math, the proved four-body scene, incremental intercept and guide consumers, and the bounded real-prediction trip planner. |
-| Current objective | Implement SS5: add the fixed 64 × 48 analytic porkchop launch-window panel. |
-| Active/future progress | Solar-system plan 5/7; 71%. |
+| Current baseline | Solar-system SS0-SS5 provide allocation-free orbital math, the proved four-body scene, incremental intercept and guide consumers, the bounded real-prediction trip planner, and the fixed-grid porkchop launch-window panel. |
+| Current objective | Complete SS6: final audit, independent review, proofs, broad gate, and closure reconciliation. |
+| Active/future progress | Solar-system plan 6/7; 86%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | Solar-system SS4 `validate_full` passes with exit 0 in 309.1 s: 364/364 tests and 69,348/69,348 assertions, all CPU/coverage floors, 757/757 production project/filter rows, zero-warning builds, accepted DX12 images with zero errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | SS4 focused planner/intercept tests pass 7 cases and 96 assertions; the automation proof converges in three generations; `validate_perf` is allocation/regression clean; the exactly-one replay visual-fidelity run passes in 434.2 s with 17/17 controls and one process/generation. |
+| Last broad local gate | Solar-system SS5 `validate_full` passes with exit 0 in 250.1 s: 368/368 tests and 69,457/69,457 assertions, all CPU/coverage floors, 759/759 production project/filter rows, zero-warning builds, accepted DX12 images with zero errors, and byte-exact 44,401-line physics CSV. |
+| Validation for current edits | SS5 focused porkchop tests pass 4 cases and 63 assertions; the normal `I` + click probe reports minimum delta-v 4.179023 at wait 0.0 s / TOF 15.787234 s and a 15.1088 ms refresh; `validate_perf` is allocation/regression clean; the exactly-one replay visual-fidelity run passes in 434.5 s with 17/17 controls and one process/generation/presentation. |
 
 ## Live Queue
 
-NOW. `solar-system-trajectory-planner` is active at 5/7. SS0 supplies bounded,
+NOW. `solar-system-trajectory-planner` is active at 6/7. SS0 supplies bounded,
 allocation-free orbital math. SS1's interactive four-body scene loads cleanly,
 holds planet radii for 3.085 Mars periods, repeats its exact final state, keeps
 all movable bodies awake, and proves the authored first transfer window. SS2
@@ -28,8 +28,8 @@ adds the bounded incremental Replay intercept consumer, independent target
 selection, Legacy markers/text, focused coverage, and one-generation fidelity
 proof. SS3 adds cold, fixed-capacity analytic Earth/Mars guide arcs with
 default-off zero-cost behavior. SS4 adds the bounded Lambert-seeded shooting
-planner with three-generation design-window convergence. SS5 now adds the
-fixed-grid porkchop launch-window panel.
+planner with three-generation design-window convergence. SS5 adds the
+fixed-grid porkchop launch-window panel; SS6 now owns closure.
 
 NOW. `ui-runtime-separation` is complete at 5/5. UI is physically below
 Runtime, has zero Runtime includes, and crosses through cohesive navigation,
@@ -388,8 +388,8 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-`Agentic/Plans/TODO/solar-system-trajectory-planner.md` is active at 5/7; SS5
-is next. Preserve the SS4 default-off zero-cost path, value-only Replay
+`Agentic/Plans/TODO/solar-system-trajectory-planner.md` is active at 6/7; SS6
+is next. Preserve the default-off zero-cost paths, value-only Replay
 boundaries, single `PhysicsSceneObjectId` identity, fixed storage, and the rule
 that analytic math proposes windows while the isolated prediction engine alone
 proves a flown trajectory.
