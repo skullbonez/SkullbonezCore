@@ -80,9 +80,9 @@ TEST_CASE( "Orbital mechanics: one circular period returns to the start" )
     const float circularSpeed = std::sqrt( MU / EARTH_RADIUS );
     const float period = 2.0f * PI * std::sqrt( EARTH_RADIUS * EARTH_RADIUS * EARTH_RADIUS / MU );
     OrbitalElements elements;
-    REQUIRE( ElementsFromState(
-                 Vector3( EARTH_RADIUS, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, circularSpeed ), MU, elements ) ==
-             OrbitalStatus::Ok );
+    REQUIRE(
+        ElementsFromState( Vector3( EARTH_RADIUS, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, circularSpeed ), MU, elements ) ==
+        OrbitalStatus::Ok );
 
     Vector3 position( 0.0f, 0.0f, 0.0f );
     Vector3 velocity( 0.0f, 0.0f, 0.0f );
@@ -116,20 +116,46 @@ TEST_CASE( "Orbital mechanics: Hohmann helpers match the solar design table" )
 {
     constexpr float marsRadius = 121.6f;
     CHECK( HohmannTransferSeconds( EARTH_RADIUS, marsRadius, MU ) == doctest::Approx( 15.90f ).epsilon( 0.002f ) );
-    CHECK( HohmannDepartureDeltaV( EARTH_RADIUS, marsRadius, MU ) ==
-           doctest::Approx( 2.20f ).epsilon( 0.02f ) );
+    CHECK( HohmannDepartureDeltaV( EARTH_RADIUS, marsRadius, MU ) == doctest::Approx( 2.20f ).epsilon( 0.02f ) );
 
     const float transferTime = HohmannTransferSeconds( EARTH_RADIUS, marsRadius, MU );
     const float arrivalAngle = PI - 0.02f;
     LambertSolution seed;
-    REQUIRE( SolveLambert( Vector3( EARTH_RADIUS, 0.0f, 0.0f ),
-                           Vector3( marsRadius * std::cos( arrivalAngle ), 0.0f, marsRadius * std::sin( arrivalAngle ) ),
-                           transferTime,
-                           MU,
-                           true,
-                           seed ) == OrbitalStatus::Ok );
+    REQUIRE(
+        SolveLambert( Vector3( EARTH_RADIUS, 0.0f, 0.0f ),
+                      Vector3( marsRadius * std::cos( arrivalAngle ), 0.0f, marsRadius * std::sin( arrivalAngle ) ),
+                      transferTime,
+                      MU,
+                      true,
+                      seed ) == OrbitalStatus::Ok );
     CHECK( seed.v1.z - std::sqrt( MU / EARTH_RADIUS ) ==
            doctest::Approx( HohmannDepartureDeltaV( EARTH_RADIUS, marsRadius, MU ) ).epsilon( 0.08f ) );
+}
+
+
+TEST_CASE( "Orbital mechanics: solar launch phase predicts the first Mars intercept window" )
+{
+    constexpr float marsRadius = 121.6f;
+    const float marsPhase = 44.1f * PI / 180.0f;
+    const float marsSpeed = std::sqrt( MU / marsRadius );
+    OrbitalElements marsOrbit;
+    REQUIRE( ElementsFromState( Vector3( marsRadius * std::cos( marsPhase ), 0.0f, marsRadius * std::sin( marsPhase ) ),
+                                Vector3( -marsSpeed * std::sin( marsPhase ), 0.0f, marsSpeed * std::cos( marsPhase ) ),
+                                MU,
+                                marsOrbit ) == OrbitalStatus::Ok );
+
+    const float transferSeconds = HohmannTransferSeconds( EARTH_RADIUS, marsRadius, MU );
+    Vector3 marsAtArrival( 0.0f, 0.0f, 0.0f );
+    Vector3 marsVelocityAtArrival( 0.0f, 0.0f, 0.0f );
+    REQUIRE( PropagateToTime( marsOrbit, transferSeconds, marsAtArrival, marsVelocityAtArrival ) == OrbitalStatus::Ok );
+
+    // Why: an ideal Hohmann departure from Earth's orbital radius reaches the
+    // opposite side at this time. The authored 44.1-degree Mars lead places its
+    // centre inside the ship-plus-Mars collision radius at that arrival.
+    const Vector3 idealTransferArrival( -marsRadius, 0.0f, 0.0f );
+    const Vector3 miss = marsAtArrival - idealTransferArrival;
+    CHECK( std::sqrt( miss * miss ) < 3.2f );
+    CHECK( HohmannDepartureDeltaV( EARTH_RADIUS, marsRadius, MU ) == doctest::Approx( 2.1989f ).epsilon( 0.001f ) );
 }
 
 
@@ -138,10 +164,8 @@ TEST_CASE( "Orbital mechanics: invalid inputs fail without NaN output" )
     OrbitalElements elements;
     CHECK( ElementsFromState( Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 1.0f, 0.0f, 0.0f ), MU, elements ) ==
            OrbitalStatus::Degenerate );
-    CHECK( ElementsFromState( Vector3( EARTH_RADIUS, 0.0f, 0.0f ),
-                             Vector3( 0.0f, 0.0f, 100.0f ),
-                             MU,
-                             elements ) == OrbitalStatus::NotElliptic );
+    CHECK( ElementsFromState( Vector3( EARTH_RADIUS, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 100.0f ), MU, elements ) ==
+           OrbitalStatus::NotElliptic );
 
     elements = {};
     elements.semiMajorAxis = EARTH_RADIUS;

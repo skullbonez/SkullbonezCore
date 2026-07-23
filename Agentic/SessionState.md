@@ -11,20 +11,20 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-23rd-JUL-26` |
-| Current baseline | Solar-system SS0 adds an allocation-free Maths orbital library: elliptic elements/Kepler propagation, fixed-span sampling, Lambert seeds, and Hohmann helpers, with 354/354 unit cases passing. |
-| Current objective | Implement SS1: author and prove the fixed-sun Earth/Mars/ship scene inside the 20-second Replay prediction horizon. |
-| Active/future progress | Solar-system plan 1/7; 14%. |
+| Current baseline | Solar-system SS0 provides allocation-free orbital math; SS1 adds the fixed-sun Earth/Mars/ship scene with repeatable 130-second orbital, wakefulness, and first-window evidence. |
+| Current objective | Implement SS2: add the bounded Replay intercept/closest-approach consumer, target selection, Legacy overlay, and deterministic coverage. |
+| Active/future progress | Solar-system plan 2/7; 29%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | Runtime-package R5 `validate_full` passes with exit 0 in 188.0 s: 749/749 project/filter items, all CPU/coverage floors, zero-warning builds, accepted DX12 images with zero errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | SS0 `validate_tests` passes in 8.0 s with 354/354 cases and 68,844/68,844 assertions; staged `validate_fast` passes in 30.7 s with zero warnings/errors and 751/751 production filter rows; three-file comment and Maths-boundary audits are clean. |
+| Last broad local gate | Solar-system SS1 `validate_full` passes with exit 0 in 151.5 s: 355/355 tests and 68,848/68,848 assertions, all CPU/coverage floors, 751/751 production project/filter rows, zero-warning builds, accepted DX12 images with zero errors, and byte-exact 44,401-line physics CSV. |
+| Validation for current edits | SS1 scene-load probe exits 0 with zero parser warnings; two 15,600-tick witnesses have identical final states, bounded planet radii, and zero sleep rows; focused orbital tests pass 6/6; `validate_full` passes. |
 
 ## Live Queue
 
-NOW. `solar-system-trajectory-planner` is active at 1/7. SS0 supplies bounded,
-allocation-free orbital elements, Kepler propagation, orbit sampling, Lambert
-seeding, and Hohmann helpers under the Maths floor. Its five focused cases and
-the full unit harness pass. SS1 now authors the four-body scene and records
-stability, determinism, sleep, and first-window evidence.
+NOW. `solar-system-trajectory-planner` is active at 2/7. SS0 supplies bounded,
+allocation-free orbital math. SS1's interactive four-body scene loads cleanly,
+holds planet radii for 3.085 Mars periods, repeats its exact final state, keeps
+all movable bodies awake, and proves the authored first transfer window. SS2
+now adds a bounded Replay intercept consumer and Legacy target/overlay path.
 
 NOW. `ui-runtime-separation` is complete at 5/5. UI is physically below
 Runtime, has zero Runtime includes, and crosses through cohesive navigation,

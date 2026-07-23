@@ -1,0 +1,126 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {
+    "rendering": true,
+    "skyAtmosphere": true,
+    "clouds": false,
+    "godRays": false,
+    "volumetricLighting": false,
+    "bloom": false,
+    "fog": false,
+    "styleModes": [0, 3, 2, 0],
+    "exposure": 1.2,
+    "gamma": 1.25,
+    "sunScreenX": 0.5,
+    "sunScreenY": 0.5,
+    "sunColorR": 1.0,
+    "sunColorG": 0.96,
+    "sunColorB": 0.82,
+    "sunIntensity": 18.0,
+    "skyHorizonR": 0.0,
+    "skyHorizonG": 0.0,
+    "skyHorizonB": 0.0,
+    "skyZenithR": 0.0,
+    "skyZenithG": 0.0,
+    "skyZenithB": 0.0,
+    "skyGlowStrength": 0.0
+  },
+  "simulation": {
+    "seed": 4242,
+    "physics": true,
+    "text": false,
+    "modelCapacity": 8,
+    "world": {
+      "gravity": 0.0,
+      "fluidHeight": -100000.0,
+      "fluidDensity": 0.0,
+      "mutualGravity": {
+        "enabled": true,
+        "gravitationalConstant": 1.0,
+        "softeningLength": 0.5,
+        "elasticCollisions": false
+      }
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": -100000.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "cameras": [
+    {
+      "name": "main",
+      "position": [0.0, 360.0, 0.0],
+      "view": [0.0, 100.0, 0.0],
+      "up": [0.0, 0.0, 1.0]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ballState",
+      "name": "sun",
+      "position": [0.0, 100.0, 0.0],
+      "velocity": [0.0, 0.0, 0.0],
+      "angularVelocity": [0.0, 0.0, 0.0],
+      "orientation": [0.0, 0.0, 0.0, 1.0],
+      "radius": 10.0,
+      "mass": 40000.0,
+      "restitution": 0.05,
+      "inertia": [1600000.0, 1600000.0, 1600000.0],
+      "fixed": true,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "earth",
+      "position": [80.0, 100.0, 0.0],
+      "velocity": [0.0, 0.0, 22.360679775],
+      "angularVelocity": [0.0, 0.0, 0.0],
+      "orientation": [0.0, 0.0, 0.0, 1.0],
+      "radius": 3.0,
+      "mass": 20.0,
+      "restitution": 0.05,
+      "inertia": [72.0, 72.0, 72.0],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "mars",
+      "position": [87.324157808, 100.0, 84.622996066],
+      "velocity": [-12.621705152, 0.0, 13.02458934],
+      "angularVelocity": [0.0, 0.0, 0.0],
+      "orientation": [0.0, 0.0, 0.0, 1.0],
+      "radius": 2.6,
+      "mass": 15.0,
+      "restitution": 0.05,
+      "inertia": [40.56, 40.56, 40.56],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "ship",
+      "position": [80.0, 100.0, -4.5],
+      "velocity": [0.0, 0.0, 22.360679775],
+      "angularVelocity": [0.0, 0.0, 0.0],
+      "orientation": [0.0, 0.0, 0.0, 1.0],
+      "radius": 0.6,
+      "mass": 0.5,
+      "restitution": 0.05,
+      "inertia": [0.072, 0.072, 0.072],
+      "fixed": false,
+      "sleeping": false
+    }
+  ]
+}

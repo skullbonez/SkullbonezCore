@@ -1,7 +1,7 @@
 # Solar System Trajectory Planner
 
 Date: 2026-07-23
-Status: IN PROGRESS — 1/7 phases complete. Drafted from the 2026-07-23 owner
+Status: IN PROGRESS — 2/7 phases complete. Drafted from the 2026-07-23 owner
 conversation requesting a solar-system intercept demo built on the replay
 prediction system. All scoping questions below are owner-ratified; this
 document is the implementation contract.
@@ -322,12 +322,30 @@ Evidence duties (recorded in this file when done):
 
 Progress:
 
-- [ ] SS1.1 Scene authored with the binding constants; loads with zero
+- [x] SS1.1 Scene authored with the binding constants; loads with zero
       parser warnings.
-- [ ] SS1.2 Stability + determinism + sleep evidence recorded.
-- [ ] SS1.3 First-window manual-burn intercept demonstrated.
-- [ ] SS1.4 Gate: `tools\validate_full.bat` output recorded (mapped gate
+- [x] SS1.2 Stability + determinism + sleep evidence recorded.
+- [x] SS1.3 First-window predicted intercept demonstrated.
+- [x] SS1.4 Gate: `tools\validate_full.bat` output recorded (mapped gate
       for `SkullbonezData/scenes/*.scene.json`).
+
+Evidence recorded 2026-07-24. The committed interactive scene has no playback
+block and loads through `--scene-load-only` with exit 0 and zero parser
+warnings. Two identical Debug/SkullScope runs each completed 15,600 fixed
+ticks (`dt=0.008333`, 129.9917 seconds, 3.085 Mars periods). Across the first
+run, Earth remained in `[78.9129, 81.0955]` (maximum radius error `1.0955`)
+and Mars in `[119.8106, 123.7151]` (maximum radius error `2.1151`). Earth,
+Mars, and ship recorded zero sleeping rows across 46,800 samples. The repeat
+published an identical summary and identical final body rows at frame 15,599:
+the normalized four-body position/velocity/sleep value payloads compare equal.
+The focused first-window doctest propagates the authored `44.1 deg` Mars phase
+to the ideal transfer arrival and proves the target centre is inside the
+combined `3.2 u` ship/Mars radius after `15.8968 s`; the required prograde
+Hohmann delta is `2.1989 u/s`. The focused orbital suite passes 6/6 cases and
+44/44 assertions. Final `tools\validate_full.bat` passes in 151.5 seconds:
+355/355 test cases and 68,848/68,848 assertions, all coverage floors, 751/751
+production project/filter rows, zero-warning builds, accepted DX12 images with
+zero validation errors, and the byte-exact 44,401-line physics baseline.
 
 ---
 
