@@ -61,7 +61,7 @@ and dependency direction.
 - [x] D0 — Reopen and design. Reproduce the eight-row inventory, inspect every
   definition and caller through CodeGraph/current source, and ratify the
   owner-safe decomposition above.
-- [ ] D1 — UI and scene composition. Split the Scene-tab handler by action and
+- [x] D1 — UI and scene composition. Split the Scene-tab handler by action and
   split scene-load runtime reactions from external presentation outputs. Prove
   both original 16-parameter rows are absent.
 - [ ] D2 — Replay input and activation. Reuse `ReplayWorkspaceFrameInput`, add
@@ -95,3 +95,12 @@ and dependency direction.
   `tools\validate_replay_visual_fidelity.bat`, and
   `tools\validate_replay_scrub.bat`.
 
+## Evidence
+
+- D1 threshold-16 scan: 8 → 6 rows; both UI/scene targets absent.
+- D1 touched-file comment audit: 9/9 checked, 0 deferred.
+- D1 focused Profile build: PASS in 11.5 s with zero warnings/errors after
+  removing one newly exposed unused combo-result parameter.
+- D1 `tools\validate_full.bat`: PASS in 135.1 s; CPU/coverage umbrella and
+  five runtime lanes pass, zero DX12 errors, accepted screenshots, and the
+  44,401-line physics CSV is byte-exact.

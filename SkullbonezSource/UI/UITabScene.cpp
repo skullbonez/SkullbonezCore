@@ -557,22 +557,17 @@ bool HandleOpenComboClick( UISceneTabState& state,
 }
 
 
-bool HandleContentClick( UISceneTabState& state,
-                         UIComboBox& combo,
-                         UIButton& resetSceneButton,
-                         UIButton& resetDefaultsButton,
-                         UIButton& saveDefaultsButton,
-                         InGameUIInputResult& result,
-                         const Runtime::InputKeySnapshot& keys,
-                         int& activeSlider,
-                         const char* const* sceneOptions,
-                         int sceneOptionCount,
-                         int selectedSceneOption,
-                         int mouseX,
-                         int mouseY,
-                         float contentX,
-                         float rowBase,
-                         float contentW )
+bool HandleHeaderClick( UISceneTabState& state,
+                        UIComboBox& combo,
+                        UIButton& resetSceneButton,
+                        UIButton& resetDefaultsButton,
+                        UIButton& saveDefaultsButton,
+                        InGameUIInputResult& result,
+                        int mouseX,
+                        int mouseY,
+                        float contentX,
+                        float rowBase,
+                        float contentW )
 {
     // Invariant: Scene selection, reset, and save buttons return command
     // intents. Scene load/reset side effects stay outside UI.
@@ -601,6 +596,21 @@ bool HandleContentClick( UISceneTabState& state,
         CloseCombo( state, combo );
         return true;
     }
+    return false;
+}
+
+
+bool HandleClosedComboClick( UISceneTabState& state,
+                             UIComboBox& combo,
+                             const Runtime::InputKeySnapshot& keys,
+                             const char* const* sceneOptions,
+                             int sceneOptionCount,
+                             int selectedSceneOption,
+                             int mouseX,
+                             int mouseY )
+{
+    // Invariant: HandleHeaderClick establishes the shared draw/hit-test bounds
+    // before this closed-combo action runs.
     if ( combo.HitBox( mouseX, mouseY ) )
     {
         ClearFilter( state );
@@ -613,6 +623,19 @@ bool HandleContentClick( UISceneTabState& state,
         combo.SetOpen( true );
         return true;
     }
+    return false;
+}
+
+
+bool HandleTimeScaleClick( UISceneTabState& state,
+                           InGameUIInputResult& result,
+                           int& activeSlider,
+                           int mouseX,
+                           int mouseY,
+                           float contentX,
+                           float rowBase,
+                           float contentW )
+{
     state.timeScaleSlider.SetBounds( contentX, rowBase + ( UI_SCENE_TIME_SCALE_SLIDER_Y - 42.0f ), contentW, 34.0f );
     if ( state.timeScaleSlider.HitTest( mouseX, mouseY ) )
     {

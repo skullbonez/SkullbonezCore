@@ -1171,22 +1171,39 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( Core::Profiler* profi
             const float contentX = static_cast<float>( inputX + contentPad );
             const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
             const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-            const bool sceneClickHandled = SceneTab::HandleContentClick( m_sceneTab,
-                                                                         m_sceneCombo,
-                                                                         m_resetSceneButton,
-                                                                         m_resetDefaultsButton,
-                                                                         m_saveDefaultsButton,
-                                                                         result,
-                                                                         deviceFrame.keys,
-                                                                         m_activeSlider,
-                                                                         sceneOptions,
-                                                                         sceneOptionCount,
-                                                                         selectedSceneOption,
-                                                                         m_mouseX,
-                                                                         m_mouseY,
-                                                                         contentX,
-                                                                         rowBase,
-                                                                         contentW );
+            bool sceneClickHandled = SceneTab::HandleHeaderClick( m_sceneTab,
+                                                                  m_sceneCombo,
+                                                                  m_resetSceneButton,
+                                                                  m_resetDefaultsButton,
+                                                                  m_saveDefaultsButton,
+                                                                  result,
+                                                                  m_mouseX,
+                                                                  m_mouseY,
+                                                                  contentX,
+                                                                  rowBase,
+                                                                  contentW );
+            if ( !sceneClickHandled )
+            {
+                sceneClickHandled = SceneTab::HandleClosedComboClick( m_sceneTab,
+                                                                      m_sceneCombo,
+                                                                      deviceFrame.keys,
+                                                                      sceneOptions,
+                                                                      sceneOptionCount,
+                                                                      selectedSceneOption,
+                                                                      m_mouseX,
+                                                                      m_mouseY );
+            }
+            if ( !sceneClickHandled )
+            {
+                sceneClickHandled = SceneTab::HandleTimeScaleClick( m_sceneTab,
+                                                                    result,
+                                                                    m_activeSlider,
+                                                                    m_mouseX,
+                                                                    m_mouseY,
+                                                                    contentX,
+                                                                    rowBase,
+                                                                    contentW );
+            }
             m_rendererCombo.Close();
             if ( sceneClickHandled )
             {

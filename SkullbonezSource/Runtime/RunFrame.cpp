@@ -1126,22 +1126,25 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
                                                                      m_renderer },
                                   sceneLoadOutputs )
                            .ok;
-            ApplySceneLoadConsumerOutputs( sceneLoadOutputs,
-                                           m_window,
-                                           *m_operatorUi,
-                                           *m_validationHarness,
-                                           m_launchOptions,
-                                           m_renderBackendView.renderDevice,
-                                           m_renderer.VsyncEnabled(),
-                                           m_timers,
-                                           *m_overlayDiagnostics,
-                                           m_sceneController,
-                                           m_inputRouter,
-                                           m_interaction,
-                                           m_camera,
-                                           m_attachedCamera,
-                                           m_runtimeTools,
-                                           m_replayRuntime );
+            ApplySceneLoadRuntimeReactions( sceneLoadOutputs,
+                                            m_launchOptions,
+                                            m_timers,
+                                            *m_overlayDiagnostics,
+                                            m_sceneController,
+                                            m_inputRouter,
+                                            m_interaction,
+                                            m_camera,
+                                            m_attachedCamera,
+                                            m_runtimeTools,
+                                            m_replayRuntime );
+            ApplySceneLoadPresentationOutputs( sceneLoadOutputs,
+                                               m_window,
+                                               *m_operatorUi,
+                                               *m_validationHarness,
+                                               m_launchOptions,
+                                               m_renderBackendView.renderDevice,
+                                               m_renderer.VsyncEnabled(),
+                                               m_sceneController );
         }
         if ( !advanced )
         {
@@ -1272,22 +1275,25 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
                                                                       m_renderer },
                                    sceneLoadOutputs )
                             .ok;
-        ApplySceneLoadConsumerOutputs( sceneLoadOutputs,
-                                       m_window,
-                                       *m_operatorUi,
-                                       *m_validationHarness,
-                                       m_launchOptions,
-                                       m_renderBackendView.renderDevice,
-                                       m_renderer.VsyncEnabled(),
-                                       m_timers,
-                                       *m_overlayDiagnostics,
-                                       m_sceneController,
-                                       m_inputRouter,
-                                       m_interaction,
-                                       m_camera,
-                                       m_attachedCamera,
-                                       m_runtimeTools,
-                                       m_replayRuntime );
+        ApplySceneLoadRuntimeReactions( sceneLoadOutputs,
+                                        m_launchOptions,
+                                        m_timers,
+                                        *m_overlayDiagnostics,
+                                        m_sceneController,
+                                        m_inputRouter,
+                                        m_interaction,
+                                        m_camera,
+                                        m_attachedCamera,
+                                        m_runtimeTools,
+                                        m_replayRuntime );
+        ApplySceneLoadPresentationOutputs( sceneLoadOutputs,
+                                           m_window,
+                                           *m_operatorUi,
+                                           *m_validationHarness,
+                                           m_launchOptions,
+                                           m_renderBackendView.renderDevice,
+                                           m_renderer.VsyncEnabled(),
+                                           m_sceneController );
     }
     if ( loadSucceeded && result.restartSimulationTimerAfterLoad )
     {

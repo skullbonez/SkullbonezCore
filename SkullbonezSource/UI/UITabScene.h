@@ -108,22 +108,35 @@ bool HandleOpenComboClick( UISceneTabState& state,
                            float rowBase,
                            float contentW );
 
-bool HandleContentClick( UISceneTabState& state,
-                         UIComboBox& combo,
-                         UIButton& resetSceneButton,
-                         UIButton& resetDefaultsButton,
-                         UIButton& saveDefaultsButton,
-                         InGameUIInputResult& result,
-                         const Runtime::InputKeySnapshot& keys,
-                         int& activeSlider,
-                         const char* const* sceneOptions,
-                         int sceneOptionCount,
-                         int selectedSceneOption,
-                         int mouseX,
-                         int mouseY,
-                         float contentX,
-                         float rowBase,
-                         float contentW );
+bool HandleHeaderClick( UISceneTabState& state,
+                        UIComboBox& combo,
+                        UIButton& resetSceneButton,
+                        UIButton& resetDefaultsButton,
+                        UIButton& saveDefaultsButton,
+                        InGameUIInputResult& result,
+                        int mouseX,
+                        int mouseY,
+                        float contentX,
+                        float rowBase,
+                        float contentW );
+
+bool HandleClosedComboClick( UISceneTabState& state,
+                             UIComboBox& combo,
+                             const Runtime::InputKeySnapshot& keys,
+                             const char* const* sceneOptions,
+                             int sceneOptionCount,
+                             int selectedSceneOption,
+                             int mouseX,
+                             int mouseY );
+
+bool HandleTimeScaleClick( UISceneTabState& state,
+                           InGameUIInputResult& result,
+                           int& activeSlider,
+                           int mouseX,
+                           int mouseY,
+                           float contentX,
+                           float rowBase,
+                           float contentW );
 
 bool UpdateActiveSlider( UISceneTabState& state, int activeSlider, int mouseX, InGameUIInputResult& result );
 bool CommitActiveSlider( UISceneTabState& state, int activeSlider, InGameUIInputResult& result );

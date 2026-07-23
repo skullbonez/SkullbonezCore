@@ -1094,22 +1094,25 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
             sceneLoadOutputs.uiActivation.forceVisible = false;
             sceneLoadOutputs.uiActivation.forceUnminimized = false;
         }
-        ApplySceneLoadConsumerOutputs( sceneLoadOutputs,
-                                       *window,
-                                       ui,
-                                       presentationOwners.validationHarness,
-                                       launchOptions,
-                                       renderBackendView.renderDevice,
-                                       renderer.VsyncEnabled(),
-                                       timers,
-                                       sceneOwners.overlays,
-                                       sceneController,
-                                       inputRouter,
-                                       interaction,
-                                       camera,
-                                       attachedCamera,
-                                       runtimeTools,
-                                       replayRuntime );
+        ApplySceneLoadRuntimeReactions( sceneLoadOutputs,
+                                        launchOptions,
+                                        timers,
+                                        sceneOwners.overlays,
+                                        sceneController,
+                                        inputRouter,
+                                        interaction,
+                                        camera,
+                                        attachedCamera,
+                                        runtimeTools,
+                                        replayRuntime );
+        ApplySceneLoadPresentationOutputs( sceneLoadOutputs,
+                                           *window,
+                                           ui,
+                                           presentationOwners.validationHarness,
+                                           launchOptions,
+                                           renderBackendView.renderDevice,
+                                           renderer.VsyncEnabled(),
+                                           sceneController );
         return loaded;
     };
 

@@ -13,18 +13,21 @@ plan inventory.
 | Branch | `nightrunner-22nd-JUL-26` |
 | Current baseline | Wide-signature reduction is closed: 301 → 285, all 16 ruled defects removed, every survivor ruled, and the no-bag review is clear. Legacy remains the development default. |
 | Current objective | Complete `wide-signature-decomposition-round-2`: remove all eight current threshold-16 signatures without owner bags. |
-| Active/future progress | 1 / 5 live tasks; 20%. |
+| Active/future progress | 2 / 5 live tasks; 40%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | W4 closure `validate_full` passes in 102.49 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | W4 reconciliation is 285/285 with zero defect survivors; independent review PASS. All Replay gates and the DX12 stress lane pass. |
+| Last broad local gate | D1 `validate_full` passes in 135.1 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
+| Validation for current edits | D1 threshold-16 scan is 8 → 6 with both UI/scene targets absent; Profile and full gates pass. |
 
 ## Live Queue
 
-NOW. `wide-signature-decomposition-round-2` is active at D0 complete (1/5).
+NOW. `wide-signature-decomposition-round-2` is active at D1 complete (2/5).
 The owner reopened the eight surviving threshold-16 rows with new evidence:
 existing owner-free Replay frame input, a redundant prediction forwarding
-chain, and separable UI/scene phases. D1 splits UI scene-tab input and scene-load
-runtime reactions from external presentation without a context bag. The prior
+chain, and separable UI/scene phases. D1 split UI scene-tab input and scene-load
+runtime reactions from external presentation without a context bag; the
+threshold-16 inventory is now six Replay-only rows. D2 reuses the existing
+owner-free Replay workspace frame input and adds only bounded read-only source
+views/scalar activation policy. The prior
 2026-07-22 architecture follow-up round-2 campaign remains closed. Wide
 signature reduction removed all 16 ruled defect rows without introducing a
 context bag; the final 285 rows all retain explicit owner rulings. The closure
@@ -317,7 +320,7 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Complete `wide-signature-decomposition-round-2` D1. Split the Scene-tab handler
-by action and split scene-load runtime reactions from external presentation;
-then prove both original 16-parameter rows are absent. Do not introduce a
-parameter bag or retain mutable owners in an aggregate.
+Complete `wide-signature-decomposition-round-2` D2. Reuse
+`ReplayWorkspaceFrameInput` across scrubber/cause-tree/velocity input and group
+only bounded read-only source values plus loaded-presentation scalar policy.
+Keep every mutable owner explicit and do not add a context/services bag.
