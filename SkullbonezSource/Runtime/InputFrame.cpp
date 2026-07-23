@@ -32,6 +32,7 @@ Related:
 #include "AttachedCameraController.h"
 #include "ApplicationExitState.h"
 #include "Diagnostics/DiagnosticsRuntime.h"
+#include "Diagnostics/DiagnosticsPhysicsUI.h"
 #include "Editor/EditorTools.h"
 #include "InputController.Bindings.h"
 #include "InputController.h"

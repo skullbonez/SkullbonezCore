@@ -51,7 +51,6 @@ class Dx12Diagnostics;
 namespace UI
 {
 class InGameUI;
-struct UIPhysicsCommands;
 } // namespace UI
 namespace Runtime
 {
@@ -92,34 +91,12 @@ struct DiagnosticsUIKeyboardShortcutResult
     bool releaseMouseToUI = false;                  // True when Run should refresh cursor ownership and release capture.
 };
 
-struct DiagnosticsPhysicsOverlayUICommandResult
-{
-    bool toggledCollisionVisualizer = false;
-    bool toggledPhysicsDebugFlags = false;
-    bool steppedPipelinePrevious = false;
-    bool steppedPipelineNext = false;
-    bool toggledPhysicsDebugTransparent = false;
-    bool toggledBroadphaseOverlay = false;
-};
-
-struct DiagnosticsPhysicsDebugValueUICommandResult
-{
-    bool setAlpha = false;
-    bool setContactLinger = false;
-};
-
-void StepDiagnosticsPhysicsPipelineStage( OverlayDebugState& debug, int direction );
 bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext context,
                                         RuntimeInputAction action,
                                         bool wasPressed );
 DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( DiagnosticsUIKeyboardShortcutContext context,
                                                                          RuntimeInputAction action,
                                                                          bool wasPressed );
-DiagnosticsPhysicsOverlayUICommandResult
-ApplyDiagnosticsPhysicsOverlayUICommands( OverlayDebugState& debug, const UI::UIPhysicsCommands& commands );
-bool ApplyDiagnosticsTerrainContactProbeUICommand( OverlayDebugState& debug, const UI::UIPhysicsCommands& commands );
-DiagnosticsPhysicsDebugValueUICommandResult
-ApplyDiagnosticsPhysicsDebugValueUICommands( OverlayDebugState& debug, const UI::UIPhysicsCommands& commands );
 
 class DiagnosticsRuntime
 {

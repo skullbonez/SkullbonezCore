@@ -240,6 +240,29 @@ rules, and no behavior, layout, binding, or rendering output changes.
   command has zero source/test rows. No authored data, baseline, golden,
   config, schema, or shader changed.
 
+  Independent closure review reopened U3 because the original focused case
+  proved the 13-row UI command policy but stopped before Runtime applied the
+  command or published the resulting status. The remediation extracted the
+  cohesive `DiagnosticsPhysicsUI` Runtime owner: it is now the single mapping
+  point from `UIPhysicsDebugOverlay` to Physics flags and the single builder of
+  `UIPhysicsDebugStatus`. `UiTextPass` consumes that builder instead of carrying
+  a second inline decode.
+
+  The new owner-side case drives axes, contacts, sleep, pipeline, collision,
+  transparency, broadphase, terrain-contact, pipeline wrapping, alpha/linger
+  clamping, and toggle-off behavior through the exact command-application and
+  status-publication functions. Together with the original row-policy case it
+  passes 2 cases / 58 assertions in 2.2 s. The focused Profile executable build
+  passes in 11.7 s with zero warnings/errors; all nine remediation-touched
+  source-bearing files pass the comment audit with zero deferrals.
+  `tools\validate_ui.bat` passes in 42.3 s. The final clean-exit
+  `tools\validate_full.bat` run passes in 101.8 s with 749/749 production
+  project/filter items, all mandatory CPU/coverage lanes, zero DX12 validation
+  errors, accepted committed captures, and the byte-exact 44,401-line physics
+  CSV. Two earlier full-gate attempts stopped honestly at missing production
+  and test filter-policy metadata; both metadata defects were corrected and
+  their direct checks pass before the clean full rerun.
+
 - [x] **U4 — Proof, rule, and guard.** Add the ruling and its proof to
   `AGENTS.md` beside the existing dependency proofs:
   `rg -n '^#include[[:space:]]+.*Runtime/' SkullbonezSource/UI` must return

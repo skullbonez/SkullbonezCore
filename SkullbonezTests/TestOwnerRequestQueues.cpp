@@ -47,6 +47,8 @@ Related:
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Runtime/CaptureController.h"
+#include "../SkullbonezSource/Runtime/Diagnostics/DiagnosticsPhysicsUI.h"
+#include "../SkullbonezSource/Runtime/OverlayDebugState.h"
 #include "../SkullbonezSource/Runtime/RenderDefaultsStore.h"
 #include "../SkullbonezSource/Runtime/RunTimerState.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorLayoutPolicy.h"
@@ -100,6 +102,81 @@ TEST_CASE( "Physics tab emits one typed request for every toggle row" )
     UIPhysicsCommands invalid;
     CHECK_FALSE( PhysicsTab::EmitPhysicsToggleCommand( -1, invalid ) );
     CHECK_FALSE( PhysicsTab::EmitPhysicsToggleCommand( 13, invalid ) );
+}
+
+TEST_CASE( "Runtime applies Physics-tab diagnostics and publishes matching detached status" )
+{
+    using namespace SkullbonezCore::Physics;
+    using namespace SkullbonezCore::UI;
+
+    OverlayDebugState debug;
+    UIPhysicsCommands commands;
+
+    commands.physicsDebugOverlayToToggle = UIPhysicsDebugOverlay::Axes;
+    CHECK( ApplyDiagnosticsPhysicsOverlayUICommands( debug, commands ).toggledPhysicsDebugFlags );
+    UIPhysicsDebugStatus status = BuildDiagnosticsPhysicsUIStatus( debug );
+    CHECK( status.axes );
+    CHECK( status.activeFlags == PHYSICS_DEBUG_AXES );
+
+    commands = {};
+    commands.physicsDebugOverlayToToggle = UIPhysicsDebugOverlay::Contacts;
+    CHECK( ApplyDiagnosticsPhysicsOverlayUICommands( debug, commands ).toggledPhysicsDebugFlags );
+    commands.physicsDebugOverlayToToggle = UIPhysicsDebugOverlay::Sleep;
+    CHECK( ApplyDiagnosticsPhysicsOverlayUICommands( debug, commands ).toggledPhysicsDebugFlags );
+    commands.physicsDebugOverlayToToggle = UIPhysicsDebugOverlay::Pipeline;
+    CHECK( ApplyDiagnosticsPhysicsOverlayUICommands( debug, commands ).toggledPhysicsDebugFlags );
+    status = BuildDiagnosticsPhysicsUIStatus( debug );
+    CHECK( status.axes );
+    CHECK( status.contacts );
+    CHECK( status.sleep );
+    CHECK( status.pipeline );
+
+    commands = {};
+    commands.toggleCollisionVisualizer = true;
+    commands.togglePhysicsDebugTransparent = true;
+    commands.toggleBroadphaseOverlay = true;
+    const DiagnosticsPhysicsOverlayUICommandResult overlayResult =
+        ApplyDiagnosticsPhysicsOverlayUICommands( debug, commands );
+    CHECK( overlayResult.toggledCollisionVisualizer );
+    CHECK( overlayResult.toggledPhysicsDebugTransparent );
+    CHECK( overlayResult.toggledBroadphaseOverlay );
+    status = BuildDiagnosticsPhysicsUIStatus( debug );
+    CHECK( status.collisionVisualizer );
+    CHECK( status.transparent );
+    CHECK( status.broadphase );
+
+    commands = {};
+    commands.toggleTerrainContactProbe = true;
+    CHECK( ApplyDiagnosticsTerrainContactProbeUICommand( debug, commands ) );
+    status = BuildDiagnosticsPhysicsUIStatus( debug );
+    CHECK( status.terrainContact );
+
+    commands = {};
+    commands.stepPhysicsPipelinePrevious = true;
+    CHECK( ApplyDiagnosticsPhysicsOverlayUICommands( debug, commands ).steppedPipelinePrevious );
+    status = BuildDiagnosticsPhysicsUIStatus( debug );
+    CHECK( status.pipeline );
+    CHECK( status.pipelineStageCount == static_cast<int>( PhysicsPipelineStage::Count ) );
+    CHECK( status.pipelineStageIndex == status.pipelineStageCount - 1 );
+    CHECK( status.pipelineStageName[0] != '\0' );
+
+    commands = {};
+    commands.requestedPhysicsDebugAlpha = 2.0f;
+    commands.requestedPhysicsDebugContactLinger = 8.0f;
+    const DiagnosticsPhysicsDebugValueUICommandResult valueResult =
+        ApplyDiagnosticsPhysicsDebugValueUICommands( debug, commands );
+    CHECK( valueResult.setAlpha );
+    CHECK( valueResult.setContactLinger );
+    status = BuildDiagnosticsPhysicsUIStatus( debug );
+    CHECK( status.alpha == doctest::Approx( 1.0f ) );
+    CHECK( status.contactLinger == doctest::Approx( 5.0f ) );
+
+    commands = {};
+    commands.physicsDebugOverlayToToggle = UIPhysicsDebugOverlay::Axes;
+    CHECK( ApplyDiagnosticsPhysicsOverlayUICommands( debug, commands ).toggledPhysicsDebugFlags );
+    status = BuildDiagnosticsPhysicsUIStatus( debug );
+    CHECK_FALSE( status.axes );
+    CHECK( status.contacts );
 }
 
 TEST_CASE( "Scene lifecycle accepts only ordered phases within one generation" )

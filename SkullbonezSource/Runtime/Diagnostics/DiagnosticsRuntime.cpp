@@ -33,6 +33,7 @@ Related:
   - SkullbonezSource/Runtime/Replay/ReplayPresentation.cpp
 */
 #include "DiagnosticsRuntime.h"
+#include "DiagnosticsPhysicsUI.h"
 
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../InputController.h"
@@ -42,10 +43,8 @@ Related:
 #include "../../Physics/PhysicsDebugData.h"
 #include "../../Rendering/DX12/Dx12Diagnostics.h"
 #include "../../Scene/AuthoredScene.h"
-#include "../../UI/UICommands.h"
 #include "../../UI/UI.h"
 
-#include <algorithm>
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
@@ -396,24 +395,6 @@ void WriteReplayTrajectoryCounters( FILE* file,
 }
 } // namespace
 
-void StepDiagnosticsPhysicsPipelineStage( OverlayDebugState& debug, int direction )
-{
-    const int stageCount = static_cast<int>( Physics::PhysicsPipelineStage::Count );
-    if ( stageCount <= 0 || direction == 0 )
-    {
-        return;
-    }
-
-    debug.physicsDebugFlags |= Physics::PHYSICS_DEBUG_PIPELINE;
-    int nextStage = ( debug.physicsDebugPipelineStageCursor + direction ) % stageCount;
-    if ( nextStage < 0 )
-    {
-        nextStage += stageCount;
-    }
-    debug.physicsDebugPipelineStageCursor = nextStage;
-}
-
-
 bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext context,
                                         RuntimeInputAction action,
                                         bool wasPressed )
@@ -604,95 +585,6 @@ DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( Diagnos
     default:
         return result;
     }
-}
-
-
-DiagnosticsPhysicsOverlayUICommandResult
-ApplyDiagnosticsPhysicsOverlayUICommands( OverlayDebugState& debug, const UI::UIPhysicsCommands& commands )
-{
-    // Why: Physics-tab diagnostics mutate presentation/debug state only. Keeping
-    // them here prevents UI command application from reopening direct debug-field
-    // ownership in RunInput.
-    DiagnosticsPhysicsOverlayUICommandResult result;
-    if ( commands.toggleCollisionVisualizer )
-    {
-        debug.isCollisionVisualizer = !debug.isCollisionVisualizer;
-        result.toggledCollisionVisualizer = true;
-    }
-    uint32_t physicsDebugFlag = Physics::PHYSICS_DEBUG_NONE;
-    switch ( commands.physicsDebugOverlayToToggle )
-    {
-    case UI::UIPhysicsDebugOverlay::Axes:
-        physicsDebugFlag = Physics::PHYSICS_DEBUG_AXES;
-        break;
-    case UI::UIPhysicsDebugOverlay::Contacts:
-        physicsDebugFlag = Physics::PHYSICS_DEBUG_CONTACTS;
-        break;
-    case UI::UIPhysicsDebugOverlay::Sleep:
-        physicsDebugFlag = Physics::PHYSICS_DEBUG_SLEEP;
-        break;
-    case UI::UIPhysicsDebugOverlay::Pipeline:
-        physicsDebugFlag = Physics::PHYSICS_DEBUG_PIPELINE;
-        break;
-    case UI::UIPhysicsDebugOverlay::None:
-        break;
-    }
-    if ( physicsDebugFlag != Physics::PHYSICS_DEBUG_NONE )
-    {
-        debug.physicsDebugFlags ^= physicsDebugFlag;
-        result.toggledPhysicsDebugFlags = true;
-    }
-    if ( commands.stepPhysicsPipelinePrevious )
-    {
-        StepDiagnosticsPhysicsPipelineStage( debug, -1 );
-        result.steppedPipelinePrevious = true;
-    }
-    if ( commands.stepPhysicsPipelineNext )
-    {
-        StepDiagnosticsPhysicsPipelineStage( debug, 1 );
-        result.steppedPipelineNext = true;
-    }
-    if ( commands.togglePhysicsDebugTransparent )
-    {
-        debug.isPhysicsDebugTransparent = !debug.isPhysicsDebugTransparent;
-        result.toggledPhysicsDebugTransparent = true;
-    }
-    if ( commands.toggleBroadphaseOverlay )
-    {
-        debug.isBroadphaseOverlay = !debug.isBroadphaseOverlay;
-        result.toggledBroadphaseOverlay = true;
-    }
-    return result;
-}
-
-
-bool ApplyDiagnosticsTerrainContactProbeUICommand( OverlayDebugState& debug, const UI::UIPhysicsCommands& commands )
-{
-    if ( !commands.toggleTerrainContactProbe )
-    {
-        return false;
-    }
-
-    debug.physicsDebugFlags ^= Physics::PHYSICS_DEBUG_TERRAIN_CONTACT;
-    return true;
-}
-
-
-DiagnosticsPhysicsDebugValueUICommandResult
-ApplyDiagnosticsPhysicsDebugValueUICommands( OverlayDebugState& debug, const UI::UIPhysicsCommands& commands )
-{
-    DiagnosticsPhysicsDebugValueUICommandResult result;
-    if ( commands.requestedPhysicsDebugAlpha >= 0.0f )
-    {
-        debug.physicsDebugAlpha = std::clamp( commands.requestedPhysicsDebugAlpha, 0.05f, 1.0f );
-        result.setAlpha = true;
-    }
-    if ( commands.requestedPhysicsDebugContactLinger >= 0.0f )
-    {
-        debug.physicsDebugContactLinger = std::clamp( commands.requestedPhysicsDebugContactLinger, 0.0f, 5.0f );
-        result.setContactLinger = true;
-    }
-    return result;
 }
 
 

@@ -481,6 +481,7 @@ RUNTIME_TOOLS_PREFIXES = (
 
 RUNTIME_DIAGNOSTICS_PREFIXES = (
     "DiagnosticsController",
+    "DiagnosticsPhysicsUI",
     "DiagnosticsRuntime",
     "ImGuiEditorInputPolicy",
     "ImGuiEditorOwner",

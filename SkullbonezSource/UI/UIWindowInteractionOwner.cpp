@@ -4,7 +4,7 @@ Purpose:
   Implements stateful in-game UI window and widget interaction ownership.
 
 Summary:
-  This owner translates device frames into typed UI command values and retains
+  This owner translates detached UI input snapshots into typed command values and retains
   the window, widget, tab, and gesture state shared with drawing. InGameUI
   borrows only a synchronous WidgetView and is never reachable from this owner.
 
@@ -34,7 +34,6 @@ Related:
 #include <algorithm>
 #include <cmath>
 
-using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::UI;
 using namespace SkullbonezCore::UI::Widgets;
 using namespace SkullbonezCore::UI::Layout;

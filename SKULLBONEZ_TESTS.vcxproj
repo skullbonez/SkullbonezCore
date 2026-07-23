@@ -270,6 +270,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\CaptureSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RenderDefaultsStore.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsPhysicsUI.cpp" />
     <ClCompile Include="SkullbonezSource\UI\OperatorEditorExchange.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIInput.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorLayoutPolicy.cpp" />

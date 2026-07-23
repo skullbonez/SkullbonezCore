@@ -11,21 +11,22 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-23rd-JUL-26` |
-| Current baseline | UI/runtime U4 is complete: `AGENTS.md` ratifies UI below Runtime, and every standing dependency/Replay include proof returns zero rows. Legacy remains the development default. |
-| Current objective | Implement `ui-runtime-separation` U5: one independent ownership review, remediate any findings, run final gates, and publish closure evidence. |
+| Current baseline | UI/runtime U4 is complete and the U5 review's sole blocking evidence gap is remediated: `DiagnosticsPhysicsUI` proves typed command application through detached status publication. Legacy remains the development default. |
+| Current objective | Finish `ui-runtime-separation` U5 closure evidence, rerun the exact standing proofs, commit, push, and advance to runtime-package decomposition R1. |
 | Active/future progress | 10/16 registered architecture follow-up tasks; 63%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | UI/runtime U3 `validate_full` passes in 127.12 s: all CPU/coverage floors, 747/747 project/filter items, zero-warning Profile/Debug builds, accepted DX12 images with zero errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | U4 is documentation-only, so no repository validation is required. All five exact dependency/UI/Replay include proofs pass in 0.19 s with zero rows. |
+| Last broad local gate | UI/runtime U3 review remediation `validate_full` passes with exit 0 in 101.8 s: 749/749 project/filter items, all CPU/coverage floors, zero-warning builds, accepted DX12 images with zero errors, and byte-exact 44,401-line physics CSV. |
+| Validation for current edits | Focused Profile build passes in 11.7 s; two physics-UI owner cases pass 58 assertions; `validate_ui` passes in 42.3 s; all nine touched source-bearing files pass comment audit with zero deferrals. |
 
 ## Live Queue
 
-NOW. `ui-runtime-separation` is active at 4/5. U4 ratifies UI as a
-presentation library below Runtime: Runtime may compose UI, while UI consumes
-detached values, emits typed commands, and never includes Runtime. Core,
-Physics/Rendering, Gameplay, UI, and downward Replay include proofs all return
-zero rows. U5 runs the plan's single independent ownership review, remediates
-any findings, runs final gates, and publishes the closure report.
+NOW. `ui-runtime-separation` is active at 4/5. Its single independent review
+found no architecture defect but reopened U3's evidence because the row-policy
+test stopped before Runtime application and status publication.
+`DiagnosticsPhysicsUI` now owns both mappings, and the new owner-side case
+closes that command-to-state-to-status path. Focused, UI, and broad gates pass;
+U5 now records the review/remediation, reruns all exact proofs, and publishes
+the closure report.
 
 NOW. `wide-signature-parameter-bag-remediation` is complete (6/6).
 The owner rejected replacements such as `RenderModelPassInput` that merely

@@ -537,6 +537,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeDiagnostics.cpp">
       <Filter>Source Files\Runtime\Diagnostics</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsPhysicsUI.cpp">
+      <Filter>Source Files\Runtime\Diagnostics</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.cpp">
       <Filter>Source Files\Runtime\Diagnostics</Filter>
     </ClCompile>
@@ -1038,6 +1041,9 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RunLaunchOptions.Renderer.h">
       <Filter>Header Files\Runtime\Lifecycle</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsPhysicsUI.h">
+      <Filter>Header Files\Runtime\Diagnostics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.h">
       <Filter>Header Files\Runtime\Diagnostics</Filter>

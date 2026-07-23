@@ -54,6 +54,7 @@ Related:
 #include "../Core/Allocation/RuntimeReserveAllocator.h"
 #include "../Core/TracyClientOwner.h"
 #include "Diagnostics/DiagnosticsRuntime.h"
+#include "Diagnostics/DiagnosticsPhysicsUI.h"
 #include "Replay/ReplayOverlayRenderer.h"
 #include "../Core/WorkerPool.h"
 #include "../Physics/PhysicsDebugData.h"
@@ -67,8 +68,6 @@ Related:
 #include "../UI/UIStyle.h"
 
 using namespace SkullbonezCore::Runtime;
-using SkullbonezCore::Physics::PhysicsPipelineStage;
-using SkullbonezCore::Physics::PhysicsPipelineStageName;
 using SkullbonezCore::Text::Text2d;
 using SkullbonezCore::UI::InGameUIFrameData;
 using SkullbonezCore::UI::InGameUITab;
@@ -881,33 +880,8 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.worldGravity = state.world.Environment().GetGravity();
         UIData.worldFluidHeight = state.world.Environment().GetFluidSurfaceHeight();
         UIData.worldFluidDensity = state.world.Environment().GetFluidDensity();
-        // Boundary: publish a detached UI value and decode Physics-owned bits
-        // here; the presentation tab never imports the concrete visualizer.
-        UIData.physicsDebug.activeFlags = state.debug.physicsDebugFlags;
-        UIData.physicsDebug.axes = ( state.debug.physicsDebugFlags & Physics::PHYSICS_DEBUG_AXES ) != 0u;
-        UIData.physicsDebug.contacts = ( state.debug.physicsDebugFlags & Physics::PHYSICS_DEBUG_CONTACTS ) != 0u;
-        UIData.physicsDebug.sleep = ( state.debug.physicsDebugFlags & Physics::PHYSICS_DEBUG_SLEEP ) != 0u;
-        UIData.physicsDebug.pipeline = ( state.debug.physicsDebugFlags & Physics::PHYSICS_DEBUG_PIPELINE ) != 0u;
-        UIData.physicsDebug.terrainContact =
-            ( state.debug.physicsDebugFlags & Physics::PHYSICS_DEBUG_TERRAIN_CONTACT ) != 0u;
-        {
-            const int stageCount = static_cast<int>( PhysicsPipelineStage::Count );
-            int stageIndex = stageCount > 0 ? state.debug.physicsDebugPipelineStageCursor % stageCount : 0;
-            if ( stageIndex < 0 )
-            {
-                stageIndex += stageCount;
-            }
-            UIData.physicsDebug.pipelineStageName =
-                PhysicsPipelineStageName( static_cast<PhysicsPipelineStage>( stageIndex ) );
-            UIData.physicsDebug.pipelineStageIndex = stageIndex;
-            UIData.physicsDebug.pipelineStageCount = stageCount;
-        }
-        UIData.physicsDebug.alpha = state.debug.physicsDebugAlpha;
-        UIData.physicsDebug.contactLinger = state.debug.physicsDebugContactLinger;
+        UIData.physicsDebug = BuildDiagnosticsPhysicsUIStatus( state.debug );
         UIData.physicsSleepEnabled = state.world.Physics().IsSleepEnabled();
-        UIData.physicsDebug.collisionVisualizer = state.debug.isCollisionVisualizer;
-        UIData.physicsDebug.transparent = state.debug.isPhysicsDebugTransparent;
-        UIData.physicsDebug.broadphase = state.debug.isBroadphaseOverlay;
         const Gameplay::TornadoFieldConfig& tornadoField = state.world.Tornado().GetFieldConfig();
         UIData.tornadoEnabled = tornadoField.enabled;
         UIData.tornadoVisualShell = state.world.Tornado().VisualSettings().enabled && tornadoField.enabled;

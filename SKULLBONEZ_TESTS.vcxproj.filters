@@ -73,6 +73,9 @@
     <Filter Include="Source Files\Runtime\Editor">
       <UniqueIdentifier>{A84A2248-37E9-4E32-9D84-7709D31D8802}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Runtime\Diagnostics">
+      <UniqueIdentifier>{8CC136D9-D141-47F9-AD18-4B33CD3AD0F3}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Scene">
       <UniqueIdentifier>{B4027C52-533E-4F44-9B93-8775E7F77737}</UniqueIdentifier>
     </Filter>
@@ -146,6 +149,9 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UIInput.cpp">
       <Filter>Source Files\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsPhysicsUI.cpp">
+      <Filter>Source Files\Runtime\Diagnostics</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorLayoutPolicy.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
