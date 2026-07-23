@@ -4,7 +4,7 @@ Date: 2026-07-23
 Status: IN PROGRESS — drafted from the 2026-07-23 from-source architecture review of
 `nightrunner-22nd-JUL-26`. Registered in `MASTER-PLAN.md` on 2026-07-23 as
 plan 3 of the Architecture Follow-Up Campaign Round 3; starts after
-`ui-runtime-separation` closes. 1/5 phases complete.
+`ui-runtime-separation` closes. 2/5 phases complete.
 Impact area: `SkullbonezSource/Runtime/` package structure, includes, project
 files, intra-Runtime dependency rules
 Owner: runtime
@@ -86,8 +86,8 @@ top-level Runtime `.cpp`/`.h` files. The target package list is final:
 
 | Sub-package | Single purpose |
 |-------------|----------------|
-| `Runtime/App/` | Process composition, startup/shutdown, OS message pumping, and top-level frame/render sequencing. |
-| `Runtime/Input/` | Device sampling, bindings, semantic routing state, and one-frame input assembly/execution. |
+| `Runtime/App/` | Process composition, startup/shutdown, OS message pumping, and top-level input/frame/render sequencing. |
+| `Runtime/Input/` | Device sampling, bindings, and retained semantic routing policy/state. |
 | `Runtime/Interaction/` | Owner-neutral interaction commands, picking, and synchronous application to scene/editor owners. |
 | `Runtime/Camera/` | Camera values, collections, attachment policy, and camera-control state. |
 | `Runtime/Capture/` | Screenshot/readback ownership plus deterministic UI/graphics stress controllers that exercise capture/resource lifetime. |
@@ -117,6 +117,10 @@ UI/graphics resource-lifetime churn and borrow Automation/App only for
 execution. `InputRouter.Interactions.cpp` moves to App because that partial
 implementation synchronously sequences Camera, Editor, Replay, Scene, Tools,
 and overlay owners; it is intentionally not part of the lower Input package.
+R2's projected-edge census also moves `InputFrame.cpp/.h` and
+`InputFrameExecution.cpp` to App: those files apply a complete frame across
+Scene, Replay, Render, UI, Editor, Diagnostics, and other owners. Keeping them
+in lower Input would make the package-direction rule knowingly false.
 
 ### Complete top-level assignment
 
@@ -126,6 +130,7 @@ Counts reconcile to all 81 tracked files with no overlap.
 |---|---:|---|
 | `ApplicationExitState.cpp/.h` | 2 | `App/` |
 | `Init.cpp` | 1 | `App/` |
+| `InputFrame.cpp/.h`, `InputFrameExecution.cpp` | 3 | `App/` |
 | `InputRouter.Interactions.cpp` | 1 | `App/` |
 | `Run.cpp/.h` | 2 | `App/` |
 | `RunFrame.cpp` | 1 | `App/` |
@@ -135,7 +140,6 @@ Counts reconcile to all 81 tracked files with no overlap.
 | `Window.cpp/.h` | 2 | `App/` |
 | `Input.cpp/.h` | 2 | `Input/` |
 | `InputController.cpp/.h`, `InputController.Bindings.cpp/.h` | 4 | `Input/` |
-| `InputFrame.cpp/.h`, `InputFrameExecution.cpp` | 3 | `Input/` |
 | `InputRouter.cpp/.h` | 2 | `Input/` |
 | `OperatorCommandApplier.cpp/.h` | 2 | `Interaction/` |
 | `RuntimeInteractionCommands.h` | 1 | `Interaction/` |
@@ -170,6 +174,86 @@ Counts reconcile to all 81 tracked files with no overlap.
 | `RuntimeFrameViews.h` | 1 | top-level residue |
 | **Total** | **81** | **81 assigned exactly once** |
 
+## Ratified Intra-Runtime Edge Direction (R2, 2026-07-23)
+
+This is an explicit per-source allowlist rather than a claim that preserved
+Runtime owners form one strict total order. R3 is a physical decomposition:
+it does not move authority, change Replay internals, or invent facade/context
+types merely to manufacture an acyclic diagram. Each package may include
+itself, lower engine layers allowed by the standing repository rules, and only
+the Runtime targets listed here.
+
+| Source package | Allowed Runtime package targets |
+|---|---|
+| `App` | Every Runtime package; App is the composition root. |
+| `Automation` | `App`, `Camera`, `Capture`, `DevelopmentTools`, `Diagnostics`, `Direction`, `Editor`, `Input`, `Interaction`, `Replay`, top-level frame views, `Scene`, `Tools` |
+| `Camera` | `App` process values, `Direction`, `Input`, `Interaction`, `Scene`; never `Render` |
+| `Capture` | `App`, `Automation`, `Camera`, `Diagnostics`, `Input`, `Interaction`, `Render`, `Replay`, top-level frame views, `Scene`, `Simulation`, `Tools` |
+| `DevelopmentTools` | `App`, `Input`, `Replay` |
+| `Diagnostics` | `App`, `Automation`, `Capture`, `Debug`, `Input`, `Render`, `Replay`, `Scene` |
+| `Direction` | `Camera`, `Capture`, `Scene`, `Tools` |
+| `Editor` | `App`, `Camera`, `Capture`, `Diagnostics`, `Input`, `Interaction`, `Replay`, top-level frame views, `Scene`, `Tools` |
+| `Input` | `App/Window` platform capability, `Camera`, `Interaction`, `ReplayEventCommand`, `SceneLifecycle`; never `Render`, `UI`, or `DevelopmentTools` |
+| `Interaction` | `Camera`, `Diagnostics`, `Render`, `Scene`, `Simulation` |
+| `Render` | `App`, `Camera`, `Debug`, `DevelopmentTools`, `Diagnostics`, `Input`, `Interaction`, `Replay`, top-level frame views, `Scene`, `Tools`, `UI` |
+| `Replay` | `Camera`, `Diagnostics`, `Editor`, `Input`, `Interaction`, `Render`, `Scene`, `Simulation`, `Tools`, `UI`; Replay remains frozen and an upper Runtime consumer |
+| `Scene` | `App`, `Automation`, `Camera`, `Debug`, `Diagnostics`, `Editor`, `Input`, `Interaction`, `Render`, `Replay`, `Simulation`, `Tools` |
+| `Simulation` | `Interaction`, `Scene` |
+| `Startup` | `App`, `Replay`, `Scene` |
+| `Tools` | `Camera`, `Editor`, `Input`, `Interaction`, `Replay`, `Scene` |
+| `UI` | `App`, `Automation`, `Capture`, `Diagnostics`, `Editor`, `Replay`, top-level frame views, `Scene` |
+| `Debug` | No other Runtime package. |
+| top-level frame views | No Runtime package; values/forward declarations only. |
+
+The Input refinement preserves the five-family ownership model without
+pretending frame orchestration is low-level input. `Input` samples devices,
+`InputController` owns bindings/context, and `InputRouter` retains semantic
+routing state in `Runtime/Input/`; App owns the `InputFrame` assembly/execution
+TUs and `InputRouter.Interactions.cpp` because they synchronously sequence the
+upper owners. Input's allowed Scene and Replay edges are the owner-defined
+`SceneLifecycle` and `ReplayEventCommand` value/command seams, not reach-back
+into their mutable storage.
+
+`DevelopmentTools` has one additional incoming edge beyond the draft:
+`Render/RuntimeRenderer.cpp` owns the render-graph callback that invokes the
+development editor draw. Moving that call to App would split render-graph
+transition authority or require a banned callback facade, so `Render` is an
+explicit allowed source alongside App, Automation, and Editor. No other
+package may add a DevelopmentTools include.
+
+### Mechanical forbidden-edge proofs
+
+After R3 moves, each command below must return no rows. Each pattern is the
+complete complement of its source package's allowed set; a new Runtime edge
+therefore fails until an owner updates this table and `AGENTS.md`.
+
+```powershell
+rg -n '^#include[[:space:]]+.*(Debug|Render|Simulation|Startup|UI)/' SkullbonezSource/Runtime/Automation
+rg -n '^#include[[:space:]]+.*(Automation|Capture|Debug|DevelopmentTools|Diagnostics|Editor|Render|Replay|Simulation|Startup|Tools|UI)/' SkullbonezSource/Runtime/Camera
+rg -n '^#include[[:space:]]+.*(Debug|DevelopmentTools|Direction|Editor|Startup|UI)/' SkullbonezSource/Runtime/Capture
+rg -n '^#include[[:space:]]+.*(Automation|Camera|Capture|Debug|Diagnostics|Direction|Editor|Interaction|Render|Scene|Simulation|Startup|Tools|UI)/' SkullbonezSource/Runtime/DevelopmentTools
+rg -n '^#include[[:space:]]+.*(Camera|DevelopmentTools|Direction|Editor|Interaction|Simulation|Startup|Tools|UI)/' SkullbonezSource/Runtime/Diagnostics
+rg -n '^#include[[:space:]]+.*(App|Automation|Debug|DevelopmentTools|Diagnostics|Editor|Input|Interaction|Render|Replay|Simulation|Startup|UI)/' SkullbonezSource/Runtime/Direction
+rg -n '^#include[[:space:]]+.*(Automation|Debug|DevelopmentTools|Direction|Render|Simulation|Startup|UI)/' SkullbonezSource/Runtime/Editor
+rg -n '^#include[[:space:]]+.*(Automation|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Render|Simulation|Startup|Tools|UI)/' SkullbonezSource/Runtime/Input
+rg -n '^#include[[:space:]]+.*(App|Automation|Capture|Debug|DevelopmentTools|Direction|Editor|Input|Replay|Startup|Tools|UI)/' SkullbonezSource/Runtime/Interaction
+rg -n '^#include[[:space:]]+.*(Automation|Capture|Direction|Editor|Simulation|Startup)/' SkullbonezSource/Runtime/Render
+rg -n '^#include[[:space:]]+.*(App|Automation|Capture|Debug|DevelopmentTools|Direction|Startup)/' SkullbonezSource/Runtime/Replay
+rg -n '^#include[[:space:]]+.*(Capture|DevelopmentTools|Direction|Startup|UI)/' SkullbonezSource/Runtime/Scene
+rg -n '^#include[[:space:]]+.*(App|Automation|Camera|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Input|Render|Replay|Startup|Tools|UI)/' SkullbonezSource/Runtime/Simulation
+rg -n '^#include[[:space:]]+.*(Automation|Camera|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Input|Interaction|Render|Simulation|Tools|UI)/' SkullbonezSource/Runtime/Startup
+rg -n '^#include[[:space:]]+.*(App|Automation|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Render|Simulation|Startup|UI)/' SkullbonezSource/Runtime/Tools
+rg -n '^#include[[:space:]]+.*(Camera|Debug|DevelopmentTools|Direction|Input|Interaction|Render|Simulation|Startup|Tools)/' SkullbonezSource/Runtime/UI
+rg -n '^#include[[:space:]]+.*(App|Automation|Camera|Capture|DevelopmentTools|Diagnostics|Direction|Editor|Input|Interaction|Render|Replay|Scene|Simulation|Startup|Tools|UI)/' SkullbonezSource/Runtime/Debug
+rg -n '^#include[[:space:]]+.*(App|Automation|Camera|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Input|Interaction|Render|Replay|Scene|Simulation|Startup|Tools|UI)/' SkullbonezSource/Runtime/RuntimeFrameViews.h
+```
+
+R2 projected every current quoted include onto the ratified future package
+paths: 463 cross-package include rows across 135 directed package pairs.
+The projection found no unrecorded forbidden edge after the InputFrame
+correction. R3 owns the 81 physical moves, path rewrites, project/filter
+updates, and execution of these proofs against the real layout.
+
 ## Phases
 
 - [x] **R1 — Census and ratified map.** Generate the complete top-level
@@ -188,7 +272,7 @@ Counts reconcile to all 81 tracked files with no overlap.
   allowed residue. This phase changes documentation only, so repository
   validation is not required.
 
-- [ ] **R2 — Declare the intra-Runtime dependency direction.** Before moving
+- [x] **R2 — Declare the intra-Runtime dependency direction.** Before moving
   anything, write the allowed edges into this plan and `AGENTS.md` (same
   commit as R5 closure if preferred). Starting ruling, refined during R1:
   `App` may include everything; `Automation` may include `Input`,
@@ -204,6 +288,15 @@ Counts reconcile to all 81 tracked files with no overlap.
   command per forbidden edge, all returning no rows against the *planned*
   layout (violations found here become explicit R3 work items, not silent
   allowances).
+
+  Completed 2026-07-23. The projected include graph covers every tracked
+  Runtime source-bearing file and all 81 future moves. The exact allowed-target
+  table and 18 complementary proof commands above are final. The projection
+  corrected `InputFrame*` into App and then found zero unrecorded forbidden
+  edges across 463 cross-package rows / 135 directed pairs. R3 must make the
+  projected paths real and execute every command; R5 copies the ratified table
+  and proofs into `AGENTS.md`. This phase changes documentation only, so
+  repository validation is not required.
 
 - [ ] **R3 — Execute the moves.** Move files per the R1 map, update every
   include, `SKULLBONEZ_CORE.vcxproj`, and filters. No forwarding headers, no

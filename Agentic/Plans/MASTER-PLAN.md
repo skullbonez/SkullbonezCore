@@ -1460,7 +1460,7 @@ navigation model).
 |---|---|---:|---|
 | [source-blemish-remediation](../Reports/2026-07-23/source-blemish-remediation-closure.md) | Complete | 6/6 | Hot/cold collider data, diagnostic registration, honest Runtime names, profiler placement, owner ruling, independent review, and final gates complete |
 | [ui-runtime-separation](../Reports/2026-07-23/ui-runtime-separation-closure.md) | Complete | 5/5 | Zero UI→Runtime includes; independent review finding remediated; all standing proofs and final gates pass |
-| [runtime-package-decomposition](TODO/runtime-package-decomposition.md) | Active | 1/5 | R1 assigns all 81 top-level files exactly once; R2 declares and proves the intra-Runtime edge direction |
+| [runtime-package-decomposition](TODO/runtime-package-decomposition.md) | Active | 2/5 | R2 ratifies exact allowed edges and 18 complementary proofs; R3 executes all 81 moves |
 
 ## Features
 
