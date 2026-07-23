@@ -1145,12 +1145,12 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
         }
         const uint8_t churnPixel[4] = { 255u, 0u, 255u, 255u };
         const uint32_t churnTexture =
-            renderBackendView.renderTextures->CreateTexture2D( { churnPixel,
-                                                                 1,
-                                                                 1,
-                                                                 4,
-                                                                 Rendering::TextureMipPolicy::SingleLevel,
-                                                                 Rendering::TextureFilterPolicy::Nearest } );
+            renderBackendView.renderTextures->CreateTexture2D( churnPixel,
+                                                               1,
+                                                               1,
+                                                               4,
+                                                               Rendering::TextureMipPolicy::SingleLevel,
+                                                               Rendering::TextureFilterPolicy::Nearest );
         if ( churnTexture == 0 )
         {
             SB_FATAL( "GraphicsStress",

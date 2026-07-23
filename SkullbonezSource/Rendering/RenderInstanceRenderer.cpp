@@ -317,21 +317,23 @@ RenderMaterial MaterialWithContactHighlights( const RenderInstanceRecord& instan
 } // namespace
 
 
-void RenderInstanceRenderer::RenderModels( const PrimitiveRenderContext& primitiveContext,
-                                           const RenderInstanceStore& renderStore,
-                                           const SkullbonezCore::Physics::ColliderStore& colliderStore,
-                                           const RenderModelPassInput& input )
+// Concept: view selection is compile-time policy, not a runtime argument pack.
+// Main and reflection callers expose only facts meaningful to their pass while
+// sharing identical primitive submission below.
+template <RenderVisibilityView visibilityView>
+void RenderModelsForView( const PrimitiveRenderContext& primitiveContext,
+                          const RenderInstanceStore& renderStore,
+                          const SkullbonezCore::Physics::ColliderStore& colliderStore,
+                          bool renderCollisionVolumes,
+                          const Matrix4& view,
+                          const Matrix4& proj,
+                          const float lightPos[4],
+                          const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
+                          const ShadowFrameData* shadow,
+                          float materialAlpha,
+                          const std::vector<uint8_t>* modelMask,
+                          bool drawMaskedModels )
 {
-    const bool renderCollisionVolumes = input.renderCollisionVolumes;
-    const Matrix4& view = input.view;
-    const Matrix4& proj = input.projection;
-    const float* lightPos = input.lightPosition;
-    const SkullbonezCore::Core::CinematicRenderConfig* cinematic = input.cinematic;
-    const ShadowFrameData* shadow = input.shadow;
-    const float materialAlpha = input.materialAlpha;
-    const std::vector<uint8_t>* modelMask = input.modelMask;
-    const bool drawMaskedModels = input.drawMaskedModels;
-    const Rendering::RenderVisibilityView visibilityView = input.visibilityView;
     const auto instances = renderStore.Records();
 
     if ( instances.empty() )
@@ -354,13 +356,12 @@ void RenderInstanceRenderer::RenderModels( const PrimitiveRenderContext& primiti
     // Why: the planar reflection has its own mirrored camera volume. Its water
     // half-space removes only instances wholly below the surface; straddlers
     // still reach the shader clip plane for pixel-accurate clipping.
-    if ( visibilityView == Rendering::RenderVisibilityView::Main ||
-         visibilityView == Rendering::RenderVisibilityView::Reflection )
+    if ( visibilityView == RenderVisibilityView::Main || visibilityView == RenderVisibilityView::Reflection )
     {
-        const Math::Visibility::Frustum frustum = Math::Visibility::Frustum::FromViewProjection( view, proj );
-        const float* reflectionClipPlane = visibilityView == Rendering::RenderVisibilityView::Reflection
-                                               ? primitiveContext.renderer.GetClipPlane()
-                                               : nullptr;
+        const SkullbonezCore::Math::Visibility::Frustum frustum =
+            SkullbonezCore::Math::Visibility::Frustum::FromViewProjection( view, proj );
+        const float* reflectionClipPlane =
+            visibilityView == RenderVisibilityView::Reflection ? primitiveContext.renderer.GetClipPlane() : nullptr;
         for ( int index = 0; index < modelCount; ++index )
         {
             const RenderInstanceRecord& instance = instances[static_cast<std::size_t>( index )];
@@ -372,7 +373,9 @@ void RenderInstanceRenderer::RenderModels( const PrimitiveRenderContext& primiti
             const bool insideFrustum = frustum.IntersectsSphere( center, instance.boundingRadius );
             const bool aboveReflectionPlane =
                 !reflectionClipPlane ||
-                Math::Visibility::Frustum::IntersectsHalfSpace( center, instance.boundingRadius, reflectionClipPlane );
+                SkullbonezCore::Math::Visibility::Frustum::IntersectsHalfSpace( center,
+                                                                                instance.boundingRadius,
+                                                                                reflectionClipPlane );
             if ( insideFrustum && aboveReflectionPlane )
             {
                 visibleIndices[visibleCount++] = index;
@@ -550,6 +553,60 @@ void RenderInstanceRenderer::RenderModels( const PrimitiveRenderContext& primiti
                                                          submittedCount,
                                                          modelCount - visibleCount,
                                                          (std::max)( 0, drawCountAfter - drawCountBefore ) );
+}
+
+
+void RenderInstanceRenderer::RenderModels( const PrimitiveRenderContext& primitiveContext,
+                                           const RenderInstanceStore& renderStore,
+                                           const SkullbonezCore::Physics::ColliderStore& colliderStore,
+                                           bool renderCollisionVolumes,
+                                           const Matrix4& view,
+                                           const Matrix4& projection,
+                                           const float ( &lightPosition )[4],
+                                           const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
+                                           const ShadowFrameData* shadow,
+                                           float materialAlpha,
+                                           const std::vector<uint8_t>* modelMask,
+                                           bool drawMaskedModels )
+{
+    RenderModelsForView<RenderVisibilityView::Main>( primitiveContext,
+                                                     renderStore,
+                                                     colliderStore,
+                                                     renderCollisionVolumes,
+                                                     view,
+                                                     projection,
+                                                     lightPosition,
+                                                     cinematic,
+                                                     shadow,
+                                                     materialAlpha,
+                                                     modelMask,
+                                                     drawMaskedModels );
+}
+
+
+void RenderInstanceRenderer::RenderReflectionModels( const PrimitiveRenderContext& primitiveContext,
+                                                     const RenderInstanceStore& renderStore,
+                                                     const SkullbonezCore::Physics::ColliderStore& colliderStore,
+                                                     bool renderCollisionVolumes,
+                                                     const Matrix4& view,
+                                                     const Matrix4& projection,
+                                                     const float ( &lightPosition )[4],
+                                                     const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
+                                                     const ShadowFrameData* shadow,
+                                                     float materialAlpha )
+{
+    RenderModelsForView<RenderVisibilityView::Reflection>( primitiveContext,
+                                                           renderStore,
+                                                           colliderStore,
+                                                           renderCollisionVolumes,
+                                                           view,
+                                                           projection,
+                                                           lightPosition,
+                                                           cinematic,
+                                                           shadow,
+                                                           materialAlpha,
+                                                           nullptr,
+                                                           true );
 }
 
 

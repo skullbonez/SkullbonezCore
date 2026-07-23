@@ -620,14 +620,6 @@ class ShadowPass
     ShadowPassOutput Render( const ShadowPassInputs& inputs );
 
   private:
-    struct ShadowMapRenderSelection
-    {
-        bool renderTerrain = false;
-        bool renderObjects = false;
-        bool shadowParallelPrep = false;
-        const Rendering::ShadowCasterBatches* objectCasters = nullptr;
-    };
-
     void LogResourceLifecycleStep( const char* phase, const char* step ) const;
     Rendering::ShadowFrameData BuildTerrainFrameData( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                                       const Math::Vector::Vector3& lightDirectionWorld ) const;
@@ -646,7 +638,9 @@ class ShadowPass
                           const Rendering::RenderInstanceStore& renderInstances,
                           const Physics::ColliderStore& colliders,
                           Threading::WorkerPool* renderWorkerPool,
-                          const ShadowMapRenderSelection& selection );
+                          bool renderTerrain,
+                          bool shadowParallelPrep,
+                          const Rendering::ShadowCasterBatches* objectCasters );
 
     ShadowPassResources& m_resources;
     SceneTerrain& m_terrain;

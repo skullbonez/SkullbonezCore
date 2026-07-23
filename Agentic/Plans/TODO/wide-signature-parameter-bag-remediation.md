@@ -56,7 +56,7 @@ records a concrete domain identity and a non-adapter consumer.
   repurposed parameter objects, and ratify the rulings above.
 - [x] B1 — UI and Gameplay. Remove the broad UI/Scene input/draw packets and
   tornado quad call packs through real phase decomposition.
-- [ ] B2 — Physics and Rendering. Remove the sleep-row constructor pack, DX12
+- [x] B2 — Physics and Rendering. Remove the sleep-row constructor pack, DX12
   creation packs, render-model pass packet, and shadow selection packet.
 - [ ] B3 — Replay interaction and authoring. Remove workspace/source/activation/
   gesture shortcuts and split the actual actions.
@@ -104,16 +104,21 @@ records a concrete domain identity and a non-adapter consumer.
 - [x] `SkullbonezSource/UI/UITabScene.h`
 - [x] `SkullbonezSource/UI/UITabScene.cpp`
 - [x] `SkullbonezSource/Gameplay/TornadoVisualPass.cpp`
-- [ ] `SkullbonezSource/Physics/Stages/PhysicsSleepController.h`
-- [ ] `SkullbonezSource/Physics/Stages/PhysicsSleepController.Wake.cpp`
-- [ ] `SkullbonezSource/Rendering/RenderResourceTypes.h`
-- [ ] `SkullbonezSource/Rendering/RenderInstanceRenderer.h`
-- [ ] `SkullbonezSource/Rendering/RenderInstanceRenderer.cpp`
-- [ ] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.h`
-- [ ] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Resources.cpp`
-- [ ] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp`
-- [ ] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h`
-- [ ] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp`
+- [x] `SkullbonezSource/Assets/TextureCollection.cpp`
+- [x] `SkullbonezSource/Physics/Stages/PhysicsSleepController.h`
+- [x] `SkullbonezSource/Physics/Stages/PhysicsSleepController.Wake.cpp`
+- [x] `SkullbonezSource/Rendering/RenderResourceTypes.h`
+- [x] `SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp`
+- [x] `SkullbonezSource/Rendering/RenderInstanceRenderer.h`
+- [x] `SkullbonezSource/Rendering/RenderInstanceRenderer.cpp`
+- [x] `SkullbonezSource/Rendering/Text.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.h`
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp`
+- [x] `SkullbonezSource/Runtime/Debug/CollisionVisualizer.cpp`
+- [x] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h`
+- [x] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp`
+- [x] `SkullbonezSource/Runtime/RuntimeStressController.cpp`
 - [ ] `SkullbonezSource/Runtime/Replay/ReplayCoordination.h`
 - [ ] `SkullbonezSource/Runtime/Replay/ReplayAuthoring.h`
 - [ ] `SkullbonezSource/Runtime/Replay/ReplayScrubberTools.cpp`

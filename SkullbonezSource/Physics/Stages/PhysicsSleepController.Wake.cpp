@@ -381,22 +381,18 @@ void PhysicsSleepController::WakeModel( const PhysicsSleepWakeContext& context, 
     }
 }
 
-PhysicsNarrowphaseWakeAccess::PhysicsNarrowphaseWakeAccess( PhysicsBodyStore& bodyStore,
+PhysicsNarrowphaseWakeAccess::PhysicsNarrowphaseWakeAccess( PhysicsSleepController& sleepController,
+                                                            PhysicsBodyStore& bodyStore,
                                                             const ColliderStore& colliderStore,
                                                             const PhysicsWorldForces& worldForces,
                                                             std::span<PhysicsBodyRecord> bodyRecords,
                                                             const PhysicsBodyHotFieldsView& hotFields,
                                                             std::span<float> timeRemaining,
-                                                            const SleepRows& sleepRows,
                                                             int modelCount,
                                                             float dt )
-    : m_bodyStore( bodyStore ), m_colliderStore( colliderStore ), m_worldForces( worldForces ),
-      m_bodyRecords( bodyRecords ), m_hotFields( hotFields ), m_timeRemaining( timeRemaining ),
-      m_sleepState( sleepRows.sleepState ), m_sleepCounter( sleepRows.sleepCounter ),
-      m_sleepIslandVisualId( sleepRows.sleepIslandVisualId ),
-      m_underwaterSleepLocked( sleepRows.underwaterSleepLocked ),
-      m_pendingAwakeIndices( sleepRows.pendingAwakeIndices ), m_pendingAwakeCount( sleepRows.pendingAwakeCount ),
-      m_modelCount( modelCount ), m_dt( dt )
+    : m_sleepController( sleepController ), m_bodyStore( bodyStore ), m_colliderStore( colliderStore ),
+      m_worldForces( worldForces ), m_bodyRecords( bodyRecords ), m_hotFields( hotFields ),
+      m_timeRemaining( timeRemaining ), m_modelCount( modelCount ), m_dt( dt )
 {
 }
 
@@ -406,32 +402,32 @@ void PhysicsNarrowphaseWakeAccess::WakeBody( int sleepingIndex ) const
     // tick synchronously; deferring this mutation changes later pair reads.
     if ( sleepingIndex < 0 || sleepingIndex >= m_modelCount ||
          IsSolverBodyFixed( ConstPhysicsBodyHotFields( m_hotFields ), sleepingIndex ) ||
-         ( sleepingIndex < static_cast<int>( m_underwaterSleepLocked.size() ) &&
-           m_underwaterSleepLocked[sleepingIndex] ) )
+         ( sleepingIndex < static_cast<int>( m_sleepController.m_underwaterSleepLocked.size() ) &&
+           m_sleepController.m_underwaterSleepLocked[sleepingIndex] ) )
     {
         return;
     }
     // Parallel pairs can target the same sleeper. One atomic state transition
     // owns the wake side effects and one bounded queue row; the sequencer later
     // folds queued indices into deterministic ascending order.
-    std::atomic_ref<uint8_t> sleepState( m_sleepState[static_cast<std::size_t>( sleepingIndex )] );
+    std::atomic_ref<uint8_t> sleepState( m_sleepController.m_sleepState[static_cast<std::size_t>( sleepingIndex )] );
     uint8_t expectedSleeping = 1u;
     if ( !sleepState.compare_exchange_strong( expectedSleeping, 0u, std::memory_order_acq_rel ) )
     {
         return;
     }
-    std::atomic_ref<int> pendingAwakeCount( m_pendingAwakeCount );
+    std::atomic_ref<int> pendingAwakeCount( m_sleepController.m_pendingAwakeCount );
     const int pendingIndex = pendingAwakeCount.fetch_add( 1, std::memory_order_acq_rel );
-    if ( pendingIndex < 0 || pendingIndex >= static_cast<int>( m_pendingAwakeIndices.size() ) )
+    if ( pendingIndex < 0 || pendingIndex >= Scene::Capacity::MAX_SCENE_OBJECTS )
     {
         SB_FATAL( "Physics/PhysicsSleepController",
                   "Pending awake queue capacity exceeded: slot=%d capacity=%zu phase=steady_gameplay.",
                   pendingIndex,
-                  m_pendingAwakeIndices.size() );
+                  Scene::Capacity::MAX_SCENE_OBJECTS );
     }
-    m_pendingAwakeIndices[static_cast<std::size_t>( pendingIndex )] = sleepingIndex;
-    m_sleepCounter[sleepingIndex] = 0;
-    m_sleepIslandVisualId[sleepingIndex] = 0;
+    m_sleepController.m_pendingAwakeIndices[static_cast<std::size_t>( pendingIndex )] = sleepingIndex;
+    m_sleepController.m_sleepCounter[sleepingIndex] = 0;
+    m_sleepController.m_sleepIslandVisualId[sleepingIndex] = 0;
     m_timeRemaining[sleepingIndex] = m_dt;
     m_hotFields.awake[static_cast<std::size_t>( sleepingIndex )] = 1u;
     (void)m_bodyStore.ApplyForces( m_worldForces, m_colliderStore, sleepingIndex, m_dt );
@@ -446,19 +442,13 @@ PhysicsSleepController::CreateNarrowphaseWakeAccess( PhysicsBodyStore& bodyStore
                                                      int modelCount,
                                                      float dt )
 {
-    const PhysicsNarrowphaseWakeAccess::SleepRows sleepRows{ m_sleepState,
-                                                             m_sleepCounter,
-                                                             m_sleepIslandVisualId,
-                                                             m_underwaterSleepLocked,
-                                                             m_pendingAwakeIndices,
-                                                             m_pendingAwakeCount };
-    return PhysicsNarrowphaseWakeAccess( bodyStore,
+    return PhysicsNarrowphaseWakeAccess( *this,
+                                         bodyStore,
                                          colliderStore,
                                          worldForces,
                                          bodyRecords,
                                          bodyStore.MutableHotFields(),
                                          timeRemaining,
-                                         sleepRows,
                                          modelCount,
                                          dt );
 }
