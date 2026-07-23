@@ -1378,7 +1378,7 @@ a census records. Execution order is binding: 1 physics unification,
 | [replay-deduplication-audit](../Reports/2026-07-22/replay-deduplication-closure.md) | Complete | 4/4 | C1-C5 consolidated; C6-C7 retained; all Replay/full gates pass |
 | [wide-signature-reduction](../Reports/2026-07-23/wide-signature-reduction-closure.md) | Complete | 5/5 | 301 → 285; all survivors ruled; independent review and final broad gate pass |
 | [wide-signature-decomposition-round-2](../Reports/2026-07-23/wide-signature-decomposition-round-2-closure.md) | Complete | 5/5 | 8 → 0 threshold-16 rows; independent review and all closure gates pass |
-| [wide-signature-decomposition-round-3](TODO/wide-signature-decomposition-round-3.md) | In progress | 3/6 | Implement T3 Rendering submission decomposition |
+| [wide-signature-decomposition-round-3](TODO/wide-signature-decomposition-round-3.md) | In progress | 4/6 | Implement T4 Replay frame, scrubber, and diagnostic decomposition |
 
 ## Features
 

@@ -13,21 +13,22 @@ plan inventory.
 | Branch | `nightrunner-22nd-JUL-26` |
 | Current baseline | Wide-signature round 2 is closed: all eight reopened threshold-16 rows are removed, the final scan is empty, and independent no-bag review is clear. Legacy remains the development default. |
 | Current objective | Complete `wide-signature-decomposition-round-3`: remove all nine current 13–15 parameter functions without owner bags. |
-| Active/future progress | 3 / 6 live tasks; 50%. |
+| Active/future progress | 4 / 6 live tasks; 67%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | D4 `validate_full` passes in 101.7 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | T2 threshold-13 inventory is 6 → 5; Profile and physics gates pass. |
+| Validation for current edits | T3 threshold-13 inventory is 5 → 3; Profile, DX12, performance, and bounded graphics-stress gates pass. |
 
 ## Live Queue
 
-NOW. `wide-signature-decomposition-round-3` is active at T2 complete (3/6).
+NOW. `wide-signature-decomposition-round-3` is active at T3 complete (4/6).
 The owner accepts parameter counts of 12 and below and requested the same
 owner-safe treatment for all nine current 13–15 rows. CodeGraph/current-source
 review found a bounded decomposition for every row; none is blocked or
 deferred. T1 narrowed the two Scene-tab functions and tornado quad emission;
 the live threshold-13 inventory fell to six. T2 narrowed the private physics
-wake-access constructor; five rows remain. T3 narrows model and shadow
-submission.
+wake-access constructor; five rows remained. T3 narrowed model and shadow
+submission with synchronous read-only inputs while keeping stores, frame
+resources, and worker ownership explicit; three Replay rows remain.
 
 `wide-signature-decomposition-round-2` closed D0-D4 (5/5) and left the
 live ledger. All eight reopened threshold-16 rows were removed without a
@@ -329,6 +330,6 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Complete `wide-signature-decomposition-round-3` T3. Narrow model and shadow
-submission with read-only pass/selection values while keeping backend, store,
-collider, and worker owners explicit.
+Complete `wide-signature-decomposition-round-3` T4. Narrow Replay restore
+diagnostics, render preparation, and scrubber gesture inputs while keeping
+mutable owners explicit.

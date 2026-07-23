@@ -320,17 +320,18 @@ RenderMaterial MaterialWithContactHighlights( const RenderInstanceRecord& instan
 void RenderInstanceRenderer::RenderModels( const PrimitiveRenderContext& primitiveContext,
                                            const RenderInstanceStore& renderStore,
                                            const SkullbonezCore::Physics::ColliderStore& colliderStore,
-                                           bool renderCollisionVolumes,
-                                           const Matrix4& view,
-                                           const Matrix4& proj,
-                                           const float lightPos[4],
-                                           const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
-                                           const ShadowFrameData* shadow,
-                                           float materialAlpha,
-                                           const std::vector<uint8_t>* modelMask,
-                                           bool drawMaskedModels,
-                                           Rendering::RenderVisibilityView visibilityView )
+                                           const RenderModelPassInput& input )
 {
+    const bool renderCollisionVolumes = input.renderCollisionVolumes;
+    const Matrix4& view = input.view;
+    const Matrix4& proj = input.projection;
+    const float* lightPos = input.lightPosition;
+    const SkullbonezCore::Core::CinematicRenderConfig* cinematic = input.cinematic;
+    const ShadowFrameData* shadow = input.shadow;
+    const float materialAlpha = input.materialAlpha;
+    const std::vector<uint8_t>* modelMask = input.modelMask;
+    const bool drawMaskedModels = input.drawMaskedModels;
+    const Rendering::RenderVisibilityView visibilityView = input.visibilityView;
     const auto instances = renderStore.Records();
 
     if ( instances.empty() )

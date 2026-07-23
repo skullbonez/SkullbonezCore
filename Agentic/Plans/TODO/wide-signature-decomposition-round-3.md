@@ -66,7 +66,7 @@ inventory may be refreshed.
   path.
 - [x] T2 — Physics. Narrow the wake-access constructor with a private
   sleep-row capability and keep all external physics owners explicit.
-- [ ] T3 — Rendering. Narrow model and shadow submission without hiding
+- [x] T3 — Rendering. Narrow model and shadow submission without hiding
   backend/store/worker ownership or adding hot-path allocation.
 - [ ] T4 — Replay. Narrow restore diagnostics, render preparation, and scrubber
   gesture input without broadening Replay authority.
@@ -110,10 +110,10 @@ inventory may be refreshed.
 - [x] `SkullbonezSource/Gameplay/TornadoVisualPass.cpp`
 - [x] `SkullbonezSource/Physics/Stages/PhysicsSleepController.h`
 - [x] `SkullbonezSource/Physics/Stages/PhysicsSleepController.Wake.cpp`
-- [ ] `SkullbonezSource/Rendering/RenderInstanceRenderer.h`
-- [ ] `SkullbonezSource/Rendering/RenderInstanceRenderer.cpp`
-- [ ] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h`
-- [ ] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp`
+- [x] `SkullbonezSource/Rendering/RenderInstanceRenderer.h`
+- [x] `SkullbonezSource/Rendering/RenderInstanceRenderer.cpp`
+- [x] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h`
+- [x] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp`
 - [ ] `SkullbonezSource/Runtime/Replay/ReplayRuntime.h`
 - [ ] `SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp`
 - [ ] `SkullbonezSource/Runtime/Replay/ReplayScrubberTools.cpp`
@@ -137,3 +137,16 @@ inventory may be refreshed.
 - T2 focused Profile build: PASS in 18.3 s, 0 warnings, 0 errors.
 - T2 `tools\validate_physics.bat`: PASS in 49.3 s; lifecycle/handle smoke and
   deterministic physics regression pass byte-exactly.
+- T3 threshold-13 inventory: 5 → 3; `RenderModels` and `RenderShadowMap` are
+  absent and only the three Replay rows remain.
+- T3 ownership/hot-path review: model-pass and shadow-selection records contain
+  only synchronous read-only values and pointers; stores, colliders, frame
+  owners, textures, and worker ownership remain explicit. No allocation,
+  callback, inheritance, or owner reach-back was added.
+- T3 comment audit: 4/4 checked, 0 deferred.
+- T3 focused Profile build: PASS in 10.6 s, 0 warnings, 0 errors.
+- T3 `tools\validate_dx12_renderer.bat`: PASS in 38.6 s; zero DX12 validation
+  errors and all three screenshots accepted.
+- T3 `tools\validate_perf.bat`: PASS in 76.8 s.
+- T3 `tools\run_graphics_stress.bat 1`: PASS in 60.9 s; PID 53472 completed
+  the bounded one-minute run without a crash.

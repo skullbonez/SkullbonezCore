@@ -58,22 +58,30 @@ class WorkerPool;
 
 namespace Rendering
 {
+// Value-only model-pass selection. Lifetime: matrices, light values, and
+// optional masks/configs are borrowed only for one synchronous submission;
+// render and collider stores remain explicit function parameters.
+struct RenderModelPassInput
+{
+    bool renderCollisionVolumes = false;
+    const Math::Transformation::Matrix4& view;
+    const Math::Transformation::Matrix4& projection;
+    const float ( &lightPosition )[4];
+    const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
+    const Rendering::ShadowFrameData* shadow = nullptr;
+    float materialAlpha = 1.0f;
+    const std::vector<uint8_t>* modelMask = nullptr;
+    bool drawMaskedModels = true;
+    Rendering::RenderVisibilityView visibilityView = Rendering::RenderVisibilityView::Main;
+};
+
 class RenderInstanceRenderer
 {
   public:
     static void RenderModels( const Rendering::PrimitiveRenderContext& primitiveContext,
                               const Rendering::RenderInstanceStore& renderStore,
                               const Physics::ColliderStore& colliderStore,
-                              bool renderCollisionVolumes,
-                              const Math::Transformation::Matrix4& view,
-                              const Math::Transformation::Matrix4& proj,
-                              const float lightPos[4],
-                              const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
-                              const Rendering::ShadowFrameData* shadow,
-                              float materialAlpha,
-                              const std::vector<uint8_t>* modelMask = nullptr,
-                              bool drawMaskedModels = true,
-                              Rendering::RenderVisibilityView visibilityView = Rendering::RenderVisibilityView::Main );
+                              const RenderModelPassInput& input );
     static void BuildShadowCasterBatches( Core::Profiler* profiler,
                                           const Rendering::RenderInstanceStore& renderStore,
                                           const Physics::ColliderStore& colliderStore,
