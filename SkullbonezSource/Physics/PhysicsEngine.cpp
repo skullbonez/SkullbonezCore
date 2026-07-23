@@ -386,7 +386,12 @@ bool PhysicsEngine::RefreshBodyStoreFromAuthoredDescriptors( const PhysicsAuthor
     }
 
     LoadBodyDescriptors( bodyDescs );
-    return m_bodyStore.Count() == CountAsInt( AuthoredBodyDescriptorCount() );
+    if ( m_bodyStore.Count() != CountAsInt( AuthoredBodyDescriptorCount() ) )
+    {
+        return false;
+    }
+    m_world.SetDiagnosticNames( std::span<const char* const>( refreshView.diagnosticNames, descriptorCount ) );
+    return true;
 }
 
 
@@ -668,17 +673,9 @@ void PhysicsEngine::ValidatePhysicsStoreMappings( int modelCount ) const
 void PhysicsEngine::Step( float fChangeInTime,
                           const PhysicsWorldForces& worldForces,
                           Threading::WorkerPool& workerPool,
-                          const char* const* diagnosticNames,
-                          int diagnosticNameCount,
                           const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
 {
-    Step( fChangeInTime,
-          worldForces,
-          ExternalForceFrameInput{},
-          workerPool,
-          diagnosticNames,
-          diagnosticNameCount,
-          diagnosticsCsvWriter );
+    Step( fChangeInTime, worldForces, ExternalForceFrameInput{}, workerPool, diagnosticsCsvWriter );
 }
 
 
@@ -686,8 +683,6 @@ void PhysicsEngine::Step( float fChangeInTime,
                           const PhysicsWorldForces& worldForces,
                           const ExternalForceFrameInput& externalForces,
                           Threading::WorkerPool& workerPool,
-                          const char* const* diagnosticNames,
-                          int diagnosticNameCount,
                           const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
 {
     m_lastWorldForces = worldForces;
@@ -703,12 +698,7 @@ void PhysicsEngine::Step( float fChangeInTime,
 
     ApplyFixedTreeReleaseEvents( worldForces );
 
-    m_world.EmitStepDiagnostics( m_bodyStore,
-                                 m_colliderStore,
-                                 fChangeInTime,
-                                 diagnosticNames,
-                                 diagnosticNameCount,
-                                 diagnosticsCsvWriter );
+    m_world.EmitStepDiagnostics( m_bodyStore, m_colliderStore, fChangeInTime, diagnosticsCsvWriter );
 
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
 }
@@ -1118,6 +1108,12 @@ bool PhysicsEngine::ShouldEmitStepDiagnostics() const
 bool PhysicsEngine::ShouldEmitCollisionTimeDiagnostics() const
 {
     return m_world.ShouldEmitCollisionTimeDiagnostics();
+}
+
+
+void PhysicsEngine::SetDiagnosticNames( std::span<const char* const> diagnosticNames )
+{
+    m_world.SetDiagnosticNames( diagnosticNames );
 }
 
 const PhysicsBodyStore& PhysicsEngine::ReadBodies( const PhysicsEngine& engine )

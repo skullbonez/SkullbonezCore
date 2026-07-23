@@ -4,7 +4,7 @@ Date: 2026-07-23
 Status: IN PROGRESS — drafted from the 2026-07-23 from-source architecture review of
 `nightrunner-22nd-JUL-26`. Registered in `MASTER-PLAN.md` on 2026-07-23 as
 plan 1 of the Architecture Follow-Up Campaign Round 3; starts after
-`wide-signature-parameter-bag-remediation` closes. 1/6 phases complete.
+`wide-signature-parameter-bag-remediation` closes. 2/6 phases complete.
 Impact area: Physics store layout, physics step API, Runtime editor file
 naming, profiler unit placement, development-tools TU size
 Owner: physics + runtime
@@ -117,7 +117,7 @@ seams.
   reserve-policy violations and no DX12/physics regression. No baseline,
   golden, schema, config, or Replay source changed.
 
-- [ ] **B2 — Register diagnostic names at topology time, not per step.**
+- [x] **B2 — Register diagnostic names at topology time, not per step.**
   Remove `diagnosticNames`/`diagnosticNameCount` from both
   `PhysicsEngine::Step` overloads. Add one cold PhysicsEngine command (e.g.
   `SetDiagnosticNames(std::span<const char* const>)` or names carried on the
@@ -129,6 +129,43 @@ seams.
   identical: same names, same rows, same CSV bytes. Acceptance: `Step`
   signatures carry only per-tick inputs; deterministic physics CSV and
   SkullScope trace output are unchanged.
+
+  Completed 2026-07-23. `PhysicsDiagnosticsSink` now owns a fixed-capacity
+  pointer table registered through `PhysicsEngine::SetDiagnosticNames` after
+  authored refreshes and scene create/delete/clear/replay-trim topology
+  commits. Both `PhysicsEngine::Step` overloads and every production/test
+  caller have dropped the C-style name pointer/count pair; fixed steps consume
+  the registered table without allocating or rebuilding it. The 15/15 touched
+  source files pass the comment audit with zero deferrals. A Debug solution
+  build passes after the final call-site cleanup in 4.82 s.
+
+  The before/after SkullScope witness used
+  `Debug\SKULLBONEZ_CORE.exe --renderer dx12 --scene
+  SkullbonezData\scenes\physics_bench_varied.scene.json --fixed-step --frames
+  120 --physics-diag
+  TestOutput\orchestrator_b2_{before|after}.physicsdiag.ndjson --vsync off
+  --shadows off`. Both traces are 9,481,773 bytes and both SQLite caches are
+  4,644,864 bytes. Their SHA-256 is identically
+  `641BDD98CB7229A82433D0AE74FA20D90C4448A9147D89C5451569A5427B7C83`;
+  all 20 registered name rows match. Queries were
+  `tools\physics_query.bat TestOutput\orchestrator_b2_before.physicsdiag.ndjson
+  summary` (8,775 characters/bytes exposed),
+  `... events --limit 12` (324), `... frame 0` (11,093),
+  `tools\physics_query.bat TestOutput\orchestrator_b2_after.physicsdiag.ndjson
+  summary` (8,773 redirected, zero exposed), and `... frame 0` (11,091
+  redirected, zero exposed). The bounded derived comparison exposed 587
+  characters/bytes, for 20,779 total GPT-read characters/bytes; no query
+  output was truncated and neither raw trace was ingested.
+
+  `tools\validate_full.bat` passes in 175.41 s: mandatory CPU coverage and
+  runtime lanes pass, builds report zero warnings/errors, DX12 reports zero
+  validation errors with accepted captures, and the 44,401-line physics CSV
+  remains byte-exact. The mechanical `ReplayPrediction.cpp` caller update
+  triggered the cumulative replay gate; one
+  `tools\validate_replay_visual_fidelity.bat` invocation passes in 431.73 s
+  with one engine process, one prediction generation, the full 2,401-tick
+  fidelity oracle, and all negative controls. No baseline, golden, schema, or
+  config changed.
 
 - [ ] **B3 — Retire the `Run*` residue names.**
   For each file listed in Problem item 3: confirm again at execution time it

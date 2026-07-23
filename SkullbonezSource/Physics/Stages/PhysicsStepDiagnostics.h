@@ -6,17 +6,20 @@ Purpose:
 Summary:
   PhysicsStepDiagnostics combines the existing cold diagnostics sink with the
   model-order collision overlay, solver debug contacts, and pipeline trace.
-  PhysicsWorld supplies synchronous physics views but retains no diagnostic
-  storage or mutation authority.
+  PhysicsWorld supplies synchronous physics views and cold topology name
+  registration but retains no diagnostic storage or mutation authority.
 
 Glossary:
   Pipeline trace: Bounded ordered records describing fixed-step decisions.
   Collision visual: Per-model byte marking contact for the debug overlay.
   Step emission: Debug-only CSV and SkullScope output after solver completion.
+  Name registration: Cold replacement of the fixed diagnostics presentation
+    table after scene topology changes.
 
 Invariants:
   - Trace and visual mutation occurs at the same sequencer call positions.
   - Debug-only output remains behind the original _DEBUG boundaries.
+  - Fixed steps consume the registered name table without rebuilding it.
   - Replay copies owned rows through explicit capture and restore APIs.
 
 Related:
@@ -31,6 +34,7 @@ Related:
 #include "../PhysicsSolverSnapshot.h"
 
 #include <cstdint>
+#include <span>
 #include <vector>
 
 namespace SkullbonezCore
@@ -70,13 +74,12 @@ class PhysicsStepDiagnostics
 
     bool ShouldEmitStepDiagnostics( bool diagnosticsSuppressed ) const;
     bool ShouldEmitCollisionTimeDiagnostics( bool diagnosticsSuppressed ) const;
+    void SetDiagnosticNames( std::span<const char* const> diagnosticNames );
     void EmitStepDiagnostics( bool diagnosticsSuppressed,
                               const PhysicsDiagnosticsView& diagnosticsView,
                               const PhysicsBodyStore& bodyStore,
                               const ColliderStore& colliderStore,
                               float deltaSeconds,
-                              const char* const* diagnosticNames,
-                              int diagnosticNameCount,
                               const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
 
 #ifdef _DEBUG

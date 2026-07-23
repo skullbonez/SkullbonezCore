@@ -1177,11 +1177,15 @@ bool PhysicsWorld::ShouldEmitCollisionTimeDiagnostics() const
 }
 
 
+void PhysicsWorld::SetDiagnosticNames( std::span<const char* const> diagnosticNames )
+{
+    m_stepDiagnostics.SetDiagnosticNames( diagnosticNames );
+}
+
+
 void PhysicsWorld::EmitStepDiagnostics( const PhysicsBodyStore& bodyStore,
                                         const ColliderStore& colliderStore,
                                         float fChangeInTime,
-                                        const char* const* diagnosticNames,
-                                        int diagnosticNameCount,
                                         const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
 {
 #ifdef _DEBUG
@@ -1191,15 +1195,11 @@ void PhysicsWorld::EmitStepDiagnostics( const PhysicsBodyStore& bodyStore,
                                            bodyStore,
                                            colliderStore,
                                            fChangeInTime,
-                                           diagnosticNames,
-                                           diagnosticNameCount,
                                            diagnosticsCsvWriter );
 #else
     (void)bodyStore;
     (void)colliderStore;
     (void)fChangeInTime;
-    (void)diagnosticNames;
-    (void)diagnosticNameCount;
     (void)diagnosticsCsvWriter;
 #endif
 }

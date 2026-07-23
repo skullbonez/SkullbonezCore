@@ -55,6 +55,13 @@ void PhysicsStepDiagnostics::Clear()
     m_collisionVisualFrameActive = false;
     m_physicsDebugContacts.clear();
     m_physicsPipelineTrace.clear();
+    m_sink.SetDiagnosticNames( {} );
+}
+
+
+void PhysicsStepDiagnostics::SetDiagnosticNames( std::span<const char* const> diagnosticNames )
+{
+    m_sink.SetDiagnosticNames( diagnosticNames );
 }
 
 void PhysicsStepDiagnostics::BeginStep( int modelCount )
@@ -154,8 +161,6 @@ void PhysicsStepDiagnostics::EmitStepDiagnostics( bool diagnosticsSuppressed,
                                                   const PhysicsBodyStore& bodyStore,
                                                   const ColliderStore& colliderStore,
                                                   float deltaSeconds,
-                                                  const char* const* diagnosticNames,
-                                                  int diagnosticNameCount,
                                                   const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
 {
 #ifdef _DEBUG
@@ -165,7 +170,7 @@ void PhysicsStepDiagnostics::EmitStepDiagnostics( bool diagnosticsSuppressed,
         const bool frameLogEnabled = m_sink.IsFrameLogEnabled();
         if ( regressionLogEnabled || frameLogEnabled )
         {
-            const PhysicsDiagnosticsNameView names{ diagnosticNames, diagnosticNameCount };
+            const PhysicsDiagnosticsNameView names = m_sink.RegisteredNames();
             const PhysicsDiagnosticsFrameInput frame{ diagnosticsView,
                                                       bodyStore,
                                                       colliderStore,
@@ -181,7 +186,7 @@ void PhysicsStepDiagnostics::EmitStepDiagnostics( bool diagnosticsSuppressed,
                 m_sink.EmitFrame( frame );
             }
         }
-        m_sink.FlushCollisionTimes( diagnosticNames, diagnosticNameCount, diagnosticsCsvWriter );
+        m_sink.FlushCollisionTimes( diagnosticsCsvWriter );
         m_sink.IncrementCollisionTimeFrameIfEnabled();
     }
 #else
@@ -190,8 +195,6 @@ void PhysicsStepDiagnostics::EmitStepDiagnostics( bool diagnosticsSuppressed,
     (void)bodyStore;
     (void)colliderStore;
     (void)deltaSeconds;
-    (void)diagnosticNames;
-    (void)diagnosticNameCount;
     (void)diagnosticsCsvWriter;
 #endif
 }

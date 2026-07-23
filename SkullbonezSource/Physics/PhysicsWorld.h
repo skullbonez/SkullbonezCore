@@ -190,16 +190,15 @@ class PhysicsWorld
                      const ExternalForceFrameInput& externalForces,
                      Threading::WorkerPool& workerPool );
     // Emits Debug-only regression and SkullScope records from the stores the
-    // caller passes in. PhysicsEngine owns the cold presentation-name overlay and
-    // runtime owns the CSV writer, so diagnostics do not borrow model or logging
-    // globals from inside PhysicsWorld.
+    // caller passes in. The diagnostics sink owns the registered cold name
+    // table and runtime owns the CSV writer, so fixed steps do not borrow model
+    // or logging globals.
     bool ShouldEmitStepDiagnostics() const;
     bool ShouldEmitCollisionTimeDiagnostics() const;
+    void SetDiagnosticNames( std::span<const char* const> diagnosticNames );
     void EmitStepDiagnostics( const PhysicsBodyStore& bodyStore,
                               const ColliderStore& colliderStore,
                               float fChangeInTime,
-                              const char* const* diagnosticNames,
-                              int diagnosticNameCount,
                               const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
     // Wake and seed decisions read physics-owned fixed/sleep state before the
     // scene edge performs any owner-side cache invalidation.

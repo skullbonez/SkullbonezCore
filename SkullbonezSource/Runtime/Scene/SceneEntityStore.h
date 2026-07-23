@@ -146,10 +146,6 @@ class SceneEntityStore
     // Writes at most maxIndices dense rows and returns the number written. A
     // non-group selection yields itself; invalid output storage yields zero.
     int GatherGroupMemberIndices( int selectedModelIndex, int* outIndices, int maxIndices ) const;
-#ifdef _DEBUG
-    // Borrows display-name pointers until the next entity mutation.
-    void FillPhysicsDiagnosticsNames( int bodyCount, std::vector<const char*>& outNames ) const;
-#endif
 
   private:
     // Why: reserving cold scene metadata avoids touching SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS worth

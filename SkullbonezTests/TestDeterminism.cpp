@@ -354,8 +354,6 @@ TEST_CASE( "Tornado force witness preserves exact one-step body state" )
                  NoGravityForces(),
                  tornadoGameplay.BuildForceFrame( PHYSICS_FIXED_DT, 1 ),
                  workers,
-                 nullptr,
-                 0,
                  SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter{} );
 
     const PhysicsBodyHotState hot = LoadPhysicsBodyHotState( PhysicsEngine::ReadBodies( engine ).HotFields(), 0u );
@@ -537,12 +535,7 @@ void StepMicroWorldWith( PhysicsEngine& engine, int ticks, const PhysicsWorldFor
     }
     for ( int tick = 0; tick < ticks; ++tick )
     {
-        engine.Step( PHYSICS_FIXED_DT,
-                     forces,
-                     workerPool,
-                     nullptr,
-                     0,
-                     SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter{} );
+        engine.Step( PHYSICS_FIXED_DT, forces, workerPool, SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter{} );
     }
 }
 
@@ -1166,15 +1159,11 @@ TEST_CASE( "Tornado external-force lane is byte-exact across serial and parallel
                   NoGravityForces(),
                   serialGameplay.BuildForceFrame( PHYSICS_FIXED_DT, bodyCount ),
                   serialWorkers,
-                  nullptr,
-                  0,
                   SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter{} );
     parallel->Step( PHYSICS_FIXED_DT,
                     NoGravityForces(),
                     parallelGameplay.BuildForceFrame( PHYSICS_FIXED_DT, bodyCount ),
                     parallelWorkers,
-                    nullptr,
-                    0,
                     SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter{} );
 
     CheckEngineKinematicsEqual( *serial, *parallel );

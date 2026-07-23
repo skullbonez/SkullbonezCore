@@ -287,7 +287,7 @@ PhysicsEngineLifecycleScenarioResult RunPhysicsEngineLifecycleScenario()
     Threading::LockOrderValidator lockOrderValidator;
     Threading::WorkerPool inlineWorkers( lockOrderValidator );
     PhysicsWorldForces forces;
-    engine.Step( 0.25f, forces, inlineWorkers, nullptr, 0, PhysicsDiagnosticsCsvWriter{} );
+    engine.Step( 0.25f, forces, inlineWorkers, PhysicsDiagnosticsCsvWriter{} );
 
     PhysicsEngineLifecycleScenarioResult result;
     result.stepCount = 1u;

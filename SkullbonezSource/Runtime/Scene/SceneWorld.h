@@ -173,6 +173,7 @@ class SceneWorld
     void ReserveForActiveSceneObjectCapacity();
     std::vector<Physics::ModelRowHint> BuildFixedTreeReleaseRootsForReload() const;
     std::vector<const char*> BuildDiagnosticNamesForReload() const;
+    void RegisterPhysicsDiagnosticNames();
     bool RefreshPhysicsBodyStoreFromAuthoredDescriptors();
     bool RepairPhysicsBodyTopology();
     int FixedTreeReleaseRootForModelIndex( int modelIndex ) const;

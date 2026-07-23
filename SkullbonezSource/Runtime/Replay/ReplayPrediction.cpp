@@ -166,7 +166,7 @@ bool StepPredictionEngineTick( PhysicsEngine& engine,
     const SkullbonezCore::Physics::ExternalForceFrameInput externalForces =
         tornadoGameplay.BuildForceFrame( fixedDt,
                                          SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).Count() );
-    engine.Step( fixedDt, worldForces, externalForces, workerPool, nullptr, 0, PhysicsDiagnosticsCsvWriter{} );
+    engine.Step( fixedDt, worldForces, externalForces, workerPool, PhysicsDiagnosticsCsvWriter{} );
     return true;
 }
 
