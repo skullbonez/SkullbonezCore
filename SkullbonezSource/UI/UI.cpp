@@ -37,7 +37,6 @@ Related:
 #include "../Rendering/DX12/Dx12ResourceBuilder.h"
 #include "../Rendering/DX12/RenderBackendDX12.h"
 #include "../Maths/Matrix4.h"
-#include "../Runtime/Debug/PhysicsDebugVisualizer.h"
 #include "../Core/Profiler.h"
 #include "../Rendering/Text.h"
 #include "UIDraw.h"
@@ -60,9 +59,7 @@ Related:
 #include <cstdio>
 #include <cstring>
 
-using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::Transformation;
-using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Text;
 using namespace SkullbonezCore::UI;

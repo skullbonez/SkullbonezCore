@@ -4,7 +4,7 @@ Date: 2026-07-23
 Status: IN PROGRESS — drafted from the 2026-07-23 from-source architecture review of
 `nightrunner-22nd-JUL-26`. Registered in `MASTER-PLAN.md` on 2026-07-23 as
 plan 2 of the Architecture Follow-Up Campaign Round 3; starts after
-`source-blemish-remediation` B3 renames land. 2/5 phases complete.
+`source-blemish-remediation` B3 renames land. 3/5 phases complete.
 Impact area: `SkullbonezSource/UI/` includes, `Runtime/Scene` navigation
 value ownership, input snapshot boundary, physics-debug-visualizer UI tab
 Owner: runtime + UI
@@ -199,7 +199,7 @@ rules, and no behavior, layout, binding, or rendering output changes.
   exactly the three `PhysicsDebugVisualizer.h` rows assigned to U3. No authored
   data, baseline, golden, config, schema, or shader changed.
 
-- [ ] **U3 — Physics debug visualizer goes behind typed commands.** Replace
+- [x] **U3 — Physics debug visualizer goes behind typed commands.** Replace
   UI's direct `PhysicsDebugVisualizer` access with the existing command
   pattern: `UITabPhysics` emits typed toggle/value commands (extend
   `UICommands.h`), a Runtime owner applies them to the visualizer, and the
@@ -208,6 +208,37 @@ rules, and no behavior, layout, binding, or rendering output changes.
   include. Acceptance: no UI file names `PhysicsDebugVisualizer`; every
   physics-tab toggle behaves identically, verified by driving each toggle in
   an interactive smoke pass.
+
+  Completed 2026-07-23. UI now owns `UIPhysicsDebugOverlay`, a typed four-value
+  toggle vocabulary, and `UIPhysicsDebugStatus`, a detached status record with
+  decoded overlay states, pipeline name/index/count, alpha/linger values, and
+  the related collision/transparent/broadphase presentation toggles.
+  `DiagnosticsRuntime` explicitly maps each UI overlay value to its
+  Physics-owned flag; unknown shared-editor values are rejected before
+  projection. `UiTextPass` performs the inverse owner-side decode into the
+  status record. Legacy and ImGui surfaces both submit the same UI enum rather
+  than passing Physics masks through UI.
+
+  The Physics tab's hit handler and the focused test share one pure 13-row
+  toggle-to-command policy. The focused case drives all 13 toggle rows plus
+  both invalid bounds and passes 1 case / 28 assertions in 1.77 s. Eight
+  operator-editor normalization, validation, arbitration, and projection cases
+  pass 207 assertions. The first attempted focused test build correctly failed
+  because the lightweight test target does not link the full tab draw
+  implementation; the final policy remained inline and value-only instead of
+  expanding that target, whose rebuild passes in 6.45 s. The final Profile
+  solution build passes in 15.89 s with zero warnings/errors.
+
+  All 12 touched source-bearing files pass the comment audit with zero
+  deferrals. `tools\validate_ui.bat` passes in 45.73 s, including the
+  `physics_toggles` visible state, all accepted UI captures, and zero DX12
+  validation errors. Final `tools\validate_full.bat` passes in 127.12 s: all
+  CPU/coverage floors, 747/747 project/filter entries, zero-warning
+  Profile/Debug builds, accepted committed DX12 images, and the byte-exact
+  44,401-line physics CSV. The UI Runtime-include proof returns zero rows, UI
+  never names `PhysicsDebugVisualizer`, and the retired raw UI debug-mask
+  command has zero source/test rows. No authored data, baseline, golden,
+  config, schema, or shader changed.
 
 - [ ] **U4 — Proof, rule, and guard.** Add the ruling and its proof to
   `AGENTS.md` beside the existing dependency proofs:

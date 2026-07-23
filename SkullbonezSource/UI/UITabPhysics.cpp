@@ -25,7 +25,6 @@ Related:
 */
 #include "UITabPhysics.h"
 
-#include "../Runtime/Debug/PhysicsDebugVisualizer.h"
 #include "UI.h"
 #include "UIDrawWidgets.h"
 #include "UILayout.h"
@@ -34,7 +33,6 @@ Related:
 #include <algorithm>
 #include <cstdio>
 
-using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::UI::Layout;
 using namespace SkullbonezCore::UI::Widgets;
 
@@ -176,55 +174,55 @@ bool HandleContentClick( UIPhysicsTabState& state,
 
     if ( state.toggles[0].HitTest( mouseX, mouseY ) )
     {
-        result.commands.physics.toggleCollisionVisualizer = true;
+        EmitPhysicsToggleCommand( 0, result.commands.physics );
     }
     else if ( state.toggles[1].HitTest( mouseX, mouseY ) )
     {
-        result.commands.physics.togglePhysicsDebugFlags = PHYSICS_DEBUG_AXES;
+        EmitPhysicsToggleCommand( 1, result.commands.physics );
     }
     else if ( state.toggles[2].HitTest( mouseX, mouseY ) )
     {
-        result.commands.physics.togglePhysicsDebugFlags = PHYSICS_DEBUG_CONTACTS;
+        EmitPhysicsToggleCommand( 2, result.commands.physics );
     }
     else if ( state.toggles[3].HitTest( mouseX, mouseY ) )
     {
-        result.commands.physics.togglePhysicsDebugFlags = PHYSICS_DEBUG_SLEEP;
+        EmitPhysicsToggleCommand( 3, result.commands.physics );
     }
     else if ( state.toggles[4].HitTest( mouseX, mouseY ) )
     {
-        result.commands.physics.togglePhysicsDebugTransparent = true;
+        EmitPhysicsToggleCommand( 4, result.commands.physics );
     }
     else if ( state.toggles[5].HitTest( mouseX, mouseY ) )
     {
-        result.commands.physics.toggleBroadphaseOverlay = true;
+        EmitPhysicsToggleCommand( 5, result.commands.physics );
     }
     else if ( state.toggles[7].HitTest( mouseX, mouseY ) )
     {
-        result.commands.physics.togglePhysicsDebugFlags = PHYSICS_DEBUG_PIPELINE;
+        EmitPhysicsToggleCommand( 7, result.commands.physics );
     }
     else if ( state.toggles[6].HitTest( mouseX, mouseY ) )
     {
-        result.commands.physics.togglePhysicsSleepPolicy = true;
+        EmitPhysicsToggleCommand( 6, result.commands.physics );
     }
     else if ( state.toggles[8].HitTest( mouseX, mouseY ) )
     {
-        result.commands.physics.toggleTerrainContactProbe = true;
+        EmitPhysicsToggleCommand( 8, result.commands.physics );
     }
     else if ( state.toggles[9].HitTest( mouseX, mouseY ) )
     {
-        result.commands.physics.toggleTornado = true;
+        EmitPhysicsToggleCommand( 9, result.commands.physics );
     }
     else if ( state.toggles[10].HitTest( mouseX, mouseY ) )
     {
-        result.commands.physics.toggleTornadoVisualShell = true;
+        EmitPhysicsToggleCommand( 10, result.commands.physics );
     }
     else if ( state.toggles[11].HitTest( mouseX, mouseY ) )
     {
-        result.commands.physics.toggleTornadoFieldVectors = true;
+        EmitPhysicsToggleCommand( 11, result.commands.physics );
     }
     else if ( state.toggles[12].HitTest( mouseX, mouseY ) )
     {
-        result.commands.physics.toggleRayCastVisualization = true;
+        EmitPhysicsToggleCommand( 12, result.commands.physics );
     }
     else if ( state.pipelinePrevButton.Contains( mouseX, mouseY ) )
     {
@@ -608,10 +606,10 @@ void Draw( UIPhysicsTabState& state,
     const float col1 = contentX;
     const float col2 = contentX + colW + 18.0f;
     const float displayAlpha =
-        ( activeSlider == SLIDER_ALPHA && state.previewAlpha >= 0.0f ) ? state.previewAlpha : data.physicsDebugAlpha;
+        ( activeSlider == SLIDER_ALPHA && state.previewAlpha >= 0.0f ) ? state.previewAlpha : data.physicsDebug.alpha;
     const float displayLinger = ( activeSlider == SLIDER_CONTACT_LINGER && state.previewContactLinger >= 0.0f )
                                     ? state.previewContactLinger
-                                    : data.physicsDebugContactLinger;
+                                    : data.physicsDebug.contactLinger;
     const float displayRayImpulse = ( activeSlider == SLIDER_RAY_IMPULSE && state.previewRayImpulse >= 0.0f )
                                         ? state.previewRayImpulse
                                         : data.rayCastImpulseStrength;
@@ -654,7 +652,7 @@ void Draw( UIPhysicsTabState& state,
                        scrolledY + PHYSICS_FIRST_TOGGLE_Y,
                        colW,
                        "Collision state",
-                       data.collisionVisualizer );
+                       data.physicsDebug.collisionVisualizer );
     DrawContentToggle( draw,
                        contentY,
                        contentH,
@@ -663,7 +661,7 @@ void Draw( UIPhysicsTabState& state,
                        scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H,
                        colW,
                        "Transparent",
-                       data.physicsDebugTransparent );
+                       data.physicsDebug.transparent );
     DrawContentToggle( draw,
                        contentY,
                        contentH,
@@ -672,7 +670,7 @@ void Draw( UIPhysicsTabState& state,
                        scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 2.0f,
                        colW,
                        "Broadphase",
-                       data.broadphaseOverlay );
+                       data.physicsDebug.broadphase );
     DrawContentToggle( draw,
                        contentY,
                        contentH,
@@ -681,7 +679,7 @@ void Draw( UIPhysicsTabState& state,
                        scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 3.0f,
                        colW,
                        "Pipeline",
-                       ( data.physicsDebugFlags & PHYSICS_DEBUG_PIPELINE ) != 0 );
+                       data.physicsDebug.pipeline );
     DrawContentToggle( draw,
                        contentY,
                        contentH,
@@ -690,7 +688,7 @@ void Draw( UIPhysicsTabState& state,
                        scrolledY + PHYSICS_FIRST_TOGGLE_Y,
                        colW,
                        "Axes",
-                       ( data.physicsDebugFlags & PHYSICS_DEBUG_AXES ) != 0 );
+                       data.physicsDebug.axes );
     DrawContentToggle( draw,
                        contentY,
                        contentH,
@@ -699,7 +697,7 @@ void Draw( UIPhysicsTabState& state,
                        scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H,
                        colW,
                        "Contacts",
-                       ( data.physicsDebugFlags & PHYSICS_DEBUG_CONTACTS ) != 0 );
+                       data.physicsDebug.contacts );
     DrawContentToggle( draw,
                        contentY,
                        contentH,
@@ -708,7 +706,7 @@ void Draw( UIPhysicsTabState& state,
                        scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 2.0f,
                        colW,
                        "Sleep state",
-                       ( data.physicsDebugFlags & PHYSICS_DEBUG_SLEEP ) != 0 );
+                       data.physicsDebug.sleep );
     DrawContentToggle( draw,
                        contentY,
                        contentH,
@@ -726,7 +724,7 @@ void Draw( UIPhysicsTabState& state,
                        scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 4.0f,
                        colW,
                        "Terrain probe",
-                       ( data.physicsDebugFlags & PHYSICS_DEBUG_TERRAIN_CONTACT ) != 0 );
+                       data.physicsDebug.terrainContact );
     DrawContentToggle( draw,
                        contentY,
                        contentH,
@@ -764,7 +762,7 @@ void Draw( UIPhysicsTabState& state,
                        "Ray visual",
                        data.rayCastVisualization );
     const Style::UIPalette& palette = Style::Palette();
-    snprintf( buf, sizeof( buf ), "0x%04X", data.physicsDebugFlags );
+    snprintf( buf, sizeof( buf ), "0x%04X", data.physicsDebug.activeFlags );
     DrawLabelValueAt( draw,
                       contentY,
                       contentH,
@@ -778,9 +776,9 @@ void Draw( UIPhysicsTabState& state,
     snprintf( buf,
               sizeof( buf ),
               "%d/%d %s",
-              data.physicsPipelineStageIndex + 1,
-              data.physicsPipelineStageCount,
-              data.physicsPipelineStageName );
+              data.physicsDebug.pipelineStageIndex + 1,
+              data.physicsDebug.pipelineStageCount,
+              data.physicsDebug.pipelineStageName );
     DrawLabelValueAt( draw,
                       contentY,
                       contentH,

@@ -242,16 +242,8 @@ struct InGameUIFrameData
     float worldGravity = 0.0f;
     float worldFluidHeight = 0.0f;
     float worldFluidDensity = 0.0f;
-    uint32_t physicsDebugFlags = 0;
-    const char* physicsPipelineStageName = "";
-    int physicsPipelineStageIndex = 0;
-    int physicsPipelineStageCount = 0;
-    float physicsDebugAlpha = 0.0f;
-    float physicsDebugContactLinger = 0.0f;
+    UIPhysicsDebugStatus physicsDebug;
     bool physicsSleepEnabled = true;
-    bool collisionVisualizer = false;
-    bool physicsDebugTransparent = false;
-    bool broadphaseOverlay = false;
     bool tornadoEnabled = false;
     bool tornadoVisualShell = false;
     bool tornadoFieldVectors = false;

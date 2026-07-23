@@ -2318,20 +2318,22 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                 const struct
                 {
                     const char* label;
-                    uint32_t flag;
+                    uint32_t physicsFlag;
+                    UI::UIPhysicsDebugOverlay overlay;
                 } flagRows[] = {
-                    { "Axes", Physics::PHYSICS_DEBUG_AXES },
-                    { "Contacts", Physics::PHYSICS_DEBUG_CONTACTS },
-                    { "Sleep state", Physics::PHYSICS_DEBUG_SLEEP },
-                    { "Pipeline", Physics::PHYSICS_DEBUG_PIPELINE },
+                    { "Axes", Physics::PHYSICS_DEBUG_AXES, UI::UIPhysicsDebugOverlay::Axes },
+                    { "Contacts", Physics::PHYSICS_DEBUG_CONTACTS, UI::UIPhysicsDebugOverlay::Contacts },
+                    { "Sleep state", Physics::PHYSICS_DEBUG_SLEEP, UI::UIPhysicsDebugOverlay::Sleep },
+                    { "Pipeline", Physics::PHYSICS_DEBUG_PIPELINE, UI::UIPhysicsDebugOverlay::Pipeline },
                 };
                 for ( const auto& row : flagRows )
                 {
-                    bool enabled = ( diagnostics.physicsDebugFlags & row.flag ) != 0u;
-                    ImGui::PushID( static_cast<int>( row.flag ) );
+                    bool enabled = ( diagnostics.physicsDebugFlags & row.physicsFlag ) != 0u;
+                    ImGui::PushID( static_cast<int>( row.physicsFlag ) );
                     if ( ImGui::Checkbox( row.label, &enabled ) )
                     {
-                        submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag, row.flag );
+                        submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag,
+                                           static_cast<uint32_t>( row.overlay ) );
                     }
                     ImGui::PopID();
                 }

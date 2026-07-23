@@ -11,22 +11,22 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-23rd-JUL-26` |
-| Current baseline | UI/runtime U2 is complete: UI owns a detached keyboard/pointer snapshot, Runtime constructs it from sampled device/edge state, and UI has no Runtime input-authority dependency. Legacy remains the development default. |
-| Current objective | Implement `ui-runtime-separation` U3: replace direct UI access to `PhysicsDebugVisualizer` with typed commands and a value status snapshot. |
-| Active/future progress | 8/16 registered architecture follow-up tasks; 50%. |
+| Current baseline | UI/runtime U3 is complete: UI has zero Runtime includes, physics-debug intent crosses as a typed UI enum, and Runtime publishes one detached status value. Legacy remains the development default. |
+| Current objective | Implement `ui-runtime-separation` U4: ratify the UI direction rule in `AGENTS.md` and run all standing dependency/replay proofs. |
+| Active/future progress | 9/16 registered architecture follow-up tasks; 56%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | UI/runtime U2 `validate_full` passes in 124.96 s: all CPU/coverage floors, 747/747 project/filter items, zero-warning Profile/Debug builds, accepted DX12 images with zero errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | U2 final Profile build passes in 4.85 s; input policy passes 28 cases / 1,170 assertions and the detached-boundary case passes 1 / 16; `validate_ui` passes in 53.91 s; 15/15 source files pass comment audit. |
+| Last broad local gate | UI/runtime U3 `validate_full` passes in 127.12 s: all CPU/coverage floors, 747/747 project/filter items, zero-warning Profile/Debug builds, accepted DX12 images with zero errors, and byte-exact 44,401-line physics CSV. |
+| Validation for current edits | U3 Profile build passes in 15.89 s; all 13 Physics-tab toggles plus invalid bounds pass 28 assertions; 8 operator-editor cases pass 207 assertions; `validate_ui` passes in 45.73 s; 12/12 source files pass comment audit. |
 
 ## Live Queue
 
-NOW. `ui-runtime-separation` is active at 2/5. U2 makes `UIInputSnapshot` an
-owning UI keyboard/pointer value and constructs it on the Runtime side from
-the sampled device frame and mouse edges. UI has no Runtime input types or
-input includes; focused input tests, the UI interaction gate, and the broad
-gate pass with no baseline or golden change. The only three UI→Runtime source
-include rows all name `PhysicsDebugVisualizer.h`; U3 replaces them with typed
-commands and a detached status value.
+NOW. `ui-runtime-separation` is active at 3/5. U3 removes the final three
+UI→Runtime includes. The Physics tab emits a typed UI overlay enum, Runtime
+maps it to Physics-owned flags, and `UiTextPass` publishes one detached status
+record with decoded toggle values. All 13 toggle rows, both operator surfaces,
+the visible Physics-tab state, and the broad gate pass with no baseline or
+golden change. U4 records the direction rule in `AGENTS.md` and runs every
+standing dependency/replay proof.
 
 NOW. `wide-signature-parameter-bag-remediation` is complete (6/6).
 The owner rejected replacements such as `RenderModelPassInput` that merely
@@ -370,7 +370,7 @@ targeted Automation and final full passes.
 ## Next Handoff
 
 Architecture follow-up implementation is active in
-`Agentic/Plans/TODO/ui-runtime-separation.md` at 2/5; U3 is next. Preserve the
+`Agentic/Plans/TODO/ui-runtime-separation.md` at 3/5; U4 is next. Preserve the
 empty threshold-13 inventory, source-blemish owner boundaries, and the
 direction rule that Runtime may include UI while UI must never include
 Runtime.

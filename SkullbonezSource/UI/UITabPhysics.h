@@ -55,6 +55,57 @@ constexpr int SLIDER_TERRAIN_FRICTION = SLIDER_PHYSICS_BASE + 10;
 constexpr int SLIDER_OBJECT_FRICTION = SLIDER_PHYSICS_BASE + 11;
 constexpr int SLIDER_ROLLING_FRICTION = SLIDER_PHYSICS_BASE + 12;
 
+// Converts the retained widget row into one one-frame command. The hit handler
+// and focused tests share this table so a visual row cannot silently drift to a
+// different Runtime mutation.
+inline bool EmitPhysicsToggleCommand( int toggleIndex, UIPhysicsCommands& commands )
+{
+    switch ( toggleIndex )
+    {
+    case 0:
+        commands.toggleCollisionVisualizer = true;
+        return true;
+    case 1:
+        commands.physicsDebugOverlayToToggle = UIPhysicsDebugOverlay::Axes;
+        return true;
+    case 2:
+        commands.physicsDebugOverlayToToggle = UIPhysicsDebugOverlay::Contacts;
+        return true;
+    case 3:
+        commands.physicsDebugOverlayToToggle = UIPhysicsDebugOverlay::Sleep;
+        return true;
+    case 4:
+        commands.togglePhysicsDebugTransparent = true;
+        return true;
+    case 5:
+        commands.toggleBroadphaseOverlay = true;
+        return true;
+    case 6:
+        commands.togglePhysicsSleepPolicy = true;
+        return true;
+    case 7:
+        commands.physicsDebugOverlayToToggle = UIPhysicsDebugOverlay::Pipeline;
+        return true;
+    case 8:
+        commands.toggleTerrainContactProbe = true;
+        return true;
+    case 9:
+        commands.toggleTornado = true;
+        return true;
+    case 10:
+        commands.toggleTornadoVisualShell = true;
+        return true;
+    case 11:
+        commands.toggleTornadoFieldVectors = true;
+        return true;
+    case 12:
+        commands.toggleRayCastVisualization = true;
+        return true;
+    default:
+        return false;
+    }
+}
+
 struct UIPhysicsTabState
 {
     UICheckBox toggles[13];

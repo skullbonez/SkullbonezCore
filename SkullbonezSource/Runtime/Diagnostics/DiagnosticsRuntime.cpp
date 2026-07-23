@@ -619,9 +619,27 @@ ApplyDiagnosticsPhysicsOverlayUICommands( OverlayDebugState& debug, const UI::UI
         debug.isCollisionVisualizer = !debug.isCollisionVisualizer;
         result.toggledCollisionVisualizer = true;
     }
-    if ( commands.togglePhysicsDebugFlags != 0 )
+    uint32_t physicsDebugFlag = Physics::PHYSICS_DEBUG_NONE;
+    switch ( commands.physicsDebugOverlayToToggle )
     {
-        debug.physicsDebugFlags ^= ( commands.togglePhysicsDebugFlags & Physics::PHYSICS_DEBUG_ALL );
+    case UI::UIPhysicsDebugOverlay::Axes:
+        physicsDebugFlag = Physics::PHYSICS_DEBUG_AXES;
+        break;
+    case UI::UIPhysicsDebugOverlay::Contacts:
+        physicsDebugFlag = Physics::PHYSICS_DEBUG_CONTACTS;
+        break;
+    case UI::UIPhysicsDebugOverlay::Sleep:
+        physicsDebugFlag = Physics::PHYSICS_DEBUG_SLEEP;
+        break;
+    case UI::UIPhysicsDebugOverlay::Pipeline:
+        physicsDebugFlag = Physics::PHYSICS_DEBUG_PIPELINE;
+        break;
+    case UI::UIPhysicsDebugOverlay::None:
+        break;
+    }
+    if ( physicsDebugFlag != Physics::PHYSICS_DEBUG_NONE )
+    {
+        debug.physicsDebugFlags ^= physicsDebugFlag;
         result.toggledPhysicsDebugFlags = true;
     }
     if ( commands.stepPhysicsPipelinePrevious )

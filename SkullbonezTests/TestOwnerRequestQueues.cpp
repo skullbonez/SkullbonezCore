@@ -59,6 +59,7 @@ Related:
 #include "../SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.h"
 #include "../SkullbonezSource/Physics/PhysicsDebugData.h"
 #include "../SkullbonezSource/UI/UICommands.h"
+#include "../SkullbonezSource/UI/UITabPhysics.h"
 
 #include <cmath>
 #include <cstring>
@@ -70,6 +71,36 @@ Related:
 #include <type_traits>
 
 using namespace SkullbonezCore::Runtime;
+
+TEST_CASE( "Physics tab emits one typed request for every toggle row" )
+{
+    using namespace SkullbonezCore::UI;
+
+    const auto emitToggle = []( int toggleIndex )
+    {
+        UIPhysicsCommands commands;
+        CHECK( PhysicsTab::EmitPhysicsToggleCommand( toggleIndex, commands ) );
+        return commands;
+    };
+
+    CHECK( emitToggle( 0 ).toggleCollisionVisualizer );
+    CHECK( emitToggle( 1 ).physicsDebugOverlayToToggle == UIPhysicsDebugOverlay::Axes );
+    CHECK( emitToggle( 2 ).physicsDebugOverlayToToggle == UIPhysicsDebugOverlay::Contacts );
+    CHECK( emitToggle( 3 ).physicsDebugOverlayToToggle == UIPhysicsDebugOverlay::Sleep );
+    CHECK( emitToggle( 4 ).togglePhysicsDebugTransparent );
+    CHECK( emitToggle( 5 ).toggleBroadphaseOverlay );
+    CHECK( emitToggle( 6 ).togglePhysicsSleepPolicy );
+    CHECK( emitToggle( 7 ).physicsDebugOverlayToToggle == UIPhysicsDebugOverlay::Pipeline );
+    CHECK( emitToggle( 8 ).toggleTerrainContactProbe );
+    CHECK( emitToggle( 9 ).toggleTornado );
+    CHECK( emitToggle( 10 ).toggleTornadoVisualShell );
+    CHECK( emitToggle( 11 ).toggleTornadoFieldVectors );
+    CHECK( emitToggle( 12 ).toggleRayCastVisualization );
+
+    UIPhysicsCommands invalid;
+    CHECK_FALSE( PhysicsTab::EmitPhysicsToggleCommand( -1, invalid ) );
+    CHECK_FALSE( PhysicsTab::EmitPhysicsToggleCommand( 13, invalid ) );
+}
 
 TEST_CASE( "Scene lifecycle accepts only ordered phases within one generation" )
 {
@@ -1069,7 +1100,7 @@ TEST_CASE( "Operator editor rendering and diagnostics retain canonical owner pro
                  .ok );
     REQUIRE( SubmitOperatorEditorCommand( commits.diagnostics,
                                           { OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag,
-                                            SkullbonezCore::Physics::PHYSICS_DEBUG_CONTACTS } )
+                                            static_cast<uint32_t>( UIPhysicsDebugOverlay::Contacts ) } )
                  .ok );
     REQUIRE( SubmitOperatorEditorCommand( commits.diagnostics,
                                           { OperatorEditorDiagnosticsCommandType::SetWorkerThreads, 0u, 4 } )
@@ -1087,7 +1118,7 @@ TEST_CASE( "Operator editor rendering and diagnostics retain canonical owner pro
     CHECK( projected.cinematic.requestedValue == doctest::Approx( 0.6f ) );
     CHECK( projected.cinematic.requestedFeature == UICinematicFeature::Bloom );
     CHECK( projected.sceneOptions.toggleWaterFreeze );
-    CHECK( projected.physics.togglePhysicsDebugFlags == SkullbonezCore::Physics::PHYSICS_DEBUG_CONTACTS );
+    CHECK( projected.physics.physicsDebugOverlayToToggle == UIPhysicsDebugOverlay::Contacts );
     CHECK( projected.profiler.requestedWorkerThreads == 4 );
     CHECK( projected.physics.requestRayCastImpulseStrength );
     CHECK( projected.physics.requestedRayCastImpulseStrength == doctest::Approx( 125.0f ) );
@@ -1099,14 +1130,14 @@ TEST_CASE( "Operator editor rendering and diagnostics retain canonical owner pro
     legacy.cinematic.requestedValue = 0.6f;
     legacy.cinematic.requestedFeature = UICinematicFeature::Bloom;
     legacy.sceneOptions.toggleWaterFreeze = true;
-    legacy.physics.togglePhysicsDebugFlags = SkullbonezCore::Physics::PHYSICS_DEBUG_CONTACTS;
+    legacy.physics.physicsDebugOverlayToToggle = UIPhysicsDebugOverlay::Contacts;
     legacy.profiler.requestedWorkerThreads = 4;
     legacy.physics.requestRayCastImpulseStrength = true;
     legacy.physics.requestedRayCastImpulseStrength = 125.0f;
     REQUIRE( NormalizeLegacyOperatorEditorCommands( legacy ).ok );
     CHECK( legacy.renderTuning.requestedParam == UIRenderParam::None );
     CHECK( legacy.cinematic.requestedParam == UICinematicParam::None );
-    CHECK( legacy.physics.togglePhysicsDebugFlags == 0u );
+    CHECK( legacy.physics.physicsDebugOverlayToToggle == UIPhysicsDebugOverlay::None );
     CHECK( legacy.profiler.requestedWorkerThreads == -2 );
     const OperatorEditorArbitrationResult merged = ArbitrateOperatorEditorCommands( legacy.operatorEditor, commits );
     REQUIRE( merged.status.ok );
@@ -1116,6 +1147,10 @@ TEST_CASE( "Operator editor rendering and diagnostics retain canonical owner pro
     CHECK_FALSE( SubmitOperatorEditorCommand( malformedDiagnostics,
                                               { OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag, 0u } )
                      .ok );
+    CHECK_FALSE(
+        SubmitOperatorEditorCommand( malformedDiagnostics,
+                                     { OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag, 1u << 7 } )
+            .ok );
 }
 
 TEST_CASE( "Operator editor scene hierarchy and asset intents project through typed owner packets" )
