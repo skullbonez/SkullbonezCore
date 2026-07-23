@@ -343,7 +343,8 @@ void Render( RuntimeFrameHostView& host,
             const PhysicsColliderHandle colliderHandle =
                 entity ? colliderStore.HandleForBodyHandle( entity->body ) : PhysicsColliderHandle{};
             const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
-            if ( !entity || !body || !collider )
+            const ColliderAuthoringRecord* colliderAuthoring = colliderStore.AuthoringRecordForHandle( colliderHandle );
+            if ( !entity || !body || !collider || !colliderAuthoring )
             {
                 inspector.selectionState = SkullbonezCore::UI::OperatorEditorInspectorSelectionState::Stale;
             }
@@ -360,7 +361,7 @@ void Render( RuntimeFrameHostView& host,
                     entity->renderMaterial.name[0] != '\0'
                         ? entity->renderMaterial.name
                         : SkullbonezCore::Rendering::RenderMaterialKindName( entity->renderMaterial.kind );
-                inspector.contactMaterialName = collider->contactMaterialName;
+                inspector.contactMaterialName = colliderAuthoring->contactMaterialName;
                 inspector.assetName = entity->asset.assetName;
                 inspector.assetInstanceName = entity->asset.instanceName;
                 inspector.assetPartName = entity->asset.partName;

@@ -13,6 +13,8 @@ Glossary:
     original authored file.
   Cold metadata: Names, render materials, and behavior grouping that identify
     objects but do not drive physics integration.
+  Collider authoring row: Cold material text paired with the live collider row
+    for exact scene round trips.
   Asset affiliation: Library, asset, instance, root, and ordered-part identity
     retained by SceneEntityStore after the original parse data is gone.
   Scene object group: JSON metadata that lets multi-part object grouping
@@ -69,12 +71,14 @@ using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
 using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::ColliderAuthoringRecord;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::LoadPhysicsBodyHotState;
 using SkullbonezCore::Physics::PhysicsBodyHotState;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
+using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Runtime::RuntimeFileWriter;
 using SkullbonezCore::Runtime::SceneAssetAffiliation;
 using SkullbonezCore::Runtime::SceneBehaviorGroup;
@@ -202,6 +206,9 @@ struct LiveSceneRow
     const PhysicsBodyRecord& body;
     PhysicsBodyHotState hotState;
     const ColliderRecord& collider;
+    // Lifetime: the cold row is borrowed from the same store snapshot and must
+    // stay index/handle aligned with collider until this save call returns.
+    const ColliderAuthoringRecord& colliderAuthoring;
 };
 
 LiveSceneRow ResolveLiveSceneRow( const SceneSaveView& scene, int entityIndex )
@@ -209,9 +216,11 @@ LiveSceneRow ResolveLiveSceneRow( const SceneSaveView& scene, int entityIndex )
     const SceneEntityRecord& entity = scene.entities.At( entityIndex );
     const PhysicsBodyRecord* body = scene.bodies.RecordForHandle( entity.body );
     const int bodyIndex = scene.bodies.ModelIndexForHandle( entity.body );
-    const ColliderRecord* collider =
-        body ? scene.colliders.RecordForHandle( scene.colliders.HandleForBodyHandle( body->handle ) ) : nullptr;
-    if ( !body || bodyIndex < 0 || !collider || collider->body != body->handle ||
+    const PhysicsColliderHandle colliderHandle =
+        body ? scene.colliders.HandleForBodyHandle( body->handle ) : PhysicsColliderHandle{};
+    const ColliderRecord* collider = scene.colliders.RecordForHandle( colliderHandle );
+    const ColliderAuthoringRecord* colliderAuthoring = scene.colliders.AuthoringRecordForHandle( colliderHandle );
+    if ( !body || bodyIndex < 0 || !collider || !colliderAuthoring || collider->body != body->handle ||
          body->sceneObjectId.value != entity.sceneObjectId.value ||
          collider->sceneObjectId.value != entity.sceneObjectId.value )
     {
@@ -223,14 +232,15 @@ LiveSceneRow ResolveLiveSceneRow( const SceneSaveView& scene, int entityIndex )
     return { entity,
              *body,
              LoadPhysicsBodyHotState( scene.bodies.HotFields(), static_cast<std::size_t>( bodyIndex ) ),
-             *collider };
+             *collider,
+             *colliderAuthoring };
 }
 
 Json BuildLiveStateJson( const SceneSaveView& scene, int entityIndex )
 {
     const LiveSceneRow row = ResolveLiveSceneRow( scene, entityIndex );
     const char* contactMaterial =
-        row.collider.contactMaterialName[0] != '\0' ? row.collider.contactMaterialName : "default";
+        row.colliderAuthoring.contactMaterialName[0] != '\0' ? row.colliderAuthoring.contactMaterialName : "default";
     Json state = {
         { "sceneObjectId", row.entity.sceneObjectId.value },
         { "name", row.entity.displayName },

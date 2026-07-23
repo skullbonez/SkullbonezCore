@@ -1,10 +1,10 @@
 # Source Blemish Remediation
 
 Date: 2026-07-23
-Status: TODO — drafted from the 2026-07-23 from-source architecture review of
+Status: IN PROGRESS — drafted from the 2026-07-23 from-source architecture review of
 `nightrunner-22nd-JUL-26`. Registered in `MASTER-PLAN.md` on 2026-07-23 as
 plan 1 of the Architecture Follow-Up Campaign Round 3; starts after
-`wide-signature-parameter-bag-remediation` closes. 0/6 phases complete.
+`wide-signature-parameter-bag-remediation` closes. 1/6 phases complete.
 Impact area: Physics store layout, physics step API, Runtime editor file
 naming, profiler unit placement, development-tools TU size
 Owner: physics + runtime
@@ -92,7 +92,7 @@ seams.
 
 ## Phases
 
-- [ ] **B1 — Split cold collider authoring bytes out of the hot row.**
+- [x] **B1 — Split cold collider authoring bytes out of the hot row.**
   Move `contactMaterialName[32]` from `ColliderRecord` into a parallel
   cold-side dense array owned by `ColliderStore` (same row indexing, replaced
   in the same topology commits; a plain `ColliderAuthoringRecord` row is
@@ -102,6 +102,20 @@ seams.
   to consume the cold array. Acceptance: `sizeof(ColliderRecord)` shrinks by
   the name bytes; no caller reads the name from the hot row; physics
   regression CSV is byte-exact against the committed baseline.
+
+  Completed 2026-07-23. `ColliderRecord` is 7,228 bytes under the final MSVC
+  class-layout report, exactly 32 bytes below the prior 7,260-byte source
+  layout. `ColliderAuthoringRecord` owns the removed name bytes in a
+  fixed-capacity parallel row. Create, authored update, clear, and swap-delete
+  keep both rows in one topology transaction; focused collider compaction and
+  scene snapshot/reparse tests pass 4 cases / 498 assertions. Scene save,
+  editor history/inspector, automation fingerprints, and memory diagnostics
+  now read/count the cold row. The 10/10 touched source files pass the comment
+  audit with zero deferrals. `tools\validate_physics.bat` passes with lifecycle
+  hash `0x953D97A226665242` and a byte-exact 44,401-line CSV;
+  `tools\validate_perf.bat` passes with zero steady-gameplay allocation or
+  reserve-policy violations and no DX12/physics regression. No baseline,
+  golden, schema, config, or Replay source changed.
 
 - [ ] **B2 — Register diagnostic names at topology time, not per step.**
   Remove `diagnosticNames`/`diagnosticNameCount` from both

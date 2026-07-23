@@ -11,14 +11,24 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-22nd-JUL-26` |
-| Current baseline | Wide-signature parameter-bag remediation is complete: campaign-created mechanical packs are absent and the threshold-13 scan is empty. Legacy remains the development default. |
-| Current objective | The next registered architecture campaign begins with `source-blemish-remediation` B1 when the owner starts it. |
-| Active/future progress | 0/16 registered architecture follow-up tasks; 0%. |
+| Current baseline | Source-blemish B1 is complete: collider material text lives in a cold parallel row and the hot collider row is 32 bytes smaller. Legacy remains the development default. |
+| Current objective | Continue `source-blemish-remediation` with B2 diagnostic-name registration at topology time. |
+| Active/future progress | 1/16 registered architecture follow-up tasks; 6%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | B5 `validate_full` passes in 115.7 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | B5 threshold/static proofs, fast, Replay allocation/artifact/scrub-visual-fidelity, broad, and hostile no-bag review all pass. |
+| Validation for current edits | B1 focused Profile build/tests, exact physics, and performance/allocation gates pass; 10/10 touched source files pass comment audit. |
 
 ## Live Queue
+
+NOW. `source-blemish-remediation` is active at 1/6. B1 moves the cold
+`contactMaterialName[32]` token out of `ColliderRecord` into an index-aligned
+`ColliderAuthoringRecord`, preserves create/update/clear/compaction topology,
+and reroutes scene save, editor, UI, automation, and memory accounting to the
+cold row. The final compiler layout is 7,228 bytes (32 bytes below the prior
+row); focused tests pass 4 cases / 498 assertions, the 10/10 touched-file
+comment audit is clear, physics remains byte-exact at 44,401 lines, and the
+performance/allocation gate reports no regression or steady-gameplay
+violation. B2 is next.
 
 NOW. `wide-signature-parameter-bag-remediation` is complete (6/6).
 The owner rejected replacements such as `RenderModelPassInput` that merely

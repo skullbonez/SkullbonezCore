@@ -178,8 +178,10 @@ EditorSelectionFingerprint BuildEditorSelectionFingerprint( RuntimeTools& runtim
     const Physics::PhysicsBodyRecord* body = world.BodyStore().RecordForModelIndex( modelIndex );
     const Physics::PhysicsColliderHandle colliderHandle = world.Colliders().HandleForModelIndex( modelIndex );
     const Physics::ColliderRecord* collider = world.Colliders().RecordForHandle( colliderHandle );
+    const Physics::ColliderAuthoringRecord* colliderAuthoring =
+        world.Colliders().AuthoringRecordForHandle( colliderHandle );
     EditorPrimitiveShapeSnapshot shape;
-    if ( !body || !collider || body->sceneObjectId.value != entity.sceneObjectId.value ||
+    if ( !body || !collider || !colliderAuthoring || body->sceneObjectId.value != entity.sceneObjectId.value ||
          !TryCaptureEditorPrimitiveShape( collider->shape, shape ) )
     {
         return fingerprint;
@@ -245,7 +247,9 @@ EditorSelectionFingerprint BuildEditorSelectionFingerprint( RuntimeTools& runtim
     HashPredictionFloat( hash, collider->restitution );
     HashPredictionFloat( hash, collider->friction );
     HashPredictionScalar( hash, collider->contactMaterialId );
-    HashInteractionText( hash, collider->contactMaterialName, sizeof( collider->contactMaterialName ) );
+    HashInteractionText( hash,
+                         colliderAuthoring->contactMaterialName,
+                         sizeof( colliderAuthoring->contactMaterialName ) );
     fingerprint.valid = true;
     return fingerprint;
 }

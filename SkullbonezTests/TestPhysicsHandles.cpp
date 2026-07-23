@@ -14,6 +14,8 @@
 //   Dense row: Compact store array index used by hot simulation scans.
 //   Model row hint: Cached dense-row guess that a resolver can repair after
 //     deletion compacts the store.
+//   Collider authoring row: Cold scene round-trip text paired with one dense
+//     hot collider row.
 //   Scene object id: Stable id used by replay/diagnostics to find a body even
 //     when a model-index hint is stale.
 //   Hot SoA fields: 32-byte-aligned component arrays that keep adjacent body
@@ -22,6 +24,7 @@
 // Invariants:
 //   - HandleForModelIndex() and ModelIndexForHandle() are inverse for live rows.
 //   - Destroying a middle row moves the final row down and updates its handle map.
+//   - Collider hot and authoring rows compact together under the same handle.
 //   - Reused handle slots must increment generation before accepting new records.
 //   - Hot state has one authority: aligned SoA arrays; cold records do not
 //     duplicate pose, velocity, inertia, motion-kind, or sleep fields.
@@ -48,13 +51,14 @@
 #include <cmath>
 
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::ColliderAuthoringRecord;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::MakePhysicsSceneObjectId;
 using SkullbonezCore::Physics::ModelRowHint;
-using SkullbonezCore::Physics::PhysicsBodyHandle;
-using SkullbonezCore::Physics::PhysicsBodyCreateRecord;
 using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
+using SkullbonezCore::Physics::PhysicsBodyCreateRecord;
+using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyPosition;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
@@ -82,6 +86,13 @@ ColliderRecord MakeColliderRecord( PhysicsBodyHandle body, uint32_t sceneObjectI
     record.body = body;
     record.sceneObjectId = MakePhysicsSceneObjectId( sceneObjectIdValue );
     record.boundingRadius = radius;
+    return record;
+}
+
+ColliderAuthoringRecord MakeColliderAuthoringRecord( const char* contactMaterialName )
+{
+    ColliderAuthoringRecord record;
+    strncpy_s( record.contactMaterialName, contactMaterialName, _TRUNCATE );
     return record;
 }
 
@@ -126,15 +137,13 @@ TEST_CASE( "Property invariant: equal-and-opposite impulses conserve pair moment
         PhysicsBodyCreateRecord left = MakeBodyRecord( 1u, Vector3( 0.0f, 0.0f, 0.0f ) );
         left.cold.mass = leftMass;
         left.hot.inverseMass = 1.0f / leftMass;
-        left.hot.linearVelocity = Vector3( random.Float( -5.0f, 5.0f ),
-                                           random.Float( -5.0f, 5.0f ),
-                                           random.Float( -5.0f, 5.0f ) );
+        left.hot.linearVelocity =
+            Vector3( random.Float( -5.0f, 5.0f ), random.Float( -5.0f, 5.0f ), random.Float( -5.0f, 5.0f ) );
         PhysicsBodyCreateRecord right = MakeBodyRecord( 2u, Vector3( 0.0f, 0.0f, 0.0f ) );
         right.cold.mass = rightMass;
         right.hot.inverseMass = 1.0f / rightMass;
-        right.hot.linearVelocity = Vector3( random.Float( -5.0f, 5.0f ),
-                                            random.Float( -5.0f, 5.0f ),
-                                            random.Float( -5.0f, 5.0f ) );
+        right.hot.linearVelocity =
+            Vector3( random.Float( -5.0f, 5.0f ), random.Float( -5.0f, 5.0f ), random.Float( -5.0f, 5.0f ) );
         const PhysicsBodyHandle leftHandle = store.CreateBodyRecord( left );
         const PhysicsBodyHandle rightHandle = store.CreateBodyRecord( right );
         const Vector3 momentumBefore = left.hot.linearVelocity * leftMass + right.hot.linearVelocity * rightMass;
@@ -292,8 +301,9 @@ TEST_CASE( "Replay restore: stable body ids override stale row hints" )
     REQUIRE( store.RecordForHandle( second ) != nullptr );
     CHECK( PhysicsBodyPosition( store.HotFields(), static_cast<std::size_t>( store.ModelIndexForHandle( first ) ) ).x ==
            1.0f );
-    CHECK( PhysicsBodyPosition( store.HotFields(), static_cast<std::size_t>( store.ModelIndexForHandle( second ) ) ).x ==
-           2.0f );
+    CHECK(
+        PhysicsBodyPosition( store.HotFields(), static_cast<std::size_t>( store.ModelIndexForHandle( second ) ) ).x ==
+        2.0f );
 
     sample.bodies[0].id.value = 101u;
     sample.bodies[1].id.value = 101u;
@@ -382,9 +392,12 @@ TEST_CASE( "Physics handles: collider destroy moves rows and rejects stale handl
     PhysicsBodyHandle bodyA{ 11u, 1u };
     PhysicsBodyHandle bodyB{ 12u, 1u };
     PhysicsBodyHandle bodyC{ 13u, 1u };
-    const PhysicsColliderHandle first = store.CreateColliderRecord( MakeColliderRecord( bodyA, 111u, 1.0f ) );
-    const PhysicsColliderHandle middle = store.CreateColliderRecord( MakeColliderRecord( bodyB, 222u, 2.0f ) );
-    const PhysicsColliderHandle last = store.CreateColliderRecord( MakeColliderRecord( bodyC, 333u, 3.0f ) );
+    const PhysicsColliderHandle first =
+        store.CreateColliderRecord( MakeColliderRecord( bodyA, 111u, 1.0f ), MakeColliderAuthoringRecord( "stone" ) );
+    const PhysicsColliderHandle middle =
+        store.CreateColliderRecord( MakeColliderRecord( bodyB, 222u, 2.0f ), MakeColliderAuthoringRecord( "metal" ) );
+    const PhysicsColliderHandle last =
+        store.CreateColliderRecord( MakeColliderRecord( bodyC, 333u, 3.0f ), MakeColliderAuthoringRecord( "wood" ) );
 
     CHECK( store.DestroyColliderRecord( middle ) );
 
@@ -395,6 +408,8 @@ TEST_CASE( "Physics handles: collider destroy moves rows and rejects stale handl
     CHECK( store.HandleForModelIndex( 1 ) == last );
     CHECK( store.ModelIndexForHandle( last ) == 1 );
     CHECK( store.HandleForBodyHandle( bodyC ) == last );
+    REQUIRE( store.AuthoringRecordForHandle( last ) != nullptr );
+    CHECK( std::strcmp( store.AuthoringRecordForHandle( last )->contactMaterialName, "wood" ) == 0 );
 
     const PhysicsColliderHandle replacement =
         store.CreateColliderRecord( MakeColliderRecord( PhysicsBodyHandle{ 14u, 1u }, 444u, 4.0f ) );
@@ -412,8 +427,10 @@ TEST_CASE( "Physics handles: collider rows realign to compacted body handles" )
     const PhysicsBodyHandle first = bodies.CreateBodyRecord( MakeBodyRecord( 111u, Vector3( 1.0f, 0.0f, 0.0f ) ) );
     const PhysicsBodyHandle middle = bodies.CreateBodyRecord( MakeBodyRecord( 222u, Vector3( 2.0f, 0.0f, 0.0f ) ) );
     const PhysicsBodyHandle last = bodies.CreateBodyRecord( MakeBodyRecord( 333u, Vector3( 3.0f, 0.0f, 0.0f ) ) );
-    const PhysicsColliderHandle firstCollider = colliders.CreateColliderRecord( MakeColliderRecord( first, 111u, 1.0f ) );
-    const PhysicsColliderHandle middleCollider = colliders.CreateColliderRecord( MakeColliderRecord( middle, 222u, 2.0f ) );
+    const PhysicsColliderHandle firstCollider =
+        colliders.CreateColliderRecord( MakeColliderRecord( first, 111u, 1.0f ) );
+    const PhysicsColliderHandle middleCollider =
+        colliders.CreateColliderRecord( MakeColliderRecord( middle, 222u, 2.0f ) );
     const PhysicsColliderHandle lastCollider = colliders.CreateColliderRecord( MakeColliderRecord( last, 333u, 3.0f ) );
 
     REQUIRE( bodies.DestroyBodyRecord( middle ) );
@@ -452,9 +469,7 @@ TEST_CASE( "Physics impulses: zero mass and inertia absorb immediate and pending
     CHECK( hot.angularVelocityY[0] == doctest::Approx( 0.5f ) );
     CHECK( hot.angularVelocityZ[0] == doctest::Approx( 0.6f ) );
 
-    REQUIRE( bodies.SetPendingBodyImpulse( handle,
-                                           Vector3( 3.0f, 4.0f, 5.0f ),
-                                           Vector3( 2.0f, 0.0f, 1.0f ) ) );
+    REQUIRE( bodies.SetPendingBodyImpulse( handle, Vector3( 3.0f, 4.0f, 5.0f ), Vector3( 2.0f, 0.0f, 1.0f ) ) );
     REQUIRE( bodies.ConsumePendingBodyImpulse( 0 ) );
     hot = bodies.HotFields();
     CHECK( hot.linearVelocityX[0] == doctest::Approx( 1.0f ) );

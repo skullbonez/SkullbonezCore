@@ -55,6 +55,12 @@ const ColliderRecord* ColliderForModelIndex( const ColliderStore& colliders, int
 }
 
 
+const ColliderAuthoringRecord* ColliderAuthoringForModelIndex( const ColliderStore& colliders, int modelIndex )
+{
+    return colliders.AuthoringRecordForModelIndex( modelIndex );
+}
+
+
 bool PosesDiffer( const EditorTransformSnapshot& before, const EditorTransformSnapshot& after )
 {
     if ( VectorMagSquared( after.position - before.position ) > 1.0e-8f )
@@ -99,7 +105,8 @@ bool CapturePrimitiveRecipe( const SceneWorld& world, int modelIndex, EditorPrim
     const PhysicsBodyStore& bodyStore = world.BodyStore();
     const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex );
     const ColliderRecord* collider = ColliderForModelIndex( world.Colliders(), modelIndex );
-    if ( !body || !collider || body->sceneObjectId.value != entity.sceneObjectId.value ||
+    const ColliderAuthoringRecord* colliderAuthoring = ColliderAuthoringForModelIndex( world.Colliders(), modelIndex );
+    if ( !body || !collider || !colliderAuthoring || body->sceneObjectId.value != entity.sceneObjectId.value ||
          !TryCaptureEditorPrimitiveShape( collider->shape, outRecipe.shape ) )
     {
         return false;
@@ -137,7 +144,7 @@ bool CapturePrimitiveRecipe( const SceneWorld& world, int modelIndex, EditorPrim
     outRecipe.restitution = collider->restitution;
     outRecipe.friction = collider->friction;
     outRecipe.contactMaterialId = collider->contactMaterialId;
-    strcpy_s( outRecipe.contactMaterialName, collider->contactMaterialName );
+    strcpy_s( outRecipe.contactMaterialName, colliderAuthoring->contactMaterialName );
     return true;
 }
 
@@ -257,14 +264,16 @@ bool ApplyTransformEntry( SceneWorld& world, const EditorCommandEntry& entry, bo
         if ( snapshot.hasShape )
         {
             const ColliderRecord* collider = ColliderForModelIndex( world.Colliders(), modelIndices[index] );
-            if ( !collider )
+            const ColliderAuthoringRecord* colliderAuthoring =
+                ColliderAuthoringForModelIndex( world.Colliders(), modelIndices[index] );
+            if ( !collider || !colliderAuthoring )
             {
                 return false;
             }
             PhysicsColliderCreateDesc colliderDesc = MakeColliderCreateDesc( shapes[index],
                                                                              collider->restitution,
                                                                              collider->contactMaterialId,
-                                                                             collider->contactMaterialName );
+                                                                             colliderAuthoring->contactMaterialName );
             colliderDesc.friction = collider->friction;
             if ( !RunInternal::ResetEditorModelMotionAndWake( world,
                                                               modelIndices[index],

@@ -16,6 +16,8 @@ Glossary:
   Pending impulse: One-shot velocity edit queued on a body record and consumed
     by the next solver step.
   Physics material: Runtime policy for collider friction and sphere drag.
+  Collider authoring row: Cold scene round-trip text stored outside fixed-step
+    collider rows.
   Velocity edit: Replay-authored command that changes live body velocity before
     prediction or the next step samples the body store.
   Fixed-tree release: Store-owned command that turns authored fixed props into
@@ -64,6 +66,7 @@ using SkullbonezCore::Math::Transformation::RotationMatrix;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Math::Vector::VectorMag;
 using SkullbonezCore::Physics::BodySimulationLimits;
+using SkullbonezCore::Physics::ColliderAuthoringRecord;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
@@ -128,9 +131,9 @@ ColliderShapeKind ShapeKindForColliderDesc( const SkullbonezCore::Math::Collisio
 }
 
 
-// Why: descriptor import is a cold authoring boundary. The dense row shape and
-// cheap collider discriminator are derived inside PhysicsEngine so collection
-// code cannot become a second ColliderStore layout owner.
+// Why: descriptor import is a cold authoring boundary. PhysicsEngine derives
+// both the hot row and its paired cold authoring row so collection code cannot
+// become a second ColliderStore layout owner.
 ColliderRecord MakeColliderRecordFromDesc( const PhysicsColliderCreateDesc& desc, const PhysicsBodyRecord& body )
 {
     ColliderRecord record;
@@ -142,9 +145,18 @@ ColliderRecord MakeColliderRecordFromDesc( const PhysicsColliderCreateDesc& desc
     record.restitution = desc.restitution;
     record.friction = desc.friction;
     record.contactMaterialId = desc.contactMaterialId;
-    strncpy_s( record.contactMaterialName, sizeof( record.contactMaterialName ), desc.contactMaterialName, _TRUNCATE );
     record.projectedSurfaceArea = desc.projectedSurfaceArea;
     record.dragCoefficient = desc.dragCoefficient;
+    return record;
+}
+
+
+ColliderAuthoringRecord MakeColliderAuthoringRecordFromDesc( const PhysicsColliderCreateDesc& desc )
+{
+    // Invariant: this text is preserved for scene/editor round trips but never
+    // re-enters the fixed-step ColliderRecord scan.
+    ColliderAuthoringRecord record;
+    strncpy_s( record.contactMaterialName, sizeof( record.contactMaterialName ), desc.contactMaterialName, _TRUNCATE );
     return record;
 }
 
@@ -414,7 +426,8 @@ PhysicsAuthoredBodyRegistration PhysicsEngine::RegisterAuthoredBody( const Physi
     colliderDesc.sceneObjectId = record->sceneObjectId;
     ApplyAuthoredColliderPolicy( colliderDesc );
     const PhysicsColliderHandle collider =
-        m_colliderStore.CreateColliderRecord( MakeColliderRecordFromDesc( colliderDesc, *record ) );
+        m_colliderStore.CreateColliderRecord( MakeColliderRecordFromDesc( colliderDesc, *record ),
+                                              MakeColliderAuthoringRecordFromDesc( colliderDesc ) );
     if ( !collider.IsValid() )
     {
         // Invariant: registration is all-or-nothing even if a future collider
@@ -538,7 +551,8 @@ bool PhysicsEngine::UpdateAuthoredBodyAndCollider( const PhysicsBodyUpdateDesc& 
     const PhysicsBodyRecord* body = m_bodyStore.RecordForHandle( update.body );
     const PhysicsColliderHandle collider = m_colliderStore.HandleForBodyHandle( update.body );
     const ColliderRecord* existingCollider = m_colliderStore.RecordForHandle( collider );
-    if ( !body || !existingCollider )
+    const ColliderAuthoringRecord* existingAuthoring = m_colliderStore.AuthoringRecordForHandle( collider );
+    if ( !body || !existingCollider || !existingAuthoring )
     {
         return false;
     }
@@ -546,11 +560,11 @@ bool PhysicsEngine::UpdateAuthoredBodyAndCollider( const PhysicsBodyUpdateDesc& 
     colliderDesc.body = update.body;
     colliderDesc.sceneObjectId = body->sceneObjectId;
     ApplyAuthoredColliderPolicy( colliderDesc );
-    if ( colliderDesc.contactMaterialName[0] == '\0' && existingCollider->contactMaterialName[0] != '\0' )
+    if ( colliderDesc.contactMaterialName[0] == '\0' && existingAuthoring->contactMaterialName[0] != '\0' )
     {
         strncpy_s( colliderDesc.contactMaterialName,
                    sizeof( colliderDesc.contactMaterialName ),
-                   existingCollider->contactMaterialName,
+                   existingAuthoring->contactMaterialName,
                    _TRUNCATE );
     }
     if ( !UpdateAuthoredBody( update ) )
@@ -559,8 +573,9 @@ bool PhysicsEngine::UpdateAuthoredBodyAndCollider( const PhysicsBodyUpdateDesc& 
     }
 
     body = m_bodyStore.RecordForHandle( update.body );
-    if ( !body ||
-         !m_colliderStore.UpdateRecordForHandle( collider, MakeColliderRecordFromDesc( colliderDesc, *body ) ) )
+    if ( !body || !m_colliderStore.UpdateRecordForHandle( collider,
+                                                          MakeColliderRecordFromDesc( colliderDesc, *body ),
+                                                          MakeColliderAuthoringRecordFromDesc( colliderDesc ) ) )
     {
         // Lane F: preflighted fixed-capacity rows disappearing during one
         // synchronous owner command is internal handle-map corruption.
