@@ -273,6 +273,25 @@ struct RunReplayPredictionState
     RunReplayPredictionRevealClock revealClock;
 };
 
+// Value-only snapshot of the frame state that selects and budgets prediction.
+// Lifetime: the solver sample is borrowed synchronously for UpdateFrame only;
+// mutable physics, gameplay, scene, force, and worker owners remain explicit.
+struct ReplayPredictionFrameRequest
+{
+    const ReplaySolverFrameSample* latestSolverSample = nullptr;
+    Physics::PhysicsSceneObjectId targetId;
+    Physics::ModelRowHint targetModelRow;
+    bool targetAvailable = false;
+    bool liveAdvanceHeld = false;
+    bool historicalSamplePaused = false;
+    float solverTrackPosition = 0.0f;
+    float solverPresentTrackPosition = 0.0f;
+    bool scenePhysics = false;
+    double fallbackSourceSimulationSeconds = 0.0;
+    double simulationTotalSeconds = 0.0;
+    double budgetMilliseconds = 0.0;
+};
+
 // Value-only effects emitted by prediction update/preparation for the
 // composition root to apply to the scrubber and presentation owners. Keeping
 // these counters out of callbacks prevents the private owner from reaching
@@ -456,18 +475,7 @@ class ReplayPrediction
                       const SkullbonezCore::Core::EngineConfig& config,
                       const Physics::PhysicsWorldForces& worldForces,
                       Threading::WorkerPool& workerPool,
-                      const ReplaySolverFrameSample* latestSolverSample,
-                      Physics::PhysicsSceneObjectId targetId,
-                      Physics::ModelRowHint targetModelRow,
-                      bool targetAvailable,
-                      bool liveAdvanceHeld,
-                      bool historicalSamplePaused,
-                      float solverTrackPosition,
-                      float solverPresentTrackPosition,
-                      bool scenePhysics,
-                      double fallbackSourceSimulationSeconds,
-                      double simulationTotalSeconds,
-                      double budgetMilliseconds,
+                      const ReplayPredictionFrameRequest& request,
                       ReplayPredictionUpdateResult& result );
     void PreparePresentation( const SceneEntityStore& entities,
                               const Physics::ColliderStore& colliderStore,

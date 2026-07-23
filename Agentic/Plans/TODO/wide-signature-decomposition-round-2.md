@@ -67,7 +67,7 @@ and dependency direction.
 - [x] D2 — Replay input and activation. Reuse `ReplayWorkspaceFrameInput`, add
   only bounded read-only cause/velocity source views and scalar activation
   policy, and keep mutable Replay/camera/input owners explicit.
-- [ ] D3 — Replay prediction. Replace the 22/19 forwarding chain with one
+- [x] D3 — Replay prediction. Replace the 22/19 forwarding chain with one
   value-only per-frame request and remove the redundant helper authority.
 - [ ] D4 — Closure. Run the threshold-16 scan, touched-file comment audit,
   dependency/Replay-boundary proofs, one independent no-bag review, and all
@@ -113,4 +113,15 @@ and dependency direction.
   preflight correction; CPU/coverage and five runtime lanes pass.
 - D2 sole `tools\validate_replay_visual_fidelity.bat` invocation: PASS in
   426.9 s; one process/generation/presentation, 2,401 ticks, 17 cases / 75
+  assertions, durable/causal proof, and all false-pass controls.
+- D3 threshold-16 scan: 2 → 0 rows. `ReplayPrediction::UpdateFrame` now owns
+  the implementation directly and consumes one value-only frame request while
+  physics, gameplay, scene, config, force, and worker owners remain explicit.
+- D3 touched-file comment audit: 3/3 checked, 0 deferred.
+- D3 focused Profile build: PASS in 11.3 s with zero warnings/errors.
+- D3 `tools\validate_full.bat`: PASS in 135.0 s; CPU/coverage umbrella and
+  five runtime lanes pass, zero DX12 errors, accepted screenshots, and the
+  44,401-line physics CSV is byte-exact.
+- D3 sole `tools\validate_replay_visual_fidelity.bat` invocation: PASS in
+  425.5 s; one process/generation/presentation, 2,401 ticks, 17 cases / 75
   assertions, durable/causal proof, and all false-pass controls.

@@ -1035,29 +1035,33 @@ bool StepReplayPredictionJob( ReplayPrediction& predictionOwner,
 }
 
 
-void UpdateReplayPrediction( ReplayPrediction& predictionOwner,
-                             RunReplayPredictionState& prediction,
-                             PhysicsEngine& physicsEngine,
-                             const Gameplay::TornadoGameplay& tornadoGameplay,
-                             const SceneEntityStore& entities,
-                             const SkullbonezCore::Core::EngineConfig& config,
-                             const SkullbonezCore::Physics::PhysicsWorldForces& worldForces,
-                             SkullbonezCore::Threading::WorkerPool& workerPool,
-                             const ReplaySolverFrameSample* latestSolverSample,
-                             Physics::PhysicsSceneObjectId targetId,
-                             ModelRowHint targetModelRow,
-                             bool targetAvailable,
-                             bool liveAdvanceHeld,
-                             bool historicalSamplePaused,
-                             float solverTrackPosition,
-                             float solverPresentTrackPosition,
-                             bool scenePhysics,
-                             double fallbackSourceSimulationSeconds,
-                             double simulationTotalSeconds,
-                             const std::chrono::steady_clock::time_point& budgetStart,
-                             double budgetMilliseconds,
-                             ReplayPredictionUpdateResult& result )
+} // namespace
+
+void ReplayPrediction::UpdateFrame( PhysicsEngine& physicsEngine,
+                                    const Gameplay::TornadoGameplay& tornadoGameplay,
+                                    const SceneEntityStore& entities,
+                                    const SkullbonezCore::Core::EngineConfig& config,
+                                    const SkullbonezCore::Physics::PhysicsWorldForces& worldForces,
+                                    SkullbonezCore::Threading::WorkerPool& workerPool,
+                                    const ReplayPredictionFrameRequest& request,
+                                    ReplayPredictionUpdateResult& result )
 {
+    ReplayPrediction& predictionOwner = *this;
+    RunReplayPredictionState& prediction = m_state;
+    const ReplaySolverFrameSample* latestSolverSample = request.latestSolverSample;
+    const Physics::PhysicsSceneObjectId targetId = request.targetId;
+    const ModelRowHint targetModelRow = request.targetModelRow;
+    const bool targetAvailable = request.targetAvailable;
+    const bool liveAdvanceHeld = request.liveAdvanceHeld;
+    const bool historicalSamplePaused = request.historicalSamplePaused;
+    const float solverTrackPosition = request.solverTrackPosition;
+    const float solverPresentTrackPosition = request.solverPresentTrackPosition;
+    const bool scenePhysics = request.scenePhysics;
+    const double fallbackSourceSimulationSeconds = request.fallbackSourceSimulationSeconds;
+    const double simulationTotalSeconds = request.simulationTotalSeconds;
+    const double budgetMilliseconds = request.budgetMilliseconds;
+    const auto budgetStart = std::chrono::steady_clock::now();
+
     PROFILE_SCOPED( predictionOwner.ProfilerBorrow(), "Frame/Replay/Prediction/Update" );
     if ( !targetAvailable )
     {
@@ -1229,54 +1233,6 @@ void UpdateReplayPrediction( ReplayPrediction& predictionOwner,
     {
         RebuildReplayPredictionCommittedTreeAfterWorkerCompletion( prediction, entities, targetId );
     }
-}
-
-
-} // namespace
-
-void ReplayPrediction::UpdateFrame( PhysicsEngine& physicsEngine,
-                                    const Gameplay::TornadoGameplay& tornadoGameplay,
-                                    const SceneEntityStore& entities,
-                                    const SkullbonezCore::Core::EngineConfig& config,
-                                    const SkullbonezCore::Physics::PhysicsWorldForces& worldForces,
-                                    SkullbonezCore::Threading::WorkerPool& workerPool,
-                                    const ReplaySolverFrameSample* latestSolverSample,
-                                    Physics::PhysicsSceneObjectId targetId,
-                                    ModelRowHint targetModelRow,
-                                    bool targetAvailable,
-                                    bool liveAdvanceHeld,
-                                    bool historicalSamplePaused,
-                                    float solverTrackPosition,
-                                    float solverPresentTrackPosition,
-                                    bool scenePhysics,
-                                    double fallbackSourceSimulationSeconds,
-                                    double simulationTotalSeconds,
-                                    double budgetMilliseconds,
-                                    ReplayPredictionUpdateResult& result )
-{
-    const auto budgetStart = std::chrono::steady_clock::now();
-    UpdateReplayPrediction( *this,
-                            m_state,
-                            physicsEngine,
-                            tornadoGameplay,
-                            entities,
-                            config,
-                            worldForces,
-                            workerPool,
-                            latestSolverSample,
-                            targetId,
-                            targetModelRow,
-                            targetAvailable,
-                            liveAdvanceHeld,
-                            historicalSamplePaused,
-                            solverTrackPosition,
-                            solverPresentTrackPosition,
-                            scenePhysics,
-                            fallbackSourceSimulationSeconds,
-                            simulationTotalSeconds,
-                            budgetStart,
-                            budgetMilliseconds,
-                            result );
 }
 
 

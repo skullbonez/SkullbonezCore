@@ -1521,26 +1521,23 @@ void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics,
     // applied after the worker/publication transition returns.
     const RunReplayPathVisualizerState& path = m_visualPresentation.PathVisualizer();
     const ReplayScrubberView scrubber = m_scrubberOwner.View();
+    const ReplayPredictionFrameRequest request = {
+        .latestSolverSample = m_timeline.Solver().LatestSample(),
+        .targetId = path.targetId,
+        .targetModelRow = path.targetModelRow,
+        .targetAvailable = path.hasTarget,
+        .liveAdvanceHeld = scrubber.liveAdvanceHeld,
+        .historicalSamplePaused = scrubber.historicalSamplePaused,
+        .solverTrackPosition = m_scrubberOwner.TrackPosition( RunReplayTrack::Solver ),
+        .solverPresentTrackPosition = SolverPresentTrackPosition(),
+        .scenePhysics = scenePhysicsEnabled,
+        .fallbackSourceSimulationSeconds = simulationTimeSinceLastStart,
+        .simulationTotalSeconds = simulationTotalTime,
+        .budgetMilliseconds = REPLAY_PREDICTION_MAX_WORK_MILLISECONDS,
+    };
     ReplayPredictionUpdateResult result;
-    m_predictionOwner.UpdateFrame( physics,
-                                   tornadoGameplay,
-                                   entities,
-                                   config,
-                                   worldForces,
-                                   workerPool,
-                                   m_timeline.Solver().LatestSample(),
-                                   path.targetId,
-                                   path.targetModelRow,
-                                   path.hasTarget,
-                                   scrubber.liveAdvanceHeld,
-                                   scrubber.historicalSamplePaused,
-                                   m_scrubberOwner.TrackPosition( RunReplayTrack::Solver ),
-                                   SolverPresentTrackPosition(),
-                                   scenePhysicsEnabled,
-                                   simulationTimeSinceLastStart,
-                                   simulationTotalTime,
-                                   REPLAY_PREDICTION_MAX_WORK_MILLISECONDS,
-                                   result );
+    m_predictionOwner
+        .UpdateFrame( physics, tornadoGameplay, entities, config, worldForces, workerPool, request, result );
     ApplyPredictionUpdateResult( result );
     PreparePredictionPresentation( physics, entities );
 }

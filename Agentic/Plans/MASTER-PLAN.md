@@ -392,8 +392,9 @@ accepted-with-reason rulings. D1 splits the UI scene-tab actions and separates
 scene-load runtime reactions from external presentation, removing both original
 16-parameter rows. D2 reuses the owner-free Replay workspace frame input,
 bounded read-only cause/velocity views, and scalar loaded-presentation policy;
-the inventory now contains only the 22/19 prediction pair. Active/future
-progress is 3/5.
+then D3 collapses the one-caller 22/19 prediction chain into the prediction
+owner and one value-only frame request. The threshold-16 inventory is empty;
+mutable subsystem owners remain explicit. Active/future progress is 4/5.
 
 The active/future denominator returned 13 → 7 when
 `owner-fanout-reduction` closed OF0-OF5 and left the ledger under rule 4.
@@ -1368,7 +1369,7 @@ a census records. Execution order is binding: 1 physics unification,
 |---|---|---:|---|
 | [replay-deduplication-audit](../Reports/2026-07-22/replay-deduplication-closure.md) | Complete | 4/4 | C1-C5 consolidated; C6-C7 retained; all Replay/full gates pass |
 | [wide-signature-reduction](../Reports/2026-07-23/wide-signature-reduction-closure.md) | Complete | 5/5 | 301 → 285; all survivors ruled; independent review and final broad gate pass |
-| [wide-signature-decomposition-round-2](TODO/wide-signature-decomposition-round-2.md) | In progress | 3/5 | Implement D3 Replay prediction forwarding-chain decomposition |
+| [wide-signature-decomposition-round-2](TODO/wide-signature-decomposition-round-2.md) | In progress | 4/5 | Complete D4 closure proofs, independent no-bag review, and final gates |
 
 ## Features
 
