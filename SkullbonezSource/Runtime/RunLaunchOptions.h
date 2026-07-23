@@ -28,7 +28,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Run.h
-  - SkullbonezSource/Runtime/Scene/RunScene.cpp
+  - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
@@ -36,7 +36,7 @@ Related:
 
 #include "../Physics/PhysicsDebugData.h"
 #include "../Core/Allocation/RuntimeAllocationTracker.h"
-#include "RunDebugState.h"
+#include "OverlayDebugState.h"
 #include "Scene/SceneGeneratedSetup.h"
 
 #include <cstdint>

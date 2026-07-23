@@ -11,23 +11,24 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-23rd-JUL-26` |
-| Current baseline | Source-blemish B2 is complete: physics diagnostic names register only at topology boundaries and no longer ride fixed-step signatures. Legacy remains the development default. |
-| Current objective | Continue `source-blemish-remediation` with B3 `Run*` file/type residue cleanup. |
-| Active/future progress | 2/16 registered architecture follow-up tasks; 13%. |
+| Current baseline | Source-blemish B3 is complete: dishonest `Run*` files and the four ruled residue types now carry their real owner names. Legacy remains the development default. |
+| Current objective | Continue `source-blemish-remediation` with B4 Core/Rendering profiler implementation placement. |
+| Active/future progress | 3/16 registered architecture follow-up tasks; 19%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | B2 `validate_full` passes in 175.41 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | B2 exact before/after SkullScope traces, full gate, and one-invocation replay visual-fidelity gate pass; 15/15 touched source files pass comment audit. |
+| Last broad local gate | B3 `validate_full` passes in 246.07 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
+| Validation for current edits | B3 Debug build, 123/123 source/tool comment audit, project/allocation proofs, full gate, and one-invocation replay visual-fidelity gate pass. |
 
 ## Live Queue
 
-NOW. `source-blemish-remediation` is active at 2/6. B2 moves diagnostic-name
-ownership into the fixed-capacity physics diagnostics sink and registers the
-stable pointer table after cold scene topology changes. Both fixed-step
-signatures and every caller drop name pointer/count plumbing. The before/after
-120-frame SkullScope traces are byte-identical at 9,481,773 bytes with the same
-20 name rows; the 15/15 comment audit, broad gate, byte-exact 44,401-line
-physics CSV, and one-invocation replay visual-fidelity gate all pass. B3
-`Run*` residue naming is next.
+NOW. `source-blemish-remediation` is active at 3/6. B3 physically renames 13
+misleading implementation/header paths, including the newly discovered
+`RunInput.cpp`, and gives `EditorTracer`, `CameraControlState`,
+`OverlayDebugState`, and `SceneSessionState` their real owner names. No alias
+or forwarding header remains; the remaining `Run*` files either define `Run`
+or match direct Run-owned launch/startup values. The 123/123 comment audit,
+lexical equivalence proof, project/allocation checks, broad gate, byte-exact
+physics CSV, and one-invocation replay fidelity gate pass. B4 profiler
+placement is next.
 
 NOW. `wide-signature-parameter-bag-remediation` is complete (6/6).
 The owner rejected replacements such as `RenderModelPassInput` that merely

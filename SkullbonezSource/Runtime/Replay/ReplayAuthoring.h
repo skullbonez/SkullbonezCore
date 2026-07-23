@@ -59,7 +59,7 @@ namespace Runtime
 class InputRouter;
 class ReplayPresentation;
 class ReplayScrubber;
-class RunEditorTracer;
+class EditorTracer;
 class RuntimeInteractionController;
 class SceneEntityStore;
 struct ReplayPathPickInput;
@@ -69,7 +69,7 @@ struct RunReplayCameraState;
 struct RunReplayPathVisualizerState;
 struct RunReplayPredictionFrame;
 struct RunReplayPredictionState;
-struct RunCameraState;
+struct CameraControlState;
 struct RunMousePickupState;
 enum class RunCameraMode;
 enum class ReplayInspectionCameraAction : uint8_t;
@@ -344,7 +344,7 @@ class ReplayAuthoring
                                     Physics::PhysicsEngine& physics,
                                     bool editorModeEnabled,
                                     const RuntimeInteractionGesture& gesture,
-                                    RunEditorTracer& tracer ) const;
+                                    EditorTracer& tracer ) const;
 
     // Concept: authoring publishes a value command instead of holding a
     // prediction pointer or callback. Multiple edits before consumption fold

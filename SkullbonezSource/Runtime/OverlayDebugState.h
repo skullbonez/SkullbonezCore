@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/RunDebugState.h
+File: SkullbonezSource/Runtime/OverlayDebugState.h
 Purpose:
   Owns presentation-only debug overlay, water/terrain visibility, and physics visualization toggles.
 
@@ -45,7 +45,7 @@ enum class OverlayMode
     Keys,                                    // Keyboard reference panel
 };
 
-struct RunDebugState
+struct OverlayDebugState
 {
     OverlayMode overlayMode =
         OverlayMode::None;                   // HUD overlay cycle state (0 key advances through timers, scene stats, bars, and keys)

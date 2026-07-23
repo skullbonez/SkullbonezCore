@@ -26,12 +26,12 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/DemoDirectorPlayback.cpp
-  - SkullbonezSource/Runtime/RunCameraState.h
-  - SkullbonezSource/Runtime/RunCameraState.h
+  - SkullbonezSource/Runtime/CameraControlState.h
+  - SkullbonezSource/Runtime/CameraControlState.h
 */
 #pragma once
 
-#include "RunCameraState.h"
+#include "CameraControlState.h"
 #include "CameraCollection.h"
 
 namespace SkullbonezCore
@@ -56,16 +56,16 @@ struct DemoDirectorTickResult
 
 namespace DemoDirectorPlayback
 {
-bool LoadShotList( RunCameraState& camera, Environment::CameraCollection& cameras, const char* path );
-bool AdvancePhase( RunCameraState& camera, Environment::CameraCollection& cameras );
-void EnterMode( RunCameraState& camera, Environment::CameraCollection& cameras );
-bool BeginGrab( RunCameraState& camera, Environment::CameraCollection& cameras );
-bool EndGrab( RunCameraState& camera, Environment::CameraCollection& cameras );
-bool SetCurrentPhasePose( RunCameraState& camera, Environment::CameraCollection& cameras );
-bool SetCurrentPhaseStyle( RunCameraState& camera, const char* stylePath );
-bool SelectNextPhaseForAuthoring( RunCameraState& camera, Environment::CameraCollection& cameras );
-bool SaveShotList( const RunCameraState& camera );
-DemoDirectorTickResult Tick( RunCameraState& camera,
+bool LoadShotList( CameraControlState& camera, Environment::CameraCollection& cameras, const char* path );
+bool AdvancePhase( CameraControlState& camera, Environment::CameraCollection& cameras );
+void EnterMode( CameraControlState& camera, Environment::CameraCollection& cameras );
+bool BeginGrab( CameraControlState& camera, Environment::CameraCollection& cameras );
+bool EndGrab( CameraControlState& camera, Environment::CameraCollection& cameras );
+bool SetCurrentPhasePose( CameraControlState& camera, Environment::CameraCollection& cameras );
+bool SetCurrentPhaseStyle( CameraControlState& camera, const char* stylePath );
+bool SelectNextPhaseForAuthoring( CameraControlState& camera, Environment::CameraCollection& cameras );
+bool SaveShotList( const CameraControlState& camera );
+DemoDirectorTickResult Tick( CameraControlState& camera,
                              DemoDirectorPredictionView prediction,
                              SceneRuntimeStyleContext styleContext,
                              float cameraDt );

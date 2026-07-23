@@ -55,7 +55,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Tools/RuntimeTools.cpp
-  - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
+  - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
   - SkullbonezSource/Runtime/Replay/ReplayPresentation.h
 */
 #pragma once
@@ -129,9 +129,9 @@ struct UIPhysicsCommands;
 
 namespace SkullbonezCore::Runtime
 {
-struct RunDebugState;
+struct OverlayDebugState;
 struct RunLaunchOptions;
-struct RunSceneState;
+struct SceneSessionState;
 struct ReplayLauncherVisualSample;
 class SceneEntityStore;
 class InputRouter;
@@ -203,7 +203,7 @@ struct ToolOverlayBuildInput
 struct LauncherReproSnapshotContext
 {
     SceneWorld& world;
-    const RunSceneState& sceneState;
+    const SceneSessionState& sceneState;
     const std::string* currentScenePath;
     const RunLaunchOptions& launchOptions;
     bool physicsSleepEnabled;
@@ -211,7 +211,7 @@ struct LauncherReproSnapshotContext
     bool pipelineSyncEnabled;
     float contactEpsilon;                                                   // Physics contact tolerance captured from Run config for repro output.
     float frictionCoeff;                                                    // Physics friction setting captured from Run config for repro output.
-    const RunDebugState& debug;
+    const OverlayDebugState& debug;
     const char* rendererName;
     double simulationSeconds;
 };
@@ -458,7 +458,7 @@ struct RunEditorPlacementState
     std::array<Math::Orientation::Quaternion, GIZMO_DRAG_GROUP_CAPACITY> gizmoDragGroupStartOrientations = {};
 };
 
-class RunEditorTracer
+class EditorTracer
 {
   private:
     struct ReplayRibbonStyle
@@ -562,7 +562,7 @@ class RunEditorTracer
         m_replayTrajectoryStats;                                            // Frame-local replay ribbon counters sampled by replay composition.
 
   public:
-    RunEditorTracer();
+    EditorTracer();
     void Clear();
     // Resets only the replay trajectory counters; callers use this before the
     // replay pass so editor tool ribbons do not count as replay trajectory work.
@@ -726,13 +726,13 @@ class RuntimeTools
                                     Math::Vector::Vector3& outDirection,
                                     Math::Vector::Vector3& outCameraUp ) const;
     bool FireLauncherRay( SceneWorld& world,
-                          RunSceneState& scene,
+                          SceneSessionState& scene,
                           int activeModelCapacity,
                           const Math::Vector::Vector3& rayOrigin,
                           const Math::Vector::Vector3& rayDirection,
                           const Math::Vector::Vector3& cameraUp );
     LauncherPointerResult
-    RouteLauncherPointer( const LauncherPointerInput& input, SceneWorld& world, RunSceneState& scene );
+    RouteLauncherPointer( const LauncherPointerInput& input, SceneWorld& world, SceneSessionState& scene );
     void FireLauncherLaser( Physics::PhysicsEngine& physics,
                             int modelCount,
                             Geometry::Terrain* terrain,
@@ -740,7 +740,7 @@ class RuntimeTools
                             const Math::Vector::Vector3& rayDirection,
                             const Math::Vector::Vector3& cameraUp );
     bool FireLauncherProjectile( SceneWorld& world,
-                                 RunSceneState& scene,
+                                 SceneSessionState& scene,
                                  int activeModelCapacity,
                                  int modelCount,
                                  const Math::Vector::Vector3& rayOrigin,
@@ -754,7 +754,7 @@ class RuntimeTools
     LauncherReproSnapshotStatus WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& context ) const;
     LauncherReproSnapshotStatus
     WriteLauncherReproSnapshotWithStatusMessage( const LauncherReproSnapshotContext& context,
-                                                 RunDebugState& debug ) const;
+                                                 OverlayDebugState& debug ) const;
 #endif
 
     LauncherLaser& Laser();
@@ -785,7 +785,7 @@ class RuntimeTools
     EditorPlacementScalePointerResult RouteEditorPlacementScalePointer( bool leftReleased,
                                                                         bool suppressWorldAction,
                                                                         SceneWorld& world,
-                                                                        RunSceneState& scene,
+                                                                        SceneSessionState& scene,
                                                                         Assets::AssetSystem& assets,
                                                                         int activeModelCapacity,
                                                                         RuntimeInteractionController& interaction );
@@ -794,10 +794,10 @@ class RuntimeTools
                                                               RuntimeInteractionController& interaction );
     void RecordEditorTransformHistory( SceneWorld& world, RuntimeGizmoDragKind gizmoKind, int selectedModelIndex );
     void RecordEditorPlacementHistory( SceneWorld& world, int modelCountBefore, int modelCountAfter );
-    bool UndoEditorCommand( SceneWorld& world, RunSceneState& scene );
-    bool RedoEditorCommand( SceneWorld& world, RunSceneState& scene );
-    bool DuplicateEditorSelection( SceneWorld& world, RunSceneState& scene );
-    bool DeleteEditorSelection( SceneWorld& world, RunSceneState& scene );
+    bool UndoEditorCommand( SceneWorld& world, SceneSessionState& scene );
+    bool RedoEditorCommand( SceneWorld& world, SceneSessionState& scene );
+    bool DuplicateEditorSelection( SceneWorld& world, SceneSessionState& scene );
+    bool DeleteEditorSelection( SceneWorld& world, SceneSessionState& scene );
     void ClearEditorHistory();
     bool PrepareEditorGizmoGesture( bool inspectGizmoActive,
                                     bool scaleMode,
@@ -839,8 +839,8 @@ class RuntimeTools
                                 InputRouter& inputRouter,
                                 RuntimeInteractionController& interaction );
 
-    RunEditorTracer& EditorTracer();
-    const RunEditorTracer& EditorTracer() const;
+    EditorTracer& Tracer();
+    const EditorTracer& Tracer() const;
     // Rebuilds the fixed-capacity tool draw records before RuntimeRenderer
     // submits them. World/model/asset owners remain borrowed for this call.
     void
@@ -851,7 +851,7 @@ class RuntimeTools
     LauncherLaser m_laser;
     RunMousePickupState m_mousePickup;
     RunEditorPlacementState m_editor;
-    RunEditorTracer m_editorTracer;
+    EditorTracer m_editorTracer;
     SceneLifecycleGenerationObserver m_sceneLifecycleObserver;
 };
 } // namespace SkullbonezCore::Runtime

@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/RunInput.cpp
+File: SkullbonezSource/Runtime/InputRouter.Interactions.cpp
 Purpose:
   Implements InputRouter transition, pointer, camera-mode, and focus behavior.
 
@@ -74,7 +74,7 @@ void InputRouter::ApplyInteractionTransitionCleanup( const RuntimeInteractionTra
 {
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     RuntimeInteractionController& interaction = interactionOwners.interaction;
-    RunCameraState& camera = interactionOwners.camera;
+    CameraControlState& camera = interactionOwners.camera;
     Environment::CameraCollection& cameras = models.Scene().Cameras();
     Geometry::Terrain* terrain = models.Scene().Terrain().Get();
     const bool attachedCameraFollow = interactionOwners.attachedCamera.State().activeFollow;
@@ -208,7 +208,7 @@ void InputRouter::RecordModeAction( RuntimeFrameInteractionView& interactionOwne
                                     RuntimeInputAction action,
                                     RuntimeInputActionSource source )
 {
-    const RunCameraState& camera = interactionOwners.camera;
+    const CameraControlState& camera = interactionOwners.camera;
     InputController::ApplyModeAction(
         runtimeInput,
         InputController::ResolveMode( BuildRuntimeInputModeState( camera.mode,
@@ -231,9 +231,9 @@ RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointer
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
     RuntimeInteractionController& interaction = interactionOwners.interaction;
-    RunCameraState& camera = interactionOwners.camera;
+    CameraControlState& camera = interactionOwners.camera;
     SceneEntityStore& entities = models.Scene().Entities();
-    RunSceneState& scene = models.State();
+    SceneSessionState& scene = models.State();
     Geometry::Terrain* terrain = models.Scene().Terrain().Get();
     Environment::CameraCollection& cameras = models.Scene().Cameras();
     const bool attachedCameraFollow = attachedCamera.State().activeFollow;
@@ -418,7 +418,7 @@ void InputRouter::ApplyCameraMode( RunCameraMode mode,
     // Invariant: interaction cleanup precedes camera/editor mutation, then
     // pointer and RuntimeInputContext presentation publish the completed mode.
     InputRouter& m_inputRouter = *this;
-    RunCameraState& m_camera = interactionOwners.camera;
+    CameraControlState& m_camera = interactionOwners.camera;
     RuntimeInteractionController& m_interaction = interactionOwners.interaction;
     RuntimeTools& m_runtimeTools = interactionOwners.runtimeTools;
     ReplayRuntime& m_replayRuntime = replayRuntime;
@@ -578,7 +578,7 @@ void InputRouter::CycleCameraMode( RuntimeFrameInteractionView& interactionOwner
                                    ReplayRuntime& replayRuntime,
                                    RuntimeInputContext& runtimeInput )
 {
-    RunCameraState& camera = interactionOwners.camera;
+    CameraControlState& camera = interactionOwners.camera;
     AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
     const bool authoredScene = sceneController.State().isSceneMode;
     const uint32_t enabledMask =
@@ -635,7 +635,7 @@ bool InputRouter::HandleUnfocusedFrame( RuntimeFrameInteractionView& interaction
     RuntimeInteractionController& interaction = interactionOwners.interaction;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
-    RunCameraState& camera = interactionOwners.camera;
+    CameraControlState& camera = interactionOwners.camera;
     UI::InGameUI& ui = interactionOwners.operatorUi;
     if ( AppFocused() )
     {
@@ -681,7 +681,7 @@ void InputRouter::DispatchCaptureActions( InputActions& actions,
                                           SceneController& sceneController,
                                           const ReplayInputView& replayInput )
 {
-    const RunCameraState& camera = interactionOwners.camera;
+    const CameraControlState& camera = interactionOwners.camera;
     const AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
     const UI::InGameUI& ui = interactionOwners.operatorUi;
     // Why: capture/reset shortcuts run after UI input so focused controls and
@@ -753,11 +753,11 @@ bool InputRouter::DispatchAfterUiDismiss( InputActions& actions,
 {
     const bool uiUserInteracted = input.uiUserInteracted;
     const double nowSeconds = input.nowSeconds;
-    RunCameraState& camera = interactionOwners.camera;
+    CameraControlState& camera = interactionOwners.camera;
     AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     RuntimeOverlayPresentationEdit presentationEdit = overlays.EditPresentation();
-    RunDebugState& debug = presentationEdit.State();
+    OverlayDebugState& debug = presentationEdit.State();
     UI::InGameUI& ui = interactionOwners.operatorUi;
     const bool flyCamera =
         RunCameraModeUsesFlyControls( camera.mode, attachedCamera.State().activeFollow, camera.director.grabbed );

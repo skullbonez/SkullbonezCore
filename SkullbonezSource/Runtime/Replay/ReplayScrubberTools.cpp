@@ -40,7 +40,7 @@ Related:
 #include "../CameraCollection.h"
 #include "../InputRouter.h"
 #include "../RuntimeInteractionCommands.h"
-#include "../RunCameraState.h"
+#include "../CameraControlState.h"
 #include "../Tools/RuntimeTools.h"
 #include "../../Core/Profiler.h"
 #include "../../Core/FatalError.h"
@@ -255,7 +255,7 @@ void SkullbonezCore::Runtime::ReplayInteractionOperations::CancelToolDragState(
 void SkullbonezCore::Runtime::ReplayPresentationOperations::EnterInspectionCamera(
     ReplayPresentation& presentation,
     Environment::CameraCollection* cameras,
-    RunCameraState& camera,
+    CameraControlState& camera,
     RunCameraMode normalizedCurrentMode,
     RuntimeInteractionController& interaction,
     InputRouter& inputRouter,
@@ -337,7 +337,7 @@ void SkullbonezCore::Runtime::ReplayPresentationOperations::ExitInspectionCamera
     const ReplayAuthoring& authoring,
     Environment::CameraCollection* cameras,
     Geometry::Terrain* terrain,
-    RunCameraState& camera,
+    CameraControlState& camera,
     RunCameraMode normalizedRestoreMode,
     bool attachedFollow,
     bool directorGrabbed,
@@ -470,7 +470,7 @@ void SkullbonezCore::Runtime::ReplayPresentationOperations::ArmLoadedPresentatio
 }
 
 void ReplayRuntime::EnterInspectionCamera( Environment::CameraCollection* cameras,
-                                           RunCameraState& camera,
+                                           CameraControlState& camera,
                                            RunCameraMode normalizedCurrentMode,
                                            RuntimeInteractionController& interaction,
                                            InputRouter& inputRouter,
@@ -487,7 +487,7 @@ void ReplayRuntime::EnterInspectionCamera( Environment::CameraCollection* camera
 
 void ReplayRuntime::ExitInspectionCamera( Environment::CameraCollection* cameras,
                                           Geometry::Terrain* terrain,
-                                          RunCameraState& camera,
+                                          CameraControlState& camera,
                                           RunCameraMode normalizedRestoreMode,
                                           bool attachedFollow,
                                           bool directorGrabbed,
@@ -571,7 +571,7 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input,
                                    std::span<const Rendering::RenderInstancePresentationRecord> presentation,
                                    Environment::CameraCollection* cameras,
                                    Geometry::Terrain* terrain,
-                                   RunCameraState& camera,
+                                   CameraControlState& camera,
                                    RunMousePickupState& mousePickup,
                                    ReplayWorkspaceOutput& output )
 {
@@ -907,7 +907,7 @@ void ApplyReplayLiveAdvanceAction( ReplayPrediction& predictionOwner,
                                    bool hasCameraFocus,
                                    InputRouter& inputRouter,
                                    RuntimeInteractionController& interaction,
-                                   RunCameraState& camera,
+                                   CameraControlState& camera,
                                    bool& outEnterInteractive )
 {
     // Concept: live advance is scrubber state; prediction and presentation
@@ -981,7 +981,7 @@ void HandleReplayPausePressed( ReplayPrediction& predictionOwner,
                                bool hasCameraFocus,
                                InputRouter& inputRouter,
                                RuntimeInteractionController& interaction,
-                               RunCameraState& camera,
+                               CameraControlState& camera,
                                double now,
                                bool& outEnterInteractive )
 {
@@ -1008,7 +1008,7 @@ void HandleReplayVelocityEditPressed( ReplayAuthoring& authoring,
                                       bool hasCameraFocus,
                                       InputRouter& inputRouter,
                                       RuntimeInteractionController& interaction,
-                                      RunCameraState& camera,
+                                      CameraControlState& camera,
                                       double now,
                                       bool& outEnterInteractive )
 {
@@ -1466,7 +1466,7 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayTransportCommand& command
                                            RuntimeInteractionController& interaction,
                                            Environment::CameraCollection* cameras,
                                            Geometry::Terrain* terrain,
-                                           RunCameraState& camera,
+                                           CameraControlState& camera,
                                            RunMousePickupState& mousePickup,
                                            ReplayWorkspaceOutput& output )
 {
@@ -1692,7 +1692,7 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput( bool uiBlocksMous
                                                                double now,
                                                                InputRouter& inputRouter,
                                                                RuntimeInteractionController& interaction,
-                                                               RunCameraState& camera,
+                                                               CameraControlState& camera,
                                                                ReplayWorkspaceOutput& output )
 {
     output.restoreRequest = ReplayLiveRestoreRequest{};

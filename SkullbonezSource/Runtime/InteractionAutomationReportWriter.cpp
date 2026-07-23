@@ -38,7 +38,7 @@ Related:
 #include "Replay/ReplayPredictionArchive.h"
 #include "Replay/ReplayPresentation.h"
 #include "Replay/ReplayV2Artifact.h"
-#include "RunCameraState.h"
+#include "CameraControlState.h"
 #include "RuntimeFileWriter.h"
 #include "Scene/SceneRuntime.h"
 #include "Scene/SceneWorld.h"
@@ -521,7 +521,7 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
     // run did. No renderer/backend method is reachable from this function.
     offlinePresentation.ResetTrajectoryVisualStats();
     offlinePrediction.ResetVerificationMarkers();
-    RunEditorTracer& tracer = runtimeTools.EditorTracer();
+    EditorTracer& tracer = runtimeTools.Tracer();
     std::vector<ReplayVisualTrajectoryDigestState> trajectoryDigests;
     trajectoryDigests.reserve( offlinePrediction.State().trajectoryStore.RecordCount() );
     std::vector<uint32_t> publishedTopologyVersions;
@@ -1004,12 +1004,12 @@ SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( const Interac
     InteractionAutomationRunStatus& status = inputs.status;
     const char* scriptPath = inputs.scriptPath;
     const SceneWorld& world = inputs.world;
-    const RunSceneState& scene = inputs.scene;
+    const SceneSessionState& scene = inputs.scene;
     const char* scenePath = inputs.scenePath;
     const RuntimeTools& runtimeTools = inputs.runtimeTools;
     const ReplayAutomationView& replay = inputs.replay;
     const RuntimeInteractionController& interaction = inputs.interaction;
-    const RunCameraState& camera = inputs.camera;
+    const CameraControlState& camera = inputs.camera;
     const UI::InGameUI& ui = inputs.ui;
 
     CoreAllocation::RuntimeAllocationScope diagnosticsScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );

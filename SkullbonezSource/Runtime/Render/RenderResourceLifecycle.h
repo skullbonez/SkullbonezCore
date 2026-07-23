@@ -49,7 +49,7 @@ class RenderResourceLifecycle
   public:
     RenderResourceLifecycle( RuntimeRenderBackendView backend,
                              const RenderWorldView& world,
-                             const RunSceneState& scene );
+                             const SceneSessionState& scene );
     ~RenderResourceLifecycle();
 
     SkullbonezCore::Core::SbResult InitialiseProcessResources( bool dumpTextureAssets );

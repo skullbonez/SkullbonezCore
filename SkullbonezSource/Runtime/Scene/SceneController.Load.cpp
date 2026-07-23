@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Scene/RunScene.cpp
+File: SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
 Purpose:
   Loads, resets, and advances authored and generated scenes.
 
@@ -363,7 +363,7 @@ SceneAuthoredCameraContext BuildSceneAuthoredCameraContext( SceneWorld& sceneWor
     return SceneAuthoredCameraContext{ sceneWorld };
 }
 
-SceneAuthoredModelContext BuildSceneAuthoredModelContext( RunSceneState& sceneState,
+SceneAuthoredModelContext BuildSceneAuthoredModelContext( SceneSessionState& sceneState,
                                                           SceneWorld& sceneWorld,
                                                           SceneAutomationGateConfiguration& automationGates )
 {
@@ -375,7 +375,7 @@ SceneGeneratedCameraContext BuildSceneGeneratedCameraContext( SceneWorld& sceneW
     return SceneGeneratedCameraContext{ sceneWorld };
 }
 
-SceneGeneratedModelContext BuildSceneGeneratedModelContext( RunSceneState& scene,
+SceneGeneratedModelContext BuildSceneGeneratedModelContext( SceneSessionState& scene,
                                                             const SkullbonezCore::Core::EngineConfig& config,
                                                             SceneWorld& sceneWorld,
                                                             GeneratedObjectTypeOverride objectTypeOverride )
@@ -502,7 +502,7 @@ SkullbonezCore::Core::SbResult UseFlatSlopeTerrain( SceneTerrain& terrainOwner,
 }
 
 SkullbonezCore::Core::SbResult SaveCurrentEditableSceneSnapshot( const std::string& scenePath,
-                                                                 const RunSceneState& sceneState,
+                                                                 const SceneSessionState& sceneState,
                                                                  const SceneWorld& sceneWorld,
                                                                  bool waterHidden,
                                                                  bool terrainHidden )
@@ -559,8 +559,8 @@ void SceneLoadConsumerOutputs::ResetForLoad()
     uiActivation = SceneUiActivation{};
     automationGates.Reset();
     navigation = SceneLoadNavigationState{};
-    presentation = RunDebugState{};
-    camera = RunCameraState{};
+    presentation = OverlayDebugState{};
+    camera = CameraControlState{};
     completedWorldChanges = {};
     completedWorldChangeCount = 0;
     completedRequests = SceneRequestBatch{};
@@ -577,7 +577,7 @@ void SkullbonezCore::Runtime::ApplySceneLoadRuntimeReactions( SceneLoadConsumerO
                                                               SceneController& sceneController,
                                                               InputRouter& inputRouter,
                                                               RuntimeInteractionController& interaction,
-                                                              RunCameraState& camera,
+                                                              CameraControlState& camera,
                                                               AttachedCameraController& attachedCamera,
                                                               RuntimeTools& runtimeTools,
                                                               ReplayRuntime& replayRuntime )
@@ -613,7 +613,7 @@ void SkullbonezCore::Runtime::ApplySceneLoadRuntimeReactions( SceneLoadConsumerO
     {
         Hardware::Input::ResetMouseLookDeltas();
     }
-    const auto replayOwners = [&]( RunCameraState& cameraOwner )
+    const auto replayOwners = [&]( CameraControlState& cameraOwner )
     {
         RunCameraMode restoreMode = replayRuntime.BuildInputView().restoreCameraMode;
         if ( sceneController.State().isSceneMode )
@@ -758,8 +758,8 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     consumerOutputs.presentation = presentation.debug;
     consumerOutputs.camera = interactionParticipants.camera;
     SceneLoadNavigationState& sceneNavigation = consumerOutputs.navigation;
-    RunDebugState& m_debug = consumerOutputs.presentation;
-    RunCameraState& camera = consumerOutputs.camera;
+    OverlayDebugState& m_debug = consumerOutputs.presentation;
+    CameraControlState& camera = consumerOutputs.camera;
     const auto recordCompletedWorldChange = [&]( const WorldOverrideChange& change )
     {
         if ( consumerOutputs.completedWorldChangeCount >= consumerOutputs.completedWorldChanges.size() )
@@ -799,7 +799,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     const bool suppressExitOnComplete = request.suppressExitOnComplete;
     const bool preserveRuntimeState = request.preserveRuntimeState;
     SceneController& m_sceneController = *this;
-    const auto SceneState = [this]() -> RunSceneState& { return State(); };
+    const auto SceneState = [this]() -> SceneSessionState& { return State(); };
     SkullbonezCore::Core::SbResult m_lastSceneLoadResult = SkullbonezCore::Core::SbResult::Success();
     SceneController& runtime = m_sceneController;
     const SceneRuntimeLoadBeginResult loadBegin =

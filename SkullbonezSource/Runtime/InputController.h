@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/InputController.h
 Purpose:
   Provides runtime input mode bookkeeping and camera mouse-look input policy.
 
-Mental model:
+Summary:
   InputRouter owns semantic keyboard edges. InputController keeps the remaining
   runtime mode history, pointer-button compatibility state, and camera deltas.
 
@@ -21,7 +21,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/InputController.cpp
-  - SkullbonezSource/Runtime/RunInput.cpp
+  - SkullbonezSource/Runtime/InputRouter.Interactions.cpp
 */
 #pragma once
 
@@ -45,7 +45,7 @@ class Terrain;
 namespace Runtime
 {
 struct DeviceInputFrame;
-struct RunCameraState;
+struct CameraControlState;
 
 enum class RuntimeInputMode
 {
@@ -331,12 +331,12 @@ class InputController
     static const char* DescribeAction( RuntimeInputAction action );
     static const char* DescribeSource( RuntimeInputActionSource source );
     static void DescribeLastTransitions( const RuntimeInputContext& context, char* out, std::size_t outSize );
-    static void ResetUnfocusedInput( RunCameraState& camera );
-    static void ResetMouseLook( RunCameraState& camera );
-    static void SetMouseLookDelta( RunCameraState& camera, long rawX, long rawY );
-    static RuntimeCameraInputFrameResult ApplyCameraInputFrame( RunCameraState& camera,
+    static void ResetUnfocusedInput( CameraControlState& camera );
+    static void ResetMouseLook( CameraControlState& camera );
+    static void SetMouseLookDelta( CameraControlState& camera, long rawX, long rawY );
+    static RuntimeCameraInputFrameResult ApplyCameraInputFrame( CameraControlState& camera,
                                                                 const RuntimeCameraInputFrameContext& context );
-    static void ApplyCameraMovement( RunCameraState& camera,
+    static void ApplyCameraMovement( CameraControlState& camera,
                                      Environment::CameraCollection& cameras,
                                      Geometry::Terrain& terrain,
                                      const RuntimeCameraMovementInput& input );

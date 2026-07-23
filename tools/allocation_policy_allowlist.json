@@ -72,7 +72,7 @@
       "removal_or_wrapper_plan": "If backend initialization becomes allocation-sensitive, replace this cold owner construction with renderer-owned preallocated storage."
     },
     {
-      "path": "SkullbonezSource/Runtime/Scene/RunScene.cpp",
+      "path": "SkullbonezSource/Runtime/Scene/SceneController.Load.cpp",
       "patterns": [
         "std::make_unique<Terrain>",
         ".push_back(",
@@ -287,14 +287,13 @@
     {
       "path": "SkullbonezSource/Runtime/Scene/SceneEntityStore.cpp",
       "patterns": [
-        ".assign(",
         ".emplace_back(",
         ".reserve(",
         ".resize("
       ],
-      "owner": "SceneEntityStore entity metadata and Debug name view",
-      "phase": "startup_scene_load_and_debug_diagnostics",
-      "reason": "SceneEntityStore reserves durable identity, material, display-name, and asset-affiliation rows before publishing the replacement scene. Debug diagnostics also sizes a bounded borrowed-name table to the already configured body count; release gameplay does not compile that assignment.",
+      "owner": "SceneEntityStore entity metadata",
+      "phase": "startup_and_scene_load",
+      "reason": "SceneEntityStore reserves durable identity, material, display-name, and asset-affiliation rows before publishing the replacement scene.",
       "cap": "Bounded by the configured game model capacity and the compile-time MAX_SCENE_OBJECTS ceiling.",
       "removal_or_wrapper_plan": "Replace the reserved cold metadata vector with a compact fixed arena if provenance storage is split into interned scene-owned tables."
     },
@@ -967,7 +966,7 @@
       "removal_or_wrapper_plan": "Move editor staging to fixed tool buffers when editor runtime allocation policy is tightened."
     },
     {
-      "path": "SkullbonezSource/Runtime/Editor/RunEditorPlacementAssets.cpp",
+      "path": "SkullbonezSource/Runtime/Editor/EditorPlacementAssets.cpp",
       "patterns": [
         ".emplace_back("
       ],
@@ -978,7 +977,7 @@
       "removal_or_wrapper_plan": "Move editor staging to fixed tool buffers when editor runtime allocation policy is tightened."
     },
     {
-      "path": "SkullbonezSource/Runtime/Editor/RunEditorTracer.cpp",
+      "path": "SkullbonezSource/Runtime/Editor/EditorTracer.cpp",
       "patterns": [
         ".insert(",
         ".push_back(",

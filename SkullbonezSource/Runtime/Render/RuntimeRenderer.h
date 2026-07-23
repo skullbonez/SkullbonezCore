@@ -89,7 +89,7 @@ class RuntimeRenderer
         float consequenceGradeStrength = 0.0f;            // Replay-owned [0,1] fade copied for this frame.
     };
 
-    RuntimeRenderer( RuntimeRenderBackendView backend, const RenderWorldView& world, RunSceneState& scene );
+    RuntimeRenderer( RuntimeRenderBackendView backend, const RenderWorldView& world, SceneSessionState& scene );
     ~RuntimeRenderer();
 
     // Runs after Core FrameBegin and before draw-call counters reset. This

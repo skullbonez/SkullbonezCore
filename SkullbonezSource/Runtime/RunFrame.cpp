@@ -152,8 +152,8 @@ void CaptureReplayPostStep( RuntimeTools& runtimeTools,
                             ReplayRuntime& replayRuntime,
                             SkullbonezCore::Core::Profiler* profiler )
 {
-    const RunSceneState& scene = sceneController.State();
-    const RunDebugState debug = overlays.PresentationSnapshot();
+    const SceneSessionState& scene = sceneController.State();
+    const OverlayDebugState debug = overlays.PresentationSnapshot();
     SkullbonezCore::Environment::CameraCollection& cameras = sceneController.Scene().Cameras();
     SkullbonezCore::Environment::WorldEnvironment& world = sceneController.Scene().Environment();
     PhysicsEngine& physics = sceneController.Scene().Physics();

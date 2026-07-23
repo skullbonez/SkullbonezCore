@@ -23,7 +23,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.cpp
-  - SkullbonezSource/Runtime/Scene/RunScene.cpp
+  - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #pragma once
@@ -43,8 +43,8 @@ class Dx12FrameOwner;
 namespace Runtime
 {
 class SceneController;
-struct RunCameraState;
-struct RunDebugState;
+struct CameraControlState;
+struct OverlayDebugState;
 class RuntimeRenderer;
 
 struct SceneRuntimeLoadBeginResult
@@ -64,8 +64,8 @@ struct SceneRuntimeLoadBeginResult
 SceneRuntimeLoadBeginResult PrepareSceneRuntimeLoad( const SceneController& controller,
                                                      const RunSceneUIOverrideState& uiOverrides,
                                                      const RuntimeRenderer& renderer,
-                                                     const RunDebugState& debug,
-                                                     const RunCameraState& camera,
+                                                     const OverlayDebugState& debug,
+                                                     const CameraControlState& camera,
                                                      Rendering::Dx12FrameOwner* renderFrame,
                                                      bool interactiveSceneRunRequested,
                                                      int index,

@@ -21,8 +21,8 @@ Invariants:
     transitions.
 
 Related:
-  - SkullbonezSource/Runtime/RunInput.cpp
-  - SkullbonezSource/Runtime/RunCameraState.h
+  - SkullbonezSource/Runtime/InputRouter.Interactions.cpp
+  - SkullbonezSource/Runtime/CameraControlState.h
   - SkullbonezSource/Runtime/RuntimeInteractionController.h
 */
 #pragma once

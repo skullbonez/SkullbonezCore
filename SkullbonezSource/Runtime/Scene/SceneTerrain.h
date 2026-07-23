@@ -23,7 +23,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneController.h
-  - SkullbonezSource/Runtime/Scene/RunScene.cpp
+  - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h
 */
 #pragma once

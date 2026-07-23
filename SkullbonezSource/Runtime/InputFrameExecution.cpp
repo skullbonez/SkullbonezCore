@@ -53,7 +53,7 @@ Related:
 #include "DemoDirectorPlayback.h"
 #include "RenderDefaultsStore.h"
 #include "Render/RuntimeRenderer.h"
-#include "RunDebugState.h"
+#include "OverlayDebugState.h"
 #include "RunLaunchOptions.h"
 #include "RunStartupState.h"
 #include "RunTimerState.h"
@@ -116,9 +116,9 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     RunLaunchOptions& m_launchOptions = sceneOwners.launchOptions;
     const RunStartupState& m_startup = sceneOwners.startup;
     RunTimerState& m_timers = sceneOwners.timers;
-    RunCameraState& m_camera = interactionOwners.camera;
+    CameraControlState& m_camera = interactionOwners.camera;
     RuntimeOverlayPresentationEdit presentationEdit = sceneOwners.overlays.EditPresentation();
-    RunDebugState& m_debug = presentationEdit.State();
+    OverlayDebugState& m_debug = presentationEdit.State();
     ApplicationExitState& m_applicationExit = host.applicationExit;
     RenderDefaultsStore& m_renderDefaults = presentationOwners.renderDefaults;
     DiagnosticsRuntime& m_diagnosticsRuntime = host.diagnosticsRuntime;
@@ -139,7 +139,7 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     // this synchronous routing pass; Run retains neither value as member state.
     RuntimeInputContext& m_runtimeInput = m_inputRouter.RuntimeContext();
     InputActions& m_inputActions = m_inputRouter.Actions();
-    const auto SceneState = [&]() -> RunSceneState& { return m_sceneController.State(); };
+    const auto SceneState = [&]() -> SceneSessionState& { return m_sceneController.State(); };
     const auto NormalizeCameraModeForCurrentScene = [&]( RunCameraMode mode )
     {
         return NormalizeRuntimeCameraMode(

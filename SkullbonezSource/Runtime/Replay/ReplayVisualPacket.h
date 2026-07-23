@@ -25,7 +25,7 @@ Glossary:
     or component within that row.
 
 Invariants:
-  - Buffer spans borrow RunEditorTracer storage for the current render frame only.
+  - Buffer spans borrow EditorTracer storage for the current render frame only.
   - ReplayPresentation owns packet publication and semantic metadata; the tracer owns
     storage capacity but cannot invent scene object identity or reveal state.
   - Production rendering and validation consume the same published packet.
@@ -33,7 +33,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
-  - SkullbonezSource/Runtime/Editor/RunEditorTracer.cpp
+  - SkullbonezSource/Runtime/Editor/EditorTracer.cpp
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp
 */
 #pragma once

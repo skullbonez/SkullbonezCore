@@ -9,7 +9,7 @@ Summary:
   ribbons and markers without scheduling work or mutating replay owners.
 
 Glossary:
-  Replay ribbon: Screen-space-width overlay stroke emitted through RunEditorTracer.
+  Replay ribbon: Screen-space-width overlay stroke emitted through EditorTracer.
   Draw quota: Frame-local cap for ordinary replay ribbon segments.
   Published prefix: Contiguous prediction frames released by the worker for readers.
 
@@ -80,7 +80,7 @@ struct ReplayRibbonDrawQuota
     std::size_t remainingRibbonSegments = 0;
 };
 
-ReplayRibbonDrawQuota BeginReplayRibbonDrawQuota( const RunEditorTracer& tracer )
+ReplayRibbonDrawQuota BeginReplayRibbonDrawQuota( const EditorTracer& tracer )
 {
     ReplayRibbonDrawQuota quota;
     quota.remainingRibbonSegments = tracer.ReplayPathRibbonSegmentCapacityRemaining();
@@ -107,7 +107,7 @@ bool TryReserveReplayPathRibbonSegment( ReplayRibbonDrawQuota* quota )
 // segment is cheap to inspect and must be counted in its lane even though no
 // vertex payload is emitted. Ordinary and baseline paths share this accounting
 // contract; only their final tracer record shapes differ.
-bool TryAccountReplayPathSegment( RunEditorTracer& tracer,
+bool TryAccountReplayPathSegment( EditorTracer& tracer,
                                   ReplayRibbonDrawQuota* quota,
                                   SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane )
 {
@@ -128,7 +128,7 @@ bool TryAccountReplayPathSegment( RunEditorTracer& tracer,
     return true;
 }
 
-void AddOrAccountReplayPathSegment( RunEditorTracer& tracer,
+void AddOrAccountReplayPathSegment( EditorTracer& tracer,
                                     ReplayRibbonDrawQuota* quota,
                                     const Vector3& start,
                                     const Vector3& end,
@@ -146,7 +146,7 @@ void AddOrAccountReplayPathSegment( RunEditorTracer& tracer,
     tracer.AddReplayPathSegment( start, end, r, g, b, lane, emphasis );
 }
 
-void AddOrAccountReplayBaselinePathSegment( RunEditorTracer& tracer,
+void AddOrAccountReplayBaselinePathSegment( EditorTracer& tracer,
                                             ReplayRibbonDrawQuota* quota,
                                             const Vector3& start,
                                             const Vector3& end,
@@ -446,7 +446,7 @@ PublishedReplayPredictionDrawFrameWindow( const ReplayPredictionPresentationView
 void DrawReplayPredictionBaselineSnapshot( const ReplayPredictionPresentationView& prediction,
                                            ReplayPathColorMode colorMode,
                                            const ColliderStore& colliderStore,
-                                           RunEditorTracer& tracer,
+                                           EditorTracer& tracer,
                                            ReplayRibbonDrawQuota& ribbonQuota )
 {
     if ( !prediction.baselineValid )
@@ -552,7 +552,7 @@ void DrawReplayTrajectoryRecordSegments( const ReplayTrajectoryRecord& record,
                                          ReplayFrameIndex rangeEnd,
                                          ReplayFrameIndex forcedFrame,
                                          std::size_t sampleStride,
-                                         RunEditorTracer& tracer,
+                                         EditorTracer& tracer,
                                          ReplayRibbonDrawQuota& ribbonQuota,
                                          SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane,
                                          ColorForFrame colorForFrame,
@@ -657,7 +657,7 @@ void DrawReplayPredictionRetainedMarkerTrailFromStore( const ReplayPredictionPre
                                                        bool usingBuildFrames,
                                                        ReplayFrameIndex revealFrame,
                                                        ReplayFrameIndex lastFrame,
-                                                       RunEditorTracer& tracer )
+                                                       EditorTracer& tracer )
 {
     const ReplayTrajectoryRecord* record =
         FindReplayPredictionMarkerTrailRecord( prediction, marker.id, usingBuildFrames );
@@ -715,7 +715,7 @@ void DrawReplayPredictionRetainedMarkers( const ReplayPredictionPresentationView
                                           ReplayFrameIndex revealFrame,
                                           ReplayFrameIndex lastFrame,
                                           const ColliderStore& colliderStore,
-                                          RunEditorTracer& tracer )
+                                          EditorTracer& tracer )
 {
     // Invariant: marker emission is bounded by SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS and independent
     // of the visualizer budget. Lines may degrade under load; already-revealed
@@ -762,7 +762,7 @@ void DrawReplayPredictionRootTrajectoryFromStore( const ReplayPredictionPresenta
                                                   ReplayFrameIndex lastFrame,
                                                   ReplayFrameIndex revealFrame,
                                                   std::size_t sampleStride,
-                                                  RunEditorTracer& tracer,
+                                                  EditorTracer& tracer,
                                                   ReplayRibbonDrawQuota& ribbonQuota )
 {
     const ReplayTrajectoryRecord* record =
@@ -808,7 +808,7 @@ void DrawReplayPredictionSmallSceneBodyTrajectories( std::span<const RunReplayPr
                                                      ReplayPathColorMode colorMode,
                                                      ReplayFrameIndex revealFrame,
                                                      std::size_t requestedStride,
-                                                     RunEditorTracer& tracer,
+                                                     EditorTracer& tracer,
                                                      ReplayRibbonDrawQuota& ribbonQuota )
 {
     constexpr std::size_t MAX_ALL_BODY_PREDICTION_COUNT = 8u;
@@ -902,7 +902,7 @@ void DrawReplayPredictionChildTrajectoryRecord( const ReplayPredictionPresentati
                                                 ReplayFrameIndex revealFrame,
                                                 ReplayFrameIndex lastFrame,
                                                 std::size_t sampleStride,
-                                                RunEditorTracer& tracer,
+                                                EditorTracer& tracer,
                                                 ReplayRibbonDrawQuota& ribbonQuota )
 {
     const ReplayTrajectoryRecord* record =
@@ -1011,7 +1011,7 @@ void DrawReplayPredictionChildTrajectoriesFromStore( const ReplayPredictionPrese
                                                      ReplayFrameIndex revealFrame,
                                                      ReplayFrameIndex lastFrame,
                                                      std::size_t sampleStride,
-                                                     RunEditorTracer& tracer,
+                                                     EditorTracer& tracer,
                                                      ReplayRibbonDrawQuota& ribbonQuota )
 {
     const std::size_t nodeCount = (std::min)( prediction.futureNodes.size(), REPLAY_PATH_MAX_FUTURE_NODES );
@@ -1047,7 +1047,7 @@ void DrawReplayPastRootTrajectoryFromStore( const ReplayPredictionPresentationVi
                                             Physics::PhysicsSceneObjectId rootId,
                                             ReplayPathColorMode colorMode,
                                             ReplayFrameIndex presentFrame,
-                                            RunEditorTracer& tracer,
+                                            EditorTracer& tracer,
                                             ReplayRibbonDrawQuota& ribbonQuota )
 {
     const ReplayTrajectoryRecord* record = ReplayTrajectoryRecordForDraw( prediction.trajectoryRecords,
@@ -1125,7 +1125,7 @@ void DrawReplayPredictionRagdollTorsoTrails( std::span<const RunReplayPrediction
                                              ReplayPathColorMode colorMode,
                                              ReplayFrameIndex revealFrame,
                                              const SceneEntityStore& collection,
-                                             RunEditorTracer& tracer,
+                                             EditorTracer& tracer,
                                              ReplayRibbonDrawQuota& ribbonQuota )
 {
     const int modelCount = collection.Count();
@@ -1208,7 +1208,7 @@ void DrawReplayPredictionAffectedBodyTrails( std::span<const RunReplayPrediction
                                              int rootModelIndex,
                                              std::span<const RunReplayPathTraceNode> futureNodes,
                                              const SceneEntityStore& collection,
-                                             RunEditorTracer& tracer,
+                                             EditorTracer& tracer,
                                              ReplayRibbonDrawQuota& ribbonQuota )
 {
     std::array<ReplayPredictionAffectedBodyTrail, REPLAY_PATH_MAX_FUTURE_NODES> trails = {};
@@ -1292,7 +1292,7 @@ bool DrawReplayPredictionOverlay( const RunReplayPathVisualizerState& pathVisual
                                   SkullbonezCore::Core::Profiler* profiler,
                                   const SceneEntityStore& modelCollection,
                                   const ColliderStore& colliderStore,
-                                  RunEditorTracer& tracer,
+                                  EditorTracer& tracer,
                                   ReplayRibbonDrawQuota& ribbonQuota )
 {
     const bool usingBuildFrames = prediction.usingBuildFrames;
@@ -1403,7 +1403,7 @@ void DrawReplayPredictionVisualizer( const RunReplayPathVisualizerState& pathVis
                                      SkullbonezCore::Core::Profiler* profiler,
                                      PhysicsEngine& physicsEngine,
                                      const SceneEntityStore& entities,
-                                     RunEditorTracer& tracer,
+                                     EditorTracer& tracer,
                                      ReplayRibbonDrawQuota& ribbonQuota )
 {
     PROFILE_SCOPED( profiler, "Frame/Replay/PathVisualizer/Prediction" );
@@ -1514,7 +1514,7 @@ void ReplayPresentation::RenderPathVisualizer( const ReplayPredictionPresentatio
                                                const ReplaySolverFrameSample* presentSample,
                                                PhysicsEngine& physics,
                                                const SceneEntityStore& entities,
-                                               RunEditorTracer& tracer )
+                                               EditorTracer& tracer )
 {
     tracer.ClearReplayTrajectoryStats();
     const ReplayFrameIndex presentFrame =

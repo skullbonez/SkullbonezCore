@@ -28,7 +28,7 @@ Invariants:
     generation.
 
 Related:
-  - SkullbonezSource/Runtime/RunInput.cpp
+  - SkullbonezSource/Runtime/InputRouter.Interactions.cpp
   - SkullbonezSource/Runtime/Run.h
   - Agentic/Plans/In_Progress/authoritative-plan-01-run-composition-root.csv
 */

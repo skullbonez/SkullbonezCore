@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/InputController.cpp
 Purpose:
   Maintains runtime input-mode state and applies camera mouse-look deltas.
 
-Mental model:
+Summary:
   InputRouter normalizes semantic keyboard edges. This layer retains camera and
   pointer compatibility behavior while later input slices move those paths.
 
@@ -19,12 +19,12 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/InputController.h
-  - SkullbonezSource/Runtime/RunInput.cpp
+  - SkullbonezSource/Runtime/InputRouter.Interactions.cpp
 */
 #include "InputController.h"
 #include "InputRouter.h"
 
-#include "RunCameraState.h"
+#include "CameraControlState.h"
 #include "CameraCollection.h"
 #include "../World/Terrain.h"
 
@@ -457,7 +457,7 @@ void InputController::DescribeLastTransitions( const RuntimeInputContext& contex
     }
 }
 
-void InputController::ResetUnfocusedInput( RunCameraState& camera )
+void InputController::ResetUnfocusedInput( CameraControlState& camera )
 {
     camera.input = {};
     camera.mouseLookOwnsCursor = false;
@@ -466,7 +466,7 @@ void InputController::ResetUnfocusedInput( RunCameraState& camera )
     camera.needsMouseLookReset = true;
 }
 
-void InputController::ResetMouseLook( RunCameraState& camera )
+void InputController::ResetMouseLook( CameraControlState& camera )
 {
     camera.input.xMove = 0;
     camera.input.yMove = 0;
@@ -474,7 +474,7 @@ void InputController::ResetMouseLook( RunCameraState& camera )
     camera.needsMouseLookReset = true;
 }
 
-void InputController::SetMouseLookDelta( RunCameraState& camera, long rawX, long rawY )
+void InputController::SetMouseLookDelta( CameraControlState& camera, long rawX, long rawY )
 {
     const long absX = rawX < 0 ? -rawX : rawX;
     const long absY = rawY < 0 ? -rawY : rawY;
@@ -490,7 +490,7 @@ void InputController::SetMouseLookDelta( RunCameraState& camera, long rawX, long
     camera.input.yMove = std::clamp( rawY, -CAMERA_MOUSE_MAX_DELTA_PIXELS, CAMERA_MOUSE_MAX_DELTA_PIXELS );
 }
 
-RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( RunCameraState& camera,
+RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( CameraControlState& camera,
                                                                       const RuntimeCameraInputFrameContext& context )
 {
     RuntimeCameraInputFrameResult result;
@@ -582,7 +582,7 @@ RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( RunCameraS
 }
 
 
-void InputController::ApplyCameraMovement( RunCameraState& camera,
+void InputController::ApplyCameraMovement( CameraControlState& camera,
                                            Environment::CameraCollection& cameras,
                                            Geometry::Terrain& terrain,
                                            const RuntimeCameraMovementInput& input )

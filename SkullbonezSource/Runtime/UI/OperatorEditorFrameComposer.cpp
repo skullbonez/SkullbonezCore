@@ -210,14 +210,14 @@ void Render( RuntimeFrameHostView& host,
     DiagnosticsRuntime& diagnosticsRuntime = host.diagnosticsRuntime;
     RunTimerState& timers = sceneOwners.timers;
     RuntimeOverlayPresentationEdit presentationEdit = sceneOwners.overlays.EditPresentation();
-    RunDebugState& debug = presentationEdit.State();
+    OverlayDebugState& debug = presentationEdit.State();
     SceneController& sceneController = sceneOwners.sceneController;
-    RunSceneState& scene = sceneController.State();
+    SceneSessionState& scene = sceneController.State();
     SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     SkullbonezCore::UI::InGameUI& ui = interactionOwners.operatorUi;
     RuntimeInputContext& runtimeInput = interactionOwners.inputRouter.RuntimeContext();
-    RunCameraState& camera = interactionOwners.camera;
+    CameraControlState& camera = interactionOwners.camera;
     SkullbonezCore::Threading::WorkerPool& workerPool = host.workerPool;
     Window& window = host.window;
     RunLaunchOptions& launchOptions = sceneOwners.launchOptions;

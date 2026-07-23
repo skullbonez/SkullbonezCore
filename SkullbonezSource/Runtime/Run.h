@@ -68,7 +68,7 @@ Related:
 #include "DevelopmentTools/ImGuiEditorOwner.h"
 #endif
 #include "RunLaunchOptions.h"
-#include "RunCameraState.h"
+#include "CameraControlState.h"
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 #include "InteractionAutomationController.h"
 #endif
@@ -151,7 +151,7 @@ class Run
     InteractionAutomationController
         m_interactionAutomation;                                           // Automation-build CLI harness that injects runtime mouse input for regression tests.
 #endif
-    RunCameraState m_camera;                                               // Camera/input state and ball-tracking settings
+    CameraControlState m_camera;                                           // Camera/input state and ball-tracking settings
     AttachedCameraController m_attachedCamera;                             // Owns non-serialized Attach target/orbit/follow state.
     SimulationSystem m_simulation;                                         // Simulation timestep policy and physics accumulators
     ReplayRuntime m_replayRuntime;                                         // Constructs and sequences the concrete replay domain owners.

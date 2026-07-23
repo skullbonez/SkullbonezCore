@@ -30,13 +30,13 @@ Concrete symptoms:
 - **Input has five overlapping owners at top level**: `Input.cpp/h`,
   `InputController.cpp/h` (+ `.Bindings`), `InputFrame.cpp/h` (1,288 lines),
   `InputFrameExecution.cpp` (1,181 lines), and `InputRouter.cpp/h`, plus
-  `RunInput.cpp` (which *is* `class Run` phase code) and
+  `InputRouter.Interactions.cpp` and
   `RuntimeInteractionController` beside them. The per-file headers each claim
   a boundary, but nothing states the call direction between the five, and
   nothing but convention stops a new file from reaching across them.
 - **Subsystems exist as prefixes, not packages**: camera
   (`Camera`, `CameraCollection`, `AttachedCameraController`,
-  `RunCameraState`, `RuntimeCameraMode`), capture (`CaptureController`,
+  `CameraControlState`, `RuntimeCameraMode`), capture (`CaptureController`,
   `CaptureSystem`, `GraphicsStressController`, `RuntimeStressController`),
   picking (`RuntimePickGeometry`, `RuntimePickService`), automation
   (`InteractionAutomationController` 3,300 lines,
@@ -83,10 +83,10 @@ edge-declaration plan.
 
 | Sub-package | Takes (from top level) |
 |-------------|------------------------|
-| `Runtime/App/` | `Run.h/.cpp`, `RunFrame.cpp`, `RunInput.cpp`, `RunRender.cpp`, `RunLaunchOptions*`, `RunStartupState.h`, `RunTimerState.h`, `RunDebugState.h`, `ApplicationExitState*`, `Window*`, `Init.cpp` |
+| `Runtime/App/` | `Run.h/.cpp`, `RunFrame.cpp`, `InputRouter.Interactions.cpp`, `RunRender.cpp`, `RunLaunchOptions*`, `RunStartupState.h`, `RunTimerState.h`, `OverlayDebugState.h`, `ApplicationExitState*`, `Window*`, `Init.cpp` |
 | `Runtime/Input/` | `Input*`, `InputController*`, `InputFrame*`, `InputFrameExecution.cpp`, `InputRouter*` |
 | `Runtime/Interaction/` | `RuntimeInteractionController*`, `RuntimeInteractionCommands.h`, `OperatorCommandApplier*`, `RuntimePickGeometry*`, `RuntimePickService*` |
-| `Runtime/Camera/` | `Camera*`, `CameraCollection*`, `AttachedCameraController*`, `RunCameraState*`, `RuntimeCameraMode.h` |
+| `Runtime/Camera/` | `Camera*`, `CameraCollection*`, `AttachedCameraController*`, `CameraControlState*`, `RuntimeCameraMode.h` |
 | `Runtime/Capture/` | `CaptureController*`, `CaptureSystem*`, `GraphicsStressController.h`, `RuntimeStressController*` |
 | `Runtime/Automation/` | `InteractionAutomationController*`, `InteractionAutomationInputDriver*`, `InteractionAutomationReportWriter*`, `RuntimeValidationHarness*` |
 | `Runtime/Direction/` | `DemoDirector*`, `DemoDirectorPlayback*`, `LiveStyleController*` |

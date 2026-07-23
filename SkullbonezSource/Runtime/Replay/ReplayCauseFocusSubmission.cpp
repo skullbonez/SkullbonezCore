@@ -151,7 +151,7 @@ bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore,
     return true;
 }
 
-bool TryAddReplayTargetMarkerFromStores( RunEditorTracer& tracer,
+bool TryAddReplayTargetMarkerFromStores( EditorTracer& tracer,
                                          const PhysicsBodyStore& bodyStore,
                                          const ColliderStore& colliderStore,
                                          int modelIndex )
@@ -188,7 +188,7 @@ void ReplayPresentation::RenderCauseFocusOverlay( const RunReplayCauseTreeState&
                                                   const PhysicsBodyStore& bodyStore,
                                                   const ColliderStore& colliderStore,
                                                   const SceneEntityStore& entities,
-                                                  RunEditorTracer& tracer )
+                                                  EditorTracer& tracer )
 {
     using namespace ReplayPresentationSubmissionOperations;
 

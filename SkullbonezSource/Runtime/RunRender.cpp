@@ -43,7 +43,7 @@ namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 void Run::Render( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha )
 {
-    const RunDebugState debug = m_overlayDiagnostics->PresentationSnapshot();
+    const OverlayDebugState debug = m_overlayDiagnostics->PresentationSnapshot();
     m_renderer.ResourceLifecycle().SetUiTextRayTracingCapability( nullptr );
 
     // In text_only mode all 3D rendering is skipped. UiTextPass handles the display.
@@ -128,12 +128,12 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
                                          m_runtimeTools );
     m_replayRuntime.PrepareRenderOverlay( m_sceneController.Scene().Physics(),
                                           m_sceneController.Scene().Entities(),
-                                          m_runtimeTools.EditorTracer(),
+                                          m_runtimeTools.Tracer(),
                                           m_runtimeTools.Editor().editorModeEnabled,
                                           m_interaction.Gesture(),
                                           m_sceneController.State().currentFrame,
                                           m_sceneController.Scene().RenderPresentationRecords() );
-    m_replayRuntime.PublishRenderPacket( m_runtimeTools.EditorTracer(),
+    m_replayRuntime.PublishRenderPacket( m_runtimeTools.Tracer(),
                                          m_sceneController.Scene().Cameras().GetRenderCameraTranslation(),
                                          m_sceneController.Scene().Cameras().GetRenderCameraUp(),
                                          replayGrowthEventCount );

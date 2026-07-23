@@ -3,7 +3,7 @@ File: InputController.Bindings.cpp
 Purpose:
   Owns the static keyboard binding rows used by the runtime input loop.
 
-Mental model:
+Summary:
   This file is the command table. It does not decide whether the player is in
   editor, launcher, replay, or director mode; it only records the virtual key,
   normalized action, and context bits that later dispatch code interprets.
@@ -16,12 +16,13 @@ Glossary:
     tooling but remains visible in the table for tests.
 
 Invariants:
-  - Preserve row order unless the matching RunInput dispatch order changes.
+  - Preserve row order unless the matching InputRouter interaction dispatch
+    order changes.
   - Duplicate virtual keys must have different context masks.
 
 Related:
   - InputController.Bindings.h exposes the table view.
-  - RunInput.cpp consumes the table and applies side effects.
+  - InputRouter.Interactions.cpp consumes the table and applies side effects.
   - SkullbonezTests/TestRuntimeInputBindings.cpp locks key/context mappings.
 */
 #include "InputController.Bindings.h"

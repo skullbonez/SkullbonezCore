@@ -1,10 +1,10 @@
 /*
-File: SkullbonezSource/Runtime/RunCameraState.cpp
+File: SkullbonezSource/Runtime/CameraControlState.cpp
 Purpose:
   Applies operator camera-selection intent to the scene-owned camera collection.
 
 Summary:
-  RunCameraState owns mode and generated-demo cycling state, while
+  CameraControlState owns mode and generated-demo cycling state, while
   CameraCollection owns camera poses. The update borrows pose/model owners for
   one synchronous selection pass and retains no cross-owner pointers.
 
@@ -17,11 +17,11 @@ Invariants:
   - Object-follow views sample model presentation positions without reopening physics storage.
 
 Related:
-  - SkullbonezSource/Runtime/RunCameraState.h
+  - SkullbonezSource/Runtime/CameraControlState.h
   - SkullbonezSource/Runtime/CameraCollection.h
   - Agentic/Reference/comment-style-guide.md
 */
-#include "RunCameraState.h"
+#include "CameraControlState.h"
 
 #include "CameraCollection.h"
 #include "AttachedCameraController.h"
@@ -38,14 +38,14 @@ using SkullbonezCore::Math::Vector::Vector3;
 
 namespace SkullbonezCore::Runtime
 {
-void RunCameraState::UpdateViewingOrientation( RunTimerState& timers,
-                                               Runtime::SceneWorld& world,
-                                               bool replayCameraActive,
-                                               bool sceneMode,
-                                               bool attachedActiveFollow,
-                                               bool cameraLookCaptured,
-                                               float presentationAlpha,
-                                               Core::Profiler* profiler )
+void CameraControlState::UpdateViewingOrientation( RunTimerState& timers,
+                                                   Runtime::SceneWorld& world,
+                                                   bool replayCameraActive,
+                                                   bool sceneMode,
+                                                   bool attachedActiveFollow,
+                                                   bool cameraLookCaptured,
+                                                   float presentationAlpha,
+                                                   Core::Profiler* profiler )
 {
     Environment::CameraCollection& cameras = world.Cameras();
     if ( replayCameraActive )
@@ -98,7 +98,7 @@ void RunCameraState::UpdateViewingOrientation( RunTimerState& timers,
 }
 
 
-void RunCameraState::AdvanceAutoCycleClock( bool sceneMode, float simulationDt )
+void CameraControlState::AdvanceAutoCycleClock( bool sceneMode, float simulationDt )
 {
     if ( sceneMode && autoCycleInterval > 0.0f )
     {
@@ -107,14 +107,14 @@ void RunCameraState::AdvanceAutoCycleClock( bool sceneMode, float simulationDt )
 }
 
 
-void RunCameraState::TickControls( Runtime::SceneWorld& world,
-                                   AttachedCameraController& attachedCamera,
-                                   const SkullbonezCore::Core::EngineConfig& config,
-                                   bool editorModeEnabled,
-                                   bool viewportLookActive,
-                                   bool sceneMode,
-                                   float cameraDt,
-                                   float presentationAlpha )
+void CameraControlState::TickControls( Runtime::SceneWorld& world,
+                                       AttachedCameraController& attachedCamera,
+                                       const SkullbonezCore::Core::EngineConfig& config,
+                                       bool editorModeEnabled,
+                                       bool viewportLookActive,
+                                       bool sceneMode,
+                                       float cameraDt,
+                                       float presentationAlpha )
 {
     Environment::CameraCollection& cameras = world.Cameras();
     Geometry::Terrain& terrain = *world.Terrain().Get();

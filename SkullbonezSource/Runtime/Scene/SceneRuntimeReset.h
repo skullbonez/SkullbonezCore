@@ -20,15 +20,15 @@ Invariants:
     no multi-domain reset context is retained.
 
 Related:
-  - SkullbonezSource/Runtime/Scene/RunScene.cpp
+  - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - SkullbonezSource/Runtime/Scene/SceneRuntime.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #pragma once
 
 #include "SceneControllerState.h"
-#include "../RunCameraState.h"
-#include "../RunDebugState.h"
+#include "../CameraControlState.h"
+#include "../OverlayDebugState.h"
 #include "../Render/RenderPresentationSettings.h"
 #include "../../Gameplay/TornadoField.h"
 #include "../../Gameplay/TornadoVisualPass.h"
@@ -46,7 +46,7 @@ namespace Runtime
 {
 class SceneController;
 class RuntimeRenderer;
-struct RunSceneState;
+struct SceneSessionState;
 
 // Captures the part of a live run that belongs to the operator's current scene
 // configuration rather than the simulation instance.
@@ -57,7 +57,7 @@ struct SceneRuntimeResetSnapshot
     Gameplay::TornadoFieldConfig tornadoField;
     Gameplay::TornadoSystemConfig tornadoSystem;
     Gameplay::TornadoVisualSettings tornadoVisual;
-    RunDebugState
+    OverlayDebugState
         debug;                                     // Debug overlays/visualizers, including the C-key physics debug mode and associated alpha/linger knobs
     bool isScenePhysics =
         true;                                      // Live scene simulation toggle; reset should rebuild the run, not silently re-enable physics
@@ -94,13 +94,13 @@ struct SceneRuntimeResetSnapshot
 SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot( const SceneController& controller,
                                                             const RunSceneUIOverrideState& uiOverrides,
                                                             const RuntimeRenderer& renderer,
-                                                            const RunDebugState& debug,
-                                                            const RunCameraState& camera );
+                                                            const OverlayDebugState& debug,
+                                                            const CameraControlState& camera );
 void RestoreSceneRuntimeResetSnapshot( SceneController& controller,
                                        RunSceneUIOverrideState& uiOverrides,
                                        RuntimeRenderer& renderer,
-                                       RunDebugState& debug,
-                                       RunCameraState& camera,
+                                       OverlayDebugState& debug,
+                                       CameraControlState& camera,
                                        const SceneRuntimeResetSnapshot& snapshot,
                                        bool suppressExitOnComplete );
 void ClearSceneRuntimeUIOverrides( RunSceneUIOverrideState& uiOverrides );

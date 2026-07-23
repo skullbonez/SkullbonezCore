@@ -63,7 +63,7 @@ class PhysicsEngine;
 
 namespace SkullbonezCore::Runtime
 {
-class RunEditorTracer;
+class EditorTracer;
 } // namespace SkullbonezCore::Runtime
 
 namespace SkullbonezCore::Runtime::ReplayOverlay
@@ -79,7 +79,7 @@ struct ReplayPathVisualizerRenderContext
     const RunReplayPathVisualizerState& pathVisualizer;
     SkullbonezCore::Physics::PhysicsEngine& physics;
     const SceneEntityStore& entities;
-    RunEditorTracer& tracer;
+    EditorTracer& tracer;
     ReplayFrameIndex presentFrame = 0;
     bool hasPresentSample = false;
 };

@@ -36,7 +36,7 @@ Related:
 
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../InputController.h"
-#include "../RunDebugState.h"
+#include "../OverlayDebugState.h"
 #include "../Scene/SceneRuntime.h"
 #include "../Scene/SceneController.h"
 #include "../../Physics/PhysicsDebugData.h"
@@ -396,7 +396,7 @@ void WriteReplayTrajectoryCounters( FILE* file,
 }
 } // namespace
 
-void StepDiagnosticsPhysicsPipelineStage( RunDebugState& debug, int direction )
+void StepDiagnosticsPhysicsPipelineStage( OverlayDebugState& debug, int direction )
 {
     const int stageCount = static_cast<int>( Physics::PhysicsPipelineStage::Count );
     if ( stageCount <= 0 || direction == 0 )
@@ -441,7 +441,7 @@ bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext conte
         }
     }
 
-    RunDebugState& debug = context.debug;
+    OverlayDebugState& debug = context.debug;
     switch ( action )
     {
     case RuntimeInputAction::ToggleWaterFreeze:
@@ -608,7 +608,7 @@ DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( Diagnos
 
 
 DiagnosticsPhysicsOverlayUICommandResult
-ApplyDiagnosticsPhysicsOverlayUICommands( RunDebugState& debug, const UI::UIPhysicsCommands& commands )
+ApplyDiagnosticsPhysicsOverlayUICommands( OverlayDebugState& debug, const UI::UIPhysicsCommands& commands )
 {
     // Why: Physics-tab diagnostics mutate presentation/debug state only. Keeping
     // them here prevents UI command application from reopening direct debug-field
@@ -648,7 +648,7 @@ ApplyDiagnosticsPhysicsOverlayUICommands( RunDebugState& debug, const UI::UIPhys
 }
 
 
-bool ApplyDiagnosticsTerrainContactProbeUICommand( RunDebugState& debug, const UI::UIPhysicsCommands& commands )
+bool ApplyDiagnosticsTerrainContactProbeUICommand( OverlayDebugState& debug, const UI::UIPhysicsCommands& commands )
 {
     if ( !commands.toggleTerrainContactProbe )
     {
@@ -661,7 +661,7 @@ bool ApplyDiagnosticsTerrainContactProbeUICommand( RunDebugState& debug, const U
 
 
 DiagnosticsPhysicsDebugValueUICommandResult
-ApplyDiagnosticsPhysicsDebugValueUICommands( RunDebugState& debug, const UI::UIPhysicsCommands& commands )
+ApplyDiagnosticsPhysicsDebugValueUICommands( OverlayDebugState& debug, const UI::UIPhysicsCommands& commands )
 {
     DiagnosticsPhysicsDebugValueUICommandResult result;
     if ( commands.requestedPhysicsDebugAlpha >= 0.0f )
@@ -905,7 +905,7 @@ bool DiagnosticsRuntime::MainMemoryDumpRequested() const
 
 bool DiagnosticsRuntime::WriteMainMemoryDump( const SkullbonezCore::Core::MainMemoryReplayStats& replay,
                                               const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects,
-                                              const RunSceneState& scene,
+                                              const SceneSessionState& scene,
                                               const char* checkpoint,
                                               double nowSeconds )
 {
@@ -1114,7 +1114,7 @@ void DiagnosticsRuntime::LogSceneFinished( SceneController& scene,
 
 
 void DiagnosticsRuntime::BeginPhysicsDiagnosticsRun( Physics::PhysicsEngine& physics,
-                                                     const RunSceneState& scene,
+                                                     const SceneSessionState& scene,
                                                      const SkullbonezCore::Core::EngineConfig& config,
                                                      const char* scenePath,
                                                      const char* rendererName )
@@ -1130,19 +1130,20 @@ void DiagnosticsRuntime::BeginPhysicsDiagnosticsRun( Physics::PhysicsEngine& phy
 }
 
 
-void DiagnosticsRuntime::LogReplayScrubProbe( const RunSceneState& scene, const ReplayScrubProbeDiagnostic& probe )
+void DiagnosticsRuntime::LogReplayScrubProbe( const SceneSessionState& scene, const ReplayScrubProbeDiagnostic& probe )
 {
     RuntimeDiagnostics::LogReplayScrubProbe( m_diagnostics.PhysicsDiagnostics(), scene, probe );
 }
 
 
-void DiagnosticsRuntime::LogReplayRestoreProbe( const RunSceneState& scene, const ReplayRestoreProbeDiagnostic& probe )
+void DiagnosticsRuntime::LogReplayRestoreProbe( const SceneSessionState& scene,
+                                                const ReplayRestoreProbeDiagnostic& probe )
 {
     RuntimeDiagnostics::LogReplayRestoreProbe( m_diagnostics.PhysicsDiagnostics(), scene, probe );
 }
 
 
-void DiagnosticsRuntime::LogReplayRestoreResult( const RunSceneState& scene,
+void DiagnosticsRuntime::LogReplayRestoreResult( const SceneSessionState& scene,
                                                  const ReplayRestoreResultDiagnostic& result )
 {
     // Invariant: Replay restore diagnostics are forwarded with their exact
@@ -1152,7 +1153,7 @@ void DiagnosticsRuntime::LogReplayRestoreResult( const RunSceneState& scene,
 }
 
 
-void DiagnosticsRuntime::EndPhysicsDiagnosticsRun( const RunSceneState& scene, const char* status )
+void DiagnosticsRuntime::EndPhysicsDiagnosticsRun( const SceneSessionState& scene, const char* status )
 {
     RuntimeDiagnostics::EndPhysicsDiagnosticsRun( m_diagnostics.PhysicsDiagnostics(), scene, status );
 }
@@ -1161,7 +1162,7 @@ void DiagnosticsRuntime::EndPhysicsDiagnosticsRun( const RunSceneState& scene, c
 #endif
 
 
-void DiagnosticsRuntime::BeforeSceneUnload( const RunSceneState& scene )
+void DiagnosticsRuntime::BeforeSceneUnload( const SceneSessionState& scene )
 {
 #ifdef _DEBUG
     EndPhysicsDiagnosticsRun( scene, "scene_reload" );

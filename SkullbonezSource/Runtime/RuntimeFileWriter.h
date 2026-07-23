@@ -20,7 +20,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/RuntimeFileWriter.cpp
-  - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
+  - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
 */
 #pragma once
 

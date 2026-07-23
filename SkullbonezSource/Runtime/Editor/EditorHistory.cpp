@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Editor/RunEditorHistory.cpp
+File: SkullbonezSource/Runtime/Editor/EditorHistory.cpp
 Purpose:
   Captures and applies editor transform, primitive placement, and deletion history.
 
@@ -20,7 +20,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Editor/EditorCommandHistory.h
-  - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
+  - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
   - SkullbonezSource/Runtime/Scene/SceneWorld.cpp
 */
 #include "../Tools/RuntimeTools.h"
@@ -150,7 +150,7 @@ bool CapturePrimitiveRecipe( const SceneWorld& world, int modelIndex, EditorPrim
 
 
 bool RecreatePrimitive( SceneWorld& world,
-                        RunSceneState& scene,
+                        SceneSessionState& scene,
                         const EditorPrimitiveRecreateRecipe& recipe,
                         PhysicsBodyHandle& outBody,
                         PhysicsColliderHandle& outCollider )
@@ -217,7 +217,7 @@ bool RecreatePrimitive( SceneWorld& world,
 }
 
 
-bool DestroyBySceneId( SceneWorld& world, RunSceneState& scene, PhysicsSceneObjectId sceneObjectId )
+bool DestroyBySceneId( SceneWorld& world, SceneSessionState& scene, PhysicsSceneObjectId sceneObjectId )
 {
     const int modelIndex = world.Entities().FindBySceneObjectId( sceneObjectId );
     if ( modelIndex < 0 )
@@ -300,7 +300,7 @@ bool ApplyTransformEntry( SceneWorld& world, const EditorCommandEntry& entry, bo
 
 
 bool ApplyHistoryEntry( SceneWorld& world,
-                        RunSceneState& scene,
+                        SceneSessionState& scene,
                         const EditorCommandEntry& entry,
                         bool redo,
                         PhysicsBodyHandle& outBody,
@@ -429,7 +429,7 @@ void RuntimeTools::RecordEditorPlacementHistory( SceneWorld& world, int modelCou
 }
 
 
-bool RuntimeTools::UndoEditorCommand( SceneWorld& world, RunSceneState& scene )
+bool RuntimeTools::UndoEditorCommand( SceneWorld& world, SceneSessionState& scene )
 {
     const EditorCommandEntry* entry = m_editor.history.PendingUndo();
     PhysicsBodyHandle body;
@@ -454,7 +454,7 @@ bool RuntimeTools::UndoEditorCommand( SceneWorld& world, RunSceneState& scene )
 }
 
 
-bool RuntimeTools::RedoEditorCommand( SceneWorld& world, RunSceneState& scene )
+bool RuntimeTools::RedoEditorCommand( SceneWorld& world, SceneSessionState& scene )
 {
     const EditorCommandEntry* entry = m_editor.history.PendingRedo();
     PhysicsBodyHandle body;
@@ -479,7 +479,7 @@ bool RuntimeTools::RedoEditorCommand( SceneWorld& world, RunSceneState& scene )
 }
 
 
-bool RuntimeTools::DuplicateEditorSelection( SceneWorld& world, RunSceneState& scene )
+bool RuntimeTools::DuplicateEditorSelection( SceneWorld& world, SceneSessionState& scene )
 {
     const int modelIndex = RunInternal::ResolveSelectedEditorModelIndex( m_editor, world.BodyStore() );
     EditorCommandEntry entry;
@@ -515,7 +515,7 @@ bool RuntimeTools::DuplicateEditorSelection( SceneWorld& world, RunSceneState& s
 }
 
 
-bool RuntimeTools::DeleteEditorSelection( SceneWorld& world, RunSceneState& scene )
+bool RuntimeTools::DeleteEditorSelection( SceneWorld& world, SceneSessionState& scene )
 {
     const int modelIndex = RunInternal::ResolveSelectedEditorModelIndex( m_editor, world.BodyStore() );
     EditorCommandEntry entry;

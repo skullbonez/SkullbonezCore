@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.cpp
+File: SkullbonezSource/Runtime/Editor/EditorObjectPlacement.cpp
 Purpose:
   Contains editor object placement preflight and commit logic.
 
@@ -23,9 +23,9 @@ Invariants:
   - Placement names and model order are replay-visible and must stay stable.
 
 Related:
-  - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
+  - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
   - SkullbonezSource/Runtime/Editor/EditorPlacementAssets.h
-  - SkullbonezSource/Runtime/Editor/RunEditorPlacementAssets.cpp
+  - SkullbonezSource/Runtime/Editor/EditorPlacementAssets.cpp
 */
 #include "EditorPlacementAssets.h"
 #include "../../Assets/AssetKeys.h"

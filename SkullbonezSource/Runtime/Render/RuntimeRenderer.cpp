@@ -44,7 +44,7 @@ Related:
 #include "../../Assets/AssetKeys.h"
 #include "RuntimeRenderPasses.h"
 #include "../CameraCollection.h"
-#include "../RunCameraState.h"
+#include "../CameraControlState.h"
 #include "../RunTimerState.h"
 #include "../RuntimeDiagnostics.h"
 #include "../RuntimeOverlayDiagnostics.h"
@@ -1630,7 +1630,9 @@ RenderResourceContext RuntimeRenderer::BuildRenderResourceContext( bool cinemati
 }
 
 
-RuntimeRenderer::RuntimeRenderer( RuntimeRenderBackendView backend, const RenderWorldView& world, RunSceneState& scene )
+RuntimeRenderer::RuntimeRenderer( RuntimeRenderBackendView backend,
+                                  const RenderWorldView& world,
+                                  SceneSessionState& scene )
     : m_resources( backend, world, scene ), m_cameras( world.cameras ), m_window( world.window ),
       m_world( world.worldEnvironment ), m_collisionVisualizer( world.overlayResources.m_collisionOverlay ),
       m_broadphaseVisualizer( world.overlayResources.m_broadphaseOverlay ),

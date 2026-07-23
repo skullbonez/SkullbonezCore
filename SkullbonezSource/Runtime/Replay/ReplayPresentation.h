@@ -84,8 +84,8 @@ class ReplayPrediction;
 class ReplayPresentation;
 class ReplayScrubber;
 class RuntimeTools;
-class RunEditorTracer;
-struct RunCameraState;
+class EditorTracer;
+struct CameraControlState;
 struct RunMousePickupState;
 struct RunReplayCauseTreeState;
 struct RunReplayPredictionFrame;
@@ -130,7 +130,7 @@ namespace ReplayPresentationOperations
 // or replay authority after returning.
 void EnterInspectionCamera( ReplayPresentation& presentation,
                             Environment::CameraCollection* cameras,
-                            RunCameraState& camera,
+                            CameraControlState& camera,
                             RunCameraMode normalizedCurrentMode,
                             RuntimeInteractionController& interaction,
                             InputRouter& inputRouter,
@@ -139,7 +139,7 @@ void ExitInspectionCamera( ReplayPresentation& presentation,
                            const ReplayAuthoring& authoring,
                            Environment::CameraCollection* cameras,
                            Geometry::Terrain* terrain,
-                           RunCameraState& camera,
+                           CameraControlState& camera,
                            RunCameraMode normalizedRestoreMode,
                            bool attachedFollow,
                            bool directorGrabbed,
@@ -387,14 +387,14 @@ class ReplayPresentation
                                const ReplaySolverFrameSample* presentSample,
                                Physics::PhysicsEngine& physics,
                                const SceneEntityStore& entities,
-                               RunEditorTracer& tracer );
+                               EditorTracer& tracer );
     void RenderCauseFocusOverlay( const RunReplayCauseTreeState& causeTree,
                                   const ReplayPredictionPresentationView& prediction,
                                   const ReplaySolverFrameSample* currentSolverSample,
                                   const Physics::PhysicsBodyStore& bodyStore,
                                   const Physics::ColliderStore& colliderStore,
                                   const SceneEntityStore& entities,
-                                  RunEditorTracer& tracer );
+                                  EditorTracer& tracer );
 
   private:
     // Lifetime: startup-bound diagnostics borrow; never retained beyond Run.

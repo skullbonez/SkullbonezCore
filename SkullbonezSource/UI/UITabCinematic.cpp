@@ -273,7 +273,7 @@ float CinematicValueForParam( const SkullbonezCore::Core::CinematicRenderConfig&
                               SkullbonezCore::UI::UICinematicParam param )
 {
     // Read the live value for a Cine slider. This is the inverse of the command
-    // application in RunInput.cpp.
+    // application in InputRouter.Interactions.cpp.
     switch ( param )
     {
     case SkullbonezCore::UI::UICinematicParam::Exposure:

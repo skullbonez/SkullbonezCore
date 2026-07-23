@@ -108,7 +108,7 @@ rules, and no behavior, layout, binding, or rendering output changes.
   rather than a load-transaction value — decide and record here) into a
   value-only header under `SkullbonezSource/UI/` (e.g.
   `UI/UISceneNavigationModel.h`). Runtime consumers (`SceneController.h`,
-  `SceneRuntimeLoad`, `SceneRuntimeUiOptions`, `RunScene.cpp`, …) include
+  `SceneRuntimeLoad`, `SceneRuntimeUiOptions`, `SceneController.Load.cpp`, …) include
   the UI header — legal under the ruling. If `SceneLoadNavigationState`
   turns out to be a genuine load-transaction value, it stays in
   `Runtime/Scene` and UI stops needing it once U1's split is done; record
@@ -120,7 +120,7 @@ rules, and no behavior, layout, binding, or rendering output changes.
 - [ ] **U2 — Input crosses as a UI-owned value snapshot.** UI already
   defines `UIInputSnapshot`; make it the boundary. Move snapshot
   construction to the Runtime side of the seam (the caller that already owns
-  `DeviceInputFrame`/`RuntimeMouseEdges` — `RunInput.cpp` /
+  `DeviceInputFrame`/`RuntimeMouseEdges` — `InputRouter.Interactions.cpp` /
   `OperatorEditorFrameComposer` territory) so UI receives a fully-built
   `UIInputSnapshot` (extended with whatever fields
   `UIWindowInteractionOwner.cpp:534` currently unpacks from the raw device

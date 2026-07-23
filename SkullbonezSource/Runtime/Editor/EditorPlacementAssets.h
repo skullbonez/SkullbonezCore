@@ -24,10 +24,10 @@ Invariants:
   - The template visitor is the only function body kept in this header.
 
 Related:
-  - SkullbonezSource/Runtime/Editor/RunEditorPlacementAssets.cpp
-  - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
-  - SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.cpp
-  - SkullbonezSource/Runtime/Editor/RunEditorTracer.cpp
+  - SkullbonezSource/Runtime/Editor/EditorPlacementAssets.cpp
+  - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
+  - SkullbonezSource/Runtime/Editor/EditorObjectPlacement.cpp
+  - SkullbonezSource/Runtime/Editor/EditorTracer.cpp
 */
 #pragma once
 

@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.cpp
+File: SkullbonezSource/Runtime/Editor/EditorOverlayTools.cpp
 Purpose:
   Builds editor hover, placement-preview, and gizmo overlay traces.
 
@@ -9,7 +9,7 @@ Summary:
 
 Glossary:
   Preview: Non-authoritative placement or selection feedback before a click.
-  Overlay trace: Frame-local line/shape instructions consumed by RunEditorTracer.
+  Overlay trace: Frame-local line/shape instructions consumed by EditorTracer.
   Body store: Physics-owned live pose rows used for selection and tool markers.
   Collider store: Physics-owned shape rows used for shape-accurate outlines.
 
@@ -18,8 +18,8 @@ Invariants:
   - Hover state is recomputed every frame from the current mouse ray.
 
 Related:
-  - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
-  - SkullbonezSource/Runtime/Editor/RunEditorTracer.cpp
+  - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
+  - SkullbonezSource/Runtime/Editor/EditorTracer.cpp
 */
 #include "EditorOverlayTools.h"
 #include "EditorTools.h"

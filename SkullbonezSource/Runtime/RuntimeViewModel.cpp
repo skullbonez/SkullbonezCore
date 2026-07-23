@@ -37,7 +37,7 @@ RuntimeViewModel RuntimeViewModelBuilder::Build( const RuntimeViewModelContext& 
 {
     RuntimeViewModel view;
 
-    const RunSceneState& scene = context.scene;
+    const SceneSessionState& scene = context.scene;
     const RunScreenshotState& screenshot = context.capture.Screenshot();
     const bool screenshotConfigured = screenshot.isScreenshotAndExit || screenshot.screenshotFrame >= 0 ||
                                       screenshot.screenshotMs >= 0 || screenshot.screenshotPath[0] != '\0' ||

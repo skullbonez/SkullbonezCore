@@ -39,7 +39,7 @@ namespace Runtime
 {
 class CaptureController;
 class SceneWorld;
-struct RunSceneState;
+struct SceneSessionState;
 
 struct RuntimeViewModel
 {
@@ -63,7 +63,7 @@ struct RuntimeViewModelContext
 {
     // Lifetime: Run builds this from owners that outlive the frame-local view
     // model rebuild. The builder copies values and never stores these borrows.
-    const RunSceneState& scene;
+    const SceneSessionState& scene;
     const SceneWorld& world;
     int sceneCount = 0;
     const CaptureController& capture;

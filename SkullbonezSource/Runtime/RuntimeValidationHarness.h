@@ -36,7 +36,7 @@ Related:
   - SkullbonezSource/Runtime/Run.cpp
   - SkullbonezSource/Runtime/RunFrame.cpp
   - SkullbonezSource/Runtime/RuntimeStressController.cpp
-  - SkullbonezSource/Runtime/Scene/RunScene.cpp
+  - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
 */
 #pragma once
 

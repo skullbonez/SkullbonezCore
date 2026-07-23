@@ -24,8 +24,8 @@ Invariants:
   - Rejected gesture commands leave the event empty and cannot claim capture.
 
 Related:
-  - SkullbonezSource/Runtime/RunInput.cpp
-  - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
+  - SkullbonezSource/Runtime/InputRouter.Interactions.cpp
+  - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
   - Agentic/Reference/comment-style-guide.md
 */
 #pragma once

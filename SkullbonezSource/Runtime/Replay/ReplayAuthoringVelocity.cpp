@@ -866,7 +866,7 @@ void ReplayAuthoring::AppendVelocityEditOverlay( Physics::PhysicsSceneObjectId t
                                                  PhysicsEngine& velocityPhysics,
                                                  bool editorModeEnabled,
                                                  const RuntimeInteractionGesture& gesture,
-                                                 RunEditorTracer& tracer ) const
+                                                 EditorTracer& tracer ) const
 {
     PROFILE_SCOPED( m_profiler, "Frame/Replay/VelocityEdit/Overlay" );
     if ( !m_velocityEdit.enabled || editorModeEnabled )

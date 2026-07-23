@@ -23,7 +23,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.h
-  - SkullbonezSource/Runtime/Scene/RunScene.cpp
+  - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #include "SceneRuntimeLoad.h"
@@ -189,8 +189,8 @@ int CurrentSceneBrowserIndex( const SceneController& controller, const RunSceneB
 SceneRuntimeLoadBeginResult PrepareSceneRuntimeLoad( const SceneController& controller,
                                                      const RunSceneUIOverrideState& uiOverrides,
                                                      const RuntimeRenderer& renderer,
-                                                     const RunDebugState& debug,
-                                                     const RunCameraState& camera,
+                                                     const OverlayDebugState& debug,
+                                                     const CameraControlState& camera,
                                                      Rendering::Dx12FrameOwner* renderFrame,
                                                      bool interactiveSceneRunRequested,
                                                      int index,

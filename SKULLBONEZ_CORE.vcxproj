@@ -396,15 +396,15 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Core\Log.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Config.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Run.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorTools.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorInteractionTools.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorHistory.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorPlacementAssets.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorGizmoTools.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Editor\RunMousePickupTools.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorOverlayTools.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorTracer.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorObjectPlacement.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorHistory.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorPlacementAssets.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorGizmoTools.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\MousePickupTools.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorOverlayTools.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorTracer.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorObjectPlacement.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunFrame.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\DemoDirectorPlayback.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\InteractionAutomationController.cpp">
@@ -416,7 +416,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\InteractionAutomationReportWriter.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'!='Automation|x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\RunInput.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\InputRouter.Interactions.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\LiveStyleController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RenderModelFramePublisher.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RenderResourceLifecycle.cpp" />
@@ -431,8 +431,8 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderHost.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Tools\RuntimeTools.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunRender.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\RunCameraState.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Scene\RunScene.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\CameraControlState.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.Load.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeStressController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\SimulationSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeOverlayDiagnostics.cpp" />
@@ -581,9 +581,9 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Rendering\PrimitiveMeshBuilder.h" />
     <ClInclude Include="SkullbonezSource\Core\Config.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Run.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\RunCameraState.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\CameraControlState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\DemoDirectorPlayback.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\RunDebugState.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\OverlayDebugState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\InteractionAutomationController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\InteractionAutomationInputDriver.h" />
     <ClInclude Include="SkullbonezSource\Runtime\InteractionAutomationReportWriter.h" />

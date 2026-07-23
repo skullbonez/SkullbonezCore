@@ -27,7 +27,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/AttachedCameraController.h
-  - SkullbonezSource/Runtime/RunInput.cpp
+  - SkullbonezSource/Runtime/InputRouter.Interactions.cpp
 */
 #include "AttachedCameraController.h"
 #include "CameraCollection.h"

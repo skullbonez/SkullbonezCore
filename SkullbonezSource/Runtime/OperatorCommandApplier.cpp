@@ -24,7 +24,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/OperatorCommandApplier.h
-  - SkullbonezSource/Runtime/RunInput.cpp
+  - SkullbonezSource/Runtime/InputRouter.Interactions.cpp
 */
 #include "OperatorCommandApplier.h"
 
@@ -329,7 +329,7 @@ bool ApplyWorldWaterUICommands( WorldEnvironment& world,
     return true;
 }
 
-bool ApplyRuntimeTextOnlyUICommand( RunDebugState& debug, const UI::UISceneOptionCommands& commands )
+bool ApplyRuntimeTextOnlyUICommand( OverlayDebugState& debug, const UI::UISceneOptionCommands& commands )
 {
     if ( !commands.toggleTextOnly )
     {
@@ -346,7 +346,7 @@ RuntimePresentationUICommandResult ApplyRuntimePresentationUICommands( RuntimePr
                                                                        const UI::UIWaterCommands& water )
 {
     RuntimePresentationUICommandResult result;
-    RunDebugState& debug = context.debug;
+    OverlayDebugState& debug = context.debug;
     SkullbonezCore::Core::EngineConfig& config = context.config;
     if ( sceneOptions.toggleTerrainHidden )
     {
@@ -625,7 +625,7 @@ TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, 
 }
 
 void ApplyCinematicUIParam( SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                            RunSceneState& scene,
+                            SceneSessionState& scene,
                             UICinematicParam param,
                             float rawValue )
 {
@@ -912,7 +912,7 @@ void ApplyCinematicUIParam( SkullbonezCore::Core::CinematicRenderConfig& cinemat
 }
 
 void SetCinematicShadowsEnabledFromUI( SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                                       RunSceneState& scene,
+                                       SceneSessionState& scene,
                                        bool enabled )
 {
     // Shadow maps are configured next to the cinematic controls because the
@@ -1012,7 +1012,7 @@ void ApplyOrdinaryRenderUIParam( SkullbonezCore::Core::OrdinaryRenderConfig& ord
 }
 
 void ToggleCinematicUIFeature( SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                               RunSceneState& scene,
+                               SceneSessionState& scene,
                                UICinematicFeature feature )
 {
     // Feature toggles are boolean pass switches: sky on/off, bloom on/off, etc.

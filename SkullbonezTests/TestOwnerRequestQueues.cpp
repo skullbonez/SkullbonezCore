@@ -196,7 +196,7 @@ TEST_CASE( "Run timers consume reset and activation once per lifecycle generatio
 
 TEST_CASE( "Scene batch followers prefer presentation values emitted by a completed clear" )
 {
-    RunDebugState submitted;
+    OverlayDebugState submitted;
     submitted.physicsDebugAlpha = 0.25f;
     SceneLoadConsumerOutputs outputs;
     outputs.presentation.physicsDebugAlpha = 0.75f;
@@ -394,10 +394,9 @@ TEST_CASE( "Capture request batches preserve concrete readback failure ownership
     CaptureRequest request;
     strcpy_s( request.path, "Screenshots\\readback_failure.bmp" );
     CaptureRequestBatchResult result;
-    AccumulateCaptureRequestResult(
-        result,
-        request,
-        SkullbonezCore::Core::SbResult::Failure( "Test/Readback", "fence wait failed" ) );
+    AccumulateCaptureRequestResult( result,
+                                    request,
+                                    SkullbonezCore::Core::SbResult::Failure( "Test/Readback", "fence wait failed" ) );
     CHECK_FALSE( result.status.ok );
     CHECK_EQ( std::strcmp( result.status.error.owner, "Test/Readback" ), 0 );
     CHECK_EQ( std::strcmp( result.status.error.message, "fence wait failed" ), 0 );
@@ -1027,7 +1026,6 @@ TEST_CASE( "Operator editor frame fingerprint follows semantic values only" )
     changed = first;
     changed.rendering.cinematicParameters[static_cast<int>( UICinematicParam::Exposure )] = 1.25f;
     CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
-
 }
 
 TEST_CASE( "Operator editor rendering and diagnostics retain canonical owner projection" )

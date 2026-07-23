@@ -22,7 +22,7 @@ Invariants:
     window state is preserved.
 
 Related:
-  - SkullbonezSource/Runtime/Scene/RunScene.cpp
+  - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - SkullbonezSource/Scene/AuthoredScene.h
   - SkullbonezSource/UI/UI.h
 */
@@ -39,7 +39,7 @@ class InGameUI;
 namespace Runtime
 {
 class DiagnosticsRuntime;
-struct RunDebugState;
+struct OverlayDebugState;
 struct SceneUiActivation
 {
     // Value-only copy of authored UI intent. The scene owner retains neither
@@ -56,7 +56,7 @@ struct SceneUiActivation
 struct SceneRuntimeUiOptionsContext
 {
     DiagnosticsRuntime& diagnostics;
-    RunDebugState& debug;
+    OverlayDebugState& debug;
     SceneUiActivation& activation;
 };
 

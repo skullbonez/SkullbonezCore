@@ -97,8 +97,8 @@ class InGameUI;
 }
 namespace Runtime
 {
-struct RunCameraState;
-struct RunSceneState;
+struct CameraControlState;
+struct SceneSessionState;
 enum class RunCameraMode;
 enum class WorldInteractionOwner;
 enum class InteractionExitReason;
@@ -111,7 +111,7 @@ class SceneEntityStore;
 class SceneController;
 class DiagnosticsRuntime;
 class Window;
-struct RunDebugState;
+struct OverlayDebugState;
 struct RuntimeFrameInteractionView;
 
 struct EditorPointerRouteInput

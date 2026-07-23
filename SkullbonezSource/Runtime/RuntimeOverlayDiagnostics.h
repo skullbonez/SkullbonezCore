@@ -42,7 +42,7 @@ Related:
 #include "Debug/BroadphaseVisualizer.h"
 #include "Debug/CollisionVisualizer.h"
 #include "Debug/PhysicsDebugVisualizer.h"
-#include "RunDebugState.h"
+#include "OverlayDebugState.h"
 
 namespace SkullbonezCore
 {
@@ -72,16 +72,16 @@ class RuntimeOverlayPresentationEdit
     ~RuntimeOverlayPresentationEdit();
     RuntimeOverlayPresentationEdit( const RuntimeOverlayPresentationEdit& ) = delete;
     RuntimeOverlayPresentationEdit& operator=( const RuntimeOverlayPresentationEdit& ) = delete;
-    RunDebugState& State();
+    OverlayDebugState& State();
     void Commit();
     void Refresh();
 
   private:
     friend class RuntimeOverlayDiagnostics;
-    RuntimeOverlayPresentationEdit( RuntimeOverlayDiagnostics& owner, const RunDebugState& state );
+    RuntimeOverlayPresentationEdit( RuntimeOverlayDiagnostics& owner, const OverlayDebugState& state );
 
     RuntimeOverlayDiagnostics& m_owner;
-    RunDebugState m_state;
+    OverlayDebugState m_state;
 };
 
 // Capability: only RuntimeRenderer may unpack these process-lifetime resources.
@@ -116,18 +116,18 @@ class RuntimeOverlayDiagnostics
     RuntimeRenderFramePolicy BuildFramePolicy( double simulationSeconds, double totalSimulationSeconds ) const;
     // Publishes the detached scene presentation once after a load generation
     // reaches the clear boundary. The load transaction never receives this owner.
-    void ObserveSceneLifecycle( const SceneLifecyclePacket& packet, const RunDebugState& scenePresentation );
-    RunDebugState PresentationSnapshot() const;
+    void ObserveSceneLifecycle( const SceneLifecyclePacket& packet, const OverlayDebugState& scenePresentation );
+    OverlayDebugState PresentationSnapshot() const;
     RuntimeOverlayPresentationEdit EditPresentation();
     RuntimeOverlayRenderResources& RenderResources();
 
   private:
     friend class RuntimeOverlayPresentationEdit;
-    void CommitPresentation( const RunDebugState& state );
+    void CommitPresentation( const OverlayDebugState& state );
 
     // Lifetime: startup-bound diagnostics borrow; null when profiling is disabled.
     Core::Profiler* m_profiler;
-    RunDebugState m_presentationState;
+    OverlayDebugState m_presentationState;
     RuntimeOverlayRenderResources m_renderResources;
     SceneLifecycleGenerationObserver m_scenePresentationObserver;
 };

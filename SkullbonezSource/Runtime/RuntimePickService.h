@@ -24,7 +24,7 @@ Invariants:
 
 Related:
   - Agentic/Reports/2026-07-11/interaction-state-machine-closure-review.md
-  - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
+  - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
 */
 #pragma once
 

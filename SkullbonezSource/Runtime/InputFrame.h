@@ -77,8 +77,8 @@ class RuntimeTools;
 class SimulationSystem;
 struct RunEditorPlacementState;
 struct SceneRequest;
-struct RunCameraState;
-struct RunDebugState;
+struct CameraControlState;
+struct OverlayDebugState;
 struct RunLaunchOptions;
 struct RunStartupState;
 struct RunTimerState;
@@ -144,13 +144,13 @@ RunCameraMode NormalizeRuntimeCameraMode( RunCameraMode mode, bool authoredScene
 // input policy cannot traverse scene lifecycle or world ownership.
 uint32_t RuntimeCameraModeEnabledMask( bool authoredScene, int sceneEntityCount );
 void EnterFlyModeCamera( InputRouter& inputRouter,
-                         RunCameraState& camera,
+                         CameraControlState& camera,
                          Environment::CameraCollection& cameras,
                          bool authoredScene,
                          const RunEditorPlacementState& editor,
                          const ReplayInputView& replayInput );
 void ExitFlyModeCamera( InputRouter& inputRouter,
-                        RunCameraState& camera,
+                        CameraControlState& camera,
                         Environment::CameraCollection& cameras,
                         Geometry::Terrain& terrain,
                         bool authoredScene );

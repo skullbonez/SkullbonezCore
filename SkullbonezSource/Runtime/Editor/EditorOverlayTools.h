@@ -29,7 +29,7 @@ Invariants:
   - Placement preview uses the same borrowed asset registry as placement commit.
 
 Related:
-  - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
+  - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
   - SkullbonezSource/Runtime/Run.cpp
 */
 #pragma once
@@ -61,7 +61,7 @@ namespace Runtime
 {
 class RuntimeInteractionController;
 class SceneWorld;
-class RunEditorTracer;
+class EditorTracer;
 struct RunEditorPlacementState;
 struct RunMousePickupState;
 struct RunRayCastTestState;
@@ -101,7 +101,7 @@ struct EditorToolOverlayTraceContext
     const RunMousePickupState& mousePickup;
     const SceneWorld& world;
     const Assets::AssetSystem& assets;
-    RunEditorTracer& tracer;
+    EditorTracer& tracer;
 };
 
 struct EditorToolOverlayTraceInput

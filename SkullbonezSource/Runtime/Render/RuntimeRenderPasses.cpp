@@ -1536,7 +1536,7 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
         }
     }
 
-    RunEditorTracer& tracer = inputs.runtimeTools.EditorTracer();
+    EditorTracer& tracer = inputs.runtimeTools.Tracer();
     // Invariant: production submission and validation observe this same
     // replay-owned packet; neither may rebuild geometry from tracer internals.
     tracer.Render( inputs.replayVisualPacket, inputs.frame.viewProjection, RenderCommands( inputs.frame ) );

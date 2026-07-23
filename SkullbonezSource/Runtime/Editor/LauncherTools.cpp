@@ -29,7 +29,7 @@ Related:
 */
 #include "../Tools/RuntimeTools.h"
 #include "../CameraCollection.h"
-#include "../RunDebugState.h"
+#include "../OverlayDebugState.h"
 #include "../RunLaunchOptions.h"
 #include "../Scene/SceneGeneratedSetup.h"
 #include "../Scene/SceneRuntime.h"
@@ -492,7 +492,7 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
 
 LauncherReproSnapshotStatus
 RuntimeTools::WriteLauncherReproSnapshotWithStatusMessage( const LauncherReproSnapshotContext& context,
-                                                           RunDebugState& debug ) const
+                                                           OverlayDebugState& debug ) const
 {
     // Why: the debug Enter shortcut should ask the launcher owner for both the
     // cold snapshot artifact and the operator-facing status text, leaving Run to

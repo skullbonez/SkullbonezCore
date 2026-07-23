@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/RunCameraState.h
+File: SkullbonezSource/Runtime/CameraControlState.h
 Purpose:
   Owns Run's operator camera mode, input memory, and camera automation state.
 
@@ -69,7 +69,7 @@ namespace Runtime
 {
 class AttachedCameraController;
 struct RunTimerState;
-struct RunCameraState
+struct CameraControlState
 {
     Hardware::InputState input = {};                           // Snapshot consumed by camera controls for this frame.
 
@@ -113,7 +113,7 @@ struct RunCameraState
     // Applies the detached camera policy emitted by a load once after clearing.
     // The observer itself remains owner-local and is never copied back from the
     // transaction value.
-    void ObserveSceneLifecycle( const SceneLifecyclePacket& packet, const RunCameraState& sceneState )
+    void ObserveSceneLifecycle( const SceneLifecyclePacket& packet, const CameraControlState& sceneState )
     {
         if ( !m_sceneLifecycleObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
         {

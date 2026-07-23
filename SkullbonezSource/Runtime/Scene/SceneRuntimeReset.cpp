@@ -22,7 +22,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntimeReset.h
-  - SkullbonezSource/Runtime/Scene/RunScene.cpp
+  - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #include "SceneRuntimeReset.h"
@@ -38,11 +38,11 @@ namespace Runtime
 SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot( const SceneController& controller,
                                                             const RunSceneUIOverrideState& uiOverrides,
                                                             const RuntimeRenderer& renderer,
-                                                            const RunDebugState& debug,
-                                                            const RunCameraState& camera )
+                                                            const OverlayDebugState& debug,
+                                                            const CameraControlState& camera )
 {
     SceneRuntimeResetSnapshot snapshot;
-    const RunSceneState& scene = controller.State();
+    const SceneSessionState& scene = controller.State();
     // Invariant: Capture every field restored below. Adding a new preserved
     // runtime knob requires updating both sides of this snapshot contract.
     snapshot.renderPresentation = renderer.PresentationSettings();
@@ -86,12 +86,12 @@ SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot( const SceneControlle
 void RestoreSceneRuntimeResetSnapshot( SceneController& controller,
                                        RunSceneUIOverrideState& uiOverrides,
                                        RuntimeRenderer& renderer,
-                                       RunDebugState& debug,
-                                       RunCameraState& camera,
+                                       OverlayDebugState& debug,
+                                       CameraControlState& camera,
                                        const SceneRuntimeResetSnapshot& snapshot,
                                        bool suppressExitOnComplete )
 {
-    RunSceneState& scene = controller.State();
+    SceneSessionState& scene = controller.State();
     // Why: Interactive resets preserve the user's run-control choices, but
     // suppressing exit also forces automation-safe non-exit behavior.
     renderer.RestorePresentationSettings( snapshot.renderPresentation );

@@ -54,7 +54,7 @@ Related:
 #include "InputRouter.h"
 #include "RuntimeInteractionController.h"
 #include "RuntimeCameraMode.h"
-#include "RunCameraState.h"
+#include "CameraControlState.h"
 #include "RunTimerState.h"
 #include "Tools/RuntimeTools.h"
 #include "Window.h"
@@ -255,7 +255,7 @@ EditorSelectionFingerprint BuildEditorSelectionFingerprint( RuntimeTools& runtim
 }
 
 
-const DemoPhase* ActiveDirectorPhase( const RunCameraState& camera )
+const DemoPhase* ActiveDirectorPhase( const CameraControlState& camera )
 {
     // Concept: phase assertions observe the same active phase that playback
     // uses. They are report-only probes and must not advance or repair director
@@ -726,7 +726,7 @@ void FailAutomation( InteractionAutomationController& state, const char* message
 
 void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationController& state,
                                                      SkullbonezCore::Environment::CameraCollection& cameras,
-                                                     RunCameraState& camera,
+                                                     CameraControlState& camera,
                                                      RunInteractionAutomationAction& action,
                                                      int frame )
 {
@@ -1047,7 +1047,7 @@ void InjectInteractionAutomationReplayControlClick( InteractionAutomationControl
 void ApplyInteractionAutomationReplayControlClick( InteractionAutomationController& state,
                                                    Window* window,
                                                    const SkullbonezCore::Core::EngineConfig& config,
-                                                   const RunSceneState& scene,
+                                                   const SceneSessionState& scene,
                                                    RunTimerState& timers,
                                                    ReplayFrameIntent& replayIntent,
                                                    const ReplayAutomationView& replay,
@@ -2030,7 +2030,7 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
                                         const ReplayAutomationView& replay,
                                         RuntimeInteractionController& interaction,
                                         const InputRouter& inputRouter,
-                                        RunCameraState& camera,
+                                        CameraControlState& camera,
                                         const SceneWorld& world,
                                         SkullbonezCore::UI::InGameUI& ui,
                                         const InteractionAutomationDevelopmentUiView& developmentUi,
@@ -2722,7 +2722,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
     const SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
     SceneController& scene = sceneOwners.sceneController;
     RunTimerState& timers = sceneOwners.timers;
-    RunCameraState& camera = interactionOwners.camera;
+    CameraControlState& camera = interactionOwners.camera;
     InputRouter& inputRouter = interactionOwners.inputRouter;
     RuntimeInteractionController& interaction = interactionOwners.interaction;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
@@ -3141,7 +3141,7 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     RuntimeInteractionController& interaction = interactionOwners.interaction;
     InputRouter& inputRouter = interactionOwners.inputRouter;
-    RunCameraState& camera = interactionOwners.camera;
+    CameraControlState& camera = interactionOwners.camera;
     UI::InGameUI& ui = interactionOwners.operatorUi;
     InteractionAutomationFrameResult result;
     if ( !state.enabled || state.finished )

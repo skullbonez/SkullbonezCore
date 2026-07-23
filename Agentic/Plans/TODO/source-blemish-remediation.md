@@ -4,7 +4,7 @@ Date: 2026-07-23
 Status: IN PROGRESS — drafted from the 2026-07-23 from-source architecture review of
 `nightrunner-22nd-JUL-26`. Registered in `MASTER-PLAN.md` on 2026-07-23 as
 plan 1 of the Architecture Follow-Up Campaign Round 3; starts after
-`wide-signature-parameter-bag-remediation` closes. 2/6 phases complete.
+`wide-signature-parameter-bag-remediation` closes. 3/6 phases complete.
 Impact area: Physics store layout, physics step API, Runtime editor file
 naming, profiler unit placement, development-tools TU size
 Owner: physics + runtime
@@ -167,7 +167,7 @@ seams.
   fidelity oracle, and all negative controls. No baseline, golden, schema, or
   config changed.
 
-- [ ] **B3 — Retire the `Run*` residue names.**
+- [x] **B3 — Retire the `Run*` residue names.**
   For each file listed in Problem item 3: confirm again at execution time it
   defines no `Run::` member, then rename to match its real content
   (`RunEditorTools.cpp` → `EditorTools.cpp`, `RunMousePickupTools.cpp` →
@@ -181,6 +181,51 @@ seams.
   same commit; no forwarding headers, no aliasing. Acceptance: no
   `Run`-prefixed file without `Run::` members remains, builds are clean at
   `/W4`, and the commit body lists every rename pair.
+
+  Completed 2026-07-23. The execution-time census reconfirmed all ten listed
+  implementations had zero `Run::` definitions and found one additional
+  residue missed by the original review: `RunInput.cpp` defines only
+  `InputRouter` methods. The physical moves are:
+
+  - `RunEditorGizmoTools.cpp` → `EditorGizmoTools.cpp`
+  - `RunEditorHistory.cpp` → `EditorHistory.cpp`
+  - `RunEditorObjectPlacement.cpp` → `EditorObjectPlacement.cpp`
+  - `RunEditorOverlayTools.cpp` → `EditorOverlayTools.cpp`
+  - `RunEditorPlacementAssets.cpp` → `EditorPlacementAssets.cpp`
+  - `RunEditorTools.cpp` → `EditorInteractionTools.cpp`
+  - `RunEditorTracer.cpp` → `EditorTracer.cpp`
+  - `RunMousePickupTools.cpp` → `MousePickupTools.cpp`
+  - `RunScene.cpp` → `SceneController.Load.cpp`
+  - `RunCameraState.cpp/.h` → `CameraControlState.cpp/.h`
+  - `RunDebugState.h` → `OverlayDebugState.h`
+  - `RunInput.cpp` → `InputRouter.Interactions.cpp`
+
+  The type decisions follow actual owners: `RunEditorTracer` →
+  `EditorTracer`, `RunCameraState` → `CameraControlState`, `RunDebugState` →
+  `OverlayDebugState`, and `RunSceneState` → `SceneSessionState`.
+  `RuntimeTools::EditorTracer()` becomes `Tracer()` to avoid hiding the
+  concrete type. No aliases or forwarding headers remain. The only surviving
+  `Run`-prefixed physical files are `Run.h/.cpp`, `RunFrame.cpp`, and
+  `RunRender.cpp`, which declare/define `Run`, plus `RunLaunchOptions*` and
+  `RunStartupState.h`, whose matching values are direct `Run` members.
+
+  The production/test/project rename surface is whitespace-insensitive
+  lexical-equivalent in 122/124 files after applying the declared rename map;
+  the two exceptions are intentional learning-header wording repairs.
+  All 122 touched C++ files plus the substantial project-filter tool pass the
+  comment audit (123/123, zero deferrals). A Debug solution build passes in
+  27.31 s. Direct project-filter validation reports zero errors over 745
+  project/filter items. The allocation-policy self-test and 429-file repo scan
+  pass in 9.10 s with zero allowlist errors; the scan also removed B2's now
+  stale `SceneEntityStore.cpp` `.assign(` exception.
+
+  Final `tools\validate_full.bat` passes in 246.07 s with zero-warning builds,
+  accepted DX12 captures and zero validation errors, all CPU/runtime lanes,
+  and the byte-exact 44,401-line physics CSV. Because the type spelling crosses
+  Replay declarations, one `tools\validate_replay_visual_fidelity.bat`
+  invocation passes in 428.56 s with one engine process, one prediction
+  generation, the full 2,401-tick oracle, and every negative control. No
+  baseline, golden, schema, config, or runtime behavior changed.
 
 - [ ] **B4 — Put the profiler implementation where it lives.**
   Split `Rendering/ProfilerImplementation.cpp`: the Core marker/history/

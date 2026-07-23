@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Editor/RunEditorPlacementAssets.cpp
+File: SkullbonezSource/Runtime/Editor/EditorPlacementAssets.cpp
 Purpose:
   Owns editor placeable asset recipes, authored hull/material lookup, and placement bounds helpers.
 
@@ -25,7 +25,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Editor/EditorPlacementAssets.h
-  - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
+  - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
   - SkullbonezSource/Runtime/Editor/EditorHullAssets.h
   - Agentic/Reference/comment-style-guide.md
 */

@@ -17,7 +17,7 @@ Glossary:
     and the last ordered phase that attempt reached.
 
 Invariants:
-  - `RunSceneState::ResetForLoad` resets per-load state but preserves queue and
+  - `SceneSessionState::ResetForLoad` resets per-load state but preserves queue and
     manual-run ownership held by SceneRuntime/SceneController.
   - Empty scene paths mean generated demo scene and are not filesystem paths.
   - Lifecycle generation advances once before the first mutation of every load
@@ -28,7 +28,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntime.cpp
   - SkullbonezSource/Runtime/Run.cpp
-  - SkullbonezSource/Runtime/Scene/RunScene.cpp
+  - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reference/runtime-reference.md
 */
 #pragma once
@@ -60,7 +60,7 @@ namespace Runtime
 const char* SceneFileNameFromPath( const char* path );
 std::string NormalizeSceneQueuePath( const std::string& path );
 
-struct RunSceneState
+struct SceneSessionState
 {
     void ResetForLoad( const SkullbonezCore::Core::CinematicRenderConfig&
                            cinematicDefaults ); // Resets per-load state while preserving queue/manual-run ownership.
@@ -114,8 +114,8 @@ class SceneRuntime
     SceneRuntime() = default;
     explicit SceneRuntime( std::vector<std::string> queue );
 
-    RunSceneState& State();
-    const RunSceneState& State() const;
+    SceneSessionState& State();
+    const SceneSessionState& State() const;
 
     bool HasEntry( int index ) const;
     bool HasCurrentEntry() const;
@@ -140,7 +140,7 @@ class SceneRuntime
     int AdjacentQueueIndex( int direction ) const;
 
   private:
-    RunSceneState m_state;
+    SceneSessionState m_state;
     std::vector<std::string> m_queue;
     SceneRuntimeLifecycleEvent m_lastLifecycleEvent = SceneRuntimeLifecycleEvent::None;
     SceneLifecyclePacket m_lifecyclePacket;

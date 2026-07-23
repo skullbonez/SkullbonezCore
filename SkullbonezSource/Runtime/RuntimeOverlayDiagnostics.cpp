@@ -212,7 +212,7 @@ RuntimeRenderFramePolicy RuntimeOverlayDiagnostics::BuildFramePolicy( double sim
 
 
 void RuntimeOverlayDiagnostics::ObserveSceneLifecycle( const SceneLifecyclePacket& packet,
-                                                       const RunDebugState& scenePresentation )
+                                                       const OverlayDebugState& scenePresentation )
 {
     // Invariant: scene loading is synchronous. This boundary observes the final
     // phase reached by the attempt, so the detached value already contains all
@@ -226,7 +226,7 @@ void RuntimeOverlayDiagnostics::ObserveSceneLifecycle( const SceneLifecyclePacke
 
 
 RuntimeOverlayPresentationEdit::RuntimeOverlayPresentationEdit( RuntimeOverlayDiagnostics& owner,
-                                                                const RunDebugState& state )
+                                                                const OverlayDebugState& state )
     : m_owner( owner ), m_state( state )
 {
 }
@@ -238,7 +238,7 @@ RuntimeOverlayPresentationEdit::~RuntimeOverlayPresentationEdit()
 }
 
 
-RunDebugState& RuntimeOverlayPresentationEdit::State()
+OverlayDebugState& RuntimeOverlayPresentationEdit::State()
 {
     return m_state;
 }
@@ -256,7 +256,7 @@ void RuntimeOverlayPresentationEdit::Refresh()
 }
 
 
-RunDebugState RuntimeOverlayDiagnostics::PresentationSnapshot() const
+OverlayDebugState RuntimeOverlayDiagnostics::PresentationSnapshot() const
 {
     return m_presentationState;
 }
@@ -274,7 +274,7 @@ RuntimeOverlayRenderResources& RuntimeOverlayDiagnostics::RenderResources()
 }
 
 
-void RuntimeOverlayDiagnostics::CommitPresentation( const RunDebugState& state )
+void RuntimeOverlayDiagnostics::CommitPresentation( const OverlayDebugState& state )
 {
     m_presentationState = state;
     // Invariant: cold scene/reset edits become visible before a no-physics

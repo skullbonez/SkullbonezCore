@@ -396,31 +396,31 @@
     <ClCompile Include="SkullbonezSource\Runtime\Run.cpp">
       <Filter>Source Files\Runtime\Lifecycle</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorTools.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorInteractionTools.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorHistory.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorHistory.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorPlacementAssets.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorPlacementAssets.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorGizmoTools.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorGizmoTools.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Editor\RunMousePickupTools.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\MousePickupTools.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorOverlayTools.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorOverlayTools.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorTracer.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorTracer.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorObjectPlacement.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorObjectPlacement.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorTools.cpp">
@@ -465,7 +465,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\InteractionAutomationReportWriter.cpp">
       <Filter>Source Files\Runtime\Automation</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\RunInput.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\InputRouter.Interactions.cpp">
       <Filter>Source Files\Runtime\Input</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\LiveStyleController.cpp">
@@ -507,10 +507,10 @@
     <ClCompile Include="SkullbonezSource\Runtime\RunRender.cpp">
       <Filter>Source Files\Runtime\Render</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\RunCameraState.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\CameraControlState.cpp">
       <Filter>Source Files\Runtime\Camera</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Scene\RunScene.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.Load.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeStressController.cpp">
@@ -973,13 +973,13 @@
     <ClInclude Include="SkullbonezSource\Runtime\Run.h">
       <Filter>Header Files\Runtime\Lifecycle</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\RunCameraState.h">
+    <ClInclude Include="SkullbonezSource\Runtime\CameraControlState.h">
       <Filter>Header Files\Runtime\Camera</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\DemoDirectorPlayback.h">
       <Filter>Header Files\Runtime\Demo</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\RunDebugState.h">
+    <ClInclude Include="SkullbonezSource\Runtime\OverlayDebugState.h">
       <Filter>Header Files\Runtime\Debug</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\InteractionAutomationController.h">

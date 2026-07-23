@@ -732,7 +732,7 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
                                       m_sceneController.Scene().Environment().GetFluidSurfaceHeight(),
                                       m_sceneController.Scene().Environment().GetFluidDensity(),
                                       m_sceneController.Scene().Environment().GetMutualGravitySettings() };
-        const RunDebugState presentation = m_overlayDiagnostics->PresentationSnapshot();
+        const OverlayDebugState presentation = m_overlayDiagnostics->PresentationSnapshot();
         const SceneSaveRequest saveRequest{ snapshotOutPath,
                                             m_sceneController.Scene().Cameras().GetCameraTranslation(),
                                             m_sceneController.Scene().Cameras().GetCameraView(),

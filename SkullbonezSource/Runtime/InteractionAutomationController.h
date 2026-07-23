@@ -88,7 +88,7 @@ class RuntimeInteractionController;
 class RuntimeTools;
 class SceneController;
 class Window;
-struct RunCameraState;
+struct CameraControlState;
 struct RunTimerState;
 enum class RunInteractionAutomationActionType
 {

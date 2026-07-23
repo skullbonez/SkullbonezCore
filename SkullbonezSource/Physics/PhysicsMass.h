@@ -19,7 +19,7 @@ Invariants:
   - These defaults affect authored object creation, not per-frame solver tuning.
 
 Related:
-  - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
+  - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
   - SkullbonezSource/Physics/ConvexHullShape.cpp
 */
 #pragma once

@@ -59,10 +59,10 @@ namespace Runtime
 class RuntimeInteractionController;
 class RuntimeTools;
 class SceneWorld;
-struct RunSceneState;
+struct SceneSessionState;
 struct ReplaySolverFrameSample;
 struct ReplayAutomationView;
-struct RunCameraState;
+struct CameraControlState;
 
 struct InteractionAutomationRunStatus
 {
@@ -193,12 +193,12 @@ struct InteractionAutomationReportInputs
     InteractionAutomationRunStatus& status;
     const char* scriptPath;
     const SceneWorld& world;
-    const RunSceneState& scene;
+    const SceneSessionState& scene;
     const char* scenePath;
     const RuntimeTools& runtimeTools;
     const ReplayAutomationView& replay;
     const RuntimeInteractionController& interaction;
-    const RunCameraState& camera;
+    const CameraControlState& camera;
     const UI::InGameUI& ui;
 };
 

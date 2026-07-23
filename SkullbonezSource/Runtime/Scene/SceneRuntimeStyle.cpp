@@ -23,12 +23,12 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntimeStyle.h
-  - SkullbonezSource/Runtime/Scene/RunScene.cpp
+  - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #include "SceneRuntimeStyle.h"
 #include "../../Core/WindowConstants.h"
-#include "../RunDebugState.h"
+#include "../OverlayDebugState.h"
 #include "SceneWorld.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Scene/AuthoredScene.h"
@@ -42,7 +42,7 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-SkullbonezCore::Core::CinematicRenderConfig& ActiveSceneCinematicConfig( RunSceneState& scene,
+SkullbonezCore::Core::CinematicRenderConfig& ActiveSceneCinematicConfig( SceneSessionState& scene,
                                                                          SkullbonezCore::Core::EngineConfig& config )
 {
     return scene.isSceneMode ? scene.cinematicRender : config.cinematicRender;
@@ -50,16 +50,16 @@ SkullbonezCore::Core::CinematicRenderConfig& ActiveSceneCinematicConfig( RunScen
 
 
 const SkullbonezCore::Core::CinematicRenderConfig&
-ActiveSceneCinematicConfig( const RunSceneState& scene, const SkullbonezCore::Core::EngineConfig& config )
+ActiveSceneCinematicConfig( const SceneSessionState& scene, const SkullbonezCore::Core::EngineConfig& config )
 {
     return scene.isSceneMode ? scene.cinematicRender : config.cinematicRender;
 }
 
 
-bool IsSceneCinematicRenderingEnabled( const RunSceneState& scene,
+bool IsSceneCinematicRenderingEnabled( const SceneSessionState& scene,
                                        const SkullbonezCore::Core::EngineConfig& config,
                                        const RunLaunchOptions& launchOptions,
-                                       const RunDebugState& debug,
+                                       const OverlayDebugState& debug,
                                        bool graphicsReady )
 {
     const bool enabled = launchOptions.hasCinematicRenderingOverride

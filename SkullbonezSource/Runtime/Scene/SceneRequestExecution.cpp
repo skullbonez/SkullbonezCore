@@ -101,7 +101,7 @@ bool SceneController::ExecutePending( const SceneLoadPolicyInputs& policy,
         }
         case SceneRequestType::SaveCurrentDefaults:
         {
-            const RunDebugState& presentationState =
+            const OverlayDebugState& presentationState =
                 ScenePresentationForFollowingRequest( presentation.debug, consumerOutputs, LifecyclePacket() );
             const SceneLoadNavigationState& currentNavigation =
                 SceneNavigationForFollowingRequest( interaction.navigation, consumerOutputs );

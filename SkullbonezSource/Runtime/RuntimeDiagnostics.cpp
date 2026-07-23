@@ -464,7 +464,7 @@ void RuntimeDiagnostics::SetPhysicsDiagnosticsPath( RunPhysicsDiagnosticsState& 
     physics.SetPhysicsDiagnosticsPath( diagnostics.path );
 }
 
-void RuntimeDiagnostics::LogSceneFinished( RunSceneState& scene,
+void RuntimeDiagnostics::LogSceneFinished( SceneSessionState& scene,
                                            const char* scenePath,
                                            const char* rendererName,
                                            const char* reason )
@@ -492,7 +492,7 @@ void RuntimeDiagnostics::LogSceneFinished( RunSceneState& scene,
 
 void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,
                                                      Physics::PhysicsEngine& physics,
-                                                     const RunSceneState& scene,
+                                                     const SceneSessionState& scene,
                                                      const SkullbonezCore::Core::EngineConfig& config,
                                                      const char* scenePath,
                                                      const char* rendererName )
@@ -558,7 +558,7 @@ void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState&
 }
 
 void RuntimeDiagnostics::LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagnostics,
-                                              const RunSceneState& scene,
+                                              const SceneSessionState& scene,
                                               const ReplayScrubProbeDiagnostic& probe )
 {
     if ( !diagnostics.isEnabled || !diagnostics.isRunActive )
@@ -605,7 +605,7 @@ void RuntimeDiagnostics::LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagno
 }
 
 void RuntimeDiagnostics::LogReplayRestoreProbe( RunPhysicsDiagnosticsState& diagnostics,
-                                                const RunSceneState& scene,
+                                                const SceneSessionState& scene,
                                                 const ReplayRestoreProbeDiagnostic& probe )
 {
     ReplayRestoreResultDiagnostic result;
@@ -631,7 +631,7 @@ void RuntimeDiagnostics::LogReplayRestoreProbe( RunPhysicsDiagnosticsState& diag
 }
 
 void RuntimeDiagnostics::LogReplayRestoreResult( RunPhysicsDiagnosticsState& diagnostics,
-                                                 const RunSceneState& scene,
+                                                 const SceneSessionState& scene,
                                                  const ReplayRestoreResultDiagnostic& result )
 {
     if ( !diagnostics.isEnabled || !diagnostics.isRunActive )
@@ -676,7 +676,7 @@ void RuntimeDiagnostics::LogReplayRestoreResult( RunPhysicsDiagnosticsState& dia
 }
 
 void RuntimeDiagnostics::EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,
-                                                   const RunSceneState& scene,
+                                                   const SceneSessionState& scene,
                                                    const char* status )
 {
     if ( !diagnostics.isEnabled || !diagnostics.isRunActive )

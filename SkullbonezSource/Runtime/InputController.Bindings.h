@@ -23,7 +23,7 @@ Invariants:
 
 Related:
   - InputController.h defines the action and context vocabulary.
-  - RunInput.cpp executes the actions during the frame.
+  - InputRouter.Interactions.cpp executes the actions during the frame.
 */
 #pragma once
 

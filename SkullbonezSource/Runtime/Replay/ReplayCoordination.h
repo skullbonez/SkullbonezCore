@@ -64,9 +64,9 @@ class SceneEntityStore;
 struct ReplayArtifactTopologyOwners;
 struct ReplayRestoreTransaction;
 struct ReplayStartupLoadInput;
-struct RunCameraState;
+struct CameraControlState;
 struct RunMousePickupState;
-struct RunSceneState;
+struct SceneSessionState;
 struct RunSceneUIOverrideState;
 
 namespace ReplayInteractionOperations
@@ -344,7 +344,7 @@ inline uint32_t SceneTimelineGeneratedConfigFlags( const ReplaySceneTimelineRese
 
 ReplaySceneTimelineResetInput DescribeReplaySceneTimeline( const SceneController& sceneController,
                                                            const RunSceneUIOverrideState& uiOverrides,
-                                                           const RunSceneState& scene,
+                                                           const SceneSessionState& scene,
                                                            int sceneObjectCapacity,
                                                            uint32_t generatedObjectTypeOverride );
 } // namespace ReplayTimelineOperations
@@ -361,7 +361,7 @@ struct ReplaySceneTimelineResetOwners
     RuntimeInteractionController& interaction;
     Environment::CameraCollection* cameras = nullptr;
     Geometry::Terrain* terrain = nullptr;
-    RunCameraState& camera;
+    CameraControlState& camera;
     RunCameraMode normalizedRestoreMode = RunCameraMode::Demo;
     bool attachedFollow = false;
     bool directorGrabbed = false;

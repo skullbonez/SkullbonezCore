@@ -22,7 +22,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntimeStyle.cpp
-  - SkullbonezSource/Runtime/Scene/RunScene.cpp
+  - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #pragma once
@@ -43,12 +43,12 @@ namespace Runtime
 {
 class AuthoredScene;
 class SceneWorld;
-struct RunDebugState;
+struct OverlayDebugState;
 
 struct SceneRuntimeStyleContext
 {
     RunLaunchOptions& launchOptions;
-    RunSceneState& scene;
+    SceneSessionState& scene;
     RunSceneBrowserState& sceneBrowser;
     // Lifetime: live-style code borrows the one scene-lifetime owner and then
     // resolves its entity/collider rows locally. Do not republish sibling
@@ -62,14 +62,14 @@ struct SceneRuntimeStyleContext
 void ApplyCinematicSceneOverrides( SkullbonezCore::Core::CinematicRenderConfig& target,
                                    uint64_t mask,
                                    const SkullbonezCore::Core::CinematicRenderConfig& source );
-SkullbonezCore::Core::CinematicRenderConfig& ActiveSceneCinematicConfig( RunSceneState& scene,
+SkullbonezCore::Core::CinematicRenderConfig& ActiveSceneCinematicConfig( SceneSessionState& scene,
                                                                          SkullbonezCore::Core::EngineConfig& config );
 const SkullbonezCore::Core::CinematicRenderConfig&
-ActiveSceneCinematicConfig( const RunSceneState& scene, const SkullbonezCore::Core::EngineConfig& config );
-bool IsSceneCinematicRenderingEnabled( const RunSceneState& scene,
+ActiveSceneCinematicConfig( const SceneSessionState& scene, const SkullbonezCore::Core::EngineConfig& config );
+bool IsSceneCinematicRenderingEnabled( const SceneSessionState& scene,
                                        const SkullbonezCore::Core::EngineConfig& config,
                                        const RunLaunchOptions& launchOptions,
-                                       const RunDebugState& debug,
+                                       const OverlayDebugState& debug,
                                        bool graphicsReady );
 bool ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext context, int index );
 void ApplyLiveStyleScene( SceneRuntimeStyleContext context, const AuthoredScene& styleScene );

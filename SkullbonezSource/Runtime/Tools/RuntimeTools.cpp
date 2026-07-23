@@ -632,7 +632,7 @@ bool RuntimeTools::TryBuildLauncherCameraRay( Environment::CameraCollection* cam
 }
 
 bool RuntimeTools::FireLauncherRay( SceneWorld& world,
-                                    RunSceneState& scene,
+                                    SceneSessionState& scene,
                                     int activeModelCapacity,
                                     const Math::Vector::Vector3& rayOrigin,
                                     const Math::Vector::Vector3& rayDirection,
@@ -663,7 +663,7 @@ bool RuntimeTools::FireLauncherRay( SceneWorld& world,
 
 
 LauncherPointerResult
-RuntimeTools::RouteLauncherPointer( const LauncherPointerInput& input, SceneWorld& world, RunSceneState& scene )
+RuntimeTools::RouteLauncherPointer( const LauncherPointerInput& input, SceneWorld& world, SceneSessionState& scene )
 {
     LauncherPointerResult result;
     if ( !input.launcherMode || !input.leftPressed || input.suppressWorldAction || input.uiWantsNativeCursor )
@@ -760,7 +760,7 @@ void RuntimeTools::FireLauncherLaser( Physics::PhysicsEngine& physics,
 }
 
 bool RuntimeTools::FireLauncherProjectile( SceneWorld& world,
-                                           RunSceneState& scene,
+                                           SceneSessionState& scene,
                                            int activeModelCapacity,
                                            int modelCount,
                                            const Math::Vector::Vector3& rayOrigin,
@@ -880,12 +880,12 @@ const RunEditorPlacementState& RuntimeTools::Editor() const
     return m_editor;
 }
 
-RunEditorTracer& RuntimeTools::EditorTracer()
+EditorTracer& RuntimeTools::Tracer()
 {
     return m_editorTracer;
 }
 
-const RunEditorTracer& RuntimeTools::EditorTracer() const
+const EditorTracer& RuntimeTools::Tracer() const
 {
     return m_editorTracer;
 }

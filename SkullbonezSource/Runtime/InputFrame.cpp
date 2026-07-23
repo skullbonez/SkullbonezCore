@@ -37,7 +37,7 @@ Related:
 #include "InputController.h"
 #include "Replay/ReplayRestoreTransactions.h"
 #include "DemoDirectorPlayback.h"
-#include "RunDebugState.h"
+#include "OverlayDebugState.h"
 #include "RunLaunchOptions.h"
 #include "RunStartupState.h"
 #include "RunTimerState.h"
@@ -165,7 +165,7 @@ uint32_t RuntimeCameraModeEnabledMask( bool authoredScene, int sceneEntityCount 
 
 
 void EnterFlyModeCamera( InputRouter& inputRouter,
-                         RunCameraState& camera,
+                         CameraControlState& camera,
                          SkullbonezCore::Environment::CameraCollection& cameras,
                          bool authoredScene,
                          const RunEditorPlacementState& editor,
@@ -202,7 +202,7 @@ void EnterFlyModeCamera( InputRouter& inputRouter,
 
 
 void ExitFlyModeCamera( InputRouter& inputRouter,
-                        RunCameraState& camera,
+                        CameraControlState& camera,
                         SkullbonezCore::Environment::CameraCollection& cameras,
                         SkullbonezCore::Geometry::Terrain& terrain,
                         bool authoredScene )
@@ -490,7 +490,7 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( Window& window,
 {
     InputRouter& inputRouter = interactionOwners.inputRouter;
     RuntimeInputContext& runtimeInput = inputRouter.RuntimeContext();
-    RunCameraState& camera = interactionOwners.camera;
+    CameraControlState& camera = interactionOwners.camera;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
     RuntimeInteractionController& interaction = interactionOwners.interaction;
@@ -603,14 +603,14 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
 {
     InputRouter& inputRouter = interactionOwners.inputRouter;
     RuntimeInputContext& runtimeInput = inputRouter.RuntimeContext();
-    RunCameraState& camera = interactionOwners.camera;
+    CameraControlState& camera = interactionOwners.camera;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
     RuntimeInteractionController& interaction = interactionOwners.interaction;
     SkullbonezCore::UI::InGameUI& ui = interactionOwners.operatorUi;
     RunTimerState& timers = sceneOwners.timers;
     RuntimeOverlayPresentationEdit presentationEdit = sceneOwners.overlays.EditPresentation();
-    RunDebugState& debug = presentationEdit.State();
+    OverlayDebugState& debug = presentationEdit.State();
     RunLaunchOptions& launchOptions = sceneOwners.launchOptions;
     SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
     SceneController& sceneController = sceneOwners.sceneController;
@@ -1206,7 +1206,7 @@ RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result,
 {
     InputRouter& inputRouter = interactionOwners.inputRouter;
     RuntimeInputContext& runtimeInput = inputRouter.RuntimeContext();
-    RunCameraState& camera = interactionOwners.camera;
+    CameraControlState& camera = interactionOwners.camera;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     RuntimeInteractionController& interaction = interactionOwners.interaction;
     AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;

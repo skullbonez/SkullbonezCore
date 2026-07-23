@@ -23,7 +23,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/RuntimeInteractionController.h
-  - SkullbonezSource/Runtime/RunInput.cpp
+  - SkullbonezSource/Runtime/InputRouter.Interactions.cpp
 */
 #include "RuntimeInteractionController.h"
 #include "RuntimeInteractionCommands.h"

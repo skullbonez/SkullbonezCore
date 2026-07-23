@@ -137,17 +137,17 @@ namespace Runtime
 {
 class ReplayRuntime;
 class InputRouter;
-class RunEditorTracer;
+class EditorTracer;
 class RuntimeTools;
 class SceneController;
 class DiagnosticsRuntime;
 class SimulationSystem;
 enum class GeneratedObjectTypeOverride;
-struct RunCameraState;
-struct RunDebugState;
+struct CameraControlState;
+struct OverlayDebugState;
 struct RunMousePickupState;
 class RuntimeRenderer;
-struct RunSceneState;
+struct SceneSessionState;
 struct ReplayV2SaveResult;
 struct ReplaySolverSampleRestoreContext;
 
@@ -183,12 +183,12 @@ class ReplayRuntime
                                                  RuntimeTools& runtimeTools );
     void PrepareRenderOverlay( Physics::PhysicsEngine& physics,
                                const SceneEntityStore& entities,
-                               RunEditorTracer& tracer,
+                               EditorTracer& tracer,
                                bool editorModeEnabled,
                                const RuntimeInteractionGesture& gesture,
                                int sceneFrame,
                                std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords );
-    void PublishRenderPacket( RunEditorTracer& tracer,
+    void PublishRenderPacket( EditorTracer& tracer,
                               const Math::Vector::Vector3& cameraTranslation,
                               const Math::Vector::Vector3& cameraUp,
                               uint64_t replayReserveGrowthEvents );
@@ -296,7 +296,7 @@ class ReplayRuntime
                         std::span<const Rendering::RenderInstancePresentationRecord> presentation,
                         Environment::CameraCollection* cameras,
                         Geometry::Terrain* terrain,
-                        RunCameraState& camera,
+                        CameraControlState& camera,
                         RunMousePickupState& mousePickup,
                         ReplayWorkspaceOutput& output );
     // Applies one editor/legacy-independent transport value through the same
@@ -308,7 +308,7 @@ class ReplayRuntime
                                 RuntimeInteractionController& interaction,
                                 Environment::CameraCollection* cameras,
                                 Geometry::Terrain* terrain,
-                                RunCameraState& camera,
+                                CameraControlState& camera,
                                 RunMousePickupState& mousePickup,
                                 ReplayWorkspaceOutput& output );
     void ConfigureStartupWorkflows( const ReplayStartupRequest& request );
@@ -338,7 +338,7 @@ class ReplayRuntime
     // fixed-capacity tracer. RuntimeRenderer only submits the completed buffer.
     void AppendOverlayTrace( Physics::PhysicsEngine& physics,
                              const SceneEntityStore& entities,
-                             RunEditorTracer& tracer,
+                             EditorTracer& tracer,
                              const ReplayPredictionPresentationView& prediction,
                              const ReplayOverlayBuildInput& input );
     // Routes value-only pointer facts through replay path selection. Store and
@@ -350,7 +350,7 @@ class ReplayRuntime
                             std::span<const Rendering::RenderInstancePresentationRecord> presentation,
                             Environment::CameraCollection* cameras,
                             Geometry::Terrain* terrain,
-                            RunCameraState& camera,
+                            CameraControlState& camera,
                             RuntimeInteractionController& interaction,
                             InputRouter& inputRouter );
     bool HasActiveInteractionState() const;
@@ -359,14 +359,14 @@ class ReplayRuntime
     bool ApplyInteractionExit( const ReplayInteractionExitInput& input,
                                Environment::CameraCollection* cameras,
                                Geometry::Terrain* terrain,
-                               RunCameraState& camera,
+                               CameraControlState& camera,
                                RuntimeInteractionController& interaction,
                                InputRouter& inputRouter );
     // Clears replay gesture, scrubber, inspection-camera, and velocity-key
     // state as one focus-loss transition before generic input resets itself.
     void ApplyInputFocusLoss( Environment::CameraCollection* cameras,
                               Geometry::Terrain* terrain,
-                              RunCameraState& camera,
+                              CameraControlState& camera,
                               RunCameraMode normalizedRestoreMode,
                               bool attachedFollow,
                               bool directorGrabbed,
@@ -382,14 +382,14 @@ class ReplayRuntime
     // presentation/authoring owners to stateless presentation operations; host
     // camera and input owners remain synchronous operands and are not retained.
     void EnterInspectionCamera( Environment::CameraCollection* cameras,
-                                RunCameraState& camera,
+                                CameraControlState& camera,
                                 RunCameraMode normalizedCurrentMode,
                                 RuntimeInteractionController& interaction,
                                 InputRouter& inputRouter,
                                 RunMousePickupState& mousePickup );
     void ExitInspectionCamera( Environment::CameraCollection* cameras,
                                Geometry::Terrain* terrain,
-                               RunCameraState& camera,
+                               CameraControlState& camera,
                                RunCameraMode normalizedRestoreMode,
                                bool attachedFollow,
                                bool directorGrabbed,
@@ -426,7 +426,7 @@ class ReplayRuntime
                                                     double now,
                                                     InputRouter& inputRouter,
                                                     RuntimeInteractionController& interaction,
-                                                    RunCameraState& camera,
+                                                    CameraControlState& camera,
                                                     ReplayWorkspaceOutput& output );
 
   private:

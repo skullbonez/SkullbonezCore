@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.cpp
+File: SkullbonezSource/Runtime/Editor/EditorGizmoTools.cpp
 Purpose:
   Contains editor transform gizmo hit testing and drag mutation helpers.
 
@@ -20,7 +20,7 @@ Invariants:
     impulses behind.
 
 Related:
-  - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
+  - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
   - SkullbonezSource/Runtime/Editor/EditorTools.h
 */
 #include "EditorTools.h"

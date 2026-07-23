@@ -22,7 +22,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/RuntimeValidationHarness.h
   - SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp
-  - SkullbonezSource/Runtime/Scene/RunScene.cpp
+  - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
 */
 #pragma once
 

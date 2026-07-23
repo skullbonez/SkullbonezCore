@@ -44,8 +44,8 @@ class SceneWorld;
 class SimulationSystem;
 class RuntimeTools;
 enum class GeneratedObjectTypeOverride;
-struct RunDebugState;
-struct RunSceneState;
+struct OverlayDebugState;
+struct SceneSessionState;
 struct RunSceneUIOverrideState;
 struct ReplaySolverSampleRestoreContext
 {
@@ -53,9 +53,9 @@ struct ReplaySolverSampleRestoreContext
     // restore call. ReplayRuntime applies sampled values synchronously and does
     // not retain any reference.
     SceneWorld& world;
-    RunSceneState& scene;
+    SceneSessionState& scene;
     RuntimeRenderer& renderer;
-    RunDebugState& debug;
+    OverlayDebugState& debug;
     RuntimeTools& runtimeTools;
 };
 

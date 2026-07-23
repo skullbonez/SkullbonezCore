@@ -5,7 +5,7 @@ Purpose:
 
 Summary:
   The director never invents framing or looks. A loaded shot list owns authored
-  camera/style phases, RunCameraState owns playback timers, and this file
+  camera/style phases, CameraControlState owns playback timers, and this file
   blends the selected phase into runtime camera/style/replay presentation owners
   before rendering.
 
@@ -255,7 +255,7 @@ void ApplyPhaseStyleIfNeeded( DemoDirectorPlaybackState& director, SceneRuntimeS
 
 namespace DemoDirectorPlayback
 {
-bool LoadShotList( RunCameraState& camera, Environment::CameraCollection& cameras, const char* path )
+bool LoadShotList( CameraControlState& camera, Environment::CameraCollection& cameras, const char* path )
 {
     DemoShotList loadedShotList;
     if ( !LoadDemoShotList( path, loadedShotList ) || loadedShotList.phaseCount <= 0 )
@@ -279,7 +279,7 @@ bool LoadShotList( RunCameraState& camera, Environment::CameraCollection& camera
     return true;
 }
 
-bool AdvancePhase( RunCameraState& camera, Environment::CameraCollection& cameras )
+bool AdvancePhase( CameraControlState& camera, Environment::CameraCollection& cameras )
 {
     DemoDirectorPlaybackState& director = camera.director;
     if ( !HasPlayableShotList( director ) )
@@ -304,7 +304,7 @@ bool AdvancePhase( RunCameraState& camera, Environment::CameraCollection& camera
     return true;
 }
 
-void EnterMode( RunCameraState& camera, Environment::CameraCollection& cameras )
+void EnterMode( CameraControlState& camera, Environment::CameraCollection& cameras )
 {
     DemoDirectorPlaybackState& director = camera.director;
     director.grabbed = false;
@@ -318,7 +318,7 @@ void EnterMode( RunCameraState& camera, Environment::CameraCollection& cameras )
     }
 }
 
-bool BeginGrab( RunCameraState& camera, Environment::CameraCollection& cameras )
+bool BeginGrab( CameraControlState& camera, Environment::CameraCollection& cameras )
 {
     DemoDirectorPlaybackState& director = camera.director;
     if ( camera.mode != RunCameraMode::Director || director.grabbed || !HasPlayableShotList( director ) )
@@ -335,7 +335,7 @@ bool BeginGrab( RunCameraState& camera, Environment::CameraCollection& cameras )
     return true;
 }
 
-bool EndGrab( RunCameraState& camera, Environment::CameraCollection& cameras )
+bool EndGrab( CameraControlState& camera, Environment::CameraCollection& cameras )
 {
     DemoDirectorPlaybackState& director = camera.director;
     if ( camera.mode != RunCameraMode::Director || !director.grabbed || !HasPlayableShotList( director ) )
@@ -350,7 +350,7 @@ bool EndGrab( RunCameraState& camera, Environment::CameraCollection& cameras )
     return true;
 }
 
-bool SetCurrentPhasePose( RunCameraState& camera, Environment::CameraCollection& cameras )
+bool SetCurrentPhasePose( CameraControlState& camera, Environment::CameraCollection& cameras )
 {
     DemoDirectorPlaybackState& director = camera.director;
     if ( !IsCurrentPhaseValid( director ) )
@@ -370,7 +370,7 @@ bool SetCurrentPhasePose( RunCameraState& camera, Environment::CameraCollection&
     return true;
 }
 
-bool SetCurrentPhaseStyle( RunCameraState& camera, const char* stylePath )
+bool SetCurrentPhaseStyle( CameraControlState& camera, const char* stylePath )
 {
     DemoDirectorPlaybackState& director = camera.director;
     if ( !IsCurrentPhaseValid( director ) )
@@ -391,7 +391,7 @@ bool SetCurrentPhaseStyle( RunCameraState& camera, const char* stylePath )
     return true;
 }
 
-bool SelectNextPhaseForAuthoring( RunCameraState& camera, Environment::CameraCollection& cameras )
+bool SelectNextPhaseForAuthoring( CameraControlState& camera, Environment::CameraCollection& cameras )
 {
     DemoDirectorPlaybackState& director = camera.director;
     if ( !HasPlayableShotList( director ) )
@@ -416,7 +416,7 @@ bool SelectNextPhaseForAuthoring( RunCameraState& camera, Environment::CameraCol
     return true;
 }
 
-bool SaveShotList( const RunCameraState& camera )
+bool SaveShotList( const CameraControlState& camera )
 {
     const DemoDirectorPlaybackState& director = camera.director;
     if ( !HasPlayableShotList( director ) || !director.activeShotListPath[0] )
@@ -431,7 +431,7 @@ bool SaveShotList( const RunCameraState& camera )
     return saved;
 }
 
-DemoDirectorTickResult Tick( RunCameraState& camera,
+DemoDirectorTickResult Tick( CameraControlState& camera,
                              DemoDirectorPredictionView prediction,
                              SceneRuntimeStyleContext styleContext,
                              float cameraDt )

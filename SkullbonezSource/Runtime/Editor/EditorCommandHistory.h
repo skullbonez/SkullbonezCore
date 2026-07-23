@@ -20,7 +20,7 @@ Invariants:
   - Entries key live objects only by PhysicsSceneObjectId, never handles or rows.
 
 Related:
-  - SkullbonezSource/Runtime/Editor/RunEditorHistory.cpp
+  - SkullbonezSource/Runtime/Editor/EditorHistory.cpp
   - SkullbonezTests/TestEditorCommandHistory.cpp
   - Agentic/Reports/2026-07-12/editor-undo-redo-closure.md
 */

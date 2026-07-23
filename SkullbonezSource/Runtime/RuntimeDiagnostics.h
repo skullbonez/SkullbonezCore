@@ -47,7 +47,7 @@ class PhysicsEngine;
 }
 namespace Runtime
 {
-struct RunSceneState;
+struct SceneSessionState;
 
 struct RunPerfLogState
 {
@@ -194,24 +194,25 @@ class RuntimeDiagnostics
                                            const char* path,
                                            bool fixedStepForcedByDiagnostics );
     static void
-    LogSceneFinished( RunSceneState& scene, const char* scenePath, const char* rendererName, const char* reason );
+    LogSceneFinished( SceneSessionState& scene, const char* scenePath, const char* rendererName, const char* reason );
     static void BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,
                                             Physics::PhysicsEngine& physics,
-                                            const RunSceneState& scene,
+                                            const SceneSessionState& scene,
                                             const SkullbonezCore::Core::EngineConfig& config,
                                             const char* scenePath,
                                             const char* rendererName );
     static void LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagnostics,
-                                     const RunSceneState& scene,
+                                     const SceneSessionState& scene,
                                      const ReplayScrubProbeDiagnostic& probe );
     static void LogReplayRestoreProbe( RunPhysicsDiagnosticsState& diagnostics,
-                                       const RunSceneState& scene,
+                                       const SceneSessionState& scene,
                                        const ReplayRestoreProbeDiagnostic& probe );
     static void LogReplayRestoreResult( RunPhysicsDiagnosticsState& diagnostics,
-                                        const RunSceneState& scene,
+                                        const SceneSessionState& scene,
                                         const ReplayRestoreResultDiagnostic& result );
-    static void
-    EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics, const RunSceneState& scene, const char* status );
+    static void EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,
+                                          const SceneSessionState& scene,
+                                          const char* status );
 #endif
 };
 } // namespace Runtime

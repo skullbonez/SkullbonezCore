@@ -20,7 +20,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/RuntimeFileWriter.h
-  - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
+  - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
 */
 #include "RuntimeFileWriter.h"
 

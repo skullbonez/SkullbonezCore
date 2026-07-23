@@ -3,10 +3,11 @@ File: SkullbonezTests/TestRuntimeInputBindings.cpp
 Purpose:
   Locks the runtime keyboard shortcut table as observable data.
 
-Mental model:
+Summary:
   These tests do not press keys or construct Run. They inspect the shared
-  key/action/context rows that RunInput dispatches, so a shortcut regression
-  fails before it reaches an interaction or DX12 launch test.
+  key/action/context rows that the InputRouter interaction layer dispatches,
+  so a shortcut regression fails before it reaches an interaction or DX12
+  launch test.
 
 Glossary:
   Virtual key: Win32 integer key code used by the runtime input poller.
@@ -20,7 +21,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/InputController.Bindings.h
-  - SkullbonezSource/Runtime/RunInput.cpp
+  - SkullbonezSource/Runtime/InputRouter.Interactions.cpp
   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 */
 #include "../ThirdPtySource/doctest/doctest.h"

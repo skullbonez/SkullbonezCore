@@ -37,7 +37,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/RuntimeInteractionController.cpp
-  - SkullbonezSource/Runtime/RunInput.cpp
+  - SkullbonezSource/Runtime/InputRouter.Interactions.cpp
   - SkullbonezSource/Runtime/RunFrame.cpp
   - Agentic/Reports/2026-07-11/interaction-state-machine-closure-review.md
 */

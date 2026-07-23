@@ -1,10 +1,10 @@
 /*
-File: SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
+File: SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
 Purpose:
   Owns runtime editor placement, selection, gizmos, and overlay tracing.
 
 Summary:
-  RunEditorTools.cpp owns runtime editor placement, selection, gizmos, and
+  EditorInteractionTools.cpp owns runtime editor placement, selection, gizmos, and
   overlay tracing. As an implementation unit, keep edits anchored on local
   owner boundaries and call direction and on the glossary/invariants below.
 
@@ -502,7 +502,7 @@ bool TryTraceEditorSelectionOverlayFromStores( const SceneWorld& world,
                                                PhysicsBodyHandle selectedBodyHandle,
                                                PhysicsColliderHandle selectedColliderHandle,
                                                int selectedIndex,
-                                               RunEditorTracer& tracer,
+                                               EditorTracer& tracer,
                                                Vector3& outOrigin,
                                                float& outRadius )
 {
@@ -1165,7 +1165,7 @@ EditorPlacementScalePointerResult
 RuntimeTools::RouteEditorPlacementScalePointer( bool leftReleased,
                                                 bool suppressWorldAction,
                                                 SceneWorld& world,
-                                                RunSceneState& scene,
+                                                SceneSessionState& scene,
                                                 Assets::AssetSystem& assets,
                                                 int activeModelCapacity,
                                                 RuntimeInteractionController& interaction )
@@ -1602,7 +1602,7 @@ EditorPointerRouteResult InputRouter::RouteEditorPointer( const EditorPointerRou
                                                           SceneController& models )
 {
     SceneWorld& sceneWorld = models.Scene();
-    RunSceneState& scene = models.State();
+    SceneSessionState& scene = models.State();
     EditorPointerRouteResult routeResult;
     auto appendModeAction = [&routeResult]( RuntimeInputAction action )
     {

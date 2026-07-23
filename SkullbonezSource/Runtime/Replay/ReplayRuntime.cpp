@@ -238,7 +238,7 @@ ReplayFrameIntentResult ReplayRuntime::ApplyFrameIntent( const ReplayFrameIntent
 ReplaySceneTimelineResetInput
 ReplayTimelineOperations::DescribeReplaySceneTimeline( const SceneController& sceneController,
                                                        const RunSceneUIOverrideState& uiOverrides,
-                                                       const RunSceneState& scene,
+                                                       const SceneSessionState& scene,
                                                        int sceneObjectCapacity,
                                                        uint32_t generatedObjectTypeOverride )
 {
@@ -404,7 +404,7 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( const ReplayRestoreTransaction& t
 
 void ReplayRuntime::AppendOverlayTrace( PhysicsEngine& physics,
                                         const SceneEntityStore& entities,
-                                        RunEditorTracer& tracer,
+                                        EditorTracer& tracer,
                                         const ReplayPredictionPresentationView& prediction,
                                         const ReplayOverlayBuildInput& input )
 {
@@ -598,7 +598,7 @@ ReplayPresentationSelection ReplayRuntime::ApplyRenderPose( Rendering::RenderIns
 void ReplayRuntime::PrepareRenderOverlay(
     PhysicsEngine& physics,
     const SceneEntityStore& entities,
-    RunEditorTracer& tracer,
+    EditorTracer& tracer,
     bool editorModeEnabled,
     const RuntimeInteractionGesture& gesture,
     int sceneFrame,
@@ -616,7 +616,7 @@ void ReplayRuntime::PrepareRenderOverlay(
 }
 
 
-void ReplayRuntime::PublishRenderPacket( RunEditorTracer& tracer,
+void ReplayRuntime::PublishRenderPacket( EditorTracer& tracer,
                                          const Math::Vector::Vector3& cameraTranslation,
                                          const Math::Vector::Vector3& cameraUp,
                                          uint64_t replayReserveGrowthEvents )
@@ -702,7 +702,7 @@ ReplayVisualPacket ReplayRuntime::BuildVisualProjectionForValidation(
     const Math::Vector::Vector3& cameraUp,
     uint64_t replayReserveGrowthEvents )
 {
-    RunEditorTracer& tracer = runtimeTools.EditorTracer();
+    EditorTracer& tracer = runtimeTools.Tracer();
     const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
     AppendOverlayTrace(
         physics,
@@ -825,7 +825,7 @@ bool ReplayRuntime::RouteWorldPointer( const ReplayWorldPointerInput& input,
                                        std::span<const Rendering::RenderInstancePresentationRecord> presentation,
                                        Environment::CameraCollection* cameras,
                                        Geometry::Terrain* terrain,
-                                       RunCameraState& camera,
+                                       CameraControlState& camera,
                                        RuntimeInteractionController& interaction,
                                        InputRouter& inputRouter )
 {
@@ -868,7 +868,7 @@ bool ReplayRuntime::HasActiveInteractionState() const
 bool ReplayRuntime::ApplyInteractionExit( const ReplayInteractionExitInput& input,
                                           Environment::CameraCollection* cameras,
                                           Geometry::Terrain* terrain,
-                                          RunCameraState& camera,
+                                          CameraControlState& camera,
                                           RuntimeInteractionController& interaction,
                                           InputRouter& inputRouter )
 {
@@ -896,7 +896,7 @@ bool ReplayRuntime::ApplyInteractionExit( const ReplayInteractionExitInput& inpu
 
 void ReplayRuntime::ApplyInputFocusLoss( Environment::CameraCollection* cameras,
                                          Geometry::Terrain* terrain,
-                                         RunCameraState& camera,
+                                         CameraControlState& camera,
                                          RunCameraMode normalizedRestoreMode,
                                          bool attachedFollow,
                                          bool directorGrabbed,
