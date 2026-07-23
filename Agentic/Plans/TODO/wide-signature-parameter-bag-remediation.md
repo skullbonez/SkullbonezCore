@@ -39,6 +39,7 @@ reach-back.
 | `ReplayWorkspaceFrameInput` passed wholesale to extracted operations | Mechanical reuse | Keep it only at `TickWorkspace`; pass action facts onward |
 | `ReplayLoadedPresentationActivationRequest` | Mechanical bag | Split activation, camera exit, scrubber arming, and camera entry |
 | `ReplayPredictionFrameRequest` | Mechanical bag | Split source/rebuild decision, worker advancement, and publication |
+| `ReplayPredictionJobDesc` | Mechanical bag missed by B0 | Split source preparation from private-simulation startup |
 | `ReplayRenderPreparationInput` | Mechanical bag | Split pose, overlay/ghost, packet publication, and focus masking |
 | `ReplayScrubberGestureInput` | Mechanical bag | Separate scrub-drag and prediction-horizon operations |
 | `ReplayV2TargetRestoreDiagnosticInput` | Mechanical bag | Build the real result diagnostic at each producer |
@@ -60,8 +61,8 @@ records a concrete domain identity and a non-adapter consumer.
   creation packs, render-model pass packet, and shadow selection packet.
 - [x] B3 — Replay interaction and authoring. Remove workspace/source/activation/
   gesture shortcuts and split the actual actions.
-- [ ] B4 — Replay prediction, rendering, and restore diagnostics. Remove the
-  frame/render/diagnostic input packets and expose cohesive owner operations.
+- [x] B4 — Replay prediction, rendering, and restore diagnostics. Remove the
+  frame/job/render/diagnostic input packets and expose cohesive owner operations.
 - [ ] B5 — Closure. Reconcile this census against campaign history and current
   source, audit every touched source file, prove threshold-13 and dependency/
   allocation rules, run one independent hostile no-bag review, execute every
@@ -125,13 +126,13 @@ records a concrete domain identity and a non-adapter consumer.
 - [x] `SkullbonezSource/Runtime/Replay/ReplayAuthoringVelocity.cpp`
 - [x] `SkullbonezSource/Runtime/Replay/ReplayScrubberTools.cpp`
 - [x] `SkullbonezSource/Runtime/Replay/ReplayPresentation.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayPrediction.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayPrediction.cpp`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayPrediction.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayPrediction.cpp`
 - [x] `SkullbonezSource/Runtime/Replay/ReplayRuntime.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp`
 - [x] `SkullbonezSource/Runtime/Replay/ReplayValidation.cpp`
 - [x] `SkullbonezSource/Runtime/Replay/ReplayValidation.Probes.cpp`
-- [ ] `SkullbonezSource/Runtime/RunRender.cpp`
+- [x] `SkullbonezSource/Runtime/RunRender.cpp`
 
 The checklist is reconciled against `git diff --name-only b827f276..HEAD` plus
 the uncommitted closure diff. Newly touched source files must be added and

@@ -13,14 +13,14 @@ plan inventory.
 | Branch | `nightrunner-22nd-JUL-26` |
 | Current baseline | Wide-signature round 3 reached an empty threshold-13 scan, but its closure claim is reopened because several replacements are mechanical parameter objects. Legacy remains the development default. |
 | Current objective | Remove every mechanical parameter object introduced or repurposed by the three wide-signature campaigns without hiding owners or exceeding 12 parameters. |
-| Active/future progress | 4/6 tasks; 67%. |
+| Active/future progress | 5/6 tasks; 83%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | T5 `validate_full` passes in 99.5 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | B3 final incremental Profile build passes (1.0 s); 53 focused Replay doctests / 799 assertions pass (0.1 s). |
+| Validation for current edits | B4 final incremental Profile build passes (10.9 s); 53 focused Replay doctests / 799 assertions pass (2.3 s); threshold-13 inventory and removed-type scan are empty. |
 
 ## Live Queue
 
-NOW. `wide-signature-parameter-bag-remediation` is active (4/6).
+NOW. `wide-signature-parameter-bag-remediation` is active (5/6).
 The owner rejected replacements such as `RenderModelPassInput` that merely
 bundle arguments for immediate unpacking. B0 reopened the three prior
 wide-signature closure claims and inventories every campaign-introduced or
@@ -46,8 +46,14 @@ reset/arming, and scrub/prediction-horizon gestures are now distinct operations.
 `ReplayWorkspaceFrameInput` remains only at `TickWorkspace`; no extracted
 operation receives or copies it. Nine touched source files pass the comment
 audit, the Profile build and focused Replay tests pass, and the threshold-13
-scan remains empty. Next: B4 removes Replay prediction/render/restore-diagnostic
-input packets.
+scan remains empty. B4 removes the Replay prediction frame request, the
+additionally discovered prediction-job descriptor, the render-preparation
+packet, and the restore-diagnostic input packet. Prediction and render now use
+ordered owner operations, and restore sites directly build the real emitted
+diagnostic. Six touched source files pass the comment audit; the Profile build,
+53 focused Replay doctests / 799 assertions, removed-type scan, and threshold-13
+inventory pass. Next: B5 reconciles campaign history and source, runs the
+hostile no-bag review and final gates, and supersedes the earlier closure claims.
 
 `wide-signature-decomposition-round-2` closed D0-D4 (5/5) and left the
 live ledger. All eight reopened threshold-16 rows were removed without a

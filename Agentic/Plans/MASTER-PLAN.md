@@ -420,7 +420,12 @@ the shadow selection packet. Main/reflection visibility and object-shadow
   submission are structural choices. B3 splits cause-tree surface/activation,
   velocity gizmo/target picking, loaded-artifact reset/arming, and the two scrub
   gestures. `ReplayWorkspaceFrameInput` remains only at the top-level workspace
-  transaction and is no longer forwarded. Active/future progress is 4/6.
+  transaction and is no longer forwarded. B4 removes the Replay prediction
+  frame request, the additionally discovered prediction-job descriptor, the
+  render-preparation packet, and the restore-diagnostic input packet. Prediction
+  and render work now advance through explicit ordered owner phases, while
+  restore producers construct the real emitted diagnostic. Active/future
+  progress is 5/6.
 
 The active/future denominator returned 13 → 7 when
 `owner-fanout-reduction` closed OF0-OF5 and left the ledger under rule 4.
@@ -1397,7 +1402,7 @@ a census records. Execution order is binding: 1 physics unification,
 | [wide-signature-reduction](../Reports/2026-07-23/wide-signature-reduction-closure.md) | Complete | 5/5 | 301 → 285; all survivors ruled; independent review and final broad gate pass |
 | [wide-signature-decomposition-round-2](../Reports/2026-07-23/wide-signature-decomposition-round-2-closure.md) | Complete | 5/5 | 8 → 0 threshold-16 rows; independent review and all closure gates pass |
 | [wide-signature-decomposition-round-3](../Reports/2026-07-23/wide-signature-decomposition-round-3-closure.md) | Complete | 6/6 | 9 → 0 threshold-13 rows; independent review and all closure gates pass |
-| [wide-signature-parameter-bag-remediation](TODO/wide-signature-parameter-bag-remediation.md) | In progress | 4/6 | Implement B4 Replay prediction, rendering, and restore-diagnostic decomposition |
+| [wide-signature-parameter-bag-remediation](TODO/wide-signature-parameter-bag-remediation.md) | In progress | 5/6 | Reconcile campaign history, run the hostile no-bag review and final gates, and supersede prior closure claims |
 
 ## Features
 
