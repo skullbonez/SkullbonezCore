@@ -36,6 +36,11 @@ Related:
 
 namespace SkullbonezCore::Runtime
 {
+// Why: the discrete prediction frames and contact solver can leave a touching
+// pair a few thousandths outside the authored radius sum. Contact is still a
+// proximity intercept, so classification admits one solver-slop-width.
+inline constexpr float REPLAY_INTERCEPT_CONTACT_SLOP = 0.005f;
+
 struct ReplayInterceptView
 {
     bool valid = false;

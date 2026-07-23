@@ -67,6 +67,7 @@ Related:
 #include "ReplayCoordination.h"
 #include "ReplayGuideArcs.h"
 #include "ReplayInterceptReadout.h"
+#include "ReplayTripPlanner.h"
 #include "ReplayIdentity.h"
 #include "ReplayPrediction.h"
 #include "ReplayPresentation.h"
@@ -239,6 +240,7 @@ class ReplayRuntime
     ReplayPathColorMode CyclePathColorMode() noexcept;
     void ToggleGuideArcs() noexcept;
     void SetGuideArcsEnabled( bool enabled ) noexcept;
+    bool QueueTripPlannerCommand( const ReplayTripPlannerCommand& command ) noexcept;
 
     ReplayKeyboardVelocityEditResult ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input );
 
@@ -428,6 +430,11 @@ class ReplayRuntime
                           const SceneEntityStore& entities,
                           const Physics::PhysicsWorldForces& worldForces,
                           double nowSeconds );
+    void BeginTripPlannerFrame( Physics::PhysicsEngine& physics,
+                                const SceneEntityStore& entities,
+                                const Physics::PhysicsWorldForces& worldForces );
+    void ObserveTripPlannerPrediction( Physics::PhysicsEngine& physics );
+    bool ApplyTripPlannerMutation( Physics::PhysicsEngine& physics, const ReplayTripPlannerVelocityMutation& mutation );
     ReplayInspectionCameraAction TickScrubberInput( bool uiBlocksMouse,
                                                     bool editorModeEnabled,
                                                     bool scenePhysicsEnabled,
@@ -489,6 +496,7 @@ class ReplayRuntime
     ReplayPrediction m_predictionOwner;
     ReplayInterceptReadout m_interceptReadout;
     ReplayGuideArcs m_guideArcs;
+    ReplayTripPlanner m_tripPlanner;
     SceneLifecycleGenerationObserver m_sceneClearObserver;
     SceneLifecycleGenerationObserver m_sceneActivationObserver;
 };

@@ -71,7 +71,7 @@ TEST_CASE( "Runtime input bindings: core keyboard shortcuts map to actions" )
     const RuntimeInputKeyBindingView table = TakeInputKeyboardBindings();
 
     REQUIRE( table.bindings != nullptr );
-    CHECK( table.count == 43u );
+    CHECK( table.count == 44u );
     CheckExactBinding( VK_OEM_3, keyboard, RuntimeInputAction::ToggleEditor );
     CheckExactBinding( VK_TAB, keyboard, RuntimeInputAction::CycleCameraMode );
     CheckExactBinding( 'F', keyboard, RuntimeInputAction::ToggleFlyCamera );
@@ -80,6 +80,7 @@ TEST_CASE( "Runtime input bindings: core keyboard shortcuts map to actions" )
     CheckExactBinding( VK_F9, keyboard, RuntimeInputAction::ReloadShadersFromSource );
     CheckExactBinding( VK_OEM_COMMA, keyboard, RuntimeInputAction::CycleReplayPathColorMode );
     CheckExactBinding( 'H', keyboard, RuntimeInputAction::ToggleReplayGuideArcs );
+    CheckExactBinding( 'J', keyboard, RuntimeInputAction::ToggleReplayTripPlanner );
     CHECK( FindExactBinding( VK_OEM_PERIOD, keyboard ) == nullptr );
     CheckExactBinding( VK_LEFT, keyboard, RuntimeInputAction::NavigateScenePrevious );
     CheckExactBinding( VK_RIGHT, keyboard, RuntimeInputAction::NavigateSceneNext );

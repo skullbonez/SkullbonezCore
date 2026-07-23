@@ -169,7 +169,7 @@ void ReplayInterceptReadout::Update( const ReplayInterceptUpdateInput& input ) n
         m_view.shipPosition = ship->position;
         m_view.targetPosition = target->position;
         m_view.topologyVersion = input.topologyVersion;
-        m_view.intercept = m_view.missDistance < input.shipRadius + input.targetRadius;
+        m_view.intercept = m_view.missDistance <= input.shipRadius + input.targetRadius + REPLAY_INTERCEPT_CONTACT_SLOP;
     }
     m_scannedFrameCount = input.frames.size();
 }

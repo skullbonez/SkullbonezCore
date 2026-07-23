@@ -150,6 +150,45 @@ bool ReadReplayGuideSunState( const PhysicsBodyStore& bodyStore, ReplayGuideBody
     return outState.valid;
 }
 
+bool ReadReplayPlannerBodyState( const PhysicsBodyStore& bodyStore,
+                                 Physics::PhysicsSceneObjectId id,
+                                 ReplayTripPlannerBodyState& outState ) noexcept
+{
+    const PhysicsBodyHandle handle = bodyStore.HandleForSceneObjectId( id );
+    Physics::ModelRowHint row;
+    const int bodyIndex = bodyStore.ResolveModelRow( handle, row );
+    const std::span<const PhysicsBodyRecord> records = bodyStore.Records();
+    const Physics::PhysicsBodyHotFieldsConstView hot = bodyStore.HotFields();
+    if ( bodyIndex < 0 || static_cast<std::size_t>( bodyIndex ) >= records.size() ||
+         static_cast<std::size_t>( bodyIndex ) >= hot.positionX.size() )
+    {
+        return false;
+    }
+
+    const std::size_t index = static_cast<std::size_t>( bodyIndex );
+    outState.id = records[index].sceneObjectId;
+    outState.position = Physics::PhysicsBodyPosition( hot, index );
+    outState.linearVelocity = Physics::PhysicsBodyLinearVelocity( hot, index );
+    outState.mass = records[index].mass;
+    outState.valid = true;
+    return true;
+}
+
+bool ReadReplayPlannerSunState( const PhysicsBodyStore& bodyStore, ReplayTripPlannerBodyState& outState ) noexcept
+{
+    ReplayGuideBodyState guideState;
+    if ( !ReadReplayGuideSunState( bodyStore, guideState ) )
+    {
+        return false;
+    }
+    outState.id = guideState.id;
+    outState.position = guideState.position;
+    outState.linearVelocity = guideState.linearVelocity;
+    outState.mass = guideState.mass;
+    outState.valid = true;
+    return true;
+}
+
 constexpr double REPLAY_PREDICTION_MAX_WORK_MILLISECONDS = 5.0;
 
 const ReplayPresentationSample*
@@ -294,6 +333,14 @@ ReplayFrameIntentResult ReplayRuntime::ApplyFrameIntent( const ReplayFrameIntent
     {
         m_predictionOwner.ClearCache();
         m_predictionOwner.MarkDirty();
+    }
+    if ( intent.setInterceptTarget )
+    {
+        m_interceptReadout.SetTarget( intent.interceptTargetId, intent.interceptTargetModelRow );
+    }
+    if ( intent.hasTripPlannerCommand )
+    {
+        (void)m_tripPlanner.QueueCommand( intent.tripPlannerCommand );
     }
     return result;
 }
@@ -504,6 +551,22 @@ void ReplayRuntime::AppendOverlayTrace( PhysicsEngine& physics,
         tracer.AddReplayPathSegment( intercept.shipPosition, intercept.targetPosition, color.x, color.y, color.z );
     }
 
+    const ReplayTripPlannerView& planner = m_tripPlanner.View();
+    for ( std::size_t ghostIndex = 0; ghostIndex < planner.ghostCount; ++ghostIndex )
+    {
+        const ReplayTripPlannerGhostArc& ghost = planner.ghosts[ghostIndex];
+        const float opacity = 0.12f + 0.08f * static_cast<float>( ghostIndex );
+        for ( std::size_t pointIndex = 1; pointIndex < ghost.pointCount; ++pointIndex )
+        {
+            tracer.AddReplayBaselinePathSegment( ghost.points[pointIndex - 1],
+                                                 ghost.points[pointIndex],
+                                                 0.18f,
+                                                 0.42f,
+                                                 0.80f,
+                                                 opacity );
+        }
+    }
+
     const ReplayGuideArcsView guideArcs = m_guideArcs.View();
     if ( guideArcs.enabled && guideArcs.valid )
     {
@@ -559,6 +622,7 @@ ReplayInputView ReplayRuntime::BuildInputView() const noexcept
 ReplayAutomationView ReplayRuntime::BuildAutomationView() const
 {
     return { m_predictionOwner.State(),
+             m_tripPlanner.View(),
              m_visualPresentation.PathVisualizer(),
              m_timeline.Presentation(),
              m_timeline.Solver(),
@@ -607,6 +671,7 @@ ReplayRuntime::BuildOverlayStateView( bool editorModeEnabled,
     return { scrubber,
              m_predictionOwner.PresentationView(),
              m_interceptReadout.View(),
+             m_tripPlanner.View(),
              m_visualPresentation.PathVisualizer(),
              m_authoring.VelocityEdit(),
              m_authoring.CauseTree(),
@@ -900,6 +965,11 @@ void ReplayRuntime::SetGuideArcsEnabled( bool enabled ) noexcept
     m_guideArcs.SetEnabled( enabled );
 }
 
+bool ReplayRuntime::QueueTripPlannerCommand( const ReplayTripPlannerCommand& command ) noexcept
+{
+    return m_tripPlanner.QueueCommand( command );
+}
+
 
 ReplayPathPickResult
 ReplayRuntime::ApplyPathPick( const ReplayPathPickInput& input,
@@ -1081,6 +1151,7 @@ void ReplayRuntime::ClearInteractionForSceneLoad( RuntimeInteractionController& 
     // Invariant: guide visibility is scene-local and always returns to its
     // zero-cost default before an early interaction-cleanup return.
     m_guideArcs.Reset();
+    m_tripPlanner.Reset();
     const RuntimeInteractionTransition transition = interaction.ResetForScene( InteractionExitReason::LoadScene );
     const bool previousOwnerWasReplay = transition.previousOwner == WorldInteractionOwner::ReplayScrub ||
                                         transition.previousOwner == WorldInteractionOwner::ReplayVelocityEdit ||
@@ -1136,6 +1207,7 @@ bool ReplayRuntime::ClearInteractionForRuntimeTransition( RuntimeInteractionCont
     ClearCameraFocusForRestore();
     ClearPathVisualizerState();
     m_predictionOwner.DisableAndClearCache();
+    m_tripPlanner.Reset();
     m_authoring.ResetVelocityEdit();
     m_authoring.ResetCauseTreeRows();
     return exitInspectionCamera;
@@ -1697,6 +1769,7 @@ void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics,
     // Concept: the composition root samples owner values, then prediction
     // advances without a ReplayRuntime reach-back. Its value-only result is
     // applied after the worker/publication transition returns.
+    BeginTripPlannerFrame( physics, entities, worldForces );
     const RunReplayPathVisualizerState& path = m_visualPresentation.PathVisualizer();
     const ReplayScrubberView scrubber = m_scrubberOwner.View();
     const ReplaySolverFrameSample* latestSolverSample = m_timeline.Solver().LatestSample();
@@ -1763,6 +1836,7 @@ void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics,
     ApplyPredictionUpdateResult( result );
     PreparePredictionPresentation( physics, entities );
     UpdateInterceptReadout( physics, worldForces.mutualGravity.enabled );
+    ObserveTripPlannerPrediction( physics );
     UpdateGuideArcs( physics, entities, worldForces, simulationTotalTime );
 }
 
@@ -1820,6 +1894,90 @@ void ReplayRuntime::UpdateGuideArcs( PhysicsEngine& physics,
         (void)ReadReplayGuideBodyState( entities, bodyStore, entities.FindByDisplayName( "mars" ), input.mars );
     }
     m_guideArcs.Update( input );
+}
+
+void ReplayRuntime::BeginTripPlannerFrame( PhysicsEngine& physics,
+                                           const SceneEntityStore& entities,
+                                           const Physics::PhysicsWorldForces& worldForces )
+{
+    if ( !m_tripPlanner.RequiresLiveInput() )
+    {
+        return;
+    }
+    const PhysicsBodyStore& bodyStore = PhysicsEngine::ReadBodies( physics );
+    const RunReplayPathVisualizerState& path = m_visualPresentation.PathVisualizer();
+    const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
+    ReplayTripPlannerLiveInput input;
+    input.gravitationalConstant = worldForces.mutualGravity.gravitationalConstant;
+    input.predictionHorizonSeconds = prediction.horizonSeconds;
+    input.mutualGravityEnabled = worldForces.mutualGravity.enabled;
+    input.targetSelected = path.hasTarget && m_interceptReadout.HasTarget();
+    input.liveAdvanceHeld = m_scrubberOwner.View().liveAdvanceHeld;
+    (void)ReadReplayPlannerSunState( bodyStore, input.sun );
+    (void)ReadReplayPlannerBodyState( bodyStore, path.targetId, input.ship );
+    (void)ReadReplayPlannerBodyState( bodyStore, m_interceptReadout.TargetId(), input.target );
+    const SceneEntityRecord* targetEntity =
+        entities.TryGet( entities.FindBySceneObjectId( m_interceptReadout.TargetId() ) );
+    input.targetName = targetEntity ? targetEntity->displayName : nullptr;
+    (void)ApplyTripPlannerMutation( physics, m_tripPlanner.BeginFrame( input ) );
+}
+
+void ReplayRuntime::ObserveTripPlannerPrediction( PhysicsEngine& physics )
+{
+    if ( !m_tripPlanner.AwaitingPrediction() )
+    {
+        return;
+    }
+    const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
+    const RunReplayPathVisualizerState& path = m_visualPresentation.PathVisualizer();
+    ReplayTripPlannerPredictionInput input;
+    input.frames = prediction.frames;
+    input.intercept = m_interceptReadout.View();
+    input.shipId = path.targetId;
+    input.targetId = m_interceptReadout.TargetId();
+    input.generation = prediction.generation;
+    input.complete = prediction.complete;
+    input.cancelled = !prediction.enabled;
+    input.liveAdvanceHeld = m_scrubberOwner.View().liveAdvanceHeld;
+    input.targetAvailable = path.hasTarget && m_interceptReadout.HasTarget();
+    (void)ApplyTripPlannerMutation( physics, m_tripPlanner.ObservePrediction( input ) );
+}
+
+bool ReplayRuntime::ApplyTripPlannerMutation( PhysicsEngine& physics,
+                                              const ReplayTripPlannerVelocityMutation& mutation )
+{
+    if ( !mutation.requested )
+    {
+        return false;
+    }
+    if ( mutation.prepareBaseline && !m_predictionOwner.PrepareVelocityMutationBaseline() )
+    {
+        m_tripPlanner.Abort();
+        return false;
+    }
+
+    // Invariant: the normal Replay velocity-edit transaction remains the only
+    // route to live Physics. Baseline capture precedes mutation, and prediction
+    // dirtying precedes the planner's transition to AwaitingPrediction.
+    const PhysicsBodyStore& bodyStore = PhysicsEngine::ReadBodies( physics );
+    const PhysicsBodyHandle handle = bodyStore.HandleForSceneObjectId( mutation.bodyId );
+    Physics::ModelRowHint row;
+    const int bodyIndex = bodyStore.ResolveModelRow( handle, row );
+    const Physics::PhysicsBodyHotFieldsConstView hot = bodyStore.HotFields();
+    if ( bodyIndex < 0 || static_cast<std::size_t>( bodyIndex ) >= hot.angularVelocityX.size() )
+    {
+        m_tripPlanner.Abort();
+        return false;
+    }
+    const Vector3 angularVelocity = Physics::PhysicsBodyAngularVelocity( hot, static_cast<std::size_t>( bodyIndex ) );
+    if ( !physics.SetBodyVelocity( handle, mutation.linearVelocity, angularVelocity, true ) )
+    {
+        m_tripPlanner.Abort();
+        return false;
+    }
+    m_predictionOwner.CommitVelocityMutation();
+    m_tripPlanner.ConfirmVelocityApplied();
+    return true;
 }
 
 

@@ -91,6 +91,7 @@ struct ReplayPathVisualizerRenderResult
 
 void RenderReplayScrubberOverlay( Text::TextBatch& textBatch, const ReplayOverlayRenderContext& context );
 void RenderReplayInterceptOverlay( Text::TextBatch& textBatch, const ReplayOverlayRenderContext& context );
+void RenderReplayTripPlannerOverlay( Text::TextBatch& textBatch, const ReplayOverlayRenderContext& context );
 void RenderReplayCauseTreeOverlay( Text::TextBatch& textBatch, const ReplayOverlayRenderContext& context );
 ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& context );
 } // namespace SkullbonezCore::Runtime::ReplayOverlay

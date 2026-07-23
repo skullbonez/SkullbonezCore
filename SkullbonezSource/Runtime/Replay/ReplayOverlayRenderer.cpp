@@ -96,6 +96,7 @@ void RenderReplayScrubberOverlay( Text::TextBatch& textBatch, const ReplayOverla
         return;
     }
     RenderReplayInterceptOverlay( textBatch, context );
+    RenderReplayTripPlannerOverlay( textBatch, context );
     const ReplayScrubberView& scrubber = replay.scrubber;
     Rendering::Dx12TextureOwner& renderTextures = context.renderTextures;
     Rendering::Dx12GeometryOwner& renderCommands = context.renderCommands;
@@ -862,6 +863,129 @@ void RenderReplayInterceptOverlay( Text::TextBatch& textBatch, const ReplayOverl
     draw.RoundedPanel( panel, radii.control, palette.windowSubtle, palette.innerBorder );
     const float labelWidth = Text2d::MeasureText( 11.0f, label );
     draw.Text( panel.x + ( panel.w - labelWidth ) * 0.5f, panel.y + 7.0f, 11.0f, accent.r, accent.g, accent.b, label );
+    Text2d::FlushQuads( textBatch, renderCommands );
+    Text2d::FlushText( textBatch, renderTextures, renderCommands );
+}
+
+void RenderReplayTripPlannerOverlay( Text::TextBatch& textBatch, const ReplayOverlayRenderContext& context )
+{
+    const ReplayTripPlannerView& planner = context.replay.tripPlanner;
+    if ( !context.legacyReplaySurfaceActive || !planner.visible || !planner.available || context.screenW <= 0 ||
+         context.screenH <= 0 )
+    {
+        return;
+    }
+
+    Rendering::Dx12TextureOwner& renderTextures = context.renderTextures;
+    Rendering::Dx12GeometryOwner& renderCommands = context.renderCommands;
+    const UI::UIDrawContext draw( context.screenW,
+                                  context.screenH,
+                                  nullptr,
+                                  &renderTextures,
+                                  &renderCommands,
+                                  &textBatch );
+    const UI::Style::UIPalette& palette = UI::Style::Palette();
+    const UI::Style::UIRadii& radii = UI::Style::Radii();
+    // Invariant: rendering consumes the same fixed control rectangles that
+    // ReplayScrubberTools uses for hit testing; draw and input cannot drift.
+    ReplayTripPlannerSurface surface;
+    BuildReplayTripPlannerSurface( planner, context.screenW, surface );
+    const UI::UIRect panel = ReplayTripPlannerPanelRect( context.screenW );
+    draw.RoundedPanel( panel, radii.control, palette.windowSubtle, palette.innerBorder );
+
+    const auto control = [&]( ReplayTripPlannerControl id ) -> const RuntimeUiControl&
+    {
+        const RuntimeUiControl* row = surface.Find( ReplayTripPlannerControlId( id ) );
+        if ( !row )
+        {
+            SB_FATAL( "ReplayTripPlannerSurface",
+                      "Render snapshot is missing trip-planner control id=%u.",
+                      static_cast<uint32_t>( id ) );
+        }
+        return *row;
+    };
+    const auto button = [&]( ReplayTripPlannerControl id, const char* label )
+    {
+        const RuntimeUiControl& row = control( id );
+        const UI::Style::UIColor fill = row.enabled ? palette.control : palette.windowSubtle;
+        const UI::Style::UIColor text = row.enabled ? palette.textPrimary : palette.textMuted;
+        draw.RoundedRect( row.drawRect.x,
+                          row.drawRect.y,
+                          row.drawRect.w,
+                          row.drawRect.h,
+                          radii.smallButton,
+                          fill.r,
+                          fill.g,
+                          fill.b,
+                          row.enabled ? 0.92f : 0.45f );
+        const float width = Text2d::MeasureText( 9.0f, label );
+        draw.Text( row.drawRect.x + ( row.drawRect.w - width ) * 0.5f,
+                   row.drawRect.y + 7.0f,
+                   9.0f,
+                   text.r,
+                   text.g,
+                   text.b,
+                   label );
+    };
+
+    const char* stateLabel = "IDLE";
+    switch ( planner.state )
+    {
+    case ReplayTripPlannerState::Seeding:
+        stateLabel = "SEEDING";
+        break;
+    case ReplayTripPlannerState::AwaitingPrediction:
+        stateLabel = "PREDICTING";
+        break;
+    case ReplayTripPlannerState::Correcting:
+        stateLabel = "CORRECTING";
+        break;
+    case ReplayTripPlannerState::Converged:
+        stateLabel = "INTERCEPT";
+        break;
+    case ReplayTripPlannerState::Failed:
+        stateLabel = "NO SOLUTION";
+        break;
+    case ReplayTripPlannerState::Idle:
+        break;
+    }
+
+    char title[160] = {};
+    if ( planner.iteration > 0 )
+    {
+        sprintf_s( title,
+                   sizeof( title ),
+                   "TRIP: %s  TOF %.1fs  ITER %u/%zu  MISS %.2fu  %s",
+                   planner.targetName[0] != '\0' ? planner.targetName : "TARGET",
+                   planner.timeOfFlightSeconds,
+                   planner.iteration,
+                   REPLAY_TRIP_PLANNER_MAX_ITERATIONS,
+                   planner.missDistance,
+                   stateLabel );
+    }
+    else
+    {
+        sprintf_s( title,
+                   sizeof( title ),
+                   "TRIP: %s  TOF %.1fs  %s",
+                   planner.targetName[0] != '\0' ? planner.targetName : "TARGET",
+                   planner.timeOfFlightSeconds,
+                   stateLabel );
+    }
+    const UI::Style::UIColor statusColor = planner.noSolution ? palette.warningAccent : palette.accentStrong;
+    draw.Text( panel.x + 12.0f, panel.y + 13.0f, 10.0f, statusColor.r, statusColor.g, statusColor.b, title );
+    button( ReplayTripPlannerControl::TimeOfFlightDecrease, "-" );
+    draw.Text( panel.x + 58.0f,
+               panel.y + 59.0f,
+               9.0f,
+               palette.textPrimary.r,
+               palette.textPrimary.g,
+               palette.textPrimary.b,
+               "TOF" );
+    button( ReplayTripPlannerControl::TimeOfFlightIncrease, "+" );
+    button( ReplayTripPlannerControl::Plan, "PLAN" );
+    button( ReplayTripPlannerControl::Commit, "COMMIT" );
+    button( ReplayTripPlannerControl::Cancel, "CANCEL" );
     Text2d::FlushQuads( textBatch, renderCommands );
     Text2d::FlushText( textBatch, renderTextures, renderCommands );
 }

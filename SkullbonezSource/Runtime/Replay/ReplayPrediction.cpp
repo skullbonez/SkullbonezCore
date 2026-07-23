@@ -377,6 +377,11 @@ bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction,
     // live engine is never passed to prediction stepping after this point.
     PhysicsEngine& predictionEngine = *prediction.simulation.predictionEngine;
     predictionEngine = liveEngine;
+    // Invariant: std::vector copy assignment preserves element values, not the
+    // source's spare capacity. The live mutual-gravity pair table is empty at
+    // capture time, so the private engine must re-establish its known body-count
+    // scratch while the registered replay reserve scope is still active.
+    predictionEngine.ReserveAuthoredBodyCapacity( static_cast<std::size_t>( (std::max)( 0, modelCount ) ) );
     predictionEngine.BindProfiler( profiler );
     predictionEngine.ApplyRuntimeConfig( config );
     prediction.simulation.predictionWorldForces = worldForces;

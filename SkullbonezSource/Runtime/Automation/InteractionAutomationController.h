@@ -111,6 +111,8 @@ enum class RunInteractionAutomationActionType
     SetReplayPredictionHorizonSeconds,
     BeginReplayVisualFidelityCapture,
     SetReplayPathTarget,
+    SetReplayInterceptTarget,
+    SetReplayTripPlannerCommand,
     NudgeReplayPathTargetVelocity,
     ShowReplayScrubber,
     PressKey,
@@ -143,6 +145,10 @@ enum class RunInteractionAutomationAssertKind
     DirectorPhaseStylePath,
     ReplayPredictionEnabled,
     ReplayPathTarget,
+    ReplayTripPlannerState,
+    ReplayTripPlannerIterationMax,
+    ReplayTripPlannerMissMax,
+    ReplayTripPlannerMissesImprove,
     ReplayPastTrajectoryFullRebuildCountMax,
     ReplayPastTrajectoryIncrementalTrimCountMin,
     ReplayPastTrajectoryPublishedPointCountMin,
@@ -245,6 +251,7 @@ struct RunInteractionAutomationAction
     int holdFrames = 1;
     bool boolValue = false;
     float numberValue = 0.0f;
+    ReplayTripPlannerCommandKind tripPlannerCommand = ReplayTripPlannerCommandKind::None;
     Math::Vector::Vector3 vectorValue = Math::Vector::ZERO_VECTOR; // Generic vector payload for replay proof actions.
     char text[128] = {};
     char path[260] = {};

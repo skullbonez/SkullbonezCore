@@ -390,6 +390,8 @@ const char* InputController::DescribeAction( RuntimeInputAction action )
         return "CycleReplayPathColorMode";
     case RuntimeInputAction::ToggleReplayGuideArcs:
         return "ToggleReplayGuideArcs";
+    case RuntimeInputAction::ToggleReplayTripPlanner:
+        return "ToggleReplayTripPlanner";
     case RuntimeInputAction::ToggleCinematicRendering:
         return "ToggleCinematicRendering";
     case RuntimeInputAction::SelectCinematicScene:

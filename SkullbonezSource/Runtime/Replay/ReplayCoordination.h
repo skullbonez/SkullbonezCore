@@ -35,6 +35,7 @@ Related:
 #include "ReplayPresentation.h"
 #include "ReplayScrubber.h"
 #include "ReplayTimeline.h"
+#include "ReplayTripPlanner.h"
 #include "../../Core/PlatformWin32.h"
 #include "../../Core/Common.h"
 #include "ReplayProbeState.h"
@@ -201,6 +202,7 @@ struct ReplayInteractionExitInput
 struct ReplayAutomationView
 {
     const RunReplayPredictionState& prediction;
+    const ReplayTripPlannerView& tripPlanner;
     const RunReplayPathVisualizerState& path;
     // Cold artifact writers borrow recorder owners only for the synchronous
     // report write. The view is never retained across a replay mutation.
@@ -298,6 +300,11 @@ struct ReplayFrameIntent
     Physics::PhysicsSceneObjectId pathTargetId;
     Physics::ModelRowHint pathTargetModelRow;
     char pathTargetName[64] = {};
+    bool setInterceptTarget = false;
+    Physics::PhysicsSceneObjectId interceptTargetId;
+    Physics::ModelRowHint interceptTargetModelRow;
+    bool hasTripPlannerCommand = false;
+    ReplayTripPlannerCommand tripPlannerCommand;
 };
 
 struct ReplayFrameIntentResult

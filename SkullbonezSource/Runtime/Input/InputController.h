@@ -121,6 +121,7 @@ enum class RuntimeInputAction
     ReloadShadersFromSource,
     CycleReplayPathColorMode,
     ToggleReplayGuideArcs,
+    ToggleReplayTripPlanner,
     ToggleBroadphaseOverlay,
     ToggleUIVisibility,
     TogglePerformanceHistogram,

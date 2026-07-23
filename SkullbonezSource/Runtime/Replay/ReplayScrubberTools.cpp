@@ -586,18 +586,40 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input,
         return;
     }
 
-    const ReplayInspectionCameraAction scrubberHostAction = TickScrubberInput( input.uiBlocksMouse,
-                                                                               input.editorModeEnabled,
-                                                                               input.scenePhysicsEnabled,
-                                                                               input.uiVisible,
-                                                                               input.uiMinimized,
-                                                                               input.screenWidth,
-                                                                               input.screenHeight,
-                                                                               input.now,
-                                                                               inputRouter,
-                                                                               interaction,
-                                                                               camera,
-                                                                               output );
+    bool tripPlannerOwnsMouse = false;
+    const ReplayTripPlannerView& planner = m_tripPlanner.View();
+    const RuntimePointerEvent& plannerPointer = inputRouter.RuntimeSnapshot().pointer;
+    if ( planner.visible && planner.available && plannerPointer.hasClientPosition )
+    {
+        ReplayTripPlannerSurface plannerSurface;
+        BuildReplayTripPlannerSurface( planner, input.screenWidth, plannerSurface );
+        plannerSurface.ResolvePointer( plannerPointer.clientX, plannerPointer.clientY, input.uiBlocksMouse );
+        tripPlannerOwnsMouse = plannerSurface.consumesPointer;
+        if ( inputRouter.UiSnapshot().mouse.leftPressed && plannerSurface.hasHotControl )
+        {
+            const RuntimeUiControl* control = plannerSurface.Find( plannerSurface.hotControl );
+            if ( control && control->action )
+            {
+                (void)m_tripPlanner.QueueCommand(
+                    { static_cast<ReplayTripPlannerCommandKind>( control->action.value ) } );
+            }
+        }
+    }
+
+    const ReplayInspectionCameraAction scrubberHostAction =
+        TickScrubberInput( input.uiBlocksMouse || tripPlannerOwnsMouse,
+                           input.editorModeEnabled,
+                           input.scenePhysicsEnabled,
+                           input.uiVisible,
+                           input.uiMinimized,
+                           input.screenWidth,
+                           input.screenHeight,
+                           input.now,
+                           inputRouter,
+                           interaction,
+                           camera,
+                           output );
+    output.consumesMouse = output.consumesMouse || tripPlannerOwnsMouse;
     const bool scrubberOwnsMouse = output.consumesMouse;
     bool loadedPresentationActivated = false;
     if ( output.loadPresentationRequested )

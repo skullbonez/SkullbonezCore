@@ -527,6 +527,10 @@ const char* ActionTypeName( RunInteractionAutomationActionType type )
         return "beginReplayVisualFidelityCapture";
     case RunInteractionAutomationActionType::SetReplayPathTarget:
         return "setReplayPathTarget";
+    case RunInteractionAutomationActionType::SetReplayInterceptTarget:
+        return "setReplayInterceptTarget";
+    case RunInteractionAutomationActionType::SetReplayTripPlannerCommand:
+        return "setReplayTripPlannerCommand";
     case RunInteractionAutomationActionType::NudgeReplayPathTargetVelocity:
         return "nudgeReplayPathTargetVelocity";
     case RunInteractionAutomationActionType::ShowReplayScrubber:
@@ -579,6 +583,14 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "replayPredictionEnabled";
     case RunInteractionAutomationAssertKind::ReplayPathTarget:
         return "replayPathTarget";
+    case RunInteractionAutomationAssertKind::ReplayTripPlannerState:
+        return "replayTripPlannerState";
+    case RunInteractionAutomationAssertKind::ReplayTripPlannerIterationMax:
+        return "replayTripPlannerIterationMax";
+    case RunInteractionAutomationAssertKind::ReplayTripPlannerMissMax:
+        return "replayTripPlannerMissMax";
+    case RunInteractionAutomationAssertKind::ReplayTripPlannerMissesImprove:
+        return "replayTripPlannerMissesImprove";
     case RunInteractionAutomationAssertKind::ReplayPastTrajectoryFullRebuildCountMax:
         return "replayPastTrajectoryFullRebuildCountMax";
     case RunInteractionAutomationAssertKind::ReplayPastTrajectoryIncrementalTrimCountMin:
@@ -888,7 +900,9 @@ void PublishReplayDeterministicReveal( ReplayFrameIntent& intent, ReplayFrameInd
 }
 
 
-template <typename TrySetReplayPathTarget, typename SetWorldInteractionOwnerAfterTransition>
+template <typename TrySetReplayPathTarget,
+          typename TrySetReplayInterceptTarget,
+          typename SetWorldInteractionOwnerAfterTransition>
 void ApplyInteractionAutomationReplayStateAction( InteractionAutomationController& state,
                                                   RunTimerState& timers,
                                                   ReplayFrameIntent& replayIntent,
@@ -897,6 +911,7 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
                                                   RunInteractionAutomationAction& action,
                                                   int frame,
                                                   TrySetReplayPathTarget trySetReplayPathTarget,
+                                                  TrySetReplayInterceptTarget trySetReplayInterceptTarget,
                                                   SetWorldInteractionOwnerAfterTransition setWorldInteractionOwner )
 {
     // Concept: replay state automation changes only harness-visible replay
@@ -937,6 +952,28 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
                             targetSet ? "replay path target set" : "replay path target unavailable" );
         break;
     }
+    case RunInteractionAutomationActionType::SetReplayInterceptTarget:
+    {
+        const bool targetSet = trySetReplayInterceptTarget( action.text );
+        if ( !targetSet )
+        {
+            FailAutomation( state, "failed to set replay intercept target" );
+        }
+        AppendReportAction( state,
+                            frame,
+                            action.type,
+                            action.text,
+                            nullptr,
+                            targetSet,
+                            targetSet ? "replay intercept target set" : "replay intercept target unavailable" );
+        break;
+    }
+    case RunInteractionAutomationActionType::SetReplayTripPlannerCommand:
+        replayIntent.hasTripPlannerCommand = true;
+        replayIntent.tripPlannerCommand.kind = action.tripPlannerCommand;
+        replayIntent.tripPlannerCommand.timeOfFlightSeconds = action.numberValue;
+        AppendReportAction( state, frame, action.type, action.text, nullptr, true, "trip planner command queued" );
+        break;
     case RunInteractionAutomationActionType::SetReplayPredictionHorizonSeconds:
     {
         const float horizonSeconds =
@@ -1503,6 +1540,53 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         return true;
     }
 
+    if ( entry.contains( "setReplayInterceptTarget" ) )
+    {
+        if ( !entry["setReplayInterceptTarget"].is_string() )
+        {
+            outError = "setReplayInterceptTarget must be a string";
+            return false;
+        }
+        outAction.type = RunInteractionAutomationActionType::SetReplayInterceptTarget;
+        CopyText( outAction.text, sizeof( outAction.text ), entry["setReplayInterceptTarget"].get<std::string>() );
+        return true;
+    }
+
+    if ( entry.contains( "setReplayTripPlannerCommand" ) )
+    {
+        if ( !entry["setReplayTripPlannerCommand"].is_string() )
+        {
+            outError = "setReplayTripPlannerCommand must be a string";
+            return false;
+        }
+        const std::string command = entry["setReplayTripPlannerCommand"].get<std::string>();
+        outAction.type = RunInteractionAutomationActionType::SetReplayTripPlannerCommand;
+        outAction.tripPlannerCommand = command == "toggle"     ? ReplayTripPlannerCommandKind::TogglePanel
+                                       : command == "decrease" ? ReplayTripPlannerCommandKind::DecreaseTimeOfFlight
+                                       : command == "increase" ? ReplayTripPlannerCommandKind::IncreaseTimeOfFlight
+                                       : command == "tof"      ? ReplayTripPlannerCommandKind::SetTimeOfFlight
+                                       : command == "plan"     ? ReplayTripPlannerCommandKind::Plan
+                                       : command == "commit"   ? ReplayTripPlannerCommandKind::Commit
+                                       : command == "cancel"   ? ReplayTripPlannerCommandKind::Cancel
+                                                               : ReplayTripPlannerCommandKind::None;
+        if ( outAction.tripPlannerCommand == ReplayTripPlannerCommandKind::None )
+        {
+            outError = "unknown setReplayTripPlannerCommand value: " + command;
+            return false;
+        }
+        if ( outAction.tripPlannerCommand == ReplayTripPlannerCommandKind::SetTimeOfFlight )
+        {
+            if ( !entry.contains( "timeOfFlightSeconds" ) || !entry["timeOfFlightSeconds"].is_number() )
+            {
+                outError = "trip planner tof command requires numeric timeOfFlightSeconds";
+                return false;
+            }
+            outAction.numberValue = entry["timeOfFlightSeconds"].get<float>();
+        }
+        CopyText( outAction.text, sizeof( outAction.text ), command );
+        return true;
+    }
+
     if ( entry.contains( "nudgeReplayPathTargetVelocity" ) )
     {
         outAction.type = RunInteractionAutomationActionType::NudgeReplayPathTargetVelocity;
@@ -1696,16 +1780,18 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         const Json& expected = member.value();
         // Invariant: JSON_NOEXCEPTION turns a mismatched get<T>() into an
         // abort, so the assertion vocabulary is classified before dispatch.
-        const bool expectsString =
-            name == "selectedObject" || name == "owner" || name == "cameraMode" || name == "directorPhaseName" ||
-            name == "directorPhaseStylePath" || name == "replayPathTarget" || name == "predictionBuildMode" ||
-            name == "pointerCapture" || name == "replayActiveTrack" || name == "developmentUiSurface";
+        const bool expectsString = name == "selectedObject" || name == "owner" || name == "cameraMode" ||
+                                   name == "directorPhaseName" || name == "directorPhaseStylePath" ||
+                                   name == "replayPathTarget" || name == "replayTripPlannerState" ||
+                                   name == "predictionBuildMode" || name == "pointerCapture" ||
+                                   name == "replayActiveTrack" || name == "developmentUiSurface";
         const bool expectsInteger = name == "directorPhaseIndex" || name == "editorUndoDepth" ||
                                     name == "editorRedoDepth" || name == "editorSelectionMatchesCapture" ||
                                     name == "imguiPanelMask";
         const bool expectsNumber = name == "replayPastTrajectoryFullRebuildCountMax" ||
                                    name == "replayPastTrajectoryIncrementalTrimCountMin" ||
                                    name == "replayPastTrajectoryPublishedPointCountMin" ||
+                                   name == "replayTripPlannerIterationMax" || name == "replayTripPlannerMissMax" ||
                                    name == "predictionSupersededRestartCountMin" || name == "predictionDivergenceMin" ||
                                    name == "predictionTargetDisplacementMin" || name == "imguiLayoutResetCountMin" ||
                                    name == "imguiFocusCountMin" || name == "imguiDpiScale" ||
@@ -1713,11 +1799,11 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         const bool expectsBool =
             name == "directorGrabbed" || name == "replayPredictionEnabled" || name == "predictionPathVisible" ||
             name == "predictionFullHorizonComplete" || name == "predictionBaselineVisible" ||
-            name == "replaySolverTrackAtPresent" || name == "predictionScrubFrameActive" ||
-            name == "liveSolverHashStableAcrossPrediction" || name == "predictionTrajectoryFingerprintReady" ||
-            name == "gizmoVisible" || name == "mousePickupActive" || name == "nativeCaptureRequested" ||
-            name == "cursorVisibleRequested" || name == "uiBlocksMouse" || name == "launcherRayActive" ||
-            name == "replayHistoricalSamplePaused" || name == "memoryOverlayEnabled" ||
+            name == "replayTripPlannerMissesImprove" || name == "replaySolverTrackAtPresent" ||
+            name == "predictionScrubFrameActive" || name == "liveSolverHashStableAcrossPrediction" ||
+            name == "predictionTrajectoryFingerprintReady" || name == "gizmoVisible" || name == "mousePickupActive" ||
+            name == "nativeCaptureRequested" || name == "cursorVisibleRequested" || name == "uiBlocksMouse" ||
+            name == "launcherRayActive" || name == "replayHistoricalSamplePaused" || name == "memoryOverlayEnabled" ||
             name == "editorSelectionExists" || name == "editorSelectionHasTerrain" || name == "imguiVisible" ||
             name == "legacyReplayPresentationActive" || name == "imguiPreferencesRecovered";
         if ( ( expectsString && !expected.is_string() ) || ( expectsInteger && !expected.is_number_integer() ) ||
@@ -1785,6 +1871,26 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPathTarget;
             CopyText( outAction.text, sizeof( outAction.text ), member.value().get<std::string>() );
+        }
+        else if ( name == "replayTripPlannerState" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayTripPlannerState;
+            CopyText( outAction.text, sizeof( outAction.text ), member.value().get<std::string>() );
+        }
+        else if ( name == "replayTripPlannerIterationMax" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayTripPlannerIterationMax;
+            outAction.numberValue = member.value().get<float>();
+        }
+        else if ( name == "replayTripPlannerMissMax" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayTripPlannerMissMax;
+            outAction.numberValue = member.value().get<float>();
+        }
+        else if ( name == "replayTripPlannerMissesImprove" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayTripPlannerMissesImprove;
+            outAction.boolValue = ReadBool( member.value() );
         }
         else if ( name == "replayPastTrajectoryFullRebuildCountMax" )
         {
@@ -2016,6 +2122,26 @@ std::string BoolString( bool value )
     return value ? "true" : "false";
 }
 
+const char* TripPlannerStateName( ReplayTripPlannerState state )
+{
+    switch ( state )
+    {
+    case ReplayTripPlannerState::Idle:
+        return "Idle";
+    case ReplayTripPlannerState::Seeding:
+        return "Seeding";
+    case ReplayTripPlannerState::AwaitingPrediction:
+        return "AwaitingPrediction";
+    case ReplayTripPlannerState::Correcting:
+        return "Correcting";
+    case ReplayTripPlannerState::Converged:
+        return "Converged";
+    case ReplayTripPlannerState::Failed:
+        return "Failed";
+    }
+    return "Unknown";
+}
+
 struct InteractionAutomationAssertionEvaluation
 {
     std::string expected;
@@ -2103,6 +2229,45 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
         evaluation.actual = replay.path.hasTarget ? replay.path.targetName : "";
         evaluation.passed = evaluation.actual == evaluation.expected;
         break;
+    case RunInteractionAutomationAssertKind::ReplayTripPlannerState:
+        evaluation.expected = action.text;
+        evaluation.actual = TripPlannerStateName( replay.tripPlanner.state );
+        evaluation.passed = evaluation.actual == evaluation.expected;
+        break;
+    case RunInteractionAutomationAssertKind::ReplayTripPlannerIterationMax:
+        evaluation.expected = "<=" + std::to_string( static_cast<uint32_t>( action.numberValue ) );
+        evaluation.actual = std::to_string( replay.tripPlanner.iteration );
+        evaluation.passed = replay.tripPlanner.iteration <= static_cast<uint32_t>( action.numberValue );
+        break;
+    case RunInteractionAutomationAssertKind::ReplayTripPlannerMissMax:
+        evaluation.expected = "<=" + std::to_string( action.numberValue );
+        evaluation.actual = std::to_string( replay.tripPlanner.missDistance );
+        evaluation.passed = replay.tripPlanner.missDistance <= action.numberValue;
+        break;
+    case RunInteractionAutomationAssertKind::ReplayTripPlannerMissesImprove:
+    {
+        bool improves = replay.tripPlanner.iterationMissCount > 0;
+        std::ostringstream misses;
+        // Why: the assertion's actual field carries the bounded sequence, not
+        // merely "true", so a passing lane-P report is also convergence evidence.
+        for ( std::size_t index = 0; index < replay.tripPlanner.iterationMissCount; ++index )
+        {
+            if ( index != 0 )
+            {
+                misses << ',';
+            }
+            misses << replay.tripPlanner.iterationMissDistances[index];
+            if ( index > 0 && replay.tripPlanner.iterationMissDistances[index] >=
+                                  replay.tripPlanner.iterationMissDistances[index - 1] - 0.001f )
+            {
+                improves = false;
+            }
+        }
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = misses.str();
+        evaluation.passed = improves == action.boolValue;
+        break;
+    }
     case RunInteractionAutomationAssertKind::ReplayPastTrajectoryFullRebuildCountMax:
     {
         const uint64_t rebuildCount = replay.path.pastTrajectory.fullRebuildCount;
@@ -2826,6 +2991,8 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
         case RunInteractionAutomationActionType::ShowReplayScrubber:
         case RunInteractionAutomationActionType::SetReplayPredictionEnabled:
         case RunInteractionAutomationActionType::SetReplayPathTarget:
+        case RunInteractionAutomationActionType::SetReplayInterceptTarget:
+        case RunInteractionAutomationActionType::SetReplayTripPlannerCommand:
         case RunInteractionAutomationActionType::SetReplayPredictionHorizonSeconds:
         case RunInteractionAutomationActionType::NudgeReplayPathTargetVelocity:
             ApplyInteractionAutomationReplayStateAction(
@@ -2856,6 +3023,24 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
                                sizeof( result.replayIntent.pathTargetName ),
                                name,
                                _TRUNCATE );
+                    return true;
+                },
+                [&]( const char* name )
+                {
+                    int modelIndex = -1;
+                    if ( !TryFindInteractionAutomationModel( scene.Scene(), name, modelIndex ) )
+                    {
+                        return false;
+                    }
+                    const Physics::PhysicsBodyRecord* body =
+                        scene.Scene().BodyStore().RecordForModelIndex( modelIndex );
+                    if ( !body || !body->sceneObjectId.IsValid() )
+                    {
+                        return false;
+                    }
+                    result.replayIntent.setInterceptTarget = true;
+                    result.replayIntent.interceptTargetId = body->sceneObjectId;
+                    result.replayIntent.interceptTargetModelRow.value = modelIndex;
                     return true;
                 },
                 [&]( WorldInteractionOwner owner, InteractionExitReason reason )

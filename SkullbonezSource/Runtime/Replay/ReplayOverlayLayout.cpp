@@ -70,6 +70,89 @@ UI::UIRect ReplayInterceptReadoutRect( int screenW )
              REPLAY_INTERCEPT_READOUT_HEIGHT };
 }
 
+UI::UIRect ReplayTripPlannerPanelRect( int screenW )
+{
+    const float width = (std::min)( REPLAY_TRIP_PLANNER_PANEL_WIDTH, static_cast<float>( screenW ) );
+    return { ( static_cast<float>( screenW ) - width ) * 0.5f,
+             REPLAY_TRIP_PLANNER_PANEL_TOP,
+             width,
+             REPLAY_TRIP_PLANNER_PANEL_HEIGHT };
+}
+
+void BuildReplayTripPlannerSurface( const ReplayTripPlannerView& planner,
+                                    int screenW,
+                                    ReplayTripPlannerSurface& outSurface )
+{
+    outSurface.Reset();
+    const UI::UIRect panel = ReplayTripPlannerPanelRect( screenW );
+    const float y = panel.y + 52.0f;
+    const UI::UIRect decrease{ panel.x + 12.0f, y, 34.0f, 26.0f };
+    const UI::UIRect increase{ panel.x + 116.0f, y, 34.0f, 26.0f };
+    const UI::UIRect plan{ panel.x + 166.0f, y, 92.0f, 26.0f };
+    const UI::UIRect commit{ panel.x + 274.0f, y, 92.0f, 26.0f };
+    const UI::UIRect cancel{ panel.x + 382.0f, y, 92.0f, 26.0f };
+    const bool awaiting = planner.state == ReplayTripPlannerState::Seeding ||
+                          planner.state == ReplayTripPlannerState::AwaitingPrediction ||
+                          planner.state == ReplayTripPlannerState::Correcting;
+    const bool canCancel = awaiting || planner.state == ReplayTripPlannerState::Converged ||
+                           planner.state == ReplayTripPlannerState::Failed;
+
+    const auto add = [&]( ReplayTripPlannerControl id,
+                          ReplayTripPlannerCommandKind action,
+                          RuntimeUiControlKind kind,
+                          const UI::UIRect& rect,
+                          bool enabled )
+    {
+        RuntimeUiControl control;
+        control.id = ReplayTripPlannerControlId( id );
+        control.action = RuntimeUiActionId{ static_cast<uint32_t>( action ) };
+        control.kind = kind;
+        control.drawRect = rect;
+        control.hitRect = rect;
+        control.visible = true;
+        control.enabled = enabled;
+        if ( !outSurface.TryAdd( control ) )
+        {
+            SB_FATAL( "ReplayTripPlannerSurface",
+                      "Cannot publish trip-planner control id=%u.",
+                      static_cast<uint32_t>( id ) );
+        }
+    };
+
+    // Invariant: specific buttons precede the broad panel row so disabled
+    // controls still block click-through without dispatching an action.
+    add( ReplayTripPlannerControl::TimeOfFlightDecrease,
+         ReplayTripPlannerCommandKind::DecreaseTimeOfFlight,
+         RuntimeUiControlKind::Button,
+         decrease,
+         !awaiting );
+    add( ReplayTripPlannerControl::TimeOfFlightIncrease,
+         ReplayTripPlannerCommandKind::IncreaseTimeOfFlight,
+         RuntimeUiControlKind::Button,
+         increase,
+         !awaiting );
+    add( ReplayTripPlannerControl::Plan,
+         ReplayTripPlannerCommandKind::Plan,
+         RuntimeUiControlKind::Button,
+         plan,
+         planner.available && !awaiting );
+    add( ReplayTripPlannerControl::Commit,
+         ReplayTripPlannerCommandKind::Commit,
+         RuntimeUiControlKind::Button,
+         commit,
+         planner.state == ReplayTripPlannerState::Converged );
+    add( ReplayTripPlannerControl::Cancel,
+         ReplayTripPlannerCommandKind::Cancel,
+         RuntimeUiControlKind::Button,
+         cancel,
+         canCancel );
+    add( ReplayTripPlannerControl::Panel,
+         ReplayTripPlannerCommandKind::None,
+         RuntimeUiControlKind::Panel,
+         panel,
+         true );
+}
+
 float ReplayScrubberRowCenterY( const UI::UIRect& panel, RunReplayTrack track )
 {
     (void)track;

@@ -33,6 +33,7 @@ Related:
 #include "ReplayOverlaySurface.h"
 #include "ReplayRecorder.h"
 #include "ReplayScrubber.h"
+#include "ReplayTripPlanner.h"
 #include "../Interaction/RuntimeInteractionController.h"
 #include "../UI/RuntimeUiSurface.h"
 #include "../../UI/UIDraw.h"
@@ -62,6 +63,9 @@ inline constexpr float REPLAY_SCRUBBER_FADE_EPSILON = 0.015f;
 inline constexpr float REPLAY_INTERCEPT_READOUT_WIDTH = 250.0f;
 inline constexpr float REPLAY_INTERCEPT_READOUT_HEIGHT = 28.0f;
 inline constexpr float REPLAY_INTERCEPT_READOUT_TOP = 52.0f;
+inline constexpr float REPLAY_TRIP_PLANNER_PANEL_WIDTH = 500.0f;
+inline constexpr float REPLAY_TRIP_PLANNER_PANEL_HEIGHT = 94.0f;
+inline constexpr float REPLAY_TRIP_PLANNER_PANEL_TOP = 88.0f;
 inline constexpr float REPLAY_CAUSE_TREE_PANEL_WIDTH = 312.0f;
 inline constexpr float REPLAY_CAUSE_TREE_PANEL_MARGIN = 18.0f;
 inline constexpr float REPLAY_CAUSE_TREE_PANEL_TOP = 84.0f;
@@ -114,6 +118,24 @@ struct ReplayScrubberSurfaceInput
 
 using ReplayScrubberSurface = RuntimeUiSurface<13>;
 
+enum class ReplayTripPlannerControl : uint32_t
+{
+    None,
+    TimeOfFlightDecrease,
+    TimeOfFlightIncrease,
+    Plan,
+    Commit,
+    Cancel,
+    Panel
+};
+
+inline RuntimeUiControlId ReplayTripPlannerControlId( ReplayTripPlannerControl control )
+{
+    return RuntimeUiControlId{ static_cast<uint32_t>( control ) };
+}
+
+using ReplayTripPlannerSurface = RuntimeUiSurface<6>;
+
 enum class ReplayCauseWindowControl : uint32_t
 {
     None,
@@ -145,6 +167,10 @@ void BuildReplayCauseWindowSurface( const RunReplayCauseTreeState& state, Replay
 
 UI::UIRect ReplayScrubberPanelRect( int screenW, int screenH );
 UI::UIRect ReplayInterceptReadoutRect( int screenW );
+UI::UIRect ReplayTripPlannerPanelRect( int screenW );
+void BuildReplayTripPlannerSurface( const ReplayTripPlannerView& planner,
+                                    int screenW,
+                                    ReplayTripPlannerSurface& outSurface );
 float ReplayScrubberRowCenterY( const UI::UIRect& panel, RunReplayTrack track );
 UI::UIRect ReplayScrubberSaveButtonRect( int screenW, int screenH, RunReplayTrack trackName );
 UI::UIRect ReplayScrubberLoadButtonRect( int screenW, int screenH, RunReplayTrack trackName );

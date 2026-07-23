@@ -96,14 +96,18 @@ TEST_CASE( "Replay intercept readout scans only prefix extensions and keeps the 
     CHECK( readout.View().closestFrame == 120u );
 }
 
-TEST_CASE( "Replay intercept classification uses a strict collider-radius threshold" )
+TEST_CASE( "Replay intercept classification includes touching contact slop" )
 {
     std::vector<RunReplayPredictionFrame> frames;
-    frames.push_back( MakeFrame( 6u, ZERO_VECTOR, Vector3( 2.0f, 0.0f, 0.0f ) ) );
+    frames.push_back( MakeFrame( 5u, ZERO_VECTOR, Vector3( 2.006f, 0.0f, 0.0f ) ) );
     ReplayInterceptReadout readout;
     readout.Update( MakeInput( frames ) );
     CHECK( readout.View().valid );
     CHECK_FALSE( readout.View().intercept );
+
+    frames.push_back( MakeFrame( 6u, ZERO_VECTOR, Vector3( 2.0f, 0.0f, 0.0f ) ) );
+    readout.Update( MakeInput( frames ) );
+    CHECK( readout.View().intercept );
 
     frames.push_back( MakeFrame( 7u, ZERO_VECTOR, Vector3( 1.5f, 0.0f, 0.0f ) ) );
     readout.Update( MakeInput( frames ) );
