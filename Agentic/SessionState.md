@@ -11,20 +11,22 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-23rd-JUL-26` |
-| Current baseline | Solar-system SS0 provides allocation-free orbital math; SS1 adds the fixed-sun Earth/Mars/ship scene with repeatable 130-second orbital, wakefulness, and first-window evidence. |
-| Current objective | Implement SS2: add the bounded Replay intercept/closest-approach consumer, target selection, Legacy overlay, and deterministic coverage. |
-| Active/future progress | Solar-system plan 2/7; 29%. |
+| Current baseline | Solar-system SS0-SS2 provide allocation-free orbital math, the proved four-body scene, and an incremental Replay closest-approach/intercept readout with independent target selection. |
+| Current objective | Implement SS3: add allocation-free analytic Earth/Mars guide arcs to Replay presentation. |
+| Active/future progress | Solar-system plan 3/7; 43%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | Solar-system SS1 `validate_full` passes with exit 0 in 151.5 s: 355/355 tests and 68,848/68,848 assertions, all CPU/coverage floors, 751/751 production project/filter rows, zero-warning builds, accepted DX12 images with zero errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | SS1 scene-load probe exits 0 with zero parser warnings; two 15,600-tick witnesses have identical final states, bounded planet radii, and zero sleep rows; focused orbital tests pass 6/6; `validate_full` passes. |
+| Last broad local gate | Solar-system SS2 `validate_full` passes with exit 0 in 155.3 s: 358/358 tests and 68,861/68,861 assertions, all CPU/coverage floors, 753/753 production project/filter rows, zero-warning builds, accepted DX12 images with zero errors, and byte-exact 44,401-line physics CSV. |
+| Validation for current edits | SS2 focused tests pass 3/3 and 13/13 assertions; `validate_full` passes; the exactly-one replay visual-fidelity run passes in 433.3 s with one process/generation, 2,401 ticks, 200 causal nodes, zero reserve growth, all controls, and no refresh. |
 
 ## Live Queue
 
-NOW. `solar-system-trajectory-planner` is active at 2/7. SS0 supplies bounded,
+NOW. `solar-system-trajectory-planner` is active at 3/7. SS0 supplies bounded,
 allocation-free orbital math. SS1's interactive four-body scene loads cleanly,
 holds planet radii for 3.085 Mars periods, repeats its exact final state, keeps
 all movable bodies awake, and proves the authored first transfer window. SS2
-now adds a bounded Replay intercept consumer and Legacy target/overlay path.
+adds the bounded incremental Replay intercept consumer, independent target
+selection, Legacy markers/text, focused coverage, and one-generation fidelity
+proof. SS3 now adds analytic Earth/Mars guide arcs.
 
 NOW. `ui-runtime-separation` is complete at 5/5. UI is physically below
 Runtime, has zero Runtime includes, and crosses through cohesive navigation,

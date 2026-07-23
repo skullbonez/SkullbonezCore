@@ -65,6 +65,7 @@ Related:
 
 #include "ReplayAuthoring.h"
 #include "ReplayCoordination.h"
+#include "ReplayInterceptReadout.h"
 #include "ReplayIdentity.h"
 #include "ReplayPrediction.h"
 #include "ReplayPresentation.h"
@@ -416,6 +417,10 @@ class ReplayRuntime
                                         const Physics::PhysicsBodyStore& bodyStore,
                                         const Physics::ColliderStore& colliderStore,
                                         std::span<const Rendering::RenderInstancePresentationRecord> presentation );
+    ReplayPathPickResult ApplyInterceptTargetPick( const ReplayPathPickInput& input,
+                                                   const Physics::PhysicsBodyStore& bodyStore,
+                                                   const Physics::ColliderStore& colliderStore );
+    void UpdateInterceptReadout( Physics::PhysicsEngine& physics, bool mutualGravityEnabled );
     ReplayInspectionCameraAction TickScrubberInput( bool uiBlocksMouse,
                                                     bool editorModeEnabled,
                                                     bool scenePhysicsEnabled,
@@ -475,6 +480,7 @@ class ReplayRuntime
     ReplayPresentation m_visualPresentation;
     ReplayAuthoring m_authoring;
     ReplayPrediction m_predictionOwner;
+    ReplayInterceptReadout m_interceptReadout;
     SceneLifecycleGenerationObserver m_sceneClearObserver;
     SceneLifecycleGenerationObserver m_sceneActivationObserver;
 };

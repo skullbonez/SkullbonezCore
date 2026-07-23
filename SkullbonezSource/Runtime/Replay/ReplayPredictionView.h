@@ -87,6 +87,7 @@ struct ReplayPredictionPresentationView
     Physics::PhysicsSceneObjectId trajectoryBuildRootId;
     ReplayFrameIndex sourceFrame = 0;
     ReplayFrameIndex revealFrame = 0;
+    uint32_t generation = 0;                                          // Successful private-simulation generation owning this published prefix.
     uint32_t topologyVersion = 0;
     uint32_t trajectoryBuildTopologyVersion = 0;
     std::size_t trajectoryBuiltNodeCount = 0;

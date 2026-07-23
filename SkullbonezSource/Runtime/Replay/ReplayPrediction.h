@@ -369,6 +369,7 @@ class ReplayPrediction
         view.trajectoryBuildRootId = m_state.trajectoryBuild.rootId;
         view.sourceFrame = m_state.simulation.sourceFrameIndex;
         view.revealFrame = m_state.revealClock.presentedFrame;
+        view.generation = m_state.build.generationBeginCount;
         view.topologyVersion = m_state.futureNodeCache.futureNodesTopologyVersion;
         view.trajectoryBuildTopologyVersion = m_state.trajectoryBuild.topologyVersion;
         view.trajectoryBuiltNodeCount = m_state.trajectoryBuild.builtNodeCount;

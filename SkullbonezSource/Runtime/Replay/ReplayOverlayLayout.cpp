@@ -61,6 +61,15 @@ UI::UIRect ReplayScrubberPanelRect( int screenW, int screenH )
     return { x, y, width, REPLAY_SCRUBBER_PANEL_HEIGHT };
 }
 
+UI::UIRect ReplayInterceptReadoutRect( int screenW )
+{
+    const float width = (std::min)( REPLAY_INTERCEPT_READOUT_WIDTH, static_cast<float>( screenW ) );
+    return { ( static_cast<float>( screenW ) - width ) * 0.5f,
+             REPLAY_INTERCEPT_READOUT_TOP,
+             width,
+             REPLAY_INTERCEPT_READOUT_HEIGHT };
+}
+
 float ReplayScrubberRowCenterY( const UI::UIRect& panel, RunReplayTrack track )
 {
     (void)track;

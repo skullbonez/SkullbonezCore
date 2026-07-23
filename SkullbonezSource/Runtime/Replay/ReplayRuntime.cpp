@@ -54,6 +54,7 @@ Related:
 #include "../Tools/RuntimeFileWriter.h"
 #include "../Input/InputRouter.h"
 #include "../Interaction/RuntimeInteractionCommands.h"
+#include "../Interaction/RuntimePickService.h"
 #include "../Tools/RuntimeTools.h"
 #include "../../Core/AmortizedTask.h"
 #include "../../Core/Profiler.h"
@@ -85,6 +86,14 @@ using Physics::PhysicsBodyStore;
 using Physics::PhysicsEngine;
 using Physics::PhysicsPipelineRecord;
 using Physics::PhysicsPipelineStageName;
+
+float ReplayRuntimeColliderRadius( const ColliderStore& colliderStore,
+                                   Physics::PhysicsSceneObjectId sceneObjectId ) noexcept
+{
+    const Physics::PhysicsColliderHandle handle = colliderStore.HandleForSceneObjectId( sceneObjectId );
+    const Physics::ColliderRecord* collider = colliderStore.RecordForHandle( handle );
+    return collider ? collider->boundingRadius : 0.0f;
+}
 
 constexpr double REPLAY_PREDICTION_MAX_WORK_MILLISECONDS = 5.0;
 
@@ -431,6 +440,14 @@ void ReplayRuntime::AppendOverlayTrace( PhysicsEngine& physics,
                                            input.editorModeEnabled,
                                            input.gesture,
                                            tracer );
+    const ReplayInterceptView& intercept = m_interceptReadout.View();
+    if ( intercept.valid )
+    {
+        const Vector3 color = intercept.intercept ? Vector3( 0.18f, 0.95f, 0.42f ) : Vector3( 1.0f, 0.58f, 0.16f );
+        tracer.AddReplayContactMarker( intercept.shipPosition, Math::Vector::ZERO_VECTOR, color.x, color.y, color.z );
+        tracer.AddReplayContactMarker( intercept.targetPosition, Math::Vector::ZERO_VECTOR, color.x, color.y, color.z );
+        tracer.AddReplayPathSegment( intercept.shipPosition, intercept.targetPosition, color.x, color.y, color.z );
+    }
 }
 
 
@@ -511,6 +528,7 @@ ReplayRuntime::BuildOverlayStateView( bool editorModeEnabled,
 
     return { scrubber,
              m_predictionOwner.PresentationView(),
+             m_interceptReadout.View(),
              m_visualPresentation.PathVisualizer(),
              m_authoring.VelocityEdit(),
              m_authoring.CauseTree(),
@@ -780,6 +798,7 @@ void ReplayRuntime::ResetPredictionPresentationVerification()
 void ReplayRuntime::ClearPathVisualizerState()
 {
     m_visualPresentation.ClearPathState();
+    m_interceptReadout.ClearTarget();
     m_authoring.ResetCauseTreeRows();
     m_predictionOwner.ClearCache();
     m_predictionOwner.MarkDirty();
@@ -818,6 +837,46 @@ ReplayRuntime::ApplyPathPick( const ReplayPathPickInput& input,
 }
 
 
+ReplayPathPickResult ReplayRuntime::ApplyInterceptTargetPick( const ReplayPathPickInput& input,
+                                                              const PhysicsBodyStore& bodyStore,
+                                                              const ColliderStore& colliderStore )
+{
+    ReplayPathPickResult result;
+    if ( !input.hasWorldRay )
+    {
+        if ( input.clearOnMiss )
+        {
+            m_interceptReadout.ClearTarget();
+        }
+        return result;
+    }
+
+    RuntimePickRequest request;
+    request.purpose = RuntimePickPurpose::ReplayPathTarget;
+    request.bodyStore = &bodyStore;
+    request.colliderStore = &colliderStore;
+    request.rayOrigin = input.rayOrigin;
+    request.rayDirection = input.rayDirection;
+    RuntimePickResult pick;
+    if ( RuntimePickService::TryPickModel( request, pick ) )
+    {
+        const PhysicsBodyRecord* body = bodyStore.RecordForHandle( pick.body );
+        if ( body )
+        {
+            // Invariant: durable scene identity owns the selection. The picked
+            // dense row remains only a repairable cold-tool lookup hint.
+            m_interceptReadout.SetTarget( body->sceneObjectId, pick.modelRow );
+            result.picked = true;
+        }
+    }
+    else if ( input.clearOnMiss )
+    {
+        m_interceptReadout.ClearTarget();
+    }
+    return result;
+}
+
+
 bool ReplayRuntime::RouteWorldPointer( const ReplayWorldPointerInput& input,
                                        const SceneEntityStore& entities,
                                        const Physics::PhysicsBodyStore& bodyStore,
@@ -835,8 +894,12 @@ bool ReplayRuntime::RouteWorldPointer( const ReplayWorldPointerInput& input,
         return false;
     }
 
+    // Concept: Ctrl+Left outside launcher mode owns the secondary intercept
+    // target. Launcher mode retains its established path-root selection.
     const ReplayPathPickResult pickResult =
-        ApplyPathPick( input.pick, entities, bodyStore, colliderStore, presentation );
+        input.controlDown && !input.launcherMode
+            ? ApplyInterceptTargetPick( input.pick, bodyStore, colliderStore )
+            : ApplyPathPick( input.pick, entities, bodyStore, colliderStore, presentation );
     if ( pickResult.exitInspectionCamera )
     {
         ReplayPresentationOperations::ExitInspectionCamera( m_visualPresentation,
@@ -859,9 +922,10 @@ bool ReplayRuntime::HasActiveInteractionState() const
     const RunReplayCameraState camera = m_visualPresentation.CameraView();
     return camera.active || camera.focusKind != RunReplayCameraFocusKind::None || scrubber.historicalSamplePaused ||
            scrubber.liveAdvanceHeld || m_visualPresentation.PathVisualizer().hasTarget ||
-           !m_visualPresentation.PathVisualizer().targets.empty() || m_predictionOwner.State().enabled ||
-           m_predictionOwner.State().build.building || m_authoring.VelocityEdit().enabled ||
-           m_authoring.CauseTree().selectedRow >= 0 || !m_authoring.CauseTree().rows.empty();
+           m_interceptReadout.HasTarget() || !m_visualPresentation.PathVisualizer().targets.empty() ||
+           m_predictionOwner.State().enabled || m_predictionOwner.State().build.building ||
+           m_authoring.VelocityEdit().enabled || m_authoring.CauseTree().selectedRow >= 0 ||
+           !m_authoring.CauseTree().rows.empty();
 }
 
 
@@ -1604,6 +1668,40 @@ void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics,
     }
     ApplyPredictionUpdateResult( result );
     PreparePredictionPresentation( physics, entities );
+    UpdateInterceptReadout( physics, worldForces.mutualGravity.enabled );
+}
+
+
+void ReplayRuntime::UpdateInterceptReadout( PhysicsEngine& physics, bool mutualGravityEnabled )
+{
+    // Lifetime: PresentationView publishes a frame-local immutable prefix. The
+    // readout scans it synchronously and retains only its aggregate minimum.
+    const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
+    const RunReplayPathVisualizerState& path = m_visualPresentation.PathVisualizer();
+    const PhysicsBodyStore& bodyStore = PhysicsEngine::ReadBodies( physics );
+    const ColliderStore& colliderStore = PhysicsEngine::ReadColliders( physics );
+
+    Physics::ModelRowHint targetRow = m_interceptReadout.TargetModelRow();
+    const Physics::PhysicsBodyHandle targetHandle =
+        bodyStore.HandleForSceneObjectId( m_interceptReadout.TargetId(), targetRow.value );
+    if ( bodyStore.ResolveModelRow( targetHandle, targetRow ) )
+    {
+        m_interceptReadout.SetTarget( m_interceptReadout.TargetId(), targetRow );
+    }
+
+    ReplayInterceptUpdateInput input;
+    input.frames = prediction.frames;
+    input.shipId = path.targetId;
+    input.targetId = m_interceptReadout.TargetId();
+    // Invariant: classification uses exact Physics-owned broadphase radii, not
+    // a UI approximation, so topology repair and replay agree on contact size.
+    input.shipRadius = ReplayRuntimeColliderRadius( colliderStore, input.shipId );
+    input.targetRadius = ReplayRuntimeColliderRadius( colliderStore, input.targetId );
+    input.generation = prediction.generation;
+    input.topologyVersion = prediction.topologyVersion;
+    input.usingBuildFrames = prediction.usingBuildFrames;
+    input.enabled = mutualGravityEnabled && prediction.enabled && path.hasTarget && m_interceptReadout.HasTarget();
+    m_interceptReadout.Update( input );
 }
 
 

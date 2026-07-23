@@ -516,8 +516,9 @@ historical work per commit-contract rule 4.
 
 The active priority is
 `TODO/solar-system-trajectory-planner.md` in binding order SS0→SS6. SS0 is
-complete; SS1 authors and proves the four-body solar-system scene. SS2 now
-adds the bounded Replay intercept/closest-approach readout.
+complete through SS2: bounded orbital math, the proved four-body scene, and
+the incremental Replay intercept readout. SS3 now adds analytic planet guide
+arcs.
 
 The 2026-07-18 adversarial-review round-7 lane is closed. Scene-controller
 round 2, DX12 backend ownership, naming/identity debt, and small-findings
@@ -1482,7 +1483,7 @@ Core are frozen for this plan.
 
 | Plan | State | Verified phase count | Next action |
 |---|---|---:|---|
-| [solar-system-trajectory-planner](TODO/solar-system-trajectory-planner.md) | Active | 2/7 | SS2 adds the bounded Replay intercept/closest-approach readout |
+| [solar-system-trajectory-planner](TODO/solar-system-trajectory-planner.md) | Active | 3/7 | SS3 adds allocation-free analytic planet guide arcs |
 
 ## Features
 

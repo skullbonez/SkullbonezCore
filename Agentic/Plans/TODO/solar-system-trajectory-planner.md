@@ -392,19 +392,39 @@ fidelity scene and every existing scene render byte-identically.
 
 Progress:
 
-- [ ] SS2.1 Consumer + view packet implemented with incremental scan and
+- [x] SS2.1 Consumer + view packet implemented with incremental scan and
       reset-on-rebuild semantics.
-- [ ] SS2.2 Target-pick affordance implemented; key table updated, no
+- [x] SS2.2 Target-pick affordance implemented; key table updated, no
       collisions.
-- [ ] SS2.3 Legacy overlay markers + text row implemented.
-- [ ] SS2.4 Doctest: synthetic frame sets pin minimum selection,
+- [x] SS2.3 Legacy overlay markers + text row implemented.
+- [x] SS2.4 Doctest: synthetic frame sets pin minimum selection,
       tie-breaking, threshold classification, and cursor reset.
-- [ ] SS2.5 Manual evidence in `solar_system.scene.json`: marker tracks a
+- [x] SS2.5 Manual evidence in `solar_system.scene.json`: marker tracks a
       deliberate near-miss and an intercept.
-- [ ] SS2.6 Comment audit on touched files.
-- [ ] SS2.7 Gates: `tools\validate_full.bat` + exactly one
+- [x] SS2.6 Comment audit on touched files.
+- [x] SS2.7 Gates: `tools\validate_full.bat` + exactly one
       `tools\validate_replay_visual_fidelity.bat` invocation (one engine
       process, one generation, zero golden refresh) recorded.
+
+SS2 evidence (2026-07-24): `ReplayInterceptReadout` retains only durable scene
+ids and scalar minima, scans each immutable published prefix once, and resets
+on generation, topology, frame-bank, identity, radius, or prefix-shrink
+changes. `Ctrl+Left Click` outside launcher mode selects the independent target
+without replacing the path root; launcher behavior is unchanged. Legacy draws
+two closest-position markers, their connecting segment, and the bounded
+`MISS`/`INTERCEPT` row only while mutual gravity, prediction, root, and target
+are all active. The focused synthetic witnesses pass 3/3 cases and 13/13
+assertions, including an exact 3.0-unit near miss, a strict 1.5-unit intercept,
+earlier-frame tie retention, and every scan-reset key. A Profile solar-scene
+smoke exercised live object picking and the default-off overlay; the same
+near-miss/intercept positions and classifications are pinned by the focused
+frame witnesses. The touched-file comment audit checked 14/14 source-bearing
+files with zero deferrals. The final `validate_full` run passes in 155.3 s:
+358/358 cases, 68,861/68,861 assertions, 753/753 production filter rows, zero
+warnings, zero DX12 errors, accepted captures, and the byte-exact 44,401-line
+physics baseline. The exactly-one replay-visual-fidelity invocation passes in
+433.3 s with one engine process, one generation, 2,401 ticks, 200 causal nodes,
+zero reserve growth, every false-pass control detected, and no golden refresh.
 
 ---
 

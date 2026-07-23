@@ -95,6 +95,7 @@ void RenderReplayScrubberOverlay( Text::TextBatch& textBatch, const ReplayOverla
         // inactive. This is a presentation fence, not replay-owner mutation.
         return;
     }
+    RenderReplayInterceptOverlay( textBatch, context );
     const ReplayScrubberView& scrubber = replay.scrubber;
     Rendering::Dx12TextureOwner& renderTextures = context.renderTextures;
     Rendering::Dx12GeometryOwner& renderCommands = context.renderCommands;
@@ -822,6 +823,45 @@ void RenderReplayScrubberOverlay( Text::TextBatch& textBatch, const ReplayOverla
                   "CONTACTS PARTIAL" );
     }
 
+    Text2d::FlushQuads( textBatch, renderCommands );
+    Text2d::FlushText( textBatch, renderTextures, renderCommands );
+}
+
+void RenderReplayInterceptOverlay( Text::TextBatch& textBatch, const ReplayOverlayRenderContext& context )
+{
+    // Why: closest approach is useful while the scrubber is hidden, so this
+    // independent Legacy surface is invoked before scrubber visibility policy.
+    const ReplayInterceptView& intercept = context.replay.intercept;
+    if ( !context.legacyReplaySurfaceActive || !intercept.valid || context.screenW <= 0 || context.screenH <= 0 )
+    {
+        return;
+    }
+
+    Rendering::Dx12TextureOwner& renderTextures = context.renderTextures;
+    Rendering::Dx12GeometryOwner& renderCommands = context.renderCommands;
+    const UI::UIDrawContext draw( context.screenW,
+                                  context.screenH,
+                                  nullptr,
+                                  &renderTextures,
+                                  &renderCommands,
+                                  &textBatch );
+    const UI::UIRect panel = ReplayInterceptReadoutRect( context.screenW );
+    const UI::Style::UIPalette& palette = UI::Style::Palette();
+    const UI::Style::UIRadii& radii = UI::Style::Radii();
+    const UI::Style::UIColor accent = intercept.intercept ? palette.accentStrong : palette.warningAccent;
+
+    char label[64] = {};
+    if ( intercept.intercept )
+    {
+        sprintf_s( label, sizeof( label ), "INTERCEPT  ETA %.1fs", intercept.etaSeconds );
+    }
+    else
+    {
+        sprintf_s( label, sizeof( label ), "MISS %.1fu  ETA %.1fs", intercept.missDistance, intercept.etaSeconds );
+    }
+    draw.RoundedPanel( panel, radii.control, palette.windowSubtle, palette.innerBorder );
+    const float labelWidth = Text2d::MeasureText( 11.0f, label );
+    draw.Text( panel.x + ( panel.w - labelWidth ) * 0.5f, panel.y + 7.0f, 11.0f, accent.r, accent.g, accent.b, label );
     Text2d::FlushQuads( textBatch, renderCommands );
     Text2d::FlushText( textBatch, renderTextures, renderCommands );
 }

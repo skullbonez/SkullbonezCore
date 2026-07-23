@@ -204,6 +204,9 @@
     <ClCompile Include="SkullbonezTests\TestReplayPredictionScheduling.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestReplayInterceptReadout.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestReplayVisualPacket.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
@@ -346,6 +349,9 @@
       <Filter>Source Files\Runtime\Interaction</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.cpp">
+      <Filter>Source Files\Runtime\Replay</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayInterceptReadout.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayArtifactHashLog.cpp">

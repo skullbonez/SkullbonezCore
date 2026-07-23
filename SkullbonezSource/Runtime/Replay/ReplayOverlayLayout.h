@@ -59,6 +59,9 @@ inline constexpr float REPLAY_SCRUBBER_PAST_TOGGLE_WIDTH = 68.0f;
 inline constexpr double REPLAY_SCRUBBER_FADE_IN_SECONDS = 0.18;
 inline constexpr double REPLAY_SCRUBBER_FADE_OUT_SECONDS = 0.24;
 inline constexpr float REPLAY_SCRUBBER_FADE_EPSILON = 0.015f;
+inline constexpr float REPLAY_INTERCEPT_READOUT_WIDTH = 250.0f;
+inline constexpr float REPLAY_INTERCEPT_READOUT_HEIGHT = 28.0f;
+inline constexpr float REPLAY_INTERCEPT_READOUT_TOP = 52.0f;
 inline constexpr float REPLAY_CAUSE_TREE_PANEL_WIDTH = 312.0f;
 inline constexpr float REPLAY_CAUSE_TREE_PANEL_MARGIN = 18.0f;
 inline constexpr float REPLAY_CAUSE_TREE_PANEL_TOP = 84.0f;
@@ -141,6 +144,7 @@ void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, Replay
 void BuildReplayCauseWindowSurface( const RunReplayCauseTreeState& state, ReplayCauseWindowSurface& outSurface );
 
 UI::UIRect ReplayScrubberPanelRect( int screenW, int screenH );
+UI::UIRect ReplayInterceptReadoutRect( int screenW );
 float ReplayScrubberRowCenterY( const UI::UIRect& panel, RunReplayTrack track );
 UI::UIRect ReplayScrubberSaveButtonRect( int screenW, int screenH, RunReplayTrack trackName );
 UI::UIRect ReplayScrubberLoadButtonRect( int screenW, int screenH, RunReplayTrack trackName );
