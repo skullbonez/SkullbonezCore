@@ -11,16 +11,16 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-22nd-JUL-26` |
-| Current baseline | Wide-signature round 2 is closed: all eight reopened threshold-16 rows are removed, the final scan is empty, and independent no-bag review is clear. Legacy remains the development default. |
-| Current objective | Complete `wide-signature-decomposition-round-3`: remove all nine current 13–15 parameter functions without owner bags. |
-| Active/future progress | 5 / 6 live tasks; 83%. |
+| Current baseline | Wide-signature round 3 is closed: all nine 13–15 parameter rows are removed, the final threshold-13 scan is empty, and independent no-bag review is clear. Legacy remains the development default. |
+| Current objective | No active architecture campaign; preserve the zero-row threshold-13 inventory. |
+| Active/future progress | 0 live tasks; 0%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | D4 `validate_full` passes in 101.7 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | T4 threshold-13 inventory is empty; Profile, Replay visual fidelity, and full gates pass. |
+| Last broad local gate | T5 `validate_full` passes in 99.5 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
+| Validation for current edits | Round 3 closure passes inventory/static proofs, allocation and Replay artifact gates, authoritative scrub fidelity, final full gate, and independent review. |
 
 ## Live Queue
 
-NOW. `wide-signature-decomposition-round-3` is active at T4 complete (5/6).
+NOW. `wide-signature-decomposition-round-3` is complete (6/6).
 The owner accepts parameter counts of 12 and below and requested the same
 owner-safe treatment for all nine current 13–15 rows. CodeGraph/current-source
 review found a bounded decomposition for every row; none is blocked or
@@ -29,8 +29,10 @@ the live threshold-13 inventory fell to six. T2 narrowed the private physics
 wake-access constructor; five rows remained. T3 narrowed model and shadow
 submission with synchronous read-only inputs while keeping stores, frame
 resources, and worker ownership explicit. T4 removed the final three Replay
-rows with bounded diagnostic, render-preparation, and gesture values; the live
-threshold-13 inventory is empty and all 16 touched source files are audited.
+rows with bounded diagnostic, render-preparation, and gesture values. T5
+confirmed the empty threshold-13 inventory, 16/16 comment audit, dependency
+and allocation policy, all Replay/full gates, and independent no-bag approval.
+No row was deferred.
 
 `wide-signature-decomposition-round-2` closed D0-D4 (5/5) and left the
 live ledger. All eight reopened threshold-16 rows were removed without a
@@ -332,7 +334,6 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Complete `wide-signature-decomposition-round-3` T5. Reconcile the empty
-threshold-13 inventory, run static/dependency/allocation proofs, obtain the
-single independent no-bag review, run the final Replay/full gates, and archive
-the closure report.
+No active architecture campaign. Preserve the empty threshold-13 inventory and
+owner-safe value boundaries. Closure evidence is in
+`Agentic/Reports/2026-07-23/wide-signature-decomposition-round-3-closure.md`.
