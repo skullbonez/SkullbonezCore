@@ -4,7 +4,7 @@ Date: 2026-07-23
 Status: IN PROGRESS — drafted from the 2026-07-23 from-source architecture review of
 `nightrunner-22nd-JUL-26`. Registered in `MASTER-PLAN.md` on 2026-07-23 as
 plan 3 of the Architecture Follow-Up Campaign Round 3; starts after
-`ui-runtime-separation` closes. 3/5 phases complete.
+`ui-runtime-separation` closes. 4/5 phases complete.
 Impact area: `SkullbonezSource/Runtime/` package structure, includes, project
 files, intra-Runtime dependency rules
 Owner: runtime
@@ -324,7 +324,7 @@ updates, and execution of these proofs against the real layout.
   `tools\validate_fast.bat` passes formatting, project metadata, staged-size,
   Profile/Debug `/W4` builds, and tests in 75.7 seconds with zero warnings.
 
-- [ ] **R4 — Input ownership statement.** With `Runtime/Input/` assembled,
+- [x] **R4 — Input ownership statement.** With `Runtime/Input/` assembled,
   write one package-level statement (in the package's most central header)
   of who owns what across the five input families: device sampling
   (`Input`), binding/context enforcement (`InputRouter`), frame assembly
@@ -335,6 +335,15 @@ updates, and execution of these proofs against the real layout.
   bindings, and edge behavior must not change. Acceptance: the ownership
   statement exists, names each file's single responsibility, and the
   independent review (R5) finds no input state reachable through two owners.
+
+  Completed 2026-07-23. `InputController.h` now records the complete ownership
+  flow: `Input` owns Win32 sampling buffers, `InputController.Bindings` owns the
+  immutable binding table, `InputRouter` owns all retained routing/context and
+  pointer state, the App interaction TU is part of that same router owner,
+  `InputFrame` assembles frame-local values, `InputFrameExecution` sequences
+  the turn, and stateless `InputController` applies mode/camera policy to
+  owner-provided values. The one-file comment audit passes. This is a
+  comment-only source edit, so repository validation is not required.
 
 - [ ] **R5 — Independent ownership review and closure.** A fresh review
   checks: (a) no move recreated a bag/forwarding shape banned by the

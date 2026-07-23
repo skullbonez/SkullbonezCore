@@ -11,12 +11,12 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-23rd-JUL-26` |
-| Current baseline | Runtime-package R3 physically moves all 80 assigned files into owner packages; RuntimeFrameViews.h is the sole top-level residue, all 18 edge proofs are empty, and Profile/Debug builds pass. |
-| Current objective | Implement runtime-package R4: document the Input package's single-owner flow in its central header without changing behavior. |
-| Active/future progress | 14/16 registered architecture follow-up tasks; 88%. |
+| Current baseline | Runtime-package R4 records one explicit Input flow: InputRouter alone retains routing/context/pointer state; hardware sampling, bindings, frame assembly/execution, and stateless mode/camera policy have distinct roles. |
+| Current objective | Implement runtime-package R5: one independent ownership review, standing AGENTS rules, final structural and behavior gates, and closure evidence. |
+| Active/future progress | 15/16 registered architecture follow-up tasks; 94%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | UI/runtime U3 review remediation `validate_full` passes with exit 0 in 101.8 s: 749/749 project/filter items, all CPU/coverage floors, zero-warning builds, accepted DX12 images with zero errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | R3 passes the 18 edge proofs, 749/749 production and 102/102 test project/filter checks, allocation-policy checks, all ten direct coverage floors, and `validate_fast` with zero warnings. |
+| Validation for current edits | R4 is comment-only and its one-file comment audit passes; no repository validation is required. R3's structural/build/tooling gates remain green. |
 
 ## Live Queue
 
@@ -28,12 +28,13 @@ command-to-state-to-status coverage. All standing proofs and final gates pass.
 Closure evidence is in
 `Agentic/Reports/2026-07-23/ui-runtime-separation-closure.md`.
 
-NOW. `runtime-package-decomposition` is active at 3/5. R3 moves all 80 assigned
-files into the R1 owner packages, rewrites includes and operational references,
-and leaves only `RuntimeFrameViews.h` at top level. All 18 R2 proofs return zero
-rows; project/filter, allocation-policy, direct coverage, and `validate_fast`
-gates pass. R4 now records the Input package's single-owner flow in its central
-header.
+NOW. `runtime-package-decomposition` is active at 4/5. R3 moves all 80 assigned
+files into owner packages and leaves only `RuntimeFrameViews.h` at top level;
+all structural/build/tooling gates pass. R4 records the single-owner Input flow
+in `InputController.h`: only `InputRouter` retains routing/context/pointer
+state, while sampling, bindings, stateless assembly/execution, and mode/camera
+policy have distinct roles. R5 now performs the one independent review, adds
+the standing `AGENTS.md` rules, runs final gates, and closes the campaign.
 
 NOW. `wide-signature-parameter-bag-remediation` is complete (6/6).
 The owner rejected replacements such as `RenderModelPassInput` that merely

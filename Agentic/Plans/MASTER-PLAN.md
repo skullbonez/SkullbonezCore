@@ -1460,7 +1460,7 @@ navigation model).
 |---|---|---:|---|
 | [source-blemish-remediation](../Reports/2026-07-23/source-blemish-remediation-closure.md) | Complete | 6/6 | Hot/cold collider data, diagnostic registration, honest Runtime names, profiler placement, owner ruling, independent review, and final gates complete |
 | [ui-runtime-separation](../Reports/2026-07-23/ui-runtime-separation-closure.md) | Complete | 5/5 | Zero UI→Runtime includes; independent review finding remediated; all standing proofs and final gates pass |
-| [runtime-package-decomposition](TODO/runtime-package-decomposition.md) | Active | 3/5 | R3 moves all 80 assigned files, leaves only RuntimeFrameViews.h at top level, and passes all structural/build/tooling gates |
+| [runtime-package-decomposition](TODO/runtime-package-decomposition.md) | Active | 4/5 | R4 records the single-owner Input flow; R5 performs the one independent review and closure gates |
 
 ## Features
 

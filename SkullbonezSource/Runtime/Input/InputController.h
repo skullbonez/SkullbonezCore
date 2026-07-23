@@ -4,8 +4,24 @@ Purpose:
   Provides runtime input mode bookkeeping and camera mouse-look input policy.
 
 Summary:
-  InputRouter owns semantic keyboard edges. InputController keeps the remaining
-  runtime mode history, pointer-button compatibility state, and camera deltas.
+  InputRouter owns retained device, semantic-edge, mode-history, and pointer
+  state. InputController is stateless policy that updates router-owned context
+  values and camera state; it is not a second input-state owner.
+
+Package ownership:
+  - Input.cpp/h is the hardware boundary: it owns callback-fed Win32 buffers
+    and emits one immutable DeviceInputFrame per frame.
+  - InputController.Bindings.cpp/h owns the immutable key/action/context table.
+  - InputRouter.cpp/h owns retained sampling memory, routed actions, mode
+    context, copied UI/runtime snapshots, and pointer-presentation intent.
+  - App/InputRouter.Interactions.cpp is an implementation part of InputRouter;
+    it sequences transitions against borrowed owners and adds no separate state.
+  - App/InputFrame.cpp assembles frame-local values and UI commands without
+    retaining an owner.
+  - App/InputFrameExecution.cpp executes that input turn in fixed order and
+    returns typed process requests; it owns no durable input state.
+  - InputController.cpp/h applies mode/context and camera policy to values owned
+    by InputRouter or the camera owner; all methods remain stateless.
 
 Glossary:
   Input edge: Transition from not pressed to pressed, used for one-shot
