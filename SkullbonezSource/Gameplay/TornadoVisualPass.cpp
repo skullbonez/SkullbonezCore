@@ -112,27 +112,45 @@ void EmitFxVertex( std::vector<float>& vertices,
     vertices.push_back( terrainY );
 }
 
-void EmitFxQuad( std::vector<float>& vertices,
-                 const Vector3& a,
-                 const Vector3& b,
-                 const Vector3& c,
-                 const Vector3& d,
-                 float r,
-                 float g,
-                 float blue,
-                 float alpha,
-                 float fxKind,
-                 float terrainA,
-                 float terrainB,
-                 float terrainC,
-                 float terrainD )
+// Value-only hot-path records preserve the four-corner relationship without
+// copying Vector3 values. Lifetime: corner references are consumed completely
+// during this call, including references bound to call-site temporaries.
+struct FxQuadCorners
 {
-    EmitFxVertex( vertices, a, r, g, blue, alpha, 0.0f, 0.0f, fxKind, terrainA );
-    EmitFxVertex( vertices, b, r, g, blue, alpha, 1.0f, 0.0f, fxKind, terrainB );
-    EmitFxVertex( vertices, c, r, g, blue, alpha, 1.0f, 1.0f, fxKind, terrainC );
-    EmitFxVertex( vertices, a, r, g, blue, alpha, 0.0f, 0.0f, fxKind, terrainA );
-    EmitFxVertex( vertices, c, r, g, blue, alpha, 1.0f, 1.0f, fxKind, terrainC );
-    EmitFxVertex( vertices, d, r, g, blue, alpha, 0.0f, 1.0f, fxKind, terrainD );
+    const Vector3& a;
+    const Vector3& b;
+    const Vector3& c;
+    const Vector3& d;
+};
+
+struct FxQuadStyle
+{
+    float r = 0.0f;
+    float g = 0.0f;
+    float b = 0.0f;
+    float alpha = 0.0f;
+    float kind = 0.0f;
+};
+
+struct FxQuadTerrain
+{
+    float a = 0.0f;
+    float b = 0.0f;
+    float c = 0.0f;
+    float d = 0.0f;
+};
+
+void EmitFxQuad( std::vector<float>& vertices,
+                 const FxQuadCorners& corners,
+                 const FxQuadStyle& style,
+                 const FxQuadTerrain& terrain )
+{
+    EmitFxVertex( vertices, corners.a, style.r, style.g, style.b, style.alpha, 0.0f, 0.0f, style.kind, terrain.a );
+    EmitFxVertex( vertices, corners.b, style.r, style.g, style.b, style.alpha, 1.0f, 0.0f, style.kind, terrain.b );
+    EmitFxVertex( vertices, corners.c, style.r, style.g, style.b, style.alpha, 1.0f, 1.0f, style.kind, terrain.c );
+    EmitFxVertex( vertices, corners.a, style.r, style.g, style.b, style.alpha, 0.0f, 0.0f, style.kind, terrain.a );
+    EmitFxVertex( vertices, corners.c, style.r, style.g, style.b, style.alpha, 1.0f, 1.0f, style.kind, terrain.c );
+    EmitFxVertex( vertices, corners.d, style.r, style.g, style.b, style.alpha, 0.0f, 1.0f, style.kind, terrain.d );
 }
 
 void ClearAllRenderTextureSlots( Rendering::Dx12TextureOwner& renderTextures )
@@ -394,20 +412,11 @@ bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& 
                     const float gapFade = 0.72f + 0.28f * sinf( phase + t0 * twoPi * 4.0f );
                     const float alpha = shellAlpha * baseFade * topFade * gapFade;
                     const float cool = 0.72f + 0.08f * t0;
-                    EmitFxQuad( m_vertices,
-                                p0 - side * width,
-                                p1 - side * width,
-                                p1 + side * width,
-                                p0 + side * width,
-                                cool,
-                                0.78f,
-                                0.84f,
-                                alpha,
-                                FX_KIND_RIBBON,
-                                0.0f,
-                                0.0f,
-                                0.0f,
-                                0.0f );
+                    EmitFxQuad(
+                        m_vertices,
+                        FxQuadCorners{ p0 - side * width, p1 - side * width, p1 + side * width, p0 + side * width },
+                        FxQuadStyle{ cool, 0.78f, 0.84f, alpha, FX_KIND_RIBBON },
+                        FxQuadTerrain{} );
                 }
             }
         }
@@ -447,19 +456,12 @@ bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& 
                                       Vector3( 0.0f, y0 - field.center.y, 0.0f );
                     const float alpha = dustAlpha * ( 0.42f - 0.08f * bandT );
                     EmitFxQuad( m_vertices,
-                                a,
-                                b,
-                                c,
-                                d,
-                                0.58f,
-                                0.47f,
-                                0.31f,
-                                alpha,
-                                FX_KIND_DUST,
-                                terrainHeightFor( a ),
-                                terrainHeightFor( b ),
-                                terrainHeightFor( c ),
-                                terrainHeightFor( d ) );
+                                FxQuadCorners{ a, b, c, d },
+                                FxQuadStyle{ 0.58f, 0.47f, 0.31f, alpha, FX_KIND_DUST },
+                                FxQuadTerrain{ terrainHeightFor( a ),
+                                               terrainHeightFor( b ),
+                                               terrainHeightFor( c ),
+                                               terrainHeightFor( d ) } );
                 }
             }
 
@@ -484,19 +486,12 @@ bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& 
                 const Vector3 c = center + right + up;
                 const Vector3 d = center - right + up;
                 EmitFxQuad( m_vertices,
-                            a,
-                            b,
-                            c,
-                            d,
-                            0.68f,
-                            0.52f,
-                            0.34f,
-                            alpha,
-                            FX_KIND_DUST,
-                            terrainHeightFor( a ),
-                            terrainHeightFor( b ),
-                            terrainHeightFor( c ),
-                            terrainHeightFor( d ) );
+                            FxQuadCorners{ a, b, c, d },
+                            FxQuadStyle{ 0.68f, 0.52f, 0.34f, alpha, FX_KIND_DUST },
+                            FxQuadTerrain{ terrainHeightFor( a ),
+                                           terrainHeightFor( b ),
+                                           terrainHeightFor( c ),
+                                           terrainHeightFor( d ) } );
             }
         }
     }

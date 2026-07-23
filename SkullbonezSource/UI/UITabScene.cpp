@@ -490,14 +490,17 @@ bool HandleOpenComboClick( UISceneTabState& state,
                            UIButton& resetDefaultsButton,
                            UIButton& saveDefaultsButton,
                            InGameUIInputResult& result,
-                           const char* const* sceneOptions,
-                           int sceneOptionCount,
-                           int mouseX,
-                           int mouseY,
-                           float contentX,
-                           float rowBase,
-                           float contentW )
+                           const SceneTabOpenComboFrame& frame )
 {
+    // The frame is a synchronous scalar snapshot; the UI owners above remain
+    // explicit so this value cannot become a replacement widget context.
+    const char* const* sceneOptions = frame.sceneOptions;
+    const int sceneOptionCount = frame.sceneOptionCount;
+    const int mouseX = frame.mouseX;
+    const int mouseY = frame.mouseY;
+    const float contentX = frame.contentX;
+    const float rowBase = frame.rowBase;
+    const float contentW = frame.contentW;
     if ( !combo.IsOpen() )
     {
         return false;
@@ -681,14 +684,15 @@ void Draw( UISceneTabState& state,
            UIButton& saveDefaultsButton,
            const UIDrawContext& draw,
            const InGameUIFrameData& data,
-           float contentX,
-           float contentY,
-           float contentW,
-           float contentH,
-           float scrolledY,
-           int mouseX,
-           int mouseY )
+           const SceneTabDrawFrame& frame )
 {
+    const float contentX = frame.contentX;
+    const float contentY = frame.contentY;
+    const float contentW = frame.contentW;
+    const float contentH = frame.contentH;
+    const float scrolledY = frame.scrolledY;
+    const int mouseX = frame.mouseX;
+    const int mouseY = frame.mouseY;
     char buf[160];
     char filterDisplay[80] = {};
     const bool sceneFilterActive = state.filter[0] != '\0';

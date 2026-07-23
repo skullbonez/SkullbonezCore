@@ -995,13 +995,13 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( Core::Profiler* profi
                                                 m_resetDefaultsButton,
                                                 m_saveDefaultsButton,
                                                 result,
-                                                sceneOptions,
-                                                sceneOptionCount,
-                                                m_mouseX,
-                                                m_mouseY,
-                                                contentX,
-                                                rowBase,
-                                                contentW );
+                                                SceneTab::SceneTabOpenComboFrame{ sceneOptions,
+                                                                                  sceneOptionCount,
+                                                                                  m_mouseX,
+                                                                                  m_mouseY,
+                                                                                  contentX,
+                                                                                  rowBase,
+                                                                                  contentW } );
             }
             else
             {

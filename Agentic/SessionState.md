@@ -13,18 +13,20 @@ plan inventory.
 | Branch | `nightrunner-22nd-JUL-26` |
 | Current baseline | Wide-signature round 2 is closed: all eight reopened threshold-16 rows are removed, the final scan is empty, and independent no-bag review is clear. Legacy remains the development default. |
 | Current objective | Complete `wide-signature-decomposition-round-3`: remove all nine current 13–15 parameter functions without owner bags. |
-| Active/future progress | 1 / 6 live tasks; 17%. |
+| Active/future progress | 2 / 6 live tasks; 33%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | D4 `validate_full` passes in 101.7 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | T0 is documentation-only; no repository validation required. The live threshold-13 inventory contains nine rows. |
+| Validation for current edits | T1 threshold-13 inventory is 9 → 6; Profile and `validate_fast` pass. |
 
 ## Live Queue
 
-NOW. `wide-signature-decomposition-round-3` is active at T0 complete (1/6).
+NOW. `wide-signature-decomposition-round-3` is active at T1 complete (2/6).
 The owner accepts parameter counts of 12 and below and requested the same
 owner-safe treatment for all nine current 13–15 rows. CodeGraph/current-source
 review found a bounded decomposition for every row; none is blocked or
-deferred. T1 narrows the two Scene-tab functions and tornado quad emission.
+deferred. T1 narrowed the two Scene-tab functions and tornado quad emission;
+the live threshold-13 inventory is six. T2 narrows the private physics
+wake-access constructor.
 
 `wide-signature-decomposition-round-2` closed D0-D4 (5/5) and left the
 live ledger. All eight reopened threshold-16 rows were removed without a
@@ -326,6 +328,6 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Complete `wide-signature-decomposition-round-3` T1. Narrow the two Scene-tab
-functions with bounded layout/gesture values and tornado quad emission with
-read-only geometry/appearance/terrain values.
+Complete `wide-signature-decomposition-round-3` T2. Narrow the private
+physics wake-access constructor with a sleep-controller-owned row capability
+while keeping body, collider, and force owners explicit.

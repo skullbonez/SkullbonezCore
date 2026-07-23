@@ -702,13 +702,13 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
                         widgets.saveDefaultsButton,
                         draw,
                         data,
-                        contentX,
-                        contentY,
-                        contentW,
-                        contentH,
-                        scrolledY,
-                        widgets.mouseX,
-                        widgets.mouseY );
+                        SceneTab::SceneTabDrawFrame{ contentX,
+                                                     contentY,
+                                                     contentW,
+                                                     contentH,
+                                                     scrolledY,
+                                                     widgets.mouseX,
+                                                     widgets.mouseY } );
     }
     else if ( widgets.activeTab == InGameUITab::Physics )
     {

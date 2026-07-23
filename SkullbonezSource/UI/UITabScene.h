@@ -64,6 +64,30 @@ struct UISceneTabState
     bool filterKeySyncPending = true;
 };
 
+// Value-only snapshots keep the public Scene-tab operations aligned with one
+// input or draw turn. Widgets and command output remain explicit owners.
+struct SceneTabOpenComboFrame
+{
+    const char* const* sceneOptions = nullptr;
+    int sceneOptionCount = 0;
+    int mouseX = 0;
+    int mouseY = 0;
+    float contentX = 0.0f;
+    float rowBase = 0.0f;
+    float contentW = 0.0f;
+};
+
+struct SceneTabDrawFrame
+{
+    float contentX = 0.0f;
+    float contentY = 0.0f;
+    float contentW = 0.0f;
+    float contentH = 0.0f;
+    float scrolledY = 0.0f;
+    int mouseX = 0;
+    int mouseY = 0;
+};
+
 int ContentHeight();
 bool FilterMatches( const char* option, const char* filter );
 int CountFilteredOptions( const char* const* options, int optionCount, const char* filter );
@@ -100,13 +124,7 @@ bool HandleOpenComboClick( UISceneTabState& state,
                            UIButton& resetDefaultsButton,
                            UIButton& saveDefaultsButton,
                            InGameUIInputResult& result,
-                           const char* const* sceneOptions,
-                           int sceneOptionCount,
-                           int mouseX,
-                           int mouseY,
-                           float contentX,
-                           float rowBase,
-                           float contentW );
+                           const SceneTabOpenComboFrame& frame );
 
 bool HandleHeaderClick( UISceneTabState& state,
                         UIComboBox& combo,
@@ -148,13 +166,7 @@ void Draw( UISceneTabState& state,
            UIButton& saveDefaultsButton,
            const UIDrawContext& draw,
            const InGameUIFrameData& data,
-           float contentX,
-           float contentY,
-           float contentW,
-           float contentH,
-           float scrolledY,
-           int mouseX,
-           int mouseY );
+           const SceneTabDrawFrame& frame );
 
 } // namespace SceneTab
 } // namespace UI

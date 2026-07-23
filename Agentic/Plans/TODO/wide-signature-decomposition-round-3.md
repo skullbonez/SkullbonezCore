@@ -61,7 +61,7 @@ inventory may be refreshed.
 
 - [x] T0 — Inventory and design. Reproduce all nine rows, inspect their
   definitions/callers, and ratify the owner-safe decisions above.
-- [ ] T1 — UI and Gameplay. Narrow both Scene-tab functions and tornado quad
+- [x] T1 — UI and Gameplay. Narrow both Scene-tab functions and tornado quad
   emission while preserving hit-test/draw ordering and the allocation-free hot
   path.
 - [ ] T2 — Physics. Narrow the wake-access constructor with a private
@@ -103,11 +103,11 @@ inventory may be refreshed.
 
 ## Comment-Audit Checklist
 
-- [ ] `SkullbonezSource/UI/UITabScene.h`
-- [ ] `SkullbonezSource/UI/UITabScene.cpp`
-- [ ] `SkullbonezSource/UI/UIWindowInteractionOwner.cpp`
-- [ ] `SkullbonezSource/UI/UI.cpp`
-- [ ] `SkullbonezSource/Gameplay/TornadoVisualPass.cpp`
+- [x] `SkullbonezSource/UI/UITabScene.h`
+- [x] `SkullbonezSource/UI/UITabScene.cpp`
+- [x] `SkullbonezSource/UI/UIWindowInteractionOwner.cpp`
+- [x] `SkullbonezSource/UI/UI.cpp`
+- [x] `SkullbonezSource/Gameplay/TornadoVisualPass.cpp`
 - [ ] `SkullbonezSource/Physics/Stages/PhysicsSleepController.h`
 - [ ] `SkullbonezSource/Physics/Stages/PhysicsSleepController.Wake.cpp`
 - [ ] `SkullbonezSource/Rendering/RenderInstanceRenderer.h`
@@ -120,3 +120,13 @@ inventory may be refreshed.
 - [ ] `SkullbonezSource/Runtime/Replay/ReplayValidation.cpp`
 - [ ] `SkullbonezSource/Runtime/RunRender.cpp`
 
+## Evidence
+
+- T1 threshold-13 inventory: 9 → 6; both Scene-tab rows and `EmitFxQuad`
+  are absent.
+- T1 hot-path review: quad corners are synchronous const references; style and
+  terrain are scalar values; no allocation, callback, inheritance, or owner
+  lookup was added.
+- T1 comment audit: 5/5 checked, 0 deferred.
+- T1 focused Profile build: PASS in 11.6 s, 0 warnings, 0 errors.
+- T1 `tools\validate_fast.bat`: PASS in 32.3 s.

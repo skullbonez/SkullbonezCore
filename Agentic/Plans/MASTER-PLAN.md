@@ -397,7 +397,9 @@ decomposition treatment for every current 13-, 14-, and 15-parameter function,
 while explicitly accepting 12 and below. `wide-signature-decomposition-round-3`
 owns nine rows across UI, Gameplay, Physics, Rendering, and Replay. T0 found a
 bounded owner-safe treatment for every row; none is blocked or deferred.
-Active/future progress is 1/6.
+T1 replaces both Scene-tab rows with one-turn layout/gesture values and
+`EmitFxQuad` with reference-based corners plus scalar style/terrain values. The
+threshold-13 inventory is down from nine to six. Active/future progress is 2/6.
 
 The active/future denominator returned 13 → 7 when
 `owner-fanout-reduction` closed OF0-OF5 and left the ledger under rule 4.
@@ -1373,7 +1375,7 @@ a census records. Execution order is binding: 1 physics unification,
 | [replay-deduplication-audit](../Reports/2026-07-22/replay-deduplication-closure.md) | Complete | 4/4 | C1-C5 consolidated; C6-C7 retained; all Replay/full gates pass |
 | [wide-signature-reduction](../Reports/2026-07-23/wide-signature-reduction-closure.md) | Complete | 5/5 | 301 → 285; all survivors ruled; independent review and final broad gate pass |
 | [wide-signature-decomposition-round-2](../Reports/2026-07-23/wide-signature-decomposition-round-2-closure.md) | Complete | 5/5 | 8 → 0 threshold-16 rows; independent review and all closure gates pass |
-| [wide-signature-decomposition-round-3](TODO/wide-signature-decomposition-round-3.md) | In progress | 1/6 | Implement T1 UI/Gameplay decomposition |
+| [wide-signature-decomposition-round-3](TODO/wide-signature-decomposition-round-3.md) | In progress | 2/6 | Implement T2 Physics wake-access decomposition |
 
 ## Features
 
