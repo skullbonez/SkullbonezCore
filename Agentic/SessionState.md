@@ -11,14 +11,20 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-23rd-JUL-26` |
-| Current baseline | Architecture Follow-Up Campaign Round 3 is complete. Runtime has 80 files moved into policed owner packages, one allowed top-level frame-view header, and an explicit single-owner Input flow. |
-| Current objective | No active/future implementation task is registered in `MASTER-PLAN.md`. |
-| Active/future progress | 16/16 campaign tasks complete; active/future denominator returned to 0. |
+| Current baseline | Solar-system SS0 adds an allocation-free Maths orbital library: elliptic elements/Kepler propagation, fixed-span sampling, Lambert seeds, and Hohmann helpers, with 354/354 unit cases passing. |
+| Current objective | Implement SS1: author and prove the fixed-sun Earth/Mars/ship scene inside the 20-second Replay prediction horizon. |
+| Active/future progress | Solar-system plan 1/7; 14%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | Runtime-package R5 `validate_full` passes with exit 0 in 188.0 s: 749/749 project/filter items, all CPU/coverage floors, zero-warning builds, accepted DX12 images with zero errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | R5 passes 18 operational Runtime proofs plus five standing proofs, replay visual fidelity, the platform-profiler marker probe, and `validate_full`. |
+| Validation for current edits | SS0 `validate_tests` passes in 8.0 s with 354/354 cases and 68,844/68,844 assertions; staged `validate_fast` passes in 30.7 s with zero warnings/errors and 751/751 production filter rows; three-file comment and Maths-boundary audits are clean. |
 
 ## Live Queue
+
+NOW. `solar-system-trajectory-planner` is active at 1/7. SS0 supplies bounded,
+allocation-free orbital elements, Kepler propagation, orbit sampling, Lambert
+seeding, and Hohmann helpers under the Maths floor. Its five focused cases and
+the full unit harness pass. SS1 now authors the four-body scene and records
+stability, determinism, sleep, and first-window evidence.
 
 NOW. `ui-runtime-separation` is complete at 5/5. UI is physically below
 Runtime, has zero Runtime includes, and crosses through cohesive navigation,

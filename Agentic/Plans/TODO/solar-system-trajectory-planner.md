@@ -1,7 +1,7 @@
 # Solar System Trajectory Planner
 
 Date: 2026-07-23
-Status: TODO — 0/7 phases complete. Drafted from the 2026-07-23 owner
+Status: IN PROGRESS — 1/7 phases complete. Drafted from the 2026-07-23 owner
 conversation requesting a solar-system intercept demo built on the replay
 prediction system. All scoping questions below are owner-ratified; this
 document is the implementation contract.
@@ -273,12 +273,26 @@ Doctest coverage (`TestOrbitalMechanics.cpp`):
 
 Progress:
 
-- [ ] SS0.1 `OrbitalMechanics.h/.cpp` implemented (elements, Kepler
+- [x] SS0.1 `OrbitalMechanics.h/.cpp` implemented (elements, Kepler
       propagation, polyline sampling, Lambert, Hohmann helpers), zero heap.
-- [ ] SS0.2 Project + filters rows added for source and test files.
-- [ ] SS0.3 All doctest cases above implemented and passing.
-- [ ] SS0.4 Comment-style audit on the three new files.
-- [ ] SS0.5 Gate: `tools\validate_tests.bat` output recorded.
+- [x] SS0.2 Project + filters rows added for source and test files.
+- [x] SS0.3 All doctest cases above implemented and passing.
+- [x] SS0.4 Comment-style audit on the three new files.
+- [x] SS0.5 Gate: `tools\validate_tests.bat` output recorded.
+
+Completed 2026-07-23. `OrbitalMechanics` now owns bounded elliptic element
+conversion, 16-turn Kepler propagation, caller-span orbit sampling, a
+48-turn bracketed universal-variable Lambert solve, and Hohmann helpers. The
+library contains no heap/growth API and includes only Maths. Five doctest cases
+cover epoch/period round trips, a circular quarter-arc Lambert oracle, the
+binding Hohmann table, near-Hohmann seeding, and finite recoverable failures.
+The three-file comment audit has zero findings. The owning extracted
+`SKULLBONEZ_MATHS` project and its filters carry the production files; the test
+project/filter carries the test. `tools\validate_tests.bat` passes in 8.0
+seconds with 354/354 cases and 68,844/68,844 assertions. The production
+project/filter inventory passes at 751/751 rows, and the final staged
+`tools\validate_fast.bat` gate passes in 30.7 seconds with zero warnings or
+errors.
 
 ---
 

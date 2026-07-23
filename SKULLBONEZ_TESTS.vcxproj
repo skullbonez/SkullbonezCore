@@ -216,6 +216,7 @@
     <ClCompile Include="SkullbonezTests\TestFrustum.cpp" />
     <ClCompile Include="SkullbonezTests\TestMatrix4.cpp" />
     <ClCompile Include="SkullbonezTests\TestObjectContactManifold.cpp" />
+    <ClCompile Include="SkullbonezTests\TestOrbitalMechanics.cpp" />
     <ClCompile Include="SkullbonezTests\TestOwnerRequestQueues.cpp" />
     <ClCompile Include="SkullbonezTests\TestEditorCommandHistory.cpp" />
     <ClCompile Include="SkullbonezTests\TestSceneEntityStore.cpp" />

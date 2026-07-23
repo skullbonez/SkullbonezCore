@@ -125,6 +125,7 @@ MATH_PREFIXES = (
     "GeometricStructures",
     "MathsCommon",
     "Matrix4",
+    "OrbitalMechanics",
     "Quaternion",
     "RotationMatrix",
     "Vector3",

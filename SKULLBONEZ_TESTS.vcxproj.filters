@@ -141,6 +141,9 @@
     <ClCompile Include="SkullbonezTests\TestObjectContactManifold.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestOrbitalMechanics.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestOwnerRequestQueues.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>

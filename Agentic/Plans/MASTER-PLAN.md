@@ -514,6 +514,10 @@ historical work per commit-contract rule 4.
 
 ## Current Execution Priority
 
+The active priority is
+`TODO/solar-system-trajectory-planner.md` in binding order SS0→SS6. SS0 is
+complete; SS1 authors and proves the four-body solar-system scene.
+
 The 2026-07-18 adversarial-review round-7 lane is closed. Scene-controller
 round 2, DX12 backend ownership, naming/identity debt, and small-findings
 hardening have all left the live ledger with closure evidence.
@@ -1467,6 +1471,17 @@ registered tasks are complete, so the active/future denominator returns
 16 → 0 under rule 4. Runtime now has policed physical packages, UI is a
 one-way presentation dependency below Runtime, and all five source blemishes
 are resolved. Closure evidence is linked from the table above.
+
+## Solar System Trajectory Planner (2026-07-23)
+
+The owner registered one seven-task gameplay/replay feature after Architecture
+Follow-Up Round 3 closed, growing the active/future denominator 0 → 7. Replay
+remains the flagship prediction owner; Physics, Rendering, Scene, World, and
+Core are frozen for this plan.
+
+| Plan | State | Verified phase count | Next action |
+|---|---|---:|---|
+| [solar-system-trajectory-planner](TODO/solar-system-trajectory-planner.md) | Active | 1/7 | SS1 authors and proves the fixed-sun Earth/Mars/ship scene |
 
 ## Features
 
