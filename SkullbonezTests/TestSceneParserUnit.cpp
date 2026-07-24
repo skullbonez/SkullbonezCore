@@ -18,8 +18,9 @@
 //   - Malformed JSON returns a path-rich Scene/AuthoredSceneParser failure through
 //     AuthoredScene::TryLoadFromFile.
 //   - Solar body colours are authored material data, not name-based renderer policy.
-//   - Solar scenes use XY orbital coordinates with Z normal, matching the
-//     terrain-camera interaction convention.
+//   - Solar scenes use XY orbital coordinates and oblique cameras with Z up,
+//     matching the terrain-camera interaction convention after axis remapping.
+//   - Deep-space presentation is authored as literal black with no second sun.
 //
 // Related:
 //   - SkullbonezSource/Scene/AuthoredScene.h
@@ -136,12 +137,19 @@ TEST_CASE( "AuthoredSceneParser: solar bodies publish their authored colours" )
     REQUIRE( scene.GetCameraCount() == 1 );
     const SceneCamera& camera = scene.GetCamera( 0 );
     CHECK( camera.m_position.x == doctest::Approx( 0.0f ) );
-    CHECK( camera.m_position.y == doctest::Approx( 0.0f ) );
-    CHECK( camera.m_position.z == doctest::Approx( 260.0f ) );
+    CHECK( camera.m_position.y == doctest::Approx( -260.0f ) );
+    CHECK( camera.m_position.z == doctest::Approx( 100.0f ) );
     CHECK( camera.view.z == doctest::Approx( 0.0f ) );
     CHECK( camera.up.x == doctest::Approx( 0.0f ) );
-    CHECK( camera.up.y == doctest::Approx( 1.0f ) );
-    CHECK( camera.up.z == doctest::Approx( 0.0f ) );
+    CHECK( camera.up.y == doctest::Approx( 0.0f ) );
+    CHECK( camera.up.z == doctest::Approx( 1.0f ) );
+
+    const auto& cinematic = scene.GetCinematicRenderConfig();
+    CHECK( cinematic.skyMode == SkullbonezCore::Core::CinematicStyleMode::Sky::DeepSpace );
+    CHECK( cinematic.sunColorR == doctest::Approx( 0.0f ) );
+    CHECK( cinematic.sunColorG == doctest::Approx( 0.0f ) );
+    CHECK( cinematic.sunColorB == doctest::Approx( 0.0f ) );
+    CHECK( cinematic.sunIntensity == doctest::Approx( 0.0f ) );
 
     REQUIRE( scene.GetBallStateCount() == 4 );
     for ( int index = 0; index < scene.GetBallStateCount(); ++index )
@@ -188,6 +196,17 @@ TEST_CASE( "AuthoredSceneParser: Mars slingshot scene contains the complete majo
     };
 
     REQUIRE( scene.GetCameraCount() == 2 );
+    for ( int index = 0; index < scene.GetCameraCount(); ++index )
+    {
+        const SceneCamera& camera = scene.GetCamera( index );
+        CHECK( camera.m_position.y < camera.view.y );
+        CHECK( camera.m_position.z > camera.view.z );
+        CHECK( camera.up.x == doctest::Approx( 0.0f ) );
+        CHECK( camera.up.y == doctest::Approx( 0.0f ) );
+        CHECK( camera.up.z == doctest::Approx( 1.0f ) );
+    }
+    CHECK( scene.GetCinematicRenderConfig().skyMode ==
+           SkullbonezCore::Core::CinematicStyleMode::Sky::DeepSpace );
     REQUIRE( scene.GetBallStateCount() == static_cast<int>( std::size( expectedNames ) ) );
     for ( int index = 0; index < scene.GetBallStateCount(); ++index )
     {

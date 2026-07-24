@@ -8,8 +8,8 @@ Result: SSU0-SSU3 complete (4/4)
 
 ## Outcome
 
-- Solar-system scenes now use the terrain convention: motion on XY, Z up, and
-  a camera looking down the positive-Z axis.
+- Solar-system scenes now use the terrain convention after axis remapping:
+  motion on XY, Z up, and oblique cameras whose authored up vector is +Z.
 - Prediction defaults to 20 seconds and supports an operator-selected horizon
   up to 120 seconds without changing the 256 MiB capture cap.
 - A materially changed velocity sample refreshes prediction while the mouse is
@@ -24,7 +24,7 @@ Result: SSU0-SSU3 complete (4/4)
 
 | Proof | Result |
 |---|---|
-| Existing solar scene orientation | Every body has `z=0`; camera is above +Z with +Y up |
+| Existing solar scene orientation | Every body has `z=0`; the camera views the XY plane obliquely with +Z up |
 | Live instant drag | Prediction refreshes while held; superseded generation observed |
 | Live amortized drag | While pointer capture remained `ToolGesture`, presented generation reached 8 and root-velocity delta reached 0.951203 |
 | Earth flyby | Non-contact miss 4.359093 at 1.683333 s |
@@ -67,3 +67,15 @@ Prompt/response character and token accounting were not exposed by the agent
 interface. Per the orchestrator contract, the reviewer was not looped after
 remediation; the focused tests and independent Amortized interaction proof are
 the closure evidence.
+
+## 2026-07-25 Visual Correction
+
+The initial top-down camera still presented the XY plane like a vertical wall
+and retained the cinematic atmosphere's synthetic sun. Both solar scenes now
+use oblique Z-up cameras and the new `DeepSpace` sky style, whose shader path
+returns literal black before atmosphere, sun, ridge, or cloud shading.
+
+Fresh DX12 screenshots for the four-body and 32-body scenes were inspected.
+Representative pixels and the complete 446×320 top-left background region were
+exact `(0,0,0)` in both captures. `validate_tests`, `validate_dx12_renderer`,
+the required one-minute graphics stress run, and `validate_full` all pass.

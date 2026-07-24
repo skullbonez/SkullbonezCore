@@ -330,7 +330,7 @@ struct OrdinaryRenderConfig
 // Style-mode value table shared by config defaults, authored scene/style data,
 // UI sliders, and shader uniforms. Names either match tracked style assets or
 // describe behavior implemented directly by the owning shader. Sky value 14 is
-// currently unassigned; sky values 21..32 remain parser/UI-compatible generic
+// currently unassigned; sky values 22..32 remain parser/UI-compatible generic
 // fallbacks but have no tracked authored users or distinct shader behavior.
 namespace CinematicStyleMode
 {
@@ -356,6 +356,7 @@ inline constexpr int NordicWinter = 17;
 inline constexpr int AbstractRender = 18;
 inline constexpr int PixarInspired = 19;
 inline constexpr int OpenHorizon = 20;
+inline constexpr int DeepSpace = 21;
 } // namespace Sky
 
 namespace Terrain

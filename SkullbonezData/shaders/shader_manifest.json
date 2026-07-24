@@ -1976,8 +1976,8 @@
       "stage": "vs",
       "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/sky_atmosphere.vs.dxil",
-      "source_sha256": "b8d442205151fc8316b162d4aa9dde6c8b57a02a58138c15f458efb237fce1ca",
-      "compile_inputs_sha256": "f62a225ed0d759e4e809f6855f82c4a95c1b0da2868348ec4b7bddb1a1e32f00",
+      "source_sha256": "4027a8b6a7988f76f19790bf7bdc9841b36ea6ddc86fe9b5f7de92ca48a5ba52",
+      "compile_inputs_sha256": "f8c1dfe410cfe64d63234329f1eb756038eb9e1d05be6b96c562670809d091c1",
       "bytecode_sha256": "b20f26d18ef915b03f3dfc9837fc80d161a5fb80f4bdf3883ed616386fa0a708",
       "bytecode_size": 3092,
       "reflection": {
@@ -2011,10 +2011,10 @@
       "stage": "ps",
       "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/sky_atmosphere.ps.dxil",
-      "source_sha256": "b8d442205151fc8316b162d4aa9dde6c8b57a02a58138c15f458efb237fce1ca",
-      "compile_inputs_sha256": "53f9cefd0d099dd80c3c0750e2d90c88096b8c9b09a34ca0904c7f2b7f4c4eaf",
-      "bytecode_sha256": "ce065ae6c9587df6b923a369853fdba7ea094728a6b7b30aafafb93269b05148",
-      "bytecode_size": 16328,
+      "source_sha256": "4027a8b6a7988f76f19790bf7bdc9841b36ea6ddc86fe9b5f7de92ca48a5ba52",
+      "compile_inputs_sha256": "70444db08b0589e875be13727e7d553de1938cb0e1fe6de25479f7f9941ba111",
+      "bytecode_sha256": "5871c2799c62e2c573c079eb4bb1ea1bfc4c8572c26458ec660c45392c401d69",
+      "bytecode_size": 16364,
       "reflection": {
         "cbuffers": [
           {

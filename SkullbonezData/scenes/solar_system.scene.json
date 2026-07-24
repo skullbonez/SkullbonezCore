@@ -9,15 +9,15 @@
     "volumetricLighting": false,
     "bloom": false,
     "fog": false,
-    "styleModes": [0, 3, 2, 0],
+    "styleModes": [21, 3, 2, 0],
     "exposure": 1.2,
     "gamma": 1.25,
     "sunScreenX": 0.5,
     "sunScreenY": 0.5,
-    "sunColorR": 1.0,
-    "sunColorG": 0.96,
-    "sunColorB": 0.82,
-    "sunIntensity": 18.0,
+    "sunColorR": 0.0,
+    "sunColorG": 0.0,
+    "sunColorB": 0.0,
+    "sunIntensity": 0.0,
     "skyHorizonR": 0.0,
     "skyHorizonG": 0.0,
     "skyHorizonB": 0.0,
@@ -60,9 +60,9 @@
   "cameras": [
     {
       "name": "main",
-      "position": [0.0, 0.0, 260.0],
+      "position": [0.0, -260.0, 100.0],
       "view": [0.0, 0.0, 0.0],
-      "up": [0.0, 1.0, 0.0]
+      "up": [0.0, 0.0, 1.0]
     }
   ],
   "objects": [

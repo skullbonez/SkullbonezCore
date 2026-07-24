@@ -1,6 +1,6 @@
 # SkullbonezCore Session State
 
-Date: 2026-07-24
+Date: 2026-07-25
 
 Keep this file operational and short. Detailed evidence belongs in plans,
 reports, and git history. `Agentic/Plans/MASTER-PLAN.md` is the authoritative
@@ -11,14 +11,21 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-24th-JUL-26` |
-| Current baseline | Solar-system slingshot usability is complete: XY/Z-up scenes, held-drag live prediction, a 120-second operator horizon, and the 32-body Mars demonstration. |
+| Current baseline | Solar-system slingshot usability is complete: oblique XY/Z-up scenes on a literal-black deep-space background, held-drag live prediction, a 120-second operator horizon, and the 32-body Mars demonstration. |
 | Current objective | No implementation plan is active; await the next owner-selected task. |
 | Active/future progress | Solar-system slingshot usability 4/4 complete; active/future ledger 0/0. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | Solar-system slingshot usability `validate_full` passes with exit 0 in 151.9 s: mandatory CPU preflight and all Automation, replay/prediction, DX12, and physics runtime lanes passed. |
-| Validation for current edits | Fast, unit, instant/amortized held-drag, Mars slingshot, replay visual-fidelity, broad, dependency, and comment-audit gates pass. Performance/allocation validation remains blocked only by the pre-existing untouched `EditorTracer.cpp:210` `resize`; no exception was added. |
+| Last broad local gate | Solar-system Z-up/black-sky correction `validate_full` passes with exit 0 in 145.8 s: mandatory CPU preflight and all Automation, replay/prediction, DX12, and physics runtime lanes passed. |
+| Validation for current edits | Fresh four-body and slingshot DX12 captures show oblique Z-up presentation and exact-black background pixels. Shader bake freshness, 382 tests/69,712 assertions, DX12 validation, accepted captures, one-minute graphics stress, the broad gate, and a 3/3 touched-source comment audit pass. |
 
 ## Live Queue
+
+NOW. The 2026-07-25 solar display follow-up is complete. The original
+top-down/+Y-up cameras were the remaining orientation defect; both solar scenes
+now use oblique cameras with +Z up. A scene-selectable `DeepSpace` sky style
+returns literal black before procedural atmosphere and sun shading. Fresh
+four-body and slingshot captures were inspected, their background samples are
+exact `(0,0,0)`, and every mapped shader/scene gate passes.
 
 NOW. `solar-system-slingshot-usability` is complete at 4/4. Solar scenes use
 XY with Z up; prediction refreshes during both instant and amortized held
