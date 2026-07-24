@@ -16,6 +16,7 @@
 //   - Coincident eye and target move along conventional world -Z.
 //   - Parallel view/up axes use world +X as the right basis.
 //   - Missing or cancelling up vectors resolve according to their documented owner.
+//   - A null terrain binding is valid and leaves space-scene tweens unconstrained.
 //
 // Related:
 //   - SkullbonezSource/Runtime/Camera/Camera.cpp
@@ -94,4 +95,27 @@ TEST_CASE( "CameraCollection: opposed tween up vectors cancel to world up" )
 
     CHECK( cameras.IsCameraTweening() );
     CHECK( cameras.GetRenderCameraUp() == Vector3( 0.0f, 1.0f, 0.0f ) );
+}
+
+TEST_CASE( "CameraCollection: terrainless tween bypasses terrain collision" )
+{
+    CameraCollection cameras;
+    const Vector3 startPosition( 10.0f, 20.0f, 30.0f );
+    const Vector3 startView( 10.0f, 20.0f, 29.0f );
+    const Vector3 destinationPosition( 250000.0f, 40.0f, -250000.0f );
+    const Vector3 destinationView( 249999.0f, 40.0f, -250000.0f );
+    cameras.AddCamera( startPosition, startView, Vector3( 0.0f, 1.0f, 0.0f ), 0xCA06u );
+    cameras.SetCamera();
+    cameras.SetTerrain( nullptr );
+    cameras.SetTweenSpeed( 0.5f );
+
+    // Invariant: a space-scene tween has no terrain provider and may cross
+    // coordinates far outside any terrain grid without entering its fatal
+    // collision query path.
+    cameras.TweenPrimaryToPose( destinationPosition, destinationView, Vector3( 0.0f, 1.0f, 0.0f ) );
+    cameras.SetCamera();
+
+    CHECK( cameras.IsCameraTweening() );
+    CHECK( cameras.GetRenderCameraTranslation().x > startPosition.x );
+    CHECK( cameras.GetRenderCameraTranslation().z < startPosition.z );
 }

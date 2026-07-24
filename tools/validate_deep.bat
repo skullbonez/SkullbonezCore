@@ -82,12 +82,21 @@ if errorlevel 1 (
 )
 
 echo.
-echo === Phase 4: Performance Validation ===
+echo === Phase 4: ALT-VEL Visualization Validation ===
+call "%~dp0validate_alt_velocity_visualization.bat"
+if errorlevel 1 (
+    echo.
+    echo VALIDATE_DEEP: FAILED at ALT-VEL visualization validation.
+    exit /b 3
+)
+
+echo.
+echo === Phase 5: Performance Validation ===
 call "%~dp0validate_perf.bat"
 if errorlevel 1 (
     echo.
     echo VALIDATE_DEEP: FAILED at performance validation.
-    exit /b 3
+    exit /b 4
 )
 
 set "SKULLBONEZ_SKIP_READY_BUILDS=%PREVIOUS_SKIP_READY_BUILDS%"

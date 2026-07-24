@@ -5,8 +5,7 @@ Purpose:
 
 Summary:
   ReplayPresentation is the mutable authority for everything replay renders.
-  ReplayRuntime sequences the owner but does not retain parallel visual state,
-  including wall-clock consequence-grade animation.
+  ReplayRuntime sequences the owner but does not retain parallel visual state.
 
 Glossary:
   Path target: Stable replay body selected for visualization.
@@ -14,16 +13,12 @@ Glossary:
     at draw time without changing replay capture or prediction storage.
   HUD (Heads-Up Display): Value-only replay diagnostics sampled once for the
     late UI/text pass.
-  Consequence grade: Replay-owned fade strength that darkens/cools the world
-    while prediction causality overlays are active.
 
 Invariants:
   - Physics::PhysicsSceneObjectId is identity; ModelRowHint is only a dense-row hint.
   - Published packet spans are frame-local borrows into the submitted tracer.
   - Render-pose matching uses a fixed model-capacity mask and never allocates.
   - ReplayHudStatus borrows no owner and is coherent for one UI frame.
-  - Consequence-grade time advances only when the render composition boundary
-    requests a presentation frame; the renderer receives only the copied strength.
 
 Related:
   - ReplayRuntime.h
@@ -45,7 +40,6 @@ Related:
 #include "../../Core/SceneCapacity.h"
 
 #include <array>
-#include <chrono>
 #include <cstdint>
 #include <span>
 #include <vector>
@@ -294,9 +288,6 @@ class ReplayPresentation
     ReplayPastTrajectoryView PastTrajectoryView() const noexcept;
     SkullbonezCore::Core::MainMemoryReplayTrajectoryStats TrajectoryVisualStatsSnapshot() const noexcept;
     ReplayTrajectorySubmissionProbeStats TrajectorySubmissionProbeSnapshot() const noexcept;
-    // Advances replay's presentation-only consequence fade and returns the
-    // copied strength for one renderer frame. No render owner is borrowed.
-    float AdvanceConsequenceGrade( bool requested ) noexcept;
     const ReplayVisualPacket& PublishedVisualPacketView() const noexcept;
     std::span<const ReplayPredictionGhostDrawRequest> PredictionGhostDrawRequestsView() const noexcept;
     const std::vector<uint8_t>& FocusModelMaskView() const noexcept;
@@ -412,10 +403,6 @@ class ReplayPresentation
     // by the live model budget, so scrub/prediction rendering never allocates.
     std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_renderPoseBodyMatched = {};
     bool m_launcherVisualBackupActive = false;
-    float m_consequenceGradeStrength = 0.0f;
-    // Lifetime: wall-clock anchor belongs to the replay presentation owner so
-    // renderer rebuilds cannot become animation authority.
-    std::chrono::steady_clock::time_point m_consequenceGradeLastTick;
 };
 
 } // namespace Runtime

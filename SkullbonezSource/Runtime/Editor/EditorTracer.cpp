@@ -88,8 +88,11 @@ constexpr std::size_t EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_FLOAT_CAPACITY =
     EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_SEGMENT_CAPACITY * EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
 constexpr std::size_t EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX = 19;
 constexpr std::size_t EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT = 6;
-constexpr std::size_t EDITOR_TRACER_REPLAY_RIBBON_VERTEX_FLOAT_CAPACITY =
-    EDITOR_TRACER_REPLAY_RIBBON_SEGMENT_BUDGET * EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT *
+constexpr std::size_t EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_VERTEX_FLOAT_CAPACITY =
+    EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_SEGMENT_CAPACITY * EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT *
+    EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX;
+constexpr std::size_t EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_VERTEX_FLOAT_CAPACITY =
+    EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_SEGMENT_CAPACITY * EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT *
     EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX;
 constexpr float EDITOR_TRACER_REPLAY_LINE_OPACITY = 0.5f;
 constexpr uint64_t REPLAY_TRAJECTORY_SUBMISSION_FNV_OFFSET = 1469598103934665603ull;
@@ -140,6 +143,22 @@ void HashReplaySubmissionFloatStream( const std::vector<float>& values, uint64_t
     }
 }
 
+uint64_t HashReplaySubmissionFloatStreams( std::span<const float> first, std::span<const float> second )
+{
+    uint64_t hash = REPLAY_TRAJECTORY_SUBMISSION_FNV_OFFSET;
+    const uint64_t floatCount = static_cast<uint64_t>( first.size() + second.size() );
+    HashReplaySubmissionBytes( hash, SkullbonezCore::Core::ObjectBytes( floatCount ) );
+    if ( !first.empty() )
+    {
+        HashReplaySubmissionBytes( hash, SkullbonezCore::Core::ObjectBytes( first ) );
+    }
+    if ( !second.empty() )
+    {
+        HashReplaySubmissionBytes( hash, SkullbonezCore::Core::ObjectBytes( second ) );
+    }
+    return hash;
+}
+
 uint64_t HashReplaySubmissionCanonicalRecords( const std::vector<float>& values, std::size_t floatsPerRecord )
 {
     uint64_t sum = 0;
@@ -182,7 +201,8 @@ EditorTracer::EditorTracer()
     m_renderLineData.reserve( EDITOR_TRACER_LINE_FLOAT_CAPACITY + EDITOR_TRACER_PRIORITY_LINE_FLOAT_CAPACITY );
     m_replayRibbonSegments.reserve( EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_FLOAT_CAPACITY );
     m_priorityReplayRibbonSegments.reserve( EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_FLOAT_CAPACITY );
-    m_replayRibbonVertexData.reserve( EDITOR_TRACER_REPLAY_RIBBON_VERTEX_FLOAT_CAPACITY );
+    m_replayRibbonVertexData.reserve( EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_VERTEX_FLOAT_CAPACITY );
+    m_priorityReplayRibbonVertexData.reserve( EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_VERTEX_FLOAT_CAPACITY );
 }
 
 void EditorTracer::Clear()
@@ -193,6 +213,9 @@ void EditorTracer::Clear()
     m_replayRibbonSegments.clear();
     m_priorityReplayRibbonSegments.clear();
     m_replayRibbonVertexData.clear();
+    m_priorityReplayRibbonVertexData.clear();
+    m_expandedOrdinarySegmentCount = 0;
+    m_expandedPrioritySegmentCount = 0;
     ClearReplayTrajectoryStats();
     m_replaySubmissionStats = SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats{};
 }
@@ -242,6 +265,7 @@ ReplayVisualPacket EditorTracer::BuildReplayVisualPacket( const Vector3& cameraE
     packet.ordinaryRibbonSegments = m_replayRibbonSegments;
     packet.priorityRibbonSegments = m_priorityReplayRibbonSegments;
     packet.expandedRibbonVertices = m_replayRibbonVertexData;
+    packet.priorityExpandedRibbonVertices = m_priorityReplayRibbonVertexData;
     packet.submission = m_replaySubmissionStats;
     return packet;
 }
@@ -258,6 +282,16 @@ std::size_t EditorTracer::ReplayPathRibbonSegmentCapacityRemaining() const
            EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
 }
 
+std::size_t EditorTracer::ReplayPriorityRibbonSegmentCapacityRemaining() const
+{
+    if ( m_priorityReplayRibbonSegments.size() >= m_priorityReplayRibbonSegments.capacity() )
+    {
+        return 0;
+    }
+    return ( m_priorityReplayRibbonSegments.capacity() - m_priorityReplayRibbonSegments.size() ) /
+           EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
+}
+
 
 void EditorTracer::EmitLineTo( std::vector<float>& lineData,
                                const Vector3& a,
@@ -271,6 +305,7 @@ void EditorTracer::EmitLineTo( std::vector<float>& lineData,
         return;
     }
     lineData.insert( lineData.end(), { a.x, a.y, a.z, r, g, bl, b.x, b.y, b.z, r, g, bl } );
+    ++m_replayGeometryRevision;
 }
 
 
@@ -531,6 +566,7 @@ void EditorTracer::EmitReplayRibbonSegmentTo( std::vector<float>& ribbonData,
     ribbonData.push_back( style.alpha );
     ribbonData.push_back( style.edgeFeather );
     ribbonData.push_back( style.emphasis );
+    ++m_replayGeometryRevision;
 }
 
 
@@ -669,16 +705,33 @@ void EditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const Ve
     static_cast<void>( cameraEye );
     static_cast<void>( cameraUp );
 
-    m_replayRibbonVertexData.clear();
-
-    auto appendRibbonData = [&]( const std::vector<float>& ribbonData )
+    auto updateRibbonData =
+        [&]( const std::vector<float>& ribbonData, std::vector<float>& vertexData, std::size_t& expandedSegmentCount )
     {
-        for ( std::size_t i = 0; i + EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT <= ribbonData.size();
+        const std::size_t sourceSegmentCount = ribbonData.size() / EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
+        if ( sourceSegmentCount < expandedSegmentCount )
+        {
+            vertexData.clear();
+            expandedSegmentCount = 0;
+        }
+        if ( sourceSegmentCount == expandedSegmentCount )
+        {
+            return;
+        }
+        // The previously open segment gains one next-adjacency point when a
+        // command is appended. Re-expand that tail plus only the new suffix;
+        // every earlier vertex remains byte-for-byte retained.
+        const std::size_t firstSegment = expandedSegmentCount > 0u ? expandedSegmentCount - 1u : 0u;
+        const std::size_t retainedFloatCount = firstSegment * EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT *
+                                               EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX;
+        vertexData.erase( vertexData.begin() + static_cast<std::ptrdiff_t>( retainedFloatCount ), vertexData.end() );
+        for ( std::size_t i = firstSegment * EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
+              i + EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT <= ribbonData.size();
               i += EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT )
         {
-            if ( m_replayRibbonVertexData.size() +
+            if ( vertexData.size() +
                      EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT * EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX >
-                 m_replayRibbonVertexData.capacity() )
+                 vertexData.capacity() )
             {
                 return;
             }
@@ -740,35 +793,38 @@ void EditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const Ve
                 // Why: all six shader-expanded vertices carry the same segment
                 // record. Emitting that record here keeps the wire layout
                 // visible without inventing a one-call parameter descriptor.
-                m_replayRibbonVertexData.push_back( a.x );
-                m_replayRibbonVertexData.push_back( a.y );
-                m_replayRibbonVertexData.push_back( a.z );
-                m_replayRibbonVertexData.push_back( b.x );
-                m_replayRibbonVertexData.push_back( b.y );
-                m_replayRibbonVertexData.push_back( b.z );
-                m_replayRibbonVertexData.push_back( width );
-                m_replayRibbonVertexData.push_back( r );
-                m_replayRibbonVertexData.push_back( g );
-                m_replayRibbonVertexData.push_back( bl );
-                m_replayRibbonVertexData.push_back( alpha );
-                m_replayRibbonVertexData.push_back( edgeFeather );
-                m_replayRibbonVertexData.push_back( emphasis );
-                m_replayRibbonVertexData.push_back( previous.x );
-                m_replayRibbonVertexData.push_back( previous.y );
-                m_replayRibbonVertexData.push_back( previous.z );
-                m_replayRibbonVertexData.push_back( next.x );
-                m_replayRibbonVertexData.push_back( next.y );
-                m_replayRibbonVertexData.push_back( next.z );
+                vertexData.push_back( a.x );
+                vertexData.push_back( a.y );
+                vertexData.push_back( a.z );
+                vertexData.push_back( b.x );
+                vertexData.push_back( b.y );
+                vertexData.push_back( b.z );
+                vertexData.push_back( width );
+                vertexData.push_back( r );
+                vertexData.push_back( g );
+                vertexData.push_back( bl );
+                vertexData.push_back( alpha );
+                vertexData.push_back( edgeFeather );
+                vertexData.push_back( emphasis );
+                vertexData.push_back( previous.x );
+                vertexData.push_back( previous.y );
+                vertexData.push_back( previous.z );
+                vertexData.push_back( next.x );
+                vertexData.push_back( next.y );
+                vertexData.push_back( next.z );
             }
         }
+        expandedSegmentCount = sourceSegmentCount;
     };
 
     // Invariant: ordinary replay paths may overflow without erasing causal
     // evidence. Priority ribbons are appended second; only the yellow entry box
     // remains on this ribbon path while rest/horizon boxes use priority lines.
-    appendRibbonData( m_replayRibbonSegments );
+    updateRibbonData( m_replayRibbonSegments, m_replayRibbonVertexData, m_expandedOrdinarySegmentCount );
     const std::size_t ordinaryVertexFloatCount = m_replayRibbonVertexData.size();
-    appendRibbonData( m_priorityReplayRibbonSegments );
+    updateRibbonData( m_priorityReplayRibbonSegments,
+                      m_priorityReplayRibbonVertexData,
+                      m_expandedPrioritySegmentCount );
 
     m_replaySubmissionStats = SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats{};
     // Invariant: the fidelity probe observes the same ordered floats consumed
@@ -798,20 +854,17 @@ void EditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const Ve
         static_cast<uint32_t>( m_priorityReplayRibbonSegments.size() / EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT );
     m_replaySubmissionStats.hasGeometry = !m_lineData.empty() || !m_priorityLineData.empty() ||
                                           !m_replayRibbonSegments.empty() || !m_priorityReplayRibbonSegments.empty();
-    if ( !m_replayRibbonVertexData.empty() )
+    if ( !m_replayRibbonVertexData.empty() || !m_priorityReplayRibbonVertexData.empty() )
     {
         // Invariant: Stage-9 flicker validation hashes the exact float payload
         // submitted to DrawTransientColoredTriangles. It deliberately ignores
         // vector capacity and camera data because the trajectory-ribbon shader
         // performs camera-facing expansion from this stable segment payload.
-        const std::size_t byteCount = m_replayRibbonVertexData.size() * sizeof( float );
-        uint64_t hash = REPLAY_TRAJECTORY_SUBMISSION_FNV_OFFSET;
-        const uint64_t floatCount = static_cast<uint64_t>( m_replayRibbonVertexData.size() );
-        HashReplaySubmissionBytes( hash, SkullbonezCore::Core::ObjectBytes( floatCount ) );
-        HashReplaySubmissionBytes(
-            hash,
-            SkullbonezCore::Core::ObjectBytes( std::span<const float>( m_replayRibbonVertexData ) ) );
-        m_replaySubmissionStats.vertexHash = hash;
+        const std::size_t combinedVertexFloatCount =
+            m_replayRibbonVertexData.size() + m_priorityReplayRibbonVertexData.size();
+        const std::size_t byteCount = combinedVertexFloatCount * sizeof( float );
+        m_replaySubmissionStats.vertexHash =
+            HashReplaySubmissionFloatStreams( m_replayRibbonVertexData, m_priorityReplayRibbonVertexData );
         m_replaySubmissionStats.ordinaryVertexBytes = ordinaryVertexFloatCount * sizeof( float );
         m_replaySubmissionStats.ordinaryVertexCount =
             static_cast<uint32_t>( ordinaryVertexFloatCount / EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX );
@@ -828,7 +881,7 @@ void EditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const Ve
         m_replaySubmissionStats.ordinaryVertexHash = ordinaryHash;
         m_replaySubmissionStats.vertexBytes = static_cast<uint64_t>( byteCount );
         m_replaySubmissionStats.vertexCount =
-            static_cast<uint32_t>( m_replayRibbonVertexData.size() / EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX );
+            static_cast<uint32_t>( combinedVertexFloatCount / EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX );
         m_replaySubmissionStats.segmentCount = static_cast<uint32_t>(
             m_replaySubmissionStats.vertexCount / EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT );
     }
@@ -1357,6 +1410,24 @@ void EditorTracer::Render( const ReplayVisualPacket& packet,
         return;
     }
 
+    if ( !packet.retainedPredictionOrdinaryLines.empty() )
+    {
+        renderCommands.DrawRetainedLinesColored( packet.retainedPredictionOrdinaryLines,
+                                                 packet.retainedPredictionStreamId,
+                                                 packet.retainedPredictionRevision,
+                                                 false,
+                                                 viewProjection,
+                                                 REPLAY_LINE_RASTER );
+    }
+    if ( !packet.retainedPredictionPriorityLines.empty() )
+    {
+        renderCommands.DrawRetainedLinesColored( packet.retainedPredictionPriorityLines,
+                                                 packet.retainedPredictionStreamId,
+                                                 packet.retainedPredictionRevision,
+                                                 true,
+                                                 viewProjection,
+                                                 REPLAY_LINE_RASTER );
+    }
     if ( !packet.combinedLines.empty() )
     {
         // Invariant: combinedLines stores colored vertices as xyz/rgb floats; every
@@ -1364,20 +1435,83 @@ void EditorTracer::Render( const ReplayVisualPacket& packet,
         renderCommands.DrawLinesColored( packet.combinedLines, viewProjection, REPLAY_LINE_RASTER );
     }
 
-    if ( !packet.expandedRibbonVertices.empty() )
+    if ( !packet.retainedPredictionRibbonVertices.empty() )
+    {
+        // The retained lane owns a frame-fenced GPU buffer. Stream/revision
+        // changes refresh the affected slot; stable frames submit these two
+        // draws without reserving or copying geometry upload memory.
+        renderCommands.DrawRetainedTrajectoryRibbon( packet.retainedPredictionRibbonVertices,
+                                                     packet.retainedPredictionStreamId,
+                                                     packet.retainedPredictionRevision,
+                                                     false,
+                                                     viewProjection,
+                                                     Rendering::TransientTriangleStyle::TrajectoryRibbonDepthHint,
+                                                     REPLAY_RIBBON_DEPTH_HINT_RASTER );
+    }
+    if ( !packet.retainedPredictionPriorityRibbonVertices.empty() )
+    {
+        renderCommands.DrawRetainedTrajectoryRibbon( packet.retainedPredictionPriorityRibbonVertices,
+                                                     packet.retainedPredictionStreamId,
+                                                     packet.retainedPredictionRevision,
+                                                     true,
+                                                     viewProjection,
+                                                     Rendering::TransientTriangleStyle::TrajectoryRibbonDepthHint,
+                                                     REPLAY_RIBBON_DEPTH_HINT_RASTER );
+    }
+    if ( !packet.retainedPredictionRibbonVertices.empty() )
+    {
+        renderCommands.DrawRetainedTrajectoryRibbon( packet.retainedPredictionRibbonVertices,
+                                                     packet.retainedPredictionStreamId,
+                                                     packet.retainedPredictionRevision,
+                                                     false,
+                                                     viewProjection,
+                                                     Rendering::TransientTriangleStyle::TrajectoryRibbon,
+                                                     REPLAY_RIBBON_VISIBLE_RASTER );
+    }
+    if ( !packet.retainedPredictionPriorityRibbonVertices.empty() )
+    {
+        renderCommands.DrawRetainedTrajectoryRibbon( packet.retainedPredictionPriorityRibbonVertices,
+                                                     packet.retainedPredictionStreamId,
+                                                     packet.retainedPredictionRevision,
+                                                     true,
+                                                     viewProjection,
+                                                     Rendering::TransientTriangleStyle::TrajectoryRibbon,
+                                                     REPLAY_RIBBON_VISIBLE_RASTER );
+    }
+
+    if ( !packet.expandedRibbonVertices.empty() || !packet.priorityExpandedRibbonVertices.empty() )
     {
         // Concept: the first pass is a low-opacity depth hint with depth
         // testing disabled; the normal pass is depth-tested, so visible
         // strokes stay seated while occluded spans remain only faintly
         // readable behind scene geometry.
-        renderCommands.DrawTransientColoredTriangles( packet.expandedRibbonVertices,
-                                                      viewProjection,
-                                                      Rendering::TransientTriangleStyle::TrajectoryRibbonDepthHint,
-                                                      REPLAY_RIBBON_DEPTH_HINT_RASTER );
-
-        renderCommands.DrawTransientColoredTriangles( packet.expandedRibbonVertices,
-                                                      viewProjection,
-                                                      Rendering::TransientTriangleStyle::TrajectoryRibbon,
-                                                      REPLAY_RIBBON_VISIBLE_RASTER );
+        if ( !packet.expandedRibbonVertices.empty() )
+        {
+            renderCommands.DrawTransientColoredTriangles( packet.expandedRibbonVertices,
+                                                          viewProjection,
+                                                          Rendering::TransientTriangleStyle::TrajectoryRibbonDepthHint,
+                                                          REPLAY_RIBBON_DEPTH_HINT_RASTER );
+        }
+        if ( !packet.priorityExpandedRibbonVertices.empty() )
+        {
+            renderCommands.DrawTransientColoredTriangles( packet.priorityExpandedRibbonVertices,
+                                                          viewProjection,
+                                                          Rendering::TransientTriangleStyle::TrajectoryRibbonDepthHint,
+                                                          REPLAY_RIBBON_DEPTH_HINT_RASTER );
+        }
+        if ( !packet.expandedRibbonVertices.empty() )
+        {
+            renderCommands.DrawTransientColoredTriangles( packet.expandedRibbonVertices,
+                                                          viewProjection,
+                                                          Rendering::TransientTriangleStyle::TrajectoryRibbon,
+                                                          REPLAY_RIBBON_VISIBLE_RASTER );
+        }
+        if ( !packet.priorityExpandedRibbonVertices.empty() )
+        {
+            renderCommands.DrawTransientColoredTriangles( packet.priorityExpandedRibbonVertices,
+                                                          viewProjection,
+                                                          Rendering::TransientTriangleStyle::TrajectoryRibbon,
+                                                          REPLAY_RIBBON_VISIBLE_RASTER );
+        }
     }
 }

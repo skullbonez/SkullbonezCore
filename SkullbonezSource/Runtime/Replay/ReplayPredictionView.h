@@ -90,6 +90,7 @@ struct ReplayPredictionPresentationView
     uint32_t generation = 0;                                          // Successful private-simulation generation owning this published prefix.
     uint32_t topologyVersion = 0;
     uint32_t trajectoryBuildTopologyVersion = 0;
+    uint64_t trajectoryPublicationVersion = 0;                        // O(1) invalidation token for retained trajectory draw lists.
     std::size_t trajectoryBuiltNodeCount = 0;
     std::size_t trajectoryChildFrameCount = 0;
     ReplayPredictionBuildMode buildMode = ReplayPredictionBuildMode::Undecided;

@@ -483,7 +483,9 @@ void CameraCollection::SetCamera()
             m_tweenCamera.m_upVector = Vector3( 0.0f, 1.0f, 0.0f );
         }
 
-        // avoid going through the m_terrain during tweens
+        // Avoid going through terrain during tweens when the scene owns a
+        // terrain surface. Terrainless authored scenes deliberately bind null;
+        // their cameras must remain unconstrained in space.
         if ( m_terrain )
         {
             float terrainHeight =
@@ -493,16 +495,6 @@ void CameraCollection::SetCamera()
             {
                 m_tweenCamera.m_position.y = terrainHeight + m_movementSettings.minCameraHeight;
             }
-        }
-        else
-        {
-            SB_FATAL( "CameraCollection",
-                      "Tweened SetCamera requires terrain height provider. terrain_present=%d selected=%d count=%d "
-                      "tweenProgress=%f",
-                      m_terrain ? 1 : 0,
-                      m_selectedCamera,
-                      m_arrayPosition,
-                      m_tweenProgress );
         }
 
         SetViewMatrix( m_tweenCamera );

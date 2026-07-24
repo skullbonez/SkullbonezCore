@@ -372,6 +372,7 @@ class ReplayPrediction
         view.generation = m_state.build.generationBeginCount;
         view.topologyVersion = m_state.futureNodeCache.futureNodesTopologyVersion;
         view.trajectoryBuildTopologyVersion = m_state.trajectoryBuild.topologyVersion;
+        view.trajectoryPublicationVersion = m_state.trajectoryStore.publicationVersion;
         view.trajectoryBuiltNodeCount = m_state.trajectoryBuild.builtNodeCount;
         view.trajectoryChildFrameCount = m_state.trajectoryBuild.childFrameCount;
         view.buildMode = m_state.build.buildMode;

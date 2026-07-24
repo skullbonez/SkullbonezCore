@@ -7,27 +7,33 @@ Summary:
   Small stack-owned typed records and float arrays model production packet
   spans. Tests prove semantic, causal-topology, and ghost changes are reported
   before geometry, that reordered or truncated submission buffers identify
-  their exact owner lane and float, and that an in-flight worker cannot change
-  the prepared prefix halfway through one rendered frame.
+  their exact owner lane and float, that an in-flight worker cannot change the
+  prepared prefix halfway through one rendered frame, and that prediction draw
+  commands append without revisiting a stable publication.
 
 Glossary:
   Packet span: Non-owning view of one ordered production submission stream.
   First difference: Earliest semantic field or float where two packets differ.
+  Publication token: Monotonic value that invalidates retained draw commands
+    only when a reader-visible trajectory prefix changes.
 
 Invariants:
   - Packet comparison is bit-exact and order-sensitive.
   - A count mismatch cannot alias an equal common prefix.
   - Presentation keeps the frame prefix prepared on the frame thread even if
     the worker publishes more prediction rows before rendering consumes it.
+  - An unchanged publication token and reveal frame cannot mutate draw storage.
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayVisualPacket.h
+  - SkullbonezSource/Runtime/Replay/ReplayPredictionDrawing.cpp
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Runtime/Replay/ReplayVisualPacket.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayVisualPacketFingerprint.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayPredictionPublication.h"
+#include "../SkullbonezSource/Runtime/Replay/ReplayOverlayRenderer.h"
 
 #include <array>
 #include <bit>
@@ -37,6 +43,18 @@ Related:
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Runtime::ReplayVisualPacketFingerprintOperations;
 using namespace SkullbonezCore::Runtime::ReplayVisualPacketOperations;
+
+TEST_CASE( "Replay prediction draw cursor resumes at its suffix and reuses stable tokens" )
+{
+    CHECK( ReplayOverlay::IsReplayPredictionDrawListPublicationStable( false, 19u, 2400, 19u, 2400 ) );
+    CHECK_FALSE( ReplayOverlay::IsReplayPredictionDrawListPublicationStable( true, 19u, 2400, 19u, 2400 ) );
+    CHECK_FALSE( ReplayOverlay::IsReplayPredictionDrawListPublicationStable( false, 18u, 2400, 19u, 2400 ) );
+    CHECK_FALSE( ReplayOverlay::IsReplayPredictionDrawListPublicationStable( false, 19u, 2399, 19u, 2400 ) );
+
+    CHECK( ReplayOverlay::ReplayPredictionFirstUnconsumedPoint( 0u ) == 1u );
+    CHECK( ReplayOverlay::ReplayPredictionFirstUnconsumedPoint( 1u ) == 1u );
+    CHECK( ReplayOverlay::ReplayPredictionFirstUnconsumedPoint( 128u ) == 128u );
+}
 
 TEST_CASE( "Replay visual presentation keeps one prepared worker prefix for the rendered frame" )
 {

@@ -126,7 +126,45 @@ struct DynamicVBDX12
     int stride;
     int numAttribs;
     int attribComponents[12];
+    bool perInstance = false;
 };
+
+struct RetainedTrajectoryBufferDX12
+{
+    std::array<uint64_t, 4> streamIds = {};
+    std::array<uint64_t, 4> revisions = {};
+    std::array<std::size_t, 4> uploadedFloatCounts = {};
+};
+
+struct RetainedTrajectoryUploadPlanDX12
+{
+    bool uploadRequired = false;
+    std::size_t firstChangedUnit = 0;
+};
+
+// Concept: retained trajectory buffers are invalidated by value tokens, not by
+// frame number. Equal stream/revision pairs therefore produce no upload plan.
+constexpr RetainedTrajectoryUploadPlanDX12 BuildRetainedTrajectoryUploadPlanDX12( uint64_t cachedStreamId,
+                                                                                  uint64_t cachedRevision,
+                                                                                  std::size_t cachedUnitCount,
+                                                                                  uint64_t incomingStreamId,
+                                                                                  uint64_t incomingRevision,
+                                                                                  std::size_t incomingUnitCount,
+                                                                                  bool repairPreviousUnit ) noexcept
+{
+    if ( cachedStreamId == incomingStreamId && cachedRevision == incomingRevision )
+    {
+        return {};
+    }
+
+    const bool append = cachedStreamId == incomingStreamId && cachedUnitCount <= incomingUnitCount;
+    std::size_t firstChangedUnit = append ? cachedUnitCount : 0u;
+    if ( append && repairPreviousUnit && firstChangedUnit > 0u )
+    {
+        --firstChangedUnit;
+    }
+    return { true, firstChangedUnit };
+}
 
 
 // Instanced mesh
@@ -514,6 +552,10 @@ class Dx12GeometryOwner
                              Dx12FrameOwner& frame,
                              Dx12PipelineOwner& pipeline,
                              Dx12Diagnostics& diagnostics );
+    static constexpr UINT64 RetainedTrajectoryBufferSizeBytes()
+    {
+        return static_cast<UINT64>( RETAINED_TRAJECTORY_FLOAT_CAPACITY * sizeof( float ) );
+    }
     // Lifetime: vertex bytes and layout spans are consumed synchronously by
     // cold resource creation and are never retained by the geometry owner.
     uint32_t CreateInstancedMesh( const float* staticVertices,
@@ -544,6 +586,19 @@ class Dx12GeometryOwner
                                         const Math::Transformation::Matrix4& viewProjection,
                                         TransientTriangleStyle style,
                                         const PassRasterStateBucket& bucket );
+    void DrawRetainedTrajectoryRibbon( std::span<const float> packedVertices,
+                                       uint64_t streamId,
+                                       uint64_t revision,
+                                       bool priorityLane,
+                                       const Math::Transformation::Matrix4& viewProjection,
+                                       TransientTriangleStyle style,
+                                       const PassRasterStateBucket& bucket );
+    void DrawRetainedLinesColored( std::span<const float> packedVertices,
+                                   uint64_t streamId,
+                                   uint64_t revision,
+                                   bool priorityLane,
+                                   const Math::Transformation::Matrix4& viewProjection,
+                                   const PassRasterStateBucket& bucket );
     void UploadInstanceData( uint32_t handle, std::span<const float> packedInstances );
     void DrawInstancedMesh( const InstancedMeshDrawDesc& draw );
     void DestroyInstancedMesh( uint32_t handle );
@@ -569,15 +624,44 @@ class Dx12GeometryOwner
                                   ID3D12Resource* uploadResource,
                                   D3D12_GPU_VIRTUAL_ADDRESS uploadAddress,
                                   uint8_t* uploadPointer );
+    void DrawColoredTrianglesFromBuffer( std::size_t packedFloatCount,
+                                         const Math::Transformation::Matrix4& viewProjection,
+                                         TransientTriangleStyle style,
+                                         int viewportWidth,
+                                         int viewportHeight,
+                                         bool compactTrajectoryInstances,
+                                         D3D12_GPU_VIRTUAL_ADDRESS vertexAddress,
+                                         ID3D12GraphicsCommandList* commandList,
+                                         Dx12DrawGate& drawGate,
+                                         Dx12Diagnostics& diagnostics,
+                                         const RasterStateDesc& rasterState );
+    void DrawLinesColoredFromBuffer( std::size_t packedFloatCount,
+                                     const Math::Transformation::Matrix4& viewProjection,
+                                     D3D12_GPU_VIRTUAL_ADDRESS vertexAddress,
+                                     ID3D12GraphicsCommandList* commandList,
+                                     Dx12PipelineOwner& pipeline,
+                                     Dx12DrawGate& drawGate,
+                                     Dx12Diagnostics& diagnostics,
+                                     const RasterStateDesc& rasterState );
     static constexpr size_t MAX_DYNAMIC_VERTEX_BUFFERS = 32;
     static constexpr size_t MAX_GRID_LINE_PSOS = 4;
     static constexpr size_t TRANSIENT_TRIANGLE_STYLE_COUNT = 4;
+    // Retained ribbons store one 19-float instance record per logical segment;
+    // the vertex shader expands six corners from SV_VertexID.
+    static constexpr std::size_t RETAINED_TRAJECTORY_ORDINARY_FLOAT_CAPACITY = 24000u * 19u;
+    static constexpr std::size_t RETAINED_TRAJECTORY_PRIORITY_FLOAT_CAPACITY = 3000u * 19u;
+    static constexpr std::size_t RETAINED_TRAJECTORY_ORDINARY_LINE_FLOAT_CAPACITY = 262144u;
+    static constexpr std::size_t RETAINED_TRAJECTORY_PRIORITY_LINE_FLOAT_CAPACITY = 524288u;
+    static constexpr std::size_t RETAINED_TRAJECTORY_FLOAT_CAPACITY =
+        RETAINED_TRAJECTORY_ORDINARY_FLOAT_CAPACITY + RETAINED_TRAJECTORY_PRIORITY_FLOAT_CAPACITY +
+        RETAINED_TRAJECTORY_ORDINARY_LINE_FLOAT_CAPACITY + RETAINED_TRAJECTORY_PRIORITY_LINE_FLOAT_CAPACITY;
     std::vector<DynamicVBDX12> m_dynamicVBs;
     std::vector<InstancedMeshDX12> m_instancedMeshes;
     std::unique_ptr<ShaderDX12> m_gridLineShader;
     std::array<GridLinePSODX12, MAX_GRID_LINE_PSOS> m_gridLinePSOs = {};
     size_t m_gridLinePSOCount = 0;
     std::array<std::unique_ptr<ShaderDX12>, TRANSIENT_TRIANGLE_STYLE_COUNT> m_transientTriangleShaders;
+    std::array<RetainedTrajectoryBufferDX12, Dx12FrameOwner::FRAME_COUNT> m_retainedTrajectoryBuffers = {};
     Dx12RenderDevice* m_resourceDevice = nullptr;
     Dx12FrameOwner* m_resourceFrame = nullptr;
     Dx12PipelineOwner* m_submissionPipeline = nullptr;

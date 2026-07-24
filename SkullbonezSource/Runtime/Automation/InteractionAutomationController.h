@@ -167,6 +167,7 @@ enum class RunInteractionAutomationAssertKind
     PredictionFullHorizonComplete,
     PredictionBuildMode,
     PredictionSupersededRestartCountMin,
+    PredictionSupersededRestartCountMax,
     PredictionBaselineVisible,
     PredictionDivergenceMin,
     ReplaySolverTrackAtPresent,

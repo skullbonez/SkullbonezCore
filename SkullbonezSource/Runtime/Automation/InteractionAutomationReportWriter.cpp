@@ -362,7 +362,10 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::CaptureReplayVi
     tick.hasGeometry = bufferFacts.hasGeometry;
     tick.combinedLineHash = bufferFacts.combinedLineHash;
     tick.combinedLineBytes = bufferFacts.combinedLineBytes;
-    tick.combinedLineVertexCount = static_cast<uint32_t>( packet.combinedLines.size() / 6u );
+    // Retained and frame-local line lanes are physically separate so stable
+    // prediction frames never concatenate CPU buffers. Report their logical
+    // combined vertex count from the renderer-bound byte facts instead.
+    tick.combinedLineVertexCount = static_cast<uint32_t>( bufferFacts.combinedLineBytes / ( sizeof( float ) * 6u ) );
     for ( uint64_t dropped : packet.trajectoryDiagnostics.droppedSegments )
     {
         tick.droppedSegmentCount += dropped;

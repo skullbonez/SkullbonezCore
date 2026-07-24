@@ -13,15 +13,11 @@ Glossary:
     the visible path, markers, ghosts, and immutable visual packet.
   Visual packet: Frame-local read-only description of the exact buffers sent to
     the renderer and compared by the mega replay oracle.
-  Consequence grade: Replay-owned wall-clock fade that makes prediction
-    causality overlays visually dominant without giving the renderer animation state.
 
 Invariants:
   - Path selection and focus masks reserve before steady replay interaction.
   - The render-pose match table is fixed at the scene model capacity.
   - Recording-only ghost storage reserves only after replay is configured.
-  - Consequence-grade delta time is capped at 0.10 seconds and advances once per
-    world-render turn; text-only turns preserve the prior clock anchor.
 
 Related:
   - ReplayPresentation.h
@@ -44,23 +40,6 @@ Related:
 
 namespace SkullbonezCore::Runtime
 {
-namespace
-{
-float ApproachPresentationStrength( float current, float target, float dtSeconds, float secondsToTarget ) noexcept
-{
-    if ( secondsToTarget <= 0.0f )
-    {
-        return target;
-    }
-    const float step = std::clamp( dtSeconds / secondsToTarget, 0.0f, 1.0f );
-    if ( current < target )
-    {
-        return (std::min)( target, current + step );
-    }
-    return (std::max)( target, current - step );
-}
-} // namespace
-
 const char* ReplayPathColorModeName( ReplayPathColorMode mode ) noexcept
 {
     switch ( mode )
@@ -94,20 +73,6 @@ ReplayPastTrajectoryView ReplayPresentation::PastTrajectoryView() const noexcept
     view.hasTarget = m_pathVisualizer.hasTarget;
     view.valid = m_pathVisualizer.pastTrajectory.valid;
     return view;
-}
-
-float ReplayPresentation::AdvanceConsequenceGrade( bool requested ) noexcept
-{
-    const auto now = std::chrono::steady_clock::now();
-    float dtSeconds = 0.0f;
-    if ( m_consequenceGradeLastTick.time_since_epoch().count() != 0 )
-    {
-        dtSeconds = std::clamp( std::chrono::duration<float>( now - m_consequenceGradeLastTick ).count(), 0.0f, 0.10f );
-    }
-    m_consequenceGradeLastTick = now;
-    const float target = requested ? 1.0f : 0.0f;
-    m_consequenceGradeStrength = ApproachPresentationStrength( m_consequenceGradeStrength, target, dtSeconds, 1.0f );
-    return m_consequenceGradeStrength;
 }
 
 void ReplayPresentation::PopulateLauncherVisualCapture( ReplayCaptureInput& input, RuntimeTools& runtimeTools )

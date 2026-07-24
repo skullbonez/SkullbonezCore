@@ -36,6 +36,8 @@ Glossary:
   shader read, copy source, or present.
   Fence: GPU timeline counter used to prove command allocators, upload bytes,
   and transient descriptors are no longer in flight.
+  Persistent tail: Fixed suffix excluded from ordinary frame resets so retained
+    GPU geometry can reuse cold-created upload memory across frames.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
@@ -913,11 +915,13 @@ Dx12FrameUploadSystem::~Dx12FrameUploadSystem()
 bool Dx12FrameUploadSystem::Init( ID3D12Device* device,
                                   UINT frameCount,
                                   UINT64 capacityBytes,
+                                  UINT64 persistentTailBytes,
                                   const wchar_t* debugNamePrefix )
 {
     Shutdown();
 
-    if ( !device || frameCount == 0 || frameCount > MAX_FRAME_COUNT || capacityBytes == 0 )
+    if ( !device || frameCount == 0 || frameCount > MAX_FRAME_COUNT || capacityBytes == 0 ||
+         persistentTailBytes >= capacityBytes )
     {
         SB_FATAL( "RenderDeviceDX12",
                   "Invalid DX12 frame upload system init description. frameCount=%u capacityBytes=%llu",
@@ -927,6 +931,7 @@ bool Dx12FrameUploadSystem::Init( ID3D12Device* device,
 
     m_frameCount = frameCount;
     m_capacityBytes = capacityBytes;
+    m_persistentTailBytes = persistentTailBytes;
 
     const wchar_t* safeName =
         ( debugNamePrefix && debugNamePrefix[0] != L'\0' ) ? debugNamePrefix : L"Skullbonez DX12 Frame Upload Buffer";
@@ -970,9 +975,10 @@ bool Dx12FrameUploadSystem::Init( ID3D12Device* device,
         }
         m_mappedPtrs[i] = checkedMap.bytes;
 
-        // The arena owns byte-range accounting for this resource. The system
-        // owns the COM resource and its persistent CPU Map() pointer.
-        m_arenas[i].Init( m_resources[i], m_mappedPtrs[i], capacityBytes );
+        // The arena owns ordinary frame byte-range accounting. Its fixed tail
+        // is excluded so retained GPU commands can survive ResetFrame without
+        // allocating another upload heap.
+        m_arenas[i].Init( m_resources[i], m_mappedPtrs[i], capacityBytes - persistentTailBytes );
     }
 
     return true;
@@ -994,6 +1000,7 @@ void Dx12FrameUploadSystem::Shutdown()
     }
     m_frameCount = 0;
     m_capacityBytes = 0;
+    m_persistentTailBytes = 0;
 }
 
 
@@ -1059,6 +1066,20 @@ ID3D12Resource* Dx12FrameUploadSystem::Resource( UINT frameIndex ) const
 {
     ValidateFrameIndex( frameIndex );
     return m_arenas[frameIndex].Resource();
+}
+
+
+D3D12_GPU_VIRTUAL_ADDRESS Dx12FrameUploadSystem::PersistentTailAddress( UINT frameIndex ) const
+{
+    ValidateFrameIndex( frameIndex );
+    return m_resources[frameIndex]->GetGPUVirtualAddress() + ( m_capacityBytes - m_persistentTailBytes );
+}
+
+
+uint8_t* Dx12FrameUploadSystem::PersistentTailPointer( UINT frameIndex ) const
+{
+    ValidateFrameIndex( frameIndex );
+    return m_mappedPtrs[frameIndex] + ( m_capacityBytes - m_persistentTailBytes );
 }
 
 

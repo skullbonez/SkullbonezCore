@@ -19,8 +19,8 @@ Glossary:
 Invariants:
   - Camera slots are fixed-size and keyed by m_cameraHashes; scene code must
     register a camera before selecting it by hash.
-  - m_terrain is borrowed scene state and must not be freed by the camera
-    collection.
+  - m_terrain is optional borrowed scene state: null disables terrain
+    collision for terrainless scenes, and the collection never frees it.
   - The active collection is value-owned by SceneController; frame, input,
     replay, and render paths borrow that concrete scene owner directly.
 
@@ -67,7 +67,7 @@ class CameraCollection
     bool m_isTweening;                                                            // Render camera follows m_tweenCamera while this is true.
     float m_tweenProgress;                                                        // Normalized tween progress through m_tweenPath.
     CameraMovementSettings m_movementSettings;                                    // Cached runtime tuning used by private camera clamp paths.
-    Geometry::Terrain* m_terrain;                                                 // Borrowed scene terrain used to keep tweened cameras collision-aware.
+    Geometry::Terrain* m_terrain;                                                 // Optional borrowed terrain; null means a terrainless scene.
     Math::Transformation::Matrix4 m_currentViewMatrix;                            // Render-facing view matrix refreshed once per frame.
 
     void SetViewMatrix( const Camera& cCameraData );                              // Frame view matrix comes from the pose selected for rendering.
@@ -125,7 +125,7 @@ class CameraCollection
     bool IsCameraSelected( uint32_t hash );
     void ApplyPrimaryMovementBuffer();
     const Math::Vector::Vector3& GetPrimaryMovementBuffer();
-    void SetTerrain( Geometry::Terrain* cTerrain );                               // Borrowed terrain pointer used for camera collision bounds.
+    void SetTerrain( Geometry::Terrain* cTerrain );                               // Null disables terrain collision for terrainless camera tweens.
     void RotatePrimary( float xMove, float yMove );
 
     void SetCameraXZBounds( uint32_t hash, const Geometry::XZBounds bounds );

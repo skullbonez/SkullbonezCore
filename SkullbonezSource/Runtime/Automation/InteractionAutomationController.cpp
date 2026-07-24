@@ -627,6 +627,8 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "predictionBuildMode";
     case RunInteractionAutomationAssertKind::PredictionSupersededRestartCountMin:
         return "predictionSupersededRestartCountMin";
+    case RunInteractionAutomationAssertKind::PredictionSupersededRestartCountMax:
+        return "predictionSupersededRestartCountMax";
     case RunInteractionAutomationAssertKind::PredictionBaselineVisible:
         return "predictionBaselineVisible";
     case RunInteractionAutomationAssertKind::PredictionDivergenceMin:
@@ -1818,10 +1820,10 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
             name == "replayPorkchopMinimumDepartureDelayMax" || name == "replayPorkchopMinimumTimeOfFlightMin" ||
             name == "replayPorkchopMinimumTimeOfFlightMax" || name == "replayPorkchopRefreshMillisecondsMax" ||
             name == "replayTripPlannerTimeOfFlightMin" || name == "replayTripPlannerTimeOfFlightMax" ||
-            name == "predictionSupersededRestartCountMin" || name == "predictionDivergenceMin" ||
-            name == "predictionTargetDisplacementMin" || name == "imguiLayoutResetCountMin" ||
-            name == "imguiFocusCountMin" || name == "imguiDpiScale" || name == "imguiDescriptorHighWaterMax" ||
-            name == "imguiViewportRecreationsMin";
+            name == "predictionSupersededRestartCountMin" || name == "predictionSupersededRestartCountMax" ||
+            name == "predictionDivergenceMin" || name == "predictionTargetDisplacementMin" ||
+            name == "imguiLayoutResetCountMin" || name == "imguiFocusCountMin" || name == "imguiDpiScale" ||
+            name == "imguiDescriptorHighWaterMax" || name == "imguiViewportRecreationsMin";
         const bool expectsBool =
             name == "directorGrabbed" || name == "replayPredictionEnabled" || name == "predictionPathVisible" ||
             name == "predictionFullHorizonComplete" || name == "predictionBaselineVisible" ||
@@ -2007,6 +2009,11 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         else if ( name == "predictionSupersededRestartCountMin" )
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::PredictionSupersededRestartCountMin;
+            outAction.numberValue = member.value().get<float>();
+        }
+        else if ( name == "predictionSupersededRestartCountMax" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionSupersededRestartCountMax;
             outAction.numberValue = member.value().get<float>();
         }
         else if ( name == "predictionBaselineVisible" )
@@ -2475,6 +2482,14 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
         evaluation.expected = ">=" + std::to_string( static_cast<uint32_t>( action.numberValue ) );
         evaluation.actual = std::to_string( count );
         evaluation.passed = count >= static_cast<uint32_t>( action.numberValue );
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionSupersededRestartCountMax:
+    {
+        const uint32_t count = replay.prediction.build.supersededRestartCount;
+        evaluation.expected = "<=" + std::to_string( static_cast<uint32_t>( action.numberValue ) );
+        evaluation.actual = std::to_string( count );
+        evaluation.passed = count <= static_cast<uint32_t>( action.numberValue );
         break;
     }
     case RunInteractionAutomationAssertKind::PredictionBaselineVisible:

@@ -779,6 +779,30 @@ void ReplayRuntime::PrepareRenderOverlay(
     std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords )
 {
     const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
+    const ReplayOverlay::ReplayPredictionDrawListUpdate drawListUpdate =
+        ReplayOverlay::UpdateReplayPredictionDrawList( prediction,
+                                                       m_visualPresentation.PathVisualizer(),
+                                                       PhysicsEngine::ReadColliders( physics ),
+                                                       m_predictionDrawList,
+                                                       m_predictionDrawListState );
+    if ( drawListUpdate.reset )
+    {
+        ++m_predictionDrawStreamId;
+    }
+    if ( drawListUpdate.reset || drawListUpdate.appended )
+    {
+        // Build is proportional only to an actual list mutation. Stable frames
+        // retain this packet and never traverse or expand prediction geometry.
+        m_predictionDrawPacket =
+            m_predictionDrawList.BuildReplayVisualPacket( Math::Vector::ZERO_VECTOR,
+                                                          Math::Vector::Vector3( 0.0f, 1.0f, 0.0f ) );
+        ++m_predictionDrawRevision;
+    }
+    ReplayOverlay::AppendReplayPredictionProvisionalTails( prediction,
+                                                           m_visualPresentation.PathVisualizer(),
+                                                           m_predictionDrawListState,
+                                                           PhysicsEngine::ReadColliders( physics ),
+                                                           tracer );
     AppendOverlayTrace( physics,
                         entities,
                         tracer,
@@ -790,6 +814,90 @@ void ReplayRuntime::PrepareRenderOverlay(
 }
 
 
+void ReplayRuntime::AttachRetainedPredictionGeometry( ReplayVisualPacket& packet ) const
+{
+    packet.retainedPredictionRibbonVertices = m_predictionDrawPacket.expandedRibbonVertices;
+    packet.retainedPredictionPriorityRibbonVertices = m_predictionDrawPacket.priorityExpandedRibbonVertices;
+    packet.retainedPredictionOrdinaryRibbonSegments = m_predictionDrawPacket.ordinaryRibbonSegments;
+    packet.retainedPredictionPriorityRibbonSegments = m_predictionDrawPacket.priorityRibbonSegments;
+    packet.retainedPredictionOrdinaryLines = m_predictionDrawPacket.ordinaryLines;
+    packet.retainedPredictionPriorityLines = m_predictionDrawPacket.priorityLines;
+    packet.retainedPredictionStreamId = m_predictionDrawStreamId;
+    packet.retainedPredictionRevision = m_predictionDrawRevision;
+    if ( packet.retainedPredictionRibbonVertices.empty() && packet.retainedPredictionPriorityRibbonVertices.empty() &&
+         packet.retainedPredictionOrdinaryLines.empty() && packet.retainedPredictionPriorityLines.empty() )
+    {
+        return;
+    }
+
+    // The packet keeps retained history and bounded moving tails physically
+    // separate for rendering, while diagnostics hash their logical lane order
+    // without allocating or concatenating a temporary stream.
+    const auto& retainedSubmission = m_predictionDrawPacket.submission;
+    const bool hasFrameLocalGeometry =
+        !packet.ordinaryLines.empty() || !packet.priorityLines.empty() || !packet.ordinaryRibbonSegments.empty() ||
+        !packet.priorityRibbonSegments.empty() || !packet.expandedRibbonVertices.empty() ||
+        !packet.priorityExpandedRibbonVertices.empty();
+    if ( !hasFrameLocalGeometry )
+    {
+        // Invariant: after the reveal is complete, attachment is a span copy
+        // plus cached telemetry only. Re-hashing retained bytes here would
+        // reintroduce O(command-count) CPU work on every stable GPU-only frame.
+        packet.submission = retainedSubmission;
+        return;
+    }
+    packet.submission.hasGeometry = packet.submission.hasGeometry || retainedSubmission.hasGeometry;
+    packet.submission.ordinaryLineHash =
+        ReplayVisualPacketOperations::HashReplayVisualFloatBuffers( packet.retainedPredictionOrdinaryLines,
+                                                                    packet.ordinaryLines );
+    packet.submission.ordinaryLineBytes =
+        packet.retainedPredictionOrdinaryLines.size_bytes() + packet.ordinaryLines.size_bytes();
+    packet.submission.ordinaryLineVertexCount =
+        retainedSubmission.ordinaryLineVertexCount + packet.submission.ordinaryLineVertexCount;
+    packet.submission.priorityLineHash =
+        ReplayVisualPacketOperations::HashReplayVisualFloatBuffers( packet.retainedPredictionPriorityLines,
+                                                                    packet.priorityLines );
+    packet.submission.priorityLineCanonicalHash = retainedSubmission.priorityLineCanonicalHash;
+    packet.submission.priorityLineBytes =
+        packet.retainedPredictionPriorityLines.size_bytes() + packet.priorityLines.size_bytes();
+    packet.submission.priorityLineVertexCount =
+        retainedSubmission.priorityLineVertexCount + packet.submission.priorityLineVertexCount;
+    packet.submission.ordinaryRibbonHash =
+        ReplayVisualPacketOperations::HashReplayVisualFloatBuffers( packet.retainedPredictionOrdinaryRibbonSegments,
+                                                                    packet.ordinaryRibbonSegments );
+    packet.submission.ordinaryRibbonBytes =
+        packet.retainedPredictionOrdinaryRibbonSegments.size_bytes() + packet.ordinaryRibbonSegments.size_bytes();
+    packet.submission.ordinaryRibbonSegmentCount =
+        retainedSubmission.ordinaryRibbonSegmentCount + packet.submission.ordinaryRibbonSegmentCount;
+    packet.submission.priorityRibbonHash =
+        ReplayVisualPacketOperations::HashReplayVisualFloatBuffers( packet.retainedPredictionPriorityRibbonSegments,
+                                                                    packet.priorityRibbonSegments );
+    packet.submission.priorityRibbonCanonicalHash = retainedSubmission.priorityRibbonCanonicalHash;
+    packet.submission.priorityRibbonBytes =
+        packet.retainedPredictionPriorityRibbonSegments.size_bytes() + packet.priorityRibbonSegments.size_bytes();
+    packet.submission.priorityRibbonSegmentCount =
+        retainedSubmission.priorityRibbonSegmentCount + packet.submission.priorityRibbonSegmentCount;
+    packet.submission.vertexHash =
+        ReplayVisualPacketOperations::HashReplayVisualFloatBuffers( packet.retainedPredictionRibbonVertices,
+                                                                    packet.expandedRibbonVertices,
+                                                                    packet.retainedPredictionPriorityRibbonVertices,
+                                                                    packet.priorityExpandedRibbonVertices );
+    packet.submission.ordinaryVertexHash =
+        ReplayVisualPacketOperations::HashReplayVisualFloatBuffers( packet.retainedPredictionRibbonVertices,
+                                                                    packet.expandedRibbonVertices );
+    packet.submission.ordinaryVertexBytes =
+        packet.retainedPredictionRibbonVertices.size_bytes() + packet.expandedRibbonVertices.size_bytes();
+    packet.submission.ordinaryVertexCount =
+        retainedSubmission.ordinaryVertexCount + packet.submission.ordinaryVertexCount;
+    packet.submission.vertexBytes = packet.retainedPredictionRibbonVertices.size_bytes() +
+                                    packet.expandedRibbonVertices.size_bytes() +
+                                    packet.retainedPredictionPriorityRibbonVertices.size_bytes() +
+                                    packet.priorityExpandedRibbonVertices.size_bytes();
+    packet.submission.vertexCount = static_cast<uint32_t>( packet.submission.vertexBytes / ( sizeof( float ) * 19u ) );
+    packet.submission.segmentCount = packet.submission.vertexCount / 6u;
+}
+
+
 void ReplayRuntime::PublishRenderPacket( EditorTracer& tracer,
                                          const Math::Vector::Vector3& cameraTranslation,
                                          const Math::Vector::Vector3& cameraUp,
@@ -797,6 +905,7 @@ void ReplayRuntime::PublishRenderPacket( EditorTracer& tracer,
 {
     const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
     ReplayVisualPacket packet = tracer.BuildReplayVisualPacket( cameraTranslation, cameraUp );
+    AttachRetainedPredictionGeometry( packet );
     m_visualPresentation.PublishVisualPacket( packet,
                                               prediction,
                                               m_timeline.Solver().LatestSample(),
@@ -838,11 +947,6 @@ ReplayRenderFrameView ReplayRuntime::BuildRenderFrameView( const ReplayPresentat
              focusFadeActive };
 }
 
-float ReplayRuntime::AdvanceConsequenceGrade( bool requested ) noexcept
-{
-    return m_visualPresentation.AdvanceConsequenceGrade( requested );
-}
-
 void ReplayRuntime::CompleteRenderFrame( bool submissionRendered,
                                          int sceneFrame,
                                          uint64_t replayReserveGrowthEvents,
@@ -878,6 +982,28 @@ ReplayVisualPacket ReplayRuntime::BuildVisualProjectionForValidation(
 {
     EditorTracer& tracer = runtimeTools.Tracer();
     const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
+    const ReplayOverlay::ReplayPredictionDrawListUpdate drawListUpdate =
+        ReplayOverlay::UpdateReplayPredictionDrawList( prediction,
+                                                       m_visualPresentation.PathVisualizer(),
+                                                       PhysicsEngine::ReadColliders( physics ),
+                                                       m_predictionDrawList,
+                                                       m_predictionDrawListState );
+    if ( drawListUpdate.reset )
+    {
+        ++m_predictionDrawStreamId;
+    }
+    if ( drawListUpdate.reset || drawListUpdate.appended )
+    {
+        m_predictionDrawPacket =
+            m_predictionDrawList.BuildReplayVisualPacket( Math::Vector::ZERO_VECTOR,
+                                                          Math::Vector::Vector3( 0.0f, 1.0f, 0.0f ) );
+        ++m_predictionDrawRevision;
+    }
+    ReplayOverlay::AppendReplayPredictionProvisionalTails( prediction,
+                                                           m_visualPresentation.PathVisualizer(),
+                                                           m_predictionDrawListState,
+                                                           PhysicsEngine::ReadColliders( physics ),
+                                                           tracer );
     AppendOverlayTrace(
         physics,
         entities,
@@ -886,6 +1012,7 @@ ReplayVisualPacket ReplayRuntime::BuildVisualProjectionForValidation(
         ReplayOverlayBuildInput{ runtimeTools.Editor().editorModeEnabled, RuntimeInteractionGesture{}, 0 } );
     (void)m_visualPresentation.BuildPredictionGhostDrawRequests( prediction, presentationRecords, bodyStore );
     ReplayVisualPacket packet = tracer.BuildReplayVisualPacket( cameraEye, cameraUp );
+    AttachRetainedPredictionGeometry( packet );
     m_visualPresentation.PublishVisualPacket( packet,
                                               prediction,
                                               m_timeline.Solver().LatestSample(),

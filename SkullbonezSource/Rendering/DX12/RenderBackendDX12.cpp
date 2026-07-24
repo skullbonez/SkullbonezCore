@@ -516,15 +516,18 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, 
     // Dx12FrameUploadSystem owns the actual upload resources and their
     // persistent CPU Map() pointers. RenderBackendDX12 now asks for byte ranges
     // instead of owning the raw upload-buffer lifecycle itself.
+    // Invariant: retained prediction bytes are a fixed suffix of these cold
+    // device-epoch arenas. Ordinary frame allocation cannot overwrite them,
+    // and entering replay never creates a post-gameplay GPU resource.
     if ( !m_frameOwner.Uploads().Init( Device(),
                                        Dx12FrameOwner::FRAME_COUNT,
                                        Dx12FrameOwner::UPLOAD_BUFFER_SIZE,
+                                       Dx12GeometryOwner::RetainedTrajectoryBufferSizeBytes(),
                                        L"Skullbonez DX12 Frame Upload Buffer" ) )
     {
         return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
                                                         "DX12 frame upload buffer creation or persistent Map failed" );
     }
-
     const SkullbonezCore::Core::SbResult rootSignatureResult = m_pipelineOwner.Initialize( Device() );
     if ( !rootSignatureResult.ok )
     {

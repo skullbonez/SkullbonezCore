@@ -85,6 +85,7 @@ Related:
 #include "../Camera/RuntimeCameraMode.h"
 #include "../Interaction/RuntimeInteractionController.h"
 #include "../Scene/SceneLifecycle.h"
+#include "../Tools/RuntimeTools.h"
 #include "ReplayProbeState.h"
 #include "../../Core/MainMemoryStats.h"
 #include "../../Core/Common.h"
@@ -141,7 +142,6 @@ namespace Runtime
 {
 class ReplayRuntime;
 class InputRouter;
-class EditorTracer;
 class RuntimeTools;
 class SceneController;
 class DiagnosticsRuntime;
@@ -201,9 +201,6 @@ class ReplayRuntime
                                                 int modelCount,
                                                 bool collisionVisualizer,
                                                 bool debugTransparentBodyPass );
-    // Domain command: advances ReplayPresentation's consequence fade once for
-    // a frame that will reach world rendering and returns a copied scalar.
-    float AdvanceConsequenceGrade( bool requested ) noexcept;
     void CompleteRenderFrame( bool submissionRendered,
                               int sceneFrame,
                               uint64_t replayReserveGrowthEvents,
@@ -473,6 +470,7 @@ class ReplayRuntime
     void ApplyPredictionUpdateResult( const ReplayPredictionUpdateResult& result );
     void ApplyPastTrajectoryUpdate( const ReplayPastTrajectoryUpdate& update );
     void AppendSolverTrajectorySampleToStore( const ReplaySolverFrameSample& sample );
+    void AttachRetainedPredictionGeometry( ReplayVisualPacket& packet ) const;
 #ifdef _DEBUG
     // Runs the configured Debug startup probes after product artifact loading
     // has completed; early probe failures are returned in the value result.
@@ -505,6 +503,14 @@ class ReplayRuntime
     ReplayGuideArcs m_guideArcs;
     ReplayPorkchopPanel m_porkchopPanel;
     ReplayTripPlanner m_tripPlanner;
+    // Concept: prediction ribbons are a retained append-only command list.
+    // Frame-local tool/cause overlays keep using RuntimeTools::Tracer(), while
+    // this tracer changes only when trajectory publication or reveal advances.
+    EditorTracer m_predictionDrawList;
+    ReplayOverlay::ReplayPredictionDrawListState m_predictionDrawListState;
+    ReplayVisualPacket m_predictionDrawPacket;
+    uint64_t m_predictionDrawStreamId = 1;
+    uint64_t m_predictionDrawRevision = 0;
     SceneLifecycleGenerationObserver m_sceneClearObserver;
     SceneLifecycleGenerationObserver m_sceneActivationObserver;
 };

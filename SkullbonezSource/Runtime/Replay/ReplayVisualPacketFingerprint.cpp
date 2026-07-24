@@ -109,28 +109,53 @@ namespace ReplayVisualPacketFingerprintOperations
 ReplayVisualPacketBufferFacts BuildReplayVisualPacketBufferFacts( const ReplayVisualPacket& packet ) noexcept
 {
     ReplayVisualPacketBufferFacts facts;
+    const bool hasRetainedPrediction =
+        !packet.retainedPredictionRibbonVertices.empty() || !packet.retainedPredictionPriorityRibbonVertices.empty();
     facts.hasGeometry = packet.HasGeometry();
-    facts.combinedLineHash = HashReplayVisualFloatBuffer( packet.combinedLines );
-    facts.ordinaryLineHash = HashReplayVisualFloatBuffer( packet.ordinaryLines );
-    facts.priorityLineHash = HashReplayVisualFloatBuffer( packet.priorityLines );
-    facts.ordinaryRibbonHash = HashReplayVisualFloatBuffer( packet.ordinaryRibbonSegments );
-    facts.priorityRibbonHash = HashReplayVisualFloatBuffer( packet.priorityRibbonSegments );
-    facts.expandedVertexHash = HashReplayVisualFloatBuffer( packet.expandedRibbonVertices );
-    facts.combinedLineBytes = packet.combinedLines.size_bytes();
-    facts.ordinaryLineBytes = packet.ordinaryLines.size_bytes();
-    facts.priorityLineBytes = packet.priorityLines.size_bytes();
-    facts.ordinaryRibbonBytes = packet.ordinaryRibbonSegments.size_bytes();
-    facts.priorityRibbonBytes = packet.priorityRibbonSegments.size_bytes();
-    facts.expandedVertexBytes = packet.expandedRibbonVertices.size_bytes();
+    facts.combinedLineHash = HashReplayVisualFloatBuffers( packet.retainedPredictionOrdinaryLines,
+                                                           packet.ordinaryLines,
+                                                           packet.retainedPredictionPriorityLines,
+                                                           packet.priorityLines );
+    facts.ordinaryLineHash =
+        HashReplayVisualFloatBuffers( packet.retainedPredictionOrdinaryLines, packet.ordinaryLines );
+    facts.priorityLineHash =
+        HashReplayVisualFloatBuffers( packet.retainedPredictionPriorityLines, packet.priorityLines );
+    facts.ordinaryRibbonHash = hasRetainedPrediction
+                                   ? HashReplayVisualFloatBuffers( packet.retainedPredictionOrdinaryRibbonSegments,
+                                                                   packet.ordinaryRibbonSegments )
+                                   : HashReplayVisualFloatBuffer( packet.ordinaryRibbonSegments );
+    facts.priorityRibbonHash = hasRetainedPrediction
+                                   ? HashReplayVisualFloatBuffers( packet.retainedPredictionPriorityRibbonSegments,
+                                                                   packet.priorityRibbonSegments )
+                                   : HashReplayVisualFloatBuffer( packet.priorityRibbonSegments );
+    facts.expandedVertexHash =
+        hasRetainedPrediction
+            ? HashReplayVisualFloatBuffers( packet.retainedPredictionRibbonVertices,
+                                            packet.expandedRibbonVertices,
+                                            packet.retainedPredictionPriorityRibbonVertices,
+                                            packet.priorityExpandedRibbonVertices )
+            : HashReplayVisualFloatBuffers( packet.expandedRibbonVertices, packet.priorityExpandedRibbonVertices );
+    facts.combinedLineBytes = packet.retainedPredictionOrdinaryLines.size_bytes() + packet.ordinaryLines.size_bytes() +
+                              packet.retainedPredictionPriorityLines.size_bytes() + packet.priorityLines.size_bytes();
+    facts.ordinaryLineBytes = packet.retainedPredictionOrdinaryLines.size_bytes() + packet.ordinaryLines.size_bytes();
+    facts.priorityLineBytes = packet.retainedPredictionPriorityLines.size_bytes() + packet.priorityLines.size_bytes();
+    facts.ordinaryRibbonBytes =
+        packet.retainedPredictionOrdinaryRibbonSegments.size_bytes() + packet.ordinaryRibbonSegments.size_bytes();
+    facts.priorityRibbonBytes =
+        packet.retainedPredictionPriorityRibbonSegments.size_bytes() + packet.priorityRibbonSegments.size_bytes();
+    facts.expandedVertexBytes = packet.retainedPredictionRibbonVertices.size_bytes() +
+                                packet.expandedRibbonVertices.size_bytes() +
+                                packet.retainedPredictionPriorityRibbonVertices.size_bytes() +
+                                packet.priorityExpandedRibbonVertices.size_bytes();
 
     // The ordinary expanded lane is the leading region before priority marker
     // vertices. Its boundary is telemetry, so clamp here; the mandatory seam
     // check below rejects an invalid boundary before capture can succeed.
     facts.ordinaryExpandedVertexBytes = (std::min)( packet.submission.ordinaryVertexBytes, facts.expandedVertexBytes );
-    const std::size_t ordinaryFloatCount =
-        static_cast<std::size_t>( facts.ordinaryExpandedVertexBytes / sizeof( float ) );
     facts.ordinaryExpandedVertexHash =
-        HashReplayVisualFloatBuffer( packet.expandedRibbonVertices.first( ordinaryFloatCount ) );
+        hasRetainedPrediction
+            ? HashReplayVisualFloatBuffers( packet.retainedPredictionRibbonVertices, packet.expandedRibbonVertices )
+            : HashReplayVisualFloatBuffer( packet.expandedRibbonVertices );
     return facts;
 }
 
@@ -556,7 +581,7 @@ bool ReplayVisualPacketMatchesArchiveSample( const ReplayVisualPacket& packet,
     {
         return fail( "combinedLines.bytes" );
     }
-    if ( packet.combinedLines.size() / 6u != expected.combinedLineVertexCount )
+    if ( facts.combinedLineBytes / ( sizeof( float ) * 6u ) != expected.combinedLineVertexCount )
     {
         return fail( "combinedLines.vertices" );
     }

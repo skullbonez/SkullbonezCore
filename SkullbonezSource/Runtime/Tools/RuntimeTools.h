@@ -482,10 +482,14 @@ class EditorTracer
     std::vector<float> m_renderLineData;
     std::vector<float> m_replayRibbonSegments;                              // Packed 13-float replay segments before shader-side expansion.
     std::vector<float> m_priorityReplayRibbonSegments;                      // Retained yellow entry ribbon segments that survive path overflow.
+    std::vector<float> m_replayRibbonVertexData;                            // Ordinary packed 19-float adjacency vertices.
     std::vector<float>
-        m_replayRibbonVertexData;                                           // Packed 19-float adjacency vertices consumed by the trajectory ribbon style.
+        m_priorityReplayRibbonVertexData;                                   // Priority packed vertices kept separate so ordinary appends never move them.
+    std::size_t m_expandedOrdinarySegmentCount = 0;
+    std::size_t m_expandedPrioritySegmentCount = 0;
     SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats
         m_replaySubmissionStats;                                            // Frame-local submitted replay ribbon hash sampled after tracer render.
+    uint64_t m_replayGeometryRevision = 0;                                  // Successful ribbon-record append serial for retained draw-list publication.
 
     void EmitLineTo( std::vector<float>& lineData,
                      const Math::Vector::Vector3& a,
@@ -569,6 +573,10 @@ class EditorTracer
     void ClearReplayTrajectoryStats();
     // Returns the current replay-pass counters without taking ownership.
     const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& ReplayTrajectoryStats() const;
+    uint64_t ReplayGeometryRevision() const noexcept
+    {
+        return m_replayGeometryRevision;
+    }
     // Records logical ribbon segments intentionally omitted by a caller-side
     // quota before vertex emission, preserving lane-specific diagnostics.
     void RecordReplayRibbonDroppedSegments( SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane,
@@ -581,6 +589,7 @@ class EditorTracer
     // before emitting segments, so the tracer's fixed reserve remains the
     // single source of capacity truth.
     std::size_t ReplayPathRibbonSegmentCapacityRemaining() const;
+    std::size_t ReplayPriorityRibbonSegmentCapacityRemaining() const;
     void AddPlacementRay( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& hitPoint );
     void AddPlacementGhost( int objectType,
                             const Math::Vector::Vector3& center,

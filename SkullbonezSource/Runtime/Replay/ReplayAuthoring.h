@@ -335,6 +335,22 @@ class ReplayAuthoring
         m_velocityEdit.dragStartAngle = start.angle;
         m_velocityEdit.dragStartLinearVelocity = start.linearVelocity;
         m_velocityEdit.dragStartAngularVelocity = start.angularVelocity;
+        m_velocityEdit.dragPredictionDirty = false;
+    }
+
+    void MarkVelocityEditDragDirty() noexcept
+    {
+        m_velocityEdit.dragPredictionDirty = true;
+    }
+
+    void FinishVelocityEditDrag() noexcept
+    {
+        if ( !m_velocityEdit.dragPredictionDirty )
+        {
+            return;
+        }
+        m_velocityEdit.dragPredictionDirty = false;
+        QueuePredictionRefresh();
     }
 
     // Appends the authoring-owned velocity gizmo from value-selected replay

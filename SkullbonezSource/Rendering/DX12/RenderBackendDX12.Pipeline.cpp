@@ -246,6 +246,9 @@ void Dx12PipelineOwner::BuildDynamicVBInputLayout( const DynamicVBDX12& dvb,
     UINT offset = 0;
     const bool hasNormal = dvb.numAttribs >= 2 && dvb.attribComponents[0] == 3 && dvb.attribComponents[1] == 3;
     const bool hasUvAfterNormal = hasNormal && dvb.numAttribs >= 3 && dvb.attribComponents[2] == 2;
+    const D3D12_INPUT_CLASSIFICATION inputClass =
+        dvb.perInstance ? D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA : D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
+    const UINT instanceStepRate = dvb.perInstance ? 1u : 0u;
     for ( int i = 0; i < dvb.numAttribs; ++i )
     {
         DXGI_FORMAT fmt = DXGI_FORMAT_R32_FLOAT;
@@ -264,21 +267,21 @@ void Dx12PipelineOwner::BuildDynamicVBInputLayout( const DynamicVBDX12& dvb,
 
         if ( i == 0 )
         {
-            out[count] = { "POSITION", 0, fmt, 0, offset, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
+            out[count] = { "POSITION", 0, fmt, 0, offset, inputClass, instanceStepRate };
         }
         else if ( hasNormal && i == 1 )
         {
-            out[count] = { "NORMAL", 0, fmt, 0, offset, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
+            out[count] = { "NORMAL", 0, fmt, 0, offset, inputClass, instanceStepRate };
         }
         else if ( hasUvAfterNormal && i == 2 )
         {
-            out[count] = { "TEXCOORD", 0, fmt, 0, offset, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
+            out[count] = { "TEXCOORD", 0, fmt, 0, offset, inputClass, instanceStepRate };
         }
         else
         {
             const UINT semanticIndex =
                 hasNormal ? static_cast<UINT>( hasUvAfterNormal ? i - 2 : i - 1 ) : static_cast<UINT>( i - 1 );
-            out[count] = { "TEXCOORD", semanticIndex, fmt, 0, offset, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
+            out[count] = { "TEXCOORD", semanticIndex, fmt, 0, offset, inputClass, instanceStepRate };
         }
         ++count;
         offset += (UINT)dvb.attribComponents[i] * sizeof( float );
@@ -320,6 +323,9 @@ size_t Dx12PipelineOwner::BuildPSOHash( const PSOKey12& key, const DynamicVBDX12
         {
             psoHash ^= ( (size_t)dynamicVertexBuffer->attribComponents[i] << ( i * 4 ) );
         }
+        // Per-instance and per-vertex layouts can carry identical semantic
+        // widths but are different PSOs; keep that classification in identity.
+        psoHash ^= dynamicVertexBuffer->perInstance ? ( size_t{ 1 } << 63u ) : 0u;
     }
     return psoHash;
 }

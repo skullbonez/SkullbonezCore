@@ -143,7 +143,6 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
                                                                                     debug.isCollisionVisualizer,
                                                                                     debugTransparentBodyPass );
     const RenderReplayOverlayView replayOverlay{ replayFrame };
-    const bool replayPredictionEnabled = replayFrame.predictionEnabled;
     Gameplay::TornadoVisualTimeCandidates visualTime;
     visualTime.simulationSourceSeconds = framePolicy.simulationSeconds;
     visualTime.liveAdvanceHeld = replayFrame.liveAdvanceHeld;
@@ -168,11 +167,6 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     // Invariant: Gameplay preallocates its bounded visual maximum during owner
     // construction. Steady rendering receives no allocation-phase exemption.
     worldExtension = m_sceneController.Scene().Tornado().PrepareVisualFrame( visualTime );
-    // Why: text-only frames never reached the old renderer-owned clock update.
-    // Preserve that pause while asking replay presentation for the copied fade
-    // value immediately before the world-render entry.
-    const float consequenceGradeStrength =
-        framePolicy.textOnly ? 0.0f : m_replayRuntime.AdvanceConsequenceGrade( replayPredictionEnabled );
     const bool replaySubmissionRendered =
         m_renderer.RenderFrameEntry( RuntimeRenderer::FrameEntryContext{ renderModels,
                                                                          framePolicy,
@@ -180,8 +174,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
                                                                          toolOverlay,
                                                                          worldExtension,
                                                                          activeCinematic,
-                                                                         cinematicRequested,
-                                                                         consequenceGradeStrength } );
+                                                                         cinematicRequested } );
     m_replayRuntime.CompleteRenderFrame( replaySubmissionRendered,
                                          m_sceneController.State().currentFrame,
                                          replayGrowthEventCount,

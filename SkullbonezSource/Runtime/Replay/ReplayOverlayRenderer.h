@@ -37,6 +37,7 @@ Related:
 #include "ReplayScrubber.h"
 #include "../../Rendering/RenderInstanceStore.h"
 
+#include <array>
 #include <vector>
 
 namespace SkullbonezCore::Rendering
@@ -57,6 +58,7 @@ class TextBatch;
 
 namespace SkullbonezCore::Physics
 {
+class ColliderStore;
 class PhysicsBodyStore;
 class PhysicsEngine;
 } // namespace SkullbonezCore::Physics
@@ -68,6 +70,72 @@ class EditorTracer;
 
 namespace SkullbonezCore::Runtime::ReplayOverlay
 {
+struct ReplayPredictionDrawRecordCursor
+{
+    ReplayTrajectoryRecordKey key;
+    uint32_t recordVersion = 0;
+    std::size_t sourceRecordIndex = 0;
+    std::size_t consumedPointCount = 0;
+    std::size_t lastSelectedPointIndex = 0;
+    bool entryMarkerAppended = false;
+    bool endMarkerAppended = false;
+};
+
+struct ReplayPredictionDrawListState
+{
+    // 200 future nodes can publish incoming/outgoing records for both build and
+    // committed banks, plus root/baseline/past rows.
+    static constexpr std::size_t MAX_RECORD_CURSORS = 1024;
+
+    std::array<ReplayPredictionDrawRecordCursor, MAX_RECORD_CURSORS> recordCursors = {};
+    // Retained marker trails are a second presentation of child-outgoing
+    // records with a denser, independently bounded sampling policy. Their
+    // cursors must not consume the ordinary child-path cursor.
+    std::array<ReplayPredictionDrawRecordCursor, MAX_RECORD_CURSORS> retainedTrailCursors = {};
+    std::size_t recordCursorCount = 0;
+    std::size_t retainedTrailCursorCount = 0;
+    std::size_t retainedMarkerCount = 0;
+    std::size_t baselinePoseCount = 0;
+    std::size_t ordinaryRibbonCapacityRemaining = 0;
+    std::size_t priorityRibbonCapacityRemaining = 0;
+    Physics::PhysicsSceneObjectId targetId;
+    ReplayFrameIndex revealFrame = 0;
+    uint32_t generation = 0;
+    uint32_t topologyVersion = 0;
+    uint32_t trajectoryBuildTopologyVersion = 0;
+    uint64_t trajectoryPublicationVersion = 0;
+    std::size_t sampleStride = 1;
+    ReplayPathColorMode colorMode = ReplayPathColorMode::LaneFlat;
+    bool usingBuildFrames = false;
+    bool saturated = false;
+    bool valid = false;
+};
+
+struct ReplayPredictionDrawListUpdate
+{
+    bool reset = false;
+    bool appended = false;
+    bool stable = false;
+};
+
+constexpr bool IsReplayPredictionDrawListPublicationStable( bool reset,
+                                                            uint64_t retainedPublicationVersion,
+                                                            ReplayFrameIndex retainedRevealFrame,
+                                                            uint64_t incomingPublicationVersion,
+                                                            ReplayFrameIndex incomingRevealFrame ) noexcept
+{
+    return !reset && retainedPublicationVersion == incomingPublicationVersion &&
+           retainedRevealFrame == incomingRevealFrame;
+}
+
+// An extending publication resumes exactly at its cursor. The point before the
+// cursor remains the start of the next segment; no historical command is read
+// or emitted again.
+constexpr std::size_t ReplayPredictionFirstUnconsumedPoint( std::size_t consumedPointCount ) noexcept
+{
+    return consumedPointCount > 1u ? consumedPointCount : 1u;
+}
+
 struct ReplayPathVisualizerRenderContext
 {
     // Lifetime: every reference is a frame-local borrow from the render-tool
@@ -94,5 +162,21 @@ void RenderReplayInterceptOverlay( Text::TextBatch& textBatch, const ReplayOverl
 void RenderReplayTripPlannerOverlay( Text::TextBatch& textBatch, const ReplayOverlayRenderContext& context );
 void RenderReplayPorkchopOverlay( Text::TextBatch& textBatch, const ReplayOverlayRenderContext& context );
 void RenderReplayCauseTreeOverlay( Text::TextBatch& textBatch, const ReplayOverlayRenderContext& context );
+// Appends only newly published/revealed trajectory points to a retained tracer.
+// A generation, topology, record replacement, or palette change resets the
+// bounded list; an unchanged publication token returns without traversing it.
+ReplayPredictionDrawListUpdate UpdateReplayPredictionDrawList( const ReplayPredictionPresentationView& prediction,
+                                                               const RunReplayPathVisualizerState& pathVisualizer,
+                                                               const Physics::ColliderStore& colliderStore,
+                                                               EditorTracer& drawList,
+                                                               ReplayPredictionDrawListState& state );
+// Emits only each active path's current unsampled endpoint. Completed segments
+// stay in the retained append-only list, so the reveal remains continuous
+// without rebuilding historical commands.
+void AppendReplayPredictionProvisionalTails( const ReplayPredictionPresentationView& prediction,
+                                             const RunReplayPathVisualizerState& pathVisualizer,
+                                             const ReplayPredictionDrawListState& state,
+                                             const Physics::ColliderStore& colliderStore,
+                                             EditorTracer& tracer );
 ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& context );
 } // namespace SkullbonezCore::Runtime::ReplayOverlay

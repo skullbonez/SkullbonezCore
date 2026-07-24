@@ -67,12 +67,17 @@ bool operator!=( const ReplayTrajectoryRecordKey& lhs, const ReplayTrajectoryRec
 
 void ReplayTrajectoryStore::Clear() noexcept
 {
+    const bool hadPublishedState = !records.empty();
     for ( ReplayTrajectoryRecord& record : records )
     {
         record.points.clear();
         record.publishedPointCount = 0;
     }
     records.clear();
+    if ( hadPublishedState )
+    {
+        ++publicationVersion;
+    }
 }
 
 ReplayTrajectoryRecord* ReplayTrajectoryStore::FindRecord( const ReplayTrajectoryRecordKey& key ) noexcept
@@ -126,6 +131,7 @@ ReplayTrajectoryRecord* ReplayTrajectoryStore::BeginReplaceRecord( const ReplayT
     record->firstFrame = firstFrame;
     record->contactDerived = contactDerived;
     record->points.clear();
+    ++publicationVersion;
     return record;
 }
 
@@ -141,7 +147,12 @@ bool ReplayTrajectoryStore::TryAppendPoint( ReplayTrajectoryRecord& record, cons
 
 void ReplayTrajectoryStore::PublishPrefix( ReplayTrajectoryRecord& record, std::size_t pointCount ) noexcept
 {
-    record.publishedPointCount = (std::min)( pointCount, record.points.size() );
+    const std::size_t publishedPointCount = (std::min)( pointCount, record.points.size() );
+    if ( record.publishedPointCount != publishedPointCount )
+    {
+        record.publishedPointCount = publishedPointCount;
+        ++publicationVersion;
+    }
 }
 
 std::size_t ReplayTrajectoryStore::TrimPublishedPointsBeforeFrame( ReplayTrajectoryRecord& record,
@@ -165,6 +176,7 @@ std::size_t ReplayTrajectoryStore::TrimPublishedPointsBeforeFrame( ReplayTraject
     // published prefix instead of observing a replacement gap/flicker.
     record.points.erase( record.points.begin(), firstKept );
     record.publishedPointCount = publishedCount - removedCount;
+    ++publicationVersion;
     if ( !record.points.empty() )
     {
         record.firstFrame = record.points.front().frameIndex;
