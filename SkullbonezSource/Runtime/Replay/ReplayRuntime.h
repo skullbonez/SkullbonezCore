@@ -470,6 +470,8 @@ class ReplayRuntime
     void ApplyPredictionUpdateResult( const ReplayPredictionUpdateResult& result );
     void ApplyPastTrajectoryUpdate( const ReplayPastTrajectoryUpdate& update );
     void AppendSolverTrajectorySampleToStore( const ReplaySolverFrameSample& sample );
+    void RefreshRetainedPredictionGeometry( const Math::Vector::Vector3& cameraEye,
+                                            const Math::Vector::Vector3& cameraUp );
     void AttachRetainedPredictionGeometry( ReplayVisualPacket& packet ) const;
 #ifdef _DEBUG
     // Runs the configured Debug startup probes after product artifact loading
@@ -509,8 +511,12 @@ class ReplayRuntime
     EditorTracer m_predictionDrawList;
     ReplayOverlay::ReplayPredictionDrawListState m_predictionDrawListState;
     ReplayVisualPacket m_predictionDrawPacket;
+    Math::Vector::Vector3 m_predictionDrawCameraEye = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 m_predictionDrawCameraUp = Math::Vector::ZERO_VECTOR;
     uint64_t m_predictionDrawStreamId = 1;
     uint64_t m_predictionDrawRevision = 0;
+    bool m_predictionDrawPacketDirty = true;
+    bool m_predictionDrawCameraValid = false;
     SceneLifecycleGenerationObserver m_sceneClearObserver;
     SceneLifecycleGenerationObserver m_sceneActivationObserver;
 };

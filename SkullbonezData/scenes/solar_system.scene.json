@@ -122,5 +122,27 @@
       "fixed": false,
       "sleeping": false
     }
+  ],
+  "objectMaterials": [
+    {
+      "target": "sun",
+      "mode": "emissive",
+      "colour": [1.0, 0.82, 0.08]
+    },
+    {
+      "target": "earth",
+      "mode": "matte",
+      "colour": [0.12, 0.82, 0.22]
+    },
+    {
+      "target": "mars",
+      "mode": "matte",
+      "colour": [0.92, 0.12, 0.06]
+    },
+    {
+      "target": "ship",
+      "mode": "matte",
+      "colour": [1.0, 1.0, 1.0]
+    }
   ]
 }

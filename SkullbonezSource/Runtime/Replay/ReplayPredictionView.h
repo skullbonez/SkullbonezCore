@@ -13,6 +13,8 @@ Glossary:
     safe for readers.
   Past trajectory view: Immutable cursor describing presentation-owned retained
     path progress to the prediction owner.
+  All-body paths: Space-scene mode where each simulated body's future is visible
+    whether or not it participates in a causal contact edge.
 
 Invariants:
   - Physics::PhysicsSceneObjectId is durable identity; ModelRowHint is only a staleable lookup hint.
@@ -106,6 +108,7 @@ struct ReplayPredictionPresentationView
     bool trajectoryBuildValid = false;
     bool trajectoryBuildUsingBuildFrames = false;
     bool futureTreeReady = false;
+    bool showAllFuturePaths = false;                                  // Mutual-gravity space scenes publish one path per simulated body.
     bool ragdollVisualsEnabled = false;
     bool baselineValid = false;
     bool baselineComparisonActive = false;

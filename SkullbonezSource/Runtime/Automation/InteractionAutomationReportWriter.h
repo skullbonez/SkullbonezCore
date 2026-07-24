@@ -39,10 +39,12 @@ Related:
 #include "../../Maths/Vector3.h"
 #include "../Camera/RuntimeCameraMode.h"
 #include "../Interaction/RuntimeInteractionController.h"
+#include "../Replay/ReplayOverlayRenderer.h"
 #include "../Replay/ReplayPredictionPackets.h"
 #include "../Replay/ReplayTimelinePackets.h"
 #include "../Replay/ReplayVisualPacket.h"
 #include "../Replay/ReplayVisualPacketFingerprint.h"
+#include "../Tools/RuntimeTools.h"
 
 #include <cstdint>
 #include <string>
@@ -295,6 +297,17 @@ class InteractionAutomationReportWriter
     std::vector<ReplayCausalTopologyNodeReport> m_replayCausalTopology;
     std::vector<ReplayVisualTrajectoryDigestState> m_replayVisualTrajectoryDigests;
     std::vector<uint8_t> m_replayVisualPredictionArchive;
+    // Lifetime: the offline verifier owns the same retained CPU command-list
+    // shape as ReplayRuntime. Keeping its large fixed reserves on this
+    // startup-allocated Automation owner avoids function-stack construction.
+    EditorTracer m_replayVisualPredictionDrawList;
+    ReplayOverlay::ReplayPredictionDrawListState m_replayVisualPredictionDrawListState;
+    ReplayVisualPacket m_replayVisualPredictionDrawPacket;
+    Math::Vector::Vector3 m_replayVisualPredictionDrawCameraEye = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 m_replayVisualPredictionDrawCameraUp = Math::Vector::ZERO_VECTOR;
+    uint64_t m_replayVisualPredictionDrawStreamId = 1;
+    uint64_t m_replayVisualPredictionDrawRevision = 0;
+    bool m_replayVisualPredictionDrawCameraValid = false;
     int m_replayVisualFidelityStartFrame = -1;
     bool m_replayVisualFidelityCaptureEnabled = false;
     uint64_t m_replayVisualFidelityTrajectoryHash = 0;

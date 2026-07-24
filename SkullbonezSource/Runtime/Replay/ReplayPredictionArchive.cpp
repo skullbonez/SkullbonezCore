@@ -11,6 +11,7 @@ Summary:
 Glossary:
   Scalar codec: Explicit little-endian encoding for one integer or float field.
   Presentation cache: Derived prediction values consumed by overlay drawing.
+  All-body bank: Additional body-keyed FutureRoot records used by space scenes.
 
 Invariants:
   - Every vector count is checked against a presentation-specific hard limit.
@@ -39,6 +40,8 @@ namespace
 {
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAGIC = 0x44505652u; // "RVPD"
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_SCHEMA = 2u;
+constexpr uint16_t REPLAY_TRAJECTORY_COMMITTED_BRANCH = 0u;
+constexpr uint16_t REPLAY_TRAJECTORY_BUILD_BRANCH = 1u;
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAX_FRAMES = 7201u;
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAX_BODIES =
     static_cast<uint32_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
@@ -667,6 +670,27 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes,
     state.trajectoryBuild.rootFrameCount = rootFrameCount;
     state.trajectoryBuild.childFrameCount = childFrameCount;
     state.trajectoryBuild.builtNodeCount = builtNodeCount;
+    const uint16_t activeRootBranch =
+        state.trajectoryBuild.usingBuildFrames ? REPLAY_TRAJECTORY_BUILD_BRANCH : REPLAY_TRAJECTORY_COMMITTED_BRANCH;
+    for ( const ReplayTrajectoryRecord& record : state.trajectoryStore.records )
+    {
+        if ( record.key.lane != ReplayTrajectoryLane::FutureRoot || record.key.branchOrdinal != activeRootBranch ||
+             record.key.bodyId.value == state.trajectoryBuild.rootId.value )
+        {
+            continue;
+        }
+        // Backward compatibility: all-body space publication reuses the
+        // existing FutureRoot wire shape, so schema-2 archives advertise the
+        // mode through their additional body-keyed records.
+        state.trajectoryBuild.allBodyPaths = true;
+        ++state.trajectoryBuild.builtAllBodyCount;
+        state.trajectoryBuild.allBodyFrameCount =
+            (std::max)( state.trajectoryBuild.allBodyFrameCount, record.publishedPointCount );
+    }
+    if ( state.trajectoryBuild.allBodyPaths )
+    {
+        ++state.trajectoryBuild.builtAllBodyCount; // The selected root owns the canonical root record.
+    }
 
     ReplayPredictionBaselineSnapshot& baseline = state.baseline;
     uint32_t baselinePointCount = 0;

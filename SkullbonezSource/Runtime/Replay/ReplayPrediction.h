@@ -11,6 +11,8 @@ Glossary:
   Published prefix: Contiguous prediction rows safe for readers.
   Prepared prefix: Published rows whose dependent presentation caches were
     rebuilt together for the current rendered frame.
+  All-body trajectory: Mutual-gravity path record retained for every body,
+    independent of the contact-derived future tree.
 
 Invariants:
   - Worker publication retains the release/acquire prefix protocol.
@@ -155,9 +157,15 @@ struct RunReplayPredictionTrajectoryBuildState
     std::size_t rootFrameCount = 0;
     std::size_t childFrameCount = 0;
     std::size_t builtNodeCount = 0;
+    // Concept: mutual-gravity scenes publish every body's future independently
+    // of contact causality. These cursors extend that record bank without
+    // disturbing the causal child publication used by ordinary scenes.
+    std::size_t allBodyFrameCount = 0;
+    std::size_t builtAllBodyCount = 0;
     // Invariant: child trajectory records are drawable only when this version
     // matches the future-node cache version that selected their branch ordinals.
     uint32_t topologyVersion = 0;
+    bool allBodyPaths = false;
     bool valid = false;
 };
 
@@ -388,6 +396,7 @@ class ReplayPrediction
         view.trajectoryBuildUsingBuildFrames = m_state.trajectoryBuild.usingBuildFrames;
         view.futureTreeReady =
             m_state.FutureTreeReadyForDraw( view.targetId, view.usingBuildFrames, view.frames.size() );
+        view.showAllFuturePaths = m_state.trajectoryBuild.allBodyPaths;
         view.ragdollVisualsEnabled = m_state.ragdollVisualsEnabled;
         view.baselineValid = m_state.baseline.valid;
         view.baselineComparisonActive = m_state.baseline.comparisonActive;

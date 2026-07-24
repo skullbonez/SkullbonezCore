@@ -4,8 +4,8 @@ Purpose:
   Declares replay overlay drawing entry points used by the late UI/text pass.
 
 Summary:
-  RuntimeRenderer decides pass order, but replay owns the UI drawing logic for
-  replay scrubber and cause-tree overlays.
+  RuntimeRenderer decides pass order, but replay owns UI drawing plus the
+  retained prediction command-list cursors used by the geometry pass.
 
 Glossary:
   UI (User Interface): Runtime controls and overlays drawn over the 3D scene.
@@ -13,6 +13,10 @@ Glossary:
     scene rendering.
   Replay overlay: UI draw pass for replay timeline, prediction controls, and
     cause-tree inspection.
+  Retained prediction list: Append-only trajectory commands reused until the
+    prediction generation, source bank, palette, or topology changes.
+  All-body path: Space-scene future trajectory selected by body identity rather
+    than contact-derived causality.
   Overlay state view: Read-only replay publication borrowed for one late pass.
   Render context: Overlay state plus the render-command target and window facts.
 
@@ -20,6 +24,7 @@ Invariants:
   - Replay state reaches the context only through the published overlay view.
   - Published references and sample pointers remain valid for one frame only.
   - Overlay functions must not store references from the context.
+  - A stable trajectory publication returns before traversing source records.
   - Legacy scrubber and cause-tree pixels draw only while the Legacy
     development surface owns presentation; ImGui consumes the same values in
     its own exclusive surface.
@@ -77,6 +82,10 @@ struct ReplayPredictionDrawRecordCursor
     std::size_t sourceRecordIndex = 0;
     std::size_t consumedPointCount = 0;
     std::size_t lastSelectedPointIndex = 0;
+    float authoredColorR = 1.0f;
+    float authoredColorG = 1.0f;
+    float authoredColorB = 1.0f;
+    bool usesAuthoredColor = false;
     bool entryMarkerAppended = false;
     bool endMarkerAppended = false;
 };
@@ -85,7 +94,7 @@ struct ReplayPredictionDrawListState
 {
     // 200 future nodes can publish incoming/outgoing records for both build and
     // committed banks, plus root/baseline/past rows.
-    static constexpr std::size_t MAX_RECORD_CURSORS = 1024;
+    static constexpr std::size_t MAX_RECORD_CURSORS = 2048;
 
     std::array<ReplayPredictionDrawRecordCursor, MAX_RECORD_CURSORS> recordCursors = {};
     // Retained marker trails are a second presentation of child-outgoing
@@ -107,6 +116,7 @@ struct ReplayPredictionDrawListState
     std::size_t sampleStride = 1;
     ReplayPathColorMode colorMode = ReplayPathColorMode::LaneFlat;
     bool usingBuildFrames = false;
+    bool showAllFuturePaths = false;
     bool saturated = false;
     bool valid = false;
 };
@@ -134,6 +144,31 @@ constexpr bool IsReplayPredictionDrawListPublicationStable( bool reset,
 constexpr std::size_t ReplayPredictionFirstUnconsumedPoint( std::size_t consumedPointCount ) noexcept
 {
     return consumedPointCount > 1u ? consumedPointCount : 1u;
+}
+
+constexpr bool ReplayPredictionDrawsAllBodyRecord( bool showAllFuturePaths,
+                                                   const ReplayTrajectoryRecordKey& key,
+                                                   uint16_t activeRootBranch,
+                                                   Physics::PhysicsSceneObjectId selectedId ) noexcept
+{
+    return showAllFuturePaths && key.lane == ReplayTrajectoryLane::FutureRoot &&
+           key.branchOrdinal == activeRootBranch && key.bodyId.value != selectedId.value;
+}
+
+constexpr bool ReplayPredictionDrawsCausalChildRecord( bool showAllFuturePaths,
+                                                       const ReplayTrajectoryRecordKey& key,
+                                                       uint16_t activeChildBranchBase,
+                                                       uint16_t activeChildBranchEnd ) noexcept
+{
+    return !showAllFuturePaths &&
+           ( key.lane == ReplayTrajectoryLane::FutureChildIncoming ||
+             key.lane == ReplayTrajectoryLane::FutureChildOutgoing ) &&
+           key.branchOrdinal >= activeChildBranchBase && key.branchOrdinal < activeChildBranchEnd;
+}
+
+constexpr bool ReplayPredictionUsesAuthoredBodyColor( bool showAllFuturePaths, ReplayTrajectoryLane lane ) noexcept
+{
+    return showAllFuturePaths && lane == ReplayTrajectoryLane::FutureRoot;
 }
 
 struct ReplayPathVisualizerRenderContext
@@ -167,6 +202,7 @@ void RenderReplayCauseTreeOverlay( Text::TextBatch& textBatch, const ReplayOverl
 // bounded list; an unchanged publication token returns without traversing it.
 ReplayPredictionDrawListUpdate UpdateReplayPredictionDrawList( const ReplayPredictionPresentationView& prediction,
                                                                const RunReplayPathVisualizerState& pathVisualizer,
+                                                               const SceneEntityStore& entities,
                                                                const Physics::ColliderStore& colliderStore,
                                                                EditorTracer& drawList,
                                                                ReplayPredictionDrawListState& state );

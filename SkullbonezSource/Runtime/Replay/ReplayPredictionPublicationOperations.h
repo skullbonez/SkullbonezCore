@@ -14,6 +14,8 @@ Glossary:
     from the published frame prefix.
   Affected-body trail: Bounded fallback evidence for a moving body that is not
     already represented by the published causal topology.
+  All-body trajectory: Mutual-gravity future path published independently of
+    contact causality.
   Model row hint: Sample-local shortcut repaired against stable scene identity;
     never durable identity itself.
 
@@ -160,7 +162,8 @@ FindReplayBodyByIdWithHint( const ReplaySolverFrameSample& sample, Physics::Phys
 
 bool PrepareReplayPredictionTrajectoryBuild( RunReplayPredictionState& prediction,
                                              Physics::PhysicsSceneObjectId rootId,
-                                             std::size_t frameCapacity );
+                                             std::size_t frameCapacity,
+                                             std::size_t bodyCount );
 bool PublishReplayPredictionRootTrajectoryFrame( RunReplayPredictionState& prediction,
                                                  const RunReplayPredictionFrame& frame,
                                                  std::size_t frameSlot );

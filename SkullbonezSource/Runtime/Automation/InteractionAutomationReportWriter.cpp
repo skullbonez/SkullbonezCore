@@ -36,6 +36,7 @@ Related:
 #include "../Editor/EditorTools.h"
 #include "../Replay/ReplayPrediction.h"
 #include "../Replay/ReplayPredictionArchive.h"
+#include "../Replay/ReplayOverlayRenderer.h"
 #include "../Replay/ReplayPresentation.h"
 #include "../Replay/ReplayV2Artifact.h"
 #include "../Camera/CameraControlState.h"
@@ -55,6 +56,7 @@ Related:
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <deque>
 #include <sstream>
 
 using namespace SkullbonezCore::Runtime;
@@ -258,6 +260,14 @@ void SkullbonezCore::Runtime::InteractionAutomationReportWriter::BeginReplayVisu
     m_replayVisualOfflineProjectionComplete = false;
     m_replayVisualTrajectoryDigests.clear();
     m_replayVisualPredictionArchive.clear();
+    m_replayVisualPredictionDrawList.Clear();
+    m_replayVisualPredictionDrawListState = {};
+    m_replayVisualPredictionDrawPacket = {};
+    m_replayVisualPredictionDrawCameraEye = Math::Vector::ZERO_VECTOR;
+    m_replayVisualPredictionDrawCameraUp = Math::Vector::ZERO_VECTOR;
+    m_replayVisualPredictionDrawStreamId = 1;
+    m_replayVisualPredictionDrawRevision = 0;
+    m_replayVisualPredictionDrawCameraValid = false;
 }
 
 bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::UpdateReplayVisualReveal(
@@ -498,8 +508,15 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
         return false;
     }
 
-    ReplayPrediction offlinePrediction;
-    ReplayPresentation offlinePresentation;
+    // These owners contain bounded prediction and presentation banks. The
+    // Automation diagnostics scope keeps their one cold instance off the
+    // render thread's fixed stack while the retained-list builder is nested.
+    std::deque<ReplayPrediction> offlinePredictions;
+    offlinePredictions.emplace_back();
+    ReplayPrediction& offlinePrediction = offlinePredictions.front();
+    std::deque<ReplayPresentation> offlinePresentations;
+    offlinePresentations.emplace_back();
+    ReplayPresentation& offlinePresentation = offlinePresentations.front();
     offlinePrediction.EnterOfflineVerification();
     offlinePresentation.ResetTrajectoryVisualStats();
     char archiveReason[192] = {};
@@ -567,6 +584,34 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
         }
         offlinePresentation.PreparePathDrawing( world.BodyStore() );
         const ReplayPredictionPresentationView prediction = offlinePrediction.PresentationView();
+        const ReplayOverlay::ReplayPredictionDrawListUpdate drawListUpdate =
+            ReplayOverlay::UpdateReplayPredictionDrawList( prediction,
+                                                           offlinePresentation.PathVisualizer(),
+                                                           world.Entities(),
+                                                           Physics::PhysicsEngine::ReadColliders( world.Physics() ),
+                                                           m_replayVisualPredictionDrawList,
+                                                           m_replayVisualPredictionDrawListState );
+        if ( drawListUpdate.reset )
+        {
+            ++m_replayVisualPredictionDrawStreamId;
+        }
+        const bool cameraChanged = !m_replayVisualPredictionDrawCameraValid ||
+                                   m_replayVisualPredictionDrawCameraEye != expected.cameraEye ||
+                                   m_replayVisualPredictionDrawCameraUp != expected.cameraUp;
+        if ( drawListUpdate.reset || drawListUpdate.appended || cameraChanged )
+        {
+            m_replayVisualPredictionDrawPacket =
+                m_replayVisualPredictionDrawList.BuildReplayVisualPacket( expected.cameraEye, expected.cameraUp );
+            m_replayVisualPredictionDrawCameraEye = expected.cameraEye;
+            m_replayVisualPredictionDrawCameraUp = expected.cameraUp;
+            m_replayVisualPredictionDrawCameraValid = true;
+            ++m_replayVisualPredictionDrawRevision;
+        }
+        ReplayOverlay::AppendReplayPredictionProvisionalTails( prediction,
+                                                               offlinePresentation.PathVisualizer(),
+                                                               m_replayVisualPredictionDrawListState,
+                                                               Physics::PhysicsEngine::ReadColliders( world.Physics() ),
+                                                               tracer );
         offlinePresentation.RenderPathVisualizer( prediction,
                                                   latestSolverSample,
                                                   world.Physics(),
@@ -576,13 +621,19 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
                                                                     world.RenderPresentationRecords(),
                                                                     world.BodyStore() );
         ReplayVisualPacket projected = tracer.BuildReplayVisualPacket( expected.cameraEye, expected.cameraUp );
+        ReplayVisualPacketOperations::AttachRetainedPredictionGeometry( projected,
+                                                                        m_replayVisualPredictionDrawPacket,
+                                                                        m_replayVisualPredictionDrawStreamId,
+                                                                        m_replayVisualPredictionDrawRevision );
         offlinePresentation.PublishVisualPacket( projected,
                                                  prediction,
                                                  latestSolverSample,
                                                  expected.replayReserveGrowthEvents );
         projected = offlinePresentation.PublishedVisualPacketView();
         const ReplayVisualPacketFingerprint fingerprint =
-            BuildReplayVisualPacketFingerprint( projected, trajectoryDigests );
+            BuildReplayVisualPacketFingerprint( projected,
+                                                trajectoryDigests,
+                                                ReplayVisualTrajectoryDigestPolicy::ReuseImmutableRecords );
         char difference[192] = {};
         if ( !ReplayVisualPacketMatchesArchiveSample( projected, expected, difference, sizeof( difference ) ) )
         {

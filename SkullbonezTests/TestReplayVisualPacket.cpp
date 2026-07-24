@@ -16,6 +16,10 @@ Glossary:
   First difference: Earliest semantic field or float where two packets differ.
   Publication token: Monotonic value that invalidates retained draw commands
     only when a reader-visible trajectory prefix changes.
+  All-body path: Space-scene future record selected independently of causal
+    child topology.
+  Retained attachment: Shared packet operation that joins persistent prediction
+    geometry with frame-local moving tails without copying either span.
 
 Invariants:
   - Packet comparison is bit-exact and order-sensitive.
@@ -54,6 +58,54 @@ TEST_CASE( "Replay prediction draw cursor resumes at its suffix and reuses stabl
     CHECK( ReplayOverlay::ReplayPredictionFirstUnconsumedPoint( 0u ) == 1u );
     CHECK( ReplayOverlay::ReplayPredictionFirstUnconsumedPoint( 1u ) == 1u );
     CHECK( ReplayOverlay::ReplayPredictionFirstUnconsumedPoint( 128u ) == 128u );
+}
+
+TEST_CASE( "Replay retained prediction attachment reuses cached stable submission facts" )
+{
+    const std::array<float, 4> retainedRibbon = { 1.0f, 2.0f, 3.0f, 4.0f };
+    ReplayVisualPacket retained;
+    retained.expandedRibbonVertices = retainedRibbon;
+    retained.submission.hasGeometry = true;
+    retained.submission.vertexHash = HashReplayVisualFloatBuffer( retainedRibbon );
+    retained.submission.vertexBytes = retainedRibbon.size() * sizeof( float );
+    retained.submission.vertexCount = 6u;
+    retained.submission.segmentCount = 1u;
+
+    ReplayVisualPacket frame;
+    AttachRetainedPredictionGeometry( frame, retained, 7u, 11u );
+
+    CHECK( frame.retainedPredictionRibbonVertices.data() == retainedRibbon.data() );
+    CHECK( frame.retainedPredictionRibbonVertices.size() == retainedRibbon.size() );
+    CHECK( frame.retainedPredictionStreamId == 7u );
+    CHECK( frame.retainedPredictionRevision == 11u );
+    CHECK( frame.submission.vertexHash == retained.submission.vertexHash );
+    CHECK( frame.submission.vertexBytes == retained.submission.vertexBytes );
+    CHECK( frame.submission.segmentCount == retained.submission.segmentCount );
+}
+
+TEST_CASE( "Replay space prediction draws every body path instead of causal-only paths" )
+{
+    ReplayTrajectoryRecordKey selectedRoot;
+    selectedRoot.bodyId = SkullbonezCore::Physics::PhysicsSceneObjectId{ 10u };
+    selectedRoot.lane = ReplayTrajectoryLane::FutureRoot;
+    selectedRoot.branchOrdinal = 0u;
+
+    ReplayTrajectoryRecordKey planetPath = selectedRoot;
+    planetPath.bodyId = SkullbonezCore::Physics::PhysicsSceneObjectId{ 20u };
+    ReplayTrajectoryRecordKey inactivePlanetPath = planetPath;
+    inactivePlanetPath.branchOrdinal = 1u;
+    ReplayTrajectoryRecordKey causalChild = planetPath;
+    causalChild.lane = ReplayTrajectoryLane::FutureChildOutgoing;
+    causalChild.branchOrdinal = 3u;
+
+    CHECK( ReplayOverlay::ReplayPredictionDrawsAllBodyRecord( true, planetPath, 0u, selectedRoot.bodyId ) );
+    CHECK_FALSE(
+        ReplayOverlay::ReplayPredictionDrawsAllBodyRecord( true, inactivePlanetPath, 0u, selectedRoot.bodyId ) );
+    CHECK_FALSE( ReplayOverlay::ReplayPredictionDrawsAllBodyRecord( true, selectedRoot, 0u, selectedRoot.bodyId ) );
+    CHECK_FALSE( ReplayOverlay::ReplayPredictionDrawsCausalChildRecord( true, causalChild, 0u, 200u ) );
+    CHECK( ReplayOverlay::ReplayPredictionDrawsCausalChildRecord( false, causalChild, 0u, 200u ) );
+    CHECK( ReplayOverlay::ReplayPredictionUsesAuthoredBodyColor( true, ReplayTrajectoryLane::FutureRoot ) );
+    CHECK_FALSE( ReplayOverlay::ReplayPredictionUsesAuthoredBodyColor( false, ReplayTrajectoryLane::FutureRoot ) );
 }
 
 TEST_CASE( "Replay visual presentation keeps one prepared worker prefix for the rendered frame" )
@@ -195,6 +247,44 @@ TEST_CASE( "Replay visual fingerprint hashes renderer spans instead of stale sub
     CHECK( std::string_view( FindReplayVisualPacketSubmissionSpanMismatch( miswired ) ) ==
            "submission.ordinaryLineHash" );
     CHECK( expectedHash.exactHash != miswiredHash.exactHash );
+}
+
+TEST_CASE( "Replay immutable trajectory digest reuse invalidates replaced records" )
+{
+    std::array<ReplayTrajectoryRecord, 1> records;
+    ReplayTrajectoryRecord& record = records[0];
+    record.key.bodyId.value = 42u;
+    record.key.lane = ReplayTrajectoryLane::FutureRoot;
+    record.version = 3u;
+    record.points = { { 0u, { 0.0f, 0.0f, 0.0f } }, { 1u, { 1.0f, 0.0f, 0.0f } } };
+    record.publishedPointCount = record.points.size();
+
+    ReplayVisualPacket packet;
+    packet.header.targetId.value = record.key.bodyId.value;
+    packet.header.predictionComplete = true;
+    packet.trajectoryRecords = records;
+
+    std::vector<ReplayVisualTrajectoryDigestState> reusableDigests;
+    const ReplayVisualPacketFingerprint initial =
+        BuildReplayVisualPacketFingerprint( packet,
+                                            reusableDigests,
+                                            ReplayVisualTrajectoryDigestPolicy::ReuseImmutableRecords );
+    const ReplayVisualPacketFingerprint cached =
+        BuildReplayVisualPacketFingerprint( packet,
+                                            reusableDigests,
+                                            ReplayVisualTrajectoryDigestPolicy::ReuseImmutableRecords );
+    CHECK( cached.trajectoryStateHash == initial.trajectoryStateHash );
+
+    record.points[1].position.x = 2.0f;
+    ++record.version;
+    const ReplayVisualPacketFingerprint replaced =
+        BuildReplayVisualPacketFingerprint( packet,
+                                            reusableDigests,
+                                            ReplayVisualTrajectoryDigestPolicy::ReuseImmutableRecords );
+    std::vector<ReplayVisualTrajectoryDigestState> strictDigests;
+    const ReplayVisualPacketFingerprint strict = BuildReplayVisualPacketFingerprint( packet, strictDigests );
+    CHECK( replaced.trajectoryStateHash == strict.trajectoryStateHash );
+    CHECK( replaced.trajectoryStateHash != initial.trajectoryStateHash );
 }
 
 TEST_CASE( "Replay visual packet rejects an equal prefix with a missing float" )

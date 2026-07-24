@@ -264,7 +264,8 @@ const char* FindReplayVisualPacketSubmissionSpanMismatch( const ReplayVisualPack
 
 ReplayVisualPacketFingerprint
 BuildReplayVisualPacketFingerprint( const ReplayVisualPacket& packet,
-                                    std::vector<ReplayVisualTrajectoryDigestState>& trajectoryDigests )
+                                    std::vector<ReplayVisualTrajectoryDigestState>& trajectoryDigests,
+                                    ReplayVisualTrajectoryDigestPolicy digestPolicy )
 {
     ReplayVisualPacketFingerprint fingerprint;
     uint64_t& hash = fingerprint.semanticHash;
@@ -317,18 +318,26 @@ BuildReplayVisualPacketFingerprint( const ReplayVisualPacket& packet,
         const std::size_t pointCount = (std::min)( record.publishedPointCount, record.points.size() );
         HashScalar( recordPresentationHash, static_cast<uint64_t>( pointCount ) );
         ReplayVisualTrajectoryDigestState& digest = trajectoryDigests[recordIndex];
-        digest = {};
-        digest.bodyId = record.key.bodyId.value;
-        digest.lane = static_cast<uint8_t>( record.key.lane );
-        digest.branchOrdinal = record.key.branchOrdinal;
-        digest.version = record.version;
-        for ( std::size_t pointIndex = 0; pointIndex < pointCount; ++pointIndex )
+        const bool reuseDigest = digestPolicy == ReplayVisualTrajectoryDigestPolicy::ReuseImmutableRecords &&
+                                 digest.bodyId == record.key.bodyId.value &&
+                                 digest.lane == static_cast<uint8_t>( record.key.lane ) &&
+                                 digest.branchOrdinal == record.key.branchOrdinal && digest.version == record.version &&
+                                 digest.publishedPointCount == pointCount;
+        if ( !reuseDigest )
         {
-            const ReplayTrajectoryPoint& point = record.points[pointIndex];
-            HashScalar( digest.prefixHash, point.frameIndex );
-            HashVector( digest.prefixHash, point.position );
+            digest = {};
+            digest.bodyId = record.key.bodyId.value;
+            digest.lane = static_cast<uint8_t>( record.key.lane );
+            digest.branchOrdinal = record.key.branchOrdinal;
+            digest.version = record.version;
+            for ( std::size_t pointIndex = 0; pointIndex < pointCount; ++pointIndex )
+            {
+                const ReplayTrajectoryPoint& point = record.points[pointIndex];
+                HashScalar( digest.prefixHash, point.frameIndex );
+                HashVector( digest.prefixHash, point.position );
+            }
+            digest.publishedPointCount = pointCount;
         }
-        digest.publishedPointCount = pointCount;
         HashScalar( recordPresentationHash, digest.prefixHash );
 
         // Semantic diagnostics retain the complete ordered store, including

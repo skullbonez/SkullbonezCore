@@ -866,7 +866,10 @@ bool ReplayPrediction::BeginFrameSimulation( PhysicsEngine& physicsEngine,
         prediction.build.dirty = true;
         return false;
     }
-    if ( !PrepareReplayPredictionTrajectoryBuild( prediction, prediction.simulation.targetId, buildFrameCapacity ) )
+    if ( !PrepareReplayPredictionTrajectoryBuild( prediction,
+                                                  prediction.simulation.targetId,
+                                                  buildFrameCapacity,
+                                                  static_cast<std::size_t>( modelCount ) ) )
     {
         predictionOwner.CancelJob( clearSamplesOnCancel );
         prediction.build.dirty = true;
