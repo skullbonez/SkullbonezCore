@@ -1077,6 +1077,7 @@ void HandleReplayVelocityEditPressed( ReplayAuthoring& authoring,
         const ReplayAuthoringPredictionRequest request = authoring.TakePredictionRequest();
         predictionOwner.ApplyAuthoringRequest( request.enablePrediction,
                                                request.refreshPrediction,
+                                               request.liveVelocityEdit,
                                                REPLAY_PREDICTION_MIN_SECONDS,
                                                REPLAY_PREDICTION_MAX_SECONDS );
         CancelReplayToolDragState( interaction, inputRouter );

@@ -60,16 +60,16 @@
   "cameras": [
     {
       "name": "main",
-      "position": [0.0, 360.0, 0.0],
-      "view": [0.0, 100.0, 0.0],
-      "up": [0.0, 0.0, 1.0]
+      "position": [0.0, 0.0, 260.0],
+      "view": [0.0, 0.0, 0.0],
+      "up": [0.0, 1.0, 0.0]
     }
   ],
   "objects": [
     {
       "type": "ballState",
       "name": "sun",
-      "position": [0.0, 100.0, 0.0],
+      "position": [0.0, 0.0, 0.0],
       "velocity": [0.0, 0.0, 0.0],
       "angularVelocity": [0.0, 0.0, 0.0],
       "orientation": [0.0, 0.0, 0.0, 1.0],
@@ -83,8 +83,8 @@
     {
       "type": "ballState",
       "name": "earth",
-      "position": [80.0, 100.0, 0.0],
-      "velocity": [0.0, 0.0, 22.360679775],
+      "position": [80.0, 0.0, 0.0],
+      "velocity": [0.0, 22.360679775, 0.0],
       "angularVelocity": [0.0, 0.0, 0.0],
       "orientation": [0.0, 0.0, 0.0, 1.0],
       "radius": 3.0,
@@ -97,8 +97,8 @@
     {
       "type": "ballState",
       "name": "mars",
-      "position": [87.324157808, 100.0, 84.622996066],
-      "velocity": [-12.621705152, 0.0, 13.02458934],
+      "position": [87.324157808, 84.622996066, 0.0],
+      "velocity": [-12.621705152, 13.02458934, 0.0],
       "angularVelocity": [0.0, 0.0, 0.0],
       "orientation": [0.0, 0.0, 0.0, 1.0],
       "radius": 2.6,
@@ -111,8 +111,8 @@
     {
       "type": "ballState",
       "name": "ship",
-      "position": [80.0, 100.0, 4.5],
-      "velocity": [0.0, 0.0, 22.360679775],
+      "position": [80.0, 4.5, 0.0],
+      "velocity": [0.0, 22.360679775, 0.0],
       "angularVelocity": [0.0, 0.0, 0.0],
       "orientation": [0.0, 0.0, 0.0, 1.0],
       "radius": 0.6,

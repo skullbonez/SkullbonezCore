@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 5, "showReplayScrubber": true },
+    { "frame": 6, "setReplayPredictionEnabled": true },
+    { "frame": 7, "setReplayPredictionHorizonSeconds": 120.0 },
+    { "frame": 8, "setReplayPathTarget": "chaos_a" },
+    { "frame": 55, "clickReplayControl": "velocity" },
+    { "frame": 66, "clickPoint": [690, 441], "button": "left", "holdFrames": 90 },
+    { "frame": 67, "moveMouse": [691, 441] },
+    { "frame": 68, "moveMouse": [692, 441] },
+    { "frame": 69, "moveMouse": [693, 441] },
+    { "frame": 70, "moveMouse": [694, 441] },
+    { "frame": 71, "moveMouse": [695, 441] },
+    { "frame": 72, "moveMouse": [696, 441] },
+    { "frame": 73, "moveMouse": [697, 441] },
+    { "frame": 74, "moveMouse": [698, 441] },
+    { "frame": 120, "assert": { "pointerCapture": "ToolGesture" } },
+    { "frame": 120, "assert": { "predictionBuildMode": "Amortized" } },
+    { "frame": 120, "assert": { "predictionPresentedGenerationMin": 2 } },
+    { "frame": 120, "assert": { "predictionPresentedRootVelocityDeltaMin": 0.1 } },
+    { "frame": 120, "assert": { "predictionPathVisible": true } },
+    { "frame": 158, "assert": { "pointerCapture": "None" } },
+    { "frame": 160, "screenshot": "TestOutput/interaction/nbody_velocity_drag_amortized.bmp" }
+  ]
+}

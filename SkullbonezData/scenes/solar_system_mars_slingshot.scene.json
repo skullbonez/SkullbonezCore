@@ -1,0 +1,120 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {
+    "rendering": true,
+    "skyAtmosphere": true,
+    "clouds": false,
+    "godRays": false,
+    "volumetricLighting": false,
+    "bloom": false,
+    "fog": false,
+    "styleModes": [0, 3, 2, 0],
+    "exposure": 1.2,
+    "gamma": 1.25,
+    "sunScreenX": 0.5,
+    "sunScreenY": 0.5,
+    "sunColorR": 1.0,
+    "sunColorG": 0.96,
+    "sunColorB": 0.82,
+    "sunIntensity": 18.0,
+    "skyHorizonR": 0.0,
+    "skyHorizonG": 0.0,
+    "skyHorizonB": 0.0,
+    "skyZenithR": 0.0,
+    "skyZenithG": 0.0,
+    "skyZenithB": 0.0,
+    "skyGlowStrength": 0.0
+  },
+  "simulation": {
+    "seed": 24072026,
+    "physics": true,
+    "text": false,
+    "modelCapacity": 40,
+    "world": {
+      "gravity": 0.0,
+      "fluidHeight": -100000.0,
+      "fluidDensity": 0.0,
+      "mutualGravity": {
+        "enabled": true,
+        "gravitationalConstant": 1.0,
+        "softeningLength": 0.5,
+        "elasticCollisions": false
+      }
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": -100000.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "cameras": [
+    {
+      "name": "transfer",
+      "position": [45.0, 55.0, 280.0],
+      "view": [45.0, 55.0, 0.0],
+      "up": [0.0, 1.0, 0.0]
+    },
+    {
+      "name": "system",
+      "position": [0.0, 0.0, 820.0],
+      "view": [0.0, 0.0, 0.0],
+      "up": [0.0, 1.0, 0.0]
+    }
+  ],
+  "objects": [
+    {"type":"ballState","name":"sun","position":[0,0,0.0],"velocity":[0,0,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":7,"mass":40000,"restitution":0.02,"inertia":[784000.0,784000.0,784000.0],"fixed":true,"sleeping":false},
+    {"type":"ballState","name":"mercury","position":[12.682521407,-32.621368009,0.0],"velocity":[31.508671963,12.249927917,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":0.8,"mass":1,"restitution":0.02,"inertia":[0.256,0.256,0.256],"fixed":false,"sleeping":false},
+    {"type":"ballState","name":"venus","position":[-42.768835501,39.176864472,0.0],"velocity":[-17.738532153,-19.36490768,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":1.5,"mass":16,"restitution":0.02,"inertia":[14.4,14.4,14.4],"fixed":false,"sleeping":false},
+    {"type":"ballState","name":"earth","position":[80.0,0.0,0.0],"velocity":[0.0,22.360679775,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":1.6,"mass":20,"restitution":0.02,"inertia":[20.48,20.48,20.48],"fixed":false,"sleeping":false},
+    {"type":"ballState","name":"mars","position":[97.899485775,71.110411931,0.0],"velocity":[-10.685260996,14.710666533,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":1.2,"mass":2,"restitution":0.02,"inertia":[1.152,1.152,1.152],"fixed":false,"sleeping":false},
+    {"type":"ballState","name":"jupiter","position":[-111.815212279,-153.614316726,0.0],"velocity":[11.730898785,-8.538871675,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":4,"mass":300,"restitution":0.02,"inertia":[1920.0,1920.0,1920.0],"fixed":false,"sleeping":false},
+    {"type":"ballState","name":"saturn","position":[-244.977808574,87.096919041,0.0],"velocity":[-4.15501663,-11.686829795,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":3.5,"mass":100,"restitution":0.02,"inertia":[490.0,490.0,490.0],"fixed":false,"sleeping":false},
+    {"type":"ballState","name":"uranus","position":[229.913214085,-236.727509997,0.0],"velocity":[7.897830628,7.670488419,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":2.5,"mass":30,"restitution":0.02,"inertia":[75.0,75.0,75.0],"fixed":false,"sleeping":false},
+    {"type":"ballState","name":"neptune","position":[-90.880837877,389.539052351,0.0],"velocity":[-9.738476309,-2.272020947,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":2.4,"mass":35,"restitution":0.02,"inertia":[80.64,80.64,80.64],"fixed":false,"sleeping":false},
+    {"type":"ballState","name":"moon","position":[76.0,0.0,0.0],"velocity":[0.0,20.124611797,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":0.4,"mass":0.25,"restitution":0.02,"inertia":[0.016,0.016,0.016],"fixed":false,"sleeping":false},
+    {"type":"ballState","name":"phobos","position":[96.277219601,72.596430928,0.0],"velocity":[-11.329289869,14.007589211,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":0.18,"mass":0.002,"restitution":0.02,"inertia":[0.00002592,0.00002592,0.00002592],"fixed":false,"sleeping":false},
+    {"type":"ballState","name":"deimos","position":[99.628453154,68.417704779,0.0],"velocity":[-10.020019772,15.137813011,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":0.14,"mass":0.001,"restitution":0.02,"inertia":[0.00000784,0.00000784,0.00000784],"fixed":false,"sleeping":false},
+    {"type":"ballState","name":"io","position":[-106.288846314,-151.277806672,0.0],"velocity":[8.97729528,-2.025986927,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":0.45,"mass":0.08,"restitution":0.02,"inertia":[0.00648,0.00648,0.00648],"fixed":false,"sleeping":false},
+    {"type":"ballState","name":"europa","position":[-113.860031131,-144.849688048,0.0],"velocity":[6.108386867,-9.85062358,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":0.4,"mass":0.05,"restitution":0.02,"inertia":[0.0032,0.0032,0.0032],"fixed":false,"sleeping":false},
+    {"type":"ballState","name":"ganymede","position":[-123.804834082,-153.115348777,0.0],"velocity":[11.522995473,-13.534547426,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":0.55,"mass":0.12,"restitution":0.02,"inertia":[0.01452,0.01452,0.01452],"fixed":false,"sleeping":false},
+    {"type":"ballState","name":"callisto","position":[-112.013430894,-169.613088847,0.0],"velocity":[16.0606935,-8.592516161,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":0.5,"mass":0.09,"restitution":0.02,"inertia":[0.009,0.009,0.009],"fixed":false,"sleeping":false},
+    {"type":"ballState","name":"mimas","position":[-239.587442396,88.18960036,0.0],"velocity":[-5.002145502,-7.507811865,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":0.25,"mass":0.01,"restitution":0.02,"inertia":[0.00025,0.00025,0.00025],"fixed":false,"sleeping":false},
+    {"type":"ballState","name":"enceladus","position":[-241.802635724,93.335370561,0.0],"velocity":[-7.523463831,-9.972397605,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":0.28,"mass":0.02,"restitution":0.02,"inertia":[0.0006272,0.0006272,0.0006272],"fixed":false,"sleeping":false},
+    {"type":"ballState","name":"tethys","position":[-248.723130103,95.280595882,0.0],"velocity":[-7.186008052,-13.073985917,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":0.32,"mass":0.03,"restitution":0.02,"inertia":[0.0012288,0.0012288,0.0012288],"fixed":false,"sleeping":false},
+    {"type":"ballState","name":"dione","position":[-255.65834839,89.728661662,0.0],"velocity":[-4.876380499,-14.614378814,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":0.34,"mass":0.03,"restitution":0.02,"inertia":[0.0013872,0.0013872,0.0013872],"fixed":false,"sleeping":false},
+    {"type":"ballState","name":"rhea","position":[-256.051356541,78.530908567,0.0],"velocity":[-2.519757631,-13.800779925,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":0.4,"mass":0.05,"restitution":0.02,"inertia":[0.0032,0.0032,0.0032],"fixed":false,"sleeping":false},
+    {"type":"ballState","name":"titan","position":[-245.200804516,69.098300404,0.0],"velocity":[-1.798174909,-11.716030155,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":0.58,"mass":0.12,"restitution":0.02,"inertia":[0.0161472,0.0161472,0.0161472],"fixed":false,"sleeping":false},
+    {"type":"ballState","name":"iapetus","position":[-227.915359247,73.209053007,0.0],"velocity":[-2.809151635,-10.033317786,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":0.36,"mass":0.04,"restitution":0.02,"inertia":[0.0020736,0.0020736,0.0020736],"fixed":false,"sleeping":false},
+    {"type":"ballState","name":"miranda","position":[234.301126894,-234.330382304,0.0],"velocity":[6.723482688,9.820117903,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":0.22,"mass":0.01,"restitution":0.02,"inertia":[0.0001936,0.0001936,0.0001936],"fixed":false,"sleeping":false},
+    {"type":"ballState","name":"ariel","position":[229.011302624,-229.785856324,0.0],"velocity":[5.844889431,7.403754975,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":0.3,"mass":0.02,"restitution":0.02,"inertia":[0.00072,0.00072,0.00072],"fixed":false,"sleeping":false},
+    {"type":"ballState","name":"umbriel","position":[221.174590598,-234.574266034,0.0],"velocity":[7.461023113,5.897769454,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":0.3,"mass":0.02,"restitution":0.02,"inertia":[0.00072,0.00072,0.00072],"fixed":false,"sleeping":false},
+    {"type":"ballState","name":"titania","position":[223.015326726,-246.54683533,0.0],"velocity":[9.191640342,6.761611957,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":0.4,"mass":0.04,"restitution":0.02,"inertia":[0.00256,0.00256,0.00256],"fixed":false,"sleeping":false},
+    {"type":"ballState","name":"oberon","position":[238.228829127,-249.21152163,0.0],"velocity":[9.074834532,8.454492124,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":0.38,"mass":0.04,"restitution":0.02,"inertia":[0.0023104,0.0023104,0.0023104],"fixed":false,"sleeping":false},
+    {"type":"ballState","name":"proteus","position":[-87.056626941,392.760140787,0.0],"velocity":[-11.442916099,-0.248438727,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":0.24,"mass":0.01,"restitution":0.02,"inertia":[0.0002304,0.0002304,0.0002304],"fixed":false,"sleeping":false},
+    {"type":"ballState","name":"triton","position":[-99.360838943,392.553945703,0.0],"velocity":[-10.39908185,-4.130108461,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":0.48,"mass":0.08,"restitution":0.02,"inertia":[0.0073728,0.0073728,0.0073728],"fixed":false,"sleeping":false},
+    {"type":"ballState","name":"nereid","position":[-86.909567281,376.114112506,0.0],"velocity":[-8.222283903,-1.823511651,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":0.24,"mass":0.01,"restitution":0.02,"inertia":[0.0002304,0.0002304,0.0002304],"fixed":false,"sleeping":false},
+    {"type":"ballState","name":"rocket","position":[82.533618728,-18.282662181,0.0],"velocity":[0.830508494,32.064036899,0.0],"angularVelocity":[0.0,0.0,0.0],"orientation":[0.0,0.0,0.0,1.0],"radius":0.3,"mass":0.05,"restitution":0.02,"inertia":[0.0018,0.0018,0.0018],"fixed":false,"sleeping":false}
+  ],
+  "objectMaterials": [
+    {"target":"sun","mode":"emissive","colour":[1.0,0.82,0.08]},
+    {"target":"mercury","mode":"matte","colour":[0.55,0.52,0.48]},
+    {"target":"venus","mode":"matte","colour":[0.92,0.68,0.25]},
+    {"target":"earth","mode":"matte","colour":[0.12,0.45,0.95]},
+    {"target":"mars","mode":"matte","colour":[0.92,0.12,0.06]},
+    {"target":"jupiter","mode":"matte","colour":[0.78,0.56,0.36]},
+    {"target":"saturn","mode":"matte","colour":[0.86,0.75,0.48]},
+    {"target":"uranus","mode":"matte","colour":[0.36,0.82,0.88]},
+    {"target":"neptune","mode":"matte","colour":[0.18,0.32,0.92]},
+    {"target":"rocket","mode":"emissive","colour":[1.0,1.0,1.0]}
+  ]
+}

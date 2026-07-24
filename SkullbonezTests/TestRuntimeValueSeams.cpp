@@ -22,6 +22,8 @@
 //   - Replay hit regions and drawn rectangles come from the same layout helpers.
 //   - Disabled front-most controls consume the pointer without publishing an
 //     actionable hot control behind them.
+//   - Replay prediction retains a 20-second default while the control surface
+//     exposes the independently bounded 120-second operator maximum.
 //
 // Related:
 //   - SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.cpp
@@ -223,6 +225,8 @@ TEST_CASE( "Replay overlay: scrubber geometry clamps compact and wide screens" )
     CHECK( compact.w == doctest::Approx( 260.0f ) );
 
     CHECK( ReplayPredictionHorizonT( -10.0f ) == 0.0f );
+    CHECK( REPLAY_FUTURE_DEFAULT_SECONDS == doctest::Approx( 20.0f ) );
+    CHECK( REPLAY_PREDICTION_MAX_SECONDS == doctest::Approx( 120.0f ) );
     CHECK( ReplayPredictionHorizonT( REPLAY_PREDICTION_MAX_SECONDS + 10.0f ) == 1.0f );
     const SkullbonezCore::UI::UIRect horizon{ 100.0f, 50.0f, 200.0f, 8.0f };
     CHECK( ReplayPredictionHorizonFromMouse( 0, horizon ) == REPLAY_PREDICTION_MIN_SECONDS );

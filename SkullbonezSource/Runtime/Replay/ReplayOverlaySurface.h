@@ -29,7 +29,7 @@ namespace SkullbonezCore::Runtime::ReplayOverlay
 {
 inline constexpr double REPLAY_SCRUBBER_VISIBLE_SECONDS = 1.40;
 inline constexpr float REPLAY_PREDICTION_MIN_SECONDS = 1.0f;
-inline constexpr float REPLAY_PREDICTION_MAX_SECONDS = REPLAY_FUTURE_BUFFER_SECONDS;
+inline constexpr float REPLAY_PREDICTION_MAX_SECONDS = REPLAY_FUTURE_MAX_SECONDS;
 
 UI::UIRect ReplayScrubberTrackRect( int screenW, int screenH, RunReplayTrack track );
 UI::UIRect ReplayScrubberBranchButtonRect( int screenW, int screenH );

@@ -80,6 +80,7 @@ struct ReplayAuthoringPredictionRequest
     bool refreshPrediction = false;
     bool clearPredictionCache = false;
     bool prepareVelocityMutationBaseline = false;
+    bool liveVelocityEdit = false;
 };
 
 struct ReplayVelocityEditDragStart
@@ -335,21 +336,14 @@ class ReplayAuthoring
         m_velocityEdit.dragStartAngle = start.angle;
         m_velocityEdit.dragStartLinearVelocity = start.linearVelocity;
         m_velocityEdit.dragStartAngularVelocity = start.angularVelocity;
-        m_velocityEdit.dragPredictionDirty = false;
     }
 
-    void MarkVelocityEditDragDirty() noexcept
+    // Each successful pointer sample publishes newest-state intent. The
+    // pending request is a bit, not a queue, so multiple samples in one
+    // composition turn coalesce before prediction observes them.
+    void QueueVelocityEditPredictionRefresh() noexcept
     {
-        m_velocityEdit.dragPredictionDirty = true;
-    }
-
-    void FinishVelocityEditDrag() noexcept
-    {
-        if ( !m_velocityEdit.dragPredictionDirty )
-        {
-            return;
-        }
-        m_velocityEdit.dragPredictionDirty = false;
+        m_pendingPrediction.liveVelocityEdit = true;
         QueuePredictionRefresh();
     }
 

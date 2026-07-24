@@ -21,6 +21,8 @@ Glossary:
     of authored scenes and resets stale layout/panel identity during migration.
   Lifecycle generation: Monotonic identity for one post-preflight scene-load
     attempt, including attempts that fail before activation.
+  Newest-state refresh: Coalescing bit that asks prediction to replace an
+    in-flight generation from the latest edited velocity.
 
 Invariants:
   - Tests stop at the fixed capacity because the next runtime submission is a
@@ -30,6 +32,8 @@ Invariants:
     schema before rewriting any bytes.
   - Shared editor views fingerprint semantic fields rather than object padding.
   - The versioned editor topology is identical at minimum, 16:9, and ultrawide sizes.
+  - Multiple velocity samples in one composition turn publish one refresh;
+    the next turn may publish another newest-state request.
   - Compact causality reads only a bounded neighborhood of replay-owned rows and
     reports empty, stale, truncated, and capacity-limited states separately.
   - Preference migration may retain bounded filters but restores the current
@@ -53,6 +57,7 @@ Related:
 #include "../SkullbonezSource/Runtime/App/RunTimerState.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorLayoutPolicy.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h"
+#include "../SkullbonezSource/Runtime/Replay/ReplayAuthoring.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneController.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneRequestQueue.h"
@@ -73,6 +78,25 @@ Related:
 #include <type_traits>
 
 using namespace SkullbonezCore::Runtime;
+
+TEST_CASE( "Replay velocity drag publishes one coalesced newest-state refresh per frame" )
+{
+    ReplayAuthoring authoring;
+    ReplayVelocityEditDragStart start;
+    authoring.BeginVelocityEditDrag( start );
+
+    authoring.QueueVelocityEditPredictionRefresh();
+    authoring.QueueVelocityEditPredictionRefresh();
+    ReplayAuthoringPredictionRequest request = authoring.TakePredictionRequest();
+    CHECK( request.refreshPrediction );
+    CHECK_FALSE( request.enablePrediction );
+    CHECK( request.liveVelocityEdit );
+
+    CHECK_FALSE( authoring.TakePredictionRequest().refreshPrediction );
+    authoring.QueueVelocityEditPredictionRefresh();
+    request = authoring.TakePredictionRequest();
+    CHECK( request.refreshPrediction );
+}
 
 TEST_CASE( "Physics tab emits one typed request for every toggle row" )
 {

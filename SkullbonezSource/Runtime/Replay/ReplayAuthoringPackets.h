@@ -99,6 +99,5 @@ struct RunReplayVelocityEditState
     float dragStartAngle = 0.0f;
     Math::Vector::Vector3 dragStartLinearVelocity = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 dragStartAngularVelocity = Math::Vector::ZERO_VECTOR;
-    bool dragPredictionDirty = false; // A live gizmo edit is committed to prediction once when the drag ends.
 };
 } // namespace SkullbonezCore::Runtime

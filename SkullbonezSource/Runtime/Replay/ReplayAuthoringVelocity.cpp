@@ -5,8 +5,9 @@ Purpose:
 
 Summary:
   Velocity edit is a replay-owned interaction mode. It turns mouse rays into linear or angular
-  velocity edits, keeps the last complete prediction visible during the gesture,
-  then requests one rebuild from the final released velocity.
+  velocity edits. Every accepted pointer sample publishes newest-state
+  prediction intent while retained presentation keeps the last complete path
+  visible until a replacement prefix is safe.
 
 Glossary:
   Velocity gizmo: Replay overlay that exposes linear axes and angular rings for one body.
@@ -18,8 +19,8 @@ Glossary:
 Invariants:
   - Pointer capture must end whenever the drag exits or the edited target becomes invalid.
   - Edited velocities are clamped before waking or mutating the physics body.
-  - A held drag mutates the live body every sample but dirties prediction once,
-    after the final sample and before pointer capture is released.
+  - A held drag mutates the live body and publishes coalescing newest-state
+    prediction intent for every accepted pointer sample.
   - Hit testing, drag-start values, and gizmo drawing must read store rows, not
     the post-step legacy object record body mirror.
   - Velocity-edit helper functions are file-local to this translation unit.
@@ -498,10 +499,6 @@ bool ReplayAuthoring::PrepareVelocityEditInput( bool editorModeEnabled,
     if ( !VelocityEdit().enabled || editorModeEnabled || !scenePhysicsEnabled || screenWidth <= 0 || screenHeight <= 0 )
     {
         const bool endDragGesture = interaction.Gesture().kind == RuntimeInteractionGestureKind::ReplayVelocityDrag;
-        if ( endDragGesture )
-        {
-            FinishVelocityEditDrag();
-        }
         ClearVelocityEditInputState();
         if ( endDragGesture )
         {
@@ -550,7 +547,6 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
     {
         if ( velocityDragActive() && ( leftReleased || !leftDown ) )
         {
-            FinishVelocityEditDrag();
             interaction.EndGestureIfKind( RuntimeInteractionGestureKind::ReplayVelocityDrag );
             inputRouter.ReleaseNativeCapture();
         }
@@ -585,7 +581,6 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
         if ( !tryResolveVelocityBody( body ) || gesture.kind != RuntimeInteractionGestureKind::ReplayVelocityDrag ||
              gesture.axis < 0 )
         {
-            FinishVelocityEditDrag();
             interaction.EndGestureIfKind( RuntimeInteractionGestureKind::ReplayVelocityDrag );
             inputRouter.ReleaseNativeCapture();
             return;
@@ -641,13 +636,19 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
             std::clamp( angularVelocity.y, -REPLAY_VELOCITY_EDIT_ANGULAR_MAX, REPLAY_VELOCITY_EDIT_ANGULAR_MAX );
         angularVelocity.z =
             std::clamp( angularVelocity.z, -REPLAY_VELOCITY_EDIT_ANGULAR_MAX, REPLAY_VELOCITY_EDIT_ANGULAR_MAX );
-        if ( velocityPhysics.SetBodyVelocity( body.body, linearVelocity, angularVelocity, true ) )
+        constexpr float VELOCITY_CHANGE_EPSILON_SQUARED = 1.0e-10f;
+        const bool velocityChanged =
+            VectorMagSquared( linearVelocity - body.linearVelocity ) > VELOCITY_CHANGE_EPSILON_SQUARED ||
+            VectorMagSquared( angularVelocity - body.angularVelocity ) > VELOCITY_CHANGE_EPSILON_SQUARED;
+        // A stationary held pointer resolves to the velocity already stored.
+        // Skipping that no-op prevents needless replacement generations while
+        // still publishing every materially changed pointer sample.
+        if ( velocityChanged && velocityPhysics.SetBodyVelocity( body.body, linearVelocity, angularVelocity, true ) )
         {
-            // Why: the gizmo and live body update every pointer sample, but
-            // prediction keeps presenting the last complete path until release.
-            // Rebuilding intermediate velocities made the retained draw stream
-            // reset repeatedly and produced visible flicker.
-            MarkVelocityEditDragDirty();
+            // Why: prediction's pending-latest bit collapses held samples while
+            // retained publication keeps the last complete trajectory visible.
+            // This gives live feedback without an unbounded job queue.
+            QueueVelocityEditPredictionRefresh();
             scrubberOwner.SetVisible( true, now, REPLAY_SCRUBBER_VISIBLE_SECONDS );
         }
     };
@@ -660,10 +661,8 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
         }
         if ( leftReleased || !leftDown )
         {
-            // Invariant: the final drag sample is applied above while leftDown
-            // is still true. Publish exactly one dirty request after that sample
-            // so prediction consumes the final velocity, never an intermediate.
-            FinishVelocityEditDrag();
+            // The final accepted sample already published newest-state intent.
+            // Ending capture must not enqueue a duplicate generation.
             interaction.EndGestureIfKind( RuntimeInteractionGestureKind::ReplayVelocityDrag );
             inputRouter.ReleaseNativeCapture();
         }

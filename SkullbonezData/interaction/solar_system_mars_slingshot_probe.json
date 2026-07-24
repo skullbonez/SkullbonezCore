@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 1, "setReplayPathTarget": "rocket" },
+    { "frame": 1, "setReplayInterceptTarget": "earth" },
+    { "frame": 1, "setReplayPredictionHorizonSeconds": 30.0 },
+    { "frame": 1, "setReplayPredictionEnabled": true },
+    { "frame": 500, "assert": { "predictionFullHorizonComplete": true } },
+    { "frame": 500, "assert": { "predictionPathVisible": true } },
+    { "frame": 500, "assert": { "replayInterceptContact": false } },
+    { "frame": 500, "assert": { "replayInterceptMissMax": 4.5 } },
+    { "frame": 500, "assert": { "replayInterceptEtaMin": 1.6 } },
+    { "frame": 500, "assert": { "replayInterceptEtaMax": 1.8 } },
+    { "frame": 501, "setReplayInterceptTarget": "mars" },
+    { "frame": 510, "assert": { "replayInterceptContact": false } },
+    { "frame": 510, "assert": { "replayInterceptMissMax": 3.0 } },
+    { "frame": 510, "assert": { "replayInterceptEtaMin": 4.7 } },
+    { "frame": 510, "assert": { "replayInterceptEtaMax": 4.95 } },
+    { "frame": 512, "screenshot": "TestOutput/interaction/solar_system_mars_slingshot.bmp" }
+  ]
+}

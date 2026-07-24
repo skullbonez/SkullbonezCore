@@ -514,9 +514,15 @@ historical work per commit-contract rule 4.
 
 ## Current Execution Priority
 
-No active/future implementation plan is registered. The solar-system trajectory
-planner closed SS0-SS6 on 2026-07-24 after its independent review findings were
-remediated and all final gates passed. Closure evidence is in
+No implementation plan is active. `solar-system-slingshot-usability` closed
+4/4 on 2026-07-24 after the XY/Z-up correction, newest-state held-drag
+prediction, extended horizon, 32-body Mars demonstration, independent review,
+and mapped gates. The active/future ledger is 0/0. Closure evidence is in
+[`solar-system-slingshot-usability-closure`](../Reports/2026-07-24/solar-system-slingshot-usability-closure.md).
+
+The prior solar-system trajectory planner closed SS0-SS6 on 2026-07-24 after
+its independent review findings were remediated and all final gates passed.
+Closure evidence is in
 [`solar-system-trajectory-planner-closure`](../Reports/2026-07-24/solar-system-trajectory-planner-closure.md).
 
 The 2026-07-18 adversarial-review round-7 lane is closed. Scene-controller
@@ -1486,6 +1492,22 @@ Core are frozen for this plan.
 
 The plan closed 7/7 on 2026-07-24 and leaves the live ledger under inventory
 rule 4. The active/future denominator returns 7 → 0.
+
+## Solar System Slingshot Usability (2026-07-24)
+
+The owner registered one four-task corrective/demo plan, growing the
+active/future denominator from 0 to 4. It corrects the existing solar XY/Z-up
+presentation, replaces the obsolete release-only velocity-drag refresh policy
+with bounded newest-state prediction restarts, separates the 20-second default
+from an extended operator horizon, and adds a 32-body major-moon
+Earth-flyby-to-Mars demonstration.
+
+| Plan | State | Verified phase count | Next action |
+|---|---|---:|---|
+| [solar-system-slingshot-usability](../Reports/2026-07-24/solar-system-slingshot-usability-closure.md) | Complete | 4/4 | Closed; active/future denominator returned 4 → 0 |
+
+SSU0-SSU3 closed on 2026-07-24. The completed plan left the active/future
+ledger under inventory rule 4, returning the denominator from 4 to 0.
 
 ## Prediction Retained Rendering Merge Handoff (2026-07-24)
 

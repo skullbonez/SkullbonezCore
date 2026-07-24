@@ -16,6 +16,8 @@ Glossary:
     body from live body/collider store rows.
   Prediction slice: Bounded worker chunk that advances the private prediction
     engine and publishes a coherent frame prefix.
+  Live edit replacement: Coalesced held-drag generation that must publish and
+    promote one coherent prefix before a newer velocity can replace it.
   Prediction physics tick: Replay-owned fixed step against the private
     prediction engine.
   Future node: Body discovered by following contacts or predicted movement
@@ -716,8 +718,9 @@ ReplayPrediction::BeginFrameSource( PhysicsEngine& physicsEngine,
                                          prediction.simulation.targetId.value == requestedTargetId.value &&
                                          prediction.simulation.frames.size() >= 2u;
     const std::size_t buildPresentationFrameCount =
-        preserveCommittedFuture ? ReplayPredictionBuildPresentationFrameCountForRefresh( prediction, requestedTargetId )
-                                : 2u;
+        preserveCommittedFuture && !prediction.build.liveVelocityEditRefreshPending
+            ? ReplayPredictionBuildPresentationFrameCountForRefresh( prediction, requestedTargetId )
+            : 2u;
     const bool clearSamplesOnCancel = !preserveCommittedFuture;
     predictionOwner.CancelJob( clearSamplesOnCancel );
     if ( clearSamplesOnCancel )
@@ -820,6 +823,7 @@ bool ReplayPrediction::BeginFrameSimulation( PhysicsEngine& physicsEngine,
     prediction.build.targetTickCount = predictionTicks;
     prediction.build.nextTick = 1;
     const std::size_t buildFrameCapacity = static_cast<std::size_t>( predictionTicks + 1 );
+    const std::size_t buildPresentationFrameCount = prediction.build.buildPresentationFrameCount;
     if ( !ReserveReplayPredictionVector( prediction.build.buildFrames,
                                          buildFrameCapacity,
                                          0,
@@ -831,6 +835,9 @@ bool ReplayPrediction::BeginFrameSimulation( PhysicsEngine& physicsEngine,
     }
     prediction.build.buildFrames.resize( buildFrameCapacity );
     prediction.ResetBuildFramePublication();
+    // Why: ResetBuildFramePublication clears stale bank state, while this
+    // generation's threshold was chosen from its request kind before reserve.
+    prediction.build.buildPresentationFrameCount = buildPresentationFrameCount;
     if ( !ReserveReplayPredictionFramePayloadVectors( prediction.build.buildFrames,
                                                       buildFrameCapacity,
                                                       static_cast<std::size_t>( modelCount ),
@@ -941,6 +948,7 @@ bool ReplayPrediction::BeginFrameSimulation( PhysicsEngine& physicsEngine,
         prediction.build.schedule.SetBudget( REPLAY_PREDICTION_TICKS_PER_WORKER_SUBMIT );
     }
     prediction.build.building = true;
+    prediction.build.liveVelocityEditRefreshPending = false;
     ++prediction.build.generationBeginCount;
 
     return !prediction.build.buildFrames.empty();
@@ -1077,6 +1085,7 @@ ReplayPrediction::SelectFrameSource( const ReplaySolverFrameSample* latestSolver
         // reserve, worker, or future-simulation path.
         prediction.build.dirty = false;
         prediction.build.pendingLatestRestart = false;
+        prediction.build.liveVelocityEditRefreshPending = false;
         // Invariant: EnterOfflinePredictionVerification already joined and
         // retired the worker. Cancelling here would invalidate the restored
         // complete/build and trajectory state before the CPU projection reads
@@ -1101,7 +1110,16 @@ ReplayPrediction::SelectFrameSource( const ReplaySolverFrameSample* latestSolver
         ChooseReplayPredictionCoalescerAction( prediction.build.dirty,
                                                prediction.build.building,
                                                prediction.build.buildMode,
-                                               prediction.build.pendingLatestRestart );
+                                               prediction.build.pendingLatestRestart,
+                                               prediction.BuildPrefixHasBeenPresented() );
+    if ( coalescerAction == ReplayPredictionCoalescerAction::PromoteAndBegin &&
+         !predictionOwner.PromoteBuildPrefixToCommitted() )
+    {
+        // Hazard: retain both newest-state tokens if promotion cannot acquire a
+        // coherent prefix. The next frame retries without discarding the path
+        // that was visible when this edit arrived.
+        return ReplayPredictionFrameSourceAction::Continue;
+    }
     if ( coalescerAction == ReplayPredictionCoalescerAction::Supersede )
     {
         ++prediction.build.supersededRestartCount;
@@ -1111,7 +1129,7 @@ ReplayPrediction::SelectFrameSource( const ReplaySolverFrameSample* latestSolver
     const bool automaticRefreshRequested =
         allowAutomaticRefresh && !prediction.build.building && sourceChanged && refreshDue;
     const bool beginRequested = coalescerAction == ReplayPredictionCoalescerAction::Begin ||
-                                coalescerAction == ReplayPredictionCoalescerAction::CancelAndBegin ||
+                                coalescerAction == ReplayPredictionCoalescerAction::PromoteAndBegin ||
                                 automaticRefreshRequested;
     if ( !beginRequested )
     {
@@ -1275,6 +1293,7 @@ void ReplayPrediction::EnterOfflineVerification()
     ForbidGeneration();
     m_state.build.dirty = false;
     m_state.build.pendingLatestRestart = false;
+    m_state.build.liveVelocityEditRefreshPending = false;
 }
 
 void ReplayPrediction::ResetVerificationMarkers() noexcept
@@ -1296,6 +1315,7 @@ void ReplayPrediction::SetEnabled( bool enabled ) noexcept
 
 void ReplayPrediction::ApplyAuthoringRequest( bool enablePrediction,
                                               bool refreshPrediction,
+                                              bool liveVelocityEdit,
                                               float minHorizonSeconds,
                                               float maxHorizonSeconds ) noexcept
 {
@@ -1307,6 +1327,7 @@ void ReplayPrediction::ApplyAuthoringRequest( bool enablePrediction,
     }
     if ( refreshPrediction )
     {
+        m_state.build.liveVelocityEditRefreshPending = m_state.build.liveVelocityEditRefreshPending || liveVelocityEdit;
         MarkDirty();
     }
 }

@@ -660,6 +660,7 @@ ReplayAutomationView ReplayRuntime::BuildAutomationView() const
              m_porkchopPanel.View(),
              m_tripPlanner.View(),
              m_visualPresentation.PathVisualizer(),
+             m_interceptReadout.View(),
              m_timeline.Presentation(),
              m_timeline.Solver(),
              m_timeline.Events(),
@@ -992,6 +993,7 @@ void ReplayRuntime::ApplyAuthoringPredictionRequest()
     }
     m_predictionOwner.ApplyAuthoringRequest( request.enablePrediction,
                                              request.refreshPrediction,
+                                             request.liveVelocityEdit,
                                              ReplayOverlay::REPLAY_PREDICTION_MIN_SECONDS,
                                              ReplayOverlay::REPLAY_PREDICTION_MAX_SECONDS );
 }
