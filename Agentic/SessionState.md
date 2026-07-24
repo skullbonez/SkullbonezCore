@@ -11,14 +11,23 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-24th-JUL-26` |
-| Current baseline | Solar-system slingshot usability is complete: oblique XY/Z-up scenes on a literal-black deep-space background, held-drag live prediction, a 120-second operator horizon, and the 32-body Mars demonstration. |
+| Current baseline | Solar prediction presentation correction is complete: the 32-body Mars-assist scene stays parent/solar bounded for 120 seconds, Replay/live endpoints agree, paths restyle live, and space scenes schedule neither shadow nor reflection passes. |
 | Current objective | No implementation plan is active; await the next owner-selected task. |
-| Active/future progress | Solar-system slingshot usability 4/4 complete; active/future ledger 0/0. |
+| Active/future progress | Solar prediction presentation correction 4/4 complete; active/future ledger 0/0. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | Solar-system Z-up/black-sky correction `validate_full` passes with exit 0 in 145.8 s: mandatory CPU preflight and all Automation, replay/prediction, DX12, and physics runtime lanes passed. |
-| Validation for current edits | Fresh four-body and slingshot DX12 captures show oblique Z-up presentation and exact-black background pixels. Shader bake freshness, 382 tests/69,712 assertions, DX12 validation, accepted captures, one-minute graphics stress, the broad gate, and a 3/3 touched-source comment audit pass. |
+| Last broad local gate | Solar prediction presentation correction `validate_full` passes with exit 0 in 165.7 s: mandatory CPU preflight and all Automation, replay/prediction, DX12, and physics runtime lanes passed. |
+| Validation for current edits | 383 tests/2,403,142 assertions, 16/16 focused slingshot assertions, held-drag instant/amortized probes, allocation policy, 23 dependency proofs, accepted DX12 captures, broad gate, and 39/39 touched-source comment audit pass. |
 
 ## Live Queue
+
+NOW. `solar-prediction-presentation-correction` is complete at 4/4. The
+120-second Mars-assist scene keeps every planet/moon bounded, exact-compares
+the Replay endpoint to the live oracle, refreshes retained paths during held
+velocity drags, exposes and globally saves all 13 path-style values, and
+schedules no shadow/reflection pass in either solar scene. The independent
+review's two blockers and three proof gaps were remediated. Closure evidence is
+in
+`Agentic/Reports/2026-07-25/solar-prediction-presentation-correction-closure.md`.
 
 NOW. The 2026-07-25 solar display follow-up is complete. The original
 top-down/+Y-up cameras were the remaining orientation defect; both solar scenes

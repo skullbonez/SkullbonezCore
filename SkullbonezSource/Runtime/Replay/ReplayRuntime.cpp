@@ -672,6 +672,7 @@ ReplayAutomationView ReplayRuntime::BuildAutomationView() const
              CurrentPredictionScrubFrame(),
              m_visualPresentation.PublishedVisualPacketView(),
              m_visualPresentation.TrajectorySubmissionProbeSnapshot(),
+             m_predictionAppearanceInvalidationCount,
              CollectMemoryStats(),
              BuildInputView(),
              m_scrubberOwner.TrackPosition( RunReplayTrack::Solver ),
@@ -798,11 +799,23 @@ void ReplayRuntime::PrepareRenderOverlay(
     PhysicsEngine& physics,
     const SceneEntityStore& entities,
     EditorTracer& tracer,
+    const Core::ReplayTrajectoryAppearanceConfig& trajectoryAppearance,
     bool editorModeEnabled,
     const RuntimeInteractionGesture& gesture,
     int sceneFrame,
     std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords )
 {
+    (void)tracer.SetReplayTrajectoryAppearance( trajectoryAppearance );
+    if ( m_predictionDrawList.SetReplayTrajectoryAppearance( trajectoryAppearance ) )
+    {
+        // Invariant: packed retained records carry style values. A live UI edit
+        // invalidates geometry only; prediction samples remain authoritative.
+        m_predictionDrawList.Clear();
+        m_predictionDrawListState.Reset();
+        ++m_predictionDrawStreamId;
+        ++m_predictionAppearanceInvalidationCount;
+        m_predictionDrawPacketDirty = true;
+    }
     const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
     if ( !prediction.deterministicRevealEnabled )
     {

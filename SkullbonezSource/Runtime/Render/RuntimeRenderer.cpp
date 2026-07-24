@@ -906,9 +906,8 @@ ShadowPassOutput RuntimeRenderer::ExecuteShadowThroughRenderGraph( const ShadowG
                                                                "Frame/Shadows/ShadowMapPublish" );
     }
 
-    // Invariant: even when activeShadowConfig is null, ShadowPass::Render clears
-    // stale receiver payloads. The graph owns that reset scheduling point and
-    // declares the stable shadow-map resources produced when shadows are active.
+    // Invariant: this wrapper is called only for an active shadow configuration.
+    // Disabled scenes clear receiver payloads without adding graph work.
     const Rendering::RenderGraphCompileResult& compiled = CompileRenderPassGraph( graph );
     callbackData.compiled = &compiled;
     publishData.compiled = &compiled;
@@ -1771,8 +1770,20 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
         }
         m_shadowPass.EnsureGpuResources( resourceContext, *activeShadowConfig );
     }
-    ShadowPassOutput shadowPass = ExecuteShadowThroughRenderGraph(
-        { frame, activeShadowConfig, policy.terrainHidden, policy.collisionVisualizer } );
+    ShadowPassOutput shadowPass;
+    bool shadowPassExecuted = false;
+    if ( activeShadowConfig )
+    {
+        shadowPass = ExecuteShadowThroughRenderGraph(
+            { frame, activeShadowConfig, policy.terrainHidden, policy.collisionVisualizer } );
+        shadowPassExecuted = true;
+    }
+    else
+    {
+        // Why: disabled shadows still need last-frame receiver handles cleared,
+        // but scheduling an empty ShadowMapPass violates the scene's opt-out.
+        shadowPass = m_shadowPass.ResetFrameOutputs();
+    }
     const Rendering::ShadowFrameData* terrainShadowFrame = shadowPass.terrainShadow;
     const Rendering::ShadowFrameData* objectShadowFrame = shadowPass.objectShadow;
     // The object receiver falls back to the broad map when no tight map was
@@ -1923,6 +1934,7 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     frameSnapshot.useCinematicTarget = useCinematicTarget;
     frameSnapshot.terrainShadowValid = terrainShadowFrame && terrainShadowFrame->valid;
     frameSnapshot.objectShadowValid = objectShadowFrame && objectShadowFrame->valid;
+    frameSnapshot.shadowPassExecuted = shadowPassExecuted;
     frameSnapshot.reflectionPassExecuted = reflectionPassNeeded;
     frameSnapshot.reflectionUsedDxr = reflection.usedDxr;
     frameSnapshot.objectOpaquePass = !debugTransparentBodyPass;

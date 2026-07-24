@@ -121,6 +121,39 @@ struct ReplayPredictionDrawListState
     bool showAllFuturePaths = false;
     bool saturated = false;
     bool valid = false;
+
+    void Reset() noexcept
+    {
+        // Hazard: assigning this whole state from {} materializes a
+        // hundreds-of-KiB temporary. Nested Debug render frames can then
+        // exhaust the process stack before prediction drawing begins.
+        for ( ReplayPredictionDrawRecordCursor& cursor : recordCursors )
+        {
+            cursor = {};
+        }
+        for ( ReplayPredictionDrawRecordCursor& cursor : retainedTrailCursors )
+        {
+            cursor = {};
+        }
+        recordCursorCount = 0;
+        retainedTrailCursorCount = 0;
+        retainedMarkerCount = 0;
+        baselinePoseCount = 0;
+        ordinaryRibbonCapacityRemaining = 0;
+        priorityRibbonCapacityRemaining = 0;
+        targetId = {};
+        revealFrame = 0;
+        generation = 0;
+        topologyVersion = 0;
+        trajectoryBuildTopologyVersion = 0;
+        trajectoryPublicationVersion = 0;
+        sampleStride = 1;
+        colorMode = ReplayPathColorMode::LaneFlat;
+        usingBuildFrames = false;
+        showAllFuturePaths = false;
+        saturated = false;
+        valid = false;
+    }
 };
 
 struct ReplayPredictionDrawListUpdate

@@ -64,6 +64,7 @@
 #include "../SkullbonezSource/Gameplay/TornadoGameplay.h"
 #include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
+#include "../SkullbonezSource/Scene/AuthoredScene.h"
 #include "../SkullbonezSource/World/Terrain.h"
 
 #include <algorithm>
@@ -197,6 +198,13 @@ Terrain& FlatTestTerrain()
     // engine resets without depending on process-global configuration.
     static SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
     static Terrain terrain( 0.0f, 0.0f, 0.0f, config );
+    return terrain;
+}
+
+Terrain& DeepSpaceTestTerrain()
+{
+    static SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
+    static Terrain terrain( -100000.0f, 0.0f, 0.0f, config );
     return terrain;
 }
 
@@ -470,7 +478,9 @@ void AddMutualGravityBody( PhysicsEngine& engine,
                            const Vector3& position,
                            const Vector3& linearVelocity,
                            float mass,
-                           float radius )
+                           float radius,
+                           PhysicsBodyMotionKind motionKind = PhysicsBodyMotionKind::Dynamic,
+                           Terrain* terrain = &FlatTestTerrain() )
 {
     const float inertia = 0.4f * mass * radius * radius;
     const CollisionShape shape = MakeSphereShape( radius );
@@ -483,13 +493,40 @@ void AddMutualGravityBody( PhysicsEngine& engine,
                                                Vector3( inertia, inertia, inertia ),
                                                mass,
                                                0.0f,
-                                               PhysicsBodyMotionKind::Dynamic,
-                                               &FlatTestTerrain(),
+                                               motionKind,
+                                               terrain,
                                                "unit-mutual-gravity-body" );
     bodyDesc.angularVelocityLimit = 1000.0f;
     auto colliderDesc = MakeColliderCreateDesc( shape, 0.0f, 0u, "unit" );
     colliderDesc.sceneObjectId = bodyDesc.sceneObjectId;
     REQUIRE( engine.RegisterAuthoredBody( bodyDesc, colliderDesc ).IsValid() );
+}
+
+void SeedAuthoredSolarWorld( PhysicsEngine& engine,
+                             const SkullbonezCore::Runtime::AuthoredScene& scene,
+                             bool earthGravityEnabled )
+{
+    SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
+    config.worldForces.gravity = 0.0f;
+    engine.Clear();
+    engine.ApplyRuntimeConfig( config );
+    engine.SetSleepEnabled( false );
+    engine.ReserveAuthoredBodyCapacity( scene.GetBallStateCount() );
+    for ( int index = 0; index < scene.GetBallStateCount(); ++index )
+    {
+        const SkullbonezCore::Runtime::SceneBallState& body = scene.GetBallState( index );
+        const bool removeEarthGravity = !earthGravityEnabled && std::strcmp( body.name, "earth" ) == 0;
+        AddMutualGravityBody(
+            engine,
+            body.sceneObjectId.value != 0u ? body.sceneObjectId.value : static_cast<uint32_t>( 1000 + index ),
+            Vector3( body.posX, body.posY, body.posZ ),
+            Vector3( body.velX, body.velY, body.velZ ),
+            removeEarthGravity ? 0.001f : body.mass,
+            body.radius,
+            body.isFixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic,
+            &DeepSpaceTestTerrain() );
+    }
+    REQUIRE( PhysicsEngine::ReadBodies( engine ).Count() == scene.GetBallStateCount() );
 }
 
 void SeedMicroWorld( PhysicsEngine& engine )
@@ -1254,6 +1291,143 @@ TEST_CASE( "PhysicsEngine mutual gravity: equal-mass two-body orbit stays bounde
     CHECK( barycenter.y == doctest::Approx( 80.0f ).epsilon( 0.001 ) );
     CHECK( barycenter.z == doctest::Approx( 0.0f ).epsilon( 0.001 ) );
     CHECK( finalSeparation == doctest::Approx( separation ).epsilon( 0.10 ) );
+}
+
+
+TEST_CASE( "PhysicsEngine solar assist: same-state 120-second forecast matches live and depends on Earth gravity" )
+{
+    const SkullbonezCore::Runtime::AuthoredScene scene = SkullbonezCore::Runtime::AuthoredScene::LoadFromFile(
+        "SkullbonezData/scenes/solar_system_mars_slingshot.scene.json" );
+    auto liveStorage = std::make_unique<PhysicsEngine>();
+    auto forecastStorage = std::make_unique<PhysicsEngine>();
+    auto noEarthGravityStorage = std::make_unique<PhysicsEngine>();
+    PhysicsEngine& live = *liveStorage;
+    PhysicsEngine& forecast = *forecastStorage;
+    PhysicsEngine& noEarthGravity = *noEarthGravityStorage;
+    SeedAuthoredSolarWorld( live, scene, true );
+    SeedAuthoredSolarWorld( forecast, scene, true );
+    SeedAuthoredSolarWorld( noEarthGravity, scene, false );
+
+    int earthIndex = -1;
+    int marsIndex = -1;
+    int rocketIndex = -1;
+    for ( int index = 0; index < scene.GetBallStateCount(); ++index )
+    {
+        const char* name = scene.GetBallState( index ).name;
+        earthIndex = std::strcmp( name, "earth" ) == 0 ? index : earthIndex;
+        marsIndex = std::strcmp( name, "mars" ) == 0 ? index : marsIndex;
+        rocketIndex = std::strcmp( name, "rocket" ) == 0 ? index : rocketIndex;
+    }
+    REQUIRE( earthIndex >= 0 );
+    REQUIRE( marsIndex >= 0 );
+    REQUIRE( rocketIndex >= 0 );
+
+    struct MoonOrbitProbe
+    {
+        const char* moonName;
+        const char* parentName;
+        int moonIndex = -1;
+        int parentIndex = -1;
+        float initialDistance = 0.0f;
+        float maximumDistance = 0.0f;
+    };
+    std::array<MoonOrbitProbe, 22> moonOrbits = {
+        MoonOrbitProbe{ "moon", "earth" },       MoonOrbitProbe{ "phobos", "mars" },
+        MoonOrbitProbe{ "deimos", "mars" },      MoonOrbitProbe{ "io", "jupiter" },
+        MoonOrbitProbe{ "europa", "jupiter" },   MoonOrbitProbe{ "ganymede", "jupiter" },
+        MoonOrbitProbe{ "callisto", "jupiter" }, MoonOrbitProbe{ "mimas", "saturn" },
+        MoonOrbitProbe{ "enceladus", "saturn" }, MoonOrbitProbe{ "tethys", "saturn" },
+        MoonOrbitProbe{ "dione", "saturn" },     MoonOrbitProbe{ "rhea", "saturn" },
+        MoonOrbitProbe{ "titan", "saturn" },     MoonOrbitProbe{ "iapetus", "saturn" },
+        MoonOrbitProbe{ "miranda", "uranus" },   MoonOrbitProbe{ "ariel", "uranus" },
+        MoonOrbitProbe{ "umbriel", "uranus" },   MoonOrbitProbe{ "titania", "uranus" },
+        MoonOrbitProbe{ "oberon", "uranus" },    MoonOrbitProbe{ "proteus", "neptune" },
+        MoonOrbitProbe{ "triton", "neptune" },   MoonOrbitProbe{ "nereid", "neptune" },
+    };
+    for ( MoonOrbitProbe& orbit : moonOrbits )
+    {
+        for ( int index = 0; index < scene.GetBallStateCount(); ++index )
+        {
+            const char* name = scene.GetBallState( index ).name;
+            orbit.moonIndex = std::strcmp( name, orbit.moonName ) == 0 ? index : orbit.moonIndex;
+            orbit.parentIndex = std::strcmp( name, orbit.parentName ) == 0 ? index : orbit.parentIndex;
+        }
+        REQUIRE( orbit.moonIndex >= 0 );
+        REQUIRE( orbit.parentIndex >= 0 );
+        orbit.initialDistance =
+            sqrtf( VectorMagnitudeSquared( RequireBodyHotState( live, orbit.moonIndex ).position -
+                                           RequireBodyHotState( live, orbit.parentIndex ).position ) );
+        orbit.maximumDistance = orbit.initialDistance;
+    }
+
+    LockOrderValidator lockOrderValidator;
+    WorkerPool workerPool( lockOrderValidator );
+    const PhysicsWorldForces forces = MutualGravityForces( 1.0f, 0.5f );
+    float closestEarth = 1.0e9f;
+    float closestMars = 1.0e9f;
+    float closestMarsWithoutEarthGravity = 1.0e9f;
+    float maximumRocketRadius = 0.0f;
+    float maximumBodyRadius = 0.0f;
+    constexpr int kPredictionTicks = 120 * 120;
+    for ( int tick = 0; tick < kPredictionTicks; ++tick )
+    {
+        live.Step( PHYSICS_FIXED_DT, forces, workerPool, SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter{} );
+        forecast.Step( PHYSICS_FIXED_DT, forces, workerPool, SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter{} );
+        noEarthGravity.Step( PHYSICS_FIXED_DT,
+                             forces,
+                             workerPool,
+                             SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter{} );
+
+        const PhysicsBodyHotState rocket = RequireBodyHotState( live, rocketIndex );
+        const PhysicsBodyHotState earth = RequireBodyHotState( live, earthIndex );
+        const PhysicsBodyHotState mars = RequireBodyHotState( live, marsIndex );
+        const PhysicsBodyHotState noEarthRocket = RequireBodyHotState( noEarthGravity, rocketIndex );
+        const PhysicsBodyHotState noEarthMars = RequireBodyHotState( noEarthGravity, marsIndex );
+        closestEarth = (std::min)( closestEarth, sqrtf( VectorMagnitudeSquared( rocket.position - earth.position ) ) );
+        closestMars = (std::min)( closestMars, sqrtf( VectorMagnitudeSquared( rocket.position - mars.position ) ) );
+        closestMarsWithoutEarthGravity =
+            (std::min)( closestMarsWithoutEarthGravity,
+                        sqrtf( VectorMagnitudeSquared( noEarthRocket.position - noEarthMars.position ) ) );
+        maximumRocketRadius = (std::max)( maximumRocketRadius, sqrtf( VectorMagnitudeSquared( rocket.position ) ) );
+        for ( int bodyIndex = 0; bodyIndex < scene.GetBallStateCount(); ++bodyIndex )
+        {
+            maximumBodyRadius =
+                (std::max)( maximumBodyRadius,
+                            sqrtf( VectorMagnitudeSquared( RequireBodyHotState( live, bodyIndex ).position ) ) );
+        }
+        for ( MoonOrbitProbe& orbit : moonOrbits )
+        {
+            const float parentRelativeDistance =
+                sqrtf( VectorMagnitudeSquared( RequireBodyHotState( live, orbit.moonIndex ).position -
+                                               RequireBodyHotState( live, orbit.parentIndex ).position ) );
+            orbit.maximumDistance = (std::max)( orbit.maximumDistance, parentRelativeDistance );
+        }
+    }
+
+    // Same initial snapshot plus the same fixed-step forces is the prediction
+    // contract. Exact equality catches any future split between live and forecast stepping.
+    CheckEngineKinematicsEqual( live, forecast );
+    CHECK( closestEarth > 1.3f );
+    CHECK( closestEarth < 2.6f );
+    CHECK( closestMars > 0.7f );
+    CHECK( closestMars < 2.0f );
+    CHECK( closestMarsWithoutEarthGravity > 10.0f );
+    CHECK( closestMarsWithoutEarthGravity > closestMars * 8.0f );
+    CHECK( maximumRocketRadius < 180.0f );
+    CHECK( maximumBodyRadius < 450.0f );
+    const PhysicsBodyHotState finalRocket = RequireBodyHotState( live, rocketIndex );
+    CHECK( finalRocket.position.x == doctest::Approx( 18.169813f ).epsilon( 0.00001 ) );
+    CHECK( finalRocket.position.y == doctest::Approx( 89.437309f ).epsilon( 0.00001 ) );
+    CHECK( finalRocket.position.z == doctest::Approx( 0.0f ).epsilon( 0.00001 ) );
+    CHECK( sqrtf( VectorMagnitudeSquared( finalRocket.position ) ) < 110.0f );
+    for ( const MoonOrbitProbe& orbit : moonOrbits )
+    {
+        CAPTURE( orbit.moonName );
+        CAPTURE( orbit.parentName );
+        CAPTURE( orbit.initialDistance );
+        CAPTURE( orbit.maximumDistance );
+        CHECK( orbit.maximumDistance < orbit.initialDistance * 1.5f );
+    }
 }
 
 

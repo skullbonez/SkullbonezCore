@@ -129,6 +129,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     m_replayRuntime.PrepareRenderOverlay( m_sceneController.Scene().Physics(),
                                           m_sceneController.Scene().Entities(),
                                           m_runtimeTools.Tracer(),
+                                          m_config.ordinaryRender.replayTrajectory,
                                           m_runtimeTools.Editor().editorModeEnabled,
                                           m_interaction.Gesture(),
                                           m_sceneController.State().currentFrame,

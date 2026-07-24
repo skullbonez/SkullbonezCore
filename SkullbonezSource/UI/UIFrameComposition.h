@@ -177,6 +177,7 @@ constexpr float UI_RENDER_START_Y = 158.0f;
 constexpr float UI_RENDER_SECTION_H = 28.0f;
 constexpr float UI_RENDER_ROW_H = 42.0f;
 constexpr float UI_RENDER_SAVE_BUTTON_W = 126.0f;
+constexpr float UI_TRAJECTORY_SAVE_BUTTON_W = 104.0f;
 constexpr float UI_TARGETS_COMBO_Y = 42.0f;
 constexpr float UI_TARGETS_META_Y = 86.0f;
 constexpr float UI_TARGETS_PREVIEW_Y = 132.0f;

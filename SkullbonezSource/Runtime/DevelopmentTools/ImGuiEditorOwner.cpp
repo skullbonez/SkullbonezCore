@@ -2131,7 +2131,7 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                     // topology only. Ordinary and cinematic values still travel
                     // through their existing domain enums and runtime owners.
                     for ( int rawSection = static_cast<int>( UI::UIRenderAuthoringSection::Lighting );
-                          rawSection <= static_cast<int>( UI::UIRenderAuthoringSection::TerrainMaterials );
+                          rawSection <= static_cast<int>( UI::UIRenderAuthoringSection::PredictionPaths );
                           ++rawSection )
                     {
                         const UI::UIRenderAuthoringSection section =
@@ -2219,6 +2219,16 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                                                      phase );
                                 } );
                             ImGui::PopID();
+                        }
+
+                        if ( section == UI::UIRenderAuthoringSection::PredictionPaths )
+                        {
+                            if ( ImGui::SmallButton( "Save path style" ) )
+                            {
+                                submitRendering( UI::OperatorEditorRenderingCommandType::SaveOrdinaryDefaults );
+                            }
+                            ImGui::PopID();
+                            continue;
                         }
 
                         ImGui::SeparatorText( "Cinematic" );

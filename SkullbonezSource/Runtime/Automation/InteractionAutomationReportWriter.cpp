@@ -47,6 +47,7 @@ Related:
 
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Core/ByteView.h"
+#include "../../Rendering/RenderSceneSnapshot.h"
 #include "../../UI/UI.h"
 
 #pragma warning( push, 0 )
@@ -67,6 +68,7 @@ using namespace SkullbonezCore::Runtime::RunInternal;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
 namespace Physics = SkullbonezCore::Physics;
+namespace Rendering = SkullbonezCore::Rendering;
 namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 namespace
@@ -1033,6 +1035,7 @@ SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( const Interac
     const RuntimeInteractionController& interaction = inputs.interaction;
     const CameraControlState& camera = inputs.camera;
     const UI::InGameUI& ui = inputs.ui;
+    const Rendering::RenderSceneSnapshot& renderSnapshot = inputs.renderSnapshot;
 
     CoreAllocation::RuntimeAllocationScope diagnosticsScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
     if ( m_written )
@@ -1552,6 +1555,11 @@ SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( const Interac
         { "predictionTrajectoryFingerprint", FormatPredictionHash( predictionTrajectoryFingerprint.hash ) },
         { "predictionTrajectoryRecordCount", static_cast<int>( predictionTrajectoryFingerprint.recordCount ) },
         { "predictionTrajectoryPointCount", static_cast<int>( predictionTrajectoryFingerprint.pointCount ) },
+        { "predictionAppearanceInvalidationCount", replay.predictionAppearanceInvalidationCount },
+        { "shadowPassExecuted", renderSnapshot.shadowPassExecuted },
+        { "terrainShadowValid", renderSnapshot.terrainShadowValid },
+        { "objectShadowValid", renderSnapshot.objectShadowValid },
+        { "reflectionPassExecuted", renderSnapshot.reflectionPassExecuted },
         { "predictionTrajectorySubmissionStable", predictionSubmissionProbe.stableWindowReady },
         { "predictionTrajectorySubmissionFrameCount", predictionSubmissionProbe.stableFrameCount },
         { "predictionTrajectorySubmissionObservedFrameCount", predictionSubmissionProbe.observedFrameCount },

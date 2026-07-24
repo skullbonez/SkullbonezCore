@@ -150,6 +150,8 @@ TEST_CASE( "AuthoredSceneParser: solar bodies publish their authored colours" )
     CHECK( cinematic.sunColorG == doctest::Approx( 0.0f ) );
     CHECK( cinematic.sunColorB == doctest::Approx( 0.0f ) );
     CHECK( cinematic.sunIntensity == doctest::Approx( 0.0f ) );
+    CHECK_FALSE( cinematic.shadow.enabled );
+    CHECK( scene.GetWaterReflectionMode() == 2 );
 
     REQUIRE( scene.GetBallStateCount() == 4 );
     for ( int index = 0; index < scene.GetBallStateCount(); ++index )
@@ -207,6 +209,8 @@ TEST_CASE( "AuthoredSceneParser: Mars slingshot scene contains the complete majo
     }
     CHECK( scene.GetCinematicRenderConfig().skyMode ==
            SkullbonezCore::Core::CinematicStyleMode::Sky::DeepSpace );
+    CHECK_FALSE( scene.GetCinematicRenderConfig().shadow.enabled );
+    CHECK( scene.GetWaterReflectionMode() == 2 );
     REQUIRE( scene.GetBallStateCount() == static_cast<int>( std::size( expectedNames ) ) );
     for ( int index = 0; index < scene.GetBallStateCount(); ++index )
     {
@@ -215,6 +219,11 @@ TEST_CASE( "AuthoredSceneParser: Mars slingshot scene contains the complete majo
         CHECK( body.posZ == doctest::Approx( 0.0f ) );
         CHECK( body.velZ == doctest::Approx( 0.0f ) );
     }
+    const auto& rocket = scene.GetBallState( scene.GetBallStateCount() - 1 );
+    CHECK( rocket.posX == doctest::Approx( 77.594884f ) );
+    CHECK( rocket.posY == doctest::Approx( -7.997296f ) );
+    CHECK( rocket.velX == doctest::Approx( 0.127265f ) );
+    CHECK( rocket.velY == doctest::Approx( 27.470485f ) );
 }
 
 

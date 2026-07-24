@@ -9,6 +9,7 @@
     "volumetricLighting": false,
     "bloom": false,
     "fog": false,
+    "shadows": false,
     "styleModes": [21, 3, 2, 0],
     "exposure": 1.2,
     "gamma": 1.25,
@@ -47,6 +48,7 @@
     "vsync": false
   },
   "debug": {
+    "waterReflection": "none",
     "waterHidden": true,
     "terrainHidden": true
   },

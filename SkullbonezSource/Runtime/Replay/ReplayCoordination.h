@@ -222,6 +222,7 @@ struct ReplayAutomationView
     const RunReplayPredictionFrame* currentPredictionFrame = nullptr;
     ReplayVisualPacket visualPacket;
     ReplayTrajectorySubmissionProbeStats trajectorySubmission;
+    uint64_t predictionAppearanceInvalidationCount = 0;
     SkullbonezCore::Core::MainMemoryReplayStats memoryStats;
     ReplayInputView input;
     float solverTrackPosition = 0.0f;

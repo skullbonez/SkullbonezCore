@@ -41,6 +41,7 @@ bool IsSameSnapshot( const RenderSceneSnapshot& lhs, const RenderSceneSnapshot& 
 {
     return lhs.cinematicRender == rhs.cinematicRender && lhs.useCinematicTarget == rhs.useCinematicTarget &&
            lhs.terrainShadowValid == rhs.terrainShadowValid && lhs.objectShadowValid == rhs.objectShadowValid &&
+           lhs.shadowPassExecuted == rhs.shadowPassExecuted &&
            lhs.reflectionPassExecuted == rhs.reflectionPassExecuted && lhs.reflectionUsedDxr == rhs.reflectionUsedDxr &&
            lhs.objectOpaquePass == rhs.objectOpaquePass && lhs.objectTransparentPass == rhs.objectTransparentPass &&
            lhs.terrainPassRendered == rhs.terrainPassRendered && lhs.waterPassRendered == rhs.waterPassRendered &&
@@ -131,6 +132,7 @@ std::string RenderPipeline::BuildExecutedFrameGraphText( const RenderGraph& grap
     out << "use_cinematic_target=" << ( snapshot.useCinematicTarget ? "true" : "false" ) << "\n";
     out << "terrain_shadow_valid=" << ( snapshot.terrainShadowValid ? "true" : "false" ) << "\n";
     out << "object_shadow_valid=" << ( snapshot.objectShadowValid ? "true" : "false" ) << "\n";
+    out << "shadow_pass_executed=" << ( snapshot.shadowPassExecuted ? "true" : "false" ) << "\n";
     out << "reflection_pass_executed=" << ( snapshot.reflectionPassExecuted ? "true" : "false" ) << "\n";
     out << "reflection_path=" << ( snapshot.reflectionUsedDxr ? "DXR" : "Raster" ) << "\n";
     out << "object_opaque_pass=" << ( snapshot.objectOpaquePass ? "true" : "false" ) << "\n";

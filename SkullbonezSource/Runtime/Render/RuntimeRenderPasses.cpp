@@ -954,7 +954,7 @@ void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target,
 }
 
 
-ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
+ShadowPassOutput ShadowPass::ResetFrameOutputs()
 {
     // Invariant: always clear the receiver payloads at the start of the pass.
     // If shadows are disabled, downstream terrain/object passes must see null
@@ -962,6 +962,13 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
     m_resources.terrainFrame = Rendering::ShadowFrameData();
     m_resources.objectFrame = Rendering::ShadowFrameData();
     m_resources.objectCasterBatches.Clear();
+    return ShadowPassOutput();
+}
+
+
+ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
+{
+    (void)ResetFrameOutputs();
     if ( inputs.cinematic )
     {
         if ( !inputs.frame.renderInstances || !inputs.frame.colliders )

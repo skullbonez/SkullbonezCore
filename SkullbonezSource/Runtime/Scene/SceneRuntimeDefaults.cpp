@@ -382,6 +382,19 @@ SkullbonezCore::Core::SbResult SaveRenderDefaults( const SkullbonezCore::Core::O
     setFloat( "ordinary_ball_specular_scale", ordinary.ballSpecularScale, "%.2f" );
     setFloat( "ordinary_box_roughness_scale", ordinary.boxRoughnessScale, "%.2f" );
     setFloat( "ordinary_box_specular_scale", ordinary.boxSpecularScale, "%.2f" );
+    setFloat( "replay_trajectory_future_width", ordinary.replayTrajectory.futureWidth, "%.2f" );
+    setFloat( "replay_trajectory_future_alpha", ordinary.replayTrajectory.futureAlpha, "%.2f" );
+    setFloat( "replay_trajectory_future_edge_feather", ordinary.replayTrajectory.futureEdgeFeather, "%.2f" );
+    setFloat( "replay_trajectory_causal_width", ordinary.replayTrajectory.causalWidth, "%.2f" );
+    setFloat( "replay_trajectory_causal_alpha", ordinary.replayTrajectory.causalAlpha, "%.2f" );
+    setFloat( "replay_trajectory_causal_edge_feather", ordinary.replayTrajectory.causalEdgeFeather, "%.2f" );
+    setFloat( "replay_trajectory_baseline_width", ordinary.replayTrajectory.baselineWidth, "%.2f" );
+    setFloat( "replay_trajectory_baseline_alpha", ordinary.replayTrajectory.baselineAlpha, "%.2f" );
+    setFloat( "replay_trajectory_baseline_edge_feather", ordinary.replayTrajectory.baselineEdgeFeather, "%.2f" );
+    setFloat( "replay_trajectory_marker_width", ordinary.replayTrajectory.markerWidth, "%.2f" );
+    setFloat( "replay_trajectory_marker_alpha", ordinary.replayTrajectory.markerAlpha, "%.2f" );
+    setFloat( "replay_trajectory_marker_edge_feather", ordinary.replayTrajectory.markerEdgeFeather, "%.2f" );
+    setFloat( "replay_trajectory_selected_emphasis", ordinary.replayTrajectory.selectedEmphasis, "%.2f" );
 
     AppendMissingOrdinaryConfigLines( lines, missing );
     StampCurrentConfigVersion( lines );

@@ -158,6 +158,19 @@ enum class UIRenderParam
     BallSpecular,
     BoxRoughness,
     BoxSpecular,
+    TrajectoryFutureWidth,
+    TrajectoryFutureAlpha,
+    TrajectoryFutureEdgeFeather,
+    TrajectoryCausalWidth,
+    TrajectoryCausalAlpha,
+    TrajectoryCausalEdgeFeather,
+    TrajectoryBaselineWidth,
+    TrajectoryBaselineAlpha,
+    TrajectoryBaselineEdgeFeather,
+    TrajectoryMarkerWidth,
+    TrajectoryMarkerAlpha,
+    TrajectoryMarkerEdgeFeather,
+    TrajectorySelectedEmphasis,
     Count
 };
 

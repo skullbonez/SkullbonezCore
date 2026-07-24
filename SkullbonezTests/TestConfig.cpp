@@ -12,10 +12,10 @@ Glossary:
   Registry row: One public key, value type/range, and SkullbonezCore::Core::EngineConfig destination.
   Stable key hash: Compact fingerprint of every dumped key in traversal order;
     it detects an omission, duplicate, rename, or reorder without copying the
-    full 211-key registry into this test.
+    full 224-key registry into this test.
 
 Invariants:
-  - The dump contains one header plus exactly 211 unique setting rows.
+  - The dump contains one header plus exactly 224 unique setting rows.
   - Rejected rows do not block later valid rows in the same file.
   - Unsupported format versions fail before any setting mutates the config.
   - Temporary fixtures are cold test artifacts and are removed after each run.
@@ -44,7 +44,7 @@ namespace
 {
 constexpr const char* kConfigInputPath = "unit_engine_config_input.cfg";
 constexpr const char* kConfigDumpPath = "unit_engine_config_dump.cfg";
-constexpr uint64_t kStableConfigKeyOrderHash = 0x2f0f2661f0cbaea9ull;
+constexpr uint64_t kStableConfigKeyOrderHash = 0x70d0f1072c9936caull;
 
 struct TemporaryConfigFiles
 {
@@ -112,7 +112,10 @@ TEST_CASE( "SkullbonezCore::Core::EngineConfig: valid file produces the stable c
                             "fullscreen = yes\n"
                             "gravity = -9.5\n"
                             "sky_front = unit_sky_front.jpg\n"
-                            "physics_parallel_mutual_gravity = off\n" ) );
+                            "physics_parallel_mutual_gravity = off\n"
+                            "replay_trajectory_future_width = 1.35\n"
+                            "replay_trajectory_future_edge_feather = 3.0\n"
+                            "replay_trajectory_selected_emphasis = 0.60\n" ) );
 
     SkullbonezCore::Core::EngineConfig config;
     REQUIRE( config.Load( kConfigInputPath ).ok );
@@ -121,10 +124,13 @@ TEST_CASE( "SkullbonezCore::Core::EngineConfig: valid file produces the stable c
     CHECK( config.worldForces.gravity == doctest::Approx( -9.5f ) );
     CHECK( config.assetPaths.skyFront == "unit_sky_front.jpg" );
     CHECK_FALSE( config.physicsExecution.parallelMutualGravity );
+    CHECK( config.ordinaryRender.replayTrajectory.futureWidth == doctest::Approx( 1.35f ) );
+    CHECK( config.ordinaryRender.replayTrajectory.futureEdgeFeather == doctest::Approx( 1.0f ) );
+    CHECK( config.ordinaryRender.replayTrajectory.selectedEmphasis == doctest::Approx( 0.60f ) );
 
     REQUIRE( DumpConfig( config ) );
     const std::vector<std::string> lines = ReadLines( kConfigDumpPath );
-    REQUIRE( lines.size() == 212 );
+    REQUIRE( lines.size() == 225 );
     CHECK( lines.front() == "[config]" );
 
     uint64_t keyOrderHash = 14695981039346656037ull;
@@ -137,7 +143,7 @@ TEST_CASE( "SkullbonezCore::Core::EngineConfig: valid file produces the stable c
         CHECK_MESSAGE( uniqueKeys.insert( key ).second, "Every config key must be dumped exactly once" );
         keyOrderHash = AppendStableHash( keyOrderHash, key );
     }
-    CHECK( uniqueKeys.size() == 211 );
+    CHECK( uniqueKeys.size() == 224 );
     CHECK( keyOrderHash == kStableConfigKeyOrderHash );
     CHECK( lines[1] == "screen_x = 2048" );
     CHECK( lines.back() == "presentation_interpolation = 1" );
@@ -184,9 +190,7 @@ TEST_CASE( "SkullbonezCore::Core::EngineConfig: current version loads and future
     REQUIRE( current.Load( kConfigInputPath ).ok );
     CHECK( current.window.screenX == 2048 );
 
-    REQUIRE( WriteTextFile(
-        kConfigInputPath,
-        "format_version = 5\nterrain_render_step_size = 1\nscreen_x = 1600\n" ) );
+    REQUIRE( WriteTextFile( kConfigInputPath, "format_version = 5\nterrain_render_step_size = 1\nscreen_x = 1600\n" ) );
     SkullbonezCore::Core::EngineConfig previous;
     REQUIRE( previous.Load( kConfigInputPath ).ok );
     CHECK( previous.window.screenX == 1600 );

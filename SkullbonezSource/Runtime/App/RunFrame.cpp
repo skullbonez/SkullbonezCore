@@ -301,11 +301,13 @@ InteractionAutomationFrameResult Run::RunAutomationBeforeInputPhase( RuntimeFram
 {
     const ReplayAutomationView automationReplayView = m_replayRuntime.BuildAutomationView();
     const ReplayInputView automationReplayInput = automationReplayView.input;
-    const InteractionAutomationFrameResult result = TickInteractionAutomationBeforeInput( m_interactionAutomation,
-                                                                                          m_window,
-                                                                                          interaction,
-                                                                                          scene,
-                                                                                          automationReplayView );
+    const InteractionAutomationFrameResult result =
+        TickInteractionAutomationBeforeInput( m_interactionAutomation,
+                                              m_window,
+                                              interaction,
+                                              scene,
+                                              automationReplayView,
+                                              m_renderer.FrameGraphSnapshot() );
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     const InteractionAutomationDevelopmentUiApplyResult developmentUiApply =
         m_interactionAutomation.ApplyDevelopmentUiCommands( result, m_window, m_imguiEditor );
@@ -675,6 +677,7 @@ void Run::RunPostDrawDiagnosticsPhase( RuntimeFrameInteractionView& interaction,
                                               m_sceneController,
                                               m_replayRuntime.BuildAutomationView(),
                                               automationDevelopmentUiView,
+                                              m_renderer.FrameGraphSnapshot(),
                                               m_diagnosticsRuntime.Capture(),
                                               m_renderBackendView.RequireBackbufferCapture() );
     if ( !automationAfterRender.status.ok )

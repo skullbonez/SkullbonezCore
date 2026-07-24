@@ -619,6 +619,9 @@ class ShadowPass
     void EnsureGpuResources( const RenderResourceContext& resources,
                              const SkullbonezCore::Core::CinematicRenderConfig& cinematic );
     void ReleaseGpuResources();
+    // Clears last-frame receiver payloads without scheduling a render pass.
+    // Disabled space scenes use this path so "shadows off" means no graph work.
+    ShadowPassOutput ResetFrameOutputs();
     ShadowPassOutput Render( const ShadowPassInputs& inputs );
 
   private:

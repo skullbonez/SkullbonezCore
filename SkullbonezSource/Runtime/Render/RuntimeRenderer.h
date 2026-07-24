@@ -133,6 +133,10 @@ class RuntimeRenderer
     // Schedules the cohesive UI-text owner with one stack-only frame record.
     // RuntimeRenderer owns graph order, not HUD/replay/operator composition.
     void RenderUiText( const UiTextPassInputs& inputs );
+    const Rendering::RenderSceneSnapshot& FrameGraphSnapshot() const
+    {
+        return m_frameGraphSnapshot;
+    }
 
   private:
     struct CinematicPostFrameOutput

@@ -675,6 +675,8 @@ TEST_CASE( "RenderDefaultsStore samples values at the drain checkpoint" )
     SkullbonezCore::Core::CinematicRenderConfig cinematic;
     store.SubmitOrdinarySave();
     ordinary.sunIntensity = 9.25f; // Final UI mutation after submission, before checkpoint.
+    ordinary.replayTrajectory.futureWidth = 1.75f;
+    ordinary.replayTrajectory.selectedEmphasis = 0.30f;
 
     fs::current_path( testRoot, filesystemError );
     REQUIRE_FALSE( filesystemError );
@@ -690,6 +692,8 @@ TEST_CASE( "RenderDefaultsStore samples values at the drain checkpoint" )
     CHECK( result.status.ok );
     CHECK( result.savedCount == 1 );
     CHECK( configText.find( "ordinary_sun_intensity = 9.25" ) != std::string::npos );
+    CHECK( configText.find( "replay_trajectory_future_width = 1.75" ) != std::string::npos );
+    CHECK( configText.find( "replay_trajectory_selected_emphasis = 0.30" ) != std::string::npos );
     CHECK( configText.find( "format_version = 6" ) != std::string::npos );
 
     store.SubmitOrdinarySave();

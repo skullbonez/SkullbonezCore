@@ -79,6 +79,7 @@ Related:
 #include "../../Physics/PhysicsTimestep.h"
 #include "../../Core/Config.h"
 #include "../../Core/ByteView.h"
+#include "../../Rendering/RenderSceneSnapshot.h"
 #include "../../Rendering/DX12/Dx12BackbufferCapture.h"
 #include "../../UI/UI.h"
 
@@ -100,6 +101,7 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
 using SkullbonezCore::Hardware::Input;
 namespace Physics = SkullbonezCore::Physics;
+namespace Rendering = SkullbonezCore::Rendering;
 namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 namespace
@@ -655,10 +657,22 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "predictionScrubFrameActive";
     case RunInteractionAutomationAssertKind::PredictionTargetDisplacementMin:
         return "predictionTargetDisplacementMin";
+    case RunInteractionAutomationAssertKind::PredictionTargetLastNear:
+        return "predictionTargetLastNear";
     case RunInteractionAutomationAssertKind::LiveSolverHashStableAcrossPrediction:
         return "liveSolverHashStableAcrossPrediction";
     case RunInteractionAutomationAssertKind::PredictionTrajectoryFingerprintReady:
         return "predictionTrajectoryFingerprintReady";
+    case RunInteractionAutomationAssertKind::PredictionAppearanceInvalidationCountMin:
+        return "predictionAppearanceInvalidationCountMin";
+    case RunInteractionAutomationAssertKind::ShadowPassExecuted:
+        return "shadowPassExecuted";
+    case RunInteractionAutomationAssertKind::TerrainShadowValid:
+        return "terrainShadowValid";
+    case RunInteractionAutomationAssertKind::ObjectShadowValid:
+        return "objectShadowValid";
+    case RunInteractionAutomationAssertKind::ReflectionPassExecuted:
+        return "reflectionPassExecuted";
     case RunInteractionAutomationAssertKind::GizmoVisible:
         return "gizmoVisible";
     case RunInteractionAutomationAssertKind::MousePickupActive:
@@ -1840,8 +1854,9 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
             name == "predictionSupersededRestartCountMin" || name == "predictionSupersededRestartCountMax" ||
             name == "predictionPresentedGenerationMin" || name == "predictionPresentedRootVelocityDeltaMin" ||
             name == "predictionDivergenceMin" || name == "predictionTargetDisplacementMin" ||
-            name == "imguiLayoutResetCountMin" || name == "imguiFocusCountMin" || name == "imguiDpiScale" ||
-            name == "imguiDescriptorHighWaterMax" || name == "imguiViewportRecreationsMin";
+            name == "predictionAppearanceInvalidationCountMin" || name == "imguiLayoutResetCountMin" ||
+            name == "imguiFocusCountMin" || name == "imguiDpiScale" || name == "imguiDescriptorHighWaterMax" ||
+            name == "imguiViewportRecreationsMin";
         const bool expectsBool =
             name == "directorGrabbed" || name == "replayPredictionEnabled" || name == "predictionPathVisible" ||
             name == "predictionFullHorizonComplete" || name == "predictionBaselineVisible" ||
@@ -1849,13 +1864,23 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
             name == "replayPorkchopComplete" || name == "replayPorkchopSelected" ||
             name == "replaySolverTrackAtPresent" || name == "predictionScrubFrameActive" ||
             name == "liveSolverHashStableAcrossPrediction" || name == "predictionTrajectoryFingerprintReady" ||
-            name == "gizmoVisible" || name == "mousePickupActive" || name == "nativeCaptureRequested" ||
-            name == "cursorVisibleRequested" || name == "uiBlocksMouse" || name == "launcherRayActive" ||
-            name == "replayHistoricalSamplePaused" || name == "memoryOverlayEnabled" ||
+            name == "shadowPassExecuted" || name == "terrainShadowValid" || name == "objectShadowValid" ||
+            name == "reflectionPassExecuted" || name == "gizmoVisible" || name == "mousePickupActive" ||
+            name == "nativeCaptureRequested" || name == "cursorVisibleRequested" || name == "uiBlocksMouse" ||
+            name == "launcherRayActive" || name == "replayHistoricalSamplePaused" || name == "memoryOverlayEnabled" ||
             name == "editorSelectionExists" || name == "editorSelectionHasTerrain" || name == "imguiVisible" ||
             name == "legacyReplayPresentationActive" || name == "imguiPreferencesRecovered";
+        const bool expectsPositionTolerance = name == "predictionTargetLastNear";
+        const bool positionToleranceValid =
+            !expectsPositionTolerance ||
+            ( expected.is_object() && expected.contains( "position" ) && expected["position"].is_array() &&
+              expected["position"].size() == 3u && expected["position"][0].is_number() &&
+              expected["position"][1].is_number() && expected["position"][2].is_number() &&
+              expected.contains( "tolerance" ) && expected["tolerance"].is_number() &&
+              expected["tolerance"].get<float>() > 0.0f );
         if ( ( expectsString && !expected.is_string() ) || ( expectsInteger && !expected.is_number_integer() ) ||
-             ( expectsNumber && !expected.is_number() ) || ( expectsBool && !IsBoolValue( expected ) ) )
+             ( expectsNumber && !expected.is_number() ) || ( expectsBool && !IsBoolValue( expected ) ) ||
+             !positionToleranceValid )
         {
             outError = "assertion field has the wrong value type: " + name;
             return false;
@@ -2090,6 +2115,14 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
             outAction.assertKind = RunInteractionAutomationAssertKind::PredictionTargetDisplacementMin;
             outAction.numberValue = member.value().get<float>();
         }
+        else if ( name == "predictionTargetLastNear" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionTargetLastNear;
+            outAction.vectorValue = Vector3( expected["position"][0].get<float>(),
+                                             expected["position"][1].get<float>(),
+                                             expected["position"][2].get<float>() );
+            outAction.numberValue = expected["tolerance"].get<float>();
+        }
         else if ( name == "liveSolverHashStableAcrossPrediction" )
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::LiveSolverHashStableAcrossPrediction;
@@ -2098,6 +2131,31 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         else if ( name == "predictionTrajectoryFingerprintReady" )
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::PredictionTrajectoryFingerprintReady;
+            outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "predictionAppearanceInvalidationCountMin" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionAppearanceInvalidationCountMin;
+            outAction.numberValue = member.value().get<float>();
+        }
+        else if ( name == "shadowPassExecuted" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ShadowPassExecuted;
+            outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "terrainShadowValid" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::TerrainShadowValid;
+            outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "objectShadowValid" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ObjectShadowValid;
+            outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "reflectionPassExecuted" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ReflectionPassExecuted;
             outAction.boolValue = ReadBool( member.value() );
         }
         else if ( name == "gizmoVisible" )
@@ -2298,6 +2356,7 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
                                         const SceneWorld& world,
                                         SkullbonezCore::UI::InGameUI& ui,
                                         const InteractionAutomationDevelopmentUiView& developmentUi,
+                                        const Rendering::RenderSceneSnapshot& renderSnapshot,
                                         const RunInteractionAutomationAction& action,
                                         InspectGizmoInteractionActive inspectGizmoInteractionActive )
 {
@@ -2665,6 +2724,27 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
         evaluation.passed = valid && displacement >= action.numberValue;
         break;
     }
+    case RunInteractionAutomationAssertKind::PredictionTargetLastNear:
+    {
+        float displacement = 0.0f;
+        Vector3 last = ZERO_VECTOR;
+        const bool valid =
+            InteractionAutomationReportWriter::TryPredictionTargetDisplacement( replay, displacement, nullptr, &last );
+        const float error = valid ? sqrtf( VectorMagSquared( last - action.vectorValue ) ) : 0.0f;
+        {
+            std::ostringstream stream;
+            stream << "[" << action.vectorValue.x << "," << action.vectorValue.y << "," << action.vectorValue.z
+                   << "] +/- " << action.numberValue;
+            evaluation.expected = stream.str();
+        }
+        {
+            std::ostringstream stream;
+            stream << "[" << last.x << "," << last.y << "," << last.z << "] error=" << error;
+            evaluation.actual = stream.str();
+        }
+        evaluation.passed = valid && error <= action.numberValue;
+        break;
+    }
     case RunInteractionAutomationAssertKind::LiveSolverHashStableAcrossPrediction:
     {
         const bool stable = InteractionAutomationReportWriter::LiveSolverHashStableAcrossPrediction( replay );
@@ -2681,6 +2761,45 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( ready );
         evaluation.passed = ready == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionAppearanceInvalidationCountMin:
+    {
+        const uint64_t count = replay.predictionAppearanceInvalidationCount;
+        {
+            std::ostringstream stream;
+            stream << ">=" << static_cast<uint64_t>( action.numberValue );
+            evaluation.expected = stream.str();
+        }
+        evaluation.actual = std::to_string( count );
+        evaluation.passed = count >= static_cast<uint64_t>( action.numberValue );
+        break;
+    }
+    case RunInteractionAutomationAssertKind::ShadowPassExecuted:
+    case RunInteractionAutomationAssertKind::TerrainShadowValid:
+    case RunInteractionAutomationAssertKind::ObjectShadowValid:
+    case RunInteractionAutomationAssertKind::ReflectionPassExecuted:
+    {
+        bool actual = false;
+        if ( action.assertKind == RunInteractionAutomationAssertKind::ShadowPassExecuted )
+        {
+            actual = renderSnapshot.shadowPassExecuted;
+        }
+        else if ( action.assertKind == RunInteractionAutomationAssertKind::TerrainShadowValid )
+        {
+            actual = renderSnapshot.terrainShadowValid;
+        }
+        else if ( action.assertKind == RunInteractionAutomationAssertKind::ObjectShadowValid )
+        {
+            actual = renderSnapshot.objectShadowValid;
+        }
+        else
+        {
+            actual = renderSnapshot.reflectionPassExecuted;
+        }
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( actual );
+        evaluation.passed = actual == action.boolValue;
         break;
     }
     case RunInteractionAutomationAssertKind::GizmoVisible:
@@ -3156,7 +3275,8 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
                                                                Window& windowOwner,
                                                                RuntimeFrameInteractionView& interactionOwners,
                                                                RuntimeFrameSceneView& sceneOwners,
-                                                               const ReplayAutomationView& replayView )
+                                                               const ReplayAutomationView& replayView,
+                                                               const Rendering::RenderSceneSnapshot& renderSnapshot )
 {
     Window* window = &windowOwner;
     const SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
@@ -3191,7 +3311,8 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
                                                replayView,
                                                interaction,
                                                camera,
-                                               ui } );
+                                               ui,
+                                               renderSnapshot } );
         if ( result.status.ok )
         {
             result.status = reportResult;
@@ -3595,6 +3716,7 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
     SceneController& scene,
     const ReplayAutomationView& replayView,
     const InteractionAutomationDevelopmentUiView& developmentUiView,
+    const Rendering::RenderSceneSnapshot& renderSnapshot,
     CaptureController& capture,
     Rendering::Dx12BackbufferCapture& backbufferCapture )
 {
@@ -3666,6 +3788,7 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
             scene.Scene(),
             ui,
             developmentUiView,
+            renderSnapshot,
             action,
             [&]()
             { return runtimeTools.InspectGizmoInteractionActive( camera.mode, replayView.input.inspectionActive ); } );
@@ -3734,7 +3857,8 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
                                                replayView,
                                                interaction,
                                                camera,
-                                               ui } );
+                                               ui,
+                                               renderSnapshot } );
         if ( result.status.ok )
         {
             result.status = reportResult;

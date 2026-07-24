@@ -1529,6 +1529,16 @@ missing physics data.
   required first owner-visible check are recorded in
   [`prediction-retained-rendering-handoff`](../Reports/2026-07-24/prediction-retained-rendering-handoff.md).
 
+## Solar Prediction Presentation Correction (2026-07-25)
+
+Complete at 4/4. The correction distinguishes authored escape from prediction
+divergence, re-authors the 32-body Mars-assist scene, adds globally persisted
+trajectory appearance controls with held-drag refresh, and makes the solar
+shadow/reflection opt-out a real no-pass renderer policy. Independent review
+findings and all validation evidence are recorded in
+[`solar-prediction-presentation-correction-closure`](../Reports/2026-07-25/solar-prediction-presentation-correction-closure.md).
+The active/future denominator returns to zero.
+
 ## Features
 
 | Plan | State | Verified phase count | Start condition |

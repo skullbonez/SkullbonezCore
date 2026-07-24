@@ -52,6 +52,10 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Rendering
+{
+struct RenderSceneSnapshot;
+}
 namespace UI
 {
 class InGameUI;
@@ -202,6 +206,7 @@ struct InteractionAutomationReportInputs
     const RuntimeInteractionController& interaction;
     const CameraControlState& camera;
     const UI::InGameUI& ui;
+    const Rendering::RenderSceneSnapshot& renderSnapshot;
 };
 
 class InteractionAutomationReportWriter

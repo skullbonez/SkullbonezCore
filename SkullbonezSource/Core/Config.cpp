@@ -439,6 +439,31 @@ static const ConfigSetting kOrdinaryRenderSettings[] = {
     CONFIG_FLOAT( "ordinary_ball_specular_scale", ordinaryRender.ballSpecularScale, 0.0, 2.0 ),
     CONFIG_FLOAT( "ordinary_box_roughness_scale", ordinaryRender.boxRoughnessScale, 0.25, 2.0 ),
     CONFIG_FLOAT( "ordinary_box_specular_scale", ordinaryRender.boxSpecularScale, 0.0, 2.0 ),
+    CONFIG_FLOAT( "replay_trajectory_future_width", ordinaryRender.replayTrajectory.futureWidth, 1.0, 6.0 ),
+    CONFIG_FLOAT( "replay_trajectory_future_alpha", ordinaryRender.replayTrajectory.futureAlpha, 0.05, 1.0 ),
+    CONFIG_FLOAT( "replay_trajectory_future_edge_feather",
+                  ordinaryRender.replayTrajectory.futureEdgeFeather,
+                  0.25,
+                  1.25 ),
+    CONFIG_FLOAT( "replay_trajectory_causal_width", ordinaryRender.replayTrajectory.causalWidth, 1.0, 6.0 ),
+    CONFIG_FLOAT( "replay_trajectory_causal_alpha", ordinaryRender.replayTrajectory.causalAlpha, 0.05, 1.0 ),
+    CONFIG_FLOAT( "replay_trajectory_causal_edge_feather",
+                  ordinaryRender.replayTrajectory.causalEdgeFeather,
+                  0.25,
+                  1.25 ),
+    CONFIG_FLOAT( "replay_trajectory_baseline_width", ordinaryRender.replayTrajectory.baselineWidth, 1.0, 6.0 ),
+    CONFIG_FLOAT( "replay_trajectory_baseline_alpha", ordinaryRender.replayTrajectory.baselineAlpha, 0.05, 1.0 ),
+    CONFIG_FLOAT( "replay_trajectory_baseline_edge_feather",
+                  ordinaryRender.replayTrajectory.baselineEdgeFeather,
+                  0.25,
+                  1.25 ),
+    CONFIG_FLOAT( "replay_trajectory_marker_width", ordinaryRender.replayTrajectory.markerWidth, 1.0, 6.0 ),
+    CONFIG_FLOAT( "replay_trajectory_marker_alpha", ordinaryRender.replayTrajectory.markerAlpha, 0.05, 1.0 ),
+    CONFIG_FLOAT( "replay_trajectory_marker_edge_feather",
+                  ordinaryRender.replayTrajectory.markerEdgeFeather,
+                  0.25,
+                  1.25 ),
+    CONFIG_FLOAT( "replay_trajectory_selected_emphasis", ordinaryRender.replayTrajectory.selectedEmphasis, 0.0, 1.0 ),
 };
 
 static const ConfigSetting kCinematicRenderSettings[] = {
@@ -619,7 +644,7 @@ static const ConfigSetting kWaterRenderStyleSettings[] = {
     CONFIG_FLOAT( "ocean_perturb_strength", waterRenderStyle.oceanPerturbStrength, -1000000.0, 1000000.0 ),
 };
 
-constexpr size_t kExpectedConfigSettingCount = 211;
+constexpr size_t kExpectedConfigSettingCount = 224;
 static_assert( ArrayCount( kWindowSettings ) + ArrayCount( kCameraSettings ) + ArrayCount( kTerrainGeometrySettings ) +
                        ArrayCount( kSkyboxSettings ) + ArrayCount( kRuntimeCapacitySettings ) +
                        ArrayCount( kPhysicsExecutionSettings ) + ArrayCount( kRuntimeRenderSettings ) +
