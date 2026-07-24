@@ -345,7 +345,8 @@ class ReplayRuntime
                              const SceneEntityStore& entities,
                              EditorTracer& tracer,
                              const ReplayPredictionPresentationView& prediction,
-                             const ReplayOverlayBuildInput& input );
+                             const ReplayOverlayBuildInput& input,
+                             bool drawPredictionOverlay = true );
     // Routes value-only pointer facts through replay path selection. Store and
     // camera owners are explicit one-call borrows, not fields in the command.
     bool RouteWorldPointer( const ReplayWorldPointerInput& input,
@@ -517,6 +518,7 @@ class ReplayRuntime
     uint64_t m_predictionDrawRevision = 0;
     bool m_predictionDrawPacketDirty = true;
     bool m_predictionDrawCameraValid = false;
+    bool m_predictionRetainedRenderingActive = false;
     SceneLifecycleGenerationObserver m_sceneClearObserver;
     SceneLifecycleGenerationObserver m_sceneActivationObserver;
 };

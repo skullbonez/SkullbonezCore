@@ -134,6 +134,12 @@ struct RetainedTrajectoryBufferDX12
     std::array<uint64_t, 4> streamIds = {};
     std::array<uint64_t, 4> revisions = {};
     std::array<std::size_t, 4> uploadedFloatCounts = {};
+    uint64_t rangeStreamId = 0;
+    uint64_t rangeRevision = 0;
+    uint32_t rangeTotalSegmentCount = 0;
+    std::array<uint64_t, RETAINED_TRAJECTORY_MAX_DRAW_RANGES> rangeIdentities = {};
+    std::array<uint32_t, RETAINED_TRAJECTORY_MAX_DRAW_RANGES> rangeSourceVersions = {};
+    std::array<uint32_t, RETAINED_TRAJECTORY_MAX_DRAW_RANGES> rangeSegmentCounts = {};
 };
 
 struct RetainedTrajectoryUploadPlanDX12
@@ -164,6 +170,31 @@ constexpr RetainedTrajectoryUploadPlanDX12 BuildRetainedTrajectoryUploadPlanDX12
         --firstChangedUnit;
     }
     return { true, firstChangedUnit };
+}
+
+// Concept: each retained trajectory owns an independent compact slice. A
+// sibling append may advance the packet revision without changing this slice,
+// while extending this slice repairs only its formerly open adjacency tail.
+constexpr RetainedTrajectoryUploadPlanDX12
+BuildRetainedTrajectoryRangeUploadPlanDX12( uint64_t cachedIdentity,
+                                            uint32_t cachedSourceVersion,
+                                            std::size_t cachedSegmentCount,
+                                            uint64_t incomingIdentity,
+                                            uint32_t incomingSourceVersion,
+                                            std::size_t incomingSegmentCount ) noexcept
+{
+    const bool sameRange = cachedIdentity == incomingIdentity && cachedSourceVersion == incomingSourceVersion;
+    if ( sameRange && cachedSegmentCount == incomingSegmentCount )
+    {
+        return {};
+    }
+
+    if ( sameRange && cachedSegmentCount < incomingSegmentCount )
+    {
+        return { true, cachedSegmentCount > 0u ? cachedSegmentCount - 1u : 0u };
+    }
+
+    return { true, 0u };
 }
 
 
@@ -554,8 +585,15 @@ class Dx12GeometryOwner
                              Dx12Diagnostics& diagnostics );
     static constexpr UINT64 RetainedTrajectoryBufferSizeBytes()
     {
-        return static_cast<UINT64>( RETAINED_TRAJECTORY_FLOAT_CAPACITY * sizeof( float ) );
+        return static_cast<UINT64>(
+            ( RETAINED_TRAJECTORY_FLOAT_CAPACITY + RETAINED_TRAJECTORY_COMPACT_FLOAT_CAPACITY ) * sizeof( float ) +
+            RETAINED_TRAJECTORY_MAX_DRAW_RANGES * sizeof( D3D12_DRAW_ARGUMENTS ) );
     }
+    static constexpr UINT64 RetainedTrajectoryCompactBufferSizeBytes()
+    {
+        return static_cast<UINT64>( RETAINED_TRAJECTORY_COMPACT_FLOAT_CAPACITY * sizeof( float ) );
+    }
+    bool InitializeRetainedTrajectoryCommands( ID3D12Device* device );
     // Lifetime: vertex bytes and layout spans are consumed synchronously by
     // cold resource creation and are never retained by the geometry owner.
     uint32_t CreateInstancedMesh( const float* staticVertices,
@@ -590,6 +628,13 @@ class Dx12GeometryOwner
                                        uint64_t streamId,
                                        uint64_t revision,
                                        bool priorityLane,
+                                       const Math::Transformation::Matrix4& viewProjection,
+                                       TransientTriangleStyle style,
+                                       const PassRasterStateBucket& bucket );
+    void DrawRetainedTrajectoryRanges( std::span<const float> compactRecords,
+                                       std::span<const RetainedTrajectoryDrawRange> ranges,
+                                       uint64_t streamId,
+                                       uint64_t revision,
                                        const Math::Transformation::Matrix4& viewProjection,
                                        TransientTriangleStyle style,
                                        const PassRasterStateBucket& bucket );
@@ -630,6 +675,7 @@ class Dx12GeometryOwner
                                          int viewportWidth,
                                          int viewportHeight,
                                          bool compactTrajectoryInstances,
+                                         UINT startInstance,
                                          D3D12_GPU_VIRTUAL_ADDRESS vertexAddress,
                                          ID3D12GraphicsCommandList* commandList,
                                          Dx12DrawGate& drawGate,
@@ -655,6 +701,11 @@ class Dx12GeometryOwner
     static constexpr std::size_t RETAINED_TRAJECTORY_FLOAT_CAPACITY =
         RETAINED_TRAJECTORY_ORDINARY_FLOAT_CAPACITY + RETAINED_TRAJECTORY_PRIORITY_FLOAT_CAPACITY +
         RETAINED_TRAJECTORY_ORDINARY_LINE_FLOAT_CAPACITY + RETAINED_TRAJECTORY_PRIORITY_LINE_FLOAT_CAPACITY;
+    // Hazard: legacy marker ribbons/lines and compact path ranges are referenced
+    // by the same command list. Their persistent slices must never alias even
+    // though both contain retained trajectory data.
+    static constexpr std::size_t RETAINED_TRAJECTORY_COMPACT_FLOAT_CAPACITY =
+        RETAINED_TRAJECTORY_ORDINARY_FLOAT_CAPACITY + RETAINED_TRAJECTORY_PRIORITY_FLOAT_CAPACITY;
     std::vector<DynamicVBDX12> m_dynamicVBs;
     std::vector<InstancedMeshDX12> m_instancedMeshes;
     std::unique_ptr<ShaderDX12> m_gridLineShader;
@@ -662,6 +713,7 @@ class Dx12GeometryOwner
     size_t m_gridLinePSOCount = 0;
     std::array<std::unique_ptr<ShaderDX12>, TRANSIENT_TRIANGLE_STYLE_COUNT> m_transientTriangleShaders;
     std::array<RetainedTrajectoryBufferDX12, Dx12FrameOwner::FRAME_COUNT> m_retainedTrajectoryBuffers = {};
+    Microsoft::WRL::ComPtr<ID3D12CommandSignature> m_retainedTrajectoryCommandSignature;
     Dx12RenderDevice* m_resourceDevice = nullptr;
     Dx12FrameOwner* m_resourceFrame = nullptr;
     Dx12PipelineOwner* m_submissionPipeline = nullptr;

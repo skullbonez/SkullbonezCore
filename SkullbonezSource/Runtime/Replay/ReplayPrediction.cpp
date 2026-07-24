@@ -991,7 +991,8 @@ bool StepReplayPredictionJob( ReplayPrediction& predictionOwner,
         prediction.build.buildMode =
             ChooseReplayPredictionBuildMode( measuredTicksPerMs,
                                              (std::max)( 0, prediction.build.targetTickCount - completedTicks ),
-                                             prediction.build.instantBudgetMs );
+                                             prediction.build.instantBudgetMs,
+                                             prediction.simulation.predictionBodies.size() );
     }
 
     // Why: the frame loop still submits once per pass. Instant mode expands only

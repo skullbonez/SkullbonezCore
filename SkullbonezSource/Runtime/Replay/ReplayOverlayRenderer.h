@@ -13,7 +13,7 @@ Glossary:
     scene rendering.
   Replay overlay: UI draw pass for replay timeline, prediction controls, and
     cause-tree inspection.
-  Retained prediction list: Append-only trajectory commands reused until the
+  Retained prediction list: Append-only trajectory chunks reused until the
     prediction generation, source bank, palette, or topology changes.
   All-body path: Space-scene future trajectory selected by body identity rather
     than contact-derived causality.
@@ -82,6 +82,8 @@ struct ReplayPredictionDrawRecordCursor
     std::size_t sourceRecordIndex = 0;
     std::size_t consumedPointCount = 0;
     std::size_t lastSelectedPointIndex = 0;
+    std::size_t retainedRangeIndex = Rendering::RETAINED_TRAJECTORY_MAX_DRAW_RANGES;
+    uint32_t retainedRangeChunkCount = 0;
     float authoredColorR = 1.0f;
     float authoredColorG = 1.0f;
     float authoredColorB = 1.0f;
@@ -185,6 +187,7 @@ struct ReplayPathVisualizerRenderContext
     EditorTracer& tracer;
     ReplayFrameIndex presentFrame = 0;
     bool hasPresentSample = false;
+    bool drawPredictionOverlay = true;
 };
 
 struct ReplayPathVisualizerRenderResult

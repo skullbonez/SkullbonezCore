@@ -584,34 +584,6 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
         }
         offlinePresentation.PreparePathDrawing( world.BodyStore() );
         const ReplayPredictionPresentationView prediction = offlinePrediction.PresentationView();
-        const ReplayOverlay::ReplayPredictionDrawListUpdate drawListUpdate =
-            ReplayOverlay::UpdateReplayPredictionDrawList( prediction,
-                                                           offlinePresentation.PathVisualizer(),
-                                                           world.Entities(),
-                                                           Physics::PhysicsEngine::ReadColliders( world.Physics() ),
-                                                           m_replayVisualPredictionDrawList,
-                                                           m_replayVisualPredictionDrawListState );
-        if ( drawListUpdate.reset )
-        {
-            ++m_replayVisualPredictionDrawStreamId;
-        }
-        const bool cameraChanged = !m_replayVisualPredictionDrawCameraValid ||
-                                   m_replayVisualPredictionDrawCameraEye != expected.cameraEye ||
-                                   m_replayVisualPredictionDrawCameraUp != expected.cameraUp;
-        if ( drawListUpdate.reset || drawListUpdate.appended || cameraChanged )
-        {
-            m_replayVisualPredictionDrawPacket =
-                m_replayVisualPredictionDrawList.BuildReplayVisualPacket( expected.cameraEye, expected.cameraUp );
-            m_replayVisualPredictionDrawCameraEye = expected.cameraEye;
-            m_replayVisualPredictionDrawCameraUp = expected.cameraUp;
-            m_replayVisualPredictionDrawCameraValid = true;
-            ++m_replayVisualPredictionDrawRevision;
-        }
-        ReplayOverlay::AppendReplayPredictionProvisionalTails( prediction,
-                                                               offlinePresentation.PathVisualizer(),
-                                                               m_replayVisualPredictionDrawListState,
-                                                               Physics::PhysicsEngine::ReadColliders( world.Physics() ),
-                                                               tracer );
         offlinePresentation.RenderPathVisualizer( prediction,
                                                   latestSolverSample,
                                                   world.Physics(),
@@ -621,10 +593,6 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
                                                                     world.RenderPresentationRecords(),
                                                                     world.BodyStore() );
         ReplayVisualPacket projected = tracer.BuildReplayVisualPacket( expected.cameraEye, expected.cameraUp );
-        ReplayVisualPacketOperations::AttachRetainedPredictionGeometry( projected,
-                                                                        m_replayVisualPredictionDrawPacket,
-                                                                        m_replayVisualPredictionDrawStreamId,
-                                                                        m_replayVisualPredictionDrawRevision );
         offlinePresentation.PublishVisualPacket( projected,
                                                  prediction,
                                                  latestSolverSample,

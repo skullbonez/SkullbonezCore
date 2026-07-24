@@ -395,6 +395,34 @@ bool PublishReplayPredictionRootTrajectoryFrame( RunReplayPredictionState& predi
     return true;
 }
 
+bool PublishReplayPredictionBuildRootTrajectoryPrefix( RunReplayPredictionState& prediction,
+                                                       std::size_t presentedFrameCount )
+{
+    if ( !prediction.trajectoryBuild.valid || !prediction.trajectoryBuild.usingBuildFrames ||
+         prediction.trajectoryBuild.rootId.value == 0 )
+    {
+        return false;
+    }
+
+    ReplayTrajectoryRecord* record =
+        prediction.trajectoryStore.FindRecord( ReplayTrajectoryKey( prediction.trajectoryBuild.rootId,
+                                                                    ReplayTrajectoryLane::FutureRoot,
+                                                                    REPLAY_TRAJECTORY_BUILD_BRANCH ) );
+    if ( !record )
+    {
+        prediction.trajectoryBuild.valid = false;
+        return false;
+    }
+
+    // Invariant: PresentedCount is bounded by the acquire-loaded worker
+    // publication. Publishing exactly that many root points makes the ball path
+    // grow with the visible prediction prefix without exposing an in-flight row.
+    prediction.trajectoryStore.PublishPrefix(
+        *record,
+        ReplayPredictionBuildRootPrefixCount( presentedFrameCount, record->points.size() ) );
+    return true;
+}
+
 bool RebuildReplayPredictionCommittedRootTrajectory( RunReplayPredictionState& prediction )
 {
     if ( prediction.simulation.targetId.value == 0 || prediction.simulation.frames.size() < 2u )

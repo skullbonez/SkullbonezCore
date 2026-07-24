@@ -544,7 +544,8 @@ void ReplayRuntime::AppendOverlayTrace( PhysicsEngine& physics,
                                         const SceneEntityStore& entities,
                                         EditorTracer& tracer,
                                         const ReplayPredictionPresentationView& prediction,
-                                        const ReplayOverlayBuildInput& input )
+                                        const ReplayOverlayBuildInput& input,
+                                        bool drawPredictionOverlay )
 {
     const ReplaySolverFrameSample* currentSolverSample = CurrentSolverScrubSample();
     const ReplaySolverFrameSample* presentSample = currentSolverSample;
@@ -552,7 +553,8 @@ void ReplayRuntime::AppendOverlayTrace( PhysicsEngine& physics,
     {
         presentSample = m_timeline.Solver().LatestSample();
     }
-    m_visualPresentation.RenderPathVisualizer( prediction, presentSample, physics, entities, tracer );
+    m_visualPresentation
+        .RenderPathVisualizer( prediction, presentSample, physics, entities, tracer, drawPredictionOverlay );
     const PhysicsBodyStore& bodyStore = Physics::PhysicsEngine::ReadBodies( physics );
     const ColliderStore& colliderStore = Physics::PhysicsEngine::ReadColliders( physics );
     m_visualPresentation.RenderCauseFocusOverlay( m_authoring.CauseTree(),
@@ -801,31 +803,42 @@ void ReplayRuntime::PrepareRenderOverlay(
     std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords )
 {
     const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
-    const ReplayOverlay::ReplayPredictionDrawListUpdate drawListUpdate =
-        ReplayOverlay::UpdateReplayPredictionDrawList( prediction,
-                                                       m_visualPresentation.PathVisualizer(),
-                                                       entities,
-                                                       PhysicsEngine::ReadColliders( physics ),
-                                                       m_predictionDrawList,
-                                                       m_predictionDrawListState );
-    if ( drawListUpdate.reset )
+    if ( !prediction.deterministicRevealEnabled )
     {
-        ++m_predictionDrawStreamId;
-    }
-    if ( drawListUpdate.reset || drawListUpdate.appended )
-    {
-        m_predictionDrawPacketDirty = true;
-    }
-    ReplayOverlay::AppendReplayPredictionProvisionalTails( prediction,
+        const ReplayOverlay::ReplayPredictionDrawListUpdate drawListUpdate =
+            ReplayOverlay::UpdateReplayPredictionDrawList( prediction,
                                                            m_visualPresentation.PathVisualizer(),
-                                                           m_predictionDrawListState,
+                                                           entities,
                                                            PhysicsEngine::ReadColliders( physics ),
-                                                           tracer );
+                                                           m_predictionDrawList,
+                                                           m_predictionDrawListState );
+        if ( drawListUpdate.reset )
+        {
+            ++m_predictionDrawStreamId;
+        }
+        if ( drawListUpdate.reset || drawListUpdate.appended )
+        {
+            m_predictionDrawPacketDirty = true;
+        }
+        ReplayOverlay::AppendReplayPredictionProvisionalTails( prediction,
+                                                               m_visualPresentation.PathVisualizer(),
+                                                               m_predictionDrawListState,
+                                                               PhysicsEngine::ReadColliders( physics ),
+                                                               tracer );
+        m_predictionRetainedRenderingActive = m_predictionDrawListState.valid;
+    }
+    else
+    {
+        // Invariant: deterministic reveal is the untouched frame-local oracle.
+        // It must not mix retained provisional tails into the packet it hashes.
+        m_predictionRetainedRenderingActive = false;
+    }
     AppendOverlayTrace( physics,
                         entities,
                         tracer,
                         prediction,
-                        ReplayOverlayBuildInput{ editorModeEnabled, gesture, sceneFrame } );
+                        ReplayOverlayBuildInput{ editorModeEnabled, gesture, sceneFrame },
+                        !m_predictionRetainedRenderingActive );
     (void)m_visualPresentation.BuildPredictionGhostDrawRequests( prediction,
                                                                  presentationRecords,
                                                                  PhysicsEngine::ReadBodies( physics ) );
@@ -835,16 +848,14 @@ void ReplayRuntime::PrepareRenderOverlay(
 void ReplayRuntime::RefreshRetainedPredictionGeometry( const Math::Vector::Vector3& cameraEye,
                                                        const Math::Vector::Vector3& cameraUp )
 {
-    const bool cameraChanged =
-        !m_predictionDrawCameraValid || m_predictionDrawCameraEye != cameraEye || m_predictionDrawCameraUp != cameraUp;
-    if ( !m_predictionDrawPacketDirty && !cameraChanged )
+    if ( !m_predictionDrawPacketDirty )
     {
         return;
     }
 
-    // Invariant: ribbon expansion is camera-facing. Command segments remain
-    // append-only, but their cached vertices must use the same camera basis as
-    // frame-local tails. A stable command list and camera take this O(1) exit.
+    // Compact retained trajectory records are world-space and camera-neutral.
+    // A stable publication therefore takes this O(1) exit even while the camera
+    // moves; the trajectory shader applies the current view projection.
     m_predictionDrawPacket = m_predictionDrawList.BuildReplayVisualPacket( cameraEye, cameraUp );
     m_predictionDrawCameraEye = cameraEye;
     m_predictionDrawCameraUp = cameraUp;
@@ -869,9 +880,12 @@ void ReplayRuntime::PublishRenderPacket( EditorTracer& tracer,
                                          uint64_t replayReserveGrowthEvents )
 {
     const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
-    RefreshRetainedPredictionGeometry( cameraTranslation, cameraUp );
     ReplayVisualPacket packet = tracer.BuildReplayVisualPacket( cameraTranslation, cameraUp );
-    AttachRetainedPredictionGeometry( packet );
+    if ( m_predictionRetainedRenderingActive )
+    {
+        RefreshRetainedPredictionGeometry( cameraTranslation, cameraUp );
+        AttachRetainedPredictionGeometry( packet );
+    }
     m_visualPresentation.PublishVisualPacket( packet,
                                               prediction,
                                               m_timeline.Solver().LatestSample(),
@@ -948,26 +962,8 @@ ReplayVisualPacket ReplayRuntime::BuildVisualProjectionForValidation(
 {
     EditorTracer& tracer = runtimeTools.Tracer();
     const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
-    const ReplayOverlay::ReplayPredictionDrawListUpdate drawListUpdate =
-        ReplayOverlay::UpdateReplayPredictionDrawList( prediction,
-                                                       m_visualPresentation.PathVisualizer(),
-                                                       entities,
-                                                       PhysicsEngine::ReadColliders( physics ),
-                                                       m_predictionDrawList,
-                                                       m_predictionDrawListState );
-    if ( drawListUpdate.reset )
-    {
-        ++m_predictionDrawStreamId;
-    }
-    if ( drawListUpdate.reset || drawListUpdate.appended )
-    {
-        m_predictionDrawPacketDirty = true;
-    }
-    ReplayOverlay::AppendReplayPredictionProvisionalTails( prediction,
-                                                           m_visualPresentation.PathVisualizer(),
-                                                           m_predictionDrawListState,
-                                                           PhysicsEngine::ReadColliders( physics ),
-                                                           tracer );
+    // Invariant: validation owns the canonical frame-local oracle. It never
+    // consumes retained ranges, so optimized output cannot self-approve.
     AppendOverlayTrace(
         physics,
         entities,
@@ -975,9 +971,7 @@ ReplayVisualPacket ReplayRuntime::BuildVisualProjectionForValidation(
         prediction,
         ReplayOverlayBuildInput{ runtimeTools.Editor().editorModeEnabled, RuntimeInteractionGesture{}, 0 } );
     (void)m_visualPresentation.BuildPredictionGhostDrawRequests( prediction, presentationRecords, bodyStore );
-    RefreshRetainedPredictionGeometry( cameraEye, cameraUp );
     ReplayVisualPacket packet = tracer.BuildReplayVisualPacket( cameraEye, cameraUp );
-    AttachRetainedPredictionGeometry( packet );
     m_visualPresentation.PublishVisualPacket( packet,
                                               prediction,
                                               m_timeline.Solver().LatestSample(),
@@ -1159,7 +1153,7 @@ bool ReplayRuntime::RouteWorldPointer( const ReplayWorldPointerInput& input,
                                        RuntimeInteractionController& interaction,
                                        InputRouter& inputRouter )
 {
-    if ( !input.leftPressed || input.suppressWorldAction || input.editorMode || input.uiWantsNativeCursor ||
+    if ( !input.leftPressed || input.suppressWorldAction || input.editorMode ||
          ( !input.controlDown && input.launcherMode ) )
     {
         return false;

@@ -43,6 +43,7 @@ Related:
 #include "../../Core/MainMemoryStats.h"
 #include "../../Core/ByteView.h"
 #include "../../Maths/Quaternion.h"
+#include "../../Rendering/RenderCommandTypes.h"
 
 #include <algorithm>
 #include <bit>
@@ -297,6 +298,11 @@ struct ReplayVisualPacket
     std::span<const float> retainedPredictionPriorityRibbonSegments;
     std::span<const float> retainedPredictionOrdinaryLines;
     std::span<const float> retainedPredictionPriorityLines;
+    // Compact retained records are partitioned into stable per-trajectory
+    // ranges. The renderer uploads only a changed range tail and preserves the
+    // range order rather than flattening reveal growth into a global append.
+    std::span<const float> retainedPredictionCompactRibbonRecords;
+    std::span<const Rendering::RetainedTrajectoryDrawRange> retainedPredictionRibbonRanges;
     uint64_t retainedPredictionStreamId = 0;
     uint64_t retainedPredictionRevision = 0;
     std::span<const ReplayTrajectoryRecord> trajectoryRecords;
@@ -311,7 +317,7 @@ struct ReplayVisualPacket
         return !combinedLines.empty() || !retainedPredictionOrdinaryLines.empty() ||
                !retainedPredictionPriorityLines.empty() || !expandedRibbonVertices.empty() ||
                !priorityExpandedRibbonVertices.empty() || !retainedPredictionRibbonVertices.empty() ||
-               !retainedPredictionPriorityRibbonVertices.empty();
+               !retainedPredictionPriorityRibbonVertices.empty() || !retainedPredictionRibbonRanges.empty();
     }
 };
 
@@ -332,10 +338,13 @@ inline void AttachRetainedPredictionGeometry( ReplayVisualPacket& packet,
     packet.retainedPredictionPriorityRibbonSegments = retainedPacket.priorityRibbonSegments;
     packet.retainedPredictionOrdinaryLines = retainedPacket.ordinaryLines;
     packet.retainedPredictionPriorityLines = retainedPacket.priorityLines;
+    packet.retainedPredictionCompactRibbonRecords = retainedPacket.retainedPredictionCompactRibbonRecords;
+    packet.retainedPredictionRibbonRanges = retainedPacket.retainedPredictionRibbonRanges;
     packet.retainedPredictionStreamId = streamId;
     packet.retainedPredictionRevision = revision;
     if ( packet.retainedPredictionRibbonVertices.empty() && packet.retainedPredictionPriorityRibbonVertices.empty() &&
-         packet.retainedPredictionOrdinaryLines.empty() && packet.retainedPredictionPriorityLines.empty() )
+         packet.retainedPredictionOrdinaryLines.empty() && packet.retainedPredictionPriorityLines.empty() &&
+         packet.retainedPredictionRibbonRanges.empty() )
     {
         return;
     }

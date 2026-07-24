@@ -11,12 +11,12 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-23rd-JUL-26` |
-| Current baseline | Solar-system SS0-SS6 are complete: bounded orbital math, the proved four-body scene, default-off intercept/guide consumers, rollback-safe shooting planner, epoch-aware porkchop panel, independent review, and closure gates. |
-| Current objective | No active/future implementation task is registered in `MASTER-PLAN.md`. |
+| Current baseline | Solar-system SS0-SS6 are complete. The current branch additionally carries bounded prediction retained-rendering stabilization documented in `Agentic/Reports/2026-07-24/prediction-retained-rendering-handoff.md`. |
+| Current objective | Prediction retained-rendering is merge-ready; hand the committed branch back for owner merge and visible confirmation. No active/future portfolio task is registered. |
 | Active/future progress | Solar-system plan 7/7 complete; active/future denominator returned to 0. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | Solar-system SS6 `agent_validate` passes with exit 0 in 250.1 s: 369/369 tests and 69,490/69,490 assertions, all CPU/coverage floors, 759/759 production project/filter rows, zero-warning builds, accepted DX12 images with zero errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | SS6 focused rollback/epoch tests pass 9 cases and 178 assertions; the final probe reports 15.4676 ms total / 0.6092 ms max frame / 0.345871 s sweep age; performance, allocation, boundary, one-process replay fidelity, and final broad gates pass. |
+| Last broad local gate | Prediction retained-rendering `validate_full` passes with exit 0 in 182.7 s: mandatory CPU preflight and all Automation, replay/prediction, DX12, and physics runtime lanes passed. |
+| Validation for current edits | Focused retained geometry, adjacency, DX12 upload, scheduling, and build-root-prefix tests pass. Replay visual fidelity passes in 425.2 s, DX12 validation in 23.7 s with zero errors and accepted images, one-minute graphics stress completes crash-free, and the full gate passes in 182.7 s. |
 
 ## Live Queue
 
@@ -176,6 +176,11 @@ are not certified. Full evidence:
 
 | Command | Time | Result |
 |---|---:|---|
+| prediction retained-rendering focused tests | — | PASS; canonical geometry 9 assertions, continuation adjacency 7, repaired suffix upload 9, scheduling 6, build-root prefix 3 |
+| `tools\validate_replay_visual_fidelity.bat` (prediction retained-rendering) | 425.2 s | PASS; one process/generation/presentation, 2,401 ticks, all controls |
+| `tools\validate_dx12_renderer.bat` (prediction retained-rendering) | 23.7 s | PASS; zero InfoQueue errors, all image baselines accepted |
+| `tools\run_graphics_stress.bat 1` (prediction retained-rendering) | 61.1 s | PASS; bounded DX12 run completed crash-free |
+| `tools\validate_full.bat` (prediction retained-rendering) | 182.7 s | PASS; mandatory CPU preflight and all five runtime processes |
 | solar SS6 Profile tests build | 15.3 s | PASS; zero warnings/errors |
 | solar SS6 focused planner tests | 1.69 s | PASS; 5/5 cases, 108/108 assertions |
 | solar SS6 focused porkchop tests | 1.88 s | PASS; 4/4 cases, 70/70 assertions |
@@ -399,8 +404,10 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-No live implementation plan remains. Preserve the completed solar feature's
-default-off zero-work paths, rollback-before-reset contract, value-only Replay
-boundaries, single `PhysicsSceneObjectId` identity, fixed storage, and the rule
-that analytic math proposes windows while isolated prediction alone proves a
-flown trajectory.
+Merge `nightrunner-23rd-JUL-26` after reviewing
+`Agentic/Reports/2026-07-24/prediction-retained-rendering-handoff.md`. The first
+owner-visible check is the 200-box striker: its root line must grow continuously
+toward the wall before contact, remain stable after completion, and remain
+selectable while the expanded Legacy UI is visible. Treat any remaining absence
+as retained DX12 visibility/submission first; the simulation and acquire-latched
+trajectory prefix are already present.

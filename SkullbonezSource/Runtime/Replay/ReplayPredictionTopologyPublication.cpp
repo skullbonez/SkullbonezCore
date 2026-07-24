@@ -1135,6 +1135,11 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction,
     {
         return;
     }
+    if ( usingBuildFrames && !prediction.revealClock.deterministicFrameEnabled &&
+         !PublishReplayPredictionBuildRootTrajectoryPrefix( prediction, activePredictionFrameCount ) )
+    {
+        return;
+    }
 
     if ( bufferComplete )
     {

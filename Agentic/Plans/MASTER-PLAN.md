@@ -1487,6 +1487,26 @@ Core are frozen for this plan.
 The plan closed 7/7 on 2026-07-24 and leaves the live ledger under inventory
 rule 4. The active/future denominator returns 7 → 0.
 
+## Prediction Retained Rendering Merge Handoff (2026-07-24)
+
+The owner directed the current bounded prediction-rendering stabilization branch
+to be documented and committed for merge. This is corrective merge work rather
+than a newly registered portfolio campaign, so the active/future denominator
+remains zero.
+
+The branch retains prediction trajectory commands incrementally, preserves the
+frame-local deterministic golden as an independent oracle, forces large contact
+scenes such as the 200-box wall onto amortized scheduling, restores ball picking
+with the expanded Legacy UI visible, and publishes the acquire-latched build-root
+trajectory prefix so the ball line grows before contact instead of popping in at
+impact. The latest symptom is classified as retained-rendering publication, not
+missing physics data.
+
+  The replay visual-fidelity, DX12 renderer, bounded graphics stress, and full
+  default PR gates pass. Merge state, validation evidence, hazards, and the
+  required first owner-visible check are recorded in
+  [`prediction-retained-rendering-handoff`](../Reports/2026-07-24/prediction-retained-rendering-handoff.md).
+
 ## Features
 
 | Plan | State | Verified phase count | Start condition |

@@ -362,7 +362,6 @@ RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointer
             replayRuntime.RouteWorldPointer( ReplayWorldPointerInput{ input.leftPressed,
                                                                       input.suppressWorldAction,
                                                                       runtimeTools.Editor().editorModeEnabled,
-                                                                      input.uiWantsNativeCursor,
                                                                       input.controlDown,
                                                                       RunCameraModeUsesLauncher( input.cameraMode ),
                                                                       pickInput,

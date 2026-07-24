@@ -4,9 +4,10 @@ Purpose:
   Implements runtime editor overlay tracer primitives and draw submission.
 
 Summary:
-  The tracer turns editor/replay tool state into transient colored lines and replay
-  ribbons. It observes state prepared elsewhere and should not mutate selection,
-  physics, or replay ownership.
+  The tracer turns editor/replay tool state into transient colored lines and
+  replay ribbons. A prediction-owned tracer may also retain append-only compact
+  ribbon chunks across frames; both forms observe state prepared elsewhere and
+  do not mutate selection, physics, or replay ownership.
 
 Glossary:
   Tracer: Per-frame line builder for placement rays, gizmos, replay paths, and selection outlines.
@@ -20,13 +21,16 @@ Glossary:
   Replay ribbon: Screen-space-width strip generated from replay path segments;
     its pixel shader gives every path an analytic edge and only selected paths
     an emphasis halo.
+  Retained ribbon chunk: Eight-segment compact slice that preserves a path's
+    physical records while a separately sorted command mirror preserves draw order.
   FNV (Fowler-Noll-Vo): Small deterministic byte-stream hash used here for
     validation evidence, not for security.
   Placement ghost: Preview outline drawn before an editor placement commit; it
     must match the primitive bodies that placement will actually spawn.
 
 Invariants:
-  - Trace generation must stay transient; line buffers are cleared every frame by the caller.
+  - Frame-local trace buffers are cleared every frame; the dedicated prediction
+    tracer clears retained chunks only when its generation is invalidated.
   - Replay causal markers use priority overlay storage so expensive prediction
     paths can degrade without erasing already-revealed boxes.
   - The tracer owns fixed-capacity overlay buffers and must not allocate while
@@ -203,6 +207,9 @@ EditorTracer::EditorTracer()
     m_priorityReplayRibbonSegments.reserve( EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_FLOAT_CAPACITY );
     m_replayRibbonVertexData.reserve( EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_VERTEX_FLOAT_CAPACITY );
     m_priorityReplayRibbonVertexData.reserve( EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_VERTEX_FLOAT_CAPACITY );
+    m_retainedReplayRibbonRecords.resize( ( Rendering::RETAINED_TRAJECTORY_ORDINARY_SEGMENT_CAPACITY +
+                                            Rendering::RETAINED_TRAJECTORY_PRIORITY_SEGMENT_CAPACITY ) *
+                                          Rendering::RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT );
 }
 
 void EditorTracer::Clear()
@@ -216,6 +223,11 @@ void EditorTracer::Clear()
     m_priorityReplayRibbonVertexData.clear();
     m_expandedOrdinarySegmentCount = 0;
     m_expandedPrioritySegmentCount = 0;
+    m_retainedReplayRibbonRangeCount = 0;
+    m_retainedOrdinarySegmentCapacityUsed = 0;
+    m_retainedPrioritySegmentCapacityUsed = 0;
+    m_retainedOrdinarySegmentCount = 0;
+    m_retainedPrioritySegmentCount = 0;
     ClearReplayTrajectoryStats();
     m_replaySubmissionStats = SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats{};
 }
@@ -266,6 +278,17 @@ ReplayVisualPacket EditorTracer::BuildReplayVisualPacket( const Vector3& cameraE
     packet.priorityRibbonSegments = m_priorityReplayRibbonSegments;
     packet.expandedRibbonVertices = m_replayRibbonVertexData;
     packet.priorityExpandedRibbonVertices = m_priorityReplayRibbonVertexData;
+    packet.retainedPredictionCompactRibbonRecords = m_retainedReplayRibbonRecords;
+    std::copy_n( m_retainedReplayRibbonRanges.begin(),
+                 m_retainedReplayRibbonRangeCount,
+                 m_retainedReplayRibbonDrawRanges.begin() );
+    std::sort( m_retainedReplayRibbonDrawRanges.begin(),
+               m_retainedReplayRibbonDrawRanges.begin() + m_retainedReplayRibbonRangeCount,
+               []( const Rendering::RetainedTrajectoryDrawRange& lhs,
+                   const Rendering::RetainedTrajectoryDrawRange& rhs ) { return lhs.drawOrder < rhs.drawOrder; } );
+    packet.retainedPredictionRibbonRanges =
+        std::span<const Rendering::RetainedTrajectoryDrawRange>( m_retainedReplayRibbonDrawRanges.data(),
+                                                                 m_retainedReplayRibbonRangeCount );
     packet.submission = m_replaySubmissionStats;
     return packet;
 }
@@ -290,6 +313,153 @@ std::size_t EditorTracer::ReplayPriorityRibbonSegmentCapacityRemaining() const
     }
     return ( m_priorityReplayRibbonSegments.capacity() - m_priorityReplayRibbonSegments.size() ) /
            EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
+}
+
+
+std::size_t EditorTracer::BeginRetainedReplayRibbonRange( uint64_t identity,
+                                                          uint32_t sourceVersion,
+                                                          bool priority,
+                                                          std::size_t segmentCapacity,
+                                                          uint64_t drawOrder,
+                                                          std::size_t continuationRange )
+{
+    if ( segmentCapacity == 0u || m_retainedReplayRibbonRangeCount >= Rendering::RETAINED_TRAJECTORY_MAX_DRAW_RANGES )
+    {
+        return ( std::numeric_limits<std::size_t>::max )();
+    }
+
+    const std::size_t laneCapacity = priority ? Rendering::RETAINED_TRAJECTORY_PRIORITY_SEGMENT_CAPACITY
+                                              : Rendering::RETAINED_TRAJECTORY_ORDINARY_SEGMENT_CAPACITY;
+    std::size_t& laneUsed = priority ? m_retainedPrioritySegmentCapacityUsed : m_retainedOrdinarySegmentCapacityUsed;
+    if ( segmentCapacity > laneCapacity - laneUsed )
+    {
+        return ( std::numeric_limits<std::size_t>::max )();
+    }
+
+    const std::size_t rangeIndex = m_retainedReplayRibbonRangeCount++;
+    Rendering::RetainedTrajectoryDrawRange& range = m_retainedReplayRibbonRanges[rangeIndex];
+    range = {};
+    range.identity = identity;
+    range.drawOrder = drawOrder;
+    range.sourceVersion = sourceVersion;
+    range.cacheSlot = static_cast<uint32_t>( rangeIndex );
+    range.continuationRange = static_cast<uint32_t>( continuationRange );
+    range.firstSegment = static_cast<uint32_t>(
+        laneUsed + ( priority ? Rendering::RETAINED_TRAJECTORY_ORDINARY_SEGMENT_CAPACITY : 0u ) );
+    range.segmentCapacity = static_cast<uint32_t>( segmentCapacity );
+    range.priority = priority;
+    laneUsed += segmentCapacity;
+    return rangeIndex;
+}
+
+
+std::size_t EditorTracer::RetainedReplayRibbonRangeCapacityRemaining( std::size_t rangeIndex ) const noexcept
+{
+    if ( rangeIndex >= m_retainedReplayRibbonRangeCount )
+    {
+        return 0u;
+    }
+    const Rendering::RetainedTrajectoryDrawRange& range = m_retainedReplayRibbonRanges[rangeIndex];
+    return range.segmentCapacity - range.segmentCount;
+}
+
+
+std::size_t EditorTracer::RetainedReplayOrdinarySegmentCapacityRemaining() const noexcept
+{
+    return Rendering::RETAINED_TRAJECTORY_ORDINARY_SEGMENT_CAPACITY - m_retainedOrdinarySegmentCapacityUsed;
+}
+
+
+std::size_t EditorTracer::RetainedReplayPrioritySegmentCapacityRemaining() const noexcept
+{
+    return Rendering::RETAINED_TRAJECTORY_PRIORITY_SEGMENT_CAPACITY - m_retainedPrioritySegmentCapacityUsed;
+}
+
+
+std::size_t EditorTracer::RetainedReplayOrdinarySegmentCountRemaining() const noexcept
+{
+    return Rendering::RETAINED_TRAJECTORY_ORDINARY_SEGMENT_CAPACITY - m_retainedOrdinarySegmentCount;
+}
+
+
+std::size_t EditorTracer::RetainedReplayPrioritySegmentCountRemaining() const noexcept
+{
+    return Rendering::RETAINED_TRAJECTORY_PRIORITY_SEGMENT_CAPACITY - m_retainedPrioritySegmentCount;
+}
+
+
+bool EditorTracer::EmitRetainedReplayRibbonSegment( std::size_t rangeIndex,
+                                                    const Vector3& a,
+                                                    const Vector3& b,
+                                                    float r,
+                                                    float g,
+                                                    float bl,
+                                                    const ReplayRibbonStyle& style,
+                                                    SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane )
+{
+    if ( rangeIndex >= m_retainedReplayRibbonRangeCount )
+    {
+        RecordReplayRibbonDroppedSegments( lane );
+        return false;
+    }
+    Rendering::RetainedTrajectoryDrawRange& range = m_retainedReplayRibbonRanges[rangeIndex];
+    if ( range.segmentCount >= range.segmentCapacity )
+    {
+        RecordReplayRibbonDroppedSegments( lane );
+        return false;
+    }
+
+    const std::size_t laneIndex = static_cast<std::size_t>( lane );
+    if ( laneIndex < SkullbonezCore::Core::MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT )
+    {
+        ++m_replayTrajectoryStats.emittedSegments[laneIndex];
+    }
+
+    const std::array<float, Rendering::RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT> values = { a.x,
+                                                                                          a.y,
+                                                                                          a.z,
+                                                                                          b.x,
+                                                                                          b.y,
+                                                                                          b.z,
+                                                                                          style.width,
+                                                                                          r,
+                                                                                          g,
+                                                                                          bl,
+                                                                                          style.alpha,
+                                                                                          style.edgeFeather,
+                                                                                          style.emphasis,
+                                                                                          a.x,
+                                                                                          a.y,
+                                                                                          a.z,
+                                                                                          b.x,
+                                                                                          b.y,
+                                                                                          b.z };
+    const bool appended = range.segmentCount == 0u && range.continuationRange < m_retainedReplayRibbonRangeCount
+                              ? Rendering::AppendRetainedTrajectoryContinuationRecord(
+                                    m_retainedReplayRibbonRecords,
+                                    m_retainedReplayRibbonRanges[range.continuationRange],
+                                    range,
+                                    values,
+                                    TOLERANCE * TOLERANCE )
+                              : Rendering::AppendRetainedTrajectoryRecord( m_retainedReplayRibbonRecords,
+                                                                           range,
+                                                                           values,
+                                                                           TOLERANCE * TOLERANCE );
+    if ( !appended )
+    {
+        RecordReplayRibbonDroppedSegments( lane );
+        return false;
+    }
+    if ( range.priority )
+    {
+        ++m_retainedPrioritySegmentCount;
+    }
+    else
+    {
+        ++m_retainedOrdinarySegmentCount;
+    }
+    ++m_replayGeometryRevision;
+    return true;
 }
 
 
@@ -1092,6 +1262,21 @@ void EditorTracer::AddReplayPathSegment( const Vector3& start,
 }
 
 
+void EditorTracer::AddRetainedReplayPathSegment( std::size_t rangeIndex,
+                                                 const Vector3& start,
+                                                 const Vector3& end,
+                                                 float r,
+                                                 float g,
+                                                 float b,
+                                                 SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane,
+                                                 float emphasis )
+{
+    ReplayRibbonStyle style = REPLAY_PATH_STYLE;
+    style.emphasis = std::clamp( emphasis, 0.0f, 1.0f );
+    (void)EmitRetainedReplayRibbonSegment( rangeIndex, start, end, r, g, b, style, lane );
+}
+
+
 void EditorTracer::AddReplayCausalTrailSegment( const Vector3& start, const Vector3& end, float r, float g, float b )
 {
     // Why: retained causal trails are the evidence attached to yellow/grey/ghost
@@ -1108,6 +1293,24 @@ void EditorTracer::AddReplayCausalTrailSegment( const Vector3& start, const Vect
                                 glow,
                                 core,
                                 SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::RetainedTrail );
+}
+
+
+void EditorTracer::AddRetainedReplayCausalTrailSegment( std::size_t rangeIndex,
+                                                        const Vector3& start,
+                                                        const Vector3& end,
+                                                        float r,
+                                                        float g,
+                                                        float b )
+{
+    (void)EmitRetainedReplayRibbonSegment( rangeIndex,
+                                           start,
+                                           end,
+                                           r,
+                                           g,
+                                           b,
+                                           REPLAY_CAUSAL_STYLE,
+                                           SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::RetainedTrail );
 }
 
 
@@ -1131,6 +1334,27 @@ void EditorTracer::AddReplayBaselinePathSegment( const Vector3& start,
                                 glow,
                                 core,
                                 SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::BaselineRoot );
+}
+
+
+void EditorTracer::AddRetainedReplayBaselinePathSegment( std::size_t rangeIndex,
+                                                         const Vector3& start,
+                                                         const Vector3& end,
+                                                         float r,
+                                                         float g,
+                                                         float b,
+                                                         float opacity )
+{
+    ReplayRibbonStyle style = REPLAY_BASELINE_STYLE;
+    style.alpha = std::clamp( opacity, 0.0f, 1.0f );
+    (void)EmitRetainedReplayRibbonSegment( rangeIndex,
+                                           start,
+                                           end,
+                                           r,
+                                           g,
+                                           b,
+                                           style,
+                                           SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::BaselineRoot );
 }
 
 
@@ -1458,6 +1682,16 @@ void EditorTracer::Render( const ReplayVisualPacket& packet,
                                                      Rendering::TransientTriangleStyle::TrajectoryRibbonDepthHint,
                                                      REPLAY_RIBBON_DEPTH_HINT_RASTER );
     }
+    if ( !packet.retainedPredictionRibbonRanges.empty() )
+    {
+        renderCommands.DrawRetainedTrajectoryRanges( packet.retainedPredictionCompactRibbonRecords,
+                                                     packet.retainedPredictionRibbonRanges,
+                                                     packet.retainedPredictionStreamId,
+                                                     packet.retainedPredictionRevision,
+                                                     viewProjection,
+                                                     Rendering::TransientTriangleStyle::TrajectoryRibbonDepthHint,
+                                                     REPLAY_RIBBON_DEPTH_HINT_RASTER );
+    }
     if ( !packet.retainedPredictionRibbonVertices.empty() )
     {
         renderCommands.DrawRetainedTrajectoryRibbon( packet.retainedPredictionRibbonVertices,
@@ -1474,6 +1708,16 @@ void EditorTracer::Render( const ReplayVisualPacket& packet,
                                                      packet.retainedPredictionStreamId,
                                                      packet.retainedPredictionRevision,
                                                      true,
+                                                     viewProjection,
+                                                     Rendering::TransientTriangleStyle::TrajectoryRibbon,
+                                                     REPLAY_RIBBON_VISIBLE_RASTER );
+    }
+    if ( !packet.retainedPredictionRibbonRanges.empty() )
+    {
+        renderCommands.DrawRetainedTrajectoryRanges( packet.retainedPredictionCompactRibbonRecords,
+                                                     packet.retainedPredictionRibbonRanges,
+                                                     packet.retainedPredictionStreamId,
+                                                     packet.retainedPredictionRevision,
                                                      viewProjection,
                                                      Rendering::TransientTriangleStyle::TrajectoryRibbon,
                                                      REPLAY_RIBBON_VISIBLE_RASTER );

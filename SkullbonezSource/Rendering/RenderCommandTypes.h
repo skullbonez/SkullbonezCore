@@ -21,6 +21,8 @@ Glossary:
   Compiled transition: Render-graph state edge assigned to a specific pass and
     resource before callbacks record live commands.
   Raster bucket: Pass-local value naming one complete fixed-function PSO recipe.
+  Retained trajectory chunk: Stable compact segment slice whose physical
+    address does not change when another prediction path grows.
 
 Invariants:
   - Callers borrow concrete command owners only while DX12 is initialized.
@@ -29,6 +31,8 @@ Invariants:
     no command owner exposes ambient raster setter/query authority.
   - Packed spans carry storage bounds. Dynamic handles/styles own their vertex
     layout, and malformed dynamic divisibility rejects the draw before upload.
+  - Retained chunk handles name physical storage; draw order is a separate
+    value so canonical presentation never requires moving compact records.
 
 Related:
   - SkullbonezSource/Rendering/DX12/Dx12FrameOwner.h
@@ -41,6 +45,8 @@ Related:
 #include "RenderGraph.h"
 #include "../Maths/Matrix4.h"
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <span>
 
@@ -144,6 +150,133 @@ enum class TransientTriangleStyle
     TrajectoryRibbon,
     TrajectoryRibbonDepthHint
 };
+
+inline constexpr std::size_t RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT = 19u;
+inline constexpr std::size_t RETAINED_TRAJECTORY_ORDINARY_SEGMENT_CAPACITY = 24000u;
+inline constexpr std::size_t RETAINED_TRAJECTORY_PRIORITY_SEGMENT_CAPACITY = 3000u;
+inline constexpr std::size_t RETAINED_TRAJECTORY_MAX_DRAW_RANGES = 4096u;
+
+// Concept: one range is a stable chunk of the retained trajectory arena.
+// `drawOrder` preserves record-major presentation even though physical chunks
+// append in publication order, while `cacheSlot` keeps DX12 upload history
+// attached to the physical chunk when the command list is sorted.
+struct RetainedTrajectoryDrawRange
+{
+    uint64_t identity = 0;
+    uint64_t drawOrder = 0;
+    uint32_t firstSegment = 0;
+    uint32_t segmentCapacity = 0;
+    uint32_t segmentCount = 0;
+    // Record replacement version plus rare continuation-tail repairs. DX12 uses
+    // this token to refresh a full eight-segment chunk when its closed cap joins
+    // the first segment of a newly allocated continuation.
+    uint32_t sourceVersion = 0;
+    uint32_t cacheSlot = 0;
+    uint32_t continuationRange = RETAINED_TRAJECTORY_MAX_DRAW_RANGES;
+    bool priority = false;
+};
+
+// Appends one already-styled compact record into its stable trajectory slice.
+// Invariant: only the formerly open tail may change; every earlier record and
+// every sibling range remain byte-for-byte stable.
+inline bool AppendRetainedTrajectoryRecord( std::span<float> arena,
+                                            RetainedTrajectoryDrawRange& range,
+                                            const std::array<float, RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT>& incoming,
+                                            float continuityToleranceSquared ) noexcept
+{
+    if ( range.segmentCount >= range.segmentCapacity )
+    {
+        return false;
+    }
+    const std::size_t segmentIndex = static_cast<std::size_t>( range.firstSegment ) + range.segmentCount;
+    const std::size_t firstFloat = segmentIndex * RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT;
+    if ( firstFloat + RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT > arena.size() )
+    {
+        return false;
+    }
+
+    std::array<float, RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT> record = incoming;
+    if ( range.segmentCount > 0u )
+    {
+        float* previous = arena.data() + firstFloat - RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT;
+        const float dx = previous[3] - record[0];
+        const float dy = previous[4] - record[1];
+        const float dz = previous[5] - record[2];
+        const bool samePresentation = previous[6] == record[6] && previous[10] == record[10] &&
+                                      previous[11] == record[11] && previous[12] == record[12];
+        if ( samePresentation && dx * dx + dy * dy + dz * dz <= continuityToleranceSquared )
+        {
+            record[13] = previous[0];
+            record[14] = previous[1];
+            record[15] = previous[2];
+            previous[16] = record[3];
+            previous[17] = record[4];
+            previous[18] = record[5];
+        }
+    }
+
+    float* destination = arena.data() + firstFloat;
+    for ( std::size_t component = 0; component < RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT; ++component )
+    {
+        destination[component] = record[component];
+    }
+    ++range.segmentCount;
+    return true;
+}
+
+// Appends the first record of a non-contiguous continuation chunk and repairs
+// adjacency across the physical gap. Only the previous chunk's final compact
+// record changes; its source token is advanced so GPU caches refresh that tail.
+inline bool
+AppendRetainedTrajectoryContinuationRecord( std::span<float> arena,
+                                            RetainedTrajectoryDrawRange& previousRange,
+                                            RetainedTrajectoryDrawRange& range,
+                                            const std::array<float, RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT>& incoming,
+                                            float continuityToleranceSquared ) noexcept
+{
+    if ( range.segmentCount != 0u )
+    {
+        return false;
+    }
+    if ( !AppendRetainedTrajectoryRecord( arena, range, incoming, continuityToleranceSquared ) )
+    {
+        return false;
+    }
+    if ( previousRange.segmentCount == 0u )
+    {
+        return true;
+    }
+
+    const std::size_t previousSegment =
+        static_cast<std::size_t>( previousRange.firstSegment ) + previousRange.segmentCount - 1u;
+    const std::size_t currentSegment = static_cast<std::size_t>( range.firstSegment );
+    const std::size_t previousFloat = previousSegment * RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT;
+    const std::size_t currentFloat = currentSegment * RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT;
+    if ( previousFloat + RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT > arena.size() ||
+         currentFloat + RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT > arena.size() )
+    {
+        return true;
+    }
+
+    float* previous = arena.data() + previousFloat;
+    float* current = arena.data() + currentFloat;
+    const float dx = previous[3] - current[0];
+    const float dy = previous[4] - current[1];
+    const float dz = previous[5] - current[2];
+    const bool samePresentation = previous[6] == current[6] && previous[10] == current[10] &&
+                                  previous[11] == current[11] && previous[12] == current[12];
+    if ( samePresentation && dx * dx + dy * dy + dz * dz <= continuityToleranceSquared )
+    {
+        current[13] = previous[0];
+        current[14] = previous[1];
+        current[15] = previous[2];
+        previous[16] = current[3];
+        previous[17] = current[4];
+        previous[18] = current[5];
+        ++previousRange.sourceVersion;
+    }
+    return true;
+}
 
 } // namespace Rendering
 } // namespace SkullbonezCore

@@ -161,11 +161,12 @@ void ArmLoadedPresentation( float normalized,
 struct ReplayWorldPointerInput
 {
     // Value-only facts for one routed pointer gesture. Mutable and store owners
-    // are explicit operands on ReplayRuntime::RouteWorldPointer.
+    // are explicit operands on ReplayRuntime::RouteWorldPointer. UI hit
+    // suppression is authoritative; merely requesting a visible native cursor
+    // does not grant the UI ownership of clicks over the world.
     bool leftPressed = false;
     bool suppressWorldAction = false;
     bool editorMode = false;
-    bool uiWantsNativeCursor = false;
     bool controlDown = false;
     bool launcherMode = false;
     ReplayPathPickInput pick;
@@ -378,7 +379,8 @@ class ReplayPresentation
                                const ReplaySolverFrameSample* presentSample,
                                Physics::PhysicsEngine& physics,
                                const SceneEntityStore& entities,
-                               EditorTracer& tracer );
+                               EditorTracer& tracer,
+                               bool drawPredictionOverlay = true );
     void RenderCauseFocusOverlay( const RunReplayCauseTreeState& causeTree,
                                   const ReplayPredictionPresentationView& prediction,
                                   const ReplaySolverFrameSample* currentSolverSample,

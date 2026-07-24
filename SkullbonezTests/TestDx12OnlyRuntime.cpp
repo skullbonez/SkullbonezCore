@@ -35,6 +35,7 @@ Related:
 #include <string>
 
 using SkullbonezCore::Rendering::BuildRetainedTrajectoryUploadPlanDX12;
+using SkullbonezCore::Rendering::BuildRetainedTrajectoryRangeUploadPlanDX12;
 using SkullbonezCore::Runtime::kRuntimeRendererOptionCount;
 using SkullbonezCore::Runtime::kRuntimeRendererOptions;
 
@@ -71,4 +72,31 @@ TEST_CASE( "DX12 retained trajectory upload planning is stable and append-only" 
     const auto contraction = BuildRetainedTrajectoryUploadPlanDX12( 7u, 11u, 96u, 7u, 12u, 24u, false );
     CHECK( contraction.uploadRequired );
     CHECK( contraction.firstChangedUnit == 0u );
+}
+
+TEST_CASE( "DX12 retained trajectory ranges upload only the repaired append suffix" )
+{
+    const auto stable =
+        BuildRetainedTrajectoryRangeUploadPlanDX12( 41u, 3u, 96u, 41u, 3u, 96u );
+    CHECK_FALSE( stable.uploadRequired );
+
+    const auto appended =
+        BuildRetainedTrajectoryRangeUploadPlanDX12( 41u, 3u, 96u, 41u, 3u, 101u );
+    CHECK( appended.uploadRequired );
+    CHECK( appended.firstChangedUnit == 95u );
+
+    const auto firstAppend =
+        BuildRetainedTrajectoryRangeUploadPlanDX12( 41u, 3u, 0u, 41u, 3u, 1u );
+    CHECK( firstAppend.uploadRequired );
+    CHECK( firstAppend.firstChangedUnit == 0u );
+
+    const auto replaced =
+        BuildRetainedTrajectoryRangeUploadPlanDX12( 41u, 3u, 96u, 41u, 4u, 96u );
+    CHECK( replaced.uploadRequired );
+    CHECK( replaced.firstChangedUnit == 0u );
+
+    const auto contracted =
+        BuildRetainedTrajectoryRangeUploadPlanDX12( 41u, 3u, 96u, 41u, 3u, 24u );
+    CHECK( contracted.uploadRequired );
+    CHECK( contracted.firstChangedUnit == 0u );
 }
