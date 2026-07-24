@@ -32,9 +32,11 @@ Related:
 
 #include "ReplayAuthoring.h"
 #include "ReplayPrediction.h"
+#include "ReplayPorkchopPanel.h"
 #include "ReplayPresentation.h"
 #include "ReplayScrubber.h"
 #include "ReplayTimeline.h"
+#include "ReplayTripPlanner.h"
 #include "../../Core/PlatformWin32.h"
 #include "../../Core/Common.h"
 #include "ReplayProbeState.h"
@@ -55,6 +57,10 @@ namespace Physics
 {
 class PhysicsEngine;
 }
+namespace UI
+{
+struct RunSceneUIOverrideState;
+}
 namespace Runtime
 {
 class InputRouter;
@@ -64,10 +70,9 @@ class SceneEntityStore;
 struct ReplayArtifactTopologyOwners;
 struct ReplayRestoreTransaction;
 struct ReplayStartupLoadInput;
-struct RunCameraState;
+struct CameraControlState;
 struct RunMousePickupState;
-struct RunSceneState;
-struct RunSceneUIOverrideState;
+struct SceneSessionState;
 
 namespace ReplayInteractionOperations
 {
@@ -198,6 +203,8 @@ struct ReplayInteractionExitInput
 struct ReplayAutomationView
 {
     const RunReplayPredictionState& prediction;
+    const ReplayPorkchopPanelView& porkchop;
+    const ReplayTripPlannerView& tripPlanner;
     const RunReplayPathVisualizerState& path;
     // Cold artifact writers borrow recorder owners only for the synchronous
     // report write. The view is never retained across a replay mutation.
@@ -295,6 +302,11 @@ struct ReplayFrameIntent
     Physics::PhysicsSceneObjectId pathTargetId;
     Physics::ModelRowHint pathTargetModelRow;
     char pathTargetName[64] = {};
+    bool setInterceptTarget = false;
+    Physics::PhysicsSceneObjectId interceptTargetId;
+    Physics::ModelRowHint interceptTargetModelRow;
+    bool hasTripPlannerCommand = false;
+    ReplayTripPlannerCommand tripPlannerCommand;
 };
 
 struct ReplayFrameIntentResult
@@ -342,11 +354,12 @@ inline uint32_t SceneTimelineGeneratedConfigFlags( const ReplaySceneTimelineRese
     return flags;
 }
 
-ReplaySceneTimelineResetInput DescribeReplaySceneTimeline( const SceneController& sceneController,
-                                                           const RunSceneUIOverrideState& uiOverrides,
-                                                           const RunSceneState& scene,
-                                                           int sceneObjectCapacity,
-                                                           uint32_t generatedObjectTypeOverride );
+ReplaySceneTimelineResetInput
+DescribeReplaySceneTimeline( const SceneController& sceneController,
+                             const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+                             const SceneSessionState& scene,
+                             int sceneObjectCapacity,
+                             uint32_t generatedObjectTypeOverride );
 } // namespace ReplayTimelineOperations
 
 struct ReplaySceneTimelineResetResult
@@ -361,7 +374,7 @@ struct ReplaySceneTimelineResetOwners
     RuntimeInteractionController& interaction;
     Environment::CameraCollection* cameras = nullptr;
     Geometry::Terrain* terrain = nullptr;
-    RunCameraState& camera;
+    CameraControlState& camera;
     RunCameraMode normalizedRestoreMode = RunCameraMode::Demo;
     bool attachedFollow = false;
     bool directorGrabbed = false;

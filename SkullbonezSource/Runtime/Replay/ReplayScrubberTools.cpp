@@ -37,17 +37,17 @@ Related:
 #include "ReplayScrubber.h"
 #include "ReplayRuntime.h"
 #include "../../Assets/AssetKeys.h"
-#include "../CameraCollection.h"
-#include "../InputRouter.h"
-#include "../RuntimeInteractionCommands.h"
-#include "../RunCameraState.h"
+#include "../Camera/CameraCollection.h"
+#include "../Input/InputRouter.h"
+#include "../Interaction/RuntimeInteractionCommands.h"
+#include "../Camera/CameraControlState.h"
 #include "../Tools/RuntimeTools.h"
 #include "../../Core/Profiler.h"
 #include "../../Core/FatalError.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
-#include "../InputController.h"
+#include "../Input/InputController.h"
 #include "ReplayOverlayLayout.h"
 #include "ReplayRestoreTransactions.h"
 #include "../../World/Terrain.h"
@@ -255,7 +255,7 @@ void SkullbonezCore::Runtime::ReplayInteractionOperations::CancelToolDragState(
 void SkullbonezCore::Runtime::ReplayPresentationOperations::EnterInspectionCamera(
     ReplayPresentation& presentation,
     Environment::CameraCollection* cameras,
-    RunCameraState& camera,
+    CameraControlState& camera,
     RunCameraMode normalizedCurrentMode,
     RuntimeInteractionController& interaction,
     InputRouter& inputRouter,
@@ -337,7 +337,7 @@ void SkullbonezCore::Runtime::ReplayPresentationOperations::ExitInspectionCamera
     const ReplayAuthoring& authoring,
     Environment::CameraCollection* cameras,
     Geometry::Terrain* terrain,
-    RunCameraState& camera,
+    CameraControlState& camera,
     RunCameraMode normalizedRestoreMode,
     bool attachedFollow,
     bool directorGrabbed,
@@ -470,7 +470,7 @@ void SkullbonezCore::Runtime::ReplayPresentationOperations::ArmLoadedPresentatio
 }
 
 void ReplayRuntime::EnterInspectionCamera( Environment::CameraCollection* cameras,
-                                           RunCameraState& camera,
+                                           CameraControlState& camera,
                                            RunCameraMode normalizedCurrentMode,
                                            RuntimeInteractionController& interaction,
                                            InputRouter& inputRouter,
@@ -487,7 +487,7 @@ void ReplayRuntime::EnterInspectionCamera( Environment::CameraCollection* camera
 
 void ReplayRuntime::ExitInspectionCamera( Environment::CameraCollection* cameras,
                                           Geometry::Terrain* terrain,
-                                          RunCameraState& camera,
+                                          CameraControlState& camera,
                                           RunCameraMode normalizedRestoreMode,
                                           bool attachedFollow,
                                           bool directorGrabbed,
@@ -571,7 +571,7 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input,
                                    std::span<const Rendering::RenderInstancePresentationRecord> presentation,
                                    Environment::CameraCollection* cameras,
                                    Geometry::Terrain* terrain,
-                                   RunCameraState& camera,
+                                   CameraControlState& camera,
                                    RunMousePickupState& mousePickup,
                                    ReplayWorkspaceOutput& output )
 {
@@ -586,18 +586,74 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input,
         return;
     }
 
-    const ReplayInspectionCameraAction scrubberHostAction = TickScrubberInput( input.uiBlocksMouse,
-                                                                               input.editorModeEnabled,
-                                                                               input.scenePhysicsEnabled,
-                                                                               input.uiVisible,
-                                                                               input.uiMinimized,
-                                                                               input.screenWidth,
-                                                                               input.screenHeight,
-                                                                               input.now,
-                                                                               inputRouter,
-                                                                               interaction,
-                                                                               camera,
-                                                                               output );
+    const RuntimePointerEvent& plannerPointer = inputRouter.RuntimeSnapshot().pointer;
+    bool porkchopOwnsMouse = false;
+    // Invariant: input uses ReplayOverlayLayout's exact heatmap geometry.
+    // Selection publishes only a TOF command; the wait remains an advisory
+    // value and never schedules a future live-Physics mutation.
+    if ( m_porkchopPanel.Visible() && plannerPointer.hasClientPosition )
+    {
+        const ReplayPorkchopPanelView& porkchop = m_porkchopPanel.View();
+        const UI::UIRect panel = ReplayPorkchopPanelRect( input.screenWidth );
+        const float pointerX = static_cast<float>( plannerPointer.clientX );
+        const float pointerY = static_cast<float>( plannerPointer.clientY );
+        porkchopOwnsMouse = !input.uiBlocksMouse && pointerX >= panel.x && pointerY >= panel.y &&
+                            pointerX < panel.x + panel.w && pointerY < panel.y + panel.h;
+        std::size_t cellIndex = 0u;
+        const bool hasCell = porkchopOwnsMouse &&
+                             ReplayPorkchopCellAtPointer( input.screenWidth,
+                                                          plannerPointer.clientX,
+                                                          plannerPointer.clientY,
+                                                          cellIndex ) &&
+                             cellIndex < porkchop.completedCells;
+        m_porkchopPanel.SetHoveredCell( hasCell ? static_cast<int>( cellIndex ) : -1 );
+        if ( hasCell && inputRouter.UiSnapshot().mouse.leftPressed && m_porkchopPanel.SelectCell( cellIndex ) )
+        {
+            const ReplayPorkchopPanelView& selected = m_porkchopPanel.View();
+            (void)m_tripPlanner.QueueCommand(
+                { ReplayTripPlannerCommandKind::SetTimeOfFlight, selected.selectedTimeOfFlightSeconds } );
+        }
+    }
+    else
+    {
+        m_porkchopPanel.SetHoveredCell( -1 );
+    }
+
+    bool tripPlannerOwnsMouse = false;
+    const ReplayTripPlannerView& planner = m_tripPlanner.View();
+    if ( planner.visible && planner.available && plannerPointer.hasClientPosition )
+    {
+        ReplayTripPlannerSurface plannerSurface;
+        BuildReplayTripPlannerSurface( planner, input.screenWidth, plannerSurface );
+        plannerSurface.ResolvePointer( plannerPointer.clientX,
+                                       plannerPointer.clientY,
+                                       input.uiBlocksMouse || porkchopOwnsMouse );
+        tripPlannerOwnsMouse = plannerSurface.consumesPointer;
+        if ( inputRouter.UiSnapshot().mouse.leftPressed && plannerSurface.hasHotControl )
+        {
+            const RuntimeUiControl* control = plannerSurface.Find( plannerSurface.hotControl );
+            if ( control && control->action )
+            {
+                (void)m_tripPlanner.QueueCommand(
+                    { static_cast<ReplayTripPlannerCommandKind>( control->action.value ) } );
+            }
+        }
+    }
+
+    const ReplayInspectionCameraAction scrubberHostAction =
+        TickScrubberInput( input.uiBlocksMouse || porkchopOwnsMouse || tripPlannerOwnsMouse,
+                           input.editorModeEnabled,
+                           input.scenePhysicsEnabled,
+                           input.uiVisible,
+                           input.uiMinimized,
+                           input.screenWidth,
+                           input.screenHeight,
+                           input.now,
+                           inputRouter,
+                           interaction,
+                           camera,
+                           output );
+    output.consumesMouse = output.consumesMouse || porkchopOwnsMouse || tripPlannerOwnsMouse;
     const bool scrubberOwnsMouse = output.consumesMouse;
     bool loadedPresentationActivated = false;
     if ( output.loadPresentationRequested )
@@ -907,7 +963,7 @@ void ApplyReplayLiveAdvanceAction( ReplayPrediction& predictionOwner,
                                    bool hasCameraFocus,
                                    InputRouter& inputRouter,
                                    RuntimeInteractionController& interaction,
-                                   RunCameraState& camera,
+                                   CameraControlState& camera,
                                    bool& outEnterInteractive )
 {
     // Concept: live advance is scrubber state; prediction and presentation
@@ -981,7 +1037,7 @@ void HandleReplayPausePressed( ReplayPrediction& predictionOwner,
                                bool hasCameraFocus,
                                InputRouter& inputRouter,
                                RuntimeInteractionController& interaction,
-                               RunCameraState& camera,
+                               CameraControlState& camera,
                                double now,
                                bool& outEnterInteractive )
 {
@@ -1008,7 +1064,7 @@ void HandleReplayVelocityEditPressed( ReplayAuthoring& authoring,
                                       bool hasCameraFocus,
                                       InputRouter& inputRouter,
                                       RuntimeInteractionController& interaction,
-                                      RunCameraState& camera,
+                                      CameraControlState& camera,
                                       double now,
                                       bool& outEnterInteractive )
 {
@@ -1466,7 +1522,7 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayTransportCommand& command
                                            RuntimeInteractionController& interaction,
                                            Environment::CameraCollection* cameras,
                                            Geometry::Terrain* terrain,
-                                           RunCameraState& camera,
+                                           CameraControlState& camera,
                                            RunMousePickupState& mousePickup,
                                            ReplayWorkspaceOutput& output )
 {
@@ -1692,7 +1748,7 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput( bool uiBlocksMous
                                                                double now,
                                                                InputRouter& inputRouter,
                                                                RuntimeInteractionController& interaction,
-                                                               RunCameraState& camera,
+                                                               CameraControlState& camera,
                                                                ReplayWorkspaceOutput& output )
 {
     output.restoreRequest = ReplayLiveRestoreRequest{};

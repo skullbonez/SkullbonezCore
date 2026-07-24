@@ -99,6 +99,23 @@ bool SamePropertyPayload( const OperatorEditorPropertyCommand& left, const Opera
     return left.value == right.value && left.integerValue == right.integerValue && left.phase == right.phase;
 }
 
+bool IsPhysicsDebugOverlayValue( uint32_t value )
+{
+    // Invariant: shared editor queues carry only the UI command vocabulary.
+    // Runtime performs the later UI-overlay-to-Physics-flag translation.
+    switch ( static_cast<UIPhysicsDebugOverlay>( value ) )
+    {
+    case UIPhysicsDebugOverlay::Axes:
+    case UIPhysicsDebugOverlay::Contacts:
+    case UIPhysicsDebugOverlay::Sleep:
+    case UIPhysicsDebugOverlay::Pipeline:
+        return true;
+    case UIPhysicsDebugOverlay::None:
+        return false;
+    }
+    return false;
+}
+
 bool SameRenderingIdentity( const OperatorEditorRenderingCommand& left, const OperatorEditorRenderingCommand& right )
 {
     return left.type == right.type;
@@ -346,9 +363,11 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorDiagno
     case OperatorEditorDiagnosticsCommandType::StepPhysicsPipelineNext:
         break;
     case OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag:
-        if ( command.flag == 0u )
+        if ( !IsPhysicsDebugOverlayValue( command.flag ) )
         {
-            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Physics debug flag command requires one flag" );
+            return SkullbonezCore::Core::SbResult::Failure(
+                OWNER,
+                "Physics debug overlay command requires one recognized UI overlay value" );
         }
         break;
     case OperatorEditorDiagnosticsCommandType::SetPhysicsDebugAlpha:
@@ -656,9 +675,9 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICo
                           OperatorEditorDiagnosticsCommandType::ToggleTornadoFieldVectors );
     normalizeDiagnostics( commands.physics.toggleRayCastVisualization,
                           OperatorEditorDiagnosticsCommandType::ToggleRayCastVisualization );
-    normalizeDiagnostics( commands.physics.togglePhysicsDebugFlags != 0u,
+    normalizeDiagnostics( commands.physics.physicsDebugOverlayToToggle != UIPhysicsDebugOverlay::None,
                           OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag,
-                          commands.physics.togglePhysicsDebugFlags );
+                          static_cast<uint32_t>( commands.physics.physicsDebugOverlayToToggle ) );
     normalizeDiagnostics( commands.physics.stepPhysicsPipelinePrevious,
                           OperatorEditorDiagnosticsCommandType::StepPhysicsPipelinePrevious );
     normalizeDiagnostics( commands.physics.stepPhysicsPipelineNext,
@@ -778,7 +797,7 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICo
     commands.physics.toggleTornadoVisualShell = false;
     commands.physics.toggleTornadoFieldVectors = false;
     commands.physics.toggleRayCastVisualization = false;
-    commands.physics.togglePhysicsDebugFlags = 0u;
+    commands.physics.physicsDebugOverlayToToggle = UIPhysicsDebugOverlay::None;
     commands.physics.stepPhysicsPipelinePrevious = false;
     commands.physics.stepPhysicsPipelineNext = false;
     commands.physics.requestedPhysicsDebugAlpha = -1.0f;
@@ -937,7 +956,7 @@ SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( const OperatorEdit
     commands.physics.toggleTornadoVisualShell = false;
     commands.physics.toggleTornadoFieldVectors = false;
     commands.physics.toggleRayCastVisualization = false;
-    commands.physics.togglePhysicsDebugFlags = 0u;
+    commands.physics.physicsDebugOverlayToToggle = UIPhysicsDebugOverlay::None;
     commands.physics.stepPhysicsPipelinePrevious = false;
     commands.physics.stepPhysicsPipelineNext = false;
     commands.physics.requestedPhysicsDebugAlpha = -1.0f;
@@ -1158,7 +1177,7 @@ SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( const OperatorEdit
             commands.physics.toggleRayCastVisualization = true;
             break;
         case OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag:
-            commands.physics.togglePhysicsDebugFlags = command.flag;
+            commands.physics.physicsDebugOverlayToToggle = static_cast<UIPhysicsDebugOverlay>( command.flag );
             break;
         case OperatorEditorDiagnosticsCommandType::StepPhysicsPipelinePrevious:
             commands.physics.stepPhysicsPipelinePrevious = true;

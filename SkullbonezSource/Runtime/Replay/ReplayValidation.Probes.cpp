@@ -33,12 +33,12 @@ Related:
 #include "ReplayScrubber.h"
 #include "ReplayTimeline.h"
 #include "ReplayRuntime.h"
-#include "../InputRouter.h"
+#include "../Input/InputRouter.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../Scene/SceneController.h"
 #include "../../Assets/AssetSystem.h"
 #include "../../Core/WorkerPool.h"
-#include "../OperatorCommandApplier.h"
+#include "../Interaction/OperatorCommandApplier.h"
 #include "../Editor/EditorTools.h"
 #include "ReplayRestoreService.h"
 #include "ReplayRestoreTransactions.h"
@@ -49,7 +49,7 @@ Related:
 
 #include "../../Core/FatalError.h"
 #include "../../Core/Profiler.h"
-#include "../SimulationSystem.h"
+#include "../Simulation/SimulationSystem.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsEngine.h"
@@ -341,7 +341,7 @@ void InjectReplaySaveProbeWorldCoverage( SkullbonezCore::Environment::WorldEnvir
 
 SkullbonezCore::Core::SbResult InjectReplaySaveProbePlacementCoverage( RuntimeTools& runtimeTools,
                                                                        SceneWorld& world,
-                                                                       RunSceneState& scene,
+                                                                       SceneSessionState& scene,
                                                                        SkullbonezCore::Assets::AssetSystem& assets,
                                                                        int sceneObjectCapacity,
                                                                        ReplaySaveProbeEventCommands& commands )
@@ -441,7 +441,7 @@ SkullbonezCore::Core::SbResult InjectReplaySaveProbePlacementCoverage( RuntimeTo
 
 void InjectReplaySaveProbeLauncherCoverage( RuntimeTools& runtimeTools,
                                             SceneWorld& world,
-                                            RunSceneState& scene,
+                                            SceneSessionState& scene,
                                             int sceneObjectCapacity,
                                             ReplaySaveProbeEventCommands& commands )
 {
@@ -1129,7 +1129,7 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::VerifyLoadedPresentation( Repl
         // forbids BeginReplayPredictionJob even if a later edit regresses that bit.
         RuntimeTools& runtimeTools = transaction.sampleOwners.runtimeTools;
         SceneWorld& world = transaction.sampleOwners.world;
-        RunEditorTracer& tracer = runtimeTools.EditorTracer();
+        EditorTracer& tracer = runtimeTools.Tracer();
         presentation.ApplyArchivePathState( archivePath );
         presentation.ResetTrajectoryVisualStats();
         prediction.ResetVerificationMarkers();

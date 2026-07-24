@@ -31,14 +31,12 @@ Related:
 #include "UI.h"
 #include "../Assets/AssetKeys.h"
 #include "UIFrameComposition.h"
-#include "../Runtime/InputRouter.h"
 #include "../Assets/AssetSystem.h"
 #include "../Rendering/RenderCommandTypes.h"
 #include "../Rendering/DX12/Dx12Diagnostics.h"
 #include "../Rendering/DX12/Dx12ResourceBuilder.h"
 #include "../Rendering/DX12/RenderBackendDX12.h"
 #include "../Maths/Matrix4.h"
-#include "../Runtime/Debug/PhysicsDebugVisualizer.h"
 #include "../Core/Profiler.h"
 #include "../Rendering/Text.h"
 #include "UIDraw.h"
@@ -61,9 +59,7 @@ Related:
 #include <cstdio>
 #include <cstring>
 
-using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::Transformation;
-using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Text;
 using namespace SkullbonezCore::UI;
@@ -352,10 +348,9 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw,
 }
 
 
-InputControl::UIInputSnapshot InGameUI::CaptureInputSnapshot( const Runtime::DeviceInputFrame& deviceFrame,
-                                                              const Runtime::RuntimeMouseEdges& mouse ) const
+InputControl::UIPointerOverride InGameUI::InputOverride() const
 {
-    return m_windowInteraction.CaptureInputSnapshot( deviceFrame, mouse );
+    return m_windowInteraction.InputOverride();
 }
 
 

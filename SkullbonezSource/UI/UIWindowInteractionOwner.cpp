@@ -4,7 +4,7 @@ Purpose:
   Implements stateful in-game UI window and widget interaction ownership.
 
 Summary:
-  This owner translates device frames into typed UI command values and retains
+  This owner translates detached UI input snapshots into typed command values and retains
   the window, widget, tab, and gesture state shared with drawing. InGameUI
   borrows only a synchronous WidgetView and is never reachable from this owner.
 
@@ -26,7 +26,6 @@ Related:
 #include "UI.h"
 #include "UIWindowInteractionOwner.h"
 #include "../Core/Profiler.h"
-#include "../Runtime/InputRouter.h"
 #include "UIFrameComposition.h"
 #include "UIInput.h"
 #include "UIDrawWidgets.h"
@@ -35,7 +34,6 @@ Related:
 #include <algorithm>
 #include <cmath>
 
-using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::UI;
 using namespace SkullbonezCore::UI::Widgets;
 using namespace SkullbonezCore::UI::Layout;
@@ -520,11 +518,9 @@ void UIWindowInteractionOwner::CloseSceneCombo()
 }
 
 
-InputControl::UIInputSnapshot
-UIWindowInteractionOwner::CaptureInputSnapshot( const Runtime::DeviceInputFrame& deviceFrame,
-                                                const Runtime::RuntimeMouseEdges& mouse ) const
+InputControl::UIPointerOverride UIWindowInteractionOwner::InputOverride() const
 {
-    return InputControl::CaptureSnapshot( deviceFrame, mouse, m_hasMouseOverride, m_mouseOverrideX, m_mouseOverrideY );
+    return InputControl::UIPointerOverride{ m_hasMouseOverride, m_mouseOverrideX, m_mouseOverrideY };
 }
 
 
@@ -542,7 +538,6 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
                                                            int selectedSceneOption )
 {
     InGameUIInputResult result;
-    assert( input.keys );
     int screenW = screenWidth;
     int screenH = screenHeight;
     const char* const* sceneOptions = sceneOptionView.data();
@@ -910,7 +905,7 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
 
     if ( m_activeTab == InGameUITab::Scene )
     {
-        SceneTab::UpdateFilterTyping( m_sceneTab, result, *input.keys, sceneOptions, sceneOptionCount );
+        SceneTab::UpdateFilterTyping( m_sceneTab, result, input, sceneOptions, sceneOptionCount );
     }
 
     bool wheelHandled = false;
@@ -1163,7 +1158,7 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
             if ( !sceneClickHandled )
             {
                 sceneClickHandled = SceneTab::HandleClosedComboClick( m_sceneTab,
-                                                                      *input.keys,
+                                                                      input,
                                                                       sceneOptions,
                                                                       sceneOptionCount,
                                                                       selectedSceneOption,

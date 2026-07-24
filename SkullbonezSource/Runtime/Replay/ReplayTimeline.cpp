@@ -30,7 +30,7 @@ Related:
 
 #include "ReplayV2Artifact.h"
 
-#include "../RuntimeFileWriter.h"
+#include "../Tools/RuntimeFileWriter.h"
 
 #include <cstdio>
 #include <cstring>

@@ -32,7 +32,8 @@ Invariants:
     events, and overlay presentation and submits completed samples here.
 
 Related:
-  - SkullbonezSource/Rendering/ProfilerImplementation.cpp
+  - SkullbonezSource/Core/Profiler.cpp
+  - SkullbonezSource/Rendering/RenderProfilerPresentation.cpp
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */

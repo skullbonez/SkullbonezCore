@@ -65,10 +65,10 @@
     "SkullbonezSource/Rendering/DX12/**",
     "SkullbonezSource/UI/**",
     "SkullbonezSource/Physics/PhysicsApi.*",
-    "SkullbonezSource/Runtime/Window.*",
+    "SkullbonezSource/Runtime/App/Window.*",
     "SkullbonezSource/Runtime/Render/**",
-    "SkullbonezSource/Runtime/RunRender.*",
-    "SkullbonezSource/Runtime/UiTextPass.*",
+    "SkullbonezSource/Runtime/App/RunRender.*",
+    "SkullbonezSource/Runtime/Render/UiTextPass.*",
     "SkullbonezSource/Runtime/Replay/ReplayValidation*",
     "SkullbonezSource/Runtime/Replay/ReplayPredictionArchive.*",
     "SkullbonezSource/Runtime/Scene/SceneController.*",
@@ -194,14 +194,15 @@
       "floor_percent": 50.0,
       "ratified_floor_percent": 50.0,
       "include_globs": [
-        "SkullbonezSource/Runtime/InputRouter.*",
-        "SkullbonezSource/Runtime/InputController.Bindings.*",
-        "SkullbonezSource/Runtime/RuntimeInteractionController.*"
+        "SkullbonezSource/Runtime/Input/InputRouter.*",
+        "SkullbonezSource/Runtime/App/InputRouter.Interactions.*",
+        "SkullbonezSource/Runtime/Input/InputController.Bindings.*",
+        "SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.*"
       ],
       "required_instrumented_sources": [
-        "SkullbonezSource/Runtime/InputController.Bindings.cpp",
-        "SkullbonezSource/Runtime/InputRouter.cpp",
-        "SkullbonezSource/Runtime/RuntimeInteractionController.cpp"
+        "SkullbonezSource/Runtime/Input/InputController.Bindings.cpp",
+        "SkullbonezSource/Runtime/Input/InputRouter.cpp",
+        "SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.cpp"
       ]
     },
     {

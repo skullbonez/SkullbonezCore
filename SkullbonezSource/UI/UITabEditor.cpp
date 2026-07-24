@@ -18,7 +18,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/UI/UITabEditor.h
-  - SkullbonezSource/Runtime/RunInput.cpp
+  - SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp
 */
 #include "UITabEditor.h"
 

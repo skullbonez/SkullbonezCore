@@ -4,10 +4,9 @@ Purpose:
   Streams bounded physics diagnostics to SkullScope trace files.
 
 Summary:
-  PhysicsDiagnosticsSink.h streams bounded physics diagnostics to SkullScope
-  trace files. As a public header, keep edits anchored on deterministic
-  physics, diagnostics, or world-state flow and on the glossary/invariants
-  below.
+  PhysicsDiagnosticsSink streams bounded physics diagnostics to SkullScope
+  trace files and retains a fixed pointer table of scene names registered at
+  topology boundaries.
 
 Glossary:
   SkullScope: Queryable physics diagnostics workflow backed by bounded trace
@@ -17,10 +16,14 @@ Glossary:
   Narrowphase: Precise collision pass that computes contact points, normals,
   and penetration.
   Manifold: Set of contact points and normals describing one colliding pair.
+  Diagnostic-name table: Fixed pointer table whose pointed-to scene names
+    remain owned by stable scene metadata.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
   are the validation contract.
+  - Name pointers remain valid until the next cold registration; fixed steps
+    neither allocate nor rebuild the table.
 
 Related:
   - SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp
@@ -32,6 +35,7 @@ Related:
 #include "../Core/SceneCapacity.h"
 #include <array>
 #include <cstdarg>
+#include <span>
 
 #include "Diagnostics/SkullScope.h"
 
@@ -92,6 +96,9 @@ class PhysicsDiagnosticsSink
     {
         return PHYSICS_COLLISION_TIME_EVENT_CAPACITY;
     }
+    // Cold topology command. The sink copies the pointer table into fixed
+    // storage; pointed-to names must remain stable until the next registration.
+    void SetDiagnosticNames( std::span<const char* const> diagnosticNames );
 #ifdef _DEBUG
     void SetPhysicsRegressionLogPath( const char* path );
     void SetPhysicsCollisionTimeLogPath( const char* path );
@@ -103,12 +110,11 @@ class PhysicsDiagnosticsSink
     void IncrementCollisionTimeFrameIfEnabled();
     bool IsFrameLogEnabled() const;
     void EmitFrame( const PhysicsDiagnosticsFrameInput& frame );
+    PhysicsDiagnosticsNameView RegisteredNames() const;
 #endif
     void BeginCollisionTimeFrame();
     void QueueCollisionTime( const char* type, int bodyA, int bodyB, float collisionTime, float availableTime );
-    void FlushCollisionTimes( const char* const* diagnosticNames,
-                              int diagnosticNameCount,
-                              const PhysicsDiagnosticsCsvWriter& csvWriter );
+    void FlushCollisionTimes( const PhysicsDiagnosticsCsvWriter& csvWriter );
 
   private:
 #ifdef _DEBUG
@@ -121,6 +127,8 @@ class PhysicsDiagnosticsSink
     std::array<PhysicsCollisionTimeEvent, COLLISION_TIME_EVENT_CAPACITY> m_collisionTimeEvents = {};
     int m_collisionTimeEventCount = 0;
     int m_collisionTimeEventHighWater = 0;
+    std::array<const char*, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_diagnosticNames = {};
+    int m_diagnosticNameCount = 0;
     Diagnostics::SkullScope m_skullScope;
 #endif
 };

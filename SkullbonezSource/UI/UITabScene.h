@@ -30,15 +30,11 @@ Related:
 #include "UIButton.h"
 #include "UIComboBox.h"
 #include "UICommands.h"
+#include "UIInput.h"
 #include "UISlider.h"
 
 namespace SkullbonezCore
 {
-namespace Runtime
-{
-class InputKeySnapshot;
-}
-
 namespace UI
 {
 
@@ -84,7 +80,7 @@ void ResetPreviewState( UISceneTabState& state );
 
 void UpdateFilterTyping( UISceneTabState& state,
                          InGameUIInputResult& result,
-                         const Runtime::InputKeySnapshot& keys,
+                         const InputControl::UIInputSnapshot& input,
                          const char* const* sceneOptions,
                          int sceneOptionCount );
 
@@ -117,7 +113,7 @@ bool HandleHeaderClick( UISceneTabState& state,
                         float contentW );
 
 bool HandleClosedComboClick( UISceneTabState& state,
-                             const Runtime::InputKeySnapshot& keys,
+                             const InputControl::UIInputSnapshot& input,
                              const char* const* sceneOptions,
                              int sceneOptionCount,
                              int selectedSceneOption,

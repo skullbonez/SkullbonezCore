@@ -98,7 +98,7 @@ const char* SkullbonezCore::Runtime::SceneRuntimeLifecycleEventName( SceneRuntim
 }
 
 
-void RunSceneState::ResetForLoad( const SkullbonezCore::Core::CinematicRenderConfig& cinematicDefaults )
+void SceneSessionState::ResetForLoad( const SkullbonezCore::Core::CinematicRenderConfig& cinematicDefaults )
 {
     // Lifetime: This clears per-load runtime state only. Queue position, scene
     // paths, and manual reset counts stay with SceneRuntime/SceneController.
@@ -132,13 +132,13 @@ void RunSceneState::ResetForLoad( const SkullbonezCore::Core::CinematicRenderCon
 }
 
 
-SkullbonezCore::Physics::PhysicsSceneObjectId RunSceneState::AllocateSceneObjectId()
+SkullbonezCore::Physics::PhysicsSceneObjectId SceneSessionState::AllocateSceneObjectId()
 {
     return AllocateSceneObjectIdRange( 1 );
 }
 
 
-SkullbonezCore::Physics::PhysicsSceneObjectId RunSceneState::AllocateSceneObjectIdRange( int count )
+SkullbonezCore::Physics::PhysicsSceneObjectId SceneSessionState::AllocateSceneObjectIdRange( int count )
 {
     // Invariant: scene object id 0 means "not assigned." Compound creators
     // reserve one contiguous range before appending any child bodies so partial
@@ -167,7 +167,7 @@ SkullbonezCore::Physics::PhysicsSceneObjectId RunSceneState::AllocateSceneObject
 }
 
 
-void RunSceneState::ResetSceneObjectIdCursor( const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore )
+void SceneSessionState::ResetSceneObjectIdCursor( const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore )
 {
     // Why: replay restore can trim runtime-spawned bodies, then replay their
     // creation events. Rebase the scene-owned cursor from live body rows so the
@@ -196,13 +196,13 @@ SceneRuntime::SceneRuntime( std::vector<std::string> queue ) : m_queue( std::mov
 }
 
 
-RunSceneState& SceneRuntime::State()
+SceneSessionState& SceneRuntime::State()
 {
     return m_state;
 }
 
 
-const RunSceneState& SceneRuntime::State() const
+const SceneSessionState& SceneRuntime::State() const
 {
     return m_state;
 }

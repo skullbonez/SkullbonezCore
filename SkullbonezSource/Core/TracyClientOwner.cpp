@@ -41,8 +41,8 @@ Invariants:
 
 Related:
   - SkullbonezSource/Core/TracyClientOwner.h
-  - SkullbonezSource/Runtime/Init.cpp
-  - SkullbonezSource/Runtime/RunFrame.cpp
+  - SkullbonezSource/Runtime/App/Init.cpp
+  - SkullbonezSource/Runtime/App/RunFrame.cpp
   - SkullbonezSource/Core/WorkerPool.cpp
 */
 #include "TracyClientOwner.h"

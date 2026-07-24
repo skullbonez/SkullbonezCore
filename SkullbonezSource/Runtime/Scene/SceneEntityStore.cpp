@@ -473,19 +473,3 @@ int SceneEntityStore::GatherGroupMemberIndices( int selectedModelIndex, int* out
     }
     return count;
 }
-
-
-#ifdef _DEBUG
-void SceneEntityStore::FillPhysicsDiagnosticsNames( int bodyCount, std::vector<const char*>& outNames ) const
-{
-    const int clampedBodyCount = (std::max)( 0, bodyCount );
-    outNames.assign( static_cast<std::size_t>( clampedBodyCount ), "" );
-    const int copyCount = (std::min)( clampedBodyCount, Count() );
-    for ( int i = 0; i < copyCount; ++i )
-    {
-        // Lifetime: pointers borrow fixed entity rows for the current Debug
-        // diagnostics write; the caller owns only the temporary pointer table.
-        outNames[static_cast<std::size_t>( i )] = At( i ).displayName;
-    }
-}
-#endif

@@ -50,7 +50,7 @@ Related:
 #include "../Replay/ReplayVisualPacket.h"
 #include "../Tools/RuntimeTools.h"
 #include "../Scene/SceneTerrain.h"
-#include "../OperatorCommandApplier.h"
+#include "../Interaction/OperatorCommandApplier.h"
 #include "../../Assets/TextureCollection.h"
 #include "../../Core/PlatformProfiler.h"
 #include "../../Core/Profiler.h"
@@ -1536,7 +1536,7 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
         }
     }
 
-    RunEditorTracer& tracer = inputs.runtimeTools.EditorTracer();
+    EditorTracer& tracer = inputs.runtimeTools.Tracer();
     // Invariant: production submission and validation observe this same
     // replay-owned packet; neither may rebuild geometry from tracer internals.
     tracer.Render( inputs.replayVisualPacket, inputs.frame.viewProjection, RenderCommands( inputs.frame ) );
@@ -1594,6 +1594,12 @@ bool DebugOverlayPass::HasOverlayWork( const DebugOverlayPassInputs& inputs ) co
         return true;
     }
     if ( snapshot.physicsDebugFlags != PHYSICS_DEBUG_NONE )
+    {
+        return true;
+    }
+    // Invariant: replay owns a complete frame packet. Its fixed-capacity lines
+    // and ribbons are sufficient pass work even when editor tools are hidden.
+    if ( inputs.replayVisualPacket.HasGeometry() )
     {
         return true;
     }

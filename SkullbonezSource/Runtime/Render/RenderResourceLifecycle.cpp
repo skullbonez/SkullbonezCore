@@ -43,7 +43,7 @@ namespace Rendering = SkullbonezCore::Rendering;
 
 RenderResourceLifecycle::RenderResourceLifecycle( RuntimeRenderBackendView backend,
                                                   const RenderWorldView& world,
-                                                  const RunSceneState& scene )
+                                                  const SceneSessionState& scene )
     : m_backend{ backend.renderFrame,
                  backend.renderGraph,
                  backend.renderResources,

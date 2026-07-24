@@ -26,6 +26,9 @@
     <ClCompile Include="SkullbonezSource\Maths\RotationMatrix.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Maths\OrbitalMechanics.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SkullbonezSource\Maths\GeometricMath.h">
@@ -50,6 +53,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Maths\Vector3.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Maths\OrbitalMechanics.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

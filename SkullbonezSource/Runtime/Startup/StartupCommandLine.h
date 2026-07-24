@@ -31,7 +31,7 @@ Related:
 #pragma once
 
 #include "../Replay/ReplayCaptureLimits.h"
-#include "../RunLaunchOptions.h"
+#include "../App/RunLaunchOptions.h"
 
 #include <cstddef>
 #include <string>
@@ -117,6 +117,7 @@ struct ParsedArgs
     bool showProfiler = false;
     bool hideTopText = false;
     bool showBroadphaseVisualizer = false;
+    bool replayGuideArcsAtStartup = false;
     bool workerSelfTest = false;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     DevelopmentUiMode developmentUiMode = DevelopmentUiMode::Legacy;

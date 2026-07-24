@@ -56,8 +56,8 @@ Related:
 #include "../../Core/Config.h"
 
 #include "../../Core/FatalError.h"
-#include "../../Runtime/Debug/CollisionVisualizer.h"
-#include "../../Runtime/Debug/PhysicsDebugVisualizer.h"
+#include "../Debug/CollisionVisualizer.h"
+#include "../Debug/PhysicsDebugVisualizer.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsBodyStore.h"
@@ -177,6 +177,13 @@ std::vector<const char*> SceneWorld::BuildDiagnosticNamesForReload() const
         diagnosticNames.push_back( Entities().At( index ).displayName );
     }
     return diagnosticNames;
+}
+
+
+void SceneWorld::RegisterPhysicsDiagnosticNames()
+{
+    const std::vector<const char*> diagnosticNames = BuildDiagnosticNamesForReload();
+    m_physics.SetDiagnosticNames( diagnosticNames );
 }
 
 
@@ -330,30 +337,10 @@ ScenePhysicsPostStepOutput SceneWorld::StepPhysics( float fixedDt,
     // replay mutations must commit explicitly before this step reads rows.
     RepairPhysicsBodyAndColliderTopology();
 
-    const char* const* diagnosticNames = nullptr;
-    int diagnosticNameCount = 0;
     Physics::PhysicsDiagnosticsCsvWriter diagnosticsCsvWriter;
-#ifdef _DEBUG
-    std::vector<const char*> physicsDiagnosticsModelNames;
-    if ( m_physics.ShouldEmitStepDiagnostics() || m_physics.ShouldEmitCollisionTimeDiagnostics() )
-    {
-        // Lifetime: Debug diagnostics borrow name pointers only until Step
-        // returns; physics never retains this presentation table.
-        Entities().FillPhysicsDiagnosticsNames( Physics::PhysicsEngine::ReadBodies( m_physics ).Count(),
-                                                physicsDiagnosticsModelNames );
-        diagnosticNames = physicsDiagnosticsModelNames.empty() ? nullptr : physicsDiagnosticsModelNames.data();
-        diagnosticNameCount = static_cast<int>( physicsDiagnosticsModelNames.size() );
-    }
-#endif
     const Physics::ExternalForceFrameInput externalForces =
         m_tornadoGameplay.BuildForceFrame( fixedDt, Physics::PhysicsEngine::ReadBodies( m_physics ).Count() );
-    m_physics.Step( fixedDt,
-                    worldForces,
-                    externalForces,
-                    workerPool,
-                    diagnosticNames,
-                    diagnosticNameCount,
-                    diagnosticsCsvWriter );
+    m_physics.Step( fixedDt, worldForces, externalForces, workerPool, diagnosticsCsvWriter );
 
     return ScenePhysicsPostStepOutput{ Physics::PhysicsEngine::ReadFixedContactHighlightBodies( m_physics ) };
 }
@@ -451,8 +438,8 @@ SceneEntityCreateResult SceneWorld::TryCreateSceneEntity( SceneEntityCreateDesc 
                     ? modelIndex
                     : Entities().ResolveBehaviorGroupRootModelIndex( entity.behaviorGroup ) );
     // Lifetime: authored descriptors outlive this value-local entity packet.
-    // Diagnostics receive stable SceneEntityStore names through the explicit
-    // refresh/step view, so never retain the packet's displayName pointer.
+    // Diagnostics receive stable SceneEntityStore names after the entity row
+    // commits, so never retain this packet's displayName pointer.
     bodyDesc.diagnosticName = nullptr;
     const PhysicsAuthoredBodyRegistration registration =
         m_physics.RegisterAuthoredBody( bodyDesc, std::move( colliderDesc ) );
@@ -482,6 +469,7 @@ SceneEntityCreateResult SceneWorld::TryCreateSceneEntity( SceneEntityCreateDesc 
         LoadPhysicsBodyHotState( BodyStore().HotFields(), static_cast<std::size_t>( modelIndex ) ),
         *colliderRecord,
         modelIndex );
+    RegisterPhysicsDiagnosticNames();
     AssertSceneCreationTopology( modelIndex + 1 );
     return { SkullbonezCore::Core::SbResult::Success(), bodyHandle };
 }
@@ -545,6 +533,7 @@ bool SceneWorld::DestroySceneEntity( PhysicsBodyHandle body )
     {
         SB_FATAL( "Scene/SceneWorld", "Paired scene deletion failed render refresh. row=%d", modelIndex );
     }
+    RegisterPhysicsDiagnosticNames();
     AssertSceneCreationTopology( modelCount - 1 );
     return !BodyStore().Contains( body );
 }
@@ -581,6 +570,7 @@ void SceneWorld::Clear()
     m_physics.Clear();
     m_tornadoGameplay.Clear();
     m_renderInstanceStore.Clear();
+    RegisterPhysicsDiagnosticNames();
     AssertSceneCreationTopology( 0 );
 }
 
@@ -616,6 +606,7 @@ bool SceneWorld::TrimForReplayRestore( int bodyCount )
         SB_FATAL( "Runtime/SceneWorld",
                   "Replay topology commit failed after a successful preflight; live owners may be partially trimmed" );
     }
+    RegisterPhysicsDiagnosticNames();
     return true;
 }
 

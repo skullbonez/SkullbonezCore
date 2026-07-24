@@ -27,7 +27,7 @@ Invariants:
   - Target stepping consumes post-step presentation outputs in live-frame order.
 
 Related:
-  - SkullbonezSource/Runtime/RunFrame.cpp
+  - SkullbonezSource/Runtime/App/RunFrame.cpp
   - SkullbonezSource/Runtime/Replay/ReplayValidation.Probes.cpp
   - SkullbonezSource/Runtime/Replay/ReplayValidation.Internal.h
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h
@@ -38,13 +38,13 @@ Related:
 #include "ReplayScrubber.h"
 #include "ReplayTimeline.h"
 #include "ReplayRuntime.h"
-#include "../InputRouter.h"
-#include "../RuntimeDiagnostics.h"
+#include "../Input/InputRouter.h"
+#include "../Diagnostics/RuntimeDiagnostics.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../Scene/SceneController.h"
 #include "../../Assets/AssetSystem.h"
 #include "../../Core/WorkerPool.h"
-#include "../OperatorCommandApplier.h"
+#include "../Interaction/OperatorCommandApplier.h"
 #include "../Editor/EditorTools.h"
 #include "ReplayRestoreService.h"
 #include "ReplayRestoreTransactions.h"
@@ -54,7 +54,7 @@ Related:
 
 #include "../../Core/FatalError.h"
 #include "../../Core/Profiler.h"
-#include "../SimulationSystem.h"
+#include "../Simulation/SimulationSystem.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsEngine.h"
@@ -131,7 +131,7 @@ namespace
 // Concept: replay flags are compact wire-format fields. Keep these masks local
 // to decode logic so new replay payload versions do not inherit accidental UI
 // or runtime enum values.
-SceneGeneratedModelContext BuildSceneGeneratedModelContext( RunSceneState& scene,
+SceneGeneratedModelContext BuildSceneGeneratedModelContext( SceneSessionState& scene,
                                                             const SkullbonezCore::Core::EngineConfig& config,
                                                             SceneWorld& sceneWorld,
                                                             GeneratedObjectTypeOverride objectTypeOverride )
@@ -331,7 +331,7 @@ void WriteReplayProbeReason( char* outReason, std::size_t reasonSize, const char
 
 #ifdef _DEBUG
 void LogReplayV2TargetRestoreDiagnostic( DiagnosticsRuntime& diagnosticsRuntime,
-                                         RunSceneState& scene,
+                                         SceneSessionState& scene,
                                          const ReplayRestoreResultDiagnostic& result )
 {
     diagnosticsRuntime.LogReplayRestoreResult( scene, result );
@@ -344,7 +344,7 @@ void LogReplayV2TargetRestoreDiagnostic( DiagnosticsRuntime& diagnosticsRuntime,
 struct ReplayRestoreEventContext
 {
     RuntimeTools& runtimeTools;
-    RunSceneState& scene;
+    SceneSessionState& scene;
     SkullbonezCore::Assets::AssetSystem& assets;
     SceneWorld& world;
     int sceneObjectCapacity = 0;
@@ -439,7 +439,7 @@ bool ApplyReplayRestoreEditorPlaceEvent( ReplayRestoreEventContext& context,
     // because they belong only to this event operation.
     RuntimeTools& runtimeTools = context.runtimeTools;
     SceneWorld& world = context.world;
-    RunSceneState& scene = context.scene;
+    SceneSessionState& scene = context.scene;
     SkullbonezCore::Assets::AssetSystem& assets = context.assets;
     Vector3 terrainPoint;
     Vector3 placementScale;
@@ -985,7 +985,7 @@ void FormatReplayRestoreDivergenceMessage( char* message,
 struct ReplayRestoreStepContext
 {
     RuntimeTools& runtimeTools;
-    RunSceneState& scene;
+    SceneSessionState& scene;
     const SkullbonezCore::Core::EngineConfig& config;
     SkullbonezCore::Assets::AssetSystem& assets;
     SkullbonezCore::Threading::WorkerPool& workerPool;
@@ -1241,7 +1241,7 @@ void PopulateReplayRestoreTargetResult( RunReplayV2TargetRestoreResult& outResul
 }
 
 void LogReplayRestoreTargetSuccess( DiagnosticsRuntime& diagnosticsRuntime,
-                                    RunSceneState& scene,
+                                    SceneSessionState& scene,
                                     const char* restoreSource,
                                     const ReplayV2SolverHashSample& target,
                                     const ReplaySolverFrameSample& checkpoint,
@@ -1282,12 +1282,12 @@ struct ReplayRestoreOwnerContext
 {
     RuntimeTools& runtimeTools;
     SimulationSystem& simulation;
-    RunSceneState& scene;
+    SceneSessionState& scene;
     const SkullbonezCore::Core::EngineConfig& config;
     SkullbonezCore::Assets::AssetSystem& assets;
     SkullbonezCore::Threading::WorkerPool& workerPool;
     SceneWorld& world;
-    RunSceneUIOverrideState& uiOverrides;
+    SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides;
     GeneratedObjectTypeOverride& generatedObjectTypeOverride;
     int sceneObjectCapacity = 0;
 };

@@ -18,8 +18,8 @@ Invariants:
     from RuntimeRenderer's concrete owners, not this frame view.
 
 Related:
-  - SkullbonezSource/Runtime/Run.h
-  - SkullbonezSource/Runtime/RunRender.cpp
+  - SkullbonezSource/Runtime/App/Run.h
+  - SkullbonezSource/Runtime/App/RunRender.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #pragma once

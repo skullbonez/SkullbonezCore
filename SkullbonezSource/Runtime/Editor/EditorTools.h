@@ -24,17 +24,17 @@ Invariants:
   - Preview, preflight, and commit contexts must borrow the same asset registry.
 
 Related:
-  - SkullbonezSource/Runtime/RunInput.cpp
-  - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
+  - SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp
+  - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
 */
 #pragma once
 
 
 #include "EditorHullAssets.h"
 #include "../Replay/ReplayAuthoringPackets.h"
-#include "../InputController.h"
-#include "../RuntimeCameraMode.h"
-#include "../RuntimeInteractionController.h"
+#include "../Input/InputController.h"
+#include "../Camera/RuntimeCameraMode.h"
+#include "../Interaction/RuntimeInteractionController.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Maths/Vector3.h"
 #include "../../Physics/CollisionShape.h"
@@ -75,13 +75,13 @@ struct UIEditorCommands;
 }
 namespace Runtime
 {
-class RunEditorTracer;
+class EditorTracer;
 class RuntimeInteractionController;
 class CaptureController;
 class SceneEntityStore;
 class SceneWorld;
 struct RunEditorPlacementState;
-struct RunSceneState;
+struct SceneSessionState;
 
 namespace RunInternal
 {
@@ -91,7 +91,7 @@ namespace RunInternal
 struct EditorSaveHotkeyContext
 {
     SceneWorld& world;
-    const RunSceneState& scene;
+    const SceneSessionState& scene;
     CaptureController& capture;
 };
 
@@ -114,7 +114,7 @@ struct EditorObjectPlacementContext
 {
     RunEditorPlacementState& editor;
     SceneWorld& world;
-    RunSceneState& scene;
+    SceneSessionState& scene;
     const Assets::AssetSystem& assets;
     int activeModelCapacity;
 };
@@ -263,7 +263,7 @@ bool TryTraceEditorSelectionOverlayFromStores( const SceneWorld& world,
                                                Physics::PhysicsBodyHandle selectedBodyHandle,
                                                Physics::PhysicsColliderHandle selectedColliderHandle,
                                                int selectedIndex,
-                                               RunEditorTracer& tracer,
+                                               EditorTracer& tracer,
                                                Math::Vector::Vector3& outOrigin,
                                                float& outRadius );
 void CaptureEditorGizmoDragGroupState( RunEditorPlacementState& editor,

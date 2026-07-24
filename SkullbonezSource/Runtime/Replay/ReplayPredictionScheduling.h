@@ -22,6 +22,8 @@ Invariants:
   - Reset waits for an in-flight slice before releasing the task's stable borrows.
   - Instant work is never cancelled for a velocity refresh; the newest request
     begins after the current private-engine build completes.
+  - Predictions above the small-scene body cap always use amortized work because
+    a cheap pre-contact probe cannot predict later contact fan-out.
   - Every caller uses the same steady-clock budget and reveal policy.
 
 Related:
@@ -154,15 +156,22 @@ ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& pre
 std::size_t ReplayPredictionBuildPresentationFrameCountForRefresh( RunReplayPredictionState& prediction,
                                                                    Physics::PhysicsSceneObjectId requestedTargetId );
 
-inline ReplayPredictionBuildMode
-ChooseReplayPredictionBuildMode( double measuredTicksPerMs, int remainingTicks, double instantBudgetMs ) noexcept
+inline ReplayPredictionBuildMode ChooseReplayPredictionBuildMode( double measuredTicksPerMs,
+                                                                  int remainingTicks,
+                                                                  double instantBudgetMs,
+                                                                  std::size_t bodyCount ) noexcept
 {
     if ( measuredTicksPerMs <= 0.0 || remainingTicks < 0 )
     {
         return ReplayPredictionBuildMode::Undecided;
     }
-    if ( instantBudgetMs <= 0.0 )
+    constexpr std::size_t REPLAY_PREDICTION_INSTANT_MAX_BODY_COUNT = 64u;
+    if ( instantBudgetMs <= 0.0 || bodyCount > REPLAY_PREDICTION_INSTANT_MAX_BODY_COUNT )
     {
+        // Why: the probe samples the cheap beginning of a prediction. In a
+        // large contact scene such as the 200-box wall, that prefix cannot
+        // predict the later solver fan-out; allowing it to select Instant made
+        // presentation mode depend on machine timing and revealed bursty paths.
         return ReplayPredictionBuildMode::Amortized;
     }
 

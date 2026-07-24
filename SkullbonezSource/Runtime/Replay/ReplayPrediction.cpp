@@ -166,7 +166,7 @@ bool StepPredictionEngineTick( PhysicsEngine& engine,
     const SkullbonezCore::Physics::ExternalForceFrameInput externalForces =
         tornadoGameplay.BuildForceFrame( fixedDt,
                                          SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).Count() );
-    engine.Step( fixedDt, worldForces, externalForces, workerPool, nullptr, 0, PhysicsDiagnosticsCsvWriter{} );
+    engine.Step( fixedDt, worldForces, externalForces, workerPool, PhysicsDiagnosticsCsvWriter{} );
     return true;
 }
 
@@ -377,6 +377,11 @@ bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction,
     // live engine is never passed to prediction stepping after this point.
     PhysicsEngine& predictionEngine = *prediction.simulation.predictionEngine;
     predictionEngine = liveEngine;
+    // Invariant: std::vector copy assignment preserves element values, not the
+    // source's spare capacity. The live mutual-gravity pair table is empty at
+    // capture time, so the private engine must re-establish its known body-count
+    // scratch while the registered replay reserve scope is still active.
+    predictionEngine.ReserveAuthoredBodyCapacity( static_cast<std::size_t>( (std::max)( 0, modelCount ) ) );
     predictionEngine.BindProfiler( profiler );
     predictionEngine.ApplyRuntimeConfig( config );
     prediction.simulation.predictionWorldForces = worldForces;
@@ -861,7 +866,10 @@ bool ReplayPrediction::BeginFrameSimulation( PhysicsEngine& physicsEngine,
         prediction.build.dirty = true;
         return false;
     }
-    if ( !PrepareReplayPredictionTrajectoryBuild( prediction, prediction.simulation.targetId, buildFrameCapacity ) )
+    if ( !PrepareReplayPredictionTrajectoryBuild( prediction,
+                                                  prediction.simulation.targetId,
+                                                  buildFrameCapacity,
+                                                  static_cast<std::size_t>( modelCount ) ) )
     {
         predictionOwner.CancelJob( clearSamplesOnCancel );
         prediction.build.dirty = true;
@@ -983,7 +991,8 @@ bool StepReplayPredictionJob( ReplayPrediction& predictionOwner,
         prediction.build.buildMode =
             ChooseReplayPredictionBuildMode( measuredTicksPerMs,
                                              (std::max)( 0, prediction.build.targetTickCount - completedTicks ),
-                                             prediction.build.instantBudgetMs );
+                                             prediction.build.instantBudgetMs,
+                                             prediction.simulation.predictionBodies.size() );
     }
 
     // Why: the frame loop still submits once per pass. Instant mode expands only

@@ -118,21 +118,17 @@ class PhysicsEngine
     // rows are a topology bug, not a cue to rebuild shape facts from authoring
     // storage.
     bool RefreshColliderSnapshot();
-    // Steps the owned stores. Model-order descriptor import lives with the
-    // collection owner, and diagnosticsCsvWriter carries cold Debug CSV output
-    // authority instead of letting physics reach through global logging.
+    // Steps the owned stores. Model-order descriptor import and diagnostic-name
+    // registration are cold commands; the per-tick call carries only simulation
+    // inputs plus concrete Debug CSV output authority.
     void Step( float deltaSeconds,
                const PhysicsWorldForces& worldForces,
                Threading::WorkerPool& workerPool,
-               const char* const* diagnosticNames,
-               int diagnosticNameCount,
                const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
     void Step( float deltaSeconds,
                const PhysicsWorldForces& worldForces,
                const ExternalForceFrameInput& externalForces,
                Threading::WorkerPool& workerPool,
-               const char* const* diagnosticNames,
-               int diagnosticNameCount,
                const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
     // Runtime fixed-tree commands enter physics by handle; release, wake, and
     // sleep propagation stay inside the owned stores.
@@ -185,6 +181,9 @@ class PhysicsEngine
     uint64_t CollectDebugAndBroadphaseMemoryBytes() const;
     bool ShouldEmitStepDiagnostics() const;
     bool ShouldEmitCollisionTimeDiagnostics() const;
+    // Registers scene-lifetime presentation names at a cold topology boundary.
+    // The diagnostics sink copies only the pointer table into fixed storage.
+    void SetDiagnosticNames( std::span<const char* const> diagnosticNames );
 
     // Immutable dense views are an explicit PhysicsEngine query contract for
     // renderer, replay, diagnostics, and cold tools. Each aliases one owned

@@ -45,7 +45,7 @@ Related:
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Rendering/RenderInstanceStore.h"
-#include "../CameraCollection.h"
+#include "../Camera/CameraCollection.h"
 #include "../../World/WorldEnvironment.h"
 
 #include <span>
@@ -173,6 +173,7 @@ class SceneWorld
     void ReserveForActiveSceneObjectCapacity();
     std::vector<Physics::ModelRowHint> BuildFixedTreeReleaseRootsForReload() const;
     std::vector<const char*> BuildDiagnosticNamesForReload() const;
+    void RegisterPhysicsDiagnosticNames();
     bool RefreshPhysicsBodyStoreFromAuthoredDescriptors();
     bool RepairPhysicsBodyTopology();
     int FixedTreeReleaseRootForModelIndex( int modelIndex ) const;

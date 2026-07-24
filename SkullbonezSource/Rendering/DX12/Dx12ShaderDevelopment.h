@@ -28,7 +28,7 @@ Invariants:
 Related:
   - SkullbonezSource/Rendering/DX12/Dx12ShaderDevelopment.cpp
   - SkullbonezSource/Rendering/DX12/ShaderDX12.cpp
-  - SkullbonezSource/Runtime/InputFrameExecution.cpp
+  - SkullbonezSource/Runtime/App/InputFrameExecution.cpp
 */
 #pragma once
 

@@ -23,6 +23,8 @@ Glossary:
     from live body/collider store values.
   Replay ribbon: Screen-space-width overlay stroke generated from replay path
     segments, with an analytic edge and optional selected-path halo.
+  Retained ribbon chunk: Fixed compact segment slice appended by prediction;
+    its physical handle is stable while packet commands sort it canonically.
   Gizmo drag group: Bounded set of selected model indices transformed as one
     editor gesture.
   Body store: Physics-owned dense body rows borrowed by tool hit tests and
@@ -55,7 +57,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Tools/RuntimeTools.cpp
-  - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
+  - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
   - SkullbonezSource/Runtime/Replay/ReplayPresentation.h
 */
 #pragma once
@@ -66,9 +68,9 @@ Related:
 #include "../../Core/MainMemoryStats.h"
 #include "../Editor/LauncherLaser.h"
 #include "../Editor/EditorCommandHistory.h"
-#include "../RuntimeCameraMode.h"
+#include "../Camera/RuntimeCameraMode.h"
 #include "../Scene/SceneLifecycle.h"
-#include "../RuntimeInteractionController.h"
+#include "../Interaction/RuntimeInteractionController.h"
 #include "../Replay/ReplayVisualPacket.h"
 #include "../Replay/ReplayEventCommand.h"
 #include "../../Maths/Matrix4.h"
@@ -129,9 +131,9 @@ struct UIPhysicsCommands;
 
 namespace SkullbonezCore::Runtime
 {
-struct RunDebugState;
+struct OverlayDebugState;
 struct RunLaunchOptions;
-struct RunSceneState;
+struct SceneSessionState;
 struct ReplayLauncherVisualSample;
 class SceneEntityStore;
 class InputRouter;
@@ -203,7 +205,7 @@ struct ToolOverlayBuildInput
 struct LauncherReproSnapshotContext
 {
     SceneWorld& world;
-    const RunSceneState& sceneState;
+    const SceneSessionState& sceneState;
     const std::string* currentScenePath;
     const RunLaunchOptions& launchOptions;
     bool physicsSleepEnabled;
@@ -211,7 +213,7 @@ struct LauncherReproSnapshotContext
     bool pipelineSyncEnabled;
     float contactEpsilon;                                                   // Physics contact tolerance captured from Run config for repro output.
     float frictionCoeff;                                                    // Physics friction setting captured from Run config for repro output.
-    const RunDebugState& debug;
+    const OverlayDebugState& debug;
     const char* rendererName;
     double simulationSeconds;
 };
@@ -458,7 +460,7 @@ struct RunEditorPlacementState
     std::array<Math::Orientation::Quaternion, GIZMO_DRAG_GROUP_CAPACITY> gizmoDragGroupStartOrientations = {};
 };
 
-class RunEditorTracer
+class EditorTracer
 {
   private:
     struct ReplayRibbonStyle
@@ -482,10 +484,30 @@ class RunEditorTracer
     std::vector<float> m_renderLineData;
     std::vector<float> m_replayRibbonSegments;                              // Packed 13-float replay segments before shader-side expansion.
     std::vector<float> m_priorityReplayRibbonSegments;                      // Retained yellow entry ribbon segments that survive path overflow.
+    std::vector<float> m_replayRibbonVertexData;                            // Ordinary packed 19-float adjacency vertices.
     std::vector<float>
-        m_replayRibbonVertexData;                                           // Packed 19-float adjacency vertices consumed by the trajectory ribbon style.
+        m_priorityReplayRibbonVertexData;                                   // Priority packed vertices kept separate so ordinary appends never move them.
+    std::size_t m_expandedOrdinarySegmentCount = 0;
+    std::size_t m_expandedPrioritySegmentCount = 0;
+    // Fixed compact arena used only by the retained prediction owner. Each
+    // trajectory grows through stable eight-segment chunks; extending a sibling
+    // cannot move or invalidate previously published records.
+    std::vector<float> m_retainedReplayRibbonRecords;
+    std::array<Rendering::RetainedTrajectoryDrawRange, Rendering::RETAINED_TRAJECTORY_MAX_DRAW_RANGES>
+        m_retainedReplayRibbonRanges = {};
+    // Packet order is detached from physical range handles. Sorting this fixed
+    // mirror on publication keeps alpha-blended drawing canonical without
+    // moving compact records or invalidating cursor-owned range indices.
+    std::array<Rendering::RetainedTrajectoryDrawRange, Rendering::RETAINED_TRAJECTORY_MAX_DRAW_RANGES>
+        m_retainedReplayRibbonDrawRanges = {};
+    std::size_t m_retainedReplayRibbonRangeCount = 0;
+    std::size_t m_retainedOrdinarySegmentCapacityUsed = 0;
+    std::size_t m_retainedPrioritySegmentCapacityUsed = 0;
+    std::size_t m_retainedOrdinarySegmentCount = 0;
+    std::size_t m_retainedPrioritySegmentCount = 0;
     SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats
         m_replaySubmissionStats;                                            // Frame-local submitted replay ribbon hash sampled after tracer render.
+    uint64_t m_replayGeometryRevision = 0;                                  // Successful ribbon-record append serial for retained draw-list publication.
 
     void EmitLineTo( std::vector<float>& lineData,
                      const Math::Vector::Vector3& a,
@@ -548,6 +570,14 @@ class RunEditorTracer
                                      const ReplayRibbonStyle& glow,
                                      const ReplayRibbonStyle& core,
                                      SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane );
+    bool EmitRetainedReplayRibbonSegment( std::size_t rangeIndex,
+                                          const Math::Vector::Vector3& a,
+                                          const Math::Vector::Vector3& b,
+                                          float r,
+                                          float g,
+                                          float bl,
+                                          const ReplayRibbonStyle& style,
+                                          SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane );
     void EmitReplayRibbonShapeOutlineTo( std::vector<float>& ribbonData,
                                          const Math::Vector::Vector3& position,
                                          const Math::Orientation::Quaternion& orientation,
@@ -562,13 +592,17 @@ class RunEditorTracer
         m_replayTrajectoryStats;                                            // Frame-local replay ribbon counters sampled by replay composition.
 
   public:
-    RunEditorTracer();
+    EditorTracer();
     void Clear();
     // Resets only the replay trajectory counters; callers use this before the
     // replay pass so editor tool ribbons do not count as replay trajectory work.
     void ClearReplayTrajectoryStats();
     // Returns the current replay-pass counters without taking ownership.
     const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& ReplayTrajectoryStats() const;
+    uint64_t ReplayGeometryRevision() const noexcept
+    {
+        return m_replayGeometryRevision;
+    }
     // Records logical ribbon segments intentionally omitted by a caller-side
     // quota before vertex emission, preserving lane-specific diagnostics.
     void RecordReplayRibbonDroppedSegments( SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane,
@@ -581,6 +615,40 @@ class RunEditorTracer
     // before emitting segments, so the tracer's fixed reserve remains the
     // single source of capacity truth.
     std::size_t ReplayPathRibbonSegmentCapacityRemaining() const;
+    std::size_t ReplayPriorityRibbonSegmentCapacityRemaining() const;
+    std::size_t
+    BeginRetainedReplayRibbonRange( uint64_t identity,
+                                    uint32_t sourceVersion,
+                                    bool priority,
+                                    std::size_t segmentCapacity,
+                                    uint64_t drawOrder,
+                                    std::size_t continuationRange = Rendering::RETAINED_TRAJECTORY_MAX_DRAW_RANGES );
+    std::size_t RetainedReplayRibbonRangeCapacityRemaining( std::size_t rangeIndex ) const noexcept;
+    std::size_t RetainedReplayOrdinarySegmentCapacityRemaining() const noexcept;
+    std::size_t RetainedReplayPrioritySegmentCapacityRemaining() const noexcept;
+    std::size_t RetainedReplayOrdinarySegmentCountRemaining() const noexcept;
+    std::size_t RetainedReplayPrioritySegmentCountRemaining() const noexcept;
+    void AddRetainedReplayPathSegment( std::size_t rangeIndex,
+                                       const Math::Vector::Vector3& start,
+                                       const Math::Vector::Vector3& end,
+                                       float r,
+                                       float g,
+                                       float b,
+                                       SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane,
+                                       float emphasis = 0.0f );
+    void AddRetainedReplayCausalTrailSegment( std::size_t rangeIndex,
+                                              const Math::Vector::Vector3& start,
+                                              const Math::Vector::Vector3& end,
+                                              float r,
+                                              float g,
+                                              float b );
+    void AddRetainedReplayBaselinePathSegment( std::size_t rangeIndex,
+                                               const Math::Vector::Vector3& start,
+                                               const Math::Vector::Vector3& end,
+                                               float r,
+                                               float g,
+                                               float b,
+                                               float opacity = 1.0f );
     void AddPlacementRay( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& hitPoint );
     void AddPlacementGhost( int objectType,
                             const Math::Vector::Vector3& center,
@@ -604,13 +672,14 @@ class RunEditorTracer
                                       float g,
                                       float b );
     // Draws the cold baseline root path with its thinner comparison style. The
-    // presentation owner supplies color so every replay path color mode uses
-    // the same deterministic resolver.
+    // presentation owner supplies color and bounded opacity so ordinary
+    // baselines retain their established style while teaching guides can fade.
     void AddReplayBaselinePathSegment( const Math::Vector::Vector3& start,
                                        const Math::Vector::Vector3& end,
                                        float r,
                                        float g,
-                                       float b );
+                                       float b,
+                                       float opacity = 1.0f );
     void AddReplayContactMarker( const Math::Vector::Vector3& point,
                                  const Math::Vector::Vector3& normal,
                                  float r,
@@ -726,13 +795,13 @@ class RuntimeTools
                                     Math::Vector::Vector3& outDirection,
                                     Math::Vector::Vector3& outCameraUp ) const;
     bool FireLauncherRay( SceneWorld& world,
-                          RunSceneState& scene,
+                          SceneSessionState& scene,
                           int activeModelCapacity,
                           const Math::Vector::Vector3& rayOrigin,
                           const Math::Vector::Vector3& rayDirection,
                           const Math::Vector::Vector3& cameraUp );
     LauncherPointerResult
-    RouteLauncherPointer( const LauncherPointerInput& input, SceneWorld& world, RunSceneState& scene );
+    RouteLauncherPointer( const LauncherPointerInput& input, SceneWorld& world, SceneSessionState& scene );
     void FireLauncherLaser( Physics::PhysicsEngine& physics,
                             int modelCount,
                             Geometry::Terrain* terrain,
@@ -740,7 +809,7 @@ class RuntimeTools
                             const Math::Vector::Vector3& rayDirection,
                             const Math::Vector::Vector3& cameraUp );
     bool FireLauncherProjectile( SceneWorld& world,
-                                 RunSceneState& scene,
+                                 SceneSessionState& scene,
                                  int activeModelCapacity,
                                  int modelCount,
                                  const Math::Vector::Vector3& rayOrigin,
@@ -754,7 +823,7 @@ class RuntimeTools
     LauncherReproSnapshotStatus WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& context ) const;
     LauncherReproSnapshotStatus
     WriteLauncherReproSnapshotWithStatusMessage( const LauncherReproSnapshotContext& context,
-                                                 RunDebugState& debug ) const;
+                                                 OverlayDebugState& debug ) const;
 #endif
 
     LauncherLaser& Laser();
@@ -785,7 +854,7 @@ class RuntimeTools
     EditorPlacementScalePointerResult RouteEditorPlacementScalePointer( bool leftReleased,
                                                                         bool suppressWorldAction,
                                                                         SceneWorld& world,
-                                                                        RunSceneState& scene,
+                                                                        SceneSessionState& scene,
                                                                         Assets::AssetSystem& assets,
                                                                         int activeModelCapacity,
                                                                         RuntimeInteractionController& interaction );
@@ -794,10 +863,10 @@ class RuntimeTools
                                                               RuntimeInteractionController& interaction );
     void RecordEditorTransformHistory( SceneWorld& world, RuntimeGizmoDragKind gizmoKind, int selectedModelIndex );
     void RecordEditorPlacementHistory( SceneWorld& world, int modelCountBefore, int modelCountAfter );
-    bool UndoEditorCommand( SceneWorld& world, RunSceneState& scene );
-    bool RedoEditorCommand( SceneWorld& world, RunSceneState& scene );
-    bool DuplicateEditorSelection( SceneWorld& world, RunSceneState& scene );
-    bool DeleteEditorSelection( SceneWorld& world, RunSceneState& scene );
+    bool UndoEditorCommand( SceneWorld& world, SceneSessionState& scene );
+    bool RedoEditorCommand( SceneWorld& world, SceneSessionState& scene );
+    bool DuplicateEditorSelection( SceneWorld& world, SceneSessionState& scene );
+    bool DeleteEditorSelection( SceneWorld& world, SceneSessionState& scene );
     void ClearEditorHistory();
     bool PrepareEditorGizmoGesture( bool inspectGizmoActive,
                                     bool scaleMode,
@@ -839,8 +908,8 @@ class RuntimeTools
                                 InputRouter& inputRouter,
                                 RuntimeInteractionController& interaction );
 
-    RunEditorTracer& EditorTracer();
-    const RunEditorTracer& EditorTracer() const;
+    EditorTracer& Tracer();
+    const EditorTracer& Tracer() const;
     // Rebuilds the fixed-capacity tool draw records before RuntimeRenderer
     // submits them. World/model/asset owners remain borrowed for this call.
     void
@@ -851,7 +920,7 @@ class RuntimeTools
     LauncherLaser m_laser;
     RunMousePickupState m_mousePickup;
     RunEditorPlacementState m_editor;
-    RunEditorTracer m_editorTracer;
+    EditorTracer m_editorTracer;
     SceneLifecycleGenerationObserver m_sceneLifecycleObserver;
 };
 } // namespace SkullbonezCore::Runtime

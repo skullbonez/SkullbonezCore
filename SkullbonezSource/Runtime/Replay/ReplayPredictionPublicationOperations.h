@@ -14,12 +14,18 @@ Glossary:
     from the published frame prefix.
   Affected-body trail: Bounded fallback evidence for a moving body that is not
     already represented by the published causal topology.
+  All-body trajectory: Mutual-gravity future path published independently of
+    contact causality.
   Model row hint: Sample-local shortcut repaired against stable scene identity;
     never durable identity itself.
+  Build-root prefix: Worker-filled root points made reader-visible only through
+    the frame thread's acquire-latched presentation count.
 
 Invariants:
   - This is an internal Replay header and is not part of ReplayRuntime's public seam.
   - Published frame rows are written before any prefix or derived topology is exposed.
+  - The frame thread publishes no build-root point beyond the presentation
+    prefix acquired from ReplayPredictionPublication.
   - Solver lookup preserves its legacy negative-row scan; prediction lookup
     rejects negative rows before scanning.
   - Trail derivation writes only to caller-owned spans and never allocates.
@@ -143,6 +149,11 @@ Math::Vector::Vector3 ReplayNormalizeOr( Math::Vector::Vector3 value, const Math
 // Concept: publication and drawing share one bounded sampling policy so the
 // prepared topology and emitted ribbons cannot drift to different densities.
 std::size_t ReplayPredictionPathStrideForSampleCount( std::size_t sampleCount ) noexcept;
+constexpr std::size_t ReplayPredictionBuildRootPrefixCount( std::size_t presentedFrameCount,
+                                                            std::size_t rootPointCapacity ) noexcept
+{
+    return presentedFrameCount < rootPointCapacity ? presentedFrameCount : rootPointCapacity;
+}
 
 ReplayFrameIndex ReplayOldestFrameFromStats( const ReplayRecorderStats& stats );
 int ReplayTrajectoryFrameNumberForReserve( ReplayFrameIndex frameIndex );
@@ -160,10 +171,13 @@ FindReplayBodyByIdWithHint( const ReplaySolverFrameSample& sample, Physics::Phys
 
 bool PrepareReplayPredictionTrajectoryBuild( RunReplayPredictionState& prediction,
                                              Physics::PhysicsSceneObjectId rootId,
-                                             std::size_t frameCapacity );
+                                             std::size_t frameCapacity,
+                                             std::size_t bodyCount );
 bool PublishReplayPredictionRootTrajectoryFrame( RunReplayPredictionState& prediction,
                                                  const RunReplayPredictionFrame& frame,
                                                  std::size_t frameSlot );
+bool PublishReplayPredictionBuildRootTrajectoryPrefix( RunReplayPredictionState& prediction,
+                                                       std::size_t presentedFrameCount );
 bool RebuildReplayPredictionCommittedRootTrajectory( RunReplayPredictionState& prediction );
 bool CaptureReplayPredictionBaselineSnapshot( RunReplayPredictionState& prediction,
                                               const std::vector<RunReplayPredictionFrame>& frames,

@@ -161,6 +161,38 @@ enum class UIRenderParam
     Count
 };
 
+// Presentation vocabulary for the four visualizer layers exposed as individual
+// UI toggles. Runtime maps these values to Physics-owned flags; UI never imports
+// the concrete visualizer or assumes that its storage mask is an authority seam.
+enum class UIPhysicsDebugOverlay : uint32_t
+{
+    None,
+    Axes,
+    Contacts,
+    Sleep,
+    Pipeline
+};
+
+// Detached status rendered by the Physics tab. Runtime samples each bool from
+// its concrete diagnostics owner so UI does not interpret Physics-owned bits.
+struct UIPhysicsDebugStatus
+{
+    uint32_t activeFlags = 0u;             // Display-only hexadecimal diagnostic value.
+    const char* pipelineStageName = "";
+    int pipelineStageIndex = 0;
+    int pipelineStageCount = 0;
+    float alpha = 0.0f;
+    float contactLinger = 0.0f;
+    bool axes = false;
+    bool contacts = false;
+    bool sleep = false;
+    bool pipeline = false;
+    bool terrainContact = false;
+    bool collisionVisualizer = false;
+    bool transparent = false;
+    bool broadphase = false;
+};
+
 struct UIOnlyCommands
 {
     // Commands are one-frame requests, not durable state. The UI sets them
@@ -191,6 +223,7 @@ struct UISceneCommands
 
 struct UIPhysicsCommands
 {
+    UIPhysicsDebugOverlay physicsDebugOverlayToToggle = UIPhysicsDebugOverlay::None;
     bool toggleCollisionVisualizer = false;
     bool togglePhysicsSleepPolicy = false;
     bool togglePhysicsDebugTransparent = false;
@@ -222,7 +255,6 @@ struct UIPhysicsCommands
     float requestedTerrainFrictionCoeff = 0.0f;
     float requestedObjectFrictionCoeff = 0.0f;
     float requestedRollingFrictionCoeff = 0.0f;
-    uint32_t togglePhysicsDebugFlags = 0;
     bool stepPhysicsPipelinePrevious = false;
     bool stepPhysicsPipelineNext = false;
 };

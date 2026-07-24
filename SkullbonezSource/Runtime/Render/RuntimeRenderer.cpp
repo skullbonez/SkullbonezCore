@@ -43,19 +43,19 @@ Related:
 #include "../../Rendering/DX12/RenderBackendDX12.h"
 #include "../../Assets/AssetKeys.h"
 #include "RuntimeRenderPasses.h"
-#include "../CameraCollection.h"
-#include "../RunCameraState.h"
-#include "../RunTimerState.h"
-#include "../RuntimeDiagnostics.h"
-#include "../RuntimeOverlayDiagnostics.h"
-#include "../Window.h"
+#include "../Camera/CameraCollection.h"
+#include "../Camera/CameraControlState.h"
+#include "../App/RunTimerState.h"
+#include "../Diagnostics/RuntimeDiagnostics.h"
+#include "../Diagnostics/RuntimeOverlayDiagnostics.h"
+#include "../App/Window.h"
 #include "../Tools/RuntimeTools.h"
 #include "../Debug/CollisionVisualizer.h"
 #include "../Scene/SceneTerrain.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
 #include "../Replay/ReplayOverlayPackets.h"
-#include "../OperatorCommandApplier.h"
+#include "../Interaction/OperatorCommandApplier.h"
 #include "../Scene/SceneController.h"
 #include "../../Assets/TextureCollection.h"
 #include "../../Core/FatalError.h"
@@ -103,69 +103,6 @@ namespace
 float SampleWorldSurfaceHeight( SkullbonezCore::Geometry::Terrain& surface, float x, float z, float fallback )
 {
     return surface.IsInBounds( x, z ) ? surface.GetTerrainHeightAt( x, z ) : fallback;
-}
-
-float LerpFloat( float from, float to, float t )
-{
-    return from + ( to - from ) * t;
-}
-
-void ApplyConsequenceGrade( SkullbonezCore::Core::CinematicRenderConfig& cinematic, float strength )
-{
-    const float s = std::clamp( strength, 0.0f, 1.0f );
-    if ( s <= 0.0f )
-    {
-        return;
-    }
-
-    // Concept: the consequence grade is a frame-local presentation override.
-    // It pushes the world down into cool silhouettes beneath a near-black dome
-    // while replay ribbons remain the primary causality read.
-    constexpr float atmosphereDisableStrength = 0.15f;
-    const float atmosphereFade = std::clamp( s / atmosphereDisableStrength, 0.0f, 1.0f );
-    cinematic.enabled = true;
-    cinematic.exposure = LerpFloat( cinematic.exposure, (std::max)( 0.05f, cinematic.exposure * 0.36f ), s );
-    cinematic.styleSaturation = LerpFloat( cinematic.styleSaturation, 0.24f, s );
-    cinematic.styleContrast = LerpFloat( cinematic.styleContrast, 1.12f, s );
-    cinematic.styleVignette = LerpFloat( cinematic.styleVignette, (std::max)( cinematic.styleVignette, 0.62f ), s );
-    cinematic.bloomEnabled = true;
-    cinematic.bloomThreshold = LerpFloat( cinematic.bloomThreshold, 0.62f, s );
-    cinematic.bloomKnee = LerpFloat( cinematic.bloomKnee, 0.72f, s );
-    cinematic.bloomStrength = LerpFloat( cinematic.bloomStrength, (std::max)( cinematic.bloomStrength, 0.62f ), s );
-    cinematic.bloomRadius = LerpFloat( cinematic.bloomRadius, (std::max)( cinematic.bloomRadius, 4.8f ), s );
-    cinematic.fogEnabled = true;
-    cinematic.fogColorR = LerpFloat( cinematic.fogColorR, 0.18f, s );
-    cinematic.fogColorG = LerpFloat( cinematic.fogColorG, 0.24f, s );
-    cinematic.fogColorB = LerpFloat( cinematic.fogColorB, 0.34f, s );
-    cinematic.fogMaxOpacity = LerpFloat( cinematic.fogMaxOpacity, (std::max)( cinematic.fogMaxOpacity, 0.28f ), s );
-    // Why: boolean atmosphere switches cannot interpolate. Fade their energy to
-    // zero over the first part of the grade, then disable the passes so clouds,
-    // the solar disc, and shafts cannot re-light the prediction sky.
-    cinematic.cloudIntensity = LerpFloat( cinematic.cloudIntensity, 0.0f, atmosphereFade );
-    cinematic.sunIntensity = LerpFloat( cinematic.sunIntensity, 0.0f, atmosphereFade );
-    cinematic.skyGlowStrength = LerpFloat( cinematic.skyGlowStrength, 0.0f, atmosphereFade );
-    cinematic.sunShaftStrength = LerpFloat( cinematic.sunShaftStrength, 0.0f, atmosphereFade );
-    cinematic.volumetricStrength = LerpFloat( cinematic.volumetricStrength, 0.0f, atmosphereFade );
-    if ( s >= atmosphereDisableStrength )
-    {
-        cinematic.cloudsEnabled = false;
-        cinematic.godRaysEnabled = false;
-    }
-    // The target is deliberately a little above literal black because the
-    // consequence exposure reduction follows this pass; after tonemapping it
-    // reads as only a faint blue horizon beneath the black zenith.
-    cinematic.skyHorizonR = LerpFloat( cinematic.skyHorizonR, 0.035f, s );
-    cinematic.skyHorizonG = LerpFloat( cinematic.skyHorizonG, 0.05f, s );
-    cinematic.skyHorizonB = LerpFloat( cinematic.skyHorizonB, 0.08f, s );
-    cinematic.skyZenithR = LerpFloat( cinematic.skyZenithR, 0.0f, s );
-    cinematic.skyZenithG = LerpFloat( cinematic.skyZenithG, 0.0f, s );
-    cinematic.skyZenithB = LerpFloat( cinematic.skyZenithB, 0.0f, s );
-    cinematic.terrainTintR = LerpFloat( cinematic.terrainTintR, 0.08f, s );
-    cinematic.terrainTintG = LerpFloat( cinematic.terrainTintG, 0.14f, s );
-    cinematic.terrainTintB = LerpFloat( cinematic.terrainTintB, 0.18f, s );
-    cinematic.terrainAccentR = LerpFloat( cinematic.terrainAccentR, 0.02f, s );
-    cinematic.terrainAccentG = LerpFloat( cinematic.terrainAccentG, 0.07f, s );
-    cinematic.terrainAccentB = LerpFloat( cinematic.terrainAccentB, 0.12f, s );
 }
 
 // Concept: RenderGraph callback payloads are RuntimeRenderer-owned one-frame
@@ -1630,7 +1567,9 @@ RenderResourceContext RuntimeRenderer::BuildRenderResourceContext( bool cinemati
 }
 
 
-RuntimeRenderer::RuntimeRenderer( RuntimeRenderBackendView backend, const RenderWorldView& world, RunSceneState& scene )
+RuntimeRenderer::RuntimeRenderer( RuntimeRenderBackendView backend,
+                                  const RenderWorldView& world,
+                                  SceneSessionState& scene )
     : m_resources( backend, world, scene ), m_cameras( world.cameras ), m_window( world.window ),
       m_world( world.worldEnvironment ), m_collisionVisualizer( world.overlayResources.m_collisionOverlay ),
       m_broadphaseVisualizer( world.overlayResources.m_broadphaseOverlay ),
@@ -2271,14 +2210,9 @@ bool RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
     {
         return false;
     }
-    SkullbonezCore::Core::CinematicRenderConfig frameCinematic = context.cinematic;
-    const float consequenceGradeStrength = std::clamp( context.consequenceGradeStrength, 0.0f, 1.0f );
-    ApplyConsequenceGrade( frameCinematic, consequenceGradeStrength );
-
-    const bool cinematicRender =
-        ( context.cinematicRequested || consequenceGradeStrength > 0.01f ) && renderReady && !policy.textOnly;
+    const bool cinematicRender = context.cinematicRequested && renderReady && !policy.textOnly;
     // Why: persistent render owners are already members of RuntimeRenderer.
     // Only the top-level frame transaction and derived cinematic values cross
     // into pass sequencing; no duplicate service/input bag is constructed.
-    return RenderPreparedFrame( context, frameCinematic, cinematicRender );
+    return RenderPreparedFrame( context, context.cinematic, cinematicRender );
 }

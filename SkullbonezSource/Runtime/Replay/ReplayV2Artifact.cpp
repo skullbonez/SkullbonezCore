@@ -44,7 +44,7 @@ Related:
 #include "ReplayArtifactSource.h"
 #include "../../Core/ByteView.h"
 
-#include "../RuntimeFileWriter.h"
+#include "../Tools/RuntimeFileWriter.h"
 
 #include <algorithm>
 #include <cstdint>

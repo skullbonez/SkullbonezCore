@@ -16,7 +16,8 @@ reconciled, and E17 regenerated and re-inspected this complete union.
 
 ## Core and physics
 
-- [x] `SkullbonezSource/Rendering/ProfilerImplementation.cpp`
+- [x] `SkullbonezSource/Core/Profiler.cpp`
+- [x] `SkullbonezSource/Rendering/RenderProfilerPresentation.cpp`
 - [x] `SkullbonezSource/Core/Profiler.h`
 - [x] `SkullbonezSource/Core/WorkerPool.cpp`
 - [x] `SkullbonezSource/Physics/PhysicsWorld.cpp`
@@ -58,15 +59,15 @@ reconciled, and E17 regenerated and re-inspected this complete union.
 
 - [x] `SkullbonezSource/Runtime/Editor/EditorCommandHistory.cpp`
 - [x] `SkullbonezSource/Runtime/Editor/EditorCommandHistory.h`
-- [x] `SkullbonezSource/Runtime/Editor/RunEditorHistory.cpp`
-- [x] `SkullbonezSource/Runtime/Init.cpp`
-- [x] `SkullbonezSource/Runtime/InputFrame.cpp`
-- [x] `SkullbonezSource/Runtime/InputFrame.h`
-- [x] `SkullbonezSource/Runtime/InputFrameExecution.cpp`
-- [x] `SkullbonezSource/Runtime/InputRouter.cpp`
-- [x] `SkullbonezSource/Runtime/InputRouter.h`
-- [x] `SkullbonezSource/Runtime/InteractionAutomationController.cpp`
-- [x] `SkullbonezSource/Runtime/InteractionAutomationController.h`
+- [x] `SkullbonezSource/Runtime/Editor/EditorHistory.cpp`
+- [x] `SkullbonezSource/Runtime/App/Init.cpp`
+- [x] `SkullbonezSource/Runtime/App/InputFrame.cpp`
+- [x] `SkullbonezSource/Runtime/App/InputFrame.h`
+- [x] `SkullbonezSource/Runtime/App/InputFrameExecution.cpp`
+- [x] `SkullbonezSource/Runtime/Input/InputRouter.cpp`
+- [x] `SkullbonezSource/Runtime/Input/InputRouter.h`
+- [x] `SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp`
+- [x] `SkullbonezSource/Runtime/Automation/InteractionAutomationController.h`
 - [x] `SkullbonezSource/Runtime/Render/RuntimeRenderHost.h`
 - [x] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h`
 
@@ -85,14 +86,14 @@ reconciled, and E17 regenerated and re-inspected this complete union.
 
 ## Runtime composition, scene, startup, and window
 
-- [x] `SkullbonezSource/Runtime/Run.cpp`
-- [x] `SkullbonezSource/Runtime/Run.h`
-- [x] `SkullbonezSource/Runtime/RunFrame.cpp`
-- [x] `SkullbonezSource/Runtime/RunInput.cpp`
-- [x] `SkullbonezSource/Runtime/RunLaunchOptions.h`
+- [x] `SkullbonezSource/Runtime/App/Run.cpp`
+- [x] `SkullbonezSource/Runtime/App/Run.h`
+- [x] `SkullbonezSource/Runtime/App/RunFrame.cpp`
+- [x] `SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp`
+- [x] `SkullbonezSource/Runtime/App/RunLaunchOptions.h`
 - [x] `SkullbonezSource/Runtime/RuntimeFrameViews.h`
-- [x] `SkullbonezSource/Runtime/RuntimeStressController.cpp`
-- [x] `SkullbonezSource/Runtime/RuntimeValidationHarness.h`
+- [x] `SkullbonezSource/Runtime/Capture/RuntimeStressController.cpp`
+- [x] `SkullbonezSource/Runtime/Automation/RuntimeValidationHarness.h`
 - [x] `SkullbonezSource/Runtime/Scene/SceneEntityStore.cpp`
 - [x] `SkullbonezSource/Runtime/Scene/SceneEntityStore.h`
 - [x] `SkullbonezSource/Runtime/Scene/SceneRequestExecution.cpp`
@@ -101,9 +102,9 @@ reconciled, and E17 regenerated and re-inspected this complete union.
 - [x] `SkullbonezSource/Runtime/Startup/StartupCommandLine.h`
 - [x] `SkullbonezSource/Runtime/Startup/StartupLaunchResolution.cpp`
 - [x] `SkullbonezSource/Runtime/Tools/RuntimeTools.h`
-- [x] `SkullbonezSource/Runtime/UiTextPass.cpp`
-- [x] `SkullbonezSource/Runtime/Window.cpp`
-- [x] `SkullbonezSource/Runtime/Window.h`
+- [x] `SkullbonezSource/Runtime/Render/UiTextPass.cpp`
+- [x] `SkullbonezSource/Runtime/App/Window.cpp`
+- [x] `SkullbonezSource/Runtime/App/Window.h`
 
 ## Legacy/operator UI
 

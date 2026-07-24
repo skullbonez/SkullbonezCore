@@ -59,7 +59,7 @@ namespace Runtime
 class InputRouter;
 class ReplayPresentation;
 class ReplayScrubber;
-class RunEditorTracer;
+class EditorTracer;
 class RuntimeInteractionController;
 class SceneEntityStore;
 struct ReplayPathPickInput;
@@ -69,7 +69,7 @@ struct RunReplayCameraState;
 struct RunReplayPathVisualizerState;
 struct RunReplayPredictionFrame;
 struct RunReplayPredictionState;
-struct RunCameraState;
+struct CameraControlState;
 struct RunMousePickupState;
 enum class RunCameraMode;
 enum class ReplayInspectionCameraAction : uint8_t;
@@ -335,6 +335,22 @@ class ReplayAuthoring
         m_velocityEdit.dragStartAngle = start.angle;
         m_velocityEdit.dragStartLinearVelocity = start.linearVelocity;
         m_velocityEdit.dragStartAngularVelocity = start.angularVelocity;
+        m_velocityEdit.dragPredictionDirty = false;
+    }
+
+    void MarkVelocityEditDragDirty() noexcept
+    {
+        m_velocityEdit.dragPredictionDirty = true;
+    }
+
+    void FinishVelocityEditDrag() noexcept
+    {
+        if ( !m_velocityEdit.dragPredictionDirty )
+        {
+            return;
+        }
+        m_velocityEdit.dragPredictionDirty = false;
+        QueuePredictionRefresh();
     }
 
     // Appends the authoring-owned velocity gizmo from value-selected replay
@@ -344,7 +360,7 @@ class ReplayAuthoring
                                     Physics::PhysicsEngine& physics,
                                     bool editorModeEnabled,
                                     const RuntimeInteractionGesture& gesture,
-                                    RunEditorTracer& tracer ) const;
+                                    EditorTracer& tracer ) const;
 
     // Concept: authoring publishes a value command instead of holding a
     // prediction pointer or callback. Multiple edits before consumption fold

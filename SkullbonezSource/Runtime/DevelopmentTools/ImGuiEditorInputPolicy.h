@@ -26,8 +26,8 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp
-  - SkullbonezSource/Runtime/InputRouter.h
-  - SkullbonezSource/Runtime/Window.cpp
+  - SkullbonezSource/Runtime/Input/InputRouter.h
+  - SkullbonezSource/Runtime/App/Window.cpp
   - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E7)
 */
 #pragma once

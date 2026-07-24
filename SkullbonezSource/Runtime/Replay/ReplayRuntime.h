@@ -65,6 +65,10 @@ Related:
 
 #include "ReplayAuthoring.h"
 #include "ReplayCoordination.h"
+#include "ReplayGuideArcs.h"
+#include "ReplayInterceptReadout.h"
+#include "ReplayPorkchopPanel.h"
+#include "ReplayTripPlanner.h"
 #include "ReplayIdentity.h"
 #include "ReplayPrediction.h"
 #include "ReplayPresentation.h"
@@ -78,9 +82,10 @@ Related:
 #include "../../Assets/AssetKeys.h"
 #include "../../Core/SceneCapacity.h"
 #include "TrajectoryStore.h"
-#include "../RuntimeCameraMode.h"
-#include "../RuntimeInteractionController.h"
+#include "../Camera/RuntimeCameraMode.h"
+#include "../Interaction/RuntimeInteractionController.h"
 #include "../Scene/SceneLifecycle.h"
+#include "../Tools/RuntimeTools.h"
 #include "ReplayProbeState.h"
 #include "../../Core/MainMemoryStats.h"
 #include "../../Core/Common.h"
@@ -137,17 +142,16 @@ namespace Runtime
 {
 class ReplayRuntime;
 class InputRouter;
-class RunEditorTracer;
 class RuntimeTools;
 class SceneController;
 class DiagnosticsRuntime;
 class SimulationSystem;
 enum class GeneratedObjectTypeOverride;
-struct RunCameraState;
-struct RunDebugState;
+struct CameraControlState;
+struct OverlayDebugState;
 struct RunMousePickupState;
 class RuntimeRenderer;
-struct RunSceneState;
+struct SceneSessionState;
 struct ReplayV2SaveResult;
 struct ReplaySolverSampleRestoreContext;
 
@@ -183,12 +187,12 @@ class ReplayRuntime
                                                  RuntimeTools& runtimeTools );
     void PrepareRenderOverlay( Physics::PhysicsEngine& physics,
                                const SceneEntityStore& entities,
-                               RunEditorTracer& tracer,
+                               EditorTracer& tracer,
                                bool editorModeEnabled,
                                const RuntimeInteractionGesture& gesture,
                                int sceneFrame,
                                std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords );
-    void PublishRenderPacket( RunEditorTracer& tracer,
+    void PublishRenderPacket( EditorTracer& tracer,
                               const Math::Vector::Vector3& cameraTranslation,
                               const Math::Vector::Vector3& cameraUp,
                               uint64_t replayReserveGrowthEvents );
@@ -197,9 +201,6 @@ class ReplayRuntime
                                                 int modelCount,
                                                 bool collisionVisualizer,
                                                 bool debugTransparentBodyPass );
-    // Domain command: advances ReplayPresentation's consequence fade once for
-    // a frame that will reach world rendering and returns a copied scalar.
-    float AdvanceConsequenceGrade( bool requested ) noexcept;
     void CompleteRenderFrame( bool submissionRendered,
                               int sceneFrame,
                               uint64_t replayReserveGrowthEvents,
@@ -235,6 +236,10 @@ class ReplayRuntime
     // Forwards the presentation-only palette command; prediction/capture state
     // and published trajectory records are not rebuilt.
     ReplayPathColorMode CyclePathColorMode() noexcept;
+    void ToggleGuideArcs() noexcept;
+    void SetGuideArcsEnabled( bool enabled ) noexcept;
+    void TogglePorkchopPanel() noexcept;
+    bool QueueTripPlannerCommand( const ReplayTripPlannerCommand& command ) noexcept;
 
     ReplayKeyboardVelocityEditResult ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input );
 
@@ -296,7 +301,7 @@ class ReplayRuntime
                         std::span<const Rendering::RenderInstancePresentationRecord> presentation,
                         Environment::CameraCollection* cameras,
                         Geometry::Terrain* terrain,
-                        RunCameraState& camera,
+                        CameraControlState& camera,
                         RunMousePickupState& mousePickup,
                         ReplayWorkspaceOutput& output );
     // Applies one editor/legacy-independent transport value through the same
@@ -308,7 +313,7 @@ class ReplayRuntime
                                 RuntimeInteractionController& interaction,
                                 Environment::CameraCollection* cameras,
                                 Geometry::Terrain* terrain,
-                                RunCameraState& camera,
+                                CameraControlState& camera,
                                 RunMousePickupState& mousePickup,
                                 ReplayWorkspaceOutput& output );
     void ConfigureStartupWorkflows( const ReplayStartupRequest& request );
@@ -338,9 +343,10 @@ class ReplayRuntime
     // fixed-capacity tracer. RuntimeRenderer only submits the completed buffer.
     void AppendOverlayTrace( Physics::PhysicsEngine& physics,
                              const SceneEntityStore& entities,
-                             RunEditorTracer& tracer,
+                             EditorTracer& tracer,
                              const ReplayPredictionPresentationView& prediction,
-                             const ReplayOverlayBuildInput& input );
+                             const ReplayOverlayBuildInput& input,
+                             bool drawPredictionOverlay = true );
     // Routes value-only pointer facts through replay path selection. Store and
     // camera owners are explicit one-call borrows, not fields in the command.
     bool RouteWorldPointer( const ReplayWorldPointerInput& input,
@@ -350,23 +356,24 @@ class ReplayRuntime
                             std::span<const Rendering::RenderInstancePresentationRecord> presentation,
                             Environment::CameraCollection* cameras,
                             Geometry::Terrain* terrain,
-                            RunCameraState& camera,
+                            CameraControlState& camera,
                             RuntimeInteractionController& interaction,
                             InputRouter& inputRouter );
     bool HasActiveInteractionState() const;
     // Applies one typed leave-replay command. External camera/input owners are
     // synchronous operands and are never retained by ReplayRuntime.
     bool ApplyInteractionExit( const ReplayInteractionExitInput& input,
+                               Physics::PhysicsEngine& physics,
                                Environment::CameraCollection* cameras,
                                Geometry::Terrain* terrain,
-                               RunCameraState& camera,
+                               CameraControlState& camera,
                                RuntimeInteractionController& interaction,
                                InputRouter& inputRouter );
     // Clears replay gesture, scrubber, inspection-camera, and velocity-key
     // state as one focus-loss transition before generic input resets itself.
     void ApplyInputFocusLoss( Environment::CameraCollection* cameras,
                               Geometry::Terrain* terrain,
-                              RunCameraState& camera,
+                              CameraControlState& camera,
                               RunCameraMode normalizedRestoreMode,
                               bool attachedFollow,
                               bool directorGrabbed,
@@ -382,14 +389,14 @@ class ReplayRuntime
     // presentation/authoring owners to stateless presentation operations; host
     // camera and input owners remain synchronous operands and are not retained.
     void EnterInspectionCamera( Environment::CameraCollection* cameras,
-                                RunCameraState& camera,
+                                CameraControlState& camera,
                                 RunCameraMode normalizedCurrentMode,
                                 RuntimeInteractionController& interaction,
                                 InputRouter& inputRouter,
                                 RunMousePickupState& mousePickup );
     void ExitInspectionCamera( Environment::CameraCollection* cameras,
                                Geometry::Terrain* terrain,
-                               RunCameraState& camera,
+                               CameraControlState& camera,
                                RunCameraMode normalizedRestoreMode,
                                bool attachedFollow,
                                bool directorGrabbed,
@@ -416,6 +423,23 @@ class ReplayRuntime
                                         const Physics::PhysicsBodyStore& bodyStore,
                                         const Physics::ColliderStore& colliderStore,
                                         std::span<const Rendering::RenderInstancePresentationRecord> presentation );
+    ReplayPathPickResult ApplyInterceptTargetPick( const ReplayPathPickInput& input,
+                                                   const Physics::PhysicsBodyStore& bodyStore,
+                                                   const Physics::ColliderStore& colliderStore );
+    void UpdateInterceptReadout( Physics::PhysicsEngine& physics, bool mutualGravityEnabled );
+    void UpdateGuideArcs( Physics::PhysicsEngine& physics,
+                          const SceneEntityStore& entities,
+                          const Physics::PhysicsWorldForces& worldForces,
+                          double nowSeconds );
+    void UpdatePorkchopPanel( Physics::PhysicsEngine& physics,
+                              const SceneEntityStore& entities,
+                              const Physics::PhysicsWorldForces& worldForces,
+                              double nowSeconds );
+    void BeginTripPlannerFrame( Physics::PhysicsEngine& physics,
+                                const SceneEntityStore& entities,
+                                const Physics::PhysicsWorldForces& worldForces );
+    void ObserveTripPlannerPrediction( Physics::PhysicsEngine& physics );
+    bool ApplyTripPlannerMutation( Physics::PhysicsEngine& physics, const ReplayTripPlannerVelocityMutation& mutation );
     ReplayInspectionCameraAction TickScrubberInput( bool uiBlocksMouse,
                                                     bool editorModeEnabled,
                                                     bool scenePhysicsEnabled,
@@ -426,7 +450,7 @@ class ReplayRuntime
                                                     double now,
                                                     InputRouter& inputRouter,
                                                     RuntimeInteractionController& interaction,
-                                                    RunCameraState& camera,
+                                                    CameraControlState& camera,
                                                     ReplayWorkspaceOutput& output );
 
   private:
@@ -447,6 +471,9 @@ class ReplayRuntime
     void ApplyPredictionUpdateResult( const ReplayPredictionUpdateResult& result );
     void ApplyPastTrajectoryUpdate( const ReplayPastTrajectoryUpdate& update );
     void AppendSolverTrajectorySampleToStore( const ReplaySolverFrameSample& sample );
+    void RefreshRetainedPredictionGeometry( const Math::Vector::Vector3& cameraEye,
+                                            const Math::Vector::Vector3& cameraUp );
+    void AttachRetainedPredictionGeometry( ReplayVisualPacket& packet ) const;
 #ifdef _DEBUG
     // Runs the configured Debug startup probes after product artifact loading
     // has completed; early probe failures are returned in the value result.
@@ -475,6 +502,23 @@ class ReplayRuntime
     ReplayPresentation m_visualPresentation;
     ReplayAuthoring m_authoring;
     ReplayPrediction m_predictionOwner;
+    ReplayInterceptReadout m_interceptReadout;
+    ReplayGuideArcs m_guideArcs;
+    ReplayPorkchopPanel m_porkchopPanel;
+    ReplayTripPlanner m_tripPlanner;
+    // Concept: prediction ribbons are a retained append-only command list.
+    // Frame-local tool/cause overlays keep using RuntimeTools::Tracer(), while
+    // this tracer changes only when trajectory publication or reveal advances.
+    EditorTracer m_predictionDrawList;
+    ReplayOverlay::ReplayPredictionDrawListState m_predictionDrawListState;
+    ReplayVisualPacket m_predictionDrawPacket;
+    Math::Vector::Vector3 m_predictionDrawCameraEye = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 m_predictionDrawCameraUp = Math::Vector::ZERO_VECTOR;
+    uint64_t m_predictionDrawStreamId = 1;
+    uint64_t m_predictionDrawRevision = 0;
+    bool m_predictionDrawPacketDirty = true;
+    bool m_predictionDrawCameraValid = false;
+    bool m_predictionRetainedRenderingActive = false;
     SceneLifecycleGenerationObserver m_sceneClearObserver;
     SceneLifecycleGenerationObserver m_sceneActivationObserver;
 };

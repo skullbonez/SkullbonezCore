@@ -1,0 +1,114 @@
+/*
+File: SkullbonezSource/Runtime/Capture/CaptureSystem.h
+Purpose:
+  Captures frame output to screenshots for scenes, validation, and look-dev.
+
+Summary:
+  Runtime code owns screenshot trigger state, while renderer code owns pixel
+  readback. Pure trigger and result-folding rules remain value seams so tests
+  do not need to impersonate a renderer.
+
+Glossary:
+  Descriptor: Small binding record that tells a renderer how to interpret a
+    resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+  Capture owner: Concrete DX12 component that supplies screenshot readback.
+  Due predictor: Side-effect-free trigger query used before simulation so the
+    eventual captured frame can pin presentation to committed solver state.
+
+Invariants:
+  - Screenshot state is per-run state; interval counters and one-shot flags are
+    consumed by TickScreenshots rather than by render backends.
+  - CaptureController receives the concrete capture owner explicitly; tests
+    exercise the pure result policy instead of a renderer-shaped test double.
+  - The due predictor and TickScreenshots use identical frame/time trigger rules.
+
+Related:
+  - SkullbonezSource/Runtime/Capture/CaptureSystem.cpp
+  - Agentic/Reference/comment-style-guide.md
+*/
+#pragma once
+
+#include "../../Core/SbResult.h"
+
+#include <cassert>
+
+namespace SkullbonezCore
+{
+namespace Rendering
+{
+class Dx12BackbufferCapture;
+}
+
+namespace Runtime
+{
+struct RunScreenshotState
+{
+    bool isScreenshotSaved = false;               // Screenshot already written this run
+    bool isScreenshotAndExit = false;             // Capture frame 1 as SCENENAME.bmp then exit
+    int screenshotFrame = -1;                     // Save screenshot at this frame (-1 = unused)
+    int screenshotMs = -1;                        // Save screenshot at this elapsed ms (-1 = unused)
+    char screenshotPath[256] = {};                // Output path for screenshot (empty = none)
+    int screenshotInterval = -1;                  // Save screenshot every N frames (-1 = disabled)
+    int intervalCaptureCount = 0;                 // Sequential counter for interval captures
+    char screenshotDir[256] = {};                 // Output directory for interval captures
+};
+
+enum class RuntimeCaptureCompletion
+{
+    None,
+    ScreenshotAndExit,
+    Screenshot,
+    AutoCycle
+};
+
+enum class RuntimeCaptureAutomation
+{
+    None,
+    Quit,
+    AdvanceSceneOrQuit,
+    HoldInteractive
+};
+
+struct RuntimeCaptureSceneContext
+{
+    bool isSceneMode = false;
+    bool isInteractiveRun = false;
+    int currentFrame = 0;
+    double elapsedMs = 0.0;
+    const char* currentScenePath = nullptr;
+};
+
+struct RuntimeCaptureResult
+{
+    bool restartFrame = false;
+    RuntimeCaptureCompletion completion = RuntimeCaptureCompletion::None;
+    RuntimeCaptureAutomation automation = RuntimeCaptureAutomation::None;
+    SkullbonezCore::Core::SbResult captureResult; // Lane R result from screenshot readback/write side effects.
+};
+
+class CaptureController;
+class CaptureSystem
+{
+  public:
+    static bool IsScreenshotDue( const RunScreenshotState& screenshot, const RuntimeCaptureSceneContext& context );
+    static bool RequiresDeterministicPresentation( const RunScreenshotState& screenshot,
+                                                   const RuntimeCaptureSceneContext& context );
+    static SkullbonezCore::Core::SbResult SaveBackbufferBmp( Rendering::Dx12BackbufferCapture& backend,
+                                                             const char* path );
+    static RuntimeCaptureResult TickScreenshots( RunScreenshotState& screenshot,
+                                                 const RuntimeCaptureSceneContext& context,
+                                                 CaptureController& capture,
+                                                 Rendering::Dx12BackbufferCapture& backend );
+    static RuntimeCaptureResult TickAutoCycle( bool isSceneMode,
+                                               bool isInteractiveRun,
+                                               int ballCount,
+                                               float& autoCycleInterval,
+                                               float& autoCycleAccum,
+                                               int& autoCycleShotsTaken,
+                                               int& trackBallIndex,
+                                               CaptureController& capture,
+                                               Rendering::Dx12BackbufferCapture& backend );
+};
+} // namespace Runtime
+} // namespace SkullbonezCore

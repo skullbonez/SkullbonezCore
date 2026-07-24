@@ -11,6 +11,8 @@ Summary:
 Glossary:
   Live part state: Current body/collider values, independent of the original
     asset instance transform.
+  Collider authoring row: Cold material text stored beside, not inside, the hot
+    collider record.
   Stable root id: Scene object id shared by every part affiliation in one asset
     instance.
 
@@ -18,6 +20,7 @@ Invariants:
   - Asset parts are emitted once in contiguous authored part order.
   - Direct entities remain in objects[] and retain explicit schema-v2 ids.
   - Reparse uses live state rather than recomposing the asset recipe transform.
+  - Contact-material text survives save/reparse through the cold authoring row.
 
 Related:
   - SkullbonezSource/Scene/SceneSnapshotWriter.cpp
@@ -123,8 +126,9 @@ void AppendEntity( SceneEntityStore& entities,
     collider.sceneObjectId = body.cold.sceneObjectId;
     collider.shape = shape;
     collider.restitution = restitution;
-    strncpy_s( collider.contactMaterialName, contactMaterial, _TRUNCATE );
-    (void)colliders.CreateColliderRecord( collider );
+    ColliderAuthoringRecord colliderAuthoring;
+    strncpy_s( colliderAuthoring.contactMaterialName, contactMaterial, _TRUNCATE );
+    (void)colliders.CreateColliderRecord( collider, colliderAuthoring );
 
     SceneEntityCreateDesc entity;
     entity.sceneObjectId = body.cold.sceneObjectId;
@@ -145,8 +149,12 @@ void AppendEntity( SceneEntityStore& entities,
     entity.SetRenderMaterial( completeMaterial );
     if ( assetPart )
     {
-        entity.SetAssetAffiliation(
-            PhysicsSceneObjectId{ 300u }, kLibraryPath, "mixed.live", "saved_asset", assetPart, assetPartIndex );
+        entity.SetAssetAffiliation( PhysicsSceneObjectId{ 300u },
+                                    kLibraryPath,
+                                    "mixed.live",
+                                    "saved_asset",
+                                    assetPart,
+                                    assetPartIndex );
     }
     if ( behaviorKind != SceneBehaviorGroupKind::None )
     {
@@ -218,9 +226,8 @@ void CheckOrientation( const Quaternion& actual, const Quaternion& expected )
     float expectedX = 0.0f, expectedY = 0.0f, expectedZ = 0.0f, expectedW = 1.0f;
     actual.GetComponents( actualX, actualY, actualZ, actualW );
     expected.GetComponents( expectedX, expectedY, expectedZ, expectedW );
-    const float sign = actualX * expectedX + actualY * expectedY + actualZ * expectedZ + actualW * expectedW < 0.0f
-                           ? -1.0f
-                           : 1.0f;
+    const float sign =
+        actualX * expectedX + actualY * expectedY + actualZ * expectedZ + actualW * expectedW < 0.0f ? -1.0f : 1.0f;
     CHECK( actualX == doctest::Approx( sign * expectedX ) );
     CHECK( actualY == doctest::Approx( sign * expectedY ) );
     CHECK( actualZ == doctest::Approx( sign * expectedZ ) );
@@ -262,10 +269,10 @@ void CheckRecreatedOwners( const SceneEntityStore& sourceEntities,
         const int recreatedBodyIndex = recreatedBodies.ModelIndexForHandle( recreatedEntity.body );
         REQUIRE( sourceBodyIndex >= 0 );
         REQUIRE( recreatedBodyIndex >= 0 );
-        const PhysicsBodyHotState sourceHot = LoadPhysicsBodyHotState(
-            sourceBodies.HotFields(), static_cast<std::size_t>( sourceBodyIndex ) );
-        const PhysicsBodyHotState recreatedHot = LoadPhysicsBodyHotState(
-            recreatedBodies.HotFields(), static_cast<std::size_t>( recreatedBodyIndex ) );
+        const PhysicsBodyHotState sourceHot =
+            LoadPhysicsBodyHotState( sourceBodies.HotFields(), static_cast<std::size_t>( sourceBodyIndex ) );
+        const PhysicsBodyHotState recreatedHot =
+            LoadPhysicsBodyHotState( recreatedBodies.HotFields(), static_cast<std::size_t>( recreatedBodyIndex ) );
         CheckVector( recreatedHot.position, sourceHot.position );
         CheckOrientation( recreatedHot.orientation, sourceHot.orientation );
         CheckVector( recreatedHot.linearVelocity, sourceHot.linearVelocity );
@@ -281,15 +288,24 @@ void CheckRecreatedOwners( const SceneEntityStore& sourceEntities,
                    doctest::Approx( sourceBody->contactReleaseImpulseThreshold ) );
         }
 
-        const ColliderRecord* sourceCollider = sourceColliders.RecordForHandle(
-            sourceColliders.HandleForSceneObjectId( sourceEntity.sceneObjectId ) );
-        const ColliderRecord* recreatedCollider = recreatedColliders.RecordForHandle(
-            recreatedColliders.HandleForSceneObjectId( recreatedEntity.sceneObjectId ) );
+        const PhysicsColliderHandle sourceColliderHandle =
+            sourceColliders.HandleForSceneObjectId( sourceEntity.sceneObjectId );
+        const PhysicsColliderHandle recreatedColliderHandle =
+            recreatedColliders.HandleForSceneObjectId( recreatedEntity.sceneObjectId );
+        const ColliderRecord* sourceCollider = sourceColliders.RecordForHandle( sourceColliderHandle );
+        const ColliderRecord* recreatedCollider = recreatedColliders.RecordForHandle( recreatedColliderHandle );
+        const ColliderAuthoringRecord* sourceColliderAuthoring =
+            sourceColliders.AuthoringRecordForHandle( sourceColliderHandle );
+        const ColliderAuthoringRecord* recreatedColliderAuthoring =
+            recreatedColliders.AuthoringRecordForHandle( recreatedColliderHandle );
         REQUIRE( sourceCollider );
         REQUIRE( recreatedCollider );
+        REQUIRE( sourceColliderAuthoring );
+        REQUIRE( recreatedColliderAuthoring );
         CheckShape( recreatedCollider->shape, sourceCollider->shape );
         CHECK( recreatedCollider->restitution == doctest::Approx( sourceCollider->restitution ) );
-        CHECK( std::string( recreatedCollider->contactMaterialName ) == sourceCollider->contactMaterialName );
+        CHECK( std::string( recreatedColliderAuthoring->contactMaterialName ) ==
+               sourceColliderAuthoring->contactMaterialName );
     }
 }
 
@@ -379,8 +395,9 @@ void AppendParsedEntity( SceneEntityStore& entities,
     collider.sceneObjectId = id;
     collider.shape = shape;
     collider.restitution = restitution;
-    strncpy_s( collider.contactMaterialName, contactMaterial, _TRUNCATE );
-    (void)colliders.CreateColliderRecord( collider );
+    ColliderAuthoringRecord colliderAuthoring;
+    strncpy_s( colliderAuthoring.contactMaterialName, contactMaterial, _TRUNCATE );
+    (void)colliders.CreateColliderRecord( collider, colliderAuthoring );
 
     SceneEntityCreateDesc entity;
     entity.sceneObjectId = id;
@@ -617,15 +634,7 @@ TEST_CASE( "SceneSnapshotWriter: schema-v2 asset parts reparse from authoritativ
                   PhysicsSceneObjectId{ 1001u },
                   1 );
 
-    const SceneSaveView view{ entities,
-                              bodies,
-                              colliders,
-                              nullptr,
-                              0,
-                              -9.81f,
-                              5.0f,
-                              1000.0f,
-                              {} };
+    const SceneSaveView view{ entities, bodies, colliders, nullptr, 0, -9.81f, 5.0f, 1000.0f, {} };
     SceneSaveRequest request;
     request.path = kSnapshotPath;
     request.cameraEye = Vector3( 1.0f, 2.0f, 3.0f );
@@ -677,10 +686,5 @@ TEST_CASE( "SceneSnapshotWriter: schema-v2 asset parts reparse from authoritativ
     static PhysicsBodyStore recreatedBodies;
     static ColliderStore recreatedColliders;
     RecreateParsedOwners( saved, recreatedEntities, recreatedBodies, recreatedColliders );
-    CheckRecreatedOwners( entities,
-                          bodies,
-                          colliders,
-                          recreatedEntities,
-                          recreatedBodies,
-                          recreatedColliders );
+    CheckRecreatedOwners( entities, bodies, colliders, recreatedEntities, recreatedBodies, recreatedColliders );
 }

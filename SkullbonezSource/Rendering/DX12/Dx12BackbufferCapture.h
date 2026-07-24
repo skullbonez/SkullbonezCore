@@ -27,7 +27,7 @@ Invariants:
 Related:
   - SkullbonezSource/Rendering/DX12/Dx12BackbufferCapture.cpp
   - SkullbonezSource/Rendering/DX12/Dx12FrameOwner.h
-  - SkullbonezSource/Runtime/CaptureSystem.h
+  - SkullbonezSource/Runtime/Capture/CaptureSystem.h
 */
 #pragma once
 

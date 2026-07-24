@@ -36,6 +36,7 @@ Related:
 #include "UIInput.h"
 #include "UIScrollBar.h"
 #include "UISlider.h"
+#include "UISceneNavigationModel.h"
 #include "UIState.h"
 #include "UITabBar.h"
 #include "UITabCinematic.h"
@@ -48,19 +49,12 @@ Related:
 #include "UITabScene.h"
 #include "UITabSky.h"
 #include "UILayout.h"
-#include "../Runtime/Scene/SceneControllerState.h"
 
 #include <cstdint>
 #include <span>
 
 namespace SkullbonezCore
 {
-namespace Runtime
-{
-struct DeviceInputFrame;
-struct RuntimeMouseEdges;
-} // namespace Runtime
-
 namespace UI
 {
 
@@ -162,11 +156,9 @@ class UIWindowInteractionOwner
     int ContentHeight() const;
     WidgetView Widgets();
 
-    // Normalizes router-owned device levels and button edges while applying the
-    // optional test mouse override. The returned keyboard borrow lasts only as
-    // long as deviceFrame.
-    InputControl::UIInputSnapshot CaptureInputSnapshot( const Runtime::DeviceInputFrame& deviceFrame,
-                                                        const Runtime::RuntimeMouseEdges& mouse ) const;
+    // Returns the optional deterministic pointer substitution as a detached
+    // value; Runtime applies it while copying the sampled input snapshot.
+    InputControl::UIPointerOverride InputOverride() const;
     // Consumes one normalized input turn and explicit presentation facts. Scene
     // and runtime mutations are returned as commands rather than applied here.
     InGameUIInputResult UpdateInput( const InputControl::UIInputSnapshot& input,

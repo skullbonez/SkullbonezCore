@@ -21,7 +21,7 @@ Invariants:
     stress-scene determinism.
 
 Related:
-  - SkullbonezSource/Runtime/SimulationSystem.cpp
+  - SkullbonezSource/Runtime/Simulation/SimulationSystem.cpp
   - SkullbonezSource/Core/Common.h includes this during the aliasing period.
   - Agentic/Reference/comment-style-guide.md
 */

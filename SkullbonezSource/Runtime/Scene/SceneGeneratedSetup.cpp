@@ -25,13 +25,13 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.h
-  - SkullbonezSource/Runtime/Scene/RunScene.cpp
+  - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #include "SceneGeneratedSetup.h"
 #include "../../Assets/AssetKeys.h"
 #include "SceneRuntime.h"
-#include "../CameraCollection.h"
+#include "../Camera/CameraCollection.h"
 #include "../../Core/Common.h"
 #include "SceneController.h"
 #include "../../Maths/Vector3.h"

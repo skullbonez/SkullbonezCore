@@ -29,7 +29,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SceneController.h"
-#include "../RuntimeValidationHarness.h"
+#include "../Automation/RuntimeValidationHarness.h"
 #include "../Tools/RuntimeTools.h"
 #include "SceneRuntimeCreate.h"
 #include "../../Core/FatalError.h"
@@ -101,7 +101,7 @@ bool SceneController::ExecutePending( const SceneLoadPolicyInputs& policy,
         }
         case SceneRequestType::SaveCurrentDefaults:
         {
-            const RunDebugState& presentationState =
+            const OverlayDebugState& presentationState =
                 ScenePresentationForFollowingRequest( presentation.debug, consumerOutputs, LifecyclePacket() );
             const SceneLoadNavigationState& currentNavigation =
                 SceneNavigationForFollowingRequest( interaction.navigation, consumerOutputs );

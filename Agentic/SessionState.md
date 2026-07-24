@@ -1,6 +1,6 @@
 # SkullbonezCore Session State
 
-Date: 2026-07-23
+Date: 2026-07-24
 
 Keep this file operational and short. Detailed evidence belongs in plans,
 reports, and git history. `Agentic/Plans/MASTER-PLAN.md` is the authoritative
@@ -10,15 +10,45 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-22nd-JUL-26` |
-| Current baseline | Wide-signature parameter-bag remediation is complete: campaign-created mechanical packs are absent and the threshold-13 scan is empty. Legacy remains the development default. |
-| Current objective | The next registered architecture campaign begins with `source-blemish-remediation` B1 when the owner starts it. |
-| Active/future progress | 0/16 registered architecture follow-up tasks; 0%. |
+| Branch | `nightrunner-23rd-JUL-26` |
+| Current baseline | Solar-system SS0-SS6 are complete. The current branch additionally carries bounded prediction retained-rendering stabilization documented in `Agentic/Reports/2026-07-24/prediction-retained-rendering-handoff.md`. |
+| Current objective | Prediction retained-rendering is merge-ready; hand the committed branch back for owner merge and visible confirmation. No active/future portfolio task is registered. |
+| Active/future progress | Solar-system plan 7/7 complete; active/future denominator returned to 0. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | B5 `validate_full` passes in 115.7 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | B5 threshold/static proofs, fast, Replay allocation/artifact/scrub-visual-fidelity, broad, and hostile no-bag review all pass. |
+| Last broad local gate | Prediction retained-rendering `validate_full` passes with exit 0 in 182.7 s: mandatory CPU preflight and all Automation, replay/prediction, DX12, and physics runtime lanes passed. |
+| Validation for current edits | Focused retained geometry, adjacency, DX12 upload, scheduling, and build-root-prefix tests pass. Replay visual fidelity passes in 425.2 s, DX12 validation in 23.7 s with zero errors and accepted images, one-minute graphics stress completes crash-free, and the full gate passes in 182.7 s. |
 
 ## Live Queue
+
+NOW. `solar-system-trajectory-planner` is complete at 7/7. SS0 supplies bounded,
+allocation-free orbital math. SS1's interactive four-body scene loads cleanly,
+holds planet radii for 3.085 Mars periods, repeats its exact final state, keeps
+all movable bodies awake, and proves the authored first transfer window. SS2
+adds the bounded incremental Replay intercept consumer, independent target
+selection, Legacy markers/text, focused coverage, and one-generation fidelity
+proof. SS3 adds cold, fixed-capacity analytic Earth/Mars guide arcs with
+default-off zero-cost behavior. SS4 adds the bounded Lambert-seeded shooting
+planner with three-generation design-window convergence. SS5 adds the
+fixed-grid porkchop launch-window panel. SS6 remediates the independent review,
+proves rollback/default-off/epoch behavior, and closes every final gate.
+Closure evidence is in
+`Agentic/Reports/2026-07-24/solar-system-trajectory-planner-closure.md`.
+
+NOW. `ui-runtime-separation` is complete at 5/5. UI is physically below
+Runtime, has zero Runtime includes, and crosses through cohesive navigation,
+input, command, and status values. Its single independent review found one test
+depth gap, remediated by the focused `DiagnosticsPhysicsUI` owner and exact
+command-to-state-to-status coverage. All standing proofs and final gates pass.
+Closure evidence is in
+`Agentic/Reports/2026-07-23/ui-runtime-separation-closure.md`.
+
+NOW. `runtime-package-decomposition` is complete at 5/5. All 80 assigned files
+live in owner packages and only `RuntimeFrameViews.h` remains at top level.
+The standing Runtime edge table and 18 operational `\x22` proofs are in
+`AGENTS.md`; the single independent review found and verified two proof
+remediations, then reported no remaining finding. Replay visual fidelity,
+platform-profiler markers, and the broad gate pass. Closure evidence is in
+`Agentic/Reports/2026-07-23/runtime-package-decomposition-closure.md`.
 
 NOW. `wide-signature-parameter-bag-remediation` is complete (6/6).
 The owner rejected replacements such as `RenderModelPassInput` that merely
@@ -58,8 +88,8 @@ descriptors plus `RuntimeRenderInputs` and `RuntimeRenderServices`. The final
 allocation/artifact/scrub-visual-fidelity gates, and broad gate pass. Closure
 evidence is in
 `Agentic/Reports/2026-07-23/wide-signature-parameter-bag-remediation-closure.md`.
-The next registered campaign is `source-blemish-remediation`; no implementation
-has started.
+The subsequent `source-blemish-remediation` campaign is complete at 6/6; its
+closure evidence is recorded at the top of this file.
 
 `wide-signature-decomposition-round-2` closed D0-D4 (5/5) and left the
 live ledger. All eight reopened threshold-16 rows were removed without a
@@ -146,6 +176,19 @@ are not certified. Full evidence:
 
 | Command | Time | Result |
 |---|---:|---|
+| prediction retained-rendering focused tests | — | PASS; canonical geometry 9 assertions, continuation adjacency 7, repaired suffix upload 9, scheduling 6, build-root prefix 3 |
+| `tools\validate_replay_visual_fidelity.bat` (prediction retained-rendering) | 425.2 s | PASS; one process/generation/presentation, 2,401 ticks, all controls |
+| `tools\validate_dx12_renderer.bat` (prediction retained-rendering) | 23.7 s | PASS; zero InfoQueue errors, all image baselines accepted |
+| `tools\run_graphics_stress.bat 1` (prediction retained-rendering) | 61.1 s | PASS; bounded DX12 run completed crash-free |
+| `tools\validate_full.bat` (prediction retained-rendering) | 182.7 s | PASS; mandatory CPU preflight and all five runtime processes |
+| solar SS6 Profile tests build | 15.3 s | PASS; zero warnings/errors |
+| solar SS6 focused planner tests | 1.69 s | PASS; 5/5 cases, 108/108 assertions |
+| solar SS6 focused porkchop tests | 1.88 s | PASS; 4/4 cases, 70/70 assertions |
+| solar SS6 final direct probe | 3.2 s | PASS; 15.4676 ms total, 0.6092 ms max frame, 0.345871 s sweep age |
+| solar SS6 `validate_perf` first sample | 130.1 s | Inconclusive; one +13.4% DX12 frame sample, all allocation/absolute budgets clean |
+| solar SS6 `validate_perf` unchanged rerun | 82.0 s | PASS; no repeatable regression |
+| solar SS6 replay visual fidelity, sole invocation | 437.0 s | PASS; one process/generation/presentation and all controls |
+| solar SS6 `agent_validate` | 250.1 s | PASS; CPU/coverage, five runtime lanes, zero DX12 errors, byte-exact physics |
 | `python tools\check_allocation_policy.py --self-test` | 0.09 s | PASS |
 | `python tools\check_allocation_policy.py --repo .` | 9.14 s | PASS; zero allowlist errors |
 | `tools\validate_fast.bat` | 56.95 s | PASS |
@@ -361,8 +404,10 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-No architecture follow-up implementation is active. Preserve the empty
-threshold-13 inventory and owner-safe value boundaries. The next registered
-plan is `Agentic/Plans/TODO/source-blemish-remediation.md`; closure evidence for
-the completed current work is in
-`Agentic/Reports/2026-07-23/wide-signature-parameter-bag-remediation-closure.md`.
+Merge `nightrunner-23rd-JUL-26` after reviewing
+`Agentic/Reports/2026-07-24/prediction-retained-rendering-handoff.md`. The first
+owner-visible check is the 200-box striker: its root line must grow continuously
+toward the wall before contact, remain stable after completion, and remain
+selectable while the expanded Legacy UI is visible. Treat any remaining absence
+as retained DX12 visibility/submission first; the simulation and acquire-latched
+trajectory prefix are already present.

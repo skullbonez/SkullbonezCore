@@ -17,6 +17,7 @@
 //   - Full scene files must define at least one camera.
 //   - Malformed JSON returns a path-rich Scene/AuthoredSceneParser failure through
 //     AuthoredScene::TryLoadFromFile.
+//   - Solar body colours are authored material data, not name-based renderer policy.
 //
 // Related:
 //   - SkullbonezSource/Scene/AuthoredScene.h
@@ -35,13 +36,15 @@
 #include <string>
 
 using SkullbonezCore::Core::SbResult;
+using SkullbonezCore::Runtime::AuthoredScene;
 using SkullbonezCore::Runtime::SceneCamera;
 using SkullbonezCore::Runtime::SceneObjectGroupKind;
-using SkullbonezCore::Runtime::AuthoredScene;
+using SkullbonezCore::Runtime::SceneObjectMaterialOverride;
 
 namespace
 {
 constexpr const char* kSmallestCommittedScenePath = "SkullbonezData/scenes/terrain_compare.scene.json";
+constexpr const char* kSolarSystemScenePath = "SkullbonezData/scenes/solar_system.scene.json";
 constexpr const char* kVersionedAssetScene =
     R"({"format":"skullbonez.scene.json","version":2,"physics":false,"text":false,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}],"assetLibraries":["unit_versioned.assets.json"]})";
 
@@ -97,7 +100,8 @@ TEST_CASE( "AuthoredSceneParser: smallest committed scene parses expected record
 {
     const AuthoredScene scene = AuthoredScene::LoadFromFile( kSmallestCommittedScenePath );
     AuthoredScene tryScene;
-    const SkullbonezCore::Core::SbResult tryLoad = AuthoredScene::TryLoadFromFile( kSmallestCommittedScenePath, tryScene );
+    const SkullbonezCore::Core::SbResult tryLoad =
+        AuthoredScene::TryLoadFromFile( kSmallestCommittedScenePath, tryScene );
     CHECK( tryLoad.ok );
     CHECK( tryScene.GetCameraCount() == 1 );
 
@@ -119,6 +123,35 @@ TEST_CASE( "AuthoredSceneParser: smallest committed scene parses expected record
     CHECK( camera.view.x == doctest::Approx( 1400.0f ) );
     CHECK( camera.view.y == doctest::Approx( 0.0f ) );
     CHECK( camera.view.z == doctest::Approx( 200.0f ) );
+}
+
+TEST_CASE( "AuthoredSceneParser: solar bodies publish their authored colours" )
+{
+    const AuthoredScene scene = AuthoredScene::LoadFromFile( kSolarSystemScenePath );
+    REQUIRE( scene.GetObjectMaterialOverrideCount() == 4 );
+
+    struct ExpectedColour
+    {
+        const char* target;
+        float r;
+        float g;
+        float b;
+    };
+    const ExpectedColour expected[] = {
+        { "sun", 1.0f, 0.82f, 0.08f },
+        { "earth", 0.12f, 0.82f, 0.22f },
+        { "mars", 0.92f, 0.12f, 0.06f },
+        { "ship", 1.0f, 1.0f, 1.0f },
+    };
+
+    for ( int index = 0; index < scene.GetObjectMaterialOverrideCount(); ++index )
+    {
+        const SceneObjectMaterialOverride& material = scene.GetObjectMaterialOverride( index );
+        REQUIRE( std::string( material.target ) == expected[index].target );
+        CHECK( material.material.baseColor[0] == doctest::Approx( expected[index].r ) );
+        CHECK( material.material.baseColor[1] == doctest::Approx( expected[index].g ) );
+        CHECK( material.material.baseColor[2] == doctest::Approx( expected[index].b ) );
+    }
 }
 
 
@@ -187,7 +220,7 @@ TEST_CASE( "AuthoredSceneParser: missing camera reports recoverable load failure
 TEST_CASE( "AuthoredSceneParser: tornado fields over the fixed gameplay capacity fail recoverably" )
 {
     const TemporaryMalformedSceneFile overCapacity( "unit_scene_parser_tornado_capacity.scene.json",
-                                                     BuildOverCapacityTornadoScene() );
+                                                    BuildOverCapacityTornadoScene() );
     AuthoredScene scene;
     CheckLoadFailure( AuthoredScene::TryLoadFromFile( overCapacity.path, scene ),
                       overCapacity.path,
@@ -201,7 +234,9 @@ TEST_CASE( "AuthoredSceneParser: wrong member type reports recoverable load fail
         "unit_scene_parser_wrong_type.scene.json",
         R"({"format":"skullbonez.scene.json","version":1,"physics":false,"text":false,"cameras":{}})" );
     AuthoredScene scene;
-    CheckLoadFailure( AuthoredScene::TryLoadFromFile( wrongType.path, scene ), wrongType.path, "cameras must be an array" );
+    CheckLoadFailure( AuthoredScene::TryLoadFromFile( wrongType.path, scene ),
+                      wrongType.path,
+                      "cameras must be an array" );
 }
 
 

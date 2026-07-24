@@ -31,16 +31,16 @@ Related:
 */
 #include "OperatorEditorFrameComposer.h"
 
-#include "../Run.h"
-#include "../RuntimeOverlayDiagnostics.h"
-#include "../RuntimeValidationHarness.h"
+#include "../App/Run.h"
+#include "../Diagnostics/RuntimeOverlayDiagnostics.h"
+#include "../Automation/RuntimeValidationHarness.h"
 #include "../RuntimeFrameViews.h"
-#include "../RuntimeViewModel.h"
-#include "../Window.h"
+#include "RuntimeViewModel.h"
+#include "../App/Window.h"
 #include "../../Core/WorkerPool.h"
 #include "../Replay/ReplayOverlayPackets.h"
 #include "../Scene/SceneRuntimeLoad.h"
-#include "../CaptureSystem.h"
+#include "../Capture/CaptureSystem.h"
 #include "../Editor/EditorTools.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
@@ -210,20 +210,20 @@ void Render( RuntimeFrameHostView& host,
     DiagnosticsRuntime& diagnosticsRuntime = host.diagnosticsRuntime;
     RunTimerState& timers = sceneOwners.timers;
     RuntimeOverlayPresentationEdit presentationEdit = sceneOwners.overlays.EditPresentation();
-    RunDebugState& debug = presentationEdit.State();
+    OverlayDebugState& debug = presentationEdit.State();
     SceneController& sceneController = sceneOwners.sceneController;
-    RunSceneState& scene = sceneController.State();
+    SceneSessionState& scene = sceneController.State();
     SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     SkullbonezCore::UI::InGameUI& ui = interactionOwners.operatorUi;
     RuntimeInputContext& runtimeInput = interactionOwners.inputRouter.RuntimeContext();
-    RunCameraState& camera = interactionOwners.camera;
+    CameraControlState& camera = interactionOwners.camera;
     SkullbonezCore::Threading::WorkerPool& workerPool = host.workerPool;
     Window& window = host.window;
     RunLaunchOptions& launchOptions = sceneOwners.launchOptions;
     // Lifetime: the two owner views and value-only facts exist only for this
     // late UI call; no render or UI owner retains them.
-    const RunSceneBrowserState& uiSceneBrowser = ui.SceneNavigation().browser;
+    const SkullbonezCore::UI::RunSceneBrowserState& uiSceneBrowser = ui.SceneNavigation().browser;
     const std::string* uiScenePath = sceneController.CurrentPath();
     const ReplayHudStatus sharedReplayHud = replayRuntime.BuildHudStatus( false );
     const SkullbonezCore::Core::CinematicRenderConfig& sharedCinematic = ActiveSceneCinematicConfig( scene, config );
@@ -343,7 +343,8 @@ void Render( RuntimeFrameHostView& host,
             const PhysicsColliderHandle colliderHandle =
                 entity ? colliderStore.HandleForBodyHandle( entity->body ) : PhysicsColliderHandle{};
             const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
-            if ( !entity || !body || !collider )
+            const ColliderAuthoringRecord* colliderAuthoring = colliderStore.AuthoringRecordForHandle( colliderHandle );
+            if ( !entity || !body || !collider || !colliderAuthoring )
             {
                 inspector.selectionState = SkullbonezCore::UI::OperatorEditorInspectorSelectionState::Stale;
             }
@@ -360,7 +361,7 @@ void Render( RuntimeFrameHostView& host,
                     entity->renderMaterial.name[0] != '\0'
                         ? entity->renderMaterial.name
                         : SkullbonezCore::Rendering::RenderMaterialKindName( entity->renderMaterial.kind );
-                inspector.contactMaterialName = collider->contactMaterialName;
+                inspector.contactMaterialName = colliderAuthoring->contactMaterialName;
                 inspector.assetName = entity->asset.assetName;
                 inspector.assetInstanceName = entity->asset.instanceName;
                 inspector.assetPartName = entity->asset.partName;

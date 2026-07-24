@@ -21,10 +21,10 @@ Invariants:
     coverage.
 
 Related:
-  - SkullbonezSource/Runtime/ApplicationExitState.h defines the tested contract.
+  - SkullbonezSource/Runtime/App/ApplicationExitState.h defines the tested contract.
   - SkullbonezSource/Core/SbResult.h defines success and Lane R failure values.
 */
-#include "../SkullbonezSource/Runtime/ApplicationExitState.h"
+#include "../SkullbonezSource/Runtime/App/ApplicationExitState.h"
 
 #include "doctest/doctest.h"
 

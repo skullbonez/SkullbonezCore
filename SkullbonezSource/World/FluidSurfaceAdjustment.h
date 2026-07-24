@@ -18,7 +18,7 @@ Invariants:
   - The value is consumed synchronously and retains no owner reference.
 
 Related:
-  - SkullbonezSource/Runtime/InputRouter.cpp
+  - SkullbonezSource/Runtime/Input/InputRouter.cpp
   - SkullbonezSource/World/WorldEnvironment.cpp
   - Agentic/Reference/comment-style-guide.md
 */

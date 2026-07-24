@@ -25,14 +25,14 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.h
-  - SkullbonezSource/Runtime/Scene/RunScene.cpp
+  - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #pragma once
 
 #include "SceneControllerState.h"
 #include "SceneGeneratedSetup.h"
-#include "../RunCameraState.h"
+#include "../Camera/CameraControlState.h"
 #include "../../Core/SbResult.h"
 
 namespace SkullbonezCore
@@ -59,8 +59,8 @@ struct SceneGeneratedControlPolicy
 struct SceneGeneratedControlPresentation
 {
     // Lifetime: these UI/camera borrows live only for one rebuild command.
-    RunSceneUIOverrideState& uiOverrides;
-    RunCameraState& camera;
+    SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides;
+    CameraControlState& camera;
 };
 
 struct SceneGeneratedControlResetParticipants

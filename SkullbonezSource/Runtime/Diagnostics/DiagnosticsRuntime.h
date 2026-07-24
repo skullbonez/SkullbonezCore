@@ -22,13 +22,13 @@ Invariants:
   - Existing output paths and command-line behavior must not drift here.
 
 Related:
-  - SkullbonezSource/Runtime/CaptureController.h
-  - SkullbonezSource/Runtime/DiagnosticsController.h
+  - SkullbonezSource/Runtime/Capture/CaptureController.h
+  - SkullbonezSource/Runtime/Diagnostics/DiagnosticsController.h
 */
 #pragma once
 
-#include "../CaptureController.h"
-#include "../DiagnosticsController.h"
+#include "../Capture/CaptureController.h"
+#include "DiagnosticsController.h"
 
 namespace SkullbonezCore
 {
@@ -51,20 +51,19 @@ class Dx12Diagnostics;
 namespace UI
 {
 class InGameUI;
-struct UIPhysicsCommands;
 } // namespace UI
 namespace Runtime
 {
 class SceneController;
 class AuthoredScene;
 enum class RuntimeInputAction;
-struct RunDebugState;
+struct OverlayDebugState;
 
 struct DiagnosticsKeyboardShortcutContext
 {
     // Lifetime: borrowed for one already-routed action only; InputRouter owns
     // the edge and diagnostics mutates only debug presentation state.
-    RunDebugState& debug;
+    OverlayDebugState& debug;
     int& cameraTrackBallIndex;
     // Value-only entity count keeps diagnostics outside scene lifecycle authority.
     int sceneEntityCount = 0;
@@ -79,8 +78,8 @@ struct DiagnosticsUIKeyboardShortcutContext
     // overlay visibility, automation flags, and debug presentation state, then
     // reports any cursor/action bookkeeping still owned by the composition root.
     UI::InGameUI& ui;
-    RunDebugState& debug;
-    RunSceneState& scene;
+    OverlayDebugState& debug;
+    SceneSessionState& scene;
     CaptureController& capture;
     double nowSeconds = 0.0;
 };
@@ -92,34 +91,12 @@ struct DiagnosticsUIKeyboardShortcutResult
     bool releaseMouseToUI = false;                  // True when Run should refresh cursor ownership and release capture.
 };
 
-struct DiagnosticsPhysicsOverlayUICommandResult
-{
-    bool toggledCollisionVisualizer = false;
-    bool toggledPhysicsDebugFlags = false;
-    bool steppedPipelinePrevious = false;
-    bool steppedPipelineNext = false;
-    bool toggledPhysicsDebugTransparent = false;
-    bool toggledBroadphaseOverlay = false;
-};
-
-struct DiagnosticsPhysicsDebugValueUICommandResult
-{
-    bool setAlpha = false;
-    bool setContactLinger = false;
-};
-
-void StepDiagnosticsPhysicsPipelineStage( RunDebugState& debug, int direction );
 bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext context,
                                         RuntimeInputAction action,
                                         bool wasPressed );
 DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( DiagnosticsUIKeyboardShortcutContext context,
                                                                          RuntimeInputAction action,
                                                                          bool wasPressed );
-DiagnosticsPhysicsOverlayUICommandResult
-ApplyDiagnosticsPhysicsOverlayUICommands( RunDebugState& debug, const UI::UIPhysicsCommands& commands );
-bool ApplyDiagnosticsTerrainContactProbeUICommand( RunDebugState& debug, const UI::UIPhysicsCommands& commands );
-DiagnosticsPhysicsDebugValueUICommandResult
-ApplyDiagnosticsPhysicsDebugValueUICommands( RunDebugState& debug, const UI::UIPhysicsCommands& commands );
 
 class DiagnosticsRuntime
 {
@@ -161,7 +138,7 @@ class DiagnosticsRuntime
     bool MainMemoryDumpRequested() const;
     bool WriteMainMemoryDump( const SkullbonezCore::Core::MainMemoryReplayStats& replay,
                               const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects,
-                              const RunSceneState& scene,
+                              const SceneSessionState& scene,
                               const char* checkpoint,
                               double nowSeconds );
 
@@ -177,19 +154,19 @@ class DiagnosticsRuntime
     void
     LogSceneFinished( SceneController& scene, const Rendering::Dx12Diagnostics* renderDiagnostics, const char* reason );
     void BeginPhysicsDiagnosticsRun( Physics::PhysicsEngine& physics,
-                                     const RunSceneState& scene,
+                                     const SceneSessionState& scene,
                                      const SkullbonezCore::Core::EngineConfig& config,
                                      const char* scenePath,
                                      const char* rendererName );
-    void LogReplayScrubProbe( const RunSceneState& scene, const ReplayScrubProbeDiagnostic& probe );
-    void LogReplayRestoreProbe( const RunSceneState& scene, const ReplayRestoreProbeDiagnostic& probe );
-    void LogReplayRestoreResult( const RunSceneState& scene, const ReplayRestoreResultDiagnostic& result );
-    void EndPhysicsDiagnosticsRun( const RunSceneState& scene, const char* status );
+    void LogReplayScrubProbe( const SceneSessionState& scene, const ReplayScrubProbeDiagnostic& probe );
+    void LogReplayRestoreProbe( const SceneSessionState& scene, const ReplayRestoreProbeDiagnostic& probe );
+    void LogReplayRestoreResult( const SceneSessionState& scene, const ReplayRestoreResultDiagnostic& result );
+    void EndPhysicsDiagnosticsRun( const SceneSessionState& scene, const char* status );
 #endif
     // Consumes BeforeSceneUnload while the old scene identity is still live.
     // Release builds keep the same typed boundary even though SkullScope end
     // emission is Debug-only.
-    void BeforeSceneUnload( const RunSceneState& scene );
+    void BeforeSceneUnload( const SceneSessionState& scene );
 
     // Invariant: UI stress state is deterministic scene-driven input churn.
     // Keep it cheap and seed-based so validation can reproduce failures.

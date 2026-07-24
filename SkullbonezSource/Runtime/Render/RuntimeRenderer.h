@@ -19,8 +19,6 @@ Glossary:
     water, post effects, and UI/text.
   Lane R result: Recoverable resource setup or GPU-drain failure reported
     through an owner/message result instead of throwing through the render owner.
-  Consequence grade: Replay-owned [0,1] scalar copied into one frame to make
-    causal overlays dominate the image; RuntimeRenderer stores no fade state.
   Resource context: Creation/rebuild-only view of the renderer factory and
   resize-sensitive dimensions.
   Backend-owned resource: GPU object that must be released before backend
@@ -39,7 +37,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h
-  - SkullbonezSource/Runtime/RunRender.cpp
+  - SkullbonezSource/Runtime/App/RunRender.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #pragma once
@@ -86,10 +84,9 @@ class RuntimeRenderer
         const Rendering::WorldRenderExtensionRegistration& worldExtension;
         const SkullbonezCore::Core::CinematicRenderConfig& cinematic;
         bool cinematicRequested = false;
-        float consequenceGradeStrength = 0.0f;            // Replay-owned [0,1] fade copied for this frame.
     };
 
-    RuntimeRenderer( RuntimeRenderBackendView backend, const RenderWorldView& world, RunSceneState& scene );
+    RuntimeRenderer( RuntimeRenderBackendView backend, const RenderWorldView& world, SceneSessionState& scene );
     ~RuntimeRenderer();
 
     // Runs after Core FrameBegin and before draw-call counters reset. This

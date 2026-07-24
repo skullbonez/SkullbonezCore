@@ -1,10 +1,10 @@
 # Source Blemish Remediation
 
 Date: 2026-07-23
-Status: TODO — drafted from the 2026-07-23 from-source architecture review of
+Status: COMPLETE — drafted from the 2026-07-23 from-source architecture review of
 `nightrunner-22nd-JUL-26`. Registered in `MASTER-PLAN.md` on 2026-07-23 as
 plan 1 of the Architecture Follow-Up Campaign Round 3; starts after
-`wide-signature-parameter-bag-remediation` closes. 0/6 phases complete.
+`wide-signature-parameter-bag-remediation` closes. 6/6 phases complete.
 Impact area: Physics store layout, physics step API, Runtime editor file
 naming, profiler unit placement, development-tools TU size
 Owner: physics + runtime
@@ -92,7 +92,7 @@ seams.
 
 ## Phases
 
-- [ ] **B1 — Split cold collider authoring bytes out of the hot row.**
+- [x] **B1 — Split cold collider authoring bytes out of the hot row.**
   Move `contactMaterialName[32]` from `ColliderRecord` into a parallel
   cold-side dense array owned by `ColliderStore` (same row indexing, replaced
   in the same topology commits; a plain `ColliderAuthoringRecord` row is
@@ -103,7 +103,21 @@ seams.
   the name bytes; no caller reads the name from the hot row; physics
   regression CSV is byte-exact against the committed baseline.
 
-- [ ] **B2 — Register diagnostic names at topology time, not per step.**
+  Completed 2026-07-23. `ColliderRecord` is 7,228 bytes under the final MSVC
+  class-layout report, exactly 32 bytes below the prior 7,260-byte source
+  layout. `ColliderAuthoringRecord` owns the removed name bytes in a
+  fixed-capacity parallel row. Create, authored update, clear, and swap-delete
+  keep both rows in one topology transaction; focused collider compaction and
+  scene snapshot/reparse tests pass 4 cases / 498 assertions. Scene save,
+  editor history/inspector, automation fingerprints, and memory diagnostics
+  now read/count the cold row. The 10/10 touched source files pass the comment
+  audit with zero deferrals. `tools\validate_physics.bat` passes with lifecycle
+  hash `0x953D97A226665242` and a byte-exact 44,401-line CSV;
+  `tools\validate_perf.bat` passes with zero steady-gameplay allocation or
+  reserve-policy violations and no DX12/physics regression. No baseline,
+  golden, schema, config, or Replay source changed.
+
+- [x] **B2 — Register diagnostic names at topology time, not per step.**
   Remove `diagnosticNames`/`diagnosticNameCount` from both
   `PhysicsEngine::Step` overloads. Add one cold PhysicsEngine command (e.g.
   `SetDiagnosticNames(std::span<const char* const>)` or names carried on the
@@ -116,7 +130,44 @@ seams.
   signatures carry only per-tick inputs; deterministic physics CSV and
   SkullScope trace output are unchanged.
 
-- [ ] **B3 — Retire the `Run*` residue names.**
+  Completed 2026-07-23. `PhysicsDiagnosticsSink` now owns a fixed-capacity
+  pointer table registered through `PhysicsEngine::SetDiagnosticNames` after
+  authored refreshes and scene create/delete/clear/replay-trim topology
+  commits. Both `PhysicsEngine::Step` overloads and every production/test
+  caller have dropped the C-style name pointer/count pair; fixed steps consume
+  the registered table without allocating or rebuilding it. The 15/15 touched
+  source files pass the comment audit with zero deferrals. A Debug solution
+  build passes after the final call-site cleanup in 4.82 s.
+
+  The before/after SkullScope witness used
+  `Debug\SKULLBONEZ_CORE.exe --renderer dx12 --scene
+  SkullbonezData\scenes\physics_bench_varied.scene.json --fixed-step --frames
+  120 --physics-diag
+  TestOutput\orchestrator_b2_{before|after}.physicsdiag.ndjson --vsync off
+  --shadows off`. Both traces are 9,481,773 bytes and both SQLite caches are
+  4,644,864 bytes. Their SHA-256 is identically
+  `641BDD98CB7229A82433D0AE74FA20D90C4448A9147D89C5451569A5427B7C83`;
+  all 20 registered name rows match. Queries were
+  `tools\physics_query.bat TestOutput\orchestrator_b2_before.physicsdiag.ndjson
+  summary` (8,775 characters/bytes exposed),
+  `... events --limit 12` (324), `... frame 0` (11,093),
+  `tools\physics_query.bat TestOutput\orchestrator_b2_after.physicsdiag.ndjson
+  summary` (8,773 redirected, zero exposed), and `... frame 0` (11,091
+  redirected, zero exposed). The bounded derived comparison exposed 587
+  characters/bytes, for 20,779 total GPT-read characters/bytes; no query
+  output was truncated and neither raw trace was ingested.
+
+  `tools\validate_full.bat` passes in 175.41 s: mandatory CPU coverage and
+  runtime lanes pass, builds report zero warnings/errors, DX12 reports zero
+  validation errors with accepted captures, and the 44,401-line physics CSV
+  remains byte-exact. The mechanical `ReplayPrediction.cpp` caller update
+  triggered the cumulative replay gate; one
+  `tools\validate_replay_visual_fidelity.bat` invocation passes in 431.73 s
+  with one engine process, one prediction generation, the full 2,401-tick
+  fidelity oracle, and all negative controls. No baseline, golden, schema, or
+  config changed.
+
+- [x] **B3 — Retire the `Run*` residue names.**
   For each file listed in Problem item 3: confirm again at execution time it
   defines no `Run::` member, then rename to match its real content
   (`RunEditorTools.cpp` → `EditorTools.cpp`, `RunMousePickupTools.cpp` →
@@ -131,7 +182,53 @@ seams.
   `Run`-prefixed file without `Run::` members remains, builds are clean at
   `/W4`, and the commit body lists every rename pair.
 
-- [ ] **B4 — Put the profiler implementation where it lives.**
+  Completed 2026-07-23. The execution-time census reconfirmed all ten listed
+  implementations had zero `Run::` definitions and found one additional
+  residue missed by the original review: `RunInput.cpp` defines only
+  `InputRouter` methods. The physical moves are:
+
+  - `RunEditorGizmoTools.cpp` → `EditorGizmoTools.cpp`
+  - `RunEditorHistory.cpp` → `EditorHistory.cpp`
+  - `RunEditorObjectPlacement.cpp` → `EditorObjectPlacement.cpp`
+  - `RunEditorOverlayTools.cpp` → `EditorOverlayTools.cpp`
+  - `RunEditorPlacementAssets.cpp` → `EditorPlacementAssets.cpp`
+  - `RunEditorTools.cpp` → `EditorInteractionTools.cpp`
+  - `RunEditorTracer.cpp` → `EditorTracer.cpp`
+  - `RunMousePickupTools.cpp` → `MousePickupTools.cpp`
+  - `RunScene.cpp` → `SceneController.Load.cpp`
+  - `RunCameraState.cpp/.h` → `CameraControlState.cpp/.h`
+  - `RunDebugState.h` → `OverlayDebugState.h`
+  - `RunInput.cpp` → `InputRouter.Interactions.cpp`
+
+  The type decisions follow actual owners: `RunEditorTracer` →
+  `EditorTracer`, `RunCameraState` → `CameraControlState`, `RunDebugState` →
+  `OverlayDebugState`, and `RunSceneState` → `SceneSessionState`.
+  `RuntimeTools::EditorTracer()` becomes `Tracer()` to avoid hiding the
+  concrete type. No aliases or forwarding headers remain. The only surviving
+  `Run`-prefixed physical files are `Run.h/.cpp`, `RunFrame.cpp`, and
+  `RunRender.cpp`, which declare/define `Run`, plus `RunLaunchOptions*` and
+  `RunStartupState.h`/`RunTimerState.h`, whose matching values are direct
+  `Run` members.
+
+  The production/test/project rename surface is whitespace-insensitive
+  lexical-equivalent in 122/124 files after applying the declared rename map;
+  the two exceptions are intentional learning-header wording repairs.
+  All 122 touched C++ files plus the substantial project-filter tool pass the
+  comment audit (123/123, zero deferrals). A Debug solution build passes in
+  27.31 s. Direct project-filter validation reports zero errors over 745
+  project/filter items. The allocation-policy self-test and 429-file repo scan
+  pass in 9.10 s with zero allowlist errors; the scan also removed B2's now
+  stale `SceneEntityStore.cpp` `.assign(` exception.
+
+  Final `tools\validate_full.bat` passes in 246.07 s with zero-warning builds,
+  accepted DX12 captures and zero validation errors, all CPU/runtime lanes,
+  and the byte-exact 44,401-line physics CSV. Because the type spelling crosses
+  Replay declarations, one `tools\validate_replay_visual_fidelity.bat`
+  invocation passes in 428.56 s with one engine process, one prediction
+  generation, the full 2,401-tick oracle, and every negative control. No
+  baseline, golden, schema, config, or runtime behavior changed.
+
+- [x] **B4 — Put the profiler implementation where it lives.**
   Split `Rendering/ProfilerImplementation.cpp`: the Core marker/history/
   hierarchy implementation moves to `Core/Profiler.cpp`; the renderer-side
   GPU-timing bracket, counter publication, and overlay presentation stay in
@@ -144,7 +241,32 @@ seams.
   only renderer-owned profiler behavior; the platform-profiler-markers run
   passes.
 
-- [ ] **B5 — Split `ImGuiEditorOwner.cpp` along its policy seams
+  Completed 2026-07-23. The mixed 2,087-line unit is physically split into
+  `Core/Profiler.cpp` (1,257 lines) and
+  `Rendering/RenderProfilerPresentation.cpp` (873 lines). All 48 Core
+  profiler/worker definitions now live beside `Profiler.h`; the six concrete
+  GPU-timing and overlay definitions remain in Rendering. The method bodies
+  were transferred mechanically: marker paths, hashes, nesting, Tracy zones,
+  warmup/history math, renderer counter publication, and no-op build behavior
+  are unchanged. Production and test projects compile both owning units.
+
+  Direct ownership scans find zero renderer-owned definitions in the Core unit
+  and zero Core-owned definitions in the Rendering unit. The Core dependency
+  proof returns zero rows. Project/filter validation passes with 746/746 items,
+  and the final Debug solution build passes in 3.78 s. The four touched
+  source/substantial-tool files pass the comment audit (4/4, zero deferrals).
+
+  `tools\validate_fast.bat` passes in 76.59 s. Final
+  `tools\validate_full.bat` passes in 170.04 s with zero-warning builds, all
+  CPU/runtime lanes, zero DX12 validation errors, accepted captures, and the
+  byte-exact 44,401-line physics CSV. The exact bare marker flag confirms
+  marker emission is enabled but remains an interactive launch; PID 64428 was
+  stopped by PID at the 120-second evidence bound. The deterministic
+  `Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers --frames 2` probe
+  exits 0 in 1.26 s with marker emission requested and enabled. No baseline,
+  golden, schema, config, allocation policy, or runtime behavior changed.
+
+- [x] **B5 — Split `ImGuiEditorOwner.cpp` along its policy seams
   (owner-optional).** Development-tools builds only. Use the existing
   `ImGuiEditor*Policy`/projection headers as the split map; each new TU keeps
   the same owner type — this is a mechanical TU split, not an ownership
@@ -154,9 +276,65 @@ seams.
   `Runtime/DevelopmentTools/` exceeds ~1,500 lines, or a recorded owner
   decision to keep it.
 
-- [ ] **B6 — Final review and gates.** Re-run the dependency-direction proofs
+  Owner decision recorded 2026-07-23: keep the cohesive owner unit. The
+  execution-time census measures `ImGuiEditorOwner.cpp` at 3,077 lines, of
+  which the single `BuildEditorShell` transaction occupies 1,969 lines
+  (lines 962-2,930). The existing seams are already physical:
+  `ImGuiEditorLayoutPolicy.cpp` is 384 lines,
+  `ImGuiEditorInputPolicy.h` is 166 lines, and
+  `ImGuiEditorCausalityProjection.h` is 277 lines.
+
+  Moving whole owner methods cannot satisfy the approximate 1,500-line target
+  because `BuildEditorShell` alone exceeds it. Reaching that target would
+  require decomposing the method's one balanced ImGui shell transaction and
+  either duplicating or packaging its local command submission, preview/commit
+  edit, parameterized edit, and Tracy-launch lambdas. That is an ownership/API
+  redesign, not the mechanical translation-unit split authorized by this
+  optional phase, and risks creating the context/callback bags prohibited by
+  the repository's god-object and migration rules. The owner therefore prefers
+  the honest large cohesive unit. No source or behavior changed; B4's
+  final-source full gate already proves the development-tools build and runtime
+  lanes, so this documentation-only ruling requires no additional repository
+  validation.
+
+- [x] **B6 — Final review and gates.** Re-run the dependency-direction proofs
   from `AGENTS.md` (all must return no rows), run the mapped validation set
   below, and paste command output in the closing commit body.
+
+  Completed 2026-07-23. Independent rubber-duck review found no material
+  source, ownership, allocation, replay-boundary, or behavioral defect. It
+  found two active-document spelling/state defects: `AGENTS.md` still mapped
+  replay-facing validation through the retired `RunEditorTracer*` spelling,
+  and two `SessionState.md` passages still said this campaign had not started.
+  Both are corrected, along with stale renamed-file entries in the historical
+  comment-audit and wide-signature checklists. One non-operational
+  `trajectory_ribbon.hlsl` related-file comment still names a historical
+  `RunEditorTracer` path; it is deliberately retained because changing HLSL
+  source would create shader-source and generated-artifact scope unrelated to
+  this non-behavioral naming campaign.
+
+  All four dependency and Replay-boundary proofs return zero rows. The final
+  source census confirms that the hot `ColliderRecord` has no name bytes,
+  `ColliderAuthoringRecord` owns `contactMaterialName[32]`, both
+  `PhysicsEngine::Step` overloads have no diagnostic-name parameters, and the
+  eight remaining case-sensitive `Run`-prefixed files honestly declare or
+  implement direct `Run` state. Profiler ownership is 48 Core definitions and
+  six renderer presentation/GPU definitions. The plan-base diff changes no
+  authored data, baseline, golden, config, schema, or shader path.
+
+  Final-tip gates pass: `tools\validate_physics.bat` in 43.28 s with the
+  byte-exact 44,401-line CSV; `tools\validate_perf.bat` in 69.90 s with zero
+  allocation-policy errors or regressions; `tools\validate_full.bat` in
+  102.27 s with all CPU/coverage and five runtime lanes, accepted DX12
+  captures, zero DX12 validation errors, and byte-exact physics; and
+  `Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers --frames 2` in
+  1.24 s with exit 0 and marker emission requested/enabled.
+
+  Rubber-duck accounting: run
+  `source-blemish-remediation-duck-01`, prompt 1,430 characters, response
+  1,391 characters, token counts unavailable, elapsed 3m42s. Verdict: PASS
+  after the active-document corrections above; no code remediation or
+  follow-up plan is required.
 
 ## Dependencies And Decisions
 

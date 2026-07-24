@@ -34,20 +34,22 @@ Invariants:
     cursor-reset request.
 
 Related:
-  - SkullbonezSource/Runtime/InputRouter.h
+  - SkullbonezSource/Runtime/Input/InputRouter.h
   - SkullbonezTests/TestRuntimeInputBindings.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 
-#include "../SkullbonezSource/Runtime/InputRouter.h"
+#include "../SkullbonezSource/Runtime/Input/InputRouter.h"
+#include "../SkullbonezSource/Runtime/App/InputFrame.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorInputPolicy.h"
-#include "../SkullbonezSource/Runtime/RuntimeInteractionController.h"
+#include "../SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h"
 
 #include <initializer_list>
 
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Runtime::DevelopmentTools;
+using namespace SkullbonezCore::UI::InputControl;
 
 namespace
 {
@@ -95,6 +97,44 @@ TEST_CASE( "Input router: key snapshot is bounded and ignores invalid virtual ke
     CHECK_FALSE( snapshot.IsDown( 256 ) );
     CHECK( snapshot.Words().size() == InputKeySnapshot::WORD_COUNT );
     static_assert( InputActions::CAPACITY == static_cast<std::size_t>( RuntimeInputAction::Count ) );
+}
+
+
+TEST_CASE( "Runtime copies device levels and pointer edges into a detached UI snapshot" )
+{
+    DeviceInputFrame frame = FocusedFrame( { VK_SHIFT, 'A' }, true );
+    frame.clientX = 41;
+    frame.clientY = 73;
+    frame.hasClientPosition = true;
+    frame.wheelDelta = -120;
+    RuntimeMouseEdges mouse;
+    mouse.leftDown = true;
+    mouse.leftPressed = true;
+
+    const UIInputSnapshot copied = BuildUIInputSnapshot( frame, mouse, {} );
+    CHECK( copied.keyWords == frame.keys.Words() );
+    CHECK( IsVirtualKeyDown( copied, VK_SHIFT ) );
+    CHECK( IsVirtualKeyDown( copied, 'A' ) );
+    CHECK_FALSE( IsVirtualKeyDown( copied, 'B' ) );
+    CHECK( copied.mouseX == 41 );
+    CHECK( copied.mouseY == 73 );
+    CHECK( copied.wheelDelta == -120 );
+    CHECK( copied.leftDown );
+    CHECK( copied.leftPressed );
+    CHECK_FALSE( copied.leftReleased );
+
+    frame.keys = {};
+    frame.clientX = 0;
+    frame.clientY = 0;
+    mouse = {};
+    CHECK( copied.keyWords != frame.keys.Words() );
+    CHECK( IsVirtualKeyDown( copied, 'A' ) );
+    CHECK( copied.mouseX == 41 );
+    CHECK( copied.leftPressed );
+
+    const UIInputSnapshot overridden = BuildUIInputSnapshot( frame, mouse, UIPointerOverride{ true, 12, 34 } );
+    CHECK( overridden.mouseX == 12 );
+    CHECK( overridden.mouseY == 34 );
 }
 
 

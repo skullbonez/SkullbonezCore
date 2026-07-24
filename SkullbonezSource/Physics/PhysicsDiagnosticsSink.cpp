@@ -10,6 +10,8 @@ Summary:
   below.
 
 Glossary:
+  Diagnostic-name table: Fixed pointer table registered when scene topology
+    changes and borrowed only while emitting Debug rows.
   Broadphase: Cheap collision pass that finds object pairs worth testing more
   precisely.
   Narrowphase: Precise collision pass that computes contact points, normals,
@@ -64,6 +66,33 @@ void PhysicsDiagnosticsCsvWriter::Writef( const char* fileName, const char* fmt,
     (void)fmt;
 #endif
 }
+
+
+void PhysicsDiagnosticsSink::SetDiagnosticNames( std::span<const char* const> diagnosticNames )
+{
+#ifdef _DEBUG
+    if ( diagnosticNames.size() > m_diagnosticNames.size() )
+    {
+        SB_FATAL( "Physics/DiagnosticsSink",
+                  "Diagnostic name registration exceeds fixed capacity. requested=%zu capacity=%zu",
+                  diagnosticNames.size(),
+                  m_diagnosticNames.size() );
+    }
+    std::fill( m_diagnosticNames.begin(), m_diagnosticNames.end(), nullptr );
+    std::copy( diagnosticNames.begin(), diagnosticNames.end(), m_diagnosticNames.begin() );
+    m_diagnosticNameCount = static_cast<int>( diagnosticNames.size() );
+#else
+    (void)diagnosticNames;
+#endif
+}
+
+
+#ifdef _DEBUG
+PhysicsDiagnosticsNameView PhysicsDiagnosticsSink::RegisteredNames() const
+{
+    return { m_diagnosticNames.data(), m_diagnosticNameCount };
+}
+#endif
 
 
 #ifdef _DEBUG
@@ -289,9 +318,7 @@ void PhysicsDiagnosticsSink::QueueCollisionTime( const char* type,
 #endif
 }
 
-void PhysicsDiagnosticsSink::FlushCollisionTimes( const char* const* diagnosticNames,
-                                                  int diagnosticNameCount,
-                                                  const PhysicsDiagnosticsCsvWriter& csvWriter )
+void PhysicsDiagnosticsSink::FlushCollisionTimes( const PhysicsDiagnosticsCsvWriter& csvWriter )
 {
 #ifdef _DEBUG
     if ( m_physicsCollisionTimeLogPath[0] == '\0' || m_collisionTimeEventCount == 0 )
@@ -304,7 +331,7 @@ void PhysicsDiagnosticsSink::FlushCollisionTimes( const char* const* diagnosticN
                           "frame,type,bodyA,bodyB,nameA,nameB,collisionTime,availableTime\n" );
         m_physicsCollisionTimeHeaderWritten = true;
     }
-    const PhysicsDiagnosticsNameView names{ diagnosticNames, diagnosticNameCount };
+    const PhysicsDiagnosticsNameView names = RegisteredNames();
     const auto collisionNameFor = [&]( int bodyIndex ) -> const char*
     { return ( bodyIndex >= 0 && bodyIndex < names.count ) ? names.NameFor( bodyIndex ) : "terrain"; };
     for ( int eventIndex = 0; eventIndex < m_collisionTimeEventCount; ++eventIndex )
@@ -322,8 +349,6 @@ void PhysicsDiagnosticsSink::FlushCollisionTimes( const char* const* diagnosticN
                           event.availableTime );
     }
 #else
-    (void)diagnosticNames;
-    (void)diagnosticNameCount;
     (void)csvWriter;
 #endif
 }

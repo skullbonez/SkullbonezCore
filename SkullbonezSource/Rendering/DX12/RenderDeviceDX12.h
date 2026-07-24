@@ -28,6 +28,8 @@ Glossary:
     through reference-counted objects.
   Upload arena: Fixed, persistently mapped per-frame byte range used for
     constants, vertices, instances, and resource-copy rows.
+  Persistent tail: Fixed suffix excluded from ordinary frame resets so retained
+    GPU geometry can reuse cold-created upload memory across frames.
   Cold flush: Submit/wait/reset retry allowed outside steady gameplay when an
     upload reservation does not fit.
 
@@ -705,7 +707,11 @@ class Dx12FrameUploadSystem
     Dx12FrameUploadSystem( const Dx12FrameUploadSystem& ) = delete;
     Dx12FrameUploadSystem& operator=( const Dx12FrameUploadSystem& ) = delete;
 
-    bool Init( ID3D12Device* device, UINT frameCount, UINT64 capacityBytes, const wchar_t* debugNamePrefix );
+    bool Init( ID3D12Device* device,
+               UINT frameCount,
+               UINT64 capacityBytes,
+               UINT64 persistentTailBytes,
+               const wchar_t* debugNamePrefix );
     void Shutdown();
 
     void ResetFrame( UINT frameIndex );
@@ -715,6 +721,10 @@ class Dx12FrameUploadSystem
     uint8_t* GetMappedPtr( UINT frameIndex, D3D12_GPU_VIRTUAL_ADDRESS address ) const;
     UINT64 OffsetFromAddress( UINT frameIndex, D3D12_GPU_VIRTUAL_ADDRESS address ) const;
     ID3D12Resource* Resource( UINT frameIndex ) const;
+    // Returns the fixed tail excluded from ordinary frame allocations. Owners
+    // may retain bytes there until the upload system is shut down.
+    D3D12_GPU_VIRTUAL_ADDRESS PersistentTailAddress( UINT frameIndex ) const;
+    uint8_t* PersistentTailPointer( UINT frameIndex ) const;
     Dx12UploadArenaStats GetStats( UINT frameIndex ) const;
 
   private:
@@ -725,6 +735,7 @@ class Dx12FrameUploadSystem
     Dx12UploadArena m_arenas[MAX_FRAME_COUNT];
     UINT m_frameCount = 0;
     UINT64 m_capacityBytes = 0;
+    UINT64 m_persistentTailBytes = 0;
 };
 
 struct Dx12ReadbackBufferStats

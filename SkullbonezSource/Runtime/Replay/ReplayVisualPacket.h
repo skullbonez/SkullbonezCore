@@ -25,7 +25,7 @@ Glossary:
     or component within that row.
 
 Invariants:
-  - Buffer spans borrow RunEditorTracer storage for the current render frame only.
+  - Buffer spans borrow EditorTracer storage for the current render frame only.
   - ReplayPresentation owns packet publication and semantic metadata; the tracer owns
     storage capacity but cannot invent scene object identity or reveal state.
   - Production rendering and validation consume the same published packet.
@@ -33,7 +33,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
-  - SkullbonezSource/Runtime/Editor/RunEditorTracer.cpp
+  - SkullbonezSource/Runtime/Editor/EditorTracer.cpp
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp
 */
 #pragma once
@@ -43,6 +43,7 @@ Related:
 #include "../../Core/MainMemoryStats.h"
 #include "../../Core/ByteView.h"
 #include "../../Maths/Quaternion.h"
+#include "../../Rendering/RenderCommandTypes.h"
 
 #include <algorithm>
 #include <bit>
@@ -80,6 +81,60 @@ inline uint64_t HashReplayVisualFloatBuffer( std::span<const float> values ) noe
     {
         appendBytes( SkullbonezCore::Core::ObjectBytes( values ) );
     }
+    return hash;
+}
+
+inline uint64_t HashReplayVisualFloatBuffers( std::span<const float> first, std::span<const float> second ) noexcept
+{
+    uint64_t hash = REPLAY_VISUAL_BUFFER_FNV_OFFSET;
+    const auto appendBytes = [&hash]( SkullbonezCore::Core::ByteView bytes )
+    {
+        for ( uint8_t byte : bytes )
+        {
+            hash ^= static_cast<uint64_t>( byte );
+            hash *= REPLAY_VISUAL_BUFFER_FNV_PRIME;
+        }
+    };
+    const uint64_t floatCount = static_cast<uint64_t>( first.size() + second.size() );
+    appendBytes( SkullbonezCore::Core::ObjectBytes( floatCount ) );
+    if ( !first.empty() )
+    {
+        appendBytes( SkullbonezCore::Core::ObjectBytes( first ) );
+    }
+    if ( !second.empty() )
+    {
+        appendBytes( SkullbonezCore::Core::ObjectBytes( second ) );
+    }
+    return hash;
+}
+
+inline uint64_t HashReplayVisualFloatBuffers( std::span<const float> first,
+                                              std::span<const float> second,
+                                              std::span<const float> third,
+                                              std::span<const float> fourth ) noexcept
+{
+    uint64_t hash = REPLAY_VISUAL_BUFFER_FNV_OFFSET;
+    const auto appendBytes = [&hash]( SkullbonezCore::Core::ByteView bytes )
+    {
+        for ( uint8_t byte : bytes )
+        {
+            hash ^= static_cast<uint64_t>( byte );
+            hash *= REPLAY_VISUAL_BUFFER_FNV_PRIME;
+        }
+    };
+    const uint64_t floatCount = static_cast<uint64_t>( first.size() + second.size() + third.size() + fourth.size() );
+    appendBytes( SkullbonezCore::Core::ObjectBytes( floatCount ) );
+    const auto appendValues = [&appendBytes]( std::span<const float> values )
+    {
+        if ( !values.empty() )
+        {
+            appendBytes( SkullbonezCore::Core::ObjectBytes( values ) );
+        }
+    };
+    appendValues( first );
+    appendValues( second );
+    appendValues( third );
+    appendValues( fourth );
     return hash;
 }
 
@@ -233,6 +288,23 @@ struct ReplayVisualPacket
     std::span<const float> ordinaryRibbonSegments;
     std::span<const float> priorityRibbonSegments;
     std::span<const float> expandedRibbonVertices;
+    std::span<const float> priorityExpandedRibbonVertices;
+    // Retained prediction geometry is a separate append-only lane. Its CPU
+    // storage survives frame-local tracer clears; DX12 uses stream/revision to
+    // refresh only on mutation and performs no geometry upload once stable.
+    std::span<const float> retainedPredictionRibbonVertices;
+    std::span<const float> retainedPredictionPriorityRibbonVertices;
+    std::span<const float> retainedPredictionOrdinaryRibbonSegments;
+    std::span<const float> retainedPredictionPriorityRibbonSegments;
+    std::span<const float> retainedPredictionOrdinaryLines;
+    std::span<const float> retainedPredictionPriorityLines;
+    // Compact retained records are partitioned into stable per-trajectory
+    // ranges. The renderer uploads only a changed range tail and preserves the
+    // range order rather than flattening reveal growth into a global append.
+    std::span<const float> retainedPredictionCompactRibbonRecords;
+    std::span<const Rendering::RetainedTrajectoryDrawRange> retainedPredictionRibbonRanges;
+    uint64_t retainedPredictionStreamId = 0;
+    uint64_t retainedPredictionRevision = 0;
     std::span<const ReplayTrajectoryRecord> trajectoryRecords;
     std::span<const RunReplayPathTraceNode> futureNodes;
     std::span<const ReplayPredictionRetainedMarker> retainedMarkers;
@@ -242,9 +314,97 @@ struct ReplayVisualPacket
 
     bool HasGeometry() const noexcept
     {
-        return !combinedLines.empty() || !expandedRibbonVertices.empty();
+        return !combinedLines.empty() || !retainedPredictionOrdinaryLines.empty() ||
+               !retainedPredictionPriorityLines.empty() || !expandedRibbonVertices.empty() ||
+               !priorityExpandedRibbonVertices.empty() || !retainedPredictionRibbonVertices.empty() ||
+               !retainedPredictionPriorityRibbonVertices.empty() || !retainedPredictionRibbonRanges.empty();
     }
 };
+
+namespace ReplayVisualPacketOperations
+{
+// Attaches the retained prediction command list to a frame-local packet using
+// the same logical lane order consumed by DX12 and durable visual validation.
+// Stable frames copy cached submission facts; only a packet with moving tails
+// hashes the retained and frame-local spans together.
+inline void AttachRetainedPredictionGeometry( ReplayVisualPacket& packet,
+                                              const ReplayVisualPacket& retainedPacket,
+                                              uint64_t streamId,
+                                              uint64_t revision ) noexcept
+{
+    packet.retainedPredictionRibbonVertices = retainedPacket.expandedRibbonVertices;
+    packet.retainedPredictionPriorityRibbonVertices = retainedPacket.priorityExpandedRibbonVertices;
+    packet.retainedPredictionOrdinaryRibbonSegments = retainedPacket.ordinaryRibbonSegments;
+    packet.retainedPredictionPriorityRibbonSegments = retainedPacket.priorityRibbonSegments;
+    packet.retainedPredictionOrdinaryLines = retainedPacket.ordinaryLines;
+    packet.retainedPredictionPriorityLines = retainedPacket.priorityLines;
+    packet.retainedPredictionCompactRibbonRecords = retainedPacket.retainedPredictionCompactRibbonRecords;
+    packet.retainedPredictionRibbonRanges = retainedPacket.retainedPredictionRibbonRanges;
+    packet.retainedPredictionStreamId = streamId;
+    packet.retainedPredictionRevision = revision;
+    if ( packet.retainedPredictionRibbonVertices.empty() && packet.retainedPredictionPriorityRibbonVertices.empty() &&
+         packet.retainedPredictionOrdinaryLines.empty() && packet.retainedPredictionPriorityLines.empty() &&
+         packet.retainedPredictionRibbonRanges.empty() )
+    {
+        return;
+    }
+
+    const auto& retainedSubmission = retainedPacket.submission;
+    const bool hasFrameLocalGeometry =
+        !packet.ordinaryLines.empty() || !packet.priorityLines.empty() || !packet.ordinaryRibbonSegments.empty() ||
+        !packet.priorityRibbonSegments.empty() || !packet.expandedRibbonVertices.empty() ||
+        !packet.priorityExpandedRibbonVertices.empty();
+    if ( !hasFrameLocalGeometry )
+    {
+        packet.submission = retainedSubmission;
+        return;
+    }
+
+    packet.submission.hasGeometry = packet.submission.hasGeometry || retainedSubmission.hasGeometry;
+    packet.submission.ordinaryLineHash =
+        HashReplayVisualFloatBuffers( packet.retainedPredictionOrdinaryLines, packet.ordinaryLines );
+    packet.submission.ordinaryLineBytes =
+        packet.retainedPredictionOrdinaryLines.size_bytes() + packet.ordinaryLines.size_bytes();
+    packet.submission.ordinaryLineVertexCount =
+        retainedSubmission.ordinaryLineVertexCount + packet.submission.ordinaryLineVertexCount;
+    packet.submission.priorityLineHash =
+        HashReplayVisualFloatBuffers( packet.retainedPredictionPriorityLines, packet.priorityLines );
+    packet.submission.priorityLineCanonicalHash = retainedSubmission.priorityLineCanonicalHash;
+    packet.submission.priorityLineBytes =
+        packet.retainedPredictionPriorityLines.size_bytes() + packet.priorityLines.size_bytes();
+    packet.submission.priorityLineVertexCount =
+        retainedSubmission.priorityLineVertexCount + packet.submission.priorityLineVertexCount;
+    packet.submission.ordinaryRibbonHash =
+        HashReplayVisualFloatBuffers( packet.retainedPredictionOrdinaryRibbonSegments, packet.ordinaryRibbonSegments );
+    packet.submission.ordinaryRibbonBytes =
+        packet.retainedPredictionOrdinaryRibbonSegments.size_bytes() + packet.ordinaryRibbonSegments.size_bytes();
+    packet.submission.ordinaryRibbonSegmentCount =
+        retainedSubmission.ordinaryRibbonSegmentCount + packet.submission.ordinaryRibbonSegmentCount;
+    packet.submission.priorityRibbonHash =
+        HashReplayVisualFloatBuffers( packet.retainedPredictionPriorityRibbonSegments, packet.priorityRibbonSegments );
+    packet.submission.priorityRibbonCanonicalHash = retainedSubmission.priorityRibbonCanonicalHash;
+    packet.submission.priorityRibbonBytes =
+        packet.retainedPredictionPriorityRibbonSegments.size_bytes() + packet.priorityRibbonSegments.size_bytes();
+    packet.submission.priorityRibbonSegmentCount =
+        retainedSubmission.priorityRibbonSegmentCount + packet.submission.priorityRibbonSegmentCount;
+    packet.submission.vertexHash = HashReplayVisualFloatBuffers( packet.retainedPredictionRibbonVertices,
+                                                                 packet.expandedRibbonVertices,
+                                                                 packet.retainedPredictionPriorityRibbonVertices,
+                                                                 packet.priorityExpandedRibbonVertices );
+    packet.submission.ordinaryVertexHash =
+        HashReplayVisualFloatBuffers( packet.retainedPredictionRibbonVertices, packet.expandedRibbonVertices );
+    packet.submission.ordinaryVertexBytes =
+        packet.retainedPredictionRibbonVertices.size_bytes() + packet.expandedRibbonVertices.size_bytes();
+    packet.submission.ordinaryVertexCount =
+        retainedSubmission.ordinaryVertexCount + packet.submission.ordinaryVertexCount;
+    packet.submission.vertexBytes = packet.retainedPredictionRibbonVertices.size_bytes() +
+                                    packet.expandedRibbonVertices.size_bytes() +
+                                    packet.retainedPredictionPriorityRibbonVertices.size_bytes() +
+                                    packet.priorityExpandedRibbonVertices.size_bytes();
+    packet.submission.vertexCount = static_cast<uint32_t>( packet.submission.vertexBytes / ( sizeof( float ) * 19u ) );
+    packet.submission.segmentCount = packet.submission.vertexCount / 6u;
+}
+} // namespace ReplayVisualPacketOperations
 
 // Concept: the artifact retains one typed identity/submission row per presented
 // packet beside the complete prediction-state archive. Exact hashes plus per-lane
@@ -993,6 +1153,14 @@ inline bool FindReplayVisualPacketDifference( const ReplayVisualPacket& expected
                                              actual.priorityLines,
                                              ReplayVisualPacketBuffer::PriorityLines,
                                              outDifference ) ||
+           FindReplayVisualBufferDifference( expected.retainedPredictionOrdinaryLines,
+                                             actual.retainedPredictionOrdinaryLines,
+                                             ReplayVisualPacketBuffer::OrdinaryLines,
+                                             outDifference ) ||
+           FindReplayVisualBufferDifference( expected.retainedPredictionPriorityLines,
+                                             actual.retainedPredictionPriorityLines,
+                                             ReplayVisualPacketBuffer::PriorityLines,
+                                             outDifference ) ||
            FindReplayVisualBufferDifference( expected.ordinaryRibbonSegments,
                                              actual.ordinaryRibbonSegments,
                                              ReplayVisualPacketBuffer::OrdinaryRibbonSegments,
@@ -1001,8 +1169,28 @@ inline bool FindReplayVisualPacketDifference( const ReplayVisualPacket& expected
                                              actual.priorityRibbonSegments,
                                              ReplayVisualPacketBuffer::PriorityRibbonSegments,
                                              outDifference ) ||
+           FindReplayVisualBufferDifference( expected.retainedPredictionOrdinaryRibbonSegments,
+                                             actual.retainedPredictionOrdinaryRibbonSegments,
+                                             ReplayVisualPacketBuffer::OrdinaryRibbonSegments,
+                                             outDifference ) ||
+           FindReplayVisualBufferDifference( expected.retainedPredictionPriorityRibbonSegments,
+                                             actual.retainedPredictionPriorityRibbonSegments,
+                                             ReplayVisualPacketBuffer::PriorityRibbonSegments,
+                                             outDifference ) ||
            FindReplayVisualBufferDifference( expected.expandedRibbonVertices,
                                              actual.expandedRibbonVertices,
+                                             ReplayVisualPacketBuffer::ExpandedRibbonVertices,
+                                             outDifference ) ||
+           FindReplayVisualBufferDifference( expected.priorityExpandedRibbonVertices,
+                                             actual.priorityExpandedRibbonVertices,
+                                             ReplayVisualPacketBuffer::ExpandedRibbonVertices,
+                                             outDifference ) ||
+           FindReplayVisualBufferDifference( expected.retainedPredictionRibbonVertices,
+                                             actual.retainedPredictionRibbonVertices,
+                                             ReplayVisualPacketBuffer::ExpandedRibbonVertices,
+                                             outDifference ) ||
+           FindReplayVisualBufferDifference( expected.retainedPredictionPriorityRibbonVertices,
+                                             actual.retainedPredictionPriorityRibbonVertices,
                                              ReplayVisualPacketBuffer::ExpandedRibbonVertices,
                                              outDifference );
 }

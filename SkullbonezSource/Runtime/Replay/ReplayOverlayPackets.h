@@ -24,11 +24,14 @@ Related:
 
 #include "ReplayCapturePackets.h"
 #include "ReplayAuthoringPackets.h"
+#include "ReplayInterceptReadout.h"
+#include "ReplayPorkchopPanel.h"
+#include "ReplayTripPlanner.h"
 #include "ReplayPredictionView.h"
 #include "ReplayPathPackets.h"
 #include "ReplayPresentationPackets.h"
 #include "ReplayTimelinePackets.h"
-#include "../RuntimeInteractionController.h"
+#include "../Interaction/RuntimeInteractionController.h"
 
 namespace SkullbonezCore::Rendering
 {
@@ -57,6 +60,9 @@ struct ReplayOverlayStateView
 {
     ReplayScrubberView scrubber;
     ReplayPredictionPresentationView prediction;
+    ReplayInterceptView intercept;
+    const ReplayPorkchopPanelView& porkchop;
+    const ReplayTripPlannerView& tripPlanner;
     const RunReplayPathVisualizerState& pathVisualizer;
     const RunReplayVelocityEditState& velocityEdit;
     const RunReplayCauseTreeState& causeTree;

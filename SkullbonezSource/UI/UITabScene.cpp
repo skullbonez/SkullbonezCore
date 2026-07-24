@@ -54,10 +54,10 @@ char LowerAscii( char value )
 }
 
 bool ConsumeFilterKeyPress( SkullbonezCore::UI::SceneTab::UISceneTabState& state,
-                            const SkullbonezCore::Runtime::InputKeySnapshot& keys,
+                            const SkullbonezCore::UI::InputControl::UIInputSnapshot& input,
                             int virtualKey )
 {
-    return SkullbonezCore::UI::InputControl::ConsumeKeyPress( state.filterKeyWasDown, keys, virtualKey );
+    return SkullbonezCore::UI::InputControl::ConsumeKeyPress( state.filterKeyWasDown, input, virtualKey );
 }
 
 void AppendFilterChar( SkullbonezCore::UI::SceneTab::UISceneTabState& state, char value )
@@ -348,7 +348,7 @@ void ResetPreviewState( UISceneTabState& state )
 
 void UpdateFilterTyping( UISceneTabState& state,
                          InGameUIInputResult& result,
-                         const Runtime::InputKeySnapshot& keys,
+                         const InputControl::UIInputSnapshot& input,
                          const char* const* sceneOptions,
                          int sceneOptionCount )
 {
@@ -359,14 +359,14 @@ void UpdateFilterTyping( UISceneTabState& state,
     }
     if ( state.filterKeySyncPending )
     {
-        InputControl::CaptureKeyStates( state.filterKeyWasDown, keys );
+        InputControl::CaptureKeyStates( state.filterKeyWasDown, input );
         state.filterKeySyncPending = false;
         return;
     }
 
     for ( int key = 'A'; key <= 'Z'; ++key )
     {
-        if ( ConsumeFilterKeyPress( state, keys, key ) )
+        if ( ConsumeFilterKeyPress( state, input, key ) )
         {
             AppendFilterChar( state, static_cast<char>( 'a' + key - 'A' ) );
             result.commands.ui.userInteracted = true;
@@ -374,40 +374,40 @@ void UpdateFilterTyping( UISceneTabState& state,
     }
     for ( int key = '0'; key <= '9'; ++key )
     {
-        if ( ConsumeFilterKeyPress( state, keys, key ) )
+        if ( ConsumeFilterKeyPress( state, input, key ) )
         {
             AppendFilterChar( state, static_cast<char>( key ) );
             result.commands.ui.userInteracted = true;
         }
     }
 
-    const bool isShiftDown = InputControl::IsVirtualKeyDown( keys, VK_SHIFT );
-    if ( ConsumeFilterKeyPress( state, keys, VK_SPACE ) )
+    const bool isShiftDown = InputControl::IsVirtualKeyDown( input, VK_SHIFT );
+    if ( ConsumeFilterKeyPress( state, input, VK_SPACE ) )
     {
         AppendFilterChar( state, ' ' );
         result.commands.ui.userInteracted = true;
     }
-    if ( ConsumeFilterKeyPress( state, keys, VK_OEM_MINUS ) )
+    if ( ConsumeFilterKeyPress( state, input, VK_OEM_MINUS ) )
     {
         AppendFilterChar( state, isShiftDown ? '_' : '-' );
         result.commands.ui.userInteracted = true;
     }
-    if ( ConsumeFilterKeyPress( state, keys, VK_OEM_PERIOD ) )
+    if ( ConsumeFilterKeyPress( state, input, VK_OEM_PERIOD ) )
     {
         AppendFilterChar( state, '.' );
         result.commands.ui.userInteracted = true;
     }
-    if ( ConsumeFilterKeyPress( state, keys, VK_BACK ) )
+    if ( ConsumeFilterKeyPress( state, input, VK_BACK ) )
     {
         BackspaceFilter( state );
         result.commands.ui.userInteracted = true;
     }
-    if ( ConsumeFilterKeyPress( state, keys, VK_DELETE ) )
+    if ( ConsumeFilterKeyPress( state, input, VK_DELETE ) )
     {
         ClearFilter( state );
         result.commands.ui.userInteracted = true;
     }
-    if ( ConsumeFilterKeyPress( state, keys, VK_ESCAPE ) )
+    if ( ConsumeFilterKeyPress( state, input, VK_ESCAPE ) )
     {
         if ( state.filter[0] != '\0' )
         {
@@ -419,7 +419,7 @@ void UpdateFilterTyping( UISceneTabState& state,
         }
         result.commands.ui.userInteracted = true;
     }
-    if ( ConsumeFilterKeyPress( state, keys, VK_RETURN ) && combo.IsOpen() )
+    if ( ConsumeFilterKeyPress( state, input, VK_RETURN ) && combo.IsOpen() )
     {
         int sceneIndex = FindExactOptionIndex( sceneOptions, sceneOptionCount, state.filter );
         if ( sceneIndex < 0 )
@@ -601,7 +601,7 @@ bool HandleHeaderClick( UISceneTabState& state,
 
 
 bool HandleClosedComboClick( UISceneTabState& state,
-                             const Runtime::InputKeySnapshot& keys,
+                             const InputControl::UIInputSnapshot& input,
                              const char* const* sceneOptions,
                              int sceneOptionCount,
                              int selectedSceneOption,
@@ -614,7 +614,7 @@ bool HandleClosedComboClick( UISceneTabState& state,
     if ( combo.HitBox( mouseX, mouseY ) )
     {
         ClearFilter( state );
-        InputControl::CaptureKeyStates( state.filterKeyWasDown, keys );
+        InputControl::CaptureKeyStates( state.filterKeyWasDown, input );
         state.filterKeySyncPending = false;
         const int filteredSceneCount = CountFilteredOptions( sceneOptions, sceneOptionCount, state.filter );
         state.comboScroll = SceneComboScrollForSelection(

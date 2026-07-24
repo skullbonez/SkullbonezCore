@@ -3,10 +3,11 @@ File: SkullbonezTests/TestRuntimeInputBindings.cpp
 Purpose:
   Locks the runtime keyboard shortcut table as observable data.
 
-Mental model:
+Summary:
   These tests do not press keys or construct Run. They inspect the shared
-  key/action/context rows that RunInput dispatches, so a shortcut regression
-  fails before it reaches an interaction or DX12 launch test.
+  key/action/context rows that the InputRouter interaction layer dispatches,
+  so a shortcut regression fails before it reaches an interaction or DX12
+  launch test.
 
 Glossary:
   Virtual key: Win32 integer key code used by the runtime input poller.
@@ -19,13 +20,13 @@ Invariants:
   - The shared table is the source under test; do not mirror it wholesale here.
 
 Related:
-  - SkullbonezSource/Runtime/InputController.Bindings.h
-  - SkullbonezSource/Runtime/RunInput.cpp
+  - SkullbonezSource/Runtime/Input/InputController.Bindings.h
+  - SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp
   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 
-#include "../SkullbonezSource/Runtime/InputController.Bindings.h"
+#include "../SkullbonezSource/Runtime/Input/InputController.Bindings.h"
 
 using SkullbonezCore::Runtime::RuntimeInputAction;
 using SkullbonezCore::Runtime::RuntimeInputBindingContext;
@@ -70,7 +71,7 @@ TEST_CASE( "Runtime input bindings: core keyboard shortcuts map to actions" )
     const RuntimeInputKeyBindingView table = TakeInputKeyboardBindings();
 
     REQUIRE( table.bindings != nullptr );
-    CHECK( table.count == 42u );
+    CHECK( table.count == 45u );
     CheckExactBinding( VK_OEM_3, keyboard, RuntimeInputAction::ToggleEditor );
     CheckExactBinding( VK_TAB, keyboard, RuntimeInputAction::CycleCameraMode );
     CheckExactBinding( 'F', keyboard, RuntimeInputAction::ToggleFlyCamera );
@@ -78,6 +79,9 @@ TEST_CASE( "Runtime input bindings: core keyboard shortcuts map to actions" )
     CheckExactBinding( '0', keyboard, RuntimeInputAction::ToggleUIVisibility );
     CheckExactBinding( VK_F9, keyboard, RuntimeInputAction::ReloadShadersFromSource );
     CheckExactBinding( VK_OEM_COMMA, keyboard, RuntimeInputAction::CycleReplayPathColorMode );
+    CheckExactBinding( 'H', keyboard, RuntimeInputAction::ToggleReplayGuideArcs );
+    CheckExactBinding( 'J', keyboard, RuntimeInputAction::ToggleReplayTripPlanner );
+    CheckExactBinding( 'I', keyboard, RuntimeInputAction::ToggleReplayPorkchopPanel );
     CHECK( FindExactBinding( VK_OEM_PERIOD, keyboard ) == nullptr );
     CheckExactBinding( VK_LEFT, keyboard, RuntimeInputAction::NavigateScenePrevious );
     CheckExactBinding( VK_RIGHT, keyboard, RuntimeInputAction::NavigateSceneNext );

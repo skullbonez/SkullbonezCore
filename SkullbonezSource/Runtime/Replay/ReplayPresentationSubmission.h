@@ -30,7 +30,7 @@ class PhysicsBodyStore;
 
 namespace SkullbonezCore::Runtime
 {
-class RunEditorTracer;
+class EditorTracer;
 }
 
 namespace SkullbonezCore::Runtime::ReplayPresentationSubmissionOperations
@@ -40,7 +40,7 @@ bool TryResolveReplayBodyModelIndex( const Physics::PhysicsBodyStore& bodyStore,
                                      Physics::ModelRowHint& hint,
                                      int modelCount,
                                      int& outModelIndex );
-bool TryAddReplayTargetMarkerFromStores( RunEditorTracer& tracer,
+bool TryAddReplayTargetMarkerFromStores( EditorTracer& tracer,
                                          const Physics::PhysicsBodyStore& bodyStore,
                                          const Physics::ColliderStore& colliderStore,
                                          int modelIndex );

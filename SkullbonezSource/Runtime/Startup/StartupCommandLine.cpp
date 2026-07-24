@@ -33,7 +33,7 @@ Related:
 #include "../../Core/Common.h"
 #include "../../Core/PlatformProfiler.h"
 #include "../../Core/WorkerPool.h"
-#include "../RunLaunchOptions.Renderer.h"
+#include "../App/RunLaunchOptions.Renderer.h"
 #include "../../Core/WindowConstants.h"
 #include <cerrno>
 #include <climits>
@@ -341,6 +341,10 @@ void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out
           "--broadphase-overlay",
           []( ParsedArgs& args ) { args.showBroadphaseVisualizer = true; },
           "[overlay] Broadphase visualizer enabled at startup." },
+        { "--guide-arcs",
+          "--replay-guide-arcs",
+          []( ParsedArgs& args ) { args.replayGuideArcsAtStartup = true; },
+          "[replay] Analytic planet guide rings enabled at startup." },
         { "--dump-config", nullptr, []( ParsedArgs& args ) { args.dumpConfig = true; }, nullptr },
         { "--dump-assets", nullptr, []( ParsedArgs& args ) { args.dumpAssets = true; }, nullptr },
         { "--replay-scrub-test",

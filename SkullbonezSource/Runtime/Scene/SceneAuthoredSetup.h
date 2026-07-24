@@ -26,7 +26,7 @@ Invariants:
     only after scene loading returns.
 
 Related:
-  - SkullbonezSource/Runtime/Scene/RunScene.cpp
+  - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.h
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
@@ -57,7 +57,7 @@ class Terrain;
 namespace Runtime
 {
 class AuthoredScene;
-struct RunSceneState;
+struct SceneSessionState;
 class SceneWorld;
 struct SceneAutomationGateConfiguration;
 
@@ -68,14 +68,14 @@ struct SceneAuthoredCameraContext
 
 struct SceneAuthoredModelContext
 {
-    RunSceneState& sceneState;
+    SceneSessionState& sceneState;
     SceneWorld& sceneWorld;
     SceneAutomationGateConfiguration& automationGates;
 };
 
 struct SceneSimpleRagdollAppendContext
 {
-    RunSceneState& sceneState;
+    SceneSessionState& sceneState;
     SceneWorld& sceneWorld;
 };
 

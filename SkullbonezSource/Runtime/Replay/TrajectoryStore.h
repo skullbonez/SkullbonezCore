@@ -76,6 +76,10 @@ struct ReplayTrajectoryStore
 {
     std::vector<ReplayTrajectoryRecord> records;
     uint32_t nextVersion = 1;
+    // Invariant: this token changes only when a reader-visible record identity
+    // or published prefix changes. Retained draw lists use it as the O(1)
+    // invalidation check that keeps stable prediction frames off the CPU.
+    uint64_t publicationVersion = 1;
 
     void Clear() noexcept;
     ReplayTrajectoryRecord* FindRecord( const ReplayTrajectoryRecordKey& key ) noexcept;

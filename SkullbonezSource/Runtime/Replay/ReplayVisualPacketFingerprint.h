@@ -15,11 +15,15 @@ Glossary:
   Semantic hash: Visual-state digest extended with replay diagnostics.
   Exact hash: Visual-state digest extended with ordered renderer-span facts.
   Prefix digest: Digest rebuilt from every currently published trajectory point.
+  Immutable digest reuse: Offline-only policy that reuses a prefix after archive
+    load while record identity, version, and published count stay unchanged.
 
 Invariants:
   - Field order mirrors FindReplayVisualPacketDifference.
-  - Every published trajectory prefix is rehashed in full so an old point
-    mutation cannot hide behind an unchanged record version.
+  - Live/default hashing rebuilds every published trajectory prefix in full so
+    an old point mutation cannot hide behind an unchanged record version.
+  - Immutable reuse is legal only after loading a frozen archive; version or
+    published-count changes force that record's full prefix hash to rebuild.
   - Hashes are diagnostics and regression oracles, never durable identity.
 
 Related:
@@ -58,6 +62,12 @@ struct ReplayVisualPacketFingerprint
     uint64_t exactHash = REPLAY_VISUAL_BUFFER_FNV_OFFSET;
 };
 
+enum class ReplayVisualTrajectoryDigestPolicy : uint8_t
+{
+    RebuildAll,
+    ReuseImmutableRecords
+};
+
 // These facts are computed from the borrowed packet spans themselves, not from
 // tracer bookkeeping. The renderer consumes these exact spans, so the golden
 // oracle must fail if publication wires even one lane to the wrong storage.
@@ -88,9 +98,10 @@ ReplayVisualPacketBufferFacts BuildReplayVisualPacketBufferFacts( const ReplayVi
 // means the side-channel telemetry does not describe the renderer-bound spans.
 const char* FindReplayVisualPacketSubmissionSpanMismatch( const ReplayVisualPacket& packet ) noexcept;
 
-ReplayVisualPacketFingerprint
-BuildReplayVisualPacketFingerprint( const ReplayVisualPacket& packet,
-                                    std::vector<ReplayVisualTrajectoryDigestState>& trajectoryDigests );
+ReplayVisualPacketFingerprint BuildReplayVisualPacketFingerprint(
+    const ReplayVisualPacket& packet,
+    std::vector<ReplayVisualTrajectoryDigestState>& trajectoryDigests,
+    ReplayVisualTrajectoryDigestPolicy digestPolicy = ReplayVisualTrajectoryDigestPolicy::RebuildAll );
 
 // Returns the first typed/header/submission mismatch against one durable RVIS
 // row. Raw packet streams are compared by their exact ordered byte digests and

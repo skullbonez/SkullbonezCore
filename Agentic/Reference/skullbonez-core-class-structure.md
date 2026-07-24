@@ -71,7 +71,7 @@ split by cohesion:
 - `SceneController.Objects.cpp` handles cross-store creation/deletion,
   topology repair at cold boundaries, render-instance preparation, and
   scene-scoped physics/debug packaging.
-- `RunScene.cpp` implements the cold scene load/save transaction.
+- `SceneController.Load.cpp` implements the cold scene load/save transaction.
 
 Creation is a fail-before-mutation transaction: validate entity identity and
 capacity, preflight physics and render rows, then publish entity, body,

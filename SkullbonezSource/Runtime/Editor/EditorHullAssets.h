@@ -19,8 +19,8 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Editor/EditorTools.cpp
-  - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
-  - SkullbonezSource/Runtime/Scene/RunScene.cpp
+  - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
+  - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - SkullbonezSource/Scene/SceneSnapshotWriter.cpp
 */
 #pragma once

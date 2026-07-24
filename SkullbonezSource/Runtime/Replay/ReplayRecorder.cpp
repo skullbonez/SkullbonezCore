@@ -33,7 +33,7 @@ Related:
 #include "ReplayRecorder.h"
 #include "ReplayRetainedMemory.h"
 
-#include "../CameraCollection.h"
+#include "../Camera/CameraCollection.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
 #include "../../Core/Common.h"

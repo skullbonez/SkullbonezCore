@@ -32,7 +32,7 @@ Related:
 #include "StartupLaunchResolution.h"
 #include "StartupCommandLine.h"
 #include "../../Core/Common.h"
-#include "../RunLaunchOptions.h"
+#include "../App/RunLaunchOptions.h"
 #include "../../Core/WindowConstants.h"
 #include <algorithm>
 #include <cstdint>
@@ -645,6 +645,7 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
     launch.graphicsStressActions = args.graphicsStressActions;
     launch.graphicsStressSceneIntervalFrames = args.graphicsStressSceneIntervalFrames;
     launch.graphicsStressMemoryIntervalFrames = args.graphicsStressMemoryIntervalFrames;
+    launch.replayGuideArcsAtStartup = args.replayGuideArcsAtStartup;
     launch.allocationGuardMode = args.allocationGuardMode;
     launch.generatedObjectTypeOverride = args.objectTypeOverride;
     launch.hasPhysicsDebugFlagsOverride = args.hasPhysicsDebugFlagsOverride;

@@ -3,6 +3,10 @@ File: Agentic/Manuals/SkullbonezCoreManual/build_manual.py
 Purpose:
   Builds the print-oriented Skullbonez Core technical manual as a DOCX.
 
+Summary:
+  Generates the manual's shared text, figures, DOCX layout, and PDF rendering
+  from one source so both deliverables retain the same structure and references.
+
 Mental model:
   The manual is generated because it contains repeated chapter furniture,
   figure plates, equation cards, and print geometry that are easier to keep
@@ -1332,9 +1336,9 @@ def add_appendix(doc: Document) -> None:
         ["Runtime reference", "Agentic/Reference/runtime-reference.md"],
         ["Class structure", "Agentic/Reference/skullbonez-core-class-structure.md"],
         ["Physics overview", "Agentic/Reference/physics-overview.md"],
-        ["Runtime frame/render", "SkullbonezSource/Runtime/RunFrame.cpp; SkullbonezSource/Runtime/RunRender.cpp"],
+        ["Runtime frame/render", "SkullbonezSource/Runtime/App/RunFrame.cpp; SkullbonezSource/Runtime/App/RunRender.cpp"],
         ["Physics", "PhysicsEngine.*; PhysicsScene.cpp; PhysicsWorld.cpp; PersistentContactSolver.*; SpatialGrid.*"],
-        ["Runtime", "SkullbonezSource/Runtime/SimulationSystem.cpp"],
+        ["Runtime", "SkullbonezSource/Runtime/Simulation/SimulationSystem.cpp"],
         ["Rendering", "SkullbonezSource/Runtime/Render/*; SkullbonezSource/Rendering/RenderGraph.*; SkullbonezSource/Rendering/DX12/*"],
         ["Scene and assets", "SkullbonezSource/Scene/*; SkullbonezSource/Assets/AssetSystem.*; SkullbonezData/scenes/*; SkullbonezData/assets/*"],
     ]
@@ -1834,9 +1838,9 @@ def build_pdf(figures: dict[str, Path]) -> None:
             ["Runtime reference", "Agentic/Reference/runtime-reference.md"],
             ["Class structure", "Agentic/Reference/skullbonez-core-class-structure.md"],
             ["Physics overview", "Agentic/Reference/physics-overview.md"],
-            ["Runtime frame/render", "SkullbonezSource/Runtime/RunFrame.cpp; SkullbonezSource/Runtime/RunRender.cpp"],
+            ["Runtime frame/render", "SkullbonezSource/Runtime/App/RunFrame.cpp; SkullbonezSource/Runtime/App/RunRender.cpp"],
             ["Physics", "PhysicsEngine.*; PhysicsScene.cpp; PhysicsWorld.cpp; PersistentContactSolver.*; SpatialGrid.*"],
-            ["Runtime", "SkullbonezSource/Runtime/SimulationSystem.cpp"],
+            ["Runtime", "SkullbonezSource/Runtime/Simulation/SimulationSystem.cpp"],
             ["Rendering", "SkullbonezSource/Runtime/Render/*; SkullbonezSource/Rendering/RenderGraph.*; SkullbonezSource/Rendering/DX12/*"],
             ["Scene and assets", "SkullbonezSource/Scene/*; SkullbonezSource/Assets/AssetSystem.*; SkullbonezData/scenes/*; SkullbonezData/assets/*"],
         ],

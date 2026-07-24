@@ -69,8 +69,8 @@ class RuntimeTools;
 class SceneController;
 class SimulationSystem;
 class Window;
-struct RunCameraState;
-struct RunDebugState;
+struct CameraControlState;
+struct OverlayDebugState;
 struct RunLaunchOptions;
 struct RunStartupState;
 struct RunTimerState;
@@ -117,14 +117,14 @@ struct RuntimeFrameInteractionView
     AttachedCameraController& attachedCamera;
     UI::InGameUI& operatorUi;
     RuntimeTools& runtimeTools;
-    RunCameraState& camera;
+    CameraControlState& camera;
 
     RuntimeFrameInteractionView( InputRouter& inputRouterValue,
                                  RuntimeInteractionController& interactionValue,
                                  AttachedCameraController& attachedCameraValue,
                                  UI::InGameUI& operatorUiValue,
                                  RuntimeTools& runtimeToolsValue,
-                                 RunCameraState& cameraValue )
+                                 CameraControlState& cameraValue )
         : inputRouter( inputRouterValue ), interaction( interactionValue ), attachedCamera( attachedCameraValue ),
           operatorUi( operatorUiValue ), runtimeTools( runtimeToolsValue ), camera( cameraValue )
     {

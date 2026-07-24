@@ -38,7 +38,6 @@ Related:
 #include "../Core/Config.h"
 #include "../Core/MainMemoryStats.h"
 #include "../Core/Allocation/RuntimeReserveAllocator.h"
-#include "../Runtime/Scene/SceneControllerState.h"
 #include "../Rendering/DX12/ShaderDX12.h"
 #include "../Rendering/DX12/Dx12Diagnostics.h"
 #include "UIButton.h"
@@ -49,6 +48,7 @@ Related:
 #include "UIBackdropBlur.h"
 #include "UIScrollBar.h"
 #include "UISlider.h"
+#include "UISceneNavigationModel.h"
 #include "UIState.h"
 #include "UIDrawList.h"
 #include "UITabBar.h"
@@ -67,12 +67,6 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Runtime
-{
-struct DeviceInputFrame;
-struct RuntimeMouseEdges;
-} // namespace Runtime
-
 namespace Core
 {
 class Profiler;
@@ -248,16 +242,8 @@ struct InGameUIFrameData
     float worldGravity = 0.0f;
     float worldFluidHeight = 0.0f;
     float worldFluidDensity = 0.0f;
-    uint32_t physicsDebugFlags = 0;
-    const char* physicsPipelineStageName = "";
-    int physicsPipelineStageIndex = 0;
-    int physicsPipelineStageCount = 0;
-    float physicsDebugAlpha = 0.0f;
-    float physicsDebugContactLinger = 0.0f;
+    UIPhysicsDebugStatus physicsDebug;
     bool physicsSleepEnabled = true;
-    bool collisionVisualizer = false;
-    bool physicsDebugTransparent = false;
-    bool broadphaseOverlay = false;
     bool tornadoEnabled = false;
     bool tornadoVisualShell = false;
     bool tornadoFieldVectors = false;
@@ -345,8 +331,9 @@ class InGameUI
         return m_sceneNavigation;
     }
 
-    InputControl::UIInputSnapshot CaptureInputSnapshot( const Runtime::DeviceInputFrame& deviceFrame,
-                                                        const Runtime::RuntimeMouseEdges& mouse ) const;
+    // Returns the UI-owned automation pointer substitution by value so Runtime
+    // can apply it while constructing the detached input snapshot.
+    InputControl::UIPointerOverride InputOverride() const;
     InGameUIInputResult UpdateInput( const InputControl::UIInputSnapshot& input,
                                      int screenWidth,
                                      int screenHeight,

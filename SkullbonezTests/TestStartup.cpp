@@ -29,7 +29,7 @@
 
 #include "../SkullbonezSource/Core/Config.h"
 #include "../SkullbonezSource/Core/WorkerPool.h"
-#include "../SkullbonezSource/Runtime/RunLaunchOptions.h"
+#include "../SkullbonezSource/Runtime/App/RunLaunchOptions.h"
 #include "../SkullbonezSource/Runtime/Startup/StartupCommandLine.h"
 #include "../SkullbonezSource/Runtime/Startup/StartupLaunchResolution.h"
 
@@ -423,6 +423,7 @@ TEST_CASE( "Startup launch packet: replay defaults and borrowed paths follow par
     args.frameCountOverride = 10;
     args.uiStress = true;
     args.graphicsStress = true;
+    args.replayGuideArcsAtStartup = true;
     args.allocationGuardMode = RuntimeAllocationGuardMode::Measure;
     args.objectTypeOverride = GeneratedObjectTypeOverride::AllBoxes;
     args.hasPhysicsDebugFlagsOverride = true;
@@ -463,6 +464,7 @@ TEST_CASE( "Startup launch packet: replay defaults and borrowed paths follow par
     CHECK( overrides.launch.frameCountOverride == 10 );
     CHECK( overrides.launch.uiStress );
     CHECK( overrides.launch.graphicsStress );
+    CHECK( overrides.launch.replayGuideArcsAtStartup );
     CHECK( overrides.launch.generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBoxes );
     CHECK( overrides.launch.hasPhysicsDebugFlagsOverride );
     CHECK( overrides.launch.physicsDebugTransparentOverride );
@@ -542,6 +544,7 @@ TEST_CASE( "Startup full parse: config, flags, aliases, and launch values compos
                        "--seed 17 --frames 3 --all-boxes --physics-debug contacts --physics-debug-alpha .5 "
                        "--fixed-step --no-water --no-sleep --load-scenes-only "
                        "--demo-hero --show-profiler --no-top-text --automation-hidden-window --broadphase-overlay "
+                       "--guide-arcs "
                        "--dump-config --dump-assets --workers-self-test";
 #ifdef _DEBUG
     text += " --physics-diag TestOutput/startup_unit/physics.ndjson --replay-scrub-test --replay-restore-test";
@@ -561,6 +564,7 @@ TEST_CASE( "Startup full parse: config, flags, aliases, and launch values compos
     CHECK( args.hideTopText );
     CHECK( args.automationWindowHidden );
     CHECK( args.showBroadphaseVisualizer );
+    CHECK( args.replayGuideArcsAtStartup );
     CHECK( args.dumpConfig );
     CHECK( args.dumpAssets );
     CHECK( args.workerSelfTest );

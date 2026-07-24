@@ -24,7 +24,7 @@ Related:
 
 #include "ReplayRecorder.h"
 #include "ReplayTimelinePackets.h"
-#include "../RuntimeInteractionController.h"
+#include "../Interaction/RuntimeInteractionController.h"
 
 #include <algorithm>
 #include <cmath>

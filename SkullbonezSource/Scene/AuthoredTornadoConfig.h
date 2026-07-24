@@ -23,7 +23,7 @@ Invariants:
 Related:
   - SkullbonezSource/Scene/AuthoredSceneParserRuntime.cpp
   - SkullbonezSource/Gameplay/TornadoField.h
-  - SkullbonezSource/Runtime/Scene/RunScene.cpp
+  - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
 */
 #pragma once
 

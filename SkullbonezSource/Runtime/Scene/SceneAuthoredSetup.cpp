@@ -33,14 +33,14 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.h
-  - SkullbonezSource/Runtime/Scene/RunScene.cpp
+  - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #include "SceneAuthoredSetup.h"
-#include "../RuntimeValidationHarness.h"
+#include "../Automation/RuntimeValidationHarness.h"
 #include "../../Assets/AssetKeys.h"
 #include "SceneRuntime.h"
-#include "../CameraCollection.h"
+#include "../Camera/CameraCollection.h"
 #include "../Editor/EditorHullAssets.h"
 #include "SceneController.h"
 #include "../../Maths/Quaternion.h"
@@ -475,8 +475,18 @@ void SceneAuthoredSetup::SetUpCameras( SceneAuthoredCameraContext context, const
         context.sceneWorld.Cameras().AddCamera( firstPosition, firstView, firstUp, CAMERA_FREE );
     }
 
-    context.sceneWorld.Cameras().SetCameraXZBounds( context.sceneWorld.Terrain().Get()->GetXZBounds() );
-    context.sceneWorld.Cameras().SetTerrain( context.sceneWorld.Terrain().Get() );
+    if ( scene.IsTerrainHidden() )
+    {
+        // Concept: terrain-hidden authored scenes are the terrainless/space
+        // lane. Keep their default wide camera bounds and never enter terrain
+        // height queries while a replay or inspection camera is tweening.
+        context.sceneWorld.Cameras().SetTerrain( nullptr );
+    }
+    else
+    {
+        context.sceneWorld.Cameras().SetCameraXZBounds( context.sceneWorld.Terrain().Get()->GetXZBounds() );
+        context.sceneWorld.Cameras().SetTerrain( context.sceneWorld.Terrain().Get() );
+    }
     context.sceneWorld.Cameras().SetLockedMode( false );
 }
 

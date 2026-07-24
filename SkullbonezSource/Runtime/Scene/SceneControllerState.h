@@ -1,31 +1,32 @@
 /*
 File: SkullbonezSource/Runtime/Scene/SceneControllerState.h
 Purpose:
-  Defines the UI-owned scene navigation model and its browser/override values.
+  Defines the Runtime-owned snapshot and policy for one scene load transaction.
 
 Summary:
-  InGameUI owns scene discovery and live scene-tab override values as one
-  cohesive navigation model. Runtime code borrows individual values only for
-  synchronous navigation, load, replay, and reset operations.
+  UI owns the live navigation model. Runtime captures the load-relevant subset
+  into this detached value and applies queue/load policy without retaining the
+  UI owner.
 
 Glossary:
-  Scene browser: UI-facing list of authored scene paths plus stable name
-    pointers for combo-box presentation.
-  UI override: Live Scene/Run tab value that should survive interactive reset
-    and feed the next generated-scene rebuild.
+  Load navigation snapshot: Detached browser paths, selection, and overrides
+    consumed by one cold scene-load transaction.
+  Navigation policy: Runtime decision that combines UI values with the concrete
+    scene queue owner and returns a typed load request.
 
 Invariants:
-  - `namePtrs` points into `names`; refresh paths/names before rebuilding
-    pointer views.
-  - Override sentinel values mirror the previous RunState defaults: time scale
-    `0.0f` means no override, and count values below zero mean unset.
+  - The snapshot owns its path strings and contains no UI pointer or callback.
+  - Runtime navigation functions borrow the UI model only for the synchronous
+    decision and retain no presentation authority.
 
 Related:
-  - SkullbonezSource/UI/UI.h
+  - SkullbonezSource/UI/UISceneNavigationModel.h
   - SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.h
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #pragma once
+
+#include "../../UI/UISceneNavigationModel.h"
 
 #include <string>
 #include <vector>
@@ -37,60 +38,34 @@ namespace Runtime
 class SceneRuntime;
 struct SceneLoadRequest;
 
-struct RunSceneBrowserState
-{
-    std::vector<std::string> paths;
-    std::vector<std::string> names;
-    std::vector<const char*> namePtrs;
-    int selectedCineModeSceneIndex = -1; // -1=Demo/default look, otherwise scene-browser index of live cine/concept look
-};
-
-struct RunSceneUIOverrideState
-{
-    float timeScaleOverride = 0.0f;
-    int modelCountOverride = -1;
-    int solverBallCountOverride = -1;
-    int solverBoxCountOverride = -1;
-};
-
 // Value snapshot passed into one cold load transaction. Browser display names
 // and c-string views stay with UI because load policy needs only normalized
 // paths, the selected cinematic row, and generated-scene overrides.
 struct SceneLoadNavigationState
 {
     std::vector<std::string> browserPaths;
-    RunSceneUIOverrideState overrides;
+    SkullbonezCore::UI::RunSceneUIOverrideState overrides;
     int selectedCineModeSceneIndex = -1;
 
     SceneLoadRequest LoadSceneFromBrowserIndex( int index, SceneRuntime& scene ) const;
     SceneLoadRequest LoadDemoScene( SceneRuntime& scene ) const;
 };
-} // namespace Runtime
 
-namespace UI
-{
-struct SceneNavigationModel
-{
-    // Invariant: browser pointer views and live override sentinels share the
-    // UI owner's lifetime; runtime consumers may borrow but never retain them.
-    Runtime::RunSceneBrowserState browser;
-    Runtime::RunSceneUIOverrideState overrides;
-
-    // Browser policy borrows only the concrete queue owner for one synchronous
-    // decision. The returned request owns no callback, pointer, or runtime
-    // context and can cross the lifecycle submission boundary by value.
-    Runtime::SceneLoadRequest LoadSceneFromBrowserIndex( int index, Runtime::SceneRuntime& scene );
-    Runtime::SceneLoadRequest LoadDemoScene( Runtime::SceneRuntime& scene );
-    int
-    AdjacentCinematicModeBrowserIndex( int direction, int currentSceneBrowserIndex, bool isCinematicTabActive ) const;
-    Runtime::SceneLoadRequest
-    LoadAdjacentScene( int direction, int currentSceneBrowserIndex, Runtime::SceneRuntime& scene );
-};
-} // namespace UI
-
-namespace Runtime
-{
-SceneLoadNavigationState CaptureSceneLoadNavigationState( const UI::SceneNavigationModel& navigation );
-void ApplySceneLoadNavigationState( UI::SceneNavigationModel& navigation, const SceneLoadNavigationState& state );
+// Runtime owns navigation policy because these decisions borrow the concrete
+// scene queue. The UI model remains a passive presentation value.
+SceneLoadRequest
+LoadSceneFromBrowserIndex( const SkullbonezCore::UI::SceneNavigationModel& navigation, int index, SceneRuntime& scene );
+SceneLoadRequest LoadDemoScene( SceneRuntime& scene );
+int AdjacentCinematicModeBrowserIndex( const SkullbonezCore::UI::SceneNavigationModel& navigation,
+                                       int direction,
+                                       int currentSceneBrowserIndex,
+                                       bool isCinematicTabActive );
+SceneLoadRequest LoadAdjacentScene( const SkullbonezCore::UI::SceneNavigationModel& navigation,
+                                    int direction,
+                                    int currentSceneBrowserIndex,
+                                    SceneRuntime& scene );
+SceneLoadNavigationState CaptureSceneLoadNavigationState( const SkullbonezCore::UI::SceneNavigationModel& navigation );
+void ApplySceneLoadNavigationState( SkullbonezCore::UI::SceneNavigationModel& navigation,
+                                    const SceneLoadNavigationState& state );
 } // namespace Runtime
 } // namespace SkullbonezCore

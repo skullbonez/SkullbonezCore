@@ -4,14 +4,15 @@ Purpose:
   Owns deterministic collider records from explicit create/update descriptors.
 
 Summary:
-  Collider shape/material values live in dense ColliderRecord rows. Runtime
-  editor/tooling code can replace a row at cold authoring edges, while config
-  changes update material scalars in-place and topology repair only rebases body
-  identity and handle maps against PhysicsBodyStore. Queries scan compact data
-  and stale handles fail through generation checks.
+  Per-tick collider values live in dense ColliderRecord rows. Cold scene
+  round-trip text lives in an index-aligned authoring row that compacts with
+  the hot row. Runtime editor/tooling code can replace both at cold authoring
+  edges, while config changes update hot material scalars in-place and topology
+  repair only rebases body identity and handle maps against PhysicsBodyStore.
 
 Glossary:
   Collider: Shape metadata used to decide what precise collision test applies.
+  Authoring row: Cold scene round-trip text paired with one hot collider row.
   Physics material: Runtime policy for collider friction and sphere drag.
   Narrowphase: Precise collision pass that builds contacts for candidate pairs.
   Scene object id: Stable per-scene id used when replay and diagnostics name a
@@ -20,6 +21,7 @@ Glossary:
 Invariants:
   - Dense collider rows stay in scene/model order for current solver traversal,
     but public collider handles are allocator-owned slots.
+  - Authoring rows have exactly the same count and compaction moves as hot rows.
   - Standalone records stay dense; deleting a collider may move the final row
     and updates only the moved handle's row map.
   - Body-binding refresh preserves shape/material fields; it must not reopen
@@ -39,6 +41,7 @@ Related:
 
 #include "../Core/Common.h"
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
+using SkullbonezCore::Physics::ColliderAuthoringRecord;
 using SkullbonezCore::Physics::ColliderHandleAssignmentMask;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderRecordList;
@@ -159,6 +162,7 @@ void ColliderStore::RetireUnassignedHandles( const ColliderHandleAssignmentMask&
 void ColliderStore::Clear()
 {
     m_colliders.clear();
+    m_authoringRecords.clear();
     m_modelColliderHandles.clear();
     for ( uint32_t slot = 0; slot < static_cast<uint32_t>( m_handleAlive.size() ); ++slot )
     {
@@ -217,6 +221,13 @@ bool ColliderStore::RefreshBodyBindings( const PhysicsBodyStore& bodyStore )
 
 PhysicsColliderHandle ColliderStore::CreateColliderRecord( const ColliderRecord& initialRecord )
 {
+    return CreateColliderRecord( initialRecord, ColliderAuthoringRecord{} );
+}
+
+
+PhysicsColliderHandle ColliderStore::CreateColliderRecord( const ColliderRecord& initialRecord,
+                                                           const ColliderAuthoringRecord& initialAuthoringRecord )
+{
     uint32_t slot = 0;
     if ( !m_freeHandleSlots.empty() )
     {
@@ -247,13 +258,29 @@ PhysicsColliderHandle ColliderStore::CreateColliderRecord( const ColliderRecord&
     m_handleAlive[static_cast<std::size_t>( slot )] = 1;
     m_handleModelIndices[static_cast<std::size_t>( slot )] = recordIndex;
     m_handleSceneObjectIds[static_cast<std::size_t>( slot )] = record.sceneObjectId;
+    // Invariant: hot and cold pushes are one fixed-capacity transaction. Both
+    // lists share the same hard scene limit, so neither can grow independently.
     m_colliders.push_back( record );
+    m_authoringRecords.push_back( initialAuthoringRecord );
     m_modelColliderHandles.push_back( handle );
     return handle;
 }
 
 
 bool ColliderStore::UpdateRecordForHandle( PhysicsColliderHandle handle, const ColliderRecord& record )
+{
+    if ( !Contains( handle ) )
+    {
+        return false;
+    }
+    const int recordIndex = m_handleModelIndices[static_cast<std::size_t>( handle.index )];
+    return UpdateRecordForHandle( handle, record, m_authoringRecords[static_cast<std::size_t>( recordIndex )] );
+}
+
+
+bool ColliderStore::UpdateRecordForHandle( PhysicsColliderHandle handle,
+                                           const ColliderRecord& record,
+                                           const ColliderAuthoringRecord& authoringRecord )
 {
     if ( !Contains( handle ) )
     {
@@ -272,6 +299,7 @@ bool ColliderStore::UpdateRecordForHandle( PhysicsColliderHandle handle, const C
     }
 
     m_colliders[static_cast<std::size_t>( recordIndex )] = updated;
+    m_authoringRecords[static_cast<std::size_t>( recordIndex )] = authoringRecord;
     m_handleModelIndices[static_cast<std::size_t>( handle.index )] = recordIndex;
     m_handleSceneObjectIds[static_cast<std::size_t>( handle.index )] = updated.sceneObjectId;
     return true;
@@ -322,13 +350,16 @@ bool ColliderStore::DestroyColliderRecord( PhysicsColliderHandle handle )
     }
 
     // Invariant: collider scans stay dense while handles remain allocator
-    // identities. Moving the final row updates that row's handle map; callers
-    // never infer storage position from a handle index.
+    // identities. Moving the final hot row also moves its cold authoring row
+    // before updating the handle map; callers never infer storage position from
+    // a handle index.
     if ( recordIndex != lastRecordIndex )
     {
         ColliderRecord& destination = m_colliders[static_cast<std::size_t>( recordIndex )];
         ColliderRecord& moved = m_colliders[static_cast<std::size_t>( lastRecordIndex )];
         destination = moved;
+        m_authoringRecords[static_cast<std::size_t>( recordIndex )] =
+            m_authoringRecords[static_cast<std::size_t>( lastRecordIndex )];
         m_modelColliderHandles[static_cast<std::size_t>( recordIndex )] = destination.handle;
         if ( destination.handle.IsValid() && destination.handle.index < m_handleModelIndices.size() )
         {
@@ -337,6 +368,7 @@ bool ColliderStore::DestroyColliderRecord( PhysicsColliderHandle handle )
     }
 
     m_colliders.pop_back();
+    m_authoringRecords.pop_back();
     m_modelColliderHandles.pop_back();
     m_handleAlive[handleSlot] = 0;
     m_handleModelIndices[handleSlot] = -1;
@@ -477,6 +509,12 @@ std::size_t ColliderStore::RecordCapacity() const
 }
 
 
+std::size_t ColliderStore::AuthoringRecordCapacity() const
+{
+    return m_authoringRecords.capacity();
+}
+
+
 ColliderRecord* ColliderStore::MutableRecordForHandle( PhysicsColliderHandle handle )
 {
     if ( !Contains( handle ) )
@@ -496,4 +534,22 @@ const ColliderRecord* ColliderStore::RecordForHandle( PhysicsColliderHandle hand
     }
 
     return &m_colliders[static_cast<std::size_t>( m_handleModelIndices[static_cast<std::size_t>( handle.index )] )];
+}
+
+
+const ColliderAuthoringRecord* ColliderStore::AuthoringRecordForHandle( PhysicsColliderHandle handle ) const
+{
+    if ( !Contains( handle ) )
+    {
+        return nullptr;
+    }
+
+    return &m_authoringRecords[static_cast<std::size_t>(
+        m_handleModelIndices[static_cast<std::size_t>( handle.index )] )];
+}
+
+
+const ColliderAuthoringRecord* ColliderStore::AuthoringRecordForModelIndex( int modelIndex ) const
+{
+    return AuthoringRecordForHandle( HandleForModelIndex( modelIndex ) );
 }

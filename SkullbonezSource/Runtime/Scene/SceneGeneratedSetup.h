@@ -25,7 +25,7 @@ Invariants:
   - Generated setup does not load authored scene files.
 
 Related:
-  - SkullbonezSource/Runtime/Scene/RunScene.cpp
+  - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.h
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
@@ -56,7 +56,7 @@ class Terrain;
 }
 namespace Runtime
 {
-struct RunSceneState;
+struct SceneSessionState;
 
 enum class GeneratedObjectTypeOverride
 {
@@ -72,7 +72,7 @@ struct SceneGeneratedCameraContext
 
 struct SceneGeneratedModelContext
 {
-    RunSceneState& scene;
+    SceneSessionState& scene;
     const SkullbonezCore::Core::EngineConfig& config;
     SceneWorld& sceneWorld;
     GeneratedObjectTypeOverride objectTypeOverride = GeneratedObjectTypeOverride::Mixed;

@@ -27,7 +27,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntime.cpp
 */
 #include "SceneController.h"
-#include "../RuntimeValidationHarness.h"
+#include "../Automation/RuntimeValidationHarness.h"
 
 #include "../../Core/FatalError.h"
 #include "../../Core/Config.h"
@@ -102,13 +102,13 @@ SceneController::SceneController( std::vector<std::string> queue ) : m_runtime( 
 }
 
 
-RunSceneState& SceneController::State()
+SceneSessionState& SceneController::State()
 {
     return m_runtime.State();
 }
 
 
-const RunSceneState& SceneController::State() const
+const SceneSessionState& SceneController::State() const
 {
     return m_runtime.State();
 }

@@ -43,7 +43,7 @@ Related:
 #include "../../Rendering/Shadow.h"
 #include "../../Rendering/Text.h"
 #include "RenderPresentationSettings.h"
-#include "../RuntimeInteractionController.h"
+#include "../Interaction/RuntimeInteractionController.h"
 
 #include <cstdint>
 #include <memory>
@@ -133,11 +133,16 @@ class PrimitiveBatchRenderer;
 struct PrimitiveRenderContext;
 } // namespace Rendering
 
+namespace UI
+{
+struct RunSceneBrowserState;
+}
+
 namespace Runtime
 {
 class DiagnosticsRuntime;
 class RuntimeTools;
-class RunEditorTracer;
+class EditorTracer;
 class LauncherLaser;
 class RuntimeInputContext;
 class SceneTerrain;
@@ -146,8 +151,8 @@ struct FullscreenPassResources;
 struct ReflectionPassResources;
 struct ReplayPresentationSample;
 struct ReplaySolverFrameSample;
-struct RunCameraState;
-struct RunDebugState;
+struct CameraControlState;
+struct OverlayDebugState;
 struct RunEditorPlacementState;
 struct RunRayCastTestState;
 struct RuntimeRenderPassResources;
@@ -163,8 +168,7 @@ struct ReplayOverlayRenderContext;
 }
 struct RuntimeRenderModelFrameView;
 struct RuntimeViewModel;
-struct RunSceneBrowserState;
-struct RunSceneState;
+struct SceneSessionState;
 struct RunTimerState;
 struct RunReplayPredictionFrame;
 
@@ -191,7 +195,7 @@ enum class ObjectPassMode
 class RenderResourceLifecycleLog
 {
   public:
-    RenderResourceLifecycleLog( Rendering::Dx12RenderDevice* renderDevice, const RunSceneState& scene )
+    RenderResourceLifecycleLog( Rendering::Dx12RenderDevice* renderDevice, const SceneSessionState& scene )
         : m_renderDevice( renderDevice ), m_scene( scene )
     {
     }
@@ -200,7 +204,7 @@ class RenderResourceLifecycleLog
 
   private:
     Rendering::Dx12RenderDevice* m_renderDevice = nullptr;
-    const RunSceneState& m_scene;
+    const SceneSessionState& m_scene;
 };
 
 struct RenderFrameContext
@@ -396,9 +400,9 @@ struct UiTextPassState
     // UI/text is the late overlay pass, so this read-only projection samples
     // already-owned runtime state for one frame. Writable timer/UI owners are
     // separate explicit inputs below and cannot be reached through this view.
-    const RunDebugState& debug;
+    const OverlayDebugState& debug;
     bool crossScenePauseLocked = false;
-    const RunSceneState& scene;
+    const SceneSessionState& scene;
     const RenderPresentationSettings& renderPresentation;
     // Lifetime: one world borrow supplies the environment and physics facets;
     // the overlay cannot traverse scene lifecycle or request authority.
@@ -407,9 +411,9 @@ struct UiTextPassState
     const RunRayCastTestState& rayCastTest;
     const RunEditorPlacementState& editor;
     const RuntimeInputContext& runtimeInput;
-    const RunCameraState& camera;
+    const CameraControlState& camera;
     const RuntimeViewModel& runtimeViewModel;
-    const RunSceneBrowserState& sceneBrowser;
+    const SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser;
     const RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews;
     const UI::OperatorEditorFrameView& operatorEditorView;
     Threading::WorkerPool* workerPool = nullptr;

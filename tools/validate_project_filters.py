@@ -76,15 +76,15 @@ JSON_HEADER = "ThirdPtySource/nlohmann/json.hpp"
 JSON_COLD_BOUNDARY_TRANSLATION_UNITS = frozenset(
     {
         "Rendering/DX12/ShaderBytecodeManifest.cpp",
-        "Runtime/DemoDirector.cpp",
-        "Runtime/Editor/RunEditorObjectPlacement.cpp",
-        "Runtime/Editor/RunEditorPlacementAssets.cpp",
-        "Runtime/Editor/RunEditorTools.cpp",
-        "Runtime/Editor/RunEditorTracer.cpp",
-        "Runtime/InteractionAutomationController.cpp",
-        "Runtime/InteractionAutomationReportWriter.cpp",
+        "Runtime/Direction/DemoDirector.cpp",
+        "Runtime/Editor/EditorInteractionTools.cpp",
+        "Runtime/Editor/EditorObjectPlacement.cpp",
+        "Runtime/Editor/EditorPlacementAssets.cpp",
+        "Runtime/Editor/EditorTracer.cpp",
+        "Runtime/Automation/InteractionAutomationController.cpp",
+        "Runtime/Automation/InteractionAutomationReportWriter.cpp",
         "Runtime/Replay/ReplayV2Artifact.cpp",
-        "Runtime/Scene/RunScene.cpp",
+        "Runtime/Scene/SceneController.Load.cpp",
         "Runtime/Scene/SceneRuntimeCreate.cpp",
         "Runtime/Startup/StartupLaunchResolution.cpp",
         "Scene/AuthoredSceneParser.cpp",
@@ -125,6 +125,7 @@ MATH_PREFIXES = (
     "GeometricStructures",
     "MathsCommon",
     "Matrix4",
+    "OrbitalMechanics",
     "Quaternion",
     "RotationMatrix",
     "Vector3",
@@ -214,7 +215,7 @@ PHYSICS_DEBUG_PREFIXES = (
 
 # Why: the visualizer filenames still describe physics overlays, but render
 # submission now lives under Runtime\Debug after the physics project split.
-RUNTIME_DEBUG_PREFIXES = (*PHYSICS_DEBUG_PREFIXES, "RunDebugState")
+RUNTIME_DEBUG_PREFIXES = (*PHYSICS_DEBUG_PREFIXES, "OverlayDebugState")
 
 DX12_RENDERING_PREFIXES = (
     "BLASDX12",
@@ -244,8 +245,8 @@ DX12_RENDERING_PREFIXES = (
 
 RENDERING_PREFIXES = (
     "DrawCallTrace",
-    "ProfilerImplementation",
     "ProfilerOverlayPresenter",
+    "RenderProfilerPresentation",
     "RenderInstanceRenderer",
     "Helper",
     "IRenderBackend",
@@ -319,7 +320,7 @@ RUNTIME_CAMERA_PREFIXES = (
     "AttachedCameraController",
     "Camera",
     "CameraCollection",
-    "RunCameraState",
+    "CameraControlState",
     "RuntimeCameraMode",
 )
 
@@ -364,7 +365,6 @@ RUNTIME_SETTINGS_PREFIXES = (
 )
 
 RUNTIME_SCENE_PREFIXES = (
-    "RunScene",
     "SceneAutomationGateConfiguration",
     "SceneController",
     "SceneControllerState",
@@ -407,6 +407,10 @@ RUNTIME_REPLAY_PREFIXES = (
     "ReplayEventCommand",
     "ReplayIdentity",
     "ReplayInteractionController",
+    "ReplayGuideArcs",
+    "ReplayInterceptReadout",
+    "ReplayTripPlanner",
+    "ReplayPorkchopPanel",
     "ReplayOverlayLayout",
     "ReplayOverlayPackets",
     "ReplayOverlaySurface",
@@ -459,22 +463,20 @@ RUNTIME_RENDER_PREFIXES = (
 
 RUNTIME_EDITOR_PREFIXES = (
     "EditorCommandHistory",
+    "EditorGizmoTools",
+    "EditorHistory",
+    "EditorInteractionTools",
+    "EditorObjectPlacement",
     "EditorPlacementAssets",
     "EditorTools",
     "EditorOverlayTools",
+    "EditorTracer",
     "EditorHullAssets",
     "ImGuiEditorCausalityProjection",
     "ImGuiEditorLayoutPolicy",
     "LauncherLaser",
     "LauncherTools",
-    "RunEditorGizmoTools",
-    "RunEditorHistory",
-    "RunEditorObjectPlacement",
-    "RunEditorOverlayTools",
-    "RunEditorPlacementAssets",
-    "RunEditorTracer",
-    "RunEditorTools",
-    "RunMousePickupTools",
+    "MousePickupTools",
 )
 
 RUNTIME_TOOLS_PREFIXES = (
@@ -484,6 +486,7 @@ RUNTIME_TOOLS_PREFIXES = (
 
 RUNTIME_DIAGNOSTICS_PREFIXES = (
     "DiagnosticsController",
+    "DiagnosticsPhysicsUI",
     "DiagnosticsRuntime",
     "ImGuiEditorInputPolicy",
     "ImGuiEditorOwner",

@@ -166,6 +166,7 @@
     <ClCompile Include="SkullbonezSource\Maths\GeometricMath.cpp" />
     <ClCompile Include="SkullbonezSource\Maths\Frustum.cpp" />
     <ClCompile Include="SkullbonezSource\Maths\Matrix4.cpp" />
+    <ClCompile Include="SkullbonezSource\Maths\OrbitalMechanics.cpp" />
     <ClCompile Include="SkullbonezSource\Maths\Quaternion.cpp" />
     <ClCompile Include="SkullbonezSource\Maths\RotationMatrix.cpp" />
   </ItemGroup>
@@ -175,6 +176,7 @@
     <ClInclude Include="SkullbonezSource\Maths\MathsCommon.h" />
     <ClInclude Include="SkullbonezSource\Maths\Frustum.h" />
     <ClInclude Include="SkullbonezSource\Maths\Matrix4.h" />
+    <ClInclude Include="SkullbonezSource\Maths\OrbitalMechanics.h" />
     <ClInclude Include="SkullbonezSource\Maths\Quaternion.h" />
     <ClInclude Include="SkullbonezSource\Maths\RotationMatrix.h" />
     <ClInclude Include="SkullbonezSource\Maths\Vector3.h" />

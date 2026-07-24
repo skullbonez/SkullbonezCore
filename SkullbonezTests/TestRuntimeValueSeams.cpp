@@ -24,7 +24,7 @@
 //     actionable hot control behind them.
 //
 // Related:
-//   - SkullbonezSource/Runtime/RuntimeInteractionController.cpp
+//   - SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.cpp
 //   - SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.cpp
 //   - SkullbonezSource/Runtime/UI/RuntimeUiSurface.h
 //
@@ -33,7 +33,7 @@
 
 #include "../SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayArtifactSource.h"
-#include "../SkullbonezSource/Runtime/RuntimeInteractionController.h"
+#include "../SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneController.h"
 
 #include <cmath>

@@ -29,23 +29,22 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.h
-  - SkullbonezSource/Runtime/DiagnosticsController.cpp
+  - SkullbonezSource/Runtime/Diagnostics/DiagnosticsController.cpp
   - SkullbonezSource/Runtime/Replay/ReplayPresentation.cpp
 */
 #include "DiagnosticsRuntime.h"
+#include "DiagnosticsPhysicsUI.h"
 
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
-#include "../InputController.h"
-#include "../RunDebugState.h"
+#include "../Input/InputController.h"
+#include "OverlayDebugState.h"
 #include "../Scene/SceneRuntime.h"
 #include "../Scene/SceneController.h"
 #include "../../Physics/PhysicsDebugData.h"
 #include "../../Rendering/DX12/Dx12Diagnostics.h"
 #include "../../Scene/AuthoredScene.h"
-#include "../../UI/UICommands.h"
 #include "../../UI/UI.h"
 
-#include <algorithm>
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
@@ -396,24 +395,6 @@ void WriteReplayTrajectoryCounters( FILE* file,
 }
 } // namespace
 
-void StepDiagnosticsPhysicsPipelineStage( RunDebugState& debug, int direction )
-{
-    const int stageCount = static_cast<int>( Physics::PhysicsPipelineStage::Count );
-    if ( stageCount <= 0 || direction == 0 )
-    {
-        return;
-    }
-
-    debug.physicsDebugFlags |= Physics::PHYSICS_DEBUG_PIPELINE;
-    int nextStage = ( debug.physicsDebugPipelineStageCursor + direction ) % stageCount;
-    if ( nextStage < 0 )
-    {
-        nextStage += stageCount;
-    }
-    debug.physicsDebugPipelineStageCursor = nextStage;
-}
-
-
 bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext context,
                                         RuntimeInputAction action,
                                         bool wasPressed )
@@ -441,7 +422,7 @@ bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext conte
         }
     }
 
-    RunDebugState& debug = context.debug;
+    OverlayDebugState& debug = context.debug;
     switch ( action )
     {
     case RuntimeInputAction::ToggleWaterFreeze:
@@ -604,77 +585,6 @@ DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( Diagnos
     default:
         return result;
     }
-}
-
-
-DiagnosticsPhysicsOverlayUICommandResult
-ApplyDiagnosticsPhysicsOverlayUICommands( RunDebugState& debug, const UI::UIPhysicsCommands& commands )
-{
-    // Why: Physics-tab diagnostics mutate presentation/debug state only. Keeping
-    // them here prevents UI command application from reopening direct debug-field
-    // ownership in RunInput.
-    DiagnosticsPhysicsOverlayUICommandResult result;
-    if ( commands.toggleCollisionVisualizer )
-    {
-        debug.isCollisionVisualizer = !debug.isCollisionVisualizer;
-        result.toggledCollisionVisualizer = true;
-    }
-    if ( commands.togglePhysicsDebugFlags != 0 )
-    {
-        debug.physicsDebugFlags ^= ( commands.togglePhysicsDebugFlags & Physics::PHYSICS_DEBUG_ALL );
-        result.toggledPhysicsDebugFlags = true;
-    }
-    if ( commands.stepPhysicsPipelinePrevious )
-    {
-        StepDiagnosticsPhysicsPipelineStage( debug, -1 );
-        result.steppedPipelinePrevious = true;
-    }
-    if ( commands.stepPhysicsPipelineNext )
-    {
-        StepDiagnosticsPhysicsPipelineStage( debug, 1 );
-        result.steppedPipelineNext = true;
-    }
-    if ( commands.togglePhysicsDebugTransparent )
-    {
-        debug.isPhysicsDebugTransparent = !debug.isPhysicsDebugTransparent;
-        result.toggledPhysicsDebugTransparent = true;
-    }
-    if ( commands.toggleBroadphaseOverlay )
-    {
-        debug.isBroadphaseOverlay = !debug.isBroadphaseOverlay;
-        result.toggledBroadphaseOverlay = true;
-    }
-    return result;
-}
-
-
-bool ApplyDiagnosticsTerrainContactProbeUICommand( RunDebugState& debug, const UI::UIPhysicsCommands& commands )
-{
-    if ( !commands.toggleTerrainContactProbe )
-    {
-        return false;
-    }
-
-    debug.physicsDebugFlags ^= Physics::PHYSICS_DEBUG_TERRAIN_CONTACT;
-    return true;
-}
-
-
-DiagnosticsPhysicsDebugValueUICommandResult
-ApplyDiagnosticsPhysicsDebugValueUICommands( RunDebugState& debug, const UI::UIPhysicsCommands& commands )
-{
-    DiagnosticsPhysicsDebugValueUICommandResult result;
-    if ( commands.requestedPhysicsDebugAlpha >= 0.0f )
-    {
-        debug.physicsDebugAlpha = std::clamp( commands.requestedPhysicsDebugAlpha, 0.05f, 1.0f );
-        result.setAlpha = true;
-    }
-    if ( commands.requestedPhysicsDebugContactLinger >= 0.0f )
-    {
-        debug.physicsDebugContactLinger = std::clamp( commands.requestedPhysicsDebugContactLinger, 0.0f, 5.0f );
-        result.setContactLinger = true;
-    }
-    return result;
 }
 
 
@@ -905,7 +815,7 @@ bool DiagnosticsRuntime::MainMemoryDumpRequested() const
 
 bool DiagnosticsRuntime::WriteMainMemoryDump( const SkullbonezCore::Core::MainMemoryReplayStats& replay,
                                               const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects,
-                                              const RunSceneState& scene,
+                                              const SceneSessionState& scene,
                                               const char* checkpoint,
                                               double nowSeconds )
 {
@@ -1114,7 +1024,7 @@ void DiagnosticsRuntime::LogSceneFinished( SceneController& scene,
 
 
 void DiagnosticsRuntime::BeginPhysicsDiagnosticsRun( Physics::PhysicsEngine& physics,
-                                                     const RunSceneState& scene,
+                                                     const SceneSessionState& scene,
                                                      const SkullbonezCore::Core::EngineConfig& config,
                                                      const char* scenePath,
                                                      const char* rendererName )
@@ -1130,19 +1040,20 @@ void DiagnosticsRuntime::BeginPhysicsDiagnosticsRun( Physics::PhysicsEngine& phy
 }
 
 
-void DiagnosticsRuntime::LogReplayScrubProbe( const RunSceneState& scene, const ReplayScrubProbeDiagnostic& probe )
+void DiagnosticsRuntime::LogReplayScrubProbe( const SceneSessionState& scene, const ReplayScrubProbeDiagnostic& probe )
 {
     RuntimeDiagnostics::LogReplayScrubProbe( m_diagnostics.PhysicsDiagnostics(), scene, probe );
 }
 
 
-void DiagnosticsRuntime::LogReplayRestoreProbe( const RunSceneState& scene, const ReplayRestoreProbeDiagnostic& probe )
+void DiagnosticsRuntime::LogReplayRestoreProbe( const SceneSessionState& scene,
+                                                const ReplayRestoreProbeDiagnostic& probe )
 {
     RuntimeDiagnostics::LogReplayRestoreProbe( m_diagnostics.PhysicsDiagnostics(), scene, probe );
 }
 
 
-void DiagnosticsRuntime::LogReplayRestoreResult( const RunSceneState& scene,
+void DiagnosticsRuntime::LogReplayRestoreResult( const SceneSessionState& scene,
                                                  const ReplayRestoreResultDiagnostic& result )
 {
     // Invariant: Replay restore diagnostics are forwarded with their exact
@@ -1152,7 +1063,7 @@ void DiagnosticsRuntime::LogReplayRestoreResult( const RunSceneState& scene,
 }
 
 
-void DiagnosticsRuntime::EndPhysicsDiagnosticsRun( const RunSceneState& scene, const char* status )
+void DiagnosticsRuntime::EndPhysicsDiagnosticsRun( const SceneSessionState& scene, const char* status )
 {
     RuntimeDiagnostics::EndPhysicsDiagnosticsRun( m_diagnostics.PhysicsDiagnostics(), scene, status );
 }
@@ -1161,7 +1072,7 @@ void DiagnosticsRuntime::EndPhysicsDiagnosticsRun( const RunSceneState& scene, c
 #endif
 
 
-void DiagnosticsRuntime::BeforeSceneUnload( const RunSceneState& scene )
+void DiagnosticsRuntime::BeforeSceneUnload( const SceneSessionState& scene )
 {
 #ifdef _DEBUG
     EndPhysicsDiagnosticsRun( scene, "scene_reload" );

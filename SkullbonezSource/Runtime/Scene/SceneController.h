@@ -30,7 +30,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntime.h
-  - SkullbonezSource/Runtime/Scene/RunScene.cpp
+  - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #pragma once
@@ -43,8 +43,8 @@ Related:
 #include "SceneRuntimeCoordinator.h"
 #include "SceneRuntimeUiOptions.h"
 #include "SceneWorld.h"
-#include "../RunCameraState.h"
-#include "../RunDebugState.h"
+#include "../Camera/CameraControlState.h"
+#include "../Diagnostics/OverlayDebugState.h"
 #include "../../Core/SbResult.h"
 #include "../../Maths/Vector3.h"
 
@@ -104,8 +104,8 @@ class RuntimeTools;
 class SimulationSystem;
 class Window;
 struct AttachedCameraState;
-struct RunCameraState;
-struct RunDebugState;
+struct CameraControlState;
+struct OverlayDebugState;
 struct RunLaunchOptions;
 struct RunStartupState;
 struct RunTimerState;
@@ -138,10 +138,10 @@ struct SceneDefaultsSaveView
 {
     // Lifetime: every owner is borrowed only for one synchronous cold save.
     // The writer retains no pointers across a scene reload.
-    const RunDebugState& debug;
+    const OverlayDebugState& debug;
     const RuntimeRenderer& renderer;
-    const RunCameraState& camera;
-    const RunSceneUIOverrideState& uiOverrides;
+    const CameraControlState& camera;
+    const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides;
 };
 
 // Concept: scene loading borrows phase-oriented transaction inputs instead of
@@ -166,13 +166,13 @@ struct SceneLoadPolicyInputs
 
 struct SceneLoadInteractionParticipants
 {
-    RunCameraState camera;
+    CameraControlState camera;
     SceneLoadNavigationState navigation;
 };
 
 struct SceneLoadPresentationParticipants
 {
-    RunDebugState debug;
+    OverlayDebugState debug;
     // Hazard: scene mutation may start only after the DX12 frame is drained;
     // terrain construction then uses the cold resource builder. No other
     // backend capability belongs inside the load transaction.
@@ -199,8 +199,8 @@ struct SceneLoadConsumerOutputs
     SceneUiActivation uiActivation;
     SceneAutomationGateConfiguration automationGates;
     SceneLoadNavigationState navigation;
-    RunDebugState presentation;
-    RunCameraState camera;
+    OverlayDebugState presentation;
+    CameraControlState camera;
     std::array<SceneLoadCompletedWorldChange, 2> completedWorldChanges = {};
     std::size_t completedWorldChangeCount = 0;
     SceneRequestBatch completedRequests;
@@ -224,9 +224,9 @@ inline const SceneLoadNavigationState& SceneNavigationForFollowingRequest( const
 // A later cold action in the same fixed batch must observe authored/debug
 // policy produced by the completed load, even though the overlay owner applies
 // that detached value only after ExecutePending returns.
-inline const RunDebugState& ScenePresentationForFollowingRequest( const RunDebugState& submitted,
-                                                                  const SceneLoadConsumerOutputs& outputs,
-                                                                  const SceneLifecyclePacket& lifecycle )
+inline const OverlayDebugState& ScenePresentationForFollowingRequest( const OverlayDebugState& submitted,
+                                                                      const SceneLoadConsumerOutputs& outputs,
+                                                                      const SceneLifecyclePacket& lifecycle )
 {
     return SceneLifecycleReached( lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneCleared )
                ? outputs.presentation
@@ -243,7 +243,7 @@ void ApplySceneLoadRuntimeReactions( SceneLoadConsumerOutputs& outputs,
                                      SceneController& sceneController,
                                      InputRouter& inputRouter,
                                      RuntimeInteractionController& interaction,
-                                     RunCameraState& camera,
+                                     CameraControlState& camera,
                                      AttachedCameraController& attachedCamera,
                                      RuntimeTools& runtimeTools,
                                      ReplayRuntime& replayRuntime );
@@ -265,8 +265,8 @@ class SceneController
     SceneController();
     explicit SceneController( std::vector<std::string> queue );
 
-    RunSceneState& State();
-    const RunSceneState& State() const;
+    SceneSessionState& State();
+    const SceneSessionState& State() const;
     // Borrow the concrete active-scene owner. SceneController deliberately has
     // no duplicate entity/physics/camera/terrain/render forwarding surface.
     SceneWorld& Scene();

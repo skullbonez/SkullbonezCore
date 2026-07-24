@@ -1,6 +1,6 @@
 # MASTER PLAN — Authoritative Remaining Work
 
-Date: 2026-07-20
+Date: 2026-07-24
 Status: Authoritative inventory of every live repository plan
 
 ## Binding Owner Directive — 2026-07-19: Finish UI, Then Resolve Physics
@@ -513,6 +513,11 @@ completed at 10/10 on `15th-of-July-Night-Runner` and leave the ledger as
 historical work per commit-contract rule 4.
 
 ## Current Execution Priority
+
+No active/future implementation plan is registered. The solar-system trajectory
+planner closed SS0-SS6 on 2026-07-24 after its independent review findings were
+remediated and all final gates passed. Closure evidence is in
+[`solar-system-trajectory-planner-closure`](../Reports/2026-07-24/solar-system-trajectory-planner-closure.md).
 
 The 2026-07-18 adversarial-review round-7 lane is closed. Scene-controller
 round 2, DX12 backend ownership, naming/identity debt, and small-findings
@@ -1458,9 +1463,49 @@ navigation model).
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [source-blemish-remediation](TODO/source-blemish-remediation.md) | Registered | 0/6 | Starts after wide-signature-parameter-bag-remediation closes; B1 collider cold-row split |
-| [ui-runtime-separation](TODO/ui-runtime-separation.md) | Registered | 0/5 | Starts after source-blemish-remediation B3 renames land; U1 moves the UI-owned navigation model out of Runtime/Scene |
-| [runtime-package-decomposition](TODO/runtime-package-decomposition.md) | Registered | 0/5 | Starts after ui-runtime-separation closes; R1 top-level census and ratified package map |
+| [source-blemish-remediation](../Reports/2026-07-23/source-blemish-remediation-closure.md) | Complete | 6/6 | Hot/cold collider data, diagnostic registration, honest Runtime names, profiler placement, owner ruling, independent review, and final gates complete |
+| [ui-runtime-separation](../Reports/2026-07-23/ui-runtime-separation-closure.md) | Complete | 5/5 | Zero UI→Runtime includes; independent review finding remediated; all standing proofs and final gates pass |
+| [runtime-package-decomposition](../Reports/2026-07-23/runtime-package-decomposition-closure.md) | Complete | 5/5 | 80 exact moves, one top-level residue, operational package proofs, independent review, and all closure gates pass |
+
+Architecture Follow-Up Campaign Round 3 closed on 2026-07-23. Its 16/16
+registered tasks are complete, so the active/future denominator returns
+16 → 0 under rule 4. Runtime now has policed physical packages, UI is a
+one-way presentation dependency below Runtime, and all five source blemishes
+are resolved. Closure evidence is linked from the table above.
+
+## Solar System Trajectory Planner (2026-07-23)
+
+The owner registered one seven-task gameplay/replay feature after Architecture
+Follow-Up Round 3 closed, growing the active/future denominator 0 → 7. Replay
+remains the flagship prediction owner; Physics, Rendering, Scene, World, and
+Core are frozen for this plan.
+
+| Plan | State | Verified phase count | Next action |
+|---|---|---:|---|
+| [solar-system-trajectory-planner](../Reports/2026-07-24/solar-system-trajectory-planner-closure.md) | Complete | 7/7 | SS0-SS6 complete; rollback, state gating, default-off, epoch, review, and final gates closed |
+
+The plan closed 7/7 on 2026-07-24 and leaves the live ledger under inventory
+rule 4. The active/future denominator returns 7 → 0.
+
+## Prediction Retained Rendering Merge Handoff (2026-07-24)
+
+The owner directed the current bounded prediction-rendering stabilization branch
+to be documented and committed for merge. This is corrective merge work rather
+than a newly registered portfolio campaign, so the active/future denominator
+remains zero.
+
+The branch retains prediction trajectory commands incrementally, preserves the
+frame-local deterministic golden as an independent oracle, forces large contact
+scenes such as the 200-box wall onto amortized scheduling, restores ball picking
+with the expanded Legacy UI visible, and publishes the acquire-latched build-root
+trajectory prefix so the ball line grows before contact instead of popping in at
+impact. The latest symptom is classified as retained-rendering publication, not
+missing physics data.
+
+  The replay visual-fidelity, DX12 renderer, bounded graphics stress, and full
+  default PR gates pass. Merge state, validation evidence, hazards, and the
+  required first owner-visible check are recorded in
+  [`prediction-retained-rendering-handoff`](../Reports/2026-07-24/prediction-retained-rendering-handoff.md).
 
 ## Features
 
