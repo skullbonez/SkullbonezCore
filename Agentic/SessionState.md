@@ -11,42 +11,42 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-25th-JUL-26` |
-| Current baseline | UI / Renderer Hard Boundary UR1 provides one bounded inspectable draw stream, immutable baked-font metrics with exact legacy parity, preview fallback values, measured capacity headroom, and renderer-free CPU tests. |
-| Current objective | Continue the round-4 architecture campaign in binding order: `ui-renderer-hard-boundary` UR2, then `replay-subsystem-partition`, then `downward-domain-bleed-remediation`. |
-| Active/future progress | UI / Renderer Hard Boundary 6/7; Replay Subsystem Partition 0/6; Downward Domain Bleed Remediation 0/6; Invariant Ownership Governance And Transaction Repair 0/5; active/future ledger 6/24. |
+| Current baseline | UI / Renderer Hard Boundary UR0-UR5 are committed. UR6 source, independent-review remediation, static proofs, captures, comment audit, renderer-free link proof, replay fidelity, and broad validation are complete; only the unapproved performance-memory baseline delta remains. |
+| Current objective | Obtain the explicit owner disposition for the UR6 performance-memory comparison, close `ui-renderer-hard-boundary`, then begin `replay-subsystem-partition` RS0. |
+| Active/future progress | UI / Renderer Hard Boundary 6/7; Header Claim Staleness Remediation 0/3; Replay Subsystem Partition 0/6; Downward Domain Bleed Remediation 0/6; Invariant Ownership Governance And Transaction Repair 0/5; active/future ledger 6/27. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | Solar prediction presentation correction `validate_full` passes with exit 0 in 165.7 s: mandatory CPU preflight and all Automation, replay/prediction, DX12, and physics runtime lanes passed. |
-| Validation for current edits | UR1 focused UI tests pass 7/7 with 100 assertions; all 388 tests / 2,403,226 assertions pass; format/project filters, allocation scan, and `validate_full` mandatory CPU plus five engine processes pass without baseline refresh. |
+| Last broad local gate | UR6 `validate_full.bat` passes: mandatory CPU umbrella plus all five Automation, replay/prediction, DX12, and physics engine processes. |
+| Validation for current edits | Dependency graph 25+1 fixtures / 0 live findings; project filters 767/767; renderer-free UI link probe 11/11 surfaces; all 391 doctest cases / 2,403,286 assertions; 21-case UI suite; DX12 renderer; bounded graphics stress; one-process replay visual fidelity; allocation scan; and full gate pass. `validate_perf.bat` is red only for +6.94 to +7.38 MiB process memory versus the old `8bc929bfe` baseline; no baseline was refreshed. |
 
 ## Live Queue
 
-NOW. The 2026-07-25 round-4 architecture campaign is active at 2/19 with
-binding order: `ui-renderer-hard-boundary` (2/7), `replay-subsystem-partition`
-(0/6), `downward-domain-bleed-remediation` (0/6). The UI plan preserves the
-completed UI/Runtime value-command boundary while removing 25 direct
-UI-to-Rendering includes across 14 UI files, moving UI GPU submission and
-resource lifetime into Runtime/Render, removing operator-presentation policy
-from Rendering, creating a standalone UI build, and adding mandatory
-directional dependency enforcement; it was amended on 2026-07-25 with
-draw-stream fingerprint gating, baked font-metric single sourcing, measured
-capacity high-water, preview-fallback contract placement, and consolidation
-of the standing dependency proofs into the UR5 validator. The partition plan
-splits `Runtime/Replay` (72 files / 36,900 lines) into Replay, Prediction,
-and Planning packages with anti-accretion direction rules. The bleed plan
-moves retained-trajectory semantics out of Rendering, puts terrain behind a
-Physics-owned boundary (banning Physics→World), and extracts fluid fields
-from `PhysicsBodyRecord` — all byte-exact-or-revert. The fourth plan,
-`invariant-ownership-governance-and-transaction-repair` (0/5), amends the
-governance to test aggregates for invariant ownership rather than shape, then
-repairs the scene-load transaction (four sibling structs, an 11-parameter
-reactions function, an 8-parameter presentation function that must follow it,
-and two inline arbitration helpers whose comments carry the real rule) plus
-every other censused offender. Its GV0 governance amendment is
-documentation-only and authorized to run early in parallel. UR0 ratified the exact
-25-row/14-file edge census and ownership/deletion contract without source
-changes. UR1 adds the bounded read-only draw stream, immutable baked-font
-metric parity, preview fallback values, measured headroom, and CPU coverage.
-Continue with UR2; implementation uses the repository orchestrator skill. Live plans are under
+NOW. The 2026-07-25 round-4 architecture campaign is active at 6/27 with
+binding order: `ui-renderer-hard-boundary` (6/7),
+`header-claim-staleness-remediation` (0/3), `replay-subsystem-partition`
+(0/6), `downward-domain-bleed-remediation` (0/6), then
+`invariant-ownership-governance-and-transaction-repair` (0/5).
+
+The staleness plan is second and small, from
+`Agentic/Reports/2026-07-25/header-comment-staleness-audit.md`. A stale
+`RenderGraph.h` header caused the architecture review to report a false
+"half-finished render graph" finding and nearly registered a six-task
+campaign to rebuild work that shipped 2026-07-20; the header was corrected in
+`d0e2c14f`. The audit then found a phantom `RunInput` owner cited in 14
+comments across 9 files with zero declarations anywhere, three further
+falsified ownership claims, and 12 broken `Related:` pointers. It runs before
+the replay partition because RS0 and GV2 censuses read the affected headers.
+HC0 is comment-only and may run parallel to the UI tail. HC2 and GV0 both
+amend the comment-audit skill in separate sections; second one rebases.
+UR0-UR5 are committed. UR6 has closed every behavioral, ownership, dependency,
+visual, allocation, comment, independent-review, and mapped validation item
+except the performance comparison: the current executable is faster and
+smaller, but its process-memory samples are +6.94 to +7.38 MiB above the old
+baseline, exceeding the 5 MiB tolerance. Explicit owner approval is required
+before refreshing that performance baseline. The permanent draft evidence is
+`Agentic/Reports/2026-07-25/ui-renderer-hard-boundary-closure.md`; the TODO plan
+remains live and unchecked until the ruling. After UR6 closes, remove its seven
+tasks from the active ledger and begin Replay RS0. Implementation continues
+through the repository orchestrator skill. Live plans are under
 `Agentic/Plans/TODO/`.
 
 NOW. `solar-prediction-presentation-correction` is complete at 4/4. The
@@ -458,10 +458,10 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Merge `nightrunner-23rd-JUL-26` after reviewing
-`Agentic/Reports/2026-07-24/prediction-retained-rendering-handoff.md`. The first
-owner-visible check is the 200-box striker: its root line must grow continuously
-toward the wall before contact, remain stable after completion, and remain
-selectable while the expanded Legacy UI is visible. Treat any remaining absence
-as retained DX12 visibility/submission first; the simulation and acquire-latched
-trajectory prefix are already present.
+Resolve the single UR6 performance-memory ruling. If the measured increase is
+approved, refresh only `TestOutput/baselines/physics_bench_perf.json` from the
+final source, rerun `tools\validate_perf.bat`, finalize the closure report,
+delete the UI TODO plan, reduce the live ledger to 0/17, commit with the
+required task-progress subject, and push. Preserve the two user-owned modified
+replay-golden files unless the owner separately directs their inclusion. Then
+start `replay-subsystem-partition` RS0.

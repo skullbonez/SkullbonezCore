@@ -204,6 +204,13 @@ this transaction needs). So both are banned, and the invariant is homeless.
   6. Do not add any counting, threshold, or spelling ratchet. The rule is a
      qualitative test with named required artifacts (Invariant: block +
      focused test), enforceable by review and comment audit.
+  7. **Coordination:** `header-claim-staleness-remediation` HC2 also amends
+     `Agentic/Skills/comment-style-audit/skill.md`, adding a
+     claim-verification step in a separate section. Whichever task lands
+     second rebases onto the other rather than overwriting the file. Note
+     also that HC0 corrects `SceneController.h:337-338`, which currently
+     cites completed task "C1" as live context — GV1's census must read the
+     corrected header, not the stale claim.
 
   Acceptance:
 

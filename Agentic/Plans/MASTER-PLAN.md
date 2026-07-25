@@ -552,16 +552,38 @@ moved profiler layout into UI recording, projected renderer diagnostics at the
 Runtime/UI boundary, and removed the final UI-to-Rendering source edge. UR5
 then established the standalone UI production library, exact single-project
 UI ownership, and the mandatory data-driven dependency graph gate shared by
-the follow-up plans. The active/future ledger is 6/24.
+the follow-up plans.
+
+The denominator grew 24 → 27 on 2026-07-25 when the owner registered
+`header-claim-staleness-remediation` (3 tasks) from the same-day header
+comment staleness audit
+(`../Reports/2026-07-25/header-comment-staleness-audit.md`). The audit was
+triggered by a near-miss: the architecture review reported a false
+"half-finished render graph" finding because `RenderGraph.h` still described
+the pre-`render-graph-completion` design, nearly registering a six-task
+campaign to build what shipped on 2026-07-20. The header was corrected in
+`d0e2c14f`. The audit then found a phantom `RunInput` owner named in 14
+comments across 9 files despite having zero declarations anywhere, three more
+falsified ownership claims, and 12 broken `Related:` pointers. It also
+established that the comment regime is strong at deletion (zero retired
+vocabulary survives) and blind to responsibility movement. This plan is
+sequenced early — before the replay partition — because RS0 and GV2 censuses
+read the exact files carrying false claims. The active/future ledger is 6/27.
 
 ## Current Execution Priority
 
 The 2026-07-25 round-4 campaign is the active queue with binding order:
-1 `ui-renderer-hard-boundary` (6/7), 2 `replay-subsystem-partition` (0/6),
-3 `downward-domain-bleed-remediation` (0/6),
-4 `invariant-ownership-governance-and-transaction-repair` (0/5, whose GV0
+1 `ui-renderer-hard-boundary` (6/7),
+2 `header-claim-staleness-remediation` (0/3),
+3 `replay-subsystem-partition` (0/6),
+4 `downward-domain-bleed-remediation` (0/6),
+5 `invariant-ownership-governance-and-transaction-repair` (0/5, whose GV0
 documentation-only governance amendment is authorized to run early in
-parallel). Continue with UR6's final census,
+parallel). The staleness remediation is deliberately second and small: it is
+comment-only, and leaving it later means the replay-partition and
+transaction-repair censuses both read headers carrying verified false
+ownership claims. Its HC0 may also run in parallel with the UI tail, since
+its files do not overlap. Continue with UR6's final census,
 captures, mapped gates, independent review, closure report, and handoff.
 The UI plan preserves the existing UI/Runtime value-command boundary and
 makes Runtime/Render the sole UI-to-renderer composition point, and its UR5
@@ -1636,8 +1658,18 @@ campaign owns plus one amendment set:
    every scene.
 3. **UI plan amendments** — accepted improvements embedded into
    `ui-renderer-hard-boundary` without changing its task count.
-4. **Process-generated complexity** (registered 2026-07-25 as the campaign's
-   fourth plan) — the repository's own rules extrude wide transactions into
+4. **Header claim staleness** (registered 2026-07-25 from
+   `../Reports/2026-07-25/header-comment-staleness-audit.md`) — the comment
+   regime catches deleted symbols but not moved responsibilities. A stale
+   `RenderGraph.h` header caused the architecture review to report a false
+   "half-finished render graph" finding and nearly registered a six-task
+   campaign to rebuild shipped work. The audit found a phantom `RunInput`
+   owner in 14 comments across 9 files with zero declarations anywhere,
+   three further falsified ownership claims, and 12 broken `Related:`
+   pointers — four of which cite `TODO/` plans that inventory rule 4 deletes
+   at closure, making them broken by construction.
+5. **Process-generated complexity** (registered 2026-07-25 as the campaign's
+   fifth plan) — the repository's own rules extrude wide transactions into
    an unbanned but worse shape. The scene-load transaction is the flagship:
    four sibling input/participant structs, an 11-parameter
    `ApplySceneLoadRuntimeReactions`, an 8-parameter
@@ -1669,18 +1701,24 @@ graphics-stress proof per inventory rule 10; replay-facing slices run the
 one-invocation mega gate per inventory rule 11; one independent rubber-duck
 review per plan at closure; no new compatibility spellings, forwarding
 headers, context bags, callback packs, or hot-path inheritance artifacts.
-Execution order is binding: 1 UI/renderer hard boundary, 2 replay subsystem
-partition, 3 downward domain bleed remediation (DB1 additionally requires
-RS1's `Runtime/Prediction` package to exist), 4 invariant-ownership
-governance and transaction repair. GV0 is the single authorized exception to
-that order: it is documentation-only, touches no source, and its amended
-review rules benefit the in-flight round-4 reviews, so it may execute at any
-time after registration. GV1-GV4 wait their turn.
+Execution order is binding: 1 UI/renderer hard boundary, 2 header claim
+staleness remediation, 3 replay subsystem partition, 4 downward domain bleed
+remediation (DB1 additionally requires RS1's `Runtime/Prediction` package to
+exist), 5 invariant-ownership governance and transaction repair. Two
+authorized exceptions to that order, both documentation-only: GV0's
+governance amendment may execute at any time after registration because its
+amended review rules benefit the in-flight round-4 reviews, and HC0 may run
+parallel to the UI tail because its comment-only diffs touch
+Input/Interaction/Editor/Scene files the UI plan does not. GV1-GV4 and
+HC1-HC2 wait their turn. Coordination: HC2 and GV0 both amend
+`Agentic/Skills/comment-style-audit/skill.md` in separate sections —
+whichever lands second rebases rather than overwrites.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
 | [ui-renderer-hard-boundary](TODO/ui-renderer-hard-boundary.md) | In progress | 6/7 | UR6 final proof, visual capture, mapped gates, independent review, and closure |
-| [replay-subsystem-partition](TODO/replay-subsystem-partition.md) | Ready | 0/6 | Starts after UR6 closes; RS0 partition census of all 72 Replay files |
+| [header-claim-staleness-remediation](TODO/header-claim-staleness-remediation.md) | Ready | 0/3 | Starts after UR6 closes (HC0 may run parallel to the UI tail); correct 17 false-claim sites, 12 pointers, and install claim verification |
+| [replay-subsystem-partition](TODO/replay-subsystem-partition.md) | Ready | 0/6 | Starts after HC2 closes; RS0 partition census of all 72 Replay files |
 | [downward-domain-bleed-remediation](TODO/downward-domain-bleed-remediation.md) | Ready | 0/6 | Starts after RS5 closes; DB0 bleed census and boundary-contract design |
 | [invariant-ownership-governance-and-transaction-repair](TODO/invariant-ownership-governance-and-transaction-repair.md) | Ready | 0/5 | GV0 governance amendment may run early; GV1-GV4 start after DB5 closes |
 
