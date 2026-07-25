@@ -10,18 +10,18 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `main` |
-| Current baseline | Solar prediction presentation correction is complete: the 32-body Mars-assist scene stays parent/solar bounded for 120 seconds, Replay/live endpoints agree, paths restyle live, and space scenes schedule neither shadow nor reflection passes. |
-| Current objective | Execute the round-4 architecture campaign in binding order: `ui-renderer-hard-boundary` (begin with UR0's census), then `replay-subsystem-partition`, then `downward-domain-bleed-remediation`. |
-| Active/future progress | UI / Renderer Hard Boundary 0/7; Replay Subsystem Partition 0/6; Downward Domain Bleed Remediation 0/6; active/future ledger 0/19. |
+| Branch | `nightrunner-25th-JUL-26` |
+| Current baseline | UI / Renderer Hard Boundary UR0 ratifies the exact 25-row/14-file UI-to-Rendering census, assigns every edge a destination owner and deletion condition, maps the reverse Runtime/Render composition path, and changes no source behavior. |
+| Current objective | Continue the round-4 architecture campaign in binding order: `ui-renderer-hard-boundary` UR1, then `replay-subsystem-partition`, then `downward-domain-bleed-remediation`. |
+| Active/future progress | UI / Renderer Hard Boundary 1/7; Replay Subsystem Partition 0/6; Downward Domain Bleed Remediation 0/6; active/future ledger 1/19. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | Solar prediction presentation correction `validate_full` passes with exit 0 in 165.7 s: mandatory CPU preflight and all Automation, replay/prediction, DX12, and physics runtime lanes passed. |
-| Validation for current edits | 383 tests/2,403,142 assertions, 16/16 focused slingshot assertions, held-drag instant/amortized probes, allocation policy, 23 dependency proofs, accepted DX12 captures, broad gate, and 39/39 touched-source comment audit pass. |
+| Validation for current edits | UR0 is documentation-only; direct census reconciliation is 65 tracked UI source-bearing files, 25 UI-to-Rendering rows in 14 files, and zero UI-to-Runtime or Rendering-to-UI/Runtime rows. No repository validation is required. |
 
 ## Live Queue
 
-NOW. The 2026-07-25 round-4 architecture campaign is registered at 0/19 with
-binding order: `ui-renderer-hard-boundary` (0/7), `replay-subsystem-partition`
+NOW. The 2026-07-25 round-4 architecture campaign is active at 1/19 with
+binding order: `ui-renderer-hard-boundary` (1/7), `replay-subsystem-partition`
 (0/6), `downward-domain-bleed-remediation` (0/6). The UI plan preserves the
 completed UI/Runtime value-command boundary while removing 25 direct
 UI-to-Rendering includes across 14 UI files, moving UI GPU submission and
@@ -35,8 +35,10 @@ splits `Runtime/Replay` (72 files / 36,900 lines) into Replay, Prediction,
 and Planning packages with anti-accretion direction rules. The bleed plan
 moves retained-trajectory semantics out of Rendering, puts terrain behind a
 Physics-owned boundary (banning Physics→World), and extracts fluid fields
-from `PhysicsBodyRecord` — all byte-exact-or-revert. Start with UR0;
-implementation uses the repository orchestrator skill. Live plans are under
+from `PhysicsBodyRecord` — all byte-exact-or-revert. UR0 ratified the exact
+25-row/14-file edge census and ownership/deletion contract without source
+changes. Continue with UR1; implementation uses the repository orchestrator
+skill. Live plans are under
 `Agentic/Plans/TODO/`.
 
 NOW. `solar-prediction-presentation-correction` is complete at 4/4. The

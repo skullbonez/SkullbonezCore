@@ -4,7 +4,7 @@ Date: 2026-07-25
 
 Owner: UI + Runtime/Render
 
-State: READY
+State: IN PROGRESS
 
 Ledger tasks: 7 (UR0-UR6)
 
@@ -220,9 +220,135 @@ callback, virtual renderer interface, service bag, or generic context.
 | ImGui renderer owner | `Runtime/DevelopmentTools` | Retain as a documented development-only exception outside `UI/` |
 | Runtime/Render includes UI | `Runtime/Render` | Retain permanently as the intentional composition direction |
 
+## UR0 Source-Derived Census (2026-07-25)
+
+UR0 was regenerated from branch `nightrunner-25th-JUL-26` after the round-4
+registration commit reached `main`. CodeGraph supplied the first-pass symbol
+and call-path map; `git ls-files`, direct include inspection, and project-file
+inspection supplied the authoritative counts:
+
+| Census item | Result |
+|---|---:|
+| Tracked UI source-bearing files (`.cpp`, `.h`, `.hpp`, `.inl`, `.hlsl`) | 65 |
+| Direct UI-to-Rendering include rows | 25 |
+| UI files containing those rows | 14 |
+| Direct UI-to-Runtime include rows | 0 |
+| Direct Rendering-to-UI/Runtime include rows | 0 |
+| Production projects compiling UI source | 1 (`SKULLBONEZ_CORE.vcxproj`) |
+
+The registration baseline therefore reconciles exactly: 25 rows in 14 files.
+The following table is the row-level closure contract. A deletion condition
+means deletion of the physical include and the associated backend authority;
+an alias, forwarding include, opaque token, or renamed context does not close
+the row.
+
+| # | Current include row | Current responsibility | Closure owner | Deletion condition |
+|---:|---|---|---|---|
+| 1 | `UIButton.cpp` -> `Rendering/Text.h` | text measurement/layout | UI font metrics | UR1 exact metric parity removes `Text2d` use and the include |
+| 2 | `UI.cpp` -> `Rendering/RenderCommandTypes.h` | renderer visibility values | Runtime/UI projection into UI values | UR4 removes every Rendering value/type from UI |
+| 3 | `UI.cpp` -> `Rendering/DX12/Dx12Diagnostics.h` | UI-pass attribution/tracing | Runtime/Render UI pass | UR3 performs timing/tracing only during submission |
+| 4 | `UI.cpp` -> `Rendering/DX12/Dx12ResourceBuilder.h` | preview resource creation | Runtime/Render preview owner | UR3 moves create/rebuild/release out of UI |
+| 5 | `UI.cpp` -> `Rendering/DX12/RenderBackendDX12.h` | immediate draw/preview submission | Runtime/Render UI pass | UR3 is the sole concrete backend caller |
+| 6 | `UI.cpp` -> `Rendering/Text.h` | measurement and immediate text/quad flush | UI metrics/recording plus Runtime/Render submission | UR1-UR3 remove measurement, recording, and flush dependencies |
+| 7 | `UIComboBox.cpp` -> `Rendering/Text.h` | stale direct include | UI | UR1 preflight deletes the unused include |
+| 8 | `UI.h` -> `Rendering/DX12/ShaderDX12.h` | UI-owned preview shader | Runtime/Render preview owner | UR3 deletes the UI shader field and include |
+| 9 | `UI.h` -> `Rendering/DX12/Dx12Diagnostics.h` | concrete render context borrow | Runtime/Render submission | UR3 deletes `UIRenderContext`; UR4 projects diagnostic values |
+| 10 | `UIDraw.cpp` -> `Rendering/Text.h` | measurement and immediate text/quad work | UI metrics/recording plus Runtime/Render submission | UR1-UR3 leave `UIDraw` backend-neutral |
+| 11 | `UIDraw.cpp` -> `Rendering/DX12/RenderBackendDX12.h` | immediate geometry submission | Runtime/Render UI pass | UR2 records all primitives and UR3 submits them |
+| 12 | `UIDrawWidgets.cpp` -> `Rendering/Text.h` | widget text measurement | UI font metrics | UR1 exact metric parity removes `Text2d` use |
+| 13 | `UIFrameComposition.cpp` -> `Rendering/DX12/RenderBackendDX12.h` | draw-list flush and preview draw | Runtime/Render UI/preview owners | UR3 deletes GPU-oriented composition helpers |
+| 14 | `UIFrameComposition.cpp` -> `Rendering/RenderGpuTimingOwner.h` | UI GPU timing scope | Runtime/Render UI pass | UR3 owns timing around command submission |
+| 15 | `UIFrameComposition.h` -> `Rendering/RenderCommandTypes.h` | preview raster state and renderer status values | Runtime/Render preview owner plus Runtime/UI projection | UR3 moves raster policy; UR4 removes renderer status types |
+| 16 | `UIFrameComposition.h` -> `Rendering/DX12/Dx12Diagnostics.h` | draw attribution | Runtime/Render UI pass | UR3 removes diagnostics from UI declarations |
+| 17 | `UIFrameComposition.h` -> `Rendering/DX12/Dx12ResourceBuilder.h` | preview resource lifetime | Runtime/Render preview owner | UR3 removes resource builders from UI declarations |
+| 18 | `UIFrameComposition.h` -> `Rendering/DX12/RenderBackendDX12.h` | concrete backend submission | Runtime/Render UI pass | UR3 removes backend parameters from UI declarations |
+| 19 | `UIFrameComposition.h` -> `Rendering/Text.h` | font measurement/batches | UI font metrics plus Runtime/Render submission | UR1 supplies metrics; UR3 owns batches |
+| 20 | `UILayout.cpp` -> `Rendering/Text.h` | layout text measurement | UI font metrics | UR1 exact metric parity removes `Text2d` use |
+| 21 | `UISlider.cpp` -> `Rendering/Text.h` | control text measurement | UI font metrics | UR1 exact metric parity removes `Text2d` use |
+| 22 | `UITabBar.cpp` -> `Rendering/Text.h` | tab text measurement | UI font metrics | UR1 exact metric parity removes `Text2d` use |
+| 23 | `UITabProfiler.cpp` -> `Rendering/Text.h` | stale direct include | UI | UR1 preflight deletes the unused include |
+| 24 | `UITabProfilerHistogram.cpp` -> `Rendering/Text.h` | chart label measurement | UI font metrics | UR1 exact metric parity removes `Text2d` use |
+| 25 | `UIWindowChrome.cpp` -> `Rendering/Text.h` | chrome text measurement | UI font metrics | UR1 exact metric parity removes `Text2d` use |
+
+### Symbol and responsibility disposition
+
+| Symbol/responsibility | Current location/use | Exact closure |
+|---|---|---|
+| `UIRenderContext` | `UI.h`; carries Assets, DX12 resource, diagnostics, timing, and text owners | UR3 deletes it; no backend/context replacement is allowed |
+| `UIDrawContext` | `UIDraw.h/.cpp`; retains texture/geometry/text owners and performs immediate draws | UR2 makes it a UI-only recorder; UR3 confirms no renderer pointer, token, or callback remains |
+| `UIDrawList::Flush` | callback-oriented dispatch from UI records | UR1 exposes a bounded read-only command view; UR3 deletes UI-side flush and iterates values in Runtime/Render |
+| `Text2d::MeasureText` callers | widget, layout, tab, chrome, mini-palette, and frame composition paths | UR1 moves exact measurement to UI-owned immutable metrics generated from the same baked font asset as the renderer atlas |
+| Text/quad/image flush | `UIDraw`, `UI.cpp`, and `UIFrameComposition` | UR2 records one ordered stream; UR3 translates it in the Runtime/Render pass |
+| UI-owned `ShaderDX12` and preview VB | `InGameUI` fields and preview helpers | UR3 moves all preview create/reset/draw/release state to one focused Runtime/Render owner and deletes the fields |
+| Raw preview `textureHandle` | `UIRenderTargetPreviewResource` and Runtime/Render frame assembly | UR1 defines preview identity/fallback values; UR3 resolves identities to frame-local handles only during submission |
+| `RenderVisibilityStats` / `RenderMemoryStats` / GPU timing views | renderer values embedded in UI frame data | UR4 creates bounded UI-owned presentation values populated by Runtime/UI |
+| `ProfilerOverlayPresenter` / `RenderProfilerPresentation.cpp` | Rendering-owned labels, columns, legend, bars, panels, and text/quad presentation | UR4 moves operator presentation into UI recording; Rendering retains only measurement collection and backend snapshots |
+| ImGui renderer backend | `Runtime/DevelopmentTools` | Permanent development-only exception; it never enters `UI/` |
+
+The complete live `Text2d`/text-batch surface spans 15 files once transitive
+header users are included: `UI.cpp`, `UI.h`, `UIButton.cpp`, `UIDraw.cpp`,
+`UIDraw.h`, `UIDrawWidgets.cpp`, `UIEditorMiniPalette.cpp`,
+`UIEditorMiniPaletteDraw.cpp`, `UIFrameComposition.cpp`,
+`UIFrameComposition.h`, `UILayout.cpp`, `UISlider.cpp`, `UITabBar.cpp`,
+`UITabProfilerHistogram.cpp`, and `UIWindowChrome.cpp`.
+`UIComboBox.cpp` and `UITabProfiler.cpp` are confirmed stale direct includes.
+
+### Reverse composition path and project ownership
+
+The intentional reverse dependency begins in `Runtime/App/RunFrame.cpp`, which
+constructs the current `UIRenderContext` and invokes
+`OperatorEditorFrameComposer::Render`. `Runtime/Render/UiTextPass.cpp` then
+injects GPU timing and text owners, projects live render diagnostics and raw
+preview handles into `InGameUIFrameData`, and calls `InGameUI::Draw`.
+`RuntimeRenderer::ExecuteUiTextThroughRenderGraph` schedules that pass;
+`RuntimeRenderer.cpp` currently resets UI-owned preview resources, and
+`RenderResourceLifecycle` owns the pass plus the preview snapshot. UR3 keeps
+this Runtime/Render composition point but reverses the authority: UI returns
+only a bounded draw view, and Runtime/Render owns all translation and resource
+lifetime.
+
+`SKULLBONEZ_CORE.vcxproj` is the sole production project compiling all 65 UI
+source-bearing files alongside Runtime and Rendering. `SKULLBONEZ_TESTS.vcxproj`
+also compiles `OperatorEditorExchange.cpp` and `UIInput.cpp` directly. UR5
+creates one standalone production UI target, removes UI source duplication
+from the application and test projects, and makes both consumers link that
+target.
+
+### Expected final comment-audit inventory
+
+UR6 must reconcile its authoritative touched-file list from `git diff` and
+`git ls-files`; the expected source-bearing scope established here is:
+
+- UI draw/layout/presentation: `UI.h/.cpp`, `UIDraw.h/.cpp`,
+  `UIDrawList.h/.cpp`, `UIFrameComposition.h/.cpp`, `UIButton.cpp`,
+  `UIComboBox.cpp`, `UIDrawWidgets.cpp`, `UIEditorMiniPalette.cpp`,
+  `UIEditorMiniPaletteDraw.cpp`, `UILayout.cpp`, `UISlider.cpp`,
+  `UITabBar.cpp`, `UITabMemory.cpp`, `UITabProfiler.cpp`,
+  `UITabProfilerHistogram.cpp`, `UIWindowChrome.cpp`, and
+  `OperatorEditorExchange.h/.cpp`.
+- Runtime composition: `Runtime/App/RunFrame.cpp`,
+  `Runtime/UI/RuntimeViewModel.h/.cpp`,
+  `Runtime/UI/OperatorEditorFrameComposer.h/.cpp`,
+  `Runtime/Render/UiTextPass.cpp`, `Runtime/Render/RuntimeRenderPasses.h`,
+  `Runtime/Render/RuntimeRenderer.h/.cpp`, and
+  `Runtime/Render/RenderResourceLifecycle.h/.cpp`.
+- Rendering ownership: `Rendering/Text.h/.cpp`,
+  `Rendering/RenderDiagnosticsTypes.h`,
+  `Rendering/ProfilerOverlayPresenter.h`, and
+  `Rendering/RenderProfilerPresentation.cpp`.
+- Tests/tooling likely to become source-bearing scope: focused UI tests,
+  `tools/validate_project_filters.py`, and the UR5 dependency validator plus
+  its self-test/validation integration scripts.
+
+Project files and plan/report documentation remain part of the implementation
+diff but are not source-bearing comment-audit rows. This inventory is expected,
+not a cap: any additional touched source-bearing file is added to UR6's
+checklist and audited. The census leaves no unresolved owner decision and
+preserves the completed UI value/command boundary as the target architecture.
+
 ## Ledger
 
-- [ ] **UR0 — Ratify the complete source-derived boundary census.**
+- [x] **UR0 — Ratify the complete source-derived boundary census.**
 
   Re-run the census from the implementation tip using CodeGraph plus
   `git ls-files` and direct include/symbol inspection. Classify every
@@ -245,6 +371,12 @@ callback, virtual renderer interface, service bag, or generic context.
   - The census reconciles to the 25-row/14-file registration baseline or
     explains source changes since registration.
   - No source behavior changes in UR0.
+
+  Evidence: the 2026-07-25 census above records all 25 physical rows, their
+  symbol responsibilities, destination owners, and deletion conditions; maps
+  the reverse Runtime/Render path and shared-project ownership; and establishes
+  the expected final comment-audit inventory. The registration counts are
+  unchanged and this slice changes documentation only.
 
 - [ ] **UR1 — Complete the backend-neutral UI draw and text-layout values.**
 
