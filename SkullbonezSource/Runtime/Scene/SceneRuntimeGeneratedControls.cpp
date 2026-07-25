@@ -48,8 +48,8 @@ SceneRuntimeGeneratedControlAction RequestReplayAndProfileReset()
     return action;
 }
 
-SkullbonezCore::Core::SbResult ResetGeneratedRuntimeState( SceneController& scene,
-                                                           SceneGeneratedControlResetParticipants reset )
+SkullbonezCore::Core::SbResult
+ResetGeneratedRuntimeState( SceneController& scene, SceneGeneratedControlResetParticipants reset )
 {
     // Hazard: Generated rebuilds destroy model/render state. Flush GPU work
     // first, then clear objects and reset simulation/tool state together.
@@ -73,7 +73,7 @@ SkullbonezCore::Core::SbResult ResetGeneratedRuntimeState( SceneController& scen
 
 SceneGeneratedModelContext BuildGeneratedModelContext( SceneGeneratedControlPolicy policy, SceneController& scene )
 {
-    return SceneGeneratedModelContext{ scene.State(), policy.config, scene.Scene(), policy.objectTypeOverride };
+    return SceneGeneratedModelContext { scene.State(), policy.config, scene.Scene(), policy.objectTypeOverride };
 }
 
 void LogGeneratedControlFailure( const SkullbonezCore::Core::SbResult& result )
@@ -89,11 +89,13 @@ void LogGeneratedControlFailure( const SkullbonezCore::Core::SbResult& result )
 }
 } // namespace
 
-SceneRuntimeGeneratedControlAction ApplyUIModelCountOverride( SceneGeneratedControlPolicy policy,
-                                                              SceneGeneratedControlPresentation presentation,
-                                                              SceneGeneratedControlResetParticipants reset,
-                                                              SceneController& scene,
-                                                              int count )
+SceneRuntimeGeneratedControlAction ApplyUIModelCountOverride(
+    SceneGeneratedControlPolicy policy,
+    SceneGeneratedControlPresentation presentation,
+    SceneGeneratedControlResetParticipants reset,
+    SceneController& scene,
+    int count
+)
 {
     // Invariant: A model-count override is mutually exclusive with solver exact
     // ball/box overrides; only one generated setup mode owns the rebuild.
@@ -103,7 +105,7 @@ SceneRuntimeGeneratedControlAction ApplyUIModelCountOverride( SceneGeneratedCont
         presentation.uiOverrides.modelCountOverride = modelCountOverride;
         presentation.uiOverrides.solverBallCountOverride = -1;
         presentation.uiOverrides.solverBoxCountOverride = -1;
-        return SceneRuntimeGeneratedControlAction{};
+        return SceneRuntimeGeneratedControlAction {};
     }
 
     const SkullbonezCore::Core::SbResult resetResult = ResetGeneratedRuntimeState( scene, reset );
@@ -125,9 +127,11 @@ SceneRuntimeGeneratedControlAction ApplyUIModelCountOverride( SceneGeneratedCont
 
     const unsigned int seed = scene.State().rngSeed > 0 ? scene.State().rngSeed : 1u;
     scene.State().rngState = seed;
-    const SkullbonezCore::Core::SbResult setupResult =
-        SceneGeneratedSetup::SetUpSceneEntities( BuildGeneratedModelContext( policy, scene ),
-                                                 presentation.uiOverrides.modelCountOverride );
+    const SkullbonezCore::Core::SbResult setupResult = SceneGeneratedSetup::SetUpSceneEntities(
+        BuildGeneratedModelContext( policy, scene ),
+        presentation.uiOverrides.modelCountOverride
+    );
+
     if ( !setupResult.ok )
     {
         LogGeneratedControlFailure( setupResult );
@@ -142,12 +146,14 @@ SceneRuntimeGeneratedControlAction ApplyUIModelCountOverride( SceneGeneratedCont
     return RequestReplayAndProfileReset();
 }
 
-SceneRuntimeGeneratedControlAction ApplyUISolverObjectCounts( SceneGeneratedControlPolicy policy,
-                                                              SceneGeneratedControlPresentation presentation,
-                                                              SceneGeneratedControlResetParticipants reset,
-                                                              SceneController& scene,
-                                                              int balls,
-                                                              int boxes )
+SceneRuntimeGeneratedControlAction ApplyUISolverObjectCounts(
+    SceneGeneratedControlPolicy policy,
+    SceneGeneratedControlPresentation presentation,
+    SceneGeneratedControlResetParticipants reset,
+    SceneController& scene,
+    int balls,
+    int boxes
+)
 {
     // Concept: Solver overrides are exact-count generated scenes used by physics
     // diagnostics and baseline runs, so model-count UI override is cleared.
@@ -162,7 +168,7 @@ SceneRuntimeGeneratedControlAction ApplyUISolverObjectCounts( SceneGeneratedCont
         presentation.uiOverrides.solverBallCountOverride = balls;
         presentation.uiOverrides.solverBoxCountOverride = boxes;
         presentation.uiOverrides.modelCountOverride = -1;
-        return SceneRuntimeGeneratedControlAction{};
+        return SceneRuntimeGeneratedControlAction {};
     }
 
     const SkullbonezCore::Core::SbResult resetResult = ResetGeneratedRuntimeState( scene, reset );
@@ -178,10 +184,12 @@ SceneRuntimeGeneratedControlAction ApplyUISolverObjectCounts( SceneGeneratedCont
 
     const unsigned int seed = scene.State().rngSeed > 0 ? scene.State().rngSeed : 1u;
     scene.State().rngState = seed;
-    const SkullbonezCore::Core::SbResult setupResult =
-        SceneGeneratedSetup::SetUpSolverObjects( BuildGeneratedModelContext( policy, scene ),
-                                                 presentation.uiOverrides.solverBallCountOverride,
-                                                 presentation.uiOverrides.solverBoxCountOverride );
+    const SkullbonezCore::Core::SbResult setupResult = SceneGeneratedSetup::SetUpSolverObjects(
+        BuildGeneratedModelContext( policy, scene ),
+        presentation.uiOverrides.solverBallCountOverride,
+        presentation.uiOverrides.solverBoxCountOverride
+    );
+
     if ( !setupResult.ok )
     {
         LogGeneratedControlFailure( setupResult );
@@ -200,11 +208,13 @@ SceneRuntimeGeneratedControlAction ApplyUISolverObjectCounts( SceneGeneratedCont
     return RequestReplayAndProfileReset();
 }
 
-SceneGeneratedUICommandResult ApplySceneGeneratedModelCountUICommand( SceneGeneratedControlPolicy policy,
-                                                                      SceneGeneratedControlPresentation presentation,
-                                                                      SceneGeneratedControlResetParticipants reset,
-                                                                      SceneController& scene,
-                                                                      int requestedModelCount )
+SceneGeneratedUICommandResult ApplySceneGeneratedModelCountUICommand(
+    SceneGeneratedControlPolicy policy,
+    SceneGeneratedControlPresentation presentation,
+    SceneGeneratedControlResetParticipants reset,
+    SceneController& scene,
+    int requestedModelCount
+)
 {
     SceneGeneratedUICommandResult result;
     if ( requestedModelCount < 0 )
@@ -217,12 +227,13 @@ SceneGeneratedUICommandResult ApplySceneGeneratedModelCountUICommand( SceneGener
     return result;
 }
 
-SceneGeneratedUICommandResult
-ApplySceneGeneratedSolverBallCountUICommand( SceneGeneratedControlPolicy policy,
-                                             SceneGeneratedControlPresentation presentation,
-                                             SceneGeneratedControlResetParticipants reset,
-                                             SceneController& scene,
-                                             int requestedSolverBallCount )
+SceneGeneratedUICommandResult ApplySceneGeneratedSolverBallCountUICommand(
+    SceneGeneratedControlPolicy policy,
+    SceneGeneratedControlPresentation presentation,
+    SceneGeneratedControlResetParticipants reset,
+    SceneController& scene,
+    int requestedSolverBallCount
+)
 {
     SceneGeneratedUICommandResult result;
     if ( requestedSolverBallCount < 0 )
@@ -241,17 +252,20 @@ ApplySceneGeneratedSolverBallCountUICommand( SceneGeneratedControlPolicy policy,
         reset,
         scene,
         std::clamp( requestedSolverBallCount, 0, (std::max)( 0, policy.modelCapacity - boxes ) ),
-        boxes );
+        boxes
+    );
+
     result.accepted = result.action.status.ok;
     return result;
 }
 
-SceneGeneratedUICommandResult
-ApplySceneGeneratedSolverBoxCountUICommand( SceneGeneratedControlPolicy policy,
-                                            SceneGeneratedControlPresentation presentation,
-                                            SceneGeneratedControlResetParticipants reset,
-                                            SceneController& scene,
-                                            int requestedSolverBoxCount )
+SceneGeneratedUICommandResult ApplySceneGeneratedSolverBoxCountUICommand(
+    SceneGeneratedControlPolicy policy,
+    SceneGeneratedControlPresentation presentation,
+    SceneGeneratedControlResetParticipants reset,
+    SceneController& scene,
+    int requestedSolverBoxCount
+)
 {
     SceneGeneratedUICommandResult result;
     if ( requestedSolverBoxCount < 0 )
@@ -270,7 +284,9 @@ ApplySceneGeneratedSolverBoxCountUICommand( SceneGeneratedControlPolicy policy,
         reset,
         scene,
         balls,
-        std::clamp( requestedSolverBoxCount, 0, (std::max)( 0, policy.modelCapacity - balls ) ) );
+        std::clamp( requestedSolverBoxCount, 0, (std::max)( 0, policy.modelCapacity - balls ) )
+    );
+
     result.accepted = result.action.status.ok;
     return result;
 }

@@ -107,8 +107,8 @@ void ExternalForceStage::Clear()
     m_releaseWakeBodies.clear();
 }
 
-std::span<const int> ExternalForceStage::ReleaseFixedBodies( const ExternalForceFrameInput& input,
-                                                             PhysicsBodyStore& bodyStore )
+std::span<const int>
+ExternalForceStage::ReleaseFixedBodies( const ExternalForceFrameInput& input, PhysicsBodyStore& bodyStore )
 {
     m_releaseWakeBodies.clear();
     m_fixedTreeReleaseWakeScratch.clear();
@@ -139,17 +139,21 @@ std::span<const int> ExternalForceStage::ReleaseFixedBodies( const ExternalForce
             continue;
         }
 
-        const Vector3 seedLinearVelocity =
-            ClampVectorMagnitude( acceleration * 0.08f,
-                                  (std::max)( 10.0f, bestField.maxDeltaVelocityMetersPerSecond * 1.5f ) );
+        const Vector3 seedLinearVelocity = ClampVectorMagnitude(
+            acceleration * 0.08f,
+            (std::max)( 10.0f, bestField.maxDeltaVelocityMetersPerSecond * 1.5f )
+        );
+
         const Vector3 seedAngularVelocity( seedLinearVelocity.z * 0.08f, 0.0f, -seedLinearVelocity.x * 0.08f );
         // Why: release must precede broadphase so every later fixed-body check
         // sees the new dynamic row during this same fixed tick.
         bodyStore.ReleaseFixedBody( index, seedLinearVelocity, seedAngularVelocity );
         m_releaseWakeBodies.push_back( index );
         bodyStore.ReleaseAttachedFixedTreeParts(
-            PhysicsFixedTreeReleaseEvent{ index, seedLinearVelocity, seedAngularVelocity },
-            m_fixedTreeReleaseWakeScratch );
+            PhysicsFixedTreeReleaseEvent { index, seedLinearVelocity, seedAngularVelocity },
+            m_fixedTreeReleaseWakeScratch
+        );
+
         for ( int releasedIndex : m_fixedTreeReleaseWakeScratch )
         {
             m_releaseWakeBodies.push_back( releasedIndex );
@@ -159,8 +163,10 @@ std::span<const int> ExternalForceStage::ReleaseFixedBodies( const ExternalForce
     return std::span<const int>( m_releaseWakeBodies.data(), m_releaseWakeBodies.size() );
 }
 
-void ExternalForceStage::ApplyBodyForces( const ExternalForceFrameInput& input,
-                                          const ExternalForceBodyContext& context )
+void ExternalForceStage::ApplyBodyForces(
+    const ExternalForceFrameInput& input,
+    const ExternalForceBodyContext& context
+)
 {
     if ( !input.Active() )
     {
@@ -228,6 +234,7 @@ void ExternalForceStage::ApplyBodyForces( const ExternalForceFrameInput& input,
                                                     Vector3( 0.0f, 0.0f, 1.0f ),
                                                     Vector3( -1.0f, 0.0f, 0.0f ),
                                                     Vector3( 0.0f, 0.0f, -1.0f ) };
+
             outward = fallbackDirections[index & 3];
         }
 
@@ -252,12 +259,14 @@ void ExternalForceStage::ApplyBodyForces( const ExternalForceFrameInput& input,
 
     if ( context.execution.parallel && input.parallelEvaluation )
     {
-        context.workerPool.ParallelForNoAlloc( 0,
-                                               modelCount,
-                                               applyAt,
-                                               context.minParallelBodies,
-                                               context.workerMarkerPath,
-                                               context.workerMarkerHash );
+        context.workerPool.ParallelForNoAlloc(
+            0,
+            modelCount,
+            applyAt,
+            context.minParallelBodies,
+            context.workerMarkerPath,
+            context.workerMarkerHash
+        );
     }
     else
     {
@@ -275,13 +284,15 @@ uint64_t ExternalForceStage::CollectMemoryBytes() const
     return 0u;
 }
 
-Vector3 ExternalForceStage::SampleAcceleration( const ExternalForceFrameInput& input,
-                                                const Vector3& position,
-                                                ExternalCylindricalForceField& outBestField,
-                                                float& outBestAccelerationSq ) const
+Vector3 ExternalForceStage::SampleAcceleration(
+    const ExternalForceFrameInput& input,
+    const Vector3& position,
+    ExternalCylindricalForceField& outBestField,
+    float& outBestAccelerationSq
+) const
 {
     Vector3 acceleration = ZERO_VECTOR;
-    outBestField = input.fields.empty() ? ExternalCylindricalForceField{} : input.fields.front();
+    outBestField = input.fields.empty() ? ExternalCylindricalForceField {} : input.fields.front();
     outBestAccelerationSq = 0.0f;
     // Invariant: strict-best selection and left-to-right accumulation preserve
     // the pre-extraction ejection owner and exact floating-point witness.

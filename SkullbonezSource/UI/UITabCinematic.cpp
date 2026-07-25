@@ -141,9 +141,11 @@ constexpr CinematicSliderSpec kCinematicSliderSpecs[] = {
     { nullptr, "Fog G", SkullbonezCore::UI::UICinematicParam::FogGreen, 0.00f, 1.50f, 0.01f, "%.2f" },
     { nullptr, "Fog B", SkullbonezCore::UI::UICinematicParam::FogBlue, 0.00f, 1.50f, 0.01f, "%.2f" },
 };
-static_assert( sizeof( kCinematicSliderSpecs ) / sizeof( kCinematicSliderSpecs[0] ) ==
-                   static_cast<int>( SkullbonezCore::UI::UICinematicParam::Count ),
-               "Cinematic slider specs must match UICinematicParam." );
+static_assert(
+    sizeof( kCinematicSliderSpecs ) / sizeof( kCinematicSliderSpecs[0] ) ==
+        static_cast<int>( SkullbonezCore::UI::UICinematicParam::Count ),
+    "Cinematic slider specs must match UICinematicParam."
+);
 
 constexpr CinematicFeatureSpec kCinematicFeatureSpecs[] = {
     { "Sky", SkullbonezCore::UI::UICinematicFeature::Sky },
@@ -155,17 +157,21 @@ constexpr CinematicFeatureSpec kCinematicFeatureSpecs[] = {
     { "Relief", SkullbonezCore::UI::UICinematicFeature::TerrainRelief },
     { "Shadows", SkullbonezCore::UI::UICinematicFeature::Shadows },
 };
-static_assert( sizeof( kCinematicFeatureSpecs ) / sizeof( kCinematicFeatureSpecs[0] ) ==
-                   static_cast<int>( SkullbonezCore::UI::UICinematicFeature::Count ),
-               "Cinematic feature specs must match UICinematicFeature." );
+static_assert(
+    sizeof( kCinematicFeatureSpecs ) / sizeof( kCinematicFeatureSpecs[0] ) ==
+        static_cast<int>( SkullbonezCore::UI::UICinematicFeature::Count ),
+    "Cinematic feature specs must match UICinematicFeature."
+);
 
-void DrawHitboxRect( const SkullbonezCore::UI::UIDrawContext& draw,
-                     const SkullbonezCore::UI::UIRect& bounds,
-                     float r,
-                     float g,
-                     float b,
-                     float fillA = 0.060f,
-                     float outlineA = 0.94f )
+void DrawHitboxRect(
+    const SkullbonezCore::UI::UIDrawContext& draw,
+    const SkullbonezCore::UI::UIRect& bounds,
+    float r,
+    float g,
+    float b,
+    float fillA = 0.060f,
+    float outlineA = 0.94f
+)
 {
     if ( bounds.w <= 0.0f || bounds.h <= 0.0f )
     {
@@ -180,12 +186,14 @@ void DrawHitboxRect( const SkullbonezCore::UI::UIDrawContext& draw,
     }
 }
 
-void DrawComboHitboxes( const SkullbonezCore::UI::UIDrawContext& draw,
-                        const SkullbonezCore::UI::UIComboBox& combo,
-                        int optionCount,
-                        float r,
-                        float g,
-                        float b )
+void DrawComboHitboxes(
+    const SkullbonezCore::UI::UIDrawContext& draw,
+    const SkullbonezCore::UI::UIComboBox& combo,
+    int optionCount,
+    float r,
+    float g,
+    float b
+)
 {
     DrawHitboxRect( draw, combo.Bounds(), r, g, b );
     if ( combo.IsOpen() )
@@ -204,10 +212,12 @@ bool IsCineSceneOptionName( const char* name )
            strstr( name, "_cine_" ) != nullptr || strstr( name, "cine_" ) == name;
 }
 
-int BuildCineSceneOptions( const char* const* sceneOptions,
-                           int sceneOptionCount,
-                           const char* labels[UI_CINE_SCENE_MAX_OPTIONS],
-                           int sceneIndices[UI_CINE_SCENE_MAX_OPTIONS] )
+int BuildCineSceneOptions(
+    const char* const* sceneOptions,
+    int sceneOptionCount,
+    const char* labels[UI_CINE_SCENE_MAX_OPTIONS],
+    int sceneIndices[UI_CINE_SCENE_MAX_OPTIONS]
+)
 {
     int count = 0;
     labels[count] = SkullbonezCore::UI::SceneTab::DEMO_SCENE_OPTION;
@@ -226,9 +236,11 @@ int BuildCineSceneOptions( const char* const* sceneOptions,
     return count;
 }
 
-int SelectedCineSceneOption( const int sceneIndices[UI_CINE_SCENE_MAX_OPTIONS],
-                             int cineOptionCount,
-                             int selectedSceneOption )
+int SelectedCineSceneOption(
+    const int sceneIndices[UI_CINE_SCENE_MAX_OPTIONS],
+    int cineOptionCount,
+    int selectedSceneOption
+)
 {
     for ( int i = 0; i < cineOptionCount; ++i )
     {
@@ -268,8 +280,10 @@ float CinematicSliderY( int index, float baseY )
     return y;
 }
 
-float CinematicValueForParam( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                              SkullbonezCore::UI::UICinematicParam param )
+float CinematicValueForParam(
+    const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+    SkullbonezCore::UI::UICinematicParam param
+)
 {
     // Read the live value for a Cine slider. This is the inverse of the command
     // application in InputRouter.Interactions.cpp.
@@ -408,10 +422,12 @@ float CinematicValueForParam( const SkullbonezCore::Core::CinematicRenderConfig&
     }
 }
 
-void SetCinematicSliderResult( SkullbonezCore::UI::InGameUIInputResult& result,
-                               const SkullbonezCore::UI::UISlider& slider,
-                               int mouseX,
-                               const CinematicSliderSpec& spec )
+void SetCinematicSliderResult(
+    SkullbonezCore::UI::InGameUIInputResult& result,
+    const SkullbonezCore::UI::UISlider& slider,
+    int mouseX,
+    const CinematicSliderSpec& spec
+)
 {
     result.commands.cinematic.requestedParam = spec.param;
     result.commands.cinematic.requestedValue = slider.ValueFromMouse( mouseX, spec.minValue, spec.maxValue, spec.step );
@@ -427,8 +443,10 @@ float CinematicFeatureX( int index, float contentX, float colW )
     return ( index % 2 == 0 ) ? contentX : contentX + colW + 18.0f;
 }
 
-bool CinematicFeatureEnabled( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                              SkullbonezCore::UI::UICinematicFeature feature )
+bool CinematicFeatureEnabled(
+    const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+    SkullbonezCore::UI::UICinematicFeature feature
+)
 {
     switch ( feature )
     {
@@ -486,15 +504,18 @@ void CloseCombo( UICinematicTabState& state )
     state.modeCombo.Close();
 }
 
-bool HandleOpenComboClick( UICinematicTabState& state,
-                           InGameUIInputResult& result,
-                           const char* const* sceneOptions,
-                           int sceneOptionCount,
-                           int mouseX,
-                           int mouseY )
+bool HandleOpenComboClick(
+    UICinematicTabState& state,
+    InGameUIInputResult& result,
+    const char* const* sceneOptions,
+    int sceneOptionCount,
+    int mouseX,
+    int mouseY
+)
 {
     const char* cineSceneOptions[UI_CINE_SCENE_MAX_OPTIONS] = {};
     int cineSceneIndices[UI_CINE_SCENE_MAX_OPTIONS] = {};
+
     const int cineSceneOptionCount =
         BuildCineSceneOptions( sceneOptions, sceneOptionCount, cineSceneOptions, cineSceneIndices );
     const int option = state.modeCombo.HitOption( mouseX, mouseY, cineSceneOptionCount );
@@ -515,14 +536,16 @@ bool HandleOpenComboClick( UICinematicTabState& state,
     return false;
 }
 
-bool HandleContentClick( UICinematicTabState& state,
-                         InGameUIInputResult& result,
-                         int& activeSlider,
-                         int mouseX,
-                         int mouseY,
-                         float contentX,
-                         float scrolledY,
-                         float contentW )
+bool HandleContentClick(
+    UICinematicTabState& state,
+    InGameUIInputResult& result,
+    int& activeSlider,
+    int mouseX,
+    int mouseY,
+    float contentX,
+    float scrolledY,
+    float contentW
+)
 {
     const float colW = (std::max)( 148.0f, contentW * 0.46f );
 
@@ -581,15 +604,18 @@ bool CommitActiveSlider( UICinematicTabState& state, int activeSlider, int mouse
     return UpdateActiveSlider( state, activeSlider, mouseX, result );
 }
 
-void DrawHitboxes( const UICinematicTabState& state,
-                   const UIDrawContext& draw,
-                   const InGameUIFrameData& data,
-                   float contentR,
-                   float contentG,
-                   float contentB )
+void DrawHitboxes(
+    const UICinematicTabState& state,
+    const UIDrawContext& draw,
+    const InGameUIFrameData& data,
+    float contentR,
+    float contentG,
+    float contentB
+)
 {
     const char* labels[UI_CINE_SCENE_MAX_OPTIONS] = {};
     int sceneIndices[UI_CINE_SCENE_MAX_OPTIONS] = {};
+
     const int cineSceneOptionCount =
         BuildCineSceneOptions( data.sceneOptions, data.sceneOptionCount, labels, sceneIndices );
     DrawComboHitboxes( draw, state.modeCombo, cineSceneOptionCount, contentR, contentG, contentB );
@@ -603,21 +629,25 @@ void DrawHitboxes( const UICinematicTabState& state,
     }
 }
 
-void Draw( UICinematicTabState& state,
-           const UIDrawContext& draw,
-           const InGameUIFrameData& data,
-           float contentX,
-           float contentY,
-           float contentW,
-           float contentH,
-           float scrolledY,
-           int mouseX,
-           int mouseY )
+void Draw(
+    UICinematicTabState& state,
+    const UIDrawContext& draw,
+    const InGameUIFrameData& data,
+    float contentX,
+    float contentY,
+    float contentW,
+    float contentH,
+    float scrolledY,
+    int mouseX,
+    int mouseY
+)
 {
     char buf[128];
     const float colW = (std::max)( 148.0f, contentW * 0.46f );
     const char* cineSceneOptions[UI_CINE_SCENE_MAX_OPTIONS] = {};
+
     int cineSceneIndices[UI_CINE_SCENE_MAX_OPTIONS] = {};
+
     const int cineSceneOptionCount =
         BuildCineSceneOptions( data.sceneOptions, data.sceneOptionCount, cineSceneOptions, cineSceneIndices );
     const int selectedCineSceneOption =
@@ -632,28 +662,32 @@ void Draw( UICinematicTabState& state,
     }
     if ( IsRowVisible( contentY, contentH, scrolledY + UI_CINEMATIC_FEATURE_START_Y, 18.0f ) )
     {
-        DrawSectionTitle( draw,
-                          contentX,
-                          contentY,
-                          contentH,
-                          scrolledY + UI_CINEMATIC_FEATURE_START_Y,
-                          12.0f,
-                          "Passes" );
+        DrawSectionTitle(
+            draw,
+            contentX,
+            contentY,
+            contentH,
+            scrolledY + UI_CINEMATIC_FEATURE_START_Y,
+            12.0f,
+            "Passes"
+        );
     }
     const float featureBaseY = scrolledY + UI_CINEMATIC_FEATURE_START_Y + 26.0f;
     for ( int i = 0; i < static_cast<int>( UICinematicFeature::Count ); ++i )
     {
         const float tx = CinematicFeatureX( i, contentX, colW );
         const float toggleY = CinematicFeatureY( i, featureBaseY );
-        DrawContentToggle( draw,
-                           contentY,
-                           contentH,
-                           state.featureToggles[i],
-                           tx,
-                           toggleY,
-                           colW,
-                           kCinematicFeatureSpecs[i].label,
-                           CinematicFeatureEnabled( data.cinematic, kCinematicFeatureSpecs[i].feature ) );
+        DrawContentToggle(
+            draw,
+            contentY,
+            contentH,
+            state.featureToggles[i],
+            tx,
+            toggleY,
+            colW,
+            kCinematicFeatureSpecs[i].label,
+            CinematicFeatureEnabled( data.cinematic, kCinematicFeatureSpecs[i].feature )
+        );
     }
     const float baseY = scrolledY + UI_CINEMATIC_START_Y;
     for ( int i = 0; i < static_cast<int>( UICinematicParam::Count ); ++i )
@@ -662,13 +696,15 @@ void Draw( UICinematicTabState& state,
         const float sliderY = CinematicSliderY( i, baseY );
         if ( spec.section && IsRowVisible( contentY, contentH, sliderY - UI_CINEMATIC_SECTION_H + 4.0f, 18.0f ) )
         {
-            DrawSectionTitle( draw,
-                              contentX,
-                              contentY,
-                              contentH,
-                              sliderY - UI_CINEMATIC_SECTION_H + 4.0f,
-                              12.0f,
-                              spec.section );
+            DrawSectionTitle(
+                draw,
+                contentX,
+                contentY,
+                contentH,
+                sliderY - UI_CINEMATIC_SECTION_H + 4.0f,
+                12.0f,
+                spec.section
+            );
         }
         const float value =
             std::clamp( CinematicValueForParam( data.cinematic, spec.param ), spec.minValue, spec.maxValue );

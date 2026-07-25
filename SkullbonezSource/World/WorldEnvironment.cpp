@@ -104,9 +104,11 @@ void WorldEnvironment::BindRuntimeConfig( const SkullbonezCore::Core::EngineConf
 }
 
 
-void WorldEnvironment::BindRenderContexts( const SkullbonezCore::Core::EngineConfig& config,
-                                           SkullbonezCore::Assets::AssetSystem& assets,
-                                           Dx12ResourceBuilder& resources )
+void WorldEnvironment::BindRenderContexts(
+    const SkullbonezCore::Core::EngineConfig& config,
+    SkullbonezCore::Assets::AssetSystem& assets,
+    Dx12ResourceBuilder& resources
+)
 {
     // Lifetime: water keeps rebuild-only borrows owned by Run and refreshed by
     // WaterPass before lazy resource recreation.
@@ -136,9 +138,10 @@ void WorldEnvironment::SetTerrainBounds( float xMin, float xMax, float zMin, flo
 }
 
 
-WaterStyleParams
-WorldEnvironment::BuildCalmWaterStyle( bool cinematic,
-                                       const SkullbonezCore::Core::CinematicRenderConfig& cinematicStyle ) const
+WaterStyleParams WorldEnvironment::BuildCalmWaterStyle(
+    bool cinematic,
+    const SkullbonezCore::Core::CinematicRenderConfig& cinematicStyle
+) const
 {
     WaterStyleParams style;
     style.cinematic = cinematic;
@@ -181,9 +184,10 @@ WorldEnvironment::BuildCalmWaterStyle( bool cinematic,
 }
 
 
-WaterStyleParams
-WorldEnvironment::BuildOceanWaterStyle( bool cinematic,
-                                        const SkullbonezCore::Core::CinematicRenderConfig& cinematicStyle ) const
+WaterStyleParams WorldEnvironment::BuildOceanWaterStyle(
+    bool cinematic,
+    const SkullbonezCore::Core::CinematicRenderConfig& cinematicStyle
+) const
 {
     WaterStyleParams style;
     style.cinematic = cinematic;
@@ -221,10 +225,12 @@ WorldEnvironment::BuildOceanWaterStyle( bool cinematic,
 }
 
 
-void WorldEnvironment::BindCommonWaterStyle( Rendering::ShaderDX12& shader,
-                                             const WaterStyleParams& style,
-                                             const Vector3& cameraWorld,
-                                             const WaterReflectionInput& reflection ) const
+void WorldEnvironment::BindCommonWaterStyle(
+    Rendering::ShaderDX12& shader,
+    const WaterStyleParams& style,
+    const Vector3& cameraWorld,
+    const WaterReflectionInput& reflection
+) const
 {
     shader.SetMat4( "uModel", Matrix4::Translate( 0.0f, m_fluidSurfaceHeight, 0.0f ) );
     shader.SetMat4( "uReflectVP", reflection.sampleViewProjection );
@@ -247,10 +253,12 @@ void WorldEnvironment::BindCalmWaterStyle( Rendering::ShaderDX12& shader, const 
 }
 
 
-void WorldEnvironment::BindOceanWaterStyle( Rendering::ShaderDX12& shader,
-                                            const WaterStyleParams& style,
-                                            float time,
-                                            bool flatWater ) const
+void WorldEnvironment::BindOceanWaterStyle(
+    Rendering::ShaderDX12& shader,
+    const WaterStyleParams& style,
+    float time,
+    bool flatWater
+) const
 {
     shader.SetFloat( "uTime", time );
     shader.SetFloat( "uWaveHeight", style.waveHeight );
@@ -259,16 +267,18 @@ void WorldEnvironment::BindOceanWaterStyle( Rendering::ShaderDX12& shader,
 }
 
 
-void WorldEnvironment::RenderFluid( const Matrix4& view,
-                                    const Matrix4& proj,
-                                    const Vector3& cameraWorld,
-                                    Dx12TextureOwner& textures,
-                                    const WaterReflectionInput& reflection,
-                                    const PassRasterStateBucket& rasterState,
-                                    float time,
-                                    bool flatWater,
-                                    bool cinematic,
-                                    const SkullbonezCore::Core::CinematicRenderConfig* cinematicConfig )
+void WorldEnvironment::RenderFluid(
+    const Matrix4& view,
+    const Matrix4& proj,
+    const Vector3& cameraWorld,
+    Dx12TextureOwner& textures,
+    const WaterReflectionInput& reflection,
+    const PassRasterStateBucket& rasterState,
+    float time,
+    bool flatWater,
+    bool cinematic,
+    const SkullbonezCore::Core::CinematicRenderConfig* cinematicConfig
+)
 {
     if ( !m_calmMesh || !m_oceanMesh || !m_calmShader || !m_oceanShader )
     {
@@ -434,10 +444,12 @@ void WorldEnvironment::BuildFluidMesh()
     m_calmShader->SetInt( "uReflectionTex", 1 );
     m_calmShader->SetFloat( "uCinematicMode", 0.0f );
     m_calmShader->SetInt( "uWaterMode", WaterModeUniformValue( WaterMode::Ocean ) );
-    m_calmShader->SetVec3( "uSunColor",
-                           m_waterStyle.cinematicFallback.sunColorR,
-                           m_waterStyle.cinematicFallback.sunColorG,
-                           m_waterStyle.cinematicFallback.sunColorB );
+    m_calmShader->SetVec3(
+        "uSunColor",
+        m_waterStyle.cinematicFallback.sunColorR,
+        m_waterStyle.cinematicFallback.sunColorG,
+        m_waterStyle.cinematicFallback.sunColorB
+    );
     m_calmShader->SetFloat( "uSunGlintStrength", 0.0f );
     m_calmShader->SetVec4( "uBasinMask", 620.0f, 615.0f, 205.0f, 145.0f );
     m_calmShader->SetFloat( "uBasinMaskFeather", 1.0f );
@@ -457,10 +469,12 @@ void WorldEnvironment::BuildFluidMesh()
     m_oceanShader->SetVec3( "uCameraWorld", 0.0f, 0.0f, 0.0f );
     m_oceanShader->SetInt( "uReflectionTex", 1 );
     m_oceanShader->SetFloat( "uCinematicMode", 0.0f );
-    m_oceanShader->SetVec3( "uSunColor",
-                            m_waterStyle.cinematicFallback.sunColorR,
-                            m_waterStyle.cinematicFallback.sunColorG,
-                            m_waterStyle.cinematicFallback.sunColorB );
+    m_oceanShader->SetVec3(
+        "uSunColor",
+        m_waterStyle.cinematicFallback.sunColorR,
+        m_waterStyle.cinematicFallback.sunColorG,
+        m_waterStyle.cinematicFallback.sunColorB
+    );
     m_oceanShader->SetFloat( "uSunGlintStrength", 0.0f );
 }
 
@@ -472,9 +486,11 @@ void WorldEnvironment::ResetRenderResources()
 }
 
 
-void WorldEnvironment::EnsureRenderResources( const SkullbonezCore::Core::EngineConfig& config,
-                                              SkullbonezCore::Assets::AssetSystem& assets,
-                                              Dx12ResourceBuilder& resources )
+void WorldEnvironment::EnsureRenderResources(
+    const SkullbonezCore::Core::EngineConfig& config,
+    SkullbonezCore::Assets::AssetSystem& assets,
+    Dx12ResourceBuilder& resources
+)
 {
     BindRenderContexts( config, assets, resources );
     if ( !m_calmMesh || !m_oceanMesh || !m_calmShader || !m_oceanShader )

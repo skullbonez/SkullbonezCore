@@ -254,8 +254,9 @@ void Camera::FinishTranslation( const CameraMovementSettings& settings )
         m_position.x = m_boundary.m_xMax - settings.minCameraHeight;
     }
 
-    isOnBoundX = ( ( m_position.x == m_boundary.m_xMin + settings.minCameraHeight ) ||
-                   ( m_position.x == m_boundary.m_xMax - settings.minCameraHeight ) );
+    isOnBoundX =
+        ( ( m_position.x == m_boundary.m_xMin + settings.minCameraHeight ) ||
+          ( m_position.x == m_boundary.m_xMax - settings.minCameraHeight ) );
 
     // reposition Z on a bound violation
     if ( m_position.z < m_boundary.m_zMin + settings.minCameraHeight )
@@ -267,8 +268,9 @@ void Camera::FinishTranslation( const CameraMovementSettings& settings )
         m_position.z = m_boundary.m_zMax - settings.minCameraHeight;
     }
 
-    isOnBoundZ = ( ( m_position.z == m_boundary.m_zMin + settings.minCameraHeight ) ||
-                   ( m_position.z == m_boundary.m_zMax - settings.minCameraHeight ) );
+    isOnBoundZ =
+        ( ( m_position.z == m_boundary.m_zMin + settings.minCameraHeight ) ||
+          ( m_position.z == m_boundary.m_zMax - settings.minCameraHeight ) );
 
     // if we have recursed once already
     if ( m_isFinishedTranslationRecursed )
@@ -293,9 +295,11 @@ void Camera::FinishTranslation( const CameraMovementSettings& settings )
 }
 
 
-void Camera::RecoverViewMagnitude( const bool isOnBoundX,
-                                   const bool isOnBoundZ,
-                                   const CameraMovementSettings& settings )
+void Camera::RecoverViewMagnitude(
+    const bool isOnBoundX,
+    const bool isOnBoundZ,
+    const CameraMovementSettings& settings
+)
 {
     // only recover view magnitude if the camera has been set to do so
     if ( !m_doPreserveViewMagnitude )

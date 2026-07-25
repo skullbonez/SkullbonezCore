@@ -142,38 +142,48 @@ std::string EditorAssetPrimitiveType( const EditorPlacementJson& part );
 bool IsEditorAssetPrimitiveType( const std::string& type );
 bool TryReadEditorBoxHalfExtents( const EditorPlacementJson& part, Math::Vector::Vector3& outHalfExtents );
 bool TryReadEditorSphereRadius( const EditorPlacementJson& part, float& outRadius );
-Math::Orientation::Quaternion EditorBuildingPartOrientation( const Math::Orientation::Quaternion& placementOrientation,
-                                                             const EditorPlacementJson& part );
+Math::Orientation::Quaternion EditorBuildingPartOrientation(
+    const Math::Orientation::Quaternion& placementOrientation,
+    const EditorPlacementJson& part
+);
 
 const EditorBuildingDefinition* EditorBuildingDefinitionForType( int objectType );
 int EditorBuildingPartCount( int objectType, const Assets::AssetSystem& assets );
 const Math::CollisionDetection::ConvexHullShape* CachedEditorBuildingHull( const std::string& hullPath );
 float EditorBuildingVerticalSize( int objectType, const Assets::AssetSystem& assets );
-bool TryComputeEditorBuildingWorldBounds( int objectType,
-                                          const Math::Vector::Vector3& terrainPoint,
-                                          const Math::Orientation::Quaternion& placementOrientation,
-                                          const Assets::AssetSystem& assets,
-                                          Math::Vector::Vector3& outMin,
-                                          Math::Vector::Vector3& outMax );
+bool TryComputeEditorBuildingWorldBounds(
+    int objectType,
+    const Math::Vector::Vector3& terrainPoint,
+    const Math::Orientation::Quaternion& placementOrientation,
+    const Assets::AssetSystem& assets,
+    Math::Vector::Vector3& outMin,
+    Math::Vector::Vector3& outMax
+);
 
 const EditorTreeDefinition* EditorTreeDefinitionForType( int objectType );
 const EditorHouseDefinition* EditorHouseDefinitionForType( int objectType );
 bool EditorObjectAlignsToTerrainNormal( int objectType, bool autoTerrainAlign );
-Math::Orientation::Quaternion EditorPlacementOrientation( int objectType,
-                                                          Math::Vector::Vector3 terrainNormal,
-                                                          bool autoTerrainAlign,
-                                                          float yawRadians );
+Math::Orientation::Quaternion EditorPlacementOrientation(
+    int objectType,
+    Math::Vector::Vector3 terrainNormal,
+    bool autoTerrainAlign,
+    float yawRadians
+);
 const Math::CollisionDetection::ConvexHullShape* CachedEditorHullForAsset( Assets::EditorHullAsset asset );
-bool TryComputeEditorTreeWorldBounds( const EditorTreeDefinition& tree,
-                                      const Math::Vector::Vector3& terrainPoint,
-                                      const Math::Transformation::RotationMatrix& orientation,
-                                      Math::Vector::Vector3& outMin,
-                                      Math::Vector::Vector3& outMax );
-bool TryComputeEditorHouseWorldBounds( const EditorHouseDefinition& house,
-                                       const Math::Vector::Vector3& terrainPoint,
-                                       const Math::Transformation::RotationMatrix& orientation,
-                                       Math::Vector::Vector3& outMin,
-                                       Math::Vector::Vector3& outMax );
+bool TryComputeEditorTreeWorldBounds(
+    const EditorTreeDefinition& tree,
+    const Math::Vector::Vector3& terrainPoint,
+    const Math::Transformation::RotationMatrix& orientation,
+    Math::Vector::Vector3& outMin,
+    Math::Vector::Vector3& outMax
+);
+bool TryComputeEditorHouseWorldBounds(
+    const EditorHouseDefinition& house,
+    const Math::Vector::Vector3& terrainPoint,
+    const Math::Transformation::RotationMatrix& orientation,
+    Math::Vector::Vector3& outMin,
+    Math::Vector::Vector3& outMax
+);
 float EditorTreeVerticalSize( int objectType );
 float EditorHouseVerticalSize( int objectType );
 
@@ -182,9 +192,11 @@ Rendering::RenderMaterial EditorTreePartMaterial( const EditorTreePartDefinition
 Rendering::RenderMaterial EditorHousePartMaterial( const EditorHousePartDefinition& part );
 bool TryEditorRockMaterial( Assets::EditorHullAsset asset, Rendering::RenderMaterial& outMaterial );
 bool TryEditorRootMaterial( Assets::EditorHullAsset asset, Rendering::RenderMaterial& outMaterial );
-bool TryBuildScaledEditorHullForType( int objectType,
-                                      const Math::Vector::Vector3& placementScale,
-                                      Math::CollisionDetection::ConvexHullShape& outHull );
+bool TryBuildScaledEditorHullForType(
+    int objectType,
+    const Math::Vector::Vector3& placementScale,
+    Math::CollisionDetection::ConvexHullShape& outHull
+);
 
 template <typename Fn> bool ForEachEditorBuildingPart( int objectType, const Assets::AssetSystem& assets, Fn&& fn )
 {

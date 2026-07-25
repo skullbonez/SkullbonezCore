@@ -158,19 +158,25 @@ class PrimitiveBatchRenderer
 
     void EnsureSphereShader( const PrimitiveRenderContext& context );
     void EnsureShadowDepthShader( const PrimitiveRenderContext& context );
-    void BuildSphereMesh( const PrimitiveRenderContext& context,
-                          int slices,
-                          int stacks );                             // Generate UV sphere instanced mesh
-    void BuildLowPolySphereMesh( const PrimitiveRenderContext& context,
-                                 int slices,
-                                 int stacks );                      // Generate faceted sphere instanced mesh
+    void BuildSphereMesh(
+        const PrimitiveRenderContext& context,
+        int slices,
+        int stacks
+    );                                                              // Generate UV sphere instanced mesh
+    void BuildLowPolySphereMesh(
+        const PrimitiveRenderContext& context,
+        int slices,
+        int stacks
+    );                                                              // Generate faceted sphere instanced mesh
     void BuildBoxMesh( const PrimitiveRenderContext& context );     // Generate unit cube instanced mesh
     void BuildPineMesh( const PrimitiveRenderContext& context );    // Generate unit low-poly pine tier mesh
 
   public:
-    explicit PrimitiveBatchRenderer( Rendering::Dx12ResourceBuilder* renderResources = nullptr,
-                                     Rendering::Dx12TextureOwner* renderTextures = nullptr,
-                                     Rendering::Dx12GeometryOwner* renderGeometry = nullptr );
+    explicit PrimitiveBatchRenderer(
+        Rendering::Dx12ResourceBuilder* renderResources = nullptr,
+        Rendering::Dx12TextureOwner* renderTextures = nullptr,
+        Rendering::Dx12GeometryOwner* renderGeometry = nullptr
+    );
     PrimitiveBatchRenderer( const PrimitiveBatchRenderer& ) = delete;
     PrimitiveBatchRenderer& operator=( const PrimitiveBatchRenderer& ) = delete;
     ~PrimitiveBatchRenderer();
@@ -190,9 +196,11 @@ class PrimitiveBatchRenderer
       private:
         friend class PrimitiveBatchRenderer;
 
-        PrimitiveBatchScope( PrimitiveBatchRenderer& renderer,
-                             const PrimitiveRenderContext& context,
-                             PrimitiveBatchKind kind );             // Batch scopes borrow their context until destruction.
+        PrimitiveBatchScope(
+            PrimitiveBatchRenderer& renderer,
+            const PrimitiveRenderContext& context,
+            PrimitiveBatchKind kind
+        );                                                          // Batch scopes borrow their context until destruction.
         void EndIfActive();
 
         PrimitiveBatchRenderer* m_renderer = nullptr;
@@ -203,117 +211,150 @@ class PrimitiveBatchRenderer
 
     void SetClipPlane( float x, float y, float z, float w );
     const float* GetClipPlane() const;
-    PrimitiveBatchScope BeginSphereBatch( const PrimitiveRenderContext& context,
-                                          const Math::Transformation::Matrix4& view,
-                                          const Math::Transformation::Matrix4& proj,
-                                          const float lightPos[4],
-                                          bool isTransparent = false,
-                                          const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
-                                          const Rendering::ShadowFrameData* shadow = nullptr,
-                                          float materialAlpha = 1.0f );
-    PrimitiveBatchScope BeginBoxBatch( const PrimitiveRenderContext& context,
-                                       const Math::Transformation::Matrix4& view,
-                                       const Math::Transformation::Matrix4& proj,
-                                       const float lightPos[4],
-                                       bool isTransparent = false,
-                                       const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
-                                       const Rendering::ShadowFrameData* shadow = nullptr,
-                                       float materialAlpha = 1.0f );
-    PrimitiveBatchScope BeginPineBatch( const PrimitiveRenderContext& context,
-                                        const Math::Transformation::Matrix4& view,
-                                        const Math::Transformation::Matrix4& proj,
-                                        const float lightPos[4],
-                                        bool isTransparent = false,
-                                        const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
-                                        const Rendering::ShadowFrameData* shadow = nullptr,
-                                        float materialAlpha = 1.0f );
-    PrimitiveBatchScope
-    BeginShadowDepthSphereBatch( const PrimitiveRenderContext& context,
-                                 const Math::Transformation::Matrix4& view,
-                                 const Math::Transformation::Matrix4& proj,
-                                 const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr );
-    PrimitiveBatchScope BeginShadowDepthBoxBatch( const PrimitiveRenderContext& context,
-                                                  const Math::Transformation::Matrix4& view,
-                                                  const Math::Transformation::Matrix4& proj );
-    PrimitiveBatchScope BeginShadowDepthPineBatch( const PrimitiveRenderContext& context,
-                                                   const Math::Transformation::Matrix4& view,
-                                                   const Math::Transformation::Matrix4& proj );
-    void DrawConvexHullModel( const PrimitiveRenderContext& context,
-                              const Math::CollisionDetection::ConvexHullShape& hull,
-                              const Math::Transformation::Matrix4& model,
-                              const Rendering::RenderMaterial& material,
-                              const Math::Transformation::Matrix4& view,
-                              const Math::Transformation::Matrix4& proj,
-                              const float lightPos[4],
-                              bool isTransparent = false,
-                              const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
-                              const Rendering::ShadowFrameData* shadow = nullptr,
-                              float materialAlpha = 1.0f );
-    void DrawShadowDepthConvexHullModel( const PrimitiveRenderContext& context,
-                                         const Math::CollisionDetection::ConvexHullShape& hull,
-                                         const Math::Transformation::Matrix4& model,
-                                         const Math::Transformation::Matrix4& view,
-                                         const Math::Transformation::Matrix4& proj );
+    PrimitiveBatchScope BeginSphereBatch(
+        const PrimitiveRenderContext& context,
+        const Math::Transformation::Matrix4& view,
+        const Math::Transformation::Matrix4& proj,
+        const float lightPos[4],
+        bool isTransparent = false,
+        const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
+        const Rendering::ShadowFrameData* shadow = nullptr,
+        float materialAlpha = 1.0f
+    );
+    PrimitiveBatchScope BeginBoxBatch(
+        const PrimitiveRenderContext& context,
+        const Math::Transformation::Matrix4& view,
+        const Math::Transformation::Matrix4& proj,
+        const float lightPos[4],
+        bool isTransparent = false,
+        const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
+        const Rendering::ShadowFrameData* shadow = nullptr,
+        float materialAlpha = 1.0f
+    );
+    PrimitiveBatchScope BeginPineBatch(
+        const PrimitiveRenderContext& context,
+        const Math::Transformation::Matrix4& view,
+        const Math::Transformation::Matrix4& proj,
+        const float lightPos[4],
+        bool isTransparent = false,
+        const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
+        const Rendering::ShadowFrameData* shadow = nullptr,
+        float materialAlpha = 1.0f
+    );
+    PrimitiveBatchScope BeginShadowDepthSphereBatch(
+        const PrimitiveRenderContext& context,
+        const Math::Transformation::Matrix4& view,
+        const Math::Transformation::Matrix4& proj,
+        const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr
+    );
+    PrimitiveBatchScope BeginShadowDepthBoxBatch(
+        const PrimitiveRenderContext& context,
+        const Math::Transformation::Matrix4& view,
+        const Math::Transformation::Matrix4& proj
+    );
+    PrimitiveBatchScope BeginShadowDepthPineBatch(
+        const PrimitiveRenderContext& context,
+        const Math::Transformation::Matrix4& view,
+        const Math::Transformation::Matrix4& proj
+    );
+    void DrawConvexHullModel(
+        const PrimitiveRenderContext& context,
+        const Math::CollisionDetection::ConvexHullShape& hull,
+        const Math::Transformation::Matrix4& model,
+        const Rendering::RenderMaterial& material,
+        const Math::Transformation::Matrix4& view,
+        const Math::Transformation::Matrix4& proj,
+        const float lightPos[4],
+        bool isTransparent = false,
+        const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
+        const Rendering::ShadowFrameData* shadow = nullptr,
+        float materialAlpha = 1.0f
+    );
+    void DrawShadowDepthConvexHullModel(
+        const PrimitiveRenderContext& context,
+        const Math::CollisionDetection::ConvexHullShape& hull,
+        const Math::Transformation::Matrix4& model,
+        const Math::Transformation::Matrix4& view,
+        const Math::Transformation::Matrix4& proj
+    );
     void EnsureSphereMesh( const PrimitiveRenderContext& context ); // Create the shared sphere mesh before DXR BLAS
                                                                     // construction needs its vertex data.
     void EnsureShadowDepthPrimitiveResources(
-        const PrimitiveRenderContext& context );                    // Prewarm primitive shadow meshes and the shared depth shader.
+        const PrimitiveRenderContext& context
+    );                                                              // Prewarm primitive shadow meshes and the shared depth shader.
 
   private:
-    void BindRenderResourceOwners( Rendering::Dx12ResourceBuilder& renderResources,
-                                   Rendering::Dx12TextureOwner& renderTextures,
-                                   Rendering::Dx12GeometryOwner& renderGeometry );
+    void BindRenderResourceOwners(
+        Rendering::Dx12ResourceBuilder& renderResources,
+        Rendering::Dx12TextureOwner& renderTextures,
+        Rendering::Dx12GeometryOwner& renderGeometry
+    );
     void ReleaseOwnedRenderResources();                             // Destroy renderer-owned backend handles before factory teardown.
-    void DrawSphereBatchBegin( const PrimitiveRenderContext& context,
-                               const Math::Transformation::Matrix4& view,
-                               const Math::Transformation::Matrix4& proj,
-                               const float lightPos[4],
-                               bool isTransparent = false,
-                               const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
-                               const Rendering::ShadowFrameData* shadow = nullptr,
-                               float materialAlpha = 1.0f );
+    void DrawSphereBatchBegin(
+        const PrimitiveRenderContext& context,
+        const Math::Transformation::Matrix4& view,
+        const Math::Transformation::Matrix4& proj,
+        const float lightPos[4],
+        bool isTransparent = false,
+        const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
+        const Rendering::ShadowFrameData* shadow = nullptr,
+        float materialAlpha = 1.0f
+    );
     void DrawSphereBatchModel(
         const Math::Transformation::Matrix4& model,
-        const Rendering::RenderMaterial& material );                // Append model matrix and material payload to instance buffer
+        const Rendering::RenderMaterial& material
+    );                                                              // Append model matrix and material payload to instance buffer
     void DrawSphereBatchEnd( const PrimitiveRenderContext& context );
-    void DrawBoxBatchBegin( const PrimitiveRenderContext& context,
-                            const Math::Transformation::Matrix4& view,
-                            const Math::Transformation::Matrix4& proj,
-                            const float lightPos[4],
-                            bool isTransparent = false,
-                            const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
-                            const Rendering::ShadowFrameData* shadow = nullptr,
-                            float materialAlpha = 1.0f );
+    void DrawBoxBatchBegin(
+        const PrimitiveRenderContext& context,
+        const Math::Transformation::Matrix4& view,
+        const Math::Transformation::Matrix4& proj,
+        const float lightPos[4],
+        bool isTransparent = false,
+        const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
+        const Rendering::ShadowFrameData* shadow = nullptr,
+        float materialAlpha = 1.0f
+    );
     void DrawBoxBatchModel(
         const Math::Transformation::Matrix4& model,
-        const Rendering::RenderMaterial& material );                // Append box model matrix and material payload to instance buffer
+        const Rendering::RenderMaterial& material
+    );                                                              // Append box model matrix and material payload to instance buffer
     void DrawBoxBatchEnd( const PrimitiveRenderContext& context );
-    void DrawPineBatchBegin( const PrimitiveRenderContext& context,
-                             const Math::Transformation::Matrix4& view,
-                             const Math::Transformation::Matrix4& proj,
-                             const float lightPos[4],
-                             bool isTransparent = false,
-                             const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
-                             const Rendering::ShadowFrameData* shadow = nullptr,
-                             float materialAlpha = 1.0f );
+    void DrawPineBatchBegin(
+        const PrimitiveRenderContext& context,
+        const Math::Transformation::Matrix4& view,
+        const Math::Transformation::Matrix4& proj,
+        const float lightPos[4],
+        bool isTransparent = false,
+        const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
+        const Rendering::ShadowFrameData* shadow = nullptr,
+        float materialAlpha = 1.0f
+    );
     void DrawPineBatchModel(
         const Math::Transformation::Matrix4& model,
-        const Rendering::RenderMaterial& material );                // Append pine model matrix and material payload to instance buffer
+        const Rendering::RenderMaterial& material
+    );                                                              // Append pine model matrix and material payload to instance buffer
     void DrawPineBatchEnd( const PrimitiveRenderContext& context );
-    void DrawShadowDepthSphereBatchBegin( const PrimitiveRenderContext& context,
-                                          const Math::Transformation::Matrix4& view,
-                                          const Math::Transformation::Matrix4& proj,
-                                          const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr );
+    void DrawShadowDepthSphereBatchBegin(
+        const PrimitiveRenderContext& context,
+        const Math::Transformation::Matrix4& view,
+        const Math::Transformation::Matrix4& proj,
+        const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr
+    );
     void DrawShadowDepthSphereBatchModel( const Math::Transformation::Matrix4& model );
     void DrawShadowDepthSphereBatchEnd( const PrimitiveRenderContext& context );
-    void DrawShadowDepthBoxBatchBegin( const PrimitiveRenderContext& context,
-                                       const Math::Transformation::Matrix4& view,
-                                       const Math::Transformation::Matrix4& proj );
+    void DrawShadowDepthBoxBatchBegin(
+        const PrimitiveRenderContext& context,
+        const Math::Transformation::Matrix4& view,
+        const Math::Transformation::Matrix4& proj
+    );
     void DrawShadowDepthBoxBatchModel( const Math::Transformation::Matrix4& model );
     void DrawShadowDepthBoxBatchEnd( const PrimitiveRenderContext& context );
-    void DrawShadowDepthPineBatchBegin( const PrimitiveRenderContext& context,
-                                        const Math::Transformation::Matrix4& view,
-                                        const Math::Transformation::Matrix4& proj );
+    void DrawShadowDepthPineBatchBegin(
+        const PrimitiveRenderContext& context,
+        const Math::Transformation::Matrix4& view,
+        const Math::Transformation::Matrix4& proj
+    );
     void DrawShadowDepthPineBatchModel( const Math::Transformation::Matrix4& model );
     void DrawShadowDepthPineBatchEnd( const PrimitiveRenderContext& context );
 

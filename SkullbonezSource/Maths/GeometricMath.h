@@ -70,8 +70,8 @@ class GeometricMath
 
     // Classifies whether a point is on the front side, back side, or coincides with the specified plane.
     // Uses DeterminePointDistFromPlane: positive = front, negative = back, zero = on plane.
-    static GeometricMath::PointPlaneClassification ClassifyPointAgainstPlane( const Geometry::Plane& plane,
-                                                                              const Vector::Vector3& point );
+    static GeometricMath::PointPlaneClassification
+    ClassifyPointAgainstPlane( const Geometry::Plane& plane, const Vector::Vector3& point );
 
     // PRECONDITION: 'point' MUST lie on the same plane as 'triangle'.
     // Contract: true means the point is inside the triangle boundary.
@@ -83,8 +83,8 @@ class GeometricMath
     // Projects to the most numerically stable 2D axis (largest normal component) to
     // avoid near-degenerate area computations on steep or sliver triangles.
     // Reference: 3D Math Primer for Games and Graphics Development, Dunn & Parberry, p.260
-    static Vector::Vector3 ComputeBarycentricCoordinates( const Geometry::Triangle& triangle,
-                                                          const Vector::Vector3& point );
+    static Vector::Vector3
+    ComputeBarycentricCoordinates( const Geometry::Triangle& triangle, const Vector::Vector3& point );
 
     // CCW-winding outward unit normal of the triangle:
     //   n = normalise( (v2 - v1) × (v3 - v2) )

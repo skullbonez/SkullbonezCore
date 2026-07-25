@@ -27,19 +27,23 @@ Related:
 
 using namespace SkullbonezCore::Rendering;
 
-void Dx12DeferredReleaseOwner::Quarantine( ID3D12Resource* resource,
-                                           UINT descriptorIndex,
-                                           Dx12CpuDescriptorKind cpuKind,
-                                           UINT cpuDescriptorIndex )
+void Dx12DeferredReleaseOwner::Quarantine(
+    ID3D12Resource* resource,
+    UINT descriptorIndex,
+    Dx12CpuDescriptorKind cpuKind,
+    UINT cpuDescriptorIndex
+)
 {
     if ( resource || descriptorIndex != UINT_MAX || cpuKind != Dx12CpuDescriptorKind::None )
     {
         if ( m_pendingCount >= MAX_PENDING_RETIREMENTS )
         {
-            SB_FATAL( "Dx12DeferredReleaseOwner",
-                      "Retirement capacity exhausted. owner=Rendering/DX12 capacity=%zu high_water=%zu",
-                      MAX_PENDING_RETIREMENTS,
-                      m_pendingCount );
+            SB_FATAL(
+                "Dx12DeferredReleaseOwner",
+                "Retirement capacity exhausted. owner=Rendering/DX12 capacity=%zu high_water=%zu",
+                MAX_PENDING_RETIREMENTS,
+                m_pendingCount
+            );
         }
         DeferredResourceReleaseDX12 retired;
         retired.resource = resource;
@@ -81,10 +85,12 @@ void Dx12DeferredReleaseOwner::AssignFence( UINT64 fenceValue )
 }
 
 
-void Dx12DeferredReleaseOwner::ReleaseCompleted( Dx12RenderDevice& device,
-                                                 Dx12DescriptorHeaps& descriptors,
-                                                 Dx12SubmittedWorkState& submittedWork,
-                                                 bool releaseUnfenced )
+void Dx12DeferredReleaseOwner::ReleaseCompleted(
+    Dx12RenderDevice& device,
+    Dx12DescriptorHeaps& descriptors,
+    Dx12SubmittedWorkState& submittedWork,
+    bool releaseUnfenced
+)
 {
     const bool fenceReady = device.FrameFence().IsReady();
     const UINT64 completedFence = fenceReady ? device.FrameFence().CompletedValue() : 0;

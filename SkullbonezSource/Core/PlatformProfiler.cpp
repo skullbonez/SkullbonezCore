@@ -39,8 +39,8 @@ namespace PlatformProfiler
 {
 namespace
 {
-std::atomic<bool> g_enabled{ false };
-std::atomic<bool> g_detailedRangesEnabled{ false };
+std::atomic<bool> g_enabled { false };
+std::atomic<bool> g_detailedRangesEnabled { false };
 thread_local int g_cpuDepth = 0;
 
 enum class MarkerDomain

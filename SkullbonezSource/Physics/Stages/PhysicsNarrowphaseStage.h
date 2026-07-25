@@ -141,40 +141,52 @@ class PhysicsNarrowphaseStage
         void operator()( int islandIndex ) const;
     };
 
-    static void RecordObjectNarrowphaseEvent( ObjectNarrowphaseEvent& event,
-                                              ObjectNarrowphaseEventKind kind,
-                                              const PhysicsPipelineRecord& record );
-    static void EmitObjectCollisionTimeEvent( ObjectNarrowphaseEvent& event,
-                                              int bodyA,
-                                              int bodyB,
-                                              float collisionTime,
-                                              float availableTime );
+    static void RecordObjectNarrowphaseEvent(
+        ObjectNarrowphaseEvent& event,
+        ObjectNarrowphaseEventKind kind,
+        const PhysicsPipelineRecord& record
+    );
+    static void EmitObjectCollisionTimeEvent(
+        ObjectNarrowphaseEvent& event,
+        int bodyA,
+        int bodyB,
+        float collisionTime,
+        float availableTime
+    );
     static void MarkObjectVisualEvent( ObjectNarrowphaseEvent& event, int bodyA, int bodyB );
-    static void WriteObjectCollisionCellEvent( ObjectNarrowphaseEvent& event,
-                                               const PhysicsBodyHotFieldsConstView& hotFields,
-                                               int bodyA,
-                                               int bodyB,
-                                               float invCellSize );
+    static void WriteObjectCollisionCellEvent(
+        ObjectNarrowphaseEvent& event,
+        const PhysicsBodyHotFieldsConstView& hotFields,
+        int bodyA,
+        int bodyB,
+        float invCellSize
+    );
     void ProcessObjectNarrowphaseIsland( const ObjectNarrowphasePairStageContext& context, int islandIndex );
-    void BuildObjectNarrowphaseIslands( Core::Profiler* profiler,
-                                        std::span<const std::pair<int, int>> candidatePairs,
-                                        int candidatePairCount,
-                                        int modelCount );
-    static bool ObjectNarrowphaseIslandPrecedesByMinPairIndex( const ObjectNarrowphaseIsland& a,
-                                                               const ObjectNarrowphaseIsland& b );
+    void BuildObjectNarrowphaseIslands(
+        Core::Profiler* profiler,
+        std::span<const std::pair<int, int>> candidatePairs,
+        int candidatePairCount,
+        int modelCount
+    );
+    static bool
+    ObjectNarrowphaseIslandPrecedesByMinPairIndex( const ObjectNarrowphaseIsland& a, const ObjectNarrowphaseIsland& b );
 
   public:
     PhysicsNarrowphaseStage();
 
     void Clear();
-    void ProcessObjectNarrowphasePair( const ObjectNarrowphasePairStageContext& context,
-                                       int pairIndex,
-                                       ObjectNarrowphaseEvent& event );
-    bool TryRunParallel( const ObjectNarrowphasePairStageContext& context,
-                         int candidatePairCount,
-                         int modelCount,
-                         const PhysicsExecutionSettings& execution,
-                         Threading::WorkerPool& workerPool );
+    void ProcessObjectNarrowphasePair(
+        const ObjectNarrowphasePairStageContext& context,
+        int pairIndex,
+        ObjectNarrowphaseEvent& event
+    );
+    bool TryRunParallel(
+        const ObjectNarrowphasePairStageContext& context,
+        int candidatePairCount,
+        int modelCount,
+        const PhysicsExecutionSettings& execution,
+        Threading::WorkerPool& workerPool
+    );
     std::span<const ObjectNarrowphaseEvent> GetEvents() const;
     uint64_t CollectDynamicMemoryBytes() const;
 };

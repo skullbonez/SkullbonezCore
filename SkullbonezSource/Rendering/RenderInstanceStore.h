@@ -161,11 +161,13 @@ class RenderInstanceStore
 
     void ReservePresentationCapacity( std::size_t capacity );
     bool CanAppendCreationRow( int expectedCount ) const;
-    void CommitCreationRow( const RenderInstancePresentationRecord& presentation,
-                            const Physics::PhysicsBodyRecord& body,
-                            const Physics::PhysicsBodyHotState& hotState,
-                            const Physics::ColliderRecord& collider,
-                            int expectedIndex );
+    void CommitCreationRow(
+        const RenderInstancePresentationRecord& presentation,
+        const Physics::PhysicsBodyRecord& body,
+        const Physics::PhysicsBodyHotState& hotState,
+        const Physics::ColliderRecord& collider,
+        int expectedIndex
+    );
     // Scene deletion compacts presentation, instance, and handle rows together.
     bool DestroyCreationRowAtSwapLast( int modelIndex );
     bool ResizePresentationRecords( int presentationCount );
@@ -182,29 +184,39 @@ class RenderInstanceStore
     void Clear();
     void BeginPhysicsStepPoseCapture( const Physics::PhysicsBodyStore& bodyStore );
     void CompletePhysicsStepPoseCapture( const Physics::PhysicsBodyStore& bodyStore );
-    void Refresh( const Physics::PhysicsBodyStore& bodyStore,
-                  const Physics::ColliderStore& colliderStore,
-                  float presentationAlpha = 1.0f );
-    void Refresh( const std::vector<RenderInstancePresentationRecord>& presentation,
-                  const Physics::PhysicsBodyStore& bodyStore,
-                  const Physics::ColliderStore& colliderStore,
-                  float presentationAlpha = 1.0f );
-    void Refresh( const RenderInstancePresentationRecord* presentation,
-                  int presentationCount,
-                  const Physics::PhysicsBodyStore& bodyStore,
-                  const Physics::ColliderStore& colliderStore,
-                  float presentationAlpha = 1.0f );
+    void Refresh(
+        const Physics::PhysicsBodyStore& bodyStore,
+        const Physics::ColliderStore& colliderStore,
+        float presentationAlpha = 1.0f
+    );
+    void Refresh(
+        const std::vector<RenderInstancePresentationRecord>& presentation,
+        const Physics::PhysicsBodyStore& bodyStore,
+        const Physics::ColliderStore& colliderStore,
+        float presentationAlpha = 1.0f
+    );
+    void Refresh(
+        const RenderInstancePresentationRecord* presentation,
+        int presentationCount,
+        const Physics::PhysicsBodyStore& bodyStore,
+        const Physics::ColliderStore& colliderStore,
+        float presentationAlpha = 1.0f
+    );
     // Applies a one-frame presentation pose, such as replay scrub/prediction,
     // without writing that pose into PhysicsBodyStore or authoring storage.
-    bool OverridePose( int modelIndex,
-                       Physics::PhysicsSceneObjectId sceneObjectId,
-                       const Math::Vector::Vector3& position,
-                       const Math::Orientation::Quaternion& orientation,
-                       const Physics::ColliderStore& colliderStore );
-    bool TryGetPresentationPose( int modelIndex,
-                                 float presentationAlpha,
-                                 Math::Vector::Vector3& outPosition,
-                                 Math::Orientation::Quaternion& outOrientation ) const;
+    bool OverridePose(
+        int modelIndex,
+        Physics::PhysicsSceneObjectId sceneObjectId,
+        const Math::Vector::Vector3& position,
+        const Math::Orientation::Quaternion& orientation,
+        const Physics::ColliderStore& colliderStore
+    );
+    bool TryGetPresentationPose(
+        int modelIndex,
+        float presentationAlpha,
+        Math::Vector::Vector3& outPosition,
+        Math::Orientation::Quaternion& outOrientation
+    ) const;
 
     const RenderInstanceRecord* Data() const;
     int Count() const;

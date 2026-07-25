@@ -79,15 +79,17 @@ bool IsSolverBodyFixed( const Physics::PhysicsBodyHotFieldsConstView& hotFields,
     return hotFields.fixed[static_cast<size_t>( bodyIndex )] != 0u;
 }
 
-void ApplyForcesForSolverBody( Physics::PhysicsBodyStore& bodyStore,
-                               const Physics::ColliderStore& colliderStore,
-                               const Physics::PhysicsWorldForces& worldForces,
-                               const Physics::PhysicsBodyHotFieldsConstView& hotFields,
-                               std::span<const uint8_t> sleepState,
-                               std::vector<float>& timeRemaining,
-                               const Vector3* mutualGravityForces,
-                               int bodyIndex,
-                               float dt )
+void ApplyForcesForSolverBody(
+    Physics::PhysicsBodyStore& bodyStore,
+    const Physics::ColliderStore& colliderStore,
+    const Physics::PhysicsWorldForces& worldForces,
+    const Physics::PhysicsBodyHotFieldsConstView& hotFields,
+    std::span<const uint8_t> sleepState,
+    std::vector<float>& timeRemaining,
+    const Vector3* mutualGravityForces,
+    int bodyIndex,
+    float dt
+)
 {
     // Invariant: this is the extracted body of the former applyForcesAt lambda.
     // Sleeping rows must keep their cached pose and consume no remaining time;
@@ -105,13 +107,15 @@ void ApplyForcesForSolverBody( Physics::PhysicsBodyStore& bodyStore,
     (void)bodyStore.ApplyForces( worldForces, colliderStore, bodyIndex, dt, mutualGravityForce );
 }
 
-void IntegrateRemainingSolverBody( Physics::PhysicsBodyStore& bodyStore,
-                                   SkullbonezCore::Core::Profiler* profiler,
-                                   const Physics::ColliderStore& colliderStore,
-                                   const Physics::PhysicsBodyHotFieldsConstView& hotFields,
-                                   std::span<const uint8_t> sleepState,
-                                   std::span<const float> timeRemaining,
-                                   int bodyIndex )
+void IntegrateRemainingSolverBody(
+    Physics::PhysicsBodyStore& bodyStore,
+    SkullbonezCore::Core::Profiler* profiler,
+    const Physics::ColliderStore& colliderStore,
+    const Physics::PhysicsBodyHotFieldsConstView& hotFields,
+    std::span<const uint8_t> sleepState,
+    std::span<const float> timeRemaining,
+    int bodyIndex
+)
 {
     if ( IsSolverBodyFixed( hotFields, bodyIndex ) || sleepState[bodyIndex] )
     {
@@ -130,15 +134,17 @@ namespace Physics
 {
 void ApplyForcesStageContext::operator()( int bodyIndex ) const
 {
-    ApplyForcesForSolverBody( bodyStore,
-                              colliderStore,
-                              worldForces,
-                              hotFields,
-                              sleepState,
-                              timeRemaining,
-                              mutualGravityForces,
-                              bodyIndex,
-                              dt );
+    ApplyForcesForSolverBody(
+        bodyStore,
+        colliderStore,
+        worldForces,
+        hotFields,
+        sleepState,
+        timeRemaining,
+        mutualGravityForces,
+        bodyIndex,
+        dt
+    );
 }
 
 void IntegrateRemainingStageContext::operator()( int bodyIndex ) const
@@ -164,14 +170,16 @@ void PhysicsForceStage::ReserveBodyScratchCapacity( std::size_t capacity )
     m_mutualGravityPairForces.reserve( MutualGravityPairCount( pairBodyCapacity ) );
 }
 
-const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* profiler,
-                                                              std::span<const PhysicsBodyRecord> bodyRecords,
-                                                              const PhysicsBodyHotFieldsConstView& hotFields,
-                                                              std::span<const uint8_t> sleepState,
-                                                              int modelCount,
-                                                              const PhysicsWorldForces& worldForces,
-                                                              const PhysicsExecutionSettings& execution,
-                                                              Threading::WorkerPool& workerPool )
+const Vector3* PhysicsForceStage::PrepareMutualGravityForces(
+    Core::Profiler* profiler,
+    std::span<const PhysicsBodyRecord> bodyRecords,
+    const PhysicsBodyHotFieldsConstView& hotFields,
+    std::span<const uint8_t> sleepState,
+    int modelCount,
+    const PhysicsWorldForces& worldForces,
+    const PhysicsExecutionSettings& execution,
+    Threading::WorkerPool& workerPool
+)
 {
     const MutualGravitySettings& settings = worldForces.mutualGravity;
     if ( !settings.enabled || settings.gravitationalConstant <= 0.0f || modelCount <= 0 )
@@ -182,11 +190,13 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* pr
     const std::size_t requiredBodyCapacity = static_cast<std::size_t>( modelCount );
     if ( m_mutualGravityForces.capacity() < requiredBodyCapacity )
     {
-        SB_FATAL( "Physics/MutualGravity",
-                  "Mutual gravity body scratch capacity exhausted: owner=Physics/MutualGravity "
-                  "phase=steady_gameplay body_capacity=%zu required_bodies=%zu.",
-                  m_mutualGravityForces.capacity(),
-                  requiredBodyCapacity );
+        SB_FATAL(
+            "Physics/MutualGravity",
+            "Mutual gravity body scratch capacity exhausted: owner=Physics/MutualGravity "
+            "phase=steady_gameplay body_capacity=%zu required_bodies=%zu.",
+            m_mutualGravityForces.capacity(),
+            requiredBodyCapacity
+        );
     }
 
     m_mutualGravityForces.assign( requiredBodyCapacity, ZERO_VECTOR );
@@ -229,12 +239,16 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* pr
                     continue;
                 }
 
-                const Vector3 positionA( hotFields.positionX[bodyAIndex],
-                                         hotFields.positionY[bodyAIndex],
-                                         hotFields.positionZ[bodyAIndex] );
-                const Vector3 positionB( hotFields.positionX[bodyBIndex],
-                                         hotFields.positionY[bodyBIndex],
-                                         hotFields.positionZ[bodyBIndex] );
+                const Vector3 positionA(
+                    hotFields.positionX[bodyAIndex],
+                    hotFields.positionY[bodyAIndex],
+                    hotFields.positionZ[bodyAIndex]
+                );
+                const Vector3 positionB(
+                    hotFields.positionX[bodyBIndex],
+                    hotFields.positionY[bodyBIndex],
+                    hotFields.positionZ[bodyBIndex]
+                );
                 const Vector3 displacement = positionB - positionA;
                 const float distanceSq = Vector::VectorMagSquared( displacement ) + softenedDistanceSq;
                 const float invDistance = 1.0f / sqrtf( distanceSq );
@@ -259,14 +273,16 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* pr
     const std::size_t requiredPairCapacity = MutualGravityPairCount( requiredBodyCapacity );
     if ( m_mutualGravityPairForces.capacity() < requiredPairCapacity )
     {
-        SB_FATAL( "Physics/MutualGravity",
-                  "Mutual gravity pair scratch capacity exhausted: owner=Physics/MutualGravity "
-                  "phase=steady_gameplay pair_capacity=%zu required_pairs=%zu max_parallel_bodies=%d "
-                  "pair_high_water=%zu.",
-                  m_mutualGravityPairForces.capacity(),
-                  requiredPairCapacity,
-                  MUTUAL_GRAVITY_MAX_BODIES,
-                  m_mutualGravityPairHighWater );
+        SB_FATAL(
+            "Physics/MutualGravity",
+            "Mutual gravity pair scratch capacity exhausted: owner=Physics/MutualGravity "
+            "phase=steady_gameplay pair_capacity=%zu required_pairs=%zu max_parallel_bodies=%d "
+            "pair_high_water=%zu.",
+            m_mutualGravityPairForces.capacity(),
+            requiredPairCapacity,
+            MUTUAL_GRAVITY_MAX_BODIES,
+            m_mutualGravityPairHighWater
+        );
     }
 
     m_mutualGravityPairHighWater = (std::max)( m_mutualGravityPairHighWater, requiredPairCapacity );
@@ -278,6 +294,7 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* pr
     {
         const int rowEnd = (std::min)( modelCount, rowBegin + MUTUAL_GRAVITY_ROWS_PER_CHUNK );
         chunks[chunkCount] = { chunkCount, rowBegin, rowEnd };
+
         ++chunkCount;
     }
 
@@ -316,12 +333,16 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* pr
                     continue;
                 }
 
-                const Vector3 positionA( hotFields.positionX[bodyAIndex],
-                                         hotFields.positionY[bodyAIndex],
-                                         hotFields.positionZ[bodyAIndex] );
-                const Vector3 positionB( hotFields.positionX[bodyBIndex],
-                                         hotFields.positionY[bodyBIndex],
-                                         hotFields.positionZ[bodyBIndex] );
+                const Vector3 positionA(
+                    hotFields.positionX[bodyAIndex],
+                    hotFields.positionY[bodyAIndex],
+                    hotFields.positionZ[bodyAIndex]
+                );
+                const Vector3 positionB(
+                    hotFields.positionX[bodyBIndex],
+                    hotFields.positionY[bodyBIndex],
+                    hotFields.positionZ[bodyBIndex]
+                );
                 const Vector3 displacement = positionB - positionA;
                 const float distanceSq = Vector::VectorMagSquared( displacement ) + softenedDistanceSq;
                 const float invDistance = 1.0f / sqrtf( distanceSq );
@@ -394,23 +415,28 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* pr
     return m_mutualGravityForces.data();
 }
 
-void PhysicsForceStage::ApplyForces( const ApplyForcesStageContext& context,
-                                     std::span<const int> awakeBodyIndices,
-                                     Threading::WorkerPool& workerPool,
-                                     const PhysicsExecutionSettings& execution ) const
+void PhysicsForceStage::ApplyForces(
+    const ApplyForcesStageContext& context,
+    std::span<const int> awakeBodyIndices,
+    Threading::WorkerPool& workerPool,
+    const PhysicsExecutionSettings& execution
+) const
 {
     PROFILE_BEGIN( context.profiler, "Frame/Physics/ApplyForces" );
     const auto applyAwakeBody = [&]( int awakeSlot )
     { context( awakeBodyIndices[static_cast<std::size_t>( awakeSlot )] ); };
+
     const int awakeBodyCount = static_cast<int>( awakeBodyIndices.size() );
     if ( execution.parallel && execution.parallelApplyForces )
     {
-        workerPool.ParallelForNoAlloc( 0,
-                                       awakeBodyCount,
-                                       applyAwakeBody,
-                                       PHYSICS_PARALLEL_MIN_BODIES,
-                                       "Frame/Physics/ApplyForces/WorkerBodies",
-                                       PHYSICS_APPLY_FORCES_WORKER_HASH );
+        workerPool.ParallelForNoAlloc(
+            0,
+            awakeBodyCount,
+            applyAwakeBody,
+            PHYSICS_PARALLEL_MIN_BODIES,
+            "Frame/Physics/ApplyForces/WorkerBodies",
+            PHYSICS_APPLY_FORCES_WORKER_HASH
+        );
     }
     else
     {
@@ -422,22 +448,27 @@ void PhysicsForceStage::ApplyForces( const ApplyForcesStageContext& context,
     PROFILE_END( context.profiler, "Frame/Physics/ApplyForces" );
 }
 
-void PhysicsForceStage::IntegrateRemaining( const IntegrateRemainingStageContext& context,
-                                            std::span<const int> awakeBodyIndices,
-                                            Threading::WorkerPool& workerPool,
-                                            const PhysicsExecutionSettings& execution ) const
+void PhysicsForceStage::IntegrateRemaining(
+    const IntegrateRemainingStageContext& context,
+    std::span<const int> awakeBodyIndices,
+    Threading::WorkerPool& workerPool,
+    const PhysicsExecutionSettings& execution
+) const
 {
     const auto integrateAwakeBody = [&]( int awakeSlot )
     { context( awakeBodyIndices[static_cast<std::size_t>( awakeSlot )] ); };
+
     const int awakeBodyCount = static_cast<int>( awakeBodyIndices.size() );
     if ( execution.parallel && execution.parallelIntegrate )
     {
-        workerPool.ParallelForNoAlloc( 0,
-                                       awakeBodyCount,
-                                       integrateAwakeBody,
-                                       PHYSICS_PARALLEL_MIN_BODIES,
-                                       "Frame/Physics/Integrate/WorkerBodies",
-                                       PHYSICS_INTEGRATE_WORKER_HASH );
+        workerPool.ParallelForNoAlloc(
+            0,
+            awakeBodyCount,
+            integrateAwakeBody,
+            PHYSICS_PARALLEL_MIN_BODIES,
+            "Frame/Physics/Integrate/WorkerBodies",
+            PHYSICS_INTEGRATE_WORKER_HASH
+        );
     }
     else
     {

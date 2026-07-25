@@ -54,8 +54,10 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
 }
 } // namespace
 
-void PhysicsNarrowphaseStage::ProcessObjectNarrowphaseIsland( const ObjectNarrowphasePairStageContext& context,
-                                                              int islandIndex )
+void PhysicsNarrowphaseStage::ProcessObjectNarrowphaseIsland(
+    const ObjectNarrowphasePairStageContext& context,
+    int islandIndex
+)
 {
     const ObjectNarrowphaseIsland& island = m_objectNarrowphaseIslands[static_cast<size_t>( islandIndex )];
     const size_t pairEnd = island.firstPairOffset + island.pairCount;
@@ -66,17 +68,21 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphaseIsland( const ObjectNarrow
     }
 }
 
-bool PhysicsNarrowphaseStage::ObjectNarrowphaseIslandPrecedesByMinPairIndex( const ObjectNarrowphaseIsland& a,
-                                                                             const ObjectNarrowphaseIsland& b )
+bool PhysicsNarrowphaseStage::ObjectNarrowphaseIslandPrecedesByMinPairIndex(
+    const ObjectNarrowphaseIsland& a,
+    const ObjectNarrowphaseIsland& b
+)
 {
     return a.minPairIndex < b.minPairIndex;
 }
 
 
-void PhysicsNarrowphaseStage::BuildObjectNarrowphaseIslands( Core::Profiler* profiler,
-                                                             std::span<const std::pair<int, int>> candidatePairs,
-                                                             int candidatePairCount,
-                                                             int modelCount )
+void PhysicsNarrowphaseStage::BuildObjectNarrowphaseIslands(
+    Core::Profiler* profiler,
+    std::span<const std::pair<int, int>> candidatePairs,
+    int candidatePairCount,
+    int modelCount
+)
 {
     PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/BuildIslands" );
     m_objectNarrowphaseParent.resize( static_cast<size_t>( modelCount ) );
@@ -176,9 +182,11 @@ void PhysicsNarrowphaseStage::BuildObjectNarrowphaseIslands( Core::Profiler* pro
         size_t& writeOffset = m_objectNarrowphaseIslandWriteOffsets[static_cast<size_t>( islandIndex )];
         m_objectNarrowphaseIslandPairIndices[writeOffset++] = pairIndex;
     }
-    std::sort( m_objectNarrowphaseIslands.begin(),
-               m_objectNarrowphaseIslands.end(),
-               ObjectNarrowphaseIslandPrecedesByMinPairIndex );
+    std::sort(
+        m_objectNarrowphaseIslands.begin(),
+        m_objectNarrowphaseIslands.end(),
+        ObjectNarrowphaseIslandPrecedesByMinPairIndex
+    );
 }
 
 PhysicsNarrowphaseStage::PhysicsNarrowphaseStage()
@@ -208,11 +216,13 @@ void PhysicsNarrowphaseStage::ObjectNarrowphaseIslandStage::operator()( int isla
     stage.ProcessObjectNarrowphaseIsland( pairContext, islandIndex );
 }
 
-bool PhysicsNarrowphaseStage::TryRunParallel( const ObjectNarrowphasePairStageContext& context,
-                                              int candidatePairCount,
-                                              int modelCount,
-                                              const PhysicsExecutionSettings& execution,
-                                              Threading::WorkerPool& workerPool )
+bool PhysicsNarrowphaseStage::TryRunParallel(
+    const ObjectNarrowphasePairStageContext& context,
+    int candidatePairCount,
+    int modelCount,
+    const PhysicsExecutionSettings& execution,
+    Threading::WorkerPool& workerPool
+)
 {
     m_objectNarrowphaseIslands.clear();
     m_objectNarrowphaseIslandPairIndices.clear();
@@ -239,15 +249,17 @@ bool PhysicsNarrowphaseStage::TryRunParallel( const ObjectNarrowphasePairStageCo
     }
 
     m_objectNarrowphaseEvents.assign( context.candidatePairs.size(), ObjectNarrowphaseEvent() );
-    ObjectNarrowphaseIslandStage islandStage{ *this, context };
+    ObjectNarrowphaseIslandStage islandStage { *this, context };
     {
         PROFILE_SCOPED( context.profiler, "Frame/Physics/Narrowphase/IslandWorkerDispatch" );
-        workerPool.ParallelForNoAlloc( 0,
-                                       islandCount,
-                                       islandStage,
-                                       PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS,
-                                       "Frame/Physics/Narrowphase/IslandWorkerDispatch/WorkerIslands",
-                                       PHYSICS_NARROWPHASE_ISLAND_WORKER_HASH );
+        workerPool.ParallelForNoAlloc(
+            0,
+            islandCount,
+            islandStage,
+            PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS,
+            "Frame/Physics/Narrowphase/IslandWorkerDispatch/WorkerIslands",
+            PHYSICS_NARROWPHASE_ISLAND_WORKER_HASH
+        );
     }
     return true;
 }

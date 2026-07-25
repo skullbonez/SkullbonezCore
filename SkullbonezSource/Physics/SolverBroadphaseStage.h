@@ -72,8 +72,8 @@ inline bool BroadphaseCandidateAppendHasCapacity( std::size_t size, std::size_t 
     return size < capacity;
 }
 
-inline Math::Vector::Vector3 BroadphaseCandidateBodyPosition( const PhysicsBodyHotFieldsConstView& hotFields,
-                                                              int bodyIndex )
+inline Math::Vector::Vector3
+BroadphaseCandidateBodyPosition( const PhysicsBodyHotFieldsConstView& hotFields, int bodyIndex )
 {
     return PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyIndex ) );
 }

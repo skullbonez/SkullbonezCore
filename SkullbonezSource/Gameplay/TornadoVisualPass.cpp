@@ -49,14 +49,15 @@ using Math::Vector::VectorMagSquared;
 constexpr int RENDER_TEXTURE_SLOT_COUNT = Rendering::TEXTURE_SLOT_COUNT;
 constexpr float FX_KIND_RIBBON = 0.0f;
 constexpr float FX_KIND_DUST = 1.0f;
-constexpr Rendering::PassRasterStateBucket VISUAL_RASTER =
-    Rendering::MakePassRasterStateBucket( 0,
-                                          { true,
-                                            false,
-                                            true,
-                                            Rendering::BlendFactor::SrcAlpha,
-                                            Rendering::BlendFactor::OneMinusSrcAlpha,
-                                            Rendering::CullMode::None } );
+constexpr Rendering::PassRasterStateBucket VISUAL_RASTER = Rendering::MakePassRasterStateBucket(
+    0,
+    { true,
+      false,
+      true,
+      Rendering::BlendFactor::SrcAlpha,
+      Rendering::BlendFactor::OneMinusSrcAlpha,
+      Rendering::CullMode::None }
+);
 
 float Clamp01( float value )
 {
@@ -88,16 +89,18 @@ Vector3 CylindricalOffset( float radius, float angle )
     return Vector3( cosf( angle ) * radius, 0.0f, sinf( angle ) * radius );
 }
 
-void EmitFxVertex( std::vector<float>& vertices,
-                   const Vector3& position,
-                   float r,
-                   float g,
-                   float b,
-                   float a,
-                   float u,
-                   float v,
-                   float fxKind,
-                   float terrainY )
+void EmitFxVertex(
+    std::vector<float>& vertices,
+    const Vector3& position,
+    float r,
+    float g,
+    float b,
+    float a,
+    float u,
+    float v,
+    float fxKind,
+    float terrainY
+)
 {
     vertices.push_back( position.x );
     vertices.push_back( position.y );
@@ -177,10 +180,12 @@ bool TornadoVisualPass::AutoEnableWithTornado() const
     return m_settings.autoEnableWithTornado;
 }
 
-Rendering::WorldRenderExtensionRegistration TornadoVisualPass::PrepareFrame( const TornadoFieldConfig& field,
-                                                                             const TornadoSystemConfig& system,
-                                                                             float systemElapsedSeconds,
-                                                                             const TornadoVisualTimeCandidates& time )
+Rendering::WorldRenderExtensionRegistration TornadoVisualPass::PrepareFrame(
+    const TornadoFieldConfig& field,
+    const TornadoSystemConfig& system,
+    float systemElapsedSeconds,
+    const TornadoVisualTimeCandidates& time
+)
 {
     m_frame.field = &field;
     m_frame.system = &system;
@@ -188,7 +193,8 @@ Rendering::WorldRenderExtensionRegistration TornadoVisualPass::PrepareFrame( con
     m_frame.systemElapsedSeconds = systemElapsedSeconds;
     EnsureTransientCapacity();
     return Rendering::WorldRenderExtensionRegistration::Bind<TornadoVisualPass, &TornadoVisualPass::RegisterGraphPass>(
-        *this );
+        *this
+    );
 }
 
 void TornadoVisualPass::ReleaseResources()
@@ -208,18 +214,23 @@ bool TornadoVisualPass::RegisterGraphPass( TornadoVisualPass& pass, Rendering::W
     GraphCallbackData callbackData;
     callbackData.pass = &pass;
     callbackData.frame = &scope.Frame();
-    scope.AppendGraphicsPass<&TornadoVisualPass::ExecuteGraphPass>( "TornadoVisualPass",
-                                                                    callbackData,
-                                                                    "Frame/Render/TornadoVisual" );
+    scope.AppendGraphicsPass<&TornadoVisualPass::ExecuteGraphPass>(
+        "TornadoVisualPass",
+        callbackData,
+        "Frame/Render/TornadoVisual"
+    );
     const bool rendered = callbackData.rendered;
     // Lifetime: no frame/configuration borrow survives the synchronous graph
     // range. Persistent visual clock and owned capacity remain valid.
     pass.m_frame = {};
+
     return rendered;
 }
 
-void TornadoVisualPass::ExecuteGraphPass( const Rendering::RenderGraphPassContext& /*context*/,
-                                          GraphCallbackData& data )
+void TornadoVisualPass::ExecuteGraphPass(
+    const Rendering::RenderGraphPassContext& /*context*/,
+    GraphCallbackData& data
+)
 {
     if ( !data.pass || !data.frame )
     {
@@ -244,10 +255,12 @@ void TornadoVisualPass::EnsureTransientCapacity()
         static_cast<std::size_t>( (std::max)( vertexCount, 0 ) ) * VISUAL_FLOATS_PER_VERTEX;
     if ( floatCapacity > m_vertices.capacity() )
     {
-        SB_FATAL( "Gameplay/TornadoVisualPass",
-                  "Transient vertex capacity exceeded. requested=%zu capacity=%zu",
-                  floatCapacity,
-                  m_vertices.capacity() );
+        SB_FATAL(
+            "Gameplay/TornadoVisualPass",
+            "Transient vertex capacity exceeded. requested=%zu capacity=%zu",
+            floatCapacity,
+            m_vertices.capacity()
+        );
     }
 }
 
@@ -330,6 +343,7 @@ bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& 
     const Vector3 billboardUp = NormalizeOr( CrossProduct( cameraRight, cameraForward ), cameraUp );
     const auto terrainHeightFor = [&]( const Vector3& position )
     { return frame.surfaceHeight.SampleHeight( position.x, position.z, position.y - 64.0f ); };
+
     constexpr float twoPi = 6.28318530718f;
 
     for ( const TornadoActiveVortex& activeVortex : m_activeVisualVortices )
@@ -476,10 +490,12 @@ bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& 
     PROFILE_GPU_BEGIN( &frame.renderGpuTiming, "Frame/Render/TornadoVisual" );
     DRAW_CALL_TRACE_SCOPE( frame.renderDiagnostics, "Frame/Render/TornadoVisual" );
     ClearAllRenderTextureSlots( frame.renderTextures );
-    frame.renderGeometry.DrawTransientColoredTriangles( m_vertices,
-                                                        frame.viewProjection,
-                                                        Rendering::TransientTriangleStyle::Color,
-                                                        VISUAL_RASTER );
+    frame.renderGeometry.DrawTransientColoredTriangles(
+        m_vertices,
+        frame.viewProjection,
+        Rendering::TransientTriangleStyle::Color,
+        VISUAL_RASTER
+    );
     PROFILE_GPU_END( &frame.renderGpuTiming, "Frame/Render/TornadoVisual" );
     return true;
 }

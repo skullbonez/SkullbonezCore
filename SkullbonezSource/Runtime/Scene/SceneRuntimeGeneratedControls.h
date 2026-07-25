@@ -87,34 +87,42 @@ struct SceneGeneratedUICommandResult
     SceneRuntimeGeneratedControlAction action;
 };
 
-SceneRuntimeGeneratedControlAction ApplyUIModelCountOverride( SceneGeneratedControlPolicy policy,
-                                                              SceneGeneratedControlPresentation presentation,
-                                                              SceneGeneratedControlResetParticipants reset,
-                                                              SceneController& scene,
-                                                              int count );
-SceneRuntimeGeneratedControlAction ApplyUISolverObjectCounts( SceneGeneratedControlPolicy policy,
-                                                              SceneGeneratedControlPresentation presentation,
-                                                              SceneGeneratedControlResetParticipants reset,
-                                                              SceneController& scene,
-                                                              int balls,
-                                                              int boxes );
-SceneGeneratedUICommandResult ApplySceneGeneratedModelCountUICommand( SceneGeneratedControlPolicy policy,
-                                                                      SceneGeneratedControlPresentation presentation,
-                                                                      SceneGeneratedControlResetParticipants reset,
-                                                                      SceneController& scene,
-                                                                      int requestedModelCount );
-SceneGeneratedUICommandResult
-ApplySceneGeneratedSolverBallCountUICommand( SceneGeneratedControlPolicy policy,
-                                             SceneGeneratedControlPresentation presentation,
-                                             SceneGeneratedControlResetParticipants reset,
-                                             SceneController& scene,
-                                             int requestedSolverBallCount );
-SceneGeneratedUICommandResult
-ApplySceneGeneratedSolverBoxCountUICommand( SceneGeneratedControlPolicy policy,
-                                            SceneGeneratedControlPresentation presentation,
-                                            SceneGeneratedControlResetParticipants reset,
-                                            SceneController& scene,
-                                            int requestedSolverBoxCount );
+SceneRuntimeGeneratedControlAction ApplyUIModelCountOverride(
+    SceneGeneratedControlPolicy policy,
+    SceneGeneratedControlPresentation presentation,
+    SceneGeneratedControlResetParticipants reset,
+    SceneController& scene,
+    int count
+);
+SceneRuntimeGeneratedControlAction ApplyUISolverObjectCounts(
+    SceneGeneratedControlPolicy policy,
+    SceneGeneratedControlPresentation presentation,
+    SceneGeneratedControlResetParticipants reset,
+    SceneController& scene,
+    int balls,
+    int boxes
+);
+SceneGeneratedUICommandResult ApplySceneGeneratedModelCountUICommand(
+    SceneGeneratedControlPolicy policy,
+    SceneGeneratedControlPresentation presentation,
+    SceneGeneratedControlResetParticipants reset,
+    SceneController& scene,
+    int requestedModelCount
+);
+SceneGeneratedUICommandResult ApplySceneGeneratedSolverBallCountUICommand(
+    SceneGeneratedControlPolicy policy,
+    SceneGeneratedControlPresentation presentation,
+    SceneGeneratedControlResetParticipants reset,
+    SceneController& scene,
+    int requestedSolverBallCount
+);
+SceneGeneratedUICommandResult ApplySceneGeneratedSolverBoxCountUICommand(
+    SceneGeneratedControlPolicy policy,
+    SceneGeneratedControlPresentation presentation,
+    SceneGeneratedControlResetParticipants reset,
+    SceneController& scene,
+    int requestedSolverBoxCount
+);
 
 } // namespace Runtime
 } // namespace SkullbonezCore

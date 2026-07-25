@@ -65,10 +65,12 @@ bool SetCurrentPhasePose( CameraControlState& camera, Environment::CameraCollect
 bool SetCurrentPhaseStyle( CameraControlState& camera, const char* stylePath );
 bool SelectNextPhaseForAuthoring( CameraControlState& camera, Environment::CameraCollection& cameras );
 bool SaveShotList( const CameraControlState& camera );
-DemoDirectorTickResult Tick( CameraControlState& camera,
-                             DemoDirectorPredictionView prediction,
-                             SceneRuntimeStyleContext styleContext,
-                             float cameraDt );
+DemoDirectorTickResult Tick(
+    CameraControlState& camera,
+    DemoDirectorPredictionView prediction,
+    SceneRuntimeStyleContext styleContext,
+    float cameraDt
+);
 } // namespace DemoDirectorPlayback
 } // namespace Runtime
 } // namespace SkullbonezCore

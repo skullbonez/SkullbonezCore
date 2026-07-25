@@ -114,10 +114,10 @@ class ReplayPorkchopPanel
     bool ComputeCell( std::size_t cellIndex, float& outDeltaV ) const noexcept;
     void ClearSweep() noexcept;
 
-    std::array<float, REPLAY_PORKCHOP_CELL_COUNT> m_deltaV{};
+    std::array<float, REPLAY_PORKCHOP_CELL_COUNT> m_deltaV {};
     // Lifetime: the span borrows the owner's fixed array for the owner's whole
     // lifetime. ReplayRuntime never copies or moves this concrete owner.
-    ReplayPorkchopPanelView m_view{ m_deltaV };
+    ReplayPorkchopPanelView m_view { m_deltaV };
     Math::Orbital::OrbitalElements m_departureOrbit;
     Math::Orbital::OrbitalElements m_targetOrbit;
     float m_mu = 0.0f;

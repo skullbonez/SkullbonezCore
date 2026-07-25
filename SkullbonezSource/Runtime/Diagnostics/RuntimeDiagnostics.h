@@ -179,9 +179,11 @@ class RuntimeDiagnostics
     static void
     OpenScenePerfLog( RunPerfLogState& perfLog, const char* path, int pass, SkullbonezCore::Core::Profiler* profiler );
     static bool PerfTestActive( const RunPerfLogState& perfLog );
-    static void TickPerfLog( RunPerfLogState& perfLog,
-                             const RuntimePerfTickContext& context,
-                             SkullbonezCore::Core::Profiler* profiler );
+    static void TickPerfLog(
+        RunPerfLogState& perfLog,
+        const RuntimePerfTickContext& context,
+        SkullbonezCore::Core::Profiler* profiler
+    );
     static RuntimeProfilerFrameTimes SampleProfilerFrameTimes( const SkullbonezCore::Core::Profiler* profiler );
 
 #ifdef _DEBUG
@@ -189,30 +191,42 @@ class RuntimeDiagnostics
     static void SetPhysicsCollisionTimeLogOverride( RunPerfLogState& perfLog, const char* path );
     // Diagnostics receives the physics owner directly; artifact setup never
     // needs scene lifecycle, request, or world-presentation authority.
-    static void SetPhysicsDiagnosticsPath( RunPhysicsDiagnosticsState& diagnostics,
-                                           Physics::PhysicsEngine& physics,
-                                           const char* path,
-                                           bool fixedStepForcedByDiagnostics );
+    static void SetPhysicsDiagnosticsPath(
+        RunPhysicsDiagnosticsState& diagnostics,
+        Physics::PhysicsEngine& physics,
+        const char* path,
+        bool fixedStepForcedByDiagnostics
+    );
     static void
     LogSceneFinished( SceneSessionState& scene, const char* scenePath, const char* rendererName, const char* reason );
-    static void BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,
-                                            Physics::PhysicsEngine& physics,
-                                            const SceneSessionState& scene,
-                                            const SkullbonezCore::Core::EngineConfig& config,
-                                            const char* scenePath,
-                                            const char* rendererName );
-    static void LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagnostics,
-                                     const SceneSessionState& scene,
-                                     const ReplayScrubProbeDiagnostic& probe );
-    static void LogReplayRestoreProbe( RunPhysicsDiagnosticsState& diagnostics,
-                                       const SceneSessionState& scene,
-                                       const ReplayRestoreProbeDiagnostic& probe );
-    static void LogReplayRestoreResult( RunPhysicsDiagnosticsState& diagnostics,
-                                        const SceneSessionState& scene,
-                                        const ReplayRestoreResultDiagnostic& result );
-    static void EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,
-                                          const SceneSessionState& scene,
-                                          const char* status );
+    static void BeginPhysicsDiagnosticsRun(
+        RunPhysicsDiagnosticsState& diagnostics,
+        Physics::PhysicsEngine& physics,
+        const SceneSessionState& scene,
+        const SkullbonezCore::Core::EngineConfig& config,
+        const char* scenePath,
+        const char* rendererName
+    );
+    static void LogReplayScrubProbe(
+        RunPhysicsDiagnosticsState& diagnostics,
+        const SceneSessionState& scene,
+        const ReplayScrubProbeDiagnostic& probe
+    );
+    static void LogReplayRestoreProbe(
+        RunPhysicsDiagnosticsState& diagnostics,
+        const SceneSessionState& scene,
+        const ReplayRestoreProbeDiagnostic& probe
+    );
+    static void LogReplayRestoreResult(
+        RunPhysicsDiagnosticsState& diagnostics,
+        const SceneSessionState& scene,
+        const ReplayRestoreResultDiagnostic& result
+    );
+    static void EndPhysicsDiagnosticsRun(
+        RunPhysicsDiagnosticsState& diagnostics,
+        const SceneSessionState& scene,
+        const char* status
+    );
 #endif
 };
 } // namespace Runtime

@@ -53,9 +53,11 @@ char LowerAscii( char value )
     return value >= 'A' && value <= 'Z' ? static_cast<char>( value + ( 'a' - 'A' ) ) : value;
 }
 
-bool ConsumeFilterKeyPress( SkullbonezCore::UI::SceneTab::UISceneTabState& state,
-                            const SkullbonezCore::UI::InputControl::UIInputSnapshot& input,
-                            int virtualKey )
+bool ConsumeFilterKeyPress(
+    SkullbonezCore::UI::SceneTab::UISceneTabState& state,
+    const SkullbonezCore::UI::InputControl::UIInputSnapshot& input,
+    int virtualKey
+)
 {
     return SkullbonezCore::UI::InputControl::ConsumeKeyPress( state.filterKeyWasDown, input, virtualKey );
 }
@@ -87,8 +89,10 @@ void BackspaceFilter( SkullbonezCore::UI::SceneTab::UISceneTabState& state )
     state.comboScroll = 0;
 }
 
-void RequestNewScene( SkullbonezCore::UI::SceneTab::UISceneTabState& state,
-                      SkullbonezCore::UI::InGameUIInputResult& result )
+void RequestNewScene(
+    SkullbonezCore::UI::SceneTab::UISceneTabState& state,
+    SkullbonezCore::UI::InGameUIInputResult& result
+)
 {
     // Concept: The UI requests creation by name; scene runtime owns sanitizing,
     // writing the starter file, refreshing the browser, and loading it.
@@ -98,20 +102,24 @@ void RequestNewScene( SkullbonezCore::UI::SceneTab::UISceneTabState& state,
     }
 
     result.commands.scene.createScene = true;
-    strncpy_s( result.commands.scene.requestedSceneName,
-               sizeof( result.commands.scene.requestedSceneName ),
-               state.filter,
-               _TRUNCATE );
+    strncpy_s(
+        result.commands.scene.requestedSceneName,
+        sizeof( result.commands.scene.requestedSceneName ),
+        state.filter,
+        _TRUNCATE
+    );
     result.commands.ui.userInteracted = true;
 }
 
-void SetSceneHeaderBounds( SkullbonezCore::UI::UIComboBox& combo,
-                           SkullbonezCore::UI::UIButton& resetSceneButton,
-                           SkullbonezCore::UI::UIButton& resetDefaultsButton,
-                           SkullbonezCore::UI::UIButton& saveDefaultsButton,
-                           float contentX,
-                           float rowBase,
-                           float contentW )
+void SetSceneHeaderBounds(
+    SkullbonezCore::UI::UIComboBox& combo,
+    SkullbonezCore::UI::UIButton& resetSceneButton,
+    SkullbonezCore::UI::UIButton& resetDefaultsButton,
+    SkullbonezCore::UI::UIButton& saveDefaultsButton,
+    float contentX,
+    float rowBase,
+    float contentW
+)
 {
     const float sceneComboW = SceneTabComboWidth( contentW );
     combo.SetBounds( contentX, rowBase, sceneComboW, 24.0f );
@@ -346,11 +354,13 @@ void ResetPreviewState( UISceneTabState& state )
 }
 
 
-void UpdateFilterTyping( UISceneTabState& state,
-                         InGameUIInputResult& result,
-                         const InputControl::UIInputSnapshot& input,
-                         const char* const* sceneOptions,
-                         int sceneOptionCount )
+void UpdateFilterTyping(
+    UISceneTabState& state,
+    InGameUIInputResult& result,
+    const InputControl::UIInputSnapshot& input,
+    const char* const* sceneOptions,
+    int sceneOptionCount
+)
 {
     UIComboBox& combo = state.combo;
     if ( !combo.IsOpen() )
@@ -452,15 +462,17 @@ void UpdateFilterTyping( UISceneTabState& state,
 }
 
 
-bool HandleComboWheel( UISceneTabState& state,
-                       const char* const* sceneOptions,
-                       int sceneOptionCount,
-                       int mouseX,
-                       int mouseY,
-                       int wheelDelta,
-                       float contentX,
-                       float rowBase,
-                       float contentW )
+bool HandleComboWheel(
+    UISceneTabState& state,
+    const char* const* sceneOptions,
+    int sceneOptionCount,
+    int mouseX,
+    int mouseY,
+    int wheelDelta,
+    float contentX,
+    float rowBase,
+    float contentW
+)
 {
     UIComboBox& combo = state.combo;
     if ( wheelDelta == 0 || !combo.IsOpen() )
@@ -484,15 +496,17 @@ bool HandleComboWheel( UISceneTabState& state,
 }
 
 
-bool HandleOpenComboClick( UISceneTabState& state,
-                           InGameUIInputResult& result,
-                           const char* const* sceneOptions,
-                           int sceneOptionCount,
-                           int mouseX,
-                           int mouseY,
-                           float contentX,
-                           float rowBase,
-                           float contentW )
+bool HandleOpenComboClick(
+    UISceneTabState& state,
+    InGameUIInputResult& result,
+    const char* const* sceneOptions,
+    int sceneOptionCount,
+    int mouseX,
+    int mouseY,
+    float contentX,
+    float rowBase,
+    float contentW
+)
 {
     UIComboBox& combo = state.combo;
     UIButton& resetSceneButton = state.resetSceneButton;
@@ -507,13 +521,15 @@ bool HandleOpenComboClick( UISceneTabState& state,
     const int visibleSceneOptions = SceneComboVisibleCount( filteredSceneCount );
     const int sceneDrawOptions = filteredSceneCount > 0 ? visibleSceneOptions : ( state.filter[0] != '\0' ? 1 : 0 );
     state.comboScroll = ClampSceneComboScroll( state.comboScroll, filteredSceneCount );
-    SetSceneHeaderBounds( combo,
-                          resetSceneButton,
-                          resetDefaultsButton,
-                          saveDefaultsButton,
-                          contentX,
-                          rowBase,
-                          contentW );
+    SetSceneHeaderBounds(
+        combo,
+        resetSceneButton,
+        resetDefaultsButton,
+        saveDefaultsButton,
+        contentX,
+        rowBase,
+        contentW
+    );
 
     const int option = combo.HitOption( mouseX, mouseY, sceneDrawOptions );
     if ( resetSceneButton.HitTest( mouseX, mouseY ) )
@@ -557,13 +573,15 @@ bool HandleOpenComboClick( UISceneTabState& state,
 }
 
 
-bool HandleHeaderClick( UISceneTabState& state,
-                        InGameUIInputResult& result,
-                        int mouseX,
-                        int mouseY,
-                        float contentX,
-                        float rowBase,
-                        float contentW )
+bool HandleHeaderClick(
+    UISceneTabState& state,
+    InGameUIInputResult& result,
+    int mouseX,
+    int mouseY,
+    float contentX,
+    float rowBase,
+    float contentW
+)
 {
     UIComboBox& combo = state.combo;
     UIButton& resetSceneButton = state.resetSceneButton;
@@ -571,13 +589,16 @@ bool HandleHeaderClick( UISceneTabState& state,
     UIButton& saveDefaultsButton = state.saveDefaultsButton;
     // Invariant: Scene selection, reset, and save buttons return command
     // intents. Scene load/reset side effects stay outside UI.
-    SetSceneHeaderBounds( combo,
-                          resetSceneButton,
-                          resetDefaultsButton,
-                          saveDefaultsButton,
-                          contentX,
-                          rowBase,
-                          contentW );
+    SetSceneHeaderBounds(
+        combo,
+        resetSceneButton,
+        resetDefaultsButton,
+        saveDefaultsButton,
+        contentX,
+        rowBase,
+        contentW
+    );
+
     if ( resetSceneButton.HitTest( mouseX, mouseY ) )
     {
         result.commands.scene.resetScene = true;
@@ -600,13 +621,15 @@ bool HandleHeaderClick( UISceneTabState& state,
 }
 
 
-bool HandleClosedComboClick( UISceneTabState& state,
-                             const InputControl::UIInputSnapshot& input,
-                             const char* const* sceneOptions,
-                             int sceneOptionCount,
-                             int selectedSceneOption,
-                             int mouseX,
-                             int mouseY )
+bool HandleClosedComboClick(
+    UISceneTabState& state,
+    const InputControl::UIInputSnapshot& input,
+    const char* const* sceneOptions,
+    int sceneOptionCount,
+    int selectedSceneOption,
+    int mouseX,
+    int mouseY
+)
 {
     UIComboBox& combo = state.combo;
     // Invariant: HandleHeaderClick establishes the shared draw/hit-test bounds
@@ -619,7 +642,9 @@ bool HandleClosedComboClick( UISceneTabState& state,
         const int filteredSceneCount = CountFilteredOptions( sceneOptions, sceneOptionCount, state.filter );
         state.comboScroll = SceneComboScrollForSelection(
             FilteredPositionForIndex( sceneOptions, sceneOptionCount, state.filter, selectedSceneOption ),
-            filteredSceneCount );
+            filteredSceneCount
+        );
+
         combo.SetOpen( true );
         return true;
     }
@@ -627,14 +652,16 @@ bool HandleClosedComboClick( UISceneTabState& state,
 }
 
 
-bool HandleTimeScaleClick( UISceneTabState& state,
-                           InGameUIInputResult& result,
-                           int& activeSlider,
-                           int mouseX,
-                           int mouseY,
-                           float contentX,
-                           float rowBase,
-                           float contentW )
+bool HandleTimeScaleClick(
+    UISceneTabState& state,
+    InGameUIInputResult& result,
+    int& activeSlider,
+    int mouseX,
+    int mouseY,
+    float contentX,
+    float rowBase,
+    float contentW
+)
 {
     state.timeScaleSlider.SetBounds( contentX, rowBase + ( UI_SCENE_TIME_SCALE_SLIDER_Y - 42.0f ), contentW, 34.0f );
     if ( state.timeScaleSlider.HitTest( mouseX, mouseY ) )
@@ -674,16 +701,18 @@ bool CommitActiveSlider( UISceneTabState& state, int activeSlider, InGameUIInput
 }
 
 
-void Draw( UISceneTabState& state,
-           const UIDrawContext& draw,
-           const InGameUIFrameData& data,
-           float contentX,
-           float contentY,
-           float contentW,
-           float contentH,
-           float scrolledY,
-           int mouseX,
-           int mouseY )
+void Draw(
+    UISceneTabState& state,
+    const UIDrawContext& draw,
+    const InGameUIFrameData& data,
+    float contentX,
+    float contentY,
+    float contentW,
+    float contentH,
+    float scrolledY,
+    int mouseX,
+    int mouseY
+)
 {
     UIComboBox& combo = state.combo;
     UIButton& resetSceneButton = state.resetSceneButton;
@@ -691,6 +720,7 @@ void Draw( UISceneTabState& state,
     UIButton& saveDefaultsButton = state.saveDefaultsButton;
     char buf[160];
     char filterDisplay[80] = {};
+
     const bool sceneFilterActive = state.filter[0] != '\0';
     const int filteredSceneCount = CountFilteredOptions( data.sceneOptions, data.sceneOptionCount, state.filter );
     const int sceneVisibleCount = SceneComboVisibleCount( filteredSceneCount );
@@ -703,6 +733,7 @@ void Draw( UISceneTabState& state,
             ? selectedFilteredPosition - sceneFirstOption
             : -1;
     const char* visibleSceneOptions[UI_SCENE_COMBO_VISIBLE_OPTIONS] = {};
+
     for ( int i = 0; i < sceneVisibleCount; ++i )
     {
         const int sceneIndex =
@@ -731,13 +762,15 @@ void Draw( UISceneTabState& state,
     }
 
     DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY, 16.0f, "Scene" );
-    SetSceneHeaderBounds( combo,
-                          resetSceneButton,
-                          resetDefaultsButton,
-                          saveDefaultsButton,
-                          contentX,
-                          scrolledY + 42.0f,
-                          contentW );
+    SetSceneHeaderBounds(
+        combo,
+        resetSceneButton,
+        resetDefaultsButton,
+        saveDefaultsButton,
+        contentX,
+        scrolledY + 42.0f,
+        contentW
+    );
 
     if ( data.targetFrameCount > 0 )
     {
@@ -756,85 +789,110 @@ void Draw( UISceneTabState& state,
         const Style::UIPalette& palette = Style::Palette();
         const float displayTimeScale = state.previewTimeScale > 0.0f ? state.previewTimeScale : data.timeScale;
         char statusBuf[64] = {};
-        snprintf( statusBuf,
-                  sizeof( statusBuf ),
-                  "%s / fixed %s",
-                  data.testComplete ? "complete" : "running",
-                  data.fixedStep ? "on" : "off" );
-        DrawLabelValueAt( draw,
-                          contentY,
-                          contentH,
-                          contentX,
-                          scrolledY + 82.0f,
-                          "Renderer",
-                          data.rendererName,
-                          palette.accentStrong.r,
-                          palette.accentStrong.g,
-                          palette.accentStrong.b );
-        DrawLabelValueAt( draw,
-                          contentY,
-                          contentH,
-                          sceneCol2,
-                          scrolledY + 82.0f,
-                          "Status",
-                          statusBuf,
-                          palette.accent.r,
-                          palette.accent.g,
-                          palette.accent.b );
-        DrawLabelValueAt( draw,
-                          contentY,
-                          contentH,
-                          contentX,
-                          scrolledY + 108.0f,
-                          "Frame",
-                          buf,
-                          palette.textPrimary.r,
-                          palette.textPrimary.g,
-                          palette.textPrimary.b );
+
+        snprintf(
+            statusBuf,
+            sizeof( statusBuf ),
+            "%s / fixed %s",
+            data.testComplete ? "complete" : "running",
+            data.fixedStep ? "on" : "off"
+        );
+
+        DrawLabelValueAt(
+            draw,
+            contentY,
+            contentH,
+            contentX,
+            scrolledY + 82.0f,
+            "Renderer",
+            data.rendererName,
+            palette.accentStrong.r,
+            palette.accentStrong.g,
+            palette.accentStrong.b
+        );
+
+        DrawLabelValueAt(
+            draw,
+            contentY,
+            contentH,
+            sceneCol2,
+            scrolledY + 82.0f,
+            "Status",
+            statusBuf,
+            palette.accent.r,
+            palette.accent.g,
+            palette.accent.b
+        );
+
+        DrawLabelValueAt(
+            draw,
+            contentY,
+            contentH,
+            contentX,
+            scrolledY + 108.0f,
+            "Frame",
+            buf,
+            palette.textPrimary.r,
+            palette.textPrimary.g,
+            palette.textPrimary.b
+        );
+
         snprintf( buf, sizeof( buf ), "%.1f FPS", data.fps );
-        DrawLabelValueAt( draw,
-                          contentY,
-                          contentH,
-                          sceneCol2,
-                          scrolledY + 108.0f,
-                          "Frame rate",
-                          buf,
-                          palette.accentStrong.r,
-                          palette.accentStrong.g,
-                          palette.accentStrong.b );
+        DrawLabelValueAt(
+            draw,
+            contentY,
+            contentH,
+            sceneCol2,
+            scrolledY + 108.0f,
+            "Frame rate",
+            buf,
+            palette.accentStrong.r,
+            palette.accentStrong.g,
+            palette.accentStrong.b
+        );
+
         snprintf( buf, sizeof( buf ), "%d / %d", data.currentSceneIndex + 1, data.sceneCount );
-        DrawLabelValueAt( draw,
-                          contentY,
-                          contentH,
-                          contentX,
-                          scrolledY + 134.0f,
-                          "Scene index",
-                          buf,
-                          palette.textPrimary.r,
-                          palette.textPrimary.g,
-                          palette.textPrimary.b );
+        DrawLabelValueAt(
+            draw,
+            contentY,
+            contentH,
+            contentX,
+            scrolledY + 134.0f,
+            "Scene index",
+            buf,
+            palette.textPrimary.r,
+            palette.textPrimary.g,
+            palette.textPrimary.b
+        );
+
         snprintf( buf, sizeof( buf ), "%.6f", data.sceneEnergy );
-        DrawLabelValueAt( draw,
-                          contentY,
-                          contentH,
-                          sceneCol2,
-                          scrolledY + 134.0f,
-                          "Kinetic energy",
-                          buf,
-                          palette.warningAccent.r,
-                          palette.warningAccent.g,
-                          palette.warningAccent.b );
+        DrawLabelValueAt(
+            draw,
+            contentY,
+            contentH,
+            sceneCol2,
+            scrolledY + 134.0f,
+            "Kinetic energy",
+            buf,
+            palette.warningAccent.r,
+            palette.warningAccent.g,
+            palette.warningAccent.b
+        );
+
         snprintf( buf, sizeof( buf ), "%d", data.modelCount );
-        DrawLabelValueAt( draw,
-                          contentY,
-                          contentH,
-                          contentX,
-                          scrolledY + 160.0f,
-                          "Model count",
-                          buf,
-                          palette.textPrimary.r,
-                          palette.textPrimary.g,
-                          palette.textPrimary.b );
+        DrawLabelValueAt(
+            draw,
+            contentY,
+            contentH,
+            contentX,
+            scrolledY + 160.0f,
+            "Model count",
+            buf,
+            palette.textPrimary.r,
+            palette.textPrimary.g,
+            palette.textPrimary.b
+        );
+
         snprintf( buf, sizeof( buf ), "%.2fx", displayTimeScale );
         state.timeScaleSlider.SetBounds( contentX, scrolledY + UI_SCENE_TIME_SCALE_SLIDER_Y, contentW, 34.0f );
         if ( IsRowVisible( contentY, contentH, scrolledY + UI_SCENE_TIME_SCALE_SLIDER_Y, 34.0f ) )
@@ -845,14 +903,16 @@ void Draw( UISceneTabState& state,
     }
     if ( IsRowVisible( contentY, contentH, scrolledY + 42.0f, 24.0f ) )
     {
-        combo.Draw( draw,
-                    "Load scene",
-                    selectedSceneName,
-                    visibleSceneOptions,
-                    sceneDrawCount,
-                    sceneSelectedInSlice,
-                    mouseX,
-                    mouseY );
+        combo.Draw(
+            draw,
+            "Load scene",
+            selectedSceneName,
+            visibleSceneOptions,
+            sceneDrawCount,
+            sceneSelectedInSlice,
+            mouseX,
+            mouseY
+        );
     }
     if ( IsRowVisible( contentY, contentH, scrolledY + 42.0f, 24.0f ) )
     {

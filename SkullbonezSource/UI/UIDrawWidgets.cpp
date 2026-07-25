@@ -120,32 +120,39 @@ void DrawFooterToggle( const UIDrawContext& draw, const UIRect& bounds, const ch
 
     draw.Text( labelX, bounds.y + 4.0f, style.labelTextSize, style.label.r, style.label.g, style.label.b, label );
     const Style::UIColor offFill = { palette.control.r, palette.control.g, palette.control.b, 0.78f };
-    draw.RoundedPanel( { switchX, switchY, switchW, switchH },
-                       switchH * 0.5f,
-                       checked ? accent : offFill,
-                       palette.border );
-    draw.RoundedRect( switchX + ( checked ? switchW - style.knobW - 3.0f : 3.0f ),
-                      bounds.y + 8.0f,
-                      style.knobW,
-                      style.knobH,
-                      style.knobW * 0.5f,
-                      checked ? palette.accentStrong.r : palette.textMuted.r,
-                      checked ? palette.accentStrong.g : palette.textMuted.g,
-                      checked ? palette.accentStrong.b : palette.textMuted.b,
-                      0.96f );
+    draw.RoundedPanel(
+        { switchX, switchY, switchW, switchH },
+        switchH * 0.5f,
+        checked ? accent : offFill,
+        palette.border
+    );
+
+    draw.RoundedRect(
+        switchX + ( checked ? switchW - style.knobW - 3.0f : 3.0f ),
+        bounds.y + 8.0f,
+        style.knobW,
+        style.knobH,
+        style.knobW * 0.5f,
+        checked ? palette.accentStrong.r : palette.textMuted.r,
+        checked ? palette.accentStrong.g : palette.textMuted.g,
+        checked ? palette.accentStrong.b : palette.textMuted.b,
+        0.96f
+    );
 }
 
 
-void DrawLabelValueAt( const UIDrawContext& draw,
-                       float contentY,
-                       float contentH,
-                       float tx,
-                       float rowY,
-                       const char* label,
-                       const char* value,
-                       float vr,
-                       float vg,
-                       float vb )
+void DrawLabelValueAt(
+    const UIDrawContext& draw,
+    float contentY,
+    float contentH,
+    float tx,
+    float rowY,
+    const char* label,
+    const char* value,
+    float vr,
+    float vg,
+    float vb
+)
 {
     if ( !IsRowVisible( contentY, contentH, rowY, 18.0f ) )
     {
@@ -157,13 +164,15 @@ void DrawLabelValueAt( const UIDrawContext& draw,
 }
 
 
-void DrawSectionTitle( const UIDrawContext& draw,
-                       float contentX,
-                       float contentY,
-                       float contentH,
-                       float rowY,
-                       float textSize,
-                       const char* text )
+void DrawSectionTitle(
+    const UIDrawContext& draw,
+    float contentX,
+    float contentY,
+    float contentH,
+    float rowY,
+    float textSize,
+    const char* text
+)
 {
     if ( !IsRowVisible( contentY, contentH, rowY, textSize + 4.0f ) )
     {
@@ -174,15 +183,17 @@ void DrawSectionTitle( const UIDrawContext& draw,
 }
 
 
-void DrawContentToggle( const UIDrawContext& draw,
-                        float contentY,
-                        float contentH,
-                        UICheckBox& toggle,
-                        float tx,
-                        float rowY,
-                        float controlW,
-                        const char* label,
-                        bool checked )
+void DrawContentToggle(
+    const UIDrawContext& draw,
+    float contentY,
+    float contentH,
+    UICheckBox& toggle,
+    float tx,
+    float rowY,
+    float controlW,
+    const char* label,
+    bool checked
+)
 {
     if ( !IsRowVisible( contentY, contentH, rowY, 24.0f ) )
     {
@@ -194,14 +205,16 @@ void DrawContentToggle( const UIDrawContext& draw,
 }
 
 
-void DrawFooterStatCell( const UIDrawContext& draw,
-                         float tx,
-                         float bottomY,
-                         const char* name,
-                         const char* value,
-                         float r,
-                         float g,
-                         float b )
+void DrawFooterStatCell(
+    const UIDrawContext& draw,
+    float tx,
+    float bottomY,
+    const char* name,
+    const char* value,
+    float r,
+    float g,
+    float b
+)
 {
     const Style::UIPalette& palette = Style::Palette();
     draw.Text( tx, bottomY + 25.0f, 10.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, name );
@@ -209,14 +222,16 @@ void DrawFooterStatCell( const UIDrawContext& draw,
 }
 
 
-void DrawCompactFooterStat( const UIDrawContext& draw,
-                            float statsX,
-                            float ty,
-                            const char* name,
-                            const char* value,
-                            float r,
-                            float g,
-                            float b )
+void DrawCompactFooterStat(
+    const UIDrawContext& draw,
+    float statsX,
+    float ty,
+    const char* name,
+    const char* value,
+    float r,
+    float g,
+    float b
+)
 {
     const Style::UIPalette& palette = Style::Palette();
     draw.Text( statsX + 12.0f, ty, 9.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, name );

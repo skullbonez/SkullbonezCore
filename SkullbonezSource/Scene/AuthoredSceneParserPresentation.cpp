@@ -68,6 +68,7 @@ void AuthoredSceneParser::ApplyPhysicsDebug( const Json& debug, const std::strin
             }
         }
     };
+
     applyFlag( "axes", Physics::PHYSICS_DEBUG_AXES );
     applyFlag( "contacts", Physics::PHYSICS_DEBUG_CONTACTS );
     applyFlag( "sleep", Physics::PHYSICS_DEBUG_SLEEP );
@@ -145,18 +146,21 @@ void AuthoredSceneParser::ApplyTerrain( const Json& terrain, const std::string& 
     {
         RequireObject( *flatSlope, path, "terrain.flatSlope" );
         m_scene.m_terrainOverride.hasFlatSlope = true;
-        m_scene.m_terrainOverride.flatBaseY =
-            ReadFloat( RequireMember( *flatSlope, path, "terrain.flatSlope", "baseY" ),
-                       path,
-                       "terrain.flatSlope.baseY" );
-        m_scene.m_terrainOverride.flatSlopeX =
-            ReadFloat( RequireMember( *flatSlope, path, "terrain.flatSlope", "slopeX" ),
-                       path,
-                       "terrain.flatSlope.slopeX" );
-        m_scene.m_terrainOverride.flatSlopeZ =
-            ReadFloat( RequireMember( *flatSlope, path, "terrain.flatSlope", "slopeZ" ),
-                       path,
-                       "terrain.flatSlope.slopeZ" );
+        m_scene.m_terrainOverride.flatBaseY = ReadFloat(
+            RequireMember( *flatSlope, path, "terrain.flatSlope", "baseY" ),
+            path,
+            "terrain.flatSlope.baseY"
+        );
+        m_scene.m_terrainOverride.flatSlopeX = ReadFloat(
+            RequireMember( *flatSlope, path, "terrain.flatSlope", "slopeX" ),
+            path,
+            "terrain.flatSlope.slopeX"
+        );
+        m_scene.m_terrainOverride.flatSlopeZ = ReadFloat(
+            RequireMember( *flatSlope, path, "terrain.flatSlope", "slopeZ" ),
+            path,
+            "terrain.flatSlope.slopeZ"
+        );
     }
 }
 
@@ -583,6 +587,7 @@ void AuthoredSceneParser::ApplyCinematicFloat( const Json& cinematic, const std:
           128.0f,
           10000.0f },
     };
+
     for ( const ShadowFloatField& field : kShadowFields )
     {
         if ( const Json* value = FindMember( cinematic, field.key ) )
@@ -629,12 +634,14 @@ void AuthoredSceneParser::ApplyCinematicVector( const Json& cinematic, const std
     }
     if ( const Json* terrainAccent = FindMember( cinematic, "terrainAccent" ) )
     {
-        ReadVec3( *terrainAccent,
-                  path,
-                  "cinematic.terrainAccent",
-                  c.terrainAccentR,
-                  c.terrainAccentG,
-                  c.terrainAccentB );
+        ReadVec3(
+            *terrainAccent,
+            path,
+            "cinematic.terrainAccent",
+            c.terrainAccentR,
+            c.terrainAccentG,
+            c.terrainAccentB
+        );
         m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_TERRAIN_ACCENT;
     }
     if ( const Json* terrainGrid = FindMember( cinematic, "terrainGrid" ) )
@@ -655,12 +662,14 @@ void AuthoredSceneParser::ApplyCinematicVector( const Json& cinematic, const std
     }
     if ( const Json* waterProfile = FindMember( cinematic, "waterProfile" ) )
     {
-        ReadVec3( *waterProfile,
-                  path,
-                  "cinematic.waterProfile",
-                  c.waterAlpha,
-                  c.waterReflectionStrength,
-                  c.waterGlintStrength );
+        ReadVec3(
+            *waterProfile,
+            path,
+            "cinematic.waterProfile",
+            c.waterAlpha,
+            c.waterReflectionStrength,
+            c.waterGlintStrength
+        );
         m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_WATER_PROFILE;
     }
     if ( const Json* basinMask = FindMember( cinematic, "basinMask" ) )
@@ -700,18 +709,24 @@ void AuthoredSceneParser::ApplyCamera( const Json& camera, const std::string& pa
 
     SceneCamera out = {};
     ReadRequiredStringField( out.name, camera, path, "camera", "name" );
-    ReadVec3( RequireMember( camera, path, "camera", "position" ),
-              path,
-              "camera.position",
-              out.m_position.x,
-              out.m_position.y,
-              out.m_position.z );
-    ReadVec3( RequireMember( camera, path, "camera", "view" ),
-              path,
-              "camera.view",
-              out.view.x,
-              out.view.y,
-              out.view.z );
+    ReadVec3(
+        RequireMember( camera, path, "camera", "position" ),
+        path,
+        "camera.position",
+        out.m_position.x,
+        out.m_position.y,
+        out.m_position.z
+    );
+
+    ReadVec3(
+        RequireMember( camera, path, "camera", "view" ),
+        path,
+        "camera.view",
+        out.view.x,
+        out.view.y,
+        out.view.z
+    );
+
     ReadVec3( RequireMember( camera, path, "camera", "up" ), path, "camera.up", out.up.x, out.up.y, out.up.z );
     m_scene.m_cameras.push_back( out );
 }

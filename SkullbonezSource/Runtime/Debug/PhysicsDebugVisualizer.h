@@ -117,11 +117,13 @@ class PhysicsDebugVisualizer
     void SetPipelineStageCursor( int cursor );
     void Update( float dt, const PhysicsDebugFrameView& view );
     // The caller owns renderer readiness and debug-line capability for the frame.
-    void Render( const PhysicsDebugFrameView& view,
-                 const Math::Transformation::Matrix4& viewProj,
-                 Rendering::Dx12GeometryOwner& renderCommands,
-                 bool supportsDebugLines,
-                 Geometry::Terrain* terrain = nullptr );
+    void Render(
+        const PhysicsDebugFrameView& view,
+        const Math::Transformation::Matrix4& viewProj,
+        Rendering::Dx12GeometryOwner& renderCommands,
+        bool supportsDebugLines,
+        Geometry::Terrain* terrain = nullptr
+    );
 };
 } // namespace Physics
 } // namespace SkullbonezCore

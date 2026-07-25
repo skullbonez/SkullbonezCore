@@ -61,10 +61,12 @@ struct ShaderVertexInputLayoutElement
 // Concept: a vertex shader's reflected inputs are a required subset of the
 // mesh layout. Extra mesh attributes are legal because depth-only shaders often
 // consume POSITION from a richer POSITION/NORMAL/TEXCOORD vertex stream.
-inline bool ValidateGeneratedShaderVertexInputLayout( const char* sourcePath,
-                                                      const ShaderVertexInputLayoutElement* elements,
-                                                      size_t count,
-                                                      const char*& outError )
+inline bool ValidateGeneratedShaderVertexInputLayout(
+    const char* sourcePath,
+    const ShaderVertexInputLayoutElement* elements,
+    size_t count,
+    const char*& outError
+)
 {
     const auto* reflected = FindGeneratedShaderStage( sourcePath, "vs" );
     if ( !reflected )
@@ -227,9 +229,11 @@ ValidateGeneratedShaderProgramContract( const char* path, const ShaderProgramDes
     return true;
 }
 
-inline bool ValidateUnifiedRasterResource( const GeneratedShaderReflection::Stage& stage,
-                                           const GeneratedShaderReflection::Resource& resource,
-                                           std::string& outError )
+inline bool ValidateUnifiedRasterResource(
+    const GeneratedShaderReflection::Stage& stage,
+    const GeneratedShaderReflection::Resource& resource,
+    std::string& outError
+)
 {
     if ( resource.space != UnifiedRasterRootSignature::REGISTER_SPACE )
     {

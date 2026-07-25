@@ -103,12 +103,14 @@ size_t Dx12PipelineOwner::HashPSOKey( const PSOKey12& key )
 {
     size_t h = 0;
     auto hashCombine = []( size_t& seed, size_t val ) { seed ^= val + 0x9e3779b9 + ( seed << 6 ) + ( seed >> 2 ); };
+
     auto hashFloatBits = []( float value )
     {
         uint32_t bits = 0;
         memcpy( &bits, &value, sizeof( bits ) );
         return static_cast<size_t>( bits );
     };
+
     hashCombine( h, static_cast<size_t>( key.rootSignatureIdentity ) );
     hashCombine( h, key.shaderVSHash );
     hashCombine( h, key.shaderPSHash );
@@ -161,9 +163,11 @@ void Dx12PipelineOwner::BuildInputLayout( VertexFormat12 format, D3D12_INPUT_ELE
 }
 
 
-void Dx12PipelineOwner::BuildInstancedInputLayout( const InstancedMeshDX12& im,
-                                                   D3D12_INPUT_ELEMENT_DESC* out,
-                                                   UINT& count )
+void Dx12PipelineOwner::BuildInstancedInputLayout(
+    const InstancedMeshDX12& im,
+    D3D12_INPUT_ELEMENT_DESC* out,
+    UINT& count
+)
 {
     count = 0;
 
@@ -203,8 +207,9 @@ void Dx12PipelineOwner::BuildInstancedInputLayout( const InstancedMeshDX12& im,
     else
     {
         // Legacy: single POSITION attribute
-        out[count++] =
-            { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
+        out[count++] = {
+            "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
+        };
     }
 
     // Slot 1: per-instance attributes
@@ -238,9 +243,11 @@ void Dx12PipelineOwner::BuildInstancedInputLayout( const InstancedMeshDX12& im,
 }
 
 
-void Dx12PipelineOwner::BuildDynamicVBInputLayout( const DynamicVBDX12& dvb,
-                                                   D3D12_INPUT_ELEMENT_DESC* out,
-                                                   UINT& count )
+void Dx12PipelineOwner::BuildDynamicVBInputLayout(
+    const DynamicVBDX12& dvb,
+    D3D12_INPUT_ELEMENT_DESC* out,
+    UINT& count
+)
 {
     count = 0;
     UINT offset = 0;
@@ -325,21 +332,23 @@ size_t Dx12PipelineOwner::BuildPSOHash( const PSOKey12& key, const DynamicVBDX12
         }
         // Per-instance and per-vertex layouts can carry identical semantic
         // widths but are different PSOs; keep that classification in identity.
-        psoHash ^= dynamicVertexBuffer->perInstance ? ( size_t{ 1 } << 63u ) : 0u;
+        psoHash ^= dynamicVertexBuffer->perInstance ? ( size_t { 1 } << 63u ) : 0u;
     }
     return psoHash;
 }
 
 
-ID3D12PipelineState* Dx12PipelineOwner::FindOrCreatePSO( ID3D12Device* device,
-                                                         const PSOKey12& key,
-                                                         size_t psoHash,
-                                                         VertexFormat12 format,
-                                                         bool instanced,
-                                                         const InstancedMeshDX12* instancedMesh,
-                                                         const DynamicVBDX12* dynamicVertexBuffer,
-                                                         const RasterStateDesc& rasterState,
-                                                         bool precompile )
+ID3D12PipelineState* Dx12PipelineOwner::FindOrCreatePSO(
+    ID3D12Device* device,
+    const PSOKey12& key,
+    size_t psoHash,
+    VertexFormat12 format,
+    bool instanced,
+    const InstancedMeshDX12* instancedMesh,
+    const DynamicVBDX12* dynamicVertexBuffer,
+    const RasterStateDesc& rasterState,
+    bool precompile
+)
 {
     for ( size_t i = 0; i < m_psoCacheCount; ++i )
     {
@@ -370,18 +379,21 @@ ID3D12PipelineState* Dx12PipelineOwner::FindOrCreatePSO( ID3D12Device* device,
         key.depthWriteEnabled ? 1 : 0,
         key.cullEnabled ? 1 : 0,
         static_cast<unsigned int>( key.rtvFormat ),
-        precompile ? 1 : 0 );
+        precompile ? 1 : 0
+    );
     if ( m_psoCacheCount >= m_psoCache.size() )
     {
         // Invariant: PSO variants are bounded by the fixed cache in the
         // backend. A new draw-state family needs an intentional cache budget,
         // not growth from pass preparation or draw submission.
-        SB_FATAL( "RenderBackendDX12",
-                  "DX12 graphics PSO cache exhausted. capacity=%zu hash=%llu format=%u instanced=%d",
-                  m_psoCache.size(),
-                  static_cast<unsigned long long>( psoHash ),
-                  static_cast<unsigned int>( key.format ),
-                  key.isInstanced ? 1 : 0 );
+        SB_FATAL(
+            "RenderBackendDX12",
+            "DX12 graphics PSO cache exhausted. capacity=%zu hash=%llu format=%u instanced=%d",
+            m_psoCache.size(),
+            static_cast<unsigned long long>( psoHash ),
+            static_cast<unsigned int>( key.format ),
+            key.isInstanced ? 1 : 0
+        );
     }
     ID3D12PipelineState* pso = CreatePSO( device, format, instanced, instancedMesh, dynamicVertexBuffer, rasterState );
     if ( !pso )
@@ -399,12 +411,14 @@ ID3D12PipelineState* Dx12PipelineOwner::FindOrCreatePSO( ID3D12Device* device,
 }
 
 
-ID3D12PipelineState* Dx12PipelineOwner::CreatePSO( ID3D12Device* device,
-                                                   VertexFormat12 format,
-                                                   bool instanced,
-                                                   const InstancedMeshDX12* im,
-                                                   const DynamicVBDX12* dvb,
-                                                   const RasterStateDesc& rasterState )
+ID3D12PipelineState* Dx12PipelineOwner::CreatePSO(
+    ID3D12Device* device,
+    VertexFormat12 format,
+    bool instanced,
+    const InstancedMeshDX12* im,
+    const DynamicVBDX12* dvb,
+    const RasterStateDesc& rasterState
+)
 {
     D3D12_INPUT_ELEMENT_DESC elements[16] = {};
     UINT numElements = 0;
@@ -429,7 +443,8 @@ ID3D12PipelineState* Dx12PipelineOwner::CreatePSO( ID3D12Device* device,
         // reflected mismatch skips PSO publication and names the owning path.
         SkullbonezCore::Core::Log().WriteEventf(
             "dx12_shader_input_contract_rejected owner=Dx12PipelineOwner reason=%s",
-            inputContractError );
+            inputContractError
+        );
         SkullbonezCore::Core::Log().FlushAll();
         return nullptr;
     }
@@ -437,8 +452,11 @@ ID3D12PipelineState* Dx12PipelineOwner::CreatePSO( ID3D12Device* device,
     D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
     psoDesc.pRootSignature = m_rootSignature;
     psoDesc.VS = { m_activeShader->GetVSBytecode(), m_activeShader->GetVSBytecodeSize() };
+
     psoDesc.PS = { m_activeShader->GetPSBytecode(), m_activeShader->GetPSBytecodeSize() };
+
     psoDesc.InputLayout = { elements, numElements };
+
     psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 
     // Rasterizer
@@ -495,7 +513,8 @@ ID3D12PipelineState* Dx12PipelineOwner::CreatePSO( ID3D12Device* device,
         SkullbonezCore::Core::Log().WriteEventf(
             "dx12_pso_disk_cache_rejected owner=Dx12PipelineOwner hresult=0x%08X bytes=%llu",
             static_cast<unsigned int>( hr ),
-            static_cast<unsigned long long>( psoDesc.CachedPSO.CachedBlobSizeInBytes ) );
+            static_cast<unsigned long long>( psoDesc.CachedPSO.CachedBlobSizeInBytes )
+        );
         m_persistentPsoCache.RejectAttached( psoDesc );
         hr = device->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &pso ) );
     }
@@ -509,7 +528,8 @@ ID3D12PipelineState* Dx12PipelineOwner::CreatePSO( ID3D12Device* device,
             static_cast<unsigned int>( FAILED( hr ) ? hr : E_FAIL ),
             static_cast<unsigned int>( format ),
             instanced ? 1 : 0,
-            static_cast<unsigned int>( m_currentRTVFormat ) );
+            static_cast<unsigned int>( m_currentRTVFormat )
+        );
         SkullbonezCore::Core::Log().FlushAll();
         if ( pso )
         {
@@ -529,12 +549,14 @@ ID3D12PipelineState* Dx12PipelineOwner::CreatePSO( ID3D12Device* device,
 }
 
 
-bool Dx12PipelineOwner::PrecompileDraw( ID3D12Device* device,
-                                        VertexFormat12 format,
-                                        bool instanced,
-                                        const InstancedMeshDX12* instancedMesh,
-                                        const DynamicVBDX12* dynamicVertexBuffer,
-                                        const RasterStateDesc& declaredRasterState )
+bool Dx12PipelineOwner::PrecompileDraw(
+    ID3D12Device* device,
+    VertexFormat12 format,
+    bool instanced,
+    const InstancedMeshDX12* instancedMesh,
+    const DynamicVBDX12* dynamicVertexBuffer,
+    const RasterStateDesc& declaredRasterState
+)
 {
     if ( !device || !m_activeShader || declaredRasterState.targets.sampleCount != 1 )
     {
@@ -542,27 +564,31 @@ bool Dx12PipelineOwner::PrecompileDraw( ID3D12Device* device,
     }
     const PSOKey12 key = BuildPSOKey( format, instanced, declaredRasterState );
     const size_t psoHash = BuildPSOHash( key, dynamicVertexBuffer );
-    return FindOrCreatePSO( device,
-                            key,
-                            psoHash,
-                            format,
-                            instanced,
-                            instancedMesh,
-                            dynamicVertexBuffer,
-                            declaredRasterState,
-                            true ) != nullptr;
+    return FindOrCreatePSO(
+               device,
+               key,
+               psoHash,
+               format,
+               instanced,
+               instancedMesh,
+               dynamicVertexBuffer,
+               declaredRasterState,
+               true
+           ) != nullptr;
 }
 
 
-bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
-                                     ID3D12GraphicsCommandList* commandList,
-                                     Dx12CommandRecordingState& recording,
-                                     Dx12TextureOwner& textures,
-                                     VertexFormat12 format,
-                                     bool instanced,
-                                     const InstancedMeshDX12* im,
-                                     const DynamicVBDX12* dvb,
-                                     const RasterStateDesc& rasterState )
+bool Dx12PipelineOwner::PrepareDraw(
+    ID3D12Device* device,
+    ID3D12GraphicsCommandList* commandList,
+    Dx12CommandRecordingState& recording,
+    Dx12TextureOwner& textures,
+    VertexFormat12 format,
+    bool instanced,
+    const InstancedMeshDX12* im,
+    const DynamicVBDX12* dvb,
+    const RasterStateDesc& rasterState
+)
 {
     // Concept: the PSO cache key is the complete "shape" of a draw pipeline.
     //
@@ -607,7 +633,8 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
             {
                 commandList->SetGraphicsRootConstantBufferView(
                     UnifiedRasterRootSignature::ROOT_PARAMETER_DRAW_CONSTANTS,
-                    cbAddr );
+                    cbAddr
+                );
             }
         }
         return true;
@@ -657,8 +684,10 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
         }
         if ( cbAddr )
         {
-            commandList->SetGraphicsRootConstantBufferView( UnifiedRasterRootSignature::ROOT_PARAMETER_DRAW_CONSTANTS,
-                                                            cbAddr );
+            commandList->SetGraphicsRootConstantBufferView(
+                UnifiedRasterRootSignature::ROOT_PARAMETER_DRAW_CONSTANTS,
+                cbAddr
+            );
         }
     }
 
@@ -674,10 +703,13 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
         {
             textureIndices[slot] = textures.ResolveBoundSrv( slot );
         }
-        commandList->SetGraphicsRoot32BitConstants( UnifiedRasterRootSignature::ROOT_PARAMETER_TEXTURE_INDICES,
-                                                    TEXTURE_SLOT_COUNT,
-                                                    textureIndices,
-                                                    0 );
+        commandList->SetGraphicsRoot32BitConstants(
+            UnifiedRasterRootSignature::ROOT_PARAMETER_TEXTURE_INDICES,
+            TEXTURE_SLOT_COUNT,
+            textureIndices,
+            0
+        );
+
         textures.MarkBindingsClean();
     }
 

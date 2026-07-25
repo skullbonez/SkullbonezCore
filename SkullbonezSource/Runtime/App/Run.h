@@ -186,55 +186,68 @@ class Run
     RuntimeFramePresentationView BuildFramePresentationView();             // Constructs this turn's render/validation borrow slice.
     void BeginFrameDiagnosticsPhase();                                     // Publishes prior GPU timing, then resets draw counters.
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
-    InteractionAutomationFrameResult RunAutomationBeforeInputPhase( RuntimeFrameInteractionView& interaction,
-                                                                    RuntimeFrameSceneView& scene );
+    InteractionAutomationFrameResult
+    RunAutomationBeforeInputPhase( RuntimeFrameInteractionView& interaction, RuntimeFrameSceneView& scene );
 #endif
-    FrameInputPhaseResult RunInputPhase( RuntimeFrameHostView& host,
-                                         RuntimeFrameInteractionView& interaction,
-                                         RuntimeFrameSceneView& scene,
-                                         RuntimeFramePresentationView& presentation,
-                                         const InteractionAutomationFrameResult* automationBeforeInput );
-    FrameSimulationPhaseResult RunSimulationPhase( RuntimeFrameSceneView& scene,
-                                                   double secondsPerFrame,
-                                                   const SceneFrameProceedPolicy& proceedPolicy );
-    FrameRenderPhaseResult PrepareRenderPhase( RuntimeFrameHostView& host,
-                                               RuntimeFrameInteractionView& interaction,
-                                               RuntimeFrameSceneView& scene,
-                                               RuntimeFramePresentationView& presentation,
-                                               bool legacyDevelopmentUiActive,
-                                               const FrameSimulationPhaseResult& simulation );
+    FrameInputPhaseResult RunInputPhase(
+        RuntimeFrameHostView& host,
+        RuntimeFrameInteractionView& interaction,
+        RuntimeFrameSceneView& scene,
+        RuntimeFramePresentationView& presentation,
+        const InteractionAutomationFrameResult* automationBeforeInput
+    );
+    FrameSimulationPhaseResult RunSimulationPhase(
+        RuntimeFrameSceneView& scene,
+        double secondsPerFrame,
+        const SceneFrameProceedPolicy& proceedPolicy
+    );
+    FrameRenderPhaseResult PrepareRenderPhase(
+        RuntimeFrameHostView& host,
+        RuntimeFrameInteractionView& interaction,
+        RuntimeFrameSceneView& scene,
+        RuntimeFramePresentationView& presentation,
+        bool legacyDevelopmentUiActive,
+        const FrameSimulationPhaseResult& simulation
+    );
     RuntimeRenderModelFrameView PublishRenderModelsPhase();
     void RenderWorldPhase( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha );
-    SkullbonezCore::Core::SbResult RenderOperatorUiPhase( RuntimeFrameHostView& host,
-                                                          RuntimeFrameInteractionView& interaction,
-                                                          RuntimeFrameSceneView& scene,
-                                                          RuntimeFramePresentationView& presentation,
-                                                          const RuntimeRenderModelFrameView& renderModels,
-                                                          const FramePresentationFacts& facts );
+    SkullbonezCore::Core::SbResult RenderOperatorUiPhase(
+        RuntimeFrameHostView& host,
+        RuntimeFrameInteractionView& interaction,
+        RuntimeFrameSceneView& scene,
+        RuntimeFramePresentationView& presentation,
+        const RuntimeRenderModelFrameView& renderModels,
+        const FramePresentationFacts& facts
+    );
     void RunPostDrawDiagnosticsPhase( RuntimeFrameInteractionView& interaction, bool legacyDevelopmentUiActive );
     void FinishFrameWorkPhase( const SceneFrameProceedPolicy& proceedPolicy );
     SkullbonezCore::Core::SbResult PresentFramePhase();
     bool CompleteFramePhase( const SceneFrameProceedPolicy& proceedPolicy );
 
-    void
-    Render( const RuntimeRenderModelFrameView& renderModels,
-            float presentationAlpha );                                     // Skips 3D in text-only runs, then records passes for the current camera state.
-    void UpdateLogic( float simulationDt,
-                      float cameraDt,
-                      float presentationAlpha );                           // simulationDt drives physics; cameraDt is unscaled wall time.
+    void Render(
+        const RuntimeRenderModelFrameView& renderModels,
+        float presentationAlpha
+    );                                                                     // Skips 3D in text-only runs, then records passes for the current camera state.
+    void UpdateLogic(
+        float simulationDt,
+        float cameraDt,
+        float presentationAlpha
+    );                                                                     // simulationDt drives physics; cameraDt is unscaled wall time.
     void AfterPhysicsStep();                                               // Post-step hooks that must see committed physics state.
     // --- Per-frame tick helpers (called from Execute()) ---
-    float
-    TickPhysics( double dt,
-                 bool capturePresentationPinned,
-                 const SceneFrameProceedPolicy& proceedPolicy );           // Returns the live fixed-tick interpolation fraction.
+    float TickPhysics(
+        double dt,
+        bool capturePresentationPinned,
+        const SceneFrameProceedPolicy& proceedPolicy
+    );                                                                     // Returns the live fixed-tick interpolation fraction.
     bool TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy );  // Screenshot triggers; true restarts frame.
     void TickAutoCycle( const SceneFrameProceedPolicy& proceedPolicy );    // Auto-cycle capture; may post WM_QUIT.
     bool TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy ); // Completion/load policy; true restarts frame.
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     void ApplyDevelopmentUiMode();                                         // Reapplies the process-lifetime surface selection.
     void SelectDevelopmentUiSurface(
-        DevelopmentUiMode surface );                                       // Atomically hides the source before showing the target surface.
+        DevelopmentUiMode surface
+    );                                                                     // Atomically hides the source before showing the target surface.
 #endif
 
   public:
@@ -251,7 +264,8 @@ class Run
     const SkullbonezCore::Core::SbResult&
     LastSceneLoadResult() const;                                           // Initialise scene-load result for CLI startup checks.
     SkullbonezCore::Core::SbResult ApplyStartupOverrides(
-        const RunStartupOverrides& overrides );                            // Apply parsed CLI/startup policy before Initialise().
+        const RunStartupOverrides& overrides
+    );                                                                     // Apply parsed CLI/startup policy before Initialise().
     SkullbonezCore::Core::SbResult
     RunSceneLoadOnly( const char* snapshotOutPath = nullptr );             // Scene-load smoke path; skips the frame loop.
     SkullbonezCore::Core::SbResult Execute();                              // Main message loop; returns recoverable runtime failures.

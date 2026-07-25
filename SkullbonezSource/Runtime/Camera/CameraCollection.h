@@ -100,16 +100,20 @@ class CameraCollection
     void SetPrimaryPose(
         const Math::Vector::Vector3& position,
         const Math::Vector::Vector3& view,
-        const Math::Vector::Vector3& up );                                        // Updates the selected slot without changing the current render pose.
+        const Math::Vector::Vector3& up
+    );                                                                            // Updates the selected slot without changing the current render pose.
     void TweenPrimaryToPose(
         const Math::Vector::Vector3& position,
         const Math::Vector::Vector3& view,
-        const Math::Vector::Vector3& up );                                        // Blends from the visible render pose to a selected-slot destination.
+        const Math::Vector::Vector3& up
+    );                                                                            // Blends from the visible render pose to a selected-slot destination.
     void SetTweenSpeed( float fTweenSpeed );
     void SetCamera();                                                             // Call once per frame after camera updates to refresh render pose and view matrix.
-    void OverrideRenderCameraForFrame( const Math::Vector::Vector3& position,
-                                       const Math::Vector::Vector3& view,
-                                       const Math::Vector::Vector3& up );
+    void OverrideRenderCameraForFrame(
+        const Math::Vector::Vector3& position,
+        const Math::Vector::Vector3& view,
+        const Math::Vector::Vector3& up
+    );
     bool IsPrimaryLocked();
     void SetLockedMode( bool fIsLocked );
     void AmmendPrimaryY( float yCoordinate );                                     // Pins primary camera height to a world-space Y value.
@@ -129,17 +133,21 @@ class CameraCollection
     void RotatePrimary( float xMove, float yMove );
 
     void SetCameraXZBounds( uint32_t hash, const Geometry::XZBounds bounds );
-    void RelativeUpdate( uint32_t hash,
-                         float yMin,
-                         float yMax );                                            // Keeps a secondary camera offset from primary within its Y limits.
+    void RelativeUpdate(
+        uint32_t hash,
+        float yMin,
+        float yMax
+    );                                                                            // Keeps a secondary camera offset from primary within its Y limits.
     void MovePrimary( Camera::TravelDirection enumDir, float fQuantity );
     void SelectCamera( uint32_t hash, bool fTween );                              // Optional tween preserves visual continuity between cameras.
     void CancelTween();                                                           // Immediate cut to the selected camera.
 
-    void AddCamera( const Math::Vector::Vector3& vPosition,
-                    const Math::Vector::Vector3& vView,
-                    const Math::Vector::Vector3& vUp,
-                    uint32_t hash );
+    void AddCamera(
+        const Math::Vector::Vector3& vPosition,
+        const Math::Vector::Vector3& vView,
+        const Math::Vector::Vector3& vUp,
+        uint32_t hash
+    );
     void Reset();                                                                 // Scene reload path; preserves Run-owned storage.
 };
 } // namespace Environment

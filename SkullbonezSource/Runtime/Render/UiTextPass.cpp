@@ -74,18 +74,16 @@ using SkullbonezCore::UI::InGameUITab;
 
 namespace
 {
-void DrawUiTestPattern( SkullbonezCore::Text::TextBatch& textBatch,
-                        SkullbonezCore::Rendering::Dx12TextureOwner& renderTextures,
-                        SkullbonezCore::Rendering::Dx12GeometryOwner& renderCommands,
-                        int screenW,
-                        int screenH )
+void DrawUiTestPattern(
+    SkullbonezCore::Text::TextBatch& textBatch,
+    SkullbonezCore::Rendering::Dx12TextureOwner& renderTextures,
+    SkullbonezCore::Rendering::Dx12GeometryOwner& renderCommands,
+    int screenW,
+    int screenH
+)
 {
-    const SkullbonezCore::UI::UIDrawContext draw( screenW,
-                                                  screenH,
-                                                  nullptr,
-                                                  &renderTextures,
-                                                  &renderCommands,
-                                                  &textBatch );
+    const SkullbonezCore::UI::UIDrawContext
+        draw( screenW, screenH, nullptr, &renderTextures, &renderCommands, &textBatch );
     draw.Rect( 0.0f, 0.0f, static_cast<float>( screenW ), static_cast<float>( screenH ), 0.20f, 0.31f, 0.36f, 1.0f );
 
     constexpr float tile = 88.0f;
@@ -114,15 +112,17 @@ void DrawUiTestPattern( SkullbonezCore::Text::TextBatch& textBatch,
 }
 
 
-SkullbonezCore::Core::MainMemoryStats
-BuildMainMemoryOverlayStats( const DiagnosticsRuntime& diagnosticsRuntime,
-                             const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects )
+SkullbonezCore::Core::MainMemoryStats BuildMainMemoryOverlayStats(
+    const DiagnosticsRuntime& diagnosticsRuntime,
+    const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects
+)
 {
     // Concept: F6 is an allocator-growth overlay, not a memory profiler sample.
     // It can show the last cached replay totals and current model-store capacity,
     // but process reconciliation belongs to explicit diagnostics refreshes.
     SkullbonezCore::Core::MainMemoryStats stats = diagnosticsRuntime.MainMemoryStatsSnapshot();
-    stats.process = SkullbonezCore::Core::MainMemoryProcessStats{};
+    stats.process = SkullbonezCore::Core::MainMemoryProcessStats {};
+
     stats.gameObjects = gameObjects;
     stats.trackedEngineBytes = stats.replay.totalBytes + stats.gameObjects.totalBytes + stats.otherTrackedBytes;
     stats.unattributedProcessBytes = 0;
@@ -146,6 +146,7 @@ void RenderReplayDivergenceCounter( SkullbonezCore::Text::TextBatch& textBatch, 
 
     const int divergence = (std::max)( 0, static_cast<int>( inputs.replayHud.divergenceUnits + 0.5f ) );
     char value[32] = {};
+
     if ( divergence >= 1000 )
     {
         sprintf_s( value, sizeof( value ), "%d,%03d", divergence / 1000, divergence % 1000 );
@@ -168,26 +169,32 @@ void RenderReplayDivergenceCounter( SkullbonezCore::Text::TextBatch& textBatch, 
 }
 } // namespace
 
-SkullbonezCore::Core::SbResult UiTextPass::EnsureGpuResources( Rendering::Dx12ResourceBuilder& renderResources,
-                                                               Rendering::Dx12TextureOwner& renderTextures,
-                                                               Rendering::Dx12GeometryOwner& renderGeometry,
-                                                               const Assets::AssetSystem& assets,
-                                                               int screenW,
-                                                               int screenH )
+SkullbonezCore::Core::SbResult UiTextPass::EnsureGpuResources(
+    Rendering::Dx12ResourceBuilder& renderResources,
+    Rendering::Dx12TextureOwner& renderTextures,
+    Rendering::Dx12GeometryOwner& renderGeometry,
+    const Assets::AssetSystem& assets,
+    int screenW,
+    int screenH
+)
 {
-    return Text2d::BuildFont( m_textBatch,
-                              renderResources,
-                              renderTextures,
-                              renderGeometry,
-                              assets,
-                              screenW,
-                              screenH,
-                              "Verdana" );
+    return Text2d::BuildFont(
+        m_textBatch,
+        renderResources,
+        renderTextures,
+        renderGeometry,
+        assets,
+        screenW,
+        screenH,
+        "Verdana"
+    );
 }
 
 
-void UiTextPass::ReleaseGpuResources( Rendering::Dx12TextureOwner* renderTextures,
-                                      Rendering::Dx12GeometryOwner* renderGeometry )
+void UiTextPass::ReleaseGpuResources(
+    Rendering::Dx12TextureOwner* renderTextures,
+    Rendering::Dx12GeometryOwner* renderGeometry
+)
 {
     Text2d::DeleteFont( m_textBatch, renderTextures, renderGeometry );
     m_renderRayTracing = nullptr;
@@ -251,7 +258,8 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         if ( inputs.timers.sceneEnergySampleCount > 0 )
         {
             inputs.timers.rollingSceneEnergy = static_cast<float>(
-                inputs.timers.sceneEnergyAccumulator / static_cast<double>( inputs.timers.sceneEnergySampleCount ) );
+                inputs.timers.sceneEnergyAccumulator / static_cast<double>( inputs.timers.sceneEnergySampleCount )
+            );
             inputs.timers.sceneEnergyAccumulator = 0.0;
             inputs.timers.sceneEnergySampleCount = 0;
         }
@@ -261,8 +269,9 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     float sceneEnergyForDisplay = inputs.timers.rollingSceneEnergy;
     if ( inputs.timers.sceneEnergySampleCount > 0 && sceneEnergyForDisplay == 0.0f )
     {
-        sceneEnergyForDisplay = static_cast<float>( inputs.timers.sceneEnergyAccumulator /
-                                                    static_cast<double>( inputs.timers.sceneEnergySampleCount ) );
+        sceneEnergyForDisplay = static_cast<float>(
+            inputs.timers.sceneEnergyAccumulator / static_cast<double>( inputs.timers.sceneEnergySampleCount )
+        );
     }
 
     const char* rendererName = inputs.renderDiagnostics.GetRendererName();
@@ -281,15 +290,17 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         Text2d::Render2dTextColor( textBatch, -0.46f, -0.08f, sz, 0.40f, 0.90f, 1.00f, "lazy dog" );
 
         // Renderer name in small text at bottom so we know which backend we're looking at
-        Text2d::Render2dTextColor( textBatch,
-                                   -0.46f,
-                                   -0.38f,
-                                   0.015f,
-                                   0.60f,
-                                   0.60f,
-                                   0.60f,
-                                   "renderer: %s",
-                                   rendererName );
+        Text2d::Render2dTextColor(
+            textBatch,
+            -0.46f,
+            -0.38f,
+            0.015f,
+            0.60f,
+            0.60f,
+            0.60f,
+            "renderer: %s",
+            rendererName
+        );
 
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "TextOnly" );
@@ -316,12 +327,8 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 
         const int screenW = (std::max)( 1, state.screenW );
         const int screenH = (std::max)( 1, state.screenH );
-        const SkullbonezCore::UI::UIDrawContext draw( screenW,
-                                                      screenH,
-                                                      nullptr,
-                                                      &renderTextures,
-                                                      &renderCommands,
-                                                      &textBatch );
+        const SkullbonezCore::UI::UIDrawContext
+            draw( screenW, screenH, nullptr, &renderTextures, &renderCommands, &textBatch );
         const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
         const SkullbonezCore::UI::Style::UIRadii& radii = SkullbonezCore::UI::Style::Radii();
 
@@ -335,22 +342,26 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
             const int frame = state.scene.isTestComplete && state.scene.currentFrame > state.scene.targetFrameCount
                                   ? state.scene.targetFrameCount
                                   : state.scene.currentFrame;
-            sprintf_s( sceneLine,
-                       sizeof( sceneLine ),
-                       "Scene %d/%d  Frame %d/%d",
-                       state.scene.currentSceneIndex + 1,
-                       state.sceneQueueSize,
-                       frame,
-                       state.scene.targetFrameCount );
+            sprintf_s(
+                sceneLine,
+                sizeof( sceneLine ),
+                "Scene %d/%d  Frame %d/%d",
+                state.scene.currentSceneIndex + 1,
+                state.sceneQueueSize,
+                frame,
+                state.scene.targetFrameCount
+            );
         }
         else
         {
-            sprintf_s( sceneLine,
-                       sizeof( sceneLine ),
-                       "Scene %d/%d  Frame %d",
-                       state.scene.currentSceneIndex + 1,
-                       state.sceneQueueSize,
-                       state.scene.currentFrame );
+            sprintf_s(
+                sceneLine,
+                sizeof( sceneLine ),
+                "Scene %d/%d  Frame %d",
+                state.scene.currentSceneIndex + 1,
+                state.sceneQueueSize,
+                state.scene.currentFrame
+            );
         }
 
         const char* stateLine = state.crossScenePauseLocked
@@ -372,30 +383,39 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         SkullbonezCore::UI::Style::UIColor fill = palette.windowSubtle;
         fill.a = 0.88f;
         draw.RoundedPanel( { x, y, panelW, panelH }, radii.control, fill, palette.innerBorder );
-        draw.RoundedRect( x + 1.0f,
-                          y + 1.0f,
-                          4.0f,
-                          panelH - 2.0f,
-                          radii.smallButton,
-                          state.crossScenePauseLocked ? palette.warningAccent.r : palette.accent.r,
-                          state.crossScenePauseLocked ? palette.warningAccent.g : palette.accent.g,
-                          state.crossScenePauseLocked ? palette.warningAccent.b : palette.accent.b,
-                          0.90f );
+        draw.RoundedRect(
+            x + 1.0f,
+            y + 1.0f,
+            4.0f,
+            panelH - 2.0f,
+            radii.smallButton,
+            state.crossScenePauseLocked ? palette.warningAccent.r : palette.accent.r,
+            state.crossScenePauseLocked ? palette.warningAccent.g : palette.accent.g,
+            state.crossScenePauseLocked ? palette.warningAccent.b : palette.accent.b,
+            0.90f
+        );
+
         Text2d::FlushQuads( textBatch, renderCommands );
-        draw.Text( x + padX,
-                   y + padY,
-                   titlePx,
-                   palette.textPrimary.r,
-                   palette.textPrimary.g,
-                   palette.textPrimary.b,
-                   sceneLine );
-        draw.Text( x + padX,
-                   y + padY + lineGap,
-                   valuePx,
-                   state.crossScenePauseLocked ? palette.warningAccent.r : palette.accent.r,
-                   state.crossScenePauseLocked ? palette.warningAccent.g : palette.accent.g,
-                   state.crossScenePauseLocked ? palette.warningAccent.b : palette.accent.b,
-                   stateLine );
+        draw.Text(
+            x + padX,
+            y + padY,
+            titlePx,
+            palette.textPrimary.r,
+            palette.textPrimary.g,
+            palette.textPrimary.b,
+            sceneLine
+        );
+
+        draw.Text(
+            x + padX,
+            y + padY + lineGap,
+            valuePx,
+            state.crossScenePauseLocked ? palette.warningAccent.r : palette.accent.r,
+            state.crossScenePauseLocked ? palette.warningAccent.g : palette.accent.g,
+            state.crossScenePauseLocked ? palette.warningAccent.b : palette.accent.b,
+            stateLine
+        );
+
         topRightBadgeY = y + panelH + TOP_RIGHT_BADGE_GAP;
     };
 
@@ -415,12 +435,8 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 
         const int screenW = (std::max)( 1, state.screenW );
         const int screenH = (std::max)( 1, state.screenH );
-        const SkullbonezCore::UI::UIDrawContext draw( screenW,
-                                                      screenH,
-                                                      nullptr,
-                                                      &renderTextures,
-                                                      &renderCommands,
-                                                      &textBatch );
+        const SkullbonezCore::UI::UIDrawContext
+            draw( screenW, screenH, nullptr, &renderTextures, &renderCommands, &textBatch );
         const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
         const SkullbonezCore::UI::Style::UIRadii& radii = SkullbonezCore::UI::Style::Radii();
 
@@ -463,24 +479,29 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         SkullbonezCore::UI::Style::UIColor fill = palette.windowSubtle;
         fill.a = 0.86f;
         draw.RoundedPanel( { x, y, panelW, panelH }, radii.control, fill, palette.innerBorder );
-        draw.RoundedRect( x + 1.0f,
-                          y + 1.0f,
-                          4.0f,
-                          panelH - 2.0f,
-                          radii.smallButton,
-                          accent.r,
-                          accent.g,
-                          accent.b,
-                          0.88f );
+        draw.RoundedRect(
+            x + 1.0f,
+            y + 1.0f,
+            4.0f,
+            panelH - 2.0f,
+            radii.smallButton,
+            accent.r,
+            accent.g,
+            accent.b,
+            0.88f
+        );
+
         Text2d::FlushQuads( textBatch, renderCommands );
         draw.Text( x + padX, y + padY, titlePx, accent.r, accent.g, accent.b, modeLine );
-        draw.Text( x + padX,
-                   y + padY + lineGap,
-                   detailPx,
-                   palette.textSecondary.r,
-                   palette.textSecondary.g,
-                   palette.textSecondary.b,
-                   detail );
+        draw.Text(
+            x + padX,
+            y + padY + lineGap,
+            detailPx,
+            palette.textSecondary.r,
+            palette.textSecondary.g,
+            palette.textSecondary.b,
+            detail
+        );
     };
 
     renderScenePauseBadge();
@@ -495,46 +516,58 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const float cGap = 0.004f;
         const float cHalf = 0.00045f;
         const float cShadowHalf = 0.00080f;
-        Text2d::Render2dQuad( textBatch,
-                              renderCommands,
-                              -cArm,
-                              -cShadowHalf,
-                              -cGap,
-                              cShadowHalf,
-                              0.0f,
-                              0.0f,
-                              0.0f,
-                              0.40f );
-        Text2d::Render2dQuad( textBatch,
-                              renderCommands,
-                              cGap,
-                              -cShadowHalf,
-                              cArm,
-                              cShadowHalf,
-                              0.0f,
-                              0.0f,
-                              0.0f,
-                              0.40f );
-        Text2d::Render2dQuad( textBatch,
-                              renderCommands,
-                              -cShadowHalf,
-                              -cArm,
-                              cShadowHalf,
-                              -cGap,
-                              0.0f,
-                              0.0f,
-                              0.0f,
-                              0.40f );
-        Text2d::Render2dQuad( textBatch,
-                              renderCommands,
-                              -cShadowHalf,
-                              cGap,
-                              cShadowHalf,
-                              cArm,
-                              0.0f,
-                              0.0f,
-                              0.0f,
-                              0.40f );
+        Text2d::Render2dQuad(
+            textBatch,
+            renderCommands,
+            -cArm,
+            -cShadowHalf,
+            -cGap,
+            cShadowHalf,
+            0.0f,
+            0.0f,
+            0.0f,
+            0.40f
+        );
+
+        Text2d::Render2dQuad(
+            textBatch,
+            renderCommands,
+            cGap,
+            -cShadowHalf,
+            cArm,
+            cShadowHalf,
+            0.0f,
+            0.0f,
+            0.0f,
+            0.40f
+        );
+
+        Text2d::Render2dQuad(
+            textBatch,
+            renderCommands,
+            -cShadowHalf,
+            -cArm,
+            cShadowHalf,
+            -cGap,
+            0.0f,
+            0.0f,
+            0.0f,
+            0.40f
+        );
+
+        Text2d::Render2dQuad(
+            textBatch,
+            renderCommands,
+            -cShadowHalf,
+            cGap,
+            cShadowHalf,
+            cArm,
+            0.0f,
+            0.0f,
+            0.0f,
+            0.40f
+        );
+
         Text2d::Render2dQuad( textBatch, renderCommands, -cArm, -cHalf, -cGap, cHalf, 0.80f, 0.96f, 1.0f, 0.88f );
         Text2d::Render2dQuad( textBatch, renderCommands, cGap, -cHalf, cArm, cHalf, 0.80f, 0.96f, 1.0f, 0.88f );
         Text2d::Render2dQuad( textBatch, renderCommands, -cHalf, -cArm, cHalf, -cGap, 0.80f, 0.96f, 1.0f, 0.88f );
@@ -549,15 +582,17 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         {
             const float msgSz = 0.014f;
             float msgW = Text2d::MeasureText( msgSz, state.debug.reproSnapshotMessage );
-            Text2d::Render2dTextColor( textBatch,
-                                       -msgW * 0.5f,
-                                       -0.065f,
-                                       msgSz,
-                                       0.65f,
-                                       0.92f,
-                                       1.0f,
-                                       "%s",
-                                       state.debug.reproSnapshotMessage );
+            Text2d::Render2dTextColor(
+                textBatch,
+                -msgW * 0.5f,
+                -0.065f,
+                msgSz,
+                0.65f,
+                0.92f,
+                1.0f,
+                "%s",
+                state.debug.reproSnapshotMessage
+            );
         }
 #endif
     }
@@ -633,11 +668,15 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         }
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
         {
-            static_assert( SkullbonezCore::UI::ProfilerTab::MAX_MARKERS == SkullbonezCore::Core::Profiler::MAX_MARKERS,
-                           "UI profiler snapshot capacity must match SkullbonezCore::Core::Profiler markers" );
-            static_assert( SkullbonezCore::UI::ProfilerTab::MAX_WORKER_CORE_SAMPLES ==
-                               SkullbonezCore::Core::Profiler::MAX_WORKER_CORES,
-                           "UI worker sample snapshot capacity must match SkullbonezCore::Core::Profiler samples" );
+            static_assert(
+                SkullbonezCore::UI::ProfilerTab::MAX_MARKERS == SkullbonezCore::Core::Profiler::MAX_MARKERS,
+                "UI profiler snapshot capacity must match SkullbonezCore::Core::Profiler markers"
+            );
+            static_assert(
+                SkullbonezCore::UI::ProfilerTab::MAX_WORKER_CORE_SAMPLES ==
+                    SkullbonezCore::Core::Profiler::MAX_WORKER_CORES,
+                "UI worker sample snapshot capacity must match SkullbonezCore::Core::Profiler samples"
+            );
             SkullbonezCore::UI::ProfilerTab::FrameSnapshot& profilerFrame = UIData.profiler;
             profilerFrame.markerCount =
                 (std::min)( profiler.MarkerCount(), SkullbonezCore::UI::ProfilerTab::MAX_MARKERS );
@@ -747,47 +786,51 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 #endif
             const SkullbonezCore::UI::Style::UIColor& mainColor = SkullbonezCore::UI::Style::Palette().accent;
             addMarkerOption(
-                SkullbonezCore::UI::UIProfilerMarkerOption{ .name = "Frame Total",
-                                                            .leafName = "Frame Total",
-                                                            .hash = SkullbonezCore::UI::UI_PROFILER_FRAME_TOTAL_HASH,
-                                                            .cpuMs = UIData.cpuFrameMs,
-                                                            .cpuAverageMs = frameAverageMs,
-                                                            .gpuMs = UIData.gpuFrameMs,
-                                                            .colorR = mainColor.r,
-                                                            .colorG = mainColor.g,
-                                                            .colorB = mainColor.b,
-                                                            .hasGpu = true,
-                                                            .sampleValid = true,
-                                                            .isFrameTotal = true } );
+                SkullbonezCore::UI::UIProfilerMarkerOption { .name = "Frame Total",
+                                                             .leafName = "Frame Total",
+                                                             .hash = SkullbonezCore::UI::UI_PROFILER_FRAME_TOTAL_HASH,
+                                                             .cpuMs = UIData.cpuFrameMs,
+                                                             .cpuAverageMs = frameAverageMs,
+                                                             .gpuMs = UIData.gpuFrameMs,
+                                                             .colorR = mainColor.r,
+                                                             .colorG = mainColor.g,
+                                                             .colorB = mainColor.b,
+                                                             .hasGpu = true,
+                                                             .sampleValid = true,
+                                                             .isFrameTotal = true }
+            );
 
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
             auto addProfilerMarker = [&]( const SkullbonezCore::Core::Profiler::Marker& marker )
             {
-                const SkullbonezCore::Core::Profiler::BarColor& color =
-                    SkullbonezCore::Core::Profiler::BAR_PALETTE[marker.colorIndex %
-                                                                SkullbonezCore::Core::Profiler::BAR_PALETTE_SIZE];
-                addMarkerOption( SkullbonezCore::UI::UIProfilerMarkerOption{
-                    .name = marker.name,
-                    .leafName = marker.leafName,
-                    .hash = marker.hash,
-                    .cpuMs = marker.lastFrameMs,
-                    .cpuAverageMs = marker.avgMs > 0.0f ? marker.avgMs : marker.lastFrameMs,
-                    .gpuMs = marker.hasGpu ? marker.gpuLastFrameMs : 0.0f,
-                    .colorR = color.r,
-                    .colorG = color.g,
-                    .colorB = color.b,
-                    .hasGpu = marker.hasGpu,
-                    .sampleValid = true,
-                    .isFrameTotal = false } );
+                const SkullbonezCore::Core::Profiler::BarColor& color = SkullbonezCore::Core::Profiler::BAR_PALETTE
+                    [marker.colorIndex % SkullbonezCore::Core::Profiler::BAR_PALETTE_SIZE];
+                addMarkerOption(
+                    SkullbonezCore::UI::UIProfilerMarkerOption {
+                        .name = marker.name,
+                        .leafName = marker.leafName,
+                        .hash = marker.hash,
+                        .cpuMs = marker.lastFrameMs,
+                        .cpuAverageMs = marker.avgMs > 0.0f ? marker.avgMs : marker.lastFrameMs,
+                        .gpuMs = marker.hasGpu ? marker.gpuLastFrameMs : 0.0f,
+                        .colorR = color.r,
+                        .colorG = color.g,
+                        .colorB = color.b,
+                        .hasGpu = marker.hasGpu,
+                        .sampleValid = true,
+                        .isFrameTotal = false }
+                );
             };
 
-            static constexpr uint32_t kPinnedMarkerHashes[] = {
-                ::HashStr( "Frame/Physics" ),
-                ::HashStr( "Frame/Physics/Step" ),
-                ::HashStr( "Frame/Physics/Narrowphase/PersistentContacts/"
-                           "SolveRows" ),
-                ::HashStr( "Frame/Render" ),
-                ::HashStr( "Frame/UI" ) };
+            static constexpr uint32_t kPinnedMarkerHashes[] = { ::HashStr( "Frame/Physics" ),
+                                                                ::HashStr( "Frame/Physics/Step" ),
+                                                                ::HashStr(
+                                                                    "Frame/Physics/Narrowphase/PersistentContacts/"
+                                                                    "SolveRows"
+                                                                ),
+                                                                ::HashStr( "Frame/Render" ),
+                                                                ::HashStr( "Frame/UI" ) };
+
             for ( uint32_t pinnedHash : kPinnedMarkerHashes )
             {
                 for ( int markerIndex = 0; markerIndex < profiler.MarkerCount(); ++markerIndex )
@@ -834,11 +877,13 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
             // Why: memory sampling belongs to DiagnosticsRuntime; the render host
             // only decides whether the UI pass needs to draw.
             assert( inputs.replayHud.memoryStatsValid );
-            UIData.mainMemory = inputs.diagnosticsRuntime.RefreshMainMemoryStats( inputs.replayHud.memoryStats,
-                                                                                  inputs.models.gameObjectMemory,
-                                                                                  UIData.now,
-                                                                                  false,
-                                                                                  false );
+            UIData.mainMemory = inputs.diagnosticsRuntime.RefreshMainMemoryStats(
+                inputs.replayHud.memoryStats,
+                inputs.models.gameObjectMemory,
+                UIData.now,
+                false,
+                false
+            );
         }
         else if ( memoryOverlayEnabled )
         {
@@ -859,7 +904,8 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
             UIData.reserveGrowthEventCount =
                 SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::CopyRecentGrowthEvents(
                     UIData.reserveGrowthEvents,
-                    SkullbonezCore::UI::UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX );
+                    SkullbonezCore::UI::UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX
+                );
         }
         UIData.sceneMode = view.sceneMode;
         UIData.scenePhysicsEnabled = view.scenePhysics;
@@ -978,23 +1024,27 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
             {
                 const RuntimeRenderTargetPreview& source =
                     state.renderTargetPreviews.targets[static_cast<size_t>( index )];
-                addPreview( source.label,
-                            source.textureHandle,
-                            source.width,
-                            source.height,
-                            source.available,
-                            source.depth,
-                            source.hdr );
+                addPreview(
+                    source.label,
+                    source.textureHandle,
+                    source.width,
+                    source.height,
+                    source.available,
+                    source.depth,
+                    source.hdr
+                );
             }
 
             const uint32_t dxrReflection = m_renderRayTracing ? m_renderRayTracing->GetReflectionUAVTexture() : 0;
-            addPreview( "DXR Reflection",
-                        dxrReflection,
-                        state.screenW * 2,
-                        state.screenH * 2,
-                        UIData.waterRTReflect && !UIData.waterNoReflect,
-                        false,
-                        false );
+            addPreview(
+                "DXR Reflection",
+                dxrReflection,
+                state.screenW * 2,
+                state.screenH * 2,
+                UIData.waterRTReflect && !UIData.waterNoReflect,
+                false,
+                false
+            );
         }
         PROFILE_END( m_profiler, "Frame/UI/BuildData" );
 
@@ -1045,32 +1095,38 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const float panY1 = panY0 + panH;
 
         Text2d::Render2dQuad( textBatch, renderCommands, panX0, panY0, panX1, panY1, 0.04f, 0.04f, 0.07f, 0.93f );
-        Text2d::Render2dTextColor( textBatch,
-                                   panX0 + panPad,
-                                   panY1 - panPad - titleSz,
-                                   titleSz,
-                                   1.0f,
-                                   0.85f,
-                                   0.35f,
-                                   "SCENE TELEMETRY" );
-        Text2d::Render2dTextColor( textBatch,
-                                   panX0 + panPad,
-                                   panY1 - panPad - titleSz - lineH,
-                                   entrySz,
-                                   0.85f,
-                                   0.85f,
-                                   0.85f,
-                                   "Model Count: %d",
-                                   state.scene.modelCount );
-        Text2d::Render2dTextColor( textBatch,
-                                   panX0 + panPad,
-                                   panY1 - panPad - titleSz - lineH * 2.0f,
-                                   entrySz,
-                                   0.85f,
-                                   0.85f,
-                                   0.85f,
-                                   "Scene Energy: %.6f",
-                                   sceneEnergyForDisplay );
+        Text2d::Render2dTextColor(
+            textBatch,
+            panX0 + panPad,
+            panY1 - panPad - titleSz,
+            titleSz,
+            1.0f,
+            0.85f,
+            0.35f,
+            "SCENE TELEMETRY"
+        );
+        Text2d::Render2dTextColor(
+            textBatch,
+            panX0 + panPad,
+            panY1 - panPad - titleSz - lineH,
+            entrySz,
+            0.85f,
+            0.85f,
+            0.85f,
+            "Model Count: %d",
+            state.scene.modelCount
+        );
+        Text2d::Render2dTextColor(
+            textBatch,
+            panX0 + panPad,
+            panY1 - panPad - titleSz - lineH * 2.0f,
+            entrySz,
+            0.85f,
+            0.85f,
+            0.85f,
+            "Scene Energy: %.6f",
+            sceneEnergyForDisplay
+        );
         RenderReplayScrubberOverlayFromInputs( textBatch, inputs );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "SceneStats" );
@@ -1127,14 +1183,16 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 
         // Title left-aligned inside panel
         const float titleY = panY1 - panPad - titleSz;
-        Text2d::Render2dTextColor( textBatch,
-                                   panX0 + panPad,
-                                   titleY,
-                                   titleSz,
-                                   1.0f,
-                                   0.85f,
-                                   0.35f,
-                                   "CONTROL REFERENCE" );
+        Text2d::Render2dTextColor(
+            textBatch,
+            panX0 + panPad,
+            titleY,
+            titleSz,
+            1.0f,
+            0.85f,
+            0.35f,
+            "CONTROL REFERENCE"
+        );
 
         // Column X positions
         const float col1Key = panX0 + panPad;
@@ -1149,38 +1207,22 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
             const char* desc;
         };
         static const KeyEntry kLeft[nRows] = {
-            { "Tab", "Camera mode" },
-            { "N", "Launcher mode" },
-            { "M", "Launcher fire mode" },
-            { "F1", "Attach follow mode" },
-            { "Enter", "Attach pin / repro" },
-            { "F", "Fly mode" },
-            { "WASD", "Move camera" },
-            { "RMB", "Look" },
-            { "Shift", "Sprint (3x speed)" },
-            { "LMB", "Pick / drag / fire" },
-            { "V", "Collision visual" },
-            { "Space", "Play paused scene" },
-            { "R/Bksp", "Reset scene" },
-            { "F3", "Screenshot" },
+            { "Tab", "Camera mode" },          { "N", "Launcher mode" },
+            { "M", "Launcher fire mode" },     { "F1", "Attach follow mode" },
+            { "Enter", "Attach pin / repro" }, { "F", "Fly mode" },
+            { "WASD", "Move camera" },         { "RMB", "Look" },
+            { "Shift", "Sprint (3x speed)" },  { "LMB", "Pick / drag / fire" },
+            { "V", "Collision visual" },       { "Space", "Play paused scene" },
+            { "R/Bksp", "Reset scene" },       { "F3", "Screenshot" },
             { "F5", "CPU histogram" },
         };
+
         static const KeyEntry kRight[nRows] = {
-            { "Esc", "Min/expand UI" },
-            { "Esc Esc", "Quit" },
-            { "P", "Pause lock" },
-            { "1", "Freeze water" },
-            { "2", "Reflection mode" },
-            { "3", "Toggle water flat" },
-            { "4", "Toggle terrain" },
-            { "5", "Toggle water" },
-            { "6", "Debug body alpha" },
-            { "G", "Broadphase overlay" },
-            { "C", "Physics debug" },
-            { "O", "Terrain probe" },
-            { "PgUp/Dn", "Water height" },
-            { "F7/F8", "Pipeline stage" },
-            { "F6", "Memory waterline" },
+            { "Esc", "Min/expand UI" },    { "Esc Esc", "Quit" },         { "P", "Pause lock" },
+            { "1", "Freeze water" },       { "2", "Reflection mode" },    { "3", "Toggle water flat" },
+            { "4", "Toggle terrain" },     { "5", "Toggle water" },       { "6", "Debug body alpha" },
+            { "G", "Broadphase overlay" }, { "C", "Physics debug" },      { "O", "Terrain probe" },
+            { "PgUp/Dn", "Water height" }, { "F7/F8", "Pipeline stage" }, { "F6", "Memory waterline" },
         };
 
         for ( int i = 0; i < nRows; ++i )
@@ -1209,14 +1251,16 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const float lineH = 0.018f;
         const float profFSz = 0.012f;
         const float padY = lineH * 1.2f;
-        profilerOverlay.RenderOverlay( profiler.FrameView(),
-                                       textBatch,
-                                       renderCommands,
-                                       -( hw - mX ),
-                                       -( hh - mY ) - padY,
-                                       lineH,
-                                       profFSz,
-                                       inputs.timers.rollingFpsTime );
+        profilerOverlay.RenderOverlay(
+            profiler.FrameView(),
+            textBatch,
+            renderCommands,
+            -( hw - mX ),
+            -( hh - mY ) - padY,
+            lineH,
+            profFSz,
+            inputs.timers.rollingFpsTime
+        );
     }
 #endif
 

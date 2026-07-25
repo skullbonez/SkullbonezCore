@@ -56,9 +56,11 @@ inline constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SUPPORTED =
 
 const Physics::PhysicsBodyRecord* TryGetReplayProbeBodyRecord( const SceneWorld& world, int modelIndex );
 
-const Physics::ColliderRecord* TryGetEditorTransformColliderRecord( const SceneWorld& world,
-                                                                    Physics::PhysicsColliderHandle colliderHandle,
-                                                                    int modelIndex,
-                                                                    Physics::PhysicsSceneObjectId sceneObjectId );
+const Physics::ColliderRecord* TryGetEditorTransformColliderRecord(
+    const SceneWorld& world,
+    Physics::PhysicsColliderHandle colliderHandle,
+    int modelIndex,
+    Physics::PhysicsSceneObjectId sceneObjectId
+);
 } // namespace ReplayValidationInternal
 } // namespace SkullbonezCore::Runtime

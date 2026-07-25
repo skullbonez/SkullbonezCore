@@ -48,7 +48,7 @@ constexpr float PICK_TIE_EPSILON = 1.0e-4f;
 
 bool RuntimePickService::TryPickModel( const RuntimePickRequest& request, RuntimePickResult& outResult )
 {
-    outResult = RuntimePickResult{};
+    outResult = RuntimePickResult {};
     if ( request.bodyStore == nullptr || request.colliderStore == nullptr )
     {
         return false;

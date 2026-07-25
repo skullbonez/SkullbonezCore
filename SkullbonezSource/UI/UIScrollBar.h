@@ -37,12 +37,14 @@ class UIScrollBar
   public:
     void SetBounds( float x, float y, float w, float h );
     UIRect Bounds() const;
-    void Draw( const UIDrawContext& draw,
-               float contentHeight,
-               float viewportHeight,
-               float scrollY,
-               double visibleUntil,
-               double now ) const;
+    void Draw(
+        const UIDrawContext& draw,
+        float contentHeight,
+        float viewportHeight,
+        float scrollY,
+        double visibleUntil,
+        double now
+    ) const;
 
   private:
     UIRect m_track;

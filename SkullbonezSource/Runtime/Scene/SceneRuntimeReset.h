@@ -91,19 +91,22 @@ struct SceneRuntimeResetSnapshot
     int autoCycleShotsTaken = 0;
 };
 
-SceneRuntimeResetSnapshot
-CaptureSceneRuntimeResetSnapshot( const SceneController& controller,
-                                  const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                                  const RuntimeRenderer& renderer,
-                                  const OverlayDebugState& debug,
-                                  const CameraControlState& camera );
-void RestoreSceneRuntimeResetSnapshot( SceneController& controller,
-                                       SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                                       RuntimeRenderer& renderer,
-                                       OverlayDebugState& debug,
-                                       CameraControlState& camera,
-                                       const SceneRuntimeResetSnapshot& snapshot,
-                                       bool suppressExitOnComplete );
+SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot(
+    const SceneController& controller,
+    const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+    const RuntimeRenderer& renderer,
+    const OverlayDebugState& debug,
+    const CameraControlState& camera
+);
+void RestoreSceneRuntimeResetSnapshot(
+    SceneController& controller,
+    SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+    RuntimeRenderer& renderer,
+    OverlayDebugState& debug,
+    CameraControlState& camera,
+    const SceneRuntimeResetSnapshot& snapshot,
+    bool suppressExitOnComplete
+);
 void ClearSceneRuntimeUIOverrides( SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides );
 
 } // namespace Runtime

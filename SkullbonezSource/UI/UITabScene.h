@@ -78,70 +78,84 @@ void CloseCombo( UISceneTabState& state );
 void RequestFilterKeySync( UISceneTabState& state );
 void ResetPreviewState( UISceneTabState& state );
 
-void UpdateFilterTyping( UISceneTabState& state,
-                         InGameUIInputResult& result,
-                         const InputControl::UIInputSnapshot& input,
-                         const char* const* sceneOptions,
-                         int sceneOptionCount );
+void UpdateFilterTyping(
+    UISceneTabState& state,
+    InGameUIInputResult& result,
+    const InputControl::UIInputSnapshot& input,
+    const char* const* sceneOptions,
+    int sceneOptionCount
+);
 
-bool HandleComboWheel( UISceneTabState& state,
-                       const char* const* sceneOptions,
-                       int sceneOptionCount,
-                       int mouseX,
-                       int mouseY,
-                       int wheelDelta,
-                       float contentX,
-                       float rowBase,
-                       float contentW );
+bool HandleComboWheel(
+    UISceneTabState& state,
+    const char* const* sceneOptions,
+    int sceneOptionCount,
+    int mouseX,
+    int mouseY,
+    int wheelDelta,
+    float contentX,
+    float rowBase,
+    float contentW
+);
 
-bool HandleOpenComboClick( UISceneTabState& state,
-                           InGameUIInputResult& result,
-                           const char* const* sceneOptions,
-                           int sceneOptionCount,
-                           int mouseX,
-                           int mouseY,
-                           float contentX,
-                           float rowBase,
-                           float contentW );
+bool HandleOpenComboClick(
+    UISceneTabState& state,
+    InGameUIInputResult& result,
+    const char* const* sceneOptions,
+    int sceneOptionCount,
+    int mouseX,
+    int mouseY,
+    float contentX,
+    float rowBase,
+    float contentW
+);
 
-bool HandleHeaderClick( UISceneTabState& state,
-                        InGameUIInputResult& result,
-                        int mouseX,
-                        int mouseY,
-                        float contentX,
-                        float rowBase,
-                        float contentW );
+bool HandleHeaderClick(
+    UISceneTabState& state,
+    InGameUIInputResult& result,
+    int mouseX,
+    int mouseY,
+    float contentX,
+    float rowBase,
+    float contentW
+);
 
-bool HandleClosedComboClick( UISceneTabState& state,
-                             const InputControl::UIInputSnapshot& input,
-                             const char* const* sceneOptions,
-                             int sceneOptionCount,
-                             int selectedSceneOption,
-                             int mouseX,
-                             int mouseY );
+bool HandleClosedComboClick(
+    UISceneTabState& state,
+    const InputControl::UIInputSnapshot& input,
+    const char* const* sceneOptions,
+    int sceneOptionCount,
+    int selectedSceneOption,
+    int mouseX,
+    int mouseY
+);
 
-bool HandleTimeScaleClick( UISceneTabState& state,
-                           InGameUIInputResult& result,
-                           int& activeSlider,
-                           int mouseX,
-                           int mouseY,
-                           float contentX,
-                           float rowBase,
-                           float contentW );
+bool HandleTimeScaleClick(
+    UISceneTabState& state,
+    InGameUIInputResult& result,
+    int& activeSlider,
+    int mouseX,
+    int mouseY,
+    float contentX,
+    float rowBase,
+    float contentW
+);
 
 bool UpdateActiveSlider( UISceneTabState& state, int activeSlider, int mouseX, InGameUIInputResult& result );
 bool CommitActiveSlider( UISceneTabState& state, int activeSlider, InGameUIInputResult& result );
 
-void Draw( UISceneTabState& state,
-           const UIDrawContext& draw,
-           const InGameUIFrameData& data,
-           float contentX,
-           float contentY,
-           float contentW,
-           float contentH,
-           float scrolledY,
-           int mouseX,
-           int mouseY );
+void Draw(
+    UISceneTabState& state,
+    const UIDrawContext& draw,
+    const InGameUIFrameData& data,
+    float contentX,
+    float contentY,
+    float contentW,
+    float contentH,
+    float scrolledY,
+    int mouseX,
+    int mouseY
+);
 
 } // namespace SceneTab
 } // namespace UI

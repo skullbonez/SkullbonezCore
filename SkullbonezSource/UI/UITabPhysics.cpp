@@ -59,23 +59,27 @@ constexpr float PHYSICS_TORNADO_INWARD_SLIDER_Y = 858.0f;
 constexpr float PHYSICS_TORNADO_SWIRL_SLIDER_Y = 898.0f;
 constexpr float PHYSICS_TORNADO_LIFT_SLIDER_Y = 938.0f;
 
-void SetToggleBounds( SkullbonezCore::UI::PhysicsTab::UIPhysicsTabState& state,
-                      int index,
-                      int row,
-                      int column,
-                      float col1,
-                      float col2,
-                      float rowBase,
-                      float colW )
+void SetToggleBounds(
+    SkullbonezCore::UI::PhysicsTab::UIPhysicsTabState& state,
+    int index,
+    int row,
+    int column,
+    float col1,
+    float col2,
+    float rowBase,
+    float colW
+)
 {
     const float tx = column == 0 ? col1 : col2;
     state.toggles[index].SetBounds( tx, rowBase + static_cast<float>( row ) * CONTENT_TOGGLE_ROW_H, colW, 24.0f );
 }
 
-void SetContentBounds( SkullbonezCore::UI::PhysicsTab::UIPhysicsTabState& state,
-                       float contentX,
-                       float firstToggleY,
-                       float contentW )
+void SetContentBounds(
+    SkullbonezCore::UI::PhysicsTab::UIPhysicsTabState& state,
+    float contentX,
+    float firstToggleY,
+    float contentW
+)
 {
     // Invariant: Physics tab draw and hit testing both use this layout helper,
     // so moving a row here moves the visible control and its interaction box.
@@ -96,28 +100,25 @@ void SetContentBounds( SkullbonezCore::UI::PhysicsTab::UIPhysicsTabState& state,
     SetToggleBounds( state, 10, 5, 0, col1, col2, firstToggleY, colW );
     SetToggleBounds( state, 11, 5, 1, col1, col2, firstToggleY, colW );
     SetToggleBounds( state, 12, 6, 1, col1, col2, firstToggleY, colW );
-    SetPipelineStepButtonBounds( state.pipelinePrevButton,
-                                 state.pipelineNextButton,
-                                 contentX,
-                                 contentW,
-                                 contentBaseY + PHYSICS_PIPELINE_BUTTON_Y );
+    SetPipelineStepButtonBounds(
+        state.pipelinePrevButton,
+        state.pipelineNextButton,
+        contentX,
+        contentW,
+        contentBaseY + PHYSICS_PIPELINE_BUTTON_Y
+    );
+
     state.alphaSlider.SetBounds( contentX, contentBaseY + PHYSICS_ALPHA_SLIDER_Y, contentW, 34.0f );
     state.contactLingerSlider.SetBounds( contentX, contentBaseY + PHYSICS_CONTACT_LINGER_SLIDER_Y, contentW, 34.0f );
     state.rayImpulseSlider.SetBounds( contentX, contentBaseY + PHYSICS_RAY_IMPULSE_SLIDER_Y, contentW, 34.0f );
-    state.launcherProjectileSpeedSlider.SetBounds( contentX,
-                                                   contentBaseY + PHYSICS_LAUNCHER_PROJECTILE_SPEED_SLIDER_Y,
-                                                   contentW,
-                                                   34.0f );
+    state.launcherProjectileSpeedSlider
+        .SetBounds( contentX, contentBaseY + PHYSICS_LAUNCHER_PROJECTILE_SPEED_SLIDER_Y, contentW, 34.0f );
     state.worldGravitySlider.SetBounds( contentX, contentBaseY + PHYSICS_WORLD_GRAVITY_SLIDER_Y, contentW, 34.0f );
-    state.terrainFrictionSlider.SetBounds( contentX,
-                                           contentBaseY + PHYSICS_TERRAIN_FRICTION_SLIDER_Y,
-                                           contentW,
-                                           34.0f );
+    state.terrainFrictionSlider
+        .SetBounds( contentX, contentBaseY + PHYSICS_TERRAIN_FRICTION_SLIDER_Y, contentW, 34.0f );
     state.objectFrictionSlider.SetBounds( contentX, contentBaseY + PHYSICS_OBJECT_FRICTION_SLIDER_Y, contentW, 34.0f );
-    state.rollingFrictionSlider.SetBounds( contentX,
-                                           contentBaseY + PHYSICS_ROLLING_FRICTION_SLIDER_Y,
-                                           contentW,
-                                           34.0f );
+    state.rollingFrictionSlider
+        .SetBounds( contentX, contentBaseY + PHYSICS_ROLLING_FRICTION_SLIDER_Y, contentW, 34.0f );
     state.tornadoRadiusSlider.SetBounds( contentX, contentBaseY + PHYSICS_TORNADO_RADIUS_SLIDER_Y, contentW, 34.0f );
     state.tornadoHeightSlider.SetBounds( contentX, contentBaseY + PHYSICS_TORNADO_HEIGHT_SLIDER_Y, contentW, 34.0f );
     state.tornadoInwardSlider.SetBounds( contentX, contentBaseY + PHYSICS_TORNADO_INWARD_SLIDER_Y, contentW, 34.0f );
@@ -159,14 +160,16 @@ void ResetPreviewState( UIPhysicsTabState& state )
 }
 
 
-bool HandleContentClick( UIPhysicsTabState& state,
-                         InGameUIInputResult& result,
-                         int& activeSlider,
-                         int mouseX,
-                         int mouseY,
-                         float contentX,
-                         float rowBase,
-                         float contentW )
+bool HandleContentClick(
+    UIPhysicsTabState& state,
+    InGameUIInputResult& result,
+    int& activeSlider,
+    int mouseX,
+    int mouseY,
+    float contentX,
+    float rowBase,
+    float contentW
+)
 {
     // Invariant: This function emits commands only. Physics debug state and
     // world forces are mutated by runtime command handling.
@@ -235,30 +238,27 @@ bool HandleContentClick( UIPhysicsTabState& state,
     else if ( state.alphaSlider.HitTest( mouseX, mouseY ) )
     {
         activeSlider = SLIDER_ALPHA;
-        state.previewAlpha = state.alphaSlider.ValueFromMouse( mouseX,
-                                                               UI_PHYSICS_ALPHA_MIN,
-                                                               UI_PHYSICS_ALPHA_MAX,
-                                                               UI_PHYSICS_ALPHA_STEP );
+        state.previewAlpha =
+            state.alphaSlider
+                .ValueFromMouse( mouseX, UI_PHYSICS_ALPHA_MIN, UI_PHYSICS_ALPHA_MAX, UI_PHYSICS_ALPHA_STEP );
         result.commands.physics.requestedPhysicsDebugAlpha = state.previewAlpha;
         return true;
     }
     else if ( state.contactLingerSlider.HitTest( mouseX, mouseY ) )
     {
         activeSlider = SLIDER_CONTACT_LINGER;
-        state.previewContactLinger = state.contactLingerSlider.ValueFromMouse( mouseX,
-                                                                               UI_CONTACT_LINGER_MIN,
-                                                                               UI_CONTACT_LINGER_MAX,
-                                                                               UI_CONTACT_LINGER_STEP );
+        state.previewContactLinger =
+            state.contactLingerSlider
+                .ValueFromMouse( mouseX, UI_CONTACT_LINGER_MIN, UI_CONTACT_LINGER_MAX, UI_CONTACT_LINGER_STEP );
         result.commands.physics.requestedPhysicsDebugContactLinger = state.previewContactLinger;
         return true;
     }
     else if ( state.rayImpulseSlider.HitTest( mouseX, mouseY ) )
     {
         activeSlider = SLIDER_RAY_IMPULSE;
-        state.previewRayImpulse = state.rayImpulseSlider.ValueFromMouse( mouseX,
-                                                                         UI_RAY_IMPULSE_MIN,
-                                                                         UI_RAY_IMPULSE_MAX,
-                                                                         UI_RAY_IMPULSE_STEP );
+        state.previewRayImpulse =
+            state.rayImpulseSlider
+                .ValueFromMouse( mouseX, UI_RAY_IMPULSE_MIN, UI_RAY_IMPULSE_MAX, UI_RAY_IMPULSE_STEP );
         result.commands.physics.requestRayCastImpulseStrength = true;
         result.commands.physics.requestedRayCastImpulseStrength = state.previewRayImpulse;
         return true;
@@ -266,11 +266,12 @@ bool HandleContentClick( UIPhysicsTabState& state,
     else if ( state.launcherProjectileSpeedSlider.HitTest( mouseX, mouseY ) )
     {
         activeSlider = SLIDER_LAUNCHER_PROJECTILE_SPEED;
-        state.previewLauncherProjectileSpeed =
-            state.launcherProjectileSpeedSlider.ValueFromMouse( mouseX,
-                                                                UI_LAUNCHER_PROJECTILE_SPEED_MIN,
-                                                                UI_LAUNCHER_PROJECTILE_SPEED_MAX,
-                                                                UI_LAUNCHER_PROJECTILE_SPEED_STEP );
+        state.previewLauncherProjectileSpeed = state.launcherProjectileSpeedSlider.ValueFromMouse(
+            mouseX,
+            UI_LAUNCHER_PROJECTILE_SPEED_MIN,
+            UI_LAUNCHER_PROJECTILE_SPEED_MAX,
+            UI_LAUNCHER_PROJECTILE_SPEED_STEP
+        );
         result.commands.physics.requestLauncherProjectileSpeed = true;
         result.commands.physics.requestedLauncherProjectileSpeed = state.previewLauncherProjectileSpeed;
         return true;
@@ -279,20 +280,18 @@ bool HandleContentClick( UIPhysicsTabState& state,
     {
         activeSlider = SLIDER_WORLD_GRAVITY;
         result.commands.water.requestWorldGravity = true;
-        result.commands.water.requestedWorldGravity =
-            WorldGravityFromStrength( state.worldGravitySlider.ValueFromMouse( mouseX,
-                                                                               UI_WORLD_GRAVITY_MIN,
-                                                                               UI_WORLD_GRAVITY_MAX,
-                                                                               UI_WORLD_GRAVITY_STEP ) );
+        result.commands.water.requestedWorldGravity = WorldGravityFromStrength(
+            state.worldGravitySlider
+                .ValueFromMouse( mouseX, UI_WORLD_GRAVITY_MIN, UI_WORLD_GRAVITY_MAX, UI_WORLD_GRAVITY_STEP )
+        );
         return true;
     }
     else if ( state.terrainFrictionSlider.HitTest( mouseX, mouseY ) )
     {
         activeSlider = SLIDER_TERRAIN_FRICTION;
-        state.previewTerrainFriction = state.terrainFrictionSlider.ValueFromMouse( mouseX,
-                                                                                   UI_FRICTION_COEFF_MIN,
-                                                                                   UI_FRICTION_COEFF_MAX,
-                                                                                   UI_FRICTION_COEFF_STEP );
+        state.previewTerrainFriction =
+            state.terrainFrictionSlider
+                .ValueFromMouse( mouseX, UI_FRICTION_COEFF_MIN, UI_FRICTION_COEFF_MAX, UI_FRICTION_COEFF_STEP );
         result.commands.physics.requestTerrainFrictionCoeff = true;
         result.commands.physics.requestedTerrainFrictionCoeff = state.previewTerrainFriction;
         return true;
@@ -300,10 +299,9 @@ bool HandleContentClick( UIPhysicsTabState& state,
     else if ( state.objectFrictionSlider.HitTest( mouseX, mouseY ) )
     {
         activeSlider = SLIDER_OBJECT_FRICTION;
-        state.previewObjectFriction = state.objectFrictionSlider.ValueFromMouse( mouseX,
-                                                                                 UI_FRICTION_COEFF_MIN,
-                                                                                 UI_FRICTION_COEFF_MAX,
-                                                                                 UI_FRICTION_COEFF_STEP );
+        state.previewObjectFriction =
+            state.objectFrictionSlider
+                .ValueFromMouse( mouseX, UI_FRICTION_COEFF_MIN, UI_FRICTION_COEFF_MAX, UI_FRICTION_COEFF_STEP );
         result.commands.physics.requestObjectFrictionCoeff = true;
         result.commands.physics.requestedObjectFrictionCoeff = state.previewObjectFriction;
         return true;
@@ -311,10 +309,12 @@ bool HandleContentClick( UIPhysicsTabState& state,
     else if ( state.rollingFrictionSlider.HitTest( mouseX, mouseY ) )
     {
         activeSlider = SLIDER_ROLLING_FRICTION;
-        state.previewRollingFriction = state.rollingFrictionSlider.ValueFromMouse( mouseX,
-                                                                                   UI_ROLLING_FRICTION_COEFF_MIN,
-                                                                                   UI_ROLLING_FRICTION_COEFF_MAX,
-                                                                                   UI_ROLLING_FRICTION_COEFF_STEP );
+        state.previewRollingFriction = state.rollingFrictionSlider.ValueFromMouse(
+            mouseX,
+            UI_ROLLING_FRICTION_COEFF_MIN,
+            UI_ROLLING_FRICTION_COEFF_MAX,
+            UI_ROLLING_FRICTION_COEFF_STEP
+        );
         result.commands.physics.requestRollingFrictionCoeff = true;
         result.commands.physics.requestedRollingFrictionCoeff = state.previewRollingFriction;
         return true;
@@ -322,10 +322,9 @@ bool HandleContentClick( UIPhysicsTabState& state,
     else if ( state.tornadoRadiusSlider.HitTest( mouseX, mouseY ) )
     {
         activeSlider = SLIDER_TORNADO_RADIUS;
-        state.previewTornadoRadius = state.tornadoRadiusSlider.ValueFromMouse( mouseX,
-                                                                               UI_TORNADO_RADIUS_MIN,
-                                                                               UI_TORNADO_RADIUS_MAX,
-                                                                               UI_TORNADO_RADIUS_STEP );
+        state.previewTornadoRadius =
+            state.tornadoRadiusSlider
+                .ValueFromMouse( mouseX, UI_TORNADO_RADIUS_MIN, UI_TORNADO_RADIUS_MAX, UI_TORNADO_RADIUS_STEP );
         result.commands.physics.requestTornadoRadius = true;
         result.commands.physics.requestedTornadoRadius = state.previewTornadoRadius;
         return true;
@@ -333,10 +332,9 @@ bool HandleContentClick( UIPhysicsTabState& state,
     else if ( state.tornadoHeightSlider.HitTest( mouseX, mouseY ) )
     {
         activeSlider = SLIDER_TORNADO_HEIGHT;
-        state.previewTornadoHeight = state.tornadoHeightSlider.ValueFromMouse( mouseX,
-                                                                               UI_TORNADO_HEIGHT_MIN,
-                                                                               UI_TORNADO_HEIGHT_MAX,
-                                                                               UI_TORNADO_HEIGHT_STEP );
+        state.previewTornadoHeight =
+            state.tornadoHeightSlider
+                .ValueFromMouse( mouseX, UI_TORNADO_HEIGHT_MIN, UI_TORNADO_HEIGHT_MAX, UI_TORNADO_HEIGHT_STEP );
         result.commands.physics.requestTornadoHeight = true;
         result.commands.physics.requestedTornadoHeight = state.previewTornadoHeight;
         return true;
@@ -344,10 +342,9 @@ bool HandleContentClick( UIPhysicsTabState& state,
     else if ( state.tornadoInwardSlider.HitTest( mouseX, mouseY ) )
     {
         activeSlider = SLIDER_TORNADO_INWARD;
-        state.previewTornadoInward = state.tornadoInwardSlider.ValueFromMouse( mouseX,
-                                                                               UI_TORNADO_INWARD_MIN,
-                                                                               UI_TORNADO_INWARD_MAX,
-                                                                               UI_TORNADO_INWARD_STEP );
+        state.previewTornadoInward =
+            state.tornadoInwardSlider
+                .ValueFromMouse( mouseX, UI_TORNADO_INWARD_MIN, UI_TORNADO_INWARD_MAX, UI_TORNADO_INWARD_STEP );
         result.commands.physics.requestTornadoInward = true;
         result.commands.physics.requestedTornadoInward = state.previewTornadoInward;
         return true;
@@ -355,10 +352,9 @@ bool HandleContentClick( UIPhysicsTabState& state,
     else if ( state.tornadoSwirlSlider.HitTest( mouseX, mouseY ) )
     {
         activeSlider = SLIDER_TORNADO_SWIRL;
-        state.previewTornadoSwirl = state.tornadoSwirlSlider.ValueFromMouse( mouseX,
-                                                                             UI_TORNADO_SWIRL_MIN,
-                                                                             UI_TORNADO_SWIRL_MAX,
-                                                                             UI_TORNADO_SWIRL_STEP );
+        state.previewTornadoSwirl =
+            state.tornadoSwirlSlider
+                .ValueFromMouse( mouseX, UI_TORNADO_SWIRL_MIN, UI_TORNADO_SWIRL_MAX, UI_TORNADO_SWIRL_STEP );
         result.commands.physics.requestTornadoSwirl = true;
         result.commands.physics.requestedTornadoSwirl = state.previewTornadoSwirl;
         return true;
@@ -366,10 +362,9 @@ bool HandleContentClick( UIPhysicsTabState& state,
     else if ( state.tornadoLiftSlider.HitTest( mouseX, mouseY ) )
     {
         activeSlider = SLIDER_TORNADO_LIFT;
-        state.previewTornadoLift = state.tornadoLiftSlider.ValueFromMouse( mouseX,
-                                                                           UI_TORNADO_LIFT_MIN,
-                                                                           UI_TORNADO_LIFT_MAX,
-                                                                           UI_TORNADO_LIFT_STEP );
+        state.previewTornadoLift =
+            state.tornadoLiftSlider
+                .ValueFromMouse( mouseX, UI_TORNADO_LIFT_MIN, UI_TORNADO_LIFT_MAX, UI_TORNADO_LIFT_STEP );
         result.commands.physics.requestTornadoLift = true;
         result.commands.physics.requestedTornadoLift = state.previewTornadoLift;
         return true;
@@ -382,39 +377,37 @@ bool UpdateActiveSlider( UIPhysicsTabState& state, int activeSlider, int mouseX,
 {
     if ( activeSlider == SLIDER_ALPHA )
     {
-        state.previewAlpha = state.alphaSlider.ValueFromMouse( mouseX,
-                                                               UI_PHYSICS_ALPHA_MIN,
-                                                               UI_PHYSICS_ALPHA_MAX,
-                                                               UI_PHYSICS_ALPHA_STEP );
+        state.previewAlpha =
+            state.alphaSlider
+                .ValueFromMouse( mouseX, UI_PHYSICS_ALPHA_MIN, UI_PHYSICS_ALPHA_MAX, UI_PHYSICS_ALPHA_STEP );
         result.commands.physics.requestedPhysicsDebugAlpha = state.previewAlpha;
         return true;
     }
     if ( activeSlider == SLIDER_CONTACT_LINGER )
     {
-        state.previewContactLinger = state.contactLingerSlider.ValueFromMouse( mouseX,
-                                                                               UI_CONTACT_LINGER_MIN,
-                                                                               UI_CONTACT_LINGER_MAX,
-                                                                               UI_CONTACT_LINGER_STEP );
+        state.previewContactLinger =
+            state.contactLingerSlider
+                .ValueFromMouse( mouseX, UI_CONTACT_LINGER_MIN, UI_CONTACT_LINGER_MAX, UI_CONTACT_LINGER_STEP );
         result.commands.physics.requestedPhysicsDebugContactLinger = state.previewContactLinger;
         return true;
     }
     if ( activeSlider == SLIDER_RAY_IMPULSE )
     {
-        state.previewRayImpulse = state.rayImpulseSlider.ValueFromMouse( mouseX,
-                                                                         UI_RAY_IMPULSE_MIN,
-                                                                         UI_RAY_IMPULSE_MAX,
-                                                                         UI_RAY_IMPULSE_STEP );
+        state.previewRayImpulse =
+            state.rayImpulseSlider
+                .ValueFromMouse( mouseX, UI_RAY_IMPULSE_MIN, UI_RAY_IMPULSE_MAX, UI_RAY_IMPULSE_STEP );
         result.commands.physics.requestRayCastImpulseStrength = true;
         result.commands.physics.requestedRayCastImpulseStrength = state.previewRayImpulse;
         return true;
     }
     if ( activeSlider == SLIDER_LAUNCHER_PROJECTILE_SPEED )
     {
-        state.previewLauncherProjectileSpeed =
-            state.launcherProjectileSpeedSlider.ValueFromMouse( mouseX,
-                                                                UI_LAUNCHER_PROJECTILE_SPEED_MIN,
-                                                                UI_LAUNCHER_PROJECTILE_SPEED_MAX,
-                                                                UI_LAUNCHER_PROJECTILE_SPEED_STEP );
+        state.previewLauncherProjectileSpeed = state.launcherProjectileSpeedSlider.ValueFromMouse(
+            mouseX,
+            UI_LAUNCHER_PROJECTILE_SPEED_MIN,
+            UI_LAUNCHER_PROJECTILE_SPEED_MAX,
+            UI_LAUNCHER_PROJECTILE_SPEED_STEP
+        );
         result.commands.physics.requestLauncherProjectileSpeed = true;
         result.commands.physics.requestedLauncherProjectileSpeed = state.previewLauncherProjectileSpeed;
         return true;
@@ -422,89 +415,83 @@ bool UpdateActiveSlider( UIPhysicsTabState& state, int activeSlider, int mouseX,
     if ( activeSlider == SLIDER_WORLD_GRAVITY )
     {
         result.commands.water.requestWorldGravity = true;
-        result.commands.water.requestedWorldGravity =
-            WorldGravityFromStrength( state.worldGravitySlider.ValueFromMouse( mouseX,
-                                                                               UI_WORLD_GRAVITY_MIN,
-                                                                               UI_WORLD_GRAVITY_MAX,
-                                                                               UI_WORLD_GRAVITY_STEP ) );
+        result.commands.water.requestedWorldGravity = WorldGravityFromStrength(
+            state.worldGravitySlider
+                .ValueFromMouse( mouseX, UI_WORLD_GRAVITY_MIN, UI_WORLD_GRAVITY_MAX, UI_WORLD_GRAVITY_STEP )
+        );
         return true;
     }
     if ( activeSlider == SLIDER_TERRAIN_FRICTION )
     {
-        state.previewTerrainFriction = state.terrainFrictionSlider.ValueFromMouse( mouseX,
-                                                                                   UI_FRICTION_COEFF_MIN,
-                                                                                   UI_FRICTION_COEFF_MAX,
-                                                                                   UI_FRICTION_COEFF_STEP );
+        state.previewTerrainFriction =
+            state.terrainFrictionSlider
+                .ValueFromMouse( mouseX, UI_FRICTION_COEFF_MIN, UI_FRICTION_COEFF_MAX, UI_FRICTION_COEFF_STEP );
         result.commands.physics.requestTerrainFrictionCoeff = true;
         result.commands.physics.requestedTerrainFrictionCoeff = state.previewTerrainFriction;
         return true;
     }
     if ( activeSlider == SLIDER_OBJECT_FRICTION )
     {
-        state.previewObjectFriction = state.objectFrictionSlider.ValueFromMouse( mouseX,
-                                                                                 UI_FRICTION_COEFF_MIN,
-                                                                                 UI_FRICTION_COEFF_MAX,
-                                                                                 UI_FRICTION_COEFF_STEP );
+        state.previewObjectFriction =
+            state.objectFrictionSlider
+                .ValueFromMouse( mouseX, UI_FRICTION_COEFF_MIN, UI_FRICTION_COEFF_MAX, UI_FRICTION_COEFF_STEP );
         result.commands.physics.requestObjectFrictionCoeff = true;
         result.commands.physics.requestedObjectFrictionCoeff = state.previewObjectFriction;
         return true;
     }
     if ( activeSlider == SLIDER_ROLLING_FRICTION )
     {
-        state.previewRollingFriction = state.rollingFrictionSlider.ValueFromMouse( mouseX,
-                                                                                   UI_ROLLING_FRICTION_COEFF_MIN,
-                                                                                   UI_ROLLING_FRICTION_COEFF_MAX,
-                                                                                   UI_ROLLING_FRICTION_COEFF_STEP );
+        state.previewRollingFriction = state.rollingFrictionSlider.ValueFromMouse(
+            mouseX,
+            UI_ROLLING_FRICTION_COEFF_MIN,
+            UI_ROLLING_FRICTION_COEFF_MAX,
+            UI_ROLLING_FRICTION_COEFF_STEP
+        );
         result.commands.physics.requestRollingFrictionCoeff = true;
         result.commands.physics.requestedRollingFrictionCoeff = state.previewRollingFriction;
         return true;
     }
     if ( activeSlider == SLIDER_TORNADO_RADIUS )
     {
-        state.previewTornadoRadius = state.tornadoRadiusSlider.ValueFromMouse( mouseX,
-                                                                               UI_TORNADO_RADIUS_MIN,
-                                                                               UI_TORNADO_RADIUS_MAX,
-                                                                               UI_TORNADO_RADIUS_STEP );
+        state.previewTornadoRadius =
+            state.tornadoRadiusSlider
+                .ValueFromMouse( mouseX, UI_TORNADO_RADIUS_MIN, UI_TORNADO_RADIUS_MAX, UI_TORNADO_RADIUS_STEP );
         result.commands.physics.requestTornadoRadius = true;
         result.commands.physics.requestedTornadoRadius = state.previewTornadoRadius;
         return true;
     }
     if ( activeSlider == SLIDER_TORNADO_HEIGHT )
     {
-        state.previewTornadoHeight = state.tornadoHeightSlider.ValueFromMouse( mouseX,
-                                                                               UI_TORNADO_HEIGHT_MIN,
-                                                                               UI_TORNADO_HEIGHT_MAX,
-                                                                               UI_TORNADO_HEIGHT_STEP );
+        state.previewTornadoHeight =
+            state.tornadoHeightSlider
+                .ValueFromMouse( mouseX, UI_TORNADO_HEIGHT_MIN, UI_TORNADO_HEIGHT_MAX, UI_TORNADO_HEIGHT_STEP );
         result.commands.physics.requestTornadoHeight = true;
         result.commands.physics.requestedTornadoHeight = state.previewTornadoHeight;
         return true;
     }
     if ( activeSlider == SLIDER_TORNADO_INWARD )
     {
-        state.previewTornadoInward = state.tornadoInwardSlider.ValueFromMouse( mouseX,
-                                                                               UI_TORNADO_INWARD_MIN,
-                                                                               UI_TORNADO_INWARD_MAX,
-                                                                               UI_TORNADO_INWARD_STEP );
+        state.previewTornadoInward =
+            state.tornadoInwardSlider
+                .ValueFromMouse( mouseX, UI_TORNADO_INWARD_MIN, UI_TORNADO_INWARD_MAX, UI_TORNADO_INWARD_STEP );
         result.commands.physics.requestTornadoInward = true;
         result.commands.physics.requestedTornadoInward = state.previewTornadoInward;
         return true;
     }
     if ( activeSlider == SLIDER_TORNADO_SWIRL )
     {
-        state.previewTornadoSwirl = state.tornadoSwirlSlider.ValueFromMouse( mouseX,
-                                                                             UI_TORNADO_SWIRL_MIN,
-                                                                             UI_TORNADO_SWIRL_MAX,
-                                                                             UI_TORNADO_SWIRL_STEP );
+        state.previewTornadoSwirl =
+            state.tornadoSwirlSlider
+                .ValueFromMouse( mouseX, UI_TORNADO_SWIRL_MIN, UI_TORNADO_SWIRL_MAX, UI_TORNADO_SWIRL_STEP );
         result.commands.physics.requestTornadoSwirl = true;
         result.commands.physics.requestedTornadoSwirl = state.previewTornadoSwirl;
         return true;
     }
     if ( activeSlider == SLIDER_TORNADO_LIFT )
     {
-        state.previewTornadoLift = state.tornadoLiftSlider.ValueFromMouse( mouseX,
-                                                                           UI_TORNADO_LIFT_MIN,
-                                                                           UI_TORNADO_LIFT_MAX,
-                                                                           UI_TORNADO_LIFT_STEP );
+        state.previewTornadoLift =
+            state.tornadoLiftSlider
+                .ValueFromMouse( mouseX, UI_TORNADO_LIFT_MIN, UI_TORNADO_LIFT_MAX, UI_TORNADO_LIFT_STEP );
         result.commands.physics.requestTornadoLift = true;
         result.commands.physics.requestedTornadoLift = state.previewTornadoLift;
         return true;
@@ -589,17 +576,19 @@ bool CommitActiveSlider( UIPhysicsTabState& state, int activeSlider, InGameUIInp
 }
 
 
-void Draw( UIPhysicsTabState& state,
-           const UIDrawContext& draw,
-           const InGameUIFrameData& data,
-           float contentX,
-           float contentY,
-           float contentW,
-           float contentH,
-           float scrolledY,
-           int activeSlider,
-           int mouseX,
-           int mouseY )
+void Draw(
+    UIPhysicsTabState& state,
+    const UIDrawContext& draw,
+    const InGameUIFrameData& data,
+    float contentX,
+    float contentY,
+    float contentW,
+    float contentH,
+    float scrolledY,
+    int activeSlider,
+    int mouseX,
+    int mouseY
+)
 {
     char buf[128];
     const float colW = (std::max)( 148.0f, contentW * 0.46f );
@@ -644,166 +633,221 @@ void Draw( UIPhysicsTabState& state,
                                          ? state.previewTornadoLift
                                          : data.tornadoLiftAcceleration;
     DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY, 16.0f, "Physics Controls" );
-    DrawContentToggle( draw,
-                       contentY,
-                       contentH,
-                       state.toggles[0],
-                       col1,
-                       scrolledY + PHYSICS_FIRST_TOGGLE_Y,
-                       colW,
-                       "Collision state",
-                       data.physicsDebug.collisionVisualizer );
-    DrawContentToggle( draw,
-                       contentY,
-                       contentH,
-                       state.toggles[4],
-                       col1,
-                       scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H,
-                       colW,
-                       "Transparent",
-                       data.physicsDebug.transparent );
-    DrawContentToggle( draw,
-                       contentY,
-                       contentH,
-                       state.toggles[5],
-                       col1,
-                       scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 2.0f,
-                       colW,
-                       "Broadphase",
-                       data.physicsDebug.broadphase );
-    DrawContentToggle( draw,
-                       contentY,
-                       contentH,
-                       state.toggles[7],
-                       col1,
-                       scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 3.0f,
-                       colW,
-                       "Pipeline",
-                       data.physicsDebug.pipeline );
-    DrawContentToggle( draw,
-                       contentY,
-                       contentH,
-                       state.toggles[1],
-                       col2,
-                       scrolledY + PHYSICS_FIRST_TOGGLE_Y,
-                       colW,
-                       "Axes",
-                       data.physicsDebug.axes );
-    DrawContentToggle( draw,
-                       contentY,
-                       contentH,
-                       state.toggles[2],
-                       col2,
-                       scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H,
-                       colW,
-                       "Contacts",
-                       data.physicsDebug.contacts );
-    DrawContentToggle( draw,
-                       contentY,
-                       contentH,
-                       state.toggles[3],
-                       col2,
-                       scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 2.0f,
-                       colW,
-                       "Sleep state",
-                       data.physicsDebug.sleep );
-    DrawContentToggle( draw,
-                       contentY,
-                       contentH,
-                       state.toggles[6],
-                       col2,
-                       scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 3.0f,
-                       colW,
-                       "Sleep policy",
-                       data.physicsSleepEnabled );
-    DrawContentToggle( draw,
-                       contentY,
-                       contentH,
-                       state.toggles[8],
-                       col1,
-                       scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 4.0f,
-                       colW,
-                       "Terrain probe",
-                       data.physicsDebug.terrainContact );
-    DrawContentToggle( draw,
-                       contentY,
-                       contentH,
-                       state.toggles[9],
-                       col2,
-                       scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 4.0f,
-                       colW,
-                       "Tornado",
-                       data.tornadoEnabled );
-    DrawContentToggle( draw,
-                       contentY,
-                       contentH,
-                       state.toggles[10],
-                       col1,
-                       scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 5.0f,
-                       colW,
-                       "Visual shell",
-                       data.tornadoVisualShell );
-    DrawContentToggle( draw,
-                       contentY,
-                       contentH,
-                       state.toggles[11],
-                       col2,
-                       scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 5.0f,
-                       colW,
-                       "Field vectors",
-                       data.tornadoFieldVectors );
-    DrawContentToggle( draw,
-                       contentY,
-                       contentH,
-                       state.toggles[12],
-                       col2,
-                       scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 6.0f,
-                       colW,
-                       "Ray visual",
-                       data.rayCastVisualization );
+    DrawContentToggle(
+        draw,
+        contentY,
+        contentH,
+        state.toggles[0],
+        col1,
+        scrolledY + PHYSICS_FIRST_TOGGLE_Y,
+        colW,
+        "Collision state",
+        data.physicsDebug.collisionVisualizer
+    );
+
+    DrawContentToggle(
+        draw,
+        contentY,
+        contentH,
+        state.toggles[4],
+        col1,
+        scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H,
+        colW,
+        "Transparent",
+        data.physicsDebug.transparent
+    );
+
+    DrawContentToggle(
+        draw,
+        contentY,
+        contentH,
+        state.toggles[5],
+        col1,
+        scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 2.0f,
+        colW,
+        "Broadphase",
+        data.physicsDebug.broadphase
+    );
+
+    DrawContentToggle(
+        draw,
+        contentY,
+        contentH,
+        state.toggles[7],
+        col1,
+        scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 3.0f,
+        colW,
+        "Pipeline",
+        data.physicsDebug.pipeline
+    );
+
+    DrawContentToggle(
+        draw,
+        contentY,
+        contentH,
+        state.toggles[1],
+        col2,
+        scrolledY + PHYSICS_FIRST_TOGGLE_Y,
+        colW,
+        "Axes",
+        data.physicsDebug.axes
+    );
+
+    DrawContentToggle(
+        draw,
+        contentY,
+        contentH,
+        state.toggles[2],
+        col2,
+        scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H,
+        colW,
+        "Contacts",
+        data.physicsDebug.contacts
+    );
+
+    DrawContentToggle(
+        draw,
+        contentY,
+        contentH,
+        state.toggles[3],
+        col2,
+        scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 2.0f,
+        colW,
+        "Sleep state",
+        data.physicsDebug.sleep
+    );
+
+    DrawContentToggle(
+        draw,
+        contentY,
+        contentH,
+        state.toggles[6],
+        col2,
+        scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 3.0f,
+        colW,
+        "Sleep policy",
+        data.physicsSleepEnabled
+    );
+
+    DrawContentToggle(
+        draw,
+        contentY,
+        contentH,
+        state.toggles[8],
+        col1,
+        scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 4.0f,
+        colW,
+        "Terrain probe",
+        data.physicsDebug.terrainContact
+    );
+
+    DrawContentToggle(
+        draw,
+        contentY,
+        contentH,
+        state.toggles[9],
+        col2,
+        scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 4.0f,
+        colW,
+        "Tornado",
+        data.tornadoEnabled
+    );
+
+    DrawContentToggle(
+        draw,
+        contentY,
+        contentH,
+        state.toggles[10],
+        col1,
+        scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 5.0f,
+        colW,
+        "Visual shell",
+        data.tornadoVisualShell
+    );
+
+    DrawContentToggle(
+        draw,
+        contentY,
+        contentH,
+        state.toggles[11],
+        col2,
+        scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 5.0f,
+        colW,
+        "Field vectors",
+        data.tornadoFieldVectors
+    );
+
+    DrawContentToggle(
+        draw,
+        contentY,
+        contentH,
+        state.toggles[12],
+        col2,
+        scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 6.0f,
+        colW,
+        "Ray visual",
+        data.rayCastVisualization
+    );
+
     const Style::UIPalette& palette = Style::Palette();
     snprintf( buf, sizeof( buf ), "0x%04X", data.physicsDebug.activeFlags );
-    DrawLabelValueAt( draw,
-                      contentY,
-                      contentH,
-                      contentX,
-                      scrolledY + 230.0f,
-                      "Debug flags",
-                      buf,
-                      palette.accentStrong.r,
-                      palette.accentStrong.g,
-                      palette.accentStrong.b );
-    snprintf( buf,
-              sizeof( buf ),
-              "%d/%d %s",
-              data.physicsDebug.pipelineStageIndex + 1,
-              data.physicsDebug.pipelineStageCount,
-              data.physicsDebug.pipelineStageName );
-    DrawLabelValueAt( draw,
-                      contentY,
-                      contentH,
-                      contentX,
-                      scrolledY + 250.0f,
-                      "Pipeline stage",
-                      buf,
-                      palette.accentStrong.r,
-                      palette.accentStrong.g,
-                      palette.accentStrong.b );
-    SetPipelineStepButtonBounds( state.pipelinePrevButton,
-                                 state.pipelineNextButton,
-                                 contentX,
-                                 contentW,
-                                 scrolledY + PHYSICS_PIPELINE_BUTTON_Y );
+    DrawLabelValueAt(
+        draw,
+        contentY,
+        contentH,
+        contentX,
+        scrolledY + 230.0f,
+        "Debug flags",
+        buf,
+        palette.accentStrong.r,
+        palette.accentStrong.g,
+        palette.accentStrong.b
+    );
+
+    snprintf(
+        buf,
+        sizeof( buf ),
+        "%d/%d %s",
+        data.physicsDebug.pipelineStageIndex + 1,
+        data.physicsDebug.pipelineStageCount,
+        data.physicsDebug.pipelineStageName
+    );
+
+    DrawLabelValueAt(
+        draw,
+        contentY,
+        contentH,
+        contentX,
+        scrolledY + 250.0f,
+        "Pipeline stage",
+        buf,
+        palette.accentStrong.r,
+        palette.accentStrong.g,
+        palette.accentStrong.b
+    );
+
+    SetPipelineStepButtonBounds(
+        state.pipelinePrevButton,
+        state.pipelineNextButton,
+        contentX,
+        contentW,
+        scrolledY + PHYSICS_PIPELINE_BUTTON_Y
+    );
+
     if ( IsRowVisible( contentY, contentH, scrolledY + PHYSICS_PIPELINE_BUTTON_Y, UI_PIPELINE_STEP_BUTTON_H ) )
     {
-        DrawPipelineStepButton( draw,
-                                state.pipelinePrevButton,
-                                true,
-                                state.pipelinePrevButton.Contains( mouseX, mouseY ) );
-        DrawPipelineStepButton( draw,
-                                state.pipelineNextButton,
-                                false,
-                                state.pipelineNextButton.Contains( mouseX, mouseY ) );
+        DrawPipelineStepButton(
+            draw,
+            state.pipelinePrevButton,
+            true,
+            state.pipelinePrevButton.Contains( mouseX, mouseY )
+        );
+        DrawPipelineStepButton(
+            draw,
+            state.pipelineNextButton,
+            false,
+            state.pipelineNextButton.Contains( mouseX, mouseY )
+        );
     }
     if ( IsRowVisible( contentY, contentH, scrolledY + 276.0f, 18.0f ) )
     {
@@ -834,18 +878,18 @@ void Draw( UIPhysicsTabState& state,
             .Draw( draw, "Ray impulse", buf, displayRayImpulse, UI_RAY_IMPULSE_MIN, UI_RAY_IMPULSE_MAX );
     }
     snprintf( buf, sizeof( buf ), "%.0f", displayLauncherProjectileSpeed );
-    state.launcherProjectileSpeedSlider.SetBounds( contentX,
-                                                   scrolledY + PHYSICS_LAUNCHER_PROJECTILE_SPEED_SLIDER_Y,
-                                                   contentW,
-                                                   34.0f );
+    state.launcherProjectileSpeedSlider
+        .SetBounds( contentX, scrolledY + PHYSICS_LAUNCHER_PROJECTILE_SPEED_SLIDER_Y, contentW, 34.0f );
     if ( IsRowVisible( contentY, contentH, scrolledY + PHYSICS_LAUNCHER_PROJECTILE_SPEED_SLIDER_Y, 34.0f ) )
     {
-        state.launcherProjectileSpeedSlider.Draw( draw,
-                                                  "Projectile speed",
-                                                  buf,
-                                                  displayLauncherProjectileSpeed,
-                                                  UI_LAUNCHER_PROJECTILE_SPEED_MIN,
-                                                  UI_LAUNCHER_PROJECTILE_SPEED_MAX );
+        state.launcherProjectileSpeedSlider.Draw(
+            draw,
+            "Projectile speed",
+            buf,
+            displayLauncherProjectileSpeed,
+            UI_LAUNCHER_PROJECTILE_SPEED_MIN,
+            UI_LAUNCHER_PROJECTILE_SPEED_MAX
+        );
     }
     if ( IsRowVisible( contentY, contentH, scrolledY + PHYSICS_WORLD_SECTION_Y, 18.0f ) )
     {
@@ -861,24 +905,28 @@ void Draw( UIPhysicsTabState& state,
     }
     if ( IsRowVisible( contentY, contentH, scrolledY + PHYSICS_FRICTION_SECTION_Y, 18.0f ) )
     {
-        DrawSectionTitle( draw,
-                          contentX,
-                          contentY,
-                          contentH,
-                          scrolledY + PHYSICS_FRICTION_SECTION_Y,
-                          12.0f,
-                          "Friction" );
+        DrawSectionTitle(
+            draw,
+            contentX,
+            contentY,
+            contentH,
+            scrolledY + PHYSICS_FRICTION_SECTION_Y,
+            12.0f,
+            "Friction"
+        );
     }
     snprintf( buf, sizeof( buf ), "%.2f", displayTerrainFriction );
     state.terrainFrictionSlider.SetBounds( contentX, scrolledY + PHYSICS_TERRAIN_FRICTION_SLIDER_Y, contentW, 34.0f );
     if ( IsRowVisible( contentY, contentH, scrolledY + PHYSICS_TERRAIN_FRICTION_SLIDER_Y, 34.0f ) )
     {
-        state.terrainFrictionSlider.Draw( draw,
-                                          "Terrain friction",
-                                          buf,
-                                          displayTerrainFriction,
-                                          UI_FRICTION_COEFF_MIN,
-                                          UI_FRICTION_COEFF_MAX );
+        state.terrainFrictionSlider.Draw(
+            draw,
+            "Terrain friction",
+            buf,
+            displayTerrainFriction,
+            UI_FRICTION_COEFF_MIN,
+            UI_FRICTION_COEFF_MAX
+        );
     }
     snprintf( buf, sizeof( buf ), "%.2f", displayObjectFriction );
     state.objectFrictionSlider.SetBounds( contentX, scrolledY + PHYSICS_OBJECT_FRICTION_SLIDER_Y, contentW, 34.0f );
@@ -891,22 +939,26 @@ void Draw( UIPhysicsTabState& state,
     state.rollingFrictionSlider.SetBounds( contentX, scrolledY + PHYSICS_ROLLING_FRICTION_SLIDER_Y, contentW, 34.0f );
     if ( IsRowVisible( contentY, contentH, scrolledY + PHYSICS_ROLLING_FRICTION_SLIDER_Y, 34.0f ) )
     {
-        state.rollingFrictionSlider.Draw( draw,
-                                          "Rolling friction",
-                                          buf,
-                                          displayRollingFriction,
-                                          UI_ROLLING_FRICTION_COEFF_MIN,
-                                          UI_ROLLING_FRICTION_COEFF_MAX );
+        state.rollingFrictionSlider.Draw(
+            draw,
+            "Rolling friction",
+            buf,
+            displayRollingFriction,
+            UI_ROLLING_FRICTION_COEFF_MIN,
+            UI_ROLLING_FRICTION_COEFF_MAX
+        );
     }
     if ( IsRowVisible( contentY, contentH, scrolledY + PHYSICS_TORNADO_SECTION_Y, 18.0f ) )
     {
-        DrawSectionTitle( draw,
-                          contentX,
-                          contentY,
-                          contentH,
-                          scrolledY + PHYSICS_TORNADO_SECTION_Y,
-                          12.0f,
-                          "Tornado Field" );
+        DrawSectionTitle(
+            draw,
+            contentX,
+            contentY,
+            contentH,
+            scrolledY + PHYSICS_TORNADO_SECTION_Y,
+            12.0f,
+            "Tornado Field"
+        );
     }
     snprintf( buf, sizeof( buf ), "%.0f", displayTornadoRadius );
     state.tornadoRadiusSlider.SetBounds( contentX, scrolledY + PHYSICS_TORNADO_RADIUS_SLIDER_Y, contentW, 34.0f );

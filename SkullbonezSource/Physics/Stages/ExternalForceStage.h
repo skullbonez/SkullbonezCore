@@ -105,13 +105,15 @@ class ExternalForceStage
     uint64_t CollectMemoryBytes() const;
 
   private:
-    Math::Vector::Vector3 SampleAcceleration( const ExternalForceFrameInput& input,
-                                              const Math::Vector::Vector3& position,
-                                              ExternalCylindricalForceField& outBestField,
-                                              float& outBestAccelerationSq ) const;
+    Math::Vector::Vector3 SampleAcceleration(
+        const ExternalForceFrameInput& input,
+        const Math::Vector::Vector3& position,
+        ExternalCylindricalForceField& outBestField,
+        float& outBestAccelerationSq
+    ) const;
 
-    PhysicsBodyIndexList m_fixedTreeReleaseWakeScratch{ "ExternalForceStage fixed-tree release scratch" };
-    PhysicsBodyIndexList m_releaseWakeBodies{ "ExternalForceStage release output" };
+    PhysicsBodyIndexList m_fixedTreeReleaseWakeScratch { "ExternalForceStage fixed-tree release scratch" };
+    PhysicsBodyIndexList m_releaseWakeBodies { "ExternalForceStage release output" };
 };
 } // namespace Physics
 } // namespace SkullbonezCore

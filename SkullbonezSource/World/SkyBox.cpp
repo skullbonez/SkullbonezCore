@@ -52,7 +52,8 @@ constexpr PassRasterStateBucket SKYBOX_RASTER_BUCKET = {
       BlendFactor::Zero,
       CullMode::Back,
       { false, 0.0f, 0.0f },
-      { RenderTargetFormatExpectation::ActivePass, RenderTargetFormatExpectation::ActivePass, 1 } } };
+      { RenderTargetFormatExpectation::ActivePass, RenderTargetFormatExpectation::ActivePass, 1 } }
+};
 } // namespace
 
 
@@ -74,30 +75,38 @@ SkyBox::SkyBox( int m_xMin, int m_xMax, int yMin, int yMax, int m_zMin, int m_zM
 SkullbonezCore::Core::SbResult SkyBox::LoadTextures( const SkullbonezCore::Core::EngineConfig& cfg )
 {
     assert( m_textures );
-    const SkullbonezCore::Core::SbResult leftResult =
-        m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.assetPaths.skyLeft ).c_str(),
-                                       TEXTURE_SKY_LEFT );
+    const SkullbonezCore::Core::SbResult leftResult = m_textures->EnsureJpegTexture(
+        ( std::string( DATA_ROOT ) + cfg.assetPaths.skyLeft ).c_str(),
+        TEXTURE_SKY_LEFT
+    );
+
     if ( !leftResult.ok )
     {
         return leftResult;
     }
-    const SkullbonezCore::Core::SbResult rightResult =
-        m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.assetPaths.skyRight ).c_str(),
-                                       TEXTURE_SKY_RIGHT );
+    const SkullbonezCore::Core::SbResult rightResult = m_textures->EnsureJpegTexture(
+        ( std::string( DATA_ROOT ) + cfg.assetPaths.skyRight ).c_str(),
+        TEXTURE_SKY_RIGHT
+    );
+
     if ( !rightResult.ok )
     {
         return rightResult;
     }
-    const SkullbonezCore::Core::SbResult frontResult =
-        m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.assetPaths.skyFront ).c_str(),
-                                       TEXTURE_SKY_FRONT );
+    const SkullbonezCore::Core::SbResult frontResult = m_textures->EnsureJpegTexture(
+        ( std::string( DATA_ROOT ) + cfg.assetPaths.skyFront ).c_str(),
+        TEXTURE_SKY_FRONT
+    );
+
     if ( !frontResult.ok )
     {
         return frontResult;
     }
-    const SkullbonezCore::Core::SbResult backResult =
-        m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.assetPaths.skyBack ).c_str(),
-                                       TEXTURE_SKY_BACK );
+    const SkullbonezCore::Core::SbResult backResult = m_textures->EnsureJpegTexture(
+        ( std::string( DATA_ROOT ) + cfg.assetPaths.skyBack ).c_str(),
+        TEXTURE_SKY_BACK
+    );
+
     if ( !backResult.ok )
     {
         return backResult;
@@ -108,9 +117,11 @@ SkullbonezCore::Core::SbResult SkyBox::LoadTextures( const SkullbonezCore::Core:
     {
         return upResult;
     }
-    const SkullbonezCore::Core::SbResult downResult =
-        m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.assetPaths.skyDown ).c_str(),
-                                       TEXTURE_SKY_DOWN );
+    const SkullbonezCore::Core::SbResult downResult = m_textures->EnsureJpegTexture(
+        ( std::string( DATA_ROOT ) + cfg.assetPaths.skyDown ).c_str(),
+        TEXTURE_SKY_DOWN
+    );
+
     if ( !downResult.ok )
     {
         return downResult;
@@ -119,9 +130,11 @@ SkullbonezCore::Core::SbResult SkyBox::LoadTextures( const SkullbonezCore::Core:
 }
 
 
-void SkyBox::BuildMeshes( const SkullbonezCore::Core::EngineConfig& cfg,
-                          SkullbonezCore::Assets::AssetSystem& assets,
-                          Dx12ResourceBuilder& resources )
+void SkyBox::BuildMeshes(
+    const SkullbonezCore::Core::EngineConfig& cfg,
+    SkullbonezCore::Assets::AssetSystem& assets,
+    Dx12ResourceBuilder& resources
+)
 {
     // Shorthand for boundary values with overflow
     const int overflow = cfg.skybox.overflow;
@@ -178,8 +191,8 @@ void SkyBox::BuildMeshes( const SkullbonezCore::Core::EngineConfig& cfg,
     };
 
     float* faceData[] = { up, down, right, left, front, back };
-    m_faceTextures =
-        { TEXTURE_SKY_UP, TEXTURE_SKY_DOWN, TEXTURE_SKY_RIGHT, TEXTURE_SKY_LEFT, TEXTURE_SKY_FRONT, TEXTURE_SKY_BACK };
+    m_faceTextures = { TEXTURE_SKY_UP,   TEXTURE_SKY_DOWN,  TEXTURE_SKY_RIGHT,
+                       TEXTURE_SKY_LEFT, TEXTURE_SKY_FRONT, TEXTURE_SKY_BACK };
 
     for ( int i = 0; i < 6; ++i )
     {
@@ -205,9 +218,11 @@ void SkyBox::BindTextures( TextureCollection& textures )
 }
 
 
-void SkyBox::BindRenderContexts( const SkullbonezCore::Core::EngineConfig& config,
-                                 SkullbonezCore::Assets::AssetSystem& assets,
-                                 Dx12ResourceBuilder& resources )
+void SkyBox::BindRenderContexts(
+    const SkullbonezCore::Core::EngineConfig& config,
+    SkullbonezCore::Assets::AssetSystem& assets,
+    Dx12ResourceBuilder& resources
+)
 {
     // Lifetime: sky resources rebuild during backend init/reset while all three
     // borrows are owned by Run.
@@ -264,17 +279,21 @@ SkullbonezCore::Core::SbResult SkyBox::Render( const Matrix4& view, const Matrix
 
     if ( !m_faceMeshes[0] || !m_faceMeshes[0]->PrecompileRasterState( SKYBOX_RASTER_BUCKET ) )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/SkyBox",
-                                                        "Skybox declared raster pipeline could not be precompiled." );
+        return SkullbonezCore::Core::SbResult::Failure(
+            "Rendering/SkyBox",
+            "Skybox declared raster pipeline could not be precompiled."
+        );
     }
 
     for ( int i = 0; i < 6; ++i )
     {
         if ( !m_faceMeshes[i] )
         {
-            return SkullbonezCore::Core::SbResult::Failure( "Rendering/SkyBox",
-                                                            "Skybox face mesh %d is unavailable.",
-                                                            i );
+            return SkullbonezCore::Core::SbResult::Failure(
+                "Rendering/SkyBox",
+                "Skybox face mesh %d is unavailable.",
+                i
+            );
         }
         const SkullbonezCore::Core::SbResult textureResult = m_textures->SelectTexture( m_faceTextures[i] );
         if ( !textureResult.ok )

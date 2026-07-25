@@ -59,36 +59,42 @@ struct UIControlsTabState
 int ContentHeight();
 void ResetPreviewState( UIControlsTabState& state );
 
-bool HandleContentClick( UIControlsTabState& state,
-                         InGameUIInputResult& result,
-                         int& activeSlider,
-                         int mouseX,
-                         int mouseY,
-                         float contentX,
-                         float rowBase,
-                         float contentW,
-                         int modelCapacity,
-                         int lastSolverBallCount,
-                         int lastSolverBoxCount );
+bool HandleContentClick(
+    UIControlsTabState& state,
+    InGameUIInputResult& result,
+    int& activeSlider,
+    int mouseX,
+    int mouseY,
+    float contentX,
+    float rowBase,
+    float contentW,
+    int modelCapacity,
+    int lastSolverBallCount,
+    int lastSolverBoxCount
+);
 
-bool UpdateActiveSlider( UIControlsTabState& state,
-                         int activeSlider,
-                         int mouseX,
-                         int modelCapacity,
-                         int lastSolverBallCount,
-                         int lastSolverBoxCount,
-                         InGameUIInputResult& result );
+bool UpdateActiveSlider(
+    UIControlsTabState& state,
+    int activeSlider,
+    int mouseX,
+    int modelCapacity,
+    int lastSolverBallCount,
+    int lastSolverBoxCount,
+    InGameUIInputResult& result
+);
 
 bool CommitActiveSlider( UIControlsTabState& state, int activeSlider, InGameUIInputResult& result );
 
-void Draw( UIControlsTabState& state,
-           const UIDrawContext& draw,
-           const InGameUIFrameData& data,
-           float contentX,
-           float contentY,
-           float contentW,
-           float contentH,
-           float scrolledY );
+void Draw(
+    UIControlsTabState& state,
+    const UIDrawContext& draw,
+    const InGameUIFrameData& data,
+    float contentX,
+    float contentY,
+    float contentW,
+    float contentH,
+    float scrolledY
+);
 
 } // namespace ControlsTab
 } // namespace UI

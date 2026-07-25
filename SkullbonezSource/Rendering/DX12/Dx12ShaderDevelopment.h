@@ -52,12 +52,14 @@ class ShaderDX12;
 class Dx12ShaderDevelopment
 {
   public:
-    Dx12ShaderDevelopment( Dx12PipelineOwner& pipeline,
-                           Dx12TextureOwner& textures,
-                           Dx12GeometryOwner& geometry,
-                           Dx12RenderDevice& device,
-                           Dx12FrameOwner& frame,
-                           Dx12Diagnostics& diagnostics );
+    Dx12ShaderDevelopment(
+        Dx12PipelineOwner& pipeline,
+        Dx12TextureOwner& textures,
+        Dx12GeometryOwner& geometry,
+        Dx12RenderDevice& device,
+        Dx12FrameOwner& frame,
+        Dx12Diagnostics& diagnostics
+    );
 
     bool Enabled() const;
     SkullbonezCore::Core::SbResult ReloadShadersFromSource();

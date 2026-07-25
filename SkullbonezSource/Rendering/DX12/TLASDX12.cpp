@@ -97,15 +97,19 @@ SkullbonezCore::Core::SbResult TLAS::Init( ID3D12Device5* device, int maxInstanc
     // a BLAS is and how to transform it in the scene. This buffer lives in CPU-writable memory
     // (upload heap) because we rewrite instance positions every frame as balls move.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    if ( FAILED( device->CreateCommittedResource( &uploadHeap,
-                                                  D3D12_HEAP_FLAG_NONE,
-                                                  &bufDesc,
-                                                  D3D12_RESOURCE_STATE_GENERIC_READ,
-                                                  nullptr,
-                                                  IID_PPV_ARGS( &m_instanceDescs ) ) ) )
+    if ( FAILED( device->CreateCommittedResource(
+             &uploadHeap,
+             D3D12_HEAP_FLAG_NONE,
+             &bufDesc,
+             D3D12_RESOURCE_STATE_GENERIC_READ,
+             nullptr,
+             IID_PPV_ARGS( &m_instanceDescs )
+         ) ) )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
-                                                        "TLAS: Failed to create instance desc buffer" );
+        return SkullbonezCore::Core::SbResult::Failure(
+            "Rendering/DX12",
+            "TLAS: Failed to create instance desc buffer"
+        );
     }
     NameDx12Object( m_instanceDescs, L"Skullbonez DX12 TLAS Instance Descriptors" );
 
@@ -129,7 +133,8 @@ SkullbonezCore::Core::SbResult TLAS::Init( ID3D12Device5* device, int maxInstanc
         Reset();
         return SkullbonezCore::Core::SbResult::Failure(
             "Rendering/DX12",
-            "TLAS: prebuild info returned zero scratch or result capacity" );
+            "TLAS: prebuild info returned zero scratch or result capacity"
+        );
     }
 
     // Allocate scratch buffer
@@ -141,12 +146,14 @@ SkullbonezCore::Core::SbResult TLAS::Init( ID3D12Device5* device, int maxInstanc
 
     // Allocate scratch buffer for TLAS build (temporary GPU workspace, same as BLAS).
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    if ( FAILED( device->CreateCommittedResource( &defaultHeap,
-                                                  D3D12_HEAP_FLAG_NONE,
-                                                  &bufDesc,
-                                                  D3D12_RESOURCE_STATE_COMMON,
-                                                  nullptr,
-                                                  IID_PPV_ARGS( &m_scratch ) ) ) )
+    if ( FAILED( device->CreateCommittedResource(
+             &defaultHeap,
+             D3D12_HEAP_FLAG_NONE,
+             &bufDesc,
+             D3D12_RESOURCE_STATE_COMMON,
+             nullptr,
+             IID_PPV_ARGS( &m_scratch )
+         ) ) )
     {
         Reset();
         return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12", "TLAS: Failed to create scratch buffer" );
@@ -158,12 +165,14 @@ SkullbonezCore::Core::SbResult TLAS::Init( ID3D12Device5* device, int maxInstanc
 
     // Allocate result buffer that holds the final TLAS (persists across frames, rebuilt in-place).
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    if ( FAILED( device->CreateCommittedResource( &defaultHeap,
-                                                  D3D12_HEAP_FLAG_NONE,
-                                                  &bufDesc,
-                                                  D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE,
-                                                  nullptr,
-                                                  IID_PPV_ARGS( &m_result ) ) ) )
+    if ( FAILED( device->CreateCommittedResource(
+             &defaultHeap,
+             D3D12_HEAP_FLAG_NONE,
+             &bufDesc,
+             D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE,
+             nullptr,
+             IID_PPV_ARGS( &m_result )
+         ) ) )
     {
         Reset();
         return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12", "TLAS: Failed to create result buffer" );
@@ -173,10 +182,12 @@ SkullbonezCore::Core::SbResult TLAS::Init( ID3D12Device5* device, int maxInstanc
 }
 
 
-SkullbonezCore::Core::SbResult TLAS::Build( ID3D12Device5* device,
-                                            ID3D12GraphicsCommandList4* cmdList,
-                                            const D3D12_RAYTRACING_INSTANCE_DESC* instances,
-                                            int instanceCount )
+SkullbonezCore::Core::SbResult TLAS::Build(
+    ID3D12Device5* device,
+    ID3D12GraphicsCommandList4* cmdList,
+    const D3D12_RAYTRACING_INSTANCE_DESC* instances,
+    int instanceCount
+)
 {
     (void)device;
 

@@ -54,10 +54,12 @@ constexpr std::size_t MAX_SLEEP_SUPPORT_EDGES = static_cast<std::size_t>( Scene:
 // fail-before-grow boundary so contact density or point joints cannot escape
 // the construction-time reserve and allocate during steady gameplay.
 void AppendSleepSupportEdge( std::vector<std::pair<int, int>>& edges, int supporter, int supported );
-void ValidateSleepSupportEdgeCount( std::size_t requested,
-                                    std::size_t reservedCapacity,
-                                    std::size_t highWater,
-                                    const char* phase );
+void ValidateSleepSupportEdgeCount(
+    std::size_t requested,
+    std::size_t reservedCapacity,
+    std::size_t highWater,
+    const char* phase
+);
 
 struct SleepSupportPropagationContext
 {

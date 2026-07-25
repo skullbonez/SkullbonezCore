@@ -191,8 +191,9 @@ class Vector3
 
     Vector3& operator/=( const Vector3& v )
     {
-        assert( v.x != 0.0f && v.y != 0.0f && v.z != 0.0f &&
-                "Vector3 component divide-assign requires non-zero divisors" );
+        assert(
+            v.x != 0.0f && v.y != 0.0f && v.z != 0.0f && "Vector3 component divide-assign requires non-zero divisors"
+        );
         x /= v.x;
         y /= v.y;
         z /= v.z;
@@ -299,7 +300,7 @@ class Vector3
 static_assert( std::is_trivially_copyable_v<Vector3> );
 static_assert( sizeof( Vector3 ) == 12 );
 
-inline const Vector3 ZERO_VECTOR{ 0.0f, 0.0f, 0.0f };         // Shared origin/no-motion sentinel.
+inline const Vector3 ZERO_VECTOR { 0.0f, 0.0f, 0.0f };        // Shared origin/no-motion sentinel.
 
 // Reflect incident about a normalized surface normal; callers own normalization.
 inline Vector3 VectorReflect( const Vector3& incident, const Vector3& normal )

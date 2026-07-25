@@ -323,6 +323,7 @@ Matrix4 Matrix4::FromQuaternion( const Quaternion& q )
         0.0f,
         1.0f // col3: translation (identity)
     };
+
     return Matrix4( r );
 }
 
@@ -504,11 +505,19 @@ Matrix4 Matrix4::operator*( const Matrix4& rhs ) const
     {
         // Broadcast each RHS scalar for output column c, scale the matching LHS column,
         // accumulate four contributions with two paired adds (avoids a 4-way add chain).
-        _mm_storeu_ps( r + c * 4,
-                       _mm_add_ps( _mm_add_ps( _mm_mul_ps( lhsC0, _mm_set1_ps( rhs.m[c * 4 + 0] ) ),
-                                               _mm_mul_ps( lhsC1, _mm_set1_ps( rhs.m[c * 4 + 1] ) ) ),
-                                   _mm_add_ps( _mm_mul_ps( lhsC2, _mm_set1_ps( rhs.m[c * 4 + 2] ) ),
-                                               _mm_mul_ps( lhsC3, _mm_set1_ps( rhs.m[c * 4 + 3] ) ) ) ) );
+        _mm_storeu_ps(
+            r + c * 4,
+            _mm_add_ps(
+                _mm_add_ps(
+                    _mm_mul_ps( lhsC0, _mm_set1_ps( rhs.m[c * 4 + 0] ) ),
+                    _mm_mul_ps( lhsC1, _mm_set1_ps( rhs.m[c * 4 + 1] ) )
+                ),
+                _mm_add_ps(
+                    _mm_mul_ps( lhsC2, _mm_set1_ps( rhs.m[c * 4 + 2] ) ),
+                    _mm_mul_ps( lhsC3, _mm_set1_ps( rhs.m[c * 4 + 3] ) )
+                )
+            )
+        );
     }
     return Matrix4( r );
 #endif

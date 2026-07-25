@@ -126,27 +126,32 @@ struct PhysicsEngineLifecycleScenarioResult
     Math::Vector::Vector3 finalLinearVelocity = Math::Vector::ZERO_VECTOR;
 };
 
-PhysicsAuthoredBodyRegistration RegisterPhysicsSmokeBody( PhysicsEngine& engine,
-                                                          uint32_t sceneObjectValue,
-                                                          const Math::Vector::Vector3& position,
-                                                          const Math::Vector::Vector3& velocity,
-                                                          PhysicsBodyMotionKind motionKind,
-                                                          Geometry::Terrain* terrain )
+PhysicsAuthoredBodyRegistration RegisterPhysicsSmokeBody(
+    PhysicsEngine& engine,
+    uint32_t sceneObjectValue,
+    const Math::Vector::Vector3& position,
+    const Math::Vector::Vector3& velocity,
+    PhysicsBodyMotionKind motionKind,
+    Geometry::Terrain* terrain
+)
 {
-    const PhysicsSceneObjectId sceneObjectId{ sceneObjectValue };
+    const PhysicsSceneObjectId sceneObjectId { sceneObjectValue };
     const Math::CollisionDetection::BoundingSphere shape( 1.0f, Math::Vector::ZERO_VECTOR );
-    PhysicsBodyCreateDesc body = MakePhysicsBodyCreateDesc( sceneObjectId,
-                                                            shape,
-                                                            position,
-                                                            Math::Orientation::IDENTITY_QUATERNION,
-                                                            velocity,
-                                                            Math::Vector::ZERO_VECTOR,
-                                                            Math::Vector::Vector3( 2.0f, 2.0f, 2.0f ),
-                                                            2.0f,
-                                                            0.0f,
-                                                            motionKind,
-                                                            terrain,
-                                                            "physics_engine_smoke" );
+    PhysicsBodyCreateDesc body = MakePhysicsBodyCreateDesc(
+        sceneObjectId,
+        shape,
+        position,
+        Math::Orientation::IDENTITY_QUATERNION,
+        velocity,
+        Math::Vector::ZERO_VECTOR,
+        Math::Vector::Vector3( 2.0f, 2.0f, 2.0f ),
+        2.0f,
+        0.0f,
+        motionKind,
+        terrain,
+        "physics_engine_smoke"
+    );
+
     PhysicsColliderCreateDesc collider = MakeColliderCreateDesc( shape, 0.0f, HashStr( "default" ) );
     collider.sceneObjectId = sceneObjectId;
     return engine.RegisterAuthoredBody( body, std::move( collider ) );
@@ -165,25 +170,33 @@ PhysicsEngineLifecycleScenarioResult RunPhysicsEngineLifecycleScenario()
     engine.Clear();
     engine.ReserveAuthoredBodyCapacity( 3u );
 
-    const PhysicsAuthoredBodyRegistration fixed = RegisterPhysicsSmokeBody( engine,
-                                                                            71u,
-                                                                            Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ),
-                                                                            Math::Vector::ZERO_VECTOR,
-                                                                            PhysicsBodyMotionKind::Fixed,
-                                                                            &terrain );
-    const PhysicsAuthoredBodyRegistration dynamic = RegisterPhysicsSmokeBody( engine,
-                                                                              72u,
-                                                                              Math::Vector::Vector3( 4.0f, 2.0f, 0.0f ),
-                                                                              Math::Vector::Vector3( 1.0f, 0.0f, 0.0f ),
-                                                                              PhysicsBodyMotionKind::Dynamic,
-                                                                              &terrain );
-    const PhysicsAuthoredBodyRegistration transient =
-        RegisterPhysicsSmokeBody( engine,
-                                  73u,
-                                  Math::Vector::Vector3( 12.0f, 0.0f, 0.0f ),
-                                  Math::Vector::ZERO_VECTOR,
-                                  PhysicsBodyMotionKind::Dynamic,
-                                  &terrain );
+    const PhysicsAuthoredBodyRegistration fixed = RegisterPhysicsSmokeBody(
+        engine,
+        71u,
+        Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ),
+        Math::Vector::ZERO_VECTOR,
+        PhysicsBodyMotionKind::Fixed,
+        &terrain
+    );
+
+    const PhysicsAuthoredBodyRegistration dynamic = RegisterPhysicsSmokeBody(
+        engine,
+        72u,
+        Math::Vector::Vector3( 4.0f, 2.0f, 0.0f ),
+        Math::Vector::Vector3( 1.0f, 0.0f, 0.0f ),
+        PhysicsBodyMotionKind::Dynamic,
+        &terrain
+    );
+
+    const PhysicsAuthoredBodyRegistration transient = RegisterPhysicsSmokeBody(
+        engine,
+        73u,
+        Math::Vector::Vector3( 12.0f, 0.0f, 0.0f ),
+        Math::Vector::ZERO_VECTOR,
+        PhysicsBodyMotionKind::Dynamic,
+        &terrain
+    );
+
     const bool created = fixed.IsValid() && dynamic.IsValid() && transient.IsValid();
 
     PhysicsBodyUpdateDesc bodyUpdate;
@@ -194,9 +207,10 @@ PhysicsEngineLifecycleScenarioResult RunPhysicsEngineLifecycleScenario()
     bodyUpdate.mass = 2.0f;
     bodyUpdate.rotationalInertia = Math::Vector::Vector3( 2.0f, 2.0f, 2.0f );
     const Math::CollisionDetection::BoundingSphere updatedShape( 1.25f, Math::Vector::ZERO_VECTOR );
-    const bool updatedBodyAndCollider =
-        engine.UpdateAuthoredBodyAndCollider( bodyUpdate,
-                                              MakeColliderCreateDesc( updatedShape, 0.2f, HashStr( "default" ) ) );
+    const bool updatedBodyAndCollider = engine.UpdateAuthoredBodyAndCollider(
+        bodyUpdate,
+        MakeColliderCreateDesc( updatedShape, 0.2f, HashStr( "default" ) )
+    );
 
     PhysicsPointJointCreateDesc firstJointDesc;
     firstJointDesc.bodyA = fixed.body;
@@ -287,7 +301,7 @@ PhysicsEngineLifecycleScenarioResult RunPhysicsEngineLifecycleScenario()
     Threading::LockOrderValidator lockOrderValidator;
     Threading::WorkerPool inlineWorkers( lockOrderValidator );
     PhysicsWorldForces forces;
-    engine.Step( 0.25f, forces, inlineWorkers, PhysicsDiagnosticsCsvWriter{} );
+    engine.Step( 0.25f, forces, inlineWorkers, PhysicsDiagnosticsCsvWriter {} );
 
     PhysicsEngineLifecycleScenarioResult result;
     result.stepCount = 1u;
@@ -437,6 +451,7 @@ struct PhysicsRuntimeHandleSmokeResult
     PhysicsBodyHandle bodyA;
     std::string errorMessage;
 };
+
 PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
 {
     // Why: this smoke proves runtime-created bodies keep their returned physics
@@ -456,6 +471,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     {
         SkullbonezCore::Runtime::SceneEntityCreateDesc model;
         char name[32] = {};
+
         sprintf_s( name, sizeof( name ), "runtime_smoke_%d", i );
         model.SetName( name );
         PhysicsSceneObjectId sceneObjectId;
@@ -463,7 +479,9 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
         model.sceneObjectId = sceneObjectId;
         const SkullbonezCore::Math::CollisionDetection::BoundingSphere shape(
             0.75f,
-            SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) );
+            SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f )
+        );
+
         const auto appendResult = collection->Scene().TryCreateSceneEntity(
             std::move( model ),
             MakePhysicsBodyCreateDesc(
@@ -478,8 +496,11 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
                 0.0f,
                 PhysicsBodyMotionKind::Dynamic,
                 nullptr,
-                name ),
-            MakeColliderCreateDesc( shape, 0.0f, HashStr( "default" ) ) );
+                name
+            ),
+            MakeColliderCreateDesc( shape, 0.0f, HashStr( "default" ) )
+        );
+
         if ( !appendResult.status.ok )
         {
             result.errorMessage = appendResult.status.error.message;
@@ -493,26 +514,33 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     const int renderCountBeforeFailure = collection->Scene().GetRenderInstanceStore().Count();
     const uint32_t descriptorCountBeforeFailure = physics.AuthoredBodyDescriptorCount().value;
     SkullbonezCore::Runtime::SceneEntityCreateDesc duplicateEntity;
-    duplicateEntity.sceneObjectId = PhysicsSceneObjectId{ 1u };
+    duplicateEntity.sceneObjectId = PhysicsSceneObjectId { 1u };
+
     duplicateEntity.SetName( "runtime_smoke_duplicate" );
     const SkullbonezCore::Math::CollisionDetection::BoundingSphere duplicateShape(
         0.5f,
-        SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) );
+        SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f )
+    );
+
     const auto duplicateResult = collection->Scene().TryCreateSceneEntity(
         std::move( duplicateEntity ),
-        MakePhysicsBodyCreateDesc( PhysicsSceneObjectId{ 1u },
-                                   duplicateShape,
-                                   SkullbonezCore::Math::Vector::Vector3( 0.0f, 8.0f, 0.0f ),
-                                   SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
-                                   SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ),
-                                   SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ),
-                                   SkullbonezCore::Math::Vector::Vector3( 1.0f, 1.0f, 1.0f ),
-                                   1.0f,
-                                   0.0f,
-                                   PhysicsBodyMotionKind::Dynamic,
-                                   nullptr,
-                                   "runtime_smoke_duplicate" ),
-        MakeColliderCreateDesc( duplicateShape, 0.0f, HashStr( "default" ) ) );
+        MakePhysicsBodyCreateDesc(
+            PhysicsSceneObjectId { 1u },
+            duplicateShape,
+            SkullbonezCore::Math::Vector::Vector3( 0.0f, 8.0f, 0.0f ),
+            SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
+            SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ),
+            SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ),
+            SkullbonezCore::Math::Vector::Vector3( 1.0f, 1.0f, 1.0f ),
+            1.0f,
+            0.0f,
+            PhysicsBodyMotionKind::Dynamic,
+            nullptr,
+            "runtime_smoke_duplicate"
+        ),
+        MakeColliderCreateDesc( duplicateShape, 0.0f, HashStr( "default" ) )
+    );
+
     const bool failedCreationIsAtomic =
         !duplicateResult.status.ok && sceneEntities.Count() == entityCountBeforeFailure &&
         collection->Scene().BodyStore().Count() == bodyCountBeforeFailure &&
@@ -540,11 +568,16 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     colliderUpdate.body = bodyA;
     const bool colliderUpdateAccepted = physics.UpdateAuthoredBodyAndCollider(
         colliderUpdate,
-        MakeColliderCreateDesc( SkullbonezCore::Math::CollisionDetection::BoundingBox(
-                                    editedHalfExtents,
-                                    SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) ),
-                                EDITED_RESTITUTION,
-                                HashStr( "default" ) ) );
+        MakeColliderCreateDesc(
+            SkullbonezCore::Math::CollisionDetection::BoundingBox(
+                editedHalfExtents,
+                SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f )
+            ),
+            EDITED_RESTITUTION,
+            HashStr( "default" )
+        )
+    );
+
     const ColliderStore& refreshedColliderStore = collection->Scene().Colliders();
     const ColliderRecord& refreshedCollider = refreshedColliderStore.Records()[0];
     const float expectedBoxRadius = sqrtf( 0.25f * 0.25f + 1.25f * 1.25f + 0.5f * 0.5f );
@@ -587,7 +620,8 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
             MakePhysicsSceneObjectId( REORDER_BODY_A_SCENE_OBJECT_ID_VALUE + static_cast<uint32_t>( i ) );
         desc.shape = SkullbonezCore::Math::CollisionDetection::BoundingSphere(
             0.5f,
-            SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) );
+            SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f )
+        );
         desc.position = SkullbonezCore::Math::Vector::Vector3( static_cast<float>( i ) * 3.0f, 5.0f, 0.0f );
         desc.rotationalInertia = SkullbonezCore::Math::Vector::Vector3( 1.0f, 1.0f, 1.0f );
         desc.mass = 3.0f + static_cast<float>( i );
@@ -598,7 +632,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
         desc.dragCoefficient = SkullbonezCore::Math::CollisionDetection::GetShapeDragCoefficient( desc.shape );
         reorderBodyDescs.push_back( desc );
     }
-    reorderBodyStore->LoadFromDescriptors( reorderBodyDescs, std::vector<uint8_t>{} );
+    reorderBodyStore->LoadFromDescriptors( reorderBodyDescs, std::vector<uint8_t> {} );
     const PhysicsBodyHandle reorderedOriginalBody = reorderBodyStore->HandleForModelIndex( 0 );
     const uint32_t reorderBodyASceneObjectIdValue = REORDER_BODY_A_SCENE_OBJECT_ID_VALUE;
     const uint32_t reorderBodyBSceneObjectIdValue = REORDER_BODY_B_SCENE_OBJECT_ID_VALUE;
@@ -609,7 +643,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
         reorderBodyStore->SeedBodyAsleep( reorderedOriginalBody );
     reorderBodyDescs[0].sceneObjectId = MakePhysicsSceneObjectId( reorderBodyBSceneObjectIdValue );
     reorderBodyDescs[1].sceneObjectId = MakePhysicsSceneObjectId( reorderBodyASceneObjectIdValue );
-    reorderBodyStore->LoadFromDescriptors( reorderBodyDescs, std::vector<uint8_t>{} );
+    reorderBodyStore->LoadFromDescriptors( reorderBodyDescs, std::vector<uint8_t> {} );
     const int reorderedBodyAIndex = reorderBodyStore->ModelIndexForHandle( reorderedOriginalBody );
     const PhysicsBodyRecord* reorderedBodyARecord =
         reorderedBodyAIndex >= 0 ? reorderBodyStore->RecordForModelIndex( reorderedBodyAIndex ) : nullptr;
@@ -625,14 +659,17 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
         fabsf( reorderedBodyARecord->pendingImpulseApplicationPoint.x - pendingImpulsePoint.x ) < 0.0001f;
     const PhysicsBodyRecord* bodyBBeforeDelete = collection->Scene().BodyStore().RecordForHandle( bodyB );
     const int bodyBIndexBeforeDelete = collection->Scene().BodyStore().ModelIndexForHandle( bodyB );
-    const PhysicsBodyHotState bodyBHotBeforeDelete =
-        bodyBIndexBeforeDelete >= 0 ? LoadPhysicsBodyHotState( collection->Scene().BodyStore().HotFields(),
-                                                               static_cast<std::size_t>( bodyBIndexBeforeDelete ) )
-                                    : PhysicsBodyHotState{};
+    const PhysicsBodyHotState bodyBHotBeforeDelete = bodyBIndexBeforeDelete >= 0
+                                                         ? LoadPhysicsBodyHotState(
+                                                               collection->Scene().BodyStore().HotFields(),
+                                                               static_cast<std::size_t>( bodyBIndexBeforeDelete )
+                                                           )
+                                                         : PhysicsBodyHotState {};
+
     const SkullbonezCore::Math::Vector::Vector3 liveOnlyPosition( 42.0f, 17.0f, -3.0f );
-    const PhysicsBodyRestoreState liveOnlyRestore{
+    const PhysicsBodyRestoreState liveOnlyRestore {
         bodyB,
-        bodyBBeforeDelete ? bodyBBeforeDelete->sceneObjectId : PhysicsSceneObjectId{},
+        bodyBBeforeDelete ? bodyBBeforeDelete->sceneObjectId : PhysicsSceneObjectId {},
         bodyBHotBeforeDelete.fixed,
         liveOnlyPosition,
         bodyBHotBeforeDelete.orientation,
@@ -641,16 +678,21 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
         bodyBBeforeDelete ? bodyBBeforeDelete->mass : 0.0f,
         bodyBHotBeforeDelete.inverseMass,
         bodyBBeforeDelete ? bodyBBeforeDelete->rotationalInertia : SkullbonezCore::Math::Vector::ZERO_VECTOR,
-        bodyBHotBeforeDelete.inverseRotationalInertia };
+        bodyBHotBeforeDelete.inverseRotationalInertia
+    };
+
     const bool seededLiveOnlyState =
         bodyBBeforeDelete && bodyBIndexBeforeDelete >= 0 && physics.RestoreReplayBodyState( liveOnlyRestore );
     const bool destroyedBodyA = collection->Scene().DestroySceneEntity( bodyA );
     const PhysicsBodyRecord* survivingBody = collection->Scene().BodyStore().RecordForHandle( bodyB );
     const int survivingBodyIndex = collection->Scene().BodyStore().ModelIndexForHandle( bodyB );
     const SkullbonezCore::Math::Vector::Vector3 survivingPosition =
-        survivingBodyIndex >= 0 ? PhysicsBodyPosition( collection->Scene().BodyStore().HotFields(),
-                                                       static_cast<std::size_t>( survivingBodyIndex ) )
-                                : SkullbonezCore::Math::Vector::Vector3{};
+        survivingBodyIndex >= 0 ? PhysicsBodyPosition(
+                                      collection->Scene().BodyStore().HotFields(),
+                                      static_cast<std::size_t>( survivingBodyIndex )
+                                  )
+                                : SkullbonezCore::Math::Vector::Vector3 {};
+
     const bool deletionIsAtomic =
         seededLiveOnlyState && destroyedBodyA && !collection->Scene().BodyStore().Contains( bodyA ) && survivingBody &&
         collection->Scene().BodyStore().ModelIndexForHandle( bodyB ) == 0 && sceneEntities.Count() == 1 &&
@@ -757,55 +799,60 @@ bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outE
         {
             return;
         }
-        fprintf( stream,
-                 "[physics-engine-lifecycle-smoke] bodies=%u colliders=%u steps=%u "
-                 "final_position=(%.6f,%.6f,%.6f) final_velocity=(%.6f,%.6f,%.6f) "
-                 "lifecycle_checks=%s activation_checks=%s ray_cast=%s broadphase=%u contacts=%u "
-                 "island_states=%u deterministic=%s hash=0x%016llX repeat_hash=0x%016llX "
-                 "runtime_mirror_checks=%s\n",
-                 engineLifecycle.first.bodyCount,
-                 engineLifecycle.first.colliderCount,
-                 engineLifecycle.first.stepCount,
-                 engineLifecycle.first.finalPosition.x,
-                 engineLifecycle.first.finalPosition.y,
-                 engineLifecycle.first.finalPosition.z,
-                 engineLifecycle.first.finalLinearVelocity.x,
-                 engineLifecycle.first.finalLinearVelocity.y,
-                 engineLifecycle.first.finalLinearVelocity.z,
-                 engineLifecycle.first.lifecycleChecksPassed ? "pass" : "fail",
-                 engineLifecycle.first.activationChecksPassed ? "pass" : "fail",
-                 engineLifecycle.first.rayCastHit ? "pass" : "fail",
-                 engineLifecycle.first.broadphaseQueryCount,
-                 engineLifecycle.first.contactCount,
-                 engineLifecycle.first.islandStateCount,
-                 engineLifecycle.deterministic ? "pass" : "fail",
-                 static_cast<unsigned long long>( engineLifecycle.first.deterministicHash ),
-                 static_cast<unsigned long long>( engineLifecycle.repeatHash ),
-                 runtimeMirror.passed ? "pass" : "fail" );
-        fprintf( stream,
-                 "[physics-runtime-handle-smoke] bodies=%d colliders=%d render_instances=%d point_joints=%zu "
-                 "handle_a=(%u,%u) store_handles=%s render_mirror=%s joint_handles=%s collider_refresh=%s "
-                 "reorder_state=%s creation_atomic=%s deletion_atomic=%s mutation_handle=%s\n",
-                 runtimeMirror.bodyCount,
-                 runtimeMirror.colliderCount,
-                 runtimeMirror.renderInstanceCount,
-                 runtimeMirror.pointJointCount,
-                 runtimeMirror.bodyA.index,
-                 runtimeMirror.bodyA.generation,
-                 runtimeMirror.handlesMatchStores ? "pass" : "fail",
-                 runtimeMirror.renderMirrorMatches ? "pass" : "fail",
-                 runtimeMirror.jointUsesHandles ? "pass" : "fail",
-                 runtimeMirror.colliderRefreshMatches ? "pass" : "fail",
-                 runtimeMirror.reorderPreservesHandleState ? "pass" : "fail",
-                 runtimeMirror.failedCreationIsAtomic ? "pass" : "fail",
-                 runtimeMirror.deletionIsAtomic ? "pass" : "fail",
-                 runtimeMirror.mutationUsesStableHandle ? "pass" : "fail" );
+        fprintf(
+            stream,
+            "[physics-engine-lifecycle-smoke] bodies=%u colliders=%u steps=%u "
+            "final_position=(%.6f,%.6f,%.6f) final_velocity=(%.6f,%.6f,%.6f) "
+            "lifecycle_checks=%s activation_checks=%s ray_cast=%s broadphase=%u contacts=%u "
+            "island_states=%u deterministic=%s hash=0x%016llX repeat_hash=0x%016llX "
+            "runtime_mirror_checks=%s\n",
+            engineLifecycle.first.bodyCount,
+            engineLifecycle.first.colliderCount,
+            engineLifecycle.first.stepCount,
+            engineLifecycle.first.finalPosition.x,
+            engineLifecycle.first.finalPosition.y,
+            engineLifecycle.first.finalPosition.z,
+            engineLifecycle.first.finalLinearVelocity.x,
+            engineLifecycle.first.finalLinearVelocity.y,
+            engineLifecycle.first.finalLinearVelocity.z,
+            engineLifecycle.first.lifecycleChecksPassed ? "pass" : "fail",
+            engineLifecycle.first.activationChecksPassed ? "pass" : "fail",
+            engineLifecycle.first.rayCastHit ? "pass" : "fail",
+            engineLifecycle.first.broadphaseQueryCount,
+            engineLifecycle.first.contactCount,
+            engineLifecycle.first.islandStateCount,
+            engineLifecycle.deterministic ? "pass" : "fail",
+            static_cast<unsigned long long>( engineLifecycle.first.deterministicHash ),
+            static_cast<unsigned long long>( engineLifecycle.repeatHash ),
+            runtimeMirror.passed ? "pass" : "fail"
+        );
+        fprintf(
+            stream,
+            "[physics-runtime-handle-smoke] bodies=%d colliders=%d render_instances=%d point_joints=%zu "
+            "handle_a=(%u,%u) store_handles=%s render_mirror=%s joint_handles=%s collider_refresh=%s "
+            "reorder_state=%s creation_atomic=%s deletion_atomic=%s mutation_handle=%s\n",
+            runtimeMirror.bodyCount,
+            runtimeMirror.colliderCount,
+            runtimeMirror.renderInstanceCount,
+            runtimeMirror.pointJointCount,
+            runtimeMirror.bodyA.index,
+            runtimeMirror.bodyA.generation,
+            runtimeMirror.handlesMatchStores ? "pass" : "fail",
+            runtimeMirror.renderMirrorMatches ? "pass" : "fail",
+            runtimeMirror.jointUsesHandles ? "pass" : "fail",
+            runtimeMirror.colliderRefreshMatches ? "pass" : "fail",
+            runtimeMirror.reorderPreservesHandleState ? "pass" : "fail",
+            runtimeMirror.failedCreationIsAtomic ? "pass" : "fail",
+            runtimeMirror.deletionIsAtomic ? "pass" : "fail",
+            runtimeMirror.mutationUsesStableHandle ? "pass" : "fail"
+        );
         if ( !runtimeMirror.errorMessage.empty() )
         {
             fprintf( stream, "[physics-runtime-handle-smoke] error=\"%s\"\n", runtimeMirror.errorMessage.c_str() );
         }
         fflush( stream );
     };
+
     writeReport( stdout );
     const char* reportPath =
         FindOptionValue( commandLine, "--physics-standalone-smoke-log", "--physics_standalone_smoke_log" );
@@ -820,8 +867,10 @@ bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outE
     }
     if ( !engineLifecycle.passed || !runtimeMirror.passed )
     {
-        fprintf( stderr,
-                 "FAIL: physics engine lifecycle, deterministic repeat, or runtime mirror checks did not pass.\n" );
+        fprintf(
+            stderr,
+            "FAIL: physics engine lifecycle, deterministic repeat, or runtime mirror checks did not pass.\n"
+        );
         outExitCode = 1;
         return true;
     }

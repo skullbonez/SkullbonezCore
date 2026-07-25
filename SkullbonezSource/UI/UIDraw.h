@@ -63,12 +63,14 @@ class UIDrawList;
 class UIDrawContext
 {
   public:
-    UIDrawContext( int screenW,
-                   int screenH,
-                   UIDrawList* drawList = nullptr,
-                   Rendering::Dx12TextureOwner* renderTextures = nullptr,
-                   Rendering::Dx12GeometryOwner* renderCommands = nullptr,
-                   Text::TextBatch* textBatch = nullptr );
+    UIDrawContext(
+        int screenW,
+        int screenH,
+        UIDrawList* drawList = nullptr,
+        Rendering::Dx12TextureOwner* renderTextures = nullptr,
+        Rendering::Dx12GeometryOwner* renderCommands = nullptr,
+        Text::TextBatch* textBatch = nullptr
+    );
 
     void Rect( float x, float y, float w, float h, float r, float g, float b, float a ) const;
     void

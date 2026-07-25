@@ -153,11 +153,13 @@ int EditorMiniTreeObjectType( int treeType, int placement )
     return EditorTab::OBJECT_TREE_SMALL;
 }
 
-EditorMiniPaletteLayout BuildEditorMiniPaletteLayout( int screenW,
-                                                      int screenH,
-                                                      const UIRect& minimized,
-                                                      int flyoutAnchorEntry,
-                                                      bool flyoutOpen )
+EditorMiniPaletteLayout BuildEditorMiniPaletteLayout(
+    int screenW,
+    int screenH,
+    const UIRect& minimized,
+    int flyoutAnchorEntry,
+    bool flyoutOpen
+)
 {
     // Concept: The mini palette is the minimized editor's primary command
     // surface. One layout object drives drawing, hit boxes, flyout containment,
@@ -176,8 +178,10 @@ EditorMiniPaletteLayout BuildEditorMiniPaletteLayout( int screenW,
     if ( requiredH > availableH )
     {
         gap = 2.0f;
-        buttonSize = std::floor( ( availableH - static_cast<float>( layout.buttonCount - 1 ) * gap ) /
-                                 static_cast<float>( layout.buttonCount ) );
+        buttonSize = std::floor(
+            ( availableH - static_cast<float>( layout.buttonCount - 1 ) * gap ) /
+            static_cast<float>( layout.buttonCount )
+        );
         buttonSize = std::clamp( buttonSize, 10.0f, 32.0f );
         requiredH =
             static_cast<float>( layout.buttonCount ) * buttonSize + static_cast<float>( layout.buttonCount - 1 ) * gap;
@@ -214,6 +218,7 @@ EditorMiniPaletteLayout BuildEditorMiniPaletteLayout( int screenW,
         const float maxY = (std::max)( margin, static_cast<float>( screenH ) - margin - flyoutH );
         const float flyoutY = std::clamp( anchor.y + ( anchor.h - flyoutH ) * 0.5f, margin, maxY );
         layout.flyoutBounds = { flyoutX, flyoutY, flyoutW, flyoutH };
+
         layout.flyoutOptionCount = optionCount;
         for ( int i = 0; i < optionCount; ++i )
         {
@@ -269,13 +274,15 @@ bool IsBlockVisible( float contentY, float contentH, float blockY, float blockH 
     return blockY + blockH >= contentY && blockY <= contentY + contentH;
 }
 
-void DrawHitboxRect( const UIDrawContext& draw,
-                     const UIRect& bounds,
-                     float r,
-                     float g,
-                     float b,
-                     float fillA,
-                     float outlineA )
+void DrawHitboxRect(
+    const UIDrawContext& draw,
+    const UIRect& bounds,
+    float r,
+    float g,
+    float b,
+    float fillA,
+    float outlineA
+)
 {
     if ( bounds.w <= 0.0f || bounds.h <= 0.0f )
     {
@@ -310,13 +317,15 @@ void DrawTabHitboxes( const UIDrawContext& draw, const UITabBar& tabBar, int tab
     const float tabW = tabs.w / static_cast<float>( tabCount );
     for ( int i = 0; i < tabCount; ++i )
     {
-        DrawHitboxRect( draw,
-                        { tabs.x + static_cast<float>( i ) * tabW, tabs.y, tabW, tabs.h },
-                        1.0f,
-                        0.80f,
-                        0.18f,
-                        0.052f,
-                        0.84f );
+        DrawHitboxRect(
+            draw,
+            { tabs.x + static_cast<float>( i ) * tabW, tabs.y, tabW, tabs.h },
+            1.0f,
+            0.80f,
+            0.18f,
+            0.052f,
+            0.84f
+        );
     }
 }
 
@@ -346,13 +355,15 @@ void EllipsizeToWidth( char* text, size_t textSize, float pxSize, float maxWidth
     }
 }
 
-void DrawFittedText( const UIDrawContext& draw,
-                     float x,
-                     float y,
-                     float pxSize,
-                     const Style::UIColor& color,
-                     const char* value,
-                     float maxWidth )
+void DrawFittedText(
+    const UIDrawContext& draw,
+    float x,
+    float y,
+    float pxSize,
+    const Style::UIColor& color,
+    const char* value,
+    float maxWidth
+)
 {
     char text[192] = {};
     snprintf( text, sizeof( text ), "%s", value ? value : "" );
@@ -488,10 +499,12 @@ float RenderValueForParam( const SkullbonezCore::Core::OrdinaryRenderConfig& ord
     }
 }
 
-void SetRenderSliderResult( InGameUIInputResult& result,
-                            const UISlider& slider,
-                            int mouseX,
-                            const RenderSliderSpec& spec )
+void SetRenderSliderResult(
+    InGameUIInputResult& result,
+    const UISlider& slider,
+    int mouseX,
+    const RenderSliderSpec& spec
+)
 {
     result.commands.renderTuning.requestedParam = spec.param;
     result.commands.renderTuning.requestedValue =
@@ -504,10 +517,12 @@ float EditorMiniChipWidth( const char* label )
 }
 
 
-EditorMinimizedStatusLayout BuildEditorMinimizedStatusLayout( const UIRect& minimized,
-                                                              bool editorPlacementMode,
-                                                              bool editorPlaceStatic,
-                                                              bool editorTerrainAlign )
+EditorMinimizedStatusLayout BuildEditorMinimizedStatusLayout(
+    const UIRect& minimized,
+    bool editorPlacementMode,
+    bool editorPlaceStatic,
+    bool editorTerrainAlign
+)
 {
     EditorMinimizedStatusLayout layout;
     layout.restoreButton = { minimized.x + minimized.w - 36.0f, minimized.y + 7.0f, 26.0f, 22.0f };
@@ -524,8 +539,11 @@ EditorMinimizedStatusLayout BuildEditorMinimizedStatusLayout( const UIRect& mini
     const float bodyX = alignX - 8.0f - bodyW;
     const float modeX = bodyX - 8.0f - modeW;
     layout.modeChip = { modeX, chipY, modeW, 20.0f };
+
     layout.bodyChip = { bodyX, chipY, bodyW, 20.0f };
+
     layout.alignChip = { alignX, chipY, alignW, 20.0f };
+
     layout.labelX = layout.glyph.x + layout.glyph.w + 10.0f;
     layout.labelMaxW = (std::max)( 42.0f, modeX - layout.labelX - 10.0f );
     return layout;
@@ -534,10 +552,12 @@ EditorMinimizedStatusLayout BuildEditorMinimizedStatusLayout( const UIRect& mini
 
 EditorMinimizedStatusLayout BuildEditorMinimizedStatusLayout( const UIRect& minimized, const InGameUIFrameData& data )
 {
-    return BuildEditorMinimizedStatusLayout( minimized,
-                                             data.editorPlacementMode,
-                                             data.editorPlaceStatic,
-                                             data.editorTerrainAlign );
+    return BuildEditorMinimizedStatusLayout(
+        minimized,
+        data.editorPlacementMode,
+        data.editorPlaceStatic,
+        data.editorTerrainAlign
+    );
 }
 
 
@@ -555,13 +575,15 @@ float EditorMinimizedWidth( const InGameUIFrameData& data, int screenW )
 }
 
 
-void DrawEditorMiniChip( const UIDrawContext& draw,
-                         float x,
-                         float y,
-                         const char* label,
-                         const Style::UIColor& fill,
-                         const Style::UIColor& text,
-                         bool hot )
+void DrawEditorMiniChip(
+    const UIDrawContext& draw,
+    float x,
+    float y,
+    const char* label,
+    const Style::UIColor& fill,
+    const Style::UIColor& text,
+    bool hot
+)
 {
     const Style::UIPalette& palette = Style::Palette();
     const float w = EditorMiniChipWidth( label );
@@ -594,11 +616,13 @@ bool IsEditorMiniHullType( int objectType )
 }
 
 
-bool EditorMiniTreeVisualForType( int objectType,
-                                  int& outTreeType,
-                                  int& outPlacement,
-                                  bool& outSlope,
-                                  bool& outShedding )
+bool EditorMiniTreeVisualForType(
+    int objectType,
+    int& outTreeType,
+    int& outPlacement,
+    bool& outSlope,
+    bool& outShedding
+)
 {
     outSlope = false;
     outShedding = false;

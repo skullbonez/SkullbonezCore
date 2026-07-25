@@ -70,12 +70,14 @@ const Rendering::RenderMaterial& SceneEntityCreateDesc::GetRenderMaterial() cons
     return renderMaterial;
 }
 
-void SceneEntityCreateDesc::SetAssetAffiliation( Physics::PhysicsSceneObjectId rootObjectId,
-                                                 const char* libraryToken,
-                                                 const char* assetName,
-                                                 const char* instanceName,
-                                                 const char* partName,
-                                                 uint32_t partIndex )
+void SceneEntityCreateDesc::SetAssetAffiliation(
+    Physics::PhysicsSceneObjectId rootObjectId,
+    const char* libraryToken,
+    const char* assetName,
+    const char* instanceName,
+    const char* partName,
+    uint32_t partIndex
+)
 {
     asset.rootObjectId = rootObjectId;
     CopyBounded( asset.libraryToken, sizeof( asset.libraryToken ), libraryToken );
@@ -86,9 +88,11 @@ void SceneEntityCreateDesc::SetAssetAffiliation( Physics::PhysicsSceneObjectId r
     asset.isAssetBacked = true;
 }
 
-void SceneEntityCreateDesc::SetBehaviorGroup( SceneBehaviorGroupKind kind,
-                                              Physics::PhysicsSceneObjectId rootObjectId,
-                                              int partIndex )
+void SceneEntityCreateDesc::SetBehaviorGroup(
+    SceneBehaviorGroupKind kind,
+    Physics::PhysicsSceneObjectId rootObjectId,
+    int partIndex
+)
 {
     behaviorGroup.kind = kind;
     behaviorGroup.rootObjectId = rootObjectId;
@@ -106,11 +110,13 @@ void SceneEntityStore::ConfigureCapacity( int capacity )
 {
     if ( capacity < 1 || capacity > SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS || Count() > capacity )
     {
-        SB_FATAL( "Scene/SceneEntityStore",
-                  "Invalid scene entity capacity. requested=%d count=%d max=%d",
-                  capacity,
-                  Count(),
-                  SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+        SB_FATAL(
+            "Scene/SceneEntityStore",
+            "Invalid scene entity capacity. requested=%d count=%d max=%d",
+            capacity,
+            Count(),
+            SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS
+        );
     }
     // Phase: scene-load preallocation. Growth is allowed only before the first
     // entity of the replacement scene is published; Clear deliberately retains
@@ -131,21 +137,27 @@ SkullbonezCore::Core::SbResult SceneEntityStore::PreflightAppend( const SceneEnt
 {
     if ( Count() >= m_capacity )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneEntityStore",
-                                                        "Scene entity capacity exhausted. count=%d capacity=%d",
-                                                        Count(),
-                                                        m_capacity );
+        return SkullbonezCore::Core::SbResult::Failure(
+            "Scene/SceneEntityStore",
+            "Scene entity capacity exhausted. count=%d capacity=%d",
+            Count(),
+            m_capacity
+        );
     }
     if ( !entity.sceneObjectId.IsValid() )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneEntityStore",
-                                                        "Cannot append a scene entity with id 0." );
+        return SkullbonezCore::Core::SbResult::Failure(
+            "Scene/SceneEntityStore",
+            "Cannot append a scene entity with id 0."
+        );
     }
     if ( FindBySceneObjectId( entity.sceneObjectId ) >= 0 )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneEntityStore",
-                                                        "Duplicate scene entity id %u.",
-                                                        entity.sceneObjectId.value );
+        return SkullbonezCore::Core::SbResult::Failure(
+            "Scene/SceneEntityStore",
+            "Duplicate scene entity id %u.",
+            entity.sceneObjectId.value
+        );
     }
     // Invariant: stable group roots are validated before downstream physics or
     // render rows mutate. A root may name this part-zero entity; later members
@@ -155,23 +167,29 @@ SkullbonezCore::Core::SbResult SceneEntityStore::PreflightAppend( const SceneEnt
     {
         if ( !group.rootObjectId.IsValid() || group.partIndex < 0 )
         {
-            return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneEntityStore",
-                                                            "Behavior group requires a valid root id and part." );
+            return SkullbonezCore::Core::SbResult::Failure(
+                "Scene/SceneEntityStore",
+                "Behavior group requires a valid root id and part."
+            );
         }
         const int rootIndex = FindBySceneObjectId( group.rootObjectId );
         if ( group.rootObjectId.value == entity.sceneObjectId.value )
         {
             if ( group.partIndex != 0 )
             {
-                return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneEntityStore",
-                                                                "Behavior group root must be part zero." );
+                return SkullbonezCore::Core::SbResult::Failure(
+                    "Scene/SceneEntityStore",
+                    "Behavior group root must be part zero."
+                );
             }
         }
         else if ( rootIndex < 0 )
         {
-            return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneEntityStore",
-                                                            "Behavior group root id %u has not been created.",
-                                                            group.rootObjectId.value );
+            return SkullbonezCore::Core::SbResult::Failure(
+                "Scene/SceneEntityStore",
+                "Behavior group root id %u has not been created.",
+                group.rootObjectId.value
+            );
         }
         else
         {
@@ -179,9 +197,11 @@ SkullbonezCore::Core::SbResult SceneEntityStore::PreflightAppend( const SceneEnt
             if ( rootGroup.kind != group.kind || rootGroup.rootObjectId.value != group.rootObjectId.value ||
                  rootGroup.partIndex != 0 )
             {
-                return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneEntityStore",
-                                                                "Behavior group root id %u has incompatible metadata.",
-                                                                group.rootObjectId.value );
+                return SkullbonezCore::Core::SbResult::Failure(
+                    "Scene/SceneEntityStore",
+                    "Behavior group root id %u has incompatible metadata.",
+                    group.rootObjectId.value
+                );
             }
         }
     }
@@ -203,7 +223,8 @@ void SceneEntityStore::CommitAppend( const SceneEntityCreateDesc& entity, Physic
             entity.sceneObjectId.value,
             body.IsValid() ? 1 : 0,
             m_records.capacity(),
-            reason );
+            reason
+        );
     }
 
     // Invariant: reservationReady makes this append allocation-free.
@@ -219,19 +240,23 @@ void SceneEntityStore::CommitAppend( const SceneEntityCreateDesc& entity, Physic
     record.editorLocked = entity.editorLocked;
 }
 
-void SceneEntityStore::UpdateBodyHandleAt( int index,
-                                           Physics::PhysicsBodyHandle body,
-                                           Physics::PhysicsSceneObjectId sceneObjectId )
+void SceneEntityStore::UpdateBodyHandleAt(
+    int index,
+    Physics::PhysicsBodyHandle body,
+    Physics::PhysicsSceneObjectId sceneObjectId
+)
 {
     SceneEntityRecord& record = MutableAt( index );
     if ( !body.IsValid() || record.sceneObjectId.value != sceneObjectId.value )
     {
-        SB_FATAL( "Scene/SceneEntityStore",
-                  "Body refresh identity mismatch. row=%d entity_id=%u body_id=%u body_valid=%d",
-                  index,
-                  record.sceneObjectId.value,
-                  sceneObjectId.value,
-                  body.IsValid() ? 1 : 0 );
+        SB_FATAL(
+            "Scene/SceneEntityStore",
+            "Body refresh identity mismatch. row=%d entity_id=%u body_id=%u body_valid=%d",
+            index,
+            record.sceneObjectId.value,
+            sceneObjectId.value,
+            body.IsValid() ? 1 : 0
+        );
     }
     record.body = body;
 }
@@ -359,10 +384,12 @@ int SceneEntityStore::ResolveBehaviorGroupRootModelIndex( const SceneBehaviorGro
     const int rootIndex = FindBySceneObjectId( group.rootObjectId );
     if ( rootIndex < 0 )
     {
-        SB_FATAL( "Scene/SceneEntityStore",
-                  "Behavior group root is missing. root_id=%u kind=%u",
-                  group.rootObjectId.value,
-                  static_cast<unsigned int>( group.kind ) );
+        SB_FATAL(
+            "Scene/SceneEntityStore",
+            "Behavior group root is missing. root_id=%u kind=%u",
+            group.rootObjectId.value,
+            static_cast<unsigned int>( group.kind )
+        );
     }
     return rootIndex;
 }

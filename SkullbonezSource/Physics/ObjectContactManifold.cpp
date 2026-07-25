@@ -154,9 +154,13 @@ struct PolytopeWorld
 {
     Vector3 center = ZERO_VECTOR;
     Vector3 vertices[ConvexHullShape::MAX_VERTICES] = {};
+
     PolyFaceWorld faces[ConvexHullShape::MAX_FACES] = {};
+
     PolyEdgeWorld edges[ConvexHullShape::MAX_EDGES] = {};
+
     uint16_t faceIndices[ConvexHullShape::MAX_FACE_INDICES] = {};
+
     uint16_t vertexCount = 0;
     uint16_t faceCount = 0;
     uint16_t edgeCount = 0;
@@ -268,12 +272,14 @@ uint32_t EncodeBoxEdgeFeature( uint32_t edgeA, uint32_t edgeB )
     return ( FEATURE_KIND_BOX_EDGE << 14 ) | ( ( edgeA & 0x0fu ) << 10 ) | ( ( edgeB & 0x0fu ) << 6 );
 }
 
-void AddContactPoint( const ObjectContactBodyView& a,
-                      const ObjectContactBodyView& b,
-                      ObjectContactManifold& manifold,
-                      const Vector3& point,
-                      float penetration,
-                      uint32_t featureId )
+void AddContactPoint(
+    const ObjectContactBodyView& a,
+    const ObjectContactBodyView& b,
+    ObjectContactManifold& manifold,
+    const Vector3& point,
+    float penetration,
+    uint32_t featureId
+)
 {
     // CATTO REF:
     //   Catto Section 4 rows store a contact point plus r1/r2 arms. This helper
@@ -293,10 +299,12 @@ void AddContactPoint( const ObjectContactBodyView& a,
 }
 
 template <std::size_t CandidateCapacity>
-int SelectContactCandidateIndices( const ContactCandidate ( &candidates )[CandidateCapacity],
-                                   int candidateCount,
-                                   const Vector3& normal,
-                                   int ( &selectedIndices )[4] )
+int SelectContactCandidateIndices(
+    const ContactCandidate ( &candidates )[CandidateCapacity],
+    int candidateCount,
+    const Vector3& normal,
+    int ( &selectedIndices )[4]
+)
 {
     // Invariant: the deepest row is always selected first. The remaining rows
     // maximize their minimum tangent-plane distance from the selected set, so a
@@ -410,12 +418,14 @@ int SelectContactCandidateIndices( const ContactCandidate ( &candidates )[Candid
 // ENGINE-SPECIFIC:
 //   Sphere centers may include local shape offsets, so SphereCenter applies the
 //   current orientation before using the classic center-to-center normal.
-bool BuildSphereSphere( const ObjectContactBodyView& a,
-                        const BoundingSphere& sphereA,
-                        const ObjectContactBodyView& b,
-                        const BoundingSphere& sphereB,
-                        float contactSkin,
-                        ObjectContactManifold& out )
+bool BuildSphereSphere(
+    const ObjectContactBodyView& a,
+    const BoundingSphere& sphereA,
+    const ObjectContactBodyView& b,
+    const BoundingSphere& sphereB,
+    float contactSkin,
+    ObjectContactManifold& out
+)
 {
     Vector3 centerA = SphereCenter( a, sphereA );
     Vector3 centerB = SphereCenter( b, sphereB );
@@ -445,6 +455,7 @@ int ChooseDominantFace( const Vector3& localPoint, const Vector3& halfExtents, f
     float best = -FLT_MAX;
     int bestAxis = 0;
     float coords[3] = { localPoint.x, localPoint.y, localPoint.z };
+
     float extents[3] = { halfExtents.x, halfExtents.y, halfExtents.z };
 
     for ( int axis = 0; axis < 3; ++axis )
@@ -465,13 +476,15 @@ int ChooseDominantFace( const Vector3& localPoint, const Vector3& halfExtents, f
 //   Sphere/OBB uses the closest point on the oriented box in box-local space.
 //   When the sphere center is inside the box, the closest point is ambiguous; we
 //   choose the nearest face so the normal and feature ID stay deterministic.
-bool BuildSphereBoxOrdered( const ObjectContactBodyView& sphereBody,
-                            const BoundingSphere& sphere,
-                            const ObjectContactBodyView& boxBody,
-                            const BoundingBox& box,
-                            bool sphereIsA,
-                            float contactSkin,
-                            ObjectContactManifold& out )
+bool BuildSphereBoxOrdered(
+    const ObjectContactBodyView& sphereBody,
+    const BoundingSphere& sphere,
+    const ObjectContactBodyView& boxBody,
+    const BoundingBox& box,
+    bool sphereIsA,
+    float contactSkin,
+    ObjectContactManifold& out
+)
 {
     BoxWorld bw = MakeBoxWorld( boxBody, box );
     Vector3 sphereCenter = SphereCenter( sphereBody, sphere );
@@ -479,9 +492,11 @@ bool BuildSphereBoxOrdered( const ObjectContactBodyView& sphereBody,
     RotationMatrix rot = q.GetOrientationMatrix();
     Vector3 local = rot.TransposeMultiply( sphereCenter - bw.center );
 
-    Vector3 closestLocal( ClampFloat( local.x, -bw.halfExtents.x, bw.halfExtents.x ),
-                          ClampFloat( local.y, -bw.halfExtents.y, bw.halfExtents.y ),
-                          ClampFloat( local.z, -bw.halfExtents.z, bw.halfExtents.z ) );
+    Vector3 closestLocal(
+        ClampFloat( local.x, -bw.halfExtents.x, bw.halfExtents.x ),
+        ClampFloat( local.y, -bw.halfExtents.y, bw.halfExtents.y ),
+        ClampFloat( local.z, -bw.halfExtents.z, bw.halfExtents.z )
+    );
     Vector3 closestWorld = bw.center + rot * closestLocal;
     Vector3 boxToSphere = sphereCenter - closestWorld;
     float distSq = VectorMagSquared( boxToSphere );
@@ -509,6 +524,7 @@ bool BuildSphereBoxOrdered( const ObjectContactBodyView& sphereBody,
         float distances[3] = { bw.halfExtents.x - fabsf( local.x ),
                                bw.halfExtents.y - fabsf( local.y ),
                                bw.halfExtents.z - fabsf( local.z ) };
+
         int faceAxis = 0;
         if ( distances[1] < distances[faceAxis] - 1.0e-5f )
         {
@@ -532,12 +548,15 @@ bool BuildSphereBoxOrdered( const ObjectContactBodyView& sphereBody,
 
     Vector3 spherePoint = sphereCenter + normalSphereToBox * sphere.GetRadius();
     Vector3 contactPoint = ( spherePoint + closestWorld ) * 0.5f;
-    AddContactPoint( sphereIsA ? sphereBody : boxBody,
-                     sphereIsA ? boxBody : sphereBody,
-                     out,
-                     contactPoint,
-                     penetration,
-                     EncodeSphereBoxFeature( !sphereIsA, face ) );
+    AddContactPoint(
+        sphereIsA ? sphereBody : boxBody,
+        sphereIsA ? boxBody : sphereBody,
+        out,
+        contactPoint,
+        penetration,
+        EncodeSphereBoxFeature( !sphereIsA, face )
+    );
+
     return out.pointCount > 0;
 }
 
@@ -556,15 +575,17 @@ float ProjectBoxRadius( const BoxWorld& box, const Vector3& axis )
 //   manifold rows, but this SAT selection is local 3D narrowphase policy. Ties
 //   prefer face axes before edge axes to keep stacks from flipping between
 //   equivalent edge contacts when overlap is nearly equal.
-bool AcceptSatAxis( const BoxWorld& a,
-                    const BoxWorld& b,
-                    const Vector3& axisRaw,
-                    int axisType,
-                    int axisA,
-                    int axisB,
-                    const Vector3& centerDelta,
-                    float contactSkin,
-                    SatResult& best )
+bool AcceptSatAxis(
+    const BoxWorld& a,
+    const BoxWorld& b,
+    const Vector3& axisRaw,
+    int axisType,
+    int axisA,
+    int axisB,
+    const Vector3& centerDelta,
+    float contactSkin,
+    SatResult& best
+)
 {
     float magSq = VectorMagSquared( axisRaw );
     if ( magSq <= 1.0e-8f )
@@ -664,12 +685,14 @@ void BuildFaceVertices( const BoxWorld& box, int faceAxis, float faceSign, ClipV
 //   Catto discusses clipped box manifolds in 2D; this is the 3D Skullbonez
 //   extension that clips an incident OBB face against the side planes of the
 //   reference OBB face.
-int ClipPolygonAgainstPlane( const ClipVertex* input,
-                             int inputCount,
-                             const Vector3& planePoint,
-                             const Vector3& inwardNormal,
-                             float contactSkin,
-                             ClipVertex* output )
+int ClipPolygonAgainstPlane(
+    const ClipVertex* input,
+    int inputCount,
+    const Vector3& planePoint,
+    const Vector3& inwardNormal,
+    float contactSkin,
+    ClipVertex* output
+)
 {
     // Keep only the portion of an incident face that lies inside one boundary
     // plane of the reference face. Repeating this for all four side planes trims
@@ -721,12 +744,14 @@ int ClipPolygonAgainstPlane( const ClipVertex* input,
 //   Clip the incident face to the four side planes surrounding the reference
 //   face. The surviving polygon vertices are the multi-point face manifold that
 //   the persistent Catto-style solver can warm start independently.
-int ClipIncidentFaceToReference( const BoxWorld& refBox,
-                                 int refAxis,
-                                 float refSign,
-                                 const ClipVertex incident[4],
-                                 float contactSkin,
-                                 ClipVertex clipped[8] )
+int ClipIncidentFaceToReference(
+    const BoxWorld& refBox,
+    int refAxis,
+    float refSign,
+    const ClipVertex incident[4],
+    float contactSkin,
+    ClipVertex clipped[8]
+)
 {
     ClipVertex tempA[8];
     ClipVertex tempB[8];
@@ -816,15 +841,17 @@ int ChooseIncidentFace( const BoxWorld& incidentBox, const Vector3& refNormal, f
 //   Reference/incident face clipping is the engine's 3D OBB manifold generator.
 //   Contact points are placed halfway through the residual separation so the
 //   solver receives centered rA/rB arms for shallow overlap.
-bool BuildBoxFaceContact( const ObjectContactBodyView& aBody,
-                          const ObjectContactBodyView& bBody,
-                          const BoxWorld& boxA,
-                          const BoxWorld& boxB,
-                          bool referenceIsA,
-                          int referenceAxis,
-                          const Vector3& finalNormal,
-                          float contactSkin,
-                          ObjectContactManifold& out )
+bool BuildBoxFaceContact(
+    const ObjectContactBodyView& aBody,
+    const ObjectContactBodyView& bBody,
+    const BoxWorld& boxA,
+    const BoxWorld& boxB,
+    bool referenceIsA,
+    int referenceAxis,
+    const Vector3& finalNormal,
+    float contactSkin,
+    ObjectContactManifold& out
+)
 {
     const BoxWorld& refBox = referenceIsA ? boxA : boxB;
     const BoxWorld& incBox = referenceIsA ? boxB : boxA;
@@ -885,13 +912,15 @@ uint32_t EdgeId( int edgeAxis, int sign0, int sign1 )
     return static_cast<uint32_t>( edgeAxis * 4 + s0 * 2 + s1 );
 }
 
-void BuildEdgeSegment( const BoxWorld& box,
-                       int edgeAxis,
-                       const Vector3& towardNormal,
-                       bool maximize,
-                       Vector3& p0,
-                       Vector3& p1,
-                       uint32_t& edgeId )
+void BuildEdgeSegment(
+    const BoxWorld& box,
+    int edgeAxis,
+    const Vector3& towardNormal,
+    bool maximize,
+    Vector3& p0,
+    Vector3& p1,
+    uint32_t& edgeId
+)
 {
     // Build the world-space line segment for the edge most exposed in the
     // contact direction. Edge/edge contacts need the actual two endpoints so the
@@ -919,12 +948,14 @@ void BuildEdgeSegment( const BoxWorld& box,
 //   Segment-segment closest points are used only for SAT edge-edge axes, where a
 //   clipped face manifold would be under-constrained. The midpoint becomes one
 //   Catto-style contact row with an edge-pair feature ID.
-void ClosestPointsOnSegments( const Vector3& p1,
-                              const Vector3& q1,
-                              const Vector3& p2,
-                              const Vector3& q2,
-                              Vector3& c1,
-                              Vector3& c2 )
+void ClosestPointsOnSegments(
+    const Vector3& p1,
+    const Vector3& q1,
+    const Vector3& p2,
+    const Vector3& q2,
+    Vector3& c1,
+    Vector3& c2
+)
 {
     Vector3 d1 = q1 - p1;
     Vector3 d2 = q2 - p2;
@@ -984,12 +1015,14 @@ void ClosestPointsOnSegments( const Vector3& p1,
 //   Edge contacts are the fallback for cross-product SAT axes. They intentionally
 //   produce a single row because two OBB edges touching do not have a contact
 //   patch to clip.
-bool BuildBoxEdgeContact( const ObjectContactBodyView& aBody,
-                          const ObjectContactBodyView& bBody,
-                          const BoxWorld& boxA,
-                          const BoxWorld& boxB,
-                          const SatResult& sat,
-                          ObjectContactManifold& out )
+bool BuildBoxEdgeContact(
+    const ObjectContactBodyView& aBody,
+    const ObjectContactBodyView& bBody,
+    const BoxWorld& boxA,
+    const BoxWorld& boxB,
+    const SatResult& sat,
+    ObjectContactManifold& out
+)
 {
     Vector3 a0;
     Vector3 a1;
@@ -1011,12 +1044,14 @@ bool BuildBoxEdgeContact( const ObjectContactBodyView& aBody,
 //   Box/box first chooses the SAT minimum-overlap axis, then maps face axes to a
 //   clipped four-point manifold and edge axes to a one-point edge manifold. The
 //   persistent solver downstream is Catto-style; this shape dispatch is local.
-bool BuildBoxBox( const ObjectContactBodyView& aBody,
-                  const BoundingBox& aBox,
-                  const ObjectContactBodyView& bBody,
-                  const BoundingBox& bBox,
-                  float contactSkin,
-                  ObjectContactManifold& out )
+bool BuildBoxBox(
+    const ObjectContactBodyView& aBody,
+    const BoundingBox& aBox,
+    const ObjectContactBodyView& bBody,
+    const BoundingBox& bBox,
+    float contactSkin,
+    ObjectContactManifold& out
+)
 {
     BoxWorld boxA = MakeBoxWorld( aBody, aBox );
     BoxWorld boxB = MakeBoxWorld( bBody, bBox );
@@ -1069,11 +1104,13 @@ void AddPolyEdge( PolytopeWorld& poly, uint16_t a, uint16_t b, uint16_t sourceId
     ++poly.edgeCount;
 }
 
-void AddPolyFace( PolytopeWorld& poly,
-                  const Vector3& normal,
-                  const uint16_t* indices,
-                  uint8_t count,
-                  uint16_t sourceId )
+void AddPolyFace(
+    PolytopeWorld& poly,
+    const Vector3& normal,
+    const uint16_t* indices,
+    uint8_t count,
+    uint16_t sourceId
+)
 {
     if ( poly.faceCount >= ConvexHullShape::MAX_FACES ||
          poly.faceIndexCount + count > ConvexHullShape::MAX_FACE_INDICES )
@@ -1112,10 +1149,15 @@ PolytopeWorld MakeBoxPolytope( const ObjectContactBodyView& body, const Bounding
 
     const uint16_t faceNegX[4] = { 0, 4, 6, 2 };
     const uint16_t facePosX[4] = { 1, 3, 7, 5 };
+
     const uint16_t faceNegY[4] = { 0, 1, 5, 4 };
+
     const uint16_t facePosY[4] = { 2, 6, 7, 3 };
+
     const uint16_t faceNegZ[4] = { 0, 2, 3, 1 };
+
     const uint16_t facePosZ[4] = { 4, 5, 7, 6 };
+
     AddPolyFace( out, -bw.axes[0], faceNegX, 4, static_cast<uint16_t>( FaceId( 0, -1.0f ) ) );
     AddPolyFace( out, bw.axes[0], facePosX, 4, static_cast<uint16_t>( FaceId( 0, 1.0f ) ) );
     AddPolyFace( out, -bw.axes[1], faceNegY, 4, static_cast<uint16_t>( FaceId( 1, -1.0f ) ) );
@@ -1136,6 +1178,7 @@ PolytopeWorld MakeBoxPolytope( const ObjectContactBodyView& body, const Bounding
                 for ( uint16_t v = 0; v < 8; ++v )
                 {
                     int signs[3] = { ( v & 1 ) ? 1 : -1, ( v & 2 ) ? 1 : -1, ( v & 4 ) ? 1 : -1 };
+
                     if ( signs[side0] == sign0 && signs[side1] == sign1 )
                     {
                         if ( signs[axis] < 0 )
@@ -1148,12 +1191,14 @@ PolytopeWorld MakeBoxPolytope( const ObjectContactBodyView& body, const Bounding
                         }
                     }
                 }
-                AddPolyEdge( out,
-                             a,
-                             b,
-                             static_cast<uint16_t>( EdgeId( axis, sign0, sign1 ) ),
-                             static_cast<uint16_t>( FaceId( side0, static_cast<float>( sign0 ) ) ),
-                             static_cast<uint16_t>( FaceId( side1, static_cast<float>( sign1 ) ) ) );
+                AddPolyEdge(
+                    out,
+                    a,
+                    b,
+                    static_cast<uint16_t>( EdgeId( axis, sign0, sign1 ) ),
+                    static_cast<uint16_t>( FaceId( side0, static_cast<float>( sign0 ) ) ),
+                    static_cast<uint16_t>( FaceId( side1, static_cast<float>( sign1 ) ) )
+                );
             }
         }
     }
@@ -1227,11 +1272,13 @@ bool EdgeSupportsAxis( const PolytopeWorld& poly, const PolyEdgeWorld& edge, con
            poly.faces[edge.faceB].normal * axis >= -normalConeSlop;
 }
 
-bool IsUsefulPolyEdgeAxis( const PolytopeWorld& a,
-                           const PolytopeWorld& b,
-                           const PolyEdgeWorld& edgeA,
-                           const PolyEdgeWorld& edgeB,
-                           const Vector3& axisRaw )
+bool IsUsefulPolyEdgeAxis(
+    const PolytopeWorld& a,
+    const PolytopeWorld& b,
+    const PolyEdgeWorld& edgeA,
+    const PolyEdgeWorld& edgeB,
+    const Vector3& axisRaw
+)
 {
     const float magSq = VectorMagSquared( axisRaw );
     if ( magSq <= 1.0e-8f )
@@ -1244,14 +1291,16 @@ bool IsUsefulPolyEdgeAxis( const PolytopeWorld& a,
            ( EdgeSupportsAxis( a, edgeA, -axis ) && EdgeSupportsAxis( b, edgeB, axis ) );
 }
 
-bool AcceptPolyAxis( const PolytopeWorld& a,
-                     const PolytopeWorld& b,
-                     const Vector3& axisRaw,
-                     int axisType,
-                     int axisA,
-                     int axisB,
-                     float contactSkin,
-                     SatResult& best )
+bool AcceptPolyAxis(
+    const PolytopeWorld& a,
+    const PolytopeWorld& b,
+    const Vector3& axisRaw,
+    int axisType,
+    int axisA,
+    int axisB,
+    float contactSkin,
+    SatResult& best
+)
 {
     float magSq = VectorMagSquared( axisRaw );
     if ( magSq <= 1.0e-8f )
@@ -1350,13 +1399,15 @@ uint16_t EncodeClippedPolyVertexId( uint16_t prevId, uint16_t curId )
     return static_cast<uint16_t>( 0x100u | ( ( prevId & 0x0fu ) << 4 ) | ( curId & 0x0fu ) );
 }
 
-int ClipPolyAgainstPlaneLimited( const ClipVertex* input,
-                                 int inputCount,
-                                 const Vector3& planePoint,
-                                 const Vector3& inwardNormal,
-                                 float contactSkin,
-                                 ClipVertex* output,
-                                 int maxOutput )
+int ClipPolyAgainstPlaneLimited(
+    const ClipVertex* input,
+    int inputCount,
+    const Vector3& planePoint,
+    const Vector3& inwardNormal,
+    float contactSkin,
+    ClipVertex* output,
+    int maxOutput
+)
 {
     if ( inputCount <= 0 )
     {
@@ -1482,11 +1533,13 @@ uint32_t SphereHullFeatureSortKey( SphereHullFeatureKind kind, uint32_t sourceId
     return ( static_cast<uint32_t>( kind ) << 24 ) | sourceId;
 }
 
-void ConsiderSphereHullCandidate( SphereHullClosestFeature& best,
-                                  const Vector3& point,
-                                  const Vector3& sphereCenter,
-                                  SphereHullFeatureKind kind,
-                                  uint16_t sourceId )
+void ConsiderSphereHullCandidate(
+    SphereHullClosestFeature& best,
+    const Vector3& point,
+    const Vector3& sphereCenter,
+    SphereHullFeatureKind kind,
+    uint16_t sourceId
+)
 {
     const float distSq = VectorMagSquared( sphereCenter - point );
     const float tieEpsilon = 1.0e-6f;
@@ -1525,10 +1578,13 @@ ClosestSphereHullBoundaryFeature( const PolytopeWorld& hullWorld, const Vector3&
     {
         const PolyEdgeWorld& edge = hullWorld.edges[e];
         float t = 0.0f;
-        const Vector3 point = ClosestPointOnSegment( hullWorld.vertices[edge.vertexA],
-                                                     hullWorld.vertices[edge.vertexB],
-                                                     sphereCenter,
-                                                     t );
+        const Vector3 point = ClosestPointOnSegment(
+            hullWorld.vertices[edge.vertexA],
+            hullWorld.vertices[edge.vertexB],
+            sphereCenter,
+            t
+        );
+
         SphereHullFeatureKind kind = SphereHullFeatureKind::Edge;
         uint16_t sourceId = edge.sourceId;
         if ( t <= 1.0e-4f )
@@ -1547,15 +1603,17 @@ ClosestSphereHullBoundaryFeature( const PolytopeWorld& hullWorld, const Vector3&
     return best;
 }
 
-bool BuildPolyFaceContact( const ObjectContactBodyView& aBody,
-                           const ObjectContactBodyView& bBody,
-                           const PolytopeWorld& polyA,
-                           const PolytopeWorld& polyB,
-                           bool referenceIsA,
-                           int referenceFaceIndex,
-                           const Vector3& finalNormal,
-                           float contactSkin,
-                           ObjectContactManifold& out )
+bool BuildPolyFaceContact(
+    const ObjectContactBodyView& aBody,
+    const ObjectContactBodyView& bBody,
+    const PolytopeWorld& polyA,
+    const PolytopeWorld& polyB,
+    bool referenceIsA,
+    int referenceFaceIndex,
+    const Vector3& finalNormal,
+    float contactSkin,
+    ObjectContactManifold& out
+)
 {
     constexpr int MAX_POLY_CLIP_VERTS = 32;
 
@@ -1642,14 +1700,16 @@ bool BuildPolyFaceContact( const ObjectContactBodyView& aBody,
     return out.pointCount > 0;
 }
 
-bool BuildBestPolyFaceContact( const ObjectContactBodyView& aBody,
-                               const ObjectContactBodyView& bBody,
-                               const PolytopeWorld& polyA,
-                               const PolytopeWorld& polyB,
-                               const Vector3& finalNormal,
-                               int preferredReference,
-                               float contactSkin,
-                               ObjectContactManifold& out )
+bool BuildBestPolyFaceContact(
+    const ObjectContactBodyView& aBody,
+    const ObjectContactBodyView& bBody,
+    const PolytopeWorld& polyA,
+    const PolytopeWorld& polyB,
+    const Vector3& finalNormal,
+    int preferredReference,
+    float contactSkin,
+    ObjectContactManifold& out
+)
 {
     const int faceA = ChooseReferencePolyFace( polyA, finalNormal );
     const int faceB = ChooseReferencePolyFace( polyB, -finalNormal );
@@ -1665,24 +1725,28 @@ bool BuildBestPolyFaceContact( const ObjectContactBodyView& aBody,
         candidate.bodyA = out.bodyA;
         candidate.bodyB = out.bodyB;
         candidate.normal = finalNormal;
-        return referenceIsA ? BuildPolyFaceContact( aBody,
-                                                    bBody,
-                                                    polyA,
-                                                    polyB,
-                                                    true,
-                                                    faceA,
-                                                    finalNormal,
-                                                    contactSkin,
-                                                    candidate )
-                            : BuildPolyFaceContact( aBody,
-                                                    bBody,
-                                                    polyA,
-                                                    polyB,
-                                                    false,
-                                                    faceB,
-                                                    finalNormal,
-                                                    contactSkin,
-                                                    candidate );
+        return referenceIsA ? BuildPolyFaceContact(
+                                  aBody,
+                                  bBody,
+                                  polyA,
+                                  polyB,
+                                  true,
+                                  faceA,
+                                  finalNormal,
+                                  contactSkin,
+                                  candidate
+                              )
+                            : BuildPolyFaceContact(
+                                  aBody,
+                                  bBody,
+                                  polyA,
+                                  polyB,
+                                  false,
+                                  faceB,
+                                  finalNormal,
+                                  contactSkin,
+                                  candidate
+                              );
     };
 
     ObjectContactManifold candidateA;
@@ -1715,38 +1779,48 @@ bool BuildBestPolyFaceContact( const ObjectContactBodyView& aBody,
     return true;
 }
 
-bool BuildPolyEdgeContact( const ObjectContactBodyView& aBody,
-                           const ObjectContactBodyView& bBody,
-                           const PolytopeWorld& polyA,
-                           const PolytopeWorld& polyB,
-                           const SatResult& sat,
-                           ObjectContactManifold& out )
+bool BuildPolyEdgeContact(
+    const ObjectContactBodyView& aBody,
+    const ObjectContactBodyView& bBody,
+    const PolytopeWorld& polyA,
+    const PolytopeWorld& polyB,
+    const SatResult& sat,
+    ObjectContactManifold& out
+)
 {
     const PolyEdgeWorld& edgeA = polyA.edges[sat.axisA];
     const PolyEdgeWorld& edgeB = polyB.edges[sat.axisB];
     Vector3 ca;
     Vector3 cb;
-    ClosestPointsOnSegments( polyA.vertices[edgeA.vertexA],
-                             polyA.vertices[edgeA.vertexB],
-                             polyB.vertices[edgeB.vertexA],
-                             polyB.vertices[edgeB.vertexB],
-                             ca,
-                             cb );
-    AddContactPoint( aBody,
-                     bBody,
-                     out,
-                     ( ca + cb ) * 0.5f,
-                     sat.overlap,
-                     EncodeHullEdgeFeature( edgeA.sourceId, edgeB.sourceId ) );
+    ClosestPointsOnSegments(
+        polyA.vertices[edgeA.vertexA],
+        polyA.vertices[edgeA.vertexB],
+        polyB.vertices[edgeB.vertexA],
+        polyB.vertices[edgeB.vertexB],
+        ca,
+        cb
+    );
+
+    AddContactPoint(
+        aBody,
+        bBody,
+        out,
+        ( ca + cb ) * 0.5f,
+        sat.overlap,
+        EncodeHullEdgeFeature( edgeA.sourceId, edgeB.sourceId )
+    );
+
     return out.pointCount > 0;
 }
 
-bool BuildPolyPoly( const ObjectContactBodyView& aBody,
-                    const PolytopeWorld& polyA,
-                    const ObjectContactBodyView& bBody,
-                    const PolytopeWorld& polyB,
-                    float contactSkin,
-                    ObjectContactManifold& out )
+bool BuildPolyPoly(
+    const ObjectContactBodyView& aBody,
+    const PolytopeWorld& polyA,
+    const ObjectContactBodyView& bBody,
+    const PolytopeWorld& polyB,
+    float contactSkin,
+    ObjectContactManifold& out
+)
 {
     SatResult sat;
     if ( !PolytopeSat( polyA, polyB, contactSkin, sat ) )
@@ -1763,14 +1837,17 @@ bool BuildPolyPoly( const ObjectContactBodyView& aBody,
             ObjectContactManifold faceOut;
             faceOut.bodyA = out.bodyA;
             faceOut.bodyB = out.bodyB;
-            const bool builtFace = BuildBestPolyFaceContact( aBody,
-                                                             bBody,
-                                                             polyA,
-                                                             polyB,
-                                                             sat.faceNormal,
-                                                             sat.faceAxisType,
-                                                             contactSkin,
-                                                             faceOut );
+            const bool builtFace = BuildBestPolyFaceContact(
+                aBody,
+                bBody,
+                polyA,
+                polyB,
+                sat.faceNormal,
+                sat.faceAxisType,
+                contactSkin,
+                faceOut
+            );
+
             if ( builtFace && faceOut.pointCount >= 2 )
             {
                 out = faceOut;
@@ -1790,13 +1867,15 @@ bool BuildPolyPoly( const ObjectContactBodyView& aBody,
     return BuildPolyEdgeContact( aBody, bBody, polyA, polyB, sat, out );
 }
 
-bool BuildSphereHullOrdered( const ObjectContactBodyView& sphereBody,
-                             const BoundingSphere& sphere,
-                             const ObjectContactBodyView& hullBody,
-                             const ConvexHullShape& hull,
-                             bool sphereIsA,
-                             float contactSkin,
-                             ObjectContactManifold& out )
+bool BuildSphereHullOrdered(
+    const ObjectContactBodyView& sphereBody,
+    const BoundingSphere& sphere,
+    const ObjectContactBodyView& hullBody,
+    const ConvexHullShape& hull,
+    bool sphereIsA,
+    float contactSkin,
+    ObjectContactManifold& out
+)
 {
     const PolytopeWorld hullWorld = MakeHullPolytope( hullBody, hull );
     const Vector3 sphereCenter = SphereCenter( sphereBody, sphere );
@@ -1861,22 +1940,27 @@ bool BuildSphereHullOrdered( const ObjectContactBodyView& sphereBody,
     out.normal = sphereIsA ? normalSphereToHull : -normalSphereToHull;
     const Vector3 spherePoint = sphereCenter + normalSphereToHull * sphere.GetRadius();
     const Vector3 contactPoint = ( spherePoint + closestPoint ) * 0.5f;
-    AddContactPoint( sphereIsA ? sphereBody : hullBody,
-                     sphereIsA ? hullBody : sphereBody,
-                     out,
-                     contactPoint,
-                     penetration,
-                     EncodeSphereHullFeature( !sphereIsA, featureKind, featureId ) );
+    AddContactPoint(
+        sphereIsA ? sphereBody : hullBody,
+        sphereIsA ? hullBody : sphereBody,
+        out,
+        contactPoint,
+        penetration,
+        EncodeSphereHullFeature( !sphereIsA, featureKind, featureId )
+    );
+
     return out.pointCount > 0;
 }
 
-bool BuildBoxHull( const ObjectContactBodyView& boxBody,
-                   const BoundingBox& box,
-                   const ObjectContactBodyView& hullBody,
-                   const ConvexHullShape& hull,
-                   bool boxIsA,
-                   float contactSkin,
-                   ObjectContactManifold& out )
+bool BuildBoxHull(
+    const ObjectContactBodyView& boxBody,
+    const BoundingBox& box,
+    const ObjectContactBodyView& hullBody,
+    const ConvexHullShape& hull,
+    bool boxIsA,
+    float contactSkin,
+    ObjectContactManifold& out
+)
 {
     const PolytopeWorld boxPoly = MakeBoxPolytope( boxBody, box );
     const PolytopeWorld hullPoly = MakeHullPolytope( hullBody, hull );
@@ -1887,12 +1971,14 @@ bool BuildBoxHull( const ObjectContactBodyView& boxBody,
     return BuildPolyPoly( hullBody, hullPoly, boxBody, boxPoly, contactSkin, out );
 }
 
-bool BuildHullHull( const ObjectContactBodyView& aBody,
-                    const ConvexHullShape& aHull,
-                    const ObjectContactBodyView& bBody,
-                    const ConvexHullShape& bHull,
-                    float contactSkin,
-                    ObjectContactManifold& out )
+bool BuildHullHull(
+    const ObjectContactBodyView& aBody,
+    const ConvexHullShape& aHull,
+    const ObjectContactBodyView& bBody,
+    const ConvexHullShape& bHull,
+    float contactSkin,
+    ObjectContactManifold& out
+)
 {
     const PolytopeWorld polyA = MakeHullPolytope( aBody, aHull );
     const PolytopeWorld polyB = MakeHullPolytope( bBody, bHull );
@@ -1900,13 +1986,15 @@ bool BuildHullHull( const ObjectContactBodyView& aBody,
 }
 } // namespace
 
-ObjectContactSweepResult SkullbonezCore::Physics::SweepObjectContact( const ObjectContactBodyView& a,
-                                                                      const CollisionShape& shapeA,
-                                                                      const Vector3& linearVelocityA,
-                                                                      const ObjectContactBodyView& b,
-                                                                      const CollisionShape& shapeB,
-                                                                      const Vector3& linearVelocityB,
-                                                                      float changeInTime )
+ObjectContactSweepResult SkullbonezCore::Physics::SweepObjectContact(
+    const ObjectContactBodyView& a,
+    const CollisionShape& shapeA,
+    const Vector3& linearVelocityA,
+    const ObjectContactBodyView& b,
+    const CollisionShape& shapeB,
+    const Vector3& linearVelocityB,
+    float changeInTime
+)
 {
     // Concept: CCD sweep is only a conservative front-end. It uses each body's
     // current position plus linear displacement to find the first candidate
@@ -1937,15 +2025,17 @@ ObjectContactSweepResult SkullbonezCore::Physics::SweepObjectContact( const Obje
 //   Dispatches Skullbonez collision shapes from ColliderStore snapshots to the
 //   local 3D manifold builders. The normal is always oriented from body A toward
 //   body B so the solver can use one impulse sign convention for every pair.
-bool SkullbonezCore::Physics::BuildObjectContactManifold( Core::Profiler* profiler,
-                                                          const ObjectContactBodyView& a,
-                                                          const CollisionShape& shapeA,
-                                                          const ObjectContactBodyView& b,
-                                                          const CollisionShape& shapeB,
-                                                          int bodyA,
-                                                          int bodyB,
-                                                          float contactSkin,
-                                                          ObjectContactManifold& out )
+bool SkullbonezCore::Physics::BuildObjectContactManifold(
+    Core::Profiler* profiler,
+    const ObjectContactBodyView& a,
+    const CollisionShape& shapeA,
+    const ObjectContactBodyView& b,
+    const CollisionShape& shapeB,
+    int bodyA,
+    int bodyB,
+    float contactSkin,
+    ObjectContactManifold& out
+)
 {
     PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/ObjectManifold" );
 

@@ -65,7 +65,8 @@ constexpr PassRasterStateBucket LASER_RASTER_BUCKET = {
       BlendFactor::One,
       CullMode::None,
       { false, 0.0f, 0.0f },
-      { RenderTargetFormatExpectation::ActivePass, RenderTargetFormatExpectation::ActivePass, 1 } } };
+      { RenderTargetFormatExpectation::ActivePass, RenderTargetFormatExpectation::ActivePass, 1 } }
+};
 
 Vector3 NormalizeOr( const Vector3& value, const Vector3& fallback )
 {
@@ -109,9 +110,11 @@ void LauncherLaser::Clear()
     m_nextShot = 0;
 }
 
-void LauncherLaser::EnsureResources( Assets::AssetSystem& assets,
-                                     Rendering::Dx12ResourceBuilder& renderResources,
-                                     Rendering::Dx12GeometryOwner& renderGeometry )
+void LauncherLaser::EnsureResources(
+    Assets::AssetSystem& assets,
+    Rendering::Dx12ResourceBuilder& renderResources,
+    Rendering::Dx12GeometryOwner& renderGeometry
+)
 {
     if ( !m_shader )
     {
@@ -125,11 +128,13 @@ void LauncherLaser::EnsureResources( Assets::AssetSystem& assets,
     }
 }
 
-void LauncherLaser::Fire( const Vector3& rayOrigin,
-                          const Vector3& rayDirection,
-                          const Vector3& cameraUp,
-                          float distance,
-                          bool hit )
+void LauncherLaser::Fire(
+    const Vector3& rayOrigin,
+    const Vector3& rayDirection,
+    const Vector3& cameraUp,
+    float distance,
+    bool hit
+)
 {
     const Vector3 forward = NormalizeOr( rayDirection, Vector3( 0.0f, 0.0f, 1.0f ) );
     const Vector3 up = NormalizeOr( cameraUp, Vector3( 0.0f, 1.0f, 0.0f ) );
@@ -241,14 +246,16 @@ void LauncherLaser::EmitVertex( const Vector3& p, float r, float g, float b, flo
     m_vertices.insert( m_vertices.end(), { p.x, p.y, p.z, r, g, b, a } );
 }
 
-void LauncherLaser::EmitQuad( const Vector3& a,
-                              const Vector3& b,
-                              const Vector3& c,
-                              const Vector3& d,
-                              float r,
-                              float g,
-                              float bl,
-                              float alpha )
+void LauncherLaser::EmitQuad(
+    const Vector3& a,
+    const Vector3& b,
+    const Vector3& c,
+    const Vector3& d,
+    float r,
+    float g,
+    float bl,
+    float alpha
+)
 {
     EmitVertex( a, r, g, bl, alpha );
     EmitVertex( b, r, g, bl, alpha );
@@ -258,28 +265,32 @@ void LauncherLaser::EmitQuad( const Vector3& a,
     EmitVertex( d, r, g, bl, alpha );
 }
 
-void LauncherLaser::EmitRibbon( const Vector3& a,
-                                const Vector3& b,
-                                const Vector3& widthAxis,
-                                float halfWidth,
-                                float r,
-                                float g,
-                                float bl,
-                                float alpha )
+void LauncherLaser::EmitRibbon(
+    const Vector3& a,
+    const Vector3& b,
+    const Vector3& widthAxis,
+    float halfWidth,
+    float r,
+    float g,
+    float bl,
+    float alpha
+)
 {
     const Vector3 w = widthAxis * halfWidth;
     EmitQuad( a - w, b - w, b + w, a + w, r, g, bl, alpha );
 }
 
-void LauncherLaser::EmitBillboardQuad( const Vector3& center,
-                                       const Vector3& right,
-                                       const Vector3& up,
-                                       float halfWidth,
-                                       float halfHeight,
-                                       float r,
-                                       float g,
-                                       float bl,
-                                       float alpha )
+void LauncherLaser::EmitBillboardQuad(
+    const Vector3& center,
+    const Vector3& right,
+    const Vector3& up,
+    float halfWidth,
+    float halfHeight,
+    float r,
+    float g,
+    float bl,
+    float alpha
+)
 {
     const Vector3 x = right * halfWidth;
     const Vector3 y = up * halfHeight;
@@ -318,71 +329,85 @@ void LauncherLaser::EmitShot( const Shot& shot )
     const Vector3 screenUp =
         NormalizeOr( shot.cameraUp, NormalizeOr( CrossProduct( screenRight, dir ), Vector3( 0.0f, 1.0f, 0.0f ) ) );
 
-    EmitRibbon( shot.start,
-                shot.end,
-                screenRight,
-                LASER_AFTERIMAGE_HALF_WIDTH,
-                0.02f,
-                0.45f,
-                1.0f,
-                0.12f * afterimageFade );
-    EmitRibbon( shot.start,
-                shot.end,
-                screenUp,
-                LASER_AFTERIMAGE_HALF_WIDTH * 0.55f,
-                0.06f,
-                0.82f,
-                1.0f,
-                0.08f * afterimageFade );
+    EmitRibbon(
+        shot.start,
+        shot.end,
+        screenRight,
+        LASER_AFTERIMAGE_HALF_WIDTH,
+        0.02f,
+        0.45f,
+        1.0f,
+        0.12f * afterimageFade
+    );
+    EmitRibbon(
+        shot.start,
+        shot.end,
+        screenUp,
+        LASER_AFTERIMAGE_HALF_WIDTH * 0.55f,
+        0.06f,
+        0.82f,
+        1.0f,
+        0.08f * afterimageFade
+    );
     EmitRibbon( shot.start, shot.end, screenRight, LASER_OUTER_HALF_WIDTH, 0.05f, 0.96f, 1.0f, 0.30f * afterimageFade );
-    EmitRibbon( shot.start,
-                shot.end,
-                screenUp,
-                LASER_OUTER_HALF_WIDTH * 0.42f,
-                0.22f,
-                0.98f,
-                1.0f,
-                0.22f * afterimageFade );
+    EmitRibbon(
+        shot.start,
+        shot.end,
+        screenUp,
+        LASER_OUTER_HALF_WIDTH * 0.42f,
+        0.22f,
+        0.98f,
+        1.0f,
+        0.22f * afterimageFade
+    );
     EmitRibbon( shot.start, shot.end, screenRight, LASER_CORE_HALF_WIDTH, 1.0f, 0.95f, 0.28f, 0.98f * coreFade );
     EmitRibbon( shot.start, shot.end, screenUp, LASER_CORE_HALF_WIDTH * 0.72f, 1.0f, 0.58f, 0.16f, 0.82f * coreFade );
 
     if ( shot.hit )
     {
-        EmitBillboardQuad( shot.end,
-                           screenRight,
-                           screenUp,
-                           LASER_IMPACT_DISC_HALF_SIZE,
-                           LASER_IMPACT_DISC_HALF_SIZE,
-                           1.0f,
-                           0.72f,
-                           0.18f,
-                           0.58f * afterimageFade );
-        EmitRibbon( shot.end - screenRight * LASER_IMPACT_HALF_SIZE,
-                    shot.end + screenRight * LASER_IMPACT_HALF_SIZE,
-                    screenUp,
-                    LASER_CORE_HALF_WIDTH * 1.5f,
-                    1.0f,
-                    0.46f,
-                    0.12f,
-                    0.90f * coreFade );
-        EmitRibbon( shot.end - screenUp * LASER_IMPACT_HALF_SIZE,
-                    shot.end + screenUp * LASER_IMPACT_HALF_SIZE,
-                    screenRight,
-                    LASER_CORE_HALF_WIDTH * 1.5f,
-                    1.0f,
-                    0.84f,
-                    0.22f,
-                    0.82f * coreFade );
+        EmitBillboardQuad(
+            shot.end,
+            screenRight,
+            screenUp,
+            LASER_IMPACT_DISC_HALF_SIZE,
+            LASER_IMPACT_DISC_HALF_SIZE,
+            1.0f,
+            0.72f,
+            0.18f,
+            0.58f * afterimageFade
+        );
+        EmitRibbon(
+            shot.end - screenRight * LASER_IMPACT_HALF_SIZE,
+            shot.end + screenRight * LASER_IMPACT_HALF_SIZE,
+            screenUp,
+            LASER_CORE_HALF_WIDTH * 1.5f,
+            1.0f,
+            0.46f,
+            0.12f,
+            0.90f * coreFade
+        );
+        EmitRibbon(
+            shot.end - screenUp * LASER_IMPACT_HALF_SIZE,
+            shot.end + screenUp * LASER_IMPACT_HALF_SIZE,
+            screenRight,
+            LASER_CORE_HALF_WIDTH * 1.5f,
+            1.0f,
+            0.84f,
+            0.22f,
+            0.82f * coreFade
+        );
     }
 }
 
-void LauncherLaser::Render( const Matrix4& viewProjection,
-                            const Vector3& cameraEye,
-                            const Vector3& cameraUp,
-                            Assets::AssetSystem& assets,
-                            Rendering::Dx12ResourceBuilder& renderResources,
-                            Rendering::Dx12GeometryOwner& renderGeometry,
-                            Rendering::Dx12GeometryOwner& renderCommands )
+void LauncherLaser::Render(
+    const Matrix4& viewProjection,
+    const Vector3& cameraEye,
+    const Vector3& cameraUp,
+    Assets::AssetSystem& assets,
+    Rendering::Dx12ResourceBuilder& renderResources,
+    Rendering::Dx12GeometryOwner& renderGeometry,
+    Rendering::Dx12GeometryOwner& renderCommands
+)
 {
     static_cast<void>( cameraEye );
     static_cast<void>( cameraUp );

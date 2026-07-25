@@ -46,8 +46,8 @@ namespace Runtime
 {
 namespace RunInternal
 {
-EditorInteractionPreviewResult UpdateEditorInteractionPreview( EditorInteractionPreviewContext context,
-                                                               const EditorInteractionPreviewInput& input )
+EditorInteractionPreviewResult
+UpdateEditorInteractionPreview( EditorInteractionPreviewContext context, const EditorInteractionPreviewInput& input )
 {
     EditorInteractionPreviewResult result;
     // Concept: Preview refresh is the editor's input-facing phase. It may alter
@@ -81,10 +81,11 @@ EditorInteractionPreviewResult UpdateEditorInteractionPreview( EditorInteraction
         {
             terrainPlacementForPreview = &terrainPlacement;
         }
-        context.editor.placementPreviewVisible =
-            TryUpdateEditorPlacementPreview( { context.editor, terrain, context.assets, placementScaleActive },
-                                             context.editor.objectType,
-                                             terrainPlacementForPreview );
+        context.editor.placementPreviewVisible = TryUpdateEditorPlacementPreview(
+            { context.editor, terrain, context.assets, placementScaleActive },
+            context.editor.objectType,
+            terrainPlacementForPreview
+        );
     }
 
     const int selectedModelIndex = ResolveSelectedEditorModelIndex( context.editor, bodyStore );
@@ -114,10 +115,12 @@ EditorInteractionPreviewResult UpdateEditorInteractionPreview( EditorInteraction
     if ( selectedModelIndex >= 0 && context.interaction.Gesture().kind != RuntimeInteractionGestureKind::GizmoDrag &&
          !context.editor.placementModeEnabled && input.hasMouseRay )
     {
-        UpdateEditorGizmoHotAxes( { context.editor, context.world, context.interaction },
-                                  input.mouseRayOrigin,
-                                  input.mouseRayDirection,
-                                  input.scaleMode );
+        UpdateEditorGizmoHotAxes(
+            { context.editor, context.world, context.interaction },
+            input.mouseRayOrigin,
+            input.mouseRayDirection,
+            input.scaleMode
+        );
     }
 
     return result;
@@ -147,12 +150,14 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
          context.editor.placementPreviewVisible )
     {
         context.tracer.AddPlacementRay( context.editor.placementRayOrigin, context.editor.placementRayHit );
-        context.tracer.AddPlacementGhost( context.editor.objectType,
-                                          context.editor.placementCenter,
-                                          context.editor.placementTerrainPoint,
-                                          context.editor.placementScale,
-                                          context.editor.placementOrientation,
-                                          context.assets );
+        context.tracer.AddPlacementGhost(
+            context.editor.objectType,
+            context.editor.placementCenter,
+            context.editor.placementTerrainPoint,
+            context.editor.placementScale,
+            context.editor.placementOrientation,
+            context.assets
+        );
     }
 
     if ( ( context.editor.editorModeEnabled || input.inspectGizmoActive ) && !context.editor.placementModeEnabled &&
@@ -166,22 +171,26 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
         const bool gizmoRotation = gizmoDragActive && input.gesture.gizmoKind == RuntimeGizmoDragKind::Rotate;
         const bool scaleMode = gizmoScale || input.scaleMode;
         if ( selectedModelIndex >= 0 && selectedModelIndex < context.world.SceneEntityCount() &&
-             TryTraceEditorSelectionOverlayFromStores( context.world,
-                                                       context.editor.selectedBody,
-                                                       context.editor.selectedCollider,
-                                                       selectedModelIndex,
-                                                       context.tracer,
-                                                       gizmoOrigin,
-                                                       radius ) )
+             TryTraceEditorSelectionOverlayFromStores(
+                 context.world,
+                 context.editor.selectedBody,
+                 context.editor.selectedCollider,
+                 selectedModelIndex,
+                 context.tracer,
+                 gizmoOrigin,
+                 radius
+             ) )
         {
-            context.tracer.AddGizmo( gizmoOrigin,
-                                     radius,
-                                     context.editor.hotGizmoAxis,
-                                     context.editor.hotRotationAxis,
-                                     gizmoDragActive ? input.gesture.axis : -1,
-                                     gizmoRotation,
-                                     scaleMode,
-                                     gizmoScale );
+            context.tracer.AddGizmo(
+                gizmoOrigin,
+                radius,
+                context.editor.hotGizmoAxis,
+                context.editor.hotRotationAxis,
+                gizmoDragActive ? input.gesture.axis : -1,
+                gizmoRotation,
+                scaleMode,
+                gizmoScale
+            );
         }
     }
 
@@ -207,15 +216,17 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
             const auto hotFields = bodyStore.HotFields();
             const Vector3 bodyPosition = PhysicsBodyPosition( hotFields, bodyIndex );
             const Vector3 grabPoint = bodyPosition + context.mousePickup.grabOffset;
-            context.tracer.AddSelectionOutline( bodyPosition,
-                                                PhysicsBodyOrientation( hotFields, bodyIndex ),
-                                                collider->shape );
+            context.tracer
+                .AddSelectionOutline( bodyPosition, PhysicsBodyOrientation( hotFields, bodyIndex ), collider->shape );
             context.tracer.AddReplayPathSegment( grabPoint, context.mousePickup.targetPoint, 0.1f, 0.95f, 1.0f );
-            context.tracer.AddReplayContactMarker( context.mousePickup.targetPoint,
-                                                   context.mousePickup.planeNormal,
-                                                   0.1f,
-                                                   0.95f,
-                                                   1.0f );
+            context.tracer.AddReplayContactMarker(
+                context.mousePickup.targetPoint,
+                context.mousePickup.planeNormal,
+                0.1f,
+                0.95f,
+                1.0f
+            );
+
             context.tracer.AddReplayImpulseVector( grabPoint, context.mousePickup.lastImpulse, 0.1f, 0.95f, 1.0f );
         }
     }
@@ -235,11 +246,13 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
             const float markerRadius = EditorColliderRadius( *collider ) * 1.24f;
             const std::size_t bodyIndex = static_cast<std::size_t>( input.attachedCameraTargetIndex );
             const auto hotFields = bodyStore.HotFields();
-            context.tracer.AddAttachedCameraTargetMarker( PhysicsBodyPosition( hotFields, bodyIndex ),
-                                                          PhysicsBodyOrientation( hotFields, bodyIndex ),
-                                                          collider->shape,
-                                                          markerRadius,
-                                                          input.attachedCameraActiveFollow );
+            context.tracer.AddAttachedCameraTargetMarker(
+                PhysicsBodyPosition( hotFields, bodyIndex ),
+                PhysicsBodyOrientation( hotFields, bodyIndex ),
+                collider->shape,
+                markerRadius,
+                input.attachedCameraActiveFollow
+            );
         }
     }
 }

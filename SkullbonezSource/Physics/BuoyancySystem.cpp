@@ -46,10 +46,12 @@ constexpr float UNDERWATER_SLEEP_LOCK_SUBMERGED_PERCENT = 0.999f;
 }
 
 
-bool BuoyancySystem::IsFullySubmergedBall( const PhysicsBodyRecord& bodyRecord,
-                                           bool fixed,
-                                           const ColliderStore& colliderStore,
-                                           int index )
+bool BuoyancySystem::IsFullySubmergedBall(
+    const PhysicsBodyRecord& bodyRecord,
+    bool fixed,
+    const ColliderStore& colliderStore,
+    int index
+)
 {
     const auto colliders = colliderStore.Records();
     if ( index < 0 || index >= static_cast<int>( colliders.size() ) || fixed ||
@@ -62,10 +64,12 @@ bool BuoyancySystem::IsFullySubmergedBall( const PhysicsBodyRecord& bodyRecord,
 }
 
 
-bool BuoyancySystem::RefreshUnderwaterSubmersionForBall( const PhysicsWorldForces& worldForces,
-                                                         PhysicsBodyStore& bodyStore,
-                                                         const ColliderStore& colliderStore,
-                                                         int index )
+bool BuoyancySystem::RefreshUnderwaterSubmersionForBall(
+    const PhysicsWorldForces& worldForces,
+    PhysicsBodyStore& bodyStore,
+    const ColliderStore& colliderStore,
+    int index
+)
 {
     PhysicsBodyRecord* bodyRecord = bodyStore.MutableRecordForModelIndex( index );
     if ( !bodyRecord )
@@ -119,10 +123,12 @@ bool BuoyancySystem::RefreshUnderwaterSubmersionForBall( const PhysicsWorldForce
     // sphere pose. The sleep policy reads this value later; no force is applied
     // here.
     const float yValue = fluidHeightRelativeToCenter + radius;
-    bodyRecord->submergedVolumePercent =
-        std::clamp( ( ONE_OVER_THREE * _PI * ( ( 3.0f * radius ) - yValue ) * yValue * yValue ) / sphere->GetVolume(),
-                    0.0f,
-                    1.0f );
+    bodyRecord->submergedVolumePercent = std::clamp(
+        ( ONE_OVER_THREE * _PI * ( ( 3.0f * radius ) - yValue ) * yValue * yValue ) / sphere->GetVolume(),
+        0.0f,
+        1.0f
+    );
+
     return true;
 }
 } // namespace Physics

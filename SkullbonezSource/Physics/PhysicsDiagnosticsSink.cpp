@@ -73,10 +73,12 @@ void PhysicsDiagnosticsSink::SetDiagnosticNames( std::span<const char* const> di
 #ifdef _DEBUG
     if ( diagnosticNames.size() > m_diagnosticNames.size() )
     {
-        SB_FATAL( "Physics/DiagnosticsSink",
-                  "Diagnostic name registration exceeds fixed capacity. requested=%zu capacity=%zu",
-                  diagnosticNames.size(),
-                  m_diagnosticNames.size() );
+        SB_FATAL(
+            "Physics/DiagnosticsSink",
+            "Diagnostic name registration exceeds fixed capacity. requested=%zu capacity=%zu",
+            diagnosticNames.size(),
+            m_diagnosticNames.size()
+        );
     }
     std::fill( m_diagnosticNames.begin(), m_diagnosticNames.end(), nullptr );
     std::copy( diagnosticNames.begin(), diagnosticNames.end(), m_diagnosticNames.begin() );
@@ -96,11 +98,13 @@ PhysicsDiagnosticsNameView PhysicsDiagnosticsSink::RegisteredNames() const
 
 
 #ifdef _DEBUG
-bool SkullbonezCore::Physics::TryBuildPhysicsDiagnosticsModelRecord( int index,
-                                                                     const PhysicsBodyStore& bodyStore,
-                                                                     const ColliderStore& colliderStore,
-                                                                     const PhysicsDiagnosticsNameView& names,
-                                                                     PhysicsDiagnosticsModelRecord& outRecord )
+bool SkullbonezCore::Physics::TryBuildPhysicsDiagnosticsModelRecord(
+    int index,
+    const PhysicsBodyStore& bodyStore,
+    const ColliderStore& colliderStore,
+    const PhysicsDiagnosticsNameView& names,
+    PhysicsDiagnosticsModelRecord& outRecord
+)
 {
     if ( index < 0 || index >= bodyStore.Count() || index >= colliderStore.Count() )
     {
@@ -111,7 +115,8 @@ bool SkullbonezCore::Physics::TryBuildPhysicsDiagnosticsModelRecord( int index,
     const ColliderRecord& colliderRecord = colliderStore.Records()[static_cast<std::size_t>( index )];
     const PhysicsBodyHotFieldsConstView hotFields = bodyStore.HotFields();
     const std::size_t bodyIndex = static_cast<std::size_t>( index );
-    outRecord = PhysicsDiagnosticsModelRecord{};
+    outRecord = PhysicsDiagnosticsModelRecord {};
+
     outRecord.name = names.NameFor( index );
     outRecord.position = PhysicsBodyPosition( hotFields, bodyIndex );
     outRecord.velocity = PhysicsBodyLinearVelocity( hotFields, bodyIndex );
@@ -149,7 +154,8 @@ bool SkullbonezCore::Physics::TryBuildPhysicsDiagnosticsModelRecord( int index,
                 outRecord.hullEdges = shape.GetEdgeCount();
             }
         },
-        colliderRecord.shape );
+        colliderRecord.shape
+    );
     return true;
 }
 
@@ -208,9 +214,11 @@ void PhysicsDiagnosticsSink::EmitRegressionLog( const PhysicsDiagnosticsFrameInp
     const int modelCount = frame.bodyStore.Count();
     if ( m_physicsRegressionLogFrame == 0 )
     {
-        frame.csvWriter.Writef( m_physicsRegressionLogPath,
-                                "frame,idx,name,posX,posY,posZ,velX,velY,velZ,speed,omegaX,omegaY,omegaZ,omegaMag,qX,"
-                                "qY,qZ,qW,grounded,sleeping,sleepInhibited\n" );
+        frame.csvWriter.Writef(
+            m_physicsRegressionLogPath,
+            "frame,idx,name,posX,posY,posZ,velX,velY,velZ,speed,omegaX,omegaY,omegaZ,omegaMag,qX,"
+            "qY,qZ,qW,grounded,sleeping,sleepInhibited\n"
+        );
     }
     for ( int i = 0; i < modelCount; ++i )
     {
@@ -252,7 +260,8 @@ void PhysicsDiagnosticsSink::EmitRegressionLog( const PhysicsDiagnosticsFrameInp
             model.qw,
             sleepSupported,
             sleeping,
-            sleepInhibited );
+            sleepInhibited
+        );
     }
     ++m_physicsRegressionLogFrame;
 }
@@ -287,11 +296,13 @@ void PhysicsDiagnosticsSink::BeginCollisionTimeFrame()
 #endif
 }
 
-void PhysicsDiagnosticsSink::QueueCollisionTime( const char* type,
-                                                 int bodyA,
-                                                 int bodyB,
-                                                 float collisionTime,
-                                                 float availableTime )
+void PhysicsDiagnosticsSink::QueueCollisionTime(
+    const char* type,
+    int bodyA,
+    int bodyB,
+    float collisionTime,
+    float availableTime
+)
 {
 #ifdef _DEBUG
     if ( m_physicsCollisionTimeLogPath[0] == '\0' )
@@ -300,14 +311,16 @@ void PhysicsDiagnosticsSink::QueueCollisionTime( const char* type,
     }
     if ( m_collisionTimeEventCount >= COLLISION_TIME_EVENT_CAPACITY )
     {
-        SB_FATAL( "PhysicsDiagnosticsSink",
-                  "Collision-time event capacity exhausted. owner=PhysicsDiagnosticsSink capacity=%d high_water=%d "
-                  "phase=fixed_step_collision_commit",
-                  COLLISION_TIME_EVENT_CAPACITY,
-                  m_collisionTimeEventHighWater );
+        SB_FATAL(
+            "PhysicsDiagnosticsSink",
+            "Collision-time event capacity exhausted. owner=PhysicsDiagnosticsSink capacity=%d high_water=%d "
+            "phase=fixed_step_collision_commit",
+            COLLISION_TIME_EVENT_CAPACITY,
+            m_collisionTimeEventHighWater
+        );
     }
     m_collisionTimeEvents[static_cast<std::size_t>( m_collisionTimeEventCount++ )] =
-        PhysicsCollisionTimeEvent{ type, bodyA, bodyB, collisionTime, availableTime };
+        PhysicsCollisionTimeEvent { type, bodyA, bodyB, collisionTime, availableTime };
     m_collisionTimeEventHighWater = (std::max)( m_collisionTimeEventHighWater, m_collisionTimeEventCount );
 #else
     (void)type;
@@ -327,26 +340,31 @@ void PhysicsDiagnosticsSink::FlushCollisionTimes( const PhysicsDiagnosticsCsvWri
     }
     if ( !m_physicsCollisionTimeHeaderWritten )
     {
-        csvWriter.Writef( m_physicsCollisionTimeLogPath,
-                          "frame,type,bodyA,bodyB,nameA,nameB,collisionTime,availableTime\n" );
+        csvWriter.Writef(
+            m_physicsCollisionTimeLogPath,
+            "frame,type,bodyA,bodyB,nameA,nameB,collisionTime,availableTime\n"
+        );
         m_physicsCollisionTimeHeaderWritten = true;
     }
     const PhysicsDiagnosticsNameView names = RegisteredNames();
     const auto collisionNameFor = [&]( int bodyIndex ) -> const char*
     { return ( bodyIndex >= 0 && bodyIndex < names.count ) ? names.NameFor( bodyIndex ) : "terrain"; };
+
     for ( int eventIndex = 0; eventIndex < m_collisionTimeEventCount; ++eventIndex )
     {
         const PhysicsCollisionTimeEvent& event = m_collisionTimeEvents[static_cast<std::size_t>( eventIndex )];
-        csvWriter.Writef( m_physicsCollisionTimeLogPath,
-                          "%d,%s,%d,%d,%s,%s,%.6f,%.6f\n",
-                          m_physicsCollisionTimeLogFrame,
-                          event.type,
-                          event.bodyA,
-                          event.bodyB,
-                          collisionNameFor( event.bodyA ),
-                          collisionNameFor( event.bodyB ),
-                          event.collisionTime,
-                          event.availableTime );
+        csvWriter.Writef(
+            m_physicsCollisionTimeLogPath,
+            "%d,%s,%d,%d,%s,%s,%.6f,%.6f\n",
+            m_physicsCollisionTimeLogFrame,
+            event.type,
+            event.bodyA,
+            event.bodyB,
+            collisionNameFor( event.bodyA ),
+            collisionNameFor( event.bodyB ),
+            event.collisionTime,
+            event.availableTime
+        );
     }
 #else
     (void)csvWriter;

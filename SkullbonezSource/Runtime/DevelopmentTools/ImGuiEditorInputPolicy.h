@@ -139,8 +139,8 @@ constexpr ImGuiEditorInputCapture EvaluateImGuiEditorInputCapture( const ImGuiEd
     return capture;
 }
 
-constexpr ImGuiEditorMessageDecision DecideImGuiEditorMessageRoute( ImGuiEditorMessageClass messageClass,
-                                                                    const ImGuiEditorInputCapture& capture ) noexcept
+constexpr ImGuiEditorMessageDecision
+DecideImGuiEditorMessageRoute( ImGuiEditorMessageClass messageClass, const ImGuiEditorInputCapture& capture ) noexcept
 {
     bool editorConsumes = false;
     switch ( messageClass )
@@ -161,6 +161,6 @@ constexpr ImGuiEditorMessageDecision DecideImGuiEditorMessageRoute( ImGuiEditorM
         editorConsumes = false;
         break;
     }
-    return ImGuiEditorMessageDecision{ editorConsumes, !editorConsumes };
+    return ImGuiEditorMessageDecision { editorConsumes, !editorConsumes };
 }
 } // namespace SkullbonezCore::Runtime::DevelopmentTools

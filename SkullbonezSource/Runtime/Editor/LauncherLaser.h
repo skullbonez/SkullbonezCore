@@ -93,35 +93,43 @@ class LauncherLaser
     uint32_t m_dynamicVB = 0;
     bool m_rasterStatePrepared = false;
 
-    void EnsureResources( Assets::AssetSystem& assets,
-                          Rendering::Dx12ResourceBuilder& renderResources,
-                          Rendering::Dx12GeometryOwner& renderGeometry );
+    void EnsureResources(
+        Assets::AssetSystem& assets,
+        Rendering::Dx12ResourceBuilder& renderResources,
+        Rendering::Dx12GeometryOwner& renderGeometry
+    );
     void EmitVertex( const Math::Vector::Vector3& p, float r, float g, float b, float a );
-    void EmitQuad( const Math::Vector::Vector3& a,
-                   const Math::Vector::Vector3& b,
-                   const Math::Vector::Vector3& c,
-                   const Math::Vector::Vector3& d,
-                   float r,
-                   float g,
-                   float bl,
-                   float alpha );
-    void EmitRibbon( const Math::Vector::Vector3& a,
-                     const Math::Vector::Vector3& b,
-                     const Math::Vector::Vector3& widthAxis,
-                     float halfWidth,
-                     float r,
-                     float g,
-                     float bl,
-                     float alpha );
-    void EmitBillboardQuad( const Math::Vector::Vector3& center,
-                            const Math::Vector::Vector3& right,
-                            const Math::Vector::Vector3& up,
-                            float halfWidth,
-                            float halfHeight,
-                            float r,
-                            float g,
-                            float bl,
-                            float alpha );
+    void EmitQuad(
+        const Math::Vector::Vector3& a,
+        const Math::Vector::Vector3& b,
+        const Math::Vector::Vector3& c,
+        const Math::Vector::Vector3& d,
+        float r,
+        float g,
+        float bl,
+        float alpha
+    );
+    void EmitRibbon(
+        const Math::Vector::Vector3& a,
+        const Math::Vector::Vector3& b,
+        const Math::Vector::Vector3& widthAxis,
+        float halfWidth,
+        float r,
+        float g,
+        float bl,
+        float alpha
+    );
+    void EmitBillboardQuad(
+        const Math::Vector::Vector3& center,
+        const Math::Vector::Vector3& right,
+        const Math::Vector::Vector3& up,
+        float halfWidth,
+        float halfHeight,
+        float r,
+        float g,
+        float bl,
+        float alpha
+    );
     void EmitShot( const Shot& shot );
 
   public:
@@ -132,22 +140,26 @@ class LauncherLaser
     // destroy GPU handles; nullptr means clear CPU-side state only.
     void ResetResources( Rendering::Dx12GeometryOwner* renderGeometry );
     void Clear();
-    void Fire( const Math::Vector::Vector3& rayOrigin,
-               const Math::Vector::Vector3& rayDirection,
-               const Math::Vector::Vector3& cameraUp,
-               float distance,
-               bool hit );
+    void Fire(
+        const Math::Vector::Vector3& rayOrigin,
+        const Math::Vector::Vector3& rayDirection,
+        const Math::Vector::Vector3& cameraUp,
+        float distance,
+        bool hit
+    );
     void Update( float dt );
     bool HasActiveShots() const;
     void CaptureShots( std::vector<LauncherLaserShotSnapshot>& outShots, int& outNextShot ) const;
     void RestoreShots( const std::vector<LauncherLaserShotSnapshot>& shots, int nextShot );
-    void Render( const Math::Transformation::Matrix4& viewProjection,
-                 const Math::Vector::Vector3& cameraEye,
-                 const Math::Vector::Vector3& cameraUp,
-                 Assets::AssetSystem& assets,
-                 Rendering::Dx12ResourceBuilder& renderResources,
-                 Rendering::Dx12GeometryOwner& renderGeometry,
-                 Rendering::Dx12GeometryOwner& renderCommands );
+    void Render(
+        const Math::Transformation::Matrix4& viewProjection,
+        const Math::Vector::Vector3& cameraEye,
+        const Math::Vector::Vector3& cameraUp,
+        Assets::AssetSystem& assets,
+        Rendering::Dx12ResourceBuilder& renderResources,
+        Rendering::Dx12GeometryOwner& renderGeometry,
+        Rendering::Dx12GeometryOwner& renderCommands
+    );
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

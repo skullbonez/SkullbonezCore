@@ -52,12 +52,14 @@ bool UICheckBox::HitTest( int mouseX, int mouseY ) const
 }
 
 
-void UICheckBox::DrawToggle( const UIDrawContext& draw,
-                             const char* label,
-                             bool checked,
-                             float accentR,
-                             float accentG,
-                             float accentB ) const
+void UICheckBox::DrawToggle(
+    const UIDrawContext& draw,
+    const char* label,
+    bool checked,
+    float accentR,
+    float accentG,
+    float accentB
+) const
 {
     const Style::UIPalette& palette = Style::Palette();
     const Style::UIControlStyle& control = Style::Control();
@@ -66,31 +68,39 @@ void UICheckBox::DrawToggle( const UIDrawContext& draw,
     const float switchX = m_bounds.x + (std::max)( 66.0f, m_bounds.w - switchW - 4.0f );
     const float switchY = m_bounds.y + 4.0f;
     const Style::UIColor offFill = { palette.control.r, palette.control.g, palette.control.b, 0.78f };
+
     const Style::UIColor onFill = { accentR, accentG, accentB, 0.90f };
+
     const Style::UIColor knobFill = checked ? palette.accentStrong : palette.textMuted;
     const float knobSize = 10.0f;
     const float knobX = switchX + ( checked ? switchW - knobSize - 3.0f : 3.0f );
 
-    draw.Text( m_bounds.x,
-               m_bounds.y + 4.0f,
-               10.5f,
-               palette.textSecondary.r,
-               palette.textSecondary.g,
-               palette.textSecondary.b,
-               label );
-    draw.RoundedPanel( { switchX, switchY, switchW, switchH },
-                       switchH * 0.5f,
-                       checked ? onFill : offFill,
-                       palette.border );
-    draw.RoundedRect( knobX,
-                      switchY + 3.0f,
-                      knobSize,
-                      knobSize,
-                      knobSize * 0.5f,
-                      knobFill.r,
-                      knobFill.g,
-                      knobFill.b,
-                      0.98f );
+    draw.Text(
+        m_bounds.x,
+        m_bounds.y + 4.0f,
+        10.5f,
+        palette.textSecondary.r,
+        palette.textSecondary.g,
+        palette.textSecondary.b,
+        label
+    );
+    draw.RoundedPanel(
+        { switchX, switchY, switchW, switchH },
+        switchH * 0.5f,
+        checked ? onFill : offFill,
+        palette.border
+    );
+    draw.RoundedRect(
+        knobX,
+        switchY + 3.0f,
+        knobSize,
+        knobSize,
+        knobSize * 0.5f,
+        knobFill.r,
+        knobFill.g,
+        knobFill.b,
+        0.98f
+    );
 }
 
 } // namespace UI

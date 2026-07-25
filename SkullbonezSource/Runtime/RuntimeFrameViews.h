@@ -93,12 +93,14 @@ struct RuntimeFrameHostView
     // C++20 no longer treats a type with a user-declared constructor as an
     // aggregate. Keep copy construction forbidden and make the one valid
     // stack-only borrow-map construction explicit.
-    RuntimeFrameHostView( ApplicationExitState& applicationExitValue,
-                          DiagnosticsRuntime& diagnosticsRuntimeValue,
-                          Assets::AssetSystem& assetsValue,
-                          Threading::WorkerPool& workerPoolValue,
-                          Window& windowValue,
-                          Core::Profiler* profilerValue )
+    RuntimeFrameHostView(
+        ApplicationExitState& applicationExitValue,
+        DiagnosticsRuntime& diagnosticsRuntimeValue,
+        Assets::AssetSystem& assetsValue,
+        Threading::WorkerPool& workerPoolValue,
+        Window& windowValue,
+        Core::Profiler* profilerValue
+    )
         : applicationExit( applicationExitValue ), diagnosticsRuntime( diagnosticsRuntimeValue ), assets( assetsValue ),
           workerPool( workerPoolValue ), window( windowValue ), profiler( profilerValue )
     {
@@ -119,12 +121,14 @@ struct RuntimeFrameInteractionView
     RuntimeTools& runtimeTools;
     CameraControlState& camera;
 
-    RuntimeFrameInteractionView( InputRouter& inputRouterValue,
-                                 RuntimeInteractionController& interactionValue,
-                                 AttachedCameraController& attachedCameraValue,
-                                 UI::InGameUI& operatorUiValue,
-                                 RuntimeTools& runtimeToolsValue,
-                                 CameraControlState& cameraValue )
+    RuntimeFrameInteractionView(
+        InputRouter& inputRouterValue,
+        RuntimeInteractionController& interactionValue,
+        AttachedCameraController& attachedCameraValue,
+        UI::InGameUI& operatorUiValue,
+        RuntimeTools& runtimeToolsValue,
+        CameraControlState& cameraValue
+    )
         : inputRouter( inputRouterValue ), interaction( interactionValue ), attachedCamera( attachedCameraValue ),
           operatorUi( operatorUiValue ), runtimeTools( runtimeToolsValue ), camera( cameraValue )
     {
@@ -146,13 +150,15 @@ struct RuntimeFrameSceneView
     SimulationSystem& simulation;
     SceneController& sceneController;
 
-    RuntimeFrameSceneView( SkullbonezCore::Core::EngineConfig& configValue,
-                           RunLaunchOptions& launchOptionsValue,
-                           const RunStartupState& startupValue,
-                           RunTimerState& timersValue,
-                           RuntimeOverlayDiagnostics& overlaysValue,
-                           SimulationSystem& simulationValue,
-                           SceneController& sceneControllerValue )
+    RuntimeFrameSceneView(
+        SkullbonezCore::Core::EngineConfig& configValue,
+        RunLaunchOptions& launchOptionsValue,
+        const RunStartupState& startupValue,
+        RunTimerState& timersValue,
+        RuntimeOverlayDiagnostics& overlaysValue,
+        SimulationSystem& simulationValue,
+        SceneController& sceneControllerValue
+    )
         : config( configValue ), launchOptions( launchOptionsValue ), startup( startupValue ), timers( timersValue ),
           overlays( overlaysValue ), simulation( simulationValue ), sceneController( sceneControllerValue )
     {
@@ -171,10 +177,12 @@ struct RuntimeFramePresentationView
     RuntimeRenderBackendView& renderBackendView;
     RuntimeRenderer& renderer;
 
-    RuntimeFramePresentationView( RenderDefaultsStore& renderDefaultsValue,
-                                  RuntimeValidationHarness& validationHarnessValue,
-                                  RuntimeRenderBackendView& renderBackendViewValue,
-                                  RuntimeRenderer& rendererValue )
+    RuntimeFramePresentationView(
+        RenderDefaultsStore& renderDefaultsValue,
+        RuntimeValidationHarness& validationHarnessValue,
+        RuntimeRenderBackendView& renderBackendViewValue,
+        RuntimeRenderer& rendererValue
+    )
         : renderDefaults( renderDefaultsValue ), validationHarness( validationHarnessValue ),
           renderBackendView( renderBackendViewValue ), renderer( rendererValue )
     {
@@ -192,8 +200,8 @@ struct RuntimeUiTextFrameFacts
     const char* cameraModeLabel = nullptr;
     const char* launcherFireModeLabel = nullptr;
     bool isLauncherCameraMode = false;
-    RuntimeInteractionGestureKind interactionGestureKind{};
-    RuntimeGizmoDragKind interactionGizmoKind{};
+    RuntimeInteractionGestureKind interactionGestureKind {};
+    RuntimeGizmoDragKind interactionGizmoKind {};
     float presentationAlpha = 0.0f;
     bool presentationPinned = false;
     double secondsPerFrame = 0.0;

@@ -465,10 +465,12 @@ template <typename T, size_t Capacity> struct RenderGraphFixedList
     {
         if ( requested > Capacity )
         {
-            SB_FATAL( "RenderGraph",
-                      "Fixed-list reserve capacity exceeded. requested=%zu capacity=%zu",
-                      requested,
-                      Capacity );
+            SB_FATAL(
+                "RenderGraph",
+                "Fixed-list reserve capacity exceeded. requested=%zu capacity=%zu",
+                requested,
+                Capacity
+            );
         }
     }
 
@@ -621,23 +623,30 @@ class RenderGraph
     void Clear();
     void ReserveForRuntimePassGraph();
 
-    RenderGraphResourceHandle AddExternalResource( const char* name,
-                                                   RenderGraphResourceAccess initialAccess,
-                                                   RenderGraphNativeResourceToken nativeResource = {} );
-    RenderGraphResourceHandle
-    AddTransientResource( const char* name,
-                          const RenderGraphTransientResourceDesc& desc,
-                          RenderGraphResourceAccess initialAccess = RenderGraphResourceAccess::Unknown );
+    RenderGraphResourceHandle AddExternalResource(
+        const char* name,
+        RenderGraphResourceAccess initialAccess,
+        RenderGraphNativeResourceToken nativeResource = {}
+    );
+    RenderGraphResourceHandle AddTransientResource(
+        const char* name,
+        const RenderGraphTransientResourceDesc& desc,
+        RenderGraphResourceAccess initialAccess = RenderGraphResourceAccess::Unknown
+    );
     uint32_t AddPass( const char* name, RenderGraphQueueType queue = RenderGraphQueueType::Graphics );
 
-    void AddRead( uint32_t passIndex,
-                  RenderGraphResourceHandle resource,
-                  RenderGraphResourceAccess access,
-                  uint32_t subresource = RENDER_GRAPH_ALL_SUBRESOURCES );
-    void AddWrite( uint32_t passIndex,
-                   RenderGraphResourceHandle resource,
-                   RenderGraphResourceAccess access,
-                   uint32_t subresource = RENDER_GRAPH_ALL_SUBRESOURCES );
+    void AddRead(
+        uint32_t passIndex,
+        RenderGraphResourceHandle resource,
+        RenderGraphResourceAccess access,
+        uint32_t subresource = RENDER_GRAPH_ALL_SUBRESOURCES
+    );
+    void AddWrite(
+        uint32_t passIndex,
+        RenderGraphResourceHandle resource,
+        RenderGraphResourceAccess access,
+        uint32_t subresource = RENDER_GRAPH_ALL_SUBRESOURCES
+    );
     template <auto Callback, typename Payload>
     void SetPassCallback( uint32_t passIndex, Payload& payload, bool enabled = true, const char* debugLabel = nullptr )
     {

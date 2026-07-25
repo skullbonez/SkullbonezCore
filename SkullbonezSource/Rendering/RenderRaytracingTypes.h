@@ -68,8 +68,8 @@ struct WaterReflectionRayDesc
     Math::Transformation::Matrix4 inverseViewProjection;
     Math::Vector::Vector3 cameraPosition;
     Math::Vector::Vector3 lightPosition;
-    Math::Vector::Vector3 skyColorTop{ 0.4f, 0.6f, 0.9f };
-    Math::Vector::Vector3 skyColorBottom{ 0.7f, 0.8f, 0.95f };
+    Math::Vector::Vector3 skyColorTop { 0.4f, 0.6f, 0.9f };
+    Math::Vector::Vector3 skyColorBottom { 0.7f, 0.8f, 0.95f };
     float waterHeight = 0.0f;
     float simulationTimeSeconds = 0.0f;
     ReflectionEnvironmentTextures textures;

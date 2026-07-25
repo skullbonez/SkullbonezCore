@@ -109,14 +109,14 @@ constexpr int MAX_ALLOCATION_CALLSITES = 1024;
 constexpr int MAX_PRINTED_CALLSITES = 24;
 constexpr std::size_t DEFAULT_ALIGNMENT = alignof( std::max_align_t );
 
-std::atomic<int> s_guardMode{ static_cast<int>( RuntimeAllocationGuardMode::Off ) };
+std::atomic<int> s_guardMode { static_cast<int>( RuntimeAllocationGuardMode::Off ) };
 // Invariant: phase and reserve-owner attribution must share thread affinity.
 // A process-global phase races nested Replay/Render scopes and can pair one
 // thread's phase with another thread's owner-zero allocation.
 thread_local RuntimeAllocationPhase s_currentPhase = RuntimeAllocationPhase::Startup;
-std::atomic<uint64_t> s_gameplayViolations{ 0 };
-std::atomic<uint64_t> s_totalAllocations{ 0 };
-std::atomic<uint64_t> s_totalBytes{ 0 };
+std::atomic<uint64_t> s_gameplayViolations { 0 };
+std::atomic<uint64_t> s_totalAllocations { 0 };
+std::atomic<uint64_t> s_totalBytes { 0 };
 PhaseCounters s_phaseCounters[static_cast<int>( RuntimeAllocationPhase::Count )] = {};
 CallsiteCounters s_callsiteCounters[MAX_ALLOCATION_CALLSITES] = {};
 thread_local bool s_insideAllocationHook = false;
@@ -165,10 +165,8 @@ void SubtractActiveBytes( std::atomic<uint64_t>& activeBytes, uint64_t size ) no
     while ( observed > 0u )
     {
         const uint64_t desired = observed > size ? observed - size : 0u;
-        if ( activeBytes.compare_exchange_weak( observed,
-                                                desired,
-                                                std::memory_order_relaxed,
-                                                std::memory_order_relaxed ) )
+        if ( activeBytes
+                 .compare_exchange_weak( observed, desired, std::memory_order_relaxed, std::memory_order_relaxed ) )
         {
             return;
         }
@@ -202,12 +200,14 @@ RuntimeAllocationGuardMode CurrentMode() noexcept
     return static_cast<RuntimeAllocationGuardMode>( mode );
 }
 
-void RecordCallsite( RuntimeAllocationPhase phase,
-                     RuntimeReserveOwnerHandle owner,
-                     uintptr_t callsite,
-                     uintptr_t parent,
-                     bool violation,
-                     uint64_t size ) noexcept
+void RecordCallsite(
+    RuntimeAllocationPhase phase,
+    RuntimeReserveOwnerHandle owner,
+    uintptr_t callsite,
+    uintptr_t parent,
+    bool violation,
+    uint64_t size
+) noexcept
 {
     if ( callsite == 0u )
     {
@@ -232,10 +232,9 @@ void RecordCallsite( RuntimeAllocationPhase phase,
             counters.bytes.fetch_add( size, std::memory_order_relaxed );
             return;
         }
-        if ( observed == 0u && counters.address.compare_exchange_strong( observed,
-                                                                         callsite,
-                                                                         std::memory_order_acq_rel,
-                                                                         std::memory_order_acquire ) )
+        if ( observed == 0u &&
+             counters.address
+                 .compare_exchange_strong( observed, callsite, std::memory_order_acq_rel, std::memory_order_acquire ) )
         {
             counters.parentAddress.store( parent, std::memory_order_relaxed );
             counters.phaseIndex.store( phaseIndex, std::memory_order_relaxed );
@@ -248,10 +247,12 @@ void RecordCallsite( RuntimeAllocationPhase phase,
     }
 }
 
-bool RecordAllocation( RuntimeAllocationPhase phase,
-                       uint64_t size,
-                       RuntimeReserveOwnerHandle owner,
-                       uintptr_t callsite ) noexcept
+bool RecordAllocation(
+    RuntimeAllocationPhase phase,
+    uint64_t size,
+    RuntimeReserveOwnerHandle owner,
+    uintptr_t callsite
+) noexcept
 {
     if ( CurrentMode() == RuntimeAllocationGuardMode::Off )
     {
@@ -274,6 +275,7 @@ bool RecordAllocation( RuntimeAllocationPhase phase,
     // void-pointer ABI; the tracker stores integer addresses for bounded lookup
     // and never dereferences them.
     void* capturedFrames[8] = {};
+
     const USHORT capturedCount = CaptureStackBackTrace( 2u, 8u, capturedFrames, nullptr );
     for ( USHORT index = 0; index < capturedCount && index < 8u; ++index )
     {
@@ -366,10 +368,12 @@ void* AllocateTrackedMemory( std::size_t requestedSize, std::size_t requestedAli
     if ( !s_insideAllocationHook )
     {
         s_insideAllocationHook = true;
-        if ( RecordAllocation( static_cast<RuntimeAllocationPhase>( header->phase ),
-                               header->size,
-                               owner,
-                               reinterpret_cast<uintptr_t>( callsite ) ) )
+        if ( RecordAllocation(
+                 static_cast<RuntimeAllocationPhase>( header->phase ),
+                 header->size,
+                 owner,
+                 reinterpret_cast<uintptr_t>( callsite )
+             ) )
         {
             header->flags |= ALLOCATION_HEADER_RECORDED;
         }
@@ -426,11 +430,13 @@ void FreeTrackedMemory( void* pointer ) noexcept
 [[noreturn]] void FatalAllocationFailure( std::size_t size, std::size_t alignment ) noexcept
 {
     char message[256] = {};
-    std::snprintf( message,
-                   sizeof( message ),
-                   "FATAL[Runtime/Allocation]: global operator new exhausted memory. size=%llu alignment=%llu\n",
-                   static_cast<unsigned long long>( size ),
-                   static_cast<unsigned long long>( alignment ) );
+    std::snprintf(
+        message,
+        sizeof( message ),
+        "FATAL[Runtime/Allocation]: global operator new exhausted memory. size=%llu alignment=%llu\n",
+        static_cast<unsigned long long>( size ),
+        static_cast<unsigned long long>( alignment )
+    );
 
 #if defined( _WIN32 )
     OutputDebugStringA( message );
@@ -595,12 +601,15 @@ void PrintRuntimeAllocationSummary( FILE* out ) noexcept
     }
 
     const RuntimeAllocationGuardMode mode = GetRuntimeAllocationGuardMode();
-    fprintf( out,
-             "[allocation-guard] mode=%s total_allocations=%llu total_bytes=%llu gameplay_violations=%llu\n",
-             RuntimeAllocationGuardModeName( mode ),
-             static_cast<unsigned long long>( s_totalAllocations.load( std::memory_order_relaxed ) ),
-             static_cast<unsigned long long>( s_totalBytes.load( std::memory_order_relaxed ) ),
-             static_cast<unsigned long long>( RuntimeAllocationGuardViolationCount() ) );
+    fprintf(
+        out,
+        "[allocation-guard] mode=%s total_allocations=%llu total_bytes=%llu gameplay_violations=%llu\n",
+        RuntimeAllocationGuardModeName( mode ),
+        static_cast<unsigned long long>( s_totalAllocations.load( std::memory_order_relaxed ) ),
+        static_cast<unsigned long long>( s_totalBytes.load( std::memory_order_relaxed ) ),
+        static_cast<unsigned long long>( RuntimeAllocationGuardViolationCount() )
+    );
+
     for ( int phaseIndex = 0; phaseIndex < static_cast<int>( RuntimeAllocationPhase::Count ); ++phaseIndex )
     {
         const PhaseCounters& counters = s_phaseCounters[phaseIndex];
@@ -614,20 +623,24 @@ void PrintRuntimeAllocationSummary( FILE* out ) noexcept
             continue;
         }
 
-        fprintf( out,
-                 "[allocation-guard] phase=%s allocations=%llu frees=%llu bytes=%llu active_bytes=%llu "
-                 "high_water_bytes=%llu\n",
-                 RuntimeAllocationPhaseName( static_cast<RuntimeAllocationPhase>( phaseIndex ) ),
-                 static_cast<unsigned long long>( allocations ),
-                 static_cast<unsigned long long>( frees ),
-                 static_cast<unsigned long long>( bytes ),
-                 static_cast<unsigned long long>( activeBytes ),
-                 static_cast<unsigned long long>( highWaterBytes ) );
+        fprintf(
+            out,
+            "[allocation-guard] phase=%s allocations=%llu frees=%llu bytes=%llu active_bytes=%llu "
+            "high_water_bytes=%llu\n",
+            RuntimeAllocationPhaseName( static_cast<RuntimeAllocationPhase>( phaseIndex ) ),
+            static_cast<unsigned long long>( allocations ),
+            static_cast<unsigned long long>( frees ),
+            static_cast<unsigned long long>( bytes ),
+            static_cast<unsigned long long>( activeBytes ),
+            static_cast<unsigned long long>( highWaterBytes )
+        );
     }
     RuntimeReserveAllocator::PrintSummary( out );
     const uintptr_t imageBase = ProcessImageBase();
     const CallsiteCounters* topCallsites[MAX_PRINTED_CALLSITES] = {};
+
     uint64_t topCounts[MAX_PRINTED_CALLSITES] = {};
+
     const bool rankViolationCallsites = mode == RuntimeAllocationGuardMode::Gameplay;
     for ( const CallsiteCounters& counters : s_callsiteCounters )
     {
@@ -675,29 +688,35 @@ void PrintRuntimeAllocationSummary( FILE* out ) noexcept
         const uintptr_t rva = imageBase != 0u && address >= imageBase ? address - imageBase : address;
         const uintptr_t parentRva = imageBase != 0u && parent >= imageBase ? parent - imageBase : parent;
         const int phaseIndex = counters->phaseIndex.load( std::memory_order_relaxed );
-        fprintf( out,
-                 "[allocation-guard] callsite rank=%d phase=%s owner=%u rva=0x%llx parent_rva=0x%llx "
-                 "allocations=%llu violations=%llu bytes=%llu\n",
-                 rank + 1,
-                 RuntimeAllocationPhaseName( static_cast<RuntimeAllocationPhase>( phaseIndex ) ),
-                 counters->owner.load( std::memory_order_relaxed ),
-                 static_cast<unsigned long long>( rva ),
-                 static_cast<unsigned long long>( parentRva ),
-                 static_cast<unsigned long long>( counters->allocations.load( std::memory_order_relaxed ) ),
-                 static_cast<unsigned long long>( counters->violations.load( std::memory_order_relaxed ) ),
-                 static_cast<unsigned long long>( counters->bytes.load( std::memory_order_relaxed ) ) );
+        fprintf(
+            out,
+            "[allocation-guard] callsite rank=%d phase=%s owner=%u rva=0x%llx parent_rva=0x%llx "
+            "allocations=%llu violations=%llu bytes=%llu\n",
+            rank + 1,
+            RuntimeAllocationPhaseName( static_cast<RuntimeAllocationPhase>( phaseIndex ) ),
+            counters->owner.load( std::memory_order_relaxed ),
+            static_cast<unsigned long long>( rva ),
+            static_cast<unsigned long long>( parentRva ),
+            static_cast<unsigned long long>( counters->allocations.load( std::memory_order_relaxed ) ),
+            static_cast<unsigned long long>( counters->violations.load( std::memory_order_relaxed ) ),
+            static_cast<unsigned long long>( counters->bytes.load( std::memory_order_relaxed ) )
+        );
     }
     if ( RuntimeAllocationGuardHasGameplayViolations() )
     {
-        fprintf( out,
-                 "[allocation-guard] VIOLATION: gameplay allocation guard detected heap or reserve policy "
-                 "violations; strict mode will fail after the summary.\n" );
+        fprintf(
+            out,
+            "[allocation-guard] VIOLATION: gameplay allocation guard detected heap or reserve policy "
+            "violations; strict mode will fail after the summary.\n"
+        );
     }
     else
     {
-        fprintf( out,
-                 "[allocation-guard] PASS: no steady gameplay allocations or reserve policy violations recorded by "
-                 "the guard.\n" );
+        fprintf(
+            out,
+            "[allocation-guard] PASS: no steady gameplay allocations or reserve policy violations recorded by "
+            "the guard.\n"
+        );
     }
     fflush( out );
 }

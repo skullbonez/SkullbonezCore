@@ -118,16 +118,18 @@ struct MainMemoryReplayCategoryBytes
     uint64_t bytes[MAIN_MEMORY_REPLAY_BYTE_CATEGORY_COUNT] = {};
 };
 
-inline uint64_t MainMemoryReplayCategoryByte( const MainMemoryReplayCategoryBytes& categories,
-                                              MainMemoryReplayByteCategory category )
+inline uint64_t
+MainMemoryReplayCategoryByte( const MainMemoryReplayCategoryBytes& categories, MainMemoryReplayByteCategory category )
 {
     const std::size_t categoryIndex = static_cast<std::size_t>( category );
     return categoryIndex < MAIN_MEMORY_REPLAY_BYTE_CATEGORY_COUNT ? categories.bytes[categoryIndex] : 0;
 }
 
-inline void MainMemoryAddReplayCategoryBytes( MainMemoryReplayCategoryBytes& categories,
-                                              MainMemoryReplayByteCategory category,
-                                              uint64_t bytes )
+inline void MainMemoryAddReplayCategoryBytes(
+    MainMemoryReplayCategoryBytes& categories,
+    MainMemoryReplayByteCategory category,
+    uint64_t bytes
+)
 {
     const std::size_t categoryIndex = static_cast<std::size_t>( category );
     if ( categoryIndex < MAIN_MEMORY_REPLAY_BYTE_CATEGORY_COUNT )
@@ -136,9 +138,11 @@ inline void MainMemoryAddReplayCategoryBytes( MainMemoryReplayCategoryBytes& cat
     }
 }
 
-inline uint64_t MainMemoryReplayCategoryRangeBytes( const MainMemoryReplayCategoryBytes& categories,
-                                                    MainMemoryReplayByteCategory first,
-                                                    MainMemoryReplayByteCategory end )
+inline uint64_t MainMemoryReplayCategoryRangeBytes(
+    const MainMemoryReplayCategoryBytes& categories,
+    MainMemoryReplayByteCategory first,
+    MainMemoryReplayByteCategory end
+)
 {
     const std::size_t firstIndex = static_cast<std::size_t>( first );
     const std::size_t endIndex = static_cast<std::size_t>( end );

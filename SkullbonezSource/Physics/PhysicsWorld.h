@@ -155,23 +155,29 @@ class PhysicsWorld
     bool m_diagnosticsSuppressed = false;
 #endif
 
-    void RunSolverPhysics( PhysicsBodyStore& bodyStore,
-                           const ColliderStore& colliderStore,
-                           float dt,
-                           const PhysicsRuntimeSettings& settings,
-                           const PhysicsWorldForces& worldForces,
-                           const ExternalForceFrameInput& externalForces,
-                           Threading::WorkerPool& workerPool,
-                           bool probeDormantUnderwaterLocks );
-    void CommitContactSolverConsequences( PhysicsBodyStore& bodyStore,
-                                          const ColliderStore& colliderStore,
-                                          const PhysicsWorldForces& worldForces );
-    void ApplyExternalForces( PhysicsBodyStore& bodyStore,
-                              const ColliderStore& colliderStore,
-                              const PhysicsWorldForces& worldForces,
-                              const ExternalForceFrameInput& input,
-                              const PhysicsExecutionSettings& execution,
-                              Threading::WorkerPool& workerPool );
+    void RunSolverPhysics(
+        PhysicsBodyStore& bodyStore,
+        const ColliderStore& colliderStore,
+        float dt,
+        const PhysicsRuntimeSettings& settings,
+        const PhysicsWorldForces& worldForces,
+        const ExternalForceFrameInput& externalForces,
+        Threading::WorkerPool& workerPool,
+        bool probeDormantUnderwaterLocks
+    );
+    void CommitContactSolverConsequences(
+        PhysicsBodyStore& bodyStore,
+        const ColliderStore& colliderStore,
+        const PhysicsWorldForces& worldForces
+    );
+    void ApplyExternalForces(
+        PhysicsBodyStore& bodyStore,
+        const ColliderStore& colliderStore,
+        const PhysicsWorldForces& worldForces,
+        const ExternalForceFrameInput& input,
+        const PhysicsExecutionSettings& execution,
+        Threading::WorkerPool& workerPool
+    );
 
   public:
     PhysicsWorld();
@@ -182,13 +188,15 @@ class PhysicsWorld
     void ReserveBodyScratchCapacity( std::size_t capacity );
     // Runs one fixed world step over the stores. Collision diagnostics append
     // fixed events only; name lookup and file output occur after the hot pass.
-    void RunPhysics( PhysicsBodyStore& bodyStore,
-                     const ColliderStore& colliderStore,
-                     float fChangeInTime,
-                     const PhysicsRuntimeSettings& settings,
-                     const PhysicsWorldForces& worldForces,
-                     const ExternalForceFrameInput& externalForces,
-                     Threading::WorkerPool& workerPool );
+    void RunPhysics(
+        PhysicsBodyStore& bodyStore,
+        const ColliderStore& colliderStore,
+        float fChangeInTime,
+        const PhysicsRuntimeSettings& settings,
+        const PhysicsWorldForces& worldForces,
+        const ExternalForceFrameInput& externalForces,
+        Threading::WorkerPool& workerPool
+    );
     // Emits Debug-only regression and SkullScope records from the stores the
     // caller passes in. The diagnostics sink owns the registered cold name
     // table and runtime owns the CSV writer, so fixed steps do not borrow model
@@ -196,17 +204,21 @@ class PhysicsWorld
     bool ShouldEmitStepDiagnostics() const;
     bool ShouldEmitCollisionTimeDiagnostics() const;
     void SetDiagnosticNames( std::span<const char* const> diagnosticNames );
-    void EmitStepDiagnostics( const PhysicsBodyStore& bodyStore,
-                              const ColliderStore& colliderStore,
-                              float fChangeInTime,
-                              const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
+    void EmitStepDiagnostics(
+        const PhysicsBodyStore& bodyStore,
+        const ColliderStore& colliderStore,
+        float fChangeInTime,
+        const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter
+    );
     // Wake and seed decisions read physics-owned fixed/sleep state before the
     // scene edge performs any owner-side cache invalidation.
     void WakeModel( PhysicsBodyStore& bodyStore, int index );
-    void WakeModel( PhysicsBodyStore& bodyStore,
-                    const ColliderStore& colliderStore,
-                    const PhysicsWorldForces& worldForces,
-                    int index );
+    void WakeModel(
+        PhysicsBodyStore& bodyStore,
+        const ColliderStore& colliderStore,
+        const PhysicsWorldForces& worldForces,
+        int index
+    );
     void SeedModelAsleep( const PhysicsBodyStore& bodyStore, int index );
     void SetPhysicsSleepEnabled( bool enabled );
     bool IsPhysicsSleepEnabled() const;

@@ -242,11 +242,13 @@ void BroadphaseVisualizer::EmitCubeWireframe( int16_t ix, int16_t iy, int16_t iz
 }
 
 
-void BroadphaseVisualizer::Update( float dt,
-                                   const SpatialGrid::ActiveCell* activeCells,
-                                   int activeCellCount,
-                                   const int64_t* collisionKeys,
-                                   int collisionKeyCount )
+void BroadphaseVisualizer::Update(
+    float dt,
+    const SpatialGrid::ActiveCell* activeCells,
+    int activeCellCount,
+    const int64_t* collisionKeys,
+    int collisionKeyCount
+)
 {
     if ( !m_enabled )
     {

@@ -70,11 +70,13 @@ struct SceneLoadRequest
         return request;
     }
 
-    static SceneLoadRequest Load( int index,
-                                  bool preserveUIState,
-                                  bool suppressExitOnComplete,
-                                  bool preserveRuntimeState,
-                                  bool enterInteractiveSceneRun = false )
+    static SceneLoadRequest Load(
+        int index,
+        bool preserveUIState,
+        bool suppressExitOnComplete,
+        bool preserveRuntimeState,
+        bool enterInteractiveSceneRun = false
+    )
     {
         SceneLoadRequest request;
         request.accepted = index >= 0;
@@ -105,8 +107,8 @@ struct SceneRuntimeUICommandResult
     SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
 };
 
-SceneRuntimeUICommandResult SubmitSceneUIRequests( SceneController& sceneController,
-                                                   const UI::UISceneCommands& commands );
+SceneRuntimeUICommandResult
+SubmitSceneUIRequests( SceneController& sceneController, const UI::UISceneCommands& commands );
 
 } // namespace Runtime
 } // namespace SkullbonezCore

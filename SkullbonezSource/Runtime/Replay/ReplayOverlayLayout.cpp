@@ -135,18 +135,25 @@ bool ReplayPorkchopCellAtPointer( int screenW, int pointerX, int pointerY, std::
     return true;
 }
 
-void BuildReplayTripPlannerSurface( const ReplayTripPlannerView& planner,
-                                    int screenW,
-                                    ReplayTripPlannerSurface& outSurface )
+void BuildReplayTripPlannerSurface(
+    const ReplayTripPlannerView& planner,
+    int screenW,
+    ReplayTripPlannerSurface& outSurface
+)
 {
     outSurface.Reset();
     const UI::UIRect panel = ReplayTripPlannerPanelRect( screenW );
     const float y = panel.y + 52.0f;
-    const UI::UIRect decrease{ panel.x + 12.0f, y, 34.0f, 26.0f };
-    const UI::UIRect increase{ panel.x + 116.0f, y, 34.0f, 26.0f };
-    const UI::UIRect plan{ panel.x + 166.0f, y, 92.0f, 26.0f };
-    const UI::UIRect commit{ panel.x + 274.0f, y, 92.0f, 26.0f };
-    const UI::UIRect cancel{ panel.x + 382.0f, y, 92.0f, 26.0f };
+    const UI::UIRect decrease { panel.x + 12.0f, y, 34.0f, 26.0f };
+
+    const UI::UIRect increase { panel.x + 116.0f, y, 34.0f, 26.0f };
+
+    const UI::UIRect plan { panel.x + 166.0f, y, 92.0f, 26.0f };
+
+    const UI::UIRect commit { panel.x + 274.0f, y, 92.0f, 26.0f };
+
+    const UI::UIRect cancel { panel.x + 382.0f, y, 92.0f, 26.0f };
+
     const bool awaiting = planner.state == ReplayTripPlannerState::Seeding ||
                           planner.state == ReplayTripPlannerState::AwaitingPrediction ||
                           planner.state == ReplayTripPlannerState::Correcting;
@@ -162,7 +169,8 @@ void BuildReplayTripPlannerSurface( const ReplayTripPlannerView& planner,
     {
         RuntimeUiControl control;
         control.id = ReplayTripPlannerControlId( id );
-        control.action = RuntimeUiActionId{ static_cast<uint32_t>( action ) };
+        control.action = RuntimeUiActionId { static_cast<uint32_t>( action ) };
+
         control.kind = kind;
         control.drawRect = rect;
         control.hitRect = rect;
@@ -170,9 +178,11 @@ void BuildReplayTripPlannerSurface( const ReplayTripPlannerView& planner,
         control.enabled = enabled;
         if ( !outSurface.TryAdd( control ) )
         {
-            SB_FATAL( "ReplayTripPlannerSurface",
-                      "Cannot publish trip-planner control id=%u.",
-                      static_cast<uint32_t>( id ) );
+            SB_FATAL(
+                "ReplayTripPlannerSurface",
+                "Cannot publish trip-planner control id=%u.",
+                static_cast<uint32_t>( id )
+            );
         }
     };
 
@@ -303,7 +313,8 @@ float ReplayPredictionHorizonT( float seconds )
     return std::clamp(
         ( seconds - REPLAY_PREDICTION_MIN_SECONDS ) / ( REPLAY_PREDICTION_MAX_SECONDS - REPLAY_PREDICTION_MIN_SECONDS ),
         0.0f,
-        1.0f );
+        1.0f
+    );
 }
 
 float ReplayPredictionHorizonFromMouse( int mouseX, const UI::UIRect& horizon )
@@ -344,7 +355,8 @@ void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, Replay
     {
         RuntimeUiControl control;
         control.id = ReplayScrubberControlId( id );
-        control.action = RuntimeUiActionId{ static_cast<uint32_t>( action ) };
+        control.action = RuntimeUiActionId { static_cast<uint32_t>( action ) };
+
         control.kind = kind;
         control.drawRect = drawRect;
         control.hitRect = hitRect;
@@ -382,97 +394,123 @@ void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, Replay
 
     // Invariant: rows are added front-to-back. Disabled controls still block
     // click-through, while broad panel/reveal zones sit behind real controls.
-    addControl( ReplayScrubberControl::Branch,
-                ReplayScrubberAction::RestoreBranch,
-                RuntimeUiControlKind::Button,
-                branch,
-                branch,
-                true,
-                input.branchTargetAvailable );
-    addControl( ReplayScrubberControl::Pause,
-                ReplayScrubberAction::TogglePause,
-                RuntimeUiControlKind::Button,
-                pause,
-                pause,
-                !input.loadedPresentation,
-                input.solverToolsEnabled );
-    addControl( ReplayScrubberControl::VelocityEdit,
-                ReplayScrubberAction::ToggleVelocityEdit,
-                RuntimeUiControlKind::Toggle,
-                velocity,
-                velocity,
-                !input.loadedPresentation,
-                input.solverToolsEnabled );
-    addControl( ReplayScrubberControl::PredictionToggle,
-                ReplayScrubberAction::TogglePrediction,
-                RuntimeUiControlKind::Toggle,
-                predictionToggle,
-                predictionToggle,
-                !input.loadedPresentation,
-                input.predictionToolsEnabled );
-    addControl( ReplayScrubberControl::PredictionHorizon,
-                ReplayScrubberAction::SetPredictionHorizon,
-                RuntimeUiControlKind::Slider,
-                predictionHorizon,
-                predictionHorizonHit,
-                !input.loadedPresentation,
-                input.predictionToolsEnabled );
-    addControl( ReplayScrubberControl::RagdollVisuals,
-                ReplayScrubberAction::ToggleRagdollVisuals,
-                RuntimeUiControlKind::Toggle,
-                ragdoll,
-                ragdoll,
-                !input.loadedPresentation,
-                input.predictionToolsEnabled );
-    addControl( ReplayScrubberControl::PastPath,
-                ReplayScrubberAction::TogglePastPath,
-                RuntimeUiControlKind::Toggle,
-                pastPath,
-                pastPath,
-                !input.loadedPresentation,
-                input.pastPathToolsEnabled );
-    addControl( ReplayScrubberControl::Save,
-                ReplayScrubberAction::Save,
-                RuntimeUiControlKind::Button,
-                save,
-                save,
-                true,
-                input.solverToolsEnabled );
-    addControl( ReplayScrubberControl::Load,
-                ReplayScrubberAction::Load,
-                RuntimeUiControlKind::Button,
-                load,
-                load,
-                true,
-                true );
-    addControl( ReplayScrubberControl::ScrubTrack,
-                ReplayScrubberAction::Scrub,
-                RuntimeUiControlKind::Track,
-                track,
-                track,
-                true,
-                input.scrubTrackDragEnabled );
-    addControl( ReplayScrubberControl::PredictionPanel,
-                ReplayScrubberAction::None,
-                RuntimeUiControlKind::Panel,
-                predictionPanel,
-                predictionPanel,
-                !input.loadedPresentation,
-                input.predictionToolsEnabled );
-    addControl( ReplayScrubberControl::Panel,
-                ReplayScrubberAction::None,
-                RuntimeUiControlKind::Panel,
-                panel,
-                panel,
-                true,
-                true );
-    addControl( ReplayScrubberControl::HotZone,
-                ReplayScrubberAction::None,
-                RuntimeUiControlKind::HotZone,
-                hotZone,
-                hotZone,
-                input.hotZoneEnabled,
-                true );
+    addControl(
+        ReplayScrubberControl::Branch,
+        ReplayScrubberAction::RestoreBranch,
+        RuntimeUiControlKind::Button,
+        branch,
+        branch,
+        true,
+        input.branchTargetAvailable
+    );
+    addControl(
+        ReplayScrubberControl::Pause,
+        ReplayScrubberAction::TogglePause,
+        RuntimeUiControlKind::Button,
+        pause,
+        pause,
+        !input.loadedPresentation,
+        input.solverToolsEnabled
+    );
+    addControl(
+        ReplayScrubberControl::VelocityEdit,
+        ReplayScrubberAction::ToggleVelocityEdit,
+        RuntimeUiControlKind::Toggle,
+        velocity,
+        velocity,
+        !input.loadedPresentation,
+        input.solverToolsEnabled
+    );
+    addControl(
+        ReplayScrubberControl::PredictionToggle,
+        ReplayScrubberAction::TogglePrediction,
+        RuntimeUiControlKind::Toggle,
+        predictionToggle,
+        predictionToggle,
+        !input.loadedPresentation,
+        input.predictionToolsEnabled
+    );
+    addControl(
+        ReplayScrubberControl::PredictionHorizon,
+        ReplayScrubberAction::SetPredictionHorizon,
+        RuntimeUiControlKind::Slider,
+        predictionHorizon,
+        predictionHorizonHit,
+        !input.loadedPresentation,
+        input.predictionToolsEnabled
+    );
+    addControl(
+        ReplayScrubberControl::RagdollVisuals,
+        ReplayScrubberAction::ToggleRagdollVisuals,
+        RuntimeUiControlKind::Toggle,
+        ragdoll,
+        ragdoll,
+        !input.loadedPresentation,
+        input.predictionToolsEnabled
+    );
+    addControl(
+        ReplayScrubberControl::PastPath,
+        ReplayScrubberAction::TogglePastPath,
+        RuntimeUiControlKind::Toggle,
+        pastPath,
+        pastPath,
+        !input.loadedPresentation,
+        input.pastPathToolsEnabled
+    );
+    addControl(
+        ReplayScrubberControl::Save,
+        ReplayScrubberAction::Save,
+        RuntimeUiControlKind::Button,
+        save,
+        save,
+        true,
+        input.solverToolsEnabled
+    );
+    addControl(
+        ReplayScrubberControl::Load,
+        ReplayScrubberAction::Load,
+        RuntimeUiControlKind::Button,
+        load,
+        load,
+        true,
+        true
+    );
+    addControl(
+        ReplayScrubberControl::ScrubTrack,
+        ReplayScrubberAction::Scrub,
+        RuntimeUiControlKind::Track,
+        track,
+        track,
+        true,
+        input.scrubTrackDragEnabled
+    );
+    addControl(
+        ReplayScrubberControl::PredictionPanel,
+        ReplayScrubberAction::None,
+        RuntimeUiControlKind::Panel,
+        predictionPanel,
+        predictionPanel,
+        !input.loadedPresentation,
+        input.predictionToolsEnabled
+    );
+    addControl(
+        ReplayScrubberControl::Panel,
+        ReplayScrubberAction::None,
+        RuntimeUiControlKind::Panel,
+        panel,
+        panel,
+        true,
+        true
+    );
+    addControl(
+        ReplayScrubberControl::HotZone,
+        ReplayScrubberAction::None,
+        RuntimeUiControlKind::HotZone,
+        hotZone,
+        hotZone,
+        input.hotZoneEnabled,
+        true
+    );
 
     ReplayScrubberControl active = ReplayScrubberControl::None;
     if ( input.gesture == RuntimeInteractionGestureKind::ReplayScrubDrag )
@@ -494,14 +532,16 @@ void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, Replay
     }
 }
 
-ReplayScrubberSurfaceInput DescribeReplayScrubberAvailability( const ReplayScrubberView& scrubber,
-                                                               const ReplayRecorderStats& solverStats,
-                                                               bool loadedPresentation,
-                                                               bool pathTargetAvailable,
-                                                               bool predictionTimelineAvailable,
-                                                               bool currentPresentationAvailable,
-                                                               bool currentSolverAvailable,
-                                                               bool scenePhysicsEnabled )
+ReplayScrubberSurfaceInput DescribeReplayScrubberAvailability(
+    const ReplayScrubberView& scrubber,
+    const ReplayRecorderStats& solverStats,
+    bool loadedPresentation,
+    bool pathTargetAvailable,
+    bool predictionTimelineAvailable,
+    bool currentPresentationAvailable,
+    bool currentSolverAvailable,
+    bool scenePhysicsEnabled
+)
 {
     ReplayScrubberSurfaceInput input;
     input.loadedPresentation = loadedPresentation;
@@ -528,7 +568,8 @@ void BuildReplayCauseWindowSurface( const RunReplayCauseTreeState& state, Replay
     {
         RuntimeUiControl control;
         control.id = ReplayCauseWindowControlId( id );
-        control.action = RuntimeUiActionId{ static_cast<uint32_t>( id ) };
+        control.action = RuntimeUiActionId { static_cast<uint32_t>( id ) };
+
         control.kind = kind;
         control.drawRect = bounds;
         control.hitRect = bounds;
@@ -561,18 +602,19 @@ UI::UIRect ReplayCauseTreePanelRect( int screenW, int screenH )
 
 UI::UIRect ReplayCauseTreeRowRect( const UI::UIRect& panel, int visibleRow )
 {
-    return {
-        panel.x + 10.0f,
-        panel.y + REPLAY_CAUSE_TREE_HEADER_HEIGHT + static_cast<float>( visibleRow ) * REPLAY_CAUSE_TREE_ROW_HEIGHT,
-        panel.w - 20.0f,
-        REPLAY_CAUSE_TREE_ROW_HEIGHT - 3.0f };
+    return { panel.x + 10.0f,
+             panel.y + REPLAY_CAUSE_TREE_HEADER_HEIGHT +
+                 static_cast<float>( visibleRow ) * REPLAY_CAUSE_TREE_ROW_HEIGHT,
+             panel.w - 20.0f,
+             REPLAY_CAUSE_TREE_ROW_HEIGHT - 3.0f };
 }
 
 int ReplayCauseTreeVisibleRowCapacity( const UI::UIRect& panel )
 {
     return (std::max)( 0,
-                       static_cast<int>( ( panel.h - REPLAY_CAUSE_TREE_HEADER_HEIGHT - 10.0f ) /
-                                         REPLAY_CAUSE_TREE_ROW_HEIGHT ) );
+                       static_cast<int>(
+                           ( panel.h - REPLAY_CAUSE_TREE_HEADER_HEIGHT - 10.0f ) / REPLAY_CAUSE_TREE_ROW_HEIGHT
+                       ) );
 }
 
 UI::UIRect ReplayCauseWindowRect( const RunReplayCauseTreeState& state )

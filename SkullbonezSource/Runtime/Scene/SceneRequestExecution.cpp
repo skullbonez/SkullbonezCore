@@ -47,10 +47,12 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 
 
-bool SceneController::ExecutePending( const SceneLoadPolicyInputs& policy,
-                                      const SceneLoadInteractionParticipants& interaction,
-                                      const SceneLoadPresentationParticipants& presentation,
-                                      SceneLoadConsumerOutputs& consumerOutputs )
+bool SceneController::ExecutePending(
+    const SceneLoadPolicyInputs& policy,
+    const SceneLoadInteractionParticipants& interaction,
+    const SceneLoadPresentationParticipants& presentation,
+    SceneLoadConsumerOutputs& consumerOutputs
+)
 {
     SceneRequestBatch completedRequests;
     SceneController& m_sceneController = *this;
@@ -62,12 +64,15 @@ bool SceneController::ExecutePending( const SceneLoadPolicyInputs& policy,
         }
         return m_sceneController.Load( request, policy, interaction, presentation, consumerOutputs ).ok;
     };
+
     const SceneRequestBatch batch = m_sceneController.TakePendingRequests();
     if ( batch.rejectedTransitionCount > 0 )
     {
-        std::fprintf( stderr,
-                      "Runtime/SceneController: rejected %zu additional same-frame scene transition(s)\n",
-                      batch.rejectedTransitionCount );
+        std::fprintf(
+            stderr,
+            "Runtime/SceneController: rejected %zu additional same-frame scene transition(s)\n",
+            batch.rejectedTransitionCount
+        );
         std::fflush( stderr );
     }
     for ( std::size_t requestIndex = 0; requestIndex < batch.count; ++requestIndex )
@@ -78,20 +83,23 @@ bool SceneController::ExecutePending( const SceneLoadPolicyInputs& policy,
         {
         case SceneRequestType::LoadBrowserIndex:
             accepted = executeSceneLoadRequest(
-                interaction.navigation.LoadSceneFromBrowserIndex( request.index, m_sceneController.Runtime() ) );
+                interaction.navigation.LoadSceneFromBrowserIndex( request.index, m_sceneController.Runtime() )
+            );
             break;
         case SceneRequestType::LoadDemoScene:
             accepted = executeSceneLoadRequest( interaction.navigation.LoadDemoScene( m_sceneController.Runtime() ) );
             break;
         case SceneRequestType::ResetCurrentScene:
-            accepted = executeSceneLoadRequest( m_sceneController.ResetCurrentScene( request.preserveUIState,
-                                                                                     request.suppressExitOnComplete,
-                                                                                     request.preserveRuntimeState ) );
+            accepted = executeSceneLoadRequest( m_sceneController.ResetCurrentScene(
+                request.preserveUIState,
+                request.suppressExitOnComplete,
+                request.preserveRuntimeState
+            ) );
             break;
         case SceneRequestType::CreateScene:
         {
             const SceneLoadRequest createRequest =
-                CreateSceneFromUI( SceneRuntimeCreateContext{ m_sceneController }, request.text );
+                CreateSceneFromUI( SceneRuntimeCreateContext { m_sceneController }, request.text );
             accepted = executeSceneLoadRequest( createRequest );
             // Why: file creation can succeed before a later load phase fails.
             // The UI still needs to discover that durable authored file, while
@@ -105,11 +113,13 @@ bool SceneController::ExecutePending( const SceneLoadPolicyInputs& policy,
                 ScenePresentationForFollowingRequest( presentation.debug, consumerOutputs, LifecyclePacket() );
             const SceneLoadNavigationState& currentNavigation =
                 SceneNavigationForFollowingRequest( interaction.navigation, consumerOutputs );
-            const SkullbonezCore::Core::SbResult saveResult =
-                m_sceneController.SaveCurrentDefaults( SceneDefaultsSaveView{ presentationState,
-                                                                              presentation.renderer,
-                                                                              interaction.camera,
-                                                                              currentNavigation.overrides } );
+            const SkullbonezCore::Core::SbResult saveResult = m_sceneController.SaveCurrentDefaults(
+                SceneDefaultsSaveView { presentationState,
+                                        presentation.renderer,
+                                        interaction.camera,
+                                        currentNavigation.overrides }
+            );
+
             if ( !saveResult.ok )
             {
                 std::fprintf( stderr, "[%s] %s\n", saveResult.error.owner, saveResult.error.message );

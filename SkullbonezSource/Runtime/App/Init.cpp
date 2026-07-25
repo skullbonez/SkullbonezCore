@@ -71,6 +71,7 @@ void ReportStartupFailure( const SkullbonezCore::Core::SbResult& result, const c
     const char* safeMessage =
         result.error.message[0] != '\0' ? result.error.message : "Startup failed without details.";
     char dialogMessage[1024] = {};
+
     sprintf_s( dialogMessage, sizeof( dialogMessage ), "%s\n\n%s", safeOwner, safeMessage );
 
     // Lane R: startup cannot rely on the game window or an attached terminal to
@@ -124,17 +125,22 @@ void AttachParentConsole()
 // Render backend
 // ---------------------------------------------------------------------------
 
-SkullbonezCore::Core::SbResult InitRenderBackend( Window* window,
-                                                  RuntimeRenderBackendView& renderBackendView,
-                                                  std::unique_ptr<RenderBackendDX12>& outBackend )
+SkullbonezCore::Core::SbResult InitRenderBackend(
+    Window* window,
+    RuntimeRenderBackendView& renderBackendView,
+    std::unique_ptr<RenderBackendDX12>& outBackend
+)
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
     auto backend = std::make_unique<RenderBackendDX12>();
     RenderBackendDX12* renderBackend = backend.get();
-    const SkullbonezCore::Core::SbResult renderInitResult = renderBackend->Init( window->NativeWindowHandle(),
-                                                                                 window->NativeDeviceContext(),
-                                                                                 window->ClientWidth(),
-                                                                                 window->ClientHeight() );
+    const SkullbonezCore::Core::SbResult renderInitResult = renderBackend->Init(
+        window->NativeWindowHandle(),
+        window->NativeDeviceContext(),
+        window->ClientWidth(),
+        window->ClientHeight()
+    );
+
     if ( !renderInitResult.ok )
     {
         // Lane R: render backend startup probes the host graphics environment.
@@ -165,24 +171,29 @@ SkullbonezCore::Core::SbResult InitRenderBackend( Window* window,
     return SkullbonezCore::Core::SbResult::Success();
 }
 
-int RunApp( Window* window,
-            ParsedArgs& args,
-            SkullbonezCore::Core::EngineConfig& cfg,
-            WorkerPool& workerPool,
-            SkullbonezCore::Core::Profiler* profiler,
-            RuntimeRenderBackendView renderBackendView,
-            SkullbonezCore::Core::DevelopmentTools::TracyClientOwner* tracyClientOwner )
+int RunApp(
+    Window* window,
+    ParsedArgs& args,
+    SkullbonezCore::Core::EngineConfig& cfg,
+    WorkerPool& workerPool,
+    SkullbonezCore::Core::Profiler* profiler,
+    RuntimeRenderBackendView renderBackendView,
+    SkullbonezCore::Core::DevelopmentTools::TracyClientOwner* tracyClientOwner
+)
 {
     // Lifetime: Run releases all render-owned resources before its borrowed
     // DX12 backend and Win32 window are torn down by the process owner.
     {
-        std::unique_ptr<Run> cRun = std::make_unique<Run>( *window,
-                                                           std::move( args.sceneList ),
-                                                           cfg,
-                                                           workerPool,
-                                                           profiler,
-                                                           renderBackendView,
-                                                           tracyClientOwner );
+        std::unique_ptr<Run> cRun = std::make_unique<Run>(
+            *window,
+            std::move( args.sceneList ),
+            cfg,
+            workerPool,
+            profiler,
+            renderBackendView,
+            tracyClientOwner
+        );
+
         const RunStartupOverrides startupOverrides = BuildRunStartupOverrides( args );
         auto reportRunResult = [&]( const SkullbonezCore::Core::SbResult& result ) -> int
         {
@@ -190,9 +201,8 @@ int RunApp( Window* window,
                 result.error.owner && result.error.owner[0] != '\0' ? result.error.owner : "Runtime";
             const char* safeMessage =
                 result.error.message[0] != '\0' ? result.error.message : "recoverable runtime operation failed";
-            SkullbonezCore::Core::Log().WriteEventf( "recoverable_failure owner=\"%s\" message=\"%s\"",
-                                                     safeOwner,
-                                                     safeMessage );
+            SkullbonezCore::Core::Log()
+                .WriteEventf( "recoverable_failure owner=\"%s\" message=\"%s\"", safeOwner, safeMessage );
             fprintf( stderr, "[runtime] Recoverable failure owner=%s reason=\"%s\"\n", safeOwner, safeMessage );
             fflush( stderr );
             SkullbonezCore::Core::Log().FlushAll();
@@ -202,6 +212,7 @@ int RunApp( Window* window,
             }
             return 1;
         };
+
         auto reportInteractionAutomationResult = [&]( const SkullbonezCore::Core::SbResult& result ) -> int
         {
             const char* safeMessage =
@@ -341,8 +352,11 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     if ( !ParseCommandLine( commandLine, cfg, args ) )
     {
         const char* error = GetCommandLineError();
-        SkullbonezCore::Core::Log().WriteEventf( "startup_failure owner=\"Startup/CommandLine\" message=\"%s\"",
-                                                 error );
+        SkullbonezCore::Core::Log().WriteEventf(
+            "startup_failure owner=\"Startup/CommandLine\" message=\"%s\"",
+            error
+        );
+
         fprintf( stderr, "FATAL: %s\n", error );
         fflush( stderr );
         SkullbonezCore::Core::Log().FlushAll();
@@ -359,10 +373,12 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     CoreAllocation::SetRuntimeAllocationGuardMode( args.allocationGuardMode );
     if ( CoreAllocation::RuntimeAllocationGuardEnabled() )
     {
-        fprintf( stdout,
-                 "[allocation-guard] Enabled mode=%s. Startup, scene, backend, gameplay, replay, capture, and shutdown "
-                 "allocations will be summarized at process end.\n",
-                 CoreAllocation::RuntimeAllocationGuardModeName( args.allocationGuardMode ) );
+        fprintf(
+            stdout,
+            "[allocation-guard] Enabled mode=%s. Startup, scene, backend, gameplay, replay, capture, and shutdown "
+            "allocations will be summarized at process end.\n",
+            CoreAllocation::RuntimeAllocationGuardModeName( args.allocationGuardMode )
+        );
     }
 
     int standalonePhysicsExitCode = 0;

@@ -88,10 +88,12 @@ SceneLoadRequest LoadDemoScene( SceneRuntime& scene )
 }
 
 
-int AdjacentCinematicModeBrowserIndex( const SkullbonezCore::UI::SceneNavigationModel& navigation,
-                                       int direction,
-                                       int currentSceneBrowserIndex,
-                                       bool isCinematicTabActive )
+int AdjacentCinematicModeBrowserIndex(
+    const SkullbonezCore::UI::SceneNavigationModel& navigation,
+    int direction,
+    int currentSceneBrowserIndex,
+    bool isCinematicTabActive
+)
 {
     if ( direction == 0 )
     {
@@ -156,10 +158,12 @@ int AdjacentCinematicModeBrowserIndex( const SkullbonezCore::UI::SceneNavigation
 }
 
 
-SceneLoadRequest LoadAdjacentScene( const SkullbonezCore::UI::SceneNavigationModel& navigation,
-                                    int direction,
-                                    int currentSceneBrowserIndex,
-                                    SceneRuntime& scene )
+SceneLoadRequest LoadAdjacentScene(
+    const SkullbonezCore::UI::SceneNavigationModel& navigation,
+    int direction,
+    int currentSceneBrowserIndex,
+    SceneRuntime& scene
+)
 {
     if ( direction == 0 )
     {
@@ -233,7 +237,8 @@ SceneLoadRequest SceneLoadNavigationState::LoadDemoScene( SceneRuntime& scene ) 
 SceneLoadNavigationState CaptureSceneLoadNavigationState( const SkullbonezCore::UI::SceneNavigationModel& navigation )
 {
     SkullbonezCore::Core::Allocation::RuntimeAllocationScope allocationScope(
-        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad
+    );
     SceneLoadNavigationState state;
     state.browserPaths = navigation.browser.paths;
     state.overrides = navigation.overrides;
@@ -241,8 +246,10 @@ SceneLoadNavigationState CaptureSceneLoadNavigationState( const SkullbonezCore::
     return state;
 }
 
-void ApplySceneLoadNavigationState( SkullbonezCore::UI::SceneNavigationModel& navigation,
-                                    const SceneLoadNavigationState& state )
+void ApplySceneLoadNavigationState(
+    SkullbonezCore::UI::SceneNavigationModel& navigation,
+    const SceneLoadNavigationState& state
+)
 {
     navigation.overrides = state.overrides;
     navigation.browser.selectedCineModeSceneIndex = state.selectedCineModeSceneIndex;

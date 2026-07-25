@@ -58,17 +58,19 @@ namespace OperatorEditorFrameComposer
 {
 // Samples the borrowed runtime owners into operatorEditorView and records the
 // selected Legacy UI pass. No argument or nested pointer is retained.
-void Render( RuntimeFrameHostView& host,
-             RuntimeFrameInteractionView& interactionOwners,
-             RuntimeFrameSceneView& sceneOwners,
-             RuntimeRenderer& renderer,
-             ReplayRuntime& replayRuntime,
-             const RuntimeUiTextFrameFacts& facts,
-             UI::OperatorEditorFrameView& operatorEditorView,
-             const ReplayOverlay::ReplayOverlayStateView& replayOverlay,
-             Rendering::Dx12Diagnostics& renderDiagnostics,
-             const UI::UIRenderContext& uiRender,
-             const RuntimeRenderModelFrameView& renderModels );
+void Render(
+    RuntimeFrameHostView& host,
+    RuntimeFrameInteractionView& interactionOwners,
+    RuntimeFrameSceneView& sceneOwners,
+    RuntimeRenderer& renderer,
+    ReplayRuntime& replayRuntime,
+    const RuntimeUiTextFrameFacts& facts,
+    UI::OperatorEditorFrameView& operatorEditorView,
+    const ReplayOverlay::ReplayOverlayStateView& replayOverlay,
+    Rendering::Dx12Diagnostics& renderDiagnostics,
+    const UI::UIRenderContext& uiRender,
+    const RuntimeRenderModelFrameView& renderModels
+);
 } // namespace OperatorEditorFrameComposer
 } // namespace Runtime
 } // namespace SkullbonezCore

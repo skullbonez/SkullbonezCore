@@ -201,12 +201,14 @@ void SceneController::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, Sc
     if ( ( requiresEmptyTopology && ( entityCount != 0 || bodyCount != 0 || colliderCount != 0 ) ) ||
          ( requiresMatchedTopology && ( entityCount != bodyCount || entityCount != colliderCount ) ) )
     {
-        SB_FATAL( "Runtime/SceneController",
-                  "Scene lifecycle topology mismatch. phase=%s entities=%d bodies=%d colliders=%d",
-                  SceneRuntimeLifecycleEventName( event ),
-                  entityCount,
-                  bodyCount,
-                  colliderCount );
+        SB_FATAL(
+            "Runtime/SceneController",
+            "Scene lifecycle topology mismatch. phase=%s entities=%d bodies=%d colliders=%d",
+            SceneRuntimeLifecycleEventName( event ),
+            entityCount,
+            bodyCount,
+            colliderCount
+        );
     }
     m_runtime.RecordLifecycleEvent( event, consumers );
 }
@@ -279,9 +281,11 @@ void SceneController::SubmitLoadDemoScene()
 }
 
 
-void SceneController::SubmitResetCurrentScene( bool preserveUIState,
-                                               bool suppressExitOnComplete,
-                                               bool preserveRuntimeState )
+void SceneController::SubmitResetCurrentScene(
+    bool preserveUIState,
+    bool suppressExitOnComplete,
+    bool preserveRuntimeState
+)
 {
     SceneRequest request;
     request.type = SceneRequestType::ResetCurrentScene;
@@ -301,9 +305,11 @@ SkullbonezCore::Core::SbResult SceneController::SubmitCreateScene( const char* r
     const std::size_t nameLength = requestedName ? strnlen_s( requestedName, SCENE_REQUEST_TEXT_CAPACITY ) : 0;
     if ( requestedName && nameLength >= SCENE_REQUEST_TEXT_CAPACITY )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Runtime/SceneController",
-                                                        "Scene name exceeds the fixed %d-byte request payload",
-                                                        SCENE_REQUEST_TEXT_CAPACITY - 1 );
+        return SkullbonezCore::Core::SbResult::Failure(
+            "Runtime/SceneController",
+            "Scene name exceeds the fixed %d-byte request payload",
+            SCENE_REQUEST_TEXT_CAPACITY - 1
+        );
     }
 
     SceneRequest request;
@@ -340,12 +346,14 @@ std::size_t SceneController::PendingRequestCount() const
 }
 
 
-SceneFrameAdvanceResult SceneController::AdvanceFrame( const SceneAutomationGateStatus& automationGates,
-                                                       bool proceedAllowed,
-                                                       bool perfTestActive,
-                                                       bool screenshotSaved,
-                                                       bool manualCameraActive,
-                                                       double elapsedSeconds )
+SceneFrameAdvanceResult SceneController::AdvanceFrame(
+    const SceneAutomationGateStatus& automationGates,
+    bool proceedAllowed,
+    bool perfTestActive,
+    bool screenshotSaved,
+    bool manualCameraActive,
+    double elapsedSeconds
+)
 {
     SceneFrameAdvanceResult result;
     if ( !proceedAllowed )
@@ -410,10 +418,12 @@ SceneFrameAdvanceResult SceneController::AdvanceFrame( const SceneAutomationGate
 
     if ( !m_runtime.State().isSceneMode && !manualCameraActive && elapsedSeconds > 20.0 )
     {
-        result.loadRequest = SceneLoadRequest::Load( m_runtime.State().currentSceneIndex,
-                                                     m_runtime.State().isInteractiveRun,
-                                                     m_runtime.State().isInteractiveRun,
-                                                     m_runtime.State().isInteractiveRun );
+        result.loadRequest = SceneLoadRequest::Load(
+            m_runtime.State().currentSceneIndex,
+            m_runtime.State().isInteractiveRun,
+            m_runtime.State().isInteractiveRun,
+            m_runtime.State().isInteractiveRun
+        );
         result.restartFrame = true;
         result.restartSimulationTimerAfterLoad = true;
         return result;

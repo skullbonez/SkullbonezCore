@@ -65,8 +65,8 @@ class ReplayPredictionPublication
     }
 
   private:
-    std::atomic<std::size_t> m_publishedCount{ 0 };
-    std::atomic<bool> m_workerFailed{ false };
+    std::atomic<std::size_t> m_publishedCount { 0 };
+    std::atomic<bool> m_workerFailed { false };
 };
 
 class ReplayPredictionPresentationPublication

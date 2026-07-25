@@ -290,11 +290,13 @@ void Profiler::End( const char* fullPath, uint32_t hash )
 }
 
 
-void Profiler::RecordWorkerSample( const char* fullPath,
-                                   uint32_t hash,
-                                   int workerIndex,
-                                   int64_t startTicks,
-                                   int64_t endTicks )
+void Profiler::RecordWorkerSample(
+    const char* fullPath,
+    uint32_t hash,
+    int workerIndex,
+    int64_t startTicks,
+    int64_t endTicks
+)
 {
     if ( !m_inFrame || workerIndex < 0 || workerIndex >= MAX_WORKER_CORES )
     {
@@ -385,7 +387,9 @@ WorkerProfilerScope::WorkerProfilerScope( Profiler* profiler, const char* fullPa
         char markerName[PlatformProfiler::MAX_DECORATED_MARKER_NAME_CHARS];
         PlatformProfiler::CpuBegin(
             PlatformProfiler::DecorateMarkerName( m_fullPath, "_Worker", markerName, sizeof( markerName ) ),
-            m_hash );
+            m_hash
+        );
+
         m_platformProfilerOpen = true;
     }
 }
@@ -400,9 +404,10 @@ WorkerProfilerScope::~WorkerProfilerScope()
     LARGE_INTEGER t;
     QueryPerformanceCounter( &t );
 #if defined( TRACY_ENABLE )
-    const SkullbonezCore::Core::DevelopmentTools::TracyZoneToken tracyToken{ m_tracyZoneId,
-                                                                             m_tracyZoneActive,
-                                                                             m_tracyZoneConnectionId };
+    const SkullbonezCore::Core::DevelopmentTools::TracyZoneToken tracyToken { m_tracyZoneId,
+                                                                              m_tracyZoneActive,
+                                                                              m_tracyZoneConnectionId };
+
     SKORE_TRACY_END_OWNER_ZONE( tracyToken );
     m_tracyZoneId = 0u;
     m_tracyZoneActive = 0;
@@ -510,9 +515,10 @@ void Profiler::EndInternal( const char* fullPath, uint32_t hash, bool emitCpuPla
     top.openCount = 0;
     --m_stackTop;
 #if defined( TRACY_ENABLE )
-    const SkullbonezCore::Core::DevelopmentTools::TracyZoneToken tracyToken{ tracyZoneId,
-                                                                             tracyZoneActive,
-                                                                             tracyZoneConnectionId };
+    const SkullbonezCore::Core::DevelopmentTools::TracyZoneToken tracyToken { tracyZoneId,
+                                                                              tracyZoneActive,
+                                                                              tracyZoneConnectionId };
+
     SKORE_TRACY_END_OWNER_ZONE( tracyToken );
 #endif
     if ( emitCpuPlatformProfiler && cpuPlatformOpen )
@@ -535,7 +541,9 @@ int Profiler::BeginRenderRecord( const char* fullPath, uint32_t hash )
         char markerName[PlatformProfiler::MAX_DECORATED_MARKER_NAME_CHARS];
         PlatformProfiler::CpuBegin(
             PlatformProfiler::DecorateMarkerName( fullPath, "_Record", markerName, sizeof( markerName ) ),
-            hash );
+            hash
+        );
+
         m_platformProfilerRenderRecordOpen[stackSlot] = true;
     }
     return m_stackIndices[stackSlot];
@@ -637,10 +645,11 @@ void Profiler::InvalidateGpuSamples()
 
 Profiler::ProfilerFrameView Profiler::FrameView() const
 {
-    return ProfilerFrameView{
+    return ProfilerFrameView {
         std::span<const Marker>( m_markers, static_cast<std::size_t>( m_markerCount ) ),
         std::span<const Counter>( m_counters, static_cast<std::size_t>( m_counterCount ) ),
-        std::span<const WorkerCoreSample>( m_workerCoreSamples, static_cast<std::size_t>( m_workerCoreSampleCount ) ) };
+        std::span<const WorkerCoreSample>( m_workerCoreSamples, static_cast<std::size_t>( m_workerCoreSampleCount ) )
+    };
 }
 
 
@@ -745,8 +754,10 @@ void Profiler::FrameEnd()
 
     if ( m_stackTop != 0 )
     {
-        AbortMismatch( "FrameEnd with open markers (missing PROFILE_END)",
-                       m_markers[m_stackIndices[m_stackTop - 1]].name );
+        AbortMismatch(
+            "FrameEnd with open markers (missing PROFILE_END)",
+            m_markers[m_stackIndices[m_stackTop - 1]].name
+        );
     }
 
     // Advance GPU write cursors for markers that recorded timestamps this frame

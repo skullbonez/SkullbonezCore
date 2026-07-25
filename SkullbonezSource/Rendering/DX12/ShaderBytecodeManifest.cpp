@@ -65,6 +65,7 @@ bool Sha256Hex( std::string& bytes, std::string& hex )
     DWORD objectBytes = 0;
     DWORD resultBytes = 0;
     std::array<uint8_t, 1024> object = {};
+
     std::array<uint8_t, 32> digest = {};
 
     NTSTATUS status = BCryptOpenAlgorithmProvider( &algorithm, BCRYPT_SHA256_ALGORITHM, nullptr, 0 );
@@ -72,12 +73,14 @@ bool Sha256Hex( std::string& bytes, std::string& hex )
     {
         // Why: BCryptGetProperty exposes arbitrary property storage as
         // mutable bytes; the requested property is exactly one DWORD.
-        status = BCryptGetProperty( algorithm,
-                                    BCRYPT_OBJECT_LENGTH,
-                                    reinterpret_cast<PUCHAR>( &objectBytes ),
-                                    sizeof( objectBytes ),
-                                    &resultBytes,
-                                    0 );
+        status = BCryptGetProperty(
+            algorithm,
+            BCRYPT_OBJECT_LENGTH,
+            reinterpret_cast<PUCHAR>( &objectBytes ),
+            sizeof( objectBytes ),
+            &resultBytes,
+            0
+        );
     }
     if ( status >= 0 && objectBytes > object.size() )
     {
@@ -115,6 +118,7 @@ bool Sha256Hex( std::string& bytes, std::string& hex )
 
     static constexpr char digits[] = "0123456789abcdef";
     char hashText[65] = {};
+
     for ( size_t i = 0; i < digest.size(); ++i )
     {
         hashText[i * 2] = digits[digest[i] >> 4];
@@ -170,8 +174,10 @@ bool CommandLineHasExactToken( const char* expected )
     return false;
 }
 
-bool ResourceShapeMatches( const GeneratedShaderReflection::Resource& expected,
-                           const D3D12_SHADER_INPUT_BIND_DESC& actual )
+bool ResourceShapeMatches(
+    const GeneratedShaderReflection::Resource& expected,
+    const D3D12_SHADER_INPUT_BIND_DESC& actual
+)
 {
     const bool typeMatches = ( std::strcmp( expected.type, "cbuffer" ) == 0 && actual.Type == D3D_SIT_CBUFFER ) ||
                              ( std::strcmp( expected.type, "sampler" ) == 0 && actual.Type == D3D_SIT_SAMPLER ) ||
@@ -203,6 +209,7 @@ bool ValidateLoadedReflection( const char* hlslPath, const char* stage, ID3DBlob
         return false;
     }
     D3D12_SHADER_DESC shader = {};
+
     if ( FAILED( reflection->GetDesc( &shader ) ) )
     {
         outError = "cannot query loaded shader reflection";
@@ -218,6 +225,7 @@ bool ValidateLoadedReflection( const char* hlslPath, const char* stage, ID3DBlob
         {
             ID3D12ShaderReflectionConstantBuffer* cb = reflection->GetConstantBufferByIndex( cbIndex );
             D3D12_SHADER_BUFFER_DESC cbDesc = {};
+
             if ( !cb || FAILED( cb->GetDesc( &cbDesc ) ) || !cbDesc.Name ||
                  std::strcmp( cbDesc.Name, expected.cbuffer ) != 0 || cbDesc.Size != expectedBufferSize )
             {
@@ -226,6 +234,7 @@ bool ValidateLoadedReflection( const char* hlslPath, const char* stage, ID3DBlob
             for ( UINT variableIndex = 0; variableIndex < cbDesc.Variables; ++variableIndex )
             {
                 D3D12_SHADER_VARIABLE_DESC variable = {};
+
                 ID3D12ShaderReflectionVariable* reflectedVariable = cb->GetVariableByIndex( variableIndex );
                 matched = reflectedVariable && SUCCEEDED( reflectedVariable->GetDesc( &variable ) ) && variable.Name &&
                           std::strcmp( variable.Name, expected.name ) == 0 && variable.StartOffset == expected.offset &&
@@ -255,6 +264,7 @@ bool ValidateLoadedReflection( const char* hlslPath, const char* stage, ID3DBlob
         for ( UINT resourceIndex = 0; resourceIndex < shader.BoundResources; ++resourceIndex )
         {
             D3D12_SHADER_INPUT_BIND_DESC resource = {};
+
             if ( FAILED( reflection->GetResourceBindingDesc( resourceIndex, &resource ) ) || !resource.Name )
             {
                 continue;
@@ -293,10 +303,12 @@ bool DevShaderHotReloadEnabled()
     return enabled;
 }
 
-bool LoadManifestCurrentShaderBytecode( const char* hlslPath,
-                                        const char* stage,
-                                        ComPtr<ID3DBlob>& outBlob,
-                                        std::string& outError )
+bool LoadManifestCurrentShaderBytecode(
+    const char* hlslPath,
+    const char* stage,
+    ComPtr<ID3DBlob>& outBlob,
+    std::string& outError
+)
 {
     outBlob.Reset();
     if ( !hlslPath || !stage )
@@ -426,10 +438,12 @@ bool ReflectShaderBytecode( ID3DBlob* blob, ComPtr<ID3D12ShaderReflection>& outR
     // machines where the preferred container-reflection interface is absent.
     // Why: D3DReflect is a COM ABI that publishes an interface through an
     // untyped output pointer; ComPtr immediately owns the typed result.
-    outResult = D3DReflect( blob->GetBufferPointer(),
-                            blob->GetBufferSize(),
-                            IID_ID3D12ShaderReflection,
-                            reinterpret_cast<void**>( outReflection.ReleaseAndGetAddressOf() ) );
+    outResult = D3DReflect(
+        blob->GetBufferPointer(),
+        blob->GetBufferSize(),
+        IID_ID3D12ShaderReflection,
+        reinterpret_cast<void**>( outReflection.ReleaseAndGetAddressOf() )
+    );
     return SUCCEEDED( outResult ) && outReflection;
 }
 } // namespace SkullbonezCore::Rendering

@@ -65,26 +65,27 @@ struct ReplayRetainedOwnershipRule
 };
 
 inline constexpr std::array<ReplayRetainedOwnershipRule, 4> REPLAY_RETAINED_OWNERSHIP_RULES = {
-    ReplayRetainedOwnershipRule{ ReplayRetainedDataOwner::PresentationRecorder,
-                                 "ReplayPresentationSample",
-                                 "ReplayRecorder",
-                                 true,
-                                 true },
-    ReplayRetainedOwnershipRule{ ReplayRetainedDataOwner::SolverRecorder,
-                                 "ReplaySolverFrameSample",
-                                 "ReplaySolverRecorder",
-                                 true,
-                                 true },
-    ReplayRetainedOwnershipRule{ ReplayRetainedDataOwner::PredictionPrefix,
-                                 "RunReplayPredictionFrame",
-                                 "ReplayPrediction working set and trajectory storage",
-                                 true,
-                                 false },
-    ReplayRetainedOwnershipRule{ ReplayRetainedDataOwner::V2Artifact,
-                                 "ReplayV2Document",
-                                 "ReplayV2Artifact cold I/O",
-                                 false,
-                                 true } };
+    ReplayRetainedOwnershipRule { ReplayRetainedDataOwner::PresentationRecorder,
+                                  "ReplayPresentationSample",
+                                  "ReplayRecorder",
+                                  true,
+                                  true },
+    ReplayRetainedOwnershipRule { ReplayRetainedDataOwner::SolverRecorder,
+                                  "ReplaySolverFrameSample",
+                                  "ReplaySolverRecorder",
+                                  true,
+                                  true },
+    ReplayRetainedOwnershipRule { ReplayRetainedDataOwner::PredictionPrefix,
+                                  "RunReplayPredictionFrame",
+                                  "ReplayPrediction working set and trajectory storage",
+                                  true,
+                                  false },
+    ReplayRetainedOwnershipRule { ReplayRetainedDataOwner::V2Artifact,
+                                  "ReplayV2Document",
+                                  "ReplayV2Artifact cold I/O",
+                                  false,
+                                  true }
+};
 
 enum class ReplayGrowthExhaustionRule : uint8_t
 {
@@ -111,21 +112,22 @@ inline constexpr const char* REPLAY_PREDICTION_RESERVE_OWNER = "replay_predictio
 inline constexpr int REPLAY_PREDICTION_RESERVE_HARD_BYTES = 256 * 1024 * 1024;
 
 inline constexpr std::array<ReplayGrowthOwnerPolicy, 3> REPLAY_GROWTH_OWNER_POLICIES = {
-    ReplayGrowthOwnerPolicy{ REPLAY_RECORDER_SAMPLE_RESERVE_OWNER,
-                             SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
-                             REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES,
-                             17737640u,
-                             ReplayGrowthExhaustionRule::FatalRetainedState },
-    ReplayGrowthOwnerPolicy{ Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER,
-                             SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
-                             Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES,
-                             2877186u,
-                             ReplayGrowthExhaustionRule::FatalRetainedState },
-    ReplayGrowthOwnerPolicy{ REPLAY_PREDICTION_RESERVE_OWNER,
-                             SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
-                             REPLAY_PREDICTION_RESERVE_HARD_BYTES,
-                             110979828u,
-                             ReplayGrowthExhaustionRule::CancelPredictionBuild } };
+    ReplayGrowthOwnerPolicy { REPLAY_RECORDER_SAMPLE_RESERVE_OWNER,
+                              SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
+                              REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES,
+                              17737640u,
+                              ReplayGrowthExhaustionRule::FatalRetainedState },
+    ReplayGrowthOwnerPolicy { Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER,
+                              SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
+                              Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES,
+                              2877186u,
+                              ReplayGrowthExhaustionRule::FatalRetainedState },
+    ReplayGrowthOwnerPolicy { REPLAY_PREDICTION_RESERVE_OWNER,
+                              SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
+                              REPLAY_PREDICTION_RESERVE_HARD_BYTES,
+                              110979828u,
+                              ReplayGrowthExhaustionRule::CancelPredictionBuild }
+};
 
 inline const ReplayGrowthOwnerPolicy* FindReplayGrowthOwnerPolicy( const char* ownerName ) noexcept
 {

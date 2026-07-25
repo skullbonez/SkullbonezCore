@@ -86,15 +86,17 @@ class MeshDX12
     MeshDX12( Dx12RenderDevice& device, Dx12DrawGate& drawGate, Dx12Diagnostics& diagnostics );
     ~MeshDX12();
 
-    bool Create( ID3D12Device* device,
-                 ID3D12GraphicsCommandList* cmdList,
-                 const float* data,
-                 int vertexCount,
-                 int floatsPerVertex,
-                 VertexFormat12 format,
-                 D3D12_GPU_VIRTUAL_ADDRESS uploadAddr,
-                 uint8_t* uploadPtr,
-                 ID3D12Resource* uploadBuffer );
+    bool Create(
+        ID3D12Device* device,
+        ID3D12GraphicsCommandList* cmdList,
+        const float* data,
+        int vertexCount,
+        int floatsPerVertex,
+        VertexFormat12 format,
+        D3D12_GPU_VIRTUAL_ADDRESS uploadAddr,
+        uint8_t* uploadPtr,
+        ID3D12Resource* uploadBuffer
+    );
 
     bool PrecompileRasterState( const PassRasterStateBucket& bucket ) const;
     void Draw( const PassRasterStateBucket& bucket ) const;

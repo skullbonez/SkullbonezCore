@@ -129,17 +129,21 @@ class BroadphaseVisualizer
     // Call once per frame after broadphase + narrowphase complete.
     // activeCells: cells that have objects this frame.
     // collisionCells: packed keys of cells where narrowphase collisions occurred.
-    void Update( float dt,
-                 const Math::CollisionDetection::SpatialGrid::ActiveCell* activeCells,
-                 int activeCellCount,
-                 const int64_t* collisionKeys,
-                 int collisionKeyCount );
+    void Update(
+        float dt,
+        const Math::CollisionDetection::SpatialGrid::ActiveCell* activeCells,
+        int activeCellCount,
+        const int64_t* collisionKeys,
+        int collisionKeyCount
+    );
 
     // Generates line vertex data and submits it through the frame command context.
     // The caller owns renderer readiness and debug-line capability for the frame.
-    void Render( const Math::Transformation::Matrix4& viewProj,
-                 Rendering::Dx12GeometryOwner& renderCommands,
-                 bool supportsDebugLines );
+    void Render(
+        const Math::Transformation::Matrix4& viewProj,
+        Rendering::Dx12GeometryOwner& renderCommands,
+        bool supportsDebugLines
+    );
 };
 } // namespace Physics
 } // namespace SkullbonezCore

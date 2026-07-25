@@ -74,10 +74,12 @@ class TornadoVisualPass
     bool AutoEnableWithTornado() const;
     uint64_t DynamicMemoryBytes() const;
 
-    Rendering::WorldRenderExtensionRegistration PrepareFrame( const TornadoFieldConfig& field,
-                                                              const TornadoSystemConfig& system,
-                                                              float systemElapsedSeconds,
-                                                              const TornadoVisualTimeCandidates& time );
+    Rendering::WorldRenderExtensionRegistration PrepareFrame(
+        const TornadoFieldConfig& field,
+        const TornadoSystemConfig& system,
+        float systemElapsedSeconds,
+        const TornadoVisualTimeCandidates& time
+    );
     void ReleaseResources();
 
   private:

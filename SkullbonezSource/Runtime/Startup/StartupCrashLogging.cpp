@@ -87,9 +87,11 @@ void WriteDebugCrashStack( EXCEPTION_POINTERS* exceptionInfo )
     const BOOL symbolsReady = SymInitialize( process, nullptr, TRUE );
     if ( !symbolsReady )
     {
-        SkullbonezCore::Core::Log().Writef( SkullbonezCore::Core::EngineLog::EventLogPath(),
-                                            "    stack_symbols=unavailable error=%lu\n",
-                                            GetLastError() );
+        SkullbonezCore::Core::Log().Writef(
+            SkullbonezCore::Core::EngineLog::EventLogPath(),
+            "    stack_symbols=unavailable error=%lu\n",
+            GetLastError()
+        );
     }
 
     CONTEXT context = {};
@@ -124,15 +126,18 @@ void WriteDebugCrashStack( EXCEPTION_POINTERS* exceptionInfo )
     SkullbonezCore::Core::Log().Writef( SkullbonezCore::Core::EngineLog::EventLogPath(), "    stack_trace:\n" );
     for ( int frameIndex = 0; frameIndex < 64; ++frameIndex )
     {
-        BOOL walked = StackWalk64( machineType,
-                                   process,
-                                   thread,
-                                   &frame,
-                                   &context,
-                                   nullptr,
-                                   SymFunctionTableAccess64,
-                                   SymGetModuleBase64,
-                                   nullptr );
+        BOOL walked = StackWalk64(
+            machineType,
+            process,
+            thread,
+            &frame,
+            &context,
+            nullptr,
+            SymFunctionTableAccess64,
+            SymGetModuleBase64,
+            nullptr
+        );
+
         if ( !walked || frame.AddrPC.Offset == 0 )
         {
             break;
@@ -140,6 +145,7 @@ void WriteDebugCrashStack( EXCEPTION_POINTERS* exceptionInfo )
 
         const DWORD64 address = frame.AddrPC.Offset;
         char symbolStorage[sizeof( SYMBOL_INFO ) + MAX_SYM_NAME] = {};
+
         // Why: DbgHelp's SYMBOL_INFO is a variable-tail ABI whose Name bytes
         // occupy caller-provided aligned storage immediately after the header.
         PSYMBOL_INFO symbol = reinterpret_cast<PSYMBOL_INFO>( symbolStorage );
@@ -156,30 +162,36 @@ void WriteDebugCrashStack( EXCEPTION_POINTERS* exceptionInfo )
 
         if ( hasSymbol && hasLine )
         {
-            SkullbonezCore::Core::Log().Writef( SkullbonezCore::Core::EngineLog::EventLogPath(),
-                                                "      #%02d 0x%016llX %s+0x%llX (%s:%lu)\n",
-                                                frameIndex,
-                                                static_cast<unsigned long long>( address ),
-                                                symbol->Name,
-                                                static_cast<unsigned long long>( symbolDisplacement ),
-                                                lineInfo.FileName,
-                                                lineInfo.LineNumber );
+            SkullbonezCore::Core::Log().Writef(
+                SkullbonezCore::Core::EngineLog::EventLogPath(),
+                "      #%02d 0x%016llX %s+0x%llX (%s:%lu)\n",
+                frameIndex,
+                static_cast<unsigned long long>( address ),
+                symbol->Name,
+                static_cast<unsigned long long>( symbolDisplacement ),
+                lineInfo.FileName,
+                lineInfo.LineNumber
+            );
         }
         else if ( hasSymbol )
         {
-            SkullbonezCore::Core::Log().Writef( SkullbonezCore::Core::EngineLog::EventLogPath(),
-                                                "      #%02d 0x%016llX %s+0x%llX\n",
-                                                frameIndex,
-                                                static_cast<unsigned long long>( address ),
-                                                symbol->Name,
-                                                static_cast<unsigned long long>( symbolDisplacement ) );
+            SkullbonezCore::Core::Log().Writef(
+                SkullbonezCore::Core::EngineLog::EventLogPath(),
+                "      #%02d 0x%016llX %s+0x%llX\n",
+                frameIndex,
+                static_cast<unsigned long long>( address ),
+                symbol->Name,
+                static_cast<unsigned long long>( symbolDisplacement )
+            );
         }
         else
         {
-            SkullbonezCore::Core::Log().Writef( SkullbonezCore::Core::EngineLog::EventLogPath(),
-                                                "      #%02d 0x%016llX <unknown>\n",
-                                                frameIndex,
-                                                static_cast<unsigned long long>( address ) );
+            SkullbonezCore::Core::Log().Writef(
+                SkullbonezCore::Core::EngineLog::EventLogPath(),
+                "      #%02d 0x%016llX <unknown>\n",
+                frameIndex,
+                static_cast<unsigned long long>( address )
+            );
         }
     }
 
@@ -202,10 +214,12 @@ LONG WINAPI DebugUnhandledExceptionFilter( EXCEPTION_POINTERS* exceptionInfo )
         exceptionAddress = exceptionInfo->ExceptionRecord->ExceptionAddress;
     }
 
-    SkullbonezCore::Core::Log().WriteEventf( "crash exception=0x%08lX name=%s address=%p",
-                                             exceptionCode,
-                                             ExceptionCodeName( exceptionCode ),
-                                             exceptionAddress );
+    SkullbonezCore::Core::Log().WriteEventf(
+        "crash exception=0x%08lX name=%s address=%p",
+        exceptionCode,
+        ExceptionCodeName( exceptionCode ),
+        exceptionAddress
+    );
     WriteDebugCrashStack( exceptionInfo );
     SkullbonezCore::Core::Log().FlushAll();
 
@@ -227,7 +241,8 @@ void InstallDebugCrashLogger()
             fflush( stderr );
             SkullbonezCore::Core::Log().FlushAll();
             std::abort();
-        } );
+        }
+    );
 }
 #endif
 } // namespace Startup

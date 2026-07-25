@@ -165,13 +165,15 @@ void Stumpff( double z, double& outC, double& outS )
     outS = ( std::sinh( root ) - root ) / ( root * root * root );
 }
 
-bool LambertTimeResidual( double z,
-                          double radius1,
-                          double radius2,
-                          double transferA,
-                          double targetTimeScaled,
-                          double& outResidual,
-                          double& outY )
+bool LambertTimeResidual(
+    double z,
+    double radius1,
+    double radius2,
+    double transferA,
+    double targetTimeScaled,
+    double& outResidual,
+    double& outY
+)
 {
     double c = 0.0;
     double s = 0.0;
@@ -275,9 +277,10 @@ ElementsFromState( const Vector3& relativePosition, const Vector3& relativeVeloc
         trueAnomaly = std::atan2( relativePosition.y, relativePosition.x );
     }
 
-    const float eccentricAnomaly =
-        2.0f * std::atan2( std::sqrt( 1.0f - eccentricity ) * std::sin( 0.5f * trueAnomaly ),
-                           std::sqrt( 1.0f + eccentricity ) * std::cos( 0.5f * trueAnomaly ) );
+    const float eccentricAnomaly = 2.0f * std::atan2(
+                                              std::sqrt( 1.0f - eccentricity ) * std::sin( 0.5f * trueAnomaly ),
+                                              std::sqrt( 1.0f + eccentricity ) * std::cos( 0.5f * trueAnomaly )
+                                          );
 
     out.semiMajorAxis = semiMajorAxis;
     out.eccentricity = eccentricity;
@@ -290,10 +293,12 @@ ElementsFromState( const Vector3& relativePosition, const Vector3& relativeVeloc
 }
 
 
-OrbitalStatus PropagateToTime( const OrbitalElements& elements,
-                               float deltaSeconds,
-                               Vector3& outRelativePosition,
-                               Vector3& outRelativeVelocity )
+OrbitalStatus PropagateToTime(
+    const OrbitalElements& elements,
+    float deltaSeconds,
+    Vector3& outRelativePosition,
+    Vector3& outRelativeVelocity
+)
 {
     outRelativePosition = Vector3( 0.0f, 0.0f, 0.0f );
     outRelativeVelocity = Vector3( 0.0f, 0.0f, 0.0f );
@@ -464,13 +469,15 @@ SolveLambert( const Vector3& r1, const Vector3& r2, float timeOfFlight, float mu
         double shiftedResidual = 0.0;
         double shiftedY = 0.0;
         double candidate = 0.5 * ( lower + upper );
-        if ( LambertTimeResidual( z + derivativeStep,
-                                  radius1,
-                                  radius2,
-                                  transferA,
-                                  targetTimeScaled,
-                                  shiftedResidual,
-                                  shiftedY ) )
+        if ( LambertTimeResidual(
+                 z + derivativeStep,
+                 radius1,
+                 radius2,
+                 transferA,
+                 targetTimeScaled,
+                 shiftedResidual,
+                 shiftedY
+             ) )
         {
             const double derivative = ( shiftedResidual - residual ) / derivativeStep;
             if ( std::fabs( derivative ) > 1.0e-12 )
@@ -503,6 +510,7 @@ SolveLambert( const Vector3& r1, const Vector3& r2, float timeOfFlight, float mu
     if ( !IsFinite( out.v1 ) || !IsFinite( out.v2 ) )
     {
         out = {};
+
         return OrbitalStatus::NotConverged;
     }
     return OrbitalStatus::Ok;

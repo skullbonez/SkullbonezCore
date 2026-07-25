@@ -50,11 +50,13 @@ int SaturatingFrameCount( std::size_t count )
 }
 } // namespace
 
-void ReplayArtifactHashLog::Configure( const char* requestedPath,
-                                       ReplayRecorderConfig& presentationConfig,
-                                       ReplayRecorderConfig& solverConfig,
-                                       const ReplayRecorderStats& presentationStats,
-                                       const ReplayRecorderStats& solverStats )
+void ReplayArtifactHashLog::Configure(
+    const char* requestedPath,
+    ReplayRecorderConfig& presentationConfig,
+    ReplayRecorderConfig& solverConfig,
+    const ReplayRecorderStats& presentationStats,
+    const ReplayRecorderStats& solverStats
+)
 {
     m_presentation.close();
     m_solver.close();
@@ -118,17 +120,20 @@ void ReplayArtifactHashLog::AppendPresentation( const ReplayPresentationSample& 
         return;
     }
     char line[256] = {};
-    sprintf_s( line,
-               sizeof( line ),
-               "%llu,%d,%.6f,%llu,%u,%u,%u,0x%016llX\n",
-               static_cast<unsigned long long>( sample.frameIndex ),
-               sample.sceneFrame,
-               sample.simulationSeconds,
-               static_cast<unsigned long long>( sample.bodies.size() ),
-               static_cast<unsigned>( sample.contactCount ),
-               static_cast<unsigned>( sample.pipelineRecordCount ),
-               sample.checkpointBoundary ? 1u : 0u,
-               static_cast<unsigned long long>( sample.stateHash ) );
+    sprintf_s(
+        line,
+        sizeof( line ),
+        "%llu,%d,%.6f,%llu,%u,%u,%u,0x%016llX\n",
+        static_cast<unsigned long long>( sample.frameIndex ),
+        sample.sceneFrame,
+        sample.simulationSeconds,
+        static_cast<unsigned long long>( sample.bodies.size() ),
+        static_cast<unsigned>( sample.contactCount ),
+        static_cast<unsigned>( sample.pipelineRecordCount ),
+        sample.checkpointBoundary ? 1u : 0u,
+        static_cast<unsigned long long>( sample.stateHash )
+    );
+
     m_presentation << line;
 }
 
@@ -139,18 +144,21 @@ void ReplayArtifactHashLog::AppendSolver( const ReplaySolverFrameSample& sample 
         return;
     }
     char line[288] = {};
-    sprintf_s( line,
-               sizeof( line ),
-               "%llu,%d,%.6f,%llu,%u,%u,%u,0x%016llX,0x%016llX\n",
-               static_cast<unsigned long long>( sample.frameIndex ),
-               sample.sceneFrame,
-               sample.simulationSeconds,
-               static_cast<unsigned long long>( sample.bodies.size() ),
-               static_cast<unsigned>( sample.contactCount ),
-               static_cast<unsigned>( sample.pipelineRecordCount ),
-               sample.checkpointBoundary ? 1u : 0u,
-               static_cast<unsigned long long>( sample.presentationHash ),
-               static_cast<unsigned long long>( sample.solverHash ) );
+    sprintf_s(
+        line,
+        sizeof( line ),
+        "%llu,%d,%.6f,%llu,%u,%u,%u,0x%016llX,0x%016llX\n",
+        static_cast<unsigned long long>( sample.frameIndex ),
+        sample.sceneFrame,
+        sample.simulationSeconds,
+        static_cast<unsigned long long>( sample.bodies.size() ),
+        static_cast<unsigned>( sample.contactCount ),
+        static_cast<unsigned>( sample.pipelineRecordCount ),
+        sample.checkpointBoundary ? 1u : 0u,
+        static_cast<unsigned long long>( sample.presentationHash ),
+        static_cast<unsigned long long>( sample.solverHash )
+    );
+
     m_solver << line;
 }
 

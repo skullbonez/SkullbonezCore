@@ -124,9 +124,11 @@ void PhysicsContactSolverStage::Clear()
     m_sideEffects.fixedTreeReleases.clear();
 }
 
-void PhysicsContactSolverStage::PrepareSideEffects( int modelCount,
-                                                    std::size_t candidatePairCount,
-                                                    int pipelineRecordCapacity )
+void PhysicsContactSolverStage::PrepareSideEffects(
+    int modelCount,
+    std::size_t candidatePairCount,
+    int pipelineRecordCapacity
+)
 {
     m_sideEffects.pipelineRecords.clear();
     m_sideEffects.collisionVisualBodies.clear();
@@ -156,29 +158,30 @@ void PhysicsContactSolverStage::Solve( const PhysicsContactSolverStageContext& c
     PrepareSideEffects( context.bodyStoreCount, context.candidatePairs.size(), context.pipelineRecordCapacity );
     const bool elasticCollisions =
         context.worldForces.mutualGravity.enabled && context.worldForces.mutualGravity.elasticCollisions;
-    PersistentContactSolverContext solverContext{ context.candidatePairs,
-                                                  context.sleepState,
-                                                  context.sleepSupportEdges,
-                                                  m_persistentContacts,
-                                                  m_persistentContactCache,
-                                                  m_persistentContactSolverStats,
-                                                  m_persistentContactCounts,
-                                                  m_persistentRestingContactCounts,
-                                                  m_solverBodies,
-                                                  context.physicsDebugContacts,
-                                                  context.terrainContactManifolds,
-                                                  context.terrainRestApplied,
-                                                  context.sleepSupportedThisFrame,
-                                                  m_sideEffects,
-                                                  context.bodyStore,
-                                                  context.bodyRecords,
-                                                  context.hotFields,
-                                                  context.colliderRecords,
-                                                  context.bodyStoreCount,
-                                                  context.pipelineRecordCapacity,
-                                                  elasticCollisions,
-                                                  context.settings,
-                                                  context.profiler };
+    PersistentContactSolverContext solverContext { context.candidatePairs,
+                                                   context.sleepState,
+                                                   context.sleepSupportEdges,
+                                                   m_persistentContacts,
+                                                   m_persistentContactCache,
+                                                   m_persistentContactSolverStats,
+                                                   m_persistentContactCounts,
+                                                   m_persistentRestingContactCounts,
+                                                   m_solverBodies,
+                                                   context.physicsDebugContacts,
+                                                   context.terrainContactManifolds,
+                                                   context.terrainRestApplied,
+                                                   context.sleepSupportedThisFrame,
+                                                   m_sideEffects,
+                                                   context.bodyStore,
+                                                   context.bodyRecords,
+                                                   context.hotFields,
+                                                   context.colliderRecords,
+                                                   context.bodyStoreCount,
+                                                   context.pipelineRecordCapacity,
+                                                   elasticCollisions,
+                                                   context.settings,
+                                                   context.profiler };
+
     m_contactSolver.Solve( solverContext, dt );
 }
 
@@ -199,11 +202,15 @@ void PhysicsContactCacheWakeAccess::ForgetBody( int bodyIndex ) const
         return lowBody == static_cast<uint32_t>( index ) || objectHighBody == static_cast<uint32_t>( index );
     };
 
-    m_cache.erase( std::remove_if( m_cache.begin(),
-                                   m_cache.end(),
-                                   [bodyIndex, &cacheEntryReferencesBody]( const PersistentContactCacheEntry& entry )
-                                   { return cacheEntryReferencesBody( entry, bodyIndex ); } ),
-                   m_cache.end() );
+    m_cache.erase(
+        std::remove_if(
+            m_cache.begin(),
+            m_cache.end(),
+            [bodyIndex, &cacheEntryReferencesBody]( const PersistentContactCacheEntry& entry )
+            { return cacheEntryReferencesBody( entry, bodyIndex ); }
+        ),
+        m_cache.end()
+    );
 }
 
 PhysicsContactCacheWakeAccess PhysicsContactSolverStage::CreateWakeAccess()

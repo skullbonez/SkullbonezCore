@@ -112,7 +112,7 @@ DevelopmentTools::ImGuiEditorNativeMessageRoute
 Window::RouteDevelopmentUiMessage( HWND window, UINT message, WPARAM wParam, LPARAM lParam )
 {
     return m_developmentUiInput ? m_developmentUiInput->HandleNativeMessage( window, message, wParam, lParam )
-                                : DevelopmentTools::ImGuiEditorNativeMessageRoute{};
+                                : DevelopmentTools::ImGuiEditorNativeMessageRoute {};
 }
 #endif
 
@@ -195,10 +195,13 @@ SkullbonezCore::Core::SbResult Window::HandleScreenResize()
     // Invariant: Window owns the projection depth range after startup; resize
     // must not reopen global config while handling OS messages.
     float aspect = static_cast<float>( w ) / static_cast<float>( h );
-    projectionMatrix = Math::Transformation::Matrix4::PerspectiveZeroToOne( 45.0f,
-                                                                            aspect,
-                                                                            m_projectionNearPlane,
-                                                                            m_projectionFarPlane );
+    projectionMatrix = Math::Transformation::Matrix4::PerspectiveZeroToOne(
+        45.0f,
+        aspect,
+        m_projectionNearPlane,
+        m_projectionFarPlane
+    );
+
     return SkullbonezCore::Core::SbResult::Success();
 }
 
@@ -280,9 +283,8 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
                 const char* owner = resizeResult.error.owner[0] != '\0' ? resizeResult.error.owner : "Runtime/Window";
                 const char* message =
                     resizeResult.error.message[0] != '\0' ? resizeResult.error.message : "window resize failed";
-                SkullbonezCore::Core::Log().WriteEventf( "window_resize_failed owner=\"%s\" message=\"%s\"",
-                                                         owner,
-                                                         message );
+                SkullbonezCore::Core::Log()
+                    .WriteEventf( "window_resize_failed owner=\"%s\" message=\"%s\"", owner, message );
                 std::fprintf( stderr, "[window] Resize failed owner=%s reason=\"%s\"\n", owner, message );
                 std::fflush( stderr );
                 SkullbonezCore::Core::Log().FlushAll();
@@ -392,7 +394,8 @@ SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE hInstance, boo
 {
     HWND hWnd = nullptr;       // Handle to our window
     WNDCLASS wndclass = { 0 }; // Window class struct
-    DWORD dwStyle = 0;         // Window style
+
+    DWORD dwStyle = 0; // Window style
 
     wndclass.style = CS_HREDRAW | CS_VREDRAW;          // Vert and Horiz redraw
     wndclass.lpfnWndProc = WndProc;                    // Assign callback function
@@ -432,6 +435,7 @@ SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE hInstance, boo
         // The work area excludes the taskbar, so a tall 1800x1000 window does not
         // open with its title bar hidden behind shell chrome.
         RECT workArea = {};
+
         if ( SystemParametersInfoA( SPI_GETWORKAREA, 0, &workArea, 0 ) )
         {
             windowX = workArea.left;
@@ -439,17 +443,19 @@ SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE hInstance, boo
         }
     }
 
-    hWnd = CreateWindow( WINDOW_NAME, // Window class name
-                         TITLE_TEXT,  // Window title text
-                         dwStyle,
-                         windowX, // Window xPos
-                         windowY, // Window yPos
-                         windowW,
-                         windowH,
-                         nullptr,   // Parent window handle
-                         nullptr,   // Window menu handle
-                         hInstance, // Application instance
-                         this );    // Data to pass to WndProc
+    hWnd = CreateWindow(
+        WINDOW_NAME, // Window class name
+        TITLE_TEXT,  // Window title text
+        dwStyle,
+        windowX, // Window xPos
+        windowY, // Window yPos
+        windowW,
+        windowH,
+        nullptr,   // Parent window handle
+        nullptr,   // Window menu handle
+        hInstance, // Application instance
+        this
+    ); // Data to pass to WndProc
 
     if ( !hWnd )
     {
@@ -477,8 +483,10 @@ SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE hInstance, boo
         RECT clientDimensions = {};
         if ( !GetClientRect( hWnd, &clientDimensions ) || clientDimensions.right <= 0 || clientDimensions.bottom <= 0 )
         {
-            return SkullbonezCore::Core::SbResult::Failure( "Runtime/Window",
-                                                            "Hidden automation window has no drawable client area." );
+            return SkullbonezCore::Core::SbResult::Failure(
+                "Runtime/Window",
+                "Hidden automation window has no drawable client area."
+            );
         }
         // Hidden windows do not receive the normal WM_SIZE publication before
         // renderer startup. Publish the real client rectangle here so DX12 uses

@@ -150,11 +150,13 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
     // name view; keeping them inside this emission avoids caching aliases.
     for ( int i = 0; i < modelCount; ++i )
     {
-        if ( !Physics::TryBuildPhysicsDiagnosticsModelRecord( i,
-                                                              frameInput.bodyStore,
-                                                              frameInput.colliderStore,
-                                                              frameInput.names,
-                                                              modelDiagnostics[static_cast<std::size_t>( i )] ) )
+        if ( !Physics::TryBuildPhysicsDiagnosticsModelRecord(
+                 i,
+                 frameInput.bodyStore,
+                 frameInput.colliderStore,
+                 frameInput.names,
+                 modelDiagnostics[static_cast<std::size_t>( i )]
+             ) )
         {
             // Invariant: PhysicsBodyStore defines dense diagnostics row count.
             // A rejected index keeps its default record so later arrays retain
@@ -222,12 +224,14 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
         if ( c.penetration > maxPenetration )
         {
             maxPenetration = c.penetration;
-            sprintf_s( maxPenetrationContact,
-                       sizeof( maxPenetrationContact ),
-                       "%d:%d:%u",
-                       c.bodyA,
-                       c.bodyB,
-                       c.featureId );
+            sprintf_s(
+                maxPenetrationContact,
+                sizeof( maxPenetrationContact ),
+                "%d:%d:%u",
+                c.bodyA,
+                c.bodyB,
+                c.featureId
+            );
             maxPenetrationBodyA = c.bodyA;
             maxPenetrationBodyB = c.bodyB;
             maxPenetrationFeatureId = c.featureId;
@@ -392,7 +396,8 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
         maxOmega,
         maxOmegaBody,
         maxPenetration,
-        maxPenetrationContact );
+        maxPenetrationContact
+    );
 
     SkullbonezCore::Core::Log().Writef(
         m_physicsDiagnosticsPath,
@@ -409,11 +414,13 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
         m_persistentContactSolverStats.positionCorrectionRows,
         m_persistentContactSolverStats.positionCorrectionTotal,
         m_persistentContactSolverStats.positionCorrectionMax,
-        m_persistentContactSolverStats.solverIterations );
+        m_persistentContactSolverStats.solverIterations
+    );
 
     {
         const int stageCount = static_cast<int>( Physics::PhysicsPipelineStage::Count );
         int stageCounts[static_cast<int>( Physics::PhysicsPipelineStage::Count )] = {};
+
         for ( const Physics::PhysicsPipelineRecord& record : m_physicsPipelineTrace )
         {
             const int stageIndex = static_cast<int>( record.stage );
@@ -428,14 +435,16 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
             "{\"kind\":\"pipeline_stages\",\"run\":\"%s\",\"frame\":%d,\"record_count\":%zu",
             m_physicsDiagnosticsRunId,
             frame,
-            m_physicsPipelineTrace.size() );
+            m_physicsPipelineTrace.size()
+        );
         for ( int i = 0; i < stageCount; ++i )
         {
             SkullbonezCore::Core::Log().Writef(
                 m_physicsDiagnosticsPath,
                 ",\"%s\":%d",
                 Physics::PhysicsPipelineStageName( static_cast<Physics::PhysicsPipelineStage>( i ) ),
-                stageCounts[i] );
+                stageCounts[i]
+            );
         }
         SkullbonezCore::Core::Log().Writef( m_physicsDiagnosticsPath, "}\n" );
     }
@@ -466,7 +475,8 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
                 frame,
                 maxSpeedBody,
                 (std::max)( 0, frame - 30 ),
-                frame + 30 );
+                frame + 30
+            );
         }
     }
     m_physicsDiagnosticsPrevEnergy = totalEnergy;
@@ -533,7 +543,8 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
         rejectedPairs,
         activeCellCount,
         maxCellOccupancy,
-        m_collisionCellKeys.size() );
+        m_collisionCellKeys.size()
+    );
 
     if ( m_candidatePairs.size() > (std::max)( 128, modelCount * 8 ) || maxCellOccupancy > 32 )
     {
@@ -553,7 +564,8 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
             maxCellOccupancy,
             (std::max)( 0, frame - 30 ),
             frame + 30,
-            frame );
+            frame
+        );
     }
 
     constexpr double penetrationSustainedThreshold = 0.05;
@@ -575,9 +587,11 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
     {
         if ( strcmp( m_physicsDiagnosticsPenetrationContact, maxPenetrationContact ) != 0 )
         {
-            strcpy_s( m_physicsDiagnosticsPenetrationContact,
-                      sizeof( m_physicsDiagnosticsPenetrationContact ),
-                      maxPenetrationContact );
+            strcpy_s(
+                m_physicsDiagnosticsPenetrationContact,
+                sizeof( m_physicsDiagnosticsPenetrationContact ),
+                maxPenetrationContact
+            );
             m_physicsDiagnosticsPenetrationFrames = 0;
             m_physicsDiagnosticsPenetrationGrowthFrames = 0;
             m_physicsDiagnosticsPenetrationWindowStart = maxPenetration;
@@ -646,7 +660,9 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
                 maxPenetrationBodyB,
                 penetrationContextStartFrame,
                 frame + 30,
-                frame );
+                frame
+            );
+
             m_physicsDiagnosticsPenetrationSustainedReported = true;
         }
 
@@ -687,7 +703,9 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
                 maxPenetrationBodyB,
                 penetrationContextStartFrame,
                 frame + 30,
-                frame );
+                frame
+            );
+
             m_physicsDiagnosticsPenetrationGrowingReported = true;
         }
 
@@ -707,12 +725,13 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
 
         const Physics::PhysicsDiagnosticsModelRecord& a = modelDiagnostics[static_cast<std::size_t>( c.bodyA )];
         const Vector3 velA = a.velocity + Vector::CrossProduct( a.angularVelocity, c.rA );
-        const Vector3 velB =
-            c.isTerrain
-                ? ZERO_VECTOR
-                : modelDiagnostics[static_cast<std::size_t>( c.bodyB )].velocity +
-                      Vector::CrossProduct( modelDiagnostics[static_cast<std::size_t>( c.bodyB )].angularVelocity,
-                                            c.rB );
+        const Vector3 velB = c.isTerrain
+                                 ? ZERO_VECTOR
+                                 : modelDiagnostics[static_cast<std::size_t>( c.bodyB )].velocity +
+                                       Vector::CrossProduct(
+                                           modelDiagnostics[static_cast<std::size_t>( c.bodyB )].angularVelocity,
+                                           c.rB
+                                       );
         const Vector3 relVel = velB - velA;
         const float normalSpeed = relVel * c.normal;
         const Vector3 tangentVel = relVel - c.normal * normalSpeed;
@@ -762,7 +781,8 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
             slipSpeed,
             slipSpeed,
             c.warmStarted ? 1 : 0,
-            supportsSleep ? 1 : 0 );
+            supportsSleep ? 1 : 0
+        );
     }
 
     for ( const auto& edge : m_sleepSupportEdges )
@@ -774,7 +794,8 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
             m_physicsDiagnosticsRunId,
             frame,
             edge.first,
-            edge.second );
+            edge.second
+        );
     }
 
     for ( const auto& manifold : m_terrainContactManifolds )
@@ -787,7 +808,8 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
                 "\"source\":\"terrain\"}\n",
                 m_physicsDiagnosticsRunId,
                 frame,
-                manifold.bodyA );
+                manifold.bodyA
+            );
         }
     }
 
@@ -815,7 +837,8 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
             island.canSleep,
             island.maxSpeed,
             island.maxOmega,
-            island.totalEnergy );
+            island.totalEnergy
+        );
     }
 
     for ( int i = 0; i < modelCount; ++i )
@@ -826,7 +849,8 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
             m_physicsDiagnosticsRunId,
             frame,
             bodyIslandIds[i],
-            i );
+            i
+        );
     }
 
     for ( int i = 0; i < modelCount; ++i )
@@ -914,7 +938,8 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
             sleepSupported,
             sleepInhibited,
             sleepCounter,
-            islandId );
+            islandId
+        );
 
         if ( sleeping && visualIslandId == 0 )
         {
@@ -939,7 +964,8 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
                 frame + 30,
                 frame,
                 i,
-                frame );
+                frame
+            );
         }
     }
 

@@ -144,22 +144,28 @@ namespace ReplayPredictionSchedulingOperations
 {
 double ReplayPredictionElapsedMilliseconds( const std::chrono::steady_clock::time_point& start );
 bool ReplayPredictionBudgetExpired( const std::chrono::steady_clock::time_point& start, double budgetMilliseconds );
-bool ReplayPredictionBudgetExpiredForPass( ReplayPredictionUpdateResult& result,
-                                           SkullbonezCore::Core::MainMemoryReplayBudgetPass pass,
-                                           const std::chrono::steady_clock::time_point& start,
-                                           double budgetMilliseconds );
-double ReplayPredictionRemainingMilliseconds( const std::chrono::steady_clock::time_point& start,
-                                              double budgetMilliseconds );
+bool ReplayPredictionBudgetExpiredForPass(
+    ReplayPredictionUpdateResult& result,
+    SkullbonezCore::Core::MainMemoryReplayBudgetPass pass,
+    const std::chrono::steady_clock::time_point& start,
+    double budgetMilliseconds
+);
+double
+ReplayPredictionRemainingMilliseconds( const std::chrono::steady_clock::time_point& start, double budgetMilliseconds );
 double ReplayPredictionRevealSecondsPerSecond( const RunReplayPredictionState& prediction );
-ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& prediction,
-                                                   ReplayFrameIndex lastAvailableFrame );
-std::size_t ReplayPredictionBuildPresentationFrameCountForRefresh( RunReplayPredictionState& prediction,
-                                                                   Physics::PhysicsSceneObjectId requestedTargetId );
+ReplayFrameIndex
+ReplayPredictionRevealFrameIndex( RunReplayPredictionState& prediction, ReplayFrameIndex lastAvailableFrame );
+std::size_t ReplayPredictionBuildPresentationFrameCountForRefresh(
+    RunReplayPredictionState& prediction,
+    Physics::PhysicsSceneObjectId requestedTargetId
+);
 
-inline ReplayPredictionBuildMode ChooseReplayPredictionBuildMode( double measuredTicksPerMs,
-                                                                  int remainingTicks,
-                                                                  double instantBudgetMs,
-                                                                  std::size_t bodyCount ) noexcept
+inline ReplayPredictionBuildMode ChooseReplayPredictionBuildMode(
+    double measuredTicksPerMs,
+    int remainingTicks,
+    double instantBudgetMs,
+    std::size_t bodyCount
+) noexcept
 {
     if ( measuredTicksPerMs <= 0.0 || remainingTicks < 0 )
     {
@@ -180,11 +186,13 @@ inline ReplayPredictionBuildMode ChooseReplayPredictionBuildMode( double measure
                                                     : ReplayPredictionBuildMode::Amortized;
 }
 
-inline ReplayPredictionCoalescerAction ChooseReplayPredictionCoalescerAction( bool dirty,
-                                                                              bool building,
-                                                                              ReplayPredictionBuildMode mode,
-                                                                              bool pendingLatestRestart,
-                                                                              bool replacementPrefixPresented ) noexcept
+inline ReplayPredictionCoalescerAction ChooseReplayPredictionCoalescerAction(
+    bool dirty,
+    bool building,
+    ReplayPredictionBuildMode mode,
+    bool pendingLatestRestart,
+    bool replacementPrefixPresented
+) noexcept
 {
     const bool restartRequested = dirty || pendingLatestRestart;
     if ( !restartRequested )

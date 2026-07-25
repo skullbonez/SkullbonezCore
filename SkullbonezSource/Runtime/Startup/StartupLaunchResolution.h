@@ -50,9 +50,11 @@ bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs&
 
 // Resolves one mutually exclusive generated/hero/scene/suite choice into owned
 // scene paths without retaining pointers into commandLine.
-bool ParseSceneArgs( const CommandLineView& commandLine,
-                     std::vector<std::string>& sceneList,
-                     bool& isSuiteOrSceneMode );
+bool ParseSceneArgs(
+    const CommandLineView& commandLine,
+    std::vector<std::string>& sceneList,
+    bool& isSuiteOrSceneMode
+);
 
 // Converts parsed policy into the value consumed synchronously by RunApp.
 RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args );

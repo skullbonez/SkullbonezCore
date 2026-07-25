@@ -41,8 +41,14 @@ BinPackParameters: false
 BinPackArguments: false
 AllowAllParametersOfDeclarationOnNextLine: false
 AllowAllArgumentsOnNextLine: false
-AlignAfterOpenBracket: Align
+# Wrapped calls and initializers use one indentation step per nesting level.
+# Their closing delimiter returns to the indentation of the line that opened it.
+AlignAfterOpenBracket: BlockIndent
+BracedInitializerIndentWidth: 4
 PenaltyBreakBeforeFirstCallParameter: 0
+# Keep the first aggregate value beside `{`; continuation values align beneath it.
+Cpp11BracedListStyle: false
+SpaceBeforeCpp11BracedList: true
 
 # Don't reorder #includes (preserve existing grouping)
 SortIncludes: Never

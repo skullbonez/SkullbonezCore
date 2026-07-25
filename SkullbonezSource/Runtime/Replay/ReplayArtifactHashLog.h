@@ -29,11 +29,13 @@ namespace SkullbonezCore::Runtime
 class ReplayArtifactHashLog
 {
   public:
-    void Configure( const char* requestedPath,
-                    ReplayRecorderConfig& presentationConfig,
-                    ReplayRecorderConfig& solverConfig,
-                    const ReplayRecorderStats& presentationStats,
-                    const ReplayRecorderStats& solverStats );
+    void Configure(
+        const char* requestedPath,
+        ReplayRecorderConfig& presentationConfig,
+        ReplayRecorderConfig& solverConfig,
+        const ReplayRecorderStats& presentationStats,
+        const ReplayRecorderStats& solverStats
+    );
     void ResetTimeline( const char* sceneLabel );
     void AppendPresentation( const ReplayPresentationSample& sample );
     void AppendSolver( const ReplaySolverFrameSample& sample );

@@ -35,12 +35,13 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-SceneRuntimeResetSnapshot
-CaptureSceneRuntimeResetSnapshot( const SceneController& controller,
-                                  const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                                  const RuntimeRenderer& renderer,
-                                  const OverlayDebugState& debug,
-                                  const CameraControlState& camera )
+SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot(
+    const SceneController& controller,
+    const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+    const RuntimeRenderer& renderer,
+    const OverlayDebugState& debug,
+    const CameraControlState& camera
+)
 {
     SceneRuntimeResetSnapshot snapshot;
     const SceneSessionState& scene = controller.State();
@@ -84,13 +85,15 @@ CaptureSceneRuntimeResetSnapshot( const SceneController& controller,
 }
 
 
-void RestoreSceneRuntimeResetSnapshot( SceneController& controller,
-                                       SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                                       RuntimeRenderer& renderer,
-                                       OverlayDebugState& debug,
-                                       CameraControlState& camera,
-                                       const SceneRuntimeResetSnapshot& snapshot,
-                                       bool suppressExitOnComplete )
+void RestoreSceneRuntimeResetSnapshot(
+    SceneController& controller,
+    SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+    RuntimeRenderer& renderer,
+    OverlayDebugState& debug,
+    CameraControlState& camera,
+    const SceneRuntimeResetSnapshot& snapshot,
+    bool suppressExitOnComplete
+)
 {
     SceneSessionState& scene = controller.State();
     // Why: Interactive resets preserve the user's run-control choices, but

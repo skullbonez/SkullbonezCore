@@ -117,16 +117,20 @@ void ReplayGuideArcs::Update( const ReplayGuideArcsUpdateInput& input ) noexcept
     const float mu = input.gravitationalConstant * input.sun.mass;
     Math::Orbital::OrbitalElements earthElements;
     Math::Orbital::OrbitalElements marsElements;
-    const Math::Orbital::OrbitalStatus earthStatus =
-        Math::Orbital::ElementsFromState( input.earth.position - input.sun.position,
-                                          input.earth.linearVelocity - input.sun.linearVelocity,
-                                          mu,
-                                          earthElements );
-    const Math::Orbital::OrbitalStatus marsStatus =
-        Math::Orbital::ElementsFromState( input.mars.position - input.sun.position,
-                                          input.mars.linearVelocity - input.sun.linearVelocity,
-                                          mu,
-                                          marsElements );
+    const Math::Orbital::OrbitalStatus earthStatus = Math::Orbital::ElementsFromState(
+        input.earth.position - input.sun.position,
+        input.earth.linearVelocity - input.sun.linearVelocity,
+        mu,
+        earthElements
+    );
+
+    const Math::Orbital::OrbitalStatus marsStatus = Math::Orbital::ElementsFromState(
+        input.mars.position - input.sun.position,
+        input.mars.linearVelocity - input.sun.linearVelocity,
+        mu,
+        marsElements
+    );
+
     const std::size_t earthCount = earthStatus == Math::Orbital::OrbitalStatus::Ok
                                        ? Math::Orbital::SampleOrbitPolyline( earthElements, m_earthPoints )
                                        : 0u;
@@ -165,6 +169,7 @@ ReplayGuideArcsView ReplayGuideArcs::View() const noexcept
         m_earthId,
         m_marsId,
         m_enabled,
-        m_valid };
+        m_valid
+    };
 }
 } // namespace SkullbonezCore::Runtime

@@ -116,10 +116,12 @@ CollisionVisualizer::CollisionVisualizer()
     // front so diagnostics cannot grow heap storage during steady gameplay.
     m_models.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     m_sleepGroupSizes.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
-    m_sphereInstanceData.reserve( static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ) *
-                                  INSTANCE_FLOATS );
-    m_boxInstanceData.reserve( static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ) *
-                               INSTANCE_FLOATS );
+    m_sphereInstanceData.reserve(
+        static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ) * INSTANCE_FLOATS
+    );
+    m_boxInstanceData.reserve(
+        static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ) * INSTANCE_FLOATS
+    );
 }
 
 CollisionVisualizer::~CollisionVisualizer()
@@ -188,7 +190,8 @@ void CollisionVisualizer::BuildSphereMesh( Dx12GeometryOwner& renderGeometry )
         slices,
         stacks,
         [&]( const PrimitiveMeshes::VertexPNUV& vertex )
-        { verts.insert( verts.end(), { vertex.x, vertex.y, vertex.z, vertex.nx, vertex.ny, vertex.nz } ); } );
+        { verts.insert( verts.end(), { vertex.x, vertex.y, vertex.z, vertex.nx, vertex.ny, vertex.nz } ); }
+    );
 
     m_sphereVertexCount = PrimitiveMeshes::SphereTriangleVertexCount( slices, stacks );
 
@@ -197,13 +200,16 @@ void CollisionVisualizer::BuildSphereMesh( Dx12GeometryOwner& renderGeometry )
     // layout stays compatible with the normal renderer's position/normal/uv slots.
     int staticAttribSizes[] = { 3, 3 };
     int instanceAttribSizes[] = { 4, 4, 4, 4, 4 };
-    m_sphereInstMesh = renderGeometry.CreateInstancedMesh( verts.data(),
-                                                           m_sphereVertexCount,
-                                                           6,
-                                                           INSTANCE_FLOATS,
-                                                           3,
-                                                           instanceAttribSizes,
-                                                           staticAttribSizes );
+
+    m_sphereInstMesh = renderGeometry.CreateInstancedMesh(
+        verts.data(),
+        m_sphereVertexCount,
+        6,
+        INSTANCE_FLOATS,
+        3,
+        instanceAttribSizes,
+        staticAttribSizes
+    );
 }
 
 
@@ -216,7 +222,8 @@ void CollisionVisualizer::BuildBoxMesh( Dx12GeometryOwner& renderGeometry )
 
     PrimitiveMeshes::EmitUnitBox(
         [&]( const PrimitiveMeshes::VertexPNUV& vertex )
-        { verts.insert( verts.end(), { vertex.x, vertex.y, vertex.z, vertex.nx, vertex.ny, vertex.nz } ); } );
+        { verts.insert( verts.end(), { vertex.x, vertex.y, vertex.z, vertex.nx, vertex.ny, vertex.nz } ); }
+    );
 
     m_boxVertexCount = PrimitiveMeshes::BoxTriangleVertexCount();
 
@@ -225,19 +232,24 @@ void CollisionVisualizer::BuildBoxMesh( Dx12GeometryOwner& renderGeometry )
     //   location 7:    debug color
     int staticAttribSizes[] = { 3, 3 };
     int instanceAttribSizes[] = { 4, 4, 4, 4, 4 };
-    m_boxInstMesh = renderGeometry.CreateInstancedMesh( verts.data(),
-                                                        m_boxVertexCount,
-                                                        6,
-                                                        INSTANCE_FLOATS,
-                                                        3,
-                                                        instanceAttribSizes,
-                                                        staticAttribSizes );
+
+    m_boxInstMesh = renderGeometry.CreateInstancedMesh(
+        verts.data(),
+        m_boxVertexCount,
+        6,
+        INSTANCE_FLOATS,
+        3,
+        instanceAttribSizes,
+        staticAttribSizes
+    );
 }
 
 
-void CollisionVisualizer::EnsureResources( Assets::AssetSystem& assets,
-                                           Rendering::Dx12ResourceBuilder& renderResources,
-                                           Rendering::Dx12GeometryOwner& renderGeometry )
+void CollisionVisualizer::EnsureResources(
+    Assets::AssetSystem& assets,
+    Rendering::Dx12ResourceBuilder& renderResources,
+    Rendering::Dx12GeometryOwner& renderGeometry
+)
 {
     // Resource creation is lazy so toggling the visualizer off has no startup cost.
     // The shader and both primitive meshes are created together on the first visible
@@ -360,8 +372,8 @@ void CollisionVisualizer::BuildSleepGroupSizes( const CollisionVisualizerFrameVi
 }
 
 
-CollisionVisualizer::Color CollisionVisualizer::ComputeModelColor( int modelIndex,
-                                                                   const CollisionVisualizerFrameView& view ) const
+CollisionVisualizer::Color
+CollisionVisualizer::ComputeModelColor( int modelIndex, const CollisionVisualizerFrameView& view ) const
 {
     // Awake objects fade between green and red:
     //   green = no recent contact
@@ -371,7 +383,9 @@ CollisionVisualizer::Color CollisionVisualizer::ComputeModelColor( int modelInde
     // visible even when they are no longer generating active contact flashes.
     static constexpr Color green = { 0.05f, 0.78f, 0.18f, 1.0f };
     static constexpr Color red = { 1.0f, 0.05f, 0.02f, 1.0f };
+
     static constexpr Color yellow = { 1.0f, 0.86f, 0.05f, 1.0f };
+
     static constexpr Color sleepingPalette[3] = {
         { 0.52f, 0.22f, 0.95f, 1.0f },
         { 1.0f, 0.22f, 0.67f, 1.0f },
@@ -407,11 +421,13 @@ CollisionVisualizer::Color CollisionVisualizer::ComputeModelColor( int modelInde
 }
 
 
-void CollisionVisualizer::DrawInstances( Dx12GeometryOwner& renderCommands,
-                                         uint32_t mesh,
-                                         int vertexCount,
-                                         const std::vector<float>& instanceData,
-                                         const PassRasterStateBucket& rasterState )
+void CollisionVisualizer::DrawInstances(
+    Dx12GeometryOwner& renderCommands,
+    uint32_t mesh,
+    int vertexCount,
+    const std::vector<float>& instanceData,
+    const PassRasterStateBucket& rasterState
+)
 {
     // Skip empty shape batches. This keeps mixed scenes cheap when one primitive
     // type is absent, and it avoids uploading an empty instance buffer.
@@ -426,15 +442,18 @@ void CollisionVisualizer::DrawInstances( Dx12GeometryOwner& renderCommands,
 }
 
 
-void CollisionVisualizer::DrawHullInstance( Dx12GeometryOwner& renderCommands,
-                                            const ConvexHullShape& hull,
-                                            const Matrix4& model,
-                                            const Color& color,
-                                            const PassRasterStateBucket& rasterState )
+void CollisionVisualizer::DrawHullInstance(
+    Dx12GeometryOwner& renderCommands,
+    const ConvexHullShape& hull,
+    const Matrix4& model,
+    const Color& color,
+    const PassRasterStateBucket& rasterState
+)
 {
     static_assert(
         HULL_MAX_TRIANGLE_VERTICES == ConvexHullShape::MAX_FACES * ( ConvexHullShape::MAX_FACE_VERTICES - 2 ) * 3,
-        "CollisionVisualizer hull scratch must match ConvexHullShape capacity." );
+        "CollisionVisualizer hull scratch must match ConvexHullShape capacity."
+    );
     if ( m_hullDynamicVB == 0 )
     {
         return;
@@ -491,21 +510,26 @@ void CollisionVisualizer::DrawHullInstance( Dx12GeometryOwner& renderCommands,
     {
         renderCommands.UploadAndDrawDynamicVB(
             m_hullDynamicVB,
-            std::span<const float>( m_hullDebugVertexData.data(),
-                                    static_cast<size_t>( vertexCount ) * HULL_DYNAMIC_FLOATS_PER_VERTEX ),
-            rasterState );
+            std::span<const float>(
+                m_hullDebugVertexData.data(),
+                static_cast<size_t>( vertexCount ) * HULL_DYNAMIC_FLOATS_PER_VERTEX
+            ),
+            rasterState
+        );
     }
 }
 
 
-void CollisionVisualizer::Render( Assets::AssetSystem& assets,
-                                  Rendering::Dx12ResourceBuilder& renderResources,
-                                  Rendering::Dx12GeometryOwner& renderGeometry,
-                                  Rendering::Dx12Diagnostics& renderDiagnostics,
-                                  const CollisionVisualizerFrameView& view,
-                                  const Matrix4& cameraView,
-                                  const Matrix4& proj,
-                                  const float lightPos[4] )
+void CollisionVisualizer::Render(
+    Assets::AssetSystem& assets,
+    Rendering::Dx12ResourceBuilder& renderResources,
+    Rendering::Dx12GeometryOwner& renderGeometry,
+    Rendering::Dx12Diagnostics& renderDiagnostics,
+    const CollisionVisualizerFrameView& view,
+    const Matrix4& cameraView,
+    const Matrix4& proj,
+    const float lightPos[4]
+)
 {
     if ( !m_enabled || view.modelCount <= 0 )
     {
@@ -593,11 +617,13 @@ void CollisionVisualizer::Render( Assets::AssetSystem& assets,
             {
                 color.a = m_alphaOverride;
             }
-            DrawHullInstance( renderGeometry,
-                              *hull,
-                              instances[static_cast<std::size_t>( i )].modelMatrix,
-                              color,
-                              rasterState );
+            DrawHullInstance(
+                renderGeometry,
+                *hull,
+                instances[static_cast<std::size_t>( i )].modelMatrix,
+                color,
+                rasterState
+            );
         }
     }
 }

@@ -75,8 +75,8 @@ class TextBatch
   private:
     friend class Text2d;
 
-    std::array<float, TEXT_MAX_CHARS * TEXT_VERTICES_PER_CHAR * TEXT_FLOATS_PER_VERTEX> m_textVertices{};
-    std::array<float, QUAD_MAX_QUADS * QUAD_VERTICES_PER_QUAD * QUAD_FLOATS_PER_VERTEX> m_quadVertices{};
+    std::array<float, TEXT_MAX_CHARS * TEXT_VERTICES_PER_CHAR * TEXT_FLOATS_PER_VERTEX> m_textVertices {};
+    std::array<float, QUAD_MAX_QUADS * QUAD_VERTICES_PER_QUAD * QUAD_FLOATS_PER_VERTEX> m_quadVertices {};
     Math::Transformation::Matrix4 m_projection;
     int m_textVertexCount = 0;
     int m_quadVertexCount = 0;
@@ -115,75 +115,91 @@ class Text2d
     // Text coordinates are centered on the client rect in legacy frustum units:
     // x/y normally stay within [-0.5, 0.5], fSize is normalized, and the format
     // string accepts printf-style arguments.
-    static void Render2dText( TextBatch& batch,
-                              float xPosition,
-                              float yPosition,
-                              float fSize,
-                              const char* cRawText,
-                              ... );                                        // Queues white SDF text for this frame's text batch.
-    static void Render2dTextColor( TextBatch& batch,
-                                   float xPosition,
-                                   float yPosition,
-                                   float fSize,
-                                   float r,
-                                   float g,
-                                   float b,
-                                   const char* cRawText,
-                                   ... );                                   // Queues colored SDF text for this frame's text batch.
+    static void Render2dText(
+        TextBatch& batch,
+        float xPosition,
+        float yPosition,
+        float fSize,
+        const char* cRawText,
+        ...
+    );                                                                      // Queues white SDF text for this frame's text batch.
+    static void Render2dTextColor(
+        TextBatch& batch,
+        float xPosition,
+        float yPosition,
+        float fSize,
+        float r,
+        float g,
+        float b,
+        const char* cRawText,
+        ...
+    );                                                                      // Queues colored SDF text for this frame's text batch.
     static void FlushText(
         TextBatch& batch,
         Rendering::Dx12TextureOwner& renderTextures,
-        Rendering::Dx12GeometryOwner& renderCommands );                     // Uploads queued text once so HUD strings stay one draw call.
-    static void Render2dQuad( TextBatch& batch,
-                              Rendering::Dx12GeometryOwner& renderCommands,
-                              float x0,
-                              float y0,
-                              float x1,
-                              float y1,
-                              float r,
-                              float g,
-                              float b,
-                              float a );                                    // Immediate HUD quad path for legacy call sites.
-    static void BatchQuad( TextBatch& batch,
-                           Rendering::Dx12GeometryOwner& renderCommands,
-                           float x0,
-                           float y0,
-                           float x1,
-                           float y1,
-                           float r,
-                           float g,
-                           float b,
-                           float a );                                       // Queues a colored quad for the shared HUD batch.
-    static void BatchTriangle( TextBatch& batch,
-                               Rendering::Dx12GeometryOwner& renderCommands,
-                               float x0,
-                               float y0,
-                               float x1,
-                               float y1,
-                               float x2,
-                               float y2,
-                               float r,
-                               float g,
-                               float b,
-                               float a );                                   // Queues a colored triangle in the shared HUD batch.
-    static void
-    FlushQuads( TextBatch& batch,
-                Rendering::Dx12GeometryOwner& renderCommands );             // Uploads queued quads/triangles once for the frame.
-    static SkullbonezCore::Core::SbResult
-    BuildFont( TextBatch& batch,
-               Rendering::Dx12ResourceBuilder& renderResources,
-               Rendering::Dx12TextureOwner& renderTextures,
-               Rendering::Dx12GeometryOwner& renderGeometry,
-               const Assets::AssetSystem& assets,
-               int screenW,
-               int screenH,
-               const char* cFontName );                                     // Loads or generates SDF atlas resources for the active backend.
-    static bool GenerateSdfAtlasToFile( const char* cFontName,
-                                        const char* cOutPath );             // Offline SDF atlas writer used by --gen-atlas tooling.
-    static void DeleteFont( TextBatch& batch,
-                            Rendering::Dx12TextureOwner* renderTextures,
-                            Rendering::Dx12GeometryOwner*
-                                renderGeometry );                           // Releases GPU font resources while a backend is still available.
+        Rendering::Dx12GeometryOwner& renderCommands
+    );                                                                      // Uploads queued text once so HUD strings stay one draw call.
+    static void Render2dQuad(
+        TextBatch& batch,
+        Rendering::Dx12GeometryOwner& renderCommands,
+        float x0,
+        float y0,
+        float x1,
+        float y1,
+        float r,
+        float g,
+        float b,
+        float a
+    );                                                                      // Immediate HUD quad path for legacy call sites.
+    static void BatchQuad(
+        TextBatch& batch,
+        Rendering::Dx12GeometryOwner& renderCommands,
+        float x0,
+        float y0,
+        float x1,
+        float y1,
+        float r,
+        float g,
+        float b,
+        float a
+    );                                                                      // Queues a colored quad for the shared HUD batch.
+    static void BatchTriangle(
+        TextBatch& batch,
+        Rendering::Dx12GeometryOwner& renderCommands,
+        float x0,
+        float y0,
+        float x1,
+        float y1,
+        float x2,
+        float y2,
+        float r,
+        float g,
+        float b,
+        float a
+    );                                                                      // Queues a colored triangle in the shared HUD batch.
+    static void FlushQuads(
+        TextBatch& batch,
+        Rendering::Dx12GeometryOwner& renderCommands
+    );                                                                      // Uploads queued quads/triangles once for the frame.
+    static SkullbonezCore::Core::SbResult BuildFont(
+        TextBatch& batch,
+        Rendering::Dx12ResourceBuilder& renderResources,
+        Rendering::Dx12TextureOwner& renderTextures,
+        Rendering::Dx12GeometryOwner& renderGeometry,
+        const Assets::AssetSystem& assets,
+        int screenW,
+        int screenH,
+        const char* cFontName
+    );                                                                      // Loads or generates SDF atlas resources for the active backend.
+    static bool GenerateSdfAtlasToFile(
+        const char* cFontName,
+        const char* cOutPath
+    );                                                                      // Offline SDF atlas writer used by --gen-atlas tooling.
+    static void DeleteFont(
+        TextBatch& batch,
+        Rendering::Dx12TextureOwner* renderTextures,
+        Rendering::Dx12GeometryOwner* renderGeometry
+    );                                                                      // Releases GPU font resources while a backend is still available.
     static void
     RebuildProjection( TextBatch& batch, int w, int h );                    // Recomputes owned ortho projection after a window resize.
     static float HalfW( const TextBatch& batch )
@@ -197,14 +213,16 @@ class Text2d
     static float MeasureText( float fSize, const char* text );              // Width in text-space units for already-formatted strings.
 
   private:
-    static void RenderTextInternal( TextBatch& batch,
-                                    float xPosition,
-                                    float yPosition,
-                                    float fSize,
-                                    float colR,
-                                    float colG,
-                                    float colB,
-                                    const char* formatted );
+    static void RenderTextInternal(
+        TextBatch& batch,
+        float xPosition,
+        float yPosition,
+        float fSize,
+        float colR,
+        float colG,
+        float colB,
+        const char* formatted
+    );
 };
 } // namespace Text
 } // namespace SkullbonezCore

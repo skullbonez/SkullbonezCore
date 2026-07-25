@@ -142,8 +142,9 @@ float BoundingBox::GetProjectedSurfaceArea() const
 // Bounding radius: distance from center to corner
 float BoundingBox::GetBoundingRadius() const
 {
-    return sqrtf( m_halfExtents.x * m_halfExtents.x + m_halfExtents.y * m_halfExtents.y +
-                  m_halfExtents.z * m_halfExtents.z );
+    return sqrtf(
+        m_halfExtents.x * m_halfExtents.x + m_halfExtents.y * m_halfExtents.y + m_halfExtents.z * m_halfExtents.z
+    );
 }
 
 

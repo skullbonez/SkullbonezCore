@@ -93,13 +93,15 @@ bool RuntimeFileWriter::OpenTextFile( const char* path, std::ofstream& output )
     return output.is_open();
 }
 
-bool RuntimeFileWriter::NextNumberedPath( char* outPath,
-                                          std::size_t outPathSize,
-                                          const char* directory,
-                                          const char* prefix,
-                                          const char* extension,
-                                          int& sequence,
-                                          int maxTries )
+bool RuntimeFileWriter::NextNumberedPath(
+    char* outPath,
+    std::size_t outPathSize,
+    const char* directory,
+    const char* prefix,
+    const char* extension,
+    int& sequence,
+    int maxTries
+)
 {
     if ( !outPath || outPathSize == 0 || !directory || !prefix || !extension || maxTries <= 0 )
     {

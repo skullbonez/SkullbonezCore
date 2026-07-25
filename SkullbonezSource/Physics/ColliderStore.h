@@ -60,23 +60,23 @@ enum class ColliderShapeKind : uint8_t
 
 struct ColliderRecord
 {
-    PhysicsColliderHandle handle;                                                                   // Stable collider handle resolved through store maps.
-    PhysicsBodyHandle body;                                                                         // Body handle resolved by PhysicsBodyStore for the same model slot.
+    PhysicsColliderHandle handle;                                                                    // Stable collider handle resolved through store maps.
+    PhysicsBodyHandle body;                                                                          // Body handle resolved by PhysicsBodyStore for the same model slot.
     // Stable cross-system identity paired with this collider.
     PhysicsSceneObjectId sceneObjectId;
-    Math::CollisionDetection::CollisionShape shape;                                                 // Exact shape variant used by narrowphase.
-    ColliderShapeKind shapeKind = ColliderShapeKind::Sphere;                                        // Cheap typed discriminator for tools and migration checks.
-    float boundingRadius = 0.0f;                                                                    // Broadphase reads this conservative radius every fixed tick.
-    float restitution = 0.0f;                                                                       // Contact generation reads this bounce policy every fixed tick.
-    float friction = 0.0f;                                                                          // Contact solving reads this tangential resistance every fixed tick.
-    uint32_t contactMaterialId = 0;                                                                 // Runtime contact/gameplay classification hash.
-    float projectedSurfaceArea = 0.0f;                                                              // Fluid forces read this drag area every fixed tick.
-    float dragCoefficient = 0.0f;                                                                   // Fluid forces read this shape coefficient every fixed tick.
+    Math::CollisionDetection::CollisionShape shape;                                                  // Exact shape variant used by narrowphase.
+    ColliderShapeKind shapeKind = ColliderShapeKind::Sphere;                                         // Cheap typed discriminator for tools and migration checks.
+    float boundingRadius = 0.0f;                                                                     // Broadphase reads this conservative radius every fixed tick.
+    float restitution = 0.0f;                                                                        // Contact generation reads this bounce policy every fixed tick.
+    float friction = 0.0f;                                                                           // Contact solving reads this tangential resistance every fixed tick.
+    uint32_t contactMaterialId = 0;                                                                  // Runtime contact/gameplay classification hash.
+    float projectedSurfaceArea = 0.0f;                                                               // Fluid forces read this drag area every fixed tick.
+    float dragCoefficient = 0.0f;                                                                    // Fluid forces read this shape coefficient every fixed tick.
 };
 
 struct ColliderAuthoringRecord
 {
-    char contactMaterialName[32] = {};                                                              // Cold scene round-trip token; never read by fixed-step physics.
+    char contactMaterialName[32] = {};                                                               // Cold scene round-trip token; never read by fixed-step physics.
 };
 
 using ColliderRecordList = PhysicsFixedList<ColliderRecord, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
@@ -101,16 +101,18 @@ class ColliderStore
     PhysicsColliderHandle CreateColliderRecord( const ColliderRecord& initialRecord );
     // Creates hot and cold rows in one topology transaction. Callers that own
     // authored material text must use this overload so row indices cannot drift.
-    PhysicsColliderHandle CreateColliderRecord( const ColliderRecord& initialRecord,
-                                                const ColliderAuthoringRecord& initialAuthoringRecord );
+    PhysicsColliderHandle
+    CreateColliderRecord( const ColliderRecord& initialRecord, const ColliderAuthoringRecord& initialAuthoringRecord );
     // Authoring edits replace row contents through the stable collider handle,
     // so callers do not need to expose model-order slots at the PhysicsEngine
     // owner boundary.
     bool UpdateRecordForHandle( PhysicsColliderHandle handle, const ColliderRecord& record );
     // Replaces hot and cold authored facts together while retaining handle identity.
-    bool UpdateRecordForHandle( PhysicsColliderHandle handle,
-                                const ColliderRecord& record,
-                                const ColliderAuthoringRecord& authoringRecord );
+    bool UpdateRecordForHandle(
+        PhysicsColliderHandle handle,
+        const ColliderRecord& record,
+        const ColliderAuthoringRecord& authoringRecord
+    );
     bool UpdateRecordForModelIndex( int modelIndex, const ColliderRecord& record );
     // Runtime config updates material scalars in-place instead of rebuilding
     // shape records from scene authoring payloads.
@@ -146,25 +148,28 @@ class ColliderStore
     const ColliderAuthoringRecord* AuthoringRecordForModelIndex( int modelIndex ) const;
 
   private:
-    PhysicsColliderHandle ResolveHandleForModelIndex( int modelIndex,
-                                                      PhysicsSceneObjectId sceneObjectId,
-                                                      ColliderHandleAssignmentMask& assignedHandleSlots );
+    PhysicsColliderHandle ResolveHandleForModelIndex(
+        int modelIndex,
+        PhysicsSceneObjectId sceneObjectId,
+        ColliderHandleAssignmentMask& assignedHandleSlots
+    );
     void RetireUnassignedHandles( const ColliderHandleAssignmentMask& assignedHandleSlots );
 
-    ColliderRecordList m_colliders{ "ColliderStore.colliders" };                                    // Dense live collider records.
+    ColliderRecordList m_colliders { "ColliderStore.colliders" };                                    // Dense live collider records.
     // Cold scene text remains index-aligned with m_colliders but outside the
     // rows scanned by broadphase, narrowphase, contact solving, and fluid force.
-    ColliderAuthoringRecordList m_authoringRecords{ "ColliderStore.authoringRecords" };
-    ColliderHandleList m_modelColliderHandles{
-        "ColliderStore.modelColliderHandles" };                                                     // Model slot to collider handle map.
-    ColliderHandleGenerationList m_handleGenerations{ "ColliderStore.handleGenerations" };          // Handle-slot generations.
-    ColliderHandleFlagList m_handleAlive{ "ColliderStore.handleAlive" };                            // Live handle slot flags.
-    ColliderHandleModelIndexList m_handleModelIndices{ "ColliderStore.handleModelIndices" };        // Slot to model index.
-    ColliderHandleSceneObjectIdList m_handleSceneObjectIds{ "ColliderStore.handleSceneObjectIds" }; // Slot scene ids.
-    ColliderHandleSlotList m_freeHandleSlots{ "ColliderStore.freeHandleSlots" };                    // Retired reusable slots.
+    ColliderAuthoringRecordList m_authoringRecords { "ColliderStore.authoringRecords" };
+    ColliderHandleList m_modelColliderHandles {
+        "ColliderStore.modelColliderHandles"
+    }; // Model slot to collider handle map.
+    ColliderHandleGenerationList m_handleGenerations { "ColliderStore.handleGenerations" };          // Handle-slot generations.
+    ColliderHandleFlagList m_handleAlive { "ColliderStore.handleAlive" };                            // Live handle slot flags.
+    ColliderHandleModelIndexList m_handleModelIndices { "ColliderStore.handleModelIndices" };        // Slot to model index.
+    ColliderHandleSceneObjectIdList m_handleSceneObjectIds { "ColliderStore.handleSceneObjectIds" }; // Slot scene ids.
+    ColliderHandleSlotList m_freeHandleSlots { "ColliderStore.freeHandleSlots" };                    // Retired reusable slots.
     // Runtime allocation policy: refresh reuses this handle-slot mask rather
     // than allocating a heap-backed standard-library container in topology repair.
-    ColliderHandleAssignmentMask m_assignedHandleScratch{ "ColliderStore.assignedHandleScratch" };
+    ColliderHandleAssignmentMask m_assignedHandleScratch { "ColliderStore.assignedHandleScratch" };
 };
 } // namespace Physics
 } // namespace SkullbonezCore

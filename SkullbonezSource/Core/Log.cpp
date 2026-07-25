@@ -158,17 +158,19 @@ void EngineLog::WriteEventf( const char* fmt, ... )
     GetLocalTime( &now );
 
     char line[2304] = {};
-    snprintf( line,
-              sizeof( line ),
-              "%04u-%02u-%02u %02u:%02u:%02u.%03u %s\n",
-              now.wYear,
-              now.wMonth,
-              now.wDay,
-              now.wHour,
-              now.wMinute,
-              now.wSecond,
-              now.wMilliseconds,
-              message );
+    snprintf(
+        line,
+        sizeof( line ),
+        "%04u-%02u-%02u %02u:%02u:%02u.%03u %s\n",
+        now.wYear,
+        now.wMonth,
+        now.wDay,
+        now.wHour,
+        now.wMinute,
+        now.wSecond,
+        now.wMilliseconds,
+        message
+    );
 
     OutputDebugStringA( line );
 

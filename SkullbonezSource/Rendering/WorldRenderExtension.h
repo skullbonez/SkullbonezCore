@@ -83,11 +83,13 @@ struct WorldRenderExtensionFrameView
 class WorldRenderExtensionScope
 {
   public:
-    WorldRenderExtensionScope( RenderGraph& graph,
-                               RenderGraphCompileResult& compileScratch,
-                               RenderGraphResourceHandle colorTarget,
-                               RenderGraphResourceHandle depthTarget,
-                               const WorldRenderExtensionFrameView& frame )
+    WorldRenderExtensionScope(
+        RenderGraph& graph,
+        RenderGraphCompileResult& compileScratch,
+        RenderGraphResourceHandle colorTarget,
+        RenderGraphResourceHandle depthTarget,
+        const WorldRenderExtensionFrameView& frame
+    )
         : m_graph( graph ), m_compileScratch( compileScratch ), m_colorTarget( colorTarget ),
           m_depthTarget( depthTarget ), m_frame( frame )
     {
@@ -113,22 +115,27 @@ class WorldRenderExtensionScope
         // callback borrows can be released at the frame boundary.
         if ( m_graph.Passes().size() != firstPass + 1u )
         {
-            SB_FATAL( "Rendering/WorldRenderExtension",
-                      "World extension must append exactly one pass. before=%zu after=%zu",
-                      firstPass,
-                      m_graph.Passes().size() );
+            SB_FATAL(
+                "Rendering/WorldRenderExtension",
+                "World extension must append exactly one pass. before=%zu after=%zu",
+                firstPass,
+                m_graph.Passes().size()
+            );
         }
         m_graph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::DryRun, static_cast<uint32_t>( firstPass ), 1u );
-        const RenderGraphCallbackExecutionResult executed =
-            m_graph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::Execute,
-                                      static_cast<uint32_t>( firstPass ),
-                                      1u );
+        const RenderGraphCallbackExecutionResult executed = m_graph.ExecuteCallbacks(
+            RenderGraphCallbackExecutionMode::Execute,
+            static_cast<uint32_t>( firstPass ),
+            1u
+        );
         if ( executed.executedPassCount != 1u )
         {
-            SB_FATAL( "Rendering/WorldRenderExtension",
-                      "World extension callback was omitted. pass=%s actual=%u",
-                      passName ? passName : "unknown",
-                      executed.executedPassCount );
+            SB_FATAL(
+                "Rendering/WorldRenderExtension",
+                "World extension callback was omitted. pass=%s actual=%u",
+                passName ? passName : "unknown",
+                executed.executedPassCount
+            );
         }
     }
 

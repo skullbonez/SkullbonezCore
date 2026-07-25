@@ -250,12 +250,14 @@ static bool LoadSdfAtlasFromFile( Dx12TextureOwner& renderTextures, const char* 
 
     // SDF rendering requires linear filtering; nearest-neighbour would staircase
     // the distance gradient and make glyph edges look aliased.
-    Text2d::fontTexture = renderTextures.CreateTexture2D( pixels.get(),
-                                                          FONT_ATLAS_W,
-                                                          FONT_ATLAS_H,
-                                                          1,
-                                                          TextureMipPolicy::SingleLevel,
-                                                          TextureFilterPolicy::Linear );
+    Text2d::fontTexture = renderTextures.CreateTexture2D(
+        pixels.get(),
+        FONT_ATLAS_W,
+        FONT_ATLAS_H,
+        1,
+        TextureMipPolicy::SingleLevel,
+        TextureFilterPolicy::Linear
+    );
     return true;
 }
 
@@ -333,20 +335,23 @@ bool Text2d::GenerateSdfAtlasToFile( const char* cFontName, const char* cOutPath
     // OUT_TT_PRECIS requests a vector outline for clean scaling.
     // ANTIALIASED_QUALITY gives GDI sub-pixel blending for a smooth binary mask.
     // Ref: https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-createfonta
-    HFONT hFont = CreateFont( -FONT_SIZE_HI,
-                              0,
-                              0,
-                              0,
-                              FW_NORMAL,
-                              FALSE,
-                              FALSE,
-                              FALSE,
-                              ANSI_CHARSET,
-                              OUT_TT_PRECIS,
-                              CLIP_DEFAULT_PRECIS,
-                              ANTIALIASED_QUALITY,
-                              FF_DONTCARE | DEFAULT_PITCH,
-                              cFontName );
+    HFONT hFont = CreateFont(
+        -FONT_SIZE_HI,
+        0,
+        0,
+        0,
+        FW_NORMAL,
+        FALSE,
+        FALSE,
+        FALSE,
+        ANSI_CHARSET,
+        OUT_TT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        ANTIALIASED_QUALITY,
+        FF_DONTCARE | DEFAULT_PITCH,
+        cFontName
+    );
+
     if ( !hFont )
     {
         SelectObject( memDC, hOldBitmap );
@@ -360,6 +365,7 @@ bool Text2d::GenerateSdfAtlasToFile( const char* cFontName, const char* cOutPath
     // units so the runtime advance table is resolution-independent.
     float charAdvBuf[96] = {};
     INT advWidths[96] = {};
+
     GetCharWidth32( memDC, 32, 127, advWidths );
     for ( int i = 0; i < 96; ++i )
     {
@@ -509,14 +515,16 @@ bool Text2d::GenerateSdfAtlasToFile( const char* cFontName, const char* cOutPath
 }
 
 
-SkullbonezCore::Core::SbResult Text2d::BuildFont( TextBatch& batch,
-                                                  Dx12ResourceBuilder& renderResources,
-                                                  Dx12TextureOwner& renderTextures,
-                                                  Dx12GeometryOwner& renderGeometry,
-                                                  const SkullbonezCore::Assets::AssetSystem& assets,
-                                                  int screenW,
-                                                  int screenH,
-                                                  const char* cFontName )
+SkullbonezCore::Core::SbResult Text2d::BuildFont(
+    TextBatch& batch,
+    Dx12ResourceBuilder& renderResources,
+    Dx12TextureOwner& renderTextures,
+    Dx12GeometryOwner& renderGeometry,
+    const SkullbonezCore::Assets::AssetSystem& assets,
+    int screenW,
+    int screenH,
+    const char* cFontName
+)
 {
     // Load the pre-generated SDF atlas if available.  To regenerate, run:
     //   SKULLBONEZ_CORE.exe --gen-atlas
@@ -528,15 +536,19 @@ SkullbonezCore::Core::SbResult Text2d::BuildFont( TextBatch& batch,
         fprintf( stderr, "[Text2d] SDF atlas missing or stale — generating (one time)...\n" );
         if ( !Text2d::GenerateSdfAtlasToFile( cFontName, atlasPath.c_str() ) )
         {
-            return SkullbonezCore::Core::SbResult::Failure( "Rendering/Text",
-                                                            "SDF atlas generation failed: %s",
-                                                            atlasPath.c_str() );
+            return SkullbonezCore::Core::SbResult::Failure(
+                "Rendering/Text",
+                "SDF atlas generation failed: %s",
+                atlasPath.c_str()
+            );
         }
         if ( !LoadSdfAtlasFromFile( renderTextures, atlasPath.c_str() ) )
         {
-            return SkullbonezCore::Core::SbResult::Failure( "Rendering/Text",
-                                                            "SDF atlas load-after-generate failed: %s",
-                                                            atlasPath.c_str() );
+            return SkullbonezCore::Core::SbResult::Failure(
+                "Rendering/Text",
+                "SDF atlas load-after-generate failed: %s",
+                atlasPath.c_str()
+            );
         }
         fprintf( stderr, "[Text2d] SDF atlas saved to %s\n", atlasPath.c_str() );
     }
@@ -583,7 +595,9 @@ SkullbonezCore::Core::SbResult Text2d::BuildFont( TextBatch& batch,
             Text2d::quadBatchVB,
             Text2d::pTextShader ? 1 : 0,
             Text2d::pSolidShader ? 1 : 0,
-            Text2d::pSolidBatchShader ? 1 : 0 );
+            Text2d::pSolidBatchShader ? 1 : 0
+        );
+
         Text2d::DeleteFont( batch, &renderTextures, &renderGeometry );
         return failure;
     }
@@ -686,14 +700,16 @@ void Text2d::DeleteFont( TextBatch& batch, Dx12TextureOwner* renderTextures, Dx1
 }
 
 
-void Text2d::RenderTextInternal( TextBatch& batch,
-                                 float xPosition,
-                                 float yPosition,
-                                 float fSize,
-                                 float colR,
-                                 float colG,
-                                 float colB,
-                                 const char* formatted )
+void Text2d::RenderTextInternal(
+    TextBatch& batch,
+    float xPosition,
+    float yPosition,
+    float fSize,
+    float colR,
+    float colG,
+    float colB,
+    const char* formatted
+)
 {
     const int len = static_cast<int>( strlen( formatted ) );
     if ( len == 0 )
@@ -815,7 +831,8 @@ void Text2d::FlushText( TextBatch& batch, Dx12TextureOwner& renderTextures, Dx12
     renderCommands.UploadAndDrawDynamicVB(
         Text2d::textBatchVB,
         std::span<const float>( batch.m_textVertices.data(), batch.m_textVertexCount * TEXT_BATCH_FLOATS_PER_VERT ),
-        TEXT_RASTER_STATE );
+        TEXT_RASTER_STATE
+    );
 
     batch.m_textVertexCount = 0;
 }
@@ -838,15 +855,17 @@ void Text2d::Render2dText( TextBatch& batch, float xPosition, float yPosition, f
 }
 
 
-void Text2d::Render2dTextColor( TextBatch& batch,
-                                float xPosition,
-                                float yPosition,
-                                float fSize,
-                                float r,
-                                float g,
-                                float b,
-                                const char* cRawText,
-                                ... )
+void Text2d::Render2dTextColor(
+    TextBatch& batch,
+    float xPosition,
+    float yPosition,
+    float fSize,
+    float r,
+    float g,
+    float b,
+    const char* cRawText,
+    ...
+)
 {
     if ( !cRawText || !Text2d::pTextShader )
     {
@@ -863,16 +882,18 @@ void Text2d::Render2dTextColor( TextBatch& batch,
 }
 
 
-void Text2d::Render2dQuad( TextBatch& batch,
-                           Dx12GeometryOwner& renderCommands,
-                           float x0,
-                           float y0,
-                           float x1,
-                           float y1,
-                           float r,
-                           float g,
-                           float b,
-                           float a )
+void Text2d::Render2dQuad(
+    TextBatch& batch,
+    Dx12GeometryOwner& renderCommands,
+    float x0,
+    float y0,
+    float x1,
+    float y1,
+    float r,
+    float g,
+    float b,
+    float a
+)
 {
     if ( !Text2d::pSolidShader || !Text2d::dynamicVB )
     {
@@ -892,16 +913,18 @@ void Text2d::Render2dQuad( TextBatch& batch,
 }
 
 
-void Text2d::BatchQuad( TextBatch& batch,
-                        Dx12GeometryOwner& renderCommands,
-                        float x0,
-                        float y0,
-                        float x1,
-                        float y1,
-                        float r,
-                        float g,
-                        float b,
-                        float a )
+void Text2d::BatchQuad(
+    TextBatch& batch,
+    Dx12GeometryOwner& renderCommands,
+    float x0,
+    float y0,
+    float x1,
+    float y1,
+    float r,
+    float g,
+    float b,
+    float a
+)
 {
     // Accumulate one quad (two triangles, 6 vertices) into the owner batch.
     // Vertex layout: [x, y, r, g, b, a] — 6 floats per vertex.
@@ -958,18 +981,20 @@ void Text2d::BatchQuad( TextBatch& batch,
 }
 
 
-void Text2d::BatchTriangle( TextBatch& batch,
-                            Dx12GeometryOwner& renderCommands,
-                            float x0,
-                            float y0,
-                            float x1,
-                            float y1,
-                            float x2,
-                            float y2,
-                            float r,
-                            float g,
-                            float b,
-                            float a )
+void Text2d::BatchTriangle(
+    TextBatch& batch,
+    Dx12GeometryOwner& renderCommands,
+    float x0,
+    float y0,
+    float x1,
+    float y1,
+    float x2,
+    float y2,
+    float r,
+    float g,
+    float b,
+    float a
+)
 {
     if ( batch.m_quadVertexCount + QUAD_BATCH_VERTS_PER_TRIANGLE > QUAD_BATCH_MAX_QUADS * QUAD_BATCH_VERTS_PER_QUAD )
     {
@@ -1017,7 +1042,8 @@ void Text2d::FlushQuads( TextBatch& batch, Dx12GeometryOwner& renderCommands )
     renderCommands.UploadAndDrawDynamicVB(
         Text2d::quadBatchVB,
         std::span<const float>( batch.m_quadVertices.data(), batch.m_quadVertexCount * QUAD_BATCH_FLOATS_PER_VERT ),
-        TEXT_RASTER_STATE );
+        TEXT_RASTER_STATE
+    );
 
     batch.m_quadVertexCount = 0;
 }

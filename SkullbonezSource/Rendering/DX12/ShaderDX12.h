@@ -130,11 +130,13 @@ class ShaderDX12
 #endif
 
   public:
-    ShaderDX12( Dx12RenderDevice& device,
-                Dx12PipelineOwner& pipeline,
-                Dx12ShaderDevelopment& shaderDevelopment,
-                Dx12UploadReservations& uploadReservations,
-                bool registerForDevelopment = true );
+    ShaderDX12(
+        Dx12RenderDevice& device,
+        Dx12PipelineOwner& pipeline,
+        Dx12ShaderDevelopment& shaderDevelopment,
+        Dx12UploadReservations& uploadReservations,
+        bool registerForDevelopment = true
+    );
     ~ShaderDX12();
 
     bool Compile( const char* hlslPath );

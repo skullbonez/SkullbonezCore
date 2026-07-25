@@ -163,11 +163,13 @@ struct ReplayPredictionDrawListUpdate
     bool stable = false;
 };
 
-constexpr bool IsReplayPredictionDrawListPublicationStable( bool reset,
-                                                            uint64_t retainedPublicationVersion,
-                                                            ReplayFrameIndex retainedRevealFrame,
-                                                            uint64_t incomingPublicationVersion,
-                                                            ReplayFrameIndex incomingRevealFrame ) noexcept
+constexpr bool IsReplayPredictionDrawListPublicationStable(
+    bool reset,
+    uint64_t retainedPublicationVersion,
+    ReplayFrameIndex retainedRevealFrame,
+    uint64_t incomingPublicationVersion,
+    ReplayFrameIndex incomingRevealFrame
+) noexcept
 {
     return !reset && retainedPublicationVersion == incomingPublicationVersion &&
            retainedRevealFrame == incomingRevealFrame;
@@ -181,19 +183,23 @@ constexpr std::size_t ReplayPredictionFirstUnconsumedPoint( std::size_t consumed
     return consumedPointCount > 1u ? consumedPointCount : 1u;
 }
 
-constexpr bool ReplayPredictionDrawsAllBodyRecord( bool showAllFuturePaths,
-                                                   const ReplayTrajectoryRecordKey& key,
-                                                   uint16_t activeRootBranch,
-                                                   Physics::PhysicsSceneObjectId selectedId ) noexcept
+constexpr bool ReplayPredictionDrawsAllBodyRecord(
+    bool showAllFuturePaths,
+    const ReplayTrajectoryRecordKey& key,
+    uint16_t activeRootBranch,
+    Physics::PhysicsSceneObjectId selectedId
+) noexcept
 {
     return showAllFuturePaths && key.lane == ReplayTrajectoryLane::FutureRoot &&
            key.branchOrdinal == activeRootBranch && key.bodyId.value != selectedId.value;
 }
 
-constexpr bool ReplayPredictionDrawsCausalChildRecord( bool showAllFuturePaths,
-                                                       const ReplayTrajectoryRecordKey& key,
-                                                       uint16_t activeChildBranchBase,
-                                                       uint16_t activeChildBranchEnd ) noexcept
+constexpr bool ReplayPredictionDrawsCausalChildRecord(
+    bool showAllFuturePaths,
+    const ReplayTrajectoryRecordKey& key,
+    uint16_t activeChildBranchBase,
+    uint16_t activeChildBranchEnd
+) noexcept
 {
     return !showAllFuturePaths &&
            ( key.lane == ReplayTrajectoryLane::FutureChildIncoming ||
@@ -236,19 +242,23 @@ void RenderReplayCauseTreeOverlay( Text::TextBatch& textBatch, const ReplayOverl
 // Appends only newly published/revealed trajectory points to a retained tracer.
 // A generation, topology, record replacement, or palette change resets the
 // bounded list; an unchanged publication token returns without traversing it.
-ReplayPredictionDrawListUpdate UpdateReplayPredictionDrawList( const ReplayPredictionPresentationView& prediction,
-                                                               const RunReplayPathVisualizerState& pathVisualizer,
-                                                               const SceneEntityStore& entities,
-                                                               const Physics::ColliderStore& colliderStore,
-                                                               EditorTracer& drawList,
-                                                               ReplayPredictionDrawListState& state );
+ReplayPredictionDrawListUpdate UpdateReplayPredictionDrawList(
+    const ReplayPredictionPresentationView& prediction,
+    const RunReplayPathVisualizerState& pathVisualizer,
+    const SceneEntityStore& entities,
+    const Physics::ColliderStore& colliderStore,
+    EditorTracer& drawList,
+    ReplayPredictionDrawListState& state
+);
 // Emits only each active path's current unsampled endpoint. Completed segments
 // stay in the retained append-only list, so the reveal remains continuous
 // without rebuilding historical commands.
-void AppendReplayPredictionProvisionalTails( const ReplayPredictionPresentationView& prediction,
-                                             const RunReplayPathVisualizerState& pathVisualizer,
-                                             const ReplayPredictionDrawListState& state,
-                                             const Physics::ColliderStore& colliderStore,
-                                             EditorTracer& tracer );
+void AppendReplayPredictionProvisionalTails(
+    const ReplayPredictionPresentationView& prediction,
+    const RunReplayPathVisualizerState& pathVisualizer,
+    const ReplayPredictionDrawListState& state,
+    const Physics::ColliderStore& colliderStore,
+    EditorTracer& tracer
+);
 ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& context );
 } // namespace SkullbonezCore::Runtime::ReplayOverlay

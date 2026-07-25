@@ -107,8 +107,8 @@ class TornadoField
         return m_config;
     }
 
-    static Math::Vector::Vector3 SampleAccelerationForConfig( const TornadoFieldConfig& config,
-                                                              const Math::Vector::Vector3& position );
+    static Math::Vector::Vector3
+    SampleAccelerationForConfig( const TornadoFieldConfig& config, const Math::Vector::Vector3& position );
     Math::Vector::Vector3 SampleAcceleration( const Math::Vector::Vector3& position ) const;
     std::size_t DynamicMemoryBytes() const;
 
@@ -144,9 +144,11 @@ class TornadoSystem
     Math::Vector::Vector3 SampleAcceleration( const Math::Vector::Vector3& position ) const;
     std::size_t DynamicMemoryBytes() const;
 
-    static void BuildActiveVortices( const TornadoSystemConfig& config,
-                                     float elapsedSeconds,
-                                     std::vector<TornadoActiveVortex>& outVortices );
+    static void BuildActiveVortices(
+        const TornadoSystemConfig& config,
+        float elapsedSeconds,
+        std::vector<TornadoActiveVortex>& outVortices
+    );
 
   private:
     TornadoSystemConfig m_config;

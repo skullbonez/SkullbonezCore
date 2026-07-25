@@ -37,23 +37,27 @@ class Dx12GeometryOwner;
 class ProfilerOverlayPresenter
 {
   public:
-    void RenderOverlay( const Core::Profiler::ProfilerFrameView& frame,
-                        Text::TextBatch& textBatch,
-                        Dx12GeometryOwner& renderCommands,
-                        float xLeft,
-                        float yAnchor,
-                        float lineHeight,
-                        float fontSize,
-                        float fps,
-                        bool rightAnchored = false ) const;
-    void RenderBarOverlay( const Core::Profiler::ProfilerFrameView& frame,
-                           Text::TextBatch& textBatch,
-                           Dx12GeometryOwner& renderCommands,
-                           float xLeft,
-                           float yBottom,
-                           float panelWidth,
-                           float panelHeight,
-                           bool absolute ) const;
+    void RenderOverlay(
+        const Core::Profiler::ProfilerFrameView& frame,
+        Text::TextBatch& textBatch,
+        Dx12GeometryOwner& renderCommands,
+        float xLeft,
+        float yAnchor,
+        float lineHeight,
+        float fontSize,
+        float fps,
+        bool rightAnchored = false
+    ) const;
+    void RenderBarOverlay(
+        const Core::Profiler::ProfilerFrameView& frame,
+        Text::TextBatch& textBatch,
+        Dx12GeometryOwner& renderCommands,
+        float xLeft,
+        float yBottom,
+        float panelWidth,
+        float panelHeight,
+        bool absolute
+    ) const;
 };
 } // namespace Rendering
 } // namespace SkullbonezCore

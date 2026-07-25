@@ -358,12 +358,13 @@ inline uint32_t SceneTimelineGeneratedConfigFlags( const ReplaySceneTimelineRese
     return flags;
 }
 
-ReplaySceneTimelineResetInput
-DescribeReplaySceneTimeline( const SceneController& sceneController,
-                             const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                             const SceneSessionState& scene,
-                             int sceneObjectCapacity,
-                             uint32_t generatedObjectTypeOverride );
+ReplaySceneTimelineResetInput DescribeReplaySceneTimeline(
+    const SceneController& sceneController,
+    const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+    const SceneSessionState& scene,
+    int sceneObjectCapacity,
+    uint32_t generatedObjectTypeOverride
+);
 } // namespace ReplayTimelineOperations
 
 struct ReplaySceneTimelineResetResult

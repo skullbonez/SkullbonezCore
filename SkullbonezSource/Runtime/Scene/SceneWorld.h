@@ -94,9 +94,11 @@ class SceneWorld
     int ActiveSceneObjectCapacity() const;
     // One preflighted command publishes entity, physics, collider, and render
     // rows together. A mismatched post-commit count is a fatal invariant.
-    SceneEntityCreateResult TryCreateSceneEntity( SceneEntityCreateDesc entity,
-                                                  Physics::PhysicsBodyCreateDesc bodyDesc,
-                                                  Physics::PhysicsColliderCreateDesc colliderDesc );
+    SceneEntityCreateResult TryCreateSceneEntity(
+        SceneEntityCreateDesc entity,
+        Physics::PhysicsBodyCreateDesc bodyDesc,
+        Physics::PhysicsColliderCreateDesc colliderDesc
+    );
     // Cold editor deletion removes the same four rows as one swap-last commit.
     bool DestroySceneEntity( Physics::PhysicsBodyHandle body );
     void Clear();
@@ -113,10 +115,12 @@ class SceneWorld
     void EndCollisionVisualFrame();
 
     bool TryGetModelPosition( int index, Math::Vector::Vector3& outPosition ) const;
-    bool TryGetPresentationPose( int index,
-                                 float presentationAlpha,
-                                 Math::Vector::Vector3& outPosition,
-                                 Math::Orientation::Quaternion& outOrientation ) const;
+    bool TryGetPresentationPose(
+        int index,
+        float presentationAlpha,
+        Math::Vector::Vector3& outPosition,
+        Math::Orientation::Quaternion& outOrientation
+    ) const;
     int SceneEntityCount() const;
     // Current prepared physics views. Callers must not retain either span/view
     // across topology mutation or scene replacement.
@@ -130,10 +134,12 @@ class SceneWorld
     double GetSceneKineticEnergy();
     // Runtime-tool edge: resolve a picked row once, then perform release and
     // same-tree propagation through PhysicsEngine-owned handles.
-    bool ReleaseAttachedFixedTreeParts( int sourceIndex,
-                                        float releaseImpulseStrength,
-                                        const Math::Vector::Vector3& seedLinearVelocity,
-                                        const Math::Vector::Vector3& seedAngularVelocity );
+    bool ReleaseAttachedFixedTreeParts(
+        int sourceIndex,
+        float releaseImpulseStrength,
+        const Math::Vector::Vector3& seedLinearVelocity,
+        const Math::Vector::Vector3& seedAngularVelocity
+    );
     void CaptureReplaySolverWorldSnapshot( Physics::PhysicsSolverSnapshot& outSnapshot ) const;
     bool RestoreReplaySolverWorldSnapshot( const Physics::PhysicsSolverSnapshot& snapshot );
     // Explicit cold boundary used before tools borrow paired body/collider

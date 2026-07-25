@@ -444,17 +444,19 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
 }
 
 
-uint32_t BuildUIInteractionSignature( int mouseX,
-                                      int mouseY,
-                                      bool rendererOpen,
-                                      bool reflectionOpen,
-                                      bool sceneOpen,
-                                      bool cineSceneOpen,
-                                      bool editorObjectOpen,
-                                      bool renderTargetOpen,
-                                      bool cameraModeOpen,
-                                      int selectedRenderTarget,
-                                      int activeSlider )
+uint32_t BuildUIInteractionSignature(
+    int mouseX,
+    int mouseY,
+    bool rendererOpen,
+    bool reflectionOpen,
+    bool sceneOpen,
+    bool cineSceneOpen,
+    bool editorObjectOpen,
+    bool renderTargetOpen,
+    bool cameraModeOpen,
+    int selectedRenderTarget,
+    int activeSlider
+)
 {
     uint32_t hash = 2166136261u;
     hash = HashInt( hash, mouseX );
@@ -472,16 +474,18 @@ uint32_t BuildUIInteractionSignature( int mouseX,
 }
 
 
-void FlushUIDrawList( const UIDrawList& drawList,
-                      Text::TextBatch& textBatch,
-                      Rendering::RenderGpuTimingOwner* gpuTiming,
-                      Rendering::Dx12TextureOwner& renderTextures,
-                      Rendering::Dx12GeometryOwner& renderCommands,
-                      Rendering::Dx12Diagnostics& renderDiagnostics,
-                      int screenW,
-                      int screenH,
-                      float offsetX,
-                      float offsetY )
+void FlushUIDrawList(
+    const UIDrawList& drawList,
+    Text::TextBatch& textBatch,
+    Rendering::RenderGpuTimingOwner* gpuTiming,
+    Rendering::Dx12TextureOwner& renderTextures,
+    Rendering::Dx12GeometryOwner& renderCommands,
+    Rendering::Dx12Diagnostics& renderDiagnostics,
+    int screenW,
+    int screenH,
+    float offsetX,
+    float offsetY
+)
 {
     PROFILE_GPU_BEGIN( gpuTiming, "Frame/UI/Draw" );
     const UIDrawContext immediateDraw( screenW, screenH, nullptr, &renderTextures, &renderCommands, &textBatch );
@@ -629,11 +633,13 @@ UIRect TitleButtonGroupBounds( const Chrome::TitleButtonRects& titleButtons )
 }
 
 
-void DrawEditorObjectCounter( const UIDrawContext& draw,
-                              const InGameUIFrameData& data,
-                              int screenW,
-                              int screenH,
-                              const UIRect* avoidBounds )
+void DrawEditorObjectCounter(
+    const UIDrawContext& draw,
+    const InGameUIFrameData& data,
+    int screenW,
+    int screenH,
+    const UIRect* avoidBounds
+)
 {
     if ( !data.editorModeEnabled )
     {
@@ -667,29 +673,36 @@ void DrawEditorObjectCounter( const UIDrawContext& draw,
     const Style::UIPalette& palette = Style::Palette();
     Style::UIColor fill = palette.windowRaised;
     fill.a = 0.90f;
-    draw.RoundedRect( bounds.x + 3.0f,
-                      bounds.y + 4.0f,
-                      bounds.w,
-                      bounds.h,
-                      Style::Radii().control,
-                      palette.shadow.r,
-                      palette.shadow.g,
-                      palette.shadow.b,
-                      0.24f );
+    draw.RoundedRect(
+        bounds.x + 3.0f,
+        bounds.y + 4.0f,
+        bounds.w,
+        bounds.h,
+        Style::Radii().control,
+        palette.shadow.r,
+        palette.shadow.g,
+        palette.shadow.b,
+        0.24f
+    );
+
     draw.RoundedPanel( bounds, Style::Radii().control, fill, palette.border );
-    draw.Text( bounds.x + padX,
-               bounds.y + 8.0f,
-               fontSize,
-               palette.textPrimary.r,
-               palette.textPrimary.g,
-               palette.textPrimary.b,
-               counterText );
+    draw.Text(
+        bounds.x + padX,
+        bounds.y + 8.0f,
+        fontSize,
+        palette.textPrimary.r,
+        palette.textPrimary.g,
+        palette.textPrimary.b,
+        counterText
+    );
 }
 
 
-void EnsureRenderTargetPreviewResources( std::unique_ptr<Rendering::ShaderDX12>& shader,
-                                         uint32_t& dynamicVB,
-                                         const UIRenderContext& render )
+void EnsureRenderTargetPreviewResources(
+    std::unique_ptr<Rendering::ShaderDX12>& shader,
+    uint32_t& dynamicVB,
+    const UIRenderContext& render
+)
 {
     if ( !render.IsReady() )
     {
@@ -715,9 +728,11 @@ void EnsureRenderTargetPreviewResources( std::unique_ptr<Rendering::ShaderDX12>&
 }
 
 
-void ResetRenderTargetPreviewResources( std::unique_ptr<Rendering::ShaderDX12>& shader,
-                                        uint32_t& dynamicVB,
-                                        Rendering::Dx12GeometryOwner* geometry )
+void ResetRenderTargetPreviewResources(
+    std::unique_ptr<Rendering::ShaderDX12>& shader,
+    uint32_t& dynamicVB,
+    Rendering::Dx12GeometryOwner* geometry
+)
 {
     shader.reset();
     if ( dynamicVB != 0 )
@@ -731,13 +746,15 @@ void ResetRenderTargetPreviewResources( std::unique_ptr<Rendering::ShaderDX12>& 
 }
 
 
-void DrawRenderTargetPreviewTexture( std::unique_ptr<Rendering::ShaderDX12>& shader,
-                                     uint32_t& dynamicVB,
-                                     const UIDrawContext& draw,
-                                     const UIRenderTargetPreviewResource& resource,
-                                     const UIRect& bounds,
-                                     const UIRect& clipBounds,
-                                     const UIRenderContext& render )
+void DrawRenderTargetPreviewTexture(
+    std::unique_ptr<Rendering::ShaderDX12>& shader,
+    uint32_t& dynamicVB,
+    const UIDrawContext& draw,
+    const UIRenderTargetPreviewResource& resource,
+    const UIRect& bounds,
+    const UIRect& clipBounds,
+    const UIRenderContext& render
+)
 {
     if ( !resource.available || resource.textureHandle == 0 || bounds.w <= 1.0f || bounds.h <= 1.0f ||
          !render.IsReady() )

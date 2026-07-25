@@ -76,11 +76,13 @@ struct PhysicsDiagnosticsModelRecord
 
 // Builds one serializable diagnostics row from store-owned physics state plus
 // an optional name overlay. The caller owns row ordering and baseline emission.
-bool TryBuildPhysicsDiagnosticsModelRecord( int index,
-                                            const PhysicsBodyStore& bodyStore,
-                                            const ColliderStore& colliderStore,
-                                            const PhysicsDiagnosticsNameView& names,
-                                            PhysicsDiagnosticsModelRecord& outRecord );
+bool TryBuildPhysicsDiagnosticsModelRecord(
+    int index,
+    const PhysicsBodyStore& bodyStore,
+    const ColliderStore& colliderStore,
+    const PhysicsDiagnosticsNameView& names,
+    PhysicsDiagnosticsModelRecord& outRecord
+);
 } // namespace Physics
 } // namespace SkullbonezCore
 

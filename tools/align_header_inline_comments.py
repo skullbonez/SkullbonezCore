@@ -22,7 +22,9 @@ Related:
 from __future__ import annotations
 
 import argparse
+import errno
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
@@ -255,7 +257,18 @@ def read_text(path: Path) -> str:
 
 
 def write_text(path: Path, text: str) -> None:
-    path.write_text(text, encoding="utf-8", newline="\n")
+    # Hazard: Windows can transiently reject a header rewrite while the
+    # repository-wide formatter rapidly closes and reopens neighboring files.
+    # A bounded retry keeps the deterministic pass moving without hiding a
+    # persistent permission or path failure.
+    for attempt in range(5):
+        try:
+            path.write_text(text, encoding="utf-8", newline="\n")
+            return
+        except OSError as error:
+            if error.errno not in {errno.EACCES, errno.EINVAL} or attempt == 4:
+                raise
+            time.sleep(0.05 * (attempt + 1))
 
 
 def clang_format_text(clang_format: Path, path: Path, text: str) -> str:

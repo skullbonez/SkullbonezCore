@@ -58,15 +58,17 @@ MeshDX12::~MeshDX12()
 }
 
 
-bool MeshDX12::Create( ID3D12Device* device,
-                       ID3D12GraphicsCommandList* cmdList,
-                       const float* data,
-                       int vertexCount,
-                       int floatsPerVert,
-                       VertexFormat12 format,
-                       D3D12_GPU_VIRTUAL_ADDRESS uploadAddr,
-                       uint8_t* uploadPtr,
-                       ID3D12Resource* uploadBuffer )
+bool MeshDX12::Create(
+    ID3D12Device* device,
+    ID3D12GraphicsCommandList* cmdList,
+    const float* data,
+    int vertexCount,
+    int floatsPerVert,
+    VertexFormat12 format,
+    D3D12_GPU_VIRTUAL_ADDRESS uploadAddr,
+    uint8_t* uploadPtr,
+    ID3D12Resource* uploadBuffer
+)
 {
     if ( uploadAddr == 0 || !uploadPtr )
     {
@@ -82,6 +84,7 @@ bool MeshDX12::Create( ID3D12Device* device,
     D3D12_HEAP_PROPERTIES defaultHeap = {};
     defaultHeap.Type = D3D12_HEAP_TYPE_DEFAULT;
     D3D12_RESOURCE_DESC bufDesc = {};
+
     bufDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
     bufDesc.Width = dataSize;
     bufDesc.Height = 1;
@@ -96,12 +99,15 @@ bool MeshDX12::Create( ID3D12Device* device,
     // specifying COPY_DEST fires warning #1328 (CREATERESOURCE_STATE_IGNORED). Use COMMON explicitly;
     // CopyBufferRegion promotes the buffer to COPY_DEST implicitly within the command list.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    HRESULT hr = device->CreateCommittedResource( &defaultHeap,
-                                                  D3D12_HEAP_FLAG_NONE,
-                                                  &bufDesc,
-                                                  D3D12_RESOURCE_STATE_COMMON,
-                                                  nullptr,
-                                                  IID_PPV_ARGS( &m_vertexBuffer ) );
+    HRESULT hr = device->CreateCommittedResource(
+        &defaultHeap,
+        D3D12_HEAP_FLAG_NONE,
+        &bufDesc,
+        D3D12_RESOURCE_STATE_COMMON,
+        nullptr,
+        IID_PPV_ARGS( &m_vertexBuffer )
+    );
+
     if ( FAILED( hr ) )
     {
         // Lane R: mesh buffers are backend resources. Factory callers receive
@@ -112,7 +118,8 @@ bool MeshDX12::Create( ID3D12Device* device,
             static_cast<unsigned int>( hr ),
             vertexCount,
             m_stride,
-            static_cast<unsigned long long>( dataSize ) );
+            static_cast<unsigned long long>( dataSize )
+        );
         SkullbonezCore::Core::Log().FlushAll();
         return false;
     }

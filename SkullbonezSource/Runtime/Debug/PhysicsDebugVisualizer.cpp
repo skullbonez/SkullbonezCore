@@ -237,12 +237,14 @@ void PhysicsDebugVisualizer::EmitArrow( const Vector3& a, const Vector3& b, floa
     EmitLine( b, base - side * ( head * 0.45f ), r, g, bl );
 }
 
-void PhysicsDebugVisualizer::EmitRingXZ( const Vector3& center,
-                                         float radius,
-                                         float yOffset,
-                                         float r,
-                                         float g,
-                                         float bl )
+void PhysicsDebugVisualizer::EmitRingXZ(
+    const Vector3& center,
+    float radius,
+    float yOffset,
+    float r,
+    float g,
+    float bl
+)
 {
     constexpr int segments = 24;
     float y = center.y + yOffset;
@@ -377,11 +379,13 @@ void PhysicsDebugVisualizer::EmitSleepState( const PhysicsDebugFrameView& view )
         if ( inhibited )
         {
             EmitRingXZ( center, radius * 0.62f, radius * 0.9f, 1.0f, 0.25f, 0.05f );
-            EmitLine( center + Vector3( 0.0f, radius * 0.5f, 0.0f ),
-                      center + Vector3( 0.0f, radius * 1.35f, 0.0f ),
-                      1.0f,
-                      0.25f,
-                      0.05f );
+            EmitLine(
+                center + Vector3( 0.0f, radius * 0.5f, 0.0f ),
+                center + Vector3( 0.0f, radius * 1.35f, 0.0f ),
+                1.0f,
+                0.25f,
+                0.05f
+            );
         }
     }
 }
@@ -543,10 +547,13 @@ void PhysicsDebugVisualizer::Update( float dt, const PhysicsDebugFrameView& view
         tracked.remainingSeconds -= (std::max)( 0.0f, dt );
     }
     m_trackedContacts.erase(
-        std::remove_if( m_trackedContacts.begin(),
-                        m_trackedContacts.end(),
-                        []( const TrackedContact& tracked ) { return tracked.remainingSeconds <= 0.0f; } ),
-        m_trackedContacts.end() );
+        std::remove_if(
+            m_trackedContacts.begin(),
+            m_trackedContacts.end(),
+            []( const TrackedContact& tracked ) { return tracked.remainingSeconds <= 0.0f; }
+        ),
+        m_trackedContacts.end()
+    );
 
     for ( const PhysicsDebugContact& contact : contacts )
     {
@@ -567,11 +574,13 @@ void PhysicsDebugVisualizer::Update( float dt, const PhysicsDebugFrameView& view
     }
 }
 
-void PhysicsDebugVisualizer::Render( const PhysicsDebugFrameView& view,
-                                     const Matrix4& viewProj,
-                                     Dx12GeometryOwner& renderCommands,
-                                     bool supportsDebugLines,
-                                     Geometry::Terrain* terrain )
+void PhysicsDebugVisualizer::Render(
+    const PhysicsDebugFrameView& view,
+    const Matrix4& viewProj,
+    Dx12GeometryOwner& renderCommands,
+    bool supportsDebugLines,
+    Geometry::Terrain* terrain
+)
 {
     if ( m_flags == PHYSICS_DEBUG_NONE || view.modelCount <= 0 || !supportsDebugLines )
     {

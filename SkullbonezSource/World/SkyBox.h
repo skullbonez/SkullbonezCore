@@ -75,9 +75,11 @@ class SkyBox
     std::array<uint32_t, 6> m_faceTextures;                           // Texture hash selected for each cube face.
 
     SkullbonezCore::Core::SbResult LoadTextures( const SkullbonezCore::Core::EngineConfig& config );
-    void BuildMeshes( const SkullbonezCore::Core::EngineConfig& config,
-                      Assets::AssetSystem& assets,
-                      Rendering::Dx12ResourceBuilder& resources );
+    void BuildMeshes(
+        const SkullbonezCore::Core::EngineConfig& config,
+        Assets::AssetSystem& assets,
+        Rendering::Dx12ResourceBuilder& resources
+    );
 
   public:
     SkyBox( int xMin, int xMax, int yMin, int yMax, int zMin, int zMax );
@@ -86,13 +88,14 @@ class SkyBox
     SkyBox& operator=( const SkyBox& ) = delete;
 
     void BindTextures( Textures::TextureCollection& textures );       // Borrow Run-owned texture registry for sky faces.
-    void
-    BindRenderContexts( const SkullbonezCore::Core::EngineConfig& config,
-                        Assets::AssetSystem& assets,
-                        Rendering::Dx12ResourceBuilder& resources );  // Borrow rebuild-only services for sky resources.
+    void BindRenderContexts(
+        const SkullbonezCore::Core::EngineConfig& config,
+        Assets::AssetSystem& assets,
+        Rendering::Dx12ResourceBuilder& resources
+    );                                                                // Borrow rebuild-only services for sky resources.
     void ReleaseRenderResources();                                    // Releases backend-owned sky meshes/shader and clears service borrows.
-    SkullbonezCore::Core::SbResult Render( const Math::Transformation::Matrix4& view,
-                                           const Math::Transformation::Matrix4& proj );
+    SkullbonezCore::Core::SbResult
+    Render( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj );
     SkullbonezCore::Core::SbResult ResetRenderResources();            // Rebuild meshes/shader after renderer reset/switch
 };
 } // namespace Geometry

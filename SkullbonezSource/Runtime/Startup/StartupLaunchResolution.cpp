@@ -187,11 +187,13 @@ bool ParsePhysicsDebugMode( const char* value, uint32_t& outFlags )
     }
     return false;
 }
-bool ApplyPhysicsDebugComponentOverride( const CommandLineView& commandLine,
-                                         const char* dashedName,
-                                         const char* underscoredName,
-                                         uint32_t flag,
-                                         ParsedArgs& out )
+bool ApplyPhysicsDebugComponentOverride(
+    const CommandLineView& commandLine,
+    const char* dashedName,
+    const char* underscoredName,
+    uint32_t flag,
+    ParsedArgs& out
+)
 {
     const char* value = FindOptionValue( commandLine, dashedName, underscoredName );
     if ( !value )
@@ -218,9 +220,11 @@ bool ApplyPhysicsDebugComponentOverride( const CommandLineView& commandLine,
     }
     return true;
 }
-bool ApplyPhysicsDebugFloatOverride( const CommandLineView& commandLine,
-                                     const PhysicsDebugFloatDirective& directive,
-                                     ParsedArgs& out )
+bool ApplyPhysicsDebugFloatOverride(
+    const CommandLineView& commandLine,
+    const PhysicsDebugFloatDirective& directive,
+    ParsedArgs& out
+)
 {
     const char* value = FindOptionValue( commandLine, directive.dashedName, directive.underscoredName );
     if ( !value )
@@ -247,6 +251,7 @@ struct RunCliValueDirective
     const char* alias;
     bool ( *apply )( const char* value, ParsedArgs& args );
 };
+
 bool ApplyLiveStyleControlDir( const char* value, ParsedArgs& args )
 {
     if ( IsOptionValueMissing( value ) )
@@ -291,10 +296,12 @@ bool ApplyMemoryDumpPath( const char* value, ParsedArgs& args )
 }
 bool ApplyInteractionScriptPath( const char* value, ParsedArgs& args )
 {
-    if ( !CopyCommandLinePath( value,
-                               "--interaction-script",
-                               args.interactionScriptPath,
-                               sizeof( args.interactionScriptPath ) ) )
+    if ( !CopyCommandLinePath(
+             value,
+             "--interaction-script",
+             args.interactionScriptPath,
+             sizeof( args.interactionScriptPath )
+         ) )
     {
         return false;
     }
@@ -306,10 +313,12 @@ bool ApplyInteractionScriptPath( const char* value, ParsedArgs& args )
 }
 bool ApplyInteractionReportPath( const char* value, ParsedArgs& args )
 {
-    if ( !CopyCommandLinePath( value,
-                               "--interaction-report",
-                               args.interactionReportPath,
-                               sizeof( args.interactionReportPath ) ) )
+    if ( !CopyCommandLinePath(
+             value,
+             "--interaction-report",
+             args.interactionReportPath,
+             sizeof( args.interactionReportPath )
+         ) )
     {
         return false;
     }
@@ -459,7 +468,8 @@ bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs&
         if ( !ParsePhysicsDebugMode( modeValue, out.physicsDebugFlagsOverride ) )
         {
             return FailCommandLineParse(
-                "--physics-debug expects none|axes|contacts|sleep|pipeline|terrain|all|on|off." );
+                "--physics-debug expects none|axes|contacts|sleep|pipeline|terrain|all|on|off."
+            );
         }
         out.hasPhysicsDebugFlagsOverride = true;
     }
@@ -470,13 +480,16 @@ bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs&
         { "--physics-debug-pipeline", "--physics_debug_pipeline", PHYSICS_DEBUG_PIPELINE },
         { "--physics-debug-terrain-contact", "--physics_debug_terrain_contact", PHYSICS_DEBUG_TERRAIN_CONTACT },
     };
+
     for ( const PhysicsDebugComponentDirective& component : kComponentOverrides )
     {
-        if ( !ApplyPhysicsDebugComponentOverride( commandLine,
-                                                  component.dashedName,
-                                                  component.underscoredName,
-                                                  component.flag,
-                                                  out ) )
+        if ( !ApplyPhysicsDebugComponentOverride(
+                 commandLine,
+                 component.dashedName,
+                 component.underscoredName,
+                 component.flag,
+                 out
+             ) )
         {
             return false;
         }
@@ -509,6 +522,7 @@ bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs&
           "--physics-debug-contact-linger expects 0.0..5.0 seconds.",
           false },
     };
+
     for ( const PhysicsDebugFloatDirective& directive : kFloatOverrides )
     {
         if ( !ApplyPhysicsDebugFloatOverride( commandLine, directive, out ) )
@@ -522,9 +536,11 @@ bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs&
     }
     if ( out.hasPhysicsDebugTransparentOverride )
     {
-        fprintf( stdout,
-                 "[physics-debug] Transparent bodies: %s\n",
-                 out.physicsDebugTransparentOverride ? "on" : "off" );
+        fprintf(
+            stdout,
+            "[physics-debug] Transparent bodies: %s\n",
+            out.physicsDebugTransparentOverride ? "on" : "off"
+        );
     }
     if ( out.hasPhysicsDebugAlphaOverride )
     {
@@ -972,6 +988,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               return true;
           } },
     };
+
     // clang-format on
     for ( const RunCliValueDirective& directive : kValues )
     {

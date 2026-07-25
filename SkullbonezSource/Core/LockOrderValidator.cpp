@@ -91,10 +91,12 @@ void LockOrderValidator::RecordAcquisition( uint32_t lockId )
 
         if ( DetectCycleUnlocked() )
         {
-            fprintf( stderr,
-                     "[workers] Lock-order cycle detected while acquiring lock %u (%s).\n",
-                     lockId,
-                     m_names[lockId - 1] ? m_names[lockId - 1] : "<unnamed>" );
+            fprintf(
+                stderr,
+                "[workers] Lock-order cycle detected while acquiring lock %u (%s).\n",
+                lockId,
+                m_names[lockId - 1] ? m_names[lockId - 1] : "<unnamed>"
+            );
             assert( false && "Lock-order cycle detected." );
         }
     }
@@ -132,9 +134,11 @@ void LockOrderValidator::RecordRelease( uint32_t lockId )
 
 
 #ifdef _DEBUG
-bool LockOrderValidator::HasCycleFrom( uint32_t node,
-                                       std::bitset<MAX_LOCK_COUNT>& visiting,
-                                       std::bitset<MAX_LOCK_COUNT>& visited ) const
+bool LockOrderValidator::HasCycleFrom(
+    uint32_t node,
+    std::bitset<MAX_LOCK_COUNT>& visiting,
+    std::bitset<MAX_LOCK_COUNT>& visited
+) const
 {
     if ( visiting.test( node ) )
     {

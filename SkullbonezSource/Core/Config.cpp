@@ -98,13 +98,15 @@ char* TrimInPlace( char* text )
 
 void WarnConfigLine( const char* path, int line, const char* key, const char* value, const char* reason )
 {
-    fprintf( stderr,
-             "[config] %s:%d ignored %s=%s (%s).\n",
-             path ? path : "<config>",
-             line,
-             key ? key : "<unknown>",
-             value ? value : "",
-             reason ? reason : "invalid value" );
+    fprintf(
+        stderr,
+        "[config] %s:%d ignored %s=%s (%s).\n",
+        path ? path : "<config>",
+        line,
+        key ? key : "<unknown>",
+        value ? value : "",
+        reason ? reason : "invalid value"
+    );
 }
 
 bool IsRangeValid( double value, const ConfigSetting& setting )
@@ -196,12 +198,14 @@ bool ParseConfigBoolValue( const char* value, const ConfigSetting& setting, cons
     return false;
 }
 
-bool ApplyConfigString( EngineConfig& cfg,
-                        const char* value,
-                        const ConfigSetting& setting,
-                        const char* path,
-                        int line,
-                        std::string& out )
+bool ApplyConfigString(
+    EngineConfig& cfg,
+    const char* value,
+    const ConfigSetting& setting,
+    const char* path,
+    int line,
+    std::string& out
+)
 {
     static_cast<void>( cfg );
     if ( !value || *value == '\0' )
@@ -368,10 +372,12 @@ static const ConfigSetting kSkyboxSettings[] = {
 };
 
 static const ConfigSetting kRuntimeCapacitySettings[] = {
-    CONFIG_INT( "game_model_capacity",
-                runtimeCapacity.sceneObjectCapacity,
-                1,
-                SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ),
+    CONFIG_INT(
+        "game_model_capacity",
+        runtimeCapacity.sceneObjectCapacity,
+        1,
+        SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS
+    ),
     CONFIG_INT( "worker_threads", runtimeCapacity.workerThreads, -1, 1024 ),
 };
 
@@ -441,28 +447,36 @@ static const ConfigSetting kOrdinaryRenderSettings[] = {
     CONFIG_FLOAT( "ordinary_box_specular_scale", ordinaryRender.boxSpecularScale, 0.0, 2.0 ),
     CONFIG_FLOAT( "replay_trajectory_future_width", ordinaryRender.replayTrajectory.futureWidth, 1.0, 6.0 ),
     CONFIG_FLOAT( "replay_trajectory_future_alpha", ordinaryRender.replayTrajectory.futureAlpha, 0.05, 1.0 ),
-    CONFIG_FLOAT( "replay_trajectory_future_edge_feather",
-                  ordinaryRender.replayTrajectory.futureEdgeFeather,
-                  0.25,
-                  1.25 ),
+    CONFIG_FLOAT(
+        "replay_trajectory_future_edge_feather",
+        ordinaryRender.replayTrajectory.futureEdgeFeather,
+        0.25,
+        1.25
+    ),
     CONFIG_FLOAT( "replay_trajectory_causal_width", ordinaryRender.replayTrajectory.causalWidth, 1.0, 6.0 ),
     CONFIG_FLOAT( "replay_trajectory_causal_alpha", ordinaryRender.replayTrajectory.causalAlpha, 0.05, 1.0 ),
-    CONFIG_FLOAT( "replay_trajectory_causal_edge_feather",
-                  ordinaryRender.replayTrajectory.causalEdgeFeather,
-                  0.25,
-                  1.25 ),
+    CONFIG_FLOAT(
+        "replay_trajectory_causal_edge_feather",
+        ordinaryRender.replayTrajectory.causalEdgeFeather,
+        0.25,
+        1.25
+    ),
     CONFIG_FLOAT( "replay_trajectory_baseline_width", ordinaryRender.replayTrajectory.baselineWidth, 1.0, 6.0 ),
     CONFIG_FLOAT( "replay_trajectory_baseline_alpha", ordinaryRender.replayTrajectory.baselineAlpha, 0.05, 1.0 ),
-    CONFIG_FLOAT( "replay_trajectory_baseline_edge_feather",
-                  ordinaryRender.replayTrajectory.baselineEdgeFeather,
-                  0.25,
-                  1.25 ),
+    CONFIG_FLOAT(
+        "replay_trajectory_baseline_edge_feather",
+        ordinaryRender.replayTrajectory.baselineEdgeFeather,
+        0.25,
+        1.25
+    ),
     CONFIG_FLOAT( "replay_trajectory_marker_width", ordinaryRender.replayTrajectory.markerWidth, 1.0, 6.0 ),
     CONFIG_FLOAT( "replay_trajectory_marker_alpha", ordinaryRender.replayTrajectory.markerAlpha, 0.05, 1.0 ),
-    CONFIG_FLOAT( "replay_trajectory_marker_edge_feather",
-                  ordinaryRender.replayTrajectory.markerEdgeFeather,
-                  0.25,
-                  1.25 ),
+    CONFIG_FLOAT(
+        "replay_trajectory_marker_edge_feather",
+        ordinaryRender.replayTrajectory.markerEdgeFeather,
+        0.25,
+        1.25
+    ),
     CONFIG_FLOAT( "replay_trajectory_selected_emphasis", ordinaryRender.replayTrajectory.selectedEmphasis, 0.0, 1.0 ),
 };
 
@@ -583,10 +597,12 @@ static const ConfigSetting kBroadphaseSettings[] = {
 static const ConfigSetting kPersistentContactSolverSettings[] = {
     CONFIG_FLOAT( "persistent_contact_slop", persistentContactSolver.slop, 0.0, 1000000.0 ),
     CONFIG_FLOAT( "persistent_contact_baumgarte_beta", persistentContactSolver.baumgarteBeta, 0.0, 1.0 ),
-    CONFIG_FLOAT( "persistent_contact_position_correction_percent",
-                  persistentContactSolver.positionCorrectionPercent,
-                  0.0,
-                  1.0 ),
+    CONFIG_FLOAT(
+        "persistent_contact_position_correction_percent",
+        persistentContactSolver.positionCorrectionPercent,
+        0.0,
+        1.0
+    ),
     CONFIG_INT( "persistent_contact_solver_iterations", persistentContactSolver.iterations, 1, 1000000 ),
 };
 
@@ -645,19 +661,21 @@ static const ConfigSetting kWaterRenderStyleSettings[] = {
 };
 
 constexpr size_t kExpectedConfigSettingCount = 224;
-static_assert( ArrayCount( kWindowSettings ) + ArrayCount( kCameraSettings ) + ArrayCount( kTerrainGeometrySettings ) +
-                       ArrayCount( kSkyboxSettings ) + ArrayCount( kRuntimeCapacitySettings ) +
-                       ArrayCount( kPhysicsExecutionSettings ) + ArrayCount( kRuntimeRenderSettings ) +
-                       ArrayCount( kReplayPredictionSettings ) + ArrayCount( kSceneLightSettings ) +
-                       ArrayCount( kOrdinaryRenderSettings ) + ArrayCount( kCinematicRenderSettings ) +
-                       ArrayCount( kWorldForceSettings ) + ArrayCount( kBodySimulationSettings ) +
-                       ArrayCount( kPhysicsMaterialSettings ) + ArrayCount( kBroadphaseSettings ) +
-                       ArrayCount( kPersistentContactSolverSettings ) + ArrayCount( kTerrainContactSettings ) +
-                       ArrayCount( kPhysicsSleepSettings ) + ArrayCount( kBlobShadowSettings ) +
-                       ArrayCount( kGeneratedSceneSettings ) + ArrayCount( kAssetPathsSettings ) +
-                       ArrayCount( kWaterRenderStyleSettings ) ==
-                   kExpectedConfigSettingCount,
-               "Every engine config key must belong to exactly one domain table." );
+static_assert(
+    ArrayCount( kWindowSettings ) + ArrayCount( kCameraSettings ) + ArrayCount( kTerrainGeometrySettings ) +
+            ArrayCount( kSkyboxSettings ) + ArrayCount( kRuntimeCapacitySettings ) +
+            ArrayCount( kPhysicsExecutionSettings ) + ArrayCount( kRuntimeRenderSettings ) +
+            ArrayCount( kReplayPredictionSettings ) + ArrayCount( kSceneLightSettings ) +
+            ArrayCount( kOrdinaryRenderSettings ) + ArrayCount( kCinematicRenderSettings ) +
+            ArrayCount( kWorldForceSettings ) + ArrayCount( kBodySimulationSettings ) +
+            ArrayCount( kPhysicsMaterialSettings ) + ArrayCount( kBroadphaseSettings ) +
+            ArrayCount( kPersistentContactSolverSettings ) + ArrayCount( kTerrainContactSettings ) +
+            ArrayCount( kPhysicsSleepSettings ) + ArrayCount( kBlobShadowSettings ) +
+            ArrayCount( kGeneratedSceneSettings ) + ArrayCount( kAssetPathsSettings ) +
+            ArrayCount( kWaterRenderStyleSettings ) ==
+        kExpectedConfigSettingCount,
+    "Every engine config key must belong to exactly one domain table."
+);
 
 // The enum ordinal, table pointer, and table count have one shared definition.
 // Traversal and its constexpr proof therefore cannot disagree about which
@@ -686,8 +704,10 @@ static constexpr ConfigSettingTable kConfigSettingTables[] = {
     { kAssetPathsSettings, ArrayCount( kAssetPathsSettings ) },
     { kWaterRenderStyleSettings, ArrayCount( kWaterRenderStyleSettings ) },
 };
-static_assert( ArrayCount( kConfigSettingTables ) == static_cast<size_t>( ConfigSettingDomain::Count ),
-               "Every config domain must have exactly one table descriptor." );
+static_assert(
+    ArrayCount( kConfigSettingTables ) == static_cast<size_t>( ConfigSettingDomain::Count ),
+    "Every config domain must have exactly one table descriptor."
+);
 
 // Invariant: these ranges are the single compatibility order for lookup and
 // Dump(). Slices preserve the few historical interleavings between domains.
@@ -766,8 +786,10 @@ constexpr bool ConfigSettingOrderCoversEveryDomainRowExactlyOnce()
     return true;
 }
 
-static_assert( ConfigSettingOrderCoversEveryDomainRowExactlyOnce(),
-               "Config setting order must visit every row of every domain exactly once." );
+static_assert(
+    ConfigSettingOrderCoversEveryDomainRowExactlyOnce(),
+    "Config setting order must visit every row of every domain exactly once."
+);
 
 template <typename Visitor> bool VisitConfigSettingsInOrder( Visitor&& visitor )
 {
@@ -797,7 +819,9 @@ const ConfigSetting* FindConfigSetting( const char* name )
             }
             found = &setting;
             return false;
-        } );
+        }
+    );
+
     return found;
 }
 
@@ -842,10 +866,12 @@ SbResult ReadConfigFormatVersion( const char* path, unsigned int& outVersion )
         }
         if ( sawVersion )
         {
-            return SbResult::Failure( "Core/EngineConfig",
-                                      "Duplicate engine config format_version at %s:%d.",
-                                      path,
-                                      lineNumber );
+            return SbResult::Failure(
+                "Core/EngineConfig",
+                "Duplicate engine config format_version at %s:%d.",
+                path,
+                lineNumber
+            );
         }
 
         char* value = TrimInPlace( eq + 1 );
@@ -860,10 +886,12 @@ SbResult ReadConfigFormatVersion( const char* path, unsigned int& outVersion )
         const unsigned long parsed = strtoul( value, &end, 10 );
         if ( end == value || *TrimInPlace( end ) != '\0' || errno == ERANGE || parsed > UINT_MAX )
         {
-            return SbResult::Failure( "Core/EngineConfig",
-                                      "Invalid engine config format_version at %s:%d.",
-                                      path,
-                                      lineNumber );
+            return SbResult::Failure(
+                "Core/EngineConfig",
+                "Invalid engine config format_version at %s:%d.",
+                path,
+                lineNumber
+            );
         }
         outVersion = static_cast<unsigned int>( parsed );
         sawVersion = true;
@@ -871,11 +899,13 @@ SbResult ReadConfigFormatVersion( const char* path, unsigned int& outVersion )
 
     if ( outVersion > ENGINE_CONFIG_FORMAT_VERSION )
     {
-        return SbResult::Failure( "Core/EngineConfig",
-                                  "Engine config format version %u is newer than current version %u: %s.",
-                                  outVersion,
-                                  ENGINE_CONFIG_FORMAT_VERSION,
-                                  path );
+        return SbResult::Failure(
+            "Core/EngineConfig",
+            "Engine config format version %u is newer than current version %u: %s.",
+            outVersion,
+            ENGINE_CONFIG_FORMAT_VERSION,
+            path
+        );
     }
     // Versions 0-6 share the key/value grammar. Versioned execution rows are
     // optional, so absence selects built-in defaults; the cold migration tool
@@ -977,5 +1007,6 @@ void EngineConfig::Dump( FILE* out ) const
         {
             setting.dump( *this, out, setting );
             return true;
-        } );
+        }
+    );
 }

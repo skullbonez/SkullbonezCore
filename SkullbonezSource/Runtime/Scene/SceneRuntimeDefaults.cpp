@@ -94,24 +94,32 @@ bool ReplaceConfigLine( std::vector<std::string>& lines, const char* key, const 
 
 void EraseConfigLines( std::vector<std::string>& lines, const char* key )
 {
-    lines.erase( std::remove_if( lines.begin(),
-                                 lines.end(),
-                                 [key]( const std::string& line ) { return ConfigLineMatchesKey( line, key ); } ),
-                 lines.end() );
+    lines.erase(
+        std::remove_if(
+            lines.begin(),
+            lines.end(),
+            [key]( const std::string& line ) { return ConfigLineMatchesKey( line, key ); }
+        ),
+        lines.end()
+    );
 }
 
 void EraseConfigLinesWithPrefix( std::vector<std::string>& lines, const char* prefix )
 {
     const std::size_t prefixLength = std::strlen( prefix );
-    lines.erase( std::remove_if( lines.begin(),
-                                 lines.end(),
-                                 [prefix, prefixLength]( const std::string& line )
-                                 {
-                                     const std::size_t start = line.find_first_not_of( " \t" );
-                                     return start != std::string::npos && line[start] != '#' &&
-                                            line.compare( start, prefixLength, prefix ) == 0;
-                                 } ),
-                 lines.end() );
+    lines.erase(
+        std::remove_if(
+            lines.begin(),
+            lines.end(),
+            [prefix, prefixLength]( const std::string& line )
+            {
+                const std::size_t start = line.find_first_not_of( " \t" );
+                return start != std::string::npos && line[start] != '#' &&
+                       line.compare( start, prefixLength, prefix ) == 0;
+            }
+        ),
+        lines.end()
+    );
 }
 
 std::size_t OrdinaryConfigInsertIndex( const std::vector<std::string>& lines )
@@ -124,8 +132,8 @@ std::size_t OrdinaryConfigInsertIndex( const std::vector<std::string>& lines )
             while ( sectionBody < lines.size() &&
                     ( lines[sectionBody].empty() ||
                       lines[sectionBody].find(
-                          "# ---------------------------------------------------------------------------" ) !=
-                          std::string::npos ) )
+                          "# ---------------------------------------------------------------------------"
+                      ) != std::string::npos ) )
             {
                 ++sectionBody;
             }
@@ -162,8 +170,8 @@ std::size_t CinematicConfigInsertIndex( const std::vector<std::string>& lines )
             while ( sectionBody < lines.size() &&
                     ( lines[sectionBody].empty() ||
                       lines[sectionBody].find(
-                          "# ---------------------------------------------------------------------------" ) !=
-                          std::string::npos ) )
+                          "# ---------------------------------------------------------------------------"
+                      ) != std::string::npos ) )
             {
                 ++sectionBody;
             }
@@ -200,10 +208,12 @@ void AppendMissingOrdinaryConfigLines( std::vector<std::string>& lines, std::vec
     std::vector<std::string> insertLines;
     // Why: Missing keys should land near their owning section when possible,
     // preserving user comments and unrelated config ordering.
-    const bool hasOrdinarySection =
-        std::any_of( lines.begin(),
-                     lines.end(),
-                     []( const std::string& line ) { return line.find( "Ordinary rendering" ) != std::string::npos; } );
+    const bool hasOrdinarySection = std::any_of(
+        lines.begin(),
+        lines.end(),
+        []( const std::string& line ) { return line.find( "Ordinary rendering" ) != std::string::npos; }
+    );
+
     if ( !hasOrdinarySection )
     {
         insertLines.push_back( "# ---------------------------------------------------------------------------" );
@@ -225,10 +235,12 @@ void AppendMissingCinematicConfigLines( std::vector<std::string>& lines, std::ve
     }
 
     std::vector<std::string> insertLines;
-    const bool hasCinematicSection = std::any_of( lines.begin(),
-                                                  lines.end(),
-                                                  []( const std::string& line )
-                                                  { return line.find( "Cinematic rendering" ) != std::string::npos; } );
+    const bool hasCinematicSection = std::any_of(
+        lines.begin(),
+        lines.end(),
+        []( const std::string& line ) { return line.find( "Cinematic rendering" ) != std::string::npos; }
+    );
+
     if ( !hasCinematicSection )
     {
         insertLines.push_back( "# ---------------------------------------------------------------------------" );
@@ -294,7 +306,7 @@ void StampCurrentConfigVersion( std::vector<std::string>& lines )
 
     // Writer invariant: Save Defaults preserves the introductory comments but
     // upgrades an unversioned v0 file before persisting any edited values.
-    const auto firstBlank = std::find( lines.begin(), lines.end(), std::string{} );
+    const auto firstBlank = std::find( lines.begin(), lines.end(), std::string {} );
     lines.insert( firstBlank, std::string( "format_version = " ) + version );
 }
 
@@ -317,9 +329,11 @@ SkullbonezCore::Core::SbResult SaveRenderDefaults( const SkullbonezCore::Core::O
     if ( !LoadConfigLines( configPath, lines ) )
     {
         // Lane R: the user-facing config may be missing, locked, or unreadable.
-        return SkullbonezCore::Core::SbResult::Failure( "Runtime/RenderDefaultsStore",
-                                                        "Could not read render defaults file: %s",
-                                                        configPath.c_str() );
+        return SkullbonezCore::Core::SbResult::Failure(
+            "Runtime/RenderDefaultsStore",
+            "Could not read render defaults file: %s",
+            configPath.c_str()
+        );
     }
 
     std::vector<std::string> missing;
@@ -333,16 +347,19 @@ SkullbonezCore::Core::SbResult SaveRenderDefaults( const SkullbonezCore::Core::O
             missing.push_back( lineText );
         }
     };
+
     const auto setBool = [&]( const char* key, bool value )
     {
         std::snprintf( buf, sizeof( buf ), "%d", value ? 1 : 0 );
         setText( key, buf );
     };
+
     const auto setInt = [&]( const char* key, int value )
     {
         std::snprintf( buf, sizeof( buf ), "%d", value );
         setText( key, buf );
     };
+
     const auto setFloat = [&]( const char* key, float value, const char* format )
     {
         std::snprintf( buf, sizeof( buf ), format, value );
@@ -400,9 +417,11 @@ SkullbonezCore::Core::SbResult SaveRenderDefaults( const SkullbonezCore::Core::O
     StampCurrentConfigVersion( lines );
     if ( !WriteConfigLines( configPath, lines ) )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Runtime/RenderDefaultsStore",
-                                                        "Could not write render defaults file: %s",
-                                                        configPath.c_str() );
+        return SkullbonezCore::Core::SbResult::Failure(
+            "Runtime/RenderDefaultsStore",
+            "Could not write render defaults file: %s",
+            configPath.c_str()
+        );
     }
     return SkullbonezCore::Core::SbResult::Success();
 }
@@ -419,9 +438,11 @@ SkullbonezCore::Core::SbResult SaveSkyDefaults( const SkullbonezCore::Core::Cine
     std::vector<std::string> lines;
     if ( !LoadConfigLines( configPath, lines ) )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Runtime/RenderDefaultsStore",
-                                                        "Could not read cinematic defaults file: %s",
-                                                        configPath.c_str() );
+        return SkullbonezCore::Core::SbResult::Failure(
+            "Runtime/RenderDefaultsStore",
+            "Could not read cinematic defaults file: %s",
+            configPath.c_str()
+        );
     }
 
     std::vector<std::string> missing;
@@ -435,16 +456,19 @@ SkullbonezCore::Core::SbResult SaveSkyDefaults( const SkullbonezCore::Core::Cine
             missing.push_back( lineText );
         }
     };
+
     const auto setBool = [&]( const char* key, bool value )
     {
         std::snprintf( buf, sizeof( buf ), "%d", value ? 1 : 0 );
         setText( key, buf );
     };
+
     const auto setInt = [&]( const char* key, int value )
     {
         std::snprintf( buf, sizeof( buf ), "%d", value );
         setText( key, buf );
     };
+
     const auto setFloat = [&]( const char* key, float value, const char* format )
     {
         std::snprintf( buf, sizeof( buf ), format, value );
@@ -490,9 +514,11 @@ SkullbonezCore::Core::SbResult SaveSkyDefaults( const SkullbonezCore::Core::Cine
     StampCurrentConfigVersion( lines );
     if ( !WriteConfigLines( configPath, lines ) )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Runtime/RenderDefaultsStore",
-                                                        "Could not write cinematic defaults file: %s",
-                                                        configPath.c_str() );
+        return SkullbonezCore::Core::SbResult::Failure(
+            "Runtime/RenderDefaultsStore",
+            "Could not write cinematic defaults file: %s",
+            configPath.c_str()
+        );
     }
     return SkullbonezCore::Core::SbResult::Success();
 }

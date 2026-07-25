@@ -85,7 +85,7 @@ template <typename EmitVertex> inline void EmitUnitSphere( int slices, int stack
     // existing Skullbonez visual/physics convention: theta=0 points down negative Z, which is the
     // same orientation both the normal renderer and collision visualizer already used.
     auto emit = [&]( float x, float y, float z, float u, float v )
-    { emitVertex( VertexPNUV{ x, y, z, x, y, z, u, v } ); };
+    { emitVertex( VertexPNUV { x, y, z, x, y, z, u, v } ); };
 
     for ( int i = 0; i < stacks; ++i )
     {
@@ -164,9 +164,9 @@ template <typename EmitVertex> inline void EmitUnitSphereFlat( int slices, int s
         float ny = 1.0f;
         float nz = 0.0f;
         normalFor( a, b, c, nx, ny, nz );
-        emitVertex( VertexPNUV{ a.x, a.y, a.z, nx, ny, nz, a.u, a.v } );
-        emitVertex( VertexPNUV{ b.x, b.y, b.z, nx, ny, nz, b.u, b.v } );
-        emitVertex( VertexPNUV{ c.x, c.y, c.z, nx, ny, nz, c.u, c.v } );
+        emitVertex( VertexPNUV { a.x, a.y, a.z, nx, ny, nz, a.u, a.v } );
+        emitVertex( VertexPNUV { b.x, b.y, b.z, nx, ny, nz, b.u, b.v } );
+        emitVertex( VertexPNUV { c.x, c.y, c.z, nx, ny, nz, c.u, c.v } );
     };
 
     for ( int i = 0; i < stacks; ++i )
@@ -179,26 +179,26 @@ template <typename EmitVertex> inline void EmitUnitSphereFlat( int slices, int s
             const float theta0 = _2PI * static_cast<float>( j ) / static_cast<float>( slices );
             const float theta1 = _2PI * static_cast<float>( j + 1 ) / static_cast<float>( slices );
 
-            const LocalVertex v00{ sinf( phi0 ) * sinf( theta0 ),
-                                   cosf( phi0 ),
-                                   -sinf( phi0 ) * cosf( theta0 ),
-                                   static_cast<float>( j ) / static_cast<float>( slices ),
-                                   static_cast<float>( i ) / static_cast<float>( stacks ) };
-            const LocalVertex v01{ sinf( phi0 ) * sinf( theta1 ),
-                                   cosf( phi0 ),
-                                   -sinf( phi0 ) * cosf( theta1 ),
-                                   static_cast<float>( j + 1 ) / static_cast<float>( slices ),
-                                   static_cast<float>( i ) / static_cast<float>( stacks ) };
-            const LocalVertex v10{ sinf( phi1 ) * sinf( theta0 ),
-                                   cosf( phi1 ),
-                                   -sinf( phi1 ) * cosf( theta0 ),
-                                   static_cast<float>( j ) / static_cast<float>( slices ),
-                                   static_cast<float>( i + 1 ) / static_cast<float>( stacks ) };
-            const LocalVertex v11{ sinf( phi1 ) * sinf( theta1 ),
-                                   cosf( phi1 ),
-                                   -sinf( phi1 ) * cosf( theta1 ),
-                                   static_cast<float>( j + 1 ) / static_cast<float>( slices ),
-                                   static_cast<float>( i + 1 ) / static_cast<float>( stacks ) };
+            const LocalVertex v00 { sinf( phi0 ) * sinf( theta0 ),
+                                    cosf( phi0 ),
+                                    -sinf( phi0 ) * cosf( theta0 ),
+                                    static_cast<float>( j ) / static_cast<float>( slices ),
+                                    static_cast<float>( i ) / static_cast<float>( stacks ) };
+            const LocalVertex v01 { sinf( phi0 ) * sinf( theta1 ),
+                                    cosf( phi0 ),
+                                    -sinf( phi0 ) * cosf( theta1 ),
+                                    static_cast<float>( j + 1 ) / static_cast<float>( slices ),
+                                    static_cast<float>( i ) / static_cast<float>( stacks ) };
+            const LocalVertex v10 { sinf( phi1 ) * sinf( theta0 ),
+                                    cosf( phi1 ),
+                                    -sinf( phi1 ) * cosf( theta0 ),
+                                    static_cast<float>( j ) / static_cast<float>( slices ),
+                                    static_cast<float>( i + 1 ) / static_cast<float>( stacks ) };
+            const LocalVertex v11 { sinf( phi1 ) * sinf( theta1 ),
+                                    cosf( phi1 ),
+                                    -sinf( phi1 ) * cosf( theta1 ),
+                                    static_cast<float>( j + 1 ) / static_cast<float>( slices ),
+                                    static_cast<float>( i + 1 ) / static_cast<float>( stacks ) };
 
             emitTri( v00, v11, v10 );
             emitTri( v00, v01, v11 );
@@ -231,7 +231,7 @@ template <typename EmitVertex> inline void EmitUnitBox( EmitVertex emitVertex )
     const float uv[4][2] = { { 0.0f, 0.0f }, { 0.0f, 1.0f }, { 1.0f, 1.0f }, { 1.0f, 0.0f } };
 
     auto emit = [&]( const float* v, const CubeFace& face, const float* texCoord )
-    { emitVertex( VertexPNUV{ v[0], v[1], v[2], face.nx, face.ny, face.nz, texCoord[0], texCoord[1] } ); };
+    { emitVertex( VertexPNUV { v[0], v[1], v[2], face.nx, face.ny, face.nz, texCoord[0], texCoord[1] } ); };
 
     for ( int f = 0; f < 6; ++f )
     {
@@ -277,16 +277,16 @@ template <typename EmitVertex> inline void EmitUnitPinePyramid( EmitVertex emitV
             nz *= invLen;
         }
 
-        emitVertex( VertexPNUV{ a.x, a.y, a.z, nx, ny, nz, a.u, a.v } );
-        emitVertex( VertexPNUV{ b.x, b.y, b.z, nx, ny, nz, b.u, b.v } );
-        emitVertex( VertexPNUV{ c.x, c.y, c.z, nx, ny, nz, c.u, c.v } );
+        emitVertex( VertexPNUV { a.x, a.y, a.z, nx, ny, nz, a.u, a.v } );
+        emitVertex( VertexPNUV { b.x, b.y, b.z, nx, ny, nz, b.u, b.v } );
+        emitVertex( VertexPNUV { c.x, c.y, c.z, nx, ny, nz, c.u, c.v } );
     };
 
-    const LocalVertex apex{ 0.0f, 1.0f, 0.0f, 0.5f, 1.0f };
-    const LocalVertex frontLeft{ -1.0f, -1.0f, 1.0f, 0.0f, 0.0f };
-    const LocalVertex frontRight{ 1.0f, -1.0f, 1.0f, 1.0f, 0.0f };
-    const LocalVertex backRight{ 1.0f, -1.0f, -1.0f, 0.0f, 0.0f };
-    const LocalVertex backLeft{ -1.0f, -1.0f, -1.0f, 1.0f, 0.0f };
+    const LocalVertex apex { 0.0f, 1.0f, 0.0f, 0.5f, 1.0f };
+    const LocalVertex frontLeft { -1.0f, -1.0f, 1.0f, 0.0f, 0.0f };
+    const LocalVertex frontRight { 1.0f, -1.0f, 1.0f, 1.0f, 0.0f };
+    const LocalVertex backRight { 1.0f, -1.0f, -1.0f, 0.0f, 0.0f };
+    const LocalVertex backLeft { -1.0f, -1.0f, -1.0f, 1.0f, 0.0f };
 
     emitTri( frontLeft, frontRight, apex );
     emitTri( frontRight, backRight, apex );

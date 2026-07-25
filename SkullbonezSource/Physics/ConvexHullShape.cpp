@@ -159,29 +159,35 @@ RequireNoExtraTokens( char* context, const char* path, int lineNumber, const cha
     // mean the bake format changed or the asset is corrupted, so fail loudly.
     if ( strtok_s( nullptr, " \t\r\n", &context ) )
     {
-        return HullLoadFailure( "Unexpected extra value in %s at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                                directive,
-                                path,
-                                lineNumber );
+        return HullLoadFailure(
+            "Unexpected extra value in %s at %s:%d.  (ConvexHullShape::LoadFromFile)",
+            directive,
+            path,
+            lineNumber
+        );
     }
     return SkullbonezCore::Core::SbResult::Success();
 }
 
 void WarnMissingDefaultMassMetadata( const char* path )
 {
-    fprintf( stderr,
-             "[hull][legacy] %s missing default_mass; using legacy mass default %.3f at load. Re-bake with "
-             "tools\\bake_hulls.bat --write.\n",
-             path,
-             COMPATIBILITY_HULL_DEFAULT_MASS );
+    fprintf(
+        stderr,
+        "[hull][legacy] %s missing default_mass; using legacy mass default %.3f at load. Re-bake with "
+        "tools\\bake_hulls.bat --write.\n",
+        path,
+        COMPATIBILITY_HULL_DEFAULT_MASS
+    );
 }
 
-float SweptBoundingRadiusCollision( float focusRadius,
-                                    const Vector3& focusOffset,
-                                    float targetRadius,
-                                    const Vector3& targetOffset,
-                                    const Ray& targetRay,
-                                    const Ray& focusRay )
+float SweptBoundingRadiusCollision(
+    float focusRadius,
+    const Vector3& focusOffset,
+    float targetRadius,
+    const Vector3& targetOffset,
+    const Ray& targetRay,
+    const Ray& focusRay
+)
 {
     const float combinedRadius = focusRadius + targetRadius;
     const float combinedRadiusSq = combinedRadius * combinedRadius;
@@ -310,9 +316,11 @@ SkullbonezCore::Core::SbResult ConvexHullShape::TryLoadFromFile( const char* pat
             char* version = strtok_s( nullptr, " \t\r\n", &context );
             if ( !version )
             {
-                return HullLoadFailure( "Invalid hull_version at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                                        path,
-                                        lineNumber );
+                return HullLoadFailure(
+                    "Invalid hull_version at %s:%d.  (ConvexHullShape::LoadFromFile)",
+                    path,
+                    lineNumber
+                );
             }
             SkullbonezCore::Core::SbResult versionResult =
                 ParseUint16( version, path, lineNumber, "hull_version", loadedVersion );
@@ -322,22 +330,26 @@ SkullbonezCore::Core::SbResult ConvexHullShape::TryLoadFromFile( const char* pat
             }
             if ( loadedVersion > CURRENT_HULL_FORMAT_VERSION )
             {
-                return HullLoadFailure( "Convex hull format version %u is newer than current version %u: %s:%d.  "
-                                        "(ConvexHullShape::LoadFromFile)",
-                                        loadedVersion,
-                                        CURRENT_HULL_FORMAT_VERSION,
-                                        path,
-                                        lineNumber );
+                return HullLoadFailure(
+                    "Convex hull format version %u is newer than current version %u: %s:%d.  "
+                    "(ConvexHullShape::LoadFromFile)",
+                    loadedVersion,
+                    CURRENT_HULL_FORMAT_VERSION,
+                    path,
+                    lineNumber
+                );
             }
             if ( loadedVersion < PREVIOUS_HULL_FORMAT_VERSION )
             {
-                return HullLoadFailure( "Convex hull format version %u is older than supported version %u: %s:%d. "
-                                        "Run tools\\migrate_data_formats.py --write.  "
-                                        "(ConvexHullShape::LoadFromFile)",
-                                        loadedVersion,
-                                        PREVIOUS_HULL_FORMAT_VERSION,
-                                        path,
-                                        lineNumber );
+                return HullLoadFailure(
+                    "Convex hull format version %u is older than supported version %u: %s:%d. "
+                    "Run tools\\migrate_data_formats.py --write.  "
+                    "(ConvexHullShape::LoadFromFile)",
+                    loadedVersion,
+                    PREVIOUS_HULL_FORMAT_VERSION,
+                    path,
+                    lineNumber
+                );
             }
             sawVersion = true;
             const SkullbonezCore::Core::SbResult extraResult =
@@ -354,7 +366,8 @@ SkullbonezCore::Core::SbResult ConvexHullShape::TryLoadFromFile( const char* pat
             return HullLoadFailure(
                 "Convex hull asset must start with hull_version 2: %s:%d.  (ConvexHullShape::LoadFromFile)",
                 path,
-                lineNumber );
+                lineNumber
+            );
         }
 
         if ( strcmp( token, "name" ) == 0 )
@@ -378,9 +391,11 @@ SkullbonezCore::Core::SbResult ConvexHullShape::TryLoadFromFile( const char* pat
             char* hashValue = strtok_s( nullptr, " \t\r\n", &context );
             if ( !hashValue || hashValue[0] == '\0' )
             {
-                return HullLoadFailure( "Invalid source_hash at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                                        path,
-                                        lineNumber );
+                return HullLoadFailure(
+                    "Invalid source_hash at %s:%d.  (ConvexHullShape::LoadFromFile)",
+                    path,
+                    lineNumber
+                );
             }
             sawSourceHash = true;
             const SkullbonezCore::Core::SbResult extraResult =
@@ -429,7 +444,8 @@ SkullbonezCore::Core::SbResult ConvexHullShape::TryLoadFromFile( const char* pat
                 return HullLoadFailure(
                     "source_face needs at least three vertices at %s:%d.  (ConvexHullShape::LoadFromFile)",
                     path,
-                    lineNumber );
+                    lineNumber
+                );
             }
             continue;
         }
@@ -456,10 +472,12 @@ SkullbonezCore::Core::SbResult ConvexHullShape::TryLoadFromFile( const char* pat
             char* value = strtok_s( nullptr, " \t\r\n", &context );
             if ( !value )
             {
-                return HullLoadFailure( "Invalid %s at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                                        token,
-                                        path,
-                                        lineNumber );
+                return HullLoadFailure(
+                    "Invalid %s at %s:%d.  (ConvexHullShape::LoadFromFile)",
+                    token,
+                    path,
+                    lineNumber
+                );
             }
             float parsed = 0.0f;
             SkullbonezCore::Core::SbResult parseResult = ParseFiniteFloat( value, path, lineNumber, token, parsed );
@@ -474,10 +492,12 @@ SkullbonezCore::Core::SbResult ConvexHullShape::TryLoadFromFile( const char* pat
             }
             if ( parsed <= 0.0f )
             {
-                return HullLoadFailure( "%s must be positive at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                                        token,
-                                        path,
-                                        lineNumber );
+                return HullLoadFailure(
+                    "%s must be positive at %s:%d.  (ConvexHullShape::LoadFromFile)",
+                    token,
+                    path,
+                    lineNumber
+                );
             }
             if ( strcmp( token, "default_mass" ) == 0 )
             {
@@ -494,10 +514,12 @@ SkullbonezCore::Core::SbResult ConvexHullShape::TryLoadFromFile( const char* pat
             char* value = strtok_s( nullptr, " \t\r\n", &context );
             if ( !value )
             {
-                return HullLoadFailure( "Invalid %s at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                                        token,
-                                        path,
-                                        lineNumber );
+                return HullLoadFailure(
+                    "Invalid %s at %s:%d.  (ConvexHullShape::LoadFromFile)",
+                    token,
+                    path,
+                    lineNumber
+                );
             }
             float parsed = 0.0f;
             SkullbonezCore::Core::SbResult parseResult = ParseFiniteFloat( value, path, lineNumber, token, parsed );
@@ -512,10 +534,12 @@ SkullbonezCore::Core::SbResult ConvexHullShape::TryLoadFromFile( const char* pat
             }
             if ( parsed <= 0.0f )
             {
-                return HullLoadFailure( "%s must be positive at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                                        token,
-                                        path,
-                                        lineNumber );
+                return HullLoadFailure(
+                    "%s must be positive at %s:%d.  (ConvexHullShape::LoadFromFile)",
+                    token,
+                    path,
+                    lineNumber
+                );
             }
             if ( strcmp( token, "volume" ) == 0 )
             {
@@ -560,10 +584,12 @@ SkullbonezCore::Core::SbResult ConvexHullShape::TryLoadFromFile( const char* pat
             const Vector3& checked = isHalfExtents ? hull.m_inertiaHalfExtents : hull.m_unitInertia;
             if ( checked.x <= 0.0f || checked.y <= 0.0f || checked.z <= 0.0f )
             {
-                return HullLoadFailure( "%s must be positive at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                                        token,
-                                        path,
-                                        lineNumber );
+                return HullLoadFailure(
+                    "%s must be positive at %s:%d.  (ConvexHullShape::LoadFromFile)",
+                    token,
+                    path,
+                    lineNumber
+                );
             }
             if ( isHalfExtents )
             {
@@ -580,10 +606,12 @@ SkullbonezCore::Core::SbResult ConvexHullShape::TryLoadFromFile( const char* pat
         {
             if ( hull.m_vertexCount >= MAX_VERTICES )
             {
-                return HullLoadFailure( "Convex hull exceeds %u vertices at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                                        MAX_VERTICES,
-                                        path,
-                                        lineNumber );
+                return HullLoadFailure(
+                    "Convex hull exceeds %u vertices at %s:%d.  (ConvexHullShape::LoadFromFile)",
+                    MAX_VERTICES,
+                    path,
+                    lineNumber
+                );
             }
 
             SkullbonezCore::Core::SbResult parseResult =
@@ -605,10 +633,12 @@ SkullbonezCore::Core::SbResult ConvexHullShape::TryLoadFromFile( const char* pat
         {
             if ( hull.m_faceCount >= MAX_FACES )
             {
-                return HullLoadFailure( "Convex hull exceeds %u faces at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                                        MAX_FACES,
-                                        path,
-                                        lineNumber );
+                return HullLoadFailure(
+                    "Convex hull exceeds %u faces at %s:%d.  (ConvexHullShape::LoadFromFile)",
+                    MAX_FACES,
+                    path,
+                    lineNumber
+                );
             }
 
             char* nx = strtok_s( nullptr, " \t\r\n", &context );
@@ -656,7 +686,8 @@ SkullbonezCore::Core::SbResult ConvexHullShape::TryLoadFromFile( const char* pat
                     return HullLoadFailure(
                         "Convex hull face exceeds serialized limits at %s:%d.  (ConvexHullShape::LoadFromFile)",
                         path,
-                        lineNumber );
+                        lineNumber
+                    );
                 }
                 uint16_t faceIndex = 0;
                 parseResult = ParseUint16( value, path, lineNumber, "face.index", faceIndex );
@@ -673,14 +704,16 @@ SkullbonezCore::Core::SbResult ConvexHullShape::TryLoadFromFile( const char* pat
                 return HullLoadFailure(
                     "Convex hull face needs at least three vertices at %s:%d.  (ConvexHullShape::LoadFromFile)",
                     path,
-                    lineNumber );
+                    lineNumber
+                );
             }
             if ( VectorMagSquared( face.normalLocal ) <= 1.0e-10f )
             {
                 return HullLoadFailure(
                     "Convex hull face normal is degenerate at %s:%d.  (ConvexHullShape::LoadFromFile)",
                     path,
-                    lineNumber );
+                    lineNumber
+                );
             }
             hull.m_faces[hull.m_faceCount++] = face;
             continue;
@@ -690,10 +723,12 @@ SkullbonezCore::Core::SbResult ConvexHullShape::TryLoadFromFile( const char* pat
         {
             if ( hull.m_edgeCount >= MAX_EDGES )
             {
-                return HullLoadFailure( "Convex hull exceeds %u edges in %s:%d.  (ConvexHullShape::LoadFromFile)",
-                                        MAX_EDGES,
-                                        path,
-                                        lineNumber );
+                return HullLoadFailure(
+                    "Convex hull exceeds %u edges in %s:%d.  (ConvexHullShape::LoadFromFile)",
+                    MAX_EDGES,
+                    path,
+                    lineNumber
+                );
             }
 
             char* a = strtok_s( nullptr, " \t\r\n", &context );
@@ -736,10 +771,12 @@ SkullbonezCore::Core::SbResult ConvexHullShape::TryLoadFromFile( const char* pat
             continue;
         }
 
-        return HullLoadFailure( "Unknown hull directive '%s' at %s:%d.  (ConvexHullShape::LoadFromFile)",
-                                token,
-                                path,
-                                lineNumber );
+        return HullLoadFailure(
+            "Unknown hull directive '%s' at %s:%d.  (ConvexHullShape::LoadFromFile)",
+            token,
+            path,
+            lineNumber
+        );
     }
 
     file.Close();
@@ -750,7 +787,8 @@ SkullbonezCore::Core::SbResult ConvexHullShape::TryLoadFromFile( const char* pat
     {
         return HullLoadFailure(
             "Convex hull asset is missing required baked hull_version 2 data: %s  (ConvexHullShape::LoadFromFile)",
-            path );
+            path
+        );
     }
 
     if ( !sawDefaultMass )
@@ -772,7 +810,8 @@ SkullbonezCore::Core::SbResult ConvexHullShape::TryLoadFromFile( const char* pat
             return HullLoadFailure(
                 "Convex hull face %u has invalid index range in %s.  (ConvexHullShape::LoadFromFile)",
                 f,
-                path );
+                path
+            );
         }
         for ( uint8_t i = 0; i < face.indexCount; ++i )
         {
@@ -783,7 +822,8 @@ SkullbonezCore::Core::SbResult ConvexHullShape::TryLoadFromFile( const char* pat
                     "Convex hull face %u references invalid vertex %u in %s.  (ConvexHullShape::LoadFromFile)",
                     f,
                     index,
-                    path );
+                    path
+                );
             }
         }
     }
@@ -797,7 +837,8 @@ SkullbonezCore::Core::SbResult ConvexHullShape::TryLoadFromFile( const char* pat
             return HullLoadFailure(
                 "Convex hull edge %u references invalid topology in %s.  (ConvexHullShape::LoadFromFile)",
                 e,
-                path );
+                path
+            );
         }
     }
     CopyHullName( hull.m_name, path, authoredName );
@@ -927,10 +968,12 @@ void ConvexHullShape::ScaleAxis( int axis, float factor )
         const Vector3& b = m_vertices[m_faceIndices[face.firstIndex + 1]];
         const Vector3& c = m_vertices[m_faceIndices[face.firstIndex + 2]];
         Vector3 normal = ZERO_VECTOR;
-        const SkullbonezCore::Core::SbResult normalResult =
-            TryNormalized( CrossProduct( b - a, c - a ),
-                           "Degenerate scaled convex hull face.  (ConvexHullShape::ScaleAxis)",
-                           normal );
+        const SkullbonezCore::Core::SbResult normalResult = TryNormalized(
+            CrossProduct( b - a, c - a ),
+            "Degenerate scaled convex hull face.  (ConvexHullShape::ScaleAxis)",
+            normal
+        );
+
         if ( !normalResult.ok )
         {
             // Invariant: positive finite copy-scale must preserve baked hull
@@ -1020,30 +1063,36 @@ const char* ConvexHullShape::GetName() const
 
 float ConvexHullShape::TestCollision( const BoundingSphere& target, const Ray& targetRay, const Ray& focusRay ) const
 {
-    return SweptBoundingRadiusCollision( GetBoundingRadius(),
-                                         GetPosition(),
-                                         target.GetRadius(),
-                                         target.GetPosition(),
-                                         targetRay,
-                                         focusRay );
+    return SweptBoundingRadiusCollision(
+        GetBoundingRadius(),
+        GetPosition(),
+        target.GetRadius(),
+        target.GetPosition(),
+        targetRay,
+        focusRay
+    );
 }
 
 float ConvexHullShape::TestCollision( const BoundingBox& target, const Ray& targetRay, const Ray& focusRay ) const
 {
-    return SweptBoundingRadiusCollision( GetBoundingRadius(),
-                                         GetPosition(),
-                                         target.GetBoundingRadius(),
-                                         target.GetPosition(),
-                                         targetRay,
-                                         focusRay );
+    return SweptBoundingRadiusCollision(
+        GetBoundingRadius(),
+        GetPosition(),
+        target.GetBoundingRadius(),
+        target.GetPosition(),
+        targetRay,
+        focusRay
+    );
 }
 
 float ConvexHullShape::TestCollision( const ConvexHullShape& target, const Ray& targetRay, const Ray& focusRay ) const
 {
-    return SweptBoundingRadiusCollision( GetBoundingRadius(),
-                                         GetPosition(),
-                                         target.GetBoundingRadius(),
-                                         target.GetPosition(),
-                                         targetRay,
-                                         focusRay );
+    return SweptBoundingRadiusCollision(
+        GetBoundingRadius(),
+        GetPosition(),
+        target.GetBoundingRadius(),
+        target.GetPosition(),
+        targetRay,
+        focusRay
+    );
 }

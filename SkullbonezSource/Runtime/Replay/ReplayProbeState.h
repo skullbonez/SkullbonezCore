@@ -221,9 +221,11 @@ class ReplayProbeRunner
     // Installs Debug-only CLI probe state after Configure has copied the
     // product load request and capability bit.
     void ConfigureDebug( const ReplayStartupRequest& request );
-    SkullbonezCore::Core::SbResult TickScrubProbe( const ReplayRestoreTransaction& transaction,
-                                                   const ReplayTimeline& timeline,
-                                                   ReplayPresentation& presentation );
+    SkullbonezCore::Core::SbResult TickScrubProbe(
+        const ReplayRestoreTransaction& transaction,
+        const ReplayTimeline& timeline,
+        ReplayPresentation& presentation
+    );
     ReplayProbeRestoreRequest PrepareRestoreProbe( const ReplayTimeline& timeline );
     SkullbonezCore::Core::SbResult
     CompleteRestoreProbe( const ReplayProbeRestoreRequest& request, bool restored, const char* reason );
@@ -231,42 +233,52 @@ class ReplayProbeRunner
     void CompleteSaveProbe( const ReplayProbeSaveRequest& request, const SkullbonezCore::Core::SbResult& result );
     SkullbonezCore::Core::SbResult CurrentFailure() const;
     void RecordFailure( const SkullbonezCore::Core::SbResult& result );
-    SkullbonezCore::Core::SbResult VerifyLoadedPresentation( ReplayTimeline& timeline,
-                                                             ReplayScrubber& scrubber,
-                                                             ReplayPresentation& presentation,
-                                                             ReplayAuthoring& authoring,
-                                                             ReplayPrediction& prediction,
-                                                             const ReplayRestoreTransaction& transaction,
-                                                             RunMousePickupState& mousePickup,
-                                                             RunCameraMode normalizedCurrentMode,
-                                                             double now,
-                                                             float normalized );
-    SkullbonezCore::Core::SbResult PrepareCheckpointFileProbe( const char* path,
-                                                               ReplaySolverFrameSample& outCheckpoint,
-                                                               ReplayV2SolverCheckpointLoadResult& outLoadResult );
-    SkullbonezCore::Core::SbResult CompleteCheckpointFileProbe( const char* path,
-                                                                const ReplaySolverFrameSample& checkpoint,
-                                                                const ReplayV2SolverCheckpointLoadResult& loadResult,
-                                                                bool restored,
-                                                                const char* reason );
-    SkullbonezCore::Core::SbResult CompleteTargetFileProbe( const char* path,
-                                                            const RunReplayV2TargetRestoreResult& result,
-                                                            bool restored,
-                                                            const char* reason );
+    SkullbonezCore::Core::SbResult VerifyLoadedPresentation(
+        ReplayTimeline& timeline,
+        ReplayScrubber& scrubber,
+        ReplayPresentation& presentation,
+        ReplayAuthoring& authoring,
+        ReplayPrediction& prediction,
+        const ReplayRestoreTransaction& transaction,
+        RunMousePickupState& mousePickup,
+        RunCameraMode normalizedCurrentMode,
+        double now,
+        float normalized
+    );
+    SkullbonezCore::Core::SbResult PrepareCheckpointFileProbe(
+        const char* path,
+        ReplaySolverFrameSample& outCheckpoint,
+        ReplayV2SolverCheckpointLoadResult& outLoadResult
+    );
+    SkullbonezCore::Core::SbResult CompleteCheckpointFileProbe(
+        const char* path,
+        const ReplaySolverFrameSample& checkpoint,
+        const ReplayV2SolverCheckpointLoadResult& loadResult,
+        bool restored,
+        const char* reason
+    );
+    SkullbonezCore::Core::SbResult CompleteTargetFileProbe(
+        const char* path,
+        const RunReplayV2TargetRestoreResult& result,
+        bool restored,
+        const char* reason
+    );
     ReplayFailureProbeRequest BeginFailureFileProbe( const char* path );
-    ReplayFailureProbeRequest AdvanceFailureFileProbe( const ReplayFailureProbeRequest& request,
-                                                       const ReplayFailureProbeStepResult& result );
-    SkullbonezCore::Core::SbResult PrepareBranchFileProbe( ReplayTimeline& timeline,
-                                                           ReplayScrubber& scrubber,
-                                                           ReplayPresentation& presentation,
-                                                           ReplayAuthoring& authoring,
-                                                           ReplayPrediction& prediction,
-                                                           const ReplayRestoreTransaction& transaction,
-                                                           RunMousePickupState& mousePickup,
-                                                           RunCameraMode normalizedCurrentMode,
-                                                           double now,
-                                                           const char* path,
-                                                           ReplayLiveRestoreRequest& outRequest );
+    ReplayFailureProbeRequest
+    AdvanceFailureFileProbe( const ReplayFailureProbeRequest& request, const ReplayFailureProbeStepResult& result );
+    SkullbonezCore::Core::SbResult PrepareBranchFileProbe(
+        ReplayTimeline& timeline,
+        ReplayScrubber& scrubber,
+        ReplayPresentation& presentation,
+        ReplayAuthoring& authoring,
+        ReplayPrediction& prediction,
+        const ReplayRestoreTransaction& transaction,
+        RunMousePickupState& mousePickup,
+        RunCameraMode normalizedCurrentMode,
+        double now,
+        const char* path,
+        ReplayLiveRestoreRequest& outRequest
+    );
     SkullbonezCore::Core::SbResult CompleteBranchFileProbe( const char* path, const ReplayLiveRestoreOutcome& outcome );
 #endif
 

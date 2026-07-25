@@ -86,16 +86,8 @@ void UIDrawList::AddRoundedRect( float x, float y, float w, float h, float radiu
 }
 
 
-void UIDrawList::AddTriangle( float x0,
-                              float y0,
-                              float x1,
-                              float y1,
-                              float x2,
-                              float y2,
-                              float r,
-                              float g,
-                              float b,
-                              float a )
+void UIDrawList::
+    AddTriangle( float x0, float y0, float x1, float y1, float x2, float y2, float r, float g, float b, float a )
 {
     Command* cmd = PushCommand();
     if ( !cmd )
@@ -148,27 +140,31 @@ void UIDrawList::Flush( const UIDrawContext& draw, float offsetX, float offsetY 
             draw.Rect( cmd.x0 + offsetX, cmd.y0 + offsetY, cmd.w, cmd.h, cmd.r, cmd.g, cmd.b, cmd.a );
             break;
         case CommandType::RoundedRect:
-            draw.RoundedRect( cmd.x0 + offsetX,
-                              cmd.y0 + offsetY,
-                              cmd.w,
-                              cmd.h,
-                              cmd.radius,
-                              cmd.r,
-                              cmd.g,
-                              cmd.b,
-                              cmd.a );
+            draw.RoundedRect(
+                cmd.x0 + offsetX,
+                cmd.y0 + offsetY,
+                cmd.w,
+                cmd.h,
+                cmd.radius,
+                cmd.r,
+                cmd.g,
+                cmd.b,
+                cmd.a
+            );
             break;
         case CommandType::Triangle:
-            draw.Triangle( cmd.x0 + offsetX,
-                           cmd.y0 + offsetY,
-                           cmd.x1 + offsetX,
-                           cmd.y1 + offsetY,
-                           cmd.x2 + offsetX,
-                           cmd.y2 + offsetY,
-                           cmd.r,
-                           cmd.g,
-                           cmd.b,
-                           cmd.a );
+            draw.Triangle(
+                cmd.x0 + offsetX,
+                cmd.y0 + offsetY,
+                cmd.x1 + offsetX,
+                cmd.y1 + offsetY,
+                cmd.x2 + offsetX,
+                cmd.y2 + offsetY,
+                cmd.r,
+                cmd.g,
+                cmd.b,
+                cmd.a
+            );
             break;
         case CommandType::Text:
             draw.Text( cmd.x0 + offsetX, cmd.y0 + offsetY, cmd.pxSize, cmd.r, cmd.g, cmd.b, m_text + cmd.textOffset );

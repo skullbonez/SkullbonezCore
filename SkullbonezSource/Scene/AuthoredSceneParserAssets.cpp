@@ -140,10 +140,12 @@ void AuthoredSceneParser::ValidateAssetMaterial( const Json& owner, const std::s
     }
 }
 
-void AuthoredSceneParser::ValidateAssetCommonPhysicsFields( const Json& asset,
-                                                            const std::string& path,
-                                                            const char* context,
-                                                            bool requireMass ) const
+void AuthoredSceneParser::ValidateAssetCommonPhysicsFields(
+    const Json& asset,
+    const std::string& path,
+    const char* context,
+    bool requireMass
+) const
 {
     if ( const Json* mass = FindMember( asset, "mass" ) )
     {
@@ -222,9 +224,11 @@ AuthoredSceneParser::ReadAssetPrimitiveType( const Json& asset, const std::strin
     return std::string();
 }
 
-void AuthoredSceneParser::ValidateAssetBoxFields( const Json& asset,
-                                                  const std::string& path,
-                                                  const char* context ) const
+void AuthoredSceneParser::ValidateAssetBoxFields(
+    const Json& asset,
+    const std::string& path,
+    const char* context
+) const
 {
     float halfX = 0.0f;
     float halfY = 0.0f;
@@ -238,9 +242,11 @@ void AuthoredSceneParser::ValidateAssetBoxFields( const Json& asset,
     ValidateAssetCommonPhysicsFields( asset, path, context, true );
 }
 
-void AuthoredSceneParser::ValidateAssetSphereFields( const Json& asset,
-                                                     const std::string& path,
-                                                     const char* context ) const
+void AuthoredSceneParser::ValidateAssetSphereFields(
+    const Json& asset,
+    const std::string& path,
+    const char* context
+) const
 {
     const float radius = ReadFloat( RequireMember( asset, path, context, "radius" ), path, "asset.radius" );
     if ( radius <= 0.0f )
@@ -260,17 +266,21 @@ void AuthoredSceneParser::ValidateAssetSphereFields( const Json& asset,
     ValidateAssetCommonPhysicsFields( asset, path, context, true );
 }
 
-void AuthoredSceneParser::ValidateConvexHullAssetFields( const Json& asset,
-                                                         const std::string& path,
-                                                         const char* context ) const
+void AuthoredSceneParser::ValidateConvexHullAssetFields(
+    const Json& asset,
+    const std::string& path,
+    const char* context
+) const
 {
     ReadString( RequireMember( asset, path, context, "hull" ), path, "asset.hull" );
     ValidateAssetCommonPhysicsFields( asset, path, context, false );
 }
 
-void AuthoredSceneParser::ValidateAssetPrimitiveFields( const Json& asset,
-                                                        const std::string& path,
-                                                        const char* context ) const
+void AuthoredSceneParser::ValidateAssetPrimitiveFields(
+    const Json& asset,
+    const std::string& path,
+    const char* context
+) const
 {
     const std::string primitiveType = ReadAssetPrimitiveType( asset, path, context );
     if ( primitiveType == "convexHull" )
@@ -323,9 +333,11 @@ void AuthoredSceneParser::LoadAssetLibrary( const std::string& assetPath, uint32
     }
     if ( loadedVersion > ASSET_LIBRARY_FORMAT_VERSION )
     {
-        Fail( assetPath,
-              "Asset library format version " + std::to_string( loadedVersion ) + " is newer than current version " +
-                  std::to_string( ASSET_LIBRARY_FORMAT_VERSION ) );
+        Fail(
+            assetPath,
+            "Asset library format version " + std::to_string( loadedVersion ) + " is newer than current version " +
+                std::to_string( ASSET_LIBRARY_FORMAT_VERSION )
+        );
         return;
     }
     if ( loadedVersion == 0 )
@@ -382,9 +394,12 @@ void AuthoredSceneParser::LoadAssetLibrary( const std::string& assetPath, uint32
                 {
                     return;
                 }
-                const std::string partName = ReadString( RequireMember( part, assetPath, "asset.parts[]", "name" ),
-                                                         assetPath,
-                                                         "asset.parts[].name" );
+                const std::string partName = ReadString(
+                    RequireMember( part, assetPath, "asset.parts[]", "name" ),
+                    assetPath,
+                    "asset.parts[].name"
+                );
+
                 if ( partName.empty() )
                 {
                     Fail( assetPath, "asset.parts[].name must not be empty" );
@@ -409,7 +424,7 @@ void AuthoredSceneParser::LoadAssetLibrary( const std::string& assetPath, uint32
             return;
         }
 
-        m_assetDefinitions.push_back( ParsedAssetDefinition{ asset, libraryRefIndex } );
+        m_assetDefinitions.push_back( ParsedAssetDefinition { asset, libraryRefIndex } );
     }
 }
 
@@ -449,9 +464,11 @@ void AuthoredSceneParser::LoadAssetLibraries( const Json& root, const std::strin
     }
 }
 
-void AuthoredSceneParser::CheckGeneratedSceneName( const std::string& name,
-                                                   const std::string& path,
-                                                   const char* context ) const
+void AuthoredSceneParser::CheckGeneratedSceneName(
+    const std::string& name,
+    const std::string& path,
+    const char* context
+) const
 {
     if ( name.empty() )
     {
@@ -465,9 +482,11 @@ void AuthoredSceneParser::CheckGeneratedSceneName( const std::string& name,
     }
 }
 
-std::string AuthoredSceneParser::BuildAssetPartName( const std::string& instanceName,
-                                                     const std::string& partName,
-                                                     const std::string& path ) const
+std::string AuthoredSceneParser::BuildAssetPartName(
+    const std::string& instanceName,
+    const std::string& partName,
+    const std::string& path
+) const
 {
     std::string name = instanceName;
     name += "_";
@@ -480,9 +499,11 @@ std::string AuthoredSceneParser::BuildAssetPartName( const std::string& instance
     return name;
 }
 
-void AuthoredSceneParser::ApplyAssetMaterialForTarget( const Json& asset,
-                                                       const std::string& path,
-                                                       const std::string& target )
+void AuthoredSceneParser::ApplyAssetMaterialForTarget(
+    const Json& asset,
+    const std::string& path,
+    const std::string& target
+)
 {
     const Json& source = RequireMember( asset, path, "asset", "material" );
     Json material = source;
@@ -495,15 +516,17 @@ void AuthoredSceneParser::ApplyAssetMaterialForTarget( const Json& asset,
     ApplyObjectMaterial( material, path );
 }
 
-void AuthoredSceneParser::RecordAssetPart( const std::string& path,
-                                           const std::string& partName,
-                                           const std::string& objectName,
-                                           Physics::PhysicsSceneObjectId sceneObjectId,
-                                           uint32_t partIndex,
-                                           SceneAssetPartSource source,
-                                           uint32_t sourceIndex,
-                                           const Math::Vector::Vector3& worldPosition,
-                                           const Math::Orientation::Quaternion& worldOrientation )
+void AuthoredSceneParser::RecordAssetPart(
+    const std::string& path,
+    const std::string& partName,
+    const std::string& objectName,
+    Physics::PhysicsSceneObjectId sceneObjectId,
+    uint32_t partIndex,
+    SceneAssetPartSource source,
+    uint32_t sourceIndex,
+    const Math::Vector::Vector3& worldPosition,
+    const Math::Orientation::Quaternion& worldOrientation
+)
 {
     SceneAssetPartRef part;
     if ( !CopyCheckedStringField( part.partName, partName, path, "asset part name" ) ||
@@ -524,13 +547,15 @@ void AuthoredSceneParser::RecordAssetPart( const std::string& path,
     m_scene.m_assetParts.push_back( part );
 }
 
-void AuthoredSceneParser::ApplyAssetPrimitivePart( const Json& asset,
-                                                   const std::string& path,
-                                                   const std::string& objectName,
-                                                   const std::string& partName,
-                                                   uint32_t partIndex,
-                                                   const AssetInstanceExpansion& instance,
-                                                   const Json* authoredPartIdentity )
+void AuthoredSceneParser::ApplyAssetPrimitivePart(
+    const Json& asset,
+    const std::string& path,
+    const std::string& objectName,
+    const std::string& partName,
+    uint32_t partIndex,
+    const AssetInstanceExpansion& instance,
+    const Json* authoredPartIdentity
+)
 {
     std::string effectiveObjectName = objectName;
     const Json* liveStateType = authoredPartIdentity ? FindMember( *authoredPartIdentity, "type" ) : nullptr;
@@ -597,12 +622,15 @@ void AuthoredSceneParser::ApplyAssetPrimitivePart( const Json& asset,
     if ( const Json* angularVelocityValue = FindMember( asset, "angularVelocity" ) )
     {
         Math::Vector::Vector3 partAngularVelocity = Math::Vector::ZERO_VECTOR;
-        ReadVec3( *angularVelocityValue,
-                  path,
-                  "asset.angularVelocity",
-                  partAngularVelocity.x,
-                  partAngularVelocity.y,
-                  partAngularVelocity.z );
+        ReadVec3(
+            *angularVelocityValue,
+            path,
+            "asset.angularVelocity",
+            partAngularVelocity.x,
+            partAngularVelocity.y,
+            partAngularVelocity.z
+        );
+
         if ( ParserFailed() )
         {
             return;
@@ -656,10 +684,11 @@ void AuthoredSceneParser::ApplyAssetPrimitivePart( const Json& asset,
     object["contactMaterial"] = ReadInferredContactMaterial( asset, path, "asset.contactMaterial" );
     if ( authoredPartIdentity )
     {
-        object["sceneObjectId"] =
-            ReadUInt( RequireMember( *authoredPartIdentity, path, "assetInstance.parts[]", "sceneObjectId" ),
-                      path,
-                      "assetInstance.parts[].sceneObjectId" );
+        object["sceneObjectId"] = ReadUInt(
+            RequireMember( *authoredPartIdentity, path, "assetInstance.parts[]", "sceneObjectId" ),
+            path,
+            "assetInstance.parts[].sceneObjectId"
+        );
         if ( ParserFailed() )
         {
             return;
@@ -682,9 +711,11 @@ void AuthoredSceneParser::ApplyAssetPrimitivePart( const Json& asset,
         }
         if ( authoredStateType != expectedStateType )
         {
-            Fail( path,
-                  "assetInstance.parts[] live type mismatch: expected '" + expectedStateType + "', got '" +
-                      authoredStateType + "'" );
+            Fail(
+                path,
+                "assetInstance.parts[] live type mismatch: expected '" + expectedStateType + "', got '" +
+                    authoredStateType + "'"
+            );
             return;
         }
     }
@@ -713,6 +744,7 @@ void AuthoredSceneParser::ApplyAssetPrimitivePart( const Json& asset,
             "contactReleaseImpulseThreshold",
             "objectGroup",
         };
+
         for ( const char* field : kLiveStateFields )
         {
             if ( const Json* value = FindMember( *authoredPartIdentity, field ) )
@@ -798,19 +830,22 @@ void AuthoredSceneParser::ApplyAssetPrimitivePart( const Json& asset,
                 SceneAssetPartSource::ConvexHullState,
                 sourceIndex,
                 Math::Vector::Vector3( state.posX, state.posY, state.posZ ),
-                Math::Orientation::Quaternion( state.orientX, state.orientY, state.orientZ, state.orientW ) );
+                Math::Orientation::Quaternion( state.orientX, state.orientY, state.orientZ, state.orientW )
+            );
         }
         else
         {
-            RecordAssetPart( path,
-                             partName,
-                             effectiveObjectName,
-                             m_scene.m_convexHulls[sourceIndex].sceneObjectId,
-                             partIndex,
-                             SceneAssetPartSource::ConvexHull,
-                             sourceIndex,
-                             worldPosition,
-                             worldOrientation );
+            RecordAssetPart(
+                path,
+                partName,
+                effectiveObjectName,
+                m_scene.m_convexHulls[sourceIndex].sceneObjectId,
+                partIndex,
+                SceneAssetPartSource::ConvexHull,
+                sourceIndex,
+                worldPosition,
+                worldOrientation
+            );
         }
         return;
     }
@@ -833,12 +868,15 @@ void AuthoredSceneParser::ApplyAssetPrimitivePart( const Json& asset,
     {
         const uint32_t sourceIndex = static_cast<uint32_t>( m_scene.m_boxStates.size() );
         Math::Vector::Vector3 halfExtents;
-        ReadVec3( RequireMember( asset, path, "asset", "halfExtents" ),
-                  path,
-                  "asset.halfExtents",
-                  halfExtents.x,
-                  halfExtents.y,
-                  halfExtents.z );
+        ReadVec3(
+            RequireMember( asset, path, "asset", "halfExtents" ),
+            path,
+            "asset.halfExtents",
+            halfExtents.x,
+            halfExtents.y,
+            halfExtents.z
+        );
+
         if ( ParserFailed() )
         {
             return;
@@ -854,15 +892,18 @@ void AuthoredSceneParser::ApplyAssetPrimitivePart( const Json& asset,
             return;
         }
         const SceneBoxState& state = m_scene.m_boxStates[sourceIndex];
-        RecordAssetPart( path,
-                         partName,
-                         effectiveObjectName,
-                         state.sceneObjectId,
-                         partIndex,
-                         SceneAssetPartSource::BoxState,
-                         sourceIndex,
-                         Math::Vector::Vector3( state.posX, state.posY, state.posZ ),
-                         Math::Orientation::Quaternion( state.orientX, state.orientY, state.orientZ, state.orientW ) );
+        RecordAssetPart(
+            path,
+            partName,
+            effectiveObjectName,
+            state.sceneObjectId,
+            partIndex,
+            SceneAssetPartSource::BoxState,
+            sourceIndex,
+            Math::Vector::Vector3( state.posX, state.posY, state.posZ ),
+            Math::Orientation::Quaternion( state.orientX, state.orientY, state.orientZ, state.orientW )
+        );
+
         return;
     }
 
@@ -885,15 +926,18 @@ void AuthoredSceneParser::ApplyAssetPrimitivePart( const Json& asset,
             return;
         }
         const SceneBallState& state = m_scene.m_ballStates[sourceIndex];
-        RecordAssetPart( path,
-                         partName,
-                         effectiveObjectName,
-                         state.sceneObjectId,
-                         partIndex,
-                         SceneAssetPartSource::BallState,
-                         sourceIndex,
-                         Math::Vector::Vector3( state.posX, state.posY, state.posZ ),
-                         Math::Orientation::Quaternion( state.orientX, state.orientY, state.orientZ, state.orientW ) );
+        RecordAssetPart(
+            path,
+            partName,
+            effectiveObjectName,
+            state.sceneObjectId,
+            partIndex,
+            SceneAssetPartSource::BallState,
+            sourceIndex,
+            Math::Vector::Vector3( state.posX, state.posY, state.posZ ),
+            Math::Orientation::Quaternion( state.orientX, state.orientY, state.orientZ, state.orientW )
+        );
+
         return;
     }
 
@@ -943,12 +987,14 @@ void AuthoredSceneParser::ApplyAssetInstance( const Json& instance, const std::s
     }
 
     AssetInstanceExpansion expansion;
-    ReadVec3( RequireMember( instance, path, "assetInstance", "position" ),
-              path,
-              "assetInstance.position",
-              expansion.position.x,
-              expansion.position.y,
-              expansion.position.z );
+    ReadVec3(
+        RequireMember( instance, path, "assetInstance", "position" ),
+        path,
+        "assetInstance.position",
+        expansion.position.x,
+        expansion.position.y,
+        expansion.position.z
+    );
     if ( ParserFailed() )
     {
         return;
@@ -976,12 +1022,14 @@ void AuthoredSceneParser::ApplyAssetInstance( const Json& instance, const std::s
 
     if ( const Json* euler = FindMember( instance, "euler" ) )
     {
-        ReadVec3( *euler,
-                  path,
-                  "assetInstance.euler",
-                  expansion.authoredEuler.x,
-                  expansion.authoredEuler.y,
-                  expansion.authoredEuler.z );
+        ReadVec3(
+            *euler,
+            path,
+            "assetInstance.euler",
+            expansion.authoredEuler.x,
+            expansion.authoredEuler.y,
+            expansion.authoredEuler.z
+        );
         if ( ParserFailed() )
         {
             return;
@@ -993,12 +1041,14 @@ void AuthoredSceneParser::ApplyAssetInstance( const Json& instance, const std::s
 
     if ( const Json* velocity = FindMember( instance, "velocity" ) )
     {
-        ReadVec3( *velocity,
-                  path,
-                  "assetInstance.velocity",
-                  expansion.velocity.x,
-                  expansion.velocity.y,
-                  expansion.velocity.z );
+        ReadVec3(
+            *velocity,
+            path,
+            "assetInstance.velocity",
+            expansion.velocity.x,
+            expansion.velocity.y,
+            expansion.velocity.z
+        );
         if ( ParserFailed() )
         {
             return;
@@ -1008,12 +1058,14 @@ void AuthoredSceneParser::ApplyAssetInstance( const Json& instance, const std::s
 
     if ( const Json* angularVelocity = FindMember( instance, "angularVelocity" ) )
     {
-        ReadVec3( *angularVelocity,
-                  path,
-                  "assetInstance.angularVelocity",
-                  expansion.angularVelocity.x,
-                  expansion.angularVelocity.y,
-                  expansion.angularVelocity.z );
+        ReadVec3(
+            *angularVelocity,
+            path,
+            "assetInstance.angularVelocity",
+            expansion.angularVelocity.x,
+            expansion.angularVelocity.y,
+            expansion.angularVelocity.z
+        );
         if ( ParserFailed() )
         {
             return;
@@ -1083,13 +1135,16 @@ void AuthoredSceneParser::ApplyAssetInstance( const Json& instance, const std::s
             {
                 return;
             }
-            ApplyAssetPrimitivePart( part,
-                                     path,
-                                     BuildAssetPartName( instanceName, partName, path ),
-                                     partName,
-                                     partIndex,
-                                     expansion,
-                                     identity );
+            ApplyAssetPrimitivePart(
+                part,
+                path,
+                BuildAssetPartName( instanceName, partName, path ),
+                partName,
+                partIndex,
+                expansion,
+                identity
+            );
+
             if ( ParserFailed() )
             {
                 return;

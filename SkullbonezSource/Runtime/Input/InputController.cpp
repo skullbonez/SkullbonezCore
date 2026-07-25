@@ -111,22 +111,28 @@ RuntimeInputTransition RuntimeInputContext::TransitionAt( int historyIndex ) con
     return m_transitions[index];
 }
 
-void InputController::BeginFrame( RuntimeInputContext& context,
-                                  const RuntimeInputModeState& modeState,
-                                  bool appFocused,
-                                  bool uiBlocksKeyboard,
-                                  bool uiBlocksMouse )
+void InputController::BeginFrame(
+    RuntimeInputContext& context,
+    const RuntimeInputModeState& modeState,
+    bool appFocused,
+    bool uiBlocksKeyboard,
+    bool uiBlocksMouse
+)
 {
     context.BeginFrame( appFocused, uiBlocksKeyboard, uiBlocksMouse );
-    context.SetMode( ResolveMode( modeState ),
-                     RuntimeInputAction::None,
-                     appFocused ? RuntimeInputActionSource::Runtime : RuntimeInputActionSource::FocusLost );
+    context.SetMode(
+        ResolveMode( modeState ),
+        RuntimeInputAction::None,
+        appFocused ? RuntimeInputActionSource::Runtime : RuntimeInputActionSource::FocusLost
+    );
 }
 
-void InputController::ApplyModeAction( RuntimeInputContext& context,
-                                       RuntimeInputMode mode,
-                                       RuntimeInputAction action,
-                                       RuntimeInputActionSource source )
+void InputController::ApplyModeAction(
+    RuntimeInputContext& context,
+    RuntimeInputMode mode,
+    RuntimeInputAction action,
+    RuntimeInputActionSource source
+)
 {
     context.SetMode( mode, action, source );
 }
@@ -447,14 +453,17 @@ void InputController::DescribeLastTransitions( const RuntimeInputContext& contex
             return;
         }
 
-        const int written = std::snprintf( out + used,
-                                           outSize - used,
-                                           "%s%s -> %s via %s/%s",
-                                           separator,
-                                           DescribeMode( transition.from ),
-                                           DescribeMode( transition.to ),
-                                           DescribeAction( transition.action ),
-                                           DescribeSource( transition.source ) );
+        const int written = std::snprintf(
+            out + used,
+            outSize - used,
+            "%s%s -> %s via %s/%s",
+            separator,
+            DescribeMode( transition.from ),
+            DescribeMode( transition.to ),
+            DescribeAction( transition.action ),
+            DescribeSource( transition.source )
+        );
+
         if ( written < 0 || static_cast<std::size_t>( written ) >= outSize - used )
         {
             out[outSize - 1] = '\0';
@@ -496,8 +505,8 @@ void InputController::SetMouseLookDelta( CameraControlState& camera, long rawX, 
     camera.input.yMove = std::clamp( rawY, -CAMERA_MOUSE_MAX_DELTA_PIXELS, CAMERA_MOUSE_MAX_DELTA_PIXELS );
 }
 
-RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( CameraControlState& camera,
-                                                                      const RuntimeCameraInputFrameContext& context )
+RuntimeCameraInputFrameResult
+InputController::ApplyCameraInputFrame( CameraControlState& camera, const RuntimeCameraInputFrameContext& context )
 {
     RuntimeCameraInputFrameResult result;
     assert( context.deviceFrame && "Camera input requires the immutable device frame" );
@@ -530,7 +539,8 @@ RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( CameraCont
                 result.applyCursorOwnership = true;
                 return result;
             }
-            const POINT currentClient{ deviceFrame.clientX, deviceFrame.clientY };
+            const POINT currentClient { deviceFrame.clientX, deviceFrame.clientY };
+
             const bool hasRawDelta = deviceFrame.rawMouseX != 0 || deviceFrame.rawMouseY != 0;
 
             if ( camera.needsMouseLookReset )
@@ -556,9 +566,11 @@ RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( CameraCont
             }
             else
             {
-                SetMouseLookDelta( camera,
-                                   currentClient.x - camera.mouseLookLastClient.x,
-                                   currentClient.y - camera.mouseLookLastClient.y );
+                SetMouseLookDelta(
+                    camera,
+                    currentClient.x - camera.mouseLookLastClient.x,
+                    currentClient.y - camera.mouseLookLastClient.y
+                );
                 camera.mouseLookLastClient = currentClient;
             }
         }
@@ -588,10 +600,12 @@ RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( CameraCont
 }
 
 
-void InputController::ApplyCameraMovement( CameraControlState& camera,
-                                           Environment::CameraCollection& cameras,
-                                           Geometry::Terrain& terrain,
-                                           const RuntimeCameraMovementInput& input )
+void InputController::ApplyCameraMovement(
+    CameraControlState& camera,
+    Environment::CameraCollection& cameras,
+    Geometry::Terrain& terrain,
+    const RuntimeCameraMovementInput& input
+)
 {
     const bool hasTravelInput =
         camera.input.Get( Hardware::InputState::Up ) || camera.input.Get( Hardware::InputState::Down ) ||
@@ -602,8 +616,10 @@ void InputController::ApplyCameraMovement( CameraControlState& camera,
         if ( ( !input.editorModeEnabled || input.editorViewportLookActive ) &&
              ( camera.input.xMove != 0 || camera.input.yMove != 0 ) )
         {
-            cameras.RotatePrimary( camera.input.xMove * input.mouseMovementQuantity,
-                                   camera.input.yMove * input.mouseMovementQuantity );
+            cameras.RotatePrimary(
+                camera.input.xMove * input.mouseMovementQuantity,
+                camera.input.yMove * input.mouseMovementQuantity
+            );
         }
 
         const float travelQuantity = input.keyMovementQuantity * camera.travelSpeedMultiplier;

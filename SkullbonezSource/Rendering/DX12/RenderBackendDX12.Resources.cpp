@@ -60,10 +60,8 @@ static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIn
     fprintf( stdout, "FATAL: DX12 %s heap exhausted (next=%u capacity=%u)\n", name, nextIndex, capacity );
     fflush( stderr );
     fflush( stdout );
-    SkullbonezCore::Core::Log().WriteEventf( "dx12_descriptor_heap_exhausted heap=%s next=%u capacity=%u",
-                                             name,
-                                             nextIndex,
-                                             capacity );
+    SkullbonezCore::Core::Log()
+        .WriteEventf( "dx12_descriptor_heap_exhausted heap=%s next=%u capacity=%u", name, nextIndex, capacity );
     SkullbonezCore::Core::Log().FlushAll();
 }
 
@@ -131,15 +129,17 @@ Dx12ResourceBuilder::CreateMesh( const float* data, int vertexCount, bool hasNor
     uint8_t* uploadPtr = m_frame.UploadReservations().UploadPointer( uploadAddr );
 
     auto mesh = std::make_unique<MeshDX12>( m_device, m_frame.DrawGate(), m_diagnostics );
-    if ( !mesh->Create( m_device.Device(),
-                        m_device.CommandList(),
-                        data,
-                        vertexCount,
-                        floatsPerVert,
-                        format,
-                        uploadAddr,
-                        uploadPtr,
-                        m_frame.Uploads().Resource( m_frame.AllocatorIndex() ) ) )
+    if ( !mesh->Create(
+             m_device.Device(),
+             m_device.CommandList(),
+             data,
+             vertexCount,
+             floatsPerVert,
+             format,
+             uploadAddr,
+             uploadPtr,
+             m_frame.Uploads().Resource( m_frame.AllocatorIndex() )
+         ) )
     {
         return nullptr;
     }
@@ -154,13 +154,16 @@ Dx12ResourceBuilder::CreateFramebuffer( int width, int height, FramebufferColorF
     {
         return nullptr;
     }
-    auto fbo = std::make_unique<FramebufferDX12>( m_device,
-                                                  m_pipeline,
-                                                  m_textures,
-                                                  m_descriptors,
-                                                  m_frame.DrawGate(),
-                                                  m_frame.ResourceRelease(),
-                                                  colorFormat );
+    auto fbo = std::make_unique<FramebufferDX12>(
+        m_device,
+        m_pipeline,
+        m_textures,
+        m_descriptors,
+        m_frame.DrawGate(),
+        m_frame.ResourceRelease(),
+        colorFormat
+    );
+
     if ( !fbo->Create( width, height ) )
     {
         return nullptr;

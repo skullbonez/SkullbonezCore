@@ -48,14 +48,16 @@ class Dx12TextureOwner;
 class Dx12GraphTransientPool
 {
   public:
-    Dx12GraphTransientPool( Dx12RenderDevice& device,
-                            Dx12DescriptorHeaps& descriptors,
-                            Dx12FrameOwner& frame,
-                            Dx12TextureOwner& textures,
-                            Dx12PipelineOwner& pipeline );
+    Dx12GraphTransientPool(
+        Dx12RenderDevice& device,
+        Dx12DescriptorHeaps& descriptors,
+        Dx12FrameOwner& frame,
+        Dx12TextureOwner& textures,
+        Dx12PipelineOwner& pipeline
+    );
 
-    RenderGraphTransientMaterializationStats Materialize( const RenderGraph& graph,
-                                                          const RenderGraphCompileResult& compiled );
+    RenderGraphTransientMaterializationStats
+    Materialize( const RenderGraph& graph, const RenderGraphCompileResult& compiled );
     RenderGraphTextureBinding Resolve( RenderGraphResourceHandle resource ) const;
     size_t ExecuteTransitions( const RenderGraph& graph, const RenderGraphCompileResult& compiled, uint32_t passIndex );
     void BeginRenderTarget( const RenderGraphTextureBinding& binding, const char* passName );

@@ -30,8 +30,8 @@ namespace SkullbonezCore::Runtime
 {
 namespace
 {
-const RunReplayPredictionBodySample* FindPredictionBody( const RunReplayPredictionFrame& frame,
-                                                         Physics::PhysicsSceneObjectId id ) noexcept
+const RunReplayPredictionBodySample*
+FindPredictionBody( const RunReplayPredictionFrame& frame, Physics::PhysicsSceneObjectId id ) noexcept
 {
     for ( const RunReplayPredictionBodySample& body : frame.bodies )
     {

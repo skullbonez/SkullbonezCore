@@ -88,11 +88,13 @@ class TornadoGameplay
     void SetFieldInwardAcceleration( float value );
     void SetFieldSwirlAcceleration( float value );
     void SetFieldLiftAcceleration( float value );
-    void SetReplayState( const std::vector<float>& captureSeconds,
-                         const std::vector<float>& ejectCooldownSeconds,
-                         const TornadoFieldConfig& fieldConfig,
-                         const TornadoSystemConfig& systemConfig,
-                         float systemElapsedSeconds );
+    void SetReplayState(
+        const std::vector<float>& captureSeconds,
+        const std::vector<float>& ejectCooldownSeconds,
+        const TornadoFieldConfig& fieldConfig,
+        const TornadoSystemConfig& systemConfig,
+        float systemElapsedSeconds
+    );
 
     const std::vector<float>& CaptureSeconds() const;
     const std::vector<float>& EjectCooldownSeconds() const;
@@ -129,7 +131,7 @@ class TornadoGameplay
     TornadoVisualPass m_visualPass;
     std::vector<float> m_debugLineVertices;
     std::vector<TornadoActiveVortex> m_debugVortices;
-    std::array<Physics::ExternalCylindricalForceField, MAX_ACTIVE_FORCE_FIELDS> m_forceFields{};
+    std::array<Physics::ExternalCylindricalForceField, MAX_ACTIVE_FORCE_FIELDS> m_forceFields {};
     std::size_t m_forceFieldCount = 0u;
     bool m_parallelForceEvaluation = false;
 

@@ -45,8 +45,8 @@ BodySimulationLimits BodySimulationLimits::FromSettings( const BodySimulationSet
     return limits;
 }
 
-ContactPolicy ContactPolicy::FromSettings( const BodySimulationSettings& bodySettings,
-                                           const TerrainContactSettings& terrainSettings )
+ContactPolicy
+ContactPolicy::FromSettings( const BodySimulationSettings& bodySettings, const TerrainContactSettings& terrainSettings )
 {
     ContactPolicy policy;
     policy.contactEpsilon = bodySettings.contactEpsilon;

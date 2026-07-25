@@ -55,7 +55,7 @@ constexpr const char* TRACY_RUNTIME_HEAP_NAME = "Skore Runtime C++ Heap";
 // backing. A 512 MiB ceiling leaves bounded headroom without misrepresenting
 // the earlier nominal 256 MiB row as an enforceable production value.
 constexpr int TRACY_ACTIVE_BYTE_CAP = 512 * MEBIBYTE_BYTES;
-std::atomic<bool> g_tracyAllocationTracingEnabled{ false };
+std::atomic<bool> g_tracyAllocationTracingEnabled { false };
 
 RuntimeReserveOwnerHandle ToolOwnerHandle( DevelopmentToolAllocationOwner owner ) noexcept
 {
@@ -70,7 +70,9 @@ RuntimeReserveOwnerHandle ToolOwnerHandle( DevelopmentToolAllocationOwner owner 
               0,
               false,
               "Dear ImGui process storage is a permanent development-only exception capped at 64 MiB active bytes",
-              true } );
+              true }
+        );
+
         return imguiOwner;
     }
 
@@ -83,7 +85,9 @@ RuntimeReserveOwnerHandle ToolOwnerHandle( DevelopmentToolAllocationOwner owner 
           0,
           false,
           "Tracy client buffers are a permanent development-only exception capped at 512 MiB active bytes",
-          true } );
+          true }
+    );
+
     return tracyOwner;
 }
 } // namespace
@@ -98,8 +102,10 @@ DevelopmentToolAllocationScope::DevelopmentToolAllocationScope( DevelopmentToolA
     // continue to fail the gameplay allocation guard.
 }
 
-bool CopyDevelopmentToolAllocationStats( DevelopmentToolAllocationOwner owner,
-                                         DevelopmentToolAllocationStats& outStats ) noexcept
+bool CopyDevelopmentToolAllocationStats(
+    DevelopmentToolAllocationOwner owner,
+    DevelopmentToolAllocationStats& outStats
+) noexcept
 {
     outStats = {};
     RuntimeReserveOwnerStatsView ownerStats;
@@ -121,7 +127,8 @@ bool TryAccountDevelopmentToolBackingMemory( DevelopmentToolAllocationOwner owne
     return RuntimeReserveAllocator::TryRecordDevelopmentToolBackingAllocation(
         ToolOwnerHandle( owner ),
         static_cast<int>( GetRuntimeAllocationPhase() ),
-        static_cast<uint64_t>( size ) );
+        static_cast<uint64_t>( size )
+    );
 }
 
 void ReleaseDevelopmentToolBackingMemory( DevelopmentToolAllocationOwner owner, std::size_t size ) noexcept

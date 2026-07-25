@@ -136,10 +136,12 @@ void TornadoSystem::SetConfig( const TornadoSystemConfig& config )
 {
     if ( config.vortices.size() > m_config.vortices.capacity() )
     {
-        SB_FATAL( "Gameplay/TornadoSystem",
-                  "Authored vortex storage exceeded. requested=%zu capacity=%zu",
-                  config.vortices.size(),
-                  m_config.vortices.capacity() );
+        SB_FATAL(
+            "Gameplay/TornadoSystem",
+            "Authored vortex storage exceeded. requested=%zu capacity=%zu",
+            config.vortices.size(),
+            m_config.vortices.capacity()
+        );
     }
     m_config = config;
     for ( TornadoVortexConfig& vortex : m_config.vortices )
@@ -226,9 +228,11 @@ void TornadoSystem::Tick( float dt )
 }
 
 
-void TornadoSystem::BuildActiveVortices( const TornadoSystemConfig& config,
-                                         float elapsedSeconds,
-                                         std::vector<TornadoActiveVortex>& outVortices )
+void TornadoSystem::BuildActiveVortices(
+    const TornadoSystemConfig& config,
+    float elapsedSeconds,
+    std::vector<TornadoActiveVortex>& outVortices
+)
 {
     outVortices.clear();
     if ( !config.enabled )

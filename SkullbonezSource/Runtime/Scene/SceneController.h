@@ -132,7 +132,7 @@ struct SceneFrameProceedPolicy
 inline SceneFrameProceedPolicy ResolveSceneFrameProceedPolicy( bool crossScenePauseLocked, bool stepRequested )
 {
     // Invariant: only the sampled step edge releases a locked scene turn.
-    return SceneFrameProceedPolicy{ stepRequested, crossScenePauseLocked, !crossScenePauseLocked || stepRequested };
+    return SceneFrameProceedPolicy { stepRequested, crossScenePauseLocked, !crossScenePauseLocked || stepRequested };
 }
 struct SceneDefaultsSaveView
 {
@@ -215,8 +215,8 @@ struct SceneLoadConsumerOutputs
 // batch. A completed load commits into the output value before the excluded UI
 // owner applies it, so follow-up persistence must not fall back to the stale
 // submitted snapshot.
-inline const SceneLoadNavigationState& SceneNavigationForFollowingRequest( const SceneLoadNavigationState& submitted,
-                                                                           const SceneLoadConsumerOutputs& outputs )
+inline const SceneLoadNavigationState&
+SceneNavigationForFollowingRequest( const SceneLoadNavigationState& submitted, const SceneLoadConsumerOutputs& outputs )
 {
     return outputs.applyNavigation ? outputs.navigation : submitted;
 }
@@ -224,9 +224,11 @@ inline const SceneLoadNavigationState& SceneNavigationForFollowingRequest( const
 // A later cold action in the same fixed batch must observe authored/debug
 // policy produced by the completed load, even though the overlay owner applies
 // that detached value only after ExecutePending returns.
-inline const OverlayDebugState& ScenePresentationForFollowingRequest( const OverlayDebugState& submitted,
-                                                                      const SceneLoadConsumerOutputs& outputs,
-                                                                      const SceneLifecyclePacket& lifecycle )
+inline const OverlayDebugState& ScenePresentationForFollowingRequest(
+    const OverlayDebugState& submitted,
+    const SceneLoadConsumerOutputs& outputs,
+    const SceneLifecyclePacket& lifecycle
+)
 {
     return SceneLifecycleReached( lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneCleared )
                ? outputs.presentation
@@ -236,28 +238,32 @@ inline const OverlayDebugState& ScenePresentationForFollowingRequest( const Over
 // Applies one completed transaction to runtime owners before any external
 // window/UI/validation presentation. Call after Load/ExecutePending, including
 // failures that progressed past scene clearing and emitted reset effects.
-void ApplySceneLoadRuntimeReactions( SceneLoadConsumerOutputs& outputs,
-                                     const RunLaunchOptions& launchOptions,
-                                     RunTimerState& timers,
-                                     RuntimeOverlayDiagnostics& overlays,
-                                     SceneController& sceneController,
-                                     InputRouter& inputRouter,
-                                     RuntimeInteractionController& interaction,
-                                     CameraControlState& camera,
-                                     AttachedCameraController& attachedCamera,
-                                     RuntimeTools& runtimeTools,
-                                     ReplayRuntime& replayRuntime );
+void ApplySceneLoadRuntimeReactions(
+    SceneLoadConsumerOutputs& outputs,
+    const RunLaunchOptions& launchOptions,
+    RunTimerState& timers,
+    RuntimeOverlayDiagnostics& overlays,
+    SceneController& sceneController,
+    InputRouter& inputRouter,
+    RuntimeInteractionController& interaction,
+    CameraControlState& camera,
+    AttachedCameraController& attachedCamera,
+    RuntimeTools& runtimeTools,
+    ReplayRuntime& replayRuntime
+);
 
 // Publishes external presentation only after ApplySceneLoadRuntimeReactions
 // has advanced every runtime owner to the completed lifecycle generation.
-void ApplySceneLoadPresentationOutputs( SceneLoadConsumerOutputs& outputs,
-                                        Window& window,
-                                        UI::InGameUI& operatorUi,
-                                        RuntimeValidationHarness& validationHarness,
-                                        const RunLaunchOptions& launchOptions,
-                                        Rendering::Dx12RenderDevice* renderDevice,
-                                        bool rendererVsyncEnabled,
-                                        SceneController& sceneController );
+void ApplySceneLoadPresentationOutputs(
+    SceneLoadConsumerOutputs& outputs,
+    Window& window,
+    UI::InGameUI& operatorUi,
+    RuntimeValidationHarness& validationHarness,
+    const RunLaunchOptions& launchOptions,
+    Rendering::Dx12RenderDevice* renderDevice,
+    bool rendererVsyncEnabled,
+    SceneController& sceneController
+);
 
 class SceneController
 {
@@ -277,12 +283,14 @@ class SceneController
     void ToggleCrossScenePause();
     bool CrossScenePauseLocked() const;
     SceneFrameProceedPolicy BuildFrameProceedPolicy( bool stepRequested ) const;
-    SceneFrameAdvanceResult AdvanceFrame( const SceneAutomationGateStatus& automationGates,
-                                          bool proceedAllowed,
-                                          bool perfTestActive,
-                                          bool screenshotSaved,
-                                          bool manualCameraActive,
-                                          double elapsedSeconds );
+    SceneFrameAdvanceResult AdvanceFrame(
+        const SceneAutomationGateStatus& automationGates,
+        bool proceedAllowed,
+        bool perfTestActive,
+        bool screenshotSaved,
+        bool manualCameraActive,
+        double elapsedSeconds
+    );
 
     bool HasEntry( int index ) const;
     bool HasCurrentEntry() const;
@@ -309,26 +317,32 @@ class SceneController
     // Lifetime: cold load orchestration borrows each phase value only for this
     // call. No Run backpointer or complete mutable context is retained behind
     // the scene boundary.
-    SkullbonezCore::Core::SbResult Load( const SceneLoadRequest& request,
-                                         const SceneLoadPolicyInputs& policy,
-                                         const SceneLoadInteractionParticipants& interaction,
-                                         const SceneLoadPresentationParticipants& presentation,
-                                         SceneLoadConsumerOutputs& consumerOutputs );
+    SkullbonezCore::Core::SbResult Load(
+        const SceneLoadRequest& request,
+        const SceneLoadPolicyInputs& policy,
+        const SceneLoadInteractionParticipants& interaction,
+        const SceneLoadPresentationParticipants& presentation,
+        SceneLoadConsumerOutputs& consumerOutputs
+    );
     // Executes the fixed pending batch inside the scene owner. Replay records
     // only requests whose load/create/save operation completes successfully.
-    bool ExecutePending( const SceneLoadPolicyInputs& policy,
-                         const SceneLoadInteractionParticipants& interaction,
-                         const SceneLoadPresentationParticipants& presentation,
-                         SceneLoadConsumerOutputs& consumerOutputs );
+    bool ExecutePending(
+        const SceneLoadPolicyInputs& policy,
+        const SceneLoadInteractionParticipants& interaction,
+        const SceneLoadPresentationParticipants& presentation,
+        SceneLoadConsumerOutputs& consumerOutputs
+    );
     SkullbonezCore::Core::SbResult SaveCurrentDefaults( const SceneDefaultsSaveView& view ) const;
 
     // Scene request submission stays owner-specific even while Run temporarily
     // executes the returned batch during lifecycle extraction C1.
     void SubmitLoadBrowserIndex( int index );
     void SubmitLoadDemoScene();
-    void SubmitResetCurrentScene( bool preserveUIState = true,
-                                  bool suppressExitOnComplete = true,
-                                  bool preserveRuntimeState = true );
+    void SubmitResetCurrentScene(
+        bool preserveUIState = true,
+        bool suppressExitOnComplete = true,
+        bool preserveRuntimeState = true
+    );
     SkullbonezCore::Core::SbResult SubmitCreateScene( const char* requestedName );
     void SubmitSaveCurrentDefaults();
     SceneRequestBatch TakePendingRequests();

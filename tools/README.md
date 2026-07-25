@@ -163,8 +163,9 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `bake_hulls.bat --check\|--write` | Check or rewrite serialized convex hull v2 runtime data from source geometry |
 | `migrate_data_formats.py --check\|--write` | Check or upgrade asset-library, hull, and engine-config files to their current owned versions |
 | `generate_physics_scale_sleepy_scene.py --check\|--write` | Check or deterministically regenerate the 5,000-body sleeping-heavy scale fixture |
-| `validate_format.bat` | Check clang-format compliance without auto-fixing |
-| `format_fix.bat` | Auto-fix formatting in-place |
+| `validate_format.bat` | Check clang-format, multiline local-declaration spacing, and header comment alignment without auto-fixing |
+| `format_fix.bat` | Auto-fix C++ layout, separate wrapped local declarations, and align header comments in-place |
+| `separate_multiline_cpp_declarations.py --check\|--write\|--stdin` | Add one blank line after wrapped local declarations; `--stdin` previews the post-pass without touching files |
 | `validate_build.bat <Config>` | Build a specific configuration (`Debug`, `Profile`, `Automation`, `Release`) |
 | `validate_all_cpu_tests.bat` | Run all five first-party CPU/coverage gates, stop at the first failure, print a combined summary, and preserve the child exit code |
 | `validate_tests.bat` | Build `SKULLBONEZ_TESTS`, validate its project filters, and run the doctest console runner |

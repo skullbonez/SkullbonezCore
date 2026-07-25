@@ -161,11 +161,13 @@ bool ReadBoolValue( const Json& value, const char* path, const std::string& cont
     return FailField( path, context, "must be a bool" );
 }
 
-bool CopyTextField( char* destination,
-                    std::size_t destinationSize,
-                    const std::string& value,
-                    const char* path,
-                    const std::string& context )
+bool CopyTextField(
+    char* destination,
+    std::size_t destinationSize,
+    const std::string& value,
+    const char* path,
+    const std::string& context
+)
 {
     if ( value.size() >= destinationSize )
     {
@@ -177,11 +179,13 @@ bool CopyTextField( char* destination,
     return true;
 }
 
-bool ReadOptionalFloatMember( const Json& object,
-                              const char* key,
-                              const char* path,
-                              const std::string& context,
-                              float& inOutValue )
+bool ReadOptionalFloatMember(
+    const Json& object,
+    const char* key,
+    const char* path,
+    const std::string& context,
+    float& inOutValue
+)
 {
     if ( const Json* member = FindMember( object, key ) )
     {
@@ -211,11 +215,13 @@ bool ReadVec3Value( const Json& value, const char* path, const std::string& cont
            ReadFloatValue( value[2], path, context + "[2]", out.z );
 }
 
-bool ReadRequiredStringMember( const Json& object,
-                               const char* key,
-                               const char* path,
-                               const std::string& context,
-                               std::string& out )
+bool ReadRequiredStringMember(
+    const Json& object,
+    const char* key,
+    const char* path,
+    const std::string& context,
+    std::string& out
+)
 {
     const Json* member = FindMember( object, key );
     if ( !member )
@@ -225,11 +231,13 @@ bool ReadRequiredStringMember( const Json& object,
     return ReadStringValue( *member, path, context + "." + key, out );
 }
 
-bool ReadRequiredVec3Member( const Json& object,
-                             const char* key,
-                             const char* path,
-                             const std::string& context,
-                             Vector3& out )
+bool ReadRequiredVec3Member(
+    const Json& object,
+    const char* key,
+    const char* path,
+    const std::string& context,
+    Vector3& out
+)
 {
     const Json* member = FindMember( object, key );
     if ( !member )

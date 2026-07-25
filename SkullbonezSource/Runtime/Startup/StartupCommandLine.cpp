@@ -89,8 +89,10 @@ bool ValidatePhysicsRegressionLog( const CommandLineView& commandLine )
         return true;
     }
 #ifndef _DEBUG
-    return FailCommandLineParse( "--physics-regression-log is only supported in Debug builds. Recompile with the Debug "
-                                 "configuration to use physics regression logging." );
+    return FailCommandLineParse(
+        "--physics-regression-log is only supported in Debug builds. Recompile with the Debug "
+        "configuration to use physics regression logging."
+    );
 #else
     return true;
 #endif
@@ -102,8 +104,10 @@ bool ValidatePhysicsCollisionTimeLog( const CommandLineView& commandLine )
         return true;
     }
 #ifndef _DEBUG
-    return FailCommandLineParse( "--physics-collision-time-log is only supported in Debug builds. Recompile with the "
-                                 "Debug configuration to use collision-time logging." );
+    return FailCommandLineParse(
+        "--physics-collision-time-log is only supported in Debug builds. Recompile with the "
+        "Debug configuration to use collision-time logging."
+    );
 #else
     return true;
 #endif
@@ -115,8 +119,10 @@ bool ValidatePhysicsDiagnostics( const CommandLineView& commandLine )
         return true;
     }
 #ifndef _DEBUG
-    return FailCommandLineParse( "--physics-diag is only supported in Debug builds. Recompile with the Debug "
-                                 "configuration to use queryable physics diagnostics." );
+    return FailCommandLineParse(
+        "--physics-diag is only supported in Debug builds. Recompile with the Debug "
+        "configuration to use queryable physics diagnostics."
+    );
 #else
     return true;
 #endif
@@ -130,7 +136,8 @@ bool ValidateReplayScrubProbe( const CommandLineView& commandLine )
     }
 #ifndef _DEBUG
     return FailCommandLineParse(
-        "--replay-scrub-probe is only supported in Debug builds with SkullScope diagnostics." );
+        "--replay-scrub-probe is only supported in Debug builds with SkullScope diagnostics."
+    );
 #else
     return true;
 #endif
@@ -144,7 +151,8 @@ bool ValidateReplayRestoreProbe( const CommandLineView& commandLine )
     }
 #ifndef _DEBUG
     return FailCommandLineParse(
-        "--replay-restore-probe is only supported in Debug builds with SkullScope diagnostics." );
+        "--replay-restore-probe is only supported in Debug builds with SkullScope diagnostics."
+    );
 #else
     return true;
 #endif
@@ -225,7 +233,8 @@ bool ValidateReplayRestoreFailureFileProbe( const CommandLineView& commandLine )
     if ( !HasOption( commandLine, "--physics-diag" ) && !HasOption( commandLine, "--physics-diagnostics" ) )
     {
         return FailCommandLineParse(
-            "--replay-restore-failure-file-probe requires --physics-diag so SkullScope can query the failure row." );
+            "--replay-restore-failure-file-probe requires --physics-diag so SkullScope can query the failure row."
+        );
     }
     return true;
 #endif
@@ -382,6 +391,7 @@ void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out
           },
           "[workers] Self-test requested." },
     };
+
     for ( const CliFlagDirective& flag : kFlags )
     {
         if ( HasFlagDirective( commandLine, flag ) )
@@ -622,10 +632,12 @@ const char* FindValueDirective( const CommandLineView& commandLine, const Config
     return FindOptionValue( commandLine, directive.alias );
 }
 template <size_t N>
-bool ApplyConfigCliValueDirectives( const CommandLineView& commandLine,
-                                    ParsedArgs& out,
-                                    SkullbonezCore::Core::EngineConfig& config,
-                                    const ConfigCliValueDirective ( &directives )[N] )
+bool ApplyConfigCliValueDirectives(
+    const CommandLineView& commandLine,
+    ParsedArgs& out,
+    SkullbonezCore::Core::EngineConfig& config,
+    const ConfigCliValueDirective ( &directives )[N]
+)
 {
     for ( const ConfigCliValueDirective& directive : directives )
     {
@@ -763,9 +775,11 @@ bool ApplyCinematicShadowsOverride( const char* value, ParsedArgs& args, Skullbo
     fprintf( stdout, "[shadows] Shadow maps %s via command line.\n", enabled ? "enabled" : "disabled" );
     return true;
 }
-bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine,
-                                     ParsedArgs& out,
-                                     SkullbonezCore::Core::EngineConfig& config )
+bool ApplyStartupCliValueDirectives(
+    const CommandLineView& commandLine,
+    ParsedArgs& out,
+    SkullbonezCore::Core::EngineConfig& config
+)
 {
     static const ConfigCliValueDirective kValues[] = {
         { "--switch-interval",
@@ -817,9 +831,12 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine,
                   return FailCommandLineParse( "--tornado-vectors expects optional on|off." );
               }
               args.tornadoVectors = enabled;
-              fprintf( stdout,
-                       "[tornado] Velocity-field vectors %s via command line.\n",
-                       enabled ? "enabled" : "disabled" );
+              fprintf(
+                  stdout,
+                  "[tornado] Velocity-field vectors %s via command line.\n",
+                  enabled ? "enabled" : "disabled"
+              );
+
               return true;
           } },
         { "--cinematic",
@@ -849,15 +866,19 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine,
               if ( !ParseIntToken( value, workerThreads ) || workerThreads < -1 || workerThreads > maxWorkerThreads )
               {
                   char message[128] = {};
+
                   snprintf( message, sizeof( message ), "--workers expects -1, 0, or 1..%d.", maxWorkerThreads );
                   return FailCommandLineParse( message );
               }
               config.runtimeCapacity.workerThreads = workerThreads;
-              fprintf( stdout,
-                       "[workers] Override: %d (resolved %d, max %d)\n",
-                       config.runtimeCapacity.workerThreads,
-                       WorkerPool::ResolveThreadCount( config.runtimeCapacity.workerThreads ),
-                       maxWorkerThreads );
+              fprintf(
+                  stdout,
+                  "[workers] Override: %d (resolved %d, max %d)\n",
+                  config.runtimeCapacity.workerThreads,
+                  WorkerPool::ResolveThreadCount( config.runtimeCapacity.workerThreads ),
+                  maxWorkerThreads
+              );
+
               return true;
           } },
         { "--model-capacity",
@@ -869,14 +890,19 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine,
               if ( !ParseIntToken( value, capacity ) || capacity < 1 ||
                    capacity > SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS )
               {
-                  return FailCommandLineParse( "--model-capacity expects 1..%d.",
-                                               SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+                  return FailCommandLineParse(
+                      "--model-capacity expects 1..%d.",
+                      SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS
+                  );
               }
               config.runtimeCapacity.sceneObjectCapacity = capacity;
-              fprintf( stdout,
-                       "[models] Active model capacity: %d (compiled max %d)\n",
-                       config.runtimeCapacity.sceneObjectCapacity,
-                       SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+              fprintf(
+                  stdout,
+                  "[models] Active model capacity: %d (compiled max %d)\n",
+                  config.runtimeCapacity.sceneObjectCapacity,
+                  SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS
+              );
+
               return true;
           } },
         { "--physics-parallel",
@@ -895,9 +921,12 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine,
               config.physicsExecution.parallelNarrowphase = enabled;
               config.physicsExecution.parallelTerrainDetect = enabled;
               config.physicsExecution.parallelIntegrate = enabled;
-              fprintf( stdout,
-                       "[workers] Physics parallel jobs %s via command line.\n",
-                       enabled ? "enabled" : "disabled" );
+              fprintf(
+                  stdout,
+                  "[workers] Physics parallel jobs %s via command line.\n",
+                  enabled ? "enabled" : "disabled"
+              );
+
               return true;
           } },
         { "--shadow-parallel-prep",
@@ -911,9 +940,12 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine,
                   return FailCommandLineParse( "--shadow-parallel-prep expects optional on|off." );
               }
               config.runtimeRender.shadowParallelPrep = enabled;
-              fprintf( stdout,
-                       "[workers] Shadow parallel prep %s via command line.\n",
-                       enabled ? "enabled" : "disabled" );
+              fprintf(
+                  stdout,
+                  "[workers] Shadow parallel prep %s via command line.\n",
+                  enabled ? "enabled" : "disabled"
+              );
+
               return true;
           } },
         { "--interactive",
@@ -935,6 +967,7 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine,
               return true;
           } },
     };
+
     return ApplyConfigCliValueDirectives( commandLine, out, config, kValues );
 }
 bool ApplyGeneratedObjectOverride( const CommandLineView& commandLine, ParsedArgs& out )
@@ -943,6 +976,7 @@ bool ApplyGeneratedObjectOverride( const CommandLineView& commandLine, ParsedArg
         { "--all-balls", GeneratedObjectTypeOverride::AllBalls, "[objects] Generated objects forced to balls." },
         { "--all-boxes", GeneratedObjectTypeOverride::AllBoxes, "[objects] Generated objects forced to boxes." },
     };
+
     const GeneratedObjectOverrideDirective* selected = nullptr;
     for ( const GeneratedObjectOverrideDirective& directive : kOverrides )
     {
@@ -976,8 +1010,10 @@ bool ParseUnsignedCommandLineToken( const char* value, unsigned int& out )
 {
     return ParseUnsignedIntToken( value, out );
 }
-bool ParseAllocationGuardCommandLineToken( const char* value,
-                                           SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode& out )
+bool ParseAllocationGuardCommandLineToken(
+    const char* value,
+    SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode& out
+)
 {
     return ParseAllocationGuardModeValue( value, out );
 }
@@ -1076,8 +1112,10 @@ bool ParseCommandLine( const CommandLineView& commandLine, SkullbonezCore::Core:
         out.platformProfilerMarkersExplicit = true;
         if ( envPlatformProfilerMarkers )
         {
-            fprintf( stdout,
-                     "[platform-profiler] Marker emission requested via SKULLBONEZ_PLATFORM_PROFILER_MARKERS.\n" );
+            fprintf(
+                stdout,
+                "[platform-profiler] Marker emission requested via SKULLBONEZ_PLATFORM_PROFILER_MARKERS.\n"
+            );
         }
     }
     free( envPlatformProfilerValue );
@@ -1093,7 +1131,8 @@ bool ParseCommandLine( const CommandLineView& commandLine, SkullbonezCore::Core:
         {
             fprintf(
                 stdout,
-                "[platform-profiler] Marker emission requested via SKULLBONEZ_PIX_MARKERS compatibility alias.\n" );
+                "[platform-profiler] Marker emission requested via SKULLBONEZ_PIX_MARKERS compatibility alias.\n"
+            );
         }
     }
     free( envPixValue );
@@ -1127,7 +1166,8 @@ bool ParseCommandLine( const CommandLineView& commandLine, SkullbonezCore::Core:
         if ( !out.physicsDiagnosticsRequested )
         {
             return FailCommandLineParse(
-                "--replay-scrub-probe requires --physics-diag so SkullScope can query the result." );
+                "--replay-scrub-probe requires --physics-diag so SkullScope can query the result."
+            );
         }
     }
     if ( out.replaySaveProbe && !out.replayRecording )
@@ -1141,12 +1181,14 @@ bool ParseCommandLine( const CommandLineView& commandLine, SkullbonezCore::Core:
     }
     if ( out.graphicsStress )
     {
-        fprintf( stdout,
-                 "[graphics-stress] Enabled seed=%u actions=%d scene_interval_frames=%d memory_interval_frames=%d.\n",
-                 out.graphicsStressSeed,
-                 out.graphicsStressActions,
-                 out.graphicsStressSceneIntervalFrames,
-                 out.graphicsStressMemoryIntervalFrames );
+        fprintf(
+            stdout,
+            "[graphics-stress] Enabled seed=%u actions=%d scene_interval_frames=%d memory_interval_frames=%d.\n",
+            out.graphicsStressSeed,
+            out.graphicsStressActions,
+            out.graphicsStressSceneIntervalFrames,
+            out.graphicsStressMemoryIntervalFrames
+        );
     }
     if ( !ApplyGeneratedObjectOverride( commandLine, out ) )
     {
@@ -1161,15 +1203,18 @@ bool ParseCommandLine( const CommandLineView& commandLine, SkullbonezCore::Core:
         config.Dump( stdout );
     }
     SkullbonezCore::Core::PlatformProfiler::SetEnabled( out.platformProfilerMarkers );
-    SkullbonezCore::Core::PlatformProfiler::SetDetailedRangesEnabled( out.platformProfilerMarkers &&
-                                                                      out.platformProfilerMarkersExplicit );
+    SkullbonezCore::Core::PlatformProfiler::SetDetailedRangesEnabled(
+        out.platformProfilerMarkers && out.platformProfilerMarkersExplicit
+    );
     if ( out.platformProfilerMarkers )
     {
-        fprintf( stdout,
-                 SkullbonezCore::Core::PlatformProfiler::IsAvailable()
-                     ? "[platform-profiler] Platform profiler marker emission enabled.\n"
-                     : "[platform-profiler] Platform profiler marker emission unavailable in this build; continuing "
-                       "with in-engine profiler markers only.\n" );
+        fprintf(
+            stdout,
+            SkullbonezCore::Core::PlatformProfiler::IsAvailable()
+                ? "[platform-profiler] Platform profiler marker emission enabled.\n"
+                : "[platform-profiler] Platform profiler marker emission unavailable in this build; continuing "
+                  "with in-engine profiler markers only.\n"
+        );
     }
     return true;
 }

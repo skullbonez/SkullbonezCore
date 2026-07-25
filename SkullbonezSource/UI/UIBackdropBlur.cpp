@@ -72,13 +72,15 @@ UIBackdropBlurInvalidationReason UIBackdropBlur::LastInvalidationReason() const
 }
 
 
-void UIBackdropBlur::Draw( const UIDrawContext& draw,
-                           const UIRect& bounds,
-                           int screenW,
-                           int screenH,
-                           int currentFrame,
-                           double now,
-                           bool enabled )
+void UIBackdropBlur::Draw(
+    const UIDrawContext& draw,
+    const UIRect& bounds,
+    int screenW,
+    int screenH,
+    int currentFrame,
+    double now,
+    bool enabled
+)
 {
     (void)currentFrame;
     (void)now;
@@ -117,5 +119,6 @@ void UIBackdropBlur::Draw( const UIDrawContext& draw,
                                   static_cast<float>( m_lastY ),
                                   static_cast<float>( m_lastW ),
                                   static_cast<float>( m_lastH ) };
+
     draw.RoundedPanel( paddedBounds, Style::Radii().window, fill, border );
 }

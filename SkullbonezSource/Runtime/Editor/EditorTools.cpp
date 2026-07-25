@@ -64,8 +64,10 @@ int ClampEditorObjectType( int objectType )
     return std::clamp( objectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
 }
 
-static_assert( UI::EditorTab::OBJECT_TYPE_COUNT == 37,
-               "Update editor placement scale classification when adding editor object types." );
+static_assert(
+    UI::EditorTab::OBJECT_TYPE_COUNT == 37,
+    "Update editor placement scale classification when adding editor object types."
+);
 } // namespace
 
 int EditorMouseWheelSteps( int wheelDelta )
@@ -191,21 +193,27 @@ Vector3 EditorClampPlacementScale( int objectType, const Vector3& scale )
 
     if ( EditorPlacementUsesHullScaleFactors( type ) )
     {
-        return Vector3( std::clamp( scale.x, 0.05f, 20.0f ),
-                        std::clamp( scale.y, 0.05f, 20.0f ),
-                        std::clamp( scale.z, 0.05f, 20.0f ) );
+        return Vector3(
+            std::clamp( scale.x, 0.05f, 20.0f ),
+            std::clamp( scale.y, 0.05f, 20.0f ),
+            std::clamp( scale.z, 0.05f, 20.0f )
+        );
     }
 
-    return Vector3( std::clamp( scale.x, 0.25f, 200.0f ),
-                    std::clamp( scale.y, 0.25f, 200.0f ),
-                    std::clamp( scale.z, 0.25f, 200.0f ) );
+    return Vector3(
+        std::clamp( scale.x, 0.25f, 200.0f ),
+        std::clamp( scale.y, 0.25f, 200.0f ),
+        std::clamp( scale.z, 0.25f, 200.0f )
+    );
 }
 
-Vector3 EditorPlacementScaleFromGesture( int objectType,
-                                         const Vector3& startScale,
-                                         float dragPixelsX,
-                                         float dragPixelsY,
-                                         int wheelSteps )
+Vector3 EditorPlacementScaleFromGesture(
+    int objectType,
+    const Vector3& startScale,
+    float dragPixelsX,
+    float dragPixelsY,
+    int wheelSteps
+)
 {
     const int type = ClampEditorObjectType( objectType );
     if ( EditorPlacementUsesUniformScale( type ) )
@@ -379,8 +387,8 @@ SelectEditorObjectType( EditorGizmoContext context, int requestedObjectType, boo
 }
 
 
-EditorPlacementPreModeUICommandResult ApplyEditorPlacementPreModeUICommands( EditorGizmoContext context,
-                                                                             const UI::UIEditorCommands& commands )
+EditorPlacementPreModeUICommandResult
+ApplyEditorPlacementPreModeUICommands( EditorGizmoContext context, const UI::UIEditorCommands& commands )
 {
     EditorPlacementPreModeUICommandResult result;
     result.toggleEditorMode = commands.toggleEditorMode;
@@ -400,8 +408,8 @@ EditorPlacementPreModeUICommandResult ApplyEditorPlacementPreModeUICommands( Edi
 }
 
 
-EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( EditorGizmoContext context,
-                                                                               const UI::UIEditorCommands& commands )
+EditorPlacementPostModeUICommandResult
+ApplyEditorPlacementPostModeUICommands( EditorGizmoContext context, const UI::UIEditorCommands& commands )
 {
     RunEditorPlacementState& editor = context.editor;
     EditorPlacementPostModeUICommandResult result;
@@ -434,32 +442,37 @@ void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction
 
         static int sSnapshotSeq = 0;
         char path[256] = {};
-        if ( RuntimeFileWriter::NextNumberedPath( path,
-                                                  sizeof( path ),
-                                                  "Scenes",
-                                                  "snapshot_",
-                                                  ".scene.json",
-                                                  sSnapshotSeq,
-                                                  100 ) )
+
+        if ( RuntimeFileWriter::NextNumberedPath(
+                 path,
+                 sizeof( path ),
+                 "Scenes",
+                 "snapshot_",
+                 ".scene.json",
+                 sSnapshotSeq,
+                 100
+             ) )
         {
             // Lifetime: the save view borrows cold owner arrays only for this
             // synchronous file write; editor input retains none of the rows.
             const auto& joints = Physics::PhysicsEngine::ReadPointJointConstraints( context.world.Physics() );
-            const SceneSaveView saveView{ context.world.Entities(),
-                                          context.world.BodyStore(),
-                                          context.world.Colliders(),
-                                          joints.data(),
-                                          static_cast<int>( joints.size() ),
-                                          context.world.Environment().GetGravity(),
-                                          context.world.Environment().GetFluidSurfaceHeight(),
-                                          context.world.Environment().GetFluidDensity(),
-                                          context.world.Environment().GetMutualGravitySettings() };
-            const SceneSaveRequest request{ path,
-                                            context.world.Cameras().GetCameraTranslation(),
-                                            context.world.Cameras().GetCameraView(),
-                                            context.world.Cameras().GetCameraUp(),
-                                            context.scene.isScenePhysics,
-                                            context.scene.isSceneText };
+            const SceneSaveView saveView { context.world.Entities(),
+                                           context.world.BodyStore(),
+                                           context.world.Colliders(),
+                                           joints.data(),
+                                           static_cast<int>( joints.size() ),
+                                           context.world.Environment().GetGravity(),
+                                           context.world.Environment().GetFluidSurfaceHeight(),
+                                           context.world.Environment().GetFluidDensity(),
+                                           context.world.Environment().GetMutualGravitySettings() };
+
+            const SceneSaveRequest request { path,
+                                             context.world.Cameras().GetCameraTranslation(),
+                                             context.world.Cameras().GetCameraView(),
+                                             context.world.Cameras().GetCameraUp(),
+                                             context.scene.isScenePhysics,
+                                             context.scene.isSceneText };
+
             const SkullbonezCore::Core::SbResult saveResult = SceneSnapshotWriter::Save( saveView, request );
             if ( !saveResult.ok )
             {
@@ -478,13 +491,16 @@ void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction
 
         static int sScreenshotSeq = 0;
         char path[256] = {};
-        if ( RuntimeFileWriter::NextNumberedPath( path,
-                                                  sizeof( path ),
-                                                  "Screenshots",
-                                                  "screenshot_",
-                                                  ".bmp",
-                                                  sScreenshotSeq,
-                                                  100 ) )
+
+        if ( RuntimeFileWriter::NextNumberedPath(
+                 path,
+                 sizeof( path ),
+                 "Screenshots",
+                 "screenshot_",
+                 ".bmp",
+                 sScreenshotSeq,
+                 100
+             ) )
         {
             const SkullbonezCore::Core::SbResult queueResult = context.capture.QueueScreenshot( path );
             if ( !queueResult.ok )

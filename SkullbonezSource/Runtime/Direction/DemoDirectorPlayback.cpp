@@ -208,10 +208,12 @@ void ApplyPhaseRevealRateIfNeeded( DemoDirectorPlaybackState& director, DemoDire
     director.appliedRevealRatePhaseIndex = director.currentPhaseIndex;
     director.appliedRevealRate = revealRate;
     ++director.appliedRevealRateCount;
-    std::printf( "[demo-director] applied reveal rate %.3f for phase %d (%s)\n",
-                 static_cast<double>( revealRate ),
-                 director.currentPhaseIndex,
-                 phase.name[0] ? phase.name : "<unnamed>" );
+    std::printf(
+        "[demo-director] applied reveal rate %.3f for phase %d (%s)\n",
+        static_cast<double>( revealRate ),
+        director.currentPhaseIndex,
+        phase.name[0] ? phase.name : "<unnamed>"
+    );
 }
 
 void ApplyPhaseStyleIfNeeded( DemoDirectorPlaybackState& director, SceneRuntimeStyleContext styleContext )
@@ -240,10 +242,12 @@ void ApplyPhaseStyleIfNeeded( DemoDirectorPlaybackState& director, SceneRuntimeS
     {
         ApplyLiveStyleScene( styleContext, styleScene );
         ++director.appliedStyleCount;
-        std::printf( "[demo-director] applied style %s for phase %d (%s)\n",
-                     phase.stylePath,
-                     director.currentPhaseIndex,
-                     phase.name[0] ? phase.name : "<unnamed>" );
+        std::printf(
+            "[demo-director] applied style %s for phase %d (%s)\n",
+            phase.stylePath,
+            director.currentPhaseIndex,
+            phase.name[0] ? phase.name : "<unnamed>"
+        );
     }
     else
     {
@@ -273,9 +277,11 @@ bool LoadShotList( CameraControlState& camera, Environment::CameraCollection& ca
     CopyShotListPath( nextState, path );
     camera.director = nextState;
 
-    std::printf( "[demo-director] loaded %d phase(s) from %s\n",
-                 loadedShotList.phaseCount,
-                 path && path[0] ? path : "<null-path>" );
+    std::printf(
+        "[demo-director] loaded %d phase(s) from %s\n",
+        loadedShotList.phaseCount,
+        path && path[0] ? path : "<null-path>"
+    );
     return true;
 }
 
@@ -364,9 +370,12 @@ bool SetCurrentPhasePose( CameraControlState& camera, Environment::CameraCollect
     director.poseCapturedAtGrab = pose;
     director.blendStartPose = pose;
     director.blendElapsedSeconds = 0.0f;
-    std::printf( "[demo-director] captured pose for phase %d (%s)\n",
-                 director.currentPhaseIndex,
-                 phase.name[0] ? phase.name : "<unnamed>" );
+    std::printf(
+        "[demo-director] captured pose for phase %d (%s)\n",
+        director.currentPhaseIndex,
+        phase.name[0] ? phase.name : "<unnamed>"
+    );
+
     return true;
 }
 
@@ -384,10 +393,13 @@ bool SetCurrentPhaseStyle( CameraControlState& camera, const char* stylePath )
     // active. Clearing only the style attempt lets the next tick apply the new
     // style without recounting reveal-rate application for the same phase.
     ResetPhaseStyleApplication( director );
-    std::printf( "[demo-director] set style for phase %d (%s) to %s\n",
-                 director.currentPhaseIndex,
-                 phase.name[0] ? phase.name : "<unnamed>",
-                 phase.stylePath[0] ? phase.stylePath : "<empty>" );
+    std::printf(
+        "[demo-director] set style for phase %d (%s) to %s\n",
+        director.currentPhaseIndex,
+        phase.name[0] ? phase.name : "<unnamed>",
+        phase.stylePath[0] ? phase.stylePath : "<empty>"
+    );
+
     return true;
 }
 
@@ -410,9 +422,12 @@ bool SelectNextPhaseForAuthoring( CameraControlState& camera, Environment::Camer
     ResetPhaseEntryApplications( director );
     ResetBlendFromCurrentPose( director, cameras );
     const DemoPhase& phase = CurrentPhase( director );
-    std::printf( "[demo-director] selected phase %d (%s)\n",
-                 director.currentPhaseIndex,
-                 phase.name[0] ? phase.name : "<unnamed>" );
+    std::printf(
+        "[demo-director] selected phase %d (%s)\n",
+        director.currentPhaseIndex,
+        phase.name[0] ? phase.name : "<unnamed>"
+    );
+
     return true;
 }
 
@@ -425,16 +440,21 @@ bool SaveShotList( const CameraControlState& camera )
     }
 
     const bool saved = SaveDemoShotList( director.activeShotListPath, director.activeShotList );
-    std::printf( "[demo-director] %s shot list to %s\n",
-                 saved ? "saved" : "failed to save",
-                 director.activeShotListPath );
+    std::printf(
+        "[demo-director] %s shot list to %s\n",
+        saved ? "saved" : "failed to save",
+        director.activeShotListPath
+    );
+
     return saved;
 }
 
-DemoDirectorTickResult Tick( CameraControlState& camera,
-                             DemoDirectorPredictionView prediction,
-                             SceneRuntimeStyleContext styleContext,
-                             float cameraDt )
+DemoDirectorTickResult Tick(
+    CameraControlState& camera,
+    DemoDirectorPredictionView prediction,
+    SceneRuntimeStyleContext styleContext,
+    float cameraDt
+)
 {
     DemoDirectorTickResult result;
     DemoDirectorPlaybackState& director = camera.director;

@@ -95,14 +95,15 @@ const RuntimeInputKeyBinding kTakeInputKeyboardBindings[] = {
     { VK_F2, RuntimeInputAction::SaveSceneSnapshot, kCaptureContext },
     { VK_F3, RuntimeInputAction::SaveScreenshot, kCaptureContext },
     { 'R', RuntimeInputAction::ResetScene, kAfterUIUpdateContext },
-    { VK_BACK, RuntimeInputAction::ResetSceneFromBackspace, kAfterUIUpdateContext | InputBindingContext::Scene } };
+    { VK_BACK, RuntimeInputAction::ResetSceneFromBackspace, kAfterUIUpdateContext | InputBindingContext::Scene }
+};
 constexpr std::size_t kTakeInputKeyboardBindingCount =
     sizeof( kTakeInputKeyboardBindings ) / sizeof( kTakeInputKeyboardBindings[0] );
 } // namespace
 
 RuntimeInputKeyBindingView TakeInputKeyboardBindings()
 {
-    return RuntimeInputKeyBindingView{ kTakeInputKeyboardBindings, kTakeInputKeyboardBindingCount };
+    return RuntimeInputKeyBindingView { kTakeInputKeyboardBindings, kTakeInputKeyboardBindingCount };
 }
 } // namespace Runtime
 } // namespace SkullbonezCore

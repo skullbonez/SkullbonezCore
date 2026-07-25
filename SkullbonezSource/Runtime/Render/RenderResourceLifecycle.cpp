@@ -41,16 +41,13 @@ using namespace SkullbonezCore::Runtime;
 namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 namespace Rendering = SkullbonezCore::Rendering;
 
-RenderResourceLifecycle::RenderResourceLifecycle( RuntimeRenderBackendView backend,
-                                                  const RenderWorldView& world,
-                                                  const SceneSessionState& scene )
-    : m_backend{ backend.renderFrame,
-                 backend.renderGraph,
-                 backend.renderResources,
-                 backend.renderTextures,
-                 backend.renderGeometry,
-                 backend.renderDiagnostics,
-                 backend.raytracing },
+RenderResourceLifecycle::RenderResourceLifecycle(
+    RuntimeRenderBackendView backend,
+    const RenderWorldView& world,
+    const SceneSessionState& scene
+)
+    : m_backend { backend.renderFrame,    backend.renderGraph,       backend.renderResources, backend.renderTextures,
+                  backend.renderGeometry, backend.renderDiagnostics, backend.raytracing },
       m_lifecycleLog( backend.renderDevice, scene ), m_assets( world.assets ), m_terrain( world.terrain ),
       m_config( world.config ),
       m_primitiveBatches( std::in_place, backend.renderResources, backend.renderTextures, backend.renderGeometry ),
@@ -124,12 +121,14 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseProcessResourc
 SkullbonezCore::Core::SbResult RenderResourceLifecycle::EnsureUiTextResources( int screenW, int screenH )
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
-    return m_uiTextPass.EnsureGpuResources( *m_backend.renderResources,
-                                            *m_backend.renderTextures,
-                                            *m_backend.renderGeometry,
-                                            m_assets,
-                                            screenW,
-                                            screenH );
+    return m_uiTextPass.EnsureGpuResources(
+        *m_backend.renderResources,
+        *m_backend.renderTextures,
+        *m_backend.renderGeometry,
+        m_assets,
+        screenW,
+        screenH
+    );
 }
 
 
@@ -151,18 +150,21 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseSceneRayTracin
         {
             // Lane F: capability publication without the resource facets needed
             // to build the renderer-owned primitive mesh is invalid wiring.
-            SB_FATAL( "RenderResourceLifecycle",
-                      "DXR reflection initialization requires concrete resource owners. resources=%d geometry=%d",
-                      m_backend.renderResources ? 1 : 0,
-                      m_backend.renderGeometry ? 1 : 0 );
+            SB_FATAL(
+                "RenderResourceLifecycle",
+                "DXR reflection initialization requires concrete resource owners. resources=%d geometry=%d",
+                m_backend.renderResources ? 1 : 0,
+                m_backend.renderGeometry ? 1 : 0
+            );
         }
-        const Rendering::PrimitiveRenderContext primitiveContext{ *m_backend.renderResources,
-                                                                  *m_backend.renderTextures,
-                                                                  *m_backend.renderGeometry,
-                                                                  *renderDiagnostics,
-                                                                  m_assets,
-                                                                  m_config,
-                                                                  PrimitiveBatches() };
+        const Rendering::PrimitiveRenderContext primitiveContext { *m_backend.renderResources,
+                                                                   *m_backend.renderTextures,
+                                                                   *m_backend.renderGeometry,
+                                                                   *renderDiagnostics,
+                                                                   m_assets,
+                                                                   m_config,
+                                                                   PrimitiveBatches() };
+
         PrimitiveBatches().EnsureSphereMesh( primitiveContext );
         sphereGeometry = PrimitiveBatches().SphereGeometry();
     }
@@ -182,19 +184,21 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseSceneRayTracin
 
     // Lane R: device resource creation and shader bytecode failures remain a
     // recoverable renderer result reported through the scene-load transaction.
-    const Rendering::RaytracingSetupDesc setup{
+    const Rendering::RaytracingSetupDesc setup {
         { terrainVBVA, terrainMesh->GetVertexCount(), terrainMesh->GetStride() },
         { sphereVBVA, sphereGeometry.vertexCount, rayTracing->GetInstancedMeshStaticStride( sphereHandle ) },
         modelCapacity,
     };
+
     return rayTracing->InitDXR( setup );
 }
 
 
-RuntimeRenderTargetPreviewSnapshot
-RenderResourceLifecycle::BuildRenderTargetPreviewSnapshot( bool shadowsAvailable,
-                                                           bool cinematicTargetsAvailable,
-                                                           bool volumetricAvailable ) const
+RuntimeRenderTargetPreviewSnapshot RenderResourceLifecycle::BuildRenderTargetPreviewSnapshot(
+    bool shadowsAvailable,
+    bool cinematicTargetsAvailable,
+    bool volumetricAvailable
+) const
 {
     RuntimeRenderTargetPreviewSnapshot snapshot;
     const auto append = [&]( const char* label, const Rendering::FramebufferDX12* target, bool depth, bool available )

@@ -57,8 +57,8 @@ Environment::FluidSurfaceAdjustment BuildFluidSurfaceAdjustment( const InputKeyS
         return {};
     }
 
-    return Environment::FluidSurfaceAdjustment{ raise ? FLUID_SURFACE_CONTROL_SPEED_METERS_PER_SECOND
-                                                      : -FLUID_SURFACE_CONTROL_SPEED_METERS_PER_SECOND };
+    return Environment::FluidSurfaceAdjustment { raise ? FLUID_SURFACE_CONTROL_SPEED_METERS_PER_SECOND
+                                                       : -FLUID_SURFACE_CONTROL_SPEED_METERS_PER_SECOND };
 }
 } // namespace
 
@@ -88,7 +88,7 @@ InputKeySnapshot InputKeySnapshot::FromDownKeys( const int* virtualKeys, std::si
         }
 
         const std::size_t word = static_cast<std::size_t>( virtualKey ) / 64u;
-        const uint64_t bit = uint64_t{ 1 } << ( static_cast<unsigned int>( virtualKey ) & 63u );
+        const uint64_t bit = uint64_t { 1 } << ( static_cast<unsigned int>( virtualKey ) & 63u );
         snapshot.m_words[word] |= bit;
     }
     return snapshot;
@@ -103,7 +103,7 @@ bool InputKeySnapshot::IsDown( int virtualKey ) const
     }
 
     const std::size_t word = static_cast<std::size_t>( virtualKey ) / 64u;
-    const uint64_t bit = uint64_t{ 1 } << ( static_cast<unsigned int>( virtualKey ) & 63u );
+    const uint64_t bit = uint64_t { 1 } << ( static_cast<unsigned int>( virtualKey ) & 63u );
     return ( m_words[word] & bit ) != 0u;
 }
 
@@ -199,10 +199,12 @@ const InputActions& InputRouter::Actions() const
 }
 
 
-void InputRouter::BeginFrame( const DeviceInputFrame& frame,
-                              RuntimeInputKeyBindingView bindings,
-                              InputActions& output,
-                              UiInputCaptureIntent capture )
+void InputRouter::BeginFrame(
+    const DeviceInputFrame& frame,
+    RuntimeInputKeyBindingView bindings,
+    InputActions& output,
+    UiInputCaptureIntent capture
+)
 {
     const bool keyboardCaptured = capture.keyboard || capture.text;
     const bool captureReleased = ( m_keyboardCaptured && !keyboardCaptured ) || ( m_mouseCaptured && !capture.mouse );
@@ -294,10 +296,12 @@ void InputRouter::BeginFrame( const DeviceInputFrame& frame,
 }
 
 
-void InputRouter::RoutePhase( RuntimeInputKeyBindingView bindings,
-                              InputActionPhase phase,
-                              RuntimeInputContextMask activeContexts,
-                              InputActions& output )
+void InputRouter::RoutePhase(
+    RuntimeInputKeyBindingView bindings,
+    InputActionPhase phase,
+    RuntimeInputContextMask activeContexts,
+    InputActions& output
+)
 {
     if ( !m_frameFocused || !bindings.bindings || !IsPhaseValid( phase ) )
     {
@@ -315,6 +319,7 @@ void InputRouter::RoutePhase( RuntimeInputKeyBindingView bindings,
 
     const RuntimeInputContextMask effectiveContexts = EffectiveContexts( phase, activeContexts );
     std::array<bool, ACTION_COUNT> routedThisCall = {};
+
     for ( std::size_t bindingIndex = 0; bindingIndex < bindings.count; ++bindingIndex )
     {
         const RuntimeInputKeyBinding& binding = bindings.bindings[bindingIndex];
@@ -336,11 +341,13 @@ void InputRouter::RoutePhase( RuntimeInputKeyBindingView bindings,
         const bool contextActive = ContextsSatisfied( binding.contexts, effectiveContexts );
         if ( m_actionDelivered[actionIndex] && ( observedEdge == InputActionEdge::Released || !contextActive ) )
         {
-            output.TryAppend( InputActionEvent{ binding.action,
-                                                RuntimeInputActionSource::Keyboard,
-                                                phase,
-                                                InputActionEdge::Released,
-                                                binding.virtualKey } );
+            output.TryAppend(
+                InputActionEvent { binding.action,
+                                   RuntimeInputActionSource::Keyboard,
+                                   phase,
+                                   InputActionEdge::Released,
+                                   binding.virtualKey }
+            );
             m_actionDelivered[actionIndex] = false;
             continue;
         }
@@ -352,22 +359,26 @@ void InputRouter::RoutePhase( RuntimeInputKeyBindingView bindings,
 
         if ( observedEdge == InputActionEdge::Pressed )
         {
-            if ( output.TryAppend( InputActionEvent{ binding.action,
-                                                     RuntimeInputActionSource::Keyboard,
-                                                     phase,
-                                                     InputActionEdge::Pressed,
-                                                     binding.virtualKey } ) )
+            if ( output.TryAppend(
+                     InputActionEvent { binding.action,
+                                        RuntimeInputActionSource::Keyboard,
+                                        phase,
+                                        InputActionEdge::Pressed,
+                                        binding.virtualKey }
+                 ) )
             {
                 m_actionDelivered[actionIndex] = true;
             }
         }
         else if ( observedEdge == InputActionEdge::Held && m_actionDelivered[actionIndex] )
         {
-            output.TryAppend( InputActionEvent{ binding.action,
-                                                RuntimeInputActionSource::Keyboard,
-                                                phase,
-                                                InputActionEdge::Held,
-                                                binding.virtualKey } );
+            output.TryAppend(
+                InputActionEvent { binding.action,
+                                   RuntimeInputActionSource::Keyboard,
+                                   phase,
+                                   InputActionEdge::Held,
+                                   binding.virtualKey }
+            );
         }
     }
 }
@@ -417,8 +428,8 @@ const UiInputHitSnapshot& InputRouter::UiSnapshot() const
 }
 
 
-RuntimeInputSnapshot InputRouter::BuildRuntimeSnapshot( const RuntimeInteractionFrameInput& frameInput,
-                                                        bool suppressWorldAction ) const
+RuntimeInputSnapshot
+InputRouter::BuildRuntimeSnapshot( const RuntimeInteractionFrameInput& frameInput, bool suppressWorldAction ) const
 {
     RuntimeInputSnapshot snapshot;
     snapshot.appFocused = m_deviceFrame.appFocused;
@@ -456,8 +467,8 @@ RuntimeInputSnapshot InputRouter::BuildRuntimeSnapshot( const RuntimeInteraction
 }
 
 
-const RuntimeInputSnapshot& InputRouter::PublishRuntimeSnapshot( const RuntimeInteractionFrameInput& frameInput,
-                                                                 bool suppressWorldAction )
+const RuntimeInputSnapshot&
+InputRouter::PublishRuntimeSnapshot( const RuntimeInteractionFrameInput& frameInput, bool suppressWorldAction )
 {
     m_runtimeSnapshot = BuildRuntimeSnapshot( frameInput, suppressWorldAction );
     return m_runtimeSnapshot;
@@ -713,11 +724,13 @@ void InputRouter::CaptureFocusLoss( RuntimeInputKeyBindingView bindings, InputAc
                 continue;
             }
             released[actionIndex] = true;
-            output.TryAppend( InputActionEvent{ binding.action,
-                                                RuntimeInputActionSource::FocusLost,
-                                                PhaseForBinding( binding ),
-                                                InputActionEdge::Released,
-                                                binding.virtualKey } );
+            output.TryAppend(
+                InputActionEvent { binding.action,
+                                   RuntimeInputActionSource::FocusLost,
+                                   PhaseForBinding( binding ),
+                                   InputActionEdge::Released,
+                                   binding.virtualKey }
+            );
         }
     }
 

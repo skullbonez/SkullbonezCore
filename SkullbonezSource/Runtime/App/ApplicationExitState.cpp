@@ -92,9 +92,11 @@ SkullbonezCore::Core::SbResult ApplicationExitState::Resolve( int messageExitCod
     {
         // Lane R: a platform/environment boundary asked the process to stop with
         // failure but did not provide richer owner diagnostics.
-        return SkullbonezCore::Core::SbResult::Failure( "Runtime/ApplicationExit",
-                                                        "application exit message reported nonzero code %d",
-                                                        messageExitCode );
+        return SkullbonezCore::Core::SbResult::Failure(
+            "Runtime/ApplicationExit",
+            "application exit message reported nonzero code %d",
+            messageExitCode
+        );
     }
 
     return SkullbonezCore::Core::SbResult::Success();

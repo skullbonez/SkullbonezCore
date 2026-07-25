@@ -186,7 +186,7 @@ BuildImGuiEditorCausalityContext( const ReplayOverlay::ReplayOverlayStateView& r
         usePredictionNodes ? replay.prediction.futureNodes.size() : replay.pathVisualizer.futureNodes.size();
     const std::size_t contactCount = selection.currentSolver
                                          ? selection.currentSolver->worldSnapshot.physics.persistentContacts.size()
-                                         : std::size_t{ 0u };
+                                         : std::size_t { 0u };
     const std::size_t estimatedRows = 1u + ( usePredictionNodes ? nodeCount * 2u : nodeCount ) + contactCount * 3u;
     const bool capacityLimited =
         replay.pathVisualizer.hasTarget && tree.rows.empty() && estimatedRows > tree.rows.capacity();

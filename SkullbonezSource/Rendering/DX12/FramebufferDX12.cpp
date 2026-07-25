@@ -54,13 +54,15 @@ static DXGI_FORMAT ToDX12ColorFormat( FramebufferColorFormat format )
 }
 
 
-FramebufferDX12::FramebufferDX12( Dx12RenderDevice& device,
-                                  Dx12PipelineOwner& pipeline,
-                                  Dx12TextureOwner& textures,
-                                  Dx12DescriptorHeaps& descriptors,
-                                  Dx12DrawGate& drawGate,
-                                  Dx12ResourceRelease& resourceRelease,
-                                  FramebufferColorFormat colorFormat )
+FramebufferDX12::FramebufferDX12(
+    Dx12RenderDevice& device,
+    Dx12PipelineOwner& pipeline,
+    Dx12TextureOwner& textures,
+    Dx12DescriptorHeaps& descriptors,
+    Dx12DrawGate& drawGate,
+    Dx12ResourceRelease& resourceRelease,
+    FramebufferColorFormat colorFormat
+)
     : m_device( device ), m_pipeline( pipeline ), m_textures( textures ), m_descriptors( descriptors ),
       m_drawGate( drawGate ), m_resourceRelease( resourceRelease ), m_colorTexture( nullptr ),
       m_depthTexture( nullptr ), m_rtvIndex( UINT_MAX ), m_dsvIndex( UINT_MAX ), m_srvIndex( UINT_MAX ),
@@ -111,6 +113,7 @@ bool FramebufferDX12::Create( int width, int height )
 
     float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
     D3D12_CLEAR_VALUE colorClear = {};
+
     colorClear.Format = colorFormat;
     memcpy( colorClear.Color, clearColor, sizeof( clearColor ) );
 
@@ -118,12 +121,15 @@ bool FramebufferDX12::Create( int width, int height )
     // "Committed" means this texture gets its own dedicated GPU memory allocation. The initial
     // state is PIXEL_SHADER_RESOURCE because when not actively rendering to it, shaders read it.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    const HRESULT colorResult = device->CreateCommittedResource( &defaultHeap,
-                                                                 D3D12_HEAP_FLAG_NONE,
-                                                                 &colorDesc,
-                                                                 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-                                                                 &colorClear,
-                                                                 IID_PPV_ARGS( &m_colorTexture ) );
+    const HRESULT colorResult = device->CreateCommittedResource(
+        &defaultHeap,
+        D3D12_HEAP_FLAG_NONE,
+        &colorDesc,
+        D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+        &colorClear,
+        IID_PPV_ARGS( &m_colorTexture )
+    );
+
     if ( FAILED( colorResult ) )
     {
         // Lane R: off-screen targets are optional render resources for
@@ -134,7 +140,8 @@ bool FramebufferDX12::Create( int width, int height )
             static_cast<unsigned int>( colorResult ),
             width,
             height,
-            static_cast<unsigned int>( colorFormat ) );
+            static_cast<unsigned int>( colorFormat )
+        );
         SkullbonezCore::Core::Log().FlushAll();
         return false;
     }
@@ -162,19 +169,23 @@ bool FramebufferDX12::Create( int width, int height )
     // Initial state is shader-readable so the graph's first producer edge uses
     // the same before-state as every later frame.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    const HRESULT depthResult = device->CreateCommittedResource( &defaultHeap,
-                                                                 D3D12_HEAP_FLAG_NONE,
-                                                                 &depthDesc,
-                                                                 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-                                                                 &depthClear,
-                                                                 IID_PPV_ARGS( &m_depthTexture ) );
+    const HRESULT depthResult = device->CreateCommittedResource(
+        &defaultHeap,
+        D3D12_HEAP_FLAG_NONE,
+        &depthDesc,
+        D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+        &depthClear,
+        IID_PPV_ARGS( &m_depthTexture )
+    );
+
     if ( FAILED( depthResult ) )
     {
         SkullbonezCore::Core::Log().WriteEventf(
             "dx12_framebuffer_depth_create_failed hresult=0x%08X width=%d height=%d",
             static_cast<unsigned int>( depthResult ),
             width,
-            height );
+            height
+        );
         SkullbonezCore::Core::Log().FlushAll();
         ResetResources();
         return false;
@@ -197,6 +208,7 @@ bool FramebufferDX12::Create( int width, int height )
     m_dsvIndex = dsvAllocation.index;
     m_dsvHandle = dsvAllocation.cpuHandle;
     D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
+
     dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
     dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
     // Create a Depth Stencil View (DSV). This descriptor tells the GPU how to
@@ -233,9 +245,8 @@ bool FramebufferDX12::Create( int width, int height )
     depthSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
     depthSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     depthSrvDesc.Texture2D.MipLevels = 1;
-    device->CreateShaderResourceView( m_depthTexture,
-                                      &depthSrvDesc,
-                                      m_descriptors.StagingCpuHandle( m_depthSrvIndex ) );
+    device
+        ->CreateShaderResourceView( m_depthTexture, &depthSrvDesc, m_descriptors.StagingCpuHandle( m_depthSrvIndex ) );
     m_descriptors.PublishStaticDescriptor( device, m_depthSrvIndex );
     m_depthTexHandle = m_textures.RegisterSRV( m_depthSrvIndex, m_depthTexture );
     m_width = width;

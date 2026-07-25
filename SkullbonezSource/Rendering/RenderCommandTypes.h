@@ -179,10 +179,12 @@ struct RetainedTrajectoryDrawRange
 // Appends one already-styled compact record into its stable trajectory slice.
 // Invariant: only the formerly open tail may change; every earlier record and
 // every sibling range remain byte-for-byte stable.
-inline bool AppendRetainedTrajectoryRecord( std::span<float> arena,
-                                            RetainedTrajectoryDrawRange& range,
-                                            const std::array<float, RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT>& incoming,
-                                            float continuityToleranceSquared ) noexcept
+inline bool AppendRetainedTrajectoryRecord(
+    std::span<float> arena,
+    RetainedTrajectoryDrawRange& range,
+    const std::array<float, RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT>& incoming,
+    float continuityToleranceSquared
+) noexcept
 {
     if ( range.segmentCount >= range.segmentCapacity )
     {
@@ -227,12 +229,13 @@ inline bool AppendRetainedTrajectoryRecord( std::span<float> arena,
 // Appends the first record of a non-contiguous continuation chunk and repairs
 // adjacency across the physical gap. Only the previous chunk's final compact
 // record changes; its source token is advanced so GPU caches refresh that tail.
-inline bool
-AppendRetainedTrajectoryContinuationRecord( std::span<float> arena,
-                                            RetainedTrajectoryDrawRange& previousRange,
-                                            RetainedTrajectoryDrawRange& range,
-                                            const std::array<float, RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT>& incoming,
-                                            float continuityToleranceSquared ) noexcept
+inline bool AppendRetainedTrajectoryContinuationRecord(
+    std::span<float> arena,
+    RetainedTrajectoryDrawRange& previousRange,
+    RetainedTrajectoryDrawRange& range,
+    const std::array<float, RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT>& incoming,
+    float continuityToleranceSquared
+) noexcept
 {
     if ( range.segmentCount != 0u )
     {

@@ -53,10 +53,12 @@ using Math::Vector::VectorMagSquared;
 using Physics::PhysicsBodyRecord;
 using Physics::PhysicsBodyStore;
 
-MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const MousePickupPointerInput& input,
-                                                                const SceneWorld& world,
-                                                                InputRouter& inputRouter,
-                                                                RuntimeInteractionController& interaction )
+MousePickupPointerResult RuntimeTools::RouteMousePickupPointer(
+    const MousePickupPointerInput& input,
+    const SceneWorld& world,
+    InputRouter& inputRouter,
+    RuntimeInteractionController& interaction
+)
 {
     MousePickupPointerResult routeResult;
     if ( !input.manipulatorMode || input.editorMode || input.replayInspection )
@@ -202,9 +204,11 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const MousePicku
 }
 
 
-void RuntimeTools::ApplyMousePickupPhysicsStep( SceneWorld& world,
-                                                InputRouter& inputRouter,
-                                                RuntimeInteractionController& interaction )
+void RuntimeTools::ApplyMousePickupPhysicsStep(
+    SceneWorld& world,
+    InputRouter& inputRouter,
+    RuntimeInteractionController& interaction
+)
 {
     if ( interaction.Gesture().kind != RuntimeInteractionGestureKind::MousePickupDrag )
     {
@@ -261,9 +265,11 @@ void RuntimeTools::ApplyMousePickupPhysicsStep( SceneWorld& world,
 }
 
 
-void RuntimeTools::RestoreMousePickupAngularVelocity( SceneWorld& world,
-                                                      InputRouter& inputRouter,
-                                                      RuntimeInteractionController& interaction )
+void RuntimeTools::RestoreMousePickupAngularVelocity(
+    SceneWorld& world,
+    InputRouter& inputRouter,
+    RuntimeInteractionController& interaction
+)
 {
     if ( interaction.Gesture().kind != RuntimeInteractionGestureKind::MousePickupDrag )
     {
@@ -289,10 +295,12 @@ void RuntimeTools::RestoreMousePickupAngularVelocity( SceneWorld& world,
         return;
     }
 
-    if ( !physics.SetBodyVelocity( pickup.body,
-                                   PhysicsBodyLinearVelocity( hotFields, hotIndex ),
-                                   pickup.preservedAngularVelocity,
-                                   false ) )
+    if ( !physics.SetBodyVelocity(
+             pickup.body,
+             PhysicsBodyLinearVelocity( hotFields, hotIndex ),
+             pickup.preservedAngularVelocity,
+             false
+         ) )
     {
         CancelMousePickup( inputRouter, interaction );
     }

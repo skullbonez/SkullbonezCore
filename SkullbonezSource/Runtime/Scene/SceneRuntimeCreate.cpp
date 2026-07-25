@@ -164,14 +164,16 @@ bool WriteStarterSceneFile( const std::filesystem::path& path, const std::string
               { "slopeZ", 0.0f },
           } },
     };
-    scene["cameras"] = Json::array( {
+    scene["cameras"] = Json::array(
         {
-            { "name", "main" },
-            { "position", Json::array( { 500.0f, 120.0f, 760.0f } ) },
-            { "view", Json::array( { 500.0f, 45.0f, 500.0f } ) },
-            { "up", Json::array( { 0.0f, 1.0f, 0.0f } ) },
-        },
-    } );
+            {
+                { "name", "main" },
+                { "position", Json::array( { 500.0f, 120.0f, 760.0f } ) },
+                { "view", Json::array( { 500.0f, 45.0f, 500.0f } ) },
+                { "up", Json::array( { 0.0f, 1.0f, 0.0f } ) },
+            },
+        }
+    );
     scene["objects"] = Json::array();
     output << scene.dump( 2 ) << '\n';
     return output.good();
@@ -194,17 +196,21 @@ SceneLoadRequest CreateSceneFromUI( SceneRuntimeCreateContext context, const cha
     std::filesystem::create_directories( sceneDir, ec );
     if ( ec )
     {
-        SkullbonezCore::Core::Log().WriteEventf( "scene_create_failed name=\"%s\" reason=\"mkdir\" message=\"%s\"",
-                                                 cleanName.c_str(),
-                                                 ec.message().c_str() );
+        SkullbonezCore::Core::Log().WriteEventf(
+            "scene_create_failed name=\"%s\" reason=\"mkdir\" message=\"%s\"",
+            cleanName.c_str(),
+            ec.message().c_str()
+        );
         return SceneLoadRequest::None();
     }
 
     const std::filesystem::path scenePath = UniqueScenePath( sceneDir, cleanName, ec );
     if ( scenePath.empty() || !WriteStarterSceneFile( scenePath, cleanName ) )
     {
-        SkullbonezCore::Core::Log().WriteEventf( "scene_create_failed name=\"%s\" reason=\"write\"",
-                                                 cleanName.c_str() );
+        SkullbonezCore::Core::Log().WriteEventf(
+            "scene_create_failed name=\"%s\" reason=\"write\"",
+            cleanName.c_str()
+        );
         return SceneLoadRequest::None();
     }
 

@@ -592,9 +592,11 @@ class EngineConfig
 
 inline int ActiveSceneObjectCapacity( const EngineConfig& config )
 {
-    return std::clamp( config.runtimeCapacity.sceneObjectCapacity,
-                       1,
-                       SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    return std::clamp(
+        config.runtimeCapacity.sceneObjectCapacity,
+        1,
+        SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS
+    );
 }
 
 } // namespace Core

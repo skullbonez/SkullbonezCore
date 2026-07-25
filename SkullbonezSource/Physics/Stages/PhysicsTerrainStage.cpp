@@ -56,10 +56,12 @@ bool IsSolverBodyFixed( const PhysicsBodyHotFieldsConstView& hotFields, int body
     return hotFields.fixed[static_cast<size_t>( bodyIndex )] != 0u;
 }
 
-TerrainContactBodyView TerrainContactBodyViewForIndex( std::span<const PhysicsBodyRecord> bodyRecords,
-                                                       const PhysicsBodyHotFieldsConstView& hotFields,
-                                                       const PhysicsRuntimeSettings& settings,
-                                                       int index )
+TerrainContactBodyView TerrainContactBodyViewForIndex(
+    std::span<const PhysicsBodyRecord> bodyRecords,
+    const PhysicsBodyHotFieldsConstView& hotFields,
+    const PhysicsRuntimeSettings& settings,
+    int index
+)
 {
     const PhysicsBodyRecord& record = bodyRecords[static_cast<size_t>( index )];
     const size_t bodyIndex = static_cast<size_t>( index );
@@ -116,7 +118,8 @@ void PhysicsTerrainStage::DetectTerrainAt( const TerrainDetectionStageContext& c
         context.profiler,
         TerrainContactBodyViewForIndex( context.bodyRecords, context.hotFields, context.settings, bodyIndex ),
         context.colliderRecords[static_cast<size_t>( bodyIndex )].shape,
-        candidate.availableTime );
+        candidate.availableTime
+    );
     candidate.tested = 1;
 }
 
@@ -125,23 +128,27 @@ void PhysicsTerrainStage::TerrainDetectionStage::operator()( int bodySlot ) cons
     stage.DetectTerrainAt( context, bodyIndices[static_cast<std::size_t>( bodySlot )] );
 }
 
-void PhysicsTerrainStage::Detect( const TerrainDetectionStageContext& context,
-                                  int modelCount,
-                                  std::span<const int> awakeBodyIndices,
-                                  const PhysicsExecutionSettings& execution,
-                                  Threading::WorkerPool& workerPool )
+void PhysicsTerrainStage::Detect(
+    const TerrainDetectionStageContext& context,
+    int modelCount,
+    std::span<const int> awakeBodyIndices,
+    const PhysicsExecutionSettings& execution,
+    Threading::WorkerPool& workerPool
+)
 {
     m_detectionCandidates.assign( static_cast<size_t>( modelCount ), TerrainDetectionCandidate() );
-    TerrainDetectionStage detectionStage{ *this, context, awakeBodyIndices };
+    TerrainDetectionStage detectionStage { *this, context, awakeBodyIndices };
     const int awakeBodyCount = static_cast<int>( awakeBodyIndices.size() );
     if ( execution.parallel && execution.parallelTerrainDetect )
     {
-        workerPool.ParallelForNoAlloc( 0,
-                                       awakeBodyCount,
-                                       detectionStage,
-                                       PHYSICS_PARALLEL_MIN_BODIES,
-                                       "Frame/Physics/Terrain/Detect/WorkerBodies",
-                                       PHYSICS_TERRAIN_DETECT_WORKER_HASH );
+        workerPool.ParallelForNoAlloc(
+            0,
+            awakeBodyCount,
+            detectionStage,
+            PHYSICS_PARALLEL_MIN_BODIES,
+            "Frame/Physics/Terrain/Detect/WorkerBodies",
+            PHYSICS_TERRAIN_DETECT_WORKER_HASH
+        );
     }
     else
     {
@@ -152,11 +159,12 @@ void PhysicsTerrainStage::Detect( const TerrainDetectionStageContext& context,
     }
 }
 
-PreparedTerrainCandidateCommit
-PhysicsTerrainStage::PrepareCandidateCommit( const TerrainCandidateCommitContext& context,
-                                             int bodyIndex,
-                                             float availableTime,
-                                             const TerrainContactSweepResult& sweep )
+PreparedTerrainCandidateCommit PhysicsTerrainStage::PrepareCandidateCommit(
+    const TerrainCandidateCommitContext& context,
+    int bodyIndex,
+    float availableTime,
+    const TerrainContactSweepResult& sweep
+)
 {
     PreparedTerrainCandidateCommit commit;
     if ( sweep.hit )
@@ -171,7 +179,8 @@ PhysicsTerrainStage::PrepareCandidateCommit( const TerrainCandidateCommitContext
             bodyIndex,
             sweep,
             availableTime,
-            commit.manifold );
+            commit.manifold
+        );
 
         Physics::PhysicsPipelineRecord record;
         record.stage = Physics::PhysicsPipelineStage::TerrainHit;
@@ -195,8 +204,10 @@ PhysicsTerrainStage::PrepareCandidateCommit( const TerrainCandidateCommitContext
     return commit;
 }
 
-void PhysicsTerrainStage::CommitCandidate( const TerrainCandidateCommitContext& context,
-                                           const PreparedTerrainCandidateCommit& commit )
+void PhysicsTerrainStage::CommitCandidate(
+    const TerrainCandidateCommitContext& context,
+    const PreparedTerrainCandidateCommit& commit
+)
 {
     if ( !commit.hit )
     {

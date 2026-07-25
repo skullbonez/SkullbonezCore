@@ -34,7 +34,7 @@ using SkullbonezCore::Hardware::Input;
 
 void SkullbonezCore::Runtime::InteractionAutomationInputDriver::Reset()
 {
-    *this = InteractionAutomationInputDriver{};
+    *this = InteractionAutomationInputDriver {};
     Input::ClearAutomationState();
 }
 
@@ -65,9 +65,11 @@ void SkullbonezCore::Runtime::InteractionAutomationInputDriver::MoveMouse( POINT
     m_hasMouseClientPosition = true;
 }
 
-void SkullbonezCore::Runtime::InteractionAutomationInputDriver::PressMouse( bool rightButton,
-                                                                            int frame,
-                                                                            int holdFrames )
+void SkullbonezCore::Runtime::InteractionAutomationInputDriver::PressMouse(
+    bool rightButton,
+    int frame,
+    int holdFrames
+)
 {
     if ( rightButton )
     {

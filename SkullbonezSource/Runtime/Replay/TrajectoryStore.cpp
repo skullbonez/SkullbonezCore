@@ -104,12 +104,14 @@ const ReplayTrajectoryRecord* ReplayTrajectoryStore::FindRecord( const ReplayTra
     return nullptr;
 }
 
-ReplayTrajectoryRecord* ReplayTrajectoryStore::BeginReplaceRecord( const ReplayTrajectoryRecordKey& key,
-                                                                   uint16_t styleId,
-                                                                   Physics::PhysicsSceneObjectId parentId,
-                                                                   int depth,
-                                                                   ReplayFrameIndex firstFrame,
-                                                                   bool contactDerived )
+ReplayTrajectoryRecord* ReplayTrajectoryStore::BeginReplaceRecord(
+    const ReplayTrajectoryRecordKey& key,
+    uint16_t styleId,
+    Physics::PhysicsSceneObjectId parentId,
+    int depth,
+    ReplayFrameIndex firstFrame,
+    bool contactDerived
+)
 {
     ReplayTrajectoryRecord* record = FindRecord( key );
     if ( !record )
@@ -155,16 +157,20 @@ void ReplayTrajectoryStore::PublishPrefix( ReplayTrajectoryRecord& record, std::
     }
 }
 
-std::size_t ReplayTrajectoryStore::TrimPublishedPointsBeforeFrame( ReplayTrajectoryRecord& record,
-                                                                   ReplayFrameIndex firstRetainedFrame ) noexcept
+std::size_t ReplayTrajectoryStore::TrimPublishedPointsBeforeFrame(
+    ReplayTrajectoryRecord& record,
+    ReplayFrameIndex firstRetainedFrame
+) noexcept
 {
     const std::size_t publishedCount = (std::min)( record.publishedPointCount, record.points.size() );
     const auto publishedEnd = record.points.begin() + static_cast<std::ptrdiff_t>( publishedCount );
-    const auto firstKept = std::lower_bound( record.points.begin(),
-                                             publishedEnd,
-                                             firstRetainedFrame,
-                                             []( const ReplayTrajectoryPoint& point, ReplayFrameIndex frame )
-                                             { return point.frameIndex < frame; } );
+    const auto firstKept = std::lower_bound(
+        record.points.begin(),
+        publishedEnd,
+        firstRetainedFrame,
+        []( const ReplayTrajectoryPoint& point, ReplayFrameIndex frame ) { return point.frameIndex < frame; }
+    );
+
     const std::size_t removedCount = static_cast<std::size_t>( firstKept - record.points.begin() );
     if ( removedCount == 0u )
     {
@@ -216,31 +222,39 @@ bool ReplayTrajectoryStore::ReserveRecords( std::size_t requestedCapacity, int f
     }
 
     SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult result = {};
-    if ( !RequestReplayPredictionReserveGrowth( "ReplayTrajectoryStore::records",
-                                                frameNumber,
-                                                static_cast<int>( oldStoreBytes ),
-                                                static_cast<int>( requestedStoreBytes ),
-                                                1,
-                                                result ) )
+    if ( !RequestReplayPredictionReserveGrowth(
+             "ReplayTrajectoryStore::records",
+             frameNumber,
+             static_cast<int>( oldStoreBytes ),
+             static_cast<int>( requestedStoreBytes ),
+             1,
+             result
+         ) )
     {
         return false;
     }
 
     const SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
     SkullbonezCore::Core::Allocation::RuntimeAllocationScope replayAllocationScope(
-        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay
+    );
+
     SkullbonezCore::Core::Allocation::RuntimeReserveOwnerScope ownerScope( owner );
     SkullbonezCore::Core::Allocation::RuntimeReserveGrowthScope growthScope(
         owner,
         SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
-        result );
+        result
+    );
+
     records.reserve( requestedCapacity );
     return requestedCapacity <= records.capacity();
 }
 
-bool ReplayTrajectoryStore::ReserveRecordPoints( ReplayTrajectoryRecord& record,
-                                                 std::size_t requestedCapacity,
-                                                 int frameNumber )
+bool ReplayTrajectoryStore::ReserveRecordPoints(
+    ReplayTrajectoryRecord& record,
+    std::size_t requestedCapacity,
+    int frameNumber
+)
 {
     if ( requestedCapacity <= record.points.capacity() )
     {
@@ -268,24 +282,30 @@ bool ReplayTrajectoryStore::ReserveRecordPoints( ReplayTrajectoryRecord& record,
     }
 
     SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult result = {};
-    if ( !RequestReplayPredictionReserveGrowth( "ReplayTrajectoryRecord::points",
-                                                frameNumber,
-                                                static_cast<int>( oldStoreBytes ),
-                                                static_cast<int>( requestedStoreBytes ),
-                                                1,
-                                                result ) )
+    if ( !RequestReplayPredictionReserveGrowth(
+             "ReplayTrajectoryRecord::points",
+             frameNumber,
+             static_cast<int>( oldStoreBytes ),
+             static_cast<int>( requestedStoreBytes ),
+             1,
+             result
+         ) )
     {
         return false;
     }
 
     const SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
     SkullbonezCore::Core::Allocation::RuntimeAllocationScope replayAllocationScope(
-        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay
+    );
+
     SkullbonezCore::Core::Allocation::RuntimeReserveOwnerScope ownerScope( owner );
     SkullbonezCore::Core::Allocation::RuntimeReserveGrowthScope growthScope(
         owner,
         SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
-        result );
+        result
+    );
+
     record.points.reserve( requestedCapacity );
     return requestedCapacity <= record.points.capacity();
 }

@@ -65,22 +65,26 @@ class PhysicsStepDiagnostics
     void RecordPipelineStage( const PhysicsPipelineRecord& record );
     bool CanRecordPipelineStage() const;
     int RemainingPipelineRecordCapacity() const;
-    void EmitCollisionTime( bool diagnosticsSuppressed,
-                            const char* type,
-                            int bodyA,
-                            int bodyB,
-                            float collisionTime,
-                            float availableTime );
+    void EmitCollisionTime(
+        bool diagnosticsSuppressed,
+        const char* type,
+        int bodyA,
+        int bodyB,
+        float collisionTime,
+        float availableTime
+    );
 
     bool ShouldEmitStepDiagnostics( bool diagnosticsSuppressed ) const;
     bool ShouldEmitCollisionTimeDiagnostics( bool diagnosticsSuppressed ) const;
     void SetDiagnosticNames( std::span<const char* const> diagnosticNames );
-    void EmitStepDiagnostics( bool diagnosticsSuppressed,
-                              const PhysicsDiagnosticsView& diagnosticsView,
-                              const PhysicsBodyStore& bodyStore,
-                              const ColliderStore& colliderStore,
-                              float deltaSeconds,
-                              const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
+    void EmitStepDiagnostics(
+        bool diagnosticsSuppressed,
+        const PhysicsDiagnosticsView& diagnosticsView,
+        const PhysicsBodyStore& bodyStore,
+        const ColliderStore& colliderStore,
+        float deltaSeconds,
+        const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter
+    );
 
 #ifdef _DEBUG
     void SetPhysicsRegressionLogPath( const char* path );

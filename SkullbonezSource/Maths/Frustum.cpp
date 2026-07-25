@@ -52,27 +52,37 @@ Frustum Frustum::FromViewProjection( const Transformation::Matrix4& view, const 
 
     // Matrix4 is column-major. These expressions address rows explicitly:
     // row0=(m0,m4,m8,m12), row3=(m3,m7,m11,m15), and so on.
-    result.m_planes[0] = NormalizedPlane( clip.m[3] + clip.m[0],
-                                          clip.m[7] + clip.m[4],
-                                          clip.m[11] + clip.m[8],
-                                          clip.m[15] + clip.m[12] ); // left
-    result.m_planes[1] = NormalizedPlane( clip.m[3] - clip.m[0],
-                                          clip.m[7] - clip.m[4],
-                                          clip.m[11] - clip.m[8],
-                                          clip.m[15] - clip.m[12] ); // right
-    result.m_planes[2] = NormalizedPlane( clip.m[3] + clip.m[1],
-                                          clip.m[7] + clip.m[5],
-                                          clip.m[11] + clip.m[9],
-                                          clip.m[15] + clip.m[13] ); // bottom
-    result.m_planes[3] = NormalizedPlane( clip.m[3] - clip.m[1],
-                                          clip.m[7] - clip.m[5],
-                                          clip.m[11] - clip.m[9],
-                                          clip.m[15] - clip.m[13] );                      // top
+    result.m_planes[0] = NormalizedPlane(
+        clip.m[3] + clip.m[0],
+        clip.m[7] + clip.m[4],
+        clip.m[11] + clip.m[8],
+        clip.m[15] + clip.m[12]
+    ); // left
+    result.m_planes[1] = NormalizedPlane(
+        clip.m[3] - clip.m[0],
+        clip.m[7] - clip.m[4],
+        clip.m[11] - clip.m[8],
+        clip.m[15] - clip.m[12]
+    ); // right
+    result.m_planes[2] = NormalizedPlane(
+        clip.m[3] + clip.m[1],
+        clip.m[7] + clip.m[5],
+        clip.m[11] + clip.m[9],
+        clip.m[15] + clip.m[13]
+    ); // bottom
+    result.m_planes[3] = NormalizedPlane(
+        clip.m[3] - clip.m[1],
+        clip.m[7] - clip.m[5],
+        clip.m[11] - clip.m[9],
+        clip.m[15] - clip.m[13]
+    );                                                                                    // top
     result.m_planes[4] = NormalizedPlane( clip.m[2], clip.m[6], clip.m[10], clip.m[14] ); // near, DX12 z >= 0
-    result.m_planes[5] = NormalizedPlane( clip.m[3] - clip.m[2],
-                                          clip.m[7] - clip.m[6],
-                                          clip.m[11] - clip.m[10],
-                                          clip.m[15] - clip.m[14] ); // far
+    result.m_planes[5] = NormalizedPlane(
+        clip.m[3] - clip.m[2],
+        clip.m[7] - clip.m[6],
+        clip.m[11] - clip.m[10],
+        clip.m[15] - clip.m[14]
+    ); // far
     return result;
 }
 
@@ -90,10 +100,12 @@ bool Frustum::IntersectsSphere( const Vector::Vector3& center, float radius, flo
     return true;
 }
 
-bool Frustum::IntersectsHalfSpace( const Vector::Vector3& center,
-                                   float radius,
-                                   const float plane[4],
-                                   float conservativeEpsilon )
+bool Frustum::IntersectsHalfSpace(
+    const Vector::Vector3& center,
+    float radius,
+    const float plane[4],
+    float conservativeEpsilon
+)
 {
     const float normalLengthSquared = plane[0] * plane[0] + plane[1] * plane[1] + plane[2] * plane[2];
     if ( normalLengthSquared <= 1.0e-12f )

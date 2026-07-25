@@ -43,8 +43,8 @@ bool ValidPlannerBody( const ReplayTripPlannerBodyState& body ) noexcept
            std::isfinite( body.linearVelocity.y ) && std::isfinite( body.linearVelocity.z );
 }
 
-const RunReplayPredictionBodySample* FindPlannerPredictionBody( const RunReplayPredictionFrame& frame,
-                                                                Physics::PhysicsSceneObjectId id ) noexcept
+const RunReplayPredictionBodySample*
+FindPlannerPredictionBody( const RunReplayPredictionFrame& frame, Physics::PhysicsSceneObjectId id ) noexcept
 {
     for ( const RunReplayPredictionBodySample& body : frame.bodies )
     {
@@ -115,10 +115,11 @@ ReplayTripPlannerVelocityMutation ReplayTripPlanner::BeginFrame( const ReplayTri
         case ReplayTripPlannerCommandKind::SetTimeOfFlight:
             if ( m_view.state == ReplayTripPlannerState::Idle && std::isfinite( command.timeOfFlightSeconds ) )
             {
-                m_view.timeOfFlightSeconds =
-                    std::clamp( command.timeOfFlightSeconds,
-                                REPLAY_TRIP_PLANNER_MIN_TOF_SECONDS,
-                                (std::max)( REPLAY_TRIP_PLANNER_MIN_TOF_SECONDS, input.predictionHorizonSeconds ) );
+                m_view.timeOfFlightSeconds = std::clamp(
+                    command.timeOfFlightSeconds,
+                    REPLAY_TRIP_PLANNER_MIN_TOF_SECONDS,
+                    (std::max)( REPLAY_TRIP_PLANNER_MIN_TOF_SECONDS, input.predictionHorizonSeconds )
+                );
             }
             break;
         case ReplayTripPlannerCommandKind::Plan:
@@ -185,26 +186,31 @@ ReplayTripPlannerVelocityMutation ReplayTripPlanner::BeginPlan( const ReplayTrip
     Vector3 targetFuturePosition;
     Vector3 targetFutureVelocity;
     Math::Orbital::LambertSolution lambert;
-    const Math::Orbital::OrbitalStatus elementsStatus =
-        Math::Orbital::ElementsFromState( input.target.position - input.sun.position,
-                                          input.target.linearVelocity - input.sun.linearVelocity,
-                                          mu,
-                                          targetElements );
-    const Math::Orbital::OrbitalStatus propagationStatus =
-        elementsStatus == Math::Orbital::OrbitalStatus::Ok ? Math::Orbital::PropagateToTime( targetElements,
-                                                                                             m_view.timeOfFlightSeconds,
-                                                                                             targetFuturePosition,
-                                                                                             targetFutureVelocity )
-                                                           : elementsStatus;
-    const Math::Orbital::OrbitalStatus lambertStatus =
-        propagationStatus == Math::Orbital::OrbitalStatus::Ok
-            ? Math::Orbital::SolveLambert( input.ship.position - input.sun.position,
-                                           targetFuturePosition,
-                                           m_view.timeOfFlightSeconds,
-                                           mu,
-                                           true,
-                                           lambert )
-            : propagationStatus;
+    const Math::Orbital::OrbitalStatus elementsStatus = Math::Orbital::ElementsFromState(
+        input.target.position - input.sun.position,
+        input.target.linearVelocity - input.sun.linearVelocity,
+        mu,
+        targetElements
+    );
+
+    const Math::Orbital::OrbitalStatus propagationStatus = elementsStatus == Math::Orbital::OrbitalStatus::Ok
+                                                               ? Math::Orbital::PropagateToTime(
+                                                                     targetElements,
+                                                                     m_view.timeOfFlightSeconds,
+                                                                     targetFuturePosition,
+                                                                     targetFutureVelocity
+                                                                 )
+                                                               : elementsStatus;
+    const Math::Orbital::OrbitalStatus lambertStatus = propagationStatus == Math::Orbital::OrbitalStatus::Ok
+                                                           ? Math::Orbital::SolveLambert(
+                                                                 input.ship.position - input.sun.position,
+                                                                 targetFuturePosition,
+                                                                 m_view.timeOfFlightSeconds,
+                                                                 mu,
+                                                                 true,
+                                                                 lambert
+                                                             )
+                                                           : propagationStatus;
     if ( lambertStatus != Math::Orbital::OrbitalStatus::Ok )
     {
         Fail();
@@ -268,10 +274,12 @@ ReplayTripPlanner::ObservePrediction( const ReplayTripPlannerPredictionInput& in
 
     m_previousMissDistance = input.intercept.missDistance;
     m_hasPreviousMiss = true;
-    m_view.candidateVelocity = FirstOrderCorrection( m_view.candidateVelocity,
-                                                     input.intercept.shipPosition,
-                                                     input.intercept.targetPosition,
-                                                     input.intercept.etaSeconds );
+    m_view.candidateVelocity = FirstOrderCorrection(
+        m_view.candidateVelocity,
+        input.intercept.shipPosition,
+        input.intercept.targetPosition,
+        input.intercept.etaSeconds
+    );
     ++m_view.iteration;
     m_view.state = ReplayTripPlannerState::Correcting;
     mutation.bodyId = m_view.shipId;
@@ -288,10 +296,12 @@ void ReplayTripPlanner::ConfirmVelocityApplied() noexcept
     }
 }
 
-Math::Vector::Vector3 ReplayTripPlanner::FirstOrderCorrection( const Math::Vector::Vector3& velocity,
-                                                               const Math::Vector::Vector3& shipAtClosest,
-                                                               const Math::Vector::Vector3& targetAtClosest,
-                                                               float closestTimeSeconds ) noexcept
+Math::Vector::Vector3 ReplayTripPlanner::FirstOrderCorrection(
+    const Math::Vector::Vector3& velocity,
+    const Math::Vector::Vector3& shipAtClosest,
+    const Math::Vector::Vector3& targetAtClosest,
+    float closestTimeSeconds
+) noexcept
 {
     if ( !std::isfinite( closestTimeSeconds ) || closestTimeSeconds <= 0.0f )
     {
@@ -317,8 +327,10 @@ ReplayTripPlannerVelocityMutation ReplayTripPlanner::CancelActivePlan() noexcept
     return mutation;
 }
 
-void ReplayTripPlanner::RetainGhost( std::span<const RunReplayPredictionFrame> frames,
-                                     Physics::PhysicsSceneObjectId shipId ) noexcept
+void ReplayTripPlanner::RetainGhost(
+    std::span<const RunReplayPredictionFrame> frames,
+    Physics::PhysicsSceneObjectId shipId
+) noexcept
 {
     if ( frames.empty() )
     {
@@ -370,7 +382,8 @@ void ReplayTripPlanner::ClearPlanState() noexcept
     const bool visible = m_view.visible;
     const bool available = m_view.available;
     const float timeOfFlightSeconds = m_view.timeOfFlightSeconds;
-    m_view = ReplayTripPlannerView{};
+    m_view = ReplayTripPlannerView {};
+
     m_view.visible = visible;
     m_view.available = available;
     m_view.timeOfFlightSeconds = timeOfFlightSeconds;
@@ -385,7 +398,7 @@ void ReplayTripPlanner::ResetForSceneDiscard() noexcept
 {
     m_commands = {};
     m_commandCount = 0;
-    m_view = ReplayTripPlannerView{};
+    m_view = ReplayTripPlannerView {};
     m_prePlanVelocity = Math::Vector::ZERO_VECTOR;
     m_previousMissDistance = 0.0f;
     m_lastObservedGeneration = 0;

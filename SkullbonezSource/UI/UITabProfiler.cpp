@@ -87,10 +87,12 @@ bool IsProfilerRowVisible( float contentY, float contentH, float rowY, float row
     return rowY + rowH >= contentY && rowY <= contentY + contentH;
 }
 
-void SetProfilerContentBounds( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state,
-                               float contentX,
-                               float contentY,
-                               float contentW )
+void SetProfilerContentBounds(
+    SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state,
+    float contentX,
+    float contentY,
+    float contentW
+)
 {
     state.workerToggle.SetBounds( contentX, contentY + PROFILER_WORKER_TOGGLE_Y, 172.0f, 24.0f );
     state.workerThreadSlider.SetBounds( contentX, contentY + PROFILER_WORKER_SLIDER_Y, contentW, 34.0f );
@@ -198,10 +200,12 @@ bool DrawNodeHasVisibleChildren( const SkullbonezCore::UI::ProfilerTab::DrawTrac
     return false;
 }
 
-int BuildVisibleDrawRows( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state,
-                          const SkullbonezCore::UI::ProfilerTab::DrawTraceSnapshot& snapshot,
-                          int* rows,
-                          int maxRows )
+int BuildVisibleDrawRows(
+    const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state,
+    const SkullbonezCore::UI::ProfilerTab::DrawTraceSnapshot& snapshot,
+    int* rows,
+    int maxRows
+)
 {
     if ( !snapshot.nodes || snapshot.nodeCount <= 0 )
     {
@@ -210,6 +214,7 @@ int BuildVisibleDrawRows( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabSt
 
     int childIndices[SkullbonezCore::UI::ProfilerTab::MAX_MARKERS][SkullbonezCore::UI::ProfilerTab::MAX_MARKERS] = {};
     int childCounts[SkullbonezCore::UI::ProfilerTab::MAX_MARKERS] = {};
+
     const int nodeCount = (std::min)( snapshot.nodeCount, SkullbonezCore::UI::ProfilerTab::MAX_MARKERS );
 
     for ( int i = 0; i < nodeCount; ++i )
@@ -268,6 +273,7 @@ int BuildVisibleRows( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState&
     const SkullbonezCore::UI::ProfilerTab::FrameSnapshot& frame = state.frame;
     const int markerCount = (std::min)( frame.markerCount, SkullbonezCore::UI::ProfilerTab::MAX_MARKERS );
     int childIndices[SkullbonezCore::UI::ProfilerTab::MAX_MARKERS][SkullbonezCore::UI::ProfilerTab::MAX_MARKERS] = {};
+
     int childCounts[SkullbonezCore::UI::ProfilerTab::MAX_MARKERS] = {};
 
     for ( int i = 0; i < markerCount; ++i )
@@ -316,15 +322,19 @@ int BuildVisibleRows( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState&
     return (std::min)( rowCount, maxRows );
 }
 
-void BuildTimelineSegments( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state,
-                            const int* rows,
-                            int rowCount,
-                            SkullbonezCore::UI::ProfilerTab::TimelineSegment* segments )
+void BuildTimelineSegments(
+    const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state,
+    const int* rows,
+    int rowCount,
+    SkullbonezCore::UI::ProfilerTab::TimelineSegment* segments
+)
 {
     const SkullbonezCore::UI::ProfilerTab::FrameSnapshot& frame = state.frame;
     const int markerCount = (std::min)( frame.markerCount, SkullbonezCore::UI::ProfilerTab::MAX_MARKERS );
     int rowForMarker[SkullbonezCore::UI::ProfilerTab::MAX_MARKERS] = {};
+
     int childIndices[SkullbonezCore::UI::ProfilerTab::MAX_MARKERS][SkullbonezCore::UI::ProfilerTab::MAX_MARKERS] = {};
+
     int childCounts[SkullbonezCore::UI::ProfilerTab::MAX_MARKERS] = {};
 
     for ( int i = 0; i < SkullbonezCore::UI::ProfilerTab::MAX_MARKERS; ++i )
@@ -525,6 +535,7 @@ int ContentHeight( const UIProfilerTabState& state )
     const int visibleMarkerCount = BuildVisibleRows( state, visibleRows, MAX_MARKERS );
     const DrawTraceSnapshot& snapshot = state.frame.drawTrace;
     int visibleDrawRows[MAX_MARKERS] = {};
+
     const int visibleDrawRowCount = BuildVisibleDrawRows( state, snapshot, visibleDrawRows, MAX_MARKERS );
     const int drawSectionHeight =
         visibleDrawRowCount > 0 ? 50 + static_cast<int>( PROFILER_CORE_CHART_H ) + visibleDrawRowCount * 26 : 0;
@@ -532,17 +543,19 @@ int ContentHeight( const UIProfilerTabState& state )
 }
 
 
-bool HandleContentClick( UIProfilerTabState& state,
-                         InGameUIInputResult& result,
-                         int& activeSlider,
-                         int contentX,
-                         int contentY,
-                         float contentW,
-                         float scrollY,
-                         int mouseX,
-                         int mouseY,
-                         int currentWorkerThreads,
-                         int maxWorkerThreads )
+bool HandleContentClick(
+    UIProfilerTabState& state,
+    InGameUIInputResult& result,
+    int& activeSlider,
+    int contentX,
+    int contentY,
+    float contentW,
+    float scrollY,
+    int mouseX,
+    int mouseY,
+    int currentWorkerThreads,
+    int maxWorkerThreads
+)
 {
     // Concept: The profiler tab owns UI expansion and slider preview state, but
     // worker-thread changes are returned as commands for runtime code to apply.
@@ -570,7 +583,8 @@ bool HandleContentClick( UIProfilerTabState& state,
     {
         activeSlider = SLIDER_WORKER_THREADS;
         state.previewWorkerThreads = static_cast<int>(
-            state.workerThreadSlider.ValueFromMouse( mouseX, 0.0f, static_cast<float>( workerMax ), 1.0f ) );
+            state.workerThreadSlider.ValueFromMouse( mouseX, 0.0f, static_cast<float>( workerMax ), 1.0f )
+        );
         return true;
     }
 
@@ -620,6 +634,7 @@ bool HandleContentClick( UIProfilerTabState& state,
     const int drawTargetRow = ( drawLocalY - drawHeaderH - coreChartH ) / drawRowH;
     const DrawTraceSnapshot& snapshot = state.frame.drawTrace;
     int visibleDrawRows[MAX_MARKERS] = {};
+
     const int visibleDrawRowCount = BuildVisibleDrawRows( state, snapshot, visibleDrawRows, MAX_MARKERS );
     if ( drawTargetRow < 0 || drawTargetRow >= visibleDrawRowCount )
     {
@@ -649,11 +664,13 @@ bool HandleContentClick( UIProfilerTabState& state,
 }
 
 
-bool UpdateActiveSlider( UIProfilerTabState& state,
-                         int activeSlider,
-                         int mouseX,
-                         int maxWorkerThreads,
-                         InGameUIInputResult& result )
+bool UpdateActiveSlider(
+    UIProfilerTabState& state,
+    int activeSlider,
+    int mouseX,
+    int maxWorkerThreads,
+    InGameUIInputResult& result
+)
 {
     static_cast<void>( result );
     if ( activeSlider != SLIDER_WORKER_THREADS )
@@ -663,7 +680,9 @@ bool UpdateActiveSlider( UIProfilerTabState& state,
 
     const int workerMax = (std::max)( 1, maxWorkerThreads );
     state.previewWorkerThreads = static_cast<int>(
-        state.workerThreadSlider.ValueFromMouse( mouseX, 0.0f, static_cast<float>( workerMax ), 1.0f ) );
+        state.workerThreadSlider.ValueFromMouse( mouseX, 0.0f, static_cast<float>( workerMax ), 1.0f )
+    );
+
     return true;
 }
 
@@ -680,15 +699,17 @@ bool CommitActiveSlider( UIProfilerTabState& state, int activeSlider, InGameUIIn
 }
 
 
-void Draw( UIProfilerTabState& state,
-           const UIDrawContext& draw,
-           const InGameUIFrameData& data,
-           float contentX,
-           float contentY,
-           float contentW,
-           float contentH,
-           float scrollY,
-           int activeSlider )
+void Draw(
+    UIProfilerTabState& state,
+    const UIDrawContext& draw,
+    const InGameUIFrameData& data,
+    float contentX,
+    float contentY,
+    float contentW,
+    float contentH,
+    float scrollY,
+    int activeSlider
+)
 {
     char buf[128];
     const FrameSnapshot& frame = state.frame;
@@ -706,24 +727,29 @@ void Draw( UIProfilerTabState& state,
                                  : frame.tracyInitialized   ? "waiting for viewer"
                                                             : "stopped";
         snprintf( buf, sizeof( buf ), "Tracy: %s", tracyState );
-        draw.Text( contentX + 190.0f,
-                   contentY + PROFILER_WORKER_TOGGLE_Y + 6.0f,
-                   10.5f,
-                   frame.tracyViewerConnected ? 0.35f : 0.88f,
-                   frame.tracyViewerConnected ? 0.88f : 0.74f,
-                   frame.tracyViewerConnected ? 0.55f : 0.32f,
-                   buf );
+        draw.Text(
+            contentX + 190.0f,
+            contentY + PROFILER_WORKER_TOGGLE_Y + 6.0f,
+            10.5f,
+            frame.tracyViewerConnected ? 0.35f : 0.88f,
+            frame.tracyViewerConnected ? 0.88f : 0.74f,
+            frame.tracyViewerConnected ? 0.55f : 0.32f,
+            buf
+        );
+
 #endif
     }
     snprintf( buf, sizeof( buf ), "%d / %d", displayWorkerCount, workerMax );
     if ( IsProfilerRowVisible( contentY, contentH, contentY + PROFILER_WORKER_SLIDER_Y, 34.0f ) )
     {
-        state.workerThreadSlider.Draw( draw,
-                                       "Worker threads",
-                                       buf,
-                                       static_cast<float>( displayWorkerCount ),
-                                       0.0f,
-                                       static_cast<float>( workerMax ) );
+        state.workerThreadSlider.Draw(
+            draw,
+            "Worker threads",
+            buf,
+            static_cast<float>( displayWorkerCount ),
+            0.0f,
+            static_cast<float>( workerMax )
+        );
     }
 
     const float tableX = contentX;
@@ -764,17 +790,20 @@ void Draw( UIProfilerTabState& state,
     draw.Text( colP50, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "P50" );
     draw.Text( colP99, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "P99" );
     draw.Text( barX, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, state.timelineEnabled ? "Span" : "0 ms" );
-    draw.Text( barX + barW - 44.0f,
-               tableY + 10.0f,
-               10.5f,
-               0.68f,
-               0.78f,
-               0.82f,
-               state.timelineEnabled ? "Frame" : "16.67 ms" );
+    draw.Text(
+        barX + barW - 44.0f,
+        tableY + 10.0f,
+        10.5f,
+        0.68f,
+        0.78f,
+        0.82f,
+        state.timelineEnabled ? "Frame" : "16.67 ms"
+    );
 
     int visibleRows[MAX_MARKERS] = {};
     const int visibleRowCount = BuildVisibleRows( state, visibleRows, MAX_MARKERS );
     TimelineSegment timelineSegments[MAX_MARKERS] = {};
+
     BuildTimelineSegments( state, visibleRows, visibleRowCount, timelineSegments );
 
     auto profilerRow = [&]( int rowIndex,
@@ -844,15 +873,18 @@ void Draw( UIProfilerTabState& state,
         const int markerIndex = visibleRows[visibleRow];
         const MarkerSnapshot& marker = frame.markers[markerIndex];
         const bool hasChildren = ProfilerMarkerHasChildren( frame, markerIndex );
-        profilerRow( visibleRow,
-                     marker,
-                     timelineSegments[visibleRow],
-                     hasChildren,
-                     IsMarkerExpanded( state, marker.hash ) );
+        profilerRow(
+            visibleRow,
+            marker,
+            timelineSegments[visibleRow],
+            hasChildren,
+            IsMarkerExpanded( state, marker.hash )
+        );
     }
 
     const DrawTraceSnapshot& drawSnapshot = frame.drawTrace;
     int visibleDrawRows[MAX_MARKERS] = {};
+
     const int visibleDrawRowCount = BuildVisibleDrawRows( state, drawSnapshot, visibleDrawRows, MAX_MARKERS );
     const float drawHeaderH = 32.0f;
     const float coreChartH = PROFILER_CORE_CHART_H;
@@ -880,12 +912,14 @@ void Draw( UIProfilerTabState& state,
         if ( drawSnapshot.nodeOverflowCount > 0 || drawSnapshot.eventOverflowCount > 0 ||
              drawSnapshot.scopeMismatchCount > 0 )
         {
-            snprintf( buf,
-                      sizeof( buf ),
-                      "overflow n:%d e:%d s:%d",
-                      drawSnapshot.nodeOverflowCount,
-                      drawSnapshot.eventOverflowCount,
-                      drawSnapshot.scopeMismatchCount );
+            snprintf(
+                buf,
+                sizeof( buf ),
+                "overflow n:%d e:%d s:%d",
+                drawSnapshot.nodeOverflowCount,
+                drawSnapshot.eventOverflowCount,
+                drawSnapshot.scopeMismatchCount
+            );
             draw.Text( barX, drawSectionY + 10.0f, 10.5f, 1.0f, 0.72f, 0.24f, buf );
         }
     }
@@ -903,6 +937,7 @@ void Draw( UIProfilerTabState& state,
 
     const int chartCoreCount = std::clamp( displayWorkerCount, 0, MAX_WORKER_CORE_SAMPLES );
     float coreAvgMs[MAX_WORKER_CORE_SAMPLES] = {};
+
     float totalCoreAvgMs = 0.0f;
     float maxCoreAvgMs = 0.0f;
     int hottestCore = -1;
@@ -931,13 +966,15 @@ void Draw( UIProfilerTabState& state,
         draw.Text( colScope, coreChartY + 10.0f, 10.0f, 0.78f, 0.88f, 0.91f, buf );
         if ( hottestCore >= 0 )
         {
-            snprintf( buf,
-                      sizeof( buf ),
-                      "Scale %.2f ms/frame   total %.2f   hot core %d %.2f",
-                      coreAxisMs,
-                      totalCoreAvgMs,
-                      hottestCore,
-                      maxCoreAvgMs );
+            snprintf(
+                buf,
+                sizeof( buf ),
+                "Scale %.2f ms/frame   total %.2f   hot core %d %.2f",
+                coreAxisMs,
+                totalCoreAvgMs,
+                hottestCore,
+                maxCoreAvgMs
+            );
         }
         else
         {
@@ -953,14 +990,17 @@ void Draw( UIProfilerTabState& state,
         draw.Rect( plotX, plotY, plotW, plotH, 0.025f, 0.040f, 0.048f, 0.88f );
         draw.Outline( plotX, plotY, plotW, plotH, 0.18f, 0.30f, 0.34f, 0.62f );
         draw.Rect( plotX, baselineY - 1.0f, plotW, 1.0f, 0.52f, 0.62f, 0.64f, 0.72f );
-        draw.Rect( plotX,
-                   baselineY - plotH * ( PROFILER_CORE_CHART_AXIS_MIN_MS / coreAxisMs ),
-                   plotW,
-                   1.0f,
-                   0.38f,
-                   0.50f,
-                   0.52f,
-                   0.38f );
+        draw.Rect(
+            plotX,
+            baselineY - plotH * ( PROFILER_CORE_CHART_AXIS_MIN_MS / coreAxisMs ),
+            plotW,
+            1.0f,
+            0.38f,
+            0.50f,
+            0.52f,
+            0.38f
+        );
+
         draw.Text( plotX + 4.0f, plotY + 3.0f, 8.0f, 0.45f, 0.56f, 0.59f, "0.50 ms/frame" );
 
         if ( chartCoreCount <= 0 )
@@ -971,13 +1011,15 @@ void Draw( UIProfilerTabState& state,
         {
             if ( coreSampleCount <= 0 )
             {
-                draw.Text( plotX + 10.0f,
-                           plotY + 24.0f,
-                           10.0f,
-                           0.76f,
-                           0.84f,
-                           0.86f,
-                           "No worker jobs in this 0.5s window (idle, threshold, or config)" );
+                draw.Text(
+                    plotX + 10.0f,
+                    plotY + 24.0f,
+                    10.0f,
+                    0.76f,
+                    0.84f,
+                    0.86f,
+                    "No worker jobs in this 0.5s window (idle, threshold, or config)"
+                );
             }
 
             const float pitch = plotW / static_cast<float>( chartCoreCount );
@@ -1001,11 +1043,13 @@ void Draw( UIProfilerTabState& state,
                 }
                 if ( ms > 0.0f )
                 {
-                    snprintf( buf,
-                              sizeof( buf ),
-                              pitch >= 38.0f ? ( ms >= 10.0f ? "%.0fms" : ( ms >= 1.0f ? "%.1fms" : "%.2fms" ) )
-                                             : ( ms >= 10.0f ? "%.0f" : ( ms >= 1.0f ? "%.1f" : "%.2f" ) ),
-                              ms );
+                    snprintf(
+                        buf,
+                        sizeof( buf ),
+                        pitch >= 38.0f ? ( ms >= 10.0f ? "%.0fms" : ( ms >= 1.0f ? "%.1fms" : "%.2fms" ) )
+                                       : ( ms >= 10.0f ? "%.0f" : ( ms >= 1.0f ? "%.1f" : "%.2f" ) ),
+                        ms
+                    );
                     const float labelX = x - 2.0f;
                     const float labelY = (std::max)( plotY + 8.0f, baselineY - fillH - 12.0f );
                     if ( pitch >= 28.0f || labelX > lastValueLabelRight + 2.0f ||

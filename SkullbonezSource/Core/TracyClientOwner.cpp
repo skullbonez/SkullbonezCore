@@ -117,10 +117,10 @@ struct OwnerSourceLocation
     uint32_t hash = 0u;
 };
 
-std::atomic<bool> g_tracyInitialized{ false };
-std::atomic<bool> g_tracyHeavyMode{ false };
+std::atomic<bool> g_tracyInitialized { false };
+std::atomic<bool> g_tracyHeavyMode { false };
 OwnerSourceLocation g_ownerSourceLocations[MAX_OWNER_SOURCE_LOCATIONS] = {};
-std::atomic<uint32_t> g_ownerSourceLocationCount{ 0u };
+std::atomic<uint32_t> g_ownerSourceLocationCount { 0u };
 std::mutex g_ownerSourceLocationMutex;
 
 RequestedCaptureMode ReadRequestedCaptureMode() noexcept
@@ -154,37 +154,49 @@ void* MapTracyBackingMemory( std::size_t size, std::size_t* offset )
     {
         *offset = 0u;
     }
-    if ( !CoreAllocation::TryAccountDevelopmentToolBackingMemory( CoreAllocation::DevelopmentToolAllocationOwner::Tracy,
-                                                                  size ) )
+    if ( !CoreAllocation::TryAccountDevelopmentToolBackingMemory(
+             CoreAllocation::DevelopmentToolAllocationOwner::Tracy,
+             size
+         ) )
     {
         CoreAllocation::DevelopmentToolAllocationStats stats;
-        CoreAllocation::CopyDevelopmentToolAllocationStats( CoreAllocation::DevelopmentToolAllocationOwner::Tracy,
-                                                            stats );
+        CoreAllocation::CopyDevelopmentToolAllocationStats(
+            CoreAllocation::DevelopmentToolAllocationOwner::Tracy,
+            stats
+        );
         // Lane F: continuing would either exceed the owner-approved cap or
         // tempt the vendor allocator to fall back outside engine accounting.
-        SB_FATAL( "DevelopmentTools/Tracy",
-                  "rpmalloc backing cap exhausted: request=%llu active=%llu high_water=%llu cap=%d",
-                  static_cast<unsigned long long>( size ),
-                  static_cast<unsigned long long>( stats.activeBytes ),
-                  static_cast<unsigned long long>( stats.highWaterBytes ),
-                  stats.hardCapBytes );
+        SB_FATAL(
+            "DevelopmentTools/Tracy",
+            "rpmalloc backing cap exhausted: request=%llu active=%llu high_water=%llu cap=%d",
+            static_cast<unsigned long long>( size ),
+            static_cast<unsigned long long>( stats.activeBytes ),
+            static_cast<unsigned long long>( stats.highWaterBytes ),
+            stats.hardCapBytes
+        );
     }
 
     void* address = VirtualAlloc( nullptr, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE );
     if ( !address )
     {
-        CoreAllocation::ReleaseDevelopmentToolBackingMemory( CoreAllocation::DevelopmentToolAllocationOwner::Tracy,
-                                                             size );
-        SB_FATAL( "DevelopmentTools/Tracy",
-                  "VirtualAlloc failed for rpmalloc backing: request=%llu error=%lu",
-                  static_cast<unsigned long long>( size ),
-                  static_cast<unsigned long>( GetLastError() ) );
+        CoreAllocation::ReleaseDevelopmentToolBackingMemory(
+            CoreAllocation::DevelopmentToolAllocationOwner::Tracy,
+            size
+        );
+        SB_FATAL(
+            "DevelopmentTools/Tracy",
+            "VirtualAlloc failed for rpmalloc backing: request=%llu error=%lu",
+            static_cast<unsigned long long>( size ),
+            static_cast<unsigned long>( GetLastError() )
+        );
     }
     if ( ( reinterpret_cast<std::uintptr_t>( address ) & ( TRACY_BACKING_ALIGNMENT - 1u ) ) != 0u )
     {
         VirtualFree( address, 0u, MEM_RELEASE );
-        CoreAllocation::ReleaseDevelopmentToolBackingMemory( CoreAllocation::DevelopmentToolAllocationOwner::Tracy,
-                                                             size );
+        CoreAllocation::ReleaseDevelopmentToolBackingMemory(
+            CoreAllocation::DevelopmentToolAllocationOwner::Tracy,
+            size
+        );
         SB_FATAL( "DevelopmentTools/Tracy", "VirtualAlloc returned a non-64-KiB-aligned rpmalloc range." );
     }
     return address;
@@ -201,22 +213,28 @@ void UnmapTracyBackingMemory( void* address, std::size_t size, std::size_t offse
     }
     if ( !address || offset != 0u || release < size )
     {
-        SB_FATAL( "DevelopmentTools/Tracy",
-                  "Invalid rpmalloc backing release: address=%p size=%llu offset=%llu release=%llu",
-                  address,
-                  static_cast<unsigned long long>( size ),
-                  static_cast<unsigned long long>( offset ),
-                  static_cast<unsigned long long>( release ) );
+        SB_FATAL(
+            "DevelopmentTools/Tracy",
+            "Invalid rpmalloc backing release: address=%p size=%llu offset=%llu release=%llu",
+            address,
+            static_cast<unsigned long long>( size ),
+            static_cast<unsigned long long>( offset ),
+            static_cast<unsigned long long>( release )
+        );
     }
     if ( !VirtualFree( address, 0u, MEM_RELEASE ) )
     {
-        SB_FATAL( "DevelopmentTools/Tracy",
-                  "VirtualFree failed for rpmalloc backing: release=%llu error=%lu",
-                  static_cast<unsigned long long>( release ),
-                  static_cast<unsigned long>( GetLastError() ) );
+        SB_FATAL(
+            "DevelopmentTools/Tracy",
+            "VirtualFree failed for rpmalloc backing: release=%llu error=%lu",
+            static_cast<unsigned long long>( release ),
+            static_cast<unsigned long>( GetLastError() )
+        );
     }
-    CoreAllocation::ReleaseDevelopmentToolBackingMemory( CoreAllocation::DevelopmentToolAllocationOwner::Tracy,
-                                                         release );
+    CoreAllocation::ReleaseDevelopmentToolBackingMemory(
+        CoreAllocation::DevelopmentToolAllocationOwner::Tracy,
+        release
+    );
 }
 
 void ConfigureTracyBackingAllocator()
@@ -260,15 +278,18 @@ void TracyClientOwner::Start()
         // Why: Tracy's vendor client owns sizeable transport queues even while
         // no viewer is attached. Requiring an explicit capture mode keeps the
         // named default/perf configuration inside the established memory gate.
-        fprintf( stdout,
-                 "[tracy] Client disabled. Set SKORE_TRACY_MODE=standard or heavy before launch to capture.\n" );
+        fprintf(
+            stdout,
+            "[tracy] Client disabled. Set SKORE_TRACY_MODE=standard or heavy before launch to capture.\n"
+        );
         fflush( stdout );
         return;
     }
 
     ConfigureTracyBackingAllocator();
     CoreAllocation::DevelopmentToolAllocationScope allocationScope(
-        CoreAllocation::DevelopmentToolAllocationOwner::Tracy );
+        CoreAllocation::DevelopmentToolAllocationOwner::Tracy
+    );
     tracy::StartupProfiler();
     m_started = tracy::IsProfilerStarted();
     const bool heavyMode = m_started && captureMode == RequestedCaptureMode::Heavy;
@@ -286,17 +307,21 @@ void TracyClientOwner::Start()
     tracy::SetThreadName( "Skore Main + Render + Replay + IO" );
     TracySetProgramName( "SkullbonezCore" );
     CoreAllocation::DevelopmentToolAllocationStats tracyAllocationStats;
-    CoreAllocation::CopyDevelopmentToolAllocationStats( CoreAllocation::DevelopmentToolAllocationOwner::Tracy,
-                                                        tracyAllocationStats );
-    fprintf( stdout,
-             "[tracy] Manual on-demand client started. viewer=waiting capture=%s callstacks=%s allocations=%s "
-             "owner_active=%llu owner_high_water=%llu owner_cap=%d\n",
-             heavyMode ? "heavy" : "standard",
-             heavyMode ? "depth-16" : "off",
-             heavyMode ? "global-cpp-heap" : "off",
-             static_cast<unsigned long long>( tracyAllocationStats.activeBytes ),
-             static_cast<unsigned long long>( tracyAllocationStats.highWaterBytes ),
-             tracyAllocationStats.hardCapBytes );
+    CoreAllocation::CopyDevelopmentToolAllocationStats(
+        CoreAllocation::DevelopmentToolAllocationOwner::Tracy,
+        tracyAllocationStats
+    );
+    fprintf(
+        stdout,
+        "[tracy] Manual on-demand client started. viewer=waiting capture=%s callstacks=%s allocations=%s "
+        "owner_active=%llu owner_high_water=%llu owner_cap=%d\n",
+        heavyMode ? "heavy" : "standard",
+        heavyMode ? "depth-16" : "off",
+        heavyMode ? "global-cpp-heap" : "off",
+        static_cast<unsigned long long>( tracyAllocationStats.activeBytes ),
+        static_cast<unsigned long long>( tracyAllocationStats.highWaterBytes ),
+        tracyAllocationStats.hardCapBytes
+    );
     fflush( stdout );
 }
 
@@ -313,10 +338,12 @@ bool TracyClientOwner::StartStandardCapture()
     // boundary without invalidating already-live engine allocations.
     if ( !SetEnvironmentVariableA( CAPTURE_MODE_ENVIRONMENT, STANDARD_MODE_VALUE ) )
     {
-        fprintf( stderr,
-                 "[tracy] Standard capture request failed to set %s (error=%lu).\n",
-                 CAPTURE_MODE_ENVIRONMENT,
-                 static_cast<unsigned long>( GetLastError() ) );
+        fprintf(
+            stderr,
+            "[tracy] Standard capture request failed to set %s (error=%lu).\n",
+            CAPTURE_MODE_ENVIRONMENT,
+            static_cast<unsigned long>( GetLastError() )
+        );
         fflush( stderr );
         return false;
     }
@@ -333,7 +360,8 @@ void TracyClientOwner::Shutdown() noexcept
     }
 
     CoreAllocation::DevelopmentToolAllocationScope allocationScope(
-        CoreAllocation::DevelopmentToolAllocationOwner::Tracy );
+        CoreAllocation::DevelopmentToolAllocationOwner::Tracy
+    );
     // Lifetime: publish the stopped state before freeing Tracy's process data;
     // UI snapshots and marker seams therefore stop reaching the vendor first.
     g_tracyInitialized.store( false, std::memory_order_release );
@@ -342,14 +370,18 @@ void TracyClientOwner::Shutdown() noexcept
     tracy::ShutdownProfiler();
     m_started = false;
     CoreAllocation::DevelopmentToolAllocationStats tracyAllocationStats;
-    CoreAllocation::CopyDevelopmentToolAllocationStats( CoreAllocation::DevelopmentToolAllocationOwner::Tracy,
-                                                        tracyAllocationStats );
-    fprintf( stdout,
-             "[tracy] Client stopped after engine worker shutdown. owner_active=%llu owner_high_water=%llu "
-             "owner_cap=%d\n",
-             static_cast<unsigned long long>( tracyAllocationStats.activeBytes ),
-             static_cast<unsigned long long>( tracyAllocationStats.highWaterBytes ),
-             tracyAllocationStats.hardCapBytes );
+    CoreAllocation::CopyDevelopmentToolAllocationStats(
+        CoreAllocation::DevelopmentToolAllocationOwner::Tracy,
+        tracyAllocationStats
+    );
+    fprintf(
+        stdout,
+        "[tracy] Client stopped after engine worker shutdown. owner_active=%llu owner_high_water=%llu "
+        "owner_cap=%d\n",
+        static_cast<unsigned long long>( tracyAllocationStats.activeBytes ),
+        static_cast<unsigned long long>( tracyAllocationStats.highWaterBytes ),
+        tracyAllocationStats.hardCapBytes
+    );
     fflush( stdout );
 }
 
@@ -372,7 +404,8 @@ void TracyClientOwner::MarkSubmittedFrame() noexcept
     }
 
     CoreAllocation::DevelopmentToolAllocationScope allocationScope(
-        CoreAllocation::DevelopmentToolAllocationOwner::Tracy );
+        CoreAllocation::DevelopmentToolAllocationOwner::Tracy
+    );
     FrameMark;
 }
 
@@ -386,7 +419,9 @@ void TracyClientOwner::NameWorkerThread( int workerIndex ) noexcept
     char threadName[32] = {};
     _snprintf_s( threadName, sizeof( threadName ), _TRUNCATE, "Skore Worker %02d", workerIndex );
     CoreAllocation::DevelopmentToolAllocationScope allocationScope(
-        CoreAllocation::DevelopmentToolAllocationOwner::Tracy );
+        CoreAllocation::DevelopmentToolAllocationOwner::Tracy
+    );
+
     tracy::SetThreadNameWithHint( threadName, 1 );
 }
 
@@ -403,10 +438,12 @@ uint32_t TracyClientOwner::RegisterOwnerZone( const char* fullPath, uint32_t has
         uint32_t hash = 0u;
         uint32_t handle = 0u;
     };
+
     // Why: worker scopes repeat a small marker vocabulary at job frequency.
     // This fixed direct-mapped cache keeps the common lookup off the global
     // registration mutex without growing per-thread storage.
     thread_local ThreadZoneCacheEntry threadCache[16] = {};
+
     ThreadZoneCacheEntry& cached = threadCache[hash % 16u];
     if ( cached.handle != 0u && cached.hash == hash && std::strcmp( cached.name, fullPath ) == 0 )
     {
@@ -421,6 +458,7 @@ uint32_t TracyClientOwner::RegisterOwnerZone( const char* fullPath, uint32_t has
         if ( source.hash == hash && std::strcmp( source.tracy.name, fullPath ) == 0 )
         {
             cached = { fullPath, hash, index + 1u };
+
             return cached.handle;
         }
     }
@@ -434,9 +472,11 @@ uint32_t TracyClientOwner::RegisterOwnerZone( const char* fullPath, uint32_t has
     // the record nor its strings may be transient or dynamically grown.
     OwnerSourceLocation& source = g_ownerSourceLocations[sourceLocationCount];
     source.tracy = { fullPath, OWNER_ZONE_FUNCTION, OWNER_ZONE_SOURCE, 0u, 0u };
+
     source.hash = hash;
     g_ownerSourceLocationCount.store( sourceLocationCount + 1u, std::memory_order_release );
     cached = { fullPath, hash, sourceLocationCount + 1u };
+
     return cached.handle;
 }
 
@@ -450,7 +490,8 @@ TracyZoneToken TracyClientOwner::BeginOwnerZone( uint32_t sourceLocationHandle )
     }
 
     CoreAllocation::DevelopmentToolAllocationScope allocationScope(
-        CoreAllocation::DevelopmentToolAllocationOwner::Tracy );
+        CoreAllocation::DevelopmentToolAllocationOwner::Tracy
+    );
     const ___tracy_source_location_data* source = &g_ownerSourceLocations[sourceLocationHandle - 1u].tracy;
     const TracyCZoneCtx context = g_tracyHeavyMode.load( std::memory_order_acquire )
                                       ? ___tracy_emit_zone_begin_callstack( source, HEAVY_CALLSTACK_DEPTH, 1 )
@@ -470,7 +511,8 @@ void TracyClientOwner::EndOwnerZone( TracyZoneToken token ) noexcept
     }
 
     CoreAllocation::DevelopmentToolAllocationScope allocationScope(
-        CoreAllocation::DevelopmentToolAllocationOwner::Tracy );
+        CoreAllocation::DevelopmentToolAllocationOwner::Tracy
+    );
     ___tracy_emit_zone_end( { token.id, token.active } );
 }
 
@@ -482,7 +524,8 @@ void TracyClientOwner::PublishPlot( const char* name, double value ) noexcept
     }
 
     CoreAllocation::DevelopmentToolAllocationScope allocationScope(
-        CoreAllocation::DevelopmentToolAllocationOwner::Tracy );
+        CoreAllocation::DevelopmentToolAllocationOwner::Tracy
+    );
     ___tracy_emit_plot( name, value );
 }
 
@@ -490,14 +533,18 @@ void TracyClientOwner::PublishDevelopmentAllocationPlots() noexcept
 {
     CoreAllocation::DevelopmentToolAllocationStats imguiStats;
     CoreAllocation::DevelopmentToolAllocationStats tracyStats;
-    if ( CoreAllocation::CopyDevelopmentToolAllocationStats( CoreAllocation::DevelopmentToolAllocationOwner::DearImGui,
-                                                             imguiStats ) )
+    if ( CoreAllocation::CopyDevelopmentToolAllocationStats(
+             CoreAllocation::DevelopmentToolAllocationOwner::DearImGui,
+             imguiStats
+         ) )
     {
         PublishPlot( "Counter/DevelopmentTools/ImGuiActiveBytes", static_cast<double>( imguiStats.activeBytes ) );
         PublishPlot( "Counter/DevelopmentTools/ImGuiHighWaterBytes", static_cast<double>( imguiStats.highWaterBytes ) );
     }
-    if ( CoreAllocation::CopyDevelopmentToolAllocationStats( CoreAllocation::DevelopmentToolAllocationOwner::Tracy,
-                                                             tracyStats ) )
+    if ( CoreAllocation::CopyDevelopmentToolAllocationStats(
+             CoreAllocation::DevelopmentToolAllocationOwner::Tracy,
+             tracyStats
+         ) )
     {
         PublishPlot( "Counter/DevelopmentTools/TracyActiveBytes", static_cast<double>( tracyStats.activeBytes ) );
         PublishPlot( "Counter/DevelopmentTools/TracyHighWaterBytes", static_cast<double>( tracyStats.highWaterBytes ) );

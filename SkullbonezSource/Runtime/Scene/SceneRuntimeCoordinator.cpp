@@ -51,10 +51,12 @@ SceneLoadRequest SceneController::AdvanceScene( bool perfTestActive, bool preser
     if ( perfTestActive && m_perfPass == 0 )
     {
         m_perfPass = 1;
-        return SceneLoadRequest::Load( CurrentIndex(),
-                                       preserveInteractiveUI,
-                                       preserveInteractiveUI,
-                                       preserveInteractiveUI );
+        return SceneLoadRequest::Load(
+            CurrentIndex(),
+            preserveInteractiveUI,
+            preserveInteractiveUI,
+            preserveInteractiveUI
+        );
     }
 
     m_perfPass = 0;
@@ -74,8 +76,8 @@ int SceneController::PerfPass() const
     return m_perfPass;
 }
 
-SceneRuntimeUICommandResult SubmitSceneUIRequests( SceneController& sceneController,
-                                                   const UI::UISceneCommands& commands )
+SceneRuntimeUICommandResult
+SubmitSceneUIRequests( SceneController& sceneController, const UI::UISceneCommands& commands )
 {
     SceneRuntimeUICommandResult result;
     if ( commands.resetScene )

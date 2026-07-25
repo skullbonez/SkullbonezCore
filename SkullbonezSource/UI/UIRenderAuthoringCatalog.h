@@ -231,8 +231,9 @@ inline constexpr RenderSliderSpec kRenderSliderSpecs[] = {
       0.01f,
       "%.2f" },
 };
-static_assert( sizeof( kRenderSliderSpecs ) / sizeof( kRenderSliderSpecs[0] ) ==
-               static_cast<int>( UIRenderParam::Count ) );
+static_assert(
+    sizeof( kRenderSliderSpecs ) / sizeof( kRenderSliderSpecs[0] ) == static_cast<int>( UIRenderParam::Count )
+);
 
 inline constexpr bool RenderSliderStartsSection( int index )
 {
@@ -478,8 +479,9 @@ inline constexpr CinematicSliderSpec kCinematicSliderSpecs[] = {
     { UIRenderAuthoringSection::Environment, "Fog G", UICinematicParam::FogGreen, 0.00f, 1.50f, 0.01f, "%.2f" },
     { UIRenderAuthoringSection::Environment, "Fog B", UICinematicParam::FogBlue, 0.00f, 1.50f, 0.01f, "%.2f" },
 };
-static_assert( sizeof( kCinematicSliderSpecs ) / sizeof( kCinematicSliderSpecs[0] ) ==
-               static_cast<int>( UICinematicParam::Count ) );
+static_assert(
+    sizeof( kCinematicSliderSpecs ) / sizeof( kCinematicSliderSpecs[0] ) == static_cast<int>( UICinematicParam::Count )
+);
 
 inline constexpr bool CinematicSliderStartsSection( int index )
 {
@@ -503,6 +505,8 @@ inline constexpr CinematicFeatureSpec kCinematicFeatureSpecs[] = {
     { UIRenderAuthoringSection::TerrainMaterials, "Terrain relief", UICinematicFeature::TerrainRelief },
     { UIRenderAuthoringSection::Shadows, "Shadows", UICinematicFeature::Shadows },
 };
-static_assert( sizeof( kCinematicFeatureSpecs ) / sizeof( kCinematicFeatureSpecs[0] ) ==
-               static_cast<int>( UICinematicFeature::Count ) );
+static_assert(
+    sizeof( kCinematicFeatureSpecs ) / sizeof( kCinematicFeatureSpecs[0] ) ==
+    static_cast<int>( UICinematicFeature::Count )
+);
 } // namespace SkullbonezCore::UI

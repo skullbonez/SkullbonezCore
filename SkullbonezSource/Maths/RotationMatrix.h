@@ -47,15 +47,17 @@ class RotationMatrix
 
   public:
     RotationMatrix();                                                        // Initializes to identity rotation.
-    RotationMatrix( float f11,
-                    float f12,
-                    float f13,
-                    float f21,
-                    float f22,
-                    float f23,
-                    float f31,
-                    float f32,
-                    float f33 );                                             // Explicit row-major component construction.
+    RotationMatrix(
+        float f11,
+        float f12,
+        float f13,
+        float f21,
+        float f22,
+        float f23,
+        float f31,
+        float f32,
+        float f33
+    );                                                                       // Explicit row-major component construction.
     ~RotationMatrix() = default;
     void Identity();                                                         // Resets to no-rotation matrix.
     Vector::Vector3 operator*( const Vector::Vector3& v ) const;             // Applies this rotation to v.
@@ -142,15 +144,17 @@ RotatePointAboutArbitrary( float fRadians, const Vector::Vector3& vAxis, const V
                         (vAxis.z * vAxis.z * (1 - cosTheta) + cosTheta)				* vPoint.z ;
     */
 
-    RotationMatrix matrix( ( vAxis.x * vAxis.x * ( 1 - cosTheta ) + cosTheta ),
-                           ( vAxis.x * vAxis.y * ( 1 - cosTheta ) + vAxis.z * sinTheta ),
-                           ( vAxis.x * vAxis.z * ( 1 - cosTheta ) - vAxis.y * sinTheta ),
-                           ( vAxis.x * vAxis.y * ( 1 - cosTheta ) - vAxis.z * sinTheta ),
-                           ( vAxis.y * vAxis.y * ( 1 - cosTheta ) + cosTheta ),
-                           ( vAxis.y * vAxis.z * ( 1 - cosTheta ) + vAxis.x * sinTheta ),
-                           ( vAxis.x * vAxis.z * ( 1 - cosTheta ) + vAxis.y * sinTheta ),
-                           ( vAxis.y * vAxis.z * ( 1 - cosTheta ) - vAxis.x * sinTheta ),
-                           ( vAxis.z * vAxis.z * ( 1 - cosTheta ) + cosTheta ) );
+    RotationMatrix matrix(
+        ( vAxis.x * vAxis.x * ( 1 - cosTheta ) + cosTheta ),
+        ( vAxis.x * vAxis.y * ( 1 - cosTheta ) + vAxis.z * sinTheta ),
+        ( vAxis.x * vAxis.z * ( 1 - cosTheta ) - vAxis.y * sinTheta ),
+        ( vAxis.x * vAxis.y * ( 1 - cosTheta ) - vAxis.z * sinTheta ),
+        ( vAxis.y * vAxis.y * ( 1 - cosTheta ) + cosTheta ),
+        ( vAxis.y * vAxis.z * ( 1 - cosTheta ) + vAxis.x * sinTheta ),
+        ( vAxis.x * vAxis.z * ( 1 - cosTheta ) + vAxis.y * sinTheta ),
+        ( vAxis.y * vAxis.z * ( 1 - cosTheta ) - vAxis.x * sinTheta ),
+        ( vAxis.z * vAxis.z * ( 1 - cosTheta ) + cosTheta )
+    );
 
     return matrix * vPoint;
 }

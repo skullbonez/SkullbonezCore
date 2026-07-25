@@ -51,10 +51,12 @@ bool ReplayPredictionBudgetExpired( const std::chrono::steady_clock::time_point&
 // Why: prediction diagnostics need the exact pass that lost work. Keeping the
 // counter beside the single budget predicate prevents extracted publication
 // units from changing either time units or accounting order.
-bool ReplayPredictionBudgetExpiredForPass( ReplayPredictionUpdateResult& result,
-                                           SkullbonezCore::Core::MainMemoryReplayBudgetPass pass,
-                                           const std::chrono::steady_clock::time_point& start,
-                                           double budgetMilliseconds )
+bool ReplayPredictionBudgetExpiredForPass(
+    ReplayPredictionUpdateResult& result,
+    SkullbonezCore::Core::MainMemoryReplayBudgetPass pass,
+    const std::chrono::steady_clock::time_point& start,
+    double budgetMilliseconds
+)
 {
     if ( !ReplayPredictionBudgetExpired( start, budgetMilliseconds ) )
     {
@@ -68,8 +70,8 @@ bool ReplayPredictionBudgetExpiredForPass( ReplayPredictionUpdateResult& result,
     return true;
 }
 
-double ReplayPredictionRemainingMilliseconds( const std::chrono::steady_clock::time_point& start,
-                                              double budgetMilliseconds )
+double
+ReplayPredictionRemainingMilliseconds( const std::chrono::steady_clock::time_point& start, double budgetMilliseconds )
 {
     if ( budgetMilliseconds <= 0.0 )
     {
@@ -95,8 +97,8 @@ double ReplayPredictionRevealSecondsPerSecond( const RunReplayPredictionState& p
 // the unfold without banking reveal debt.
 // Invariant: the cursor is monotonic per prediction. It plays 0 -> horizon once
 // and then holds, so every revealed line and causal box stays on screen.
-ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& prediction,
-                                                   ReplayFrameIndex lastAvailableFrame )
+ReplayFrameIndex
+ReplayPredictionRevealFrameIndex( RunReplayPredictionState& prediction, ReplayFrameIndex lastAvailableFrame )
 {
     if ( prediction.revealClock.deterministicFrameEnabled )
     {
@@ -130,7 +132,8 @@ ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& pre
         revealSeconds = availableSeconds;
         prediction.revealClock.anchor =
             now - std::chrono::duration_cast<std::chrono::steady_clock::duration>(
-                      std::chrono::duration<double>( availableSeconds / revealSecondsPerSecond ) );
+                      std::chrono::duration<double>( availableSeconds / revealSecondsPerSecond )
+                  );
     }
 
     const double revealFrame = revealSeconds / static_cast<double>( ::PHYSICS_FIXED_DT );
@@ -139,8 +142,10 @@ ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& pre
     return prediction.revealClock.presentedFrame;
 }
 
-std::size_t ReplayPredictionBuildPresentationFrameCountForRefresh( RunReplayPredictionState& prediction,
-                                                                   Physics::PhysicsSceneObjectId requestedTargetId )
+std::size_t ReplayPredictionBuildPresentationFrameCountForRefresh(
+    RunReplayPredictionState& prediction,
+    Physics::PhysicsSceneObjectId requestedTargetId
+)
 {
     if ( requestedTargetId.value == 0 || prediction.simulation.targetId.value != requestedTargetId.value ||
          prediction.simulation.frames.size() < 2u )
@@ -152,7 +157,7 @@ std::size_t ReplayPredictionBuildPresentationFrameCountForRefresh( RunReplayPred
     // prefix catches the causal story the user can already see.
     const ReplayFrameIndex lastCommittedFrame = prediction.simulation.frames.back().frameIndex;
     const ReplayFrameIndex revealFrame = ReplayPredictionRevealFrameIndex( prediction, lastCommittedFrame );
-    return (std::max)( std::size_t{ 2u }, static_cast<std::size_t>( revealFrame ) + 1u );
+    return (std::max)( std::size_t { 2u }, static_cast<std::size_t>( revealFrame ) + 1u );
 }
 } // namespace SkullbonezCore::Runtime::ReplayPredictionSchedulingOperations
 
@@ -230,7 +235,7 @@ void ReplayPrediction::CancelJob( bool clearSamples )
     // Runtime allocation policy: cancellation invalidates publication but keeps
     // the double-buffered frame payloads warm for the next replay rebuild.
     m_state.ResetBuildFramePublication();
-    m_state.trajectoryBuild = RunReplayPredictionTrajectoryBuildState{};
+    m_state.trajectoryBuild = RunReplayPredictionTrajectoryBuildState {};
     if ( clearSamples )
     {
         m_state.build.supersededRestartCount = 0;

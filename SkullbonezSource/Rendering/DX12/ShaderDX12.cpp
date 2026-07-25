@@ -83,11 +83,13 @@ size_t HashShaderBytecode( ID3DBlob* blob )
 } // namespace
 
 
-ShaderDX12::ShaderDX12( Dx12RenderDevice& device,
-                        Dx12PipelineOwner& pipeline,
-                        Dx12ShaderDevelopment& shaderDevelopment,
-                        Dx12UploadReservations& uploadReservations,
-                        bool registerForDevelopment )
+ShaderDX12::ShaderDX12(
+    Dx12RenderDevice& device,
+    Dx12PipelineOwner& pipeline,
+    Dx12ShaderDevelopment& shaderDevelopment,
+    Dx12UploadReservations& uploadReservations,
+    bool registerForDevelopment
+)
     : m_device( device ), m_pipeline( pipeline ), m_shaderDevelopment( shaderDevelopment ),
       m_uploadReservations( uploadReservations ), m_cbReflectedSize( 0 ), m_cbSize( 0 ), m_cbDirty( false ),
       m_vsBytecodeHash( 0 ), m_psBytecodeHash( 0 ), m_contract( nullptr )
@@ -128,9 +130,11 @@ bool ShaderDX12::Compile( const char* hlslPath )
     {
         // Lane R: runtime accepts only the pinned offline-DXC artifact. Manual
         // hot reload reruns that same bake before asking this loader to try again.
-        SkullbonezCore::Core::Log().WriteEventf( "dx12_shader_bytecode_rejected path=%s reason=%s",
-                                                 hlslPath ? hlslPath : "<null>",
-                                                 loadError.c_str() );
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_shader_bytecode_rejected path=%s reason=%s",
+            hlslPath ? hlslPath : "<null>",
+            loadError.c_str()
+        );
         SkullbonezCore::Core::Log().FlushAll();
         return false;
     }
@@ -140,8 +144,10 @@ bool ShaderDX12::Compile( const char* hlslPath )
 
     if ( !m_contract )
     {
-        SkullbonezCore::Core::Log().WriteEventf( "dx12_shader_cpu_contract_missing owner=ShaderDX12 path=%s",
-                                                 hlslPath ? hlslPath : "<null>" );
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_shader_cpu_contract_missing owner=ShaderDX12 path=%s",
+            hlslPath ? hlslPath : "<null>"
+        );
         SkullbonezCore::Core::Log().FlushAll();
         return false;
     }
@@ -154,7 +160,8 @@ bool ShaderDX12::Compile( const char* hlslPath )
         SkullbonezCore::Core::Log().WriteEventf(
             "dx12_shader_reflection_contract_rejected owner=ShaderDX12 path=%s reason=%s",
             hlslPath ? hlslPath : "<null>",
-            contractError.c_str() );
+            contractError.c_str()
+        );
         SkullbonezCore::Core::Log().FlushAll();
         return false;
     }
@@ -173,7 +180,8 @@ bool ShaderDX12::Compile( const char* hlslPath )
         SkullbonezCore::Core::Log().WriteEventf(
             "dx12_shader_live_reflection_contract_rejected owner=ShaderDX12 path=%s reason=%s",
             hlslPath ? hlslPath : "<null>",
-            reflectedContractError.c_str() );
+            reflectedContractError.c_str()
+        );
         SkullbonezCore::Core::Log().FlushAll();
         return false;
     }
@@ -258,7 +266,8 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
             "dx12_shader_reflect_failed stage=%s hresult=0x%08X path=%s reason=missing_bytecode",
             stageName ? stageName : "unknown",
             static_cast<unsigned int>( E_POINTER ),
-            hlslPath ? hlslPath : "<null>" );
+            hlslPath ? hlslPath : "<null>"
+        );
         SkullbonezCore::Core::Log().FlushAll();
         return false;
     }
@@ -268,10 +277,12 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
         // Lane R: reflection depends on compiler output and device tooling. A
         // failed reflection pass means this shader cannot expose a safe uniform
         // contract, so report failure to Compile() instead of throwing.
-        SkullbonezCore::Core::Log().WriteEventf( "dx12_shader_reflect_failed stage=%s hresult=0x%08X path=%s",
-                                                 stageName ? stageName : "unknown",
-                                                 static_cast<unsigned int>( FAILED( hr ) ? hr : E_FAIL ),
-                                                 hlslPath ? hlslPath : "<null>" );
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_shader_reflect_failed stage=%s hresult=0x%08X path=%s",
+            stageName ? stageName : "unknown",
+            static_cast<unsigned int>( FAILED( hr ) ? hr : E_FAIL ),
+            hlslPath ? hlslPath : "<null>"
+        );
         SkullbonezCore::Core::Log().FlushAll();
         return false;
     }
@@ -286,7 +297,8 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
             stageName ? stageName : "unknown",
             operation ? operation : "unknown",
             static_cast<unsigned int>( result ),
-            hlslPath ? hlslPath : "<null>" );
+            hlslPath ? hlslPath : "<null>"
+        );
         SkullbonezCore::Core::Log().FlushAll();
         return false;
     };
@@ -326,6 +338,7 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
             return reflectionFailure( "GetConstantBufferByIndex", E_POINTER );
         }
         D3D12_SHADER_BUFFER_DESC bufDesc = {};
+
         hr = cb->GetDesc( &bufDesc );
         if ( FAILED( hr ) )
         {
@@ -347,6 +360,7 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
                 return reflectionFailure( "GetVariableByIndex", E_POINTER );
             }
             D3D12_SHADER_VARIABLE_DESC varDesc = {};
+
             hr = var->GetDesc( &varDesc );
             if ( FAILED( hr ) )
             {
@@ -372,6 +386,7 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
         {
             ID3D12ShaderReflectionConstantBuffer* cb = reflect->GetConstantBufferByIndex( i );
             D3D12_SHADER_BUFFER_DESC desc = {};
+
             if ( cb && SUCCEEDED( cb->GetDesc( &desc ) ) && desc.Name &&
                  std::strcmp( desc.Name, bakedStage->cbufferName ) == 0 && desc.Size == bakedStage->cbufferSize )
             {
@@ -391,6 +406,7 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
         {
             ID3D12ShaderReflectionConstantBuffer* cb = reflect->GetConstantBufferByIndex( i );
             D3D12_SHADER_BUFFER_DESC cbDesc = {};
+
             if ( !cb || FAILED( cb->GetDesc( &cbDesc ) ) || !cbDesc.Name ||
                  std::strcmp( cbDesc.Name, expected.cbuffer ) != 0 )
             {
@@ -399,6 +415,7 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
             for ( UINT variableIndex = 0; variableIndex < cbDesc.Variables; ++variableIndex )
             {
                 D3D12_SHADER_VARIABLE_DESC variable = {};
+
                 ID3D12ShaderReflectionVariable* reflectedVariable = cb->GetVariableByIndex( variableIndex );
                 if ( reflectedVariable && SUCCEEDED( reflectedVariable->GetDesc( &variable ) ) && variable.Name &&
                      std::strcmp( variable.Name, expected.name ) == 0 && variable.StartOffset == expected.offset &&
@@ -579,9 +596,11 @@ const char* ShaderInputDimensionName( D3D_SRV_DIMENSION dimension )
     }
 }
 
-bool ShaderResourceKindMatches( ShaderResourceKind kind,
-                                D3D_SHADER_INPUT_TYPE reflectedType,
-                                D3D_SRV_DIMENSION reflectedDimension )
+bool ShaderResourceKindMatches(
+    ShaderResourceKind kind,
+    D3D_SHADER_INPUT_TYPE reflectedType,
+    D3D_SRV_DIMENSION reflectedDimension
+)
 {
     switch ( kind )
     {
@@ -636,7 +655,8 @@ void ShaderDX12::MarkContractUniformSet( const char* name, const char* setterNam
                         m_contract->baseName,
                         name,
                         resource.slot,
-                        setterName );
+                        setterName
+                    );
                 }
                 return;
             }
@@ -650,7 +670,8 @@ void ShaderDX12::MarkContractUniformSet( const char* name, const char* setterNam
                 "shader_contract_stale_uniform shader=%s uniform=%s setter=%s reason=not_in_contract",
                 m_contract->baseName,
                 name,
-                setterName );
+                setterName
+            );
         }
         return;
     }
@@ -667,7 +688,8 @@ void ShaderDX12::MarkContractUniformSet( const char* name, const char* setterNam
                 m_contract->baseName,
                 name,
                 setterName,
-                ShaderValueTypeName( uniform->type ) );
+                ShaderValueTypeName( uniform->type )
+            );
         }
     }
 
@@ -701,7 +723,8 @@ void ShaderDX12::ReportMissingRequiredContractUniforms() const
                 "shader_contract_required_uniform_not_set shader=%s uniform=%s pass=%s",
                 m_contract->baseName,
                 uniform.name,
-                m_contract->passCategory ? m_contract->passCategory : "unknown" );
+                m_contract->passCategory ? m_contract->passCategory : "unknown"
+            );
         }
     }
 }
@@ -723,7 +746,8 @@ void ShaderDX12::ReportContractReflectionMismatch() const
                 "shader_contract_required_uniform_not_reflected shader=%s uniform=%s expected=%s",
                 m_contract->baseName,
                 uniform.name,
-                ShaderValueTypeName( uniform.type ) );
+                ShaderValueTypeName( uniform.type )
+            );
         }
     }
 
@@ -740,7 +764,8 @@ void ShaderDX12::ReportContractReflectionMismatch() const
                     m_contract->baseName,
                     resource.name,
                     resource.slot,
-                    ShaderResourceKindName( resource.kind ) );
+                    ShaderResourceKindName( resource.kind )
+                );
             }
             continue;
         }
@@ -754,7 +779,8 @@ void ShaderDX12::ReportContractReflectionMismatch() const
                 resource.name,
                 ShaderResourceKindName( resource.kind ),
                 ShaderInputTypeName( reflected->second.type ),
-                ShaderInputDimensionName( reflected->second.dimension ) );
+                ShaderInputDimensionName( reflected->second.dimension )
+            );
         }
 
         if ( reflected->second.bindPoint != static_cast<UINT>( resource.slot ) )
@@ -764,7 +790,8 @@ void ShaderDX12::ReportContractReflectionMismatch() const
                 m_contract->baseName,
                 resource.name,
                 resource.slot,
-                reflected->second.bindPoint );
+                reflected->second.bindPoint
+            );
         }
     }
 }
@@ -789,10 +816,12 @@ void ShaderDX12::ReportUniformNotReflected( const char* name, const char* setter
     }
 
     m_missingUniformWarnings.push_back( key );
-    SkullbonezCore::Core::Log().WriteEventf( "shader_uniform_not_reflected shader=%s uniform=%s setter=%s",
-                                             shaderName,
-                                             name ? name : "<null>",
-                                             setterName );
+    SkullbonezCore::Core::Log().WriteEventf(
+        "shader_uniform_not_reflected shader=%s uniform=%s setter=%s",
+        shaderName,
+        name ? name : "<null>",
+        setterName
+    );
 }
 #endif
 
@@ -868,6 +897,7 @@ void ShaderDX12::SetVec3( const char* name, float x, float y, float z ) const
         return;
     }
     float v[3] = { x, y, z };
+
     memcpy( m_cbData.data() + uniform->offset, v, sizeof( v ) );
     m_cbDirty = true;
 }
@@ -893,6 +923,7 @@ void ShaderDX12::SetVec4( const char* name, float x, float y, float z, float w )
         return;
     }
     float v[4] = { x, y, z, w };
+
     memcpy( m_cbData.data() + uniform->offset, v, sizeof( v ) );
     m_cbDirty = true;
 }
@@ -938,7 +969,8 @@ bool ShaderDX12::SetConstantBufferBytes( SkullbonezCore::Core::ByteView bytes, c
             debugName ? debugName : "<unnamed>",
             static_cast<unsigned long long>( bytes.size() ),
             m_cbReflectedSize,
-            m_cbSize );
+            m_cbSize
+        );
 #endif
         return false;
     }
@@ -1038,9 +1070,11 @@ size_t ShaderDX12::GetPSBytecodeHash() const
 }
 
 
-bool ShaderDX12::ValidateInputLayout( const D3D12_INPUT_ELEMENT_DESC* elements,
-                                      UINT count,
-                                      const char*& outError ) const
+bool ShaderDX12::ValidateInputLayout(
+    const D3D12_INPUT_ELEMENT_DESC* elements,
+    UINT count,
+    const char*& outError
+) const
 {
     constexpr UINT MAX_INPUT_ELEMENTS = 16;
     if ( count > MAX_INPUT_ELEMENTS )
@@ -1064,7 +1098,9 @@ bool ShaderDX12::ValidateInputLayout( const D3D12_INPUT_ELEMENT_DESC* elements,
             return 0;
         }
     };
+
     ShaderVertexInputLayoutElement contractElements[MAX_INPUT_ELEMENTS] = {};
+
     for ( UINT index = 0; index < count; ++index )
     {
         contractElements[index] = { elements[index].SemanticName,

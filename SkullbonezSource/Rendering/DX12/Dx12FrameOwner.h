@@ -81,16 +81,20 @@ class Dx12DeferredReleaseOwner
     // a resource while leaving headroom for resource-only readbacks/uploads.
     // The stress churn is the runtime high-water proof for this fixed queue.
     static constexpr size_t MAX_PENDING_RETIREMENTS = 512;
-    void Quarantine( ID3D12Resource* resource,
-                     UINT descriptorIndex = UINT_MAX,
-                     Dx12CpuDescriptorKind cpuKind = Dx12CpuDescriptorKind::None,
-                     UINT cpuDescriptorIndex = UINT_MAX );
+    void Quarantine(
+        ID3D12Resource* resource,
+        UINT descriptorIndex = UINT_MAX,
+        Dx12CpuDescriptorKind cpuKind = Dx12CpuDescriptorKind::None,
+        UINT cpuDescriptorIndex = UINT_MAX
+    );
     void QuarantineStaticDescriptor( UINT descriptorIndex );
     void AssignFence( UINT64 fenceValue );
-    void ReleaseCompleted( Dx12RenderDevice& device,
-                           Dx12DescriptorHeaps& descriptors,
-                           Dx12SubmittedWorkState& submittedWork,
-                           bool releaseUnfenced );
+    void ReleaseCompleted(
+        Dx12RenderDevice& device,
+        Dx12DescriptorHeaps& descriptors,
+        Dx12SubmittedWorkState& submittedWork,
+        bool releaseUnfenced
+    );
     bool Empty() const;
     size_t Count() const;
 
@@ -116,16 +120,20 @@ class Dx12DrawGate
     }
     bool PrepareDraw();
     bool PrepareFramebufferBind();
-    bool PreparePipelineDraw( VertexFormat12 format,
-                              bool instanced,
-                              const InstancedMeshDX12* instancedMesh,
-                              const DynamicVBDX12* dynamicVertexBuffer,
-                              const RasterStateDesc& rasterState );
-    bool PrecompilePipelineDraw( VertexFormat12 format,
-                                 bool instanced,
-                                 const InstancedMeshDX12* instancedMesh,
-                                 const DynamicVBDX12* dynamicVertexBuffer,
-                                 const RasterStateDesc& declaredRasterState );
+    bool PreparePipelineDraw(
+        VertexFormat12 format,
+        bool instanced,
+        const InstancedMeshDX12* instancedMesh,
+        const DynamicVBDX12* dynamicVertexBuffer,
+        const RasterStateDesc& rasterState
+    );
+    bool PrecompilePipelineDraw(
+        VertexFormat12 format,
+        bool instanced,
+        const InstancedMeshDX12* instancedMesh,
+        const DynamicVBDX12* dynamicVertexBuffer,
+        const RasterStateDesc& declaredRasterState
+    );
     bool CanRecord() const;
 
   private:
@@ -240,10 +248,12 @@ class Dx12FrameOwner
     static constexpr UINT64 UPLOAD_BUFFER_SIZE = 32ull * 1024ull * 1024ull;
     static constexpr int PROFILER_STACK_CAPACITY = 64;
 
-    Dx12FrameOwner( Dx12RenderDevice& device,
-                    Dx12PipelineOwner& pipeline,
-                    Dx12TextureOwner& textures,
-                    Dx12DescriptorHeaps& descriptors );
+    Dx12FrameOwner(
+        Dx12RenderDevice& device,
+        Dx12PipelineOwner& pipeline,
+        Dx12TextureOwner& textures,
+        Dx12DescriptorHeaps& descriptors
+    );
 
     Dx12DrawGate& DrawGate()
     {
@@ -290,16 +300,20 @@ class Dx12FrameOwner
     // owner; capability subobjects only forward their restricted surface.
     bool PrepareDraw();
     bool PrepareFramebufferBind();
-    bool PreparePipelineDraw( VertexFormat12 format,
-                              bool instanced,
-                              const InstancedMeshDX12* instancedMesh,
-                              const DynamicVBDX12* dynamicVertexBuffer,
-                              const RasterStateDesc& rasterState );
-    bool PrecompilePipelineDraw( VertexFormat12 format,
-                                 bool instanced,
-                                 const InstancedMeshDX12* instancedMesh,
-                                 const DynamicVBDX12* dynamicVertexBuffer,
-                                 const RasterStateDesc& declaredRasterState );
+    bool PreparePipelineDraw(
+        VertexFormat12 format,
+        bool instanced,
+        const InstancedMeshDX12* instancedMesh,
+        const DynamicVBDX12* dynamicVertexBuffer,
+        const RasterStateDesc& rasterState
+    );
+    bool PrecompilePipelineDraw(
+        VertexFormat12 format,
+        bool instanced,
+        const InstancedMeshDX12* instancedMesh,
+        const DynamicVBDX12* dynamicVertexBuffer,
+        const RasterStateDesc& declaredRasterState
+    );
     D3D12_GPU_VIRTUAL_ADDRESS
     ReserveUpload( UINT64 size, UINT64 alignment, RenderUploadCategory category = RenderUploadCategory::TextureRows );
     D3D12_GPU_VIRTUAL_ADDRESS
@@ -406,10 +420,12 @@ class Dx12FrameOwner
     }
     void RetireResource( ID3D12Resource* resource );
     void RetireResource( ID3D12Resource* resource, UINT descriptorIndex );
-    void RetireResource( ID3D12Resource* resource,
-                         UINT descriptorIndex,
-                         Dx12CpuDescriptorKind cpuKind,
-                         UINT cpuDescriptorIndex );
+    void RetireResource(
+        ID3D12Resource* resource,
+        UINT descriptorIndex,
+        Dx12CpuDescriptorKind cpuKind,
+        UINT cpuDescriptorIndex
+    );
     void RetireStaticDescriptor( UINT descriptorIndex );
     void AssignRetirementFence( UINT64 fenceValue )
     {

@@ -53,6 +53,13 @@ if %BAD_COUNT% GTR 0 (
     exit /b 1
 )
 
+"%PYTHON_EXE%" "%~dp0separate_multiline_cpp_declarations.py" --repo "%REPO%" --check
+if errorlevel 1 (
+    echo FAIL: Multiline local declarations need paragraph spacing.
+    echo       Run: tools\format_fix.bat
+    exit /b 1
+)
+
 "%PYTHON_EXE%" "%~dp0align_header_inline_comments.py" --repo "%REPO%" --check-pipeline --clang-format "%CLANG_FMT%"
 if errorlevel 1 (
     echo FAIL: Header formatting pipeline is not clean.

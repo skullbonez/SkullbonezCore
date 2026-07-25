@@ -48,7 +48,7 @@ using AuthoredSceneParserDetail::ValidateReleasableTreeGroups;
 Physics::PhysicsSceneObjectId
 AuthoredSceneParser::RegisterSceneObjectIdRange( uint32_t first, uint32_t count, const std::string& path )
 {
-    Physics::PhysicsSceneObjectId result{ first };
+    Physics::PhysicsSceneObjectId result { first };
     if ( first == 0 )
     {
         Fail( path, "sceneObjectId must be nonzero" );
@@ -80,10 +80,12 @@ AuthoredSceneParser::RegisterSceneObjectIdRange( uint32_t first, uint32_t count,
     return result;
 }
 
-Physics::PhysicsSceneObjectId AuthoredSceneParser::ReadSceneObjectId( const Json& object,
-                                                                      const std::string& path,
-                                                                      const char* context,
-                                                                      uint32_t count )
+Physics::PhysicsSceneObjectId AuthoredSceneParser::ReadSceneObjectId(
+    const Json& object,
+    const std::string& path,
+    const char* context,
+    uint32_t count
+)
 {
     uint32_t first = 0;
     if ( m_currentDocumentVersion == 2 )
@@ -168,11 +170,12 @@ void AuthoredSceneParser::UpgradeVersion1SceneObjectIds( const std::string& path
     {
         if ( !ragdoll.firstSceneObjectId.IsValid() )
         {
-            ragdoll.firstSceneObjectId =
-                AllocateVersion1SceneObjectIdRange( next,
+            ragdoll.firstSceneObjectId = AllocateVersion1SceneObjectIdRange(
+                next,
 
-                                                    static_cast<uint32_t>( Physics::Ragdoll::SIMPLE_PART_COUNT ),
-                                                    path );
+                static_cast<uint32_t>( Physics::Ragdoll::SIMPLE_PART_COUNT ),
+                path
+            );
             if ( ParserFailed() )
             {
                 return;
@@ -212,11 +215,13 @@ void AuthoredSceneParser::UpgradeVersion1SceneObjectIds( const std::string& path
     AssignReleasableTreeGroupsToHulls( m_scene.m_convexHullStates );
 }
 
-const AuthoredSceneParser::Json* AuthoredSceneParser::ReadAssetPartIdentity( const Json& instance,
-                                                                             const std::string& path,
-                                                                             uint32_t partIndex,
-                                                                             uint32_t expectedPartCount,
-                                                                             const std::string& expectedPartName )
+const AuthoredSceneParser::Json* AuthoredSceneParser::ReadAssetPartIdentity(
+    const Json& instance,
+    const std::string& path,
+    uint32_t partIndex,
+    uint32_t expectedPartCount,
+    const std::string& expectedPartName
+)
 {
     const Json* parts = FindMember( instance, "parts" );
     if ( m_currentDocumentVersion == 1 )
@@ -240,17 +245,22 @@ const AuthoredSceneParser::Json* AuthoredSceneParser::ReadAssetPartIdentity( con
     }
     if ( parts->size() != expectedPartCount )
     {
-        Fail( path,
-              "assetInstance.parts count does not match asset recipe: expected " + std::to_string( expectedPartCount ) +
-                  ", got " + std::to_string( parts->size() ) );
+        Fail(
+            path,
+            "assetInstance.parts count does not match asset recipe: expected " + std::to_string( expectedPartCount ) +
+                ", got " + std::to_string( parts->size() )
+        );
         return nullptr;
     }
 
     const Json& identity = ( *parts )[partIndex];
     RequireObject( identity, path, "assetInstance.parts[]" );
-    const std::string name = ReadString( RequireMember( identity, path, "assetInstance.parts[]", "name" ),
-                                         path,
-                                         "assetInstance.parts[].name" );
+    const std::string name = ReadString(
+        RequireMember( identity, path, "assetInstance.parts[]", "name" ),
+        path,
+        "assetInstance.parts[].name"
+    );
+
     if ( ParserFailed() )
     {
         return nullptr;
@@ -274,10 +284,12 @@ std::string AuthoredSceneParser::ResolveStylePath( const std::string& token ) co
     return std::string( "SkullbonezData/styles/" ) + token + ".style.json";
 }
 
-void AuthoredSceneParser::LoadStyleIncludes( const Json& root,
-                                             const std::string& path,
-                                             const char* memberName,
-                                             int depth )
+void AuthoredSceneParser::LoadStyleIncludes(
+    const Json& root,
+    const std::string& path,
+    const char* memberName,
+    int depth
+)
 {
     const Json* includes = FindMember( root, memberName );
     if ( !includes )
@@ -600,7 +612,7 @@ AuthoredSceneParser::TryLoadDocument( const char* path, bool styleOnly, Authored
     m_sceneObjectNames.clear();
     m_sceneObjectIds.clear();
     m_currentDocumentVersion = 1;
-    m_failure = ParserFailureState{};
+    m_failure = ParserFailureState {};
 
     {
         ParserFailureScope failureScope( m_failure );

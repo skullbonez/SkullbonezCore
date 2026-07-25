@@ -92,8 +92,11 @@ void RenderGpuTimingOwner::BeginFrame()
         }
     }
     m_profiler->ApplyGpuTimingSamples(
-        std::span<const Core::Profiler::GpuTimingSample>( m_completedSamples,
-                                                          static_cast<std::size_t>( completedCount ) ) );
+        std::span<const Core::Profiler::GpuTimingSample>(
+            m_completedSamples,
+            static_cast<std::size_t>( completedCount )
+        )
+    );
 
 #if defined( TRACY_ENABLE )
     if ( SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::CopyStatus().viewerConnected )
@@ -106,10 +109,16 @@ void RenderGpuTimingOwner::BeginFrame()
         SKORE_TRACY_PLOT_VALUE( "Counter/Render/DSVDescriptorsUsed", memory.dsvDescriptorsUsed );
         SKORE_TRACY_PLOT_VALUE( "Counter/Render/StaticSRVDescriptorsUsed", memory.srvStaticDescriptorsUsed );
         SKORE_TRACY_PLOT_VALUE( "Counter/Render/StaticSRVDescriptorsHighWater", memory.srvStaticDescriptorsHighWater );
-        SKORE_TRACY_PLOT_VALUE( "Counter/Render/TransientSRVDescriptorsUsed",
-                                memory.srvTransientDescriptorsUsedThisFrame );
-        SKORE_TRACY_PLOT_VALUE( "Counter/Render/TransientSRVDescriptorsPeak",
-                                memory.srvTransientDescriptorsPeakThisRun );
+        SKORE_TRACY_PLOT_VALUE(
+            "Counter/Render/TransientSRVDescriptorsUsed",
+            memory.srvTransientDescriptorsUsedThisFrame
+        );
+
+        SKORE_TRACY_PLOT_VALUE(
+            "Counter/Render/TransientSRVDescriptorsPeak",
+            memory.srvTransientDescriptorsPeakThisRun
+        );
+
         SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::PublishDevelopmentAllocationPlots();
     }
 #endif
@@ -167,10 +176,12 @@ void RenderGpuTimingOwner::End( const char* fullPath, uint32_t hash )
     OpenScope& scope = m_openScopes[m_openDepth - 1];
     if ( scope.hash != hash )
     {
-        SB_FATAL( "RenderGpuTimingOwner",
-                  "GPU range mismatch: expected %s, received %s",
-                  scope.fullPath ? scope.fullPath : "<null>",
-                  fullPath ? fullPath : "<null>" );
+        SB_FATAL(
+            "RenderGpuTimingOwner",
+            "GPU range mismatch: expected %s, received %s",
+            scope.fullPath ? scope.fullPath : "<null>",
+            fullPath ? fullPath : "<null>"
+        );
     }
     if ( scope.timerOpen && m_diagnostics )
     {
@@ -204,15 +215,17 @@ void RenderGpuTimingOwner::InvalidateDevice()
 }
 
 
-void ProfilerOverlayPresenter::RenderOverlay( const Core::Profiler::ProfilerFrameView& frame,
-                                              Text::TextBatch& textBatch,
-                                              SkullbonezCore::Rendering::Dx12GeometryOwner& renderCommands,
-                                              float xLeft,
-                                              float yAnchor,
-                                              float lineHeight,
-                                              float fSize,
-                                              float fps,
-                                              bool rightAnchored ) const
+void ProfilerOverlayPresenter::RenderOverlay(
+    const Core::Profiler::ProfilerFrameView& frame,
+    Text::TextBatch& textBatch,
+    SkullbonezCore::Rendering::Dx12GeometryOwner& renderCommands,
+    float xLeft,
+    float yAnchor,
+    float lineHeight,
+    float fSize,
+    float fps,
+    bool rightAnchored
+) const
 {
     using SkullbonezCore::Text::Text2d;
     using Marker = Core::Profiler::Marker;
@@ -238,6 +251,7 @@ void ProfilerOverlayPresenter::RenderOverlay( const Core::Profiler::ProfilerFram
     for ( int i = 0; i < m_markerCount; ++i )
     {
         char nameBuf[64] = { 0 };
+
         int spaces = m_markers[i].depth * 2;
         if ( spaces > 20 )
         {
@@ -283,16 +297,18 @@ void ProfilerOverlayPresenter::RenderOverlay( const Core::Profiler::ProfilerFram
     const float yTop = yBottom + rowsHeight;
 
     // Background quad
-    Text2d::Render2dQuad( textBatch,
-                          renderCommands,
-                          xLeft - padX,
-                          yBottom,
-                          xLeft - padX + panelW,
-                          yTop + padY,
-                          0.12f,
-                          0.12f,
-                          0.12f,
-                          0.5f );
+    Text2d::Render2dQuad(
+        textBatch,
+        renderCommands,
+        xLeft - padX,
+        yBottom,
+        xLeft - padX + panelW,
+        yTop + padY,
+        0.12f,
+        0.12f,
+        0.12f,
+        0.5f
+    );
 
     // Color palette
     const float hdrR = 1.0f, hdrG = 0.85f, hdrB = 0.2f; // gold header
@@ -343,6 +359,7 @@ void ProfilerOverlayPresenter::RenderOverlay( const Core::Profiler::ProfilerFram
             return;
         }
         char nameBuf[64] = { 0 };
+
         int spaces = m.depth * 2;
         if ( spaces > 20 )
         {
@@ -412,6 +429,7 @@ void ProfilerOverlayPresenter::RenderOverlay( const Core::Profiler::ProfilerFram
     // children[i] holds indices of markers whose parentIndex == i, in registration order.
     int childBuf[MAX_MARKERS][MAX_MARKERS]; // [parent][slot]
     int childCount[MAX_MARKERS] = {};
+
     for ( int i = 0; i < m_markerCount; ++i )
     {
         int p = m_markers[i].parentIndex;
@@ -467,14 +485,16 @@ void ProfilerOverlayPresenter::RenderOverlay( const Core::Profiler::ProfilerFram
 
     The panel is designed with vertical headroom for future multi-core stacking (CPU bar per thread).
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void ProfilerOverlayPresenter::RenderBarOverlay( const Core::Profiler::ProfilerFrameView& frame,
-                                                 Text::TextBatch& textBatch,
-                                                 SkullbonezCore::Rendering::Dx12GeometryOwner& renderCommands,
-                                                 float xLeft,
-                                                 float yBottom,
-                                                 float panelWidth,
-                                                 float panelHeight,
-                                                 bool absolute ) const
+void ProfilerOverlayPresenter::RenderBarOverlay(
+    const Core::Profiler::ProfilerFrameView& frame,
+    Text::TextBatch& textBatch,
+    SkullbonezCore::Rendering::Dx12GeometryOwner& renderCommands,
+    float xLeft,
+    float yBottom,
+    float panelWidth,
+    float panelHeight,
+    bool absolute
+) const
 {
     using SkullbonezCore::Text::Text2d;
     using Marker = Core::Profiler::Marker;
@@ -563,16 +583,18 @@ void ProfilerOverlayPresenter::RenderBarOverlay( const Core::Profiler::ProfilerF
     const float fSz = barHeight * 0.45f; // text size proportional to bar
 
     // Background quad
-    Text2d::BatchQuad( textBatch,
-                       renderCommands,
-                       xLeft,
-                       yBottom,
-                       xLeft + panelWidth,
-                       yBottom + panelHeight,
-                       0.06f,
-                       0.06f,
-                       0.10f,
-                       0.90f );
+    Text2d::BatchQuad(
+        textBatch,
+        renderCommands,
+        xLeft,
+        yBottom,
+        xLeft + panelWidth,
+        yBottom + panelHeight,
+        0.06f,
+        0.06f,
+        0.10f,
+        0.90f
+    );
 
     // Title
     float ty = yBottom + panelHeight - pad - titleH;
@@ -584,27 +606,31 @@ void ProfilerOverlayPresenter::RenderBarOverlay( const Core::Profiler::ProfilerF
     if ( absolute )
     {
         // In absolute mode show CPU sum, GPU sum, and overall frame time
-        sprintf_s( totalsBuf,
-                   sizeof( totalsBuf ),
-                   "CPU: %.2f ms  GPU: %.2f ms  Frame: %.2f ms",
-                   cpuTotalMs,
-                   gpuTotalMs,
-                   frameMs );
+        sprintf_s(
+            totalsBuf,
+            sizeof( totalsBuf ),
+            "CPU: %.2f ms  GPU: %.2f ms  Frame: %.2f ms",
+            cpuTotalMs,
+            gpuTotalMs,
+            frameMs
+        );
     }
     else
     {
         sprintf_s( totalsBuf, sizeof( totalsBuf ), "CPU: %.2f ms  GPU: %.2f ms", cpuTotalMs, gpuTotalMs );
     }
     float totalsW = Text2d::MeasureText( fSz * 0.9f, totalsBuf );
-    Text2d::Render2dTextColor( textBatch,
-                               barX1 - totalsW,
-                               ty + titleH * 0.35f,
-                               fSz * 0.9f,
-                               0.85f,
-                               0.85f,
-                               0.85f,
-                               "%s",
-                               totalsBuf );
+    Text2d::Render2dTextColor(
+        textBatch,
+        barX1 - totalsW,
+        ty + titleH * 0.35f,
+        fSz * 0.9f,
+        0.85f,
+        0.85f,
+        0.85f,
+        "%s",
+        totalsBuf
+    );
 
     // --- CPU bar ---
     float cpuBarY = ty - barGap - barHeight * 0.4f; // shift down so title doesn't overlap
@@ -614,16 +640,18 @@ void ProfilerOverlayPresenter::RenderBarOverlay( const Core::Profiler::ProfilerF
     float cpuBarWidth = barX1 - cpuBarX0;
 
     // Draw background (dark grey = empty / absolute idle)
-    Text2d::BatchQuad( textBatch,
-                       renderCommands,
-                       cpuBarX0,
-                       cpuBarY,
-                       barX1,
-                       cpuBarY + barHeight,
-                       0.15f,
-                       0.15f,
-                       0.15f,
-                       1.0f );
+    Text2d::BatchQuad(
+        textBatch,
+        renderCommands,
+        cpuBarX0,
+        cpuBarY,
+        barX1,
+        cpuBarY + barHeight,
+        0.15f,
+        0.15f,
+        0.15f,
+        1.0f
+    );
 
     // Scale bars either against the absolute frame or the CPU subtotal.
     float cpuScale = 1.0f;
@@ -650,32 +678,37 @@ void ProfilerOverlayPresenter::RenderBarOverlay( const Core::Profiler::ProfilerF
             segW = barX1 - cx; // Keep the segment inside the panel.
         }
         const BarColor& c = BAR_PALETTE[m.colorIndex % BAR_PALETTE_SIZE];
-        Text2d::BatchQuad( textBatch,
-                           renderCommands,
-                           cx,
-                           cpuBarY,
-                           cx + segW,
-                           cpuBarY + barHeight,
-                           c.r,
-                           c.g,
-                           c.b,
-                           1.0f );
+        Text2d::BatchQuad(
+            textBatch,
+            renderCommands,
+            cx,
+            cpuBarY,
+            cx + segW,
+            cpuBarY + barHeight,
+            c.r,
+            c.g,
+            c.b,
+            1.0f
+        );
+
         cx += segW;
     }
 
     // Absolute mode: remaining space = white (idle)
     if ( absolute && cx < barX1 )
     {
-        Text2d::BatchQuad( textBatch,
-                           renderCommands,
-                           cx,
-                           cpuBarY,
-                           barX1,
-                           cpuBarY + barHeight,
-                           0.85f,
-                           0.85f,
-                           0.85f,
-                           0.7f );
+        Text2d::BatchQuad(
+            textBatch,
+            renderCommands,
+            cx,
+            cpuBarY,
+            barX1,
+            cpuBarY + barHeight,
+            0.85f,
+            0.85f,
+            0.85f,
+            0.7f
+        );
     }
 
     // --- GPU bar ---
@@ -686,16 +719,18 @@ void ProfilerOverlayPresenter::RenderBarOverlay( const Core::Profiler::ProfilerF
         float gpuLabelW = cpuLabelW; // align with CPU bar
         float gpuBarX0 = barX0 + gpuLabelW;
 
-        Text2d::BatchQuad( textBatch,
-                           renderCommands,
-                           gpuBarX0,
-                           gpuBarY,
-                           barX1,
-                           gpuBarY + barHeight,
-                           0.15f,
-                           0.15f,
-                           0.15f,
-                           1.0f );
+        Text2d::BatchQuad(
+            textBatch,
+            renderCommands,
+            gpuBarX0,
+            gpuBarY,
+            barX1,
+            gpuBarY + barHeight,
+            0.15f,
+            0.15f,
+            0.15f,
+            1.0f
+        );
 
         float gpuScale = 1.0f;
         if ( absolute )
@@ -721,31 +756,36 @@ void ProfilerOverlayPresenter::RenderBarOverlay( const Core::Profiler::ProfilerF
                 segW = barX1 - gx;
             }
             const BarColor& c = BAR_PALETTE[m.colorIndex % BAR_PALETTE_SIZE];
-            Text2d::BatchQuad( textBatch,
-                               renderCommands,
-                               gx,
-                               gpuBarY,
-                               gx + segW,
-                               gpuBarY + barHeight,
-                               c.r,
-                               c.g,
-                               c.b,
-                               1.0f );
+            Text2d::BatchQuad(
+                textBatch,
+                renderCommands,
+                gx,
+                gpuBarY,
+                gx + segW,
+                gpuBarY + barHeight,
+                c.r,
+                c.g,
+                c.b,
+                1.0f
+            );
+
             gx += segW;
         }
 
         if ( absolute && gx < barX1 )
         {
-            Text2d::BatchQuad( textBatch,
-                               renderCommands,
-                               gx,
-                               gpuBarY,
-                               barX1,
-                               gpuBarY + barHeight,
-                               0.85f,
-                               0.85f,
-                               0.85f,
-                               0.7f );
+            Text2d::BatchQuad(
+                textBatch,
+                renderCommands,
+                gx,
+                gpuBarY,
+                barX1,
+                gpuBarY + barHeight,
+                0.85f,
+                0.85f,
+                0.85f,
+                0.7f
+            );
         }
     }
 
@@ -763,6 +803,7 @@ void ProfilerOverlayPresenter::RenderBarOverlay( const Core::Profiler::ProfilerF
     int legendIndices[MAX_MARKERS];
     int legendCount = 0;
     bool inLegend[MAX_MARKERS] = {};
+
     for ( int i = 0; i < cpuLeafCount; ++i )
     {
         inLegend[cpuLeaves[i]] = true;
@@ -797,15 +838,17 @@ void ProfilerOverlayPresenter::RenderBarOverlay( const Core::Profiler::ProfilerF
         // Swatch
         Text2d::BatchQuad( textBatch, renderCommands, lx, ly, lx + swatchW, ly + swatchH, c.r, c.g, c.b, 1.0f );
         // Label
-        Text2d::Render2dTextColor( textBatch,
-                                   lx + swatchW + legendSpacing,
-                                   ly,
-                                   legendFSz,
-                                   0.85f,
-                                   0.85f,
-                                   0.85f,
-                                   "%s",
-                                   m.leafName );
+        Text2d::Render2dTextColor(
+            textBatch,
+            lx + swatchW + legendSpacing,
+            ly,
+            legendFSz,
+            0.85f,
+            0.85f,
+            0.85f,
+            "%s",
+            m.leafName
+        );
         lx += entryW;
     }
 
@@ -844,27 +887,31 @@ void RenderGpuTimingOwner::End( const char*, uint32_t )
 }
 
 
-void ProfilerOverlayPresenter::RenderOverlay( const Core::Profiler::ProfilerFrameView&,
-                                              Text::TextBatch&,
-                                              Rendering::Dx12GeometryOwner&,
-                                              float,
-                                              float,
-                                              float,
-                                              float,
-                                              float,
-                                              bool ) const
+void ProfilerOverlayPresenter::RenderOverlay(
+    const Core::Profiler::ProfilerFrameView&,
+    Text::TextBatch&,
+    Rendering::Dx12GeometryOwner&,
+    float,
+    float,
+    float,
+    float,
+    float,
+    bool
+) const
 {
 }
 
 
-void ProfilerOverlayPresenter::RenderBarOverlay( const Core::Profiler::ProfilerFrameView&,
-                                                 Text::TextBatch&,
-                                                 Rendering::Dx12GeometryOwner&,
-                                                 float,
-                                                 float,
-                                                 float,
-                                                 float,
-                                                 bool ) const
+void ProfilerOverlayPresenter::RenderBarOverlay(
+    const Core::Profiler::ProfilerFrameView&,
+    Text::TextBatch&,
+    Rendering::Dx12GeometryOwner&,
+    float,
+    float,
+    float,
+    float,
+    bool
+) const
 {
 }
 

@@ -73,12 +73,14 @@ class Sha256Writer
         {
             // Why: BCryptGetProperty exposes arbitrary property storage as
             // mutable bytes; the requested property is exactly one DWORD.
-            status = BCryptGetProperty( m_algorithm,
-                                        BCRYPT_OBJECT_LENGTH,
-                                        reinterpret_cast<PUCHAR>( &m_objectBytes ),
-                                        sizeof( m_objectBytes ),
-                                        &resultBytes,
-                                        0 );
+            status = BCryptGetProperty(
+                m_algorithm,
+                BCRYPT_OBJECT_LENGTH,
+                reinterpret_cast<PUCHAR>( &m_objectBytes ),
+                sizeof( m_objectBytes ),
+                &resultBytes,
+                0
+            );
         }
         if ( status < 0 || m_objectBytes > m_object.size() )
         {
@@ -106,10 +108,12 @@ class Sha256Writer
         }
         // Why: BCryptHashData's legacy ABI lacks const even though hashing does
         // not mutate input. Remove const only at this synchronous API call.
-        return BCryptHashData( m_hash,
-                               const_cast<std::uint8_t*>( bytes.data() ),
-                               static_cast<ULONG>( bytes.size() ),
-                               0 ) >= 0;
+        return BCryptHashData(
+                   m_hash,
+                   const_cast<std::uint8_t*>( bytes.data() ),
+                   static_cast<ULONG>( bytes.size() ),
+                   0
+               ) >= 0;
     }
 
     template <typename T> bool Value( const T& value )
@@ -157,16 +161,20 @@ class Sha256Writer
     std::array<std::uint8_t, 1024> m_object = {};
 };
 
-bool HashBytes( SkullbonezCore::Core::ByteView bytes,
-                std::array<std::uint8_t, Dx12CachedPsoStore::DIGEST_BYTES>& digest )
+bool HashBytes(
+    SkullbonezCore::Core::ByteView bytes,
+    std::array<std::uint8_t, Dx12CachedPsoStore::DIGEST_BYTES>& digest
+)
 {
     Sha256Writer writer;
     return writer.Open() && writer.Write( bytes ) && writer.Finish( digest );
 }
 
-bool HashBoundedFile( const wchar_t* path,
-                      std::size_t cap,
-                      std::array<std::uint8_t, Dx12CachedPsoStore::DIGEST_BYTES>& digest )
+bool HashBoundedFile(
+    const wchar_t* path,
+    std::size_t cap,
+    std::array<std::uint8_t, Dx12CachedPsoStore::DIGEST_BYTES>& digest
+)
 {
     HANDLE file =
         CreateFileW( path, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr );
@@ -175,6 +183,7 @@ bool HashBoundedFile( const wchar_t* path,
         return false;
     }
     LARGE_INTEGER size = {};
+
     const bool bounded = GetFileSizeEx( file, &size ) && size.QuadPart > 0 &&
                          static_cast<ULONGLONG>( size.QuadPart ) <= static_cast<ULONGLONG>( cap );
     if ( !bounded )
@@ -235,6 +244,7 @@ bool HashShaderBytecode( Sha256Writer& writer, const D3D12_SHADER_BYTECODE& byte
     // void pointer. Narrow it at this driver descriptor seam only.
     const SkullbonezCore::Core::ByteView bytes = { static_cast<const std::uint8_t*>( bytecode.pShaderBytecode ),
                                                    bytecode.BytecodeLength };
+
     if ( !HashBytes( bytes, digest ) )
     {
         return false;
@@ -369,6 +379,7 @@ bool EnsureCacheDirectory( wchar_t ( &directory )[MAX_PATH] )
         return false;
     }
     wchar_t product[MAX_PATH] = {};
+
     if ( swprintf_s( product, L"%s\\SkullbonezCore", localAppData ) < 0 ||
          ( !CreateDirectoryW( product, nullptr ) && GetLastError() != ERROR_ALREADY_EXISTS ) ||
          swprintf_s( directory, L"%s\\PipelineCache", product ) < 0 )
@@ -396,6 +407,7 @@ bool EntryNameDigest( const wchar_t* name, std::array<std::uint8_t, Dx12CachedPs
         }
         return -1;
     };
+
     for ( std::size_t index = 0; index < digest.size(); ++index )
     {
         const int high = nibble( name[4 + index * 2] );
@@ -421,10 +433,12 @@ bool WriteAll( HANDLE file, SkullbonezCore::Core::ByteView bytes )
 }
 } // namespace
 
-bool Dx12CachedPsoStore::BuildEntryName( const D3D12_GRAPHICS_PIPELINE_STATE_DESC& desc,
-                                         const std::array<std::uint8_t, DIGEST_BYTES>& manifestDigest,
-                                         const std::array<std::uint8_t, DIGEST_BYTES>& rootSignatureDigest,
-                                         wchar_t ( &outName )[ENTRY_NAME_CHARS] )
+bool Dx12CachedPsoStore::BuildEntryName(
+    const D3D12_GRAPHICS_PIPELINE_STATE_DESC& desc,
+    const std::array<std::uint8_t, DIGEST_BYTES>& manifestDigest,
+    const std::array<std::uint8_t, DIGEST_BYTES>& rootSignatureDigest,
+    wchar_t ( &outName )[ENTRY_NAME_CHARS]
+)
 {
     Sha256Writer writer;
     std::array<std::uint8_t, DIGEST_BYTES> digest = {};
@@ -437,6 +451,7 @@ bool Dx12CachedPsoStore::BuildEntryName( const D3D12_GRAPHICS_PIPELINE_STATE_DES
         return false;
     }
     wchar_t hex[65] = {};
+
     DigestHex( digest, hex );
     return swprintf_s( outName, L"pso-%s", hex ) > 0;
 }
@@ -445,7 +460,8 @@ bool Dx12CachedPsoStore::BuildPersistentEntryNameForTest(
     const D3D12_GRAPHICS_PIPELINE_STATE_DESC& desc,
     const std::array<std::uint8_t, DIGEST_BYTES>& manifestDigest,
     const std::array<std::uint8_t, DIGEST_BYTES>& rootSignatureDigest,
-    wchar_t ( &outName )[ENTRY_NAME_CHARS] )
+    wchar_t ( &outName )[ENTRY_NAME_CHARS]
+)
 {
     return BuildEntryName( desc, manifestDigest, rootSignatureDigest, outName );
 }
@@ -456,38 +472,45 @@ bool Dx12CachedPsoStore::Initialize( SkullbonezCore::Core::ByteView rootSignatur
     if ( !ReadManifestDigest( m_manifestDigest ) || !HashBytes( rootSignatureBytes, m_rootSignatureDigest ) )
     {
         SkullbonezCore::Core::Log().WriteEventf(
-            "dx12_pso_disk_cache_cold_start owner=Dx12PipelineOwner reason=identity_unavailable" );
+            "dx12_pso_disk_cache_cold_start owner=Dx12PipelineOwner reason=identity_unavailable"
+        );
         ++m_failures;
         return false;
     }
 
     wchar_t directory[MAX_PATH] = {};
     wchar_t manifestHex[65] = {};
+
     wchar_t rootHex[65] = {};
+
     DigestHex( m_manifestDigest, manifestHex );
     DigestHex( m_rootSignatureDigest, rootHex );
     if ( !EnsureCacheDirectory( directory ) ||
          swprintf_s( m_cachePath, L"%s\\%s-%.16s-%.16s.bin", directory, CACHE_SCHEMA, manifestHex, rootHex ) < 0 )
     {
         SkullbonezCore::Core::Log().WriteEventf(
-            "dx12_pso_disk_cache_cold_start owner=Dx12PipelineOwner reason=cache_directory_unwritable" );
+            "dx12_pso_disk_cache_cold_start owner=Dx12PipelineOwner reason=cache_directory_unwritable"
+        );
         ++m_failures;
         return false;
     }
 
-    m_file = CreateFileW( m_cachePath,
-                          GENERIC_READ,
-                          FILE_SHARE_READ,
-                          nullptr,
-                          OPEN_EXISTING,
-                          FILE_ATTRIBUTE_NORMAL,
-                          nullptr );
+    m_file = CreateFileW(
+        m_cachePath,
+        GENERIC_READ,
+        FILE_SHARE_READ,
+        nullptr,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        nullptr
+    );
     if ( m_file == INVALID_HANDLE_VALUE )
     {
         SkullbonezCore::Core::Log().WriteEventf(
             "dx12_pso_disk_cache_open owner=Dx12PipelineOwner mode=cold bytes=0 cap=%llu path=%ls",
             static_cast<unsigned long long>( MAX_BLOB_BYTES ),
-            m_cachePath );
+            m_cachePath
+        );
         return true;
     }
     LARGE_INTEGER fileSize = {};
@@ -500,7 +523,8 @@ bool Dx12CachedPsoStore::Initialize( SkullbonezCore::Core::ByteView rootSignatur
             "dx12_pso_disk_cache_cold_start owner=Dx12PipelineOwner reason=read_failed_or_oversize "
             "cap=%llu error=%lu",
             static_cast<unsigned long long>( MAX_BLOB_BYTES ),
-            GetLastError() );
+            GetLastError()
+        );
         CloseHandle( m_file );
         m_file = INVALID_HANDLE_VALUE;
         return true;
@@ -512,6 +536,7 @@ bool Dx12CachedPsoStore::Initialize( SkullbonezCore::Core::ByteView rootSignatur
     m_mappedBytes =
         m_mapping ? static_cast<const std::uint8_t*>( MapViewOfFile( m_mapping, FILE_MAP_READ, 0, 0, 0 ) ) : nullptr;
     CacheFileHeader header = {};
+
     if ( m_mappedBytes )
     {
         std::memcpy( &header, m_mappedBytes, sizeof( header ) );
@@ -530,6 +555,7 @@ bool Dx12CachedPsoStore::Initialize( SkullbonezCore::Core::ByteView rootSignatur
             break;
         }
         CacheEntryHeader entry = {};
+
         std::memcpy( &entry, cursor, sizeof( entry ) );
         cursor += sizeof( CacheEntryHeader );
         valid = entry.blobBytes > 0 && static_cast<std::size_t>( end - cursor ) >= entry.blobBytes;
@@ -548,7 +574,8 @@ bool Dx12CachedPsoStore::Initialize( SkullbonezCore::Core::ByteView rootSignatur
         ++m_failures;
         SkullbonezCore::Core::Log().WriteEventf(
             "dx12_pso_disk_cache_cold_start owner=Dx12PipelineOwner reason=corrupt_format bytes=%llu",
-            static_cast<unsigned long long>( m_mappedSize ) );
+            static_cast<unsigned long long>( m_mappedSize )
+        );
         m_mappedEntryCount = 0;
     }
     m_loadedBytes = valid ? m_mappedSize : 0;
@@ -557,7 +584,9 @@ bool Dx12CachedPsoStore::Initialize( SkullbonezCore::Core::ByteView rootSignatur
         valid ? "warm" : "cold",
         static_cast<unsigned long long>( m_loadedBytes ),
         static_cast<unsigned long long>( MAX_BLOB_BYTES ),
-        m_cachePath );
+        m_cachePath
+    );
+
     return true;
 }
 
@@ -565,6 +594,7 @@ bool Dx12CachedPsoStore::Attach( D3D12_GRAPHICS_PIPELINE_STATE_DESC& desc )
 {
     wchar_t name[ENTRY_NAME_CHARS] = {};
     std::array<std::uint8_t, DIGEST_BYTES> digest = {};
+
     if ( !BuildEntryName( desc, m_manifestDigest, m_rootSignatureDigest, name ) || !EntryNameDigest( name, digest ) )
     {
         ++m_failures;
@@ -576,6 +606,7 @@ bool Dx12CachedPsoStore::Attach( D3D12_GRAPHICS_PIPELINE_STATE_DESC& desc )
         if ( !entry.rejected && entry.digest == digest )
         {
             desc.CachedPSO = { entry.bytes, entry.size };
+
             ++m_hits;
             return true;
         }
@@ -588,8 +619,10 @@ void Dx12CachedPsoStore::RejectAttached( D3D12_GRAPHICS_PIPELINE_STATE_DESC& des
 {
     wchar_t name[ENTRY_NAME_CHARS] = {};
     std::array<std::uint8_t, DIGEST_BYTES> digest = {};
+
     const D3D12_CACHED_PIPELINE_STATE attached = desc.CachedPSO;
     desc.CachedPSO = {};
+
     if ( !attached.pCachedBlob || !BuildEntryName( desc, m_manifestDigest, m_rootSignatureDigest, name ) ||
          !EntryNameDigest( name, digest ) )
     {
@@ -619,6 +652,7 @@ void Dx12CachedPsoStore::Store( const D3D12_GRAPHICS_PIPELINE_STATE_DESC& desc, 
         return;
     }
     std::array<std::uint8_t, DIGEST_BYTES> digest = {};
+
     if ( !EntryNameDigest( name, digest ) )
     {
         ++m_failures;
@@ -637,6 +671,7 @@ void Dx12CachedPsoStore::Store( const D3D12_GRAPHICS_PIPELINE_STATE_DESC& desc, 
         return;
     }
     m_liveEntries[m_liveEntryCount++] = { digest, pipeline };
+
     ++m_stores;
 }
 
@@ -664,7 +699,8 @@ void Dx12CachedPsoStore::Persist()
         SkullbonezCore::Core::Log().WriteEventf(
             "dx12_pso_disk_cache_write_skipped owner=Dx12PipelineOwner bytes=%llu cap=%llu",
             static_cast<unsigned long long>( totalBytes ),
-            static_cast<unsigned long long>( MAX_BLOB_BYTES ) );
+            static_cast<unsigned long long>( MAX_BLOB_BYTES )
+        );
         return;
     }
 
@@ -676,6 +712,7 @@ void Dx12CachedPsoStore::Persist()
     }
     HANDLE file = CreateFileW( temporary, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr );
     CacheFileHeader header = {};
+
     std::memcpy( header.magic, FILE_MAGIC, sizeof( FILE_MAGIC ) );
     header.version = 1;
     header.entryCount = blobCount;
@@ -689,13 +726,16 @@ void Dx12CachedPsoStore::Persist()
             continue;
         }
         CacheEntryHeader entry = {};
+
         std::memcpy( entry.digest, m_liveEntries[index].digest.data(), m_liveEntries[index].digest.size() );
         entry.blobBytes = static_cast<std::uint32_t>( blobs[index]->GetBufferSize() );
         // Why: ID3DBlob exposes cached driver bytes through its COM void-pointer
         // ABI. Narrow the synchronous file write here and retain no raw pointer.
         const SkullbonezCore::Core::ByteView blobBytes = {
             static_cast<const std::uint8_t*>( blobs[index]->GetBufferPointer() ),
-            blobs[index]->GetBufferSize() };
+            blobs[index]->GetBufferSize()
+        };
+
         wrote = WriteAll( file, SkullbonezCore::Core::ObjectBytes( entry ) ) && WriteAll( file, blobBytes );
     }
     wrote = wrote && FlushFileBuffers( file );
@@ -710,7 +750,8 @@ void Dx12CachedPsoStore::Persist()
         SkullbonezCore::Core::Log().WriteEventf(
             "dx12_pso_disk_cache_write_failed owner=Dx12PipelineOwner bytes=%llu error=%lu",
             static_cast<unsigned long long>( totalBytes ),
-            GetLastError() );
+            GetLastError()
+        );
         return;
     }
     SkullbonezCore::Core::Log().WriteEventf(
@@ -722,7 +763,8 @@ void Dx12CachedPsoStore::Persist()
         m_failures,
         static_cast<unsigned long long>( m_loadedBytes ),
         static_cast<unsigned long long>( totalBytes ),
-        96u );
+        96u
+    );
 }
 
 void Dx12CachedPsoStore::Shutdown()

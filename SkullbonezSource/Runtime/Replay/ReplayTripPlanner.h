@@ -120,14 +120,14 @@ struct ReplayTripPlannerVelocityMutation
 
 struct ReplayTripPlannerGhostArc
 {
-    std::array<Math::Vector::Vector3, REPLAY_TRIP_PLANNER_GHOST_POINTS> points{};
+    std::array<Math::Vector::Vector3, REPLAY_TRIP_PLANNER_GHOST_POINTS> points {};
     std::size_t pointCount = 0;
 };
 
 struct ReplayTripPlannerView
 {
-    std::array<ReplayTripPlannerGhostArc, REPLAY_TRIP_PLANNER_MAX_ITERATIONS> ghosts{};
-    std::array<float, REPLAY_TRIP_PLANNER_MAX_ITERATIONS> iterationMissDistances{};
+    std::array<ReplayTripPlannerGhostArc, REPLAY_TRIP_PLANNER_MAX_ITERATIONS> ghosts {};
+    std::array<float, REPLAY_TRIP_PLANNER_MAX_ITERATIONS> iterationMissDistances {};
     ReplayTripPlannerState state = ReplayTripPlannerState::Idle;
     Physics::PhysicsSceneObjectId shipId;
     Physics::PhysicsSceneObjectId targetId;
@@ -160,10 +160,12 @@ class ReplayTripPlanner
     bool RequiresLiveInput() const noexcept;
     bool AwaitingPrediction() const noexcept;
 
-    static Math::Vector::Vector3 FirstOrderCorrection( const Math::Vector::Vector3& velocity,
-                                                       const Math::Vector::Vector3& shipAtClosest,
-                                                       const Math::Vector::Vector3& targetAtClosest,
-                                                       float closestTimeSeconds ) noexcept;
+    static Math::Vector::Vector3 FirstOrderCorrection(
+        const Math::Vector::Vector3& velocity,
+        const Math::Vector::Vector3& shipAtClosest,
+        const Math::Vector::Vector3& targetAtClosest,
+        float closestTimeSeconds
+    ) noexcept;
 
   private:
     ReplayTripPlannerVelocityMutation BeginPlan( const ReplayTripPlannerLiveInput& input ) noexcept;
@@ -171,7 +173,7 @@ class ReplayTripPlanner
     void Fail() noexcept;
     void ClearPlanState() noexcept;
 
-    std::array<ReplayTripPlannerCommand, REPLAY_TRIP_PLANNER_COMMAND_CAPACITY> m_commands{};
+    std::array<ReplayTripPlannerCommand, REPLAY_TRIP_PLANNER_COMMAND_CAPACITY> m_commands {};
     std::size_t m_commandCount = 0;
     ReplayTripPlannerView m_view;
     Math::Vector::Vector3 m_prePlanVelocity = Math::Vector::ZERO_VECTOR;

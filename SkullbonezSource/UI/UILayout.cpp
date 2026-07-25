@@ -76,6 +76,7 @@ void SetPipelineStepButtonBounds( UIRect& previous, UIRect& next, float contentX
     const float nextX = contentX + contentW - UI_PIPELINE_STEP_BUTTON_W;
     const float previousX = nextX - UI_PIPELINE_STEP_BUTTON_GAP - UI_PIPELINE_STEP_BUTTON_W;
     previous = { previousX, y, UI_PIPELINE_STEP_BUTTON_W, UI_PIPELINE_STEP_BUTTON_H };
+
     next = { nextX, y, UI_PIPELINE_STEP_BUTTON_W, UI_PIPELINE_STEP_BUTTON_H };
 }
 

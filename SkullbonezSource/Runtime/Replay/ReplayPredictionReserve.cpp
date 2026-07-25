@@ -66,7 +66,8 @@ SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle ReplayPredictionRese
               REPLAY_PREDICTION_RESERVE_HARD_BYTES,
               REPLAY_PREDICTION_RESERVE_GROWTH_LIMIT,
               true,
-              "replay prediction supports large retained path visualization under a hard byte budget" } );
+              "replay prediction supports large retained path visualization under a hard byte budget" }
+        );
     return owner;
 }
 
@@ -76,7 +77,8 @@ bool RequestReplayPredictionReserveGrowth(
     int oldCapacityBytes,
     int requestedCapacityBytes,
     int elementSizeBytes,
-    SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult& outResult ) noexcept
+    SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult& outResult
+) noexcept
 {
     outResult = {};
     if ( !targetName || oldCapacityBytes < 0 || requestedCapacityBytes <= oldCapacityBytes ||
@@ -93,7 +95,9 @@ bool RequestReplayPredictionReserveGrowth(
         frameNumber,
         oldCapacityBytes,
         requestedCapacityBytes,
-        elementSizeBytes };
+        elementSizeBytes
+    };
+
     outResult = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
     return outResult.granted;
 }
@@ -130,17 +134,21 @@ uint64_t ReplayPredictionWorldSnapshotMemoryBytes( const ReplaySolverWorldSnapsh
     return bytes;
 }
 
-void AddReplayPredictionFrameCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories,
-                                            const RunReplayPredictionFrame& frame )
+void AddReplayPredictionFrameCategoryBytes(
+    SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories,
+    const RunReplayPredictionFrame& frame
+)
 {
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         categories,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionFrameBodies,
-        ReplayPredictionVectorCapacityBytes( frame.bodies ) );
+        ReplayPredictionVectorCapacityBytes( frame.bodies )
+    );
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         categories,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionDebugContacts,
-        ReplayPredictionVectorCapacityBytes( frame.debugContacts ) );
+        ReplayPredictionVectorCapacityBytes( frame.debugContacts )
+    );
 }
 
 std::size_t RoundUpReplayPredictionCapacity( std::size_t requestedCapacity, std::size_t chunk )
@@ -156,9 +164,11 @@ std::size_t RoundUpReplayPredictionCapacity( std::size_t requestedCapacity, std:
 std::size_t ReplayPredictionInitialDebugContactCapacity( int modelCount )
 {
     const std::size_t modelScaled = static_cast<std::size_t>( (std::max)( modelCount, 1 ) ) * 8u;
-    return std::clamp( modelScaled,
-                       REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN,
-                       REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MAX );
+    return std::clamp(
+        modelScaled,
+        REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN,
+        REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MAX
+    );
 }
 
 std::size_t ReplayPredictionNextDebugContactCapacity( std::size_t currentCapacity, std::size_t requiredCapacity )

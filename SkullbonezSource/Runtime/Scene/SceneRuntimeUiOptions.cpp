@@ -37,11 +37,13 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-void PrepareSceneUiOptions( SceneRuntimeUiOptionsContext context,
-                            const SceneUIOptions& options,
-                            double nowSeconds,
-                            bool preserveUIState,
-                            bool automationScene )
+void PrepareSceneUiOptions(
+    SceneRuntimeUiOptionsContext context,
+    const SceneUIOptions& options,
+    double nowSeconds,
+    bool preserveUIState,
+    bool automationScene
+)
 {
     context.activation.authoredOptions = options;
     context.activation.nowSeconds = nowSeconds;

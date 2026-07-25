@@ -73,10 +73,12 @@ void SceneAutomationGateConfiguration::ReserveRequiredContacts( std::size_t coun
 }
 
 
-void SceneAutomationGateConfiguration::AppendRequiredContact( const char* nameA,
-                                                              const char* nameB,
-                                                              int bodyA,
-                                                              int bodyB )
+void SceneAutomationGateConfiguration::AppendRequiredContact(
+    const char* nameA,
+    const char* nameB,
+    int bodyA,
+    int bodyB
+)
 {
     SceneRequiredContactGate state;
     strcpy_s( state.nameA, sizeof( state.nameA ), nameA );
@@ -93,10 +95,12 @@ void SceneAutomationGateConfiguration::ReserveRequiredBroadphaseXCells( std::siz
 }
 
 
-void SceneAutomationGateConfiguration::AppendRequiredBroadphaseXCells( int minCellX,
-                                                                       int maxCellX,
-                                                                       int cellY,
-                                                                       int cellZ )
+void SceneAutomationGateConfiguration::AppendRequiredBroadphaseXCells(
+    int minCellX,
+    int maxCellX,
+    int cellY,
+    int cellZ
+)
 {
     SceneRequiredBroadphaseXCellsGate state;
     state.minCellX = minCellX;
@@ -115,8 +119,10 @@ void SceneAutomationGateTracker::ApplyConfiguration( SceneAutomationGateConfigur
 }
 
 
-void SceneAutomationGateTracker::ObserveSceneLifecycle( const SceneLifecyclePacket& packet,
-                                                        SceneAutomationGateConfiguration&& configuration )
+void SceneAutomationGateTracker::ObserveSceneLifecycle(
+    const SceneLifecyclePacket& packet,
+    SceneAutomationGateConfiguration&& configuration
+)
 {
     // Lifetime: the caller may offer a detached configuration on every apply
     // boundary; only a newly cleared generation transfers its vector storage.
@@ -156,14 +162,16 @@ void SceneAutomationGateTracker::UpdateRequiredContacts( SceneAutomationGatePhys
         const ColliderRecord& colliderB = colliderRecords[static_cast<std::size_t>( required.bodyB )];
         ObjectContactManifold manifold;
         const auto hotFields = bodyStore.HotFields();
-        if ( BuildObjectContactManifold( AutomationContactBodyView( hotFields, bodyAIndex ),
-                                         colliderA.shape,
-                                         AutomationContactBodyView( hotFields, bodyBIndex ),
-                                         colliderB.shape,
-                                         required.bodyA,
-                                         required.bodyB,
-                                         contactEpsilon + 0.25f,
-                                         manifold ) )
+        if ( BuildObjectContactManifold(
+                 AutomationContactBodyView( hotFields, bodyAIndex ),
+                 colliderA.shape,
+                 AutomationContactBodyView( hotFields, bodyBIndex ),
+                 colliderB.shape,
+                 required.bodyA,
+                 required.bodyB,
+                 contactEpsilon + 0.25f,
+                 manifold
+             ) )
         {
             required.touched = true;
         }
@@ -193,8 +201,10 @@ void SceneAutomationGateTracker::UpdateRequiredContacts( SceneAutomationGatePhys
 }
 
 
-void SceneAutomationGateTracker::UpdateRequiredBroadphaseXCells( const SpatialGrid::ActiveCell* activeCells,
-                                                                 int activeCellCount )
+void SceneAutomationGateTracker::UpdateRequiredBroadphaseXCells(
+    const SpatialGrid::ActiveCell* activeCells,
+    int activeCellCount
+)
 {
     if ( m_configuration.m_requiredBroadphaseXCells.empty() || !activeCells || activeCellCount <= 0 )
     {
@@ -289,9 +299,9 @@ bool SceneAutomationGateTracker::RequiredBroadphaseXCellsComplete() const
 
 SceneAutomationGateStatus SceneAutomationGateTracker::Status() const
 {
-    return SceneAutomationGateStatus{
-        !m_configuration.m_requiredContacts.empty() || !m_configuration.m_requiredBroadphaseXCells.empty(),
-        RequiredContactsComplete() && RequiredBroadphaseXCellsComplete() };
+    return SceneAutomationGateStatus { !m_configuration.m_requiredContacts.empty() ||
+                                           !m_configuration.m_requiredBroadphaseXCells.empty(),
+                                       RequiredContactsComplete() && RequiredBroadphaseXCellsComplete() };
 }
 
 
@@ -308,18 +318,20 @@ void SceneAutomationGateTracker::PrintMissingRequirements() const
     {
         if ( !cells.activated )
         {
-            std::fprintf( stderr,
-                          "[scene] required_broadphase_x_cells missing: x %d..%d y %d z %d first_missing=%d "
-                          "active_cells=%d observed_x=%s%d..%d\n",
-                          cells.minCellX,
-                          cells.maxCellX,
-                          cells.cellY,
-                          cells.cellZ,
-                          cells.lastMissingCellX,
-                          cells.lastActiveCellCount,
-                          cells.hasObservedXRange ? "" : "none ",
-                          cells.lastObservedMinX,
-                          cells.lastObservedMaxX );
+            std::fprintf(
+                stderr,
+                "[scene] required_broadphase_x_cells missing: x %d..%d y %d z %d first_missing=%d "
+                "active_cells=%d observed_x=%s%d..%d\n",
+                cells.minCellX,
+                cells.maxCellX,
+                cells.cellY,
+                cells.cellZ,
+                cells.lastMissingCellX,
+                cells.lastActiveCellCount,
+                cells.hasObservedXRange ? "" : "none ",
+                cells.lastObservedMinX,
+                cells.lastObservedMaxX
+            );
         }
     }
 }
@@ -363,10 +375,12 @@ bool RuntimeValidationHarness::ConfigureStartup( const RunStartupOverrides& over
         std::clamp( launch.graphicsStressMemoryIntervalFrames, 0, 36000 );
     launchOptions.interactiveSceneRun = true;
 
-    m_graphicsStress.Configure( resolvedSeed,
-                                launchOptions.graphicsStressActions,
-                                launchOptions.graphicsStressSceneIntervalFrames,
-                                launchOptions.graphicsStressMemoryIntervalFrames );
+    m_graphicsStress.Configure(
+        resolvedSeed,
+        launchOptions.graphicsStressActions,
+        launchOptions.graphicsStressSceneIntervalFrames,
+        launchOptions.graphicsStressMemoryIntervalFrames
+    );
     return liveStyleConfigured;
 }
 
@@ -389,8 +403,10 @@ bool RuntimeValidationHarness::HasPendingLiveStyleCapture() const
 }
 
 
-void RuntimeValidationHarness::SavePendingLiveStyleCapture( CaptureController& capture,
-                                                            Rendering::Dx12BackbufferCapture& backend )
+void RuntimeValidationHarness::SavePendingLiveStyleCapture(
+    CaptureController& capture,
+    Rendering::Dx12BackbufferCapture& backend
+)
 {
     m_liveStyle.SavePendingCapture( capture, backend );
 }
@@ -402,14 +418,18 @@ void RuntimeValidationHarness::ResumeGraphicsStressAfterSceneLoad( const RunLaun
     {
         return;
     }
-    m_graphicsStress.ResumeAfterSceneLoad( launchOptions.graphicsStressSeed,
-                                           launchOptions.graphicsStressActions,
-                                           launchOptions.graphicsStressSceneIntervalFrames );
+    m_graphicsStress.ResumeAfterSceneLoad(
+        launchOptions.graphicsStressSeed,
+        launchOptions.graphicsStressActions,
+        launchOptions.graphicsStressSceneIntervalFrames
+    );
 }
 
 
-void RuntimeValidationHarness::ObserveSceneLifecycle( const SceneLifecyclePacket& packet,
-                                                      const RunLaunchOptions& launchOptions )
+void RuntimeValidationHarness::ObserveSceneLifecycle(
+    const SceneLifecyclePacket& packet,
+    const RunLaunchOptions& launchOptions
+)
 {
     // Invariant: a reload may be sampled more than once, but the stress random
     // stream and cadence resume exactly once after population reaches commit.
@@ -427,10 +447,12 @@ void RuntimeValidationHarness::PrintGraphicsStressExitSummary( int currentSceneF
     {
         return;
     }
-    std::printf( "[graphics-stress] WM_QUIT received at frame=%d scene_frame=%d scene_loads=%d\n",
-                 m_graphicsStress.FramesRun(),
-                 currentSceneFrame,
-                 m_graphicsStress.SceneLoadsRequested() );
+    std::printf(
+        "[graphics-stress] WM_QUIT received at frame=%d scene_frame=%d scene_loads=%d\n",
+        m_graphicsStress.FramesRun(),
+        currentSceneFrame,
+        m_graphicsStress.SceneLoadsRequested()
+    );
     std::fflush( stdout );
 }
 

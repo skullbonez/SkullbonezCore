@@ -75,7 +75,8 @@ SkullbonezCore::Core::SbResult WriteExact( FILE* file, SkullbonezCore::Core::Byt
         return SkullbonezCore::Core::SbResult::Failure(
             "Runtime/CaptureSystem",
             "Failed to write screenshot file: %s  (CaptureSystem::SaveBackbufferBmp)",
-            path );
+            path
+        );
     }
     return SkullbonezCore::Core::SbResult::Success();
 }
@@ -104,8 +105,8 @@ void BuildScreenshotAndExitPath( const char* scenePath, char* outPath, size_t ou
 }
 } // namespace
 
-SkullbonezCore::Core::SbResult CaptureSystem::SaveBackbufferBmp( Rendering::Dx12BackbufferCapture& backend,
-                                                                 const char* path )
+SkullbonezCore::Core::SbResult
+CaptureSystem::SaveBackbufferBmp( Rendering::Dx12BackbufferCapture& backend, const char* path )
 {
     // Lane R: capture support, readback dimensions, and file output can fail
     // because of renderer/device/file-system environment state, so callers get
@@ -115,7 +116,8 @@ SkullbonezCore::Core::SbResult CaptureSystem::SaveBackbufferBmp( Rendering::Dx12
         return SkullbonezCore::Core::SbResult::Failure(
             "Runtime/CaptureSystem",
             "Renderer does not support backbuffer capture for file: %s  (CaptureSystem::SaveBackbufferBmp)",
-            path );
+            path
+        );
     }
 
     int width = 0;
@@ -131,7 +133,8 @@ SkullbonezCore::Core::SbResult CaptureSystem::SaveBackbufferBmp( Rendering::Dx12
         return SkullbonezCore::Core::SbResult::Failure(
             "Runtime/CaptureSystem",
             "Invalid screenshot dimensions for file: %s  (CaptureSystem::SaveBackbufferBmp)",
-            path );
+            path
+        );
     }
 
     const int rowStride = ( width * 3 + 3 ) & ~3;
@@ -143,7 +146,8 @@ SkullbonezCore::Core::SbResult CaptureSystem::SaveBackbufferBmp( Rendering::Dx12
             "Screenshot readback returned %zu byte(s), expected %d for file: %s  (CaptureSystem::SaveBackbufferBmp)",
             pixels.size(),
             imageSize,
-            path );
+            path
+        );
     }
 
     unsigned char fileHeader[14] = {};
@@ -180,7 +184,8 @@ SkullbonezCore::Core::SbResult CaptureSystem::SaveBackbufferBmp( Rendering::Dx12
         return SkullbonezCore::Core::SbResult::Failure(
             "Runtime/CaptureSystem",
             "Failed to open screenshot file: %s  (CaptureSystem::SaveBackbufferBmp)",
-            path );
+            path
+        );
     }
     FileHandle file( rawFile );
 
@@ -229,8 +234,10 @@ bool CaptureSystem::IsScreenshotDue( const RunScreenshotState& screenshot, const
 }
 
 
-bool CaptureSystem::RequiresDeterministicPresentation( const RunScreenshotState& screenshot,
-                                                       const RuntimeCaptureSceneContext& context )
+bool CaptureSystem::RequiresDeterministicPresentation(
+    const RunScreenshotState& screenshot,
+    const RuntimeCaptureSceneContext& context
+)
 {
     if ( !context.isSceneMode )
     {
@@ -248,10 +255,12 @@ bool CaptureSystem::RequiresDeterministicPresentation( const RunScreenshotState&
 
 
 #if defined( SKULLBONEZ_CAPTURE_EXECUTION )
-RuntimeCaptureResult CaptureSystem::TickScreenshots( RunScreenshotState& screenshot,
-                                                     const RuntimeCaptureSceneContext& context,
-                                                     CaptureController& capture,
-                                                     Rendering::Dx12BackbufferCapture& backend )
+RuntimeCaptureResult CaptureSystem::TickScreenshots(
+    RunScreenshotState& screenshot,
+    const RuntimeCaptureSceneContext& context,
+    CaptureController& capture,
+    Rendering::Dx12BackbufferCapture& backend
+)
 {
     if ( context.isSceneMode && screenshot.isScreenshotAndExit && context.currentFrame == 0 )
     {
@@ -306,11 +315,14 @@ RuntimeCaptureResult CaptureSystem::TickScreenshots( RunScreenshotState& screens
         {
             ++screenshot.intervalCaptureCount;
             char intervalPath[512];
-            sprintf_s( intervalPath,
-                       sizeof( intervalPath ),
-                       "%s/capture_%04d.bmp",
-                       screenshot.screenshotDir,
-                       screenshot.intervalCaptureCount );
+            sprintf_s(
+                intervalPath,
+                sizeof( intervalPath ),
+                "%s/capture_%04d.bmp",
+                screenshot.screenshotDir,
+                screenshot.intervalCaptureCount
+            );
+
             const SkullbonezCore::Core::SbResult captureResult = capture.SaveScreenshot( backend, intervalPath );
             if ( !captureResult.ok )
             {
@@ -322,15 +334,17 @@ RuntimeCaptureResult CaptureSystem::TickScreenshots( RunScreenshotState& screens
     return {};
 }
 
-RuntimeCaptureResult CaptureSystem::TickAutoCycle( bool isSceneMode,
-                                                   bool isInteractiveRun,
-                                                   int ballCount,
-                                                   float& autoCycleInterval,
-                                                   float& autoCycleAccum,
-                                                   int& autoCycleShotsTaken,
-                                                   int& trackBallIndex,
-                                                   CaptureController& capture,
-                                                   Rendering::Dx12BackbufferCapture& backend )
+RuntimeCaptureResult CaptureSystem::TickAutoCycle(
+    bool isSceneMode,
+    bool isInteractiveRun,
+    int ballCount,
+    float& autoCycleInterval,
+    float& autoCycleAccum,
+    int& autoCycleShotsTaken,
+    int& trackBallIndex,
+    CaptureController& capture,
+    Rendering::Dx12BackbufferCapture& backend
+)
 {
     if ( !isSceneMode || autoCycleInterval <= 0.0f || autoCycleAccum < autoCycleInterval )
     {

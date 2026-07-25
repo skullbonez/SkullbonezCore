@@ -65,6 +65,7 @@ uint64_t FrameGraphShapeFingerprint( const RenderGraph& graph )
         hash ^= value;
         hash *= 1099511628211ull;
     };
+
     const auto appendName = [&]( const char* name )
     {
         for ( const unsigned char* cursor = reinterpret_cast<const unsigned char*>( name ); cursor && *cursor;
@@ -74,6 +75,7 @@ uint64_t FrameGraphShapeFingerprint( const RenderGraph& graph )
         }
         appendByte( 0xffu );
     };
+
     const auto appendU32 = [&]( uint32_t value )
     {
         appendByte( static_cast<uint8_t>( value ) );
@@ -81,6 +83,7 @@ uint64_t FrameGraphShapeFingerprint( const RenderGraph& graph )
         appendByte( static_cast<uint8_t>( value >> 16u ) );
         appendByte( static_cast<uint8_t>( value >> 24u ) );
     };
+
     for ( const RenderGraphResourceDesc& resource : graph.Resources() )
     {
         appendName( resource.name );

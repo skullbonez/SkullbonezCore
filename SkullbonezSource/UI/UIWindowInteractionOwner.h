@@ -162,18 +162,20 @@ class UIWindowInteractionOwner
     InputControl::UIPointerOverride InputOverride() const;
     // Consumes one normalized input turn and explicit presentation facts. Scene
     // and runtime mutations are returned as commands rather than applied here.
-    InGameUIInputResult UpdateInput( const InputControl::UIInputSnapshot& input,
-                                     int screenWidth,
-                                     int screenHeight,
-                                     double now,
-                                     bool editorModeEnabled,
-                                     bool editorPlacementMode,
-                                     bool editorPlaceStatic,
-                                     bool editorTerrainAlign,
-                                     int cameraModeIndex,
-                                     uint32_t cameraModeEnabledMask,
-                                     std::span<const char* const> sceneOptions,
-                                     int selectedSceneOption );
+    InGameUIInputResult UpdateInput(
+        const InputControl::UIInputSnapshot& input,
+        int screenWidth,
+        int screenHeight,
+        double now,
+        bool editorModeEnabled,
+        bool editorPlacementMode,
+        bool editorPlaceStatic,
+        bool editorTerrainAlign,
+        int cameraModeIndex,
+        uint32_t cameraModeEnabledMask,
+        std::span<const char* const> sceneOptions,
+        int selectedSceneOption
+    );
 
   private:
     void CloseSceneCombo();

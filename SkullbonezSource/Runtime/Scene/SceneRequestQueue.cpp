@@ -36,9 +36,11 @@ SkullbonezCore::Core::SbResult SceneRequestQueue::Submit( const SceneRequest& re
         const std::size_t textLength = strnlen_s( request.text, SCENE_REQUEST_TEXT_CAPACITY );
         if ( textLength >= SCENE_REQUEST_TEXT_CAPACITY )
         {
-            return SkullbonezCore::Core::SbResult::Failure( "Runtime/SceneRequestQueue",
-                                                            "Scene name exceeds the fixed %d-byte request payload",
-                                                            SCENE_REQUEST_TEXT_CAPACITY - 1 );
+            return SkullbonezCore::Core::SbResult::Failure(
+                "Runtime/SceneRequestQueue",
+                "Scene name exceeds the fixed %d-byte request payload",
+                SCENE_REQUEST_TEXT_CAPACITY - 1
+            );
         }
     }
 
@@ -46,10 +48,12 @@ SkullbonezCore::Core::SbResult SceneRequestQueue::Submit( const SceneRequest& re
     {
         // Lane F: UI/input cannot legally emit more scene intents than the
         // owner budget between drains; growing here would allocate in runtime.
-        SB_FATAL( "Runtime/SceneRequestQueue",
-                  "Scene request capacity exhausted. capacity=%d high_water=%d phase=input",
-                  SCENE_REQUEST_QUEUE_CAPACITY,
-                  m_count );
+        SB_FATAL(
+            "Runtime/SceneRequestQueue",
+            "Scene request capacity exhausted. capacity=%d high_water=%d phase=input",
+            SCENE_REQUEST_QUEUE_CAPACITY,
+            m_count
+        );
     }
 
     const int tail = ( m_head + m_count ) % SCENE_REQUEST_QUEUE_CAPACITY;
@@ -67,6 +71,7 @@ SceneRequestBatch SceneRequestQueue::TakePending()
     {
         const SceneRequest request = m_requests[m_head];
         m_requests[m_head] = {};
+
         m_head = ( m_head + 1 ) % SCENE_REQUEST_QUEUE_CAPACITY;
         --m_count;
 

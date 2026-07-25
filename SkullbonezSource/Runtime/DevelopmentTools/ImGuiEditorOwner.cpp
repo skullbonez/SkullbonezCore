@@ -89,8 +89,10 @@ constexpr float MAX_DELTA_SECONDS = 0.25f;
 
 void* AllocateImGuiMemory( size_t size, void* ) noexcept
 {
-    return CoreAllocation::AllocateDevelopmentToolMemory( CoreAllocation::DevelopmentToolAllocationOwner::DearImGui,
-                                                          size );
+    return CoreAllocation::AllocateDevelopmentToolMemory(
+        CoreAllocation::DevelopmentToolAllocationOwner::DearImGui,
+        size
+    );
 }
 
 void FreeImGuiMemory( void* pointer, void* ) noexcept
@@ -160,6 +162,7 @@ TracyViewerLaunchTarget ResolveTracyViewerLaunchPath( char* output, size_t outpu
         "ThirdPtySource/tracy/profiler/build/Release/tracy-profiler.exe",
         "ThirdPtySource/tracy/profiler/build/tracy-profiler.exe",
     };
+
     for ( const char* candidate : candidates )
     {
         if ( ResolveRepositoryPath( candidate, output, outputCapacity ) )
@@ -288,13 +291,17 @@ SkullbonezCore::Core::SbResult ImGuiEditorOwner::Start( HWND window, Rendering::
 
     if ( !window )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGui",
-                                                        "Win32 ImGui startup requires the runtime HWND" );
+        return SkullbonezCore::Core::SbResult::Failure(
+            "DevelopmentTools/ImGui",
+            "Win32 ImGui startup requires the runtime HWND"
+        );
     }
     if ( !renderer )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGui",
-                                                        "No DX12 ImGui renderer capability was published at startup" );
+        return SkullbonezCore::Core::SbResult::Failure(
+            "DevelopmentTools/ImGui",
+            "No DX12 ImGui renderer capability was published at startup"
+        );
     }
 
     // Lifetime: allocator callbacks are process-global ImGui configuration.
@@ -343,8 +350,10 @@ SkullbonezCore::Core::SbResult ImGuiEditorOwner::Start( HWND window, Rendering::
     io.FontDefault = editorFont;
     if ( !ImGui_ImplWin32_Init( window ) )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGui",
-                                                        "Pinned Win32 backend initialization failed" );
+        return SkullbonezCore::Core::SbResult::Failure(
+            "DevelopmentTools/ImGui",
+            "Pinned Win32 backend initialization failed"
+        );
     }
     m_platformBackendInitialized = true;
     m_window = window;
@@ -359,19 +368,26 @@ SkullbonezCore::Core::SbResult ImGuiEditorOwner::Start( HWND window, Rendering::
     }
     m_renderer = renderer;
     char tracyLaunchPath[512] = {};
+
     const TracyViewerLaunchTarget tracyLaunchTarget =
         ResolveTracyViewerLaunchPath( tracyLaunchPath, sizeof( tracyLaunchPath ) );
-    snprintf( m_tracyLaunchFeedback,
-              sizeof( m_tracyLaunchFeedback ),
-              "%s",
-              tracyLaunchTarget == TracyViewerLaunchTarget::Viewer
-                  ? "Pinned Tracy viewer ready"
-                  : ( tracyLaunchTarget == TracyViewerLaunchTarget::BuildAndOpenTool
-                          ? "First click builds the pinned Tracy viewer, then opens it"
-                          : "Tracy viewer launcher is unavailable" ) );
-    printf( "[imgui] Context ready layout_version=%d font=%s docking=on platform_viewports=off win32=bound.\n",
-            LAYOUT_VERSION,
-            m_fontSource == ImGuiEditorFontSource::Asset ? "asset" : "embedded_vector_fallback" );
+    snprintf(
+        m_tracyLaunchFeedback,
+        sizeof( m_tracyLaunchFeedback ),
+        "%s",
+        tracyLaunchTarget == TracyViewerLaunchTarget::Viewer
+            ? "Pinned Tracy viewer ready"
+            : ( tracyLaunchTarget == TracyViewerLaunchTarget::BuildAndOpenTool
+                    ? "First click builds the pinned Tracy viewer, then opens it"
+                    : "Tracy viewer launcher is unavailable" )
+    );
+
+    printf(
+        "[imgui] Context ready layout_version=%d font=%s docking=on platform_viewports=off win32=bound.\n",
+        LAYOUT_VERSION,
+        m_fontSource == ImGuiEditorFontSource::Asset ? "asset" : "embedded_vector_fallback"
+    );
+
     return SkullbonezCore::Core::SbResult::Success();
 }
 
@@ -419,26 +435,33 @@ void ImGuiEditorOwner::Shutdown() noexcept
     m_gameViewportHovered = false;
     m_gameViewportFocused = false;
     m_gameViewportRect = {};
+
     m_propertyEdit = {};
+
     m_renderingEdit = {};
+
     m_diagnosticsEdit = {};
+
     m_nativePointerStateTouched = false;
     m_lastPlatformMouseCursor = -2;
     m_appliedDpiScale = 0.0f;
     m_automationDpiScale = 0.0f;
     m_pendingFocusPanel = ImGuiEditorPanelId::Count;
     m_frameInput = {};
+
     m_fontSource = ImGuiEditorFontSource::None;
-    printf( "[imgui] Context shutdown completed_frames=%llu messages=%llu suppressed_mouse=%llu "
-            "suppressed_keyboard=%llu suppressed_text=%llu focus=%llu dpi=%llu ime=%llu.\n",
-            static_cast<unsigned long long>( completedFrames ),
-            static_cast<unsigned long long>( m_platformMessages ),
-            static_cast<unsigned long long>( m_suppressedMouseMessages ),
-            static_cast<unsigned long long>( m_suppressedKeyboardMessages ),
-            static_cast<unsigned long long>( m_suppressedTextMessages ),
-            static_cast<unsigned long long>( m_focusMessages ),
-            static_cast<unsigned long long>( m_dpiMessages ),
-            static_cast<unsigned long long>( m_imeMessages ) );
+    printf(
+        "[imgui] Context shutdown completed_frames=%llu messages=%llu suppressed_mouse=%llu "
+        "suppressed_keyboard=%llu suppressed_text=%llu focus=%llu dpi=%llu ime=%llu.\n",
+        static_cast<unsigned long long>( completedFrames ),
+        static_cast<unsigned long long>( m_platformMessages ),
+        static_cast<unsigned long long>( m_suppressedMouseMessages ),
+        static_cast<unsigned long long>( m_suppressedKeyboardMessages ),
+        static_cast<unsigned long long>( m_suppressedTextMessages ),
+        static_cast<unsigned long long>( m_focusMessages ),
+        static_cast<unsigned long long>( m_dpiMessages ),
+        static_cast<unsigned long long>( m_imeMessages )
+    );
 }
 
 void ImGuiEditorOwner::SetVisible( bool visible ) noexcept
@@ -459,8 +482,11 @@ void ImGuiEditorOwner::SetVisible( bool visible ) noexcept
         // A hidden presentation cannot own a pending scalar preview. Dropping
         // it is a cancel, not an owner mutation.
         m_propertyEdit = {};
+
         m_renderingEdit = {};
+
         m_diagnosticsEdit = {};
+
         io.ClearInputMouse();
     }
     m_visible = visible;
@@ -514,8 +540,10 @@ ImGuiEditorOwner::ApplyAutomationCommand( const ImGuiEditorAutomationCommand& co
     case ImGuiEditorAutomationCommandType::SetPanelVisible:
         if ( !SetPanelVisibility( command.panel, command.visible ) )
         {
-            return SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGuiAutomation",
-                                                            "Unknown panel identity" );
+            return SkullbonezCore::Core::SbResult::Failure(
+                "DevelopmentTools/ImGuiAutomation",
+                "Unknown panel identity"
+            );
         }
         return SkullbonezCore::Core::SbResult::Success();
     case ImGuiEditorAutomationCommandType::ResetLayout:
@@ -524,8 +552,10 @@ ImGuiEditorOwner::ApplyAutomationCommand( const ImGuiEditorAutomationCommand& co
     case ImGuiEditorAutomationCommandType::FocusPanel:
         if ( command.panel == ImGuiEditorPanelId::Count || !SetPanelVisibility( command.panel, true ) )
         {
-            return SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGuiAutomation",
-                                                            "Cannot focus an unknown panel" );
+            return SkullbonezCore::Core::SbResult::Failure(
+                "DevelopmentTools/ImGuiAutomation",
+                "Cannot focus an unknown panel"
+            );
         }
         m_pendingFocusPanel = command.panel;
         return SkullbonezCore::Core::SbResult::Success();
@@ -533,8 +563,10 @@ ImGuiEditorOwner::ApplyAutomationCommand( const ImGuiEditorAutomationCommand& co
         if ( !std::isfinite( command.dpiScale ) || command.dpiScale < MIN_DPI_SCALE ||
              command.dpiScale > MAX_DPI_SCALE )
         {
-            return SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGuiAutomation",
-                                                            "DPI scale must be finite and within 0.75..4.0" );
+            return SkullbonezCore::Core::SbResult::Failure(
+                "DevelopmentTools/ImGuiAutomation",
+                "DPI scale must be finite and within 0.75..4.0"
+            );
         }
         m_automationDpiScale = command.dpiScale;
         return SkullbonezCore::Core::SbResult::Success();
@@ -546,16 +578,19 @@ UI::OperatorEditorCommandQueues ImGuiEditorOwner::ConsumeOperatorEditorCommands(
 {
     const UI::OperatorEditorCommandQueues commands = m_pendingOperatorEditorCommands;
     m_pendingOperatorEditorCommands = {};
+
     return commands;
 }
 
 void ImGuiEditorOwner::ReportTracyClientStartResult( bool started ) noexcept
 {
-    snprintf( m_tracyLaunchFeedback,
-              sizeof( m_tracyLaunchFeedback ),
-              "%s",
-              started ? "Standard capture active; viewer connection is automatic"
-                      : "Standard capture failed to start; inspect the engine console" );
+    snprintf(
+        m_tracyLaunchFeedback,
+        sizeof( m_tracyLaunchFeedback ),
+        "%s",
+        started ? "Standard capture active; viewer connection is automatic"
+                : "Standard capture failed to start; inspect the engine console"
+    );
 }
 
 SkullbonezCore::Core::SbResult ImGuiEditorOwner::CaptureGameViewport()
@@ -566,8 +601,10 @@ SkullbonezCore::Core::SbResult ImGuiEditorOwner::CaptureGameViewport()
     }
     if ( !m_renderer )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGui",
-                                                        "Visible game viewport has no DX12 renderer owner" );
+        return SkullbonezCore::Core::SbResult::Failure(
+            "DevelopmentTools/ImGui",
+            "Visible game viewport has no DX12 renderer owner"
+        );
     }
     return m_renderer->CaptureGameViewport();
 }
@@ -645,12 +682,14 @@ ImGuiEditorInputCapture ImGuiEditorOwner::CopyInputCapture() const noexcept
     }
     ImGui::SetCurrentContext( m_context );
     const ImGuiIO& io = ImGui::GetIO();
-    return EvaluateImGuiEditorInputCapture( ImGuiEditorInputIntent{ m_visible,
-                                                                    io.WantCaptureMouse,
-                                                                    io.WantCaptureKeyboard,
-                                                                    io.WantTextInput,
-                                                                    m_gameViewportHovered,
-                                                                    m_gameViewportFocused } );
+    return EvaluateImGuiEditorInputCapture(
+        ImGuiEditorInputIntent { m_visible,
+                                 io.WantCaptureMouse,
+                                 io.WantCaptureKeyboard,
+                                 io.WantTextInput,
+                                 m_gameViewportHovered,
+                                 m_gameViewportFocused }
+    );
 }
 
 ImGuiEditorInputFrameState ImGuiEditorOwner::ConsumeInputFrameState() noexcept
@@ -668,10 +707,11 @@ UiInputCaptureIntent ImGuiEditorOwner::ConsumeInputCaptureIntent() noexcept
     const ImGuiEditorInputFrameState input = ConsumeInputFrameState();
     // Concept: the editor owns the fitted viewport geometry and completed-frame
     // capture request. Publish them together so Run does not reinterpret either.
-    UiInputCaptureIntent intent{ input.capture.mouse,
-                                 input.capture.keyboard,
-                                 input.capture.text,
-                                 input.nativePointerStateTouched };
+    UiInputCaptureIntent intent { input.capture.mouse,
+                                  input.capture.keyboard,
+                                  input.capture.text,
+                                  input.nativePointerStateTouched };
+
     intent.gameViewportMappingActive = input.gameViewport.valid;
     intent.gameViewportMinX = input.gameViewport.imageMinX;
     intent.gameViewportMinY = input.gameViewport.imageMinY;
@@ -764,6 +804,7 @@ uint32_t ImGuiEditorOwner::CopyPanelVisibilityMask() const noexcept
             mask |= ImGuiEditorPanelBit( panel );
         }
     };
+
     add( ImGuiEditorPanelId::SceneAndModes, m_showSceneAndModes );
     add( ImGuiEditorPanelId::Hierarchy, m_showHierarchy );
     add( ImGuiEditorPanelId::AssetsCreate, m_showAssetsCreate );
@@ -844,6 +885,7 @@ void ImGuiEditorOwner::LoadPreferences() noexcept
         return;
     }
     char text[IMGUI_EDITOR_PREFERENCES_TEXT_CAPACITY] = {};
+
     const std::size_t bytes = fread( text, 1u, sizeof( text ) - 1u, file );
     const bool complete = feof( file ) != 0;
     fclose( file );
@@ -863,10 +905,12 @@ void ImGuiEditorOwner::LoadPreferences() noexcept
     strcpy_s( m_sceneFilter, parsed.preferences.sceneFilter );
     strcpy_s( m_hierarchyFilter, parsed.preferences.hierarchyFilter );
     strcpy_s( m_assetFilter, parsed.preferences.assetFilter );
-    printf( "[imgui-preferences] mode=%s layout_reset=%d panels=%u.\n",
-            parsed.valid ? ( parsed.recoveredDefaults ? "migrated" : "loaded" ) : "recovered",
-            parsed.layoutResetRequired ? 1 : 0,
-            parsed.preferences.panelVisibilityMask );
+    printf(
+        "[imgui-preferences] mode=%s layout_reset=%d panels=%u.\n",
+        parsed.valid ? ( parsed.recoveredDefaults ? "migrated" : "loaded" ) : "recovered",
+        parsed.layoutResetRequired ? 1 : 0,
+        parsed.preferences.panelVisibilityMask
+    );
 }
 
 void ImGuiEditorOwner::SavePreferences() noexcept
@@ -946,21 +990,25 @@ void ImGuiEditorOwner::BuildDefaultDockLayout( uint32_t rootDockId, float width,
     {
         ++m_layoutResetCount;
     }
-    printf( "[imgui-layout] version=%d reason=%s fingerprint=%llu viewport=%dx%d left=%d right=%d replay=%d "
-            "status=%d.\n",
-            LAYOUT_VERSION,
-            requestedReset ? "operator_reset" : "missing_or_version_mismatch",
-            static_cast<unsigned long long>( m_layoutTopologyFingerprint ),
-            envelope.viewportWidth,
-            envelope.upperHeight,
-            envelope.editorLeftWidth,
-            envelope.utilityRightWidth,
-            envelope.replayHeight,
-            envelope.statusHeight );
+    printf(
+        "[imgui-layout] version=%d reason=%s fingerprint=%llu viewport=%dx%d left=%d right=%d replay=%d "
+        "status=%d.\n",
+        LAYOUT_VERSION,
+        requestedReset ? "operator_reset" : "missing_or_version_mismatch",
+        static_cast<unsigned long long>( m_layoutTopologyFingerprint ),
+        envelope.viewportWidth,
+        envelope.upperHeight,
+        envelope.editorLeftWidth,
+        envelope.utilityRightWidth,
+        envelope.replayHeight,
+        envelope.statusHeight
+    );
 }
 
-void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view,
-                                         const ReplayOverlay::ReplayOverlayStateView& replay )
+void ImGuiEditorOwner::BuildEditorShell(
+    const UI::OperatorEditorFrameView& view,
+    const ReplayOverlay::ReplayOverlayStateView& replay
+)
 {
     if ( !m_frameActive )
     {
@@ -976,20 +1024,27 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             m_frameCommandStatus = UI::SubmitOperatorEditorCommand( queue, command );
         }
     };
+
     const auto submitTool =
         [&]( UI::OperatorEditorToolCommandType type, uint32_t sceneObjectId = 0u, int value = 0, bool enabled = false )
     {
-        submit( m_frameCommands.operatorEditor.tools,
-                UI::OperatorEditorToolCommand{ type, sceneObjectId, value, enabled } );
+        submit(
+            m_frameCommands.operatorEditor.tools,
+            UI::OperatorEditorToolCommand { type, sceneObjectId, value, enabled }
+        );
     };
+
     const auto submitProperty = [&]( UI::OperatorEditorPropertyCommandType type,
                                      float value = 0.0f,
                                      int integerValue = 0,
                                      UI::OperatorEditorEditPhase phase = UI::OperatorEditorEditPhase::Commit )
     {
-        submit( m_frameCommands.operatorEditor.property,
-                UI::OperatorEditorPropertyCommand{ type, value, integerValue, phase } );
+        submit(
+            m_frameCommands.operatorEditor.property,
+            UI::OperatorEditorPropertyCommand { type, value, integerValue, phase }
+        );
     };
+
     const auto submitReplay =
         [&]( UI::OperatorEditorReplayCommandType type, float value = 0.0f, int rowIndex = -1, bool enabled = false )
     {
@@ -1000,6 +1055,7 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
         command.enabled = enabled;
         submit( m_frameCommands.operatorEditor.replay, command );
     };
+
     const auto editFloat = [&]( const char* label,
                                 UI::OperatorEditorPropertyCommandType type,
                                 float sourceValue,
@@ -1042,6 +1098,7 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             submitProperty( type, m_propertyEdit.floatValue, 0, UI::OperatorEditorEditPhase::Preview );
         }
     };
+
     const auto editInteger =
         [&]( const char* label, UI::OperatorEditorPropertyCommandType type, int sourceValue, int minimum, int maximum )
     {
@@ -1077,6 +1134,7 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             submitProperty( type, 0.0f, m_propertyEdit.integerValue, UI::OperatorEditorEditPhase::Preview );
         }
     };
+
     const auto editParameterized = [&]( ImGuiEditorParameterizedEditState& state,
                                         const char* label,
                                         int action,
@@ -1101,6 +1159,7 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
         if ( ImGui::IsItemActivated() )
         {
             state = { action, parameter, setIndex, bandIndex, sourceValue, true };
+
             ownsPreview = true;
         }
         if ( ownsPreview && changed )
@@ -1123,16 +1182,20 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             submitValue( state.value, UI::OperatorEditorEditPhase::Preview );
         }
     };
+
     const auto launchTracyViewer = [&]()
     {
         char launchPath[512] = {};
+
         const TracyViewerLaunchTarget launchTarget = ResolveTracyViewerLaunchPath( launchPath, sizeof( launchPath ) );
         if ( launchTarget == TracyViewerLaunchTarget::Unavailable )
         {
-            snprintf( m_tracyLaunchFeedback,
-                      sizeof( m_tracyLaunchFeedback ),
-                      "%s",
-                      "Tracy viewer launcher is unavailable" );
+            snprintf(
+                m_tracyLaunchFeedback,
+                sizeof( m_tracyLaunchFeedback ),
+                "%s",
+                "Tracy viewer launcher is unavailable"
+            );
             return;
         }
         if ( !m_frameInput.tracyInitialized )
@@ -1148,17 +1211,19 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
         const HINSTANCE launch =
             ShellExecuteA( m_window, "open", launchPath, launchParameters, nullptr, SW_SHOWNORMAL );
         const intptr_t launchCode = reinterpret_cast<intptr_t>( launch );
-        snprintf( m_tracyLaunchFeedback,
-                  sizeof( m_tracyLaunchFeedback ),
-                  "%s",
-                  launchCode > 32 ? ( launchTarget == TracyViewerLaunchTarget::Viewer
-                                          ? ( m_frameInput.tracyInitialized
-                                                  ? "Tracy viewer launched; connection is automatic"
-                                                  : "Starting Standard capture; viewer connection is automatic" )
-                                          : ( m_frameInput.tracyInitialized
-                                                  ? "Building pinned Tracy viewer; it opens automatically when ready"
-                                                  : "Starting Standard capture and building the pinned viewer" ) )
-                                  : "Tracy viewer launch failed; inspect the launcher console" );
+        snprintf(
+            m_tracyLaunchFeedback,
+            sizeof( m_tracyLaunchFeedback ),
+            "%s",
+            launchCode > 32 ? ( launchTarget == TracyViewerLaunchTarget::Viewer
+                                    ? ( m_frameInput.tracyInitialized
+                                            ? "Tracy viewer launched; connection is automatic"
+                                            : "Starting Standard capture; viewer connection is automatic" )
+                                    : ( m_frameInput.tracyInitialized
+                                            ? "Building pinned Tracy viewer; it opens automatically when ready"
+                                            : "Starting Standard capture and building the pinned viewer" ) )
+                            : "Tracy viewer launch failed; inspect the launcher console"
+        );
     };
 
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
@@ -1208,8 +1273,10 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             }
             if ( ImGui::MenuItem( "Save Scene", "Ctrl+S", false, view.scene.canSaveCurrentScene ) )
             {
-                submit( m_frameCommands.operatorEditor.scene,
-                        UI::OperatorEditorSceneCommand{ UI::OperatorEditorSceneCommandType::SaveCurrentScene } );
+                submit(
+                    m_frameCommands.operatorEditor.scene,
+                    UI::OperatorEditorSceneCommand { UI::OperatorEditorSceneCommandType::SaveCurrentScene }
+                );
             }
             if ( !view.scene.canSaveCurrentScene )
             {
@@ -1218,13 +1285,17 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             ImGui::Separator();
             if ( ImGui::MenuItem( "Reset Current Scene" ) )
             {
-                submit( m_frameCommands.operatorEditor.scene,
-                        UI::OperatorEditorSceneCommand{ UI::OperatorEditorSceneCommandType::ResetCurrentScene, -1 } );
+                submit(
+                    m_frameCommands.operatorEditor.scene,
+                    UI::OperatorEditorSceneCommand { UI::OperatorEditorSceneCommandType::ResetCurrentScene, -1 }
+                );
             }
             if ( ImGui::MenuItem( "Reset To Authored Defaults", nullptr, false, view.scene.canSaveCurrentScene ) )
             {
-                submit( m_frameCommands.operatorEditor.scene,
-                        UI::OperatorEditorSceneCommand{ UI::OperatorEditorSceneCommandType::ResetSceneDefaults } );
+                submit(
+                    m_frameCommands.operatorEditor.scene,
+                    UI::OperatorEditorSceneCommand { UI::OperatorEditorSceneCommandType::ResetSceneDefaults }
+                );
             }
             ImGui::EndMenu();
         }
@@ -1253,10 +1324,12 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             {
                 submitTool( UI::OperatorEditorToolCommandType::ToggleEditorMode );
             }
-            if ( ImGui::MenuItem( "Placement Mode",
-                                  "E",
-                                  view.tools.placementModeEnabled,
-                                  view.tools.editorModeEnabled ) )
+            if ( ImGui::MenuItem(
+                     "Placement Mode",
+                     "E",
+                     view.tools.placementModeEnabled,
+                     view.tools.editorModeEnabled
+                 ) )
             {
                 submitTool( UI::OperatorEditorToolCommandType::TogglePlacementMode );
             }
@@ -1296,27 +1369,33 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
         }
         if ( ImGui::BeginMenu( "Debug" ) )
         {
-            ImGui::TextDisabled( "Tracy: %s",
-                                 m_frameInput.tracyViewerConnected
-                                     ? "connected"
-                                     : ( m_frameInput.tracyInitialized ? "waiting for viewer" : "disabled" ) );
+            ImGui::TextDisabled(
+                "Tracy: %s",
+                m_frameInput.tracyViewerConnected
+                    ? "connected"
+                    : ( m_frameInput.tracyInitialized ? "waiting for viewer" : "disabled" )
+            );
             if ( ImGui::MenuItem( "Launch Tracy Viewer" ) )
             {
                 launchTracyViewer();
             }
             ImGui::TextDisabled( "%s", m_tracyLaunchFeedback );
             ImGui::Separator();
-            ImGui::TextDisabled( "Layout v%d / %llu",
-                                 LAYOUT_VERSION,
-                                 static_cast<unsigned long long>( m_layoutTopologyFingerprint ) );
+            ImGui::TextDisabled(
+                "Layout v%d / %llu",
+                LAYOUT_VERSION,
+                static_cast<unsigned long long>( m_layoutTopologyFingerprint )
+            );
             ImGui::EndMenu();
         }
         ImGui::EndMenuBar();
     }
 
-    const ImGuiEditorLayoutEnvelope shellEnvelope =
-        ResolveImGuiEditorLayoutEnvelope( static_cast<int>( ImGui::GetContentRegionAvail().x ),
-                                          static_cast<int>( ImGui::GetContentRegionAvail().y ) );
+    const ImGuiEditorLayoutEnvelope shellEnvelope = ResolveImGuiEditorLayoutEnvelope(
+        static_cast<int>( ImGui::GetContentRegionAvail().x ),
+        static_cast<int>( ImGui::GetContentRegionAvail().y )
+    );
+
     const char* modeLabel = view.tools.editorModeEnabled ? "EDIT" : "PLAY";
     const char* placementLabel = view.tools.placementModeEnabled
                                      ? ( shellEnvelope.compactToolbarLabels ? "PLACE*" : "PLACEMENT ACTIVE" )
@@ -1363,10 +1442,12 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
         }
         ImGui::EndDisabled();
         ImGui::SameLine();
-        ImGui::TextDisabled( "%s  |  frame %d  |  %.2fx",
-                             SceneDisplayName( view.scene.sceneName ),
-                             view.scene.currentFrame,
-                             view.scene.timeScale );
+        ImGui::TextDisabled(
+            "%s  |  frame %d  |  %.2fx",
+            SceneDisplayName( view.scene.sceneName ),
+            view.scene.currentFrame,
+            view.scene.timeScale
+        );
         ImGui::SameLine();
         if ( ImGui::Button( m_frameInput.tracyViewerConnected ? "TRACY CONNECTED" : "OPEN TRACY" ) )
         {
@@ -1456,8 +1537,9 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                     {
                         submit(
                             m_frameCommands.operatorEditor.scene,
-                            UI::OperatorEditorSceneCommand{ UI::OperatorEditorSceneCommandType::SetCurrentSceneIndex,
-                                                            index } );
+                            UI::OperatorEditorSceneCommand { UI::OperatorEditorSceneCommandType::SetCurrentSceneIndex,
+                                                             index }
+                        );
                     }
                 }
                 if ( !anyVisible )
@@ -1469,8 +1551,10 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             ImGui::BeginDisabled( !view.scene.canSaveCurrentScene );
             if ( ImGui::Button( "Save" ) )
             {
-                submit( m_frameCommands.operatorEditor.scene,
-                        UI::OperatorEditorSceneCommand{ UI::OperatorEditorSceneCommandType::SaveCurrentScene } );
+                submit(
+                    m_frameCommands.operatorEditor.scene,
+                    UI::OperatorEditorSceneCommand { UI::OperatorEditorSceneCommandType::SaveCurrentScene }
+                );
             }
             ImGui::EndDisabled();
             if ( !view.scene.canSaveCurrentScene )
@@ -1480,22 +1564,28 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             ImGui::SameLine();
             if ( ImGui::Button( "Reset Current Scene" ) )
             {
-                submit( m_frameCommands.operatorEditor.scene,
-                        UI::OperatorEditorSceneCommand{ UI::OperatorEditorSceneCommandType::ResetCurrentScene, -1 } );
+                submit(
+                    m_frameCommands.operatorEditor.scene,
+                    UI::OperatorEditorSceneCommand { UI::OperatorEditorSceneCommandType::ResetCurrentScene, -1 }
+                );
             }
             ImGui::SameLine();
             ImGui::BeginDisabled( !view.scene.canSaveCurrentScene );
             if ( ImGui::Button( "Defaults" ) )
             {
-                submit( m_frameCommands.operatorEditor.scene,
-                        UI::OperatorEditorSceneCommand{ UI::OperatorEditorSceneCommandType::ResetSceneDefaults } );
+                submit(
+                    m_frameCommands.operatorEditor.scene,
+                    UI::OperatorEditorSceneCommand { UI::OperatorEditorSceneCommandType::ResetSceneDefaults }
+                );
             }
             ImGui::EndDisabled();
             ImGui::SameLine();
             if ( ImGui::Button( "Demo" ) )
             {
-                submit( m_frameCommands.operatorEditor.scene,
-                        UI::OperatorEditorSceneCommand{ UI::OperatorEditorSceneCommandType::RequestDemoScene } );
+                submit(
+                    m_frameCommands.operatorEditor.scene,
+                    UI::OperatorEditorSceneCommand { UI::OperatorEditorSceneCommandType::RequestDemoScene }
+                );
             }
 
             ImGui::SeparatorText( "Create" );
@@ -1515,10 +1605,12 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                 submit( m_frameCommands.operatorEditor.scene, create );
             }
             ImGui::EndDisabled();
-            ImGui::TextDisabled( "Undo %d  |  Redo %d  |  %s",
-                                 view.tools.undoDepth,
-                                 view.tools.redoDepth,
-                                 view.scene.dirty ? "unsaved edits" : "clean" );
+            ImGui::TextDisabled(
+                "Undo %d  |  Redo %d  |  %s",
+                view.tools.undoDepth,
+                view.tools.redoDepth,
+                view.scene.dirty ? "unsaved edits" : "clean"
+            );
         }
         ImGui::End();
     }
@@ -1528,14 +1620,18 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
         if ( ImGui::Begin( ImGuiEditorPanel::Hierarchy, &m_showHierarchy ) )
         {
             ImGui::Text( "%u / %u scene objects", view.hierarchy.rowCount, view.hierarchy.totalRowCount );
-            ImGui::InputTextWithHint( "##HierarchyFilter",
-                                      "Filter by name",
-                                      m_hierarchyFilter,
-                                      sizeof( m_hierarchyFilter ) );
+            ImGui::InputTextWithHint(
+                "##HierarchyFilter",
+                "Filter by name",
+                m_hierarchyFilter,
+                sizeof( m_hierarchyFilter )
+            );
             ImGui::Separator();
-            ImGui::BeginChild( "##HierarchyRows",
-                               ImVec2( 0.0f, -ImGui::GetFrameHeightWithSpacing() ),
-                               ImGuiChildFlags_Borders );
+            ImGui::BeginChild(
+                "##HierarchyRows",
+                ImVec2( 0.0f, -ImGui::GetFrameHeightWithSpacing() ),
+                ImGuiChildFlags_Borders
+            );
             bool anyVisible = false;
             for ( uint32_t index = 0u; index < view.hierarchy.rowCount; ++index )
             {
@@ -1549,10 +1645,12 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                 ImGui::PushID( static_cast<int>( row.sceneObjectId ) );
                 if ( ImGui::SmallButton( row.visible ? "eye" : "hidden" ) )
                 {
-                    submitTool( UI::OperatorEditorToolCommandType::SetEntityVisible,
-                                row.sceneObjectId,
-                                0,
-                                !row.visible );
+                    submitTool(
+                        UI::OperatorEditorToolCommandType::SetEntityVisible,
+                        row.sceneObjectId,
+                        0,
+                        !row.visible
+                    );
                 }
                 ImGui::SameLine();
                 if ( ImGui::SmallButton( row.locked ? "locked" : "open" ) )
@@ -1574,17 +1672,21 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                     }
                     if ( ImGui::MenuItem( row.visible ? "Hide" : "Show" ) )
                     {
-                        submitTool( UI::OperatorEditorToolCommandType::SetEntityVisible,
-                                    row.sceneObjectId,
-                                    0,
-                                    !row.visible );
+                        submitTool(
+                            UI::OperatorEditorToolCommandType::SetEntityVisible,
+                            row.sceneObjectId,
+                            0,
+                            !row.visible
+                        );
                     }
                     if ( ImGui::MenuItem( row.locked ? "Unlock" : "Lock" ) )
                     {
-                        submitTool( UI::OperatorEditorToolCommandType::SetEntityLocked,
-                                    row.sceneObjectId,
-                                    0,
-                                    !row.locked );
+                        submitTool(
+                            UI::OperatorEditorToolCommandType::SetEntityLocked,
+                            row.sceneObjectId,
+                            0,
+                            !row.locked
+                        );
                     }
                     ImGui::BeginDisabled( row.locked || !row.selected );
                     if ( ImGui::MenuItem( "Duplicate" ) )
@@ -1600,9 +1702,11 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                 }
                 if ( ImGui::IsItemHovered() && row.assetBacked )
                 {
-                    ImGui::SetTooltip( "Registered asset group root %u, part %d",
-                                       row.groupRootObjectId,
-                                       row.groupPartIndex );
+                    ImGui::SetTooltip(
+                        "Registered asset group root %u, part %d",
+                        row.groupRootObjectId,
+                        row.groupPartIndex
+                    );
                 }
                 ImGui::PopID();
             }
@@ -1613,8 +1717,10 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             ImGui::EndChild();
             if ( view.hierarchy.truncated )
             {
-                ImGui::TextDisabled( "Showing the first %u objects; narrow the filter after simplifying the scene.",
-                                     view.hierarchy.rowCount );
+                ImGui::TextDisabled(
+                    "Showing the first %u objects; narrow the filter after simplifying the scene.",
+                    view.hierarchy.rowCount
+                );
             }
             else
             {
@@ -1641,9 +1747,12 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                 submitTool( UI::OperatorEditorToolCommandType::ToggleTerrainAlign );
             }
             ImGui::Separator();
-            ImGui::BeginChild( "##AssetRows",
-                               ImVec2( 0.0f, -ImGui::GetFrameHeightWithSpacing() ),
-                               ImGuiChildFlags_Borders );
+            ImGui::BeginChild(
+                "##AssetRows",
+                ImVec2( 0.0f, -ImGui::GetFrameHeightWithSpacing() ),
+                ImGuiChildFlags_Borders
+            );
+
             const char* previousCategory = nullptr;
             bool anyVisible = false;
             for ( int objectType = 0; objectType < view.assets.objectTypeCount; ++objectType )
@@ -1695,6 +1804,7 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
     bool gameViewportHovered = false;
     bool gameViewportFocused = false;
     m_gameViewportRect = {};
+
     if ( m_showGameViewport )
     {
         if ( ImGui::Begin( ImGuiEditorPanel::GameViewport, &m_showGameViewport ) )
@@ -1712,8 +1822,10 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             ImGui::SameLine();
             if ( ImGui::SmallButton( view.rendering.vsyncEnabled ? "VSync on" : "VSync off" ) )
             {
-                submit( m_frameCommands.operatorEditor.rendering,
-                        UI::OperatorEditorRenderingCommand{ UI::OperatorEditorRenderingCommandType::ToggleVsync } );
+                submit(
+                    m_frameCommands.operatorEditor.rendering,
+                    UI::OperatorEditorRenderingCommand { UI::OperatorEditorRenderingCommandType::ToggleVsync }
+                );
             }
             ImGui::SameLine();
             ImGui::BeginDisabled();
@@ -1724,33 +1836,43 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             const ImVec2 available = ImGui::GetContentRegionAvail();
             const ImVec2 availableMin = ImGui::GetCursorScreenPos();
             ImDrawList* drawList = ImGui::GetWindowDrawList();
-            drawList->AddRectFilled( availableMin,
-                                     ImVec2( availableMin.x + available.x, availableMin.y + available.y ),
-                                     IM_COL32( 8, 10, 14, 255 ) );
+            drawList->AddRectFilled(
+                availableMin,
+                ImVec2( availableMin.x + available.x, availableMin.y + available.y ),
+                IM_COL32( 8, 10, 14, 255 )
+            );
+
             const uint64_t textureId = m_renderer ? m_renderer->GameViewportTextureId() : 0u;
             const int sourceWidth = m_renderer ? m_renderer->GameViewportWidth() : 0;
             const int sourceHeight = m_renderer ? m_renderer->GameViewportHeight() : 0;
             // Why: fitting the persistent full-client copy here keeps dock
             // movement CPU-only. Picking receives the same value rectangle, so
             // image pixels, world outlines, placement previews, and input agree.
-            m_gameViewportRect = ResolveImGuiGameViewportRect( availableMin.x,
-                                                               availableMin.y,
-                                                               available.x,
-                                                               available.y,
-                                                               sourceWidth,
-                                                               sourceHeight,
-                                                               m_frameInput.dpiScale );
+            m_gameViewportRect = ResolveImGuiGameViewportRect(
+                availableMin.x,
+                availableMin.y,
+                available.x,
+                available.y,
+                sourceWidth,
+                sourceHeight,
+                m_frameInput.dpiScale
+            );
+
             if ( textureId != 0u && m_gameViewportRect.valid )
             {
                 // Lifetime: textureId names the owner's stable descriptor row;
                 // the resource behind it may change only after a drained
                 // swap-chain resize, never while this draw list is in flight.
                 const ImVec2 imageMin( m_gameViewportRect.imageMinX, m_gameViewportRect.imageMinY );
-                const ImVec2 imageMax( imageMin.x + m_gameViewportRect.imageWidth,
-                                       imageMin.y + m_gameViewportRect.imageHeight );
+                const ImVec2 imageMax(
+                    imageMin.x + m_gameViewportRect.imageWidth,
+                    imageMin.y + m_gameViewportRect.imageHeight
+                );
                 ImGui::SetCursorScreenPos( imageMin );
-                ImGui::InvisibleButton( "##GameViewportImage",
-                                        ImVec2( m_gameViewportRect.imageWidth, m_gameViewportRect.imageHeight ) );
+                ImGui::InvisibleButton(
+                    "##GameViewportImage",
+                    ImVec2( m_gameViewportRect.imageWidth, m_gameViewportRect.imageHeight )
+                );
                 gameViewportHovered = ImGui::IsItemHovered();
                 drawList->AddImage( ImTextureRef( static_cast<ImTextureID>( textureId ) ), imageMin, imageMax );
                 if ( ImGui::BeginDragDropTarget() )
@@ -1759,47 +1881,61 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                     {
                         if ( payload->DataSize == sizeof( int ) )
                         {
-                            submitTool( UI::OperatorEditorToolCommandType::SetPlacementObjectType,
-                                        0u,
-                                        *static_cast<const int*>( payload->Data ) );
+                            submitTool(
+                                UI::OperatorEditorToolCommandType::SetPlacementObjectType,
+                                0u,
+                                *static_cast<const int*>( payload->Data )
+                            );
                         }
                     }
                     ImGui::EndDragDropTarget();
                 }
                 char selectionOverlay[160] = {};
+
                 if ( view.hierarchy.selectedSceneObjectId != 0u )
                 {
-                    snprintf( selectionOverlay,
-                              sizeof( selectionOverlay ),
-                              "Selection #%u | %s | %s",
-                              view.hierarchy.selectedSceneObjectId,
-                              selectedEntityVisible ? "visible" : "hidden",
-                              selectedEntityLocked ? "locked" : "editable" );
+                    snprintf(
+                        selectionOverlay,
+                        sizeof( selectionOverlay ),
+                        "Selection #%u | %s | %s",
+                        view.hierarchy.selectedSceneObjectId,
+                        selectedEntityVisible ? "visible" : "hidden",
+                        selectedEntityLocked ? "locked" : "editable"
+                    );
                 }
                 else
                 {
                     snprintf( selectionOverlay, sizeof( selectionOverlay ), "Selection: none" );
                 }
                 char presentationOverlay[192] = {};
-                snprintf( presentationOverlay,
-                          sizeof( presentationOverlay ),
-                          "%dx%d @ %.2fx | %s | interpolation %s alpha %.2f%s",
-                          sourceWidth,
-                          sourceHeight,
-                          m_gameViewportRect.dpiScale,
-                          view.rendering.cinematicRendering ? "cinematic" : "ordinary",
-                          view.rendering.presentationInterpolation ? "on" : "off",
-                          view.rendering.presentationAlpha,
-                          view.viewport.presentationPinned ? " | pinned" : "" );
+
+                snprintf(
+                    presentationOverlay,
+                    sizeof( presentationOverlay ),
+                    "%dx%d @ %.2fx | %s | interpolation %s alpha %.2f%s",
+                    sourceWidth,
+                    sourceHeight,
+                    m_gameViewportRect.dpiScale,
+                    view.rendering.cinematicRendering ? "cinematic" : "ordinary",
+                    view.rendering.presentationInterpolation ? "on" : "off",
+                    view.rendering.presentationAlpha,
+                    view.viewport.presentationPinned ? " | pinned" : ""
+                );
+
                 const ImVec2 overlayMin( imageMin.x + 10.0f, imageMin.y + 10.0f );
                 const ImVec2 overlayMax( imageMin.x + 360.0f, imageMin.y + 52.0f );
                 drawList->AddRectFilled( overlayMin, overlayMax, IM_COL32( 12, 15, 20, 210 ), 4.0f );
-                drawList->AddText( ImVec2( overlayMin.x + 8.0f, overlayMin.y + 5.0f ),
-                                   ImGui::GetColorU32( ImGuiCol_Text ),
-                                   selectionOverlay );
-                drawList->AddText( ImVec2( overlayMin.x + 8.0f, overlayMin.y + 23.0f ),
-                                   ImGui::GetColorU32( ImGuiCol_TextDisabled ),
-                                   presentationOverlay );
+                drawList->AddText(
+                    ImVec2( overlayMin.x + 8.0f, overlayMin.y + 5.0f ),
+                    ImGui::GetColorU32( ImGuiCol_Text ),
+                    selectionOverlay
+                );
+
+                drawList->AddText(
+                    ImVec2( overlayMin.x + 8.0f, overlayMin.y + 23.0f ),
+                    ImGui::GetColorU32( ImGuiCol_TextDisabled ),
+                    presentationOverlay
+                );
             }
             else
             {
@@ -1839,73 +1975,98 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             }
             else
             {
-                ImGui::Text( "%s",
-                             inspector.displayName && inspector.displayName[0] != '\0' ? inspector.displayName
-                                                                                       : "Unnamed object" );
+                ImGui::Text(
+                    "%s",
+                    inspector.displayName && inspector.displayName[0] != '\0' ? inspector.displayName : "Unnamed object"
+                );
                 ImGui::SameLine();
                 ImGui::TextDisabled( "#%u", inspector.sceneObjectId );
-                ImGui::TextDisabled( "%s | %s",
-                                     inspector.visible ? "visible" : "hidden",
-                                     inspector.locked ? "locked" : "editable" );
+                ImGui::TextDisabled(
+                    "%s | %s",
+                    inspector.visible ? "visible" : "hidden",
+                    inspector.locked ? "locked" : "editable"
+                );
 
                 if ( ImGui::CollapsingHeader( "Transform", ImGuiTreeNodeFlags_DefaultOpen ) )
                 {
-                    ImGui::Text( "Position  %.3f  %.3f  %.3f",
-                                 inspector.position[0],
-                                 inspector.position[1],
-                                 inspector.position[2] );
-                    ImGui::Text( "Rotation q  %.3f  %.3f  %.3f  %.3f",
-                                 inspector.orientation[0],
-                                 inspector.orientation[1],
-                                 inspector.orientation[2],
-                                 inspector.orientation[3] );
+                    ImGui::Text(
+                        "Position  %.3f  %.3f  %.3f",
+                        inspector.position[0],
+                        inspector.position[1],
+                        inspector.position[2]
+                    );
+                    ImGui::Text(
+                        "Rotation q  %.3f  %.3f  %.3f  %.3f",
+                        inspector.orientation[0],
+                        inspector.orientation[1],
+                        inspector.orientation[2],
+                        inspector.orientation[3]
+                    );
                     ImGui::TextDisabled( "Author with the viewport translate/rotate/scale gizmos." );
                 }
                 if ( ImGui::CollapsingHeader( "Identity", ImGuiTreeNodeFlags_DefaultOpen ) )
                 {
                     ImGui::Text( "Scene object  %u", inspector.sceneObjectId );
-                    ImGui::Text( "Behavior group  %d  |  part %d",
-                                 inspector.behaviorGroupKind,
-                                 inspector.behaviorPartIndex );
+                    ImGui::Text(
+                        "Behavior group  %d  |  part %d",
+                        inspector.behaviorGroupKind,
+                        inspector.behaviorPartIndex
+                    );
                     ImGui::Text( "Source  %s", inspector.assetBacked ? "registered asset" : "standalone primitive" );
                 }
                 if ( ImGui::CollapsingHeader( "Render", ImGuiTreeNodeFlags_DefaultOpen ) )
                 {
-                    ImGui::Text( "Material  %s",
-                                 inspector.renderMaterialName && inspector.renderMaterialName[0] != '\0'
-                                     ? inspector.renderMaterialName
-                                     : "default" );
-                    ImGui::Text( "RGBA  %.2f  %.2f  %.2f  %.2f",
-                                 inspector.baseColor[0],
-                                 inspector.baseColor[1],
-                                 inspector.baseColor[2],
-                                 inspector.baseColor[3] );
-                    ImGui::Text( "Rough %.2f  Metal %.2f  Spec %.2f",
-                                 inspector.roughness,
-                                 inspector.metallic,
-                                 inspector.specular );
+                    ImGui::Text(
+                        "Material  %s",
+                        inspector.renderMaterialName && inspector.renderMaterialName[0] != '\0'
+                            ? inspector.renderMaterialName
+                            : "default"
+                    );
+                    ImGui::Text(
+                        "RGBA  %.2f  %.2f  %.2f  %.2f",
+                        inspector.baseColor[0],
+                        inspector.baseColor[1],
+                        inspector.baseColor[2],
+                        inspector.baseColor[3]
+                    );
+                    ImGui::Text(
+                        "Rough %.2f  Metal %.2f  Spec %.2f",
+                        inspector.roughness,
+                        inspector.metallic,
+                        inspector.specular
+                    );
                 }
                 if ( ImGui::CollapsingHeader( "Physics", ImGuiTreeNodeFlags_DefaultOpen ) )
                 {
-                    ImGui::Text( "%s | %s",
-                                 inspector.fixed ? "fixed" : "dynamic",
-                                 inspector.sleeping ? "sleeping" : "awake" );
-                    ImGui::Text( "Mass %.3f  Volume %.3f  Radius %.3f",
-                                 inspector.mass,
-                                 inspector.volume,
-                                 inspector.boundingRadius );
-                    ImGui::Text( "Friction %.3f  Restitution %.3f  Drag %.3f",
-                                 inspector.friction,
-                                 inspector.restitution,
-                                 inspector.dragCoefficient );
-                    ImGui::Text( "Linear v  %.3f  %.3f  %.3f",
-                                 inspector.linearVelocity[0],
-                                 inspector.linearVelocity[1],
-                                 inspector.linearVelocity[2] );
-                    ImGui::Text( "Angular v  %.3f  %.3f  %.3f",
-                                 inspector.angularVelocity[0],
-                                 inspector.angularVelocity[1],
-                                 inspector.angularVelocity[2] );
+                    ImGui::Text(
+                        "%s | %s",
+                        inspector.fixed ? "fixed" : "dynamic",
+                        inspector.sleeping ? "sleeping" : "awake"
+                    );
+                    ImGui::Text(
+                        "Mass %.3f  Volume %.3f  Radius %.3f",
+                        inspector.mass,
+                        inspector.volume,
+                        inspector.boundingRadius
+                    );
+                    ImGui::Text(
+                        "Friction %.3f  Restitution %.3f  Drag %.3f",
+                        inspector.friction,
+                        inspector.restitution,
+                        inspector.dragCoefficient
+                    );
+                    ImGui::Text(
+                        "Linear v  %.3f  %.3f  %.3f",
+                        inspector.linearVelocity[0],
+                        inspector.linearVelocity[1],
+                        inspector.linearVelocity[2]
+                    );
+                    ImGui::Text(
+                        "Angular v  %.3f  %.3f  %.3f",
+                        inspector.angularVelocity[0],
+                        inspector.angularVelocity[1],
+                        inspector.angularVelocity[2]
+                    );
                 }
                 if ( ImGui::CollapsingHeader( "Object-specific" ) )
                 {
@@ -1918,15 +2079,19 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                     {
                         ImGui::Text(
                             "Asset  %s",
-                            inspector.assetName && inspector.assetName[0] != '\0' ? inspector.assetName : "unnamed" );
-                        ImGui::Text( "Instance  %s",
-                                     inspector.assetInstanceName && inspector.assetInstanceName[0] != '\0'
-                                         ? inspector.assetInstanceName
-                                         : "unnamed" );
-                        ImGui::Text( "Part  %s",
-                                     inspector.assetPartName && inspector.assetPartName[0] != '\0'
-                                         ? inspector.assetPartName
-                                         : "unnamed" );
+                            inspector.assetName && inspector.assetName[0] != '\0' ? inspector.assetName : "unnamed"
+                        );
+                        ImGui::Text(
+                            "Instance  %s",
+                            inspector.assetInstanceName && inspector.assetInstanceName[0] != '\0'
+                                ? inspector.assetInstanceName
+                                : "unnamed"
+                        );
+                        ImGui::Text(
+                            "Part  %s",
+                            inspector.assetPartName && inspector.assetPartName[0] != '\0' ? inspector.assetPartName
+                                                                                          : "unnamed"
+                        );
                     }
                     else
                     {
@@ -1962,86 +2127,112 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                 {
                     submitProperty( UI::OperatorEditorPropertyCommandType::TogglePhysicsSleepPolicy );
                 }
-                editFloat( "Time scale",
-                           UI::OperatorEditorPropertyCommandType::SetTimeScale,
-                           world.timeScale,
-                           UI::Layout::UI_TIME_SCALE_STEP,
-                           UI::Layout::UI_TIME_SCALE_MIN,
-                           UI::Layout::UI_TIME_SCALE_MAX,
-                           "%.2fx" );
+                editFloat(
+                    "Time scale",
+                    UI::OperatorEditorPropertyCommandType::SetTimeScale,
+                    world.timeScale,
+                    UI::Layout::UI_TIME_SCALE_STEP,
+                    UI::Layout::UI_TIME_SCALE_MIN,
+                    UI::Layout::UI_TIME_SCALE_MAX,
+                    "%.2fx"
+                );
             }
             if ( ImGui::CollapsingHeader( "Population / seed", ImGuiTreeNodeFlags_DefaultOpen ) )
             {
                 const int capacity = (std::max)( 0, world.modelCapacity );
-                editInteger( "Population",
-                             UI::OperatorEditorPropertyCommandType::SetModelCount,
-                             world.modelCount,
-                             UI::Layout::UI_MODEL_COUNT_MIN,
-                             capacity );
-                editInteger( "Seed",
-                             UI::OperatorEditorPropertyCommandType::SetSeed,
-                             world.rngSeed,
-                             UI::Layout::UI_SEED_MIN,
-                             UI::Layout::UI_SEED_MAX );
-                editInteger( "Solver balls",
-                             UI::OperatorEditorPropertyCommandType::SetSolverBallCount,
-                             world.solverBallCount,
-                             UI::Layout::UI_SOLVER_COUNT_MIN,
-                             (std::max)( 0, capacity - world.solverBoxCount ) );
-                editInteger( "Solver boxes",
-                             UI::OperatorEditorPropertyCommandType::SetSolverBoxCount,
-                             world.solverBoxCount,
-                             UI::Layout::UI_SOLVER_COUNT_MIN,
-                             (std::max)( 0, capacity - world.solverBallCount ) );
+                editInteger(
+                    "Population",
+                    UI::OperatorEditorPropertyCommandType::SetModelCount,
+                    world.modelCount,
+                    UI::Layout::UI_MODEL_COUNT_MIN,
+                    capacity
+                );
+
+                editInteger(
+                    "Seed",
+                    UI::OperatorEditorPropertyCommandType::SetSeed,
+                    world.rngSeed,
+                    UI::Layout::UI_SEED_MIN,
+                    UI::Layout::UI_SEED_MAX
+                );
+
+                editInteger(
+                    "Solver balls",
+                    UI::OperatorEditorPropertyCommandType::SetSolverBallCount,
+                    world.solverBallCount,
+                    UI::Layout::UI_SOLVER_COUNT_MIN,
+                    (std::max)( 0, capacity - world.solverBoxCount )
+                );
+
+                editInteger(
+                    "Solver boxes",
+                    UI::OperatorEditorPropertyCommandType::SetSolverBoxCount,
+                    world.solverBoxCount,
+                    UI::Layout::UI_SOLVER_COUNT_MIN,
+                    (std::max)( 0, capacity - world.solverBallCount )
+                );
+
                 ImGui::TextDisabled( "Population controls rebuild generated scene topology on commit." );
             }
             if ( ImGui::CollapsingHeader( "World forces / fluid", ImGuiTreeNodeFlags_DefaultOpen ) )
             {
-                editFloat( "Gravity",
-                           UI::OperatorEditorPropertyCommandType::SetWorldGravity,
-                           world.gravity,
-                           UI::Layout::UI_WORLD_GRAVITY_STEP,
-                           -UI::Layout::UI_WORLD_GRAVITY_MAX,
-                           -UI::Layout::UI_WORLD_GRAVITY_MIN,
-                           "%.2f m/s^2" );
-                editFloat( "Fluid surface",
-                           UI::OperatorEditorPropertyCommandType::SetWorldFluidHeight,
-                           world.fluidHeight,
-                           UI::Layout::UI_WORLD_FLUID_HEIGHT_STEP,
-                           UI::Layout::UI_WORLD_FLUID_HEIGHT_MIN,
-                           UI::Layout::UI_WORLD_FLUID_HEIGHT_MAX,
-                           "%.1f m" );
-                editFloat( "Fluid density",
-                           UI::OperatorEditorPropertyCommandType::SetWorldFluidDensity,
-                           world.fluidDensity,
-                           UI::Layout::UI_WORLD_FLUID_DENSITY_STEP,
-                           UI::Layout::UI_WORLD_FLUID_DENSITY_MIN,
-                           UI::Layout::UI_WORLD_FLUID_DENSITY_MAX,
-                           "%.2f kg/m3" );
+                editFloat(
+                    "Gravity",
+                    UI::OperatorEditorPropertyCommandType::SetWorldGravity,
+                    world.gravity,
+                    UI::Layout::UI_WORLD_GRAVITY_STEP,
+                    -UI::Layout::UI_WORLD_GRAVITY_MAX,
+                    -UI::Layout::UI_WORLD_GRAVITY_MIN,
+                    "%.2f m/s^2"
+                );
+                editFloat(
+                    "Fluid surface",
+                    UI::OperatorEditorPropertyCommandType::SetWorldFluidHeight,
+                    world.fluidHeight,
+                    UI::Layout::UI_WORLD_FLUID_HEIGHT_STEP,
+                    UI::Layout::UI_WORLD_FLUID_HEIGHT_MIN,
+                    UI::Layout::UI_WORLD_FLUID_HEIGHT_MAX,
+                    "%.1f m"
+                );
+                editFloat(
+                    "Fluid density",
+                    UI::OperatorEditorPropertyCommandType::SetWorldFluidDensity,
+                    world.fluidDensity,
+                    UI::Layout::UI_WORLD_FLUID_DENSITY_STEP,
+                    UI::Layout::UI_WORLD_FLUID_DENSITY_MIN,
+                    UI::Layout::UI_WORLD_FLUID_DENSITY_MAX,
+                    "%.2f kg/m3"
+                );
             }
             if ( ImGui::CollapsingHeader( "Contact friction", ImGuiTreeNodeFlags_DefaultOpen ) )
             {
-                editFloat( "Terrain friction",
-                           UI::OperatorEditorPropertyCommandType::SetTerrainFriction,
-                           world.terrainFriction,
-                           UI::Layout::UI_FRICTION_COEFF_STEP,
-                           UI::Layout::UI_FRICTION_COEFF_MIN,
-                           UI::Layout::UI_FRICTION_COEFF_MAX,
-                           "%.2f" );
-                editFloat( "Object friction",
-                           UI::OperatorEditorPropertyCommandType::SetObjectFriction,
-                           world.objectFriction,
-                           UI::Layout::UI_FRICTION_COEFF_STEP,
-                           UI::Layout::UI_FRICTION_COEFF_MIN,
-                           UI::Layout::UI_FRICTION_COEFF_MAX,
-                           "%.2f" );
-                editFloat( "Rolling friction",
-                           UI::OperatorEditorPropertyCommandType::SetRollingFriction,
-                           world.rollingFriction,
-                           UI::Layout::UI_ROLLING_FRICTION_COEFF_STEP,
-                           UI::Layout::UI_ROLLING_FRICTION_COEFF_MIN,
-                           UI::Layout::UI_ROLLING_FRICTION_COEFF_MAX,
-                           "%.3f" );
+                editFloat(
+                    "Terrain friction",
+                    UI::OperatorEditorPropertyCommandType::SetTerrainFriction,
+                    world.terrainFriction,
+                    UI::Layout::UI_FRICTION_COEFF_STEP,
+                    UI::Layout::UI_FRICTION_COEFF_MIN,
+                    UI::Layout::UI_FRICTION_COEFF_MAX,
+                    "%.2f"
+                );
+                editFloat(
+                    "Object friction",
+                    UI::OperatorEditorPropertyCommandType::SetObjectFriction,
+                    world.objectFriction,
+                    UI::Layout::UI_FRICTION_COEFF_STEP,
+                    UI::Layout::UI_FRICTION_COEFF_MIN,
+                    UI::Layout::UI_FRICTION_COEFF_MAX,
+                    "%.2f"
+                );
+                editFloat(
+                    "Rolling friction",
+                    UI::OperatorEditorPropertyCommandType::SetRollingFriction,
+                    world.rollingFriction,
+                    UI::Layout::UI_ROLLING_FRICTION_COEFF_STEP,
+                    UI::Layout::UI_ROLLING_FRICTION_COEFF_MIN,
+                    UI::Layout::UI_ROLLING_FRICTION_COEFF_MAX,
+                    "%.3f"
+                );
             }
             if ( ImGui::CollapsingHeader( "Tornado / environment force", ImGuiTreeNodeFlags_DefaultOpen ) )
             {
@@ -2050,41 +2241,55 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                 {
                     submitProperty( UI::OperatorEditorPropertyCommandType::ToggleTornado );
                 }
-                editFloat( "Radius",
-                           UI::OperatorEditorPropertyCommandType::SetTornadoRadius,
-                           world.tornadoRadius,
-                           UI::Layout::UI_TORNADO_RADIUS_STEP,
-                           UI::Layout::UI_TORNADO_RADIUS_MIN,
-                           UI::Layout::UI_TORNADO_RADIUS_MAX,
-                           "%.1f m" );
-                editFloat( "Height",
-                           UI::OperatorEditorPropertyCommandType::SetTornadoHeight,
-                           world.tornadoHeight,
-                           UI::Layout::UI_TORNADO_HEIGHT_STEP,
-                           UI::Layout::UI_TORNADO_HEIGHT_MIN,
-                           UI::Layout::UI_TORNADO_HEIGHT_MAX,
-                           "%.1f m" );
-                editFloat( "Inward",
-                           UI::OperatorEditorPropertyCommandType::SetTornadoInward,
-                           world.tornadoInward,
-                           UI::Layout::UI_TORNADO_INWARD_STEP,
-                           UI::Layout::UI_TORNADO_INWARD_MIN,
-                           UI::Layout::UI_TORNADO_INWARD_MAX,
-                           "%.1f" );
-                editFloat( "Swirl",
-                           UI::OperatorEditorPropertyCommandType::SetTornadoSwirl,
-                           world.tornadoSwirl,
-                           UI::Layout::UI_TORNADO_SWIRL_STEP,
-                           UI::Layout::UI_TORNADO_SWIRL_MIN,
-                           UI::Layout::UI_TORNADO_SWIRL_MAX,
-                           "%.1f" );
-                editFloat( "Lift",
-                           UI::OperatorEditorPropertyCommandType::SetTornadoLift,
-                           world.tornadoLift,
-                           UI::Layout::UI_TORNADO_LIFT_STEP,
-                           UI::Layout::UI_TORNADO_LIFT_MIN,
-                           UI::Layout::UI_TORNADO_LIFT_MAX,
-                           "%.1f" );
+                editFloat(
+                    "Radius",
+                    UI::OperatorEditorPropertyCommandType::SetTornadoRadius,
+                    world.tornadoRadius,
+                    UI::Layout::UI_TORNADO_RADIUS_STEP,
+                    UI::Layout::UI_TORNADO_RADIUS_MIN,
+                    UI::Layout::UI_TORNADO_RADIUS_MAX,
+                    "%.1f m"
+                );
+
+                editFloat(
+                    "Height",
+                    UI::OperatorEditorPropertyCommandType::SetTornadoHeight,
+                    world.tornadoHeight,
+                    UI::Layout::UI_TORNADO_HEIGHT_STEP,
+                    UI::Layout::UI_TORNADO_HEIGHT_MIN,
+                    UI::Layout::UI_TORNADO_HEIGHT_MAX,
+                    "%.1f m"
+                );
+
+                editFloat(
+                    "Inward",
+                    UI::OperatorEditorPropertyCommandType::SetTornadoInward,
+                    world.tornadoInward,
+                    UI::Layout::UI_TORNADO_INWARD_STEP,
+                    UI::Layout::UI_TORNADO_INWARD_MIN,
+                    UI::Layout::UI_TORNADO_INWARD_MAX,
+                    "%.1f"
+                );
+
+                editFloat(
+                    "Swirl",
+                    UI::OperatorEditorPropertyCommandType::SetTornadoSwirl,
+                    world.tornadoSwirl,
+                    UI::Layout::UI_TORNADO_SWIRL_STEP,
+                    UI::Layout::UI_TORNADO_SWIRL_MIN,
+                    UI::Layout::UI_TORNADO_SWIRL_MAX,
+                    "%.1f"
+                );
+
+                editFloat(
+                    "Lift",
+                    UI::OperatorEditorPropertyCommandType::SetTornadoLift,
+                    world.tornadoLift,
+                    UI::Layout::UI_TORNADO_LIFT_STEP,
+                    UI::Layout::UI_TORNADO_LIFT_MIN,
+                    UI::Layout::UI_TORNADO_LIFT_MAX,
+                    "%.1f"
+                );
             }
         }
         ImGui::End();
@@ -2104,9 +2309,12 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                              float value = 0.0f,
                              UI::OperatorEditorEditPhase phase = UI::OperatorEditorEditPhase::Commit )
                     {
-                        submit( m_frameCommands.operatorEditor.rendering,
-                                UI::OperatorEditorRenderingCommand{ type, parameter, value, phase } );
+                        submit(
+                            m_frameCommands.operatorEditor.rendering,
+                            UI::OperatorEditorRenderingCommand { type, parameter, value, phase }
+                        );
                     };
+
                     bool vsync = view.rendering.vsyncEnabled;
                     if ( ImGui::Checkbox( "VSync", &vsync ) )
                     {
@@ -2121,11 +2329,15 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                     ImGui::SameLine();
                     if ( ImGui::SmallButton( "Save profile" ) )
                     {
-                        submitRendering( cinematic ? UI::OperatorEditorRenderingCommandType::SaveSkyDefaults
-                                                   : UI::OperatorEditorRenderingCommandType::SaveOrdinaryDefaults );
+                        submitRendering(
+                            cinematic ? UI::OperatorEditorRenderingCommandType::SaveSkyDefaults
+                                      : UI::OperatorEditorRenderingCommandType::SaveOrdinaryDefaults
+                        );
                     }
-                    ImGui::TextDisabled( "%s profile | preview locally, commit once on release",
-                                         cinematic ? "cinematic" : "ordinary" );
+                    ImGui::TextDisabled(
+                        "%s profile | preview locally, commit once on release",
+                        cinematic ? "cinematic" : "ordinary"
+                    );
 
                     // Concept: the shared section catalog changes presentation
                     // topology only. Ordinary and cinematic values still travel
@@ -2171,11 +2383,12 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                             {
                                 submitRendering( UI::OperatorEditorRenderingCommandType::ToggleWaterFlat );
                             }
-                            if ( ImGui::Button( view.rendering.waterReflectionMode == 0
-                                                    ? "Reflection: raster"
-                                                    : ( view.rendering.waterReflectionMode == 1
-                                                            ? "Reflection: DXR"
-                                                            : "Reflection: off" ) ) )
+                            if ( ImGui::Button(
+                                     view.rendering.waterReflectionMode == 0
+                                         ? "Reflection: raster"
+                                         : ( view.rendering.waterReflectionMode == 1 ? "Reflection: DXR"
+                                                                                     : "Reflection: off" )
+                                 ) )
                             {
                                 submitRendering( UI::OperatorEditorRenderingCommandType::CycleWaterReflection );
                             }
@@ -2213,11 +2426,15 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                                 spec.valueFormat,
                                 [&]( float value, UI::OperatorEditorEditPhase phase )
                                 {
-                                    submitRendering( UI::OperatorEditorRenderingCommandType::SetOrdinaryParameter,
-                                                     parameter,
-                                                     value,
-                                                     phase );
-                                } );
+                                    submitRendering(
+                                        UI::OperatorEditorRenderingCommandType::SetOrdinaryParameter,
+                                        parameter,
+                                        value,
+                                        phase
+                                    );
+                                }
+                            );
+
                             ImGui::PopID();
                         }
 
@@ -2243,8 +2460,10 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                             ImGui::PushID( 1000 + parameter );
                             if ( ImGui::Checkbox( feature.label, &enabled ) )
                             {
-                                submitRendering( UI::OperatorEditorRenderingCommandType::ToggleCinematicFeature,
-                                                 parameter );
+                                submitRendering(
+                                    UI::OperatorEditorRenderingCommandType::ToggleCinematicFeature,
+                                    parameter
+                                );
                             }
                             ImGui::PopID();
                         }
@@ -2270,11 +2489,15 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                                 spec.valueFormat,
                                 [&]( float value, UI::OperatorEditorEditPhase phase )
                                 {
-                                    submitRendering( UI::OperatorEditorRenderingCommandType::SetCinematicParameter,
-                                                     parameter,
-                                                     value,
-                                                     phase );
-                                } );
+                                    submitRendering(
+                                        UI::OperatorEditorRenderingCommandType::SetCinematicParameter,
+                                        parameter,
+                                        value,
+                                        phase
+                                    );
+                                }
+                            );
+
                             ImGui::PopID();
                         }
                         ImGui::PopID();
@@ -2293,16 +2516,19 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
         if ( ImGui::Begin( ImGuiEditorPanel::Diagnostics, &m_showDiagnostics ) )
         {
             const UI::OperatorEditorDiagnosticsView& diagnostics = view.diagnostics;
-            const auto submitDiagnostics = [&](
-                                               UI::OperatorEditorDiagnosticsCommandType type,
-                                               uint32_t flag = 0u,
-                                               int integerValue = 0,
-                                               float value = 0.0f,
-                                               UI::OperatorEditorEditPhase phase = UI::OperatorEditorEditPhase::Commit )
+            const auto submitDiagnostics =
+                [&]( UI::OperatorEditorDiagnosticsCommandType type,
+                     uint32_t flag = 0u,
+                     int integerValue = 0,
+                     float value = 0.0f,
+                     UI::OperatorEditorEditPhase phase = UI::OperatorEditorEditPhase::Commit )
             {
-                submit( m_frameCommands.operatorEditor.diagnostics,
-                        UI::OperatorEditorDiagnosticsCommand{ type, flag, integerValue, value, phase } );
+                submit(
+                    m_frameCommands.operatorEditor.diagnostics,
+                    UI::OperatorEditorDiagnosticsCommand { type, flag, integerValue, value, phase }
+                );
             };
+
             // Why: retain domain counters and owner controls here while Tracy
             // remains the sole generic timeline/histogram/percentile surface.
             ImGui::Text( "Tracy %s", m_frameInput.tracyViewerConnected ? "connected" : "waiting" );
@@ -2336,14 +2562,17 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                     { "Sleep state", Physics::PHYSICS_DEBUG_SLEEP, UI::UIPhysicsDebugOverlay::Sleep },
                     { "Pipeline", Physics::PHYSICS_DEBUG_PIPELINE, UI::UIPhysicsDebugOverlay::Pipeline },
                 };
+
                 for ( const auto& row : flagRows )
                 {
                     bool enabled = ( diagnostics.physicsDebugFlags & row.physicsFlag ) != 0u;
                     ImGui::PushID( static_cast<int>( row.physicsFlag ) );
                     if ( ImGui::Checkbox( row.label, &enabled ) )
                     {
-                        submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag,
-                                           static_cast<uint32_t>( row.overlay ) );
+                        submitDiagnostics(
+                            UI::OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag,
+                            static_cast<uint32_t>( row.overlay )
+                        );
                     }
                     ImGui::PopID();
                 }
@@ -2366,10 +2595,13 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                 {
                     submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::ToggleTerrainContactProbe );
                 }
-                ImGui::Text( "Pipeline %d / %d: %s",
-                             diagnostics.physicsPipelineStageIndex + 1,
-                             diagnostics.physicsPipelineStageCount,
-                             diagnostics.physicsPipelineStageName );
+                ImGui::Text(
+                    "Pipeline %d / %d: %s",
+                    diagnostics.physicsPipelineStageIndex + 1,
+                    diagnostics.physicsPipelineStageCount,
+                    diagnostics.physicsPipelineStageName
+                );
+
                 if ( ImGui::Button( "Previous stage" ) )
                 {
                     submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::StepPhysicsPipelinePrevious );
@@ -2418,49 +2650,59 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                       1.0f,
                       "%.0f" },
                 };
+
                 for ( const DiagnosticScalar& scalar : diagnosticScalars )
                 {
                     const int action = static_cast<int>( scalar.type );
                     ImGui::PushID( action );
-                    editParameterized( m_diagnosticsEdit,
-                                       scalar.label,
-                                       action,
-                                       -1,
-                                       -1,
-                                       -1,
-                                       scalar.value,
-                                       scalar.step,
-                                       scalar.minValue,
-                                       scalar.maxValue,
-                                       scalar.format,
-                                       [&]( float value, UI::OperatorEditorEditPhase phase )
-                                       { submitDiagnostics( scalar.type, 0u, 0, value, phase ); } );
+                    editParameterized(
+                        m_diagnosticsEdit,
+                        scalar.label,
+                        action,
+                        -1,
+                        -1,
+                        -1,
+                        scalar.value,
+                        scalar.step,
+                        scalar.minValue,
+                        scalar.maxValue,
+                        scalar.format,
+                        [&]( float value, UI::OperatorEditorEditPhase phase )
+                        { submitDiagnostics( scalar.type, 0u, 0, value, phase ); }
+                    );
+
                     ImGui::PopID();
                 }
             }
 
             if ( ImGui::CollapsingHeader( "Renderer", ImGuiTreeNodeFlags_DefaultOpen ) )
             {
-                ImGui::Text( "%s | draw %d + UI %d",
-                             diagnostics.rendererName,
-                             diagnostics.drawCalls,
-                             diagnostics.uiDrawCalls );
-                ImGui::Text( "Render %.2f ms | GPU %.2f ms | alpha %.3f",
-                             diagnostics.renderMs,
-                             diagnostics.gpuFrameMs,
-                             view.rendering.presentationAlpha );
+                ImGui::Text(
+                    "%s | draw %d + UI %d",
+                    diagnostics.rendererName,
+                    diagnostics.drawCalls,
+                    diagnostics.uiDrawCalls
+                );
+                ImGui::Text(
+                    "Render %.2f ms | GPU %.2f ms | alpha %.3f",
+                    diagnostics.renderMs,
+                    diagnostics.gpuFrameMs,
+                    view.rendering.presentationAlpha
+                );
                 if ( ImGui::CollapsingHeader( "Render Targets" ) )
                 {
                     for ( int index = 0; index < diagnostics.renderTargetCount; ++index )
                     {
                         const UI::OperatorEditorRenderTargetView& target = diagnostics.renderTargets[index];
-                        ImGui::Text( "%s  %dx%d  %s%s%s",
-                                     target.label,
-                                     target.width,
-                                     target.height,
-                                     target.available ? "ready" : "unavailable",
-                                     target.depth ? " depth" : "",
-                                     target.hdr ? " HDR" : "" );
+                        ImGui::Text(
+                            "%s  %dx%d  %s%s%s",
+                            target.label,
+                            target.width,
+                            target.height,
+                            target.available ? "ready" : "unavailable",
+                            target.depth ? " depth" : "",
+                            target.hdr ? " HDR" : ""
+                        );
                     }
                     if ( diagnostics.renderTargetCount == 0 )
                     {
@@ -2471,14 +2713,20 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
             if ( ImGui::CollapsingHeader( "Engine Memory" ) )
             {
-                ImGui::Text( "Tracked %.2f MiB | reconciled %.2f MiB",
-                             BytesToMiB( diagnostics.trackedEngineBytes ),
-                             BytesToMiB( diagnostics.reconciledTotalBytes ) );
-                ImGui::Text( "Upload %.2f / %.2f MiB",
-                             BytesToMiB( diagnostics.uploadUsedBytes ),
-                             BytesToMiB( diagnostics.uploadCapacityBytes ) );
-                ImGui::Text( "Replay reserve growth events %llu",
-                             static_cast<unsigned long long>( diagnostics.replayReserveGrowthEvents ) );
+                ImGui::Text(
+                    "Tracked %.2f MiB | reconciled %.2f MiB",
+                    BytesToMiB( diagnostics.trackedEngineBytes ),
+                    BytesToMiB( diagnostics.reconciledTotalBytes )
+                );
+                ImGui::Text(
+                    "Upload %.2f / %.2f MiB",
+                    BytesToMiB( diagnostics.uploadUsedBytes ),
+                    BytesToMiB( diagnostics.uploadCapacityBytes )
+                );
+                ImGui::Text(
+                    "Replay reserve growth events %llu",
+                    static_cast<unsigned long long>( diagnostics.replayReserveGrowthEvents )
+                );
                 ImGui::TextDisabled( "Cached owner counters only; this panel does not trigger an unbounded scan." );
             }
 
@@ -2498,6 +2746,7 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                     for ( int count = 1; count <= diagnostics.maxWorkerThreadCount; ++count )
                     {
                         char label[24] = {};
+
                         snprintf( label, sizeof( label ), "%d", count );
                         if ( ImGui::Selectable( label, diagnostics.workerThreadCount == count ) )
                         {
@@ -2506,22 +2755,28 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                     }
                     ImGui::EndCombo();
                 }
-                ImGui::Text( "Current %d | worker core %.2f ms",
-                             diagnostics.workerThreadCount,
-                             diagnostics.workerCoreTotalMs );
+                ImGui::Text(
+                    "Current %d | worker core %.2f ms",
+                    diagnostics.workerThreadCount,
+                    diagnostics.workerCoreTotalMs
+                );
             }
 
             if ( ImGui::CollapsingHeader( "UI" ) )
             {
-                ImGui::Text( "%.1f FPS | CPU %.2f ms | physics %.2f ms",
-                             diagnostics.fps,
-                             diagnostics.cpuFrameMs,
-                             diagnostics.physicsMs );
-                ImGui::Text( "Frames %llu | messages %llu | suppressed mouse %llu / keyboard %llu",
-                             static_cast<unsigned long long>( m_completedFrames ),
-                             static_cast<unsigned long long>( m_platformMessages ),
-                             static_cast<unsigned long long>( m_suppressedMouseMessages ),
-                             static_cast<unsigned long long>( m_suppressedKeyboardMessages ) );
+                ImGui::Text(
+                    "%.1f FPS | CPU %.2f ms | physics %.2f ms",
+                    diagnostics.fps,
+                    diagnostics.cpuFrameMs,
+                    diagnostics.physicsMs
+                );
+                ImGui::Text(
+                    "Frames %llu | messages %llu | suppressed mouse %llu / keyboard %llu",
+                    static_cast<unsigned long long>( m_completedFrames ),
+                    static_cast<unsigned long long>( m_platformMessages ),
+                    static_cast<unsigned long long>( m_suppressedMouseMessages ),
+                    static_cast<unsigned long long>( m_suppressedKeyboardMessages )
+                );
                 ImGui::TextDisabled( "%s", m_tracyLaunchFeedback );
             }
         }
@@ -2541,22 +2796,28 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
             if ( causality.hasReplayTick )
             {
-                ImGui::Text( "Replay tick %llu | prediction %s",
-                             static_cast<unsigned long long>( causality.replayTick ),
-                             ImGuiEditorPredictionStateName( causality.predictionState ) );
+                ImGui::Text(
+                    "Replay tick %llu | prediction %s",
+                    static_cast<unsigned long long>( causality.replayTick ),
+                    ImGuiEditorPredictionStateName( causality.predictionState )
+                );
             }
             else
             {
-                ImGui::Text( "Replay tick -- | prediction %s",
-                             ImGuiEditorPredictionStateName( causality.predictionState ) );
+                ImGui::Text(
+                    "Replay tick -- | prediction %s",
+                    ImGuiEditorPredictionStateName( causality.predictionState )
+                );
             }
 
             if ( causality.selectedObjectRow )
             {
                 ImGui::SeparatorText( "Selected object" );
-                ImGui::Text( "%s  [body %u]",
-                             causality.selectedObjectRow->name,
-                             causality.selectedObjectRow->id.value );
+                ImGui::Text(
+                    "%s  [body %u]",
+                    causality.selectedObjectRow->name,
+                    causality.selectedObjectRow->id.value
+                );
                 ImGui::TextWrapped( "%s", causality.selectedObjectRow->detail );
 
                 ImGui::SeparatorText( "Immediate cause / effect" );
@@ -2582,29 +2843,39 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                 {
                     const RunReplayCauseTreeRow& row = *causality.relevantLinks[index];
                     char linkLabel[160] = {};
-                    sprintf_s( linkLabel,
-                               "%s: %s###CauseLink%zu",
-                               ImGuiEditorCauseRowKindName( row.kind ),
-                               row.name,
-                               index );
+
+                    sprintf_s(
+                        linkLabel,
+                        "%s: %s###CauseLink%zu",
+                        ImGuiEditorCauseRowKindName( row.kind ),
+                        row.name,
+                        index
+                    );
+
                     if ( ImGui::Selectable( linkLabel, false ) )
                     {
                         const std::ptrdiff_t rowIndex = causality.relevantLinks[index] - replay.causeTree.rows.data();
-                        submitReplay( UI::OperatorEditorReplayCommandType::SelectCauseRow,
-                                      0.0f,
-                                      static_cast<int>( rowIndex ) );
+                        submitReplay(
+                            UI::OperatorEditorReplayCommandType::SelectCauseRow,
+                            0.0f,
+                            static_cast<int>( rowIndex )
+                        );
                     }
                 }
                 if ( causality.compactScanTruncated )
                 {
-                    ImGui::TextDisabled( "Bounded compact list; open detail for all %zu rows.",
-                                         causality.totalRowCount );
+                    ImGui::TextDisabled(
+                        "Bounded compact list; open detail for all %zu rows.",
+                        causality.totalRowCount
+                    );
                 }
             }
             else if ( causality.state == ImGuiEditorCausalityState::CapacityLimited )
             {
-                ImGui::TextWrapped( "The replay explanation exceeded its pre-reserved row capacity. "
-                                    "The legacy overlay and editor both fail closed; reduce scene/contact scope." );
+                ImGui::TextWrapped(
+                    "The replay explanation exceeded its pre-reserved row capacity. "
+                    "The legacy overlay and editor both fail closed; reduce scene/contact scope."
+                );
             }
             else if ( causality.state == ImGuiEditorCausalityState::Stale )
             {
@@ -2624,10 +2895,13 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
         if ( ImGui::Begin( ImGuiEditorPanel::CausalityDetail, &m_showCausalityDetail ) )
         {
             const RunReplayCauseTreeState& tree = replay.causeTree;
-            ImGui::Text( "%zu published rows | %s | prediction %s",
-                         tree.rows.size(),
-                         ImGuiEditorCausalityStateName( causality.state ),
-                         ImGuiEditorPredictionStateName( causality.predictionState ) );
+            ImGui::Text(
+                "%zu published rows | %s | prediction %s",
+                tree.rows.size(),
+                ImGuiEditorCausalityStateName( causality.state ),
+                ImGuiEditorPredictionStateName( causality.predictionState )
+            );
+
             ImGui::TextDisabled( "Borrowed replay rows; no second tree, full-tree rescan, or scene serialization." );
 
             if ( m_causalityDetailSelectedRow < 0 ||
@@ -2637,11 +2911,13 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             }
 
             const float detailHeight = m_causalityDetailSelectedRow >= 0 ? 250.0f : -1.0f;
-            if ( ImGui::BeginTable( "##CausalityRows",
-                                    6,
-                                    ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY |
-                                        ImGuiTableFlags_Resizable,
-                                    ImVec2( 0.0f, detailHeight ) ) )
+            if ( ImGui::BeginTable(
+                     "##CausalityRows",
+                     6,
+                     ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY |
+                         ImGuiTableFlags_Resizable,
+                     ImVec2( 0.0f, detailHeight )
+                 ) )
             {
                 ImGui::TableSetupScrollFreeze( 0, 1 );
                 ImGui::TableSetupColumn( "#", ImGuiTableColumnFlags_WidthFixed, 42.0f );
@@ -2666,10 +2942,13 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                         ImGui::TableNextRow();
                         ImGui::TableSetColumnIndex( 0 );
                         char rowLabel[24] = {};
+
                         sprintf_s( rowLabel, "%d", rowIndex );
-                        if ( ImGui::Selectable( rowLabel,
-                                                rowIndex == m_causalityDetailSelectedRow,
-                                                ImGuiSelectableFlags_SpanAllColumns ) )
+                        if ( ImGui::Selectable(
+                                 rowLabel,
+                                 rowIndex == m_causalityDetailSelectedRow,
+                                 ImGuiSelectableFlags_SpanAllColumns
+                             ) )
                         {
                             m_causalityDetailSelectedRow = rowIndex;
                         }
@@ -2696,42 +2975,56 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             {
                 const RunReplayCauseTreeRow& row = tree.rows[static_cast<std::size_t>( m_causalityDetailSelectedRow )];
                 ImGui::SeparatorText( "Selected row detail" );
-                ImGui::Text( "%s | body %u | parent %u | counterpart %u | depth %d",
-                             ImGuiEditorCauseRowKindName( row.kind ),
-                             row.id.value,
-                             row.parentId.value,
-                             row.counterpartId.value,
-                             row.depth );
+                ImGui::Text(
+                    "%s | body %u | parent %u | counterpart %u | depth %d",
+                    ImGuiEditorCauseRowKindName( row.kind ),
+                    row.id.value,
+                    row.parentId.value,
+                    row.counterpartId.value,
+                    row.depth
+                );
+
                 ImGui::TextWrapped( "%s — %s", row.name, row.detail );
-                ImGui::Text( "model %d / counterpart %d | contact %d | solver %d | pipeline %d | feature %d",
-                             row.modelRow.value,
-                             row.counterpartModelRow.value,
-                             row.contactIndex,
-                             row.solverRowIndex,
-                             row.pipelineIndex,
-                             row.featureId );
-                ImGui::Text( "points %d | penetration %.4f | normal %.4f | tangent %.4f | warm %.4f",
-                             row.manifoldPointCount,
-                             row.penetration,
-                             row.normalImpulse,
-                             row.tangentImpulse,
-                             row.warmStartImpulse );
-                ImGui::Text( "bias %.4f | effective mass %.4f | friction limit %.4f | %s%s",
-                             row.bias,
-                             row.effectiveMass,
-                             row.frictionLimit,
-                             row.prediction ? "prediction " : "",
-                             row.terrain ? "terrain" : ( row.warmStarted ? "warm-started" : "" ) );
-                ImGui::Text( "point %.3f %.3f %.3f | normal %.3f %.3f %.3f | impulse %.3f %.3f %.3f",
-                             row.point.x,
-                             row.point.y,
-                             row.point.z,
-                             row.normal.x,
-                             row.normal.y,
-                             row.normal.z,
-                             row.impulse.x,
-                             row.impulse.y,
-                             row.impulse.z );
+                ImGui::Text(
+                    "model %d / counterpart %d | contact %d | solver %d | pipeline %d | feature %d",
+                    row.modelRow.value,
+                    row.counterpartModelRow.value,
+                    row.contactIndex,
+                    row.solverRowIndex,
+                    row.pipelineIndex,
+                    row.featureId
+                );
+
+                ImGui::Text(
+                    "points %d | penetration %.4f | normal %.4f | tangent %.4f | warm %.4f",
+                    row.manifoldPointCount,
+                    row.penetration,
+                    row.normalImpulse,
+                    row.tangentImpulse,
+                    row.warmStartImpulse
+                );
+
+                ImGui::Text(
+                    "bias %.4f | effective mass %.4f | friction limit %.4f | %s%s",
+                    row.bias,
+                    row.effectiveMass,
+                    row.frictionLimit,
+                    row.prediction ? "prediction " : "",
+                    row.terrain ? "terrain" : ( row.warmStarted ? "warm-started" : "" )
+                );
+
+                ImGui::Text(
+                    "point %.3f %.3f %.3f | normal %.3f %.3f %.3f | impulse %.3f %.3f %.3f",
+                    row.point.x,
+                    row.point.y,
+                    row.point.z,
+                    row.normal.x,
+                    row.normal.y,
+                    row.normal.z,
+                    row.impulse.x,
+                    row.impulse.y,
+                    row.impulse.z
+                );
             }
         }
         ImGui::End();
@@ -2770,18 +3063,21 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             ImGui::BeginDisabled( !recordingMutable );
             if ( ImGui::Button( replay.recordingEnabled ? "STOP" : "REC" ) )
             {
-                submitReplay( UI::OperatorEditorReplayCommandType::SetRecordingEnabled,
-                              0.0f,
-                              -1,
-                              !replay.recordingEnabled );
+                submitReplay(
+                    UI::OperatorEditorReplayCommandType::SetRecordingEnabled,
+                    0.0f,
+                    -1,
+                    !replay.recordingEnabled
+                );
             }
             ImGui::EndDisabled();
             if ( !recordingMutable && ImGui::IsItemHovered( ImGuiHoveredFlags_AllowWhenDisabled ) )
             {
-                ImGui::SetTooltip( "%s",
-                                   replay.recordingLockedByHashLog
-                                       ? "Hash-log capture is fixed by launch policy"
-                                       : "Launch with replay enabled to reserve recording" );
+                ImGui::SetTooltip(
+                    "%s",
+                    replay.recordingLockedByHashLog ? "Hash-log capture is fixed by launch policy"
+                                                    : "Launch with replay enabled to reserve recording"
+                );
             }
             ImGui::SameLine();
             ImGui::BeginDisabled( !hasTimeline );
@@ -2821,23 +3117,27 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             ImGui::SameLine();
             if ( hasSelectedTick )
             {
-                ImGui::TextDisabled( "%s  tick %llu  %zu/%zu",
-                                     loaded ? "FILE" : "SOLVER",
-                                     static_cast<unsigned long long>( selectedTick ),
-                                     loaded ? selection.loadedSampleCount : replay.solverStats.sampleCount,
-                                     loaded ? selection.loadedSampleCount : replay.solverStats.sampleCapacity );
+                ImGui::TextDisabled(
+                    "%s  tick %llu  %zu/%zu",
+                    loaded ? "FILE" : "SOLVER",
+                    static_cast<unsigned long long>( selectedTick ),
+                    loaded ? selection.loadedSampleCount : replay.solverStats.sampleCount,
+                    loaded ? selection.loadedSampleCount : replay.solverStats.sampleCapacity
+                );
             }
             else
             {
-                ImGui::TextDisabled( "%s  tick --  %zu/%zu",
-                                     loaded ? "FILE" : "SOLVER",
-                                     loaded ? selection.loadedSampleCount : replay.solverStats.sampleCount,
-                                     loaded ? selection.loadedSampleCount : replay.solverStats.sampleCapacity );
+                ImGui::TextDisabled(
+                    "%s  tick --  %zu/%zu",
+                    loaded ? "FILE" : "SOLVER",
+                    loaded ? selection.loadedSampleCount : replay.solverStats.sampleCount,
+                    loaded ? selection.loadedSampleCount : replay.solverStats.sampleCapacity
+                );
             }
 
             float scrubPosition = trackPosition;
-            ImGui::SetNextItemWidth(
-                (std::max)( 320.0f, ImGui::GetContentRegionAvail().x * ( compact ? 0.62f : 0.72f ) ) );
+            ImGui::SetNextItemWidth( (std::max)( 320.0f,
+                                                 ImGui::GetContentRegionAvail().x * ( compact ? 0.62f : 0.72f ) ) );
             ImGui::BeginDisabled( !hasTimeline );
             if ( ImGui::SliderFloat( "##ReplayTransportTrack", &scrubPosition, 0.0f, 1.0f, "%.3f" ) )
             {
@@ -2851,10 +3151,13 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             const float presentX = trackMin.x + ( trackMax.x - trackMin.x ) * presentPosition;
             // Concept: the thin marker exposes the replay owner's live-present
             // boundary without making this panel calculate timeline ranges.
-            ImGui::GetWindowDrawList()->AddLine( ImVec2( presentX, trackMin.y - 2.0f ),
-                                                 ImVec2( presentX, trackMax.y + 2.0f ),
-                                                 IM_COL32( 255, 196, 64, 255 ),
-                                                 2.0f );
+            ImGui::GetWindowDrawList()->AddLine(
+                ImVec2( presentX, trackMin.y - 2.0f ),
+                ImVec2( presentX, trackMax.y + 2.0f ),
+                IM_COL32( 255, 196, 64, 255 ),
+                2.0f
+            );
+
             ImGui::SameLine();
             const char* predictionLabel = replay.prediction.building ? ( compact ? "BUILD" : "PREDICTING" )
                                                                      : ( replay.prediction.enabled ? "PRED*" : "PRED" );
@@ -2922,19 +3225,23 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
     if ( m_showStatus )
     {
-        if ( ImGui::Begin( ImGuiEditorPanel::Status,
-                           &m_showStatus,
-                           ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse ) )
+        if ( ImGui::Begin(
+                 ImGuiEditorPanel::Status,
+                 &m_showStatus,
+                 ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse
+             ) )
         {
             const float framesPerSecond = m_frameInput.deltaSeconds > 0.0f ? 1.0f / m_frameInput.deltaSeconds : 0.0f;
-            ImGui::Text( "%s%s  |  %d objects  |  undo %d / redo %d  |  %.1f FPS  |  Tracy %s",
-                         view.tools.editorModeEnabled ? "EDIT" : "PLAY",
-                         view.tools.placementModeEnabled ? "/PLACE" : "",
-                         view.scene.modelCount,
-                         view.tools.undoDepth,
-                         view.tools.redoDepth,
-                         framesPerSecond,
-                         m_frameInput.tracyViewerConnected ? "connected" : "waiting" );
+            ImGui::Text(
+                "%s%s  |  %d objects  |  undo %d / redo %d  |  %.1f FPS  |  Tracy %s",
+                view.tools.editorModeEnabled ? "EDIT" : "PLAY",
+                view.tools.placementModeEnabled ? "/PLACE" : "",
+                view.scene.modelCount,
+                view.tools.undoDepth,
+                view.tools.redoDepth,
+                framesPerSecond,
+                m_frameInput.tracyViewerConnected ? "connected" : "waiting"
+            );
         }
         ImGui::End();
     }
@@ -2976,14 +3283,18 @@ SkullbonezCore::Core::SbResult ImGuiEditorOwner::RenderPreparedDrawData()
     // live frame-graph callback consumes it synchronously before Present.
     if ( !m_context || !m_renderer )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGui",
-                                                        "Completed frame has no DX12 draw-data target" );
+        return SkullbonezCore::Core::SbResult::Failure(
+            "DevelopmentTools/ImGui",
+            "Completed frame has no DX12 draw-data target"
+        );
     }
     ImGui::SetCurrentContext( m_context );
     if ( !ImGui::GetDrawData() )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGui",
-                                                        "Completed frame has no DX12 draw data" );
+        return SkullbonezCore::Core::SbResult::Failure(
+            "DevelopmentTools/ImGui",
+            "Completed frame has no DX12 draw data"
+        );
     }
     return m_renderer->RenderDrawData( *m_context, *ImGui::GetDrawData() );
 }

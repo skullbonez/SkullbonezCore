@@ -121,10 +121,14 @@ struct EditorCommandEntry
     EditorPrimitiveRecreateRecipe primitive;
 };
 
-bool TryCaptureEditorPrimitiveShape( const Math::CollisionDetection::CollisionShape& shape,
-                                     EditorPrimitiveShapeSnapshot& outSnapshot );
-bool TryBuildEditorPrimitiveShape( const EditorPrimitiveShapeSnapshot& snapshot,
-                                   Math::CollisionDetection::CollisionShape& outShape );
+bool TryCaptureEditorPrimitiveShape(
+    const Math::CollisionDetection::CollisionShape& shape,
+    EditorPrimitiveShapeSnapshot& outSnapshot
+);
+bool TryBuildEditorPrimitiveShape(
+    const EditorPrimitiveShapeSnapshot& snapshot,
+    Math::CollisionDetection::CollisionShape& outShape
+);
 
 class EditorCommandHistory
 {

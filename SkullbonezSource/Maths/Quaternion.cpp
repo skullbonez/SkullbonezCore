@@ -116,15 +116,17 @@ RotationMatrix Quaternion::GetOrientationMatrix()
 {
     // The engine uses right-handed object orientation math; render projection is
     // handled separately by Matrix4.
-    return RotationMatrix( 1 - ( 2 * m_y * m_y ) - ( 2 * m_z * m_z ),
-                           ( 2 * m_x * m_y ) + ( 2 * m_w * m_z ),
-                           ( 2 * m_x * m_z ) - ( 2 * m_w * m_y ),
-                           ( 2 * m_x * m_y ) - ( 2 * m_w * m_z ),
-                           1 - ( 2 * m_x * m_x ) - ( 2 * m_z * m_z ),
-                           ( 2 * m_y * m_z ) + ( 2 * m_w * m_x ),
-                           ( 2 * m_x * m_z ) + ( 2 * m_w * m_y ),
-                           ( 2 * m_y * m_z ) - ( 2 * m_w * m_x ),
-                           1 - ( 2 * m_x * m_x ) - ( 2 * m_y * m_y ) );
+    return RotationMatrix(
+        1 - ( 2 * m_y * m_y ) - ( 2 * m_z * m_z ),
+        ( 2 * m_x * m_y ) + ( 2 * m_w * m_z ),
+        ( 2 * m_x * m_z ) - ( 2 * m_w * m_y ),
+        ( 2 * m_x * m_y ) - ( 2 * m_w * m_z ),
+        1 - ( 2 * m_x * m_x ) - ( 2 * m_z * m_z ),
+        ( 2 * m_y * m_z ) + ( 2 * m_w * m_x ),
+        ( 2 * m_x * m_z ) + ( 2 * m_w * m_y ),
+        ( 2 * m_y * m_z ) - ( 2 * m_w * m_x ),
+        1 - ( 2 * m_x * m_x ) - ( 2 * m_y * m_y )
+    );
 }
 
 

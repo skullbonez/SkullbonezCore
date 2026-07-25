@@ -239,12 +239,16 @@ class RuntimeRenderer
         const ReplayVisualPacket* replayVisualPacket = nullptr;
         bool useCinematicTarget = false;
     };
-    bool RenderPreparedFrame( const FrameEntryContext& context,
-                              const SkullbonezCore::Core::CinematicRenderConfig& renderConfig,
-                              bool cinematicRender );
-    RenderFrameContext BuildRenderFrameContext( const RuntimeRenderModelFrameView& models,
-                                                bool cinematicRender,
-                                                const SkullbonezCore::Core::CinematicRenderConfig& renderConfig );
+    bool RenderPreparedFrame(
+        const FrameEntryContext& context,
+        const SkullbonezCore::Core::CinematicRenderConfig& renderConfig,
+        bool cinematicRender
+    );
+    RenderFrameContext BuildRenderFrameContext(
+        const RuntimeRenderModelFrameView& models,
+        bool cinematicRender,
+        const SkullbonezCore::Core::CinematicRenderConfig& renderConfig
+    );
     RenderResourceContext BuildRenderResourceContext( bool cinematicRender );
     Rendering::RenderGraph& BeginRenderPassGraph();
     const Rendering::RenderGraphCompileResult& CompileRenderPassGraph( Rendering::RenderGraph& graph );
@@ -259,9 +263,11 @@ class RuntimeRenderer
     void ExecuteTerrainThroughRenderGraph( const TerrainGraphInputs& inputs );
     void ExecuteWaterThroughRenderGraph( const WaterGraphInputs& inputs );
     bool ExecuteWorldExtensionThroughRenderGraph( const WorldExtensionGraphInputs& inputs );
-    DebugOverlaySnapshot BuildDebugOverlaySnapshot( const RuntimeRenderModelFrameView& models,
-                                                    const RenderToolOverlayView& toolOverlay,
-                                                    const RuntimeRenderFramePolicy& policy ) const;
+    DebugOverlaySnapshot BuildDebugOverlaySnapshot(
+        const RuntimeRenderModelFrameView& models,
+        const RenderToolOverlayView& toolOverlay,
+        const RuntimeRenderFramePolicy& policy
+    ) const;
     void ExecuteReplayGhostsThroughRenderGraph( const ReplayGhostGraphInputs& inputs );
     bool ExecuteDebugOverlayThroughRenderGraph( const DebugOverlayGraphInputs& inputs );
     CinematicPostFrameOutput ExecuteCinematicPostThroughRenderGraph( const CinematicPostGraphInputs& inputs );
@@ -281,8 +287,8 @@ class RuntimeRenderer
     Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;
     SkullbonezCore::Core::Profiler* m_profiler = nullptr; // Startup-bound diagnostics source; null in non-profile builds.
     std::array<Math::Transformation::Matrix4, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
-        m_dxrReflectionTransforms =
-            {};                                           // Scratch matrices for DXR Top-Level Acceleration Structure (TLAS) instance upload.
+        m_dxrReflectionTransforms = {};                   // Scratch matrices for DXR Top-Level Acceleration Structure (TLAS) instance
+                                        // upload.
     FullscreenQuadPass m_fullscreenQuadPass;              // Shared full-screen vertex buffer pass used by sky/post effects.
     SkyPass m_skyPass;                                    // Background sky pass, reused by reflection and scene target passes.
     SceneTargetPass m_sceneTargetPass;                    // Cinematic HDR scene-target begin/release pass.

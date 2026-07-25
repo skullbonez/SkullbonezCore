@@ -145,7 +145,7 @@ SkullbonezCore::Physics::PhysicsSceneObjectId SceneSessionState::AllocateSceneOb
     // failure cannot interleave another object's replay-facing identity.
     if ( count <= 0 )
     {
-        return SkullbonezCore::Physics::PhysicsSceneObjectId{};
+        return SkullbonezCore::Physics::PhysicsSceneObjectId {};
     }
 
     const uint32_t countValue = static_cast<uint32_t>( count );
@@ -153,11 +153,13 @@ SkullbonezCore::Physics::PhysicsSceneObjectId SceneSessionState::AllocateSceneOb
     if ( nextSceneObjectId == 0 || nextSceneObjectId == maxSceneObjectId ||
          countValue > maxSceneObjectId - nextSceneObjectId )
     {
-        SB_FATAL( "SceneRuntime",
-                  "Scene object id range exhausted. next=%u requested=%u max=%u",
-                  nextSceneObjectId,
-                  countValue,
-                  maxSceneObjectId );
+        SB_FATAL(
+            "SceneRuntime",
+            "Scene object id range exhausted. next=%u requested=%u max=%u",
+            nextSceneObjectId,
+            countValue,
+            maxSceneObjectId
+        );
     }
 
     SkullbonezCore::Physics::PhysicsSceneObjectId first;
@@ -287,19 +289,23 @@ void SceneRuntime::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, Scene
     // generation before it can emit BeforeSceneUnload again.
     if ( !SceneRuntimeLifecycleTransitionValid( m_lastLifecycleEvent, event ) )
     {
-        SB_FATAL( "Runtime/SceneRuntime",
-                  "Invalid scene lifecycle transition. previous=%s next=%s",
-                  SceneRuntimeLifecycleEventName( m_lastLifecycleEvent ),
-                  SceneRuntimeLifecycleEventName( event ) );
+        SB_FATAL(
+            "Runtime/SceneRuntime",
+            "Invalid scene lifecycle transition. previous=%s next=%s",
+            SceneRuntimeLifecycleEventName( m_lastLifecycleEvent ),
+            SceneRuntimeLifecycleEventName( event )
+        );
     }
     const SceneLifecycleConsumerMask requiredConsumers = SceneLifecycleRequiredConsumers( event );
     if ( consumers != requiredConsumers )
     {
-        SB_FATAL( "Runtime/SceneRuntime",
-                  "Scene lifecycle consumer mismatch. phase=%s expected=0x%X actual=0x%X",
-                  SceneRuntimeLifecycleEventName( event ),
-                  requiredConsumers,
-                  consumers );
+        SB_FATAL(
+            "Runtime/SceneRuntime",
+            "Scene lifecycle consumer mismatch. phase=%s expected=0x%X actual=0x%X",
+            SceneRuntimeLifecycleEventName( event ),
+            requiredConsumers,
+            consumers
+        );
     }
     m_lastLifecycleEvent = event;
     m_lifecyclePacket.event = event;

@@ -94,9 +94,11 @@ float ReplayCauseTreeColliderRadiusForModelRow( const ColliderStore& colliderSto
     return ReplayCauseTreeColliderRadius( colliders[static_cast<std::size_t>( modelRow )] );
 }
 
-float ReplayCauseTreeColliderRadiusForBody( const ColliderStore& colliderStore,
-                                            const PhysicsBodyRecord& body,
-                                            int fallbackModelRow )
+float ReplayCauseTreeColliderRadiusForBody(
+    const ColliderStore& colliderStore,
+    const PhysicsBodyRecord& body,
+    int fallbackModelRow
+)
 {
     const PhysicsColliderHandle colliderHandle = colliderStore.HandleForBodyHandle( body.handle );
     if ( const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle ) )
@@ -111,16 +113,18 @@ float ReplayCauseTreeColliderRadiusForBody( const ColliderStore& colliderStore,
 // Physics::PhysicsSceneObjectId is the identity check in every source.
 // Invariant: this helper stores no view and never repairs topology while input
 // is active. The frame boundary prepared paired body/collider stores first.
-bool ResolveReplayCauseTreeBodyPosition( Physics::PhysicsSceneObjectId id,
-                                         bool predictionEnabled,
-                                         Physics::PhysicsSceneObjectId predictionTargetId,
-                                         Physics::PhysicsSceneObjectId pathTargetId,
-                                         std::span<const RunReplayPredictionFrame> activePredictionFrames,
-                                         const ReplaySolverFrameSample* solverSample,
-                                         const PhysicsBodyStore& bodyStore,
-                                         const ColliderStore& colliderStore,
-                                         Vector3& outPosition,
-                                         float* outRadius )
+bool ResolveReplayCauseTreeBodyPosition(
+    Physics::PhysicsSceneObjectId id,
+    bool predictionEnabled,
+    Physics::PhysicsSceneObjectId predictionTargetId,
+    Physics::PhysicsSceneObjectId pathTargetId,
+    std::span<const RunReplayPredictionFrame> activePredictionFrames,
+    const ReplaySolverFrameSample* solverSample,
+    const PhysicsBodyStore& bodyStore,
+    const ColliderStore& colliderStore,
+    Vector3& outPosition,
+    float* outRadius
+)
 {
     if ( id.value == 0 )
     {
@@ -191,18 +195,24 @@ bool ResolveReplayCauseTreeBodyPosition( Physics::PhysicsSceneObjectId id,
 }
 Physics::PhysicsSceneObjectId SceneObjectIdForModelIndex( const ReplaySolverFrameSample& sample, int modelIndex )
 {
-    return SceneObjectIdForModelIndexInSample<ReplaySolverFrameSample, ReplaySolverBodySample, false>( sample,
-                                                                                                       modelIndex );
+    return SceneObjectIdForModelIndexInSample<ReplaySolverFrameSample, ReplaySolverBodySample, false>(
+        sample,
+        modelIndex
+    );
 }
 
-bool ReplayContactHasModelIndex( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
-                                 int modelIndex )
+bool ReplayContactHasModelIndex(
+    const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
+    int modelIndex
+)
 {
     return modelIndex >= 0 && ( contact.bodyA == modelIndex || contact.bodyB == modelIndex );
 }
 
-int ReplayContactOtherModelIndex( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
-                                  int modelIndex )
+int ReplayContactOtherModelIndex(
+    const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
+    int modelIndex
+)
 {
     if ( contact.bodyA == modelIndex )
     {
@@ -215,8 +225,10 @@ int ReplayContactOtherModelIndex( const SkullbonezCore::Physics::PhysicsSolverPe
     return -1;
 }
 
-Vector3 ReplayContactPoint( const ReplaySolverFrameSample& sample,
-                            const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact )
+Vector3 ReplayContactPoint(
+    const ReplaySolverFrameSample& sample,
+    const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact
+)
 {
     if ( const ReplaySolverBodySample* bodyA = FindReplayBodyByModelIndex( sample, contact.bodyA ) )
     {
@@ -229,8 +241,10 @@ Vector3 ReplayContactPoint( const ReplaySolverFrameSample& sample,
     return SkullbonezCore::Math::Vector::ZERO_VECTOR;
 }
 
-Vector3 ReplayContactNormalForModel( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
-                                     int modelIndex )
+Vector3 ReplayContactNormalForModel(
+    const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
+    int modelIndex
+)
 {
     Vector3 normal = contact.normal;
     if ( contact.isTerrain && VectorMagSquared( contact.terrainNormal ) > TOLERANCE * TOLERANCE )
@@ -244,8 +258,10 @@ Vector3 ReplayContactNormalForModel( const SkullbonezCore::Physics::PhysicsSolve
     return ReplayNormalizeOr( normal, Vector3( 0.0f, 1.0f, 0.0f ) );
 }
 
-Vector3 ReplayContactImpulseForModel( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
-                                      int modelIndex )
+Vector3 ReplayContactImpulseForModel(
+    const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
+    int modelIndex
+)
 {
     const Vector3 rowImpulse =
         contact.normal * contact.accN + contact.tangent1 * contact.accT1 + contact.tangent2 * contact.accT2;
@@ -256,8 +272,10 @@ Vector3 ReplayContactImpulseForModel( const SkullbonezCore::Physics::PhysicsSolv
     return rowImpulse * -1.0f;
 }
 
-int ReplayFindPipelineIndexForContact( const SkullbonezCore::Physics::PhysicsSolverSnapshot& snapshot,
-                                       const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact )
+int ReplayFindPipelineIndexForContact(
+    const SkullbonezCore::Physics::PhysicsSolverSnapshot& snapshot,
+    const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact
+)
 {
     for ( int i = 0; i < static_cast<int>( snapshot.pipelineTrace.size() ); ++i )
     {
@@ -281,7 +299,8 @@ bool ReplayAuthoring::BuildCauseTreeRows(
     std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
     const PhysicsBodyStore& bodyStore,
     const RunReplayCameraState& camera,
-    int& outCameraFocusedRow )
+    int& outCameraFocusedRow
+)
 {
     PROFILE_SCOPED( m_profiler, "Frame/Replay/CauseTree/BuildRows" );
     outCameraFocusedRow = -1;
@@ -430,24 +449,28 @@ bool ReplayAuthoring::BuildCauseTreeRows(
                 if ( node.contactDerived )
                 {
                     sprintf_s( contactRow.name, sizeof( contactRow.name ), "Predicted contact" );
-                    sprintf_s( contactRow.detail,
-                               sizeof( contactRow.detail ),
-                               "first frame %llu  normal %.2f %.2f %.2f",
-                               static_cast<unsigned long long>( node.firstFrame ),
-                               contactRow.normal.x,
-                               contactRow.normal.y,
-                               contactRow.normal.z );
+                    sprintf_s(
+                        contactRow.detail,
+                        sizeof( contactRow.detail ),
+                        "first frame %llu  normal %.2f %.2f %.2f",
+                        static_cast<unsigned long long>( node.firstFrame ),
+                        contactRow.normal.x,
+                        contactRow.normal.y,
+                        contactRow.normal.z
+                    );
                 }
                 else
                 {
                     sprintf_s( contactRow.name, sizeof( contactRow.name ), "Predicted movement" );
-                    sprintf_s( contactRow.detail,
-                               sizeof( contactRow.detail ),
-                               "first affected frame %llu  direction %.2f %.2f %.2f",
-                               static_cast<unsigned long long>( node.firstFrame ),
-                               contactRow.normal.x,
-                               contactRow.normal.y,
-                               contactRow.normal.z );
+                    sprintf_s(
+                        contactRow.detail,
+                        sizeof( contactRow.detail ),
+                        "first affected frame %llu  direction %.2f %.2f %.2f",
+                        static_cast<unsigned long long>( node.firstFrame ),
+                        contactRow.normal.x,
+                        contactRow.normal.y,
+                        contactRow.normal.z
+                    );
                 }
                 if ( !appendCauseTreeRow( contactRow ) )
                 {
@@ -467,7 +490,9 @@ bool ReplayAuthoring::BuildCauseTreeRows(
             int otherModelIndex = -1;
             bool terrain = false;
         };
+
         std::array<ManifoldGroup, REPLAY_CAUSE_TREE_CONTACT_CAPACITY> groups = {};
+
         std::size_t groupCount = 0;
         for ( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact :
               solverSample->worldSnapshot.physics.persistentContacts )
@@ -496,6 +521,7 @@ bool ReplayAuthoring::BuildCauseTreeRows(
                     return;
                 }
                 groups[groupCount] = { otherModelIndex, terrain };
+
                 ++groupCount;
             }
         }
@@ -568,12 +594,14 @@ bool ReplayAuthoring::BuildCauseTreeRows(
             manifoldRow.normal = ReplayNormalizeOr( normalSum, Vector3( 0.0f, 1.0f, 0.0f ) );
             manifoldRow.terrain = group.terrain;
             sprintf_s( manifoldRow.name, sizeof( manifoldRow.name ), "Manifold vs %s", otherName );
-            sprintf_s( manifoldRow.detail,
-                       sizeof( manifoldRow.detail ),
-                       "%d point%s  max pen %.3f",
-                       pointCount,
-                       pointCount == 1 ? "" : "s",
-                       maxPenetration );
+            sprintf_s(
+                manifoldRow.detail,
+                sizeof( manifoldRow.detail ),
+                "%d point%s  max pen %.3f",
+                pointCount,
+                pointCount == 1 ? "" : "s",
+                maxPenetration
+            );
             if ( !appendCauseTreeRow( manifoldRow ) )
             {
                 return;
@@ -630,18 +658,21 @@ bool ReplayAuthoring::BuildCauseTreeRows(
                             .pipelineTrace[static_cast<std::size_t>( solverRow.pipelineIndex )];
                     traceStage = PhysicsPipelineStageName( record.stage );
                 }
-                sprintf_s( solverRow.detail,
-                           sizeof( solverRow.detail ),
-                           "feature %u  n %.3f  t %.3f  bias %.3f  mass %.3f  limit %.3f  %s%s%s",
-                           contact.featureId,
-                           solverRow.normalImpulse,
-                           solverRow.tangentImpulse,
-                           solverRow.bias,
-                           solverRow.effectiveMass,
-                           solverRow.frictionLimit,
-                           contact.warmStarted ? "warm" : "cold",
-                           solverRow.pipelineIndex >= 0 ? "  " : "",
-                           traceStage );
+                sprintf_s(
+                    solverRow.detail,
+                    sizeof( solverRow.detail ),
+                    "feature %u  n %.3f  t %.3f  bias %.3f  mass %.3f  limit %.3f  %s%s%s",
+                    contact.featureId,
+                    solverRow.normalImpulse,
+                    solverRow.tangentImpulse,
+                    solverRow.bias,
+                    solverRow.effectiveMass,
+                    solverRow.frictionLimit,
+                    contact.warmStarted ? "warm" : "cold",
+                    solverRow.pipelineIndex >= 0 ? "  " : "",
+                    traceStage
+                );
+
                 if ( !appendCauseTreeRow( solverRow ) )
                 {
                     return;
@@ -673,29 +704,35 @@ bool ReplayAuthoring::BuildCauseTreeRows(
         writeName( id, row.modelRow.value, fallbackName, row.name, sizeof( row.name ) );
         if ( usePrediction && firstFrame > 0 )
         {
-            sprintf_s( row.detail,
-                       sizeof( row.detail ),
-                       "first affected frame %llu",
-                       static_cast<unsigned long long>( firstFrame ) );
+            sprintf_s(
+                row.detail,
+                sizeof( row.detail ),
+                "first affected frame %llu",
+                static_cast<unsigned long long>( firstFrame )
+            );
         }
         else if ( row.modelRow.value >= 0 && solverSample )
         {
             if ( const ReplaySolverBodySample* body = FindReplayBodyByModelIndex( *solverSample, row.modelRow.value ) )
             {
-                sprintf_s( row.detail,
-                           sizeof( row.detail ),
-                           "contacts %u  max pen %.3f  impulse %.3f",
-                           static_cast<unsigned int>( body->contactCount ),
-                           body->maxPenetration,
-                           body->normalImpulseSum );
+                sprintf_s(
+                    row.detail,
+                    sizeof( row.detail ),
+                    "contacts %u  max pen %.3f  impulse %.3f",
+                    static_cast<unsigned int>( body->contactCount ),
+                    body->maxPenetration,
+                    body->normalImpulseSum
+                );
             }
         }
         else if ( firstFrame > 0 )
         {
-            sprintf_s( row.detail,
-                       sizeof( row.detail ),
-                       "first affected frame %llu",
-                       static_cast<unsigned long long>( firstFrame ) );
+            sprintf_s(
+                row.detail,
+                sizeof( row.detail ),
+                "first affected frame %llu",
+                static_cast<unsigned long long>( firstFrame )
+            );
         }
         if ( !appendCauseTreeRow( row ) )
         {
@@ -705,12 +742,14 @@ bool ReplayAuthoring::BuildCauseTreeRows(
         return !rowOverflow;
     };
 
-    if ( !addBodyRow( path.targetId,
-                      Physics::PhysicsSceneObjectId{},
-                      0,
-                      0,
-                      path.targetModelRow.value,
-                      path.targetName ) )
+    if ( !addBodyRow(
+             path.targetId,
+             Physics::PhysicsSceneObjectId {},
+             0,
+             0,
+             path.targetModelRow.value,
+             path.targetName
+         ) )
     {
         FailCauseTreeRowBuild();
         return false;
@@ -725,17 +764,20 @@ bool ReplayAuthoring::BuildCauseTreeRows(
                 continue;
             }
             const int depth = node.depth > 0 ? node.depth : fallbackDepth;
-            if ( addBodyRow( node.id,
-                             parentId,
-                             node.firstFrame,
-                             depth,
-                             modelIndexForId( node.id, node.modelRow.value ),
-                             nullptr ) )
+            if ( addBodyRow(
+                     node.id,
+                     parentId,
+                     node.firstFrame,
+                     depth,
+                     modelIndexForId( node.id, node.modelRow.value ),
+                     nullptr
+                 ) )
             {
                 self( self, node.id, depth + 1 );
             }
         }
     };
+
     addChildren( addChildren, path.targetId, 1 );
     if ( rowOverflow )
     {
@@ -853,17 +895,19 @@ void ReplayAuthoring::SetCauseTreeFocus( int rowIndex, Physics::PhysicsSceneObje
 }
 
 
-bool ReplayAuthoring::ActivateCauseTreeRow( int rowIndex,
-                                            ReplayPresentation& presentationOwner,
-                                            ReplayScrubber& scrubberOwner,
-                                            const RunReplayPredictionState& prediction,
-                                            std::span<const RunReplayPredictionFrame> activePredictionFrames,
-                                            const ReplaySolverFrameSample* currentSolverSample,
-                                            const PhysicsBodyStore& bodyStore,
-                                            const ColliderStore& colliderStore,
-                                            RuntimeInteractionController& interaction,
-                                            Vector3& outTargetPosition,
-                                            float& outTargetRadius )
+bool ReplayAuthoring::ActivateCauseTreeRow(
+    int rowIndex,
+    ReplayPresentation& presentationOwner,
+    ReplayScrubber& scrubberOwner,
+    const RunReplayPredictionState& prediction,
+    std::span<const RunReplayPredictionFrame> activePredictionFrames,
+    const ReplaySolverFrameSample* currentSolverSample,
+    const PhysicsBodyStore& bodyStore,
+    const ColliderStore& colliderStore,
+    RuntimeInteractionController& interaction,
+    Vector3& outTargetPosition,
+    float& outTargetRadius
+)
 {
     RunReplayCauseTreeRow row;
     if ( !TryGetCauseTreeRow( rowIndex, row ) )
@@ -878,16 +922,18 @@ bool ReplayAuthoring::ActivateCauseTreeRow( int rowIndex,
     const Physics::PhysicsSceneObjectId pathTargetId = presentationOwner.PathVisualizer().targetId;
     const auto resolveBody = [&]( Physics::PhysicsSceneObjectId id, Vector3& outPosition, float* outRadius )
     {
-        return ResolveReplayCauseTreeBodyPosition( id,
-                                                   prediction.enabled,
-                                                   prediction.simulation.targetId,
-                                                   pathTargetId,
-                                                   activePredictionFrames,
-                                                   currentSolverSample,
-                                                   bodyStore,
-                                                   colliderStore,
-                                                   outPosition,
-                                                   outRadius );
+        return ResolveReplayCauseTreeBodyPosition(
+            id,
+            prediction.enabled,
+            prediction.simulation.targetId,
+            pathTargetId,
+            activePredictionFrames,
+            currentSolverSample,
+            bodyStore,
+            colliderStore,
+            outPosition,
+            outRadius
+        );
     };
 
     // Lifetime: replay focus borrows already-prepared physics store views for
@@ -936,9 +982,11 @@ bool ReplayAuthoring::ActivateCauseTreeRow( int rowIndex,
     {
         if ( scrubberOwner.SetLiveAdvanceHeld( true ) && !IsReplayCauseTreeToolOwner( interaction.Owner() ) )
         {
-            interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
-                                                             WorldInteractionOwner::ReplayScrub,
-                                                             InteractionExitReason::EnterReplay );
+            interaction.SetWorldInteractionOwnerInWorkspace(
+                RuntimeWorkspace::Replay,
+                WorldInteractionOwner::ReplayScrub,
+                InteractionExitReason::EnterReplay
+            );
         }
         presentationOwner.SetCameraPauseOwnership( true );
     }
@@ -971,18 +1019,20 @@ bool ReplayAuthoring::ActivateCauseTreeRow( int rowIndex,
 }
 
 
-bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
-                                          ReplayScrubber& scrubberOwner,
-                                          InputRouter& inputRouter,
-                                          RuntimeInteractionController& interaction,
-                                          bool rowsReady,
-                                          bool uiBlocksMouse,
-                                          int wheelDelta,
-                                          bool editorModeEnabled,
-                                          int screenWidth,
-                                          int screenHeight,
-                                          int& outFocusRow,
-                                          bool& outExitInspectionCamera )
+bool ReplayAuthoring::TickCauseTreeInput(
+    ReplayPresentation& presentationOwner,
+    ReplayScrubber& scrubberOwner,
+    InputRouter& inputRouter,
+    RuntimeInteractionController& interaction,
+    bool rowsReady,
+    bool uiBlocksMouse,
+    int wheelDelta,
+    bool editorModeEnabled,
+    int screenWidth,
+    int screenHeight,
+    int& outFocusRow,
+    bool& outExitInspectionCamera
+)
 {
     outFocusRow = -1;
     outExitInspectionCamera = false;
@@ -1001,6 +1051,7 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
         const RuntimeInteractionGesture& gesture = interaction.Gesture();
         return gesture.kind == RuntimeInteractionGestureKind::ReplayCauseTreeDrag ? gesture.axis : -1;
     };
+
     const auto endCauseTreeDragIfReleased = [&]()
     {
         if ( leftReleased && causeTreeDragMode() >= 0 )
@@ -1009,6 +1060,7 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
             interaction.EndGestureIfKind( RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
         }
     };
+
     if ( editorModeEnabled || screenW <= 0 || screenH <= 0 )
     {
         endCauseTreeDragIfReleased();
@@ -1028,13 +1080,15 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
         endCauseTreeDragIfReleased();
         return false;
     }
-    const POINT mouse{ runtimePointer.clientX, runtimePointer.clientY };
+    const POINT mouse { runtimePointer.clientX, runtimePointer.clientY };
+
     SetCauseTreePointer( mouse.x, mouse.y, uiBlocksMouse );
     ReplayCauseWindowSurface surface;
     BuildReplayCauseWindowSurface( CauseTree(), surface );
     surface.ResolvePointer( mouse.x, mouse.y, uiBlocksMouse );
     const auto isHotControl = [&]( ReplayCauseWindowControl control )
     { return surface.hasHotControl && surface.hotControl == ReplayCauseWindowControlId( control ); };
+
     const RuntimeUiControl* contentControl =
         surface.Find( ReplayCauseWindowControlId( ReplayCauseWindowControl::Content ) );
     if ( !contentControl )
@@ -1072,9 +1126,11 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
 
     if ( wheelDelta != 0 )
     {
-        interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
-                                                         WorldInteractionOwner::ReplayCauseTree,
-                                                         InteractionExitReason::EnterReplay );
+        interaction.SetWorldInteractionOwnerInWorkspace(
+            RuntimeWorkspace::Replay,
+            WorldInteractionOwner::ReplayCauseTree,
+            InteractionExitReason::EnterReplay
+        );
         const float wheelRows = static_cast<float>( wheelDelta ) / 120.0f;
         ScrollCauseTreeWindow( -wheelRows * REPLAY_CAUSE_WINDOW_ROW_HEIGHT * 3.0f, screenW, screenH );
         return true;
@@ -1088,9 +1144,8 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
         gesture.startX = mouse.x;
         gesture.startY = mouse.y;
         gesture.axis = 1;
-        if ( !interaction.BeginOwnedToolGesture( RuntimeWorkspace::Replay,
-                                                 WorldInteractionOwner::ReplayCauseTree,
-                                                 gesture ) )
+        if ( !interaction
+                  .BeginOwnedToolGesture( RuntimeWorkspace::Replay, WorldInteractionOwner::ReplayCauseTree, gesture ) )
         {
             return false;
         }
@@ -1107,9 +1162,8 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
         gesture.startX = mouse.x;
         gesture.startY = mouse.y;
         gesture.axis = 0;
-        if ( !interaction.BeginOwnedToolGesture( RuntimeWorkspace::Replay,
-                                                 WorldInteractionOwner::ReplayCauseTree,
-                                                 gesture ) )
+        if ( !interaction
+                  .BeginOwnedToolGesture( RuntimeWorkspace::Replay, WorldInteractionOwner::ReplayCauseTree, gesture ) )
         {
             return false;
         }
@@ -1127,9 +1181,11 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
         {
             if ( leftPressed )
             {
-                interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
-                                                                 WorldInteractionOwner::ReplayCauseTree,
-                                                                 InteractionExitReason::EnterReplay );
+                interaction.SetWorldInteractionOwnerInWorkspace(
+                    RuntimeWorkspace::Replay,
+                    WorldInteractionOwner::ReplayCauseTree,
+                    InteractionExitReason::EnterReplay
+                );
                 outFocusRow = rowIndex;
             }
         }

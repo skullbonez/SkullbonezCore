@@ -91,8 +91,8 @@ struct GraphTransientBindingDX12
 
 using GraphTransientMaterializationStatsDX12 = RenderGraphTransientMaterializationStats;
 
-inline bool GraphTransientDescEqualDX12( const RenderGraphTransientResourceDesc& lhs,
-                                         const RenderGraphTransientResourceDesc& rhs )
+inline bool
+GraphTransientDescEqualDX12( const RenderGraphTransientResourceDesc& lhs, const RenderGraphTransientResourceDesc& rhs )
 {
     return lhs.kind == rhs.kind && lhs.format == rhs.format && lhs.width == rhs.width && lhs.height == rhs.height &&
            lhs.mipLevels == rhs.mipLevels && lhs.descriptors.renderTarget == rhs.descriptors.renderTarget &&
@@ -101,9 +101,11 @@ inline bool GraphTransientDescEqualDX12( const RenderGraphTransientResourceDesc&
            lhs.descriptors.unorderedAccess == rhs.descriptors.unorderedAccess;
 }
 
-inline bool GraphTransientPoolSlotCanSatisfyDX12( const GraphTransientResourceDX12& candidate,
-                                                  uint32_t poolSlot,
-                                                  const RenderGraphTransientResourceDesc& desc )
+inline bool GraphTransientPoolSlotCanSatisfyDX12(
+    const GraphTransientResourceDX12& candidate,
+    uint32_t poolSlot,
+    const RenderGraphTransientResourceDesc& desc
+)
 {
     return candidate.resource && candidate.poolSlot == poolSlot && GraphTransientDescEqualDX12( candidate.desc, desc );
 }

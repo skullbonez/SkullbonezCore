@@ -291,10 +291,12 @@ void LiveStyleController::Tick( SceneRuntimeStyleContext context )
             }
             else
             {
-                JoinControlPath( m_directory,
-                                 requestedPath,
-                                 m_pendingScreenshotPath,
-                                 sizeof( m_pendingScreenshotPath ) );
+                JoinControlPath(
+                    m_directory,
+                    requestedPath,
+                    m_pendingScreenshotPath,
+                    sizeof( m_pendingScreenshotPath )
+                );
             }
             m_hasPendingScreenshot = true;
             WriteStatus( "capture_pending", m_pendingScreenshotPath );

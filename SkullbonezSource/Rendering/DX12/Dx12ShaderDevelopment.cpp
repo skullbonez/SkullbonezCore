@@ -38,12 +38,14 @@ Related:
 using namespace SkullbonezCore::Rendering;
 
 
-Dx12ShaderDevelopment::Dx12ShaderDevelopment( Dx12PipelineOwner& pipeline,
-                                              Dx12TextureOwner& textures,
-                                              Dx12GeometryOwner& geometry,
-                                              Dx12RenderDevice& device,
-                                              Dx12FrameOwner& frame,
-                                              Dx12Diagnostics& diagnostics )
+Dx12ShaderDevelopment::Dx12ShaderDevelopment(
+    Dx12PipelineOwner& pipeline,
+    Dx12TextureOwner& textures,
+    Dx12GeometryOwner& geometry,
+    Dx12RenderDevice& device,
+    Dx12FrameOwner& frame,
+    Dx12Diagnostics& diagnostics
+)
     : m_pipeline( pipeline ), m_textures( textures ), m_geometry( geometry ), m_device( device ), m_frame( frame ),
       m_diagnostics( diagnostics )
 {
@@ -93,9 +95,11 @@ void Dx12ShaderDevelopment::RegisterShader( ShaderDX12* shader )
     {
         // Lane F: the registry is a fixed backend-lifetime contract. Growing it
         // during resource creation would violate the runtime allocation policy.
-        SB_FATAL( "Dx12ShaderDevelopment",
-                  "Live raster shader registry exhausted. capacity=%zu",
-                  m_liveShaders.size() );
+        SB_FATAL(
+            "Dx12ShaderDevelopment",
+            "Live raster shader registry exhausted. capacity=%zu",
+            m_liveShaders.size()
+        );
     }
     m_liveShaders[m_liveShaderCount++] = shader;
 }
@@ -127,38 +131,48 @@ SkullbonezCore::Core::SbResult Dx12ShaderDevelopment::BakeSourceGeneration() con
 {
     if ( !Enabled() )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
-                                                        "Shader hot reload requires --dev-shader-hot-reload" );
+        return SkullbonezCore::Core::SbResult::Failure(
+            "Rendering/DX12",
+            "Shader hot reload requires --dev-shader-hot-reload"
+        );
     }
     constexpr char BAKE_PATH[] = "tools\\bake_shaders.bat";
     if ( GetFileAttributesA( BAKE_PATH ) == INVALID_FILE_ATTRIBUTES )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
-                                                        "Shader bake tool is unavailable from this working directory" );
+        return SkullbonezCore::Core::SbResult::Failure(
+            "Rendering/DX12",
+            "Shader bake tool is unavailable from this working directory"
+        );
     }
 
     // Cold utility action: invoke the same pinned DXC bake used by validation.
     // Synchronous completion makes the manifest and stage files one generation.
     char commandLine[] = "cmd.exe /d /c tools\\bake_shaders.bat";
     STARTUPINFOA startup = {};
+
     startup.cb = sizeof( startup );
     PROCESS_INFORMATION process = {};
+
     fprintf( stdout, "[shader-hot-reload] bake begin\n" );
     fflush( stdout );
-    if ( !CreateProcessA( nullptr,
-                          commandLine,
-                          nullptr,
-                          nullptr,
-                          FALSE,
-                          CREATE_NO_WINDOW,
-                          nullptr,
-                          nullptr,
-                          &startup,
-                          &process ) )
+    if ( !CreateProcessA(
+             nullptr,
+             commandLine,
+             nullptr,
+             nullptr,
+             FALSE,
+             CREATE_NO_WINDOW,
+             nullptr,
+             nullptr,
+             &startup,
+             &process
+         ) )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
-                                                        "Shader bake process failed to start (error=%lu)",
-                                                        GetLastError() );
+        return SkullbonezCore::Core::SbResult::Failure(
+            "Rendering/DX12",
+            "Shader bake process failed to start (error=%lu)",
+            GetLastError()
+        );
     }
     const DWORD waitResult = WaitForSingleObject( process.hProcess, INFINITE );
     DWORD exitCode = ERROR_PROCESS_ABORTED;
@@ -168,10 +182,12 @@ SkullbonezCore::Core::SbResult Dx12ShaderDevelopment::BakeSourceGeneration() con
     if ( !exited || exitCode != 0 )
     {
         // Lane R: the external bake can fail without changing the live generation.
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
-                                                        "Shader bake failed (wait=%lu exit=%lu)",
-                                                        waitResult,
-                                                        exitCode );
+        return SkullbonezCore::Core::SbResult::Failure(
+            "Rendering/DX12",
+            "Shader bake failed (wait=%lu exit=%lu)",
+            waitResult,
+            exitCode
+        );
     }
     return SkullbonezCore::Core::SbResult::Success();
 }
@@ -200,7 +216,8 @@ SkullbonezCore::Core::SbResult Dx12ShaderDevelopment::ReloadBakedGeneration( ID3
             // every live shader and PSO still names the previous generation.
             return SkullbonezCore::Core::SbResult::Failure(
                 "Rendering/DX12",
-                "Shader hot reload rejected changed or invalid bytecode contract" );
+                "Shader hot reload rejected changed or invalid bytecode contract"
+            );
         }
     }
 
@@ -221,8 +238,10 @@ SkullbonezCore::Core::SbResult Dx12ShaderDevelopment::ReloadBakedGeneration( ID3
 
     fprintf( stdout, "[shader-hot-reload] committed\n" );
     fflush( stdout );
-    SkullbonezCore::Core::Log().WriteEventf( "dx12_shader_hot_reload_complete owner=Dx12ShaderDevelopment shaders=%llu",
-                                             static_cast<unsigned long long>( m_liveShaderCount ) );
+    SkullbonezCore::Core::Log().WriteEventf(
+        "dx12_shader_hot_reload_complete owner=Dx12ShaderDevelopment shaders=%llu",
+        static_cast<unsigned long long>( m_liveShaderCount )
+    );
     return SkullbonezCore::Core::SbResult::Success();
 }
 
@@ -234,10 +253,12 @@ void Dx12ShaderDevelopment::ResetAfterShutdown()
     // would become a dangling owner reference after backend destruction.
     if ( m_liveShaderCount != 0 )
     {
-        SB_FATAL( "Dx12ShaderDevelopment",
-                  "Shader registry remained live at backend shutdown. count=%zu capacity=%zu",
-                  m_liveShaderCount,
-                  m_liveShaders.size() );
+        SB_FATAL(
+            "Dx12ShaderDevelopment",
+            "Shader registry remained live at backend shutdown. count=%zu capacity=%zu",
+            m_liveShaderCount,
+            m_liveShaders.size()
+        );
     }
     m_liveShaders = {};
 }

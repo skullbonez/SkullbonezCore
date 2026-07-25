@@ -172,8 +172,10 @@ bool ParseOptionalOnOffValue( const char* value, bool& out );
 bool CopyCommandLinePath( const char* value, const char* optionName, char* outPath, size_t outPathSize );
 bool ParseIntCommandLineToken( const char* value, int& out );
 bool ParseUnsignedCommandLineToken( const char* value, unsigned int& out );
-bool ParseAllocationGuardCommandLineToken( const char* value,
-                                           SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode& out );
+bool ParseAllocationGuardCommandLineToken(
+    const char* value,
+    SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode& out
+);
 
 // Fills caller-owned config/argument state synchronously. False means WinMain
 // must report GetCommandLineError and stop before constructing runtime owners.

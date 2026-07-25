@@ -253,9 +253,11 @@ EditorSelectionFingerprint BuildEditorSelectionFingerprint( RuntimeTools& runtim
     HashPredictionFloat( hash, collider->restitution );
     HashPredictionFloat( hash, collider->friction );
     HashPredictionScalar( hash, collider->contactMaterialId );
-    HashInteractionText( hash,
-                         colliderAuthoring->contactMaterialName,
-                         sizeof( colliderAuthoring->contactMaterialName ) );
+    HashInteractionText(
+        hash,
+        colliderAuthoring->contactMaterialName,
+        sizeof( colliderAuthoring->contactMaterialName )
+    );
     fingerprint.valid = true;
     return fingerprint;
 }
@@ -760,21 +762,25 @@ bool TryReadFrame( const Json& entry, int& outFrame )
     return true;
 }
 
-void AppendReportAction( InteractionAutomationController& state,
-                         int frame,
-                         RunInteractionAutomationActionType type,
-                         const char* target,
-                         const POINT* mouse,
-                         bool consumed,
-                         const char* detail )
+void AppendReportAction(
+    InteractionAutomationController& state,
+    int frame,
+    RunInteractionAutomationActionType type,
+    const char* target,
+    const POINT* mouse,
+    bool consumed,
+    const char* detail
+)
 {
     state.reportWriter.AppendAction( frame, ActionTypeName( type ), target, mouse, consumed, detail );
 }
 
-void InjectAutomationLeftMousePress( InteractionAutomationController& state,
-                                     RunInteractionAutomationAction& action,
-                                     int frame,
-                                     const SkullbonezCore::UI::UIRect& rect )
+void InjectAutomationLeftMousePress(
+    InteractionAutomationController& state,
+    RunInteractionAutomationAction& action,
+    int frame,
+    const SkullbonezCore::UI::UIRect& rect
+)
 {
     POINT mouse = {};
     mouse.x = static_cast<LONG>( rect.x + rect.w * 0.5f );
@@ -790,11 +796,13 @@ void FailAutomation( InteractionAutomationController& state, const char* message
     state.status.Fail( message );
 }
 
-void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationController& state,
-                                                     SkullbonezCore::Environment::CameraCollection& cameras,
-                                                     CameraControlState& camera,
-                                                     RunInteractionAutomationAction& action,
-                                                     int frame )
+void ApplyInteractionAutomationDirectorCameraAction(
+    InteractionAutomationController& state,
+    SkullbonezCore::Environment::CameraCollection& cameras,
+    CameraControlState& camera,
+    RunInteractionAutomationAction& action,
+    int frame
+)
 {
     // Concept: director/camera automation seeds the same camera and director
     // owners used by live authoring. Camera-mode transitions are routed by the
@@ -808,13 +816,16 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationContro
         {
             FailAutomation( state, "failed to load director shot list" );
         }
-        AppendReportAction( state,
-                            frame,
-                            action.type,
-                            action.path,
-                            nullptr,
-                            loaded,
-                            loaded ? "shot list loaded" : "shot list unavailable" );
+        AppendReportAction(
+            state,
+            frame,
+            action.type,
+            action.path,
+            nullptr,
+            loaded,
+            loaded ? "shot list loaded" : "shot list unavailable"
+        );
+
         break;
     }
     case RunInteractionAutomationActionType::DirectorAdvance:
@@ -824,13 +835,16 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationContro
         {
             FailAutomation( state, "failed to advance director phase" );
         }
-        AppendReportAction( state,
-                            frame,
-                            action.type,
-                            "",
-                            nullptr,
-                            advanced,
-                            advanced ? "director phase advanced" : "director phase unavailable" );
+        AppendReportAction(
+            state,
+            frame,
+            action.type,
+            "",
+            nullptr,
+            advanced,
+            advanced ? "director phase advanced" : "director phase unavailable"
+        );
+
         break;
     }
     case RunInteractionAutomationActionType::DirectorGrab:
@@ -840,13 +854,16 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationContro
         {
             FailAutomation( state, "failed to grab director camera" );
         }
-        AppendReportAction( state,
-                            frame,
-                            action.type,
-                            "",
-                            nullptr,
-                            grabbed,
-                            grabbed ? "director camera grabbed" : "director grab unavailable" );
+        AppendReportAction(
+            state,
+            frame,
+            action.type,
+            "",
+            nullptr,
+            grabbed,
+            grabbed ? "director camera grabbed" : "director grab unavailable"
+        );
+
         break;
     }
     case RunInteractionAutomationActionType::DirectorRelease:
@@ -856,13 +873,16 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationContro
         {
             FailAutomation( state, "failed to release director camera" );
         }
-        AppendReportAction( state,
-                            frame,
-                            action.type,
-                            "",
-                            nullptr,
-                            released,
-                            released ? "director camera released" : "director release unavailable" );
+        AppendReportAction(
+            state,
+            frame,
+            action.type,
+            "",
+            nullptr,
+            released,
+            released ? "director camera released" : "director release unavailable"
+        );
+
         break;
     }
     case RunInteractionAutomationActionType::SetPhaseStyle:
@@ -872,13 +892,16 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationContro
         {
             FailAutomation( state, "failed to set director phase style" );
         }
-        AppendReportAction( state,
-                            frame,
-                            action.type,
-                            action.path,
-                            nullptr,
-                            applied,
-                            applied ? "director phase style set" : "director phase unavailable" );
+        AppendReportAction(
+            state,
+            frame,
+            action.type,
+            action.path,
+            nullptr,
+            applied,
+            applied ? "director phase style set" : "director phase unavailable"
+        );
+
         break;
     }
     case RunInteractionAutomationActionType::SetCameraPose:
@@ -887,13 +910,16 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationContro
         // Why: pose-authoring proofs seed the current camera, then use normal
         // J/L key handling to write and save the shot list.
         cameras.SetPrimaryPose( action.cameraPose.eye, action.cameraPose.view, action.cameraPose.up );
-        AppendReportAction( state,
-                            frame,
-                            action.type,
-                            "",
-                            nullptr,
-                            applied,
-                            applied ? "camera pose applied" : "camera unavailable" );
+        AppendReportAction(
+            state,
+            frame,
+            action.type,
+            "",
+            nullptr,
+            applied,
+            applied ? "camera pose applied" : "camera unavailable"
+        );
+
         break;
     }
     default:
@@ -954,19 +980,22 @@ void PublishReplayDeterministicReveal( ReplayFrameIntent& intent, ReplayFrameInd
 }
 
 
-template <typename TrySetReplayPathTarget,
-          typename TrySetReplayInterceptTarget,
-          typename SetWorldInteractionOwnerAfterTransition>
-void ApplyInteractionAutomationReplayStateAction( InteractionAutomationController& state,
-                                                  RunTimerState& timers,
-                                                  ReplayFrameIntent& replayIntent,
-                                                  const ReplayAutomationView& replay,
-                                                  Physics::PhysicsEngine& physics,
-                                                  RunInteractionAutomationAction& action,
-                                                  int frame,
-                                                  TrySetReplayPathTarget trySetReplayPathTarget,
-                                                  TrySetReplayInterceptTarget trySetReplayInterceptTarget,
-                                                  SetWorldInteractionOwnerAfterTransition setWorldInteractionOwner )
+template <
+    typename TrySetReplayPathTarget,
+    typename TrySetReplayInterceptTarget,
+    typename SetWorldInteractionOwnerAfterTransition>
+void ApplyInteractionAutomationReplayStateAction(
+    InteractionAutomationController& state,
+    RunTimerState& timers,
+    ReplayFrameIntent& replayIntent,
+    const ReplayAutomationView& replay,
+    Physics::PhysicsEngine& physics,
+    RunInteractionAutomationAction& action,
+    int frame,
+    TrySetReplayPathTarget trySetReplayPathTarget,
+    TrySetReplayInterceptTarget trySetReplayInterceptTarget,
+    SetWorldInteractionOwnerAfterTransition setWorldInteractionOwner
+)
 {
     // Concept: replay state automation changes only harness-visible replay
     // controls. Direct physics mutation is limited to the velocity-edit proof
@@ -981,14 +1010,17 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
         PublishReplayPredictionEnabled( replayIntent, action.boolValue );
         setWorldInteractionOwner(
             action.boolValue ? WorldInteractionOwner::ReplayPrediction : WorldInteractionOwner::None,
-            InteractionExitReason::EnterReplay );
-        AppendReportAction( state,
-                            frame,
-                            action.type,
-                            "",
-                            nullptr,
-                            true,
-                            action.boolValue ? "prediction enabled" : "prediction disabled" );
+            InteractionExitReason::EnterReplay
+        );
+        AppendReportAction(
+            state,
+            frame,
+            action.type,
+            "",
+            nullptr,
+            true,
+            action.boolValue ? "prediction enabled" : "prediction disabled"
+        );
         break;
     case RunInteractionAutomationActionType::SetReplayPathTarget:
     {
@@ -997,13 +1029,16 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
         {
             FailAutomation( state, "failed to set replay path target" );
         }
-        AppendReportAction( state,
-                            frame,
-                            action.type,
-                            action.text,
-                            nullptr,
-                            targetSet,
-                            targetSet ? "replay path target set" : "replay path target unavailable" );
+        AppendReportAction(
+            state,
+            frame,
+            action.type,
+            action.text,
+            nullptr,
+            targetSet,
+            targetSet ? "replay path target set" : "replay path target unavailable"
+        );
+
         break;
     }
     case RunInteractionAutomationActionType::SetReplayInterceptTarget:
@@ -1013,13 +1048,16 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
         {
             FailAutomation( state, "failed to set replay intercept target" );
         }
-        AppendReportAction( state,
-                            frame,
-                            action.type,
-                            action.text,
-                            nullptr,
-                            targetSet,
-                            targetSet ? "replay intercept target set" : "replay intercept target unavailable" );
+        AppendReportAction(
+            state,
+            frame,
+            action.type,
+            action.text,
+            nullptr,
+            targetSet,
+            targetSet ? "replay intercept target set" : "replay intercept target unavailable"
+        );
+
         break;
     }
     case RunInteractionAutomationActionType::SetReplayTripPlannerCommand:
@@ -1040,7 +1078,9 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
         // Keep stream/string formatting in Diagnostics even though the scripted
         // action executes inside the steady-gameplay input phase.
         CoreAllocation::RuntimeAllocationScope diagnosticsAllocationScope(
-            CoreAllocation::RuntimeAllocationPhase::Diagnostics );
+            CoreAllocation::RuntimeAllocationPhase::Diagnostics
+        );
+
         std::ostringstream detail;
         detail << "prediction horizon set to " << horizonSeconds << "s";
         AppendReportAction( state, frame, action.type, "", nullptr, true, detail.str().c_str() );
@@ -1073,12 +1113,16 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
                 if ( applied )
                 {
                     CommitReplayVelocityMutation( replayIntent );
-                    PublishReplayScrubberVisibility( replayIntent,
-                                                     true,
-                                                     timers.simulationTimer.GetTotalTime(),
-                                                     REPLAY_SCRUBBER_VISIBLE_SECONDS );
-                    setWorldInteractionOwner( WorldInteractionOwner::ReplayVelocityEdit,
-                                              InteractionExitReason::EnterReplay );
+                    PublishReplayScrubberVisibility(
+                        replayIntent,
+                        true,
+                        timers.simulationTimer.GetTotalTime(),
+                        REPLAY_SCRUBBER_VISIBLE_SECONDS
+                    );
+                    setWorldInteractionOwner(
+                        WorldInteractionOwner::ReplayVelocityEdit,
+                        InteractionExitReason::EnterReplay
+                    );
                 }
             }
         }
@@ -1090,13 +1134,16 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
         {
             FailAutomation( state, "failed to apply replay path target velocity nudge" );
         }
-        AppendReportAction( state,
-                            frame,
-                            action.type,
-                            action.text,
-                            nullptr,
-                            applied,
-                            applied ? "path target velocity nudged" : "path target velocity nudge failed" );
+        AppendReportAction(
+            state,
+            frame,
+            action.type,
+            action.text,
+            nullptr,
+            applied,
+            applied ? "path target velocity nudged" : "path target velocity nudge failed"
+        );
+
         break;
     }
     default:
@@ -1106,44 +1153,52 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
 
 void ShowInteractionAutomationReplayScrubber( RunTimerState& timers, ReplayFrameIntent& replayIntent )
 {
-    PublishReplayScrubberVisibility( replayIntent,
-                                     true,
-                                     timers.simulationTimer.GetTotalTime(),
-                                     REPLAY_SCRUBBER_VISIBLE_SECONDS );
+    PublishReplayScrubberVisibility(
+        replayIntent,
+        true,
+        timers.simulationTimer.GetTotalTime(),
+        REPLAY_SCRUBBER_VISIBLE_SECONDS
+    );
 }
 
-void AppendInteractionAutomationReplayControlFailure( InteractionAutomationController& state,
-                                                      int frame,
-                                                      const RunInteractionAutomationAction& action,
-                                                      const char* failure,
-                                                      const char* detail )
+void AppendInteractionAutomationReplayControlFailure(
+    InteractionAutomationController& state,
+    int frame,
+    const RunInteractionAutomationAction& action,
+    const char* failure,
+    const char* detail
+)
 {
     FailAutomation( state, failure );
     AppendReportAction( state, frame, action.type, action.text, nullptr, false, detail );
 }
 
-void InjectInteractionAutomationReplayControlClick( InteractionAutomationController& state,
-                                                    RunTimerState& timers,
-                                                    ReplayFrameIntent& replayIntent,
-                                                    RunInteractionAutomationAction& action,
-                                                    int frame,
-                                                    const SkullbonezCore::UI::UIRect& rect,
-                                                    const char* detail )
+void InjectInteractionAutomationReplayControlClick(
+    InteractionAutomationController& state,
+    RunTimerState& timers,
+    ReplayFrameIntent& replayIntent,
+    RunInteractionAutomationAction& action,
+    int frame,
+    const SkullbonezCore::UI::UIRect& rect,
+    const char* detail
+)
 {
     InjectAutomationLeftMousePress( state, action, frame, rect );
     ShowInteractionAutomationReplayScrubber( timers, replayIntent );
     AppendReportAction( state, frame, action.type, action.text, &action.mouse, true, detail );
 }
 
-void ApplyInteractionAutomationReplayControlClick( InteractionAutomationController& state,
-                                                   Window* window,
-                                                   const SkullbonezCore::Core::EngineConfig& config,
-                                                   const SceneSessionState& scene,
-                                                   RunTimerState& timers,
-                                                   ReplayFrameIntent& replayIntent,
-                                                   const ReplayAutomationView& replay,
-                                                   RunInteractionAutomationAction& action,
-                                                   int frame )
+void ApplyInteractionAutomationReplayControlClick(
+    InteractionAutomationController& state,
+    Window* window,
+    const SkullbonezCore::Core::EngineConfig& config,
+    const SceneSessionState& scene,
+    RunTimerState& timers,
+    ReplayFrameIntent& replayIntent,
+    const ReplayAutomationView& replay,
+    RunInteractionAutomationAction& action,
+    int frame
+)
 {
     // Concept: replay-control automation clicks the visible scrubber widgets
     // instead of mutating replay state directly. Normal replay input remains the
@@ -1159,21 +1214,25 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
         const bool predictionToolsEnabled = solverReplayStats.enabled && scene.isScenePhysics;
         if ( screenW > 0 && screenH > 0 && predictionToolsEnabled )
         {
-            InjectInteractionAutomationReplayControlClick( state,
-                                                           timers,
-                                                           replayIntent,
-                                                           action,
-                                                           frame,
-                                                           ReplayScrubberPredictToggleRect( screenW, screenH ),
-                                                           "mouse press injected at predict toggle" );
+            InjectInteractionAutomationReplayControlClick(
+                state,
+                timers,
+                replayIntent,
+                action,
+                frame,
+                ReplayScrubberPredictToggleRect( screenW, screenH ),
+                "mouse press injected at predict toggle"
+            );
         }
         else
         {
-            AppendInteractionAutomationReplayControlFailure( state,
-                                                             frame,
-                                                             action,
-                                                             "replay predict control unavailable",
-                                                             "replay predict control unavailable" );
+            AppendInteractionAutomationReplayControlFailure(
+                state,
+                frame,
+                action,
+                "replay predict control unavailable",
+                "replay predict control unavailable"
+            );
         }
         return;
     }
@@ -1187,21 +1246,25 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
             solverReplayStats.enabled && solverReplayStats.sampleCount >= 2 && replay.path.hasTarget;
         if ( screenW > 0 && screenH > 0 && pastPathControlEnabled )
         {
-            InjectInteractionAutomationReplayControlClick( state,
-                                                           timers,
-                                                           replayIntent,
-                                                           action,
-                                                           frame,
-                                                           ReplayScrubberPastPathToggleRect( screenW, screenH ),
-                                                           "mouse press injected at past-path toggle" );
+            InjectInteractionAutomationReplayControlClick(
+                state,
+                timers,
+                replayIntent,
+                action,
+                frame,
+                ReplayScrubberPastPathToggleRect( screenW, screenH ),
+                "mouse press injected at past-path toggle"
+            );
         }
         else
         {
-            AppendInteractionAutomationReplayControlFailure( state,
-                                                             frame,
-                                                             action,
-                                                             "replay past-path control unavailable",
-                                                             "replay past-path control unavailable" );
+            AppendInteractionAutomationReplayControlFailure(
+                state,
+                frame,
+                action,
+                "replay past-path control unavailable",
+                "replay past-path control unavailable"
+            );
         }
         return;
     }
@@ -1218,21 +1281,25 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
             // flips between pause and play. Automation clicks the real rectangle
             // so replay input ownership does the state transition and
             // prediction-freeze work.
-            InjectInteractionAutomationReplayControlClick( state,
-                                                           timers,
-                                                           replayIntent,
-                                                           action,
-                                                           frame,
-                                                           ReplayScrubberPauseButtonRect( screenW, screenH ),
-                                                           "mouse press injected at pause/play toggle" );
+            InjectInteractionAutomationReplayControlClick(
+                state,
+                timers,
+                replayIntent,
+                action,
+                frame,
+                ReplayScrubberPauseButtonRect( screenW, screenH ),
+                "mouse press injected at pause/play toggle"
+            );
         }
         else
         {
-            AppendInteractionAutomationReplayControlFailure( state,
-                                                             frame,
-                                                             action,
-                                                             "replay pause/play control unavailable",
-                                                             "replay pause/play control unavailable" );
+            AppendInteractionAutomationReplayControlFailure(
+                state,
+                frame,
+                action,
+                "replay pause/play control unavailable",
+                "replay pause/play control unavailable"
+            );
         }
         return;
     }
@@ -1248,21 +1315,25 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
             // Concept: velocity automation toggles the visible scrubber control,
             // then lets the next scripted world click exercise replay velocity
             // targeting through normal input ownership.
-            InjectInteractionAutomationReplayControlClick( state,
-                                                           timers,
-                                                           replayIntent,
-                                                           action,
-                                                           frame,
-                                                           ReplayScrubberVelocityEditToggleRect( screenW, screenH ),
-                                                           "mouse press injected at velocity toggle" );
+            InjectInteractionAutomationReplayControlClick(
+                state,
+                timers,
+                replayIntent,
+                action,
+                frame,
+                ReplayScrubberVelocityEditToggleRect( screenW, screenH ),
+                "mouse press injected at velocity toggle"
+            );
         }
         else
         {
-            AppendInteractionAutomationReplayControlFailure( state,
-                                                             frame,
-                                                             action,
-                                                             "replay velocity control unavailable",
-                                                             "replay velocity control unavailable" );
+            AppendInteractionAutomationReplayControlFailure(
+                state,
+                frame,
+                action,
+                "replay velocity control unavailable",
+                "replay velocity control unavailable"
+            );
         }
         return;
     }
@@ -1280,40 +1351,48 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
             // Why: branch-restore proof clicks the visible Branch rectangle
             // after a scripted scrub, so TickReplayScrubberInput remains the
             // owner of the restore.
-            InjectInteractionAutomationReplayControlClick( state,
-                                                           timers,
-                                                           replayIntent,
-                                                           action,
-                                                           frame,
-                                                           ReplayScrubberBranchButtonRect( screenW, screenH ),
-                                                           "mouse press injected at branch restore button" );
+            InjectInteractionAutomationReplayControlClick(
+                state,
+                timers,
+                replayIntent,
+                action,
+                frame,
+                ReplayScrubberBranchButtonRect( screenW, screenH ),
+                "mouse press injected at branch restore button"
+            );
         }
         else
         {
-            AppendInteractionAutomationReplayControlFailure( state,
-                                                             frame,
-                                                             action,
-                                                             "replay branch control unavailable",
-                                                             "replay branch control unavailable" );
+            AppendInteractionAutomationReplayControlFailure(
+                state,
+                frame,
+                action,
+                "replay branch control unavailable",
+                "replay branch control unavailable"
+            );
         }
         return;
     }
 
-    AppendInteractionAutomationReplayControlFailure( state,
-                                                     frame,
-                                                     action,
-                                                     "unsupported replay control in interaction script",
-                                                     "unsupported replay control" );
+    AppendInteractionAutomationReplayControlFailure(
+        state,
+        frame,
+        action,
+        "unsupported replay control in interaction script",
+        "unsupported replay control"
+    );
 }
 
-void ApplyInteractionAutomationSolverTrackScrub( InteractionAutomationController& state,
-                                                 Window* window,
-                                                 const SkullbonezCore::Core::EngineConfig& config,
-                                                 RunTimerState& timers,
-                                                 ReplayFrameIntent& replayIntent,
-                                                 const ReplayAutomationView& replay,
-                                                 RunInteractionAutomationAction& action,
-                                                 int frame )
+void ApplyInteractionAutomationSolverTrackScrub(
+    InteractionAutomationController& state,
+    Window* window,
+    const SkullbonezCore::Core::EngineConfig& config,
+    RunTimerState& timers,
+    ReplayFrameIntent& replayIntent,
+    const ReplayAutomationView& replay,
+    RunInteractionAutomationAction& action,
+    int frame
+)
 {
     const int screenW = window ? window->ClientWidth() : config.window.screenX;
     const int screenH = window ? window->ClientHeight() : config.window.screenY;
@@ -1328,21 +1407,25 @@ void ApplyInteractionAutomationSolverTrackScrub( InteractionAutomationController
         SkullbonezCore::UI::UIRect target = track;
         target.x = track.x + track.w * std::clamp( action.numberValue, 0.0f, 1.0f );
         target.w = 1.0f;
-        InjectInteractionAutomationReplayControlClick( state,
-                                                       timers,
-                                                       replayIntent,
-                                                       action,
-                                                       frame,
-                                                       target,
-                                                       "mouse press injected at solver replay track" );
+        InjectInteractionAutomationReplayControlClick(
+            state,
+            timers,
+            replayIntent,
+            action,
+            frame,
+            target,
+            "mouse press injected at solver replay track"
+        );
     }
     else
     {
-        AppendInteractionAutomationReplayControlFailure( state,
-                                                         frame,
-                                                         action,
-                                                         "replay solver scrub track unavailable",
-                                                         "replay solver scrub track unavailable" );
+        AppendInteractionAutomationReplayControlFailure(
+            state,
+            frame,
+            action,
+            "replay solver scrub track unavailable",
+            "replay solver scrub track unavailable"
+        );
     }
 }
 
@@ -1468,6 +1551,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         }
         outAction.type = RunInteractionAutomationActionType::ClickPoint;
         outAction.mouse = { point[0].get<long>(), point[1].get<long>() };
+
         outAction.hasMouse = true;
         if ( entry.contains( "button" ) )
         {
@@ -1504,6 +1588,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         }
         outAction.type = RunInteractionAutomationActionType::MoveMouse;
         outAction.mouse = { point[0].get<long>(), point[1].get<long>() };
+
         outAction.hasMouse = true;
         return true;
     }
@@ -1805,6 +1890,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         }
         outAction.type = RunInteractionAutomationActionType::ResizeWindow;
         outAction.mouse = { width, height };
+
         return true;
     }
 
@@ -2118,9 +2204,11 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         else if ( name == "predictionTargetLastNear" )
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::PredictionTargetLastNear;
-            outAction.vectorValue = Vector3( expected["position"][0].get<float>(),
-                                             expected["position"][1].get<float>(),
-                                             expected["position"][2].get<float>() );
+            outAction.vectorValue = Vector3(
+                expected["position"][0].get<float>(),
+                expected["position"][1].get<float>(),
+                expected["position"][2].get<float>()
+            );
             outAction.numberValue = expected["tolerance"].get<float>();
         }
         else if ( name == "liveSolverHashStableAcrossPrediction" )
@@ -2346,19 +2434,20 @@ struct InteractionAutomationAssertionEvaluation
 };
 
 template <typename InspectGizmoInteractionActive>
-InteractionAutomationAssertionEvaluation
-EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
-                                        const InteractionAutomationController& automation,
-                                        const ReplayAutomationView& replay,
-                                        RuntimeInteractionController& interaction,
-                                        const InputRouter& inputRouter,
-                                        CameraControlState& camera,
-                                        const SceneWorld& world,
-                                        SkullbonezCore::UI::InGameUI& ui,
-                                        const InteractionAutomationDevelopmentUiView& developmentUi,
-                                        const Rendering::RenderSceneSnapshot& renderSnapshot,
-                                        const RunInteractionAutomationAction& action,
-                                        InspectGizmoInteractionActive inspectGizmoInteractionActive )
+InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
+    RuntimeTools& runtimeTools,
+    const InteractionAutomationController& automation,
+    const ReplayAutomationView& replay,
+    RuntimeInteractionController& interaction,
+    const InputRouter& inputRouter,
+    CameraControlState& camera,
+    const SceneWorld& world,
+    SkullbonezCore::UI::InGameUI& ui,
+    const InteractionAutomationDevelopmentUiView& developmentUi,
+    const Rendering::RenderSceneSnapshot& renderSnapshot,
+    const RunInteractionAutomationAction& action,
+    InspectGizmoInteractionActive inspectGizmoInteractionActive
+)
 {
     // Concept: after-render assertions are read-only probes over owner state.
     // The context keeps that state explicit so the Run tick only schedules,
@@ -2613,6 +2702,7 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
                 }
                 return false;
             };
+
             Vector3 committedVelocity = SkullbonezCore::Math::Vector::ZERO_VECTOR;
             Vector3 replacementVelocity = SkullbonezCore::Math::Vector::ZERO_VECTOR;
             comparable = findTargetVelocity( replay.prediction.simulation.frames.front(), committedVelocity ) &&
@@ -2836,6 +2926,7 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
             }
             return "Unknown";
         };
+
         evaluation.expected = action.text;
         evaluation.actual = captureName( interaction.PointerCapture() );
         evaluation.passed = evaluation.actual == evaluation.expected;
@@ -2888,9 +2979,12 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     case RunInteractionAutomationAssertKind::EditorUndoDepth:
     case RunInteractionAutomationAssertKind::EditorRedoDepth:
     {
-        const int actual = static_cast<int>( action.assertKind == RunInteractionAutomationAssertKind::EditorUndoDepth
-                                                 ? runtimeTools.Editor().history.UndoDepth()
-                                                 : runtimeTools.Editor().history.RedoDepth() );
+        const int actual = static_cast<int>(
+            action.assertKind == RunInteractionAutomationAssertKind::EditorUndoDepth
+                ? runtimeTools.Editor().history.UndoDepth()
+                : runtimeTools.Editor().history.RedoDepth()
+        );
+
         const int expected = static_cast<int>( action.numberValue );
         evaluation.expected = std::to_string( expected );
         evaluation.actual = std::to_string( actual );
@@ -3042,19 +3136,22 @@ bool LoadScript( InteractionAutomationController& state )
         state.actions.push_back( action );
     }
 
-    std::sort( state.actions.begin(),
-               state.actions.end(),
-               []( const RunInteractionAutomationAction& lhs, const RunInteractionAutomationAction& rhs )
-               { return lhs.frame < rhs.frame; } );
+    std::sort(
+        state.actions.begin(),
+        state.actions.end(),
+        []( const RunInteractionAutomationAction& lhs, const RunInteractionAutomationAction& rhs )
+        { return lhs.frame < rhs.frame; }
+    );
     return true;
 }
 } // namespace
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-InteractionAutomationDevelopmentUiApplyResult
-InteractionAutomationController::ApplyDevelopmentUiCommands( const InteractionAutomationFrameResult& frame,
-                                                             Window& window,
-                                                             DevelopmentTools::ImGuiEditorOwner& editor ) const
+InteractionAutomationDevelopmentUiApplyResult InteractionAutomationController::ApplyDevelopmentUiCommands(
+    const InteractionAutomationFrameResult& frame,
+    Window& window,
+    DevelopmentTools::ImGuiEditorOwner& editor
+) const
 {
     InteractionAutomationDevelopmentUiApplyResult result;
     for ( std::size_t commandIndex = 0u; commandIndex < frame.developmentUiCommandCount; ++commandIndex )
@@ -3076,10 +3173,11 @@ InteractionAutomationController::ApplyDevelopmentUiCommands( const InteractionAu
             DevelopmentTools::ImGuiEditorPanelId panel = DevelopmentTools::ImGuiEditorPanelId::Count;
             if ( !DevelopmentTools::TryParseImGuiEditorPanel( command.target, panel ) )
             {
-                commandStatus =
-                    SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGuiAutomation",
-                                                             "Interaction script names an unknown ImGui panel: %s",
-                                                             command.target );
+                commandStatus = SkullbonezCore::Core::SbResult::Failure(
+                    "DevelopmentTools/ImGuiAutomation",
+                    "Interaction script names an unknown ImGui panel: %s",
+                    command.target
+                );
                 break;
             }
             DevelopmentTools::ImGuiEditorAutomationCommand editorCommand;
@@ -3111,25 +3209,29 @@ InteractionAutomationController::ApplyDevelopmentUiCommands( const InteractionAu
             // Why: scripts describe client pixels because those are the
             // editor's layout coordinates. Win32 resizes the outer frame, so
             // include the current style and monitor DPI exactly once.
-            RECT outer{ 0, 0, command.width, command.height };
+            RECT outer { 0, 0, command.width, command.height };
+
             const HWND nativeWindow = window.NativeWindowHandle();
             const DWORD style = static_cast<DWORD>( GetWindowLongPtr( nativeWindow, GWL_STYLE ) );
             const DWORD extendedStyle = static_cast<DWORD>( GetWindowLongPtr( nativeWindow, GWL_EXSTYLE ) );
             const UINT dpi = GetDpiForWindow( nativeWindow );
             if ( !AdjustWindowRectExForDpi( &outer, style, FALSE, extendedStyle, dpi ) ||
-                 !SetWindowPos( nativeWindow,
-                                nullptr,
-                                0,
-                                0,
-                                outer.right - outer.left,
-                                outer.bottom - outer.top,
-                                SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE ) )
+                 !SetWindowPos(
+                     nativeWindow,
+                     nullptr,
+                     0,
+                     0,
+                     outer.right - outer.left,
+                     outer.bottom - outer.top,
+                     SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE
+                 ) )
             {
-                commandStatus =
-                    SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGuiAutomation",
-                                                             "Failed to resize the automation client area to %dx%d",
-                                                             command.width,
-                                                             command.height );
+                commandStatus = SkullbonezCore::Core::SbResult::Failure(
+                    "DevelopmentTools/ImGuiAutomation",
+                    "Failed to resize the automation client area to %dx%d",
+                    command.width,
+                    command.height
+                );
             }
             break;
         }
@@ -3143,9 +3245,10 @@ InteractionAutomationController::ApplyDevelopmentUiCommands( const InteractionAu
     return result;
 }
 
-SkullbonezCore::Core::SbResult
-InteractionAutomationController::SubmitOperatorEditorReplayCommand( const InteractionAutomationFrameResult& frame,
-                                                                    UI::OperatorEditorCommandQueues& commands ) const
+SkullbonezCore::Core::SbResult InteractionAutomationController::SubmitOperatorEditorReplayCommand(
+    const InteractionAutomationFrameResult& frame,
+    UI::OperatorEditorCommandQueues& commands
+) const
 {
     if ( !frame.hasOperatorEditorReplayCommand )
     {
@@ -3154,10 +3257,11 @@ InteractionAutomationController::SubmitOperatorEditorReplayCommand( const Intera
     return UI::SubmitOperatorEditorCommand( commands.replay, frame.operatorEditorReplayCommand );
 }
 
-InteractionAutomationDevelopmentUiView
-InteractionAutomationController::BuildDevelopmentUiView( const DevelopmentTools::ImGuiEditorStatus& editor,
-                                                         bool legacyVisible,
-                                                         bool legacyReplayPresentationActive ) const
+InteractionAutomationDevelopmentUiView InteractionAutomationController::BuildDevelopmentUiView(
+    const DevelopmentTools::ImGuiEditorStatus& editor,
+    bool legacyVisible,
+    bool legacyReplayPresentationActive
+) const
 {
     InteractionAutomationDevelopmentUiView view;
     view.available = editor.initialized;
@@ -3188,11 +3292,13 @@ bool TryFindInteractionAutomationModel( const SceneWorld& world, const char* nam
     return outIndex >= 0;
 }
 
-bool TryProjectInteractionAutomationModel( const SceneWorld& world,
-                                           InputRouter& inputRouter,
-                                           Window* window,
-                                           const char* name,
-                                           POINT& outMouse )
+bool TryProjectInteractionAutomationModel(
+    const SceneWorld& world,
+    InputRouter& inputRouter,
+    Window* window,
+    const char* name,
+    POINT& outMouse
+)
 {
     int modelIndex = -1;
     if ( !TryFindInteractionAutomationModel( world, name, modelIndex ) || !window )
@@ -3203,13 +3309,14 @@ bool TryProjectInteractionAutomationModel( const SceneWorld& world,
     const int width = (std::max)( 1, window->ClientWidth() );
     const int height = (std::max)( 1, window->ClientHeight() );
     const int steps[] = { 96, 48, 24, 12, 6 };
+
     for ( const int step : steps )
     {
         for ( int y = step / 2; y < height; y += step )
         {
             for ( int x = step / 2; x < width; x += step )
             {
-                const POINT candidate{ static_cast<LONG>( x ), static_cast<LONG>( y ) };
+                const POINT candidate { static_cast<LONG>( x ), static_cast<LONG>( y ) };
 
                 Vector3 rayOrigin;
                 Vector3 rayDirection;
@@ -3243,12 +3350,13 @@ void SkullbonezCore::Runtime::ClearInteractionAutomationInput( InteractionAutoma
 }
 
 
-SkullbonezCore::Core::SbResult
-SkullbonezCore::Runtime::ConfigureInteractionAutomation( InteractionAutomationController& state,
-                                                         const char* scriptPath,
-                                                         const char* reportPath )
+SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::ConfigureInteractionAutomation(
+    InteractionAutomationController& state,
+    const char* scriptPath,
+    const char* reportPath
+)
 {
-    state = InteractionAutomationController{};
+    state = InteractionAutomationController {};
     state.reportWriter.Configure( reportPath );
     if ( !scriptPath || scriptPath[0] == '\0' )
     {
@@ -3270,13 +3378,14 @@ SkullbonezCore::Runtime::InteractionAutomationResult( const InteractionAutomatio
     return state.status.Result();
 }
 
-InteractionAutomationFrameResult
-SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutomationController& state,
-                                                               Window& windowOwner,
-                                                               RuntimeFrameInteractionView& interactionOwners,
-                                                               RuntimeFrameSceneView& sceneOwners,
-                                                               const ReplayAutomationView& replayView,
-                                                               const Rendering::RenderSceneSnapshot& renderSnapshot )
+InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput(
+    InteractionAutomationController& state,
+    Window& windowOwner,
+    RuntimeFrameInteractionView& interactionOwners,
+    RuntimeFrameSceneView& sceneOwners,
+    const ReplayAutomationView& replayView,
+    const Rendering::RenderSceneSnapshot& renderSnapshot
+)
 {
     Window* window = &windowOwner;
     const SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
@@ -3302,17 +3411,19 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
         // the earlier script failure if both operations fail.
         result.status = InteractionAutomationResult( state );
         const SkullbonezCore::Core::SbResult reportResult = state.reportWriter.Write(
-            InteractionAutomationReportInputs{ state.status,
-                                               state.scriptPath,
-                                               scene.Scene(),
-                                               scene.State(),
-                                               scene.CurrentPath() ? scene.CurrentPath()->c_str() : nullptr,
-                                               runtimeTools,
-                                               replayView,
-                                               interaction,
-                                               camera,
-                                               ui,
-                                               renderSnapshot } );
+            InteractionAutomationReportInputs { state.status,
+                                                state.scriptPath,
+                                                scene.Scene(),
+                                                scene.State(),
+                                                scene.CurrentPath() ? scene.CurrentPath()->c_str() : nullptr,
+                                                runtimeTools,
+                                                replayView,
+                                                interaction,
+                                                camera,
+                                                ui,
+                                                renderSnapshot }
+        );
+
         if ( result.status.ok )
         {
             result.status = reportResult;
@@ -3329,13 +3440,15 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
         // wall fall and make a visually broken run appear to be test coverage.
         ReplayFrameIndex revealFrame = 0;
         bool resetReveal = false;
-        if ( state.reportWriter.UpdateReplayVisualReveal( frame,
-                                                          REPLAY_VISUAL_FIDELITY_START_FRAME,
-                                                          replayInput.liveAdvanceHeld,
-                                                          ReplayDeterministicRevealReady( replayView ),
-                                                          state.status,
-                                                          revealFrame,
-                                                          resetReveal ) )
+        if ( state.reportWriter.UpdateReplayVisualReveal(
+                 frame,
+                 REPLAY_VISUAL_FIDELITY_START_FRAME,
+                 replayInput.liveAdvanceHeld,
+                 ReplayDeterministicRevealReady( replayView ),
+                 state.status,
+                 revealFrame,
+                 resetReveal
+             ) )
         {
             PublishReplayDeterministicReveal( result.replayIntent, revealFrame, resetReveal );
         }
@@ -3365,13 +3478,16 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
             {
                 FailAutomation( state, "failed to apply automated camera mode" );
             }
-            AppendReportAction( state,
-                                frame,
-                                action.type,
-                                action.text,
-                                nullptr,
-                                applied,
-                                applied ? "camera mode applied" : "camera mode failed" );
+            AppendReportAction(
+                state,
+                frame,
+                action.type,
+                action.text,
+                nullptr,
+                applied,
+                applied ? "camera mode applied" : "camera mode failed"
+            );
+
             action.processed = true;
             break;
         }
@@ -3415,10 +3531,13 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
                     result.replayIntent.setPathTarget = true;
                     result.replayIntent.pathTargetId = body->sceneObjectId;
                     result.replayIntent.pathTargetModelRow.value = modelIndex;
-                    strncpy_s( result.replayIntent.pathTargetName,
-                               sizeof( result.replayIntent.pathTargetName ),
-                               name,
-                               _TRUNCATE );
+                    strncpy_s(
+                        result.replayIntent.pathTargetName,
+                        sizeof( result.replayIntent.pathTargetName ),
+                        name,
+                        _TRUNCATE
+                    );
+
                     return true;
                 },
                 [&]( const char* name )
@@ -3444,25 +3563,29 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
                     result.setWorldInteractionOwner = true;
                     result.worldInteractionOwner = owner;
                     result.worldInteractionReason = reason;
-                } );
+                }
+            );
             action.processed = true;
             break;
         case RunInteractionAutomationActionType::BeginReplayVisualFidelityCapture:
         {
             state.reportWriter.BeginReplayVisualCapture(
-                static_cast<std::size_t>( REPLAY_FUTURE_DEFAULT_SECONDS / PHYSICS_FIXED_DT ) + 2u );
+                static_cast<std::size_t>( REPLAY_FUTURE_DEFAULT_SECONDS / PHYSICS_FIXED_DT ) + 2u
+            );
             // Invariant: the script arms this hold before target/horizon setup
             // and the sole Predict click. Letting wall-clock reveal run first
             // would retain markers, then rewinding to zero would create a
             // broken second presentation pass.
             PublishReplayDeterministicReveal( result.replayIntent, 0, true );
-            AppendReportAction( state,
-                                frame,
-                                action.type,
-                                "prediction",
-                                nullptr,
-                                true,
-                                "reveal held at zero; frame-exact capture starts after prediction publication" );
+            AppendReportAction(
+                state,
+                frame,
+                action.type,
+                "prediction",
+                nullptr,
+                true,
+                "reveal held at zero; frame-exact capture starts after prediction publication"
+            );
             action.processed = true;
             break;
         }
@@ -3485,12 +3608,16 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
                 FailAutomation( state, "failed to capture editor selection state" );
             }
             char detail[128] = {};
-            sprintf_s( detail,
-                       sizeof( detail ),
-                       "slot=%d fingerprint=%s terrain=%d",
-                       slot,
-                       InteractionAutomationReportWriter::FormatPredictionHash( fingerprint.hash ).c_str(),
-                       fingerprint.hasTerrain ? 1 : 0 );
+
+            sprintf_s(
+                detail,
+                sizeof( detail ),
+                "slot=%d fingerprint=%s terrain=%d",
+                slot,
+                InteractionAutomationReportWriter::FormatPredictionHash( fingerprint.hash ).c_str(),
+                fingerprint.hasTerrain ? 1 : 0
+            );
+
             AppendReportAction( state, frame, action.type, "selection", nullptr, fingerprint.valid, detail );
             action.processed = true;
             break;
@@ -3519,13 +3646,16 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
             {
                 FailAutomation( state, "automated scene path was not found in the scene browser" );
             }
-            AppendReportAction( state,
-                                frame,
-                                action.type,
-                                action.path,
-                                nullptr,
-                                found,
-                                found ? "scene load submitted" : "scene path not found" );
+            AppendReportAction(
+                state,
+                frame,
+                action.type,
+                action.path,
+                nullptr,
+                found,
+                found ? "scene load submitted" : "scene path not found"
+            );
+
             action.processed = true;
             break;
         }
@@ -3594,15 +3724,18 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
             {
                 FailAutomation( state, "development UI automation command capacity exceeded" );
             }
-            AppendReportAction( state,
-                                frame,
-                                action.type,
-                                action.text,
-                                nullptr,
-                                published,
-                                published ? "development UI command published"
-                                          : ( duplicateSurfaceSelection ? "duplicate frame surface selection"
-                                                                        : "command capacity exceeded" ) );
+            AppendReportAction(
+                state,
+                frame,
+                action.type,
+                action.text,
+                nullptr,
+                published,
+                published
+                    ? "development UI command published"
+                    : ( duplicateSurfaceSelection ? "duplicate frame surface selection" : "command capacity exceeded" )
+            );
+
             action.processed = true;
             break;
         }
@@ -3612,26 +3745,30 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
             action.processed = true;
             break;
         case RunInteractionAutomationActionType::ClickReplayControl:
-            ApplyInteractionAutomationReplayControlClick( state,
-                                                          window,
-                                                          config,
-                                                          scene.State(),
-                                                          timers,
-                                                          result.replayIntent,
-                                                          replayView,
-                                                          action,
-                                                          frame );
+            ApplyInteractionAutomationReplayControlClick(
+                state,
+                window,
+                config,
+                scene.State(),
+                timers,
+                result.replayIntent,
+                replayView,
+                action,
+                frame
+            );
             action.processed = true;
             break;
         case RunInteractionAutomationActionType::ScrubReplaySolverTrack:
-            ApplyInteractionAutomationSolverTrackScrub( state,
-                                                        window,
-                                                        config,
-                                                        timers,
-                                                        result.replayIntent,
-                                                        replayView,
-                                                        action,
-                                                        frame );
+            ApplyInteractionAutomationSolverTrackScrub(
+                state,
+                window,
+                config,
+                timers,
+                result.replayIntent,
+                replayView,
+                action,
+                frame
+            );
             action.processed = true;
             break;
         case RunInteractionAutomationActionType::ScrubEditorReplayTrack:
@@ -3645,23 +3782,29 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
             }
             else
             {
-                FailAutomation( state,
-                                available ? "editor replay automation command capacity exceeded"
-                                          : "editor replay scrub track unavailable" );
+                FailAutomation(
+                    state,
+                    available ? "editor replay automation command capacity exceeded"
+                              : "editor replay scrub track unavailable"
+                );
             }
-            AppendReportAction( state,
-                                frame,
-                                action.type,
-                                "shared replay queue",
-                                nullptr,
-                                available && result.hasOperatorEditorReplayCommand,
-                                available ? "typed editor replay scrub published" : "editor replay track unavailable" );
+            AppendReportAction(
+                state,
+                frame,
+                action.type,
+                "shared replay queue",
+                nullptr,
+                available && result.hasOperatorEditorReplayCommand,
+                available ? "typed editor replay scrub published" : "editor replay track unavailable"
+            );
+
             action.processed = true;
             break;
         }
         case RunInteractionAutomationActionType::ClickObject:
         {
             POINT mouse = {};
+
             const bool projected =
                 TryProjectInteractionAutomationModel( scene.Scene(), inputRouter, window, action.text, mouse );
             if ( projected )
@@ -3669,29 +3812,30 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
                 state.inputDriver.MoveMouse( mouse );
                 action.mouse = mouse;
                 action.hasMouse = true;
-                state.inputDriver.PressMouse( action.button == RunInteractionAutomationButton::Right,
-                                              frame,
-                                              action.holdFrames );
+                state.inputDriver
+                    .PressMouse( action.button == RunInteractionAutomationButton::Right, frame, action.holdFrames );
             }
             else
             {
                 FailAutomation( state, "failed to project interaction target" );
             }
-            AppendReportAction( state,
-                                frame,
-                                action.type,
-                                action.text,
-                                projected ? &mouse : nullptr,
-                                projected,
-                                projected ? "mouse press injected" : "target projection failed" );
+            AppendReportAction(
+                state,
+                frame,
+                action.type,
+                action.text,
+                projected ? &mouse : nullptr,
+                projected,
+                projected ? "mouse press injected" : "target projection failed"
+            );
+
             action.processed = true;
             break;
         }
         case RunInteractionAutomationActionType::ClickPoint:
             state.inputDriver.MoveMouse( action.mouse );
-            state.inputDriver.PressMouse( action.button == RunInteractionAutomationButton::Right,
-                                          frame,
-                                          action.holdFrames );
+            state.inputDriver
+                .PressMouse( action.button == RunInteractionAutomationButton::Right, frame, action.holdFrames );
             AppendReportAction( state, frame, action.type, nullptr, &action.mouse, true, "mouse press injected" );
             action.processed = true;
             break;
@@ -3718,7 +3862,8 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
     const InteractionAutomationDevelopmentUiView& developmentUiView,
     const Rendering::RenderSceneSnapshot& renderSnapshot,
     CaptureController& capture,
-    Rendering::Dx12BackbufferCapture& backbufferCapture )
+    Rendering::Dx12BackbufferCapture& backbufferCapture
+)
 {
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     RuntimeInteractionController& interaction = interactionOwners.interaction;
@@ -3732,7 +3877,8 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
     }
 
     CoreAllocation::RuntimeAllocationScope diagnosticsAllocationScope(
-        CoreAllocation::RuntimeAllocationPhase::Diagnostics );
+        CoreAllocation::RuntimeAllocationPhase::Diagnostics
+    );
     const int frame = scene.State().currentFrame;
     for ( RunInteractionAutomationAction& action : state.actions )
     {
@@ -3791,7 +3937,8 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
             renderSnapshot,
             action,
             [&]()
-            { return runtimeTools.InspectGizmoInteractionActive( camera.mode, replayView.input.inspectionActive ); } );
+            { return runtimeTools.InspectGizmoInteractionActive( camera.mode, replayView.input.inspectionActive ); }
+        );
 
         strcpy_s( assertion.expected, sizeof( assertion.expected ), evaluation.expected.c_str() );
         strcpy_s( assertion.actual, sizeof( assertion.actual ), evaluation.actual.c_str() );
@@ -3800,12 +3947,15 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
         if ( !evaluation.passed )
         {
             char message[256] = {};
-            sprintf_s( message,
-                       sizeof( message ),
-                       "interaction assertion failed: %s expected=%s actual=%s",
-                       assertion.name,
-                       assertion.expected,
-                       assertion.actual );
+            sprintf_s(
+                message,
+                sizeof( message ),
+                "interaction assertion failed: %s expected=%s actual=%s",
+                assertion.name,
+                assertion.expected,
+                assertion.actual
+            );
+
             FailAutomation( state, message );
         }
         action.processed = true;
@@ -3848,17 +3998,19 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
         // Invariant: assertion failure retains precedence over report IO.
         result.status = InteractionAutomationResult( state );
         const SkullbonezCore::Core::SbResult reportResult = state.reportWriter.Write(
-            InteractionAutomationReportInputs{ state.status,
-                                               state.scriptPath,
-                                               scene.Scene(),
-                                               scene.State(),
-                                               scene.CurrentPath() ? scene.CurrentPath()->c_str() : nullptr,
-                                               runtimeTools,
-                                               replayView,
-                                               interaction,
-                                               camera,
-                                               ui,
-                                               renderSnapshot } );
+            InteractionAutomationReportInputs { state.status,
+                                                state.scriptPath,
+                                                scene.Scene(),
+                                                scene.State(),
+                                                scene.CurrentPath() ? scene.CurrentPath()->c_str() : nullptr,
+                                                runtimeTools,
+                                                replayView,
+                                                interaction,
+                                                camera,
+                                                ui,
+                                                renderSnapshot }
+        );
+
         if ( result.status.ok )
         {
             result.status = reportResult;
@@ -3869,8 +4021,10 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
 }
 
 
-bool SkullbonezCore::Runtime::InteractionAutomationWillCaptureAfterRender( const InteractionAutomationController& state,
-                                                                           int frame )
+bool SkullbonezCore::Runtime::InteractionAutomationWillCaptureAfterRender(
+    const InteractionAutomationController& state,
+    int frame
+)
 {
     if ( !state.enabled || state.finished )
     {

@@ -179,10 +179,12 @@ template <size_t N> bool TryParseIntOption( const std::string& token, const Scen
 
 inline std::string Lowercase( std::string value )
 {
-    std::transform( value.begin(),
-                    value.end(),
-                    value.begin(),
-                    []( unsigned char c ) { return static_cast<char>( std::tolower( c ) ); } );
+    std::transform(
+        value.begin(),
+        value.end(),
+        value.begin(),
+        []( unsigned char c ) { return static_cast<char>( std::tolower( c ) ); }
+    );
     return value;
 }
 
@@ -297,7 +299,8 @@ inline bool EditorTreeNamesShareInstancePrefix( const char* a, const char* b, si
 inline bool IsReleasableTreeSceneHull( const char* hullPath )
 {
     return SkullbonezCore::Assets::EditorHullAssetDefaultsToContactRelease(
-        SkullbonezCore::Assets::EditorHullAssetFromToken( hullPath ) );
+        SkullbonezCore::Assets::EditorHullAssetFromToken( hullPath )
+    );
 }
 
 
@@ -365,9 +368,11 @@ template <typename THull> void AssignReleasableTreeGroupsToHulls( std::vector<TH
 
             group.rootObjectId =
                 previous.group.rootObjectId.IsValid() ? previous.group.rootObjectId : previous.sceneObjectId;
-            strncpy_s( group.rootObjectName,
-                       previous.group.rootObjectName[0] != '\0' ? previous.group.rootObjectName : previous.name,
-                       _TRUNCATE );
+            strncpy_s(
+                group.rootObjectName,
+                previous.group.rootObjectName[0] != '\0' ? previous.group.rootObjectName : previous.name,
+                _TRUNCATE
+            );
             group.partIndex = (std::max)( group.partIndex, previous.group.partIndex + 1 );
         }
 
@@ -386,9 +391,11 @@ template <typename THull> void ValidateReleasableTreeGroups( const std::vector<T
         }
         if ( !hull.group.rootObjectId.IsValid() )
         {
-            Fail( path,
-                  std::string( "objectGroup root '" ) + hull.group.rootObjectName + "' for '" + hull.name +
-                      "' does not name an object in the same hull section" );
+            Fail(
+                path,
+                std::string( "objectGroup root '" ) + hull.group.rootObjectName + "' for '" + hull.name +
+                    "' does not name an object in the same hull section"
+            );
             return;
         }
 
@@ -406,9 +413,11 @@ template <typename THull> void ValidateReleasableTreeGroups( const std::vector<T
         if ( !root || root->group.kind != hull.group.kind ||
              root->group.rootObjectId.value != root->sceneObjectId.value || root->group.partIndex != 0 )
         {
-            Fail( path,
-                  std::string( "objectGroup root '" ) + hull.group.rootObjectName + "' for '" + hull.name +
-                      "' is not a compatible part-zero group root" );
+            Fail(
+                path,
+                std::string( "objectGroup root '" ) + hull.group.rootObjectName + "' for '" + hull.name +
+                    "' is not a compatible part-zero group root"
+            );
             return;
         }
     }
@@ -696,11 +705,13 @@ CopyCheckedStringField( char ( &out )[N], const std::string& text, const std::st
 }
 
 template <size_t N>
-inline void ReadRequiredStringField( char ( &out )[N],
-                                     const Json& object,
-                                     const std::string& path,
-                                     const char* context,
-                                     const char* key )
+inline void ReadRequiredStringField(
+    char ( &out )[N],
+    const Json& object,
+    const std::string& path,
+    const char* context,
+    const char* key
+)
 {
     const std::string text = ReadString( RequireMember( object, path, context, key ), path, key );
     if ( ParserFailed() )
@@ -725,10 +736,12 @@ inline SceneObjectGroupKind ReadSceneObjectGroupKind( const Json& value, const s
     return SceneObjectGroupKind::None;
 }
 
-inline void ReadOptionalSceneObjectGroup( SceneObjectGroupMetadata& group,
-                                          const Json& object,
-                                          const std::string& path,
-                                          const char* objectContext )
+inline void ReadOptionalSceneObjectGroup(
+    SceneObjectGroupMetadata& group,
+    const Json& object,
+    const std::string& path,
+    const char* objectContext
+)
 {
     // Concept: objectGroup JSON uses the authored root name as its file-facing
     // reference. After expansion, the parser resolves that name once to the
@@ -851,14 +864,8 @@ inline int ParseWaterReflectionMode( const Json& value, const std::string& path 
 
     const std::string mode = Lowercase( ReadString( value, path, "debug.waterReflection" ) );
     static const SceneIntOption kModes[] = {
-        { "fbo", 0 },
-        { "render_target", 0 },
-        { "render-target", 0 },
-        { "dxr", 1 },
-        { "raytraced", 1 },
-        { "ray_traced", 1 },
-        { "none", 2 },
-        { "off", 2 },
+        { "fbo", 0 },       { "render_target", 0 }, { "render-target", 0 }, { "dxr", 1 },
+        { "raytraced", 1 }, { "ray_traced", 1 },    { "none", 2 },          { "off", 2 },
     };
     int parsed = 0;
     if ( TryParseIntOption( mode, kModes, parsed ) )
@@ -1079,21 +1086,25 @@ class AuthoredSceneParser
     Physics::PhysicsSceneObjectId
     AllocateVersion1SceneObjectIdRange( uint32_t& next, uint32_t count, const std::string& path );
     void UpgradeVersion1SceneObjectIds( const std::string& path );
-    const Json* ReadAssetPartIdentity( const Json& instance,
-                                       const std::string& path,
-                                       uint32_t partIndex,
-                                       uint32_t expectedPartCount,
-                                       const std::string& expectedPartName );
+    const Json* ReadAssetPartIdentity(
+        const Json& instance,
+        const std::string& path,
+        uint32_t partIndex,
+        uint32_t expectedPartCount,
+        const std::string& expectedPartName
+    );
     std::string ResolveStylePath( const std::string& token ) const;
     const Assets::AssetLibrarySourceAsset* FindRegisteredAssetLibrary( const std::string& token ) const;
     std::string ResolveAssetLibraryPath( const std::string& token ) const;
     const ParsedAssetDefinition* FindAssetDefinition( const std::string& name ) const;
     bool RegisterSceneObjectName( const char* name, const std::string& path );
     void ValidateAssetMaterial( const Json& owner, const std::string& path, const char* context ) const;
-    void ValidateAssetCommonPhysicsFields( const Json& asset,
-                                           const std::string& path,
-                                           const char* context,
-                                           bool requireMass ) const;
+    void ValidateAssetCommonPhysicsFields(
+        const Json& asset,
+        const std::string& path,
+        const char* context,
+        bool requireMass
+    ) const;
     std::string ReadAssetPrimitiveType( const Json& asset, const std::string& path, const char* context ) const;
     void ValidateAssetBoxFields( const Json& asset, const std::string& path, const char* context ) const;
     void ValidateAssetSphereFields( const Json& asset, const std::string& path, const char* context ) const;
@@ -1106,33 +1117,39 @@ class AuthoredSceneParser
     std::string
     BuildAssetPartName( const std::string& instanceName, const std::string& partName, const std::string& path ) const;
     void ApplyAssetMaterialForTarget( const Json& asset, const std::string& path, const std::string& target );
-    void RecordAssetPart( const std::string& path,
-                          const std::string& partName,
-                          const std::string& objectName,
-                          Physics::PhysicsSceneObjectId sceneObjectId,
-                          uint32_t partIndex,
-                          SceneAssetPartSource source,
-                          uint32_t sourceIndex,
-                          const Math::Vector::Vector3& worldPosition,
-                          const Math::Orientation::Quaternion& worldOrientation );
-    void ApplyAssetPrimitivePart( const Json& asset,
-                                  const std::string& path,
-                                  const std::string& objectName,
-                                  const std::string& partName,
-                                  uint32_t partIndex,
-                                  const AssetInstanceExpansion& instance,
-                                  const Json* authoredPartIdentity );
+    void RecordAssetPart(
+        const std::string& path,
+        const std::string& partName,
+        const std::string& objectName,
+        Physics::PhysicsSceneObjectId sceneObjectId,
+        uint32_t partIndex,
+        SceneAssetPartSource source,
+        uint32_t sourceIndex,
+        const Math::Vector::Vector3& worldPosition,
+        const Math::Orientation::Quaternion& worldOrientation
+    );
+    void ApplyAssetPrimitivePart(
+        const Json& asset,
+        const std::string& path,
+        const std::string& objectName,
+        const std::string& partName,
+        uint32_t partIndex,
+        const AssetInstanceExpansion& instance,
+        const Json* authoredPartIdentity
+    );
     void ApplyAssetInstance( const Json& instance, const std::string& path );
     void ApplyAssetInstances( const Json& root, const std::string& path );
     void LoadStyleIncludes( const Json& root, const std::string& path, const char* memberName, int depth );
     void ApplyPlayback( const Json& playback, const std::string& path );
     Physics::MutualGravitySettings ReadMutualGravitySettings( const Json& mutualGravity, const std::string& path );
     void ApplySimulation( const Json& simulation, const std::string& path );
-    void ApplyTornadoFloat( const Json& source,
-                            const std::string& path,
-                            const char* memberName,
-                            float& target,
-                            float minimum );
+    void ApplyTornadoFloat(
+        const Json& source,
+        const std::string& path,
+        const char* memberName,
+        float& target,
+        float minimum
+    );
     void ApplyTornadoVortex( const Json& object, const std::string& path, AuthoredTornadoSystemConfig& system );
     void ApplyTornadoSystem( const Json& tornadoSystem, const std::string& path );
     void ApplyRuntime( const Json& runtime, const std::string& path );
@@ -1151,10 +1168,12 @@ class AuthoredSceneParser
     void ApplyCamera( const Json& camera, const std::string& path );
     void ApplyBall( const Json& object, const std::string& path, bool isFixed );
     void ApplyBox( const Json& object, const std::string& path, bool isFixed );
-    void ApplyConvexHull( const Json& object,
-                          const std::string& path,
-                          bool isFixed,
-                          const Math::Orientation::Quaternion* composedOrientation = nullptr );
+    void ApplyConvexHull(
+        const Json& object,
+        const std::string& path,
+        bool isFixed,
+        const Math::Orientation::Quaternion* composedOrientation = nullptr
+    );
     void ApplyBallState( const Json& object, const std::string& path );
     void ApplyBoxState( const Json& object, const std::string& path );
     void ApplyConvexHullState( const Json& object, const std::string& path );

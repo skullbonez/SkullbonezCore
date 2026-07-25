@@ -86,10 +86,11 @@ struct ReplayPredictionDrawFrameWindow
 };
 
 
-ReplayPredictionDrawFrameWindow
-PrepareReplayPredictionDrawFrameWindow( RunReplayPredictionState& prediction,
-                                        const std::vector<RunReplayPredictionFrame>& frames,
-                                        std::size_t frameCount )
+ReplayPredictionDrawFrameWindow PrepareReplayPredictionDrawFrameWindow(
+    RunReplayPredictionState& prediction,
+    const std::vector<RunReplayPredictionFrame>& frames,
+    std::size_t frameCount
+)
 {
     ReplayPredictionDrawFrameWindow window;
     frameCount = (std::min)( frameCount, frames.size() );
@@ -116,13 +117,15 @@ const ColliderRecord* ReplayColliderRecordForModelIndex( const ColliderStore* co
 // with a contact-derived child. These helpers keep that policy at the wrapper
 // edge instead of duplicating the contact traversal.
 template <typename NodeRange>
-bool TryGetReplayFutureDepthInNodes( const NodeRange& nodes,
-                                     Physics::PhysicsSceneObjectId rootId,
-                                     ReplayFrameIndex rootFrame,
-                                     bool requireRootFrame,
-                                     Physics::PhysicsSceneObjectId id,
-                                     ReplayFrameIndex frame,
-                                     int& outDepth )
+bool TryGetReplayFutureDepthInNodes(
+    const NodeRange& nodes,
+    Physics::PhysicsSceneObjectId rootId,
+    ReplayFrameIndex rootFrame,
+    bool requireRootFrame,
+    Physics::PhysicsSceneObjectId id,
+    ReplayFrameIndex frame,
+    int& outDepth
+)
 {
     if ( id.value == 0 )
     {
@@ -158,16 +161,18 @@ RunReplayPathTraceNode* FindReplayFutureNodeInNodes( NodeRange& nodes, Physics::
     return nullptr;
 }
 
-void AssignReplayFutureNode( RunReplayPathTraceNode& node,
-                             Physics::PhysicsSceneObjectId parentId,
-                             int parentModelIndex,
-                             Physics::PhysicsSceneObjectId id,
-                             int modelIndex,
-                             ReplayFrameIndex firstFrame,
-                             const Vector3& contactPoint,
-                             const Vector3& contactNormal,
-                             int depth,
-                             bool contactDerived )
+void AssignReplayFutureNode(
+    RunReplayPathTraceNode& node,
+    Physics::PhysicsSceneObjectId parentId,
+    int parentModelIndex,
+    Physics::PhysicsSceneObjectId id,
+    int modelIndex,
+    ReplayFrameIndex firstFrame,
+    const Vector3& contactPoint,
+    const Vector3& contactNormal,
+    int depth,
+    bool contactDerived
+)
 {
     node.id = id;
     node.parentId = parentId;
@@ -188,8 +193,10 @@ bool ReplayFutureNodeTopologyEquals( const RunReplayPathTraceNode& a, const RunR
 }
 
 
-bool ReplayFutureNodeTopologyEquals( const std::vector<RunReplayPathTraceNode>& a,
-                                     const std::vector<RunReplayPathTraceNode>& b )
+bool ReplayFutureNodeTopologyEquals(
+    const std::vector<RunReplayPathTraceNode>& a,
+    const std::vector<RunReplayPathTraceNode>& b
+)
 {
     if ( a.size() != b.size() )
     {
@@ -222,21 +229,24 @@ uint32_t AllocateReplayFutureNodeTopologyVersion( RunReplayPredictionFutureNodeC
     return version;
 }
 
-template <typename ContactRange,
-          typename BodyIdResolver,
-          typename DepthResolver,
-          typename NodeAdder,
-          typename BudgetExpired>
-bool BuildReplayFutureNodesFromContacts( const ContactRange& contacts,
-                                         ReplayFrameIndex frameIndex,
-                                         std::size_t startContactIndex,
-                                         const SceneEntityStore* collection,
-                                         bool includeRagdollVisuals,
-                                         BodyIdResolver bodyIdForModelIndex,
-                                         DepthResolver tryGetDepth,
-                                         NodeAdder addNode,
-                                         BudgetExpired budgetExpired,
-                                         std::size_t& outNextContactIndex )
+template <
+    typename ContactRange,
+    typename BodyIdResolver,
+    typename DepthResolver,
+    typename NodeAdder,
+    typename BudgetExpired>
+bool BuildReplayFutureNodesFromContacts(
+    const ContactRange& contacts,
+    ReplayFrameIndex frameIndex,
+    std::size_t startContactIndex,
+    const SceneEntityStore* collection,
+    bool includeRagdollVisuals,
+    BodyIdResolver bodyIdForModelIndex,
+    DepthResolver tryGetDepth,
+    NodeAdder addNode,
+    BudgetExpired budgetExpired,
+    std::size_t& outNextContactIndex
+)
 {
     outNextContactIndex = (std::min)( startContactIndex, contacts.size() );
     for ( std::size_t contactIndex = outNextContactIndex; contactIndex < contacts.size(); ++contactIndex )
@@ -267,15 +277,17 @@ bool BuildReplayFutureNodesFromContacts( const ContactRange& contacts,
         }
         else if ( activeB && !activeA && ( includeRagdollVisuals || !ragdollA ) )
         {
-            addNode( idB,
-                     modelIndexB,
-                     idA,
-                     modelIndexA,
-                     frameIndex,
-                     contact.point,
-                     contact.normal * -1.0f,
-                     depthB + 1,
-                     true );
+            addNode(
+                idB,
+                modelIndexB,
+                idA,
+                modelIndexA,
+                frameIndex,
+                contact.point,
+                contact.normal * -1.0f,
+                depthB + 1,
+                true
+            );
         }
         outNextContactIndex = contactIndex + 1;
     }
@@ -329,9 +341,11 @@ const ColliderRecord* ReplayColliderRecordForModelIndex( const ColliderStore* co
     return collider;
 }
 
-ReplayPredictionRetainedMarker* FindOrAddReplayPredictionRetainedMarker( RunReplayPredictionState& prediction,
-                                                                         Physics::PhysicsSceneObjectId id,
-                                                                         int modelIndex )
+ReplayPredictionRetainedMarker* FindOrAddReplayPredictionRetainedMarker(
+    RunReplayPredictionState& prediction,
+    Physics::PhysicsSceneObjectId id,
+    int modelIndex
+)
 {
     if ( id.value == 0 )
     {
@@ -356,17 +370,20 @@ ReplayPredictionRetainedMarker* FindOrAddReplayPredictionRetainedMarker( RunRepl
 
     ReplayPredictionRetainedMarker& marker =
         prediction.futureNodeCache.retainedMarkers[prediction.futureNodeCache.retainedMarkerCount++];
-    marker = ReplayPredictionRetainedMarker{};
+    marker = ReplayPredictionRetainedMarker {};
+
     marker.id = id;
     marker.modelRow.value = modelIndex;
     return &marker;
 }
 
-void RetainReplayPredictionEntryMarker( RunReplayPredictionState& prediction,
-                                        Physics::PhysicsSceneObjectId id,
-                                        int modelIndex,
-                                        const Vector3& position,
-                                        Quaternion orientation )
+void RetainReplayPredictionEntryMarker(
+    RunReplayPredictionState& prediction,
+    Physics::PhysicsSceneObjectId id,
+    int modelIndex,
+    const Vector3& position,
+    Quaternion orientation
+)
 {
     if ( ReplayPredictionRetainedMarker* marker =
              FindOrAddReplayPredictionRetainedMarker( prediction, id, modelIndex ) )
@@ -378,11 +395,13 @@ void RetainReplayPredictionEntryMarker( RunReplayPredictionState& prediction,
     }
 }
 
-void RetainReplayPredictionRestMarker( RunReplayPredictionState& prediction,
-                                       Physics::PhysicsSceneObjectId id,
-                                       int modelIndex,
-                                       const Vector3& position,
-                                       Quaternion orientation )
+void RetainReplayPredictionRestMarker(
+    RunReplayPredictionState& prediction,
+    Physics::PhysicsSceneObjectId id,
+    int modelIndex,
+    const Vector3& position,
+    Quaternion orientation
+)
 {
     if ( ReplayPredictionRetainedMarker* marker =
              FindOrAddReplayPredictionRetainedMarker( prediction, id, modelIndex ) )
@@ -395,11 +414,13 @@ void RetainReplayPredictionRestMarker( RunReplayPredictionState& prediction,
     }
 }
 
-void RetainReplayPredictionHorizonMarker( RunReplayPredictionState& prediction,
-                                          Physics::PhysicsSceneObjectId id,
-                                          int modelIndex,
-                                          const Vector3& position,
-                                          Quaternion orientation )
+void RetainReplayPredictionHorizonMarker(
+    RunReplayPredictionState& prediction,
+    Physics::PhysicsSceneObjectId id,
+    int modelIndex,
+    const Vector3& position,
+    Quaternion orientation
+)
 {
     if ( ReplayPredictionRetainedMarker* marker =
              FindOrAddReplayPredictionRetainedMarker( prediction, id, modelIndex ) )
@@ -416,10 +437,12 @@ void RetainReplayPredictionHorizonMarker( RunReplayPredictionState& prediction,
 }
 
 
-void RetainReplayPredictionEndStateMarkers( RunReplayPredictionState& prediction,
-                                            ReplayFrameIndex revealFrame,
-                                            const std::vector<RunReplayPredictionFrame>& completeFrames,
-                                            std::size_t completeFrameCount )
+void RetainReplayPredictionEndStateMarkers(
+    RunReplayPredictionState& prediction,
+    ReplayFrameIndex revealFrame,
+    const std::vector<RunReplayPredictionFrame>& completeFrames,
+    std::size_t completeFrameCount
+)
 {
     completeFrameCount = (std::min)( completeFrameCount, completeFrames.size() );
     if ( completeFrameCount < 2 || revealFrame < completeFrames[completeFrameCount - 1].frameIndex )
@@ -442,25 +465,31 @@ void RetainReplayPredictionEndStateMarkers( RunReplayPredictionState& prediction
 
         Vector3 restPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
         Quaternion restOrientation = IDENTITY_QUATERNION;
-        if ( ReplayPredictionBodyRestingPose( completeFrames,
-                                              completeFrameCount,
-                                              marker.id,
-                                              marker.modelRow.value,
-                                              restPosition,
-                                              restOrientation ) )
+        if ( ReplayPredictionBodyRestingPose(
+                 completeFrames,
+                 completeFrameCount,
+                 marker.id,
+                 marker.modelRow.value,
+                 restPosition,
+                 restOrientation
+             ) )
         {
-            RetainReplayPredictionRestMarker( prediction,
-                                              marker.id,
-                                              marker.modelRow.value,
-                                              restPosition,
-                                              restOrientation );
+            RetainReplayPredictionRestMarker(
+                prediction,
+                marker.id,
+                marker.modelRow.value,
+                restPosition,
+                restOrientation
+            );
             continue;
         }
 
-        const RunReplayPredictionBodySample* finalBody =
-            FindReplayPredictionBodyByIdWithHint( completeFrames[completeFrameCount - 1],
-                                                  marker.id,
-                                                  marker.modelRow.value );
+        const RunReplayPredictionBodySample* finalBody = FindReplayPredictionBodyByIdWithHint(
+            completeFrames[completeFrameCount - 1],
+            marker.id,
+            marker.modelRow.value
+        );
+
         if ( !finalBody )
         {
             continue;
@@ -471,11 +500,13 @@ void RetainReplayPredictionEndStateMarkers( RunReplayPredictionState& prediction
             continue;
         }
 
-        RetainReplayPredictionHorizonMarker( prediction,
-                                             marker.id,
-                                             finalBody->modelRow.value,
-                                             finalBody->position,
-                                             finalBody->orientation );
+        RetainReplayPredictionHorizonMarker(
+            prediction,
+            marker.id,
+            finalBody->modelRow.value,
+            finalBody->position,
+            finalBody->orientation
+        );
     }
 }
 
@@ -486,22 +517,26 @@ void RetainReplayPredictionEndStateMarkers( RunReplayPredictionState& prediction
 // final resting pose, and only when the completed prediction actually ends
 // with it at rest; a body still moving at the horizon end gets a travel line
 // and nothing else. Neither box ever slides.
-void RetainReplayPredictionCausalMarkers( RunReplayPredictionState& prediction,
-                                          ReplayPathChildDrawContext& context,
-                                          ReplayFrameIndex revealFrame,
-                                          const std::vector<RunReplayPredictionFrame>* completeFrames,
-                                          std::size_t completeFrameCount )
+void RetainReplayPredictionCausalMarkers(
+    RunReplayPredictionState& prediction,
+    ReplayPathChildDrawContext& context,
+    ReplayFrameIndex revealFrame,
+    const std::vector<RunReplayPredictionFrame>* completeFrames,
+    std::size_t completeFrameCount
+)
 {
     for ( std::size_t i = 0; i < context.nodeCount; ++i )
     {
         const ReplayPathChildDrawState& drawState = context.nodes[i];
         if ( drawState.hasEntryPose )
         {
-            RetainReplayPredictionEntryMarker( prediction,
-                                               drawState.node.id,
-                                               drawState.entryModelIndex,
-                                               drawState.entryPosition,
-                                               drawState.entryOrientation );
+            RetainReplayPredictionEntryMarker(
+                prediction,
+                drawState.node.id,
+                drawState.entryModelIndex,
+                drawState.entryPosition,
+                drawState.entryOrientation
+            );
         }
 
         // Why: completeFrames is null while the job is still building - a
@@ -518,31 +553,37 @@ void RetainReplayPredictionCausalMarkers( RunReplayPredictionState& prediction,
         }
         Vector3 restPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
         Quaternion restOrientation = IDENTITY_QUATERNION;
-        if ( !ReplayPredictionBodyRestingPose( *completeFrames,
-                                               completeFrameCount,
-                                               drawState.node.id,
-                                               drawState.node.modelRow.value,
-                                               restPosition,
-                                               restOrientation ) )
+        if ( !ReplayPredictionBodyRestingPose(
+                 *completeFrames,
+                 completeFrameCount,
+                 drawState.node.id,
+                 drawState.node.modelRow.value,
+                 restPosition,
+                 restOrientation
+             ) )
         {
             continue;
         }
-        RetainReplayPredictionRestMarker( prediction,
-                                          drawState.node.id,
-                                          drawState.node.modelRow.value,
-                                          restPosition,
-                                          restOrientation );
+        RetainReplayPredictionRestMarker(
+            prediction,
+            drawState.node.id,
+            drawState.node.modelRow.value,
+            restPosition,
+            restOrientation
+        );
     }
 }
 
-void BuildReplayPredictionChildMarkerContext( ReplayPathChildDrawContext& context,
-                                              const RunReplayPredictionState& prediction,
-                                              const std::vector<RunReplayPredictionFrame>& frames,
-                                              std::size_t frameCount,
-                                              ReplayFrameIndex revealFrame )
+void BuildReplayPredictionChildMarkerContext(
+    ReplayPathChildDrawContext& context,
+    const RunReplayPredictionState& prediction,
+    const std::vector<RunReplayPredictionFrame>& frames,
+    std::size_t frameCount,
+    ReplayFrameIndex revealFrame
+)
 {
     frameCount = (std::min)( frameCount, frames.size() );
-    context = ReplayPathChildDrawContext{};
+    context = ReplayPathChildDrawContext {};
     context.nodeCount = (std::min)( prediction.futureNodeCache.futureNodes.size(), REPLAY_PATH_MAX_FUTURE_NODES );
     for ( std::size_t i = 0; i < context.nodeCount; ++i )
     {
@@ -599,11 +640,13 @@ void BuildReplayPredictionChildMarkerContext( ReplayPathChildDrawContext& contex
     }
 }
 
-ReplayFrameIndex ReplayPredictionVisibleRootMotionFrame( const std::vector<RunReplayPredictionFrame>& frames,
-                                                         std::size_t frameCount,
-                                                         ReplayFrameIndex revealFrame,
-                                                         Physics::PhysicsSceneObjectId rootId,
-                                                         int rootModelIndex )
+ReplayFrameIndex ReplayPredictionVisibleRootMotionFrame(
+    const std::vector<RunReplayPredictionFrame>& frames,
+    std::size_t frameCount,
+    ReplayFrameIndex revealFrame,
+    Physics::PhysicsSceneObjectId rootId,
+    int rootModelIndex
+)
 {
     frameCount = (std::min)( frameCount, frames.size() );
     ReplayFrameIndex rootLastMotionFrame = 0;
@@ -624,13 +667,15 @@ ReplayFrameIndex ReplayPredictionVisibleRootMotionFrame( const std::vector<RunRe
     return rootLastMotionFrame;
 }
 
-void RetainReplayPredictionRootRestMarker( RunReplayPredictionState& prediction,
-                                           const std::vector<RunReplayPredictionFrame>& frames,
-                                           std::size_t frameCount,
-                                           ReplayFrameIndex revealFrame,
-                                           Physics::PhysicsSceneObjectId rootId,
-                                           int rootModelIndex,
-                                           const ColliderStore& colliderStore )
+void RetainReplayPredictionRootRestMarker(
+    RunReplayPredictionState& prediction,
+    const std::vector<RunReplayPredictionFrame>& frames,
+    std::size_t frameCount,
+    ReplayFrameIndex revealFrame,
+    Physics::PhysicsSceneObjectId rootId,
+    int rootModelIndex,
+    const ColliderStore& colliderStore
+)
 {
     const ReplayFrameIndex rootLastMotionFrame =
         ReplayPredictionVisibleRootMotionFrame( frames, frameCount, revealFrame, rootId, rootModelIndex );
@@ -641,12 +686,14 @@ void RetainReplayPredictionRootRestMarker( RunReplayPredictionState& prediction,
 
     Vector3 rootRestPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
     Quaternion rootRestOrientation = IDENTITY_QUATERNION;
-    if ( ReplayPredictionBodyRestingPose( frames,
-                                          frameCount,
-                                          rootId,
-                                          rootModelIndex,
-                                          rootRestPosition,
-                                          rootRestOrientation ) &&
+    if ( ReplayPredictionBodyRestingPose(
+             frames,
+             frameCount,
+             rootId,
+             rootModelIndex,
+             rootRestPosition,
+             rootRestOrientation
+         ) &&
          ReplayColliderRecordForModelIndex( &colliderStore, rootModelIndex ) )
     {
         RetainReplayPredictionRestMarker( prediction, rootId, rootModelIndex, rootRestPosition, rootRestOrientation );
@@ -654,26 +701,31 @@ void RetainReplayPredictionRootRestMarker( RunReplayPredictionState& prediction,
 }
 
 
-void RetainReplayPredictionAffectedBodyMarkers( const std::vector<RunReplayPredictionFrame>& frames,
-                                                std::size_t frameCount,
-                                                RunReplayPredictionState& prediction,
-                                                ReplayFrameIndex revealFrame,
-                                                bool bufferComplete,
-                                                Physics::PhysicsSceneObjectId rootId,
-                                                int rootModelIndex,
-                                                const std::vector<RunReplayPathTraceNode>& futureNodes,
-                                                const SceneEntityStore& collection,
-                                                const ColliderStore& colliderStore )
+void RetainReplayPredictionAffectedBodyMarkers(
+    const std::vector<RunReplayPredictionFrame>& frames,
+    std::size_t frameCount,
+    RunReplayPredictionState& prediction,
+    ReplayFrameIndex revealFrame,
+    bool bufferComplete,
+    Physics::PhysicsSceneObjectId rootId,
+    int rootModelIndex,
+    const std::vector<RunReplayPathTraceNode>& futureNodes,
+    const SceneEntityStore& collection,
+    const ColliderStore& colliderStore
+)
 {
     std::array<ReplayPredictionAffectedBodyTrail, REPLAY_PATH_MAX_FUTURE_NODES> trails = {};
-    const std::size_t trailCount = BuildReplayPredictionAffectedBodyTrails( frames,
-                                                                            frameCount,
-                                                                            revealFrame,
-                                                                            rootId,
-                                                                            rootModelIndex,
-                                                                            futureNodes,
-                                                                            collection,
-                                                                            trails );
+    const std::size_t trailCount = BuildReplayPredictionAffectedBodyTrails(
+        frames,
+        frameCount,
+        revealFrame,
+        rootId,
+        rootModelIndex,
+        futureNodes,
+        collection,
+        trails
+    );
+
     frameCount = (std::min)( frameCount, frames.size() );
     // Why: marker publication is bounded and independent of render traversal.
     // Once revealed, a causal box stays in the prediction owner's published
@@ -686,11 +738,13 @@ void RetainReplayPredictionAffectedBodyMarkers( const std::vector<RunReplayPredi
             continue;
         }
 
-        RetainReplayPredictionEntryMarker( prediction,
-                                           trail.id,
-                                           trail.modelRow.value,
-                                           trail.entryPosition,
-                                           trail.entryOrientation );
+        RetainReplayPredictionEntryMarker(
+            prediction,
+            trail.id,
+            trail.modelRow.value,
+            trail.entryPosition,
+            trail.entryOrientation
+        );
         // Why: grey exists only for stories that end at rest inside the
         // completed horizon - see RetainReplayPredictionCausalMarkers.
         if ( !bufferComplete || revealFrame < trail.lastMotionFrame + REPLAY_PREDICTION_REST_GRACE_FRAMES )
@@ -699,18 +753,22 @@ void RetainReplayPredictionAffectedBodyMarkers( const std::vector<RunReplayPredi
         }
         Vector3 restPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
         Quaternion restOrientation = IDENTITY_QUATERNION;
-        if ( ReplayPredictionBodyRestingPose( frames,
-                                              frameCount,
-                                              trail.id,
-                                              trail.modelRow.value,
-                                              restPosition,
-                                              restOrientation ) )
+        if ( ReplayPredictionBodyRestingPose(
+                 frames,
+                 frameCount,
+                 trail.id,
+                 trail.modelRow.value,
+                 restPosition,
+                 restOrientation
+             ) )
         {
-            RetainReplayPredictionRestMarker( prediction,
-                                              trail.id,
-                                              trail.modelRow.value,
-                                              restPosition,
-                                              restOrientation );
+            RetainReplayPredictionRestMarker(
+                prediction,
+                trail.id,
+                trail.modelRow.value,
+                restPosition,
+                restOrientation
+            );
         }
     }
 }
@@ -724,26 +782,30 @@ struct ReplayPredictionFutureContext
     bool includeRagdollVisuals = true;
 };
 
-bool TryGetReplayPredictionFutureDepth( const ReplayPredictionFutureContext& context,
-                                        Physics::PhysicsSceneObjectId id,
-                                        ReplayFrameIndex frame,
-                                        int& outDepth )
+bool TryGetReplayPredictionFutureDepth(
+    const ReplayPredictionFutureContext& context,
+    Physics::PhysicsSceneObjectId id,
+    ReplayFrameIndex frame,
+    int& outDepth
+)
 {
     const std::vector<RunReplayPathTraceNode>& nodes =
         context.nodes ? *context.nodes : context.prediction->futureNodeCache.futureNodeBuildScratch;
     return TryGetReplayFutureDepthInNodes( nodes, context.rootId, 0, false, id, frame, outDepth );
 }
 
-void AddReplayPredictionFutureNode( ReplayPredictionFutureContext& context,
-                                    Physics::PhysicsSceneObjectId parentId,
-                                    int parentModelIndex,
-                                    Physics::PhysicsSceneObjectId id,
-                                    int modelIndex,
-                                    ReplayFrameIndex firstFrame,
-                                    const Vector3& contactPoint,
-                                    const Vector3& contactNormal,
-                                    int depth,
-                                    bool contactDerived )
+void AddReplayPredictionFutureNode(
+    ReplayPredictionFutureContext& context,
+    Physics::PhysicsSceneObjectId parentId,
+    int parentModelIndex,
+    Physics::PhysicsSceneObjectId id,
+    int modelIndex,
+    ReplayFrameIndex firstFrame,
+    const Vector3& contactPoint,
+    const Vector3& contactNormal,
+    int depth,
+    bool contactDerived
+)
 {
     if ( id.value == 0 || id.value == context.rootId.value || !context.nodes )
     {
@@ -757,16 +819,18 @@ void AddReplayPredictionFutureNode( ReplayPredictionFutureContext& context,
         // earlier motion-only fallback for the same future body.
         if ( contactDerived && !existing->contactDerived )
         {
-            AssignReplayFutureNode( *existing,
-                                    parentId,
-                                    parentModelIndex,
-                                    id,
-                                    modelIndex,
-                                    firstFrame,
-                                    contactPoint,
-                                    contactNormal,
-                                    depth,
-                                    true );
+            AssignReplayFutureNode(
+                *existing,
+                parentId,
+                parentModelIndex,
+                id,
+                modelIndex,
+                firstFrame,
+                contactPoint,
+                contactNormal,
+                depth,
+                true
+            );
         }
         return;
     }
@@ -777,25 +841,29 @@ void AddReplayPredictionFutureNode( ReplayPredictionFutureContext& context,
     }
 
     RunReplayPathTraceNode node;
-    AssignReplayFutureNode( node,
-                            parentId,
-                            parentModelIndex,
-                            id,
-                            modelIndex,
-                            firstFrame,
-                            contactPoint,
-                            contactNormal,
-                            depth,
-                            contactDerived );
+    AssignReplayFutureNode(
+        node,
+        parentId,
+        parentModelIndex,
+        id,
+        modelIndex,
+        firstFrame,
+        contactPoint,
+        contactNormal,
+        depth,
+        contactDerived
+    );
     nodes.push_back( node );
 }
 
-bool BuildReplayPredictionFutureNodes( const RunReplayPredictionFrame& frame,
-                                       ReplayPredictionFutureContext& context,
-                                       std::size_t startContactIndex,
-                                       const std::chrono::steady_clock::time_point& budgetStart,
-                                       double budgetMilliseconds,
-                                       std::size_t& outNextContactIndex )
+bool BuildReplayPredictionFutureNodes(
+    const RunReplayPredictionFrame& frame,
+    ReplayPredictionFutureContext& context,
+    std::size_t startContactIndex,
+    const std::chrono::steady_clock::time_point& budgetStart,
+    double budgetMilliseconds,
+    std::size_t& outNextContactIndex
+)
 {
     return BuildReplayFutureNodesFromContacts(
         frame.debugContacts,
@@ -816,26 +884,31 @@ bool BuildReplayPredictionFutureNodes( const RunReplayPredictionFrame& frame,
              int depth,
              bool contactDerived )
         {
-            AddReplayPredictionFutureNode( context,
-                                           parentId,
-                                           parentModelIndex,
-                                           id,
-                                           modelIndex,
-                                           firstFrame,
-                                           contactPoint,
-                                           contactNormal,
-                                           depth,
-                                           contactDerived );
+            AddReplayPredictionFutureNode(
+                context,
+                parentId,
+                parentModelIndex,
+                id,
+                modelIndex,
+                firstFrame,
+                contactPoint,
+                contactNormal,
+                depth,
+                contactDerived
+            );
         },
         [&]() { return ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ); },
-        outNextContactIndex );
+        outNextContactIndex
+    );
 }
 
-bool ReplayPredictionBodyReachedActivationDisplacement( const RunReplayPredictionBodySample& initialBody,
-                                                        const RunReplayPredictionBodySample& body,
-                                                        Vector3& previousPosition,
-                                                        float& accumulatedDisplacement,
-                                                        Vector3& outActivationDelta )
+bool ReplayPredictionBodyReachedActivationDisplacement(
+    const RunReplayPredictionBodySample& initialBody,
+    const RunReplayPredictionBodySample& body,
+    Vector3& previousPosition,
+    float& accumulatedDisplacement,
+    Vector3& outActivationDelta
+)
 {
     const Vector3 frameDelta = body.position - previousPosition;
     previousPosition = body.position;
@@ -846,11 +919,13 @@ bool ReplayPredictionBodyReachedActivationDisplacement( const RunReplayPredictio
            VectorMagSquared( outActivationDelta ) >= REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE_SQ;
 }
 
-bool BuildReplayPredictionAffectedFutureNodes( const std::vector<RunReplayPredictionFrame>& frames,
-                                               std::size_t frameCount,
-                                               ReplayPredictionFutureContext& context,
-                                               const std::chrono::steady_clock::time_point& budgetStart,
-                                               double budgetMilliseconds )
+bool BuildReplayPredictionAffectedFutureNodes(
+    const std::vector<RunReplayPredictionFrame>& frames,
+    std::size_t frameCount,
+    ReplayPredictionFutureContext& context,
+    const std::chrono::steady_clock::time_point& budgetStart,
+    double budgetMilliseconds
+)
 {
     frameCount = (std::min)( frameCount, frames.size() );
     if ( frameCount < 2 || context.rootId.value == 0 || !context.nodes )
@@ -904,11 +979,13 @@ bool BuildReplayPredictionAffectedFutureNodes( const std::vector<RunReplayPredic
             }
 
             Vector3 activationDelta;
-            if ( !ReplayPredictionBodyReachedActivationDisplacement( initialBody,
-                                                                     *body,
-                                                                     previousPosition,
-                                                                     accumulatedDisplacement,
-                                                                     activationDelta ) )
+            if ( !ReplayPredictionBodyReachedActivationDisplacement(
+                     initialBody,
+                     *body,
+                     previousPosition,
+                     accumulatedDisplacement,
+                     activationDelta
+                 ) )
             {
                 continue;
             }
@@ -921,24 +998,29 @@ bool BuildReplayPredictionAffectedFutureNodes( const std::vector<RunReplayPredic
                 body->modelRow.value,
                 frames[frameSlot].frameIndex,
                 body->position,
-                ReplayNormalizeOr( activationDelta,
-                                   ReplayNormalizeOr( body->linearVelocity, Vector3( 0.0f, 1.0f, 0.0f ) ) ),
+                ReplayNormalizeOr(
+                    activationDelta,
+                    ReplayNormalizeOr( body->linearVelocity, Vector3( 0.0f, 1.0f, 0.0f ) )
+                ),
                 1,
-                false );
+                false
+            );
             break;
         }
     }
     return true;
 }
 
-void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction,
-                                            const std::vector<RunReplayPredictionFrame>& frames,
-                                            std::size_t frameCount,
-                                            bool usingBuildFrames,
-                                            const SceneEntityStore& collection,
-                                            Physics::PhysicsSceneObjectId rootId,
-                                            const std::chrono::steady_clock::time_point& budgetStart,
-                                            double budgetMilliseconds )
+void UpdateReplayPredictionFutureNodeCache(
+    RunReplayPredictionState& prediction,
+    const std::vector<RunReplayPredictionFrame>& frames,
+    std::size_t frameCount,
+    bool usingBuildFrames,
+    const SceneEntityStore& collection,
+    Physics::PhysicsSceneObjectId rootId,
+    const std::chrono::steady_clock::time_point& budgetStart,
+    double budgetMilliseconds
+)
 {
     // Invariant: frameCount is the populated prefix of frames. buildFrames is
     // pre-sized for the whole prediction horizon, so using frames.size() while
@@ -981,9 +1063,11 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
         // Why: the renderer reads futureNodes only after this builder returns.
         // Copying the scratch prefix here lets cause/effect paths grow over
         // frames without exposing a vector while it is being mutated.
-        const bool topologyChanged =
-            !ReplayFutureNodeTopologyEquals( prediction.futureNodeCache.futureNodes,
-                                             prediction.futureNodeCache.futureNodeBuildScratch );
+        const bool topologyChanged = !ReplayFutureNodeTopologyEquals(
+            prediction.futureNodeCache.futureNodes,
+            prediction.futureNodeCache.futureNodeBuildScratch
+        );
+
         prediction.futureNodeCache.futureNodes = prediction.futureNodeCache.futureNodeBuildScratch;
         if ( topologyChanged )
         {
@@ -1011,12 +1095,14 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
     {
         const std::size_t frameIndex = prediction.futureNodeCache.futureNodesBuiltFrameCount;
         std::size_t nextContactIndex = prediction.futureNodeCache.futureNodesBuiltContactIndex;
-        if ( !BuildReplayPredictionFutureNodes( frames[frameIndex],
-                                                futureContext,
-                                                prediction.futureNodeCache.futureNodesBuiltContactIndex,
-                                                budgetStart,
-                                                budgetMilliseconds,
-                                                nextContactIndex ) )
+        if ( !BuildReplayPredictionFutureNodes(
+                 frames[frameIndex],
+                 futureContext,
+                 prediction.futureNodeCache.futureNodesBuiltContactIndex,
+                 budgetStart,
+                 budgetMilliseconds,
+                 nextContactIndex
+             ) )
         {
             prediction.futureNodeCache.futureNodesBuiltContactIndex = nextContactIndex;
             publishScratch();
@@ -1040,11 +1126,13 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
     }
 
     if ( prediction.futureNodeCache.futureNodeBuildScratch.size() < REPLAY_PATH_MAX_FUTURE_NODES &&
-         !BuildReplayPredictionAffectedFutureNodes( frames,
-                                                    frameCount,
-                                                    futureContext,
-                                                    budgetStart,
-                                                    budgetMilliseconds ) )
+         !BuildReplayPredictionAffectedFutureNodes(
+             frames,
+             frameCount,
+             futureContext,
+             budgetStart,
+             budgetMilliseconds
+         ) )
     {
         publishScratch();
         return;
@@ -1064,9 +1152,11 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
 }
 
 
-void RebuildReplayPredictionCommittedTreeAfterWorkerCompletion( RunReplayPredictionState& prediction,
-                                                                const SceneEntityStore& modelCollection,
-                                                                Physics::PhysicsSceneObjectId rootId )
+void RebuildReplayPredictionCommittedTreeAfterWorkerCompletion(
+    RunReplayPredictionState& prediction,
+    const SceneEntityStore& modelCollection,
+    Physics::PhysicsSceneObjectId rootId
+)
 {
     if ( rootId.value == 0 || prediction.simulation.frames.size() < 2u )
     {
@@ -1079,30 +1169,37 @@ void RebuildReplayPredictionCommittedTreeAfterWorkerCompletion( RunReplayPredict
     // passes ran before the worker completed.
     ClearReplayPredictionFutureNodeCache( prediction );
     const auto rebuildStart = std::chrono::steady_clock::now();
-    UpdateReplayPredictionFutureNodeCache( prediction,
-                                           prediction.simulation.frames,
-                                           prediction.simulation.frames.size(),
-                                           false,
-                                           modelCollection,
-                                           rootId,
-                                           rebuildStart,
-                                           0.0 );
-    UpdateReplayPredictionTrajectoryStore( prediction,
-                                           prediction.simulation.frames,
-                                           prediction.simulation.frames.size(),
-                                           false,
-                                           rootId );
+    UpdateReplayPredictionFutureNodeCache(
+        prediction,
+        prediction.simulation.frames,
+        prediction.simulation.frames.size(),
+        false,
+        modelCollection,
+        rootId,
+        rebuildStart,
+        0.0
+    );
+
+    UpdateReplayPredictionTrajectoryStore(
+        prediction,
+        prediction.simulation.frames,
+        prediction.simulation.frames.size(),
+        false,
+        rootId
+    );
 }
 
 
-void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction,
-                                     const SceneEntityStore& modelCollection,
-                                     const ColliderStore& colliderStore,
-                                     Physics::PhysicsSceneObjectId targetId,
-                                     ModelRowHint targetModelRow,
-                                     bool targetAvailable,
-                                     double budgetMilliseconds,
-                                     ReplayPredictionUpdateResult& result )
+void PrepareReplayPredictionOverlay(
+    RunReplayPredictionState& prediction,
+    const SceneEntityStore& modelCollection,
+    const ColliderStore& colliderStore,
+    Physics::PhysicsSceneObjectId targetId,
+    ModelRowHint targetModelRow,
+    bool targetAvailable,
+    double budgetMilliseconds,
+    ReplayPredictionUpdateResult& result
+)
 {
     const bool usingBuildFrames = prediction.BuildPrefixShouldBePresented();
     const std::vector<RunReplayPredictionFrame>& activePredictionFrames =
@@ -1116,9 +1213,10 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction,
         // next preparation pass.
         const std::size_t workerPublishedCount = prediction.PublishedBuildFrameCount();
         prediction.build.presentationPublication.Prepare( workerPublishedCount, activePredictionFrames.size() );
-        activePredictionFrameCount =
-            prediction.build.presentationPublication.PresentedCount( workerPublishedCount,
-                                                                     activePredictionFrames.size() );
+        activePredictionFrameCount = prediction.build.presentationPublication.PresentedCount(
+            workerPublishedCount,
+            activePredictionFrames.size()
+        );
     }
     if ( activePredictionFrameCount < 2 )
     {
@@ -1143,36 +1241,43 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction,
 
     if ( bufferComplete )
     {
-        RetainReplayPredictionRootRestMarker( prediction,
-                                              activePredictionFrames,
-                                              activePredictionFrameCount,
-                                              drawWindow.revealFrame,
-                                              targetId,
-                                              targetModelRow.value,
-                                              colliderStore );
+        RetainReplayPredictionRootRestMarker(
+            prediction,
+            activePredictionFrames,
+            activePredictionFrameCount,
+            drawWindow.revealFrame,
+            targetId,
+            targetModelRow.value,
+            colliderStore
+        );
     }
 
     const auto buildBudgetStart = std::chrono::steady_clock::now();
     if ( prediction.enabled )
     {
-        UpdateReplayPredictionFutureNodeCache( prediction,
-                                               activePredictionFrames,
-                                               activePredictionFrameCount,
-                                               usingBuildFrames,
-                                               modelCollection,
-                                               targetId,
-                                               buildBudgetStart,
-                                               budgetMilliseconds );
-        UpdateReplayPredictionTrajectoryStore( prediction,
-                                               activePredictionFrames,
-                                               activePredictionFrameCount,
-                                               usingBuildFrames,
-                                               targetId );
+        UpdateReplayPredictionFutureNodeCache(
+            prediction,
+            activePredictionFrames,
+            activePredictionFrameCount,
+            usingBuildFrames,
+            modelCollection,
+            targetId,
+            buildBudgetStart,
+            budgetMilliseconds
+        );
+        UpdateReplayPredictionTrajectoryStore(
+            prediction,
+            activePredictionFrames,
+            activePredictionFrameCount,
+            usingBuildFrames,
+            targetId
+        );
         (void)ReplayPredictionBudgetExpiredForPass(
             result,
             SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionBuildTree,
             buildBudgetStart,
-            budgetMilliseconds );
+            budgetMilliseconds
+        );
     }
 
     const bool futureTreeReady =
@@ -1180,34 +1285,42 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction,
     if ( futureTreeReady )
     {
         ReplayPathChildDrawContext childDraw;
-        BuildReplayPredictionChildMarkerContext( childDraw,
-                                                 prediction,
-                                                 activePredictionFrames,
-                                                 activePredictionFrameCount,
-                                                 drawWindow.revealFrame );
-        RetainReplayPredictionCausalMarkers( prediction,
-                                             childDraw,
-                                             drawWindow.revealFrame,
-                                             bufferComplete ? &activePredictionFrames : nullptr,
-                                             bufferComplete ? activePredictionFrameCount : 0 );
+        BuildReplayPredictionChildMarkerContext(
+            childDraw,
+            prediction,
+            activePredictionFrames,
+            activePredictionFrameCount,
+            drawWindow.revealFrame
+        );
+        RetainReplayPredictionCausalMarkers(
+            prediction,
+            childDraw,
+            drawWindow.revealFrame,
+            bufferComplete ? &activePredictionFrames : nullptr,
+            bufferComplete ? activePredictionFrameCount : 0
+        );
     }
 
-    RetainReplayPredictionAffectedBodyMarkers( activePredictionFrames,
-                                               activePredictionFrameCount,
-                                               prediction,
-                                               drawWindow.revealFrame,
-                                               bufferComplete,
-                                               targetId,
-                                               targetModelRow.value,
-                                               prediction.futureNodeCache.futureNodes,
-                                               modelCollection,
-                                               colliderStore );
+    RetainReplayPredictionAffectedBodyMarkers(
+        activePredictionFrames,
+        activePredictionFrameCount,
+        prediction,
+        drawWindow.revealFrame,
+        bufferComplete,
+        targetId,
+        targetModelRow.value,
+        prediction.futureNodeCache.futureNodes,
+        modelCollection,
+        colliderStore
+    );
     if ( bufferComplete )
     {
-        RetainReplayPredictionEndStateMarkers( prediction,
-                                               drawWindow.revealFrame,
-                                               activePredictionFrames,
-                                               activePredictionFrameCount );
+        RetainReplayPredictionEndStateMarkers(
+            prediction,
+            drawWindow.revealFrame,
+            activePredictionFrames,
+            activePredictionFrameCount
+        );
     }
 }
 

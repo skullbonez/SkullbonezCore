@@ -336,15 +336,19 @@ class RuntimeInputContext
 class InputController
 {
   public:
-    static void BeginFrame( RuntimeInputContext& context,
-                            const RuntimeInputModeState& modeState,
-                            bool appFocused,
-                            bool uiBlocksKeyboard,
-                            bool uiBlocksMouse );
-    static void ApplyModeAction( RuntimeInputContext& context,
-                                 RuntimeInputMode mode,
-                                 RuntimeInputAction action,
-                                 RuntimeInputActionSource source );
+    static void BeginFrame(
+        RuntimeInputContext& context,
+        const RuntimeInputModeState& modeState,
+        bool appFocused,
+        bool uiBlocksKeyboard,
+        bool uiBlocksMouse
+    );
+    static void ApplyModeAction(
+        RuntimeInputContext& context,
+        RuntimeInputMode mode,
+        RuntimeInputAction action,
+        RuntimeInputActionSource source
+    );
     static RuntimeInputMode ResolveMode( const RuntimeInputModeState& state );
     static const char* DescribeMode( RuntimeInputMode mode );
     static const char* DescribeAction( RuntimeInputAction action );
@@ -353,12 +357,14 @@ class InputController
     static void ResetUnfocusedInput( CameraControlState& camera );
     static void ResetMouseLook( CameraControlState& camera );
     static void SetMouseLookDelta( CameraControlState& camera, long rawX, long rawY );
-    static RuntimeCameraInputFrameResult ApplyCameraInputFrame( CameraControlState& camera,
-                                                                const RuntimeCameraInputFrameContext& context );
-    static void ApplyCameraMovement( CameraControlState& camera,
-                                     Environment::CameraCollection& cameras,
-                                     Geometry::Terrain& terrain,
-                                     const RuntimeCameraMovementInput& input );
+    static RuntimeCameraInputFrameResult
+    ApplyCameraInputFrame( CameraControlState& camera, const RuntimeCameraInputFrameContext& context );
+    static void ApplyCameraMovement(
+        CameraControlState& camera,
+        Environment::CameraCollection& cameras,
+        Geometry::Terrain& terrain,
+        const RuntimeCameraMovementInput& input
+    );
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

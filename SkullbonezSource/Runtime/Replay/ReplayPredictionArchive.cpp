@@ -313,9 +313,11 @@ bool ReadBoundedCount( ArchiveReader& reader, uint32_t maximum, uint32_t& count 
 
 namespace ReplayPredictionArchiveOperations
 {
-bool BuildReplayPredictionArchive( const RunReplayPathVisualizerState& pathVisualizer,
-                                   const RunReplayPredictionState& prediction,
-                                   std::vector<uint8_t>& outBytes )
+bool BuildReplayPredictionArchive(
+    const RunReplayPathVisualizerState& pathVisualizer,
+    const RunReplayPredictionState& prediction,
+    std::vector<uint8_t>& outBytes
+)
 {
     outBytes.clear();
     if ( prediction.build.building || !prediction.build.complete || prediction.simulation.frames.size() < 2u ||
@@ -481,11 +483,13 @@ bool BuildReplayPredictionArchive( const RunReplayPathVisualizerState& pathVisua
     return valid && !outBytes.empty();
 }
 
-bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes,
-                                  RunReplayPathVisualizerState& pathVisualizer,
-                                  RunReplayPredictionState& prediction,
-                                  char* outReason,
-                                  std::size_t reasonSize )
+bool LoadReplayPredictionArchive(
+    std::span<const uint8_t> bytes,
+    RunReplayPathVisualizerState& pathVisualizer,
+    RunReplayPredictionState& prediction,
+    char* outReason,
+    std::size_t reasonSize
+)
 {
     if ( bytes.size() > REPLAY_PREDICTION_ARCHIVE_MAX_BYTES )
     {
@@ -530,6 +534,7 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes,
     pathVisualizer.futureNodes.clear();
     pathVisualizer.targets.clear();
     pathVisualizer.pastTrajectory = {};
+
     state.simulation.frames.clear();
     state.futureNodeCache.futureNodes.clear();
     state.trajectoryStore.records.clear();

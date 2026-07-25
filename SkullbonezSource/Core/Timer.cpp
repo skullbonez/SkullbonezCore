@@ -39,7 +39,8 @@ SkullbonezCore::Core::SbResult NoPerformanceCounterSupport( const char* failedCa
     return SkullbonezCore::Core::SbResult::Failure(
         "Core/Timer",
         "This system does not support high resolution counters (%s failed).",
-        failedCall && failedCall[0] != '\0' ? failedCall : "counter query" );
+        failedCall && failedCall[0] != '\0' ? failedCall : "counter query"
+    );
 }
 } // namespace
 

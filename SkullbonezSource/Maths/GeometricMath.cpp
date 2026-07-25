@@ -73,7 +73,7 @@ Vector3 GeometricMath::ComputeTriangleNormal( const Triangle& triangle )
 //   d = dot( n, v1 )
 Plane GeometricMath::ComputePlane( const Triangle& triangle )
 {
-    Plane plane{};
+    Plane plane {};
 
     plane.m_normal = GeometricMath::ComputeTriangleNormal( triangle );
 
@@ -98,8 +98,8 @@ float GeometricMath::DeterminePointDistFromPlane( const Plane& plane, const Vect
 }
 
 
-GeometricMath::PointPlaneClassification GeometricMath::ClassifyPointAgainstPlane( const Plane& plane,
-                                                                                  const Vector3& point )
+GeometricMath::PointPlaneClassification
+GeometricMath::ClassifyPointAgainstPlane( const Plane& plane, const Vector3& point )
 {
     // determine the m_distance the point is to the plane
     float result = GeometricMath::DeterminePointDistFromPlane( plane, point );
@@ -228,8 +228,9 @@ Vector3 GeometricMath::ComputeIntersectionPoint( const Plane& plane, const Ray& 
 
     // Missable callers should query time first. Keep a Debug contract check,
     // while Release preserves the mathematical extrapolation instead of dying.
-    assert( collisionTime <= 1.0f && collisionTime >= 0.0f &&
-            "ComputeIntersectionPoint requires a collision time in [0,1]" );
+    assert(
+        collisionTime <= 1.0f && collisionTime >= 0.0f && "ComputeIntersectionPoint requires a collision time in [0,1]"
+    );
 
     // translate from the origin of the ray along the ray until the collision
     // occurs, and return this vector
@@ -402,9 +403,11 @@ Vector3 GeometricMath::ComputeBarycentricCoordinates( const Triangle& triangle, 
     // keeps IEEE propagation for this private calculation and never exits.
     assert( denominator != 0.0f && "ComputeBarycentricCoordinates requires a non-collinear triangle" );
 
-    Vector3 barycentricResult = Vector3( ( v2_p_axis2 * v2_v1_axis1 - v2_v1_axis2 * v2_p_axis1 ) / denominator,
-                                         ( v0_p_axis2 * v2_v0_axis1 - v2_v0_axis2 * v0_p_axis1 ) / -denominator,
-                                         0.0f );
+    Vector3 barycentricResult = Vector3(
+        ( v2_p_axis2 * v2_v1_axis1 - v2_v1_axis2 * v2_p_axis1 ) / denominator,
+        ( v0_p_axis2 * v2_v0_axis1 - v2_v0_axis2 * v0_p_axis1 ) / -denominator,
+        0.0f
+    );
 
     // derrive the Z component
     barycentricResult.z = 1.0f - barycentricResult.x - barycentricResult.y;

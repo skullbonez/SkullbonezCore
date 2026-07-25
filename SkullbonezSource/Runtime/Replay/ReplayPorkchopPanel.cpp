@@ -73,8 +73,10 @@ void ReplayPorkchopPanel::Reset() noexcept
     ClearSweep();
 }
 
-bool ReplayPorkchopPanel::NeedsRefresh( Physics::PhysicsSceneObjectId targetId,
-                                        bool mutualGravityEnabled ) const noexcept
+bool ReplayPorkchopPanel::NeedsRefresh(
+    Physics::PhysicsSceneObjectId targetId,
+    bool mutualGravityEnabled
+) const noexcept
 {
     return m_view.visible &&
            ( m_refreshRequested || targetId != m_view.targetId || mutualGravityEnabled != m_lastMutualGravityEnabled );
@@ -175,10 +177,12 @@ bool ReplayPorkchopPanel::ComputeCell( std::size_t cellIndex, float& outDeltaV )
     Vector3 targetVelocity;
     if ( Math::Orbital::PropagateToTime( m_departureOrbit, departureDelay, departurePosition, departureVelocity ) !=
              OrbitalStatus::Ok ||
-         Math::Orbital::PropagateToTime( m_targetOrbit,
-                                         departureDelay + timeOfFlight,
-                                         targetPosition,
-                                         targetVelocity ) != OrbitalStatus::Ok )
+         Math::Orbital::PropagateToTime(
+             m_targetOrbit,
+             departureDelay + timeOfFlight,
+             targetPosition,
+             targetVelocity
+         ) != OrbitalStatus::Ok )
     {
         return false;
     }

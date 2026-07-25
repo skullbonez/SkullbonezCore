@@ -105,7 +105,7 @@ enum class ReplayScrubberControl : uint32_t
 
 inline RuntimeUiControlId ReplayScrubberControlId( ReplayScrubberControl control )
 {
-    return RuntimeUiControlId{ static_cast<uint32_t>( control ) };
+    return RuntimeUiControlId { static_cast<uint32_t>( control ) };
 }
 
 struct ReplayScrubberSurfaceInput
@@ -138,7 +138,7 @@ enum class ReplayTripPlannerControl : uint32_t
 
 inline RuntimeUiControlId ReplayTripPlannerControlId( ReplayTripPlannerControl control )
 {
-    return RuntimeUiControlId{ static_cast<uint32_t>( control ) };
+    return RuntimeUiControlId { static_cast<uint32_t>( control ) };
 }
 
 using ReplayTripPlannerSurface = RuntimeUiSurface<6>;
@@ -154,21 +154,23 @@ enum class ReplayCauseWindowControl : uint32_t
 
 inline RuntimeUiControlId ReplayCauseWindowControlId( ReplayCauseWindowControl control )
 {
-    return RuntimeUiControlId{ static_cast<uint32_t>( control ) };
+    return RuntimeUiControlId { static_cast<uint32_t>( control ) };
 }
 
 using ReplayCauseWindowSurface = RuntimeUiSurface<4>;
 
 // Derives track/tool availability from replay state. Callers then add their
 // one-frame screen, gesture, and pointer-blocking facts before surface layout.
-ReplayScrubberSurfaceInput DescribeReplayScrubberAvailability( const ReplayScrubberView& scrubber,
-                                                               const ReplayRecorderStats& solverStats,
-                                                               bool loadedPresentation,
-                                                               bool pathTargetAvailable,
-                                                               bool predictionTimelineAvailable,
-                                                               bool currentPresentationAvailable,
-                                                               bool currentSolverAvailable,
-                                                               bool scenePhysicsEnabled );
+ReplayScrubberSurfaceInput DescribeReplayScrubberAvailability(
+    const ReplayScrubberView& scrubber,
+    const ReplayRecorderStats& solverStats,
+    bool loadedPresentation,
+    bool pathTargetAvailable,
+    bool predictionTimelineAvailable,
+    bool currentPresentationAvailable,
+    bool currentSolverAvailable,
+    bool scenePhysicsEnabled
+);
 void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, ReplayScrubberSurface& outSurface );
 void BuildReplayCauseWindowSurface( const RunReplayCauseTreeState& state, ReplayCauseWindowSurface& outSurface );
 
@@ -179,9 +181,11 @@ UI::UIRect ReplayPorkchopPanelRect( int screenW );
 UI::UIRect ReplayPorkchopGridRect( int screenW );
 UI::UIRect ReplayPorkchopCellRect( int screenW, std::size_t cellIndex );
 bool ReplayPorkchopCellAtPointer( int screenW, int pointerX, int pointerY, std::size_t& outCellIndex );
-void BuildReplayTripPlannerSurface( const ReplayTripPlannerView& planner,
-                                    int screenW,
-                                    ReplayTripPlannerSurface& outSurface );
+void BuildReplayTripPlannerSurface(
+    const ReplayTripPlannerView& planner,
+    int screenW,
+    ReplayTripPlannerSurface& outSurface
+);
 float ReplayScrubberRowCenterY( const UI::UIRect& panel, RunReplayTrack track );
 UI::UIRect ReplayScrubberSaveButtonRect( int screenW, int screenH, RunReplayTrack trackName );
 UI::UIRect ReplayScrubberLoadButtonRect( int screenW, int screenH, RunReplayTrack trackName );

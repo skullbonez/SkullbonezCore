@@ -28,8 +28,10 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-bool TryCaptureEditorPrimitiveShape( const Math::CollisionDetection::CollisionShape& shape,
-                                     EditorPrimitiveShapeSnapshot& outSnapshot )
+bool TryCaptureEditorPrimitiveShape(
+    const Math::CollisionDetection::CollisionShape& shape,
+    EditorPrimitiveShapeSnapshot& outSnapshot
+)
 {
     using namespace Math::CollisionDetection;
     outSnapshot = {};
@@ -52,8 +54,10 @@ bool TryCaptureEditorPrimitiveShape( const Math::CollisionDetection::CollisionSh
 }
 
 
-bool TryBuildEditorPrimitiveShape( const EditorPrimitiveShapeSnapshot& snapshot,
-                                   Math::CollisionDetection::CollisionShape& outShape )
+bool TryBuildEditorPrimitiveShape(
+    const EditorPrimitiveShapeSnapshot& snapshot,
+    Math::CollisionDetection::CollisionShape& outShape
+)
 {
     using namespace Math::CollisionDetection;
     if ( snapshot.kind == EditorPrimitiveShapeKind::Sphere )

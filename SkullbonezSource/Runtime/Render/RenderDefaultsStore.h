@@ -58,9 +58,10 @@ class RenderDefaultsStore
     const SkullbonezCore::Core::CinematicRenderConfig& CinematicBaseline() const;
     void SubmitOrdinarySave();
     void SubmitCinematicSave();
-    RenderDefaultsSaveBatchResult
-    DrainAtFrameCheckpoint( const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary,
-                            const SkullbonezCore::Core::CinematicRenderConfig& cinematic );
+    RenderDefaultsSaveBatchResult DrainAtFrameCheckpoint(
+        const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary,
+        const SkullbonezCore::Core::CinematicRenderConfig& cinematic
+    );
     std::size_t PendingCount() const;
     RenderDefaultsRequestType PendingTypeAt( std::size_t index ) const;
 

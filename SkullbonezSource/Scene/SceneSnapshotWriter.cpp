@@ -150,6 +150,7 @@ Json RenderMaterialJson( const char* target, const SkullbonezCore::Rendering::Re
         { "transmission", material.transmission },
         { "stylization", material.stylization },
     };
+
     if ( material.kind == SkullbonezCore::Rendering::RenderMaterialKind::Textured )
     {
         materialJson["mode"] = material.textureMode;
@@ -186,11 +187,13 @@ void AddSceneObjectGroupJson( Json& object, const SceneSaveView& scene, int enti
     const int rootIndex = scene.entities.FindBySceneObjectId( group.rootObjectId );
     if ( rootIndex < 0 || group.partIndex < 0 )
     {
-        SB_FATAL( "Scene/SceneSnapshotWriter",
-                  "Invalid releasable-tree group at save. row=%d root_id=%u part=%d",
-                  entityIndex,
-                  group.rootObjectId.value,
-                  group.partIndex );
+        SB_FATAL(
+            "Scene/SceneSnapshotWriter",
+            "Invalid releasable-tree group at save. row=%d root_id=%u part=%d",
+            entityIndex,
+            group.rootObjectId.value,
+            group.partIndex
+        );
     }
 
     object["objectGroup"] = {
@@ -217,17 +220,20 @@ LiveSceneRow ResolveLiveSceneRow( const SceneSaveView& scene, int entityIndex )
     const PhysicsBodyRecord* body = scene.bodies.RecordForHandle( entity.body );
     const int bodyIndex = scene.bodies.ModelIndexForHandle( entity.body );
     const PhysicsColliderHandle colliderHandle =
-        body ? scene.colliders.HandleForBodyHandle( body->handle ) : PhysicsColliderHandle{};
+        body ? scene.colliders.HandleForBodyHandle( body->handle ) : PhysicsColliderHandle {};
+
     const ColliderRecord* collider = scene.colliders.RecordForHandle( colliderHandle );
     const ColliderAuthoringRecord* colliderAuthoring = scene.colliders.AuthoringRecordForHandle( colliderHandle );
     if ( !body || bodyIndex < 0 || !collider || !colliderAuthoring || collider->body != body->handle ||
          body->sceneObjectId.value != entity.sceneObjectId.value ||
          collider->sceneObjectId.value != entity.sceneObjectId.value )
     {
-        SB_FATAL( "Scene/SceneSnapshotWriter",
-                  "Entity/body/collider identity topology diverged at save. row=%d entity_id=%u",
-                  entityIndex,
-                  entity.sceneObjectId.value );
+        SB_FATAL(
+            "Scene/SceneSnapshotWriter",
+            "Entity/body/collider identity topology diverged at save. row=%d entity_id=%u",
+            entityIndex,
+            entity.sceneObjectId.value
+        );
     }
     return { entity,
              *body,
@@ -254,6 +260,7 @@ Json BuildLiveStateJson( const SceneSaveView& scene, int entityIndex )
         { "inertia", Vec3Json( row.body.rotationalInertia ) },
         { "fixed", row.hotState.fixed },
     };
+
     // Invariant: part state overrides asset-recipe defaults in both
     // directions. Explicit false values are required so a live awake/release-
     // disabled body cannot inherit stale true authoring on reparse.
@@ -295,8 +302,8 @@ bool SameAssetInstance( const SceneAssetAffiliation& a, const SceneAssetAffiliat
 } // namespace
 
 
-SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveView& sceneView,
-                                                          const SceneSaveRequest& request )
+SkullbonezCore::Core::SbResult
+SceneSnapshotWriter::Save( const SceneSaveView& sceneView, const SceneSaveRequest& request )
 {
     // Invariant: Editable scene saves emit state-form objects whose positions,
     // velocities, sleeping flags, and materials can round-trip through
@@ -304,11 +311,13 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveView& s
     if ( sceneView.entities.Count() != sceneView.bodies.Count() ||
          sceneView.entities.Count() != sceneView.colliders.Count() )
     {
-        SB_FATAL( "Scene/SceneSnapshotWriter",
-                  "Save owner counts diverged. entities=%d bodies=%d colliders=%d",
-                  sceneView.entities.Count(),
-                  sceneView.bodies.Count(),
-                  sceneView.colliders.Count() );
+        SB_FATAL(
+            "Scene/SceneSnapshotWriter",
+            "Save owner counts diverged. entities=%d bodies=%d colliders=%d",
+            sceneView.entities.Count(),
+            sceneView.bodies.Count(),
+            sceneView.colliders.Count()
+        );
     }
 
     Json scene;
@@ -357,12 +366,14 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveView& s
     }
 
     scene["cameras"] = Json::array();
-    scene["cameras"].push_back( {
-        { "name", "main" },
-        { "position", Vec3Json( request.cameraEye ) },
-        { "view", Vec3Json( request.cameraView ) },
-        { "up", Vec3Json( request.cameraUp ) },
-    } );
+    scene["cameras"].push_back(
+        {
+            { "name", "main" },
+            { "position", Vec3Json( request.cameraEye ) },
+            { "view", Vec3Json( request.cameraView ) },
+            { "up", Vec3Json( request.cameraUp ) },
+        }
+    );
     scene["objects"] = Json::array();
     Json objectMaterials = Json::array();
 
@@ -375,10 +386,12 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveView& s
         const SceneEntityRecord& entity = sceneView.entities.At( i );
         if ( !entity.sceneObjectId.IsValid() || entity.displayName[0] == '\0' )
         {
-            SB_FATAL( "Scene/SceneSnapshotWriter",
-                      "Scene entity lacks durable identity or display name at save. row=%d id=%u",
-                      i,
-                      entity.sceneObjectId.value );
+            SB_FATAL(
+                "Scene/SceneSnapshotWriter",
+                "Scene entity lacks durable identity or display name at save. row=%d id=%u",
+                i,
+                entity.sceneObjectId.value
+            );
         }
         (void)ResolveLiveSceneRow( sceneView, i );
         const SceneBehaviorGroup& behaviorGroup = BehaviorGroupAt( sceneView, i );
@@ -401,10 +414,12 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveView& s
                 {
                     if ( !SameAssetInstance( entity.asset, partEntity.asset ) )
                     {
-                        SB_FATAL( "Scene/SceneSnapshotWriter",
-                                  "Asset instance affiliation disagrees across parts. root_id=%u row=%d",
-                                  entity.asset.rootObjectId.value,
-                                  candidate );
+                        SB_FATAL(
+                            "Scene/SceneSnapshotWriter",
+                            "Asset instance affiliation disagrees across parts. root_id=%u row=%d",
+                            entity.asset.rootObjectId.value,
+                            candidate
+                        );
                     }
                     partRows.push_back( candidate );
                 }
@@ -413,12 +428,15 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveView& s
                 partRows.begin(),
                 partRows.end(),
                 [&]( int a, int b )
-                { return sceneView.entities.At( a ).asset.partIndex < sceneView.entities.At( b ).asset.partIndex; } );
+                { return sceneView.entities.At( a ).asset.partIndex < sceneView.entities.At( b ).asset.partIndex; }
+            );
             if ( partRows.empty() )
             {
-                SB_FATAL( "Scene/SceneSnapshotWriter",
-                          "Asset root has no parts. root_id=%u",
-                          entity.sceneObjectId.value );
+                SB_FATAL(
+                    "Scene/SceneSnapshotWriter",
+                    "Asset root has no parts. root_id=%u",
+                    entity.sceneObjectId.value
+                );
             }
 
             Json instance = {
@@ -427,6 +445,7 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveView& s
                 { "position", Vec3Json( SkullbonezCore::Math::Vector::ZERO_VECTOR ) },
                 { "parts", Json::array() },
             };
+
             for ( std::size_t partOrdinal = 0; partOrdinal < partRows.size(); ++partOrdinal )
             {
                 const int partRow = partRows[partOrdinal];
@@ -434,11 +453,13 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveView& s
                 if ( partEntity.asset.partIndex != partOrdinal ||
                      emittedAssetRows[static_cast<std::size_t>( partRow )] )
                 {
-                    SB_FATAL( "Scene/SceneSnapshotWriter",
-                              "Asset part order is not unique and contiguous. root_id=%u expected=%zu actual=%u",
-                              entity.sceneObjectId.value,
-                              partOrdinal,
-                              partEntity.asset.partIndex );
+                    SB_FATAL(
+                        "Scene/SceneSnapshotWriter",
+                        "Asset part order is not unique and contiguous. root_id=%u expected=%zu actual=%u",
+                        entity.sceneObjectId.value,
+                        partOrdinal,
+                        partEntity.asset.partIndex
+                    );
                 }
                 Json partState = BuildLiveStateJson( sceneView, partRow );
                 partState["name"] = partEntity.asset.partName;
@@ -456,11 +477,13 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveView& s
             }
             scene["assetInstances"].push_back( std::move( instance ) );
 
-            const bool libraryAlreadyEmitted =
-                std::any_of( scene["assetLibraries"].begin(),
-                             scene["assetLibraries"].end(),
-                             [&]( const Json& value )
-                             { return value.is_string() && value.get<std::string>() == entity.asset.libraryToken; } );
+            const bool libraryAlreadyEmitted = std::any_of(
+                scene["assetLibraries"].begin(),
+                scene["assetLibraries"].end(),
+                [&]( const Json& value )
+                { return value.is_string() && value.get<std::string>() == entity.asset.libraryToken; }
+            );
+
             if ( !libraryAlreadyEmitted )
             {
                 scene["assetLibraries"].push_back( entity.asset.libraryToken );
@@ -512,9 +535,11 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveView& s
             if ( bodyAIndex < 0 || bodyBIndex < 0 || bodyAIndex >= sceneView.entities.Count() ||
                  bodyBIndex >= sceneView.entities.Count() )
             {
-                SB_FATAL( "Scene/SceneSnapshotWriter",
-                          "Point joint references a missing scene body. joint=%d",
-                          jointIndex );
+                SB_FATAL(
+                    "Scene/SceneSnapshotWriter",
+                    "Point joint references a missing scene body. joint=%d",
+                    jointIndex
+                );
             }
             Json jointJson = {
                 { "bodyA", sceneView.entities.At( bodyAIndex ).displayName },
@@ -526,6 +551,7 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveView& s
                 { "damping", joint.damping },
                 { "groupId", joint.groupId },
             };
+
             if ( joint.flags != 0 )
             {
                 jointJson["flags"] = static_cast<int>( joint.flags );
@@ -540,16 +566,20 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveView& s
     std::ofstream output;
     if ( !request.path || request.path[0] == '\0' || !RuntimeFileWriter::OpenTextFile( request.path, output ) )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneSnapshotWriter",
-                                                        "Failed to open scene snapshot path '%s' for writing.",
-                                                        request.path ? request.path : "" );
+        return SkullbonezCore::Core::SbResult::Failure(
+            "Scene/SceneSnapshotWriter",
+            "Failed to open scene snapshot path '%s' for writing.",
+            request.path ? request.path : ""
+        );
     }
     output << serializedScene << '\n';
     if ( !output.good() )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneSnapshotWriter",
-                                                        "Failed while writing scene snapshot '%s'.",
-                                                        request.path );
+        return SkullbonezCore::Core::SbResult::Failure(
+            "Scene/SceneSnapshotWriter",
+            "Failed while writing scene snapshot '%s'.",
+            request.path
+        );
     }
     return SkullbonezCore::Core::SbResult::Success();
 }
