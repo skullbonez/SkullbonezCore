@@ -11,17 +11,17 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-25th-JUL-26` |
-| Current baseline | UI / Renderer Hard Boundary is complete at 7/7. Header Claim Staleness Remediation is complete at 3/3: 18 false-claim sites and 21 dead pointers are repaired, claim verification is governed, and the mechanical resolver passes 552 files / 1,459 paths. Both completed plans are removed from the live ledger. |
-| Current objective | Execute `replay-subsystem-partition` RS0. |
-| Active/future progress | Replay Subsystem Partition 0/6; Downward Domain Bleed Remediation 0/6; Invariant Ownership Governance And Transaction Repair 1/5; active/future ledger 1/17. |
+| Current baseline | Replay Subsystem Partition RS0 is complete: all 72 files, 188 internal edges, 35 external include sites, 26 upward-edge resolutions, and three reserve owners are ratified in the permanent census. |
+| Current objective | Execute `replay-subsystem-partition` RS1 and extract `Runtime/Prediction`. |
+| Active/future progress | Replay Subsystem Partition 1/6; Downward Domain Bleed Remediation 0/6; Invariant Ownership Governance And Transaction Repair 1/5; active/future ledger 2/17. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | UR6 `validate_full.bat` passes: mandatory CPU umbrella plus all five Automation, replay/prediction, DX12, and physics engine processes. |
-| Validation for current edits | Header-claim checker self-test passes root/local/ancestor/unique resolution and ambiguous/dead rejection; direct sweep passes 552 files / 1,459 paths / zero findings; final `tools\validate_fast.bat` passes formatting, metadata, dependency graph, tests, and Profile/Debug builds. |
+| Validation for current edits | RS0 is documentation-only; no repository validation required. Census proof: 72 files / 41,849 physical / 37,022 nonblank lines; 188 internal edges; 35 external include sites; three reserve owners. |
 
 ## Live Queue
 
-NOW. The 2026-07-25 round-4 architecture campaign is active at 1/17 with
-binding order: `replay-subsystem-partition` (0/6),
+NOW. The 2026-07-25 round-4 architecture campaign is active at 2/17 with
+binding order: `replay-subsystem-partition` (1/6),
 `downward-domain-bleed-remediation` (0/6), then
 `invariant-ownership-governance-and-transaction-repair` (1/5).
 
@@ -29,8 +29,11 @@ Header Claim Staleness Remediation is complete at 3/3 and removed from the live
 inventory under rule 4. Permanent evidence is
 `Agentic/Reports/2026-07-25/header-claim-staleness-remediation-closure.md`.
 Its corrected ownership claims and durable `Related:` paths are now the source
-context for Replay RS0 and later GV work. Implementation continues through the
-repository orchestrator skill with Replay RS0 next. Live plans are under
+context for Replay and later GV work. Replay RS0 is complete; its permanent
+census is
+`Agentic/Reports/2026-07-25/replay-subsystem-partition-rs0-census.md`.
+Implementation continues through the repository orchestrator skill with Replay
+RS1 next. Live plans are under
 `Agentic/Plans/TODO/`.
 
 NOW. `solar-prediction-presentation-correction` is complete at 4/4. The
@@ -442,6 +445,7 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Begin `replay-subsystem-partition` RS0 using the repository orchestrator skill.
-The permanent header-claim closure evidence is
-`Agentic/Reports/2026-07-25/header-claim-staleness-remediation-closure.md`.
+Execute `replay-subsystem-partition` RS1: move the 18 ratified prediction
+files into `Runtime/Prediction`, apply the RS0 seam rulings needed for the
+move, update consumers/projects/filters/allocation paths, and run the mapped
+single-invocation gates without refreshing any baseline.

@@ -4,7 +4,7 @@ Date: 2026-07-25
 
 Owner: Runtime/Replay + Runtime composition
 
-State: READY (sequenced after `ui-renderer-hard-boundary`)
+State: IN PROGRESS (RS0 complete; RS1 next)
 
 Ledger tasks: 6 (RS0-RS5)
 
@@ -37,10 +37,10 @@ Required plan-runner commit first line:
 Replay Subsystem Partition, TASK <DONE> / 6, <OVERALL_PERCENT>% OVERALL COMPLETE — <ACTION SUMMARY>
 ```
 
-With the round-4 ledger at 19 active/future tasks and `ui-renderer-hard-boundary`
-complete at 7, the task percentages after RS0-RS5 are 42%, 47%, 53%, 58%, 63%,
-and 68%. Recalculate from the authoritative master ledger if the portfolio
-changes before implementation.
+The live post-header-remediation ledger is 1/17 before RS0. The task
+percentages after RS0-RS4 are 12%, 18%, 24%, 29%, and 35%. At RS5 closure,
+inventory rule 4 removes this completed six-task plan, leaving 1/11 = 9%.
+Recalculate from the authoritative master ledger if the portfolio changes.
 
 ## Problem And Measured Evidence
 
@@ -178,7 +178,7 @@ back-reference.
 
 ## Ledger
 
-- [ ] **RS0 — Ratify the complete source-derived partition census.**
+- [x] **RS0 — Ratify the complete source-derived partition census.**
 
   From the implementation tip, classify every file under `Runtime/Replay/`
   into Replay/Prediction/Planning/shared-value with per-file include evidence.
@@ -201,6 +201,20 @@ back-reference.
     the destination) — no edge is deferred without an owner note.
   - The reserve-inventory disposition covers every registered growth owner.
   - No source behavior changes in RS0.
+
+  Evidence (2026-07-25):
+
+  - `Agentic/Reports/2026-07-25/replay-subsystem-partition-rs0-census.md`
+    classifies all 72 files exactly once and records every internal include.
+  - The registration baseline is reconciled as 36,900 nonblank / 39,976
+    physical lines; the RS0 tip is 37,022 nonblank / 41,849 physical lines.
+  - The preliminary matrix has 188 internal edges. All 26 upward edges have a
+    named split/removal resolution; none is deferred.
+  - All 35 external include sites in 25 files and 12 Runtime packages are
+    inventoried with the exact consumer-table changes for RS4.
+  - All three reserve owners retain their names, Replay phase gates, caps,
+    counters, and exhaustion rules; only the prediction owner moves package.
+  - RS0 is documentation-only; no repository validation was required or run.
 
 - [ ] **RS1 — Extract `Runtime/Prediction`.**
 
