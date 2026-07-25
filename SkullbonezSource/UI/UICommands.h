@@ -358,7 +358,7 @@ struct UIRenderCommands
 
 struct UIReplayMemoryCommands
 {
-    // One-frame replay policy request from the Memory tab. RunInput translates
+    // One-frame replay policy request from the Memory tab. InputFrame translates
     // these UI-facing values into the authoritative replay policy owner.
     bool requestPolicy = false;
     int requestedPresetIndex = -1;

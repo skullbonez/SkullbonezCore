@@ -5,7 +5,8 @@ Purpose:
 
 Summary:
   Placement gestures start as mouse deltas and wheel clicks. This file maps
-  that input into safe object scale values before RunInput commits the object.
+  that input into safe object scale values before EditorObjectPlacement commits
+  the object.
 
 Glossary:
   Placement gesture: Mouse drag and wheel input used to size an editor object

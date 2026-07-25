@@ -499,7 +499,7 @@ bool ApplyCinematicModeUICommand( SceneRuntimeStyleContext context, const UI::UI
 
     // Invariant: input action reporting tracks the accepted UI request. The
     // underlying style loader can fail closed for a bad/missing scene, but the
-    // previous RunInput path still recorded the selection action for the request.
+    // InputFrame transition record still preserves the accepted selection.
     (void)ApplyCinematicModeFromBrowserIndex( context, commands.requestedModeSceneIndex );
     return true;
 }
@@ -587,8 +587,8 @@ ApplyPhysicsFrictionUICommands( PhysicsFrictionUICommandContext context, const U
 
 TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, const UI::UIPhysicsCommands& commands )
 {
-    // Why: RunInput owns input-mode bookkeeping, while this helper owns the
-    // gameplay-facing mutation and single sync point for accepted tornado edits.
+    // Why: InputFrame routes accepted UI actions through InputController mode
+    // bookkeeping; this helper owns the gameplay mutation and tornado sync.
     TornadoUICommandResult result;
     Gameplay::TornadoGameplay& tornado = context.world.Tornado();
 

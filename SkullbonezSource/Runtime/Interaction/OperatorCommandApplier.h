@@ -101,8 +101,8 @@ struct PhysicsFrictionUICommandContext
 struct RuntimePresentationUICommandContext
 {
     // Lifetime: borrowed only while one scene/render/water UI packet is applied.
-    // Simulation-step reset stays in RunInput; this helper owns presentation and
-    // render-config mutation plus queued render-default save intent.
+    // ApplySceneFixedStepUICommand owns fixed-step reset; this helper owns
+    // presentation and render-config mutation plus queued save intent.
     OverlayDebugState& debug;
     SceneSessionState& scene;
     SkullbonezCore::Core::EngineConfig& config;
@@ -133,14 +133,14 @@ struct TornadoUICommandResult
 struct PhysicsFrictionUICommandResult
 {
     // Invariant: count accepted requests, not changed values, so input action
-    // reporting still mirrors the UI packet that RunInput accepted.
+    // reporting in InputFrame mirrors the accepted UI packet.
     int applySettingsActionCount = 0;
 };
 
 struct RuntimePresentationUICommandResult
 {
-    // Invariant: flags report accepted UI commands for RunInput action logging;
-    // they are not change-detection flags for the underlying render/debug state.
+    // Invariant: flags report accepted UI commands for InputFrame transition
+    // recording; they are not change-detection flags for render/debug state.
     bool toggledTerrainHidden = false;
     bool toggledWaterHidden = false;
     bool toggledWaterFreeze = false;
@@ -155,8 +155,8 @@ struct RuntimePresentationUICommandResult
 
 struct CinematicTuningUICommandResult
 {
-    // Invariant: flags report accepted UI commands for RunInput action logging;
-    // feature/param setters may clamp or no-op invalid enum values internally.
+    // Invariant: flags report accepted UI commands for InputFrame transition
+    // recording; feature/param setters may clamp or no-op invalid enum values.
     bool toggledFeature = false;
     bool appliedParam = false;
 };
@@ -193,8 +193,8 @@ struct WorldOverrideChange
 
 struct RunCameraModeUICommandResult
 {
-    // Invariant: accepted means mode is a real enum value; RunInput still owns
-    // applying scene normalization, cursor transitions, and action logging.
+    // Invariant: accepted means mode is a real enum value. InputRouter applies
+    // normalization/pointer transitions; InputController records the action.
     bool accepted = false;
     RunCameraMode mode = RunCameraMode::Demo;
 };

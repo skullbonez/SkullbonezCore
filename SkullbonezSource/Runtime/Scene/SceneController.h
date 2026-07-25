@@ -334,8 +334,8 @@ class SceneController
     );
     SkullbonezCore::Core::SbResult SaveCurrentDefaults( const SceneDefaultsSaveView& view ) const;
 
-    // Scene request submission stays owner-specific even while Run temporarily
-    // executes the returned batch during lifecycle extraction C1.
+    // Scene request submission and ordered batch execution stay owner-specific;
+    // SceneRequestExecution.cpp consumes the fixed pending batch.
     void SubmitLoadBrowserIndex( int index );
     void SubmitLoadDemoScene();
     void SubmitResetCurrentScene(

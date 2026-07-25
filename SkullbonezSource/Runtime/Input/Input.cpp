@@ -60,9 +60,9 @@ Window* s_inputWindow = nullptr;
 // WndProc WM_MOUSEWHEEL writes; CaptureDeviceInputFrame consumes once per
 // frame so UI, editor, and replay cannot each drain the same wheel input.
 int g_mouseWheelDelta = 0;
-// Cursor policy latch, not a callback accumulator. RunInput and window/focus
-// paths write the requested native cursor state; WndProc focus/cursor messages
-// reapply that state when Windows asks.
+// Cursor policy latch, not a callback accumulator. InputFrameExecution and
+// window/focus paths write the requested native cursor state; WndProc
+// focus/cursor messages reapply that state when Windows asks.
 bool g_systemCursorVisibleRequested = false;
 // WndProc WM_INPUT writes these raw movement deltas. CaptureDeviceInputFrame
 // drains them once; focus and scene transitions may clear the queue before the

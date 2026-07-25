@@ -169,8 +169,8 @@ struct EditorObjectTypeRequestResult
 
 struct EditorPlacementPreModeUICommandResult
 {
-    // Invariant: flags report accepted UI commands for RunInput action logging;
-    // mode toggles still require Run-owned camera/cursor transition work.
+    // Invariant: flags report accepted UI commands for InputFrame transition
+    // recording; mode toggles route camera/cursor work through InputRouter.
     bool setPlaceStatic = false;
     bool requestedObjectType = false;
     bool enterPlacementMode = false;
@@ -391,8 +391,8 @@ void UpdateEditorGizmoHotAxes(
     const Math::Vector::Vector3& rayDirection,
     bool scaleMode
 );
-// Concept: RunInput owns keybinding data, but editor tools still own the cold
-// save and screenshot side effects behind this action boundary.
+// Concept: InputController owns keybinding data, while editor tools own the
+// cold save and screenshot side effects behind this action boundary.
 void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction action, bool wasPressed );
 } // namespace RunInternal
 } // namespace Runtime

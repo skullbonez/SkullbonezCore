@@ -4,7 +4,7 @@ Date: 2026-07-25
 
 Owner: Runtime (Input/Interaction/Editor/Scene/Render) + Core + governance
 
-State: READY
+State: IN PROGRESS
 
 Ledger tasks: 3 (HC0-HC2)
 
@@ -125,7 +125,7 @@ cleared item.
 
 ## Ledger
 
-- [ ] **HC0 — Correct the falsified ownership claims.**
+- [x] **HC0 — Correct the falsified ownership claims.**
 
   Fix all 17 Class A comment sites. Comment-only.
 
@@ -165,11 +165,24 @@ cleared item.
 
   Acceptance:
 
-  - `rg 'RunInput' SkullbonezSource` returns no rows.
+  - `rg -n '\bRunInput\b' SkullbonezSource` returns no rows. The word
+    boundary intentionally ignores the real `RunInputPhase` symbol.
   - A2/A3/A4 claims match live source, verified by naming the source
     file:line that proves each new statement in the commit body.
   - `git diff` shows comment lines only; prove it explicitly.
   - No repository validation required (comment-only per `AGENTS.md`).
+
+  Evidence (2026-07-25):
+
+  - Corrected all 17 registered sites plus one additional `UICommands.h`
+    phantom-owner claim exposed by the final word-boundary proof.
+  - `rg -n '\bRunInput\b' SkullbonezSource` returns no rows.
+  - `rg -n 'lifecycle extraction C1|Run still owns' SkullbonezSource`
+    returns no rows.
+  - The old/new/proof table is recorded in
+    `Agentic/Reports/2026-07-25/header-claim-staleness-hc0.md`.
+  - HC0 changed comments/documentation only; no repository validation was
+    required.
 
 - [ ] **HC1 — Fix the pointers and make resolution mechanical.**
 
@@ -233,6 +246,8 @@ cleared item.
      this skill file (aggregate-invariant check). These are separate
      sections; whichever lands second rebases rather than overwrites. Record
      in both plans that the file has two pending amendments.
+     GV0 landed first on 2026-07-25; HC2 must preserve its
+     aggregate-invariant check and add claim verification as a separate step.
   4. Add one worked example drawn from real history: the RenderGraph
      near-miss (stale header → false review finding → nearly-registered
      six-task campaign). It is the most persuasive argument the guide can
@@ -266,7 +281,7 @@ cleared item.
 ## Static Closure Proofs
 
 ```powershell
-rg -n 'RunInput' SkullbonezSource
+rg -n '\bRunInput\b' SkullbonezSource
 rg -n 'lifecycle extraction C1|Run still owns' SkullbonezSource
 rg -n 'Related:' -A 6 SkullbonezSource | rg -n 'Agentic/Plans/TODO/'
 ```

@@ -568,13 +568,13 @@ falsified ownership claims, and 12 broken `Related:` pointers. It also
 established that the comment regime is strong at deletion (zero retired
 vocabulary survives) and blind to responsibility movement. This plan is
 sequenced early — before the replay partition — because RS0 and GV2 censuses
-read the exact files carrying false claims. The active/future ledger is 6/27.
+read the exact files carrying false claims. HC0 is verified; the active/future ledger is 7/27.
 
 ## Current Execution Priority
 
 The 2026-07-25 round-4 campaign is the active queue with binding order:
 1 `ui-renderer-hard-boundary` (6/7),
-2 `header-claim-staleness-remediation` (0/3),
+2 `header-claim-staleness-remediation` (1/3; HC1 waits for UI closure),
 3 `replay-subsystem-partition` (0/6),
 4 `downward-domain-bleed-remediation` (0/6),
 5 `invariant-ownership-governance-and-transaction-repair` (0/5, whose GV0
@@ -1717,7 +1717,7 @@ whichever lands second rebases rather than overwrites.
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
 | [ui-renderer-hard-boundary](TODO/ui-renderer-hard-boundary.md) | In progress | 6/7 | UR6 final proof, visual capture, mapped gates, independent review, and closure |
-| [header-claim-staleness-remediation](TODO/header-claim-staleness-remediation.md) | Ready | 0/3 | Starts after UR6 closes (HC0 may run parallel to the UI tail); correct 17 false-claim sites, 12 pointers, and install claim verification |
+| [header-claim-staleness-remediation](TODO/header-claim-staleness-remediation.md) | In progress | 1/3 | HC0 corrected 18 false-claim sites; HC1 waits for UR6 closure |
 | [replay-subsystem-partition](TODO/replay-subsystem-partition.md) | Ready | 0/6 | Starts after HC2 closes; RS0 partition census of all 72 Replay files |
 | [downward-domain-bleed-remediation](TODO/downward-domain-bleed-remediation.md) | Ready | 0/6 | Starts after RS5 closes; DB0 bleed census and boundary-contract design |
 | [invariant-ownership-governance-and-transaction-repair](TODO/invariant-ownership-governance-and-transaction-repair.md) | Ready | 0/5 | GV0 governance amendment may run early; GV1-GV4 start after DB5 closes |

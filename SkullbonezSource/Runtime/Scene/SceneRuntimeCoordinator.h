@@ -96,8 +96,8 @@ struct SceneLoadRequest
 
 struct SceneRuntimeUICommandResult
 {
-    // Invariant: flags report accepted UI commands for RunInput action logging;
-    // the SceneController request batch preserves their submission order.
+    // Invariant: flags report accepted UI commands for InputFrame transition
+    // recording; SceneController preserves request submission order.
     bool resetScene = false;
     bool resetSceneDefaults = false;
     bool loadDemoScene = false;
