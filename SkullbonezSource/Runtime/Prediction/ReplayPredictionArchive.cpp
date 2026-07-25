@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Replay/ReplayPredictionArchive.cpp
+File: SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.cpp
 Purpose:
   Serializes and restores the presentation-bearing state of one completed prediction.
 
@@ -20,13 +20,13 @@ Invariants:
   - No deserialized value can create or schedule prediction physics work.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/ReplayPredictionArchive.h
-  - SkullbonezSource/Runtime/Replay/ReplayPredictionArchive.Automation.cpp
-  - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
+  - SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.h
+  - SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.Automation.cpp
 */
 #include "ReplayPredictionArchive.h"
+#include "ReplayPrediction.h"
 
-#include "ReplayRuntime.h"
+#include "../Replay/ReplayPathPackets.h"
 
 #include <bit>
 #include <cstdio>

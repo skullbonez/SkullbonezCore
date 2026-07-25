@@ -42,7 +42,7 @@ Related:
 #include "../Editor/EditorTools.h"
 #include "ReplayRestoreService.h"
 #include "ReplayRestoreTransactions.h"
-#include "ReplayPredictionArchive.h"
+#include "../Prediction/ReplayPredictionArchive.h"
 #include "ReplayValidation.Internal.h"
 #include "ReplayVisualPacketFingerprint.h"
 #include "ReplayV2Artifact.h"

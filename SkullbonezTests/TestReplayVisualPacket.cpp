@@ -32,13 +32,13 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayVisualPacket.h
-  - SkullbonezSource/Runtime/Replay/ReplayPredictionDrawing.cpp
+  - SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Runtime/Replay/ReplayVisualPacket.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayVisualPacketFingerprint.h"
-#include "../SkullbonezSource/Runtime/Replay/ReplayPredictionPublication.h"
+#include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayOverlayRenderer.h"
 
 #include <algorithm>

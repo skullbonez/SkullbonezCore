@@ -40,7 +40,7 @@ Related:
 #include "../Camera/RuntimeCameraMode.h"
 #include "../Interaction/RuntimeInteractionController.h"
 #include "../Replay/ReplayOverlayRenderer.h"
-#include "../Replay/ReplayPredictionPackets.h"
+#include "../Prediction/ReplayPredictionPackets.h"
 #include "../Replay/ReplayTimelinePackets.h"
 #include "../Replay/ReplayVisualPacket.h"
 #include "../Replay/ReplayVisualPacketFingerprint.h"

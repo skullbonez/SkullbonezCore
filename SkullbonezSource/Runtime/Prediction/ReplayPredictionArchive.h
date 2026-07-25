@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Replay/ReplayPredictionArchive.h
+File: SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.h
 Purpose:
   Declares the value-only prediction-state payload embedded in visual replay artifacts.
 

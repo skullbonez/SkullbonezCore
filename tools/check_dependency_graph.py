@@ -5,13 +5,14 @@
 #   Enforce physical include direction and single-project source ownership.
 #
 # Summary:
-#   Loads a data-only package graph, resolves tracked local include edges, and
-#   checks Visual Studio project membership. The same evaluator runs embedded
-#   positive/negative fixtures so new package rules require data, not code.
+#   Loads a data-only package graph, resolves live repository include edges,
+#   and checks Visual Studio project membership. The same evaluator runs
+#   embedded positive/negative fixtures so new package rules require data, not
+#   code.
 #
 # Glossary:
-#   Physical edge: Resolved quoted or angle-bracket include from one tracked
-#     source file to another path below SkullbonezSource.
+#   Physical edge: Resolved quoted or angle-bracket include from one tracked or
+#     untracked live source file to another path below SkullbonezSource.
 #   Allow rule: Runtime-package row limiting only edges whose target is inside
 #     the Runtime scope.
 #   Deny rule: Source/target prefix pair that must never form an include edge.
@@ -103,18 +104,29 @@ def evaluate_edge(rules: list[dict], source: str, target: str) -> list[Finding]:
     return findings
 
 
-def tracked_source_files(repo: Path, source_root: str) -> list[str]:
+def repository_source_files(repo: Path, source_root: str) -> list[str]:
     result = subprocess.run(
-        ["git", "ls-files", source_root],
+        [
+            "git",
+            "ls-files",
+            "-z",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+            "--",
+            source_root,
+        ],
         cwd=repo,
         text=True,
         capture_output=True,
         check=True,
     )
     return [
-        normalize(line)
-        for line in result.stdout.splitlines()
-        if line and Path(line).suffix.lower() in SOURCE_SUFFIXES
+        normalize(path)
+        for path in result.stdout.split("\0")
+        if path
+        and Path(path).suffix.lower() in SOURCE_SUFFIXES
+        and (repo / path).is_file()
     ]
 
 
@@ -150,7 +162,7 @@ def scan_include_files(
 
 
 def scan_includes(repo: Path, source_root: str, rules: list[dict]) -> list[Finding]:
-    return scan_include_files(repo, source_root, rules, tracked_source_files(repo, source_root))
+    return scan_include_files(repo, source_root, rules, repository_source_files(repo, source_root))
 
 
 def project_items(repo: Path, project_name: str) -> set[str]:

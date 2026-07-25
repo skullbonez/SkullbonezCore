@@ -394,6 +394,20 @@ CORE_ALLOCATION_PREFIXES = (
     "RuntimeReserveAllocator",
 )
 
+RUNTIME_PREDICTION_PREFIXES = (
+    "ReplayPredictionArchive",
+    "ReplayPredictionPackets",
+    "ReplayPrediction",
+    "ReplayPredictionDrawing",
+    "ReplayPredictionPublication",
+    "ReplayPredictionPublicationOperations",
+    "ReplayPredictionReserve",
+    "ReplayPredictionScheduling",
+    "ReplayPredictionTopologyPublication",
+    "ReplayPredictionView",
+    "TrajectoryStore",
+)
+
 RUNTIME_REPLAY_PREFIXES = (
     "ReplayAuthoring",
     "ReplayAuthoringCauseTree",
@@ -416,19 +430,9 @@ RUNTIME_REPLAY_PREFIXES = (
     "ReplayOverlaySurface",
     "ReplayOverlayRenderer",
     "ReplayCauseFocusSubmission",
-    "ReplayPredictionArchive",
     "ReplayPathPackets",
-    "ReplayPredictionPackets",
-    "ReplayPrediction",
-    "ReplayPredictionDrawing",
     "ReplayPresentationSubmission",
     "ReplayPresentationPackets",
-    "ReplayPredictionPublication",
-    "ReplayPredictionPublicationOperations",
-    "ReplayPredictionReserve",
-    "ReplayPredictionScheduling",
-    "ReplayPredictionTopologyPublication",
-    "ReplayPredictionView",
     "ReplayRetainedMemory",
     "ReplayRecorder",
     "ReplayPresentation",
@@ -445,7 +449,6 @@ RUNTIME_REPLAY_PREFIXES = (
     "ReplayVisualPacketFingerprint",
     "ReplayV2Artifact",
     "ReplayValidation",
-    "TrajectoryStore",
 )
 
 RUNTIME_RENDER_PREFIXES = (
@@ -541,6 +544,7 @@ AREA_PREFIXES = (
     ("Physics\\Support", PHYSICS_SUPPORT_PREFIXES),
     ("Runtime\\Scene", RUNTIME_SCENE_PREFIXES),
     ("Core\\Allocation", CORE_ALLOCATION_PREFIXES),
+    ("Runtime\\Prediction", RUNTIME_PREDICTION_PREFIXES),
     ("Runtime\\Replay", RUNTIME_REPLAY_PREFIXES),
     ("Runtime\\Render", RUNTIME_RENDER_PREFIXES),
     ("Runtime\\Editor", RUNTIME_EDITOR_PREFIXES),

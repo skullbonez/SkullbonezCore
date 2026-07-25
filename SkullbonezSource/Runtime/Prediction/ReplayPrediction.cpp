@@ -1,11 +1,12 @@
 /*
-File: SkullbonezSource/Runtime/Replay/ReplayPrediction.cpp
+File: SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp
 Purpose:
   Owns isolated replay simulation setup and frame-thread prediction orchestration.
 
 Summary:
   Replay tools read two timelines. Retained solver samples describe what already
-  happened; prediction samples advance a private replay-owned physics engine.
+  happened; prediction samples advance a private prediction-owned physics
+  engine.
   Frame update prepares private-engine work, delegates worker lifetime to the
   schedule owner, and delegates trajectory/topology publication before drawing.
 
@@ -18,7 +19,7 @@ Glossary:
     engine and publishes a coherent frame prefix.
   Live edit replacement: Coalesced held-drag generation that must publish and
     promote one coherent prefix before a newer velocity can replace it.
-  Prediction physics tick: Replay-owned fixed step against the private
+  Prediction physics tick: Prediction-owned fixed step against the private
     prediction engine.
   Future node: Body discovered by following contacts or predicted movement
     outward from a selected root body.
@@ -46,20 +47,20 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayScrubberTools.cpp
   - SkullbonezSource/Runtime/Replay/ReplayAuthoringCauseTree.cpp
-  - SkullbonezSource/Runtime/Replay/ReplayPredictionDrawing.cpp
-  - SkullbonezSource/Runtime/Replay/ReplayPredictionScheduling.cpp
-  - SkullbonezSource/Runtime/Replay/ReplayPredictionPublication.cpp
+  - SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp
+  - SkullbonezSource/Runtime/Prediction/ReplayPredictionScheduling.cpp
+  - SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.cpp
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
 #include "ReplayPrediction.h"
 #include "../Scene/SceneEntityStore.h"
 #include "../Editor/EditorHullAssets.h"
-#include "ReplayOverlayLayout.h"
+#include "../Replay/ReplayOverlayLayout.h"
 #include "ReplayPredictionArchive.h"
 #include "ReplayPredictionPublicationOperations.h"
 #include "ReplayPredictionReserve.h"
-#include "ReplayScrubber.h"
+#include "../Replay/ReplayScrubber.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
 #include "../../Physics/ColliderStore.h"
@@ -560,7 +561,7 @@ void RunReplayPredictionWorkerRange( RunReplayPredictionState& prediction,
             break;
         }
 
-        // Hazard: worker slices hold only replay-owned values: the private
+        // Hazard: worker slices hold only prediction-owned values: the private
         // prediction engine, pre-sized build frames, and stable trajectory slots.
         // Scene mutation paths must cancel and wait before live stores are
         // reloaded, because this worker never borrows legacy object record rows.

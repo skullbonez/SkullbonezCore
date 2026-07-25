@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Replay/ReplayPredictionPublication.cpp
+File: SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.cpp
 Purpose:
   Owns replay prediction trajectory, topology, baseline, and marker publication.
 
@@ -25,9 +25,9 @@ Related:
 #include "ReplayPredictionPublicationOperations.h"
 #include "../Scene/SceneEntityStore.h"
 #include "../Editor/EditorHullAssets.h"
-#include "ReplayOverlayLayout.h"
+#include "../Replay/ReplayOverlayLayout.h"
 #include "ReplayPredictionReserve.h"
-#include "ReplayScrubber.h"
+#include "../Replay/ReplayScrubber.h"
 #include "../../Core/Config.h"
 #include "../../Core/SceneCapacity.h"
 #include "../../Physics/ColliderStore.h"

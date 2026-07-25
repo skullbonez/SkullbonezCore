@@ -1,5 +1,5 @@
 /*
-File: ReplayPredictionScheduling.h
+File: SkullbonezSource/Runtime/Prediction/ReplayPredictionScheduling.h
 Purpose:
   Defines allocation-free scheduling, budget, and reveal decisions for replay
   prediction builds and presentation.
@@ -35,7 +35,7 @@ Related:
 #include "../../Core/AmortizedTask.h"
 #include "../../Core/MainMemoryStats.h"
 #include "../../Physics/PhysicsHandles.h"
-#include "ReplayIdentity.h"
+#include "../Replay/ReplayIdentity.h"
 #include "ReplayPredictionPackets.h"
 
 #include <chrono>

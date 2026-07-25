@@ -25,7 +25,7 @@ Related:
   - ReplayPredictionDrawing.cpp
 */
 #include "ReplayPresentation.h"
-#include "ReplayPredictionView.h"
+#include "../Prediction/ReplayPredictionView.h"
 #include "../Interaction/RuntimePickService.h"
 #include "../Scene/SceneEntityStore.h"
 #include "../Tools/RuntimeTools.h"

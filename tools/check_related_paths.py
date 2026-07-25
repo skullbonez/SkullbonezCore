@@ -18,8 +18,8 @@ Invariants:
   - The checker is read-only.
   - Every failure names the source file, line, and unresolved path.
   - Bare topics and external URLs are ignored rather than guessed into paths.
-  - The default inventory comes from tracked source-bearing files so ignored
-    directory names cannot hide a checked source file.
+  - The default inventory combines tracked and untracked source-bearing files,
+    then ignores deleted worktree paths so in-progress moves remain checkable.
 
 Related:
   - Agentic/Reference/comment-style-guide.md
@@ -131,9 +131,9 @@ def related_entries(source: Path, text: str) -> list[RelatedEntry]:
     return entries
 
 
-def tracked_source_files(repo: Path) -> list[Path]:
+def repository_source_files(repo: Path) -> list[Path]:
     result = subprocess.run(
-        ["git", "ls-files", "-z", "--", "SkullbonezSource"],
+        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", "SkullbonezSource"],
         cwd=repo,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -147,7 +147,7 @@ def tracked_source_files(repo: Path) -> list[Path]:
     return sorted(
         repo / relative
         for relative in relative_paths
-        if relative and Path(relative).suffix.lower() in SOURCE_SUFFIXES
+        if relative and Path(relative).suffix.lower() in SOURCE_SUFFIXES and ( repo / relative ).is_file()
     )
 
 
@@ -287,7 +287,7 @@ def main() -> int:
 
     repo = args.repo.resolve()
     try:
-        source_files = explicit_source_files(args.paths) if args.paths else tracked_source_files(repo)
+        source_files = explicit_source_files(args.paths) if args.paths else repository_source_files(repo)
         entry_count, findings = unresolved_entries(repo, source_files)
     except (OSError, RuntimeError, UnicodeError) as error:
         print(f"FAIL: Related path check could not complete: {error}")

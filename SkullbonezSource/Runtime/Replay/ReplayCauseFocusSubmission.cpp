@@ -26,8 +26,8 @@ Related:
 #include "ReplayPresentationSubmission.h"
 
 #include "ReplayAuthoring.h"
-#include "ReplayPrediction.h"
-#include "ReplayPredictionPublicationOperations.h"
+#include "../Prediction/ReplayPrediction.h"
+#include "../Prediction/ReplayPredictionPublicationOperations.h"
 #include "ReplayPresentation.h"
 #include "../Editor/EditorTools.h"
 #include "../Scene/SceneEntityStore.h"

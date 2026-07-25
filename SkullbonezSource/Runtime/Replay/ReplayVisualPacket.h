@@ -39,7 +39,7 @@ Related:
 #pragma once
 
 #include "ReplayRecorder.h"
-#include "TrajectoryStore.h"
+#include "../Prediction/TrajectoryStore.h"
 #include "../../Core/MainMemoryStats.h"
 #include "../../Core/ByteView.h"
 #include "../../Maths/Quaternion.h"

@@ -27,7 +27,7 @@ Related:
 #include "ReplayInterceptReadout.h"
 #include "ReplayPorkchopPanel.h"
 #include "ReplayTripPlanner.h"
-#include "ReplayPredictionView.h"
+#include "../Prediction/ReplayPredictionView.h"
 #include "ReplayPathPackets.h"
 #include "ReplayPresentationPackets.h"
 #include "ReplayTimelinePackets.h"

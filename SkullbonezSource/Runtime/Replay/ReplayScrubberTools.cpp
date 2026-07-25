@@ -31,7 +31,7 @@ Invariants:
     a typed command has arrived from the selected ImGui surface.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/ReplayPrediction.cpp
+  - SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp
   - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
 */
 #include "ReplayScrubber.h"

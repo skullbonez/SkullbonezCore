@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Replay/ReplayPredictionTopologyPublication.cpp
+File: SkullbonezSource/Runtime/Prediction/ReplayPredictionTopologyPublication.cpp
 Purpose:
   Publishes causal topology and retained prediction markers from completed frames.
 
@@ -21,8 +21,8 @@ Related:
 #include "ReplayPredictionPublicationOperations.h"
 #include "../Scene/SceneEntityStore.h"
 #include "../Editor/EditorHullAssets.h"
-#include "ReplayOverlayLayout.h"
-#include "ReplayScrubber.h"
+#include "../Replay/ReplayOverlayLayout.h"
+#include "../Replay/ReplayScrubber.h"
 #include "../../Core/Config.h"
 #include "../../Core/SceneCapacity.h"
 #include "../../Physics/ColliderStore.h"

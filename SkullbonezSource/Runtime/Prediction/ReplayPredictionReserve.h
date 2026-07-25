@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Replay/ReplayPredictionReserve.h
+File: SkullbonezSource/Runtime/Prediction/ReplayPredictionReserve.h
 Purpose:
   Names the replay prediction working-set reserve owner shared by prediction
   frames, future-node caches, the private prediction engine, and trajectory
@@ -14,8 +14,9 @@ Summary:
 Glossary:
   Runtime reserve owner: Registered allocation-policy row that can approve
     bounded replay-phase growth after steady gameplay has started.
-  Replay prediction working set: The approved replay owner for future-frame
-    samples, prediction scratch, and generated trajectory records.
+  Replay prediction working set: The approved Prediction owner for
+    future-frame samples, prediction scratch, and generated trajectory records;
+    its growth remains gated to the Replay allocation phase.
   Batched frame payload: One reserve approval covering the same vector member
     across every pre-sized prediction frame.
 
@@ -27,13 +28,13 @@ Invariants:
     growth-counter order for every caller.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/ReplayPrediction.cpp
-  - SkullbonezSource/Runtime/Replay/TrajectoryStore.h
+  - SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp
+  - SkullbonezSource/Runtime/Prediction/TrajectoryStore.h
   - tools/allocation_policy_allowlist.json
 */
 #pragma once
 
-#include "ReplayRetainedMemory.h"
+#include "../Replay/ReplayRetainedMemory.h"
 
 #include <cstddef>
 #include <cstdint>

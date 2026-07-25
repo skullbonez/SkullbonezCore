@@ -31,7 +31,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
-  - SkullbonezSource/Runtime/Replay/ReplayPredictionReserve.h
+  - SkullbonezSource/Runtime/Prediction/ReplayPredictionReserve.h
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h
   - SkullbonezSource/Physics/PhysicsSolverSnapshot.h
   - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h

@@ -27,7 +27,7 @@ Related:
 */
 #pragma once
 
-#include "ReplayPredictionView.h"
+#include "../Prediction/ReplayPredictionView.h"
 #include "../../Physics/PhysicsTimestep.h"
 
 #include <cstddef>

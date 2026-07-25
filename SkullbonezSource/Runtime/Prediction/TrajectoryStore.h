@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Replay/TrajectoryStore.h
+File: SkullbonezSource/Runtime/Prediction/TrajectoryStore.h
 Purpose:
   Defines the replay trajectory store: versioned path records with explicit
   published point prefixes for past and future overlay lanes.
@@ -24,11 +24,11 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
-  - SkullbonezSource/Runtime/Replay/ReplayPrediction.cpp
+  - SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp
 */
 #pragma once
 
-#include "ReplayRecorder.h"
+#include "../Replay/ReplayRecorder.h"
 
 #include <cstddef>
 #include <cstdint>

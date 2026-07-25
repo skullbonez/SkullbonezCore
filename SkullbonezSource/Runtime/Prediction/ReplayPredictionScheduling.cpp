@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Replay/ReplayPredictionScheduling.cpp
+File: SkullbonezSource/Runtime/Prediction/ReplayPredictionScheduling.cpp
 Purpose:
   Owns replay prediction worker lifetime, cancellation, prefix promotion,
   steady-clock budgets, and the monotonic presentation reveal cursor.
@@ -168,7 +168,7 @@ std::size_t ReplayPredictionBuildPresentationFrameCountForRefresh( RunReplayPred
 void ReplayPredictionSimulationSlice::operator()( int beginTickIndex, int endTickIndex ) const
 {
     // Lifetime: CancelPredictionJob waits for the enclosing AmortizedTask before
-    // any of these replay-owned borrows can be cleared or replaced.
+    // any of these prediction-owned borrows can be cleared or replaced.
     if ( prediction && config && workerPool )
     {
         prediction->RunWorkerRange( *config, *workerPool, modelCount, beginTickIndex, endTickIndex );

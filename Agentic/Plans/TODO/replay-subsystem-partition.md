@@ -4,7 +4,7 @@ Date: 2026-07-25
 
 Owner: Runtime/Replay + Runtime composition
 
-State: IN PROGRESS (RS0 complete; RS1 next)
+State: IN PROGRESS (RS0-RS1 complete; RS2 next)
 
 Ledger tasks: 6 (RS0-RS5)
 
@@ -216,7 +216,7 @@ back-reference.
     counters, and exhaustion rules; only the prediction owner moves package.
   - RS0 is documentation-only; no repository validation was required or run.
 
-- [ ] **RS1 — Extract `Runtime/Prediction`.**
+- [x] **RS1 — Extract `Runtime/Prediction`.**
 
   Create the package, move the RS0-ratified prediction files, update every
   include site and both production/test project files with exact filters.
@@ -228,11 +228,33 @@ back-reference.
   - `Runtime/Replay` contains no `ReplayPrediction*` or `TrajectoryStore*`
     file; `rg -n 'Replay/ReplayPrediction|Replay/TrajectoryStore' SkullbonezSource`
     returns no rows.
-  - `Runtime/Replay` has zero `Prediction/` includes.
+  - No stale `Replay/ReplayPrediction*` or `Replay/TrajectoryStore*` include
+    path remains. The temporary `Replay -> Prediction` edges created by the
+    physical move are exactly the RS0 seam inventory and remain owned by RS3,
+    which performs the composition/value-seam splits needed to eliminate
+    them. Until RS3, the dependency validator allows that one temporary edge;
+    RS3 removes the allowance and proves the permanent zero-edge invariant.
   - `tools\validate_project_filters.bat` passes; Profile and Debug build with
     zero warnings.
   - The mapped replay gates in the validation map pass with zero golden,
     manifest, or artifact refresh.
+
+  Evidence (2026-07-25):
+
+  - `Agentic/Reports/2026-07-25/replay-subsystem-partition-rs1-prediction.md`
+    records the complete 18-file move, 42-file comment audit, temporary seam
+    inventory, validator/project changes, and validation results.
+  - No stale `Replay/ReplayPrediction*` or `Replay/TrajectoryStore*` source,
+    test, project, or tool path remains; exact project/filter ownership passes
+    across 767 items.
+  - The 17 temporary `Replay -> Prediction` includes are the named RS0 seams
+    and remain explicitly owned by RS3. The validator allowance is bounded to
+    that sequencing decision and must be deleted by RS3.
+  - Profile, Debug, and Automation build with zero warnings. Fast, strict
+    replay allocation, V2 artifact, the sole visual-fidelity generation, and
+    the cumulative full gate all pass.
+  - No golden, baseline, manifest, replay artifact, scene, config, shader, or
+    physics CSV file changed.
 
 - [ ] **RS2 — Extract `Runtime/Planning`.**
 

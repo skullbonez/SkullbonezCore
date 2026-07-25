@@ -37,7 +37,7 @@ Related:
 
 #include "ReplayAuthoring.h"
 #include "ReplayOverlayPackets.h"
-#include "ReplayPrediction.h"
+#include "../Prediction/ReplayPrediction.h"
 #include "ReplayPresentation.h"
 #include "ReplayScrubber.h"
 #include "../../Rendering/RenderInstanceStore.h"

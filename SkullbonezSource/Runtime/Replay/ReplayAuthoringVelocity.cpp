@@ -27,7 +27,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
-  - SkullbonezSource/Runtime/Replay/ReplayPrediction.cpp
+  - SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp
   - Agentic/Reference/comment-style-guide.md
 */
 #include "ReplayAuthoring.h"

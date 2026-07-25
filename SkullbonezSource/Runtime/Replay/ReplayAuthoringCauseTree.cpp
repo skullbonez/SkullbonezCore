@@ -22,13 +22,13 @@ Invariants:
   - Row construction never grows storage on the input/render path.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/ReplayPredictionDrawing.cpp
+  - SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp
   - SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h
 */
 #include "ReplayAuthoring.h"
 #include "ReplayCoordination.h"
-#include "ReplayPrediction.h"
-#include "ReplayPredictionPublicationOperations.h"
+#include "../Prediction/ReplayPrediction.h"
+#include "../Prediction/ReplayPredictionPublicationOperations.h"
 #include "ReplayPresentation.h"
 #include "../../Assets/AssetKeys.h"
 #include "../Camera/CameraCollection.h"

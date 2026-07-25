@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Replay/ReplayPrediction.h
+File: SkullbonezSource/Runtime/Prediction/ReplayPrediction.h
 Purpose:
   Owns private replay prediction build, publication, and trajectory state.
 
@@ -28,12 +28,12 @@ Related:
 */
 #pragma once
 
-#include "ReplayIdentity.h"
+#include "../Replay/ReplayIdentity.h"
 #include "ReplayPredictionPublication.h"
 #include "ReplayPredictionView.h"
 #include "ReplayPredictionScheduling.h"
-#include "ReplayRecorder.h"
-#include "ReplayVisualPacket.h"
+#include "../Replay/ReplayRecorder.h"
+#include "../Replay/ReplayVisualPacket.h"
 #include "TrajectoryStore.h"
 #include "../../Core/MainMemoryStats.h"
 #include "../../Maths/Quaternion.h"

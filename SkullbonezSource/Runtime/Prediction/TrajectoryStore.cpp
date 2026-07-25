@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Replay/TrajectoryStore.cpp
+File: SkullbonezSource/Runtime/Prediction/TrajectoryStore.cpp
 Purpose:
   Implements replay trajectory record replacement, prefix publication, and
   bounded reserve helpers.
@@ -20,8 +20,8 @@ Invariants:
   - Append never calls reserve; callers must reserve record point capacity first.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/TrajectoryStore.h
-  - SkullbonezSource/Runtime/Replay/ReplayPredictionReserve.h
+  - SkullbonezSource/Runtime/Prediction/TrajectoryStore.h
+  - SkullbonezSource/Runtime/Prediction/ReplayPredictionReserve.h
 */
 #include "TrajectoryStore.h"
 #include "ReplayPredictionReserve.h"

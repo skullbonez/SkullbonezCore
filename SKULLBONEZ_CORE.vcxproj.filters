@@ -92,6 +92,12 @@
     <Filter Include="Header Files\Runtime\Replay">
       <UniqueIdentifier>{1C1A6BBE-6900-B61D-300B-0B1F40D267C3}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Runtime\Prediction">
+      <UniqueIdentifier>{986B25E5-6A64-481F-A473-6D42263D7FE9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Runtime\Prediction">
+      <UniqueIdentifier>{14F84867-AF79-4E53-9042-87716FC32D48}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Runtime\Tools">
       <UniqueIdentifier>{776E5B97-F9D8-4E8D-A30E-2D9DD4D1E9B1}</UniqueIdentifier>
     </Filter>
@@ -315,8 +321,8 @@
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayArtifactHashLog.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionReserve.cpp">
-      <Filter>Source Files\Runtime\Replay</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionReserve.cpp">
+      <Filter>Source Files\Runtime\Prediction</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPresentation.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
@@ -333,8 +339,8 @@
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRuntime.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\TrajectoryStore.cpp">
-      <Filter>Source Files\Runtime\Replay</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Prediction\TrajectoryStore.cpp">
+      <Filter>Source Files\Runtime\Prediction</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayValidation.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
@@ -342,8 +348,8 @@
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayValidation.Probes.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionArchive.Automation.cpp">
-      <Filter>Source Files\Runtime\Replay</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionArchive.Automation.cpp">
+      <Filter>Source Files\Runtime\Prediction</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayAuthoringCauseTree.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
@@ -354,8 +360,8 @@
     <ClCompile Include="SkullbonezSource\Runtime\Tools\RuntimeTools.cpp">
       <Filter>Source Files\Runtime\Tools</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionArchive.cpp">
-      <Filter>Source Files\Runtime\Replay</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionArchive.cpp">
+      <Filter>Source Files\Runtime\Prediction</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayVisualPacketFingerprint.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
@@ -492,20 +498,20 @@
     <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderer.cpp">
       <Filter>Source Files\Runtime\Render</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPrediction.cpp">
-      <Filter>Source Files\Runtime\Replay</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPrediction.cpp">
+      <Filter>Source Files\Runtime\Prediction</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionPublication.cpp">
-      <Filter>Source Files\Runtime\Replay</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionPublication.cpp">
+      <Filter>Source Files\Runtime\Prediction</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionScheduling.cpp">
-      <Filter>Source Files\Runtime\Replay</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionScheduling.cpp">
+      <Filter>Source Files\Runtime\Prediction</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionTopologyPublication.cpp">
-      <Filter>Source Files\Runtime\Replay</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionTopologyPublication.cpp">
+      <Filter>Source Files\Runtime\Prediction</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionDrawing.cpp">
-      <Filter>Source Files\Runtime\Replay</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionDrawing.cpp">
+      <Filter>Source Files\Runtime\Prediction</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayAuthoringVelocity.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
@@ -1078,17 +1084,17 @@
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayOverlayRenderer.h">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPredictionReserve.h">
-      <Filter>Header Files\Runtime\Replay</Filter>
+    <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionReserve.h">
+      <Filter>Header Files\Runtime\Prediction</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPredictionScheduling.h">
-      <Filter>Header Files\Runtime\Replay</Filter>
+    <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionScheduling.h">
+      <Filter>Header Files\Runtime\Prediction</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPredictionPublication.h">
-      <Filter>Header Files\Runtime\Replay</Filter>
+    <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionPublication.h">
+      <Filter>Header Files\Runtime\Prediction</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPredictionPublicationOperations.h">
-      <Filter>Header Files\Runtime\Replay</Filter>
+    <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionPublicationOperations.h">
+      <Filter>Header Files\Runtime\Prediction</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayArtifactHashLog.h">
       <Filter>Header Files\Runtime\Replay</Filter>
@@ -1126,8 +1132,8 @@
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayIdentity.h">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPrediction.h">
-      <Filter>Header Files\Runtime\Replay</Filter>
+    <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPrediction.h">
+      <Filter>Header Files\Runtime\Prediction</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayGuideArcs.h">
       <Filter>Header Files\Runtime\Replay</Filter>
@@ -1144,11 +1150,11 @@
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPathPackets.h">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPredictionPackets.h">
-      <Filter>Header Files\Runtime\Replay</Filter>
+    <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionPackets.h">
+      <Filter>Header Files\Runtime\Prediction</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPredictionView.h">
-      <Filter>Header Files\Runtime\Replay</Filter>
+    <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionView.h">
+      <Filter>Header Files\Runtime\Prediction</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPresentation.h">
       <Filter>Header Files\Runtime\Replay</Filter>
@@ -1183,8 +1189,8 @@
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRestoreTransactions.h">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPredictionArchive.h">
-      <Filter>Header Files\Runtime\Replay</Filter>
+    <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionArchive.h">
+      <Filter>Header Files\Runtime\Prediction</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayVisualPacketFingerprint.h">
       <Filter>Header Files\Runtime\Replay</Filter>
@@ -1192,8 +1198,8 @@
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayVisualPacket.h">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Replay\TrajectoryStore.h">
-      <Filter>Header Files\Runtime\Replay</Filter>
+    <ClInclude Include="SkullbonezSource\Runtime\Prediction\TrajectoryStore.h">
+      <Filter>Header Files\Runtime\Prediction</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayV2Artifact.h">
       <Filter>Header Files\Runtime\Replay</Filter>

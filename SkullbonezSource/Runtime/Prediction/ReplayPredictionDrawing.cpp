@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Replay/ReplayPredictionDrawing.cpp
+File: SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp
 Purpose:
   Draws immutable replay prediction and retained-path publication as overlay geometry.
 
@@ -34,12 +34,12 @@ Related:
   - ReplayPresentation.h
   - Agentic/Reference/comment-style-guide.md
 */
-#include "ReplayOverlayRenderer.h"
-#include "ReplayAuthoring.h"
+#include "../Replay/ReplayOverlayRenderer.h"
+#include "../Replay/ReplayAuthoring.h"
 #include "ReplayPrediction.h"
 #include "ReplayPredictionPublicationOperations.h"
-#include "ReplayPresentation.h"
-#include "ReplayPresentationSubmission.h"
+#include "../Replay/ReplayPresentation.h"
+#include "../Replay/ReplayPresentationSubmission.h"
 #include "../Editor/EditorTools.h"
 #include "../Tools/RuntimeTools.h"
 #include "../Scene/SceneEntityStore.h"

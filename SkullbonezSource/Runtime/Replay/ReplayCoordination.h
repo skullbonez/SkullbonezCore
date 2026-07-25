@@ -31,7 +31,7 @@ Related:
 #pragma once
 
 #include "ReplayAuthoring.h"
-#include "ReplayPrediction.h"
+#include "../Prediction/ReplayPrediction.h"
 #include "ReplayPorkchopPanel.h"
 #include "ReplayPresentation.h"
 #include "ReplayScrubber.h"

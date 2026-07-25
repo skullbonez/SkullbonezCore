@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Replay/ReplayPredictionReserve.cpp
+File: SkullbonezSource/Runtime/Prediction/ReplayPredictionReserve.cpp
 Purpose:
   Registers the replay prediction working-set owner and owns its capacity,
   accounting, and growth operations.
@@ -26,7 +26,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h
-  - SkullbonezSource/Runtime/Replay/ReplayPredictionReserve.h
+  - SkullbonezSource/Runtime/Prediction/ReplayPredictionReserve.h
 */
 #include "ReplayPredictionReserve.h"
 #include "ReplayPrediction.h"

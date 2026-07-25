@@ -21,7 +21,7 @@ Related:
 */
 #pragma once
 
-#include "ReplayPredictionView.h"
+#include "../Prediction/ReplayPredictionView.h"
 #include "../../Physics/PhysicsHandles.h"
 
 #include <cstdint>

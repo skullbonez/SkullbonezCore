@@ -55,8 +55,8 @@ Invariants:
     only activation may apply replay presentation against the populated scene.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/ReplayPrediction.cpp
-  - SkullbonezSource/Runtime/Replay/ReplayPredictionDrawing.cpp
+  - SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp
+  - SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
 */
 #pragma once
@@ -70,7 +70,7 @@ Related:
 #include "ReplayPorkchopPanel.h"
 #include "ReplayTripPlanner.h"
 #include "ReplayIdentity.h"
-#include "ReplayPrediction.h"
+#include "../Prediction/ReplayPrediction.h"
 #include "ReplayPresentation.h"
 #include "ReplayOverlayRenderer.h"
 #include "ReplayScrubber.h"
@@ -78,10 +78,10 @@ Related:
 
 #include "ReplayRecorder.h"
 #include "ReplayVisualPacket.h"
-#include "ReplayPredictionScheduling.h"
+#include "../Prediction/ReplayPredictionScheduling.h"
 #include "../../Assets/AssetKeys.h"
 #include "../../Core/SceneCapacity.h"
-#include "TrajectoryStore.h"
+#include "../Prediction/TrajectoryStore.h"
 #include "../Camera/RuntimeCameraMode.h"
 #include "../Interaction/RuntimeInteractionController.h"
 #include "../Scene/SceneLifecycle.h"

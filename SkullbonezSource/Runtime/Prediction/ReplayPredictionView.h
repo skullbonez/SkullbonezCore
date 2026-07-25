@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Replay/ReplayPredictionView.h
+File: SkullbonezSource/Runtime/Prediction/ReplayPredictionView.h
 Purpose:
   Publishes replay prediction values without exposing prediction-owner state.
 
@@ -28,9 +28,9 @@ Related:
 */
 #pragma once
 
-#include "ReplayIdentity.h"
+#include "../Replay/ReplayIdentity.h"
 #include "ReplayPredictionPackets.h"
-#include "ReplayVisualPacket.h"
+#include "../Replay/ReplayVisualPacket.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Physics/PhysicsDebugData.h"
 

@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Replay/ReplayPredictionArchive.Automation.cpp
+File: SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.Automation.cpp
 Purpose:
   Verifies the RVPD prediction archive by restoring and rebuilding its bytes in
   the Automation configuration.
@@ -20,12 +20,13 @@ Invariants:
   - Failure strings are frozen probe-output schema.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/ReplayPredictionArchive.cpp
+  - SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.cpp
   - tools/validate_replay_visual_fidelity.bat
 */
 #include "ReplayPredictionArchive.h"
+#include "ReplayPrediction.h"
 
-#include "ReplayRuntime.h"
+#include "../Replay/ReplayPathPackets.h"
 
 #include <cstdio>
 #include <cstring>

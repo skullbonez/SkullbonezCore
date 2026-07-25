@@ -34,8 +34,8 @@ Related:
 
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../Editor/EditorTools.h"
-#include "../Replay/ReplayPrediction.h"
-#include "../Replay/ReplayPredictionArchive.h"
+#include "../Prediction/ReplayPrediction.h"
+#include "../Prediction/ReplayPredictionArchive.h"
 #include "../Replay/ReplayOverlayRenderer.h"
 #include "../Replay/ReplayPresentation.h"
 #include "../Replay/ReplayV2Artifact.h"
