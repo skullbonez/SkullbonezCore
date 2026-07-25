@@ -12,13 +12,22 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-24th-JUL-26` |
 | Current baseline | Solar prediction presentation correction is complete: the 32-body Mars-assist scene stays parent/solar bounded for 120 seconds, Replay/live endpoints agree, paths restyle live, and space scenes schedule neither shadow nor reflection passes. |
-| Current objective | No implementation plan is active; await the next owner-selected task. |
-| Active/future progress | Solar prediction presentation correction 4/4 complete; active/future ledger 0/0. |
+| Current objective | Execute `ui-renderer-hard-boundary`, beginning with UR0's complete source-derived dependency census and edge-disposition table. |
+| Active/future progress | UI / Renderer Hard Boundary 0/7; active/future ledger 0/7. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | Solar prediction presentation correction `validate_full` passes with exit 0 in 165.7 s: mandatory CPU preflight and all Automation, replay/prediction, DX12, and physics runtime lanes passed. |
 | Validation for current edits | 383 tests/2,403,142 assertions, 16/16 focused slingshot assertions, held-drag instant/amortized probes, allocation policy, 23 dependency proofs, accepted DX12 captures, broad gate, and 39/39 touched-source comment audit pass. |
 
 ## Live Queue
+
+NOW. `ui-renderer-hard-boundary` is registered at 0/7. It preserves the
+completed UI/Runtime value-command boundary while removing 25 direct
+UI-to-Rendering includes across 14 UI files, moving UI GPU submission and
+resource lifetime into Runtime/Render, removing operator-presentation policy
+from Rendering, creating a standalone UI build, and adding mandatory
+directional dependency enforcement. Start with UR0; implementation uses the
+repository orchestrator skill. The live plan is
+`Agentic/Plans/TODO/ui-renderer-hard-boundary.md`.
 
 NOW. `solar-prediction-presentation-correction` is complete at 4/4. The
 120-second Mars-assist scene keeps every planet/moon bounded, exact-compares
