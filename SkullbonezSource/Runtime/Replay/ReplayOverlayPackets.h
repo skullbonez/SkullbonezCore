@@ -24,9 +24,9 @@ Related:
 
 #include "ReplayCapturePackets.h"
 #include "ReplayAuthoringPackets.h"
-#include "ReplayInterceptReadout.h"
-#include "ReplayPorkchopPanel.h"
-#include "ReplayTripPlanner.h"
+#include "../Planning/ReplayInterceptReadout.h"
+#include "../Planning/ReplayPorkchopPanel.h"
+#include "../Planning/ReplayTripPlanner.h"
 #include "../Prediction/ReplayPredictionView.h"
 #include "ReplayPathPackets.h"
 #include "ReplayPresentationPackets.h"

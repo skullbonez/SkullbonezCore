@@ -17,10 +17,10 @@ Invariants:
   - Synthetic frame storage is test-only; the production owner retains fixed arrays.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/ReplayTripPlanner.h
+  - SkullbonezSource/Runtime/Planning/ReplayTripPlanner.h
 */
 #include "doctest/doctest.h"
-#include "../SkullbonezSource/Runtime/Replay/ReplayTripPlanner.h"
+#include "../SkullbonezSource/Runtime/Planning/ReplayTripPlanner.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h"
 
 #include <cmath>

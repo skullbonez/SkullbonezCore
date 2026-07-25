@@ -18,13 +18,13 @@
 //   - Refresh attempts occur no faster than the documented five-second cadence.
 //
 // Related:
-//   - SkullbonezSource/Runtime/Replay/ReplayGuideArcs.h
+//   - SkullbonezSource/Runtime/Planning/ReplayGuideArcs.h
 //   - SkullbonezSource/Maths/OrbitalMechanics.h
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
 
-#include "../SkullbonezSource/Runtime/Replay/ReplayGuideArcs.h"
+#include "../SkullbonezSource/Runtime/Planning/ReplayGuideArcs.h"
 
 #include <cmath>
 

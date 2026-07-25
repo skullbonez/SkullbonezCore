@@ -408,6 +408,13 @@ RUNTIME_PREDICTION_PREFIXES = (
     "TrajectoryStore",
 )
 
+RUNTIME_PLANNING_PREFIXES = (
+    "ReplayGuideArcs",
+    "ReplayInterceptReadout",
+    "ReplayPorkchopPanel",
+    "ReplayTripPlanner",
+)
+
 RUNTIME_REPLAY_PREFIXES = (
     "ReplayAuthoring",
     "ReplayAuthoringCauseTree",
@@ -421,10 +428,6 @@ RUNTIME_REPLAY_PREFIXES = (
     "ReplayEventCommand",
     "ReplayIdentity",
     "ReplayInteractionController",
-    "ReplayGuideArcs",
-    "ReplayInterceptReadout",
-    "ReplayTripPlanner",
-    "ReplayPorkchopPanel",
     "ReplayOverlayLayout",
     "ReplayOverlayPackets",
     "ReplayOverlaySurface",
@@ -544,6 +547,7 @@ AREA_PREFIXES = (
     ("Physics\\Support", PHYSICS_SUPPORT_PREFIXES),
     ("Runtime\\Scene", RUNTIME_SCENE_PREFIXES),
     ("Core\\Allocation", CORE_ALLOCATION_PREFIXES),
+    ("Runtime\\Planning", RUNTIME_PLANNING_PREFIXES),
     ("Runtime\\Prediction", RUNTIME_PREDICTION_PREFIXES),
     ("Runtime\\Replay", RUNTIME_REPLAY_PREFIXES),
     ("Runtime\\Render", RUNTIME_RENDER_PREFIXES),

@@ -20,10 +20,10 @@ Invariants:
   - Invalid source state never publishes a complete heatmap.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/ReplayPorkchopPanel.h
+  - SkullbonezSource/Runtime/Planning/ReplayPorkchopPanel.h
   - SkullbonezSource/Maths/OrbitalMechanics.h
 */
-#include "../SkullbonezSource/Runtime/Replay/ReplayPorkchopPanel.h"
+#include "../SkullbonezSource/Runtime/Planning/ReplayPorkchopPanel.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h"
 
 #include <doctest/doctest.h>

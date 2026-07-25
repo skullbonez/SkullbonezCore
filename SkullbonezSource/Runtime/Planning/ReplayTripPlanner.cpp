@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Replay/ReplayTripPlanner.cpp
+File: SkullbonezSource/Runtime/Planning/ReplayTripPlanner.cpp
 Purpose:
   Implements bounded trip-planner command, shooting, and ghost-arc behavior.
 
@@ -20,8 +20,8 @@ Invariants:
     fixed downsampled positions.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/ReplayTripPlanner.h
-  - SkullbonezSource/Runtime/Replay/ReplayInterceptReadout.cpp
+  - SkullbonezSource/Runtime/Planning/ReplayTripPlanner.h
+  - SkullbonezSource/Runtime/Planning/ReplayInterceptReadout.cpp
 */
 #include "ReplayTripPlanner.h"
 

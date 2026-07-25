@@ -155,7 +155,7 @@
       "source_prefixes": ["Runtime/Replay"],
       "mode": "allow",
       "target_scope": "Runtime",
-      "allowed_target_prefixes": ["Runtime/Replay", "Runtime/Camera", "Runtime/Diagnostics", "Runtime/Editor", "Runtime/Input", "Runtime/Interaction", "Runtime/Prediction", "Runtime/Render", "Runtime/Scene", "Runtime/Simulation", "Runtime/Tools", "Runtime/UI"],
+      "allowed_target_prefixes": ["Runtime/Replay", "Runtime/Camera", "Runtime/Diagnostics", "Runtime/Editor", "Runtime/Input", "Runtime/Interaction", "Runtime/Planning", "Runtime/Prediction", "Runtime/Render", "Runtime/Scene", "Runtime/Simulation", "Runtime/Tools", "Runtime/UI"],
       "positive_target": "Runtime/Render/RuntimeRenderer.h",
       "negative_target": "Runtime/App/Run.h"
     },
@@ -167,6 +167,15 @@
       "allowed_target_prefixes": ["Runtime/Prediction", "Runtime/Editor", "Runtime/Replay", "Runtime/Scene", "Runtime/Tools"],
       "positive_target": "Runtime/Replay/ReplayIdentity.h",
       "negative_target": "Runtime/Planning/ReplayTripPlanner.h"
+    },
+    {
+      "id": "runtime_planning",
+      "source_prefixes": ["Runtime/Planning"],
+      "mode": "allow",
+      "target_scope": "Runtime",
+      "allowed_target_prefixes": ["Runtime/Planning", "Runtime/Prediction", "Runtime/Replay"],
+      "positive_target": "Runtime/Prediction/ReplayPredictionView.h",
+      "negative_target": "Runtime/App/Run.h"
     },
     {
       "id": "runtime_scene",

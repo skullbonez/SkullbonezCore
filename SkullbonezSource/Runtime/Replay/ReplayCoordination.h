@@ -32,11 +32,11 @@ Related:
 
 #include "ReplayAuthoring.h"
 #include "../Prediction/ReplayPrediction.h"
-#include "ReplayPorkchopPanel.h"
+#include "../Planning/ReplayPorkchopPanel.h"
 #include "ReplayPresentation.h"
 #include "ReplayScrubber.h"
 #include "ReplayTimeline.h"
-#include "ReplayTripPlanner.h"
+#include "../Planning/ReplayTripPlanner.h"
 #include "../../Core/PlatformWin32.h"
 #include "../../Core/Common.h"
 #include "ReplayProbeState.h"

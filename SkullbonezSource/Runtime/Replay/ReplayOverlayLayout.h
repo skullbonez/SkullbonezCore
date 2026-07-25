@@ -31,10 +31,10 @@ Related:
 
 #include "ReplayAuthoring.h"
 #include "ReplayOverlaySurface.h"
-#include "ReplayPorkchopPanel.h"
+#include "../Planning/ReplayPorkchopPanel.h"
 #include "ReplayRecorder.h"
 #include "ReplayScrubber.h"
-#include "ReplayTripPlanner.h"
+#include "../Planning/ReplayTripPlanner.h"
 #include "../Interaction/RuntimeInteractionController.h"
 #include "../UI/RuntimeUiSurface.h"
 #include "../../UI/UIDraw.h"

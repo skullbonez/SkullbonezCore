@@ -11,17 +11,17 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-25th-JUL-26` |
-| Current baseline | Replay Subsystem Partition RS1 is complete: all 18 ratified files live in `Runtime/Prediction`, exact project/filter ownership passes, and no stale Replay prediction path remains. |
-| Current objective | Execute `replay-subsystem-partition` RS2 and extract `Runtime/Planning`. |
-| Active/future progress | Replay Subsystem Partition 2/6; Downward Domain Bleed Remediation 0/6; Invariant Ownership Governance And Transaction Repair 1/5; active/future ledger 3/17. |
+| Current baseline | Replay Subsystem Partition RS2 is complete: all eight ratified files live in `Runtime/Planning`, exact production/test project ownership passes, and no stale Replay planning path remains. |
+| Current objective | Execute `replay-subsystem-partition` RS3 and reconcile composition, shared seams, and reserve inventory. |
+| Active/future progress | Replay Subsystem Partition 3/6; Downward Domain Bleed Remediation 0/6; Invariant Ownership Governance And Transaction Repair 1/5; active/future ledger 4/17. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | RS1 `validate_full.bat` passes: mandatory CPU/coverage, Automation, replay prediction smoke, DX12, and physics; the 44,401-line physics output is byte-exact. |
-| Validation for current edits | RS1 fast, project/filter, strict replay allocation, V2 artifact, sole visual-fidelity generation, and full gates pass; zero golden/baseline/artifact refresh. |
+| Last broad local gate | RS2 `validate_full.bat` passes: mandatory CPU/coverage, Automation, replay prediction smoke, DX12, and physics; the 44,401-line physics output is byte-exact. |
+| Validation for current edits | RS2 fast, production/test project filters, sole visual-fidelity generation, and full gates pass; zero golden/baseline/artifact refresh. |
 
 ## Live Queue
 
-NOW. The 2026-07-25 round-4 architecture campaign is active at 3/17 with
-binding order: `replay-subsystem-partition` (2/6),
+NOW. The 2026-07-25 round-4 architecture campaign is active at 4/17 with
+binding order: `replay-subsystem-partition` (3/6),
 `downward-domain-bleed-remediation` (0/6), then
 `invariant-ownership-governance-and-transaction-repair` (1/5).
 
@@ -29,12 +29,13 @@ Header Claim Staleness Remediation is complete at 3/3 and removed from the live
 inventory under rule 4. Permanent evidence is
 `Agentic/Reports/2026-07-25/header-claim-staleness-remediation-closure.md`.
 Its corrected ownership claims and durable `Related:` paths are now the source
-context for Replay and later GV work. Replay RS0 and RS1 are complete; their
+context for Replay and later GV work. Replay RS0-RS2 are complete; their
 permanent evidence is
 `Agentic/Reports/2026-07-25/replay-subsystem-partition-rs0-census.md` and
-`Agentic/Reports/2026-07-25/replay-subsystem-partition-rs1-prediction.md`.
+`Agentic/Reports/2026-07-25/replay-subsystem-partition-rs1-prediction.md`, and
+`Agentic/Reports/2026-07-25/replay-subsystem-partition-rs2-planning.md`.
 Implementation continues through the repository orchestrator skill with Replay
-RS2 next. Live plans are under
+RS3 next. Live plans are under
 `Agentic/Plans/TODO/`.
 
 NOW. `solar-prediction-presentation-correction` is complete at 4/4. The
@@ -446,7 +447,7 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Execute `replay-subsystem-partition` RS2: move the four ratified planning
-feature pairs into `Runtime/Planning`, update their consumers and exact
-project/filter ownership, and run the mapped single-invocation gates without
-refreshing any baseline.
+Execute `replay-subsystem-partition` RS3: split sibling composition and shared
+packet/layout seams so Replay no longer includes Prediction or Planning,
+reconcile the three-owner reserve inventory, and run the mapped
+single-invocation gates without refreshing any baseline.

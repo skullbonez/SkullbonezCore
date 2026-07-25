@@ -288,10 +288,10 @@
     <ClCompile Include="SkullbonezSource\Runtime\Tools\RuntimeFileWriter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\RuntimeInteractionController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayGuideArcs.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayTripPlanner.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPorkchopPanel.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayInterceptReadout.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayGuideArcs.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayTripPlanner.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayPorkchopPanel.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayInterceptReadout.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayArtifactHashLog.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayTimeline.cpp" />

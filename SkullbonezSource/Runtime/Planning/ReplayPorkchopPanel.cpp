@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Replay/ReplayPorkchopPanel.cpp
+File: SkullbonezSource/Runtime/Planning/ReplayPorkchopPanel.cpp
 Purpose:
   Implements Replay's allocation-free departure-window sweep.
 
@@ -21,7 +21,7 @@ Invariants:
   - A new refresh invalidates prior hover and selection publications.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/ReplayPorkchopPanel.h
+  - SkullbonezSource/Runtime/Planning/ReplayPorkchopPanel.h
   - SkullbonezSource/Maths/OrbitalMechanics.cpp
 */
 #include "ReplayPorkchopPanel.h"

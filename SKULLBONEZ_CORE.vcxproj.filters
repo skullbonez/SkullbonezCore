@@ -98,6 +98,12 @@
     <Filter Include="Header Files\Runtime\Prediction">
       <UniqueIdentifier>{14F84867-AF79-4E53-9042-87716FC32D48}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Runtime\Planning">
+      <UniqueIdentifier>{39829D9D-3317-4EC0-9508-2B59C976EC30}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Runtime\Planning">
+      <UniqueIdentifier>{1A6EBD94-A7D1-49F2-A810-6E50DD80BF83}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Runtime\Tools">
       <UniqueIdentifier>{776E5B97-F9D8-4E8D-A30E-2D9DD4D1E9B1}</UniqueIdentifier>
     </Filter>
@@ -306,17 +312,17 @@
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayRenderer.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayGuideArcs.cpp">
-      <Filter>Source Files\Runtime\Replay</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayGuideArcs.cpp">
+      <Filter>Source Files\Runtime\Planning</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayTripPlanner.cpp">
-      <Filter>Source Files\Runtime\Replay</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayTripPlanner.cpp">
+      <Filter>Source Files\Runtime\Planning</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPorkchopPanel.cpp">
-      <Filter>Source Files\Runtime\Replay</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayPorkchopPanel.cpp">
+      <Filter>Source Files\Runtime\Planning</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayInterceptReadout.cpp">
-      <Filter>Source Files\Runtime\Replay</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayInterceptReadout.cpp">
+      <Filter>Source Files\Runtime\Planning</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayArtifactHashLog.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
@@ -1135,17 +1141,17 @@
     <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPrediction.h">
       <Filter>Header Files\Runtime\Prediction</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayGuideArcs.h">
-      <Filter>Header Files\Runtime\Replay</Filter>
+    <ClInclude Include="SkullbonezSource\Runtime\Planning\ReplayGuideArcs.h">
+      <Filter>Header Files\Runtime\Planning</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayTripPlanner.h">
-      <Filter>Header Files\Runtime\Replay</Filter>
+    <ClInclude Include="SkullbonezSource\Runtime\Planning\ReplayTripPlanner.h">
+      <Filter>Header Files\Runtime\Planning</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPorkchopPanel.h">
-      <Filter>Header Files\Runtime\Replay</Filter>
+    <ClInclude Include="SkullbonezSource\Runtime\Planning\ReplayPorkchopPanel.h">
+      <Filter>Header Files\Runtime\Planning</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayInterceptReadout.h">
-      <Filter>Header Files\Runtime\Replay</Filter>
+    <ClInclude Include="SkullbonezSource\Runtime\Planning\ReplayInterceptReadout.h">
+      <Filter>Header Files\Runtime\Planning</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPathPackets.h">
       <Filter>Header Files\Runtime\Replay</Filter>

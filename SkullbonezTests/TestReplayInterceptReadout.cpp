@@ -17,11 +17,11 @@ Invariants:
   - Generation, topology, and frame-bank changes discard the old minimum.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/ReplayInterceptReadout.h
+  - SkullbonezSource/Runtime/Planning/ReplayInterceptReadout.h
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 
-#include "../SkullbonezSource/Runtime/Replay/ReplayInterceptReadout.h"
+#include "../SkullbonezSource/Runtime/Planning/ReplayInterceptReadout.h"
 
 #include <vector>
 

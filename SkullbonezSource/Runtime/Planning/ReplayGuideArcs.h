@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Replay/ReplayGuideArcs.h
+File: SkullbonezSource/Runtime/Planning/ReplayGuideArcs.h
 Purpose:
   Owns the fixed-capacity analytic Earth and Mars guide-ring publication.
 

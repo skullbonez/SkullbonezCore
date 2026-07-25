@@ -4,7 +4,7 @@ Date: 2026-07-25
 
 Owner: Runtime/Replay + Runtime composition
 
-State: IN PROGRESS (RS0-RS1 complete; RS2 next)
+State: IN PROGRESS (RS0-RS2 complete; RS3 next)
 
 Ledger tasks: 6 (RS0-RS5)
 
@@ -256,7 +256,7 @@ back-reference.
   - No golden, baseline, manifest, replay artifact, scene, config, shader, or
     physics CSV file changed.
 
-- [ ] **RS2 — Extract `Runtime/Planning`.**
+- [x] **RS2 — Extract `Runtime/Planning`.**
 
   Move the four planning features into `Runtime/Planning`, update consumers
   (UI readout surfaces, Render/overlay submission sites, automation probes),
@@ -266,9 +266,28 @@ back-reference.
 
   - `Runtime/Replay` and `Runtime/Prediction` contain no trip-planner,
     porkchop, guide-arc, or intercept-readout source.
-  - Neither `Replay/` nor `Prediction/` includes `Planning/`.
+  - No stale Replay path for a moved planning file remains, and
+    `Runtime/Prediction` contains zero Planning includes. The 11 temporary
+    `Replay -> Planning` edges are exactly the RS0 seam inventory and remain
+    owned by RS3; RS3 removes them with the temporary validator allowance.
   - Projects/filters and zero-warning builds as in RS1; mapped gates pass
     with zero refresh.
+
+  Evidence (2026-07-25):
+
+  - `Agentic/Reports/2026-07-25/replay-subsystem-partition-rs2-planning.md`
+    records the complete eight-file move, 17-file comment audit, temporary
+    seam inventory, project/filter changes, and validation results.
+  - No live source, test, project, filter, or tool path retains a moved
+    planning file under Replay. Production filters pass across 767 items and
+    test filters pass across 110 items.
+  - Prediction has zero Planning includes. The 11 temporary
+    `Replay -> Planning` includes remain explicitly owned by RS3, which must
+    delete both those edges and their validator allowance.
+  - Profile and Debug build with zero warnings. Fast, the sole
+    visual-fidelity generation, and the cumulative full gate all pass.
+  - No golden, baseline, manifest, replay artifact, scene, config, shader, or
+    physics CSV file changed.
 
 - [ ] **RS3 — Reconcile composition, shared seams, and the reserve inventory.**
 
