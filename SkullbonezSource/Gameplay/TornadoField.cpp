@@ -41,6 +41,7 @@ static float SmoothStep01( float edge0, float edge1, float value )
     {
         return value >= edge1 ? 1.0f : 0.0f;
     }
+
     float t = std::clamp( ( value - edge0 ) / ( edge1 - edge0 ), 0.0f, 1.0f );
     return t * t * ( 3.0f - 2.0f * t );
 }
@@ -61,8 +62,9 @@ Vector3 SampleAccelerationForConfigImpl( const TornadoFieldConfig& config, const
         return ZERO_VECTOR;
     }
 
-    Vector3 inward =
-        horizontal > TOLERANCE ? Vector3( -dx / horizontal, 0.0f, -dz / horizontal ) : Vector3( 1.0f, 0.0f, 0.0f );
+    Vector3 inward = horizontal > TOLERANCE ? Vector3( -dx / horizontal, 0.0f, -dz / horizontal )
+                                            : Vector3( 1.0f, 0.0f, 0.0f );
+
     Vector3 tangent( -inward.z, 0.0f, inward.x );
 
     const float radialMask = 0.18f + 0.82f * SmoothStep01( 1.0f, 0.0f, radial01 );
@@ -136,13 +138,12 @@ void TornadoSystem::SetConfig( const TornadoSystemConfig& config )
 {
     if ( config.vortices.size() > m_config.vortices.capacity() )
     {
-        SB_FATAL(
-            "Gameplay/TornadoSystem",
-            "Authored vortex storage exceeded. requested=%zu capacity=%zu",
-            config.vortices.size(),
-            m_config.vortices.capacity()
-        );
+        SB_FATAL( "Gameplay/TornadoSystem",
+                  "Authored vortex storage exceeded. requested=%zu capacity=%zu",
+                  config.vortices.size(),
+                  m_config.vortices.capacity() );
     }
+
     m_config = config;
     for ( TornadoVortexConfig& vortex : m_config.vortices )
     {
@@ -196,6 +197,7 @@ void TornadoSystem::SetFieldValue( float TornadoFieldConfig::* field, float valu
     {
         vortex.field.*field = value;
     }
+
     SetConfig( m_config );
 }
 
@@ -228,11 +230,9 @@ void TornadoSystem::Tick( float dt )
 }
 
 
-void TornadoSystem::BuildActiveVortices(
-    const TornadoSystemConfig& config,
-    float elapsedSeconds,
-    std::vector<TornadoActiveVortex>& outVortices
-)
+void TornadoSystem::BuildActiveVortices( const TornadoSystemConfig& config,
+                                         float elapsedSeconds,
+                                         std::vector<TornadoActiveVortex>& outVortices )
 {
     outVortices.clear();
     if ( !config.enabled )
@@ -264,8 +264,8 @@ void TornadoSystem::BuildActiveVortices(
         if ( source.timeToLiveSeconds > 0.0f && age > source.timeToLiveSeconds )
         {
             const float shrinkAge = age - source.timeToLiveSeconds;
-            shrink =
-                source.shrinkSeconds > 0.0f ? std::clamp( 1.0f - shrinkAge / source.shrinkSeconds, 0.0f, 1.0f ) : 0.0f;
+            shrink = source.shrinkSeconds > 0.0f ? std::clamp( 1.0f - shrinkAge / source.shrinkSeconds, 0.0f, 1.0f )
+                                                 : 0.0f;
         }
 
         const float strength = grow * shrink;
@@ -331,8 +331,9 @@ void TornadoSystem::BuildActiveVortices(
             }
             else
             {
-                const float fallbackPhase =
-                    static_cast<float>( a * 41 + b * 97 ) * 0.61803398875f + elapsedSeconds * 0.17f;
+                const float fallbackPhase = static_cast<float>( a * 41 + b * 97 ) * 0.61803398875f +
+                                            elapsedSeconds * 0.17f;
+
                 direction = Vector3( cosf( fallbackPhase ), 0.0f, sinf( fallbackPhase ) );
             }
 
@@ -357,5 +358,6 @@ Vector3 TornadoSystem::SampleAcceleration( const Vector3& position ) const
     {
         acceleration += SampleAccelerationForConfigImpl( vortex.field, position );
     }
+
     return acceleration;
 }

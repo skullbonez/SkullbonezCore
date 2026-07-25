@@ -72,15 +72,13 @@ UIBackdropBlurInvalidationReason UIBackdropBlur::LastInvalidationReason() const
 }
 
 
-void UIBackdropBlur::Draw(
-    const UIDrawContext& draw,
-    const UIRect& bounds,
-    int screenW,
-    int screenH,
-    int currentFrame,
-    double now,
-    bool enabled
-)
+void UIBackdropBlur::Draw( const UIDrawContext& draw,
+                           const UIRect& bounds,
+                           int screenW,
+                           int screenH,
+                           int currentFrame,
+                           double now,
+                           bool enabled )
 {
     (void)currentFrame;
     (void)now;
@@ -90,14 +88,21 @@ void UIBackdropBlur::Draw(
         return;
     }
 
-    const int requestedX =
-        std::clamp( static_cast<int>( bounds.x - BACKDROP_PAD_PIXELS ), 0, (std::max)( 0, screenW - 1 ) );
-    const int requestedY =
-        std::clamp( static_cast<int>( bounds.y - BACKDROP_PAD_PIXELS ), 0, (std::max)( 0, screenH - 1 ) );
-    const int requestedRight =
-        std::clamp( static_cast<int>( bounds.x + bounds.w + BACKDROP_PAD_PIXELS ), requestedX + 1, screenW );
-    const int requestedBottom =
-        std::clamp( static_cast<int>( bounds.y + bounds.h + BACKDROP_PAD_PIXELS ), requestedY + 1, screenH );
+    const int requestedX = std::clamp( static_cast<int>( bounds.x - BACKDROP_PAD_PIXELS ),
+                                       0,
+                                       (std::max)( 0, screenW - 1 ) );
+
+    const int requestedY = std::clamp( static_cast<int>( bounds.y - BACKDROP_PAD_PIXELS ),
+                                       0,
+                                       (std::max)( 0, screenH - 1 ) );
+
+    const int requestedRight = std::clamp( static_cast<int>( bounds.x + bounds.w + BACKDROP_PAD_PIXELS ),
+                                           requestedX + 1,
+                                           screenW );
+
+    const int requestedBottom = std::clamp( static_cast<int>( bounds.y + bounds.h + BACKDROP_PAD_PIXELS ),
+                                            requestedY + 1,
+                                            screenH );
 
     m_lastScreenW = screenW;
     m_lastScreenH = screenH;

@@ -38,14 +38,12 @@ class UICheckBox
     void SetBounds( float x, float y, float w, float h );
     UIRect Bounds() const;
     bool HitTest( int mouseX, int mouseY ) const;
-    void DrawToggle(
-        const UIDrawContext& draw,
-        const char* label,
-        bool checked,
-        float accentR,
-        float accentG,
-        float accentB
-    ) const;
+    void DrawToggle( const UIDrawContext& draw,
+                     const char* label,
+                     bool checked,
+                     float accentR,
+                     float accentG,
+                     float accentB ) const;
 
   private:
     UIRect m_bounds;

@@ -67,10 +67,8 @@ class DevelopmentToolAllocationScope
     RuntimeReserveOwnerScope m_ownerScope;
 };
 
-bool CopyDevelopmentToolAllocationStats(
-    DevelopmentToolAllocationOwner owner,
-    DevelopmentToolAllocationStats& outStats
-) noexcept;
+bool CopyDevelopmentToolAllocationStats( DevelopmentToolAllocationOwner owner,
+                                         DevelopmentToolAllocationStats& outStats ) noexcept;
 // Vendor page allocators reserve/release their real backing ranges through
 // this ledger seam. A failed reservation means the named hard cap was reached;
 // callers must not fall back to an untracked mapping.

@@ -352,26 +352,22 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
 
     [[noreturn]] void FailCapacityExceeded( std::size_t requested ) const
     {
-        std::fprintf(
-            stderr,
-            "FATAL: PhysicsFixedList capacity exceeded owner=%s requested=%zu capacity=%zu count=%zu "
-            "high_water=%zu.\n",
-            m_ownerName,
-            requested,
-            Capacity,
-            m_count,
-            m_highWater
-        );
-        std::fprintf(
-            stdout,
-            "FATAL: PhysicsFixedList capacity exceeded owner=%s requested=%zu capacity=%zu count=%zu "
-            "high_water=%zu.\n",
-            m_ownerName,
-            requested,
-            Capacity,
-            m_count,
-            m_highWater
-        );
+        std::fprintf( stderr,
+                      "FATAL: PhysicsFixedList capacity exceeded owner=%s requested=%zu capacity=%zu count=%zu "
+                      "high_water=%zu.\n",
+                      m_ownerName,
+                      requested,
+                      Capacity,
+                      m_count,
+                      m_highWater );
+        std::fprintf( stdout,
+                      "FATAL: PhysicsFixedList capacity exceeded owner=%s requested=%zu capacity=%zu count=%zu "
+                      "high_water=%zu.\n",
+                      m_ownerName,
+                      requested,
+                      Capacity,
+                      m_count,
+                      m_highWater );
         std::fflush( stderr );
         std::fflush( stdout );
         assert( false && "PhysicsFixedList capacity exceeded" );

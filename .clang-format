@@ -39,15 +39,19 @@ LineEnding: LF
 ColumnLimit: 120
 BinPackParameters: false
 BinPackArguments: false
+BinPackLongBracedList: false
 AllowAllParametersOfDeclarationOnNextLine: false
 AllowAllArgumentsOnNextLine: false
-# Wrapped calls and initializers use one indentation step per nesting level.
-# Their closing delimiter returns to the indentation of the line that opened it.
-AlignAfterOpenBracket: BlockIndent
+# Wrapped call arguments align beneath the first column after the opening
+# parenthesis. This keeps parameter ownership visible at the call site.
+AlignAfterOpenBracket: Align
 BracedInitializerIndentWidth: 4
 PenaltyBreakBeforeFirstCallParameter: 0
+# Keep the first expression token beside `=`. Wrapped calls continue from their
+# opening parenthesis instead of leaving an assignment operator stranded.
+PenaltyBreakAssignment: 1000000
 # Keep the first aggregate value beside `{`; continuation values align beneath it.
-Cpp11BracedListStyle: false
+Cpp11BracedListStyle: true
 SpaceBeforeCpp11BracedList: true
 
 # Don't reorder #includes (preserve existing grouping)

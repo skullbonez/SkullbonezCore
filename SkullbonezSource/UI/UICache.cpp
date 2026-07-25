@@ -43,6 +43,7 @@ void UICacheState::Reset()
     m_lastKey = {};
     m_dirtyFlags = UI_DIRTY_CONTENT | UI_DIRTY_LAYOUT | UI_DIRTY_STYLE | UI_DIRTY_INTERACTION | UI_DIRTY_VIEWPORT |
                    UI_DIRTY_BLUR_SOURCE;
+
     m_hasFrame = false;
 }
 
@@ -61,10 +62,12 @@ uint32_t UICacheState::BeginFrame( const UICacheFrameKey& key )
         {
             flags |= UI_DIRTY_VIEWPORT;
         }
+
         if ( !SameSize( key.windowBounds, m_lastKey.windowBounds ) )
         {
             flags |= UI_DIRTY_LAYOUT;
         }
+
         if ( !SamePosition( key.windowBounds, m_lastKey.windowBounds ) )
         {
             flags |= UI_DIRTY_POSITION;
@@ -73,19 +76,23 @@ uint32_t UICacheState::BeginFrame( const UICacheFrameKey& key )
                 flags |= UI_DIRTY_BLUR_SOURCE;
             }
         }
+
         if ( key.activeTab != m_lastKey.activeTab || !SameFloat( key.scrollY, m_lastKey.scrollY ) ||
              key.contentSignature != m_lastKey.contentSignature )
         {
             flags |= UI_DIRTY_CONTENT;
         }
+
         if ( key.styleSignature != m_lastKey.styleSignature )
         {
             flags |= UI_DIRTY_STYLE;
         }
+
         if ( key.interactionSignature != m_lastKey.interactionSignature )
         {
             flags |= UI_DIRTY_INTERACTION;
         }
+
         if ( key.blurEnabled != m_lastKey.blurEnabled )
         {
             flags |= UI_DIRTY_BLUR_SOURCE;

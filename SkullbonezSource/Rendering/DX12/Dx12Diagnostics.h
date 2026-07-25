@@ -55,16 +55,14 @@ class Dx12Diagnostics
     // Lifetime: all sources belong to the same backend device epoch and outlive
     // diagnostics publication. The explicit list keeps observation authority
     // inside this owner without retaining the RenderBackendDX12 facade.
-    void BindSources(
-        Dx12RenderDevice& device,
-        Dx12DescriptorHeaps& descriptors,
-        Dx12FrameOwner& frame,
-        Dx12TextureOwner& textures,
-        Dx12PipelineOwner& pipeline,
-        Dx12GeometryOwner& geometry,
-        Dx12GraphTransientPool& graphTransients,
-        Dx12RaytracingOwner& raytracing
-    );
+    void BindSources( Dx12RenderDevice& device,
+                      Dx12DescriptorHeaps& descriptors,
+                      Dx12FrameOwner& frame,
+                      Dx12TextureOwner& textures,
+                      Dx12PipelineOwner& pipeline,
+                      Dx12GeometryOwner& geometry,
+                      Dx12GraphTransientPool& graphTransients,
+                      Dx12RaytracingOwner& raytracing );
     const char* GetRendererName() const
     {
         return "DirectX 12";
@@ -129,11 +127,9 @@ class Dx12Diagnostics
     void PlatformProfilerGpuMarker( const char* name, uint32_t hash );
 
     void ConfigureFaultInjection( Dx12DiagnosticsFrame& frame );
-    void ReportArchitectureStats(
-        const char* reason,
-        const Dx12DescriptorHeaps& descriptors,
-        const Dx12FrameOwner& frame
-    ) const;
+    void ReportArchitectureStats( const char* reason,
+                                  const Dx12DescriptorHeaps& descriptors,
+                                  const Dx12FrameOwner& frame ) const;
 
   private:
     struct GpuTimerState
@@ -196,7 +192,5 @@ class DrawCallTraceScope
 #define DRAW_CALL_TRACE_PASTE_INNER( a, b ) a##b
 #define DRAW_CALL_TRACE_PASTE( a, b ) DRAW_CALL_TRACE_PASTE_INNER( a, b )
 #define DRAW_CALL_TRACE_SCOPE( diagnostics, name )                                                                     \
-    ::SkullbonezCore::Rendering::DrawCallTraceScope DRAW_CALL_TRACE_PASTE( _drawTraceScope_, __LINE__ )(               \
-        diagnostics,                                                                                                   \
-        name                                                                                                           \
-    )
+    ::SkullbonezCore::Rendering::DrawCallTraceScope DRAW_CALL_TRACE_PASTE( _drawTraceScope_, __LINE__ )( diagnostics,  \
+                                                                                                         name )

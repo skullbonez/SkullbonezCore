@@ -44,6 +44,7 @@ template <typename T> bool CapacityBytesForCount( std::size_t capacity, uint64_t
     {
         return false;
     }
+
     outBytes = static_cast<uint64_t>( capacity ) * elementBytes;
     return true;
 }
@@ -73,6 +74,7 @@ void ReplayTrajectoryStore::Clear() noexcept
         record.points.clear();
         record.publishedPointCount = 0;
     }
+
     records.clear();
     if ( hadPublishedState )
     {
@@ -89,6 +91,7 @@ ReplayTrajectoryRecord* ReplayTrajectoryStore::FindRecord( const ReplayTrajector
             return &record;
         }
     }
+
     return nullptr;
 }
 
@@ -101,17 +104,16 @@ const ReplayTrajectoryRecord* ReplayTrajectoryStore::FindRecord( const ReplayTra
             return &record;
         }
     }
+
     return nullptr;
 }
 
-ReplayTrajectoryRecord* ReplayTrajectoryStore::BeginReplaceRecord(
-    const ReplayTrajectoryRecordKey& key,
-    uint16_t styleId,
-    Physics::PhysicsSceneObjectId parentId,
-    int depth,
-    ReplayFrameIndex firstFrame,
-    bool contactDerived
-)
+ReplayTrajectoryRecord* ReplayTrajectoryStore::BeginReplaceRecord( const ReplayTrajectoryRecordKey& key,
+                                                                   uint16_t styleId,
+                                                                   Physics::PhysicsSceneObjectId parentId,
+                                                                   int depth,
+                                                                   ReplayFrameIndex firstFrame,
+                                                                   bool contactDerived )
 {
     ReplayTrajectoryRecord* record = FindRecord( key );
     if ( !record )
@@ -120,6 +122,7 @@ ReplayTrajectoryRecord* ReplayTrajectoryStore::BeginReplaceRecord(
         {
             return nullptr;
         }
+
         records.emplace_back();
         record = &records.back();
         record->key = key;
@@ -143,6 +146,7 @@ bool ReplayTrajectoryStore::TryAppendPoint( ReplayTrajectoryRecord& record, cons
     {
         return false;
     }
+
     record.points.push_back( point );
     return true;
 }
@@ -157,19 +161,16 @@ void ReplayTrajectoryStore::PublishPrefix( ReplayTrajectoryRecord& record, std::
     }
 }
 
-std::size_t ReplayTrajectoryStore::TrimPublishedPointsBeforeFrame(
-    ReplayTrajectoryRecord& record,
-    ReplayFrameIndex firstRetainedFrame
-) noexcept
+std::size_t ReplayTrajectoryStore::TrimPublishedPointsBeforeFrame( ReplayTrajectoryRecord& record,
+                                                                   ReplayFrameIndex firstRetainedFrame ) noexcept
 {
     const std::size_t publishedCount = (std::min)( record.publishedPointCount, record.points.size() );
     const auto publishedEnd = record.points.begin() + static_cast<std::ptrdiff_t>( publishedCount );
-    const auto firstKept = std::lower_bound(
-        record.points.begin(),
-        publishedEnd,
-        firstRetainedFrame,
-        []( const ReplayTrajectoryPoint& point, ReplayFrameIndex frame ) { return point.frameIndex < frame; }
-    );
+    const auto firstKept = std::lower_bound( record.points.begin(),
+                                             publishedEnd,
+                                             firstRetainedFrame,
+                                             []( const ReplayTrajectoryPoint& point, ReplayFrameIndex frame )
+                                             { return point.frameIndex < frame; } );
 
     const std::size_t removedCount = static_cast<std::size_t>( firstKept - record.points.begin() );
     if ( removedCount == 0u )
@@ -191,6 +192,7 @@ std::size_t ReplayTrajectoryStore::TrimPublishedPointsBeforeFrame(
     {
         record.firstFrame = firstRetainedFrame;
     }
+
     return removedCount;
 }
 
@@ -215,6 +217,7 @@ bool ReplayTrajectoryStore::ReserveRecords( std::size_t requestedCapacity, int f
     {
         return false;
     }
+
     const uint64_t requestedStoreBytes = oldStoreBytes - oldRecordBytes + requestedRecordBytes;
     if ( !ByteCountFitsReserveRequest( requestedStoreBytes ) )
     {
@@ -222,39 +225,32 @@ bool ReplayTrajectoryStore::ReserveRecords( std::size_t requestedCapacity, int f
     }
 
     SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult result = {};
-    if ( !RequestReplayPredictionReserveGrowth(
-             "ReplayTrajectoryStore::records",
-             frameNumber,
-             static_cast<int>( oldStoreBytes ),
-             static_cast<int>( requestedStoreBytes ),
-             1,
-             result
-         ) )
+    if ( !RequestReplayPredictionReserveGrowth( "ReplayTrajectoryStore::records",
+                                                frameNumber,
+                                                static_cast<int>( oldStoreBytes ),
+                                                static_cast<int>( requestedStoreBytes ),
+                                                1,
+                                                result ) )
     {
         return false;
     }
 
     const SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-    SkullbonezCore::Core::Allocation::RuntimeAllocationScope replayAllocationScope(
-        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay
-    );
+    SkullbonezCore::Core::Allocation::RuntimeAllocationScope replayAllocationScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay );
 
     SkullbonezCore::Core::Allocation::RuntimeReserveOwnerScope ownerScope( owner );
     SkullbonezCore::Core::Allocation::RuntimeReserveGrowthScope growthScope(
         owner,
         SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
-        result
-    );
+        result );
 
     records.reserve( requestedCapacity );
     return requestedCapacity <= records.capacity();
 }
 
-bool ReplayTrajectoryStore::ReserveRecordPoints(
-    ReplayTrajectoryRecord& record,
-    std::size_t requestedCapacity,
-    int frameNumber
-)
+bool ReplayTrajectoryStore::ReserveRecordPoints( ReplayTrajectoryRecord& record,
+                                                 std::size_t requestedCapacity,
+                                                 int frameNumber )
 {
     if ( requestedCapacity <= record.points.capacity() )
     {
@@ -275,6 +271,7 @@ bool ReplayTrajectoryStore::ReserveRecordPoints(
     {
         return false;
     }
+
     const uint64_t requestedStoreBytes = oldStoreBytes - oldPointBytes + requestedPointBytes;
     if ( !ByteCountFitsReserveRequest( requestedStoreBytes ) )
     {
@@ -282,29 +279,24 @@ bool ReplayTrajectoryStore::ReserveRecordPoints(
     }
 
     SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult result = {};
-    if ( !RequestReplayPredictionReserveGrowth(
-             "ReplayTrajectoryRecord::points",
-             frameNumber,
-             static_cast<int>( oldStoreBytes ),
-             static_cast<int>( requestedStoreBytes ),
-             1,
-             result
-         ) )
+    if ( !RequestReplayPredictionReserveGrowth( "ReplayTrajectoryRecord::points",
+                                                frameNumber,
+                                                static_cast<int>( oldStoreBytes ),
+                                                static_cast<int>( requestedStoreBytes ),
+                                                1,
+                                                result ) )
     {
         return false;
     }
 
     const SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-    SkullbonezCore::Core::Allocation::RuntimeAllocationScope replayAllocationScope(
-        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay
-    );
+    SkullbonezCore::Core::Allocation::RuntimeAllocationScope replayAllocationScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay );
 
     SkullbonezCore::Core::Allocation::RuntimeReserveOwnerScope ownerScope( owner );
     SkullbonezCore::Core::Allocation::RuntimeReserveGrowthScope growthScope(
         owner,
         SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
-        result
-    );
+        result );
 
     record.points.reserve( requestedCapacity );
     return requestedCapacity <= record.points.capacity();
@@ -322,6 +314,7 @@ std::size_t ReplayTrajectoryStore::PointCount() const noexcept
     {
         count += record.points.size();
     }
+
     return count;
 }
 
@@ -342,8 +335,10 @@ uint64_t ReplayTrajectoryStore::CapacityBytes() const noexcept
         {
             return 0;
         }
+
         total += pointBytes;
     }
+
     return total;
 }
 
@@ -355,6 +350,7 @@ uint32_t ReplayTrajectoryStore::AllocateVersion() noexcept
     {
         nextVersion = 1;
     }
+
     return version == 0 ? AllocateVersion() : version;
 }
 } // namespace SkullbonezCore::Runtime

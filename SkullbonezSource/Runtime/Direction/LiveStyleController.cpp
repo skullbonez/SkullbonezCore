@@ -97,6 +97,7 @@ char* TrimLeft( char* text )
     {
         ++text;
     }
+
     return text;
 }
 
@@ -145,6 +146,7 @@ bool ExtractCapturePath( const char* source, char* out, size_t outSize )
     {
         cursor += strlen( "screenshot" );
     }
+
     cursor = TrimLeft( cursor );
 
     if ( cursor[0] == '"' )
@@ -260,8 +262,10 @@ void LiveStyleController::Tick( SceneRuntimeStyleContext context )
     {
         m_styleStamp = styleStamp;
         AuthoredScene styleScene;
-        const SkullbonezCore::Core::SbResult loadResult =
-            AuthoredScene::TryLoadStyleFromFile( m_stylePath, context.assets, styleScene );
+        const SkullbonezCore::Core::SbResult loadResult = AuthoredScene::TryLoadStyleFromFile( m_stylePath,
+                                                                                               context.assets,
+                                                                                               styleScene );
+
         if ( loadResult.ok )
         {
             ApplyLiveStyleScene( context, styleScene );
@@ -291,13 +295,12 @@ void LiveStyleController::Tick( SceneRuntimeStyleContext context )
             }
             else
             {
-                JoinControlPath(
-                    m_directory,
-                    requestedPath,
-                    m_pendingScreenshotPath,
-                    sizeof( m_pendingScreenshotPath )
-                );
+                JoinControlPath( m_directory,
+                                 requestedPath,
+                                 m_pendingScreenshotPath,
+                                 sizeof( m_pendingScreenshotPath ) );
             }
+
             m_hasPendingScreenshot = true;
             WriteStatus( "capture_pending", m_pendingScreenshotPath );
         }
@@ -354,5 +357,6 @@ void LiveStyleController::SavePendingCapture( CaptureController& capture, Render
         MarkCaptureFailed( captureResult.error.message );
         return;
     }
+
     MarkCaptureSaved();
 }

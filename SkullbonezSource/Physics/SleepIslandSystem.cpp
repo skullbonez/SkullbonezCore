@@ -40,10 +40,8 @@ Related:
 
 using namespace SkullbonezCore::Physics;
 
-void SleepIslandSystem::PropagateSupport(
-    SleepSupportPropagationContext& context,
-    const PhysicsBodyHotFieldsConstView& hotFields
-)
+void SleepIslandSystem::PropagateSupport( SleepSupportPropagationContext& context,
+                                          const PhysicsBodyHotFieldsConstView& hotFields )
 {
     // Concept: support propagates upward through a stack.
     //
@@ -82,6 +80,7 @@ void SleepIslandSystem::PropagateSupport(
             {
                 supporterHasSupport = true;
             }
+
             if ( !supporterHasSupport && supporter < static_cast<int>( m_sleepState.size() ) &&
                  m_sleepState[supporter] != 0 )
             {

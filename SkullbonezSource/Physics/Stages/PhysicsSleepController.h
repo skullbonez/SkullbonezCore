@@ -82,17 +82,15 @@ class PhysicsNarrowphaseWakeAccess
     int m_modelCount = 0;
     float m_dt = 0.0f;
 
-    PhysicsNarrowphaseWakeAccess(
-        PhysicsSleepController& sleepController,
-        PhysicsBodyStore& bodyStore,
-        const ColliderStore& colliderStore,
-        const PhysicsWorldForces& worldForces,
-        std::span<PhysicsBodyRecord> bodyRecords,
-        const PhysicsBodyHotFieldsView& hotFields,
-        std::span<float> timeRemaining,
-        int modelCount,
-        float dt
-    );
+    PhysicsNarrowphaseWakeAccess( PhysicsSleepController& sleepController,
+                                  PhysicsBodyStore& bodyStore,
+                                  const ColliderStore& colliderStore,
+                                  const PhysicsWorldForces& worldForces,
+                                  std::span<PhysicsBodyRecord> bodyRecords,
+                                  const PhysicsBodyHotFieldsView& hotFields,
+                                  std::span<float> timeRemaining,
+                                  int modelCount,
+                                  float dt );
     friend class PhysicsSleepController;
 
   public:
@@ -172,11 +170,9 @@ class PhysicsSleepController
     int m_nextSleepIslandVisualId = 1;
     int m_awakeBodyCount = 0; // Dynamic awake rows at the last mirror or completed sleep-island transition.
     PhysicsFixedList<int, Scene::Capacity::MAX_SCENE_OBJECTS> m_awakeBodyIndices {
-        "PhysicsSleepController.awakeBodyIndices"
-    };
+        "PhysicsSleepController.awakeBodyIndices" };
     PhysicsFixedList<int, Scene::Capacity::MAX_SCENE_OBJECTS> m_awakeListPositions {
-        "PhysicsSleepController.awakeListPositions"
-    };
+        "PhysicsSleepController.awakeListPositions" };
     int m_pendingAwakeIndices[Scene::Capacity::MAX_SCENE_OBJECTS] = {};
     // Parallel producers access this aligned scalar only through atomic_ref;
     // plain storage preserves PhysicsWorld's cold prediction-copy semantics.
@@ -223,48 +219,38 @@ class PhysicsSleepController
     void FlushPendingAwakeBodyIndices();
     void EnsureVisualIdSize( int modelCount );
     void WakeModel( const PhysicsSleepWakeContext& context, int index );
-    PhysicsNarrowphaseWakeAccess CreateNarrowphaseWakeAccess(
-        PhysicsBodyStore& bodyStore,
-        const ColliderStore& colliderStore,
-        const PhysicsWorldForces& worldForces,
-        std::span<PhysicsBodyRecord> bodyRecords,
-        std::span<float> timeRemaining,
-        int modelCount,
-        float dt
-    );
+    PhysicsNarrowphaseWakeAccess CreateNarrowphaseWakeAccess( PhysicsBodyStore& bodyStore,
+                                                              const ColliderStore& colliderStore,
+                                                              const PhysicsWorldForces& worldForces,
+                                                              std::span<PhysicsBodyRecord> bodyRecords,
+                                                              std::span<float> timeRemaining,
+                                                              int modelCount,
+                                                              float dt );
     void SeedModelAsleep( const PhysicsBodyStore& bodyStore, int index );
     void SetPhysicsSleepEnabled( bool enabled );
     bool IsPhysicsSleepEnabled() const;
-    void LockUnderwaterSleeperIfReady(
-        const PhysicsWorldForces& worldForces,
-        PhysicsBodyStore& bodyStore,
-        const ColliderStore& colliderStore,
-        std::span<float> timeRemaining,
-        int index
-    );
+    void LockUnderwaterSleeperIfReady( const PhysicsWorldForces& worldForces,
+                                       PhysicsBodyStore& bodyStore,
+                                       const ColliderStore& colliderStore,
+                                       std::span<float> timeRemaining,
+                                       int index );
     void PropagateSupport( const PhysicsBodyStore& bodyStore );
-    void AppendPointJointSupportEdges(
-        const PhysicsBodyStore& bodyStore,
-        const std::vector<PointJointConstraint>& pointJointConstraints,
-        int modelCount
-    );
-    void WakePointJointConnectedBodies(
-        PhysicsBodyStore& bodyStore,
-        const ColliderStore& colliderStore,
-        const PhysicsWorldForces& worldForces,
-        std::span<float> timeRemaining,
-        PhysicsContactCacheWakeAccess contactCache,
-        std::span<const PersistentContact> persistentContacts,
-        const std::vector<PointJointConstraint>& pointJointConstraints,
-        float dt
-    );
+    void AppendPointJointSupportEdges( const PhysicsBodyStore& bodyStore,
+                                       const std::vector<PointJointConstraint>& pointJointConstraints,
+                                       int modelCount );
+    void WakePointJointConnectedBodies( PhysicsBodyStore& bodyStore,
+                                        const ColliderStore& colliderStore,
+                                        const PhysicsWorldForces& worldForces,
+                                        std::span<float> timeRemaining,
+                                        PhysicsContactCacheWakeAccess contactCache,
+                                        std::span<const PersistentContact> persistentContacts,
+                                        const std::vector<PointJointConstraint>& pointJointConstraints,
+                                        float dt );
     void RunIslandStage( const PhysicsSleepIslandStageContext& context );
-    bool IsPointJointPair(
-        const PhysicsBodyStore& bodyStore,
-        const std::vector<PointJointConstraint>& pointJointConstraints,
-        int bodyA,
-        int bodyB
-    ) const;
+    bool IsPointJointPair( const PhysicsBodyStore& bodyStore,
+                           const std::vector<PointJointConstraint>& pointJointConstraints,
+                           int bodyA,
+                           int bodyB ) const;
 
     void CaptureReplayState( PhysicsSolverSnapshot& outSnapshot ) const;
     void RestoreReplayState( const PhysicsSolverSnapshot& snapshot );

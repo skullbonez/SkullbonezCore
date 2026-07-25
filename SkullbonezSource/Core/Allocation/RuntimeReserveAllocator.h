@@ -154,11 +154,9 @@ struct RuntimeReserveOwnerStatsView
 class RuntimeReserveGrowthScope
 {
   public:
-    RuntimeReserveGrowthScope(
-        RuntimeReserveOwnerHandle owner,
-        RuntimeReservePhase phase,
-        const RuntimeReserveGrowthResult& result
-    ) noexcept;
+    RuntimeReserveGrowthScope( RuntimeReserveOwnerHandle owner,
+                               RuntimeReservePhase phase,
+                               const RuntimeReserveGrowthResult& result ) noexcept;
     ~RuntimeReserveGrowthScope() noexcept;
 
     RuntimeReserveGrowthScope( const RuntimeReserveGrowthScope& ) = delete;
@@ -188,8 +186,8 @@ class RuntimeReserveAllocator
 {
   public:
     static RuntimeReserveOwnerHandle RegisterOwner( const RuntimeReserveOwnerDesc& desc ) noexcept;
-    static RuntimeReserveGrowthResult
-    RequestGrowth( RuntimeReserveOwnerHandle owner, const RuntimeReserveGrowthRequest& request ) noexcept;
+    static RuntimeReserveGrowthResult RequestGrowth( RuntimeReserveOwnerHandle owner,
+                                                     const RuntimeReserveGrowthRequest& request ) noexcept;
 
     static RuntimeReserveOwnerHandle CurrentOwner() noexcept;
     static void SetCurrentOwner( RuntimeReserveOwnerHandle owner ) noexcept;
@@ -199,11 +197,9 @@ class RuntimeReserveAllocator
     // Reserves one vendor-owned backing range before an allocator maps it.
     // Unlike RecordAllocation(), this can reject the request without first
     // crossing the registered live-byte cap.
-    static bool TryRecordDevelopmentToolBackingAllocation(
-        RuntimeReserveOwnerHandle owner,
-        int phaseIndex,
-        uint64_t bytes
-    ) noexcept;
+    static bool TryRecordDevelopmentToolBackingAllocation( RuntimeReserveOwnerHandle owner,
+                                                           int phaseIndex,
+                                                           uint64_t bytes ) noexcept;
 #endif
 
     static void RecordAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex, uint64_t bytes ) noexcept;

@@ -48,13 +48,11 @@ Math::Transformation::RotationMatrix BuildPickRotation( const Math::Orientation:
 }
 
 
-bool IntersectRaySphereExact(
-    const Math::Vector::Vector3& rayOrigin,
-    const Math::Vector::Vector3& rayDirection,
-    const Math::Vector::Vector3& center,
-    float radius,
-    float& outT
-)
+bool IntersectRaySphereExact( const Math::Vector::Vector3& rayOrigin,
+                              const Math::Vector::Vector3& rayDirection,
+                              const Math::Vector::Vector3& center,
+                              float radius,
+                              float& outT )
 {
     if ( radius <= 0.0f )
     {
@@ -80,6 +78,7 @@ bool IntersectRaySphereExact(
     {
         outT = 0.0f;
     }
+
     return true;
 }
 
@@ -105,12 +104,10 @@ bool ClipBoxAxis( float origin, float direction, float minValue, float maxValue,
 }
 
 
-bool IntersectRayBoxLocal(
-    const Math::Vector::Vector3& localOrigin,
-    const Math::Vector::Vector3& localDirection,
-    const Math::Vector::Vector3& halfExtents,
-    float& outT
-)
+bool IntersectRayBoxLocal( const Math::Vector::Vector3& localOrigin,
+                           const Math::Vector::Vector3& localDirection,
+                           const Math::Vector::Vector3& halfExtents,
+                           float& outT )
 {
     float enter = 0.0f;
     float exit = FLT_MAX;
@@ -132,12 +129,10 @@ bool IntersectRayBoxLocal(
 }
 
 
-bool IntersectRayConvexHullLocal(
-    const Math::Vector::Vector3& localOrigin,
-    const Math::Vector::Vector3& localDirection,
-    const Math::CollisionDetection::ConvexHullShape& hull,
-    float& outT
-)
+bool IntersectRayConvexHullLocal( const Math::Vector::Vector3& localOrigin,
+                                  const Math::Vector::Vector3& localDirection,
+                                  const Math::CollisionDetection::ConvexHullShape& hull,
+                                  float& outT )
 {
     float enter = 0.0f;
     float exit = FLT_MAX;
@@ -154,6 +149,7 @@ bool IntersectRayConvexHullLocal(
             {
                 return false;
             }
+
             continue;
         }
 
@@ -210,8 +206,9 @@ struct PickShapeVisitor
 
     bool operator()( const Math::CollisionDetection::ConvexHullShape& hull ) const
     {
-        const Math::Vector::Vector3 localOrigin =
-            rotation.TransposeMultiply( rayOrigin - transform.position ) - hull.GetPosition();
+        const Math::Vector::Vector3 localOrigin = rotation.TransposeMultiply( rayOrigin - transform.position ) -
+                                                  hull.GetPosition();
+
         const Math::Vector::Vector3 localDirection = rotation.TransposeMultiply( rayDirection );
         return IntersectRayConvexHullLocal( localOrigin, localDirection, hull, outT );
     }
@@ -219,13 +216,11 @@ struct PickShapeVisitor
 } // namespace
 
 
-bool TryIntersectRuntimePickShape(
-    const Math::CollisionDetection::CollisionShape& shape,
-    const RuntimePickShapeTransform& transform,
-    const Math::Vector::Vector3& rayOrigin,
-    const Math::Vector::Vector3& rayDirection,
-    float& outT
-)
+bool TryIntersectRuntimePickShape( const Math::CollisionDetection::CollisionShape& shape,
+                                   const RuntimePickShapeTransform& transform,
+                                   const Math::Vector::Vector3& rayOrigin,
+                                   const Math::Vector::Vector3& rayDirection,
+                                   float& outT )
 {
     outT = 0.0f;
     const Math::Transformation::RotationMatrix rotation = BuildPickRotation( transform.orientation );

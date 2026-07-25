@@ -5,7 +5,8 @@ Purpose:
 
 Summary:
   Exercises every UR1 value variant, fixed-capacity failure behavior, preview
-  fallback data, clip nesting, and immutable text measurement without a GPU.
+  fallback data, clip nesting, immutable text measurement, the profiler
+  presenter, and all production UI surfaces without a GPU.
 
 Mental model:
   UI records ordered values into bounded storage. These tests inspect those
@@ -30,7 +31,9 @@ Related:
 #include "../SkullbonezSource/UI/UIDraw.h"
 #include "../SkullbonezSource/UI/UIDrawList.h"
 #include "../SkullbonezSource/UI/UIFontMetrics.h"
+#include "../SkullbonezSource/UI/UIProfilerOverlayPresenter.h"
 #include "../SkullbonezSource/UI/UIStyle.h"
+#include "../SkullbonezSource/UI/UI.h"
 
 #include <array>
 #include <cstdio>
@@ -123,6 +126,13 @@ TEST_CASE( "UI draw storage fails closed at fixed capacities" )
     {
         list.PushClip( 0, 0, 1, 1 );
     }
+    list.PopClip(); // Matches the rejected push and must not pop a retained clip.
+    CHECK( list.Commands().size() == UIDrawList::MAX_CLIP_DEPTH );
+    for ( int depth = 0; depth < UIDrawList::MAX_CLIP_DEPTH; ++depth )
+    {
+        list.PopClip();
+    }
+    CHECK( list.Commands().size() == UIDrawList::MAX_CLIP_DEPTH * 2 );
     CHECK( list.GetStats().maxClipDepth == UIDrawList::MAX_CLIP_DEPTH );
     CHECK( list.GetStats().clipOverflow );
 }
@@ -156,58 +166,91 @@ TEST_CASE( "UI frame composition appends cached values without borrowing source 
 }
 
 
-TEST_CASE( "UI representative frame streams retain committed fingerprints" )
+TEST_CASE( "Production UI frame streams retain committed fingerprints" )
 {
-    auto makeFrame = []( int surface, UIDrawList& frame )
-    {
-        frame.Clear();
-        UIDrawContext draw( 1920, 1080, frame );
-        if ( surface == 0 )
-        {
-            draw.RoundedPanel( { 120, 80, 920, 720 }, 10, { 0.08f, 0.09f, 0.11f, 0.96f }, { 0.2f, 0.3f, 0.4f, 1 } );
-            draw.Text( 148, 110, 15.5f, 1, 1, 1, "Editor / Scene" );
-            frame.PushClip( 140, 150, 860, 570 );
-            draw.Rect( 156, 176, 240, 32, 0.1f, 0.2f, 0.3f, 1 );
-            draw.Triangle( 380, 184, 392, 196, 380, 208, 0.4f, 0.8f, 1, 1 );
-            frame.AddPreviewImage( { 3, true }, 420, 176, 520, 300, 0.04f, 0.05f, 0.07f, 1, "Preview unavailable" );
-            frame.PopClip();
-        }
-        else if ( surface == 1 )
-        {
-            draw.RoundedPanel( { 1470, 18, 420, 38 }, 8, { 0.08f, 0.09f, 0.11f, 0.96f }, { 0.2f, 0.3f, 0.4f, 1 } );
-            draw.Text( 1502, 30, 12.5f, 1, 1, 1, "Scene 3 / Inspect" );
-        }
-        else if ( surface >= 2 && surface < 13 )
-        {
-            const int tab = surface - 2;
-            draw.Rect( 160, 160, 760, 480, 0.06f, 0.07f, 0.09f, 0.94f );
-            draw.Text( 180, 182, 14, 0.8f, 0.9f, 1, "Legacy tab" );
-            draw.Rect( 180, 224 + static_cast<float>( tab * 3 ), 520, 2, 0.2f, 0.7f, 1, 0.8f );
-        }
-        else if ( surface == 13 )
-        {
-            draw.RoundedPanel( { 18, 880, 1884, 174 }, 8, { 0.05f, 0.06f, 0.08f, 0.96f }, { 0.2f, 0.3f, 0.4f, 1 } );
-            draw.Text( 42, 904, 11, 0.7f, 0.9f, 1, "REPLAY  +120.0s  MARS" );
-            draw.Rect( 42, 944, 1800, 4, 0.2f, 0.7f, 1, 1 );
-        }
-        else
-        {
-            draw.Text( 24, 24, 18, 1, 1, 1, "Text-only validation" );
-        }
-    };
+    using SkullbonezCore::UI::InGameUI;
+    using SkullbonezCore::UI::InGameUIFrameData;
+    using SkullbonezCore::UI::InGameUITab;
 
-    constexpr uint64_t expected[] = { 1999776830099349490ull,  395030874118962480ull,   11343627079521793403ull,
-                                      16197901356463063590ull, 13191436111239807249ull, 2946497590796191564ull,
-                                      2899566393362059983ull,  515668882496225930ull,   3301416027854312949ull,
-                                      2517948369282214640ull,  14927718977381377571ull, 6346658494577968078ull,
-                                      13290574325653764313ull, 14295429501679027938ull, 7096956378812196519ull };
-    auto frame = std::make_unique<UIDrawList>();
-    for ( int surface = 0; surface < static_cast<int>( std::size( expected ) ); ++surface )
+    const char* sceneOptions[] = { "ui_scene", "ui_scene_alt" };
+    auto data = std::make_unique<InGameUIFrameData>();
+    data->screenW = 1920;
+    data->screenH = 1080;
+    data->rendererName = "DirectX 12";
+    data->sceneName = "UI production fingerprint";
+    data->sceneOptions = sceneOptions;
+    data->sceneOptionCount = static_cast<int>( std::size( sceneOptions ) );
+    data->selectedSceneOption = 0;
+    data->currentSceneIndex = 0;
+    data->sceneCount = data->sceneOptionCount;
+    data->sceneMode = true;
+    data->currentFrame = 20;
+    data->targetFrameCount = 120;
+    data->runtimeInputModeLabel = "Inspect";
+    data->fps = 60.0f;
+    data->renderMs = 4.0f;
+    data->physicsMs = 2.0f;
+    data->cpuFrameMs = 6.0f;
+    data->gpuFrameMs = 3.0f;
+    data->modelCount = 32;
+    data->workerThreadCount = 4;
+    data->maxWorkerThreadCount = 8;
+    data->renderTargetPreviewCount = 1;
+    data->renderTargetPreviews[0] = { "Scene HDR", 1920, 1080, false, false, true };
+
+    constexpr InGameUITab tabs[] = {
+        InGameUITab::Profiler, InGameUITab::Scene,   InGameUITab::Editor, InGameUITab::Physics,
+        InGameUITab::Options,  InGameUITab::Render,  InGameUITab::Targets, InGameUITab::Keys,
+        InGameUITab::Sky,      InGameUITab::Cinematic, InGameUITab::Memory,
+    };
+    constexpr uint64_t expected[] = {
+        1167260169752999469ull,
+        5621374501062094743ull,
+        643319089294822447ull,
+        9774020997193876338ull,
+        3787874871094680490ull,
+        13838569643518502325ull,
+        1186693958027131891ull,
+        5057719176066529734ull,
+        3243788985155815295ull,
+        15645422141942934428ull,
+        5868520363750485546ull,
+    };
+    static_assert( std::size( tabs ) == std::size( expected ) );
+
+    auto ui = std::make_unique<InGameUI>();
+    ui->SetVisible( true );
+    ui->SetWindowBounds( 54, 72, 760, 520 );
+    ui->SetMouseOverride( true, 12, 12 );
+    for ( int surface = 0; surface < static_cast<int>( std::size( tabs ) ); ++surface )
     {
         INFO( "surface=" << surface );
-        makeFrame( surface, *frame );
-        CHECK( frame->Fingerprint() == expected[surface] );
+        ui->SetActiveTab( tabs[surface] );
+        ui->ResetPresentationState();
+        const UIDrawList& frame = ui->Draw( *data );
+        CHECK( frame.Fingerprint() == expected[surface] );
+        CHECK_FALSE( frame.GetStats().commandOverflow );
+        CHECK_FALSE( frame.GetStats().textOverflow );
+        CHECK_FALSE( frame.GetStats().clipOverflow );
     }
+}
+
+
+TEST_CASE( "Profiler overlay presenter records detached UI values without a renderer" )
+{
+    SkullbonezCore::Core::Profiler::ProfilerFrameView emptyFrame;
+    UIDrawList overlay;
+    UIDrawContext draw( 1920, 1080, overlay );
+    SkullbonezCore::UI::UIProfilerOverlayPresenter presenter;
+
+    presenter.RecordOverlay( emptyFrame, draw, -800.0f, -480.0f, 18.0f, 12.0f, 60.0f );
+    presenter.RecordBarOverlay( emptyFrame, draw, -800.0f, -300.0f, 640.0f, 160.0f, true );
+
+    CHECK_FALSE( overlay.Commands().empty() );
+    CHECK( overlay.Fingerprint() != 0 );
+    CHECK_FALSE( overlay.GetStats().commandOverflow );
+    CHECK_FALSE( overlay.GetStats().textOverflow );
+    CHECK_FALSE( overlay.GetStats().clipOverflow );
 }
 
 

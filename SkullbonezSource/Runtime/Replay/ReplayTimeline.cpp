@@ -48,12 +48,10 @@ template <typename T> uint64_t ReplayTimelineVectorCapacityBytes( const std::vec
 
 } // namespace
 
-ReplayRecordingConfigResult ReplayTimeline::ConfigureRecording(
-    bool enabled,
-    int retentionSeconds,
-    const char* hashLogPath,
-    int runtimeBodyCapacity
-)
+ReplayRecordingConfigResult ReplayTimeline::ConfigureRecording( bool enabled,
+                                                                int retentionSeconds,
+                                                                const char* hashLogPath,
+                                                                int runtimeBodyCapacity )
 {
     m_recordingConfigured = true;
     m_recordingEnabled = enabled || ( hashLogPath && hashLogPath[0] != '\0' );
@@ -98,6 +96,7 @@ bool ReplayTimeline::SetRecordingEnabled( bool enabled ) noexcept
     {
         return false;
     }
+
     m_recordingEnabled = enabled;
     return true;
 }
@@ -110,14 +109,17 @@ ReplayMemoryPolicyApplyResult ReplayTimeline::ApplyMemoryPolicyRequest( const Re
     {
         nextPolicy = ReplayMemoryPresetPolicy( ReplayMemoryPresetFromIndex( request.presetIndex ) );
     }
+
     if ( request.retentionSeconds > 0 )
     {
         nextPolicy.requestedRetentionSeconds = request.retentionSeconds;
     }
+
     if ( request.budgetMiB > 0 )
     {
         nextPolicy.requestedBudgetMiB = request.budgetMiB;
     }
+
     nextPolicy = ResolveReplayMemoryPolicy( nextPolicy );
     if ( nextPolicy.preset == m_memoryPolicy.preset &&
          nextPolicy.requestedRetentionSeconds == m_memoryPolicy.requestedRetentionSeconds &&
@@ -137,12 +139,11 @@ ReplayMemoryPolicyApplyResult ReplayTimeline::ApplyMemoryPolicyRequest( const Re
 
     // Hazard: changing retention invalidates every normalized cursor. Keep the
     // three recorder windows atomic so no frame observes mixed history ranges.
-    ConfigureRecording(
-        m_recordingEnabled,
-        m_memoryPolicy.requestedRetentionSeconds,
-        m_recordingHashLogPath.empty() ? nullptr : m_recordingHashLogPath.c_str(),
-        m_recordingRuntimeBodyCapacity
-    );
+    ConfigureRecording( m_recordingEnabled,
+                        m_memoryPolicy.requestedRetentionSeconds,
+                        m_recordingHashLogPath.empty() ? nullptr : m_recordingHashLogPath.c_str(),
+                        m_recordingRuntimeBodyCapacity );
+
     result.recordersReset = true;
     return result;
 }
@@ -181,36 +182,31 @@ bool ReplayTimeline::LoadPresentationArtifact( const char* path )
         return false;
     }
 
-    InstallLoadedPresentation(
-        path,
-        samples,
-        result.bodyDictionaryCount,
-        result.fileBytes,
-        result.firstFrame,
-        result.lastFrame
-    );
+    InstallLoadedPresentation( path,
+                               samples,
+                               result.bodyDictionaryCount,
+                               result.fileBytes,
+                               result.firstFrame,
+                               result.lastFrame );
 
-    printf(
-        "[replay] Loaded v2 presentation artifact: path=%s samples=%llu bodies=%llu first_frame=%llu "
-        "last_frame=%llu bytes=%llu\n",
-        m_loadedPresentation.path,
-        static_cast<unsigned long long>( m_loadedPresentation.samples.size() ),
-        static_cast<unsigned long long>( m_loadedPresentation.bodyDictionaryCount ),
-        static_cast<unsigned long long>( m_loadedPresentation.firstFrame ),
-        static_cast<unsigned long long>( m_loadedPresentation.lastFrame ),
-        static_cast<unsigned long long>( m_loadedPresentation.fileBytes )
-    );
+    printf( "[replay] Loaded v2 presentation artifact: path=%s samples=%llu bodies=%llu first_frame=%llu "
+            "last_frame=%llu bytes=%llu\n",
+            m_loadedPresentation.path,
+            static_cast<unsigned long long>( m_loadedPresentation.samples.size() ),
+            static_cast<unsigned long long>( m_loadedPresentation.bodyDictionaryCount ),
+            static_cast<unsigned long long>( m_loadedPresentation.firstFrame ),
+            static_cast<unsigned long long>( m_loadedPresentation.lastFrame ),
+            static_cast<unsigned long long>( m_loadedPresentation.fileBytes ) );
+
     return true;
 }
 
-void ReplayTimeline::InstallLoadedPresentation(
-    const char* path,
-    std::vector<ReplayPresentationSample>& samples,
-    std::size_t bodyDictionaryCount,
-    std::size_t fileBytes,
-    ReplayFrameIndex firstFrame,
-    ReplayFrameIndex lastFrame
-)
+void ReplayTimeline::InstallLoadedPresentation( const char* path,
+                                                std::vector<ReplayPresentationSample>& samples,
+                                                std::size_t bodyDictionaryCount,
+                                                std::size_t fileBytes,
+                                                ReplayFrameIndex firstFrame,
+                                                ReplayFrameIndex lastFrame )
 {
     ClearLoadedPresentation();
     m_loadedPresentation.samples.swap( samples );
@@ -224,14 +220,12 @@ void ReplayTimeline::InstallLoadedPresentation(
 
 bool ReplayTimeline::NextPresentationSavePath( char* outPath, std::size_t outPathSize )
 {
-    return RuntimeFileWriter::NextNumberedPath(
-        outPath,
-        outPathSize,
-        "replays",
-        "replay_v2_",
-        ".skreplay",
-        m_presentationSaveSequence
-    );
+    return RuntimeFileWriter::NextNumberedPath( outPath,
+                                                outPathSize,
+                                                "replays",
+                                                "replay_v2_",
+                                                ".skreplay",
+                                                m_presentationSaveSequence );
 }
 
 void ReplayTimeline::RecordEvent( const ReplayEventInput& input )
@@ -259,6 +253,7 @@ void ReplayTimeline::SubmitEvent( const ReplayEventCommand& command, const Repla
     {
         input.frameIndex = command.frameIndex;
     }
+
     input.branch = branch;
     input.kind = command.kind;
     input.flags = command.flags;
@@ -285,21 +280,21 @@ ReplayTimelineMemoryStats ReplayTimeline::CollectMemoryStats() const
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         stats.categoryBytes,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedOwner,
-        static_cast<uint64_t>( sizeof( m_loadedPresentation ) )
-    );
+        static_cast<uint64_t>( sizeof( m_loadedPresentation ) ) );
+
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         stats.categoryBytes,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedSampleRecords,
-        ReplayTimelineVectorCapacityBytes( m_loadedPresentation.samples )
-    );
+        ReplayTimelineVectorCapacityBytes( m_loadedPresentation.samples ) );
+
     for ( const ReplayPresentationSample& sample : m_loadedPresentation.samples )
     {
         SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
             stats.categoryBytes,
             SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedBodies,
-            ReplayTimelineVectorCapacityBytes( sample.bodies )
-        );
+            ReplayTimelineVectorCapacityBytes( sample.bodies ) );
     }
+
     stats.policy = m_memoryPolicy;
     stats.presentationSamples = m_presentation.GetStats().sampleCount;
     stats.solverSamples = m_solver.GetStats().sampleCount;
@@ -326,6 +321,7 @@ void ReplayTimeline::ReportLatestCaptureMismatch()
     const bool matches = presentation->frameIndex == solver->frameIndex &&
                          presentation->stateHash == solver->presentationHash &&
                          presentation->bodies.size() == solver->bodies.size();
+
     if ( matches )
     {
         return;
@@ -334,29 +330,25 @@ void ReplayTimeline::ReportLatestCaptureMismatch()
     if ( m_captureMismatchReports < 8 )
     {
         ++m_captureMismatchReports;
-        fprintf(
-            stderr,
-            "[replay] Solver/presentation capture mismatch #%u: presentation_frame=%llu solver_frame=%llu "
-            "presentation_hash=0x%016llX solver_presentation_hash=0x%016llX solver_hash=0x%016llX "
-            "presentation_bodies=%llu solver_bodies=%llu\n",
-            m_captureMismatchReports,
-            static_cast<unsigned long long>( presentation->frameIndex ),
-            static_cast<unsigned long long>( solver->frameIndex ),
-            static_cast<unsigned long long>( presentation->stateHash ),
-            static_cast<unsigned long long>( solver->presentationHash ),
-            static_cast<unsigned long long>( solver->solverHash ),
-            static_cast<unsigned long long>( presentation->bodies.size() ),
-            static_cast<unsigned long long>( solver->bodies.size() )
-        );
+        fprintf( stderr,
+                 "[replay] Solver/presentation capture mismatch #%u: presentation_frame=%llu solver_frame=%llu "
+                 "presentation_hash=0x%016llX solver_presentation_hash=0x%016llX solver_hash=0x%016llX "
+                 "presentation_bodies=%llu solver_bodies=%llu\n",
+                 m_captureMismatchReports,
+                 static_cast<unsigned long long>( presentation->frameIndex ),
+                 static_cast<unsigned long long>( solver->frameIndex ),
+                 static_cast<unsigned long long>( presentation->stateHash ),
+                 static_cast<unsigned long long>( solver->presentationHash ),
+                 static_cast<unsigned long long>( solver->solverHash ),
+                 static_cast<unsigned long long>( presentation->bodies.size() ),
+                 static_cast<unsigned long long>( solver->bodies.size() ) );
     }
     else if ( !m_captureMismatchSuppressed )
     {
         m_captureMismatchSuppressed = true;
-        fprintf(
-            stderr,
-            "[replay] Further solver/presentation capture mismatch diagnostics suppressed for this replay "
-            "timeline.\n"
-        );
+        fprintf( stderr,
+                 "[replay] Further solver/presentation capture mismatch diagnostics suppressed for this replay "
+                 "timeline.\n" );
     }
 }
 
@@ -367,6 +359,7 @@ ReplayTimelineCaptureResult ReplayTimeline::CaptureFrame( ReplayCaptureInput inp
     {
         return result;
     }
+
     input.eventCursor = m_events.GetStats().nextSequence;
     if ( m_solver.IsEnabled() )
     {
@@ -383,6 +376,7 @@ ReplayTimelineCaptureResult ReplayTimeline::CaptureFrame( ReplayCaptureInput inp
             {
                 m_artifactHashLog.AppendPresentation( *presentationSample );
             }
+
             m_artifactHashLog.AppendSolver( *solverSample );
             ReportLatestCaptureMismatch();
             result.solverSample = solverSample;
@@ -396,6 +390,7 @@ ReplayTimelineCaptureResult ReplayTimeline::CaptureFrame( ReplayCaptureInput inp
     {
         m_artifactHashLog.AppendPresentation( *presentationSample );
     }
+
     ReportLatestCaptureMismatch();
     return result;
 }

@@ -59,22 +59,18 @@ struct SceneRuntimeStyleContext
     const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic;
 };
 
-void ApplyCinematicSceneOverrides(
-    SkullbonezCore::Core::CinematicRenderConfig& target,
-    uint64_t mask,
-    const SkullbonezCore::Core::CinematicRenderConfig& source
-);
-SkullbonezCore::Core::CinematicRenderConfig&
-ActiveSceneCinematicConfig( SceneSessionState& scene, SkullbonezCore::Core::EngineConfig& config );
+void ApplyCinematicSceneOverrides( SkullbonezCore::Core::CinematicRenderConfig& target,
+                                   uint64_t mask,
+                                   const SkullbonezCore::Core::CinematicRenderConfig& source );
+SkullbonezCore::Core::CinematicRenderConfig& ActiveSceneCinematicConfig( SceneSessionState& scene,
+                                                                         SkullbonezCore::Core::EngineConfig& config );
 const SkullbonezCore::Core::CinematicRenderConfig&
 ActiveSceneCinematicConfig( const SceneSessionState& scene, const SkullbonezCore::Core::EngineConfig& config );
-bool IsSceneCinematicRenderingEnabled(
-    const SceneSessionState& scene,
-    const SkullbonezCore::Core::EngineConfig& config,
-    const RunLaunchOptions& launchOptions,
-    const OverlayDebugState& debug,
-    bool graphicsReady
-);
+bool IsSceneCinematicRenderingEnabled( const SceneSessionState& scene,
+                                       const SkullbonezCore::Core::EngineConfig& config,
+                                       const RunLaunchOptions& launchOptions,
+                                       const OverlayDebugState& debug,
+                                       bool graphicsReady );
 bool ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext context, int index );
 void ApplyLiveStyleScene( SceneRuntimeStyleContext context, const AuthoredScene& styleScene );
 bool ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext context );

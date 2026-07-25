@@ -376,19 +376,15 @@ class WorkerProfilerScope
 
 #define PROFILE_SCOPED( profiler, name )                                                                               \
     constexpr uint32_t PROFILE_PASTE( _profSH_, __LINE__ ) = ::HashStr( name );                                        \
-    ::SkullbonezCore::Core::ProfilerScope PROFILE_PASTE( _profS_, __LINE__ )(                                          \
-        profiler,                                                                                                      \
-        name,                                                                                                          \
-        PROFILE_PASTE( _profSH_, __LINE__ )                                                                            \
-    )
+    ::SkullbonezCore::Core::ProfilerScope PROFILE_PASTE( _profS_, __LINE__ )( profiler,                                \
+                                                                              name,                                    \
+                                                                              PROFILE_PASTE( _profSH_, __LINE__ ) )
 
 #define PROFILE_WORKER_SCOPED( profiler, name )                                                                        \
     constexpr uint32_t PROFILE_PASTE( _profWH_, __LINE__ ) = ::HashStr( name );                                        \
-    ::SkullbonezCore::Core::WorkerProfilerScope PROFILE_PASTE( _profW_, __LINE__ )(                                    \
-        profiler,                                                                                                      \
-        name,                                                                                                          \
-        PROFILE_PASTE( _profWH_, __LINE__ )                                                                            \
-    )
+    ::SkullbonezCore::Core::WorkerProfilerScope PROFILE_PASTE(                                                         \
+        _profW_,                                                                                                       \
+        __LINE__ )( profiler, name, PROFILE_PASTE( _profWH_, __LINE__ ) )
 
 #define PROFILE_COUNTER( profiler, name, value )                                                                       \
     do                                                                                                                 \

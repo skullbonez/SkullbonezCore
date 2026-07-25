@@ -48,27 +48,23 @@ class UIComboBox
     void SetLabelVisible( bool visible );
     void ToggleOpen();
     void Close();
-    void Draw(
-        const UIDrawContext& draw,
-        const char* label,
-        const char* const* options,
-        int optionCount,
-        int selectedIndex,
-        int mouseX,
-        int mouseY,
-        uint32_t disabledOptionMask = 0
-    ) const;
-    void Draw(
-        const UIDrawContext& draw,
-        const char* label,
-        const char* selectedText,
-        const char* const* options,
-        int optionCount,
-        int selectedIndex,
-        int mouseX,
-        int mouseY,
-        uint32_t disabledOptionMask = 0
-    ) const;
+    void Draw( const UIDrawContext& draw,
+               const char* label,
+               const char* const* options,
+               int optionCount,
+               int selectedIndex,
+               int mouseX,
+               int mouseY,
+               uint32_t disabledOptionMask = 0 ) const;
+    void Draw( const UIDrawContext& draw,
+               const char* label,
+               const char* selectedText,
+               const char* const* options,
+               int optionCount,
+               int selectedIndex,
+               int mouseX,
+               int mouseY,
+               uint32_t disabledOptionMask = 0 ) const;
 
   private:
     UIRect FieldRect() const;

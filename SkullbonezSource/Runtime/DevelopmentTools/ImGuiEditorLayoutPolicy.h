@@ -50,9 +50,9 @@ inline constexpr int IMGUI_EDITOR_MINIMUM_WINDOW_HEIGHT = 720;
 inline constexpr std::size_t IMGUI_EDITOR_FILTER_CAPACITY = 64u;
 inline constexpr std::size_t IMGUI_EDITOR_PREFERENCES_TEXT_CAPACITY = 1024u;
 inline constexpr const char* IMGUI_EDITOR_DOCKSPACE_NAME = "SkoreEditorDockspaceV2";
-inline constexpr const char* IMGUI_EDITOR_TOPOLOGY_DESCRIPTOR =
-    "v2|status:bottommost|replay:bottom|left:scene,hierarchy,assets|center:game-viewport|"
-    "right:inspector,world,rendering,diagnostics,causality";
+inline constexpr const char* IMGUI_EDITOR_TOPOLOGY_DESCRIPTOR = "v2|status:bottommost|replay:bottom|left:scene,"
+                                                                "hierarchy,assets|center:game-viewport|"
+                                                                "right:inspector,world,rendering,diagnostics,causality";
 
 namespace ImGuiEditorPanel
 {
@@ -92,10 +92,10 @@ inline constexpr uint32_t ImGuiEditorPanelBit( ImGuiEditorPanelId panel ) noexce
     return 1u << static_cast<uint32_t>( panel );
 }
 
-inline constexpr uint32_t IMGUI_EDITOR_ALL_PANEL_MASK =
-    ( 1u << static_cast<uint32_t>( ImGuiEditorPanelId::Count ) ) - 1u;
-inline constexpr uint32_t IMGUI_EDITOR_DEFAULT_PANEL_MASK =
-    IMGUI_EDITOR_ALL_PANEL_MASK & ~ImGuiEditorPanelBit( ImGuiEditorPanelId::CausalityDetail );
+inline constexpr uint32_t IMGUI_EDITOR_ALL_PANEL_MASK = ( 1u << static_cast<uint32_t>( ImGuiEditorPanelId::Count ) ) -
+                                                        1u;
+inline constexpr uint32_t IMGUI_EDITOR_DEFAULT_PANEL_MASK = IMGUI_EDITOR_ALL_PANEL_MASK &
+                                                            ~ImGuiEditorPanelBit( ImGuiEditorPanelId::CausalityDetail );
 
 struct ImGuiEditorPreferences
 {
@@ -148,29 +148,23 @@ struct ImGuiGameViewportRect
 };
 
 ImGuiEditorLayoutEnvelope ResolveImGuiEditorLayoutEnvelope( int contentWidth, int contentHeight ) noexcept;
-ImGuiGameViewportRect ResolveImGuiGameViewportRect(
-    float availableMinX,
-    float availableMinY,
-    float availableWidth,
-    float availableHeight,
-    int sourceWidth,
-    int sourceHeight,
-    float dpiScale
-) noexcept;
-bool MapImGuiGameViewportPoint(
-    const ImGuiGameViewportRect& viewport,
-    float clientX,
-    float clientY,
-    int& outSourceX,
-    int& outSourceY
-) noexcept;
+ImGuiGameViewportRect ResolveImGuiGameViewportRect( float availableMinX,
+                                                    float availableMinY,
+                                                    float availableWidth,
+                                                    float availableHeight,
+                                                    int sourceWidth,
+                                                    int sourceHeight,
+                                                    float dpiScale ) noexcept;
+bool MapImGuiGameViewportPoint( const ImGuiGameViewportRect& viewport,
+                                float clientX,
+                                float clientY,
+                                int& outSourceX,
+                                int& outSourceY ) noexcept;
 const char* ImGuiEditorPanelName( ImGuiEditorPanelId panel ) noexcept;
 bool TryParseImGuiEditorPanel( const char* name, ImGuiEditorPanelId& outPanel ) noexcept;
 ImGuiEditorPreferenceParseResult ParseImGuiEditorPreferences( const char* text, std::size_t textBytes ) noexcept;
-std::size_t SerializeImGuiEditorPreferences(
-    const ImGuiEditorPreferences& preferences,
-    char* output,
-    std::size_t outputCapacity
-) noexcept;
+std::size_t SerializeImGuiEditorPreferences( const ImGuiEditorPreferences& preferences,
+                                             char* output,
+                                             std::size_t outputCapacity ) noexcept;
 uint64_t FingerprintImGuiEditorDefaultTopology() noexcept;
 } // namespace SkullbonezCore::Runtime::DevelopmentTools

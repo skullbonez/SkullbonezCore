@@ -160,12 +160,10 @@ class ReplayTripPlanner
     bool RequiresLiveInput() const noexcept;
     bool AwaitingPrediction() const noexcept;
 
-    static Math::Vector::Vector3 FirstOrderCorrection(
-        const Math::Vector::Vector3& velocity,
-        const Math::Vector::Vector3& shipAtClosest,
-        const Math::Vector::Vector3& targetAtClosest,
-        float closestTimeSeconds
-    ) noexcept;
+    static Math::Vector::Vector3 FirstOrderCorrection( const Math::Vector::Vector3& velocity,
+                                                       const Math::Vector::Vector3& shipAtClosest,
+                                                       const Math::Vector::Vector3& targetAtClosest,
+                                                       float closestTimeSeconds ) noexcept;
 
   private:
     ReplayTripPlannerVelocityMutation BeginPlan( const ReplayTripPlannerLiveInput& input ) noexcept;

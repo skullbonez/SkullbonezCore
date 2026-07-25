@@ -39,18 +39,14 @@ struct PhysicsWorldForces;
 class BuoyancySystem
 {
   public:
-    static bool RefreshUnderwaterSubmersionForBall(
-        const PhysicsWorldForces& worldForces,
-        PhysicsBodyStore& bodyStore,
-        const ColliderStore& colliderStore,
-        int index
-    );
-    static bool IsFullySubmergedBall(
-        const PhysicsBodyRecord& bodyRecord,
-        bool fixed,
-        const ColliderStore& colliderStore,
-        int index
-    );
+    static bool RefreshUnderwaterSubmersionForBall( const PhysicsWorldForces& worldForces,
+                                                    PhysicsBodyStore& bodyStore,
+                                                    const ColliderStore& colliderStore,
+                                                    int index );
+    static bool IsFullySubmergedBall( const PhysicsBodyRecord& bodyRecord,
+                                      bool fixed,
+                                      const ColliderStore& colliderStore,
+                                      int index );
 };
 } // namespace Physics
 } // namespace SkullbonezCore

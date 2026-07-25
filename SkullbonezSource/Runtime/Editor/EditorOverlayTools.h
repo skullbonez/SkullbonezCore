@@ -114,8 +114,8 @@ struct EditorToolOverlayTraceInput
     bool attachedCameraActiveFollow = false;
 };
 
-EditorInteractionPreviewResult
-UpdateEditorInteractionPreview( EditorInteractionPreviewContext context, const EditorInteractionPreviewInput& input );
+EditorInteractionPreviewResult UpdateEditorInteractionPreview( EditorInteractionPreviewContext context,
+                                                               const EditorInteractionPreviewInput& input );
 void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const EditorToolOverlayTraceInput& input );
 } // namespace RunInternal
 } // namespace Runtime

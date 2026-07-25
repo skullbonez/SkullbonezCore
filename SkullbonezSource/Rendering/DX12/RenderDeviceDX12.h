@@ -99,11 +99,10 @@ SelectDx12UploadOverflowAction( bool fits, SkullbonezCore::Core::Allocation::Run
 // Executes the same branch production uses while allowing CPU tests to supply
 // a counted cold-retry callback. Steady phases never invoke that callback.
 template <typename ColdRetry>
-Dx12UploadReservationResolution ResolveDx12UploadReservation(
-    bool fits,
-    SkullbonezCore::Core::Allocation::RuntimeAllocationPhase phase,
-    ColdRetry coldRetry
-)
+Dx12UploadReservationResolution
+ResolveDx12UploadReservation( bool fits,
+                              SkullbonezCore::Core::Allocation::RuntimeAllocationPhase phase,
+                              ColdRetry coldRetry )
 {
     const Dx12UploadOverflowAction action = SelectDx12UploadOverflowAction( fits, phase );
     if ( action == Dx12UploadOverflowAction::Allocate )
@@ -467,14 +466,12 @@ class Dx12DescriptorAllocator
     // Bind the allocator to the two descriptor heaps it manages. The allocator
     // does not own the COM objects; the backend/device owns and releases them.
     // The allocator owns the slot accounting policy for those heaps.
-    void Init(
-        ID3D12DescriptorHeap* shaderVisibleHeap,
-        ID3D12DescriptorHeap* stagingHeap,
-        UINT descriptorSize,
-        UINT staticCapacity,
-        UINT transientCapacityPerFrame,
-        UINT frameCount
-    );
+    void Init( ID3D12DescriptorHeap* shaderVisibleHeap,
+               ID3D12DescriptorHeap* stagingHeap,
+               UINT descriptorSize,
+               UINT staticCapacity,
+               UINT transientCapacityPerFrame,
+               UINT frameCount );
 
     // Drop all heap pointers and counters during shutdown. After Reset(), any
     // allocation or handle lookup is invalid until Init() runs again.
@@ -710,13 +707,11 @@ class Dx12FrameUploadSystem
     Dx12FrameUploadSystem( const Dx12FrameUploadSystem& ) = delete;
     Dx12FrameUploadSystem& operator=( const Dx12FrameUploadSystem& ) = delete;
 
-    bool Init(
-        ID3D12Device* device,
-        UINT frameCount,
-        UINT64 capacityBytes,
-        UINT64 persistentTailBytes,
-        const wchar_t* debugNamePrefix
-    );
+    bool Init( ID3D12Device* device,
+               UINT frameCount,
+               UINT64 capacityBytes,
+               UINT64 persistentTailBytes,
+               const wchar_t* debugNamePrefix );
     void Shutdown();
 
     void ResetFrame( UINT frameIndex );

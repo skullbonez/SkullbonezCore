@@ -37,15 +37,13 @@ class RuntimeFileWriter
     static bool EnsureDirectory( const char* directory );
     static bool EnsureParentDirectory( const char* path );
     static bool OpenTextFile( const char* path, std::ofstream& output );
-    static bool NextNumberedPath(
-        char* outPath,
-        std::size_t outPathSize,
-        const char* directory,
-        const char* prefix,
-        const char* extension,
-        int& sequence,
-        int maxTries = 1000
-    );
+    static bool NextNumberedPath( char* outPath,
+                                  std::size_t outPathSize,
+                                  const char* directory,
+                                  const char* prefix,
+                                  const char* extension,
+                                  int& sequence,
+                                  int maxTries = 1000 );
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

@@ -131,8 +131,8 @@ constexpr SceneLifecycleConsumerMask SceneLifecycleRequiredConsumers( SceneRunti
 
 // A new generation resets the previous event to None. Within that generation,
 // phases are strictly ordered and may never restart or skip a commit edge.
-constexpr bool
-SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent previous, SceneRuntimeLifecycleEvent next )
+constexpr bool SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent previous,
+                                                     SceneRuntimeLifecycleEvent next )
 {
     return ( previous == SceneRuntimeLifecycleEvent::None && next == SceneRuntimeLifecycleEvent::BeforeSceneUnload ) ||
            ( previous == SceneRuntimeLifecycleEvent::BeforeSceneUnload &&

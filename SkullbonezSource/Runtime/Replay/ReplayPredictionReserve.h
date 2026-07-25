@@ -62,8 +62,7 @@ bool RequestReplayPredictionReserveGrowth(
     int oldCapacityBytes,
     int requestedCapacityBytes,
     int elementSizeBytes,
-    SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult& outResult
-) noexcept;
+    SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult& outResult ) noexcept;
 
 template <typename T> bool ReplayPredictionCapacityBytes( std::size_t capacity, uint64_t& outBytes )
 {
@@ -84,10 +83,8 @@ template <typename T> uint64_t ReplayPredictionVectorCapacityBytes( const std::v
 }
 
 uint64_t ReplayPredictionWorldSnapshotMemoryBytes( const ReplaySolverWorldSnapshot& snapshot );
-void AddReplayPredictionFrameCategoryBytes(
-    SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories,
-    const RunReplayPredictionFrame& frame
-);
+void AddReplayPredictionFrameCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories,
+                                            const RunReplayPredictionFrame& frame );
 
 template <typename T>
 bool ReplayPredictionFramePayloadBytes( std::size_t frameCount, std::size_t capacityPerFrame, uint64_t& outBytes )
@@ -118,12 +115,10 @@ int ReplayPredictionEngineReserveBytes( const Physics::PhysicsEngine& engine );
 // The request uses byte units (`elementSizeBytes == 1`) because the one 256 MiB
 // cap is shared across vectors with different element types.
 template <typename T>
-bool ReserveReplayPredictionVector(
-    std::vector<T>& values,
-    std::size_t requestedCapacity,
-    int frameNumber,
-    const char* targetName
-)
+bool ReserveReplayPredictionVector( std::vector<T>& values,
+                                    std::size_t requestedCapacity,
+                                    int frameNumber,
+                                    const char* targetName )
 {
     if ( requestedCapacity <= values.capacity() )
     {
@@ -139,41 +134,34 @@ bool ReserveReplayPredictionVector(
     }
 
     SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult result = {};
-    if ( !RequestReplayPredictionReserveGrowth(
-             targetName,
-             frameNumber,
-             static_cast<int>( oldBytes ),
-             static_cast<int>( requestedBytes ),
-             1,
-             result
-         ) )
+    if ( !RequestReplayPredictionReserveGrowth( targetName,
+                                                frameNumber,
+                                                static_cast<int>( oldBytes ),
+                                                static_cast<int>( requestedBytes ),
+                                                1,
+                                                result ) )
     {
         return false;
     }
 
     const SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-    SkullbonezCore::Core::Allocation::RuntimeAllocationScope replayAllocationScope(
-        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay
-    );
+    SkullbonezCore::Core::Allocation::RuntimeAllocationScope replayAllocationScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay );
     SkullbonezCore::Core::Allocation::RuntimeReserveOwnerScope ownerScope( owner );
     SkullbonezCore::Core::Allocation::RuntimeReserveGrowthScope growthScope(
         owner,
         SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
-        result
-    );
+        result );
     values.reserve( requestedCapacity );
     return requestedCapacity <= values.capacity();
 }
 
 template <typename Frame, typename T>
-bool ReserveReplayPredictionFramePayloadVectors(
-    std::vector<Frame>& frames,
-    std::size_t requestedFrameCount,
-    std::size_t requestedCapacityPerFrame,
-    int frameNumber,
-    const char* targetName,
-    std::vector<T> Frame::* member
-)
+bool ReserveReplayPredictionFramePayloadVectors( std::vector<Frame>& frames,
+                                                 std::size_t requestedFrameCount,
+                                                 std::size_t requestedCapacityPerFrame,
+                                                 int frameNumber,
+                                                 const char* targetName,
+                                                 std::vector<T> Frame::* member )
 {
     // Runtime allocation policy: prediction captures many future frames. Batch
     // the per-frame payload reserves under one replay approval so validation
@@ -209,28 +197,23 @@ bool ReserveReplayPredictionFramePayloadVectors(
     }
 
     SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult result = {};
-    if ( !RequestReplayPredictionReserveGrowth(
-             targetName,
-             frameNumber,
-             static_cast<int>( oldBytes ),
-             static_cast<int>( requestedBytes ),
-             1,
-             result
-         ) )
+    if ( !RequestReplayPredictionReserveGrowth( targetName,
+                                                frameNumber,
+                                                static_cast<int>( oldBytes ),
+                                                static_cast<int>( requestedBytes ),
+                                                1,
+                                                result ) )
     {
         return false;
     }
 
     const SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-    SkullbonezCore::Core::Allocation::RuntimeAllocationScope replayAllocationScope(
-        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay
-    );
+    SkullbonezCore::Core::Allocation::RuntimeAllocationScope replayAllocationScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay );
     SkullbonezCore::Core::Allocation::RuntimeReserveOwnerScope ownerScope( owner );
     SkullbonezCore::Core::Allocation::RuntimeReserveGrowthScope growthScope(
         owner,
         SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
-        result
-    );
+        result );
     for ( std::size_t i = 0; i < requestedFrameCount; ++i )
     {
         ( frames[i].*member ).reserve( requestedCapacityPerFrame );

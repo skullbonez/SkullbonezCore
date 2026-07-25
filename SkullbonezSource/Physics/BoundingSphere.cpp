@@ -189,11 +189,16 @@ Matrix4 BoundingSphere::GetModelMatrix( const Vector3& worldPos, const Matrix4& 
 
     const __m128 rr = _mm_set1_ps( m_radius ); // broadcast radius
     float res[16];
+
     _mm_storeu_ps( res + 0, _mm_mul_ps( _mm_loadu_ps( rotation.m + 0 ), rr ) ); // col0 * radius
     _mm_storeu_ps( res + 4, _mm_mul_ps( _mm_loadu_ps( rotation.m + 4 ), rr ) ); // col1 * radius
+
     _mm_storeu_ps( res + 8, _mm_mul_ps( _mm_loadu_ps( rotation.m + 8 ), rr ) ); // col2 * radius
-    res[12] = worldPos.x;                                                       // col3: translation
+
+    res[12] = worldPos.x; // col3: translation
+
     res[13] = worldPos.y;
+
     res[14] = worldPos.z;
     res[15] = 1.0f; // homogeneous w
     return Matrix4( res );
@@ -283,6 +288,7 @@ float BoundingSphere::TestCollision( const BoundingBox& target, const Ray& targe
         {
             return 0.0f;
         }
+
         return NO_COLLISION;
     }
 

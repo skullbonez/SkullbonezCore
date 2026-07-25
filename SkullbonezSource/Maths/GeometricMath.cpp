@@ -60,6 +60,7 @@ Vector3 GeometricMath::ComputeTriangleNormal( const Triangle& triangle )
         // zero normal lets missable queries report NO_COLLISION deterministically.
         return ZERO_VECTOR;
     }
+
     return m_normal;
 }
 
@@ -98,8 +99,8 @@ float GeometricMath::DeterminePointDistFromPlane( const Plane& plane, const Vect
 }
 
 
-GeometricMath::PointPlaneClassification
-GeometricMath::ClassifyPointAgainstPlane( const Plane& plane, const Vector3& point )
+GeometricMath::PointPlaneClassification GeometricMath::ClassifyPointAgainstPlane( const Plane& plane,
+                                                                                  const Vector3& point )
 {
     // determine the m_distance the point is to the plane
     float result = GeometricMath::DeterminePointDistFromPlane( plane, point );
@@ -228,9 +229,8 @@ Vector3 GeometricMath::ComputeIntersectionPoint( const Plane& plane, const Ray& 
 
     // Missable callers should query time first. Keep a Debug contract check,
     // while Release preserves the mathematical extrapolation instead of dying.
-    assert(
-        collisionTime <= 1.0f && collisionTime >= 0.0f && "ComputeIntersectionPoint requires a collision time in [0,1]"
-    );
+    assert( collisionTime <= 1.0f && collisionTime >= 0.0f &&
+            "ComputeIntersectionPoint requires a collision time in [0,1]" );
 
     // translate from the origin of the ray along the ray until the collision
     // occurs, and return this vector
@@ -320,11 +320,17 @@ Vector3 GeometricMath::ComputeBarycentricCoordinates( const Triangle& triangle, 
          Now, back to our assumed XY projection:
             v2_v0_axis1 = v0.x - v2.x;	// edge 1
             v2_v0_axis2 = v0.y - v2.y;	// edge 1
+
             v2_v1_axis1 = v1.x - v2.x;	// edge 2
+
             v2_v1_axis2 = v1.y - v2.y;	// edge 2
+
             v0_p_axis1	= p.x  - v0.x;	// inner edge 1
+
             v0_p_axis2	= p.y  - v0.y;	// inner edge 1
+
             v2_p_axis1	= p.x  - v2.x;	// inner edge 2
+
             v2_p_axis2	= p.y  - v2.y;	// inner edge 2
 
          And the same goes for the other projections.
@@ -344,36 +350,56 @@ Vector3 GeometricMath::ComputeBarycentricCoordinates( const Triangle& triangle, 
         // discard 'x' component, project onto yz plane
         v2_v0_axis1 = triangle.v1.y - triangle.v3.y; // edge 1
         v2_v0_axis2 = triangle.v1.z - triangle.v3.z; // edge 1
+
         v2_v1_axis1 = triangle.v2.y - triangle.v3.y; // edge 2
+
         v2_v1_axis2 = triangle.v2.z - triangle.v3.z; // edge 2
-        v0_p_axis1 = point.y - triangle.v1.y;        // inner edge 1
-        v0_p_axis2 = point.z - triangle.v1.z;        // inner edge 1
-        v2_p_axis1 = point.y - triangle.v3.y;        // inner edge 2
-        v2_p_axis2 = point.z - triangle.v3.z;        // inner edge 2
+
+        v0_p_axis1 = point.y - triangle.v1.y; // inner edge 1
+
+        v0_p_axis2 = point.z - triangle.v1.z; // inner edge 1
+
+        v2_p_axis1 = point.y - triangle.v3.y; // inner edge 2
+
+        v2_p_axis2 = point.z - triangle.v3.z; // inner edge 2
     }
     else if ( m_normal.y >= m_normal.z )
     {
         // discard 'y' component, project onto xz plane
         v2_v0_axis1 = triangle.v1.z - triangle.v3.z; // edge 1
+
         v2_v0_axis2 = triangle.v1.x - triangle.v3.x; // edge 1
+
         v2_v1_axis1 = triangle.v2.z - triangle.v3.z; // edge 2
+
         v2_v1_axis2 = triangle.v2.x - triangle.v3.x; // edge 2
-        v0_p_axis1 = point.z - triangle.v1.z;        // inner edge 1
-        v0_p_axis2 = point.x - triangle.v1.x;        // inner edge 1
-        v2_p_axis1 = point.z - triangle.v3.z;        // inner edge 2
-        v2_p_axis2 = point.x - triangle.v3.x;        // inner edge 2
+
+        v0_p_axis1 = point.z - triangle.v1.z; // inner edge 1
+
+        v0_p_axis2 = point.x - triangle.v1.x; // inner edge 1
+
+        v2_p_axis1 = point.z - triangle.v3.z; // inner edge 2
+
+        v2_p_axis2 = point.x - triangle.v3.x; // inner edge 2
     }
     else
     {
         // discard 'z' component, project onto xy plane
         v2_v0_axis1 = triangle.v1.x - triangle.v3.x; // edge 1
+
         v2_v0_axis2 = triangle.v1.y - triangle.v3.y; // edge 1
+
         v2_v1_axis1 = triangle.v2.x - triangle.v3.x; // edge 2
+
         v2_v1_axis2 = triangle.v2.y - triangle.v3.y; // edge 2
-        v0_p_axis1 = point.x - triangle.v1.x;        // inner edge 1
-        v0_p_axis2 = point.y - triangle.v1.y;        // inner edge 1
-        v2_p_axis1 = point.x - triangle.v3.x;        // inner edge 2
-        v2_p_axis2 = point.y - triangle.v3.y;        // inner edge 2
+
+        v0_p_axis1 = point.x - triangle.v1.x; // inner edge 1
+
+        v0_p_axis2 = point.y - triangle.v1.y; // inner edge 1
+
+        v2_p_axis1 = point.x - triangle.v3.x; // inner edge 2
+
+        v2_p_axis2 = point.y - triangle.v3.y; // inner edge 2
     }
 
     /*
@@ -403,11 +429,9 @@ Vector3 GeometricMath::ComputeBarycentricCoordinates( const Triangle& triangle, 
     // keeps IEEE propagation for this private calculation and never exits.
     assert( denominator != 0.0f && "ComputeBarycentricCoordinates requires a non-collinear triangle" );
 
-    Vector3 barycentricResult = Vector3(
-        ( v2_p_axis2 * v2_v1_axis1 - v2_v1_axis2 * v2_p_axis1 ) / denominator,
-        ( v0_p_axis2 * v2_v0_axis1 - v2_v0_axis2 * v0_p_axis1 ) / -denominator,
-        0.0f
-    );
+    Vector3 barycentricResult = Vector3( ( v2_p_axis2 * v2_v1_axis1 - v2_v1_axis2 * v2_p_axis1 ) / denominator,
+                                         ( v0_p_axis2 * v2_v0_axis1 - v2_v0_axis2 * v0_p_axis1 ) / -denominator,
+                                         0.0f );
 
     // derrive the Z component
     barycentricResult.z = 1.0f - barycentricResult.x - barycentricResult.y;

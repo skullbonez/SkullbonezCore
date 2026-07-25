@@ -134,19 +134,15 @@ class PhysicsTerrainStage
 
     void Clear();
     void BeginFrame();
-    void Detect(
-        const TerrainDetectionStageContext& context,
-        int modelCount,
-        std::span<const int> awakeBodyIndices,
-        const PhysicsExecutionSettings& execution,
-        Threading::WorkerPool& workerPool
-    );
-    PreparedTerrainCandidateCommit PrepareCandidateCommit(
-        const TerrainCandidateCommitContext& context,
-        int bodyIndex,
-        float availableTime,
-        const TerrainContactSweepResult& sweep
-    );
+    void Detect( const TerrainDetectionStageContext& context,
+                 int modelCount,
+                 std::span<const int> awakeBodyIndices,
+                 const PhysicsExecutionSettings& execution,
+                 Threading::WorkerPool& workerPool );
+    PreparedTerrainCandidateCommit PrepareCandidateCommit( const TerrainCandidateCommitContext& context,
+                                                           int bodyIndex,
+                                                           float availableTime,
+                                                           const TerrainContactSweepResult& sweep );
     void CommitCandidate( const TerrainCandidateCommitContext& context, const PreparedTerrainCandidateCommit& commit );
 
     std::span<const TerrainDetectionCandidate> GetDetectionCandidates() const;

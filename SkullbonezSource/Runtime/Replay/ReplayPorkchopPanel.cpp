@@ -73,10 +73,8 @@ void ReplayPorkchopPanel::Reset() noexcept
     ClearSweep();
 }
 
-bool ReplayPorkchopPanel::NeedsRefresh(
-    Physics::PhysicsSceneObjectId targetId,
-    bool mutualGravityEnabled
-) const noexcept
+bool ReplayPorkchopPanel::NeedsRefresh( Physics::PhysicsSceneObjectId targetId,
+                                        bool mutualGravityEnabled ) const noexcept
 {
     return m_view.visible &&
            ( m_refreshRequested || targetId != m_view.targetId || mutualGravityEnabled != m_lastMutualGravityEnabled );
@@ -119,22 +117,27 @@ void ReplayPorkchopPanel::AdvanceSweep( double nowSeconds ) noexcept
     {
         return;
     }
-    const double ageSeconds =
-        std::isfinite( nowSeconds ) && nowSeconds > m_sweepEpochSeconds ? nowSeconds - m_sweepEpochSeconds : 0.0;
+
+    const double ageSeconds = std::isfinite( nowSeconds ) && nowSeconds > m_sweepEpochSeconds
+                                  ? nowSeconds - m_sweepEpochSeconds
+                                  : 0.0;
+
     m_view.sweepAgeSeconds = static_cast<float>( (std::min)( ageSeconds, 48.0 ) );
     if ( m_view.selectedCell >= 0 )
     {
-        m_view.selectedDepartureDelaySeconds =
-            (std::max)( 0.0f, m_selectedDepartureOffsetSeconds - m_view.sweepAgeSeconds );
+        m_view.selectedDepartureDelaySeconds = (std::max)( 0.0f,
+                                                           m_selectedDepartureOffsetSeconds - m_view.sweepAgeSeconds );
     }
+
     if ( !m_view.building )
     {
         return;
     }
 
     const auto started = std::chrono::steady_clock::now();
-    const std::size_t end =
-        (std::min)( REPLAY_PORKCHOP_CELL_COUNT, m_view.completedCells + REPLAY_PORKCHOP_CELLS_PER_FRAME );
+    const std::size_t end = (std::min)( REPLAY_PORKCHOP_CELL_COUNT,
+                                        m_view.completedCells + REPLAY_PORKCHOP_CELLS_PER_FRAME );
+
     while ( m_view.completedCells < end )
     {
         float deltaV = REPLAY_PORKCHOP_FAILED_DELTA_V;
@@ -146,15 +149,18 @@ void ReplayPorkchopPanel::AdvanceSweep( double nowSeconds ) noexcept
                 m_view.minimumDeltaV = deltaV;
                 m_view.minimumCell = m_view.completedCells;
             }
+
             m_view.maximumDeltaV = (std::max)( m_view.maximumDeltaV, deltaV );
         }
+
         ++m_view.completedCells;
     }
+
     const auto finished = std::chrono::steady_clock::now();
     const double frameComputeMilliseconds = std::chrono::duration<double, std::milli>( finished - started ).count();
     m_view.refreshComputeMilliseconds += frameComputeMilliseconds;
-    m_view.maximumFrameComputeMilliseconds =
-        (std::max)( m_view.maximumFrameComputeMilliseconds, frameComputeMilliseconds );
+    m_view.maximumFrameComputeMilliseconds = (std::max)( m_view.maximumFrameComputeMilliseconds,
+                                                         frameComputeMilliseconds );
 
     if ( m_view.completedCells == REPLAY_PORKCHOP_CELL_COUNT )
     {
@@ -177,12 +183,10 @@ bool ReplayPorkchopPanel::ComputeCell( std::size_t cellIndex, float& outDeltaV )
     Vector3 targetVelocity;
     if ( Math::Orbital::PropagateToTime( m_departureOrbit, departureDelay, departurePosition, departureVelocity ) !=
              OrbitalStatus::Ok ||
-         Math::Orbital::PropagateToTime(
-             m_targetOrbit,
-             departureDelay + timeOfFlight,
-             targetPosition,
-             targetVelocity
-         ) != OrbitalStatus::Ok )
+         Math::Orbital::PropagateToTime( m_targetOrbit,
+                                         departureDelay + timeOfFlight,
+                                         targetPosition,
+                                         targetVelocity ) != OrbitalStatus::Ok )
     {
         return false;
     }
@@ -199,14 +203,15 @@ bool ReplayPorkchopPanel::ComputeCell( std::size_t cellIndex, float& outDeltaV )
     {
         return false;
     }
+
     outDeltaV = deltaV;
     return true;
 }
 
 void ReplayPorkchopPanel::SetHoveredCell( int cellIndex ) noexcept
 {
-    m_view.hoveredCell =
-        cellIndex >= 0 && static_cast<std::size_t>( cellIndex ) < m_view.completedCells ? cellIndex : -1;
+    m_view.hoveredCell = cellIndex >= 0 && static_cast<std::size_t>( cellIndex ) < m_view.completedCells ? cellIndex
+                                                                                                         : -1;
 }
 
 bool ReplayPorkchopPanel::SelectCell( std::size_t cellIndex ) noexcept
@@ -215,10 +220,12 @@ bool ReplayPorkchopPanel::SelectCell( std::size_t cellIndex ) noexcept
     {
         return false;
     }
+
     m_view.selectedCell = static_cast<int>( cellIndex );
     m_selectedDepartureOffsetSeconds = DepartureDelaySeconds( cellIndex % REPLAY_PORKCHOP_COLUMNS );
-    m_view.selectedDepartureDelaySeconds =
-        (std::max)( 0.0f, m_selectedDepartureOffsetSeconds - m_view.sweepAgeSeconds );
+    m_view.selectedDepartureDelaySeconds = (std::max)( 0.0f,
+                                                       m_selectedDepartureOffsetSeconds - m_view.sweepAgeSeconds );
+
     m_view.selectedTimeOfFlightSeconds = TimeOfFlightSeconds( cellIndex / REPLAY_PORKCHOP_COLUMNS );
     m_view.selectedDeltaV = m_deltaV[cellIndex];
     return true;
@@ -238,6 +245,7 @@ float ReplayPorkchopPanel::DepartureDelaySeconds( std::size_t column ) noexcept
 {
     const float t = static_cast<float>( (std::min)( column, REPLAY_PORKCHOP_COLUMNS - 1u ) ) /
                     static_cast<float>( REPLAY_PORKCHOP_COLUMNS - 1u );
+
     return REPLAY_PORKCHOP_DEPARTURE_MIN_SECONDS +
            ( REPLAY_PORKCHOP_DEPARTURE_MAX_SECONDS - REPLAY_PORKCHOP_DEPARTURE_MIN_SECONDS ) * t;
 }
@@ -246,6 +254,7 @@ float ReplayPorkchopPanel::TimeOfFlightSeconds( std::size_t row ) noexcept
 {
     const float t = static_cast<float>( (std::min)( row, REPLAY_PORKCHOP_ROWS - 1u ) ) /
                     static_cast<float>( REPLAY_PORKCHOP_ROWS - 1u );
+
     return REPLAY_PORKCHOP_TOF_MIN_SECONDS + ( REPLAY_PORKCHOP_TOF_MAX_SECONDS - REPLAY_PORKCHOP_TOF_MIN_SECONDS ) * t;
 }
 

@@ -37,6 +37,7 @@ void CaptureKeyStates( bool keyWasDown[UIInputSnapshot::VIRTUAL_KEY_COUNT], cons
     {
         return;
     }
+
     for ( int key = 0; key < UIInputSnapshot::VIRTUAL_KEY_COUNT; ++key )
     {
         keyWasDown[key] = IsVirtualKeyDown( input, key );
@@ -44,16 +45,15 @@ void CaptureKeyStates( bool keyWasDown[UIInputSnapshot::VIRTUAL_KEY_COUNT], cons
 }
 
 
-bool ConsumeKeyPress(
-    bool keyWasDown[UIInputSnapshot::VIRTUAL_KEY_COUNT],
-    const UIInputSnapshot& input,
-    int virtualKey
-)
+bool ConsumeKeyPress( bool keyWasDown[UIInputSnapshot::VIRTUAL_KEY_COUNT],
+                      const UIInputSnapshot& input,
+                      int virtualKey )
 {
     if ( !keyWasDown || virtualKey < 0 || virtualKey >= UIInputSnapshot::VIRTUAL_KEY_COUNT )
     {
         return false;
     }
+
     const bool isDown = IsVirtualKeyDown( input, virtualKey );
     const bool wasPressed = isDown && !keyWasDown[virtualKey];
     keyWasDown[virtualKey] = isDown;
@@ -67,6 +67,7 @@ bool IsVirtualKeyDown( const UIInputSnapshot& input, int virtualKey )
     {
         return false;
     }
+
     const std::size_t word = static_cast<std::size_t>( virtualKey ) / 64u;
     const uint64_t bit = uint64_t { 1 } << ( static_cast<unsigned int>( virtualKey ) & 63u );
     return ( input.keyWords[word] & bit ) != 0u;

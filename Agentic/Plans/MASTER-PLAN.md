@@ -518,7 +518,10 @@ value-command separation while deleting the remaining UI-to-Rendering backend
 edges, moving GPU submission and resource lifetime into Runtime/Render,
 removing operator-presentation policy from Rendering, establishing a
 standalone UI build target, and adding a mandatory directional dependency
-gate.
+gate. UR6 closed at 7/7 after the owner approved the two attributed
+performance baselines and the complete performance gate passed; inventory rule
+4 removed those seven tasks from the live ledger. Permanent evidence is in
+[`ui-renderer-hard-boundary-closure`](../Reports/2026-07-25/ui-renderer-hard-boundary-closure.md).
 
 The denominator grew 7 → 19 on 2026-07-25 when the owner registered the
 architecture follow-up round-4 campaign from the same-day engine architecture
@@ -568,23 +571,26 @@ falsified ownership claims, and 12 broken `Related:` pointers. It also
 established that the comment regime is strong at deletion (zero retired
 vocabulary survives) and blind to responsibility movement. This plan is
 sequenced early — before the replay partition — because RS0 and GV2 censuses
-read the exact files carrying false claims. HC0 and GV0 are verified; the active/future ledger is 8/27.
+read the exact files carrying false claims. The UI plan is complete and removed
+from the live inventory under ledger rule 4. HC0 and GV0 are verified, so the
+active/future ledger is 2/20.
 
 ## Current Execution Priority
 
 The 2026-07-25 round-4 campaign is the active queue with binding order:
-1 `ui-renderer-hard-boundary` (6/7),
-2 `header-claim-staleness-remediation` (1/3; HC1 waits for UI closure),
-3 `replay-subsystem-partition` (0/6),
-4 `downward-domain-bleed-remediation` (0/6),
-5 `invariant-ownership-governance-and-transaction-repair` (1/5; GV0 installed
+1 `header-claim-staleness-remediation` (1/3; HC1 is next),
+2 `replay-subsystem-partition` (0/6),
+3 `downward-domain-bleed-remediation` (0/6),
+4 `invariant-ownership-governance-and-transaction-repair` (1/5; GV0 installed
   the documentation-only governance amendment, GV1+ wait for the dependency
   chain). The staleness remediation is deliberately second and small: it is
 comment-only, and leaving it later means the replay-partition and
 transaction-repair censuses both read headers carrying verified false
 ownership claims. Its HC0 may also run in parallel with the UI tail, since
-its files do not overlap. Continue with UR6's final census,
-captures, mapped gates, independent review, closure report, and handoff.
+its files do not overlap. UR6 source/review evidence is complete; the owner
+approved the retained-path performance baselines, and the final performance
+gate passes. Both authorized early exceptions are complete; HC1 now owns the
+front of the dependency chain.
 The UI plan preserves the existing UI/Runtime value-command boundary and
 makes Runtime/Render the sole UI-to-renderer composition point, and its UR5
 validator is the shared enforcement vehicle the two follow-up plans extend
@@ -1627,7 +1633,7 @@ regression gate.
 
 | Plan | State | Verified phase count | Next action |
 |---|---|---:|---|
-| [ui-renderer-hard-boundary](TODO/ui-renderer-hard-boundary.md) | In progress | 6/7 | UR6: final census, captures, mapped gates, independent review, and closure |
+| [ui-renderer-hard-boundary](../Reports/2026-07-25/ui-renderer-hard-boundary-closure.md) | Complete | 7/7 | Backend-neutral UI and Runtime/Render composition boundary closed; owner-approved performance baselines pass |
 
 Closure requires zero UI-to-Rendering/Runtime includes, zero
 Rendering-to-UI/Runtime includes, a fixed-capacity backend-neutral UI draw
@@ -1716,7 +1722,7 @@ whichever lands second rebases rather than overwrites.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [ui-renderer-hard-boundary](TODO/ui-renderer-hard-boundary.md) | In progress | 6/7 | UR6 final proof, visual capture, mapped gates, independent review, and closure |
+| [ui-renderer-hard-boundary](../Reports/2026-07-25/ui-renderer-hard-boundary-closure.md) | Complete | 7/7 | Closed and removed from the live ledger under inventory rule 4 |
 | [header-claim-staleness-remediation](TODO/header-claim-staleness-remediation.md) | In progress | 1/3 | HC0 corrected 18 false-claim sites; HC1 waits for UR6 closure |
 | [replay-subsystem-partition](TODO/replay-subsystem-partition.md) | Ready | 0/6 | Starts after HC2 closes; RS0 partition census of all 72 Replay files |
 | [downward-domain-bleed-remediation](TODO/downward-domain-bleed-remediation.md) | Ready | 0/6 | Starts after RS5 closes; DB0 bleed census and boundary-contract design |

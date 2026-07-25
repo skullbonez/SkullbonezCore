@@ -42,8 +42,8 @@ inline constexpr RuntimeRendererOption kRuntimeRendererOptions[] = {
     { "dx12", "d3d12" },
 };
 
-inline constexpr std::size_t kRuntimeRendererOptionCount =
-    sizeof( kRuntimeRendererOptions ) / sizeof( kRuntimeRendererOptions[0] );
+inline constexpr std::size_t kRuntimeRendererOptionCount = sizeof( kRuntimeRendererOptions ) /
+                                                           sizeof( kRuntimeRendererOptions[0] );
 
 } // namespace Runtime
 } // namespace SkullbonezCore

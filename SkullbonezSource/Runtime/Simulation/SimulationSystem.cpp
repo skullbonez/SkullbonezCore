@@ -72,9 +72,10 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
     result.shouldUpdateLogic = true;
     result.cameraDt = static_cast<float>( input.secondsPerFrame );
 
-    const bool shouldStepPhysics =
-        input.physicsAdvance == PhysicsAdvanceState::Running ||
-        ( input.physicsAdvance == PhysicsAdvanceState::RunWhileStepHeld && input.isStepRequested );
+    const bool shouldStepPhysics = input.physicsAdvance == PhysicsAdvanceState::Running ||
+                                   ( input.physicsAdvance == PhysicsAdvanceState::RunWhileStepHeld &&
+                                     input.isStepRequested );
+
     const bool canStepPhysics = shouldStepPhysics && input.canStepPhysics;
     if ( input.isFixedStep )
     {
@@ -124,6 +125,7 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
             m_physicsAccumulator -= PHYSICS_FIXED_DT;
             ++steps;
         }
+
         result.committedPhysicsTicks = steps;
 
         if ( steps == PHYSICS_MAX_STEPS_PER_FRAME )
@@ -142,6 +144,7 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
     {
         result.presentationAlpha = std::clamp( m_physicsAccumulator / PHYSICS_FIXED_DT, 0.0f, 1.0f );
     }
+
     return result;
 }
 

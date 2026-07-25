@@ -62,12 +62,14 @@ bool VerifyReplayPredictionArchiveRoundTrip( std::span<const uint8_t> bytes, cha
         WriteAutomationReason( outReason, reasonSize, "could not rebuild prediction archive" );
         return false;
     }
+
     if ( rebuiltBytes.size() != bytes.size() ||
          ( !bytes.empty() && std::memcmp( rebuiltBytes.data(), bytes.data(), bytes.size() ) != 0 ) )
     {
         WriteAutomationReason( outReason, reasonSize, "prediction archive round-trip bytes diverged" );
         return false;
     }
+
     return true;
 }
 } // namespace SkullbonezCore::Runtime::ReplayPredictionArchiveOperations

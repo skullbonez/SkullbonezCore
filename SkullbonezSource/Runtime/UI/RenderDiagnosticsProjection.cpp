@@ -32,10 +32,8 @@ namespace SkullbonezCore::Runtime
 {
 UI::UIRenderMemoryStats ProjectRenderMemoryDiagnostics( const Rendering::RenderMemoryStats& source )
 {
-    static_assert(
-        UI::UI_RENDER_UPLOAD_CATEGORY_COUNT == Rendering::RENDER_UPLOAD_CATEGORY_COUNT,
-        "Render upload categories require an explicit UI projection update."
-    );
+    static_assert( UI::UI_RENDER_UPLOAD_CATEGORY_COUNT == Rendering::RENDER_UPLOAD_CATEGORY_COUNT,
+                   "Render upload categories require an explicit UI projection update." );
 
     UI::UIRenderMemoryStats result;
     result.available = source.available;
@@ -58,6 +56,7 @@ UI::UIRenderMemoryStats ProjectRenderMemoryDiagnostics( const Rendering::RenderM
         result.uploadCategoryUsedBytes[index] = source.uploadCategoryUsedBytes[index];
         result.uploadCategoryPeakBytes[index] = source.uploadCategoryPeakBytes[index];
     }
+
     result.uploadFlushCount = source.uploadFlushCount;
     result.uploadDropCount = source.uploadDropCount;
     result.timerReadbackBytes = source.timerReadbackBytes;
@@ -88,11 +87,9 @@ UI::UIRenderMemoryStats ProjectRenderMemoryDiagnostics( const Rendering::RenderM
 
 UI::UIRenderVisibilityStats ProjectRenderVisibilityDiagnostics( const Rendering::RenderVisibilityStats& source )
 {
-    static_assert(
-        static_cast<int>( UI::UIRenderVisibilityView::Count ) ==
-            static_cast<int>( Rendering::RenderVisibilityView::Count ),
-        "Render visibility views require an explicit UI projection update."
-    );
+    static_assert( static_cast<int>( UI::UIRenderVisibilityView::Count ) ==
+                       static_cast<int>( Rendering::RenderVisibilityView::Count ),
+                   "Render visibility views require an explicit UI projection update." );
 
     UI::UIRenderVisibilityStats result;
     for ( int index = 0; index < static_cast<int>( UI::UIRenderVisibilityView::Count ); ++index )
@@ -104,6 +101,7 @@ UI::UIRenderVisibilityStats ProjectRenderVisibilityDiagnostics( const Rendering:
         resultView.culled = sourceView.culled;
         resultView.draws = sourceView.draws;
     }
+
     return result;
 }
 } // namespace SkullbonezCore::Runtime

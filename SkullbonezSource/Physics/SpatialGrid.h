@@ -230,12 +230,10 @@ class SpatialGrid
     void ResetSweptOverlay();
     int CollectBucketObjects( const Bucket& bucket, int* outIndices, int capacity );
     void ResetCandidatePairDedup();
-    bool MarkCandidatePairFirstSeen(
-        int a,
-        int b,
-        const Physics::BroadphaseCandidateFilterContext* filter,
-        std::vector<std::pair<int, int>>* sleepPrunedPairs
-    );
+    bool MarkCandidatePairFirstSeen( int a,
+                                     int b,
+                                     const Physics::BroadphaseCandidateFilterContext* filter,
+                                     std::vector<std::pair<int, int>>* sleepPrunedPairs );
 
   public:
     static constexpr int MAX_BUCKETS = TABLE_SIZE;
@@ -276,20 +274,16 @@ class SpatialGrid
     // staged, but narrowphase still owns contacts. Debug may retain geometric
     // sleep-only admissions in a bounded diagnostic vector; production may
     // restrict traversal to current pair-source cells.
-    void GetCandidatePairs(
-        std::vector<std::pair<int, int>>& outPairs,
-        const Physics::BroadphaseCandidateFilterContext* filter = nullptr,
-        std::vector<std::pair<int, int>>* sleepPrunedPairs = nullptr,
-        bool restrictToPairSourceCells = false
-    );
+    void GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
+                            const Physics::BroadphaseCandidateFilterContext* filter = nullptr,
+                            std::vector<std::pair<int, int>>* sleepPrunedPairs = nullptr,
+                            bool restrictToPairSourceCells = false );
 #if defined( _DEBUG )
     // P1 transition oracle only: emits the pre-transition bucket-history order
     // from the same grid state so Debug runs can compare work membership without
     // evolving a second simulation.
-    void GetCandidatePairsLegacyForOracle(
-        std::vector<std::pair<int, int>>& outPairs,
-        const Physics::BroadphaseCandidateFilterContext* filter = nullptr
-    );
+    void GetCandidatePairsLegacyForOracle( std::vector<std::pair<int, int>>& outPairs,
+                                           const Physics::BroadphaseCandidateFilterContext* filter = nullptr );
 #endif
     float GetCellSize() const
     {

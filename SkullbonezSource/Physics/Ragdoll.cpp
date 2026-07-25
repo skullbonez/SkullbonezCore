@@ -87,28 +87,41 @@ void AppendPreviewLine( std::vector<float>& lineData, const Vector3& a, const Ve
     lineData.insert( lineData.end(), { a.x, a.y, a.z, r, g, bl, b.x, b.y, b.z, r, g, bl } );
 }
 
-void AppendPreviewBox(
-    std::vector<float>& lineData,
-    const Vector3& center,
-    const RotationMatrix& rotation,
-    const Vector3& halfExtents,
-    float r,
-    float g,
-    float b
-)
+void AppendPreviewBox( std::vector<float>& lineData,
+                       const Vector3& center,
+                       const RotationMatrix& rotation,
+                       const Vector3& halfExtents,
+                       float r,
+                       float g,
+                       float b )
 {
     const Vector3 xAxis = rotation * Vector3( halfExtents.x, 0.0f, 0.0f );
     const Vector3 yAxis = rotation * Vector3( 0.0f, halfExtents.y, 0.0f );
     const Vector3 zAxis = rotation * Vector3( 0.0f, 0.0f, halfExtents.z );
     const Vector3 corners[8] = {
-        center - xAxis - yAxis - zAxis, center + xAxis - yAxis - zAxis, center + xAxis + yAxis - zAxis,
-        center - xAxis + yAxis - zAxis, center - xAxis - yAxis + zAxis, center + xAxis - yAxis + zAxis,
-        center + xAxis + yAxis + zAxis, center - xAxis + yAxis + zAxis,
+        center - xAxis - yAxis - zAxis,
+        center + xAxis - yAxis - zAxis,
+        center + xAxis + yAxis - zAxis,
+        center - xAxis + yAxis - zAxis,
+        center - xAxis - yAxis + zAxis,
+        center + xAxis - yAxis + zAxis,
+        center + xAxis + yAxis + zAxis,
+        center - xAxis + yAxis + zAxis,
     };
 
     constexpr int edges[12][2] = {
-        { 0, 1 }, { 1, 2 }, { 2, 3 }, { 3, 0 }, { 4, 5 }, { 5, 6 },
-        { 6, 7 }, { 7, 4 }, { 0, 4 }, { 1, 5 }, { 2, 6 }, { 3, 7 },
+        { 0, 1 },
+        { 1, 2 },
+        { 2, 3 },
+        { 3, 0 },
+        { 4, 5 },
+        { 5, 6 },
+        { 6, 7 },
+        { 7, 4 },
+        { 0, 4 },
+        { 1, 5 },
+        { 2, 6 },
+        { 3, 7 },
     };
 
     for ( const auto& edge : edges )
@@ -158,32 +171,33 @@ void ClampRagdollBodyVelocity( PhysicsBodyHotState& hot )
     hot.angularVelocity = ClampVectorMagnitude( hot.angularVelocity, RAGDOLL_JOINT_MAX_ANGULAR_SPEED );
 }
 
-void ApplyConstraintImpulse(
-    PhysicsBodyRecord& a,
-    PhysicsBodyRecord& b,
-    PhysicsBodyHotState& hotA,
-    PhysicsBodyHotState& hotB,
-    const Vector3& rA,
-    const Vector3& rB,
-    const Vector3& impulse,
-    float invMassA,
-    float invMassB
-)
+void ApplyConstraintImpulse( PhysicsBodyRecord& a,
+                             PhysicsBodyRecord& b,
+                             PhysicsBodyHotState& hotA,
+                             PhysicsBodyHotState& hotB,
+                             const Vector3& rA,
+                             const Vector3& rB,
+                             const Vector3& impulse,
+                             float invMassA,
+                             float invMassB )
 {
     if ( invMassA > 0.0f )
     {
         hotA.linearVelocity += impulse * invMassA;
         hotA.angularVelocity += ApplyRecordInvInertia( a, hotA, CrossProduct( rA, impulse ) );
     }
+
     if ( invMassB > 0.0f )
     {
         hotB.linearVelocity -= impulse * invMassB;
         hotB.angularVelocity -= ApplyRecordInvInertia( b, hotB, CrossProduct( rB, impulse ) );
     }
+
     if ( invMassA > 0.0f )
     {
         ClampRagdollBodyVelocity( hotA );
     }
+
     if ( invMassB > 0.0f )
     {
         ClampRagdollBodyVelocity( hotB );
@@ -197,11 +211,9 @@ bool IsBodySleeping( int bodyIndex, std::span<const uint8_t> sleepState )
 }
 
 
-bool ApplyNeckSwingLimits(
-    PhysicsBodyStore& bodyStore,
-    const std::vector<PointJointConstraint>& constraints,
-    std::span<const uint8_t> sleepState
-)
+bool ApplyNeckSwingLimits( PhysicsBodyStore& bodyStore,
+                           const std::vector<PointJointConstraint>& constraints,
+                           std::span<const uint8_t> sleepState )
 {
     const PhysicsBodyHotFieldsView hotFields = bodyStore.MutableHotFields();
     const int modelCount = bodyStore.Count();
@@ -212,6 +224,7 @@ bool ApplyNeckSwingLimits(
         {
             continue;
         }
+
         const int bodyAIndex = constraint.BodyAIndex( bodyStore );
         const int bodyBIndex = constraint.BodyBIndex( bodyStore );
         if ( bodyAIndex < 0 || bodyBIndex < 0 || bodyAIndex >= modelCount || bodyBIndex >= modelCount )
@@ -245,10 +258,12 @@ bool ApplyNeckSwingLimits(
         {
             correctionAxis = torsoRot * Vector3( 1.0f, 0.0f, 0.0f );
         }
+
         correctionAxis.Normalise();
 
-        const float correctionAngle =
-            (std::min)( acosf( dot ) - RAGDOLL_NECK_MAX_SWING_RADIANS, RAGDOLL_NECK_MAX_CORRECTION_RADIANS );
+        const float correctionAngle = (std::min)( acosf( dot ) - RAGDOLL_NECK_MAX_SWING_RADIANS,
+                                                  RAGDOLL_NECK_MAX_CORRECTION_RADIANS );
+
         Quaternion orientation = headHot.orientation;
         orientation.RotateAboutAxis( correctionAxis, correctionAngle );
         headHot.orientation = orientation;
@@ -256,6 +271,7 @@ bool ApplyNeckSwingLimits(
         StorePhysicsBodyHotState( hotFields, headIndex, headHot );
         changed = true;
     }
+
     return changed;
 }
 
@@ -285,6 +301,7 @@ float Ragdoll::ClampScale( float scale )
     {
         return RAGDOLL_DEFAULT_SCALE;
     }
+
     return std::clamp( scale, RAGDOLL_MIN_SCALE, RAGDOLL_MAX_SCALE );
 }
 
@@ -437,15 +454,13 @@ Vector3 Ragdoll::DefaultPreviewCenter( const Vector3& terrainPoint, float scale,
     return terrainPoint + rotation * Vector3( 0.0f, ( minY + maxY ) * 0.5f * clampedScale, 0.0f );
 }
 
-void Ragdoll::AddPreviewLines(
-    std::vector<float>& lineData,
-    const Vector3& terrainPoint,
-    float scale,
-    const Quaternion& orientation,
-    float r,
-    float g,
-    float b
-)
+void Ragdoll::AddPreviewLines( std::vector<float>& lineData,
+                               const Vector3& terrainPoint,
+                               float scale,
+                               const Quaternion& orientation,
+                               float r,
+                               float g,
+                               float b )
 {
     const RagdollPartDesc* parts = SimpleParts();
     Quaternion q = orientation;
@@ -454,24 +469,20 @@ void Ragdoll::AddPreviewLines(
     const Vector3 base = terrainPoint + rotation * Vector3( 0.0f, RAGDOLL_SURFACE_EPSILON, 0.0f );
     for ( int i = 0; i < PART_COUNT; ++i )
     {
-        AppendPreviewBox(
-            lineData,
-            base + rotation * ScaleVector( parts[i].localCenter, clampedScale ),
-            rotation,
-            ScaleVector( parts[i].halfExtents, clampedScale ),
-            r,
-            g,
-            b
-        );
+        AppendPreviewBox( lineData,
+                          base + rotation * ScaleVector( parts[i].localCenter, clampedScale ),
+                          rotation,
+                          ScaleVector( parts[i].halfExtents, clampedScale ),
+                          r,
+                          g,
+                          b );
     }
 }
 
-bool Ragdoll::SolvePointJoints(
-    PhysicsBodyStore& bodyStore,
-    const std::vector<PointJointConstraint>& constraints,
-    std::span<const uint8_t> sleepState,
-    float dt
-)
+bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore,
+                                const std::vector<PointJointConstraint>& constraints,
+                                std::span<const uint8_t> sleepState,
+                                float dt )
 {
     if ( constraints.empty() || dt <= TOLERANCE )
     {
@@ -532,13 +543,13 @@ bool Ragdoll::SolvePointJoints(
             const Vector3 velB = hotB.linearVelocity + CrossProduct( hotB.angularVelocity, rB );
             const float relVel = ( velB - velA ) * axis;
             const float distanceError = (std::max)( 0.0f, distance - constraint.slack );
-            const float biasSpeed =
-                std::clamp( distanceError * constraint.stiffness * invDt, 0.0f, RAGDOLL_JOINT_MAX_BIAS_SPEED );
-            const float velocityTarget = std::clamp(
-                ( relVel + biasSpeed ) * ( 1.0f + constraint.damping ),
-                -RAGDOLL_JOINT_MAX_BIAS_SPEED,
-                RAGDOLL_JOINT_MAX_BIAS_SPEED
-            );
+            const float biasSpeed = std::clamp( distanceError * constraint.stiffness * invDt,
+                                                0.0f,
+                                                RAGDOLL_JOINT_MAX_BIAS_SPEED );
+
+            const float velocityTarget = std::clamp( ( relVel + biasSpeed ) * ( 1.0f + constraint.damping ),
+                                                     -RAGDOLL_JOINT_MAX_BIAS_SPEED,
+                                                     RAGDOLL_JOINT_MAX_BIAS_SPEED );
 
             const float effectiveMass = ContactSolver::ComputeTwoBodyEffectiveMass(
                 invMassA,
@@ -549,38 +560,38 @@ bool Ragdoll::SolvePointJoints(
                 [&]( const Vector3& v )
                 { return invMassA > 0.0f ? ApplyRecordInvInertia( bodyA, hotA, v ) : ZERO_VECTOR; },
                 [&]( const Vector3& v )
-                { return invMassB > 0.0f ? ApplyRecordInvInertia( bodyB, hotB, v ) : ZERO_VECTOR; }
-            );
+                { return invMassB > 0.0f ? ApplyRecordInvInertia( bodyB, hotB, v ) : ZERO_VECTOR; } );
 
             if ( effectiveMass > 0.0f )
             {
-                ApplyConstraintImpulse(
-                    bodyA,
-                    bodyB,
-                    hotA,
-                    hotB,
-                    rA,
-                    rB,
-                    axis * ( effectiveMass * velocityTarget ),
-                    invMassA,
-                    invMassB
-                );
+                ApplyConstraintImpulse( bodyA,
+                                        bodyB,
+                                        hotA,
+                                        hotB,
+                                        rA,
+                                        rB,
+                                        axis * ( effectiveMass * velocityTarget ),
+                                        invMassA,
+                                        invMassB );
             }
 
             if ( distanceError > TOLERANCE )
             {
-                const float correctionAmount =
-                    (std::min)( distanceError * constraint.stiffness, RAGDOLL_JOINT_MAX_POSITION_CORRECTION );
+                const float correctionAmount = (std::min)( distanceError * constraint.stiffness,
+                                                           RAGDOLL_JOINT_MAX_POSITION_CORRECTION );
+
                 const Vector3 correction = axis * ( correctionAmount / totalInvMass );
                 if ( invMassA > 0.0f )
                 {
                     hotA.position += correction * invMassA;
                 }
+
                 if ( invMassB > 0.0f )
                 {
                     hotB.position -= correction * invMassB;
                 }
             }
+
             StorePhysicsBodyHotState( hotFields, hotAIndex, hotA );
             StorePhysicsBodyHotState( hotFields, hotBIndex, hotB );
         }

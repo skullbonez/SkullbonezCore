@@ -63,20 +63,20 @@ bool PhysicsSleepController::IsUnderwaterSleepLocked( int bodyCount, int index )
     {
         return false;
     }
+
     if ( m_underwaterSleepLocked[index] )
     {
         return true;
     }
+
     return m_underwaterSleepLocked[index] != 0;
 }
 
-void PhysicsSleepController::LockUnderwaterSleeperIfReady(
-    const PhysicsWorldForces& worldForces,
-    PhysicsBodyStore& bodyStore,
-    const ColliderStore& colliderStore,
-    std::span<float> timeRemaining,
-    int index
-)
+void PhysicsSleepController::LockUnderwaterSleeperIfReady( const PhysicsWorldForces& worldForces,
+                                                           PhysicsBodyStore& bodyStore,
+                                                           const ColliderStore& colliderStore,
+                                                           std::span<float> timeRemaining,
+                                                           int index )
 {
     const int bodyCount = bodyStore.Count();
     EnsureUnderwaterSleepLockBuffer( bodyCount );
@@ -85,25 +85,28 @@ void PhysicsSleepController::LockUnderwaterSleeperIfReady(
     {
         return;
     }
+
     if ( !BuoyancySystem::RefreshUnderwaterSubmersionForBall( worldForces, bodyStore, colliderStore, index ) )
     {
         return;
     }
+
     PhysicsBodyRecord* record = bodyStore.MutableRecordForModelIndex( index );
-    if ( !record || !BuoyancySystem::IsFullySubmergedBall(
-                        *record,
-                        bodyStore.HotFields().fixed[static_cast<std::size_t>( index )] != 0u,
-                        colliderStore,
-                        index
-                    ) )
+    if ( !record ||
+         !BuoyancySystem::IsFullySubmergedBall( *record,
+                                                bodyStore.HotFields().fixed[static_cast<std::size_t>( index )] != 0u,
+                                                colliderStore,
+                                                index ) )
     {
         return;
     }
+
     m_underwaterSleepLocked[index] = 1;
     if ( index < static_cast<int>( timeRemaining.size() ) )
     {
         timeRemaining[index] = 0.0f;
     }
+
     PhysicsBodyHotFieldsView hotFields = bodyStore.MutableHotFields();
     const std::size_t bodyIndex = static_cast<std::size_t>( index );
     hotFields.linearVelocityX[bodyIndex] = 0.0f;
@@ -115,12 +118,10 @@ void PhysicsSleepController::LockUnderwaterSleeperIfReady(
     hotFields.awake[bodyIndex] = 0u;
 }
 
-bool PhysicsSleepController::WakeDynamicBodyState(
-    const PhysicsSleepWakeContext& context,
-    int index,
-    float dt,
-    bool applyForces
-)
+bool PhysicsSleepController::WakeDynamicBodyState( const PhysicsSleepWakeContext& context,
+                                                   int index,
+                                                   float dt,
+                                                   bool applyForces )
 {
     // Invariant: every wake clears the model-order sleep rows and the contact
     // cache before the body can participate in later fixed-step stages.
@@ -130,60 +131,69 @@ bool PhysicsSleepController::WakeDynamicBodyState(
     {
         return false;
     }
+
     const bool wasSleeping = m_sleepState[index] != 0;
     const bool hadCounter = index < static_cast<int>( m_sleepCounter.size() ) && m_sleepCounter[index] != 0;
-    const bool hadSleepVisual =
-        index < static_cast<int>( m_sleepIslandVisualId.size() ) && m_sleepIslandVisualId[index] != 0;
-    const bool wasUnderwaterLocked =
-        index < static_cast<int>( m_underwaterSleepLocked.size() ) && m_underwaterSleepLocked[index] != 0;
+    const bool hadSleepVisual = index < static_cast<int>( m_sleepIslandVisualId.size() ) &&
+                                m_sleepIslandVisualId[index] != 0;
+
+    const bool wasUnderwaterLocked = index < static_cast<int>( m_underwaterSleepLocked.size() ) &&
+                                     m_underwaterSleepLocked[index] != 0;
+
     m_sleepState[index] = 0;
     context.hotFields.awake[static_cast<std::size_t>( index )] = 1u;
     if ( index < static_cast<int>( m_sleepCounter.size() ) )
     {
         m_sleepCounter[index] = 0;
     }
+
     if ( index < static_cast<int>( m_underwaterSleepLocked.size() ) )
     {
         m_underwaterSleepLocked[index] = 0;
     }
+
     if ( index < static_cast<int>( m_sleepIslandVisualId.size() ) )
     {
         m_sleepIslandVisualId[index] = 0;
     }
+
     if ( dt > 0.0f && index < static_cast<int>( context.timeRemaining.size() ) )
     {
         context.timeRemaining[index] = dt;
     }
+
     if ( applyForces && wasSleeping && dt > TOLERANCE && context.bodyStore && context.worldForces &&
          context.colliderStore )
     {
         (void)context.bodyStore->ApplyForces( *context.worldForces, *context.colliderStore, index, dt );
     }
+
     context.contactCache.ForgetBody( index );
     if ( wasSleeping )
     {
         AddAwakeBodyIndex( index );
     }
+
     return wasSleeping || hadCounter || hadSleepVisual || wasUnderwaterLocked;
 }
 
-void PhysicsSleepController::WakeSleepVisualIsland(
-    const PhysicsSleepWakeContext& context,
-    int index,
-    float dt,
-    bool applyForces
-)
+void PhysicsSleepController::WakeSleepVisualIsland( const PhysicsSleepWakeContext& context,
+                                                    int index,
+                                                    float dt,
+                                                    bool applyForces )
 {
     if ( index < 0 || index >= static_cast<int>( m_sleepState.size() ) )
     {
         return;
     }
+
     const int visualId = index < static_cast<int>( m_sleepIslandVisualId.size() ) ? m_sleepIslandVisualId[index] : 0;
     if ( visualId > 0 )
     {
         const int count = (std::min)( { static_cast<int>( m_sleepIslandVisualId.size() ),
                                         context.bodyCount,
                                         static_cast<int>( context.bodyRecords.size() ) } );
+
         for ( int i = 0; i < count; ++i )
         {
             if ( m_sleepIslandVisualId[i] == visualId )
@@ -198,24 +208,26 @@ void PhysicsSleepController::WakeSleepVisualIsland(
     }
 }
 
-void PhysicsSleepController::WakePointJointIsland(
-    const PhysicsSleepWakeContext& context,
-    int index,
-    float dt,
-    bool applyForces
-)
+void PhysicsSleepController::WakePointJointIsland( const PhysicsSleepWakeContext& context,
+                                                   int index,
+                                                   float dt,
+                                                   bool applyForces )
 {
     if ( context.bodyStore == nullptr )
     {
         return;
     }
-    const int modelCount =
-        (std::min)( { context.bodyCount, context.bodyStore->Count(), static_cast<int>( context.bodyRecords.size() ) } );
+
+    const int modelCount = (std::min)( { context.bodyCount,
+                                         context.bodyStore->Count(),
+                                         static_cast<int>( context.bodyRecords.size() ) } );
+
     if ( context.pointJointConstraints.empty() || index < 0 || index >= modelCount ||
          index >= static_cast<int>( m_sleepState.size() ) )
     {
         return;
     }
+
     m_sleepIslandParent.assign( modelCount, 0 );
     m_sleepIslandRank.assign( modelCount, 0 );
     EnsureScratchFlagsSize( modelCount );
@@ -223,10 +235,12 @@ void PhysicsSleepController::WakePointJointIsland(
     {
         flags.pointJointBody = 0u;
     }
+
     for ( int i = 0; i < modelCount; ++i )
     {
         m_sleepIslandParent[i] = i;
     }
+
     DisjointSet sleepIslands( m_sleepIslandParent, m_sleepIslandRank, modelCount );
     for ( const PointJointConstraint& constraint : context.pointJointConstraints )
     {
@@ -236,14 +250,17 @@ void PhysicsSleepController::WakePointJointIsland(
         {
             continue;
         }
+
         m_sleepScratchFlags[a].pointJointBody = 1u;
         m_sleepScratchFlags[b].pointJointBody = 1u;
         sleepIslands.Unite( a, b );
     }
+
     if ( m_sleepScratchFlags[index].pointJointBody == 0u )
     {
         return;
     }
+
     const int root = sleepIslands.Find( index );
     for ( int i = 0; i < modelCount; ++i )
     {
@@ -254,12 +271,10 @@ void PhysicsSleepController::WakePointJointIsland(
     }
 }
 
-void PhysicsSleepController::WakeRestingContactIsland(
-    const PhysicsSleepWakeContext& context,
-    int index,
-    float dt,
-    bool applyForces
-)
+void PhysicsSleepController::WakeRestingContactIsland( const PhysicsSleepWakeContext& context,
+                                                       int index,
+                                                       float dt,
+                                                       bool applyForces )
 {
     // Hazard: sleeping contacts are pruned, so explicit wake expands through
     // both retained contact edges and the established bounded proximity test.
@@ -268,17 +283,20 @@ void PhysicsSleepController::WakeRestingContactIsland(
     {
         return;
     }
+
     if ( modelCount > static_cast<int>( m_sleepScratchFlags.capacity() ) ||
          modelCount > static_cast<int>( m_restingWakeQueueScratch.capacity() ) )
     {
         assert( false && "Physics resting-wake scratch capacity exceeded" );
         SB_FATAL( "Physics/PhysicsSleepController", "Physics resting-wake scratch capacity exceeded" );
     }
+
     EnsureScratchFlagsSize( modelCount );
     for ( PhysicsSleepScratchFlags& flags : m_sleepScratchFlags )
     {
         flags.restingWakeVisited = 0u;
     }
+
     m_restingWakeQueueScratch.clear();
     m_sleepScratchFlags[static_cast<std::size_t>( index )].restingWakeVisited = 1u;
     m_restingWakeQueueScratch.push_back( index );
@@ -291,12 +309,14 @@ void PhysicsSleepController::WakeRestingContactIsland(
                 return true;
             }
         }
+
         return false;
     };
 
     const auto isLikelyRestingNeighbor = [&]( int a, int b )
     {
         const PhysicsBodyHotFieldsConstView hotRead = ConstPhysicsBodyHotFields( context.hotFields );
+
         const std::size_t bodyAIndex = static_cast<std::size_t>( a );
         const std::size_t bodyBIndex = static_cast<std::size_t>( b );
         const float radiusA = (std::max)( 0.01f, context.hotFields.boundingRadius[bodyAIndex] );
@@ -307,6 +327,7 @@ void PhysicsSleepController::WakeRestingContactIsland(
         {
             return false;
         }
+
         const float range = radiusA + radiusB + EXPLICIT_WAKE_NEIGHBOR_SLOP;
         const Vector3 delta = positionB - positionA;
         return delta * delta <= range * range;
@@ -325,6 +346,7 @@ void PhysicsSleepController::WakeRestingContactIsland(
             {
                 continue;
             }
+
             m_sleepScratchFlags[static_cast<std::size_t>( candidate )].restingWakeVisited = 1u;
             m_restingWakeQueueScratch.push_back( candidate );
             WakeDynamicBodyState( context, candidate, dt, applyForces );
@@ -346,6 +368,7 @@ void PhysicsSleepController::WakeModel( const PhysicsSleepWakeContext& context, 
     {
         return;
     }
+
     if ( static_cast<int>( m_sleepState.size() ) < modelCount )
     {
         m_sleepState.resize( modelCount, 0 );
@@ -356,6 +379,7 @@ void PhysicsSleepController::WakeModel( const PhysicsSleepWakeContext& context, 
         m_sleepState.assign( modelCount, 0 );
         m_sleepCounter.assign( modelCount, 0 );
     }
+
     EnsureUnderwaterSleepLockBuffer( modelCount );
     if ( index >= 0 && index < static_cast<int>( m_sleepState.size() ) )
     {
@@ -364,51 +388,49 @@ void PhysicsSleepController::WakeModel( const PhysicsSleepWakeContext& context, 
             bool refreshedSubmersion = false;
             if ( context.colliderStore && context.worldForces )
             {
-                refreshedSubmersion = BuoyancySystem::RefreshUnderwaterSubmersionForBall(
-                    *context.worldForces,
-                    *context.bodyStore,
-                    *context.colliderStore,
-                    index
-                );
+                refreshedSubmersion = BuoyancySystem::RefreshUnderwaterSubmersionForBall( *context.worldForces,
+                                                                                          *context.bodyStore,
+                                                                                          *context.colliderStore,
+                                                                                          index );
             }
+
             const PhysicsBodyRecord* record = context.bodyStore->RecordForModelIndex( index );
             if ( record && context.colliderStore && ( refreshedSubmersion || record->submergedVolumePercent > 0.0f ) &&
-                 BuoyancySystem::IsFullySubmergedBall(
-                     *record,
-                     context.hotFields.fixed[static_cast<std::size_t>( index )] != 0u,
-                     *context.colliderStore,
-                     index
-                 ) )
+                 BuoyancySystem::IsFullySubmergedBall( *record,
+                                                       context.hotFields.fixed[static_cast<std::size_t>( index )] != 0u,
+                                                       *context.colliderStore,
+                                                       index ) )
             {
                 m_underwaterSleepLocked[index] = 1;
                 if ( index < static_cast<int>( context.timeRemaining.size() ) )
                 {
                     context.timeRemaining[index] = 0.0f;
                 }
+
                 return;
             }
         }
+
         if ( IsUnderwaterSleepLocked( modelCount, index ) )
         {
             return;
         }
+
         WakeSleepVisualIsland( context, index, 0.0f, false );
         WakePointJointIsland( context, index, 0.0f, false );
         WakeRestingContactIsland( context, index, 0.0f, false );
     }
 }
 
-PhysicsNarrowphaseWakeAccess::PhysicsNarrowphaseWakeAccess(
-    PhysicsSleepController& sleepController,
-    PhysicsBodyStore& bodyStore,
-    const ColliderStore& colliderStore,
-    const PhysicsWorldForces& worldForces,
-    std::span<PhysicsBodyRecord> bodyRecords,
-    const PhysicsBodyHotFieldsView& hotFields,
-    std::span<float> timeRemaining,
-    int modelCount,
-    float dt
-)
+PhysicsNarrowphaseWakeAccess::PhysicsNarrowphaseWakeAccess( PhysicsSleepController& sleepController,
+                                                            PhysicsBodyStore& bodyStore,
+                                                            const ColliderStore& colliderStore,
+                                                            const PhysicsWorldForces& worldForces,
+                                                            std::span<PhysicsBodyRecord> bodyRecords,
+                                                            const PhysicsBodyHotFieldsView& hotFields,
+                                                            std::span<float> timeRemaining,
+                                                            int modelCount,
+                                                            float dt )
     : m_sleepController( sleepController ), m_bodyStore( bodyStore ), m_colliderStore( colliderStore ),
       m_worldForces( worldForces ), m_bodyRecords( bodyRecords ), m_hotFields( hotFields ),
       m_timeRemaining( timeRemaining ), m_modelCount( modelCount ), m_dt( dt )
@@ -426,6 +448,7 @@ void PhysicsNarrowphaseWakeAccess::WakeBody( int sleepingIndex ) const
     {
         return;
     }
+
     // Parallel pairs can target the same sleeper. One atomic state transition
     // owns the wake side effects and one bounded queue row; the sequencer later
     // folds queued indices into deterministic ascending order.
@@ -435,17 +458,17 @@ void PhysicsNarrowphaseWakeAccess::WakeBody( int sleepingIndex ) const
     {
         return;
     }
+
     std::atomic_ref<int> pendingAwakeCount( m_sleepController.m_pendingAwakeCount );
     const int pendingIndex = pendingAwakeCount.fetch_add( 1, std::memory_order_acq_rel );
     if ( pendingIndex < 0 || pendingIndex >= Scene::Capacity::MAX_SCENE_OBJECTS )
     {
-        SB_FATAL(
-            "Physics/PhysicsSleepController",
-            "Pending awake queue capacity exceeded: slot=%d capacity=%zu phase=steady_gameplay.",
-            pendingIndex,
-            Scene::Capacity::MAX_SCENE_OBJECTS
-        );
+        SB_FATAL( "Physics/PhysicsSleepController",
+                  "Pending awake queue capacity exceeded: slot=%d capacity=%zu phase=steady_gameplay.",
+                  pendingIndex,
+                  Scene::Capacity::MAX_SCENE_OBJECTS );
     }
+
     m_sleepController.m_pendingAwakeIndices[static_cast<std::size_t>( pendingIndex )] = sleepingIndex;
     m_sleepController.m_sleepCounter[sleepingIndex] = 0;
     m_sleepController.m_sleepIslandVisualId[sleepingIndex] = 0;
@@ -454,27 +477,24 @@ void PhysicsNarrowphaseWakeAccess::WakeBody( int sleepingIndex ) const
     (void)m_bodyStore.ApplyForces( m_worldForces, m_colliderStore, sleepingIndex, m_dt );
 }
 
-PhysicsNarrowphaseWakeAccess PhysicsSleepController::CreateNarrowphaseWakeAccess(
-    PhysicsBodyStore& bodyStore,
-    const ColliderStore& colliderStore,
-    const PhysicsWorldForces& worldForces,
-    std::span<PhysicsBodyRecord> bodyRecords,
-    std::span<float> timeRemaining,
-    int modelCount,
-    float dt
-)
+PhysicsNarrowphaseWakeAccess
+PhysicsSleepController::CreateNarrowphaseWakeAccess( PhysicsBodyStore& bodyStore,
+                                                     const ColliderStore& colliderStore,
+                                                     const PhysicsWorldForces& worldForces,
+                                                     std::span<PhysicsBodyRecord> bodyRecords,
+                                                     std::span<float> timeRemaining,
+                                                     int modelCount,
+                                                     float dt )
 {
-    return PhysicsNarrowphaseWakeAccess(
-        *this,
-        bodyStore,
-        colliderStore,
-        worldForces,
-        bodyRecords,
-        bodyStore.MutableHotFields(),
-        timeRemaining,
-        modelCount,
-        dt
-    );
+    return PhysicsNarrowphaseWakeAccess( *this,
+                                         bodyStore,
+                                         colliderStore,
+                                         worldForces,
+                                         bodyRecords,
+                                         bodyStore.MutableHotFields(),
+                                         timeRemaining,
+                                         modelCount,
+                                         dt );
 }
 
 void PhysicsSleepController::SeedModelAsleep( const PhysicsBodyStore& bodyStore, int index )
@@ -483,12 +503,14 @@ void PhysicsSleepController::SeedModelAsleep( const PhysicsBodyStore& bodyStore,
     {
         return;
     }
+
     const PhysicsBodyHotFieldsConstView hotFields = bodyStore.HotFields();
     const int modelCount = (std::min)( bodyStore.Count(), static_cast<int>( hotFields.fixed.size() ) );
     if ( index < 0 || index >= modelCount || IsSolverBodyFixed( hotFields, index ) )
     {
         return;
     }
+
     if ( static_cast<int>( m_sleepState.size() ) < modelCount )
     {
         m_sleepState.resize( modelCount, 0 );
@@ -499,6 +521,7 @@ void PhysicsSleepController::SeedModelAsleep( const PhysicsBodyStore& bodyStore,
         m_sleepState.assign( modelCount, 0 );
         m_sleepCounter.assign( modelCount, 0 );
     }
+
     EnsureVisualIdSize( modelCount );
     EnsureUnderwaterSleepLockBuffer( modelCount );
     m_sleepState[index] = 1;
@@ -519,6 +542,7 @@ void PhysicsSleepController::SetPhysicsSleepEnabled( bool enabled )
     {
         return;
     }
+
     std::fill( m_sleepState.begin(), m_sleepState.end(), static_cast<uint8_t>( 0 ) );
     std::fill( m_sleepCounter.begin(), m_sleepCounter.end(), static_cast<uint8_t>( 0 ) );
     std::fill( m_underwaterSleepLocked.begin(), m_underwaterSleepLocked.end(), static_cast<uint8_t>( 0 ) );

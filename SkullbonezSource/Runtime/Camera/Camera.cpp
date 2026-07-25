@@ -194,8 +194,8 @@ void Camera::RotateCamera( float xMove, float yMove, const CameraMovementSetting
 
         // the mouses yMove will always represent a pivot on the right vector
         // (repsective to the camera translation)
-        m_view =
-            m_position + Transformation::RotatePointAboutArbitrary( yMoveCapped, GetRightVector(), GetViewVectorRaw() );
+        m_view = m_position +
+                 Transformation::RotatePointAboutArbitrary( yMoveCapped, GetRightVector(), GetViewVectorRaw() );
     }
     else
     {
@@ -215,15 +215,16 @@ void Camera::RotateCamera( float xMove, float yMove, const CameraMovementSetting
 
         // the mouses xMove will always represent a pivot on the up vector
         // (repsective to the view point)
-        proposedTranslation =
-            m_view + Transformation::RotatePointAboutArbitrary( xMove, m_upVector, -GetViewVectorRaw() );
+        proposedTranslation = m_view +
+                              Transformation::RotatePointAboutArbitrary( xMove, m_upVector, -GetViewVectorRaw() );
 
         m_movementBuffer += proposedTranslation - m_position;
 
         // the mouses yMove will always represent a pivot on the right vector
         // (repsective to the view point)
-        proposedTranslation =
-            m_view + Transformation::RotatePointAboutArbitrary( yMoveCapped, GetRightVector(), -GetViewVectorRaw() );
+        proposedTranslation = m_view + Transformation::RotatePointAboutArbitrary( yMoveCapped,
+                                                                                  GetRightVector(),
+                                                                                  -GetViewVectorRaw() );
 
         m_movementBuffer += proposedTranslation - m_position;
     }
@@ -254,9 +255,8 @@ void Camera::FinishTranslation( const CameraMovementSettings& settings )
         m_position.x = m_boundary.m_xMax - settings.minCameraHeight;
     }
 
-    isOnBoundX =
-        ( ( m_position.x == m_boundary.m_xMin + settings.minCameraHeight ) ||
-          ( m_position.x == m_boundary.m_xMax - settings.minCameraHeight ) );
+    isOnBoundX = ( ( m_position.x == m_boundary.m_xMin + settings.minCameraHeight ) ||
+                   ( m_position.x == m_boundary.m_xMax - settings.minCameraHeight ) );
 
     // reposition Z on a bound violation
     if ( m_position.z < m_boundary.m_zMin + settings.minCameraHeight )
@@ -268,9 +268,8 @@ void Camera::FinishTranslation( const CameraMovementSettings& settings )
         m_position.z = m_boundary.m_zMax - settings.minCameraHeight;
     }
 
-    isOnBoundZ =
-        ( ( m_position.z == m_boundary.m_zMin + settings.minCameraHeight ) ||
-          ( m_position.z == m_boundary.m_zMax - settings.minCameraHeight ) );
+    isOnBoundZ = ( ( m_position.z == m_boundary.m_zMin + settings.minCameraHeight ) ||
+                   ( m_position.z == m_boundary.m_zMax - settings.minCameraHeight ) );
 
     // if we have recursed once already
     if ( m_isFinishedTranslationRecursed )
@@ -295,11 +294,9 @@ void Camera::FinishTranslation( const CameraMovementSettings& settings )
 }
 
 
-void Camera::RecoverViewMagnitude(
-    const bool isOnBoundX,
-    const bool isOnBoundZ,
-    const CameraMovementSettings& settings
-)
+void Camera::RecoverViewMagnitude( const bool isOnBoundX,
+                                   const bool isOnBoundZ,
+                                   const CameraMovementSettings& settings )
 {
     // only recover view magnitude if the camera has been set to do so
     if ( !m_doPreserveViewMagnitude )
@@ -408,6 +405,7 @@ void Camera::RecoverViewMagnitude(
                 m_position.y += dz;
             }
         }
+
         // if the current view magnitude is over quota
         else if ( viewMagTmp > m_viewMagnitude )
         {

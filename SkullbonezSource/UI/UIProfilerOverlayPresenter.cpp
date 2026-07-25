@@ -62,17 +62,16 @@ class ProjectedDraw
     Quad( float xLeft, float yBottom, float xRight, float yTop, float red, float green, float blue, float alpha ) const
     {
         const float pixelX = ( xLeft + m_draw.HalfW() ) / m_scaleX;
+
         const float pixelY = ( m_draw.HalfH() - yTop ) / m_scaleY;
-        m_draw.Rect(
-            pixelX,
-            pixelY,
-            ( xRight - xLeft ) / m_scaleX,
-            ( yTop - yBottom ) / m_scaleY,
-            red,
-            green,
-            blue,
-            alpha
-        );
+        m_draw.Rect( pixelX,
+                     pixelY,
+                     ( xRight - xLeft ) / m_scaleX,
+                     ( yTop - yBottom ) / m_scaleY,
+                     red,
+                     green,
+                     blue,
+                     alpha );
     }
 
     void Text( float x, float baselineY, float size, float red, float green, float blue, const char* format, ... ) const
@@ -97,16 +96,14 @@ class ProjectedDraw
 } // namespace
 
 
-void UIProfilerOverlayPresenter::RecordOverlay(
-    const Core::Profiler::ProfilerFrameView& frame,
-    const UIDrawContext& drawContext,
-    float xLeft,
-    float yAnchor,
-    float lineHeight,
-    float fontSize,
-    float fps,
-    bool rightAnchored
-) const
+void UIProfilerOverlayPresenter::RecordOverlay( const Core::Profiler::ProfilerFrameView& frame,
+                                                const UIDrawContext& drawContext,
+                                                float xLeft,
+                                                float yAnchor,
+                                                float lineHeight,
+                                                float fontSize,
+                                                float fps,
+                                                bool rightAnchored ) const
 {
     using Marker = Core::Profiler::Marker;
     constexpr int MAX_MARKERS = Core::Profiler::MAX_MARKERS;
@@ -137,10 +134,12 @@ void UIProfilerOverlayPresenter::RecordOverlay(
         {
             spaces = 20;
         }
+
         for ( int space = 0; space < spaces; ++space )
         {
             name[space] = ' ';
         }
+
         strcpy_s( name + spaces, sizeof( name ) - spaces, markers[index].leafName );
         markerNameWidth = (std::max)( markerNameWidth, draw.MeasureText( fontSize, name ) );
     }
@@ -191,6 +190,7 @@ void UIProfilerOverlayPresenter::RecordOverlay(
             frameAverageMs = markers[index].avgMs;
         }
     }
+
     const float cpuMs = frameAverageMs;
 
     float y = yTop;
@@ -205,6 +205,7 @@ void UIProfilerOverlayPresenter::RecordOverlay(
     {
         draw.Text( xLeft + gpuColumn, y, fontSize, gpuRed, gpuGreen, gpuBlue, "GPU" );
     }
+
     draw.Text( xLeft + p50Column, y, fontSize, columnRed, columnGreen, columnBlue, "P50" );
     draw.Text( xLeft + p99Column, y, fontSize, columnRed, columnGreen, columnBlue, "P99" );
     draw.Text( xLeft + minimumColumn, y, fontSize, columnRed, columnGreen, columnBlue, "MIN" );
@@ -217,6 +218,7 @@ void UIProfilerOverlayPresenter::RecordOverlay(
         if ( y < yBottom )
         {
             y -= lineHeight;
+
             return;
         }
 
@@ -226,10 +228,12 @@ void UIProfilerOverlayPresenter::RecordOverlay(
         {
             spaces = 20;
         }
+
         for ( int space = 0; space < spaces; ++space )
         {
             name[space] = ' ';
         }
+
         strcpy_s( name + spaces, sizeof( name ) - spaces, marker.leafName );
 
         float red = 0.0f;
@@ -279,6 +283,7 @@ void UIProfilerOverlayPresenter::RecordOverlay(
                 draw.Text( xLeft + gpuColumn, y, fontSize, columnRed, columnGreen, columnBlue, "    - " );
             }
         }
+
         draw.Text( xLeft + p50Column, y, fontSize, red, green, blue, "%6.2f", marker.p50Ms );
         draw.Text( xLeft + p99Column, y, fontSize, red, green, blue, "%6.2f", marker.p99Ms );
         const float displayMinimum = marker.ringFilled > 0 ? marker.minMs : 0.0f;
@@ -311,6 +316,7 @@ void UIProfilerOverlayPresenter::RecordOverlay(
             stack[stackSize++] = index;
         }
     }
+
     while ( stackSize > 0 )
     {
         const int index = stack[--stackSize];
@@ -320,6 +326,7 @@ void UIProfilerOverlayPresenter::RecordOverlay(
             stack[stackSize++] = children[index][child];
         }
     }
+
     for ( int index = 0; index < markerCount; ++index )
     {
         if ( markers[index].hash == kVsyncHash )
@@ -331,15 +338,13 @@ void UIProfilerOverlayPresenter::RecordOverlay(
 }
 
 
-void UIProfilerOverlayPresenter::RecordBarOverlay(
-    const Core::Profiler::ProfilerFrameView& frame,
-    const UIDrawContext& drawContext,
-    float xLeft,
-    float yBottom,
-    float panelWidth,
-    float panelHeight,
-    bool absolute
-) const
+void UIProfilerOverlayPresenter::RecordBarOverlay( const Core::Profiler::ProfilerFrameView& frame,
+                                                   const UIDrawContext& drawContext,
+                                                   float xLeft,
+                                                   float yBottom,
+                                                   float panelWidth,
+                                                   float panelHeight,
+                                                   bool absolute ) const
 {
     using Marker = Core::Profiler::Marker;
     using BarColor = Core::Profiler::BarColor;
@@ -355,6 +360,7 @@ void UIProfilerOverlayPresenter::RecordBarOverlay(
     {
         isLeaf[index] = true;
     }
+
     for ( int index = 0; index < markerCount; ++index )
     {
         if ( markers[index].parentIndex >= 0 )
@@ -385,6 +391,7 @@ void UIProfilerOverlayPresenter::RecordBarOverlay(
             cpuLeaves[cpuLeafCount++] = index;
             cpuTotalMs += markers[index].avgMs;
         }
+
         if ( markers[index].hasGpu && markers[index].gpuRingFilled > 0 && !idle )
         {
             gpuLeaves[gpuLeafCount++] = index;
@@ -401,6 +408,7 @@ void UIProfilerOverlayPresenter::RecordBarOverlay(
             break;
         }
     }
+
     if ( frameMs < 0.001f )
     {
         frameMs = 16.67f;
@@ -424,30 +432,27 @@ void UIProfilerOverlayPresenter::RecordBarOverlay(
     char totals[128] = {};
     if ( absolute )
     {
-        sprintf_s(
-            totals,
-            sizeof( totals ),
-            "CPU: %.2f ms  GPU: %.2f ms  Frame: %.2f ms",
-            cpuTotalMs,
-            gpuTotalMs,
-            frameMs
-        );
+        sprintf_s( totals,
+                   sizeof( totals ),
+                   "CPU: %.2f ms  GPU: %.2f ms  Frame: %.2f ms",
+                   cpuTotalMs,
+                   gpuTotalMs,
+                   frameMs );
     }
     else
     {
         sprintf_s( totals, sizeof( totals ), "CPU: %.2f ms  GPU: %.2f ms", cpuTotalMs, gpuTotalMs );
     }
+
     const float totalsWidth = draw.MeasureText( fontSize * 0.9f, totals );
-    draw.Text(
-        barRight - totalsWidth,
-        titleY + titleHeight * 0.35f,
-        fontSize * 0.9f,
-        0.85f,
-        0.85f,
-        0.85f,
-        "%s",
-        totals
-    );
+    draw.Text( barRight - totalsWidth,
+               titleY + titleHeight * 0.35f,
+               fontSize * 0.9f,
+               0.85f,
+               0.85f,
+               0.85f,
+               "%s",
+               totals );
 
     const float cpuBarY = titleY - barGap - barHeight * 0.4f;
     draw.Text( barLeft, cpuBarY + barHeight * 0.3f, fontSize, 0.85f, 0.85f, 0.85f, "CPU" );
@@ -458,6 +463,7 @@ void UIProfilerOverlayPresenter::RecordBarOverlay(
 
     const float cpuScale = absolute ? ( frameMs > 0.001f ? cpuBarWidth / frameMs : 0.0f )
                                     : ( cpuTotalMs > 0.001f ? cpuBarWidth / cpuTotalMs : 0.0f );
+
     float cpuX = cpuBarLeft;
     for ( int leafIndex = 0; leafIndex < cpuLeafCount; ++leafIndex )
     {
@@ -467,15 +473,18 @@ void UIProfilerOverlayPresenter::RecordBarOverlay(
         {
             continue;
         }
+
         if ( cpuX + segmentWidth > barRight )
         {
             segmentWidth = barRight - cpuX;
         }
+
         const BarColor& color = palette[marker.colorIndex % BAR_PALETTE_SIZE];
         draw.Quad( cpuX, cpuBarY, cpuX + segmentWidth, cpuBarY + barHeight, color.r, color.g, color.b, 1.0f );
 
         cpuX += segmentWidth;
     }
+
     if ( absolute && cpuX < barRight )
     {
         draw.Quad( cpuX, cpuBarY, barRight, cpuBarY + barHeight, 0.85f, 0.85f, 0.85f, 0.7f );
@@ -491,6 +500,7 @@ void UIProfilerOverlayPresenter::RecordBarOverlay(
 
         const float gpuScale = absolute ? ( frameMs > 0.001f ? gpuBarWidth / frameMs : 0.0f )
                                         : ( gpuTotalMs > 0.001f ? gpuBarWidth / gpuTotalMs : 0.0f );
+
         float gpuX = gpuBarLeft;
         for ( int leafIndex = 0; leafIndex < gpuLeafCount; ++leafIndex )
         {
@@ -500,23 +510,27 @@ void UIProfilerOverlayPresenter::RecordBarOverlay(
             {
                 continue;
             }
+
             if ( gpuX + segmentWidth > barRight )
             {
                 segmentWidth = barRight - gpuX;
             }
+
             const BarColor& color = palette[marker.colorIndex % BAR_PALETTE_SIZE];
             draw.Quad( gpuX, gpuBarY, gpuX + segmentWidth, gpuBarY + barHeight, color.r, color.g, color.b, 1.0f );
 
             gpuX += segmentWidth;
         }
+
         if ( absolute && gpuX < barRight )
         {
             draw.Quad( gpuX, gpuBarY, barRight, gpuBarY + barHeight, 0.85f, 0.85f, 0.85f, 0.7f );
         }
     }
 
-    const float legendY =
-        gpuLeafCount > 0 ? gpuBarY - barGap - legendHeight * 0.5f : cpuBarY - barGap - legendHeight * 0.5f;
+    const float legendY = gpuLeafCount > 0 ? gpuBarY - barGap - legendHeight * 0.5f
+                                           : cpuBarY - barGap - legendHeight * 0.5f;
+
     const float legendFontSize = fontSize * 0.85f;
     const float swatchWidth = legendFontSize * 1.5f;
     const float swatchHeight = legendFontSize;
@@ -532,6 +546,7 @@ void UIProfilerOverlayPresenter::RecordBarOverlay(
         inLegend[cpuLeaves[leafIndex]] = true;
         legendIndices[legendCount++] = cpuLeaves[leafIndex];
     }
+
     for ( int leafIndex = 0; leafIndex < gpuLeafCount; ++leafIndex )
     {
         if ( !inLegend[gpuLeaves[leafIndex]] )
@@ -555,26 +570,24 @@ void UIProfilerOverlayPresenter::RecordBarOverlay(
             currentLegendY -= legendHeight;
         }
 
-        draw.Quad(
-            legendX,
-            currentLegendY,
-            legendX + swatchWidth,
-            currentLegendY + swatchHeight,
-            color.r,
-            color.g,
-            color.b,
-            1.0f
-        );
-        draw.Text(
-            legendX + swatchWidth + legendSpacing,
-            currentLegendY,
-            legendFontSize,
-            0.85f,
-            0.85f,
-            0.85f,
-            "%s",
-            marker.leafName
-        );
+        draw.Quad( legendX,
+                   currentLegendY,
+                   legendX + swatchWidth,
+                   currentLegendY + swatchHeight,
+                   color.r,
+                   color.g,
+                   color.b,
+                   1.0f );
+
+        draw.Text( legendX + swatchWidth + legendSpacing,
+                   currentLegendY,
+                   legendFontSize,
+                   0.85f,
+                   0.85f,
+                   0.85f,
+                   "%s",
+                   marker.leafName );
+
         legendX += entryWidth;
     }
 }

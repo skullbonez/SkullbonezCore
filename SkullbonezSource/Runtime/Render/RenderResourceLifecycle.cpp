@@ -41,13 +41,16 @@ using namespace SkullbonezCore::Runtime;
 namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 namespace Rendering = SkullbonezCore::Rendering;
 
-RenderResourceLifecycle::RenderResourceLifecycle(
-    RuntimeRenderBackendView backend,
-    const RenderWorldView& world,
-    const SceneSessionState& scene
-)
-    : m_backend { backend.renderFrame,    backend.renderGraph,       backend.renderResources, backend.renderTextures,
-                  backend.renderGeometry, backend.renderDiagnostics, backend.raytracing },
+RenderResourceLifecycle::RenderResourceLifecycle( RuntimeRenderBackendView backend,
+                                                  const RenderWorldView& world,
+                                                  const SceneSessionState& scene )
+    : m_backend { backend.renderFrame,
+                  backend.renderGraph,
+                  backend.renderResources,
+                  backend.renderTextures,
+                  backend.renderGeometry,
+                  backend.renderDiagnostics,
+                  backend.raytracing },
       m_lifecycleLog( backend.renderDevice, scene ), m_assets( world.assets ), m_terrain( world.terrain ),
       m_config( world.config ),
       m_primitiveBatches( std::in_place, backend.renderResources, backend.renderTextures, backend.renderGeometry ),
@@ -102,10 +105,12 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseProcessResourc
             {
                 return textureResult;
             }
+
             break;
         }
         }
     }
+
     if ( dumpTextureAssets )
     {
         m_textures.DumpTextureAssets( stdout );
@@ -121,14 +126,12 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseProcessResourc
 SkullbonezCore::Core::SbResult RenderResourceLifecycle::EnsureUiTextResources( int screenW, int screenH )
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
-    return m_uiTextPass.EnsureGpuResources(
-        *m_backend.renderResources,
-        *m_backend.renderTextures,
-        *m_backend.renderGeometry,
-        m_assets,
-        screenW,
-        screenH
-    );
+    return m_uiTextPass.EnsureGpuResources( *m_backend.renderResources,
+                                            *m_backend.renderTextures,
+                                            *m_backend.renderGeometry,
+                                            m_assets,
+                                            screenW,
+                                            screenH );
 }
 
 
@@ -136,8 +139,9 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseSceneRayTracin
 {
     Rendering::Dx12RaytracingOwner* rayTracing = m_backend.raytracing;
     Rendering::Dx12Diagnostics* renderDiagnostics = m_backend.renderDiagnostics;
-    const bool supported =
-        renderDiagnostics && renderDiagnostics->GetCapabilities().supportsDxrReflection && rayTracing;
+    const bool supported = renderDiagnostics && renderDiagnostics->GetCapabilities().supportsDxrReflection &&
+                           rayTracing;
+
     if ( !supported )
     {
         return SkullbonezCore::Core::SbResult::Success();
@@ -150,13 +154,12 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseSceneRayTracin
         {
             // Lane F: capability publication without the resource facets needed
             // to build the renderer-owned primitive mesh is invalid wiring.
-            SB_FATAL(
-                "RenderResourceLifecycle",
-                "DXR reflection initialization requires concrete resource owners. resources=%d geometry=%d",
-                m_backend.renderResources ? 1 : 0,
-                m_backend.renderGeometry ? 1 : 0
-            );
+            SB_FATAL( "RenderResourceLifecycle",
+                      "DXR reflection initialization requires concrete resource owners. resources=%d geometry=%d",
+                      m_backend.renderResources ? 1 : 0,
+                      m_backend.renderGeometry ? 1 : 0 );
         }
+
         const Rendering::PrimitiveRenderContext primitiveContext { *m_backend.renderResources,
                                                                    *m_backend.renderTextures,
                                                                    *m_backend.renderGeometry,
@@ -173,6 +176,7 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseSceneRayTracin
     {
         return SkullbonezCore::Core::SbResult::Success();
     }
+
     Rendering::MeshDX12* terrainMesh = m_terrain.Get()->GetMesh();
     const uint64_t terrainVBVA = terrainMesh->GetVertexBufferGPUVA();
     const uint32_t sphereHandle = sphereGeometry.instancedMeshHandle;
@@ -194,20 +198,21 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseSceneRayTracin
 }
 
 
-RuntimeRenderTargetPreviewSnapshot RenderResourceLifecycle::BuildRenderTargetPreviewSnapshot(
-    bool shadowsAvailable,
-    bool cinematicTargetsAvailable,
-    bool volumetricAvailable
-) const
+RuntimeRenderTargetPreviewSnapshot
+RenderResourceLifecycle::BuildRenderTargetPreviewSnapshot( bool shadowsAvailable,
+                                                           bool cinematicTargetsAvailable,
+                                                           bool volumetricAvailable ) const
 {
     RuntimeRenderTargetPreviewSnapshot snapshot;
     const auto append = [&]( const char* label, const Rendering::FramebufferDX12* target, bool depth, bool available )
     {
         assert( snapshot.count < static_cast<int>( snapshot.targets.size() ) );
+
         RuntimeRenderTargetPreview& preview = snapshot.targets[static_cast<size_t>( snapshot.count++ )];
         preview.label = label;
-        preview.textureHandle =
-            target ? ( depth ? target->GetDepthTextureHandle() : target->GetColorTextureHandle() ) : 0;
+        preview.textureHandle = target ? ( depth ? target->GetDepthTextureHandle() : target->GetColorTextureHandle() )
+                                       : 0;
+
         preview.width = target ? target->GetWidth() : 0;
         preview.height = target ? target->GetHeight() : 0;
         preview.available = available && preview.textureHandle != 0 && preview.width > 0 && preview.height > 0;

@@ -88,6 +88,7 @@ float WrapRadians( float value )
     {
         value += TWO_PI;
     }
+
     return value;
 }
 
@@ -134,6 +135,7 @@ OrbitalStatus SolveEccentricAnomaly( float meanAnomaly, float eccentricity, floa
         {
             return OrbitalStatus::NotConverged;
         }
+
         const float correction = residual / derivative;
         eccentricAnomaly -= correction;
         if ( std::fabs( correction ) <= NUMERIC_EPSILON )
@@ -142,6 +144,7 @@ OrbitalStatus SolveEccentricAnomaly( float meanAnomaly, float eccentricity, floa
             return OrbitalStatus::Ok;
         }
     }
+
     return OrbitalStatus::NotConverged;
 }
 
@@ -153,6 +156,7 @@ void Stumpff( double z, double& outC, double& outS )
         outS = 1.0 / 6.0;
         return;
     }
+
     if ( z > 0.0 )
     {
         const double root = std::sqrt( z );
@@ -160,20 +164,19 @@ void Stumpff( double z, double& outC, double& outS )
         outS = ( root - std::sin( root ) ) / ( root * root * root );
         return;
     }
+
     const double root = std::sqrt( -z );
     outC = ( std::cosh( root ) - 1.0 ) / ( -z );
     outS = ( std::sinh( root ) - root ) / ( root * root * root );
 }
 
-bool LambertTimeResidual(
-    double z,
-    double radius1,
-    double radius2,
-    double transferA,
-    double targetTimeScaled,
-    double& outResidual,
-    double& outY
-)
+bool LambertTimeResidual( double z,
+                          double radius1,
+                          double radius2,
+                          double transferA,
+                          double targetTimeScaled,
+                          double& outResidual,
+                          double& outY )
 {
     double c = 0.0;
     double s = 0.0;
@@ -182,18 +185,21 @@ bool LambertTimeResidual(
     {
         return false;
     }
+
     const double sqrtC = std::sqrt( c );
     const double y = radius1 + radius2 + transferA * ( z * s - 1.0 ) / sqrtC;
     if ( y <= 0.0 || !std::isfinite( y ) )
     {
         return false;
     }
+
     const double x = std::sqrt( y / c );
     const double residual = x * x * x * s + transferA * std::sqrt( y ) - targetTimeScaled;
     if ( !std::isfinite( residual ) )
     {
         return false;
     }
+
     outResidual = residual;
     outY = y;
     return true;
@@ -215,6 +221,7 @@ ElementsFromState( const Vector3& relativePosition, const Vector3& relativeVeloc
     {
         return OrbitalStatus::Degenerate;
     }
+
     const Vector3 angularMomentum = CrossProduct( relativePosition, relativeVelocity );
     const float angularMomentumMagnitude = Magnitude( angularMomentum );
     if ( angularMomentumMagnitude <= GEOMETRY_EPSILON )
@@ -229,8 +236,9 @@ ElementsFromState( const Vector3& relativePosition, const Vector3& relativeVeloc
         return OrbitalStatus::NotElliptic;
     }
 
-    const Vector3 eccentricityVector =
-        CrossProduct( relativeVelocity, angularMomentum ) * ( 1.0f / mu ) - relativePosition * ( 1.0f / radius );
+    const Vector3 eccentricityVector = CrossProduct( relativeVelocity, angularMomentum ) * ( 1.0f / mu ) -
+                                       relativePosition * ( 1.0f / radius );
+
     const float eccentricity = Magnitude( eccentricityVector );
     if ( !std::isfinite( eccentricity ) || eccentricity >= 1.0f )
     {
@@ -265,22 +273,23 @@ ElementsFromState( const Vector3& relativePosition, const Vector3& relativeVeloc
         {
             argumentPeriapsis = std::atan2( eccentricityVector.y, eccentricityVector.x );
         }
+
         trueAnomaly = SignedAngle( unitEccentricity, relativePosition * ( 1.0f / radius ), unitAngularMomentum );
     }
     else if ( nodeMagnitude > GEOMETRY_EPSILON )
     {
-        trueAnomaly =
-            SignedAngle( node * ( 1.0f / nodeMagnitude ), relativePosition * ( 1.0f / radius ), unitAngularMomentum );
+        trueAnomaly = SignedAngle( node * ( 1.0f / nodeMagnitude ),
+                                   relativePosition * ( 1.0f / radius ),
+                                   unitAngularMomentum );
     }
     else
     {
         trueAnomaly = std::atan2( relativePosition.y, relativePosition.x );
     }
 
-    const float eccentricAnomaly = 2.0f * std::atan2(
-                                              std::sqrt( 1.0f - eccentricity ) * std::sin( 0.5f * trueAnomaly ),
-                                              std::sqrt( 1.0f + eccentricity ) * std::cos( 0.5f * trueAnomaly )
-                                          );
+    const float eccentricAnomaly = 2.0f *
+                                   std::atan2( std::sqrt( 1.0f - eccentricity ) * std::sin( 0.5f * trueAnomaly ),
+                                               std::sqrt( 1.0f + eccentricity ) * std::cos( 0.5f * trueAnomaly ) );
 
     out.semiMajorAxis = semiMajorAxis;
     out.eccentricity = eccentricity;
@@ -293,12 +302,10 @@ ElementsFromState( const Vector3& relativePosition, const Vector3& relativeVeloc
 }
 
 
-OrbitalStatus PropagateToTime(
-    const OrbitalElements& elements,
-    float deltaSeconds,
-    Vector3& outRelativePosition,
-    Vector3& outRelativeVelocity
-)
+OrbitalStatus PropagateToTime( const OrbitalElements& elements,
+                               float deltaSeconds,
+                               Vector3& outRelativePosition,
+                               Vector3& outRelativeVelocity )
 {
     outRelativePosition = Vector3( 0.0f, 0.0f, 0.0f );
     outRelativeVelocity = Vector3( 0.0f, 0.0f, 0.0f );
@@ -307,8 +314,9 @@ OrbitalStatus PropagateToTime(
         return elements.eccentricity >= 1.0f ? OrbitalStatus::NotElliptic : OrbitalStatus::Degenerate;
     }
 
-    const float meanMotion =
-        std::sqrt( elements.mu / ( elements.semiMajorAxis * elements.semiMajorAxis * elements.semiMajorAxis ) );
+    const float meanMotion = std::sqrt( elements.mu /
+                                        ( elements.semiMajorAxis * elements.semiMajorAxis * elements.semiMajorAxis ) );
+
     const float meanAnomaly = WrapRadians( elements.meanAnomalyAtEpoch + meanMotion * deltaSeconds );
     float eccentricAnomaly = 0.0f;
     const OrbitalStatus solveStatus = SolveEccentricAnomaly( meanAnomaly, elements.eccentricity, eccentricAnomaly );
@@ -344,6 +352,7 @@ std::size_t SampleOrbitPolyline( const OrbitalElements& elements, std::span<Vect
     {
         return 0;
     }
+
     const float ellipseMinorScale = std::sqrt( 1.0f - elements.eccentricity * elements.eccentricity );
     const float inverseCount = 1.0f / static_cast<float>( outPoints.size() );
     for ( std::size_t index = 0; index < outPoints.size(); ++index )
@@ -353,6 +362,7 @@ std::size_t SampleOrbitPolyline( const OrbitalElements& elements, std::span<Vect
         const float y = elements.semiMajorAxis * ellipseMinorScale * std::sin( eccentricAnomaly );
         outPoints[index] = RotatePerifocal( elements, x, y );
     }
+
     return outPoints.size();
 }
 
@@ -373,6 +383,7 @@ SolveLambert( const Vector3& r1, const Vector3& r2, float timeOfFlight, float mu
     {
         return OrbitalStatus::Degenerate;
     }
+
     const Vector3 cross = CrossProduct( r1, r2 );
     const double crossMagnitude = static_cast<double>( Magnitude( cross ) );
     const double cosTransfer = std::clamp( static_cast<double>( Dot( r1, r2 ) ) / ( radius1 * radius2 ), -1.0, 1.0 );
@@ -385,8 +396,9 @@ SolveLambert( const Vector3& r1, const Vector3& r2, float timeOfFlight, float mu
     // Concept: solar-system gameplay is XZ with -Y angular momentum. XY math
     // tests use +Z. Selecting the dominant convention keeps the bool API
     // deterministic without smuggling a runtime camera/world dependency down.
-    const Vector3 progradeNormal =
-        std::fabs( cross.y ) > GEOMETRY_EPSILON ? Vector3( 0.0f, -1.0f, 0.0f ) : Vector3( 0.0f, 0.0f, 1.0f );
+    const Vector3 progradeNormal = std::fabs( cross.y ) > GEOMETRY_EPSILON ? Vector3( 0.0f, -1.0f, 0.0f )
+                                                                           : Vector3( 0.0f, 0.0f, 1.0f );
+
     const bool directedPrograde = Dot( cross, progradeNormal ) >= 0.0f;
     const double sinTransfer = directedPrograde == prograde ? sinMagnitude : -sinMagnitude;
     const double transferA = sinTransfer * std::sqrt( radius1 * radius2 / ( 1.0 - cosTransfer ) );
@@ -414,6 +426,7 @@ SolveLambert( const Vector3& r1, const Vector3& r2, float timeOfFlight, float mu
         {
             continue;
         }
+
         if ( std::fabs( residual ) <= 1.0e-8 )
         {
             lower = upper = z;
@@ -421,16 +434,19 @@ SolveLambert( const Vector3& r1, const Vector3& r2, float timeOfFlight, float mu
             bracketed = true;
             break;
         }
+
         if ( havePrevious && ( residual > 0.0 ) != ( lowerResidual > 0.0 ) )
         {
             upper = z;
             bracketed = true;
             break;
         }
+
         lower = z;
         lowerResidual = residual;
         havePrevious = true;
     }
+
     if ( !bracketed )
     {
         return OrbitalStatus::NotConverged;
@@ -447,6 +463,7 @@ SolveLambert( const Vector3& r1, const Vector3& r2, float timeOfFlight, float mu
             z = 0.5 * ( lower + upper );
             continue;
         }
+
         if ( std::fabs( residual ) <= 1.0e-7 * targetTimeScaled )
         {
             converged = true;
@@ -469,15 +486,13 @@ SolveLambert( const Vector3& r1, const Vector3& r2, float timeOfFlight, float mu
         double shiftedResidual = 0.0;
         double shiftedY = 0.0;
         double candidate = 0.5 * ( lower + upper );
-        if ( LambertTimeResidual(
-                 z + derivativeStep,
-                 radius1,
-                 radius2,
-                 transferA,
-                 targetTimeScaled,
-                 shiftedResidual,
-                 shiftedY
-             ) )
+        if ( LambertTimeResidual( z + derivativeStep,
+                                  radius1,
+                                  radius2,
+                                  transferA,
+                                  targetTimeScaled,
+                                  shiftedResidual,
+                                  shiftedY ) )
         {
             const double derivative = ( shiftedResidual - residual ) / derivativeStep;
             if ( std::fabs( derivative ) > 1.0e-12 )
@@ -489,8 +504,10 @@ SolveLambert( const Vector3& r1, const Vector3& r2, float timeOfFlight, float mu
                 }
             }
         }
+
         z = candidate;
     }
+
     double finalResidual = 0.0;
     if ( !LambertTimeResidual( z, radius1, radius2, transferA, targetTimeScaled, finalResidual, y ) ||
          ( !converged && std::fabs( finalResidual ) > 1.0e-6 * targetTimeScaled ) )
@@ -505,6 +522,7 @@ SolveLambert( const Vector3& r1, const Vector3& r2, float timeOfFlight, float mu
     {
         return OrbitalStatus::Degenerate;
     }
+
     out.v1 = ( r2 - r1 * static_cast<float>( f ) ) * static_cast<float>( 1.0 / g );
     out.v2 = ( r2 * static_cast<float>( gDot ) - r1 ) * static_cast<float>( 1.0 / g );
     if ( !IsFinite( out.v1 ) || !IsFinite( out.v2 ) )
@@ -513,6 +531,7 @@ SolveLambert( const Vector3& r1, const Vector3& r2, float timeOfFlight, float mu
 
         return OrbitalStatus::NotConverged;
     }
+
     return OrbitalStatus::Ok;
 }
 
@@ -523,6 +542,7 @@ float HohmannTransferSeconds( float r1, float r2, float mu )
     {
         return 0.0f;
     }
+
     const float semiMajorAxis = 0.5f * ( r1 + r2 );
     return PI * std::sqrt( semiMajorAxis * semiMajorAxis * semiMajorAxis / mu );
 }
@@ -534,6 +554,7 @@ float HohmannDepartureDeltaV( float r1, float r2, float mu )
     {
         return 0.0f;
     }
+
     const float circularSpeed = std::sqrt( mu / r1 );
     const float transferSpeed = circularSpeed * std::sqrt( 2.0f * r2 / ( r1 + r2 ) );
     return transferSpeed - circularSpeed;

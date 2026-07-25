@@ -143,8 +143,8 @@ class RuntimeRenderer
     {
         bool volumetricPassExecuted = false;              // Volumetric callback was scheduled for this post chain.
         bool volumetricReady = false;                     // Volumetric target was produced and can be sampled by tonemap.
-        uint32_t volumetricTextureHandle =
-            0;                                            // Renderer texture handle resolved from the graph-managed transient Shader Resource View (SRV).
+        uint32_t volumetricTextureHandle = 0;             // Renderer texture handle resolved from the graph-managed transient
+                                              // Shader Resource View (SRV).
         uint32_t volumetricWidth = 0;                     // Materialized graph transient width for diagnostics.
         uint32_t volumetricHeight = 0;                    // Materialized graph transient height for diagnostics.
     };
@@ -239,16 +239,12 @@ class RuntimeRenderer
         const ReplayVisualPacket* replayVisualPacket = nullptr;
         bool useCinematicTarget = false;
     };
-    bool RenderPreparedFrame(
-        const FrameEntryContext& context,
-        const SkullbonezCore::Core::CinematicRenderConfig& renderConfig,
-        bool cinematicRender
-    );
-    RenderFrameContext BuildRenderFrameContext(
-        const RuntimeRenderModelFrameView& models,
-        bool cinematicRender,
-        const SkullbonezCore::Core::CinematicRenderConfig& renderConfig
-    );
+    bool RenderPreparedFrame( const FrameEntryContext& context,
+                              const SkullbonezCore::Core::CinematicRenderConfig& renderConfig,
+                              bool cinematicRender );
+    RenderFrameContext BuildRenderFrameContext( const RuntimeRenderModelFrameView& models,
+                                                bool cinematicRender,
+                                                const SkullbonezCore::Core::CinematicRenderConfig& renderConfig );
     RenderResourceContext BuildRenderResourceContext( bool cinematicRender );
     Rendering::RenderGraph& BeginRenderPassGraph();
     const Rendering::RenderGraphCompileResult& CompileRenderPassGraph( Rendering::RenderGraph& graph );
@@ -263,11 +259,9 @@ class RuntimeRenderer
     void ExecuteTerrainThroughRenderGraph( const TerrainGraphInputs& inputs );
     void ExecuteWaterThroughRenderGraph( const WaterGraphInputs& inputs );
     bool ExecuteWorldExtensionThroughRenderGraph( const WorldExtensionGraphInputs& inputs );
-    DebugOverlaySnapshot BuildDebugOverlaySnapshot(
-        const RuntimeRenderModelFrameView& models,
-        const RenderToolOverlayView& toolOverlay,
-        const RuntimeRenderFramePolicy& policy
-    ) const;
+    DebugOverlaySnapshot BuildDebugOverlaySnapshot( const RuntimeRenderModelFrameView& models,
+                                                    const RenderToolOverlayView& toolOverlay,
+                                                    const RuntimeRenderFramePolicy& policy ) const;
     void ExecuteReplayGhostsThroughRenderGraph( const ReplayGhostGraphInputs& inputs );
     bool ExecuteDebugOverlayThroughRenderGraph( const DebugOverlayGraphInputs& inputs );
     CinematicPostFrameOutput ExecuteCinematicPostThroughRenderGraph( const CinematicPostGraphInputs& inputs );

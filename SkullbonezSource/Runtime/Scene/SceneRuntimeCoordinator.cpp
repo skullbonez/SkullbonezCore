@@ -39,8 +39,12 @@ SceneController::ResetCurrentScene( bool preserveUIState, bool suppressExitOnCom
         return SceneLoadRequest::None();
     }
 
-    SceneLoadRequest request =
-        SceneLoadRequest::Load( CurrentIndex(), preserveUIState, suppressExitOnComplete, preserveRuntimeState, true );
+    SceneLoadRequest request = SceneLoadRequest::Load( CurrentIndex(),
+                                                       preserveUIState,
+                                                       suppressExitOnComplete,
+                                                       preserveRuntimeState,
+                                                       true );
+
     request.markManualReset = true;
     return request;
 }
@@ -51,12 +55,10 @@ SceneLoadRequest SceneController::AdvanceScene( bool perfTestActive, bool preser
     if ( perfTestActive && m_perfPass == 0 )
     {
         m_perfPass = 1;
-        return SceneLoadRequest::Load(
-            CurrentIndex(),
-            preserveInteractiveUI,
-            preserveInteractiveUI,
-            preserveInteractiveUI
-        );
+        return SceneLoadRequest::Load( CurrentIndex(),
+                                       preserveInteractiveUI,
+                                       preserveInteractiveUI,
+                                       preserveInteractiveUI );
     }
 
     m_perfPass = 0;
@@ -76,8 +78,8 @@ int SceneController::PerfPass() const
     return m_perfPass;
 }
 
-SceneRuntimeUICommandResult
-SubmitSceneUIRequests( SceneController& sceneController, const UI::UISceneCommands& commands )
+SceneRuntimeUICommandResult SubmitSceneUIRequests( SceneController& sceneController,
+                                                   const UI::UISceneCommands& commands )
 {
     SceneRuntimeUICommandResult result;
     if ( commands.resetScene )
@@ -85,21 +87,25 @@ SubmitSceneUIRequests( SceneController& sceneController, const UI::UISceneComman
         sceneController.SubmitResetCurrentScene();
         result.resetScene = true;
     }
+
     if ( commands.resetSceneDefaults )
     {
         sceneController.SubmitResetCurrentScene( false, true, false );
         result.resetSceneDefaults = true;
     }
+
     if ( commands.requestDemoScene )
     {
         sceneController.SubmitLoadDemoScene();
         result.loadDemoScene = true;
     }
+
     if ( commands.saveSceneDefaults )
     {
         sceneController.SubmitSaveCurrentDefaults();
         result.saveSceneDefaults = true;
     }
+
     if ( commands.createScene )
     {
         result.status = sceneController.SubmitCreateScene( commands.requestedSceneName );
@@ -107,13 +113,16 @@ SubmitSceneUIRequests( SceneController& sceneController, const UI::UISceneComman
         {
             return result;
         }
+
         result.createScene = true;
     }
+
     if ( commands.requestedSceneIndex >= 0 )
     {
         sceneController.SubmitLoadBrowserIndex( commands.requestedSceneIndex );
         result.selectScene = true;
     }
+
     return result;
 }
 

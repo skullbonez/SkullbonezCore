@@ -54,6 +54,7 @@ const char* SkullbonezCore::Runtime::SceneFileNameFromPath( const char* path )
     {
         separator = backslash;
     }
+
     return separator ? separator + 1 : path;
 }
 
@@ -153,13 +154,11 @@ SkullbonezCore::Physics::PhysicsSceneObjectId SceneSessionState::AllocateSceneOb
     if ( nextSceneObjectId == 0 || nextSceneObjectId == maxSceneObjectId ||
          countValue > maxSceneObjectId - nextSceneObjectId )
     {
-        SB_FATAL(
-            "SceneRuntime",
-            "Scene object id range exhausted. next=%u requested=%u max=%u",
-            nextSceneObjectId,
-            countValue,
-            maxSceneObjectId
-        );
+        SB_FATAL( "SceneRuntime",
+                  "Scene object id range exhausted. next=%u requested=%u max=%u",
+                  nextSceneObjectId,
+                  countValue,
+                  maxSceneObjectId );
     }
 
     SkullbonezCore::Physics::PhysicsSceneObjectId first;
@@ -184,11 +183,13 @@ void SceneSessionState::ResetSceneObjectIdCursor( const SkullbonezCore::Physics:
             nextId = maxSceneObjectId;
             break;
         }
+
         if ( id != 0 )
         {
             nextId = (std::max)( nextId, id + 1u );
         }
     }
+
     nextSceneObjectId = nextId;
 }
 
@@ -266,6 +267,7 @@ void SceneRuntime::BeginLoadAttempt( int index, const SceneLifecycleBeginPolicy&
     {
         SB_FATAL( "Runtime/SceneRuntime", "Scene lifecycle generation exhausted." );
     }
+
     ++m_lifecyclePacket.generation;
     m_lifecyclePacket.event = SceneRuntimeLifecycleEvent::None;
     m_lifecyclePacket.policy = lifecyclePolicy;
@@ -289,24 +291,22 @@ void SceneRuntime::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, Scene
     // generation before it can emit BeforeSceneUnload again.
     if ( !SceneRuntimeLifecycleTransitionValid( m_lastLifecycleEvent, event ) )
     {
-        SB_FATAL(
-            "Runtime/SceneRuntime",
-            "Invalid scene lifecycle transition. previous=%s next=%s",
-            SceneRuntimeLifecycleEventName( m_lastLifecycleEvent ),
-            SceneRuntimeLifecycleEventName( event )
-        );
+        SB_FATAL( "Runtime/SceneRuntime",
+                  "Invalid scene lifecycle transition. previous=%s next=%s",
+                  SceneRuntimeLifecycleEventName( m_lastLifecycleEvent ),
+                  SceneRuntimeLifecycleEventName( event ) );
     }
+
     const SceneLifecycleConsumerMask requiredConsumers = SceneLifecycleRequiredConsumers( event );
     if ( consumers != requiredConsumers )
     {
-        SB_FATAL(
-            "Runtime/SceneRuntime",
-            "Scene lifecycle consumer mismatch. phase=%s expected=0x%X actual=0x%X",
-            SceneRuntimeLifecycleEventName( event ),
-            requiredConsumers,
-            consumers
-        );
+        SB_FATAL( "Runtime/SceneRuntime",
+                  "Scene lifecycle consumer mismatch. phase=%s expected=0x%X actual=0x%X",
+                  SceneRuntimeLifecycleEventName( event ),
+                  requiredConsumers,
+                  consumers );
     }
+
     m_lastLifecycleEvent = event;
     m_lifecyclePacket.event = event;
     m_lifecyclePacket.sceneMode = m_state.isSceneMode;
@@ -334,6 +334,7 @@ int SceneRuntime::FindNormalizedPath( const std::string& normalizedPath ) const
             return i;
         }
     }
+
     return -1;
 }
 
@@ -347,6 +348,7 @@ int SceneRuntime::FindGeneratedDemo() const
             return i;
         }
     }
+
     return -1;
 }
 
@@ -364,6 +366,7 @@ bool SceneRuntime::CurrentQueueIsCinematicDeck() const
     {
         return false;
     }
+
     for ( const std::string& queuedPath : m_queue )
     {
         if ( queuedPath.empty() || !IsCineScenePath( queuedPath ) )
@@ -371,6 +374,7 @@ bool SceneRuntime::CurrentQueueIsCinematicDeck() const
             return false;
         }
     }
+
     return true;
 }
 
@@ -382,5 +386,6 @@ int SceneRuntime::AdjacentQueueIndex( int direction ) const
     {
         return -1;
     }
+
     return ( m_state.currentSceneIndex + ( direction < 0 ? -1 : 1 ) + queueCount ) % queueCount;
 }

@@ -112,15 +112,15 @@ void TextureCollection::ReleaseTexture( GpuTextureRecord& texture )
             // Invariant: backend handles can only be destroyed by the resource
             // factory that owns them. Releasing without that facet would leak or
             // orphan the renderer resource.
-            SB_FATAL(
-                "TextureCollection",
-                "ReleaseTexture requires a bound render resource context. backendHandle=%u legacyHash=0x%08X",
-                texture.backendHandle,
-                texture.legacyHash
-            );
+            SB_FATAL( "TextureCollection",
+                      "ReleaseTexture requires a bound render resource context. backendHandle=%u legacyHash=0x%08X",
+                      texture.backendHandle,
+                      texture.legacyHash );
         }
+
         m_renderResources->DeleteTexture( texture.backendHandle );
     }
+
     texture = {};
 }
 
@@ -141,6 +141,7 @@ void TextureCollection::DeleteTexture( uint32_t hash )
     {
         return;
     }
+
     ReleaseTexture( m_textures[index] );
 }
 
@@ -155,6 +156,7 @@ int TextureCollection::NumFreeTextureSpaces() const
             ++freeCount;
         }
     }
+
     return freeCount;
 }
 
@@ -166,12 +168,14 @@ SkullbonezCore::Core::SbResult TextureCollection::SelectTexture( uint32_t hash )
     {
         return ensureResult;
     }
+
     if ( !m_renderBindings )
     {
         // Invariant: selecting a texture mutates frame draw state and therefore
         // requires the command facet for the active backend.
         SB_FATAL( "TextureCollection", "SelectTexture requires a bound render command context. hash=0x%08X", hash );
     }
+
     m_renderBindings->BindTexture( m_textures[FindIndex( hash )].backendHandle, 0 );
     return SkullbonezCore::Core::SbResult::Success();
 }
@@ -185,6 +189,7 @@ TextureCollection::TextureHandleResult TextureCollection::GetTextureHandle( uint
     {
         return result;
     }
+
     result.handle = m_textures[FindIndex( hash )].backendHandle;
     return result;
 }
@@ -231,41 +236,35 @@ SkullbonezCore::Core::SbResult TextureCollection::EnsureTexture( uint32_t hash )
     return SkullbonezCore::Core::SbResult::Failure(
         "TextureCollection",
         "Texture 0x%08X is not resident and has no registered source asset.",
-        hash
-    );
+        hash );
 }
 
 
-SkullbonezCore::Core::SbResult TextureCollection::LoadJpegTextureIntoSlot(
-    int slot,
-    const char* fileName,
-    uint32_t hash,
-    Assets::AssetId sourceId,
-    bool generateMips,
-    bool linearFilter,
-    int channelsHint
-)
+SkullbonezCore::Core::SbResult TextureCollection::LoadJpegTextureIntoSlot( int slot,
+                                                                           const char* fileName,
+                                                                           uint32_t hash,
+                                                                           Assets::AssetId sourceId,
+                                                                           bool generateMips,
+                                                                           bool linearFilter,
+                                                                           int channelsHint )
 {
     if ( slot < 0 || slot >= static_cast<int>( m_textures.size() ) )
     {
         // Invariant: callers reserve slots through FindFreeSlot or reuse an
         // existing resident slot. A direct out-of-range slot would corrupt the
         // fixed legacy texture table.
-        SB_FATAL(
-            "TextureCollection",
-            "Invalid texture slot. slot=%d capacity=%zu hash=0x%08X",
-            slot,
-            m_textures.size(),
-            hash
-        );
+        SB_FATAL( "TextureCollection",
+                  "Invalid texture slot. slot=%d capacity=%zu hash=0x%08X",
+                  slot,
+                  m_textures.size(),
+                  hash );
     }
+
     if ( !fileName || fileName[0] == '\0' )
     {
-        return SkullbonezCore::Core::SbResult::Failure(
-            "TextureCollection",
-            "Texture file path is empty. hash=0x%08X",
-            hash
-        );
+        return SkullbonezCore::Core::SbResult::Failure( "TextureCollection",
+                                                        "Texture file path is empty. hash=0x%08X",
+                                                        hash );
     }
 
     const int requestedChannels = channelsHint > 0 ? channelsHint : 3;
@@ -273,13 +272,11 @@ SkullbonezCore::Core::SbResult TextureCollection::LoadJpegTextureIntoSlot(
     {
         // Invariant: texture file bytes become a backend resource immediately
         // after decode, so the render resource facet must be bound first.
-        SB_FATAL(
-            "TextureCollection",
-            "LoadJpegTextureIntoSlot requires a bound render resource context. slot=%d hash=0x%08X path=\"%s\"",
-            slot,
-            hash,
-            fileName ? fileName : ""
-        );
+        SB_FATAL( "TextureCollection",
+                  "LoadJpegTextureIntoSlot requires a bound render resource context. slot=%d hash=0x%08X path=\"%s\"",
+                  slot,
+                  hash,
+                  fileName ? fileName : "" );
     }
 
     int width = 0;
@@ -287,17 +284,14 @@ SkullbonezCore::Core::SbResult TextureCollection::LoadJpegTextureIntoSlot(
     int sourceChannels = 0;
     std::unique_ptr<unsigned char, decltype( &stbi_image_free )> data(
         stbi_load( fileName, &width, &height, &sourceChannels, requestedChannels ),
-        stbi_image_free
-    );
+        stbi_image_free );
 
     if ( !data )
     {
-        return SkullbonezCore::Core::SbResult::Failure(
-            "TextureCollection",
-            "Image load failed. path=\"%s\" hash=0x%08X",
-            fileName,
-            hash
-        );
+        return SkullbonezCore::Core::SbResult::Failure( "TextureCollection",
+                                                        "Image load failed. path=\"%s\" hash=0x%08X",
+                                                        fileName,
+                                                        hash );
     }
 
     const uint32_t backendHandle = m_renderResources->CreateTexture2D(
@@ -306,8 +300,7 @@ SkullbonezCore::Core::SbResult TextureCollection::LoadJpegTextureIntoSlot(
         height,
         requestedChannels,
         generateMips ? Rendering::TextureMipPolicy::Generate : Rendering::TextureMipPolicy::SingleLevel,
-        linearFilter ? Rendering::TextureFilterPolicy::Linear : Rendering::TextureFilterPolicy::Nearest
-    );
+        linearFilter ? Rendering::TextureFilterPolicy::Linear : Rendering::TextureFilterPolicy::Nearest );
 
     if ( backendHandle == 0 )
     {
@@ -315,8 +308,7 @@ SkullbonezCore::Core::SbResult TextureCollection::LoadJpegTextureIntoSlot(
             "TextureCollection",
             "Backend returned an invalid texture handle. path=\"%s\" hash=0x%08X",
             fileName,
-            hash
-        );
+            hash );
     }
 
     GpuTextureRecord& texture = m_textures[slot];
@@ -339,24 +331,22 @@ TextureCollection::CreateTextureFromSourceAsset( const Assets::TextureSourceAsse
             "TextureCollection",
             "Texture source asset is missing a legacy hash. source_id=%u logical=\"%s\"",
             source.id,
-            source.logicalName.c_str()
-        );
+            source.logicalName.c_str() );
     }
+
     const int existingIndex = FindIndexNoThrow( source.legacyHash );
     if ( existingIndex >= 0 )
     {
         ReleaseTexture( m_textures[existingIndex] );
     }
 
-    return LoadJpegTextureIntoSlot(
-        FindFreeSlot(),
-        source.resolvedPath.c_str(),
-        source.legacyHash,
-        source.id,
-        source.generateMips,
-        source.linearFilter,
-        source.channelsHint
-    );
+    return LoadJpegTextureIntoSlot( FindFreeSlot(),
+                                    source.resolvedPath.c_str(),
+                                    source.legacyHash,
+                                    source.id,
+                                    source.generateMips,
+                                    source.linearFilter,
+                                    source.channelsHint );
 }
 
 
@@ -366,15 +356,14 @@ SkullbonezCore::Core::SbResult TextureCollection::CreateJpegTexture( const char*
     {
         // Invariant: legacy direct texture creation still indexes the fixed
         // table by hash. Zero is the sentinel for "not addressable".
-        SB_FATAL(
-            "TextureCollection",
-            "CreateJpegTexture requires a non-zero legacy hash. path=\"%s\"",
-            cFileName ? cFileName : ""
-        );
+        SB_FATAL( "TextureCollection",
+                  "CreateJpegTexture requires a non-zero legacy hash. path=\"%s\"",
+                  cFileName ? cFileName : "" );
     }
 
-    const Assets::TextureSourceAsset* source =
-        m_assets ? m_assets->FindTextureSourceAssetByLegacyHash( hash ) : nullptr;
+    const Assets::TextureSourceAsset* source = m_assets ? m_assets->FindTextureSourceAssetByLegacyHash( hash )
+                                                        : nullptr;
+
     if ( source )
     {
         return CreateTextureFromSourceAsset( *source );
@@ -396,6 +385,7 @@ SkullbonezCore::Core::SbResult TextureCollection::EnsureJpegTexture( const char*
     {
         return SkullbonezCore::Core::SbResult::Success();
     }
+
     return CreateJpegTexture( cFileName, hash );
 }
 
@@ -419,6 +409,7 @@ SkullbonezCore::Core::SbResult TextureCollection::RebuildTexturesFromSourceAsset
             }
         }
     }
+
     return SkullbonezCore::Core::SbResult::Success();
 }
 
@@ -441,20 +432,19 @@ void TextureCollection::DumpTextureAssets( FILE* out ) const
             const int width = texture ? texture->width : 0;
             const int height = texture ? texture->height : 0;
             const int channels = texture ? texture->channels : source.channelsHint;
-            fprintf(
-                out,
-                "texture source_id=%u logical=\"%s\" path=\"%s\" hash=0x%08X backend_handle=%u width=%d height=%d "
-                "channels=%d\n",
-                source.id,
-                source.logicalName.c_str(),
-                source.resolvedPath.c_str(),
-                source.legacyHash,
-                backendHandle,
-                width,
-                height,
-                channels
-            );
+            fprintf( out,
+                     "texture source_id=%u logical=\"%s\" path=\"%s\" hash=0x%08X backend_handle=%u width=%d height=%d "
+                     "channels=%d\n",
+                     source.id,
+                     source.logicalName.c_str(),
+                     source.resolvedPath.c_str(),
+                     source.legacyHash,
+                     backendHandle,
+                     width,
+                     height,
+                     channels );
         }
+
         return;
     }
 
@@ -462,18 +452,16 @@ void TextureCollection::DumpTextureAssets( FILE* out ) const
     {
         if ( texture.IsResident() )
         {
-            fprintf(
-                out,
-                "texture source_id=%u logical=\"legacy:0x%08X\" path=\"\" hash=0x%08X backend_handle=%u width=%d "
-                "height=%d channels=%d\n",
-                texture.sourceId,
-                texture.legacyHash,
-                texture.legacyHash,
-                texture.backendHandle,
-                texture.width,
-                texture.height,
-                texture.channels
-            );
+            fprintf( out,
+                     "texture source_id=%u logical=\"legacy:0x%08X\" path=\"\" hash=0x%08X backend_handle=%u width=%d "
+                     "height=%d channels=%d\n",
+                     texture.sourceId,
+                     texture.legacyHash,
+                     texture.legacyHash,
+                     texture.backendHandle,
+                     texture.width,
+                     texture.height,
+                     texture.channels );
         }
     }
 }

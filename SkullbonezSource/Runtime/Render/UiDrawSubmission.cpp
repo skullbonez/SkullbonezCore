@@ -50,8 +50,9 @@ namespace SkullbonezCore::Runtime
 {
 namespace
 {
-constexpr Rendering::PassRasterStateBucket PREVIEW_RASTER_STATE =
-    Rendering::MakePassRasterStateBucket( 0, { false, false, false } );
+constexpr Rendering::PassRasterStateBucket PREVIEW_RASTER_STATE = Rendering::MakePassRasterStateBucket(
+    0,
+    { false, false, false } );
 
 // Concept: UI authors pixels while Text2d submits in projection-space units.
 // This translator exists only for one replay call and cannot become retained
@@ -59,15 +60,14 @@ constexpr Rendering::PassRasterStateBucket PREVIEW_RASTER_STATE =
 class ImmediateUiSubmitter
 {
   public:
-    ImmediateUiSubmitter(
-        int screenW,
-        int screenH,
-        Text::TextBatch& textBatch,
-        Rendering::Dx12GeometryOwner& renderGeometry
-    )
+    ImmediateUiSubmitter( int screenW,
+                          int screenH,
+                          Text::TextBatch& textBatch,
+                          Rendering::Dx12GeometryOwner& renderGeometry )
         : m_textBatch( textBatch ), m_renderGeometry( renderGeometry )
     {
         screenW = (std::max)( 1, screenW );
+
         screenH = (std::max)( 1, screenH );
         m_halfH = Text::Text2d::HalfH( textBatch );
         m_halfW = Text::Text2d::HalfW( textBatch );
@@ -85,40 +85,38 @@ class ImmediateUiSubmitter
         {
             x1 = x0 + 1.0f;
         }
+
         if ( y1 <= y0 && h > 0.0f )
         {
             y1 = y0 + 1.0f;
         }
-        Text::Text2d::BatchQuad(
-            m_textBatch,
-            m_renderGeometry,
-            PixelX( x0 ),
-            PixelY( y1 ),
-            PixelX( x1 ),
-            PixelY( y0 ),
-            r,
-            g,
-            b,
-            a
-        );
+
+        Text::Text2d::BatchQuad( m_textBatch,
+                                 m_renderGeometry,
+                                 PixelX( x0 ),
+                                 PixelY( y1 ),
+                                 PixelX( x1 ),
+                                 PixelY( y0 ),
+                                 r,
+                                 g,
+                                 b,
+                                 a );
     }
 
     void Triangle( float x0, float y0, float x1, float y1, float x2, float y2, float r, float g, float b, float a )
     {
-        Text::Text2d::BatchTriangle(
-            m_textBatch,
-            m_renderGeometry,
-            PixelX( x0 ),
-            PixelY( y0 ),
-            PixelX( x1 ),
-            PixelY( y1 ),
-            PixelX( x2 ),
-            PixelY( y2 ),
-            r,
-            g,
-            b,
-            a
-        );
+        Text::Text2d::BatchTriangle( m_textBatch,
+                                     m_renderGeometry,
+                                     PixelX( x0 ),
+                                     PixelY( y0 ),
+                                     PixelX( x1 ),
+                                     PixelY( y1 ),
+                                     PixelX( x2 ),
+                                     PixelY( y2 ),
+                                     r,
+                                     g,
+                                     b,
+                                     a );
     }
 
     void RoundedRect( float x, float y, float w, float h, float radius, float r, float g, float b, float a )
@@ -127,22 +125,21 @@ class ImmediateUiSubmitter
         {
             RoundedRectFill( x - 0.5f, y - 0.5f, w + 1.0f, h + 1.0f, radius + 0.5f, r, g, b, a * 0.30f );
         }
+
         RoundedRectFill( x, y, w, h, radius, r, g, b, a );
     }
 
     void Text( float x, float y, float pxSize, float r, float g, float b, const char* value )
     {
-        Text::Text2d::Render2dTextColor(
-            m_textBatch,
-            PixelX( Snap( x ) ),
-            PixelY( Snap( y ) + pxSize ),
-            pxSize * m_scaleY,
-            r,
-            g,
-            b,
-            "%s",
-            value
-        );
+        Text::Text2d::Render2dTextColor( m_textBatch,
+                                         PixelX( Snap( x ) ),
+                                         PixelY( Snap( y ) + pxSize ),
+                                         pxSize * m_scaleY,
+                                         r,
+                                         g,
+                                         b,
+                                         "%s",
+                                         value );
     }
 
   private:
@@ -176,10 +173,12 @@ class ImmediateUiSubmitter
         {
             Rect( fullLeft - 1.0f, y, 1.0f, 1.0f, r, g, b, a * leftCoverage );
         }
+
         if ( fullRight > fullLeft )
         {
             Rect( fullLeft, y, fullRight - fullLeft, 1.0f, r, g, b, a );
         }
+
         if ( rightCoverage > 0.01f )
         {
             Rect( fullRight, y, 1.0f, 1.0f, r, g, b, a * rightCoverage );
@@ -232,84 +231,74 @@ class ImmediateUiSubmitter
 
 UiDrawSubmission::~UiDrawSubmission() = default;
 
-void UiDrawSubmission::Submit(
-    const UI::UIDrawList& drawList,
-    Text::TextBatch& textBatch,
-    Rendering::RenderGpuTimingOwner* gpuTiming,
-    Rendering::Dx12TextureOwner& renderTextures,
-    Rendering::Dx12GeometryOwner& renderGeometry,
-    Rendering::Dx12Diagnostics& renderDiagnostics,
-    int screenW,
-    int screenH,
-    float offsetX,
-    float offsetY
-)
+void UiDrawSubmission::Submit( const UI::UIDrawList& drawList,
+                               Text::TextBatch& textBatch,
+                               Rendering::RenderGpuTimingOwner* gpuTiming,
+                               Rendering::Dx12TextureOwner& renderTextures,
+                               Rendering::Dx12GeometryOwner& renderGeometry,
+                               Rendering::Dx12Diagnostics& renderDiagnostics,
+                               int screenW,
+                               int screenH,
+                               float offsetX,
+                               float offsetY )
 {
-    SubmitCommands(
-        drawList,
-        nullptr,
-        textBatch,
-        gpuTiming,
-        nullptr,
-        nullptr,
-        renderTextures,
-        renderGeometry,
-        renderDiagnostics,
-        screenW,
-        screenH,
-        offsetX,
-        offsetY
-    );
+    SubmitCommands( drawList,
+                    nullptr,
+                    textBatch,
+                    gpuTiming,
+                    nullptr,
+                    nullptr,
+                    renderTextures,
+                    renderGeometry,
+                    renderDiagnostics,
+                    screenW,
+                    screenH,
+                    offsetX,
+                    offsetY );
 }
 
-void UiDrawSubmission::SubmitWithPreviews(
-    const UI::UIDrawList& drawList,
-    const RuntimeRenderTargetPreviewSnapshot& previewData,
-    Text::TextBatch& textBatch,
-    Rendering::RenderGpuTimingOwner* gpuTiming,
-    Assets::AssetSystem& assets,
-    Rendering::Dx12ResourceBuilder& renderResources,
-    Rendering::Dx12TextureOwner& renderTextures,
-    Rendering::Dx12GeometryOwner& renderGeometry,
-    Rendering::Dx12Diagnostics& renderDiagnostics,
-    int screenW,
-    int screenH,
-    float offsetX,
-    float offsetY
-)
+void UiDrawSubmission::SubmitWithPreviews( const UI::UIDrawList& drawList,
+                                           const RuntimeRenderTargetPreviewSnapshot& previewData,
+                                           Text::TextBatch& textBatch,
+                                           Rendering::RenderGpuTimingOwner* gpuTiming,
+                                           Assets::AssetSystem& assets,
+                                           Rendering::Dx12ResourceBuilder& renderResources,
+                                           Rendering::Dx12TextureOwner& renderTextures,
+                                           Rendering::Dx12GeometryOwner& renderGeometry,
+                                           Rendering::Dx12Diagnostics& renderDiagnostics,
+                                           int screenW,
+                                           int screenH,
+                                           float offsetX,
+                                           float offsetY )
 {
-    SubmitCommands(
-        drawList,
-        &previewData,
-        textBatch,
-        gpuTiming,
-        &assets,
-        &renderResources,
-        renderTextures,
-        renderGeometry,
-        renderDiagnostics,
-        screenW,
-        screenH,
-        offsetX,
-        offsetY
-    );
+    SubmitCommands( drawList,
+                    &previewData,
+                    textBatch,
+                    gpuTiming,
+                    &assets,
+                    &renderResources,
+                    renderTextures,
+                    renderGeometry,
+                    renderDiagnostics,
+                    screenW,
+                    screenH,
+                    offsetX,
+                    offsetY );
 }
 
-void UiDrawSubmission::SubmitCommands(
-    const UI::UIDrawList& drawList,
-    const RuntimeRenderTargetPreviewSnapshot* previewData,
-    Text::TextBatch& textBatch,
-    Rendering::RenderGpuTimingOwner* gpuTiming,
-    Assets::AssetSystem* assets,
-    Rendering::Dx12ResourceBuilder* renderResources,
-    Rendering::Dx12TextureOwner& renderTextures,
-    Rendering::Dx12GeometryOwner& renderGeometry,
-    Rendering::Dx12Diagnostics& renderDiagnostics,
-    int screenW,
-    int screenH,
-    float offsetX,
-    float offsetY
-)
+void UiDrawSubmission::SubmitCommands( const UI::UIDrawList& drawList,
+                                       const RuntimeRenderTargetPreviewSnapshot* previewData,
+                                       Text::TextBatch& textBatch,
+                                       Rendering::RenderGpuTimingOwner* gpuTiming,
+                                       Assets::AssetSystem* assets,
+                                       Rendering::Dx12ResourceBuilder* renderResources,
+                                       Rendering::Dx12TextureOwner& renderTextures,
+                                       Rendering::Dx12GeometryOwner& renderGeometry,
+                                       Rendering::Dx12Diagnostics& renderDiagnostics,
+                                       int screenW,
+                                       int screenH,
+                                       float offsetX,
+                                       float offsetY )
 {
     PROFILE_GPU_BEGIN( gpuTiming, "Frame/UI/Draw" );
     ImmediateUiSubmitter immediateDraw( screenW, screenH, textBatch, renderGeometry );
@@ -319,6 +308,7 @@ void UiDrawSubmission::SubmitCommands(
     {
         {
             DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Widgets" );
+
             Text::Text2d::FlushQuads( textBatch, renderGeometry );
         }
         {
@@ -332,54 +322,50 @@ void UiDrawSubmission::SubmitCommands(
         switch ( command.type )
         {
         case UI::UIDrawList::CommandType::Rect:
-            immediateDraw.Rect(
-                command.x0 + offsetX,
-                command.y0 + offsetY,
-                command.w,
-                command.h,
-                command.r,
-                command.g,
-                command.b,
-                command.a
-            );
+            immediateDraw.Rect( command.x0 + offsetX,
+                                command.y0 + offsetY,
+                                command.w,
+                                command.h,
+                                command.r,
+                                command.g,
+                                command.b,
+                                command.a );
+
             break;
         case UI::UIDrawList::CommandType::RoundedRect:
-            immediateDraw.RoundedRect(
-                command.x0 + offsetX,
-                command.y0 + offsetY,
-                command.w,
-                command.h,
-                command.radius,
-                command.r,
-                command.g,
-                command.b,
-                command.a
-            );
+            immediateDraw.RoundedRect( command.x0 + offsetX,
+                                       command.y0 + offsetY,
+                                       command.w,
+                                       command.h,
+                                       command.radius,
+                                       command.r,
+                                       command.g,
+                                       command.b,
+                                       command.a );
+
             break;
         case UI::UIDrawList::CommandType::Triangle:
-            immediateDraw.Triangle(
-                command.x0 + offsetX,
-                command.y0 + offsetY,
-                command.x1 + offsetX,
-                command.y1 + offsetY,
-                command.x2 + offsetX,
-                command.y2 + offsetY,
-                command.r,
-                command.g,
-                command.b,
-                command.a
-            );
+            immediateDraw.Triangle( command.x0 + offsetX,
+                                    command.y0 + offsetY,
+                                    command.x1 + offsetX,
+                                    command.y1 + offsetY,
+                                    command.x2 + offsetX,
+                                    command.y2 + offsetY,
+                                    command.r,
+                                    command.g,
+                                    command.b,
+                                    command.a );
+
             break;
         case UI::UIDrawList::CommandType::Text:
-            immediateDraw.Text(
-                command.x0 + offsetX,
-                command.y0 + offsetY,
-                command.pxSize,
-                command.r,
-                command.g,
-                command.b,
-                drawList.TextAt( command.textOffset )
-            );
+            immediateDraw.Text( command.x0 + offsetX,
+                                command.y0 + offsetY,
+                                command.pxSize,
+                                command.r,
+                                command.g,
+                                command.b,
+                                drawList.TextAt( command.textOffset ) );
+
             break;
         case UI::UIDrawList::CommandType::PushClip:
             if ( clipDepth < UI::UIDrawList::MAX_CLIP_DEPTH )
@@ -389,14 +375,17 @@ void UiDrawSubmission::SubmitCommands(
                 {
                     clip = UI::FrameComposition::IntersectRect( clipStack[clipDepth - 1], clip );
                 }
+
                 clipStack[clipDepth++] = clip;
             }
+
             break;
         case UI::UIDrawList::CommandType::PopClip:
             if ( clipDepth > 0 )
             {
                 --clipDepth;
             }
+
             break;
         case UI::UIDrawList::CommandType::PreviewImage:
         {
@@ -405,15 +394,20 @@ void UiDrawSubmission::SubmitCommands(
             flushQueued();
             const UI::UIRect bounds = { command.x0 + offsetX, command.y0 + offsetY, command.w, command.h };
 
-            const UI::UIRect clip =
-                clipDepth > 0 ? clipStack[clipDepth - 1]
-                              : UI::UIRect { 0.0f, 0.0f, static_cast<float>( screenW ), static_cast<float>( screenH ) };
+            const UI::UIRect clip = clipDepth > 0 ? clipStack[clipDepth - 1]
+                                                  : UI::UIRect { 0.0f,
+                                                                 0.0f,
+                                                                 static_cast<float>( screenW ),
+                                                                 static_cast<float>( screenH ) };
 
             const int targetIndex = static_cast<int>( command.preview.catalogIndex );
             const bool canResolve = command.preview.valid && previewData && assets && renderResources &&
                                     targetIndex >= 0 && targetIndex < previewData->count;
-            const RuntimeRenderTargetPreview* resource =
-                canResolve ? &previewData->targets[static_cast<size_t>( targetIndex )] : nullptr;
+
+            const RuntimeRenderTargetPreview* resource = canResolve
+                                                             ? &previewData->targets[static_cast<size_t>( targetIndex )]
+                                                             : nullptr;
+
             if ( resource && resource->available && resource->textureHandle != 0 )
             {
                 EnsurePreviewResources( *assets, *renderResources, renderGeometry );
@@ -425,8 +419,10 @@ void UiDrawSubmission::SubmitCommands(
                         const float uvLeft = std::clamp( ( visible.x - bounds.x ) / bounds.w, 0.0f, 1.0f );
                         const float uvRight = std::clamp( ( visible.x + visible.w - bounds.x ) / bounds.w, 0.0f, 1.0f );
                         const float uvTop = std::clamp( ( visible.y - bounds.y ) / bounds.h, 0.0f, 1.0f );
-                        const float uvBottom =
-                            std::clamp( ( visible.y + visible.h - bounds.y ) / bounds.h, 0.0f, 1.0f );
+                        const float uvBottom = std::clamp( ( visible.y + visible.h - bounds.y ) / bounds.h,
+                                                           0.0f,
+                                                           1.0f );
+
                         screenW = (std::max)( 1, screenW );
                         screenH = (std::max)( 1, screenH );
                         const float halfH = std::tan( 22.5f * 3.14159265358979323846f / 180.0f );
@@ -442,13 +438,39 @@ void UiDrawSubmission::SubmitCommands(
                         const float top = textY( visible.y );
                         const float bottom = textY( visible.y + visible.h );
                         const float vertices[] = {
-                            left,  bottom, uvLeft,  uvBottom, right, bottom, uvRight, uvBottom,
-                            right, top,    uvRight, uvTop,    left,  bottom, uvLeft,  uvBottom,
-                            right, top,    uvRight, uvTop,    left,  top,    uvLeft,  uvTop,
+                            left,
+                            bottom,
+                            uvLeft,
+                            uvBottom,
+                            right,
+                            bottom,
+                            uvRight,
+                            uvBottom,
+                            right,
+                            top,
+                            uvRight,
+                            uvTop,
+                            left,
+                            bottom,
+                            uvLeft,
+                            uvBottom,
+                            right,
+                            top,
+                            uvRight,
+                            uvTop,
+                            left,
+                            top,
+                            uvLeft,
+                            uvTop,
                         };
 
-                        const Math::Transformation::Matrix4 projection =
-                            Math::Transformation::Matrix4::Ortho( -halfW, halfW, -halfH, halfH, -1.0f, 1.0f );
+                        const Math::Transformation::Matrix4 projection = Math::Transformation::Matrix4::Ortho( -halfW,
+                                                                                                               halfW,
+                                                                                                               -halfH,
+                                                                                                               halfH,
+                                                                                                               -1.0f,
+                                                                                                               1.0f );
+
                         const int mode = resource->depth ? 2 : ( resource->hdr ? 1 : 0 );
                         m_previewShader->Use();
                         m_previewShader->SetMat4( "uProjection", projection );
@@ -457,8 +479,9 @@ void UiDrawSubmission::SubmitCommands(
                         renderTextures.BindTexture( resource->textureHandle, 0 );
                         {
                             DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "RenderTargetPreview" );
-                            renderGeometry
-                                .UploadAndDrawDynamicVB( m_previewVertexBuffer, vertices, PREVIEW_RASTER_STATE );
+                            renderGeometry.UploadAndDrawDynamicVB( m_previewVertexBuffer,
+                                                                   vertices,
+                                                                   PREVIEW_RASTER_STATE );
                         }
                         renderTextures.BindTexture( 0, 0 );
                     }
@@ -468,29 +491,27 @@ void UiDrawSubmission::SubmitCommands(
             {
                 immediateDraw
                     .Rect( bounds.x, bounds.y, bounds.w, bounds.h, command.r, command.g, command.b, command.a );
-                immediateDraw.Text(
-                    bounds.x + 12.0f,
-                    bounds.y + 12.0f,
-                    12.0f,
-                    0.68f,
-                    0.72f,
-                    0.78f,
-                    drawList.TextAt( command.textOffset )
-                );
+                immediateDraw.Text( bounds.x + 12.0f,
+                                    bounds.y + 12.0f,
+                                    12.0f,
+                                    0.68f,
+                                    0.72f,
+                                    0.78f,
+                                    drawList.TextAt( command.textOffset ) );
             }
+
             break;
         }
         }
     }
+
     flushQueued();
     PROFILE_GPU_END( gpuTiming, "Frame/UI/Draw" );
 }
 
-void UiDrawSubmission::EnsurePreviewResources(
-    Assets::AssetSystem& assets,
-    Rendering::Dx12ResourceBuilder& renderResources,
-    Rendering::Dx12GeometryOwner& renderGeometry
-)
+void UiDrawSubmission::EnsurePreviewResources( Assets::AssetSystem& assets,
+                                               Rendering::Dx12ResourceBuilder& renderResources,
+                                               Rendering::Dx12GeometryOwner& renderGeometry )
 {
     if ( !m_previewShader )
     {
@@ -499,6 +520,7 @@ void UiDrawSubmission::EnsurePreviewResources(
         {
             return;
         }
+
         m_previewShader->Use();
         m_previewShader->SetInt( "uTexture", 0 );
     }
@@ -519,6 +541,7 @@ void UiDrawSubmission::ReleaseGpuResources( Rendering::Dx12GeometryOwner* render
         {
             renderGeometry->DestroyDynamicVB( m_previewVertexBuffer );
         }
+
         m_previewVertexBuffer = 0;
     }
 }

@@ -516,13 +516,11 @@ class ReplayRecorder
     friend class ReplayArtifactSource;
     std::size_t AcquireSampleSlotIndex();
     std::size_t FindOrAddVisualBodyMetadata( const ReplayBodyPresentationSample& body, ReplayFrameIndex frameIndex );
-    void StoreVisualFramePayload(
-        std::size_t slotIndex,
-        const ReplayPresentationSample& sample,
-        const std::vector<ReplayBodyPresentationSample>& bodies,
-        bool forceKeyframe,
-        bool updateCarry
-    );
+    void StoreVisualFramePayload( std::size_t slotIndex,
+                                  const ReplayPresentationSample& sample,
+                                  const std::vector<ReplayBodyPresentationSample>& bodies,
+                                  bool forceKeyframe,
+                                  bool updateCarry );
     bool ResolveSampleAtOffset( std::size_t offset, ReplayPresentationSample& outSample ) const;
     void PromoteVisualFrameToKeyframe( std::size_t offset );
     void StoreCheckpointSummary( const ReplayPresentationSample& sample, std::size_t bodyCount );
@@ -656,11 +654,9 @@ class ReplaySolverRecorder
 
             activeMetadataIndex = frameMetadataIndex;
             activeStateValid = true;
-            visitor(
-                m_samples[frameIndex].frameIndex,
-                m_solverBodyMetadata[frameMetadataIndex].modelRow,
-                activeState.position
-            );
+            visitor( m_samples[frameIndex].frameIndex,
+                     m_solverBodyMetadata[frameMetadataIndex].modelRow,
+                     activeState.position );
         }
         return true;
     }
@@ -672,14 +668,12 @@ class ReplaySolverRecorder
     friend class ReplayArtifactSource;
     std::size_t AcquireSampleSlotIndex();
     std::size_t FindOrAddSolverBodyMetadata( const ReplaySolverBodySample& body, ReplayFrameIndex frameIndex );
-    void StoreSolverFramePayload(
-        std::size_t slotIndex,
-        const ReplaySolverFrameSample& sample,
-        const std::vector<ReplaySolverBodySample>& bodies,
-        const ReplaySolverWorldSnapshot& worldSnapshot,
-        bool forceKeyframe,
-        bool updateCarry
-    );
+    void StoreSolverFramePayload( std::size_t slotIndex,
+                                  const ReplaySolverFrameSample& sample,
+                                  const std::vector<ReplaySolverBodySample>& bodies,
+                                  const ReplaySolverWorldSnapshot& worldSnapshot,
+                                  bool forceKeyframe,
+                                  bool updateCarry );
     bool ResolveSolverSampleAtOffset( std::size_t offset, ReplaySolverFrameSample& outSample ) const;
     void PromoteSolverFrameToKeyframe( std::size_t offset );
     void StoreCheckpointSummary( const ReplaySolverFrameSample& sample, std::size_t bodyCount );

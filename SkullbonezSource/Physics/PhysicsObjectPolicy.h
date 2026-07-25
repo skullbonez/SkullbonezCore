@@ -56,8 +56,8 @@ struct ContactPolicy
     float terrainContactThreshold = 0.15f;
     float restitutionThreshold = 2.0f;
 
-    static ContactPolicy
-    FromSettings( const BodySimulationSettings& bodySettings, const TerrainContactSettings& terrainSettings );
+    static ContactPolicy FromSettings( const BodySimulationSettings& bodySettings,
+                                       const TerrainContactSettings& terrainSettings );
 };
 } // namespace Physics
 } // namespace SkullbonezCore

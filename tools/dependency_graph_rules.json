@@ -127,9 +127,10 @@
       "source_prefixes": ["Runtime/Input"],
       "mode": "allow",
       "target_scope": "Runtime",
-      "allowed_target_prefixes": ["Runtime/Input", "Runtime/App", "Runtime/Camera", "Runtime/Interaction", "Runtime/Replay", "Runtime/Scene"],
+      "allowed_target_prefixes": ["Runtime/Input", "Runtime/Camera", "Runtime/Interaction"],
+      "allowed_target_files": ["Runtime/App/Window.h", "Runtime/Replay/ReplayEventCommand.h", "Runtime/Scene/SceneLifecycle.h"],
       "positive_target": "Runtime/Interaction/RuntimeInteractionController.h",
-      "negative_target": "Runtime/UI/RuntimeViewModel.h"
+      "negative_target": "Runtime/App/Run.h"
     },
     {
       "id": "runtime_interaction",

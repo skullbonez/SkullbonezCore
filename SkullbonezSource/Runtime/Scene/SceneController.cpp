@@ -193,23 +193,24 @@ void SceneController::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, Sc
     const int colliderCount = Physics::PhysicsEngine::ReadColliders( m_world.Physics() ).Count();
     const bool requiresEmptyTopology = event == SceneRuntimeLifecycleEvent::AfterSceneCleared ||
                                        event == SceneRuntimeLifecycleEvent::BeforeScenePopulate;
+
     const bool requiresMatchedTopology = event == SceneRuntimeLifecycleEvent::AfterScenePopulate ||
                                          event == SceneRuntimeLifecycleEvent::AfterSceneActivated;
+
     // Invariant: lifecycle publication is the commit edge observed by later
     // owners. Never publish a cleared or populated phase while scene metadata,
     // bodies, and colliders disagree about the live topology.
     if ( ( requiresEmptyTopology && ( entityCount != 0 || bodyCount != 0 || colliderCount != 0 ) ) ||
          ( requiresMatchedTopology && ( entityCount != bodyCount || entityCount != colliderCount ) ) )
     {
-        SB_FATAL(
-            "Runtime/SceneController",
-            "Scene lifecycle topology mismatch. phase=%s entities=%d bodies=%d colliders=%d",
-            SceneRuntimeLifecycleEventName( event ),
-            entityCount,
-            bodyCount,
-            colliderCount
-        );
+        SB_FATAL( "Runtime/SceneController",
+                  "Scene lifecycle topology mismatch. phase=%s entities=%d bodies=%d colliders=%d",
+                  SceneRuntimeLifecycleEventName( event ),
+                  entityCount,
+                  bodyCount,
+                  colliderCount );
     }
+
     m_runtime.RecordLifecycleEvent( event, consumers );
 }
 
@@ -281,11 +282,9 @@ void SceneController::SubmitLoadDemoScene()
 }
 
 
-void SceneController::SubmitResetCurrentScene(
-    bool preserveUIState,
-    bool suppressExitOnComplete,
-    bool preserveRuntimeState
-)
+void SceneController::SubmitResetCurrentScene( bool preserveUIState,
+                                               bool suppressExitOnComplete,
+                                               bool preserveRuntimeState )
 {
     SceneRequest request;
     request.type = SceneRequestType::ResetCurrentScene;
@@ -305,11 +304,9 @@ SkullbonezCore::Core::SbResult SceneController::SubmitCreateScene( const char* r
     const std::size_t nameLength = requestedName ? strnlen_s( requestedName, SCENE_REQUEST_TEXT_CAPACITY ) : 0;
     if ( requestedName && nameLength >= SCENE_REQUEST_TEXT_CAPACITY )
     {
-        return SkullbonezCore::Core::SbResult::Failure(
-            "Runtime/SceneController",
-            "Scene name exceeds the fixed %d-byte request payload",
-            SCENE_REQUEST_TEXT_CAPACITY - 1
-        );
+        return SkullbonezCore::Core::SbResult::Failure( "Runtime/SceneController",
+                                                        "Scene name exceeds the fixed %d-byte request payload",
+                                                        SCENE_REQUEST_TEXT_CAPACITY - 1 );
     }
 
     SceneRequest request;
@@ -318,6 +315,7 @@ SkullbonezCore::Core::SbResult SceneController::SubmitCreateScene( const char* r
     {
         strcpy_s( request.text, requestedName );
     }
+
     return m_requests.Submit( request );
 }
 
@@ -346,14 +344,12 @@ std::size_t SceneController::PendingRequestCount() const
 }
 
 
-SceneFrameAdvanceResult SceneController::AdvanceFrame(
-    const SceneAutomationGateStatus& automationGates,
-    bool proceedAllowed,
-    bool perfTestActive,
-    bool screenshotSaved,
-    bool manualCameraActive,
-    double elapsedSeconds
-)
+SceneFrameAdvanceResult SceneController::AdvanceFrame( const SceneAutomationGateStatus& automationGates,
+                                                       bool proceedAllowed,
+                                                       bool perfTestActive,
+                                                       bool screenshotSaved,
+                                                       bool manualCameraActive,
+                                                       double elapsedSeconds )
 {
     SceneFrameAdvanceResult result;
     if ( !proceedAllowed )
@@ -368,6 +364,7 @@ SceneFrameAdvanceResult SceneController::AdvanceFrame(
     const auto finishInteractiveOrQueueNext = [&]( const char* reason )
     {
         result.finishReason = reason;
+
         if ( m_runtime.State().isExitOnComplete && CanAutomationQuit() )
         {
             result.loadRequest = AdvanceScene( perfTestActive, m_runtime.State().isInteractiveRun );
@@ -376,6 +373,7 @@ SceneFrameAdvanceResult SceneController::AdvanceFrame(
             result.restartFrame = true;
             return;
         }
+
         if ( CanAutomationQuit() )
         {
             m_runtime.State().isTestComplete = true;
@@ -404,11 +402,13 @@ SceneFrameAdvanceResult SceneController::AdvanceFrame(
         {
             result.finishReason = frameCountCompletesScene ? "frame_count" : "required_scene_gates_missing";
         }
+
         if ( !frameCountCompletesScene )
         {
             result.reportMissingRequirements = true;
             return result;
         }
+
         finishInteractiveOrQueueNext( result.finishReason ? result.finishReason : "frame_count" );
         if ( result.restartFrame )
         {
@@ -418,12 +418,11 @@ SceneFrameAdvanceResult SceneController::AdvanceFrame(
 
     if ( !m_runtime.State().isSceneMode && !manualCameraActive && elapsedSeconds > 20.0 )
     {
-        result.loadRequest = SceneLoadRequest::Load(
-            m_runtime.State().currentSceneIndex,
-            m_runtime.State().isInteractiveRun,
-            m_runtime.State().isInteractiveRun,
-            m_runtime.State().isInteractiveRun
-        );
+        result.loadRequest = SceneLoadRequest::Load( m_runtime.State().currentSceneIndex,
+                                                     m_runtime.State().isInteractiveRun,
+                                                     m_runtime.State().isInteractiveRun,
+                                                     m_runtime.State().isInteractiveRun );
+
         result.restartFrame = true;
         result.restartSimulationTimerAfterLoad = true;
         return result;
@@ -446,8 +445,10 @@ SceneFrameAdvanceResult SceneController::AdvanceFrame(
                 result.holdInteractive = true;
             }
         }
+
         result.quitIfLoadFails = CanAutomationQuit();
     }
+
     return result;
 }
 

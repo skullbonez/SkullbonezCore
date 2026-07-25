@@ -51,11 +51,9 @@ DXGI_FORMAT ToColorFormat( RenderGraphResourceFormat format )
     case RenderGraphResourceFormat::RGBA16F:
         return DXGI_FORMAT_R16G16B16A16_FLOAT;
     default:
-        SB_FATAL(
-            "Dx12GraphTransientPool",
-            "Unsupported render graph color transient format. format=%d",
-            static_cast<int>( format )
-        );
+        SB_FATAL( "Dx12GraphTransientPool",
+                  "Unsupported render graph color transient format. format=%d",
+                  static_cast<int>( format ) );
     }
 }
 
@@ -71,44 +69,39 @@ size_t CountDescriptorRows( const RenderGraphDescriptorNeeds& descriptors )
            ( descriptors.shaderResource ? 1u : 0u ) + ( descriptors.unorderedAccess ? 1u : 0u );
 }
 
-void MarkMaterializationFailure(
-    RenderGraphTransientMaterializationStats& stats,
-    HRESULT result,
-    const RenderGraphResourceDesc& resource
-)
+void MarkMaterializationFailure( RenderGraphTransientMaterializationStats& stats,
+                                 HRESULT result,
+                                 const RenderGraphResourceDesc& resource )
 {
     stats.failed = true;
     stats.failureHresult = static_cast<unsigned int>( result );
     std::snprintf( stats.failureStage, sizeof( stats.failureStage ), "%s", "CreateCommittedResource" );
-    std::snprintf(
-        stats.failureResource,
-        sizeof( stats.failureResource ),
-        "%s",
-        ( resource.name && resource.name[0] != '\0' ) ? resource.name : "UnnamedGraphTransient"
-    );
+    std::snprintf( stats.failureResource,
+                   sizeof( stats.failureResource ),
+                   "%s",
+                   ( resource.name && resource.name[0] != '\0' ) ? resource.name : "UnnamedGraphTransient" );
+
     SkullbonezCore::Core::Log().WriteEventf(
         "dx12_graph_transient_materialize_failed stage=%s resource=%s hresult=0x%08X",
         stats.failureStage,
         stats.failureResource,
-        stats.failureHresult
-    );
+        stats.failureHresult );
+
     SkullbonezCore::Core::Log().FlushAll();
 }
 } // namespace
 
-Dx12GraphTransientPool::Dx12GraphTransientPool(
-    Dx12RenderDevice& device,
-    Dx12DescriptorHeaps& descriptors,
-    Dx12FrameOwner& frame,
-    Dx12TextureOwner& textures,
-    Dx12PipelineOwner& pipeline
-)
+Dx12GraphTransientPool::Dx12GraphTransientPool( Dx12RenderDevice& device,
+                                                Dx12DescriptorHeaps& descriptors,
+                                                Dx12FrameOwner& frame,
+                                                Dx12TextureOwner& textures,
+                                                Dx12PipelineOwner& pipeline )
     : m_device( device ), m_descriptors( descriptors ), m_frame( frame ), m_textures( textures ), m_pipeline( pipeline )
 {
 }
 
-RenderGraphTransientMaterializationStats
-Dx12GraphTransientPool::Materialize( const RenderGraph& graph, const RenderGraphCompileResult& compiled )
+RenderGraphTransientMaterializationStats Dx12GraphTransientPool::Materialize( const RenderGraph& graph,
+                                                                              const RenderGraphCompileResult& compiled )
 {
     // Concept: these are frame-target pool slots, not scene assets. The graph
     // compiler proves alias compatibility; this owner keeps that proof beside
@@ -130,12 +123,10 @@ Dx12GraphTransientPool::Materialize( const RenderGraph& graph, const RenderGraph
     {
         if ( allocation.resource.index >= graph.Resources().size() )
         {
-            SB_FATAL(
-                "Dx12GraphTransientPool",
-                "Graph transient allocation references an invalid resource. index=%u resourceCount=%zu",
-                allocation.resource.index,
-                graph.Resources().size()
-            );
+            SB_FATAL( "Dx12GraphTransientPool",
+                      "Graph transient allocation references an invalid resource. index=%u resourceCount=%zu",
+                      allocation.resource.index,
+                      graph.Resources().size() );
         }
 
         const RenderGraphResourceDesc& resource = graph.Resources()[allocation.resource.index];
@@ -144,10 +135,12 @@ Dx12GraphTransientPool::Materialize( const RenderGraph& graph, const RenderGraph
         {
             SB_FATAL( "Dx12GraphTransientPool", "Graph transient materializer supports Texture2D resources only." );
         }
+
         if ( desc.format == RenderGraphResourceFormat::Unknown )
         {
             SB_FATAL( "Dx12GraphTransientPool", "Graph transient materializer requires a concrete format." );
         }
+
         if ( desc.descriptors.depthStencil && desc.descriptors.unorderedAccess )
         {
             SB_FATAL( "Dx12GraphTransientPool", "Graph transient depth resources cannot request UAV descriptors." );
@@ -204,6 +197,7 @@ Dx12GraphTransientPool::Materialize( const RenderGraph& graph, const RenderGraph
                     clearValue.Color[3] = 1.0f;
                     clearValuePtr = &clearValue;
                 }
+
                 if ( desc.descriptors.unorderedAccess )
                 {
                     textureDesc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
@@ -218,14 +212,12 @@ Dx12GraphTransientPool::Materialize( const RenderGraph& graph, const RenderGraph
 
             D3D12_HEAP_PROPERTIES defaultHeap = {};
             defaultHeap.Type = D3D12_HEAP_TYPE_DEFAULT;
-            const HRESULT hr = device->CreateCommittedResource(
-                &defaultHeap,
-                D3D12_HEAP_FLAG_NONE,
-                &textureDesc,
-                initialState,
-                clearValuePtr,
-                IID_PPV_ARGS( &slot->resource )
-            );
+            const HRESULT hr = device->CreateCommittedResource( &defaultHeap,
+                                                                D3D12_HEAP_FLAG_NONE,
+                                                                &textureDesc,
+                                                                initialState,
+                                                                clearValuePtr,
+                                                                IID_PPV_ARGS( &slot->resource ) );
 
             if ( FAILED( hr ) )
             {
@@ -236,6 +228,7 @@ Dx12GraphTransientPool::Materialize( const RenderGraph& graph, const RenderGraph
                 m_stats.poolSize = m_resources.size();
                 return m_stats;
             }
+
             NameDx12Object( slot->resource, L"Skullbonez DX12 RenderGraph Transient Texture" );
 
             if ( desc.descriptors.renderTarget )
@@ -243,6 +236,7 @@ Dx12GraphTransientPool::Materialize( const RenderGraph& graph, const RenderGraph
                 slot->rtv = m_descriptors.AllocateRtv().cpuHandle;
                 device->CreateRenderTargetView( slot->resource, nullptr, slot->rtv );
             }
+
             if ( desc.descriptors.depthStencil )
             {
                 slot->dsv = m_descriptors.AllocateDsv().cpuHandle;
@@ -251,6 +245,7 @@ Dx12GraphTransientPool::Materialize( const RenderGraph& graph, const RenderGraph
                 dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
                 device->CreateDepthStencilView( slot->resource, &dsvDesc, slot->dsv );
             }
+
             if ( desc.descriptors.shaderResource )
             {
                 slot->srvIndex = m_descriptors.AllocateStatic();
@@ -260,14 +255,13 @@ Dx12GraphTransientPool::Materialize( const RenderGraph& graph, const RenderGraph
                 srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
                 srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
                 srvDesc.Texture2D.MipLevels = desc.mipLevels;
-                device->CreateShaderResourceView(
-                    slot->resource,
-                    &srvDesc,
-                    m_descriptors.StagingCpuHandle( slot->srvIndex )
-                );
+                device->CreateShaderResourceView( slot->resource,
+                                                  &srvDesc,
+                                                  m_descriptors.StagingCpuHandle( slot->srvIndex ) );
 
                 m_descriptors.PublishStaticDescriptor( device, slot->srvIndex );
             }
+
             if ( desc.descriptors.unorderedAccess )
             {
                 slot->uavIndex = m_descriptors.AllocateStatic();
@@ -275,28 +269,27 @@ Dx12GraphTransientPool::Materialize( const RenderGraph& graph, const RenderGraph
 
                 uavDesc.Format = ToColorFormat( desc.format );
                 uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
-                device->CreateUnorderedAccessView(
-                    slot->resource,
-                    nullptr,
-                    &uavDesc,
-                    m_descriptors.StagingCpuHandle( slot->uavIndex )
-                );
+                device->CreateUnorderedAccessView( slot->resource,
+                                                   nullptr,
+                                                   &uavDesc,
+                                                   m_descriptors.StagingCpuHandle( slot->uavIndex ) );
 
                 m_descriptors.PublishStaticDescriptor( device, slot->uavIndex );
             }
+
             ++m_stats.createdThisCompile;
         }
 
-        std::snprintf(
-            slot->resourceName,
-            sizeof( slot->resourceName ),
-            "%s",
-            ( resource.name && resource.name[0] != '\0' ) ? resource.name : "UnnamedGraphTransient"
-        );
+        std::snprintf( slot->resourceName,
+                       sizeof( slot->resourceName ),
+                       "%s",
+                       ( resource.name && resource.name[0] != '\0' ) ? resource.name : "UnnamedGraphTransient" );
+
         if ( desc.descriptors.shaderResource && slot->textureHandle == 0 && slot->srvIndex != UINT_MAX )
         {
             slot->textureHandle = m_textures.RegisterSRV( slot->srvIndex, slot->resource );
         }
+
         const bool firstUseThisCompile = !slot->usedThisCompile;
         slot->poolSlot = allocation.poolSlot;
         slot->firstPass = allocation.firstPass;
@@ -305,6 +298,7 @@ Dx12GraphTransientPool::Materialize( const RenderGraph& graph, const RenderGraph
         {
             slot->currentAccess = resource.initialAccess;
         }
+
         slot->usedThisCompile = true;
         m_bindings.push_back( { allocation.resource, static_cast<size_t>( slot - m_resources.data() ) } );
     }
@@ -318,6 +312,7 @@ Dx12GraphTransientPool::Materialize( const RenderGraph& graph, const RenderGraph
             m_stats.descriptorRowsOwned += CountDescriptorRows( slot.desc.descriptors );
         }
     }
+
     SkullbonezCore::Core::Log().WriteEventf(
         "dx12_graph_transient_materialize allocations=%zu pool_size=%zu created_this_compile=%zu "
         "reused_this_compile=%zu descriptor_rows_owned=%zu released_at_frame_end=%zu",
@@ -326,8 +321,8 @@ Dx12GraphTransientPool::Materialize( const RenderGraph& graph, const RenderGraph
         m_stats.createdThisCompile,
         m_stats.reusedThisCompile,
         m_stats.descriptorRowsOwned,
-        m_stats.releasedAtFrameEnd
-    );
+        m_stats.releasedAtFrameEnd );
+
     return m_stats;
 }
 
@@ -340,6 +335,7 @@ GraphTransientResourceDX12* Dx12GraphTransientPool::FindSlot( RenderGraphResourc
             return &m_resources[binding.slotIndex];
         }
     }
+
     return nullptr;
 }
 
@@ -352,6 +348,7 @@ const GraphTransientResourceDX12* Dx12GraphTransientPool::FindSlot( RenderGraphR
             return &m_resources[binding.slotIndex];
         }
     }
+
     return nullptr;
 }
 
@@ -362,6 +359,7 @@ RenderGraphTextureBinding Dx12GraphTransientPool::Resolve( RenderGraphResourceHa
     {
         return {};
     }
+
     RenderGraphTextureBinding binding;
     binding.resource = resource;
     binding.textureHandle = slot->textureHandle;
@@ -372,20 +370,16 @@ RenderGraphTextureBinding Dx12GraphTransientPool::Resolve( RenderGraphResourceHa
     return binding;
 }
 
-size_t Dx12GraphTransientPool::ExecuteTransitions(
-    const RenderGraph& graph,
-    const RenderGraphCompileResult& compiled,
-    uint32_t passIndex
-)
+size_t Dx12GraphTransientPool::ExecuteTransitions( const RenderGraph& graph,
+                                                   const RenderGraphCompileResult& compiled,
+                                                   uint32_t passIndex )
 {
     if ( passIndex >= graph.Passes().size() )
     {
-        SB_FATAL(
-            "Dx12GraphTransientPool",
-            "Graph transient transition requested an invalid pass. pass=%u passCount=%zu",
-            passIndex,
-            graph.Passes().size()
-        );
+        SB_FATAL( "Dx12GraphTransientPool",
+                  "Graph transient transition requested an invalid pass. pass=%u passCount=%zu",
+                  passIndex,
+                  graph.Passes().size() );
     }
 
     size_t emittedCount = 0;
@@ -395,15 +389,15 @@ size_t Dx12GraphTransientPool::ExecuteTransitions(
         {
             continue;
         }
+
         if ( transition.resource.index >= graph.Resources().size() )
         {
-            SB_FATAL(
-                "Dx12GraphTransientPool",
-                "Compiled transition references an invalid resource. resource=%u resourceCount=%zu",
-                transition.resource.index,
-                graph.Resources().size()
-            );
+            SB_FATAL( "Dx12GraphTransientPool",
+                      "Compiled transition references an invalid resource. resource=%u resourceCount=%zu",
+                      transition.resource.index,
+                      graph.Resources().size() );
         }
+
         const RenderGraphResourceDesc& graphResource = graph.Resources()[transition.resource.index];
         if ( graphResource.external )
         {
@@ -418,28 +412,27 @@ size_t Dx12GraphTransientPool::ExecuteTransitions(
             // resource and therefore no barrier to emit for this logical edge.
             continue;
         }
+
         if ( slot->currentAccess != transition.before )
         {
             // Hazard: accepting a mismatch would make the graph's StateBefore
             // claim disagree with the actual physical slot, which DX12 treats
             // as undefined command-stream state rather than a recoverable miss.
-            SB_FATAL(
-                "Dx12GraphTransientPool",
-                "Compiled transient state disagrees with the physical slot. pass=%s resource=%s tracked=%s compiled=%s",
-                graph.Passes()[passIndex].name,
-                graphResource.name,
-                ToString( slot->currentAccess ),
-                ToString( transition.before )
-            );
+            SB_FATAL( "Dx12GraphTransientPool",
+                      "Compiled transient state disagrees with the physical slot. pass=%s resource=%s tracked=%s "
+                      "compiled=%s",
+                      graph.Passes()[passIndex].name,
+                      graphResource.name,
+                      ToString( slot->currentAccess ),
+                      ToString( transition.before ) );
         }
+
         if ( !m_frame.CanRecord() && !m_frame.EnsureOpen().ok )
         {
-            SB_FATAL(
-                "Dx12GraphTransientPool",
-                "Compiled transient transition could not open command recording. pass=%s resource=%s",
-                graph.Passes()[passIndex].name,
-                graphResource.name
-            );
+            SB_FATAL( "Dx12GraphTransientPool",
+                      "Compiled transient transition could not open command recording. pass=%s resource=%s",
+                      graph.Passes()[passIndex].name,
+                      graphResource.name );
         }
 
         Dx12RenderGraphSingleTransitionDesc desc;
@@ -452,22 +445,21 @@ size_t Dx12GraphTransientPool::ExecuteTransitions(
             "Dx12GraphCompiledTransient",
             graph.Passes()[passIndex].name,
             graphResource.name,
-            desc
-        );
+            desc );
 
         if ( !record.hasConcreteStates || !record.hasNativeResource || record.missingCommandList ||
              record.beforeState == record.afterState || !record.emitted )
         {
-            SB_FATAL(
-                "Dx12GraphTransientPool",
-                "Compiled graph transition did not emit one concrete barrier. pass=%s resource=%s",
-                graph.Passes()[passIndex].name,
-                graphResource.name
-            );
+            SB_FATAL( "Dx12GraphTransientPool",
+                      "Compiled graph transition did not emit one concrete barrier. pass=%s resource=%s",
+                      graph.Passes()[passIndex].name,
+                      graphResource.name );
         }
+
         slot->currentAccess = transition.after;
         ++emittedCount;
     }
+
     return emittedCount;
 }
 
@@ -477,15 +469,15 @@ void Dx12GraphTransientPool::BeginRenderTarget( const RenderGraphTextureBinding&
     {
         SB_FATAL( "Dx12GraphTransientPool", "Graph transient render target is already active." );
     }
+
     if ( !binding.IsValid() || !binding.renderTarget )
     {
-        SB_FATAL(
-            "Dx12GraphTransientPool",
-            "Graph transient render target binding is invalid. textureHandle=%u renderTarget=%d",
-            binding.textureHandle,
-            binding.renderTarget ? 1 : 0
-        );
+        SB_FATAL( "Dx12GraphTransientPool",
+                  "Graph transient render target binding is invalid. textureHandle=%u renderTarget=%d",
+                  binding.textureHandle,
+                  binding.renderTarget ? 1 : 0 );
     }
+
     GraphTransientResourceDX12* slot = FindSlot( binding.resource );
     if ( !slot || !slot->resource || slot->rtv.ptr == 0 )
     {
@@ -498,14 +490,13 @@ void Dx12GraphTransientPool::BeginRenderTarget( const RenderGraphTextureBinding&
     // before binding. Begin only changes descriptors/targets; it emits no barrier.
     if ( slot->currentAccess != RenderGraphResourceAccess::RenderTarget )
     {
-        SB_FATAL(
-            "Dx12GraphTransientPool",
-            "Graph transient target bound before its compiled transition. pass=%s resource=%s access=%s",
-            passName ? passName : "unknown",
-            slot->resourceName,
-            ToString( slot->currentAccess )
-        );
+        SB_FATAL( "Dx12GraphTransientPool",
+                  "Graph transient target bound before its compiled transition. pass=%s resource=%s access=%s",
+                  passName ? passName : "unknown",
+                  slot->resourceName,
+                  ToString( slot->currentAccess ) );
     }
+
     m_savedRtv = m_pipeline.CurrentRTV();
     m_savedDsv = m_pipeline.CurrentDSV();
     m_savedRtvFormat = m_pipeline.RenderTargetFormat();
@@ -520,31 +511,30 @@ void Dx12GraphTransientPool::EndRenderTarget( const RenderGraphTextureBinding& b
 {
     if ( !m_renderTargetActive || m_activeRenderTarget.index != binding.resource.index )
     {
-        SB_FATAL(
-            "Dx12GraphTransientPool",
-            "Graph transient render target end does not match active binding. active=%u requested=%u",
-            m_activeRenderTarget.index,
-            binding.resource.index
-        );
+        SB_FATAL( "Dx12GraphTransientPool",
+                  "Graph transient render target end does not match active binding. active=%u requested=%u",
+                  m_activeRenderTarget.index,
+                  binding.resource.index );
     }
+
     GraphTransientResourceDX12* slot = FindSlot( binding.resource );
     if ( !slot || !slot->resource )
     {
         SB_FATAL( "Dx12GraphTransientPool", "Graph transient render target was lost before unbind." );
     }
+
     // End restores the caller's target but deliberately leaves the texture in
     // RenderTarget state. The next consuming graph pass owns the compiled
     // RenderTarget -> PixelShaderResource transition immediately before use.
     if ( slot->currentAccess != RenderGraphResourceAccess::RenderTarget )
     {
-        SB_FATAL(
-            "Dx12GraphTransientPool",
-            "Graph transient target ended after an unexpected transition. pass=%s resource=%s access=%s",
-            passName ? passName : "unknown",
-            slot->resourceName,
-            ToString( slot->currentAccess )
-        );
+        SB_FATAL( "Dx12GraphTransientPool",
+                  "Graph transient target ended after an unexpected transition. pass=%s resource=%s access=%s",
+                  passName ? passName : "unknown",
+                  slot->resourceName,
+                  ToString( slot->currentAccess ) );
     }
+
     m_pipeline.SetRenderingToFBO( false, DXGI_FORMAT_R8G8B8A8_UNORM );
     m_pipeline.SetCurrentTargets( m_savedRtv, m_savedDsv );
     m_pipeline.RestoreRenderTargetFormat( m_savedRtvFormat );
@@ -564,18 +554,22 @@ void Dx12GraphTransientPool::ReleaseAfterTerminalDrain( const char* reason )
             {
                 m_frame.ResourceRelease().RetireStaticDescriptor( srvIndex );
             }
+
             slot.textureHandle = 0;
         }
+
         if ( slot.uavIndex != UINT_MAX )
         {
             m_frame.ResourceRelease().RetireStaticDescriptor( slot.uavIndex );
             slot.uavIndex = UINT_MAX;
         }
+
         if ( ReleaseGraphTransientPoolSlotResourceDX12( slot ) )
         {
             ++released;
         }
     }
+
     m_resources.clear();
     m_bindings.clear();
     m_stats = {};
@@ -583,9 +577,7 @@ void Dx12GraphTransientPool::ReleaseAfterTerminalDrain( const char* reason )
     m_renderTargetActive = false;
     m_activeRenderTarget = {};
 
-    SkullbonezCore::Core::Log().WriteEventf(
-        "dx12_graph_transient_release reason=%s released_resources=%zu",
-        reason ? reason : "unknown",
-        released
-    );
+    SkullbonezCore::Core::Log().WriteEventf( "dx12_graph_transient_release reason=%s released_resources=%zu",
+                                             reason ? reason : "unknown",
+                                             released );
 }

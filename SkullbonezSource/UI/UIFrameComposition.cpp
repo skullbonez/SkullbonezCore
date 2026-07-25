@@ -54,6 +54,7 @@ uint32_t HashTextValue( uint32_t seed, const char* value )
         seed = HashCombine( seed, static_cast<uint8_t>( *value ) );
         ++value;
     }
+
     return HashCombine( seed, 0u );
 }
 
@@ -92,8 +93,9 @@ float MinimizedWidthWithCameraModeCombo( const char* title, int screenW )
     constexpr float titleLeft = 32.0f;
     const float maxW = (std::max)( 154.0f, static_cast<float>( screenW ) - margin * 2.0f );
     const float titleW = UIFontMetrics::MeasureText( textSize, title ? title : "" );
-    const float desiredW =
-        titleLeft + titleW + MINIMIZED_CAMERA_MODE_GAP + MINIMIZED_CAMERA_MODE_COMBO_W + MINIMIZED_RESTORE_W;
+    const float desiredW = titleLeft + titleW + MINIMIZED_CAMERA_MODE_GAP + MINIMIZED_CAMERA_MODE_COMBO_W +
+                           MINIMIZED_RESTORE_W;
+
     return std::clamp( desiredW, 154.0f, maxW );
 }
 
@@ -136,6 +138,7 @@ uint32_t HashRenderTargetPreviewCatalog( uint32_t hash, const InGameUIFrameData&
         hash = HashBool( hash, resource.depth );
         hash = HashBool( hash, resource.hdr );
     }
+
     return hash;
 }
 
@@ -195,6 +198,7 @@ uint32_t HashProfilerFrameSnapshot( uint32_t hash, const ProfilerTab::FrameSnaps
         hash = HashInt( hash, node.instanceCount );
         hash = HashInt( hash, node.vertexCount );
     }
+
     return hash;
 }
 
@@ -214,6 +218,7 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     {
         hash = HashTextValue( hash, data.sceneOptions[i] );
     }
+
     hash = HashInt( hash, data.drawCallsBeforeUI );
     hash = HashInt( hash, data.UIDrawCalls );
     // Invariant: visibility rows are live diagnostics. Hash every field so a
@@ -226,14 +231,16 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
         hash = HashInt( hash, visibility.culled );
         hash = HashInt( hash, visibility.draws );
     }
+
     hash = HashInt( hash, static_cast<int>( data.reserveGrowthEventTotalCount ) );
     hash = HashInt( hash, data.reserveGrowthEventCount );
     for ( int eventIndex = 0;
           eventIndex < data.reserveGrowthEventCount && eventIndex < UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX;
           ++eventIndex )
     {
-        const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView& event =
-            data.reserveGrowthEvents[eventIndex];
+        const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView&
+            event = data.reserveGrowthEvents[eventIndex];
+
         hash = HashTextValue( hash, event.targetName );
         hash = HashInt( hash, event.frameNumber );
         hash = HashInt( hash, event.grantedCapacity );
@@ -435,19 +442,17 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
 }
 
 
-uint32_t BuildUIInteractionSignature(
-    int mouseX,
-    int mouseY,
-    bool rendererOpen,
-    bool reflectionOpen,
-    bool sceneOpen,
-    bool cineSceneOpen,
-    bool editorObjectOpen,
-    bool renderTargetOpen,
-    bool cameraModeOpen,
-    int selectedRenderTarget,
-    int activeSlider
-)
+uint32_t BuildUIInteractionSignature( int mouseX,
+                                      int mouseY,
+                                      bool rendererOpen,
+                                      bool reflectionOpen,
+                                      bool sceneOpen,
+                                      bool cineSceneOpen,
+                                      bool editorObjectOpen,
+                                      bool renderTargetOpen,
+                                      bool cameraModeOpen,
+                                      int selectedRenderTarget,
+                                      int activeSlider )
 {
     uint32_t hash = 2166136261u;
     hash = HashInt( hash, mouseX );
@@ -483,6 +488,7 @@ uint32_t RenderTargetPreviewDisabledMask( const InGameUIFrameData& data )
             mask |= 1u << i;
         }
     }
+
     return mask;
 }
 
@@ -498,6 +504,7 @@ int FirstAvailableRenderTargetPreview( const InGameUIFrameData& data )
             return i;
         }
     }
+
     return count > 0 ? 0 : -1;
 }
 
@@ -519,6 +526,7 @@ int ResolveRenderTargetPreviewSelection( const InGameUIFrameData& data, int sele
             return selectedIndex;
         }
     }
+
     return FirstAvailableRenderTargetPreview( data );
 }
 
@@ -529,6 +537,7 @@ const char* RenderTargetPreviewTypeText( const UIRenderTargetPreviewResource& re
     {
         return "Depth SRV";
     }
+
     return resource.hdr ? "RGBA16F SRV" : "RGBA8 SRV";
 }
 
@@ -543,6 +552,7 @@ UIRect IntersectRect( const UIRect& a, const UIRect& b )
     {
         return {};
     }
+
     return { left, top, right - left, bottom - top };
 }
 
@@ -562,6 +572,7 @@ UIRect FitRectToAspect( const UIRect& bounds, int width, int height )
         drawH = bounds.h;
         drawW = bounds.h * sourceAspect;
     }
+
     return { bounds.x + ( bounds.w - drawW ) * 0.5f, bounds.y + ( bounds.h - drawH ) * 0.5f, drawW, drawH };
 }
 
@@ -582,27 +593,29 @@ void BuildEditorObjectCounterText( const InGameUIFrameData& data, char* out, siz
 
 UIRect TitleButtonGroupBounds( const Chrome::TitleButtonRects& titleButtons )
 {
-    const float left =
-        (std::min)( titleButtons.minimize.x, (std::min)( titleButtons.maximize.x, titleButtons.close.x ) );
-    const float top =
-        (std::min)( titleButtons.minimize.y, (std::min)( titleButtons.maximize.y, titleButtons.close.y ) );
+    const float left = (std::min)( titleButtons.minimize.x,
+                                   (std::min)( titleButtons.maximize.x, titleButtons.close.x ) );
+
+    const float top = (std::min)( titleButtons.minimize.y,
+                                  (std::min)( titleButtons.maximize.y, titleButtons.close.y ) );
+
     const float right = (std::max)( titleButtons.minimize.x + titleButtons.minimize.w,
                                     (std::max)( titleButtons.maximize.x + titleButtons.maximize.w,
                                                 titleButtons.close.x + titleButtons.close.w ) );
+
     const float bottom = (std::max)( titleButtons.minimize.y + titleButtons.minimize.h,
                                      (std::max)( titleButtons.maximize.y + titleButtons.maximize.h,
                                                  titleButtons.close.y + titleButtons.close.h ) );
+
     return { left, top, right - left, bottom - top };
 }
 
 
-void DrawEditorObjectCounter(
-    const UIDrawContext& draw,
-    const InGameUIFrameData& data,
-    int screenW,
-    int screenH,
-    const UIRect* avoidBounds
-)
+void DrawEditorObjectCounter( const UIDrawContext& draw,
+                              const InGameUIFrameData& data,
+                              int screenW,
+                              int screenH,
+                              const UIRect* avoidBounds )
 {
     if ( !data.editorModeEnabled )
     {
@@ -618,8 +631,10 @@ void DrawEditorObjectCounter(
     constexpr float height = 30.0f;
     const float availableW = (std::max)( 1.0f, static_cast<float>( screenW ) - margin * 2.0f );
     const float minW = (std::min)( 140.0f, availableW );
-    const float width =
-        std::clamp( UIFontMetrics::MeasureText( fontSize, counterText ) + padX * 2.0f, minW, availableW );
+    const float width = std::clamp( UIFontMetrics::MeasureText( fontSize, counterText ) + padX * 2.0f,
+                                    minW,
+                                    availableW );
+
     UIRect bounds = { static_cast<float>( screenW ) - margin - width, margin, width, height };
 
     if ( avoidBounds && IntersectRect( bounds, *avoidBounds ).w > 0.0f )
@@ -636,28 +651,24 @@ void DrawEditorObjectCounter(
     const Style::UIPalette& palette = Style::Palette();
     Style::UIColor fill = palette.windowRaised;
     fill.a = 0.90f;
-    draw.RoundedRect(
-        bounds.x + 3.0f,
-        bounds.y + 4.0f,
-        bounds.w,
-        bounds.h,
-        Style::Radii().control,
-        palette.shadow.r,
-        palette.shadow.g,
-        palette.shadow.b,
-        0.24f
-    );
+    draw.RoundedRect( bounds.x + 3.0f,
+                      bounds.y + 4.0f,
+                      bounds.w,
+                      bounds.h,
+                      Style::Radii().control,
+                      palette.shadow.r,
+                      palette.shadow.g,
+                      palette.shadow.b,
+                      0.24f );
 
     draw.RoundedPanel( bounds, Style::Radii().control, fill, palette.border );
-    draw.Text(
-        bounds.x + padX,
-        bounds.y + 8.0f,
-        fontSize,
-        palette.textPrimary.r,
-        palette.textPrimary.g,
-        palette.textPrimary.b,
-        counterText
-    );
+    draw.Text( bounds.x + padX,
+               bounds.y + 8.0f,
+               fontSize,
+               palette.textPrimary.r,
+               palette.textPrimary.g,
+               palette.textPrimary.b,
+               counterText );
 }
 
 
@@ -667,6 +678,7 @@ int WaterReflectionModeFromData( const InGameUIFrameData& data )
     {
         return 2;
     }
+
     return data.waterRTReflect ? 1 : 0;
 }
 } // namespace SkullbonezCore::UI::FrameComposition

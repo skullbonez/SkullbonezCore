@@ -30,8 +30,8 @@ namespace SkullbonezCore::Runtime
 {
 namespace
 {
-const RunReplayPredictionBodySample*
-FindPredictionBody( const RunReplayPredictionFrame& frame, Physics::PhysicsSceneObjectId id ) noexcept
+const RunReplayPredictionBodySample* FindPredictionBody( const RunReplayPredictionFrame& frame,
+                                                         Physics::PhysicsSceneObjectId id ) noexcept
 {
     for ( const RunReplayPredictionBodySample& body : frame.bodies )
     {
@@ -40,6 +40,7 @@ FindPredictionBody( const RunReplayPredictionFrame& frame, Physics::PhysicsScene
             return &body;
         }
     }
+
     return nullptr;
 }
 
@@ -56,6 +57,7 @@ void ReplayInterceptReadout::SetTarget( Physics::PhysicsSceneObjectId id, Physic
     {
         return;
     }
+
     m_targetId = id;
     m_targetModelRow = modelRow;
     ResetScan();
@@ -124,6 +126,7 @@ void ReplayInterceptReadout::Update( const ReplayInterceptUpdateInput& input ) n
                             m_scanTopologyVersion != input.topologyVersion ||
                             m_scanUsingBuildFrames != input.usingBuildFrames || m_scanShipRadius != input.shipRadius ||
                             m_scanTargetRadius != input.targetRadius || input.frames.size() < m_scannedFrameCount;
+
     if ( keyChanged )
     {
         ResetScan();
@@ -171,6 +174,7 @@ void ReplayInterceptReadout::Update( const ReplayInterceptUpdateInput& input ) n
         m_view.topologyVersion = input.topologyVersion;
         m_view.intercept = m_view.missDistance <= input.shipRadius + input.targetRadius + REPLAY_INTERCEPT_CONTACT_SLOP;
     }
+
     m_scannedFrameCount = input.frames.size();
 }
 } // namespace SkullbonezCore::Runtime

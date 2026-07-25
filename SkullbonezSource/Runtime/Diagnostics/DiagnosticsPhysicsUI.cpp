@@ -48,6 +48,7 @@ void StepDiagnosticsPhysicsPipelineStage( OverlayDebugState& debug, int directio
     {
         nextStage += stageCount;
     }
+
     debug.physicsDebugPipelineStageCursor = nextStage;
 }
 
@@ -63,6 +64,7 @@ ApplyDiagnosticsPhysicsOverlayUICommands( OverlayDebugState& debug, const UI::UI
         debug.isCollisionVisualizer = !debug.isCollisionVisualizer;
         result.toggledCollisionVisualizer = true;
     }
+
     uint32_t physicsDebugFlag = Physics::PHYSICS_DEBUG_NONE;
     switch ( commands.physicsDebugOverlayToToggle )
     {
@@ -81,31 +83,37 @@ ApplyDiagnosticsPhysicsOverlayUICommands( OverlayDebugState& debug, const UI::UI
     case UI::UIPhysicsDebugOverlay::None:
         break;
     }
+
     if ( physicsDebugFlag != Physics::PHYSICS_DEBUG_NONE )
     {
         debug.physicsDebugFlags ^= physicsDebugFlag;
         result.toggledPhysicsDebugFlags = true;
     }
+
     if ( commands.stepPhysicsPipelinePrevious )
     {
         StepDiagnosticsPhysicsPipelineStage( debug, -1 );
         result.steppedPipelinePrevious = true;
     }
+
     if ( commands.stepPhysicsPipelineNext )
     {
         StepDiagnosticsPhysicsPipelineStage( debug, 1 );
         result.steppedPipelineNext = true;
     }
+
     if ( commands.togglePhysicsDebugTransparent )
     {
         debug.isPhysicsDebugTransparent = !debug.isPhysicsDebugTransparent;
         result.toggledPhysicsDebugTransparent = true;
     }
+
     if ( commands.toggleBroadphaseOverlay )
     {
         debug.isBroadphaseOverlay = !debug.isBroadphaseOverlay;
         result.toggledBroadphaseOverlay = true;
     }
+
     return result;
 }
 
@@ -131,11 +139,13 @@ ApplyDiagnosticsPhysicsDebugValueUICommands( OverlayDebugState& debug, const UI:
         debug.physicsDebugAlpha = std::clamp( commands.requestedPhysicsDebugAlpha, 0.05f, 1.0f );
         result.setAlpha = true;
     }
+
     if ( commands.requestedPhysicsDebugContactLinger >= 0.0f )
     {
         debug.physicsDebugContactLinger = std::clamp( commands.requestedPhysicsDebugContactLinger, 0.0f, 5.0f );
         result.setContactLinger = true;
     }
+
     return result;
 }
 
@@ -156,8 +166,10 @@ UI::UIPhysicsDebugStatus BuildDiagnosticsPhysicsUIStatus( const OverlayDebugStat
     {
         stageIndex += stageCount;
     }
-    status.pipelineStageName =
-        Physics::PhysicsPipelineStageName( static_cast<Physics::PhysicsPipelineStage>( stageIndex ) );
+
+    status.pipelineStageName = Physics::PhysicsPipelineStageName(
+        static_cast<Physics::PhysicsPipelineStage>( stageIndex ) );
+
     status.pipelineStageIndex = stageIndex;
     status.pipelineStageCount = stageCount;
 

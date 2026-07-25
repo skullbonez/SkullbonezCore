@@ -122,11 +122,9 @@ class RenderGpuTimingScope
 
 #define PROFILE_GPU_SCOPED( owner, name )                                                                              \
     constexpr uint32_t RENDER_PROFILE_PASTE( _gpuSH_, __LINE__ ) = ::HashStr( name );                                  \
-    ::SkullbonezCore::Rendering::RenderGpuTimingScope RENDER_PROFILE_PASTE( _gpuScope_, __LINE__ )(                    \
-        owner,                                                                                                         \
-        name,                                                                                                          \
-        RENDER_PROFILE_PASTE( _gpuSH_, __LINE__ )                                                                      \
-    )
+    ::SkullbonezCore::Rendering::RenderGpuTimingScope RENDER_PROFILE_PASTE(                                            \
+        _gpuScope_,                                                                                                    \
+        __LINE__ )( owner, name, RENDER_PROFILE_PASTE( _gpuSH_, __LINE__ ) )
 
 #else
 

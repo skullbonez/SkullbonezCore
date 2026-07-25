@@ -20,8 +20,8 @@ Glossary:
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
     constants.
-  - Development-only Tracy fields disappear from builds that do not compile
-    Tracy, preserving the existing release snapshot shape.
+  - Optional Tracy instrumentation never changes the detached snapshot layout;
+    producers without Tracy leave its capability flags false.
 
 Related:
   - SkullbonezSource/UI/UITabProfiler.cpp
@@ -52,7 +52,7 @@ constexpr int HISTOGRAM_SAMPLE_COUNT = 120;
 constexpr int SLIDER_WORKER_THREADS = 19;
 
 // Concept: FrameSnapshot is the profiler tab's runtime boundary. UiTextPass
-// owns the live SkullbonezCore::Core::Profiler/renderer reads, copies fixed-capacity values here, and
+// owns the live profiler/renderer reads, copies fixed-capacity values here, and
 // the UI keeps this copy for drawing plus next-frame input hit tests.
 // Lifetime: name pointers are borrowed from profiler/render diagnostics storage
 // for immediate rendering; input paths only depend on counts, hashes, and depth.
@@ -113,11 +113,11 @@ struct FrameSnapshot
     WorkerCoreSampleSnapshot workerCoreSamples[MAX_WORKER_CORE_SAMPLES] = {};
     int workerCoreSampleCount = 0;
     DrawTraceSnapshot drawTrace;
-#if defined( TRACY_ENABLE )
+    // ABI invariant: detached UI values never change layout with optional
+    // profiler instrumentation. Non-Tracy producers leave these false.
     bool tracyBuildEnabled = false;
     bool tracyInitialized = false;
     bool tracyViewerConnected = false;
-#endif
 };
 
 struct TimelineSegment
@@ -196,54 +196,46 @@ void ApplyDefaultExpansion( UIProfilerTabState& state );
 void ApplyExpandAll( UIProfilerTabState& state );
 
 int ContentHeight( const UIProfilerTabState& state );
-bool HandleContentClick(
-    UIProfilerTabState& state,
-    InGameUIInputResult& result,
-    int& activeSlider,
-    int contentX,
-    int contentY,
-    float contentW,
-    float scrollY,
-    int mouseX,
-    int mouseY,
-    int currentWorkerThreads,
-    int maxWorkerThreads
-);
-bool UpdateActiveSlider(
-    UIProfilerTabState& state,
-    int activeSlider,
-    int mouseX,
-    int maxWorkerThreads,
-    InGameUIInputResult& result
-);
+bool HandleContentClick( UIProfilerTabState& state,
+                         InGameUIInputResult& result,
+                         int& activeSlider,
+                         int contentX,
+                         int contentY,
+                         float contentW,
+                         float scrollY,
+                         int mouseX,
+                         int mouseY,
+                         int currentWorkerThreads,
+                         int maxWorkerThreads );
+bool UpdateActiveSlider( UIProfilerTabState& state,
+                         int activeSlider,
+                         int mouseX,
+                         int maxWorkerThreads,
+                         InGameUIInputResult& result );
 bool CommitActiveSlider( UIProfilerTabState& state, int activeSlider, InGameUIInputResult& result );
 
-bool HandlePerformanceHistogramInput(
-    UIProfilerTabState& state,
-    InGameUIInputResult& result,
-    int screenW,
-    int screenH,
-    int mouseX,
-    int mouseY,
-    bool leftDown,
-    bool leftPressed,
-    bool leftReleased,
-    int wheelDelta
-);
+bool HandlePerformanceHistogramInput( UIProfilerTabState& state,
+                                      InGameUIInputResult& result,
+                                      int screenW,
+                                      int screenH,
+                                      int mouseX,
+                                      int mouseY,
+                                      bool leftDown,
+                                      bool leftPressed,
+                                      bool leftReleased,
+                                      int wheelDelta );
 void PushPerformanceHistogramSample( UIProfilerTabState& state, const InGameUIFrameData& data );
 void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& draw, const InGameUIFrameData& data );
 
-void Draw(
-    UIProfilerTabState& state,
-    const UIDrawContext& draw,
-    const InGameUIFrameData& data,
-    float contentX,
-    float contentY,
-    float contentW,
-    float contentH,
-    float scrollY,
-    int activeSlider
-);
+void Draw( UIProfilerTabState& state,
+           const UIDrawContext& draw,
+           const InGameUIFrameData& data,
+           float contentX,
+           float contentY,
+           float contentW,
+           float contentH,
+           float scrollY,
+           int activeSlider );
 
 } // namespace ProfilerTab
 } // namespace UI

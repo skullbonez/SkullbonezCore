@@ -41,6 +41,7 @@ std::string SolverHashLogPath( const std::string& presentationPath )
     {
         return presentationPath.substr( 0, dot ) + ".solver" + presentationPath.substr( dot );
     }
+
     return presentationPath + ".solver";
 }
 
@@ -50,13 +51,11 @@ int SaturatingFrameCount( std::size_t count )
 }
 } // namespace
 
-void ReplayArtifactHashLog::Configure(
-    const char* requestedPath,
-    ReplayRecorderConfig& presentationConfig,
-    ReplayRecorderConfig& solverConfig,
-    const ReplayRecorderStats& presentationStats,
-    const ReplayRecorderStats& solverStats
-)
+void ReplayArtifactHashLog::Configure( const char* requestedPath,
+                                       ReplayRecorderConfig& presentationConfig,
+                                       ReplayRecorderConfig& solverConfig,
+                                       const ReplayRecorderStats& presentationStats,
+                                       const ReplayRecorderStats& solverStats )
 {
     m_presentation.close();
     m_solver.close();
@@ -79,6 +78,7 @@ void ReplayArtifactHashLog::Configure(
             presentationConfig.hashLogPath.clear();
         }
     }
+
     if ( !solverConfig.hashLogPath.empty() )
     {
         m_solver.open( solverConfig.hashLogPath, std::ios::out | std::ios::trunc );
@@ -103,6 +103,7 @@ void ReplayArtifactHashLog::ResetTimeline( const char* sceneLabel )
             << "frame,scene_frame,simulation_seconds,body_count,contact_count,pipeline_record_count,checkpoint,state_"
                "hash\n";
     }
+
     if ( m_solver.is_open() )
     {
         m_solver << "# solver_replay_scene scene=\"" << label << "\" retention_seconds=" << m_solverRetentionSeconds
@@ -119,20 +120,19 @@ void ReplayArtifactHashLog::AppendPresentation( const ReplayPresentationSample& 
     {
         return;
     }
+
     char line[256] = {};
-    sprintf_s(
-        line,
-        sizeof( line ),
-        "%llu,%d,%.6f,%llu,%u,%u,%u,0x%016llX\n",
-        static_cast<unsigned long long>( sample.frameIndex ),
-        sample.sceneFrame,
-        sample.simulationSeconds,
-        static_cast<unsigned long long>( sample.bodies.size() ),
-        static_cast<unsigned>( sample.contactCount ),
-        static_cast<unsigned>( sample.pipelineRecordCount ),
-        sample.checkpointBoundary ? 1u : 0u,
-        static_cast<unsigned long long>( sample.stateHash )
-    );
+    sprintf_s( line,
+               sizeof( line ),
+               "%llu,%d,%.6f,%llu,%u,%u,%u,0x%016llX\n",
+               static_cast<unsigned long long>( sample.frameIndex ),
+               sample.sceneFrame,
+               sample.simulationSeconds,
+               static_cast<unsigned long long>( sample.bodies.size() ),
+               static_cast<unsigned>( sample.contactCount ),
+               static_cast<unsigned>( sample.pipelineRecordCount ),
+               sample.checkpointBoundary ? 1u : 0u,
+               static_cast<unsigned long long>( sample.stateHash ) );
 
     m_presentation << line;
 }
@@ -143,21 +143,20 @@ void ReplayArtifactHashLog::AppendSolver( const ReplaySolverFrameSample& sample 
     {
         return;
     }
+
     char line[288] = {};
-    sprintf_s(
-        line,
-        sizeof( line ),
-        "%llu,%d,%.6f,%llu,%u,%u,%u,0x%016llX,0x%016llX\n",
-        static_cast<unsigned long long>( sample.frameIndex ),
-        sample.sceneFrame,
-        sample.simulationSeconds,
-        static_cast<unsigned long long>( sample.bodies.size() ),
-        static_cast<unsigned>( sample.contactCount ),
-        static_cast<unsigned>( sample.pipelineRecordCount ),
-        sample.checkpointBoundary ? 1u : 0u,
-        static_cast<unsigned long long>( sample.presentationHash ),
-        static_cast<unsigned long long>( sample.solverHash )
-    );
+    sprintf_s( line,
+               sizeof( line ),
+               "%llu,%d,%.6f,%llu,%u,%u,%u,0x%016llX,0x%016llX\n",
+               static_cast<unsigned long long>( sample.frameIndex ),
+               sample.sceneFrame,
+               sample.simulationSeconds,
+               static_cast<unsigned long long>( sample.bodies.size() ),
+               static_cast<unsigned>( sample.contactCount ),
+               static_cast<unsigned>( sample.pipelineRecordCount ),
+               sample.checkpointBoundary ? 1u : 0u,
+               static_cast<unsigned long long>( sample.presentationHash ),
+               static_cast<unsigned long long>( sample.solverHash ) );
 
     m_solver << line;
 }
@@ -168,6 +167,7 @@ void ReplayArtifactHashLog::Flush()
     {
         m_presentation.flush();
     }
+
     if ( m_solver.is_open() )
     {
         m_solver.flush();

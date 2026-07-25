@@ -73,11 +73,9 @@ namespace Runtime
 namespace OperatorEditorFrameComposer
 {
 
-static void FillOperatorRenderingParameters(
-    SkullbonezCore::UI::OperatorEditorRenderingView& view,
-    const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary,
-    const SkullbonezCore::Core::CinematicRenderConfig& cinematic
-)
+static void FillOperatorRenderingParameters( SkullbonezCore::UI::OperatorEditorRenderingView& view,
+                                             const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary,
+                                             const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
 {
     using SkullbonezCore::UI::UICinematicFeature;
     using SkullbonezCore::UI::UICinematicParam;
@@ -85,18 +83,15 @@ static void FillOperatorRenderingParameters(
     // Invariant: every enum slot crosses the runtime/presentation boundary
     // explicitly. The count assertions make a newly authored parameter fail
     // the build until this bounded projection is updated.
-    static_assert(
-        static_cast<int>( UIRenderParam::Count ) ==
-        SkullbonezCore::UI::OperatorEditorRenderingView::ordinaryParameterCount
-    );
-    static_assert(
-        static_cast<int>( UICinematicParam::Count ) ==
-        SkullbonezCore::UI::OperatorEditorRenderingView::cinematicParameterCount
-    );
-    static_assert(
-        static_cast<int>( UICinematicFeature::Count ) ==
-        SkullbonezCore::UI::OperatorEditorRenderingView::cinematicFeatureCount
-    );
+    static_assert( static_cast<int>( UIRenderParam::Count ) ==
+                   SkullbonezCore::UI::OperatorEditorRenderingView::ordinaryParameterCount );
+
+    static_assert( static_cast<int>( UICinematicParam::Count ) ==
+                   SkullbonezCore::UI::OperatorEditorRenderingView::cinematicParameterCount );
+
+    static_assert( static_cast<int>( UICinematicFeature::Count ) ==
+                   SkullbonezCore::UI::OperatorEditorRenderingView::cinematicFeatureCount );
+
     const auto ordinaryValue = [&]( UIRenderParam parameter, float value )
     { view.ordinaryParameters[static_cast<int>( parameter )] = value; };
 
@@ -210,29 +205,28 @@ static void FillOperatorRenderingParameters(
     view.cinematicFeatures[static_cast<int>( UICinematicFeature::Sky )] = cinematic.skyAtmosphereEnabled;
     view.cinematicFeatures[static_cast<int>( UICinematicFeature::Clouds )] = cinematic.cloudsEnabled;
     view.cinematicFeatures[static_cast<int>( UICinematicFeature::GodRays )] = cinematic.godRaysEnabled;
-    view.cinematicFeatures[static_cast<int>( UICinematicFeature::VolumetricLight )] =
-        cinematic.volumetricLightingEnabled;
+    view.cinematicFeatures[static_cast<int>( UICinematicFeature::VolumetricLight )] = cinematic
+                                                                                          .volumetricLightingEnabled;
+
     view.cinematicFeatures[static_cast<int>( UICinematicFeature::Bloom )] = cinematic.bloomEnabled;
     view.cinematicFeatures[static_cast<int>( UICinematicFeature::Fog )] = cinematic.fogEnabled;
     view.cinematicFeatures[static_cast<int>( UICinematicFeature::TerrainRelief )] = cinematic.terrainReliefEnabled;
     view.cinematicFeatures[static_cast<int>( UICinematicFeature::Shadows )] = cinematic.shadow.enabled;
 }
 
-void Render(
-    RuntimeFrameHostView& host,
-    RuntimeFrameInteractionView& interactionOwners,
-    RuntimeFrameSceneView& sceneOwners,
-    RuntimeRenderer& renderer,
-    ReplayRuntime& replayRuntime,
-    const RuntimeUiTextFrameFacts& facts,
-    SkullbonezCore::UI::OperatorEditorFrameView& operatorEditorView,
-    const ReplayOverlay::ReplayOverlayStateView& replayOverlay,
-    SkullbonezCore::Rendering::Dx12Diagnostics& renderDiagnostics,
-    SkullbonezCore::Rendering::Dx12ResourceBuilder& renderResources,
-    SkullbonezCore::Rendering::Dx12TextureOwner& renderTextures,
-    SkullbonezCore::Rendering::Dx12GeometryOwner& renderGeometry,
-    const RuntimeRenderModelFrameView& renderModels
-)
+void Render( RuntimeFrameHostView& host,
+             RuntimeFrameInteractionView& interactionOwners,
+             RuntimeFrameSceneView& sceneOwners,
+             RuntimeRenderer& renderer,
+             ReplayRuntime& replayRuntime,
+             const RuntimeUiTextFrameFacts& facts,
+             SkullbonezCore::UI::OperatorEditorFrameView& operatorEditorView,
+             const ReplayOverlay::ReplayOverlayStateView& replayOverlay,
+             SkullbonezCore::Rendering::Dx12Diagnostics& renderDiagnostics,
+             SkullbonezCore::Rendering::Dx12ResourceBuilder& renderResources,
+             SkullbonezCore::Rendering::Dx12TextureOwner& renderTextures,
+             SkullbonezCore::Rendering::Dx12GeometryOwner& renderGeometry,
+             const RuntimeRenderModelFrameView& renderModels )
 {
     DiagnosticsRuntime& diagnosticsRuntime = host.diagnosticsRuntime;
     RunTimerState& timers = sceneOwners.timers;
@@ -255,8 +249,9 @@ void Render(
     const ReplayHudStatus sharedReplayHud = replayRuntime.BuildHudStatus( false );
     const SkullbonezCore::Core::CinematicRenderConfig& sharedCinematic = ActiveSceneCinematicConfig( scene, config );
     const bool sharedCinematicRendering = IsSceneCinematicRenderingEnabled( scene, config, launchOptions, debug, true );
-    const bool sharedShadows =
-        sharedCinematicRendering ? sharedCinematic.shadow.enabled : config.ordinaryRender.shadow.enabled;
+    const bool sharedShadows = sharedCinematicRendering ? sharedCinematic.shadow.enabled
+                                                        : config.ordinaryRender.shadow.enabled;
+
     // Invariant: build this common value once. The legacy draw pass and the
     // secondary editor receive this exact object, not independently sampled owners.
     operatorEditorView.scene = { uiScenePath ? uiScenePath->c_str() : "",
@@ -302,11 +297,15 @@ void Render(
             break;
         }
     }
+
     operatorEditorView.viewport = { facts.cameraModeLabel, sharedGizmoMode, facts.presentationPinned };
 
-    operatorEditorView.replay = { sharedReplayHud.memoryPreset,           sharedReplayHud.requestedRetentionSeconds,
-                                  sharedReplayHud.requestedBudgetMiB,     sharedReplayHud.presentationRetentionSeconds,
-                                  sharedReplayHud.solverRetentionSeconds, sharedReplayHud.memoryBudgetClamped,
+    operatorEditorView.replay = { sharedReplayHud.memoryPreset,
+                                  sharedReplayHud.requestedRetentionSeconds,
+                                  sharedReplayHud.requestedBudgetMiB,
+                                  sharedReplayHud.presentationRetentionSeconds,
+                                  sharedReplayHud.solverRetentionSeconds,
+                                  sharedReplayHud.memoryBudgetClamped,
                                   sharedReplayHud.solverWindowReduced };
 
     operatorEditorView.surfaces = { ui.IsVisible(), operatorEditorView.surfaces.secondaryVisible };
@@ -323,11 +322,13 @@ void Render(
                                  static_cast<int>( sharedEditor.history.RedoDepth() ) };
 
     const SceneEntityStore& hierarchyEntities = sceneController.Scene().Entities();
-    const int selectedHierarchyRow =
-        RunInternal::PeekSelectedEditorModelIndex( sharedEditor, sceneController.Scene().BodyStore() );
+    const int selectedHierarchyRow = RunInternal::PeekSelectedEditorModelIndex( sharedEditor,
+                                                                                sceneController.Scene().BodyStore() );
+
     operatorEditorView.hierarchy.totalRowCount = static_cast<uint32_t>( hierarchyEntities.Count() );
     const uint32_t hierarchyRowCount = (std::min)( operatorEditorView.hierarchy.totalRowCount,
                                                    SkullbonezCore::UI::OPERATOR_EDITOR_HIERARCHY_ROW_CAPACITY );
+
     operatorEditorView.hierarchy.rowCount = hierarchyRowCount;
     operatorEditorView.hierarchy.truncated = operatorEditorView.hierarchy.totalRowCount > hierarchyRowCount;
     for ( uint32_t index = 0u; index < hierarchyRowCount; ++index )
@@ -347,6 +348,7 @@ void Render(
             operatorEditorView.hierarchy.selectedSceneObjectId = row.sceneObjectId;
         }
     }
+
     operatorEditorView.assets = { sharedEditor.objectType,
                                   SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT,
                                   host.assets.FindAssetLibrarySourceAsset( "assetlib.buildings" ) != nullptr };
@@ -371,8 +373,8 @@ void Render(
             const PhysicsBodyStore& bodyStore = sceneController.Scene().BodyStore();
             const ColliderStore& colliderStore = sceneController.Scene().Colliders();
             const PhysicsBodyRecord* body = entity ? bodyStore.RecordForHandle( entity->body ) : nullptr;
-            const PhysicsColliderHandle colliderHandle =
-                entity ? colliderStore.HandleForBodyHandle( entity->body ) : PhysicsColliderHandle {};
+            const PhysicsColliderHandle colliderHandle = entity ? colliderStore.HandleForBodyHandle( entity->body )
+                                                                : PhysicsColliderHandle {};
 
             const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
             const ColliderAuthoringRecord* colliderAuthoring = colliderStore.AuthoringRecordForHandle( colliderHandle );
@@ -389,10 +391,10 @@ void Render(
                 const Vector3 linearVelocity = PhysicsBodyLinearVelocity( hot, row );
                 const Vector3 angularVelocity = PhysicsBodyAngularVelocity( hot, row );
                 inspector.displayName = entity->displayName;
-                inspector.renderMaterialName =
-                    entity->renderMaterial.name[0] != '\0'
-                        ? entity->renderMaterial.name
-                        : SkullbonezCore::Rendering::RenderMaterialKindName( entity->renderMaterial.kind );
+                inspector.renderMaterialName = entity->renderMaterial.name[0] != '\0'
+                                                   ? entity->renderMaterial.name
+                                                   : SkullbonezCore::Rendering::RenderMaterialKindName( entity->renderMaterial.kind );
+
                 inspector.contactMaterialName = colliderAuthoring->contactMaterialName;
                 inspector.assetName = entity->asset.assetName;
                 inspector.assetInstanceName = entity->asset.instanceName;
@@ -407,12 +409,10 @@ void Render(
                 inspector.position[0] = position.x;
                 inspector.position[1] = position.y;
                 inspector.position[2] = position.z;
-                orientation.GetComponents(
-                    inspector.orientation[0],
-                    inspector.orientation[1],
-                    inspector.orientation[2],
-                    inspector.orientation[3]
-                );
+                orientation.GetComponents( inspector.orientation[0],
+                                           inspector.orientation[1],
+                                           inspector.orientation[2],
+                                           inspector.orientation[3] );
 
                 inspector.linearVelocity[0] = linearVelocity.x;
                 inspector.linearVelocity[1] = linearVelocity.y;
@@ -424,6 +424,7 @@ void Render(
                 {
                     inspector.baseColor[channel] = entity->renderMaterial.baseColor[channel];
                 }
+
                 inspector.mass = body->mass;
                 inspector.volume = body->volume;
                 inspector.boundingRadius = collider->boundingRadius;
@@ -440,6 +441,7 @@ void Render(
                 inspector.assetBacked = entity->asset.isAssetBacked;
             }
         }
+
         const Gameplay::TornadoFieldConfig& tornado = sceneController.Scene().Tornado().GetFieldConfig();
         operatorEditorView.world = { scene.modelCount,
                                      config.runtimeCapacity.sceneObjectCapacity,
@@ -477,13 +479,13 @@ void Render(
                                       diagnosticsRuntime.Capture(),
                                       config.runtimeRender.presentationInterpolation,
                                       facts.presentationPinned,
-                                      facts.presentationAlpha }
-        );
+                                      facts.presentationAlpha } );
+
         renderTargetPreviews = renderer.ResourceLifecycle().BuildRenderTargetPreviewSnapshot(
             sharedShadows,
             sharedCinematicRendering,
-            sharedCinematicRendering && sharedCinematic.volumetricLightingEnabled
-        );
+            sharedCinematicRendering && sharedCinematic.volumetricLightingEnabled );
+
         SkullbonezCore::UI::OperatorEditorDiagnosticsView& diagnostics = operatorEditorView.diagnostics;
         // Invariant: the right rail reads fixed snapshots and cached counters;
         // opening Diagnostics must not trigger an allocation scan or grow data.
@@ -495,10 +497,12 @@ void Render(
         diagnostics.workerThreadCount = workerPool.GetThreadCount();
         diagnostics.maxWorkerThreadCount = SkullbonezCore::Threading::WorkerPool::MaxThreadCount();
         diagnostics.fps = facts.secondsPerFrame > 0.0 ? static_cast<float>( 1.0 / facts.secondsPerFrame ) : 0.0f;
-        diagnostics.renderMs =
-            ( timers.rollingRenderTime > 0.0f ? timers.rollingRenderTime : timers.renderTime ) * 1000.0f;
-        diagnostics.physicsMs =
-            ( timers.rollingPhysicsTime > 0.0f ? timers.rollingPhysicsTime : timers.physicsTime ) * 1000.0f;
+        diagnostics.renderMs = ( timers.rollingRenderTime > 0.0f ? timers.rollingRenderTime : timers.renderTime ) *
+                               1000.0f;
+
+        diagnostics.physicsMs = ( timers.rollingPhysicsTime > 0.0f ? timers.rollingPhysicsTime : timers.physicsTime ) *
+                                1000.0f;
+
         diagnostics.cpuFrameMs = timers.cpuFrameWorkMs;
         diagnostics.gpuFrameMs = timers.gpuFrameWorkMs;
         diagnostics.physicsDebugFlags = debug.physicsDebugFlags;
@@ -508,10 +512,12 @@ void Render(
         {
             stageIndex += stageCount;
         }
+
         diagnostics.physicsPipelineStageIndex = stageIndex;
         diagnostics.physicsPipelineStageCount = stageCount;
-        diagnostics.physicsPipelineStageName =
-            PhysicsPipelineStageName( static_cast<PhysicsPipelineStage>( stageIndex ) );
+        diagnostics.physicsPipelineStageName = PhysicsPipelineStageName(
+            static_cast<PhysicsPipelineStage>( stageIndex ) );
+
         diagnostics.physicsDebugAlpha = debug.physicsDebugAlpha;
         diagnostics.physicsDebugContactLinger = debug.physicsDebugContactLinger;
         diagnostics.rayCastImpulseStrength = runtimeTools.RayCastTest().impulseStrength;
@@ -526,18 +532,23 @@ void Render(
         diagnostics.reconciledTotalBytes = mainMemory.reconciledTotalBytes;
         diagnostics.uploadUsedBytes = renderMemory.uploadUsedBytes;
         diagnostics.uploadCapacityBytes = renderMemory.uploadCapacityBytes;
-        diagnostics.replayReserveGrowthEvents =
-            SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::GrowthEventCount();
-        diagnostics.renderTargetCount =
-            (std::min)( renderTargetPreviews.count, SkullbonezCore::UI::OPERATOR_EDITOR_RENDER_TARGET_CAPACITY );
+        diagnostics
+            .replayReserveGrowthEvents = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::GrowthEventCount();
+        diagnostics.renderTargetCount = (std::min)( renderTargetPreviews.count,
+                                                    SkullbonezCore::UI::OPERATOR_EDITOR_RENDER_TARGET_CAPACITY );
+
         for ( int index = 0; index < diagnostics.renderTargetCount; ++index )
         {
             const RuntimeRenderTargetPreview& source = renderTargetPreviews.targets[static_cast<size_t>( index )];
-            diagnostics.renderTargets[index] = { source.label,  source.width,
-                                                 source.height, source.available && source.textureHandle != 0u,
-                                                 source.depth,  source.hdr };
+            diagnostics.renderTargets[index] = { source.label,
+                                                 source.width,
+                                                 source.height,
+                                                 source.available && source.textureHandle != 0u,
+                                                 source.depth,
+                                                 source.hdr };
         }
     }
+
     const UiTextPassState uiTextState { debug,
                                         sceneController.CrossScenePauseLocked(),
                                         scene,
@@ -577,17 +588,17 @@ void Render(
                                       diagnosticsRuntime.Capture(),
                                       config.runtimeRender.presentationInterpolation,
                                       facts.presentationPinned,
-                                      facts.presentationAlpha }
-        );
+                                      facts.presentationAlpha } );
+
         const SkullbonezCore::Core::CinematicRenderConfig& uiCinematic = ActiveSceneCinematicConfig( scene, config );
         const bool uiCinematicRendering = IsSceneCinematicRenderingEnabled( scene, config, launchOptions, debug, true );
-        const bool shadowsAvailable =
-            uiCinematicRendering ? uiCinematic.shadow.enabled : config.ordinaryRender.shadow.enabled;
+        const bool shadowsAvailable = uiCinematicRendering ? uiCinematic.shadow.enabled
+                                                           : config.ordinaryRender.shadow.enabled;
+
         renderTargetPreviews = renderer.ResourceLifecycle().BuildRenderTargetPreviewSnapshot(
             shadowsAvailable,
             uiCinematicRendering,
-            uiCinematicRendering && uiCinematic.volumetricLightingEnabled
-        );
+            uiCinematicRendering && uiCinematic.volumetricLightingEnabled );
 
         const ReplayOverlay::ReplayOverlayRenderContext replayOverlayContext { renderTextures,
                                                                                renderGeometry,
@@ -605,8 +616,9 @@ void Render(
                                                                                timers.simulationTimer.GetTotalTime() };
 
         const int uiDrawCallStart = renderDiagnostics.GetFrameDrawCallCount();
-        const bool replayMemoryStatsRequested =
-            ui.IsVisible() && !ui.IsMinimized() && ui.GetActiveTab() == SkullbonezCore::UI::InGameUITab::Memory;
+        const bool replayMemoryStatsRequested = ui.IsVisible() && !ui.IsMinimized() &&
+                                                ui.GetActiveTab() == SkullbonezCore::UI::InGameUITab::Memory;
+
         const ReplayHudStatus replayHud = replayRuntime.BuildHudStatus( replayMemoryStatsRequested );
         PROFILE_BEGIN( host.profiler, "Frame/UI" );
         {

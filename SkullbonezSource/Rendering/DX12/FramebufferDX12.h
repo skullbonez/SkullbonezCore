@@ -96,15 +96,13 @@ class FramebufferDX12
     mutable D3D12_CPU_DESCRIPTOR_HANDLE m_savedDSV;
 
   public:
-    FramebufferDX12(
-        Dx12RenderDevice& device,
-        Dx12PipelineOwner& pipeline,
-        Dx12TextureOwner& textures,
-        Dx12DescriptorHeaps& descriptors,
-        Dx12DrawGate& drawGate,
-        Dx12ResourceRelease& resourceRelease,
-        FramebufferColorFormat colorFormat = FramebufferColorFormat::RGBA8
-    );
+    FramebufferDX12( Dx12RenderDevice& device,
+                     Dx12PipelineOwner& pipeline,
+                     Dx12TextureOwner& textures,
+                     Dx12DescriptorHeaps& descriptors,
+                     Dx12DrawGate& drawGate,
+                     Dx12ResourceRelease& resourceRelease,
+                     FramebufferColorFormat colorFormat = FramebufferColorFormat::RGBA8 );
     ~FramebufferDX12();
 
     bool Create( int width, int height );

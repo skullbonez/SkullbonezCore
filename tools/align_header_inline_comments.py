@@ -1,10 +1,18 @@
-"""Align trailing inline comments in C++ headers.
+"""File: tools/align_header_inline_comments.py
+
+Purpose:
+  Align trailing inline comments in C++ headers after the primary formatter.
 
 Mental model:
   This is a header-only post-pass for clang-format. Public header declarations
   often carry caller-contract comments; keeping them in one file-wide vertical
   column makes declaration blocks easier to scan without touching implementation
   files.
+
+Summary:
+  The pass first restores repository-owned assignment-head and compact-call
+  layout, then rejoins eligible declarations and aligns their trailing comments
+  without changing code tokens.
 
 Glossary:
   Trailing inline comment: A // comment after code on the same line.
@@ -28,6 +36,11 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
+
+from separate_multiline_cpp_declarations import (
+    normalize_assignment_heads,
+    normalize_compact_parenthesized_expressions,
+)
 
 
 DEFAULT_COLUMN_LIMIT = 120
@@ -327,6 +340,8 @@ def main() -> int:
                 print(f"FAIL: {error}")
                 return 1
 
+        source, _ = normalize_assignment_heads(source)
+        source, _ = normalize_compact_parenthesized_expressions(source)
         result = format_header_text(source, args.column_limit)
         aligned_comments += result.aligned_comments
         joined_declarations += result.joined_declarations

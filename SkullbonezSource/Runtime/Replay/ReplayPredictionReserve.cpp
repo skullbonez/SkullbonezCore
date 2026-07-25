@@ -46,8 +46,8 @@ namespace
 // larger retained paths. The registered hard cap is a real byte ceiling, not a
 // theoretical element-count product; growth count is telemetry so interactive
 // replay does not trip a per-run count fuse.
-constexpr int REPLAY_PREDICTION_RESERVE_GROWTH_LIMIT =
-    SkullbonezCore::Core::Allocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
+constexpr int REPLAY_PREDICTION_RESERVE_GROWTH_LIMIT = SkullbonezCore::Core::Allocation::
+    RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
 constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN = 512u;
 constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MAX = 2048u;
 constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_GROWTH_CHUNK = 4096u;
@@ -57,8 +57,8 @@ namespace ReplayPredictionReserveOperations
 {
 SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle ReplayPredictionReserveOwner() noexcept
 {
-    static const SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle owner =
-        SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::RegisterOwner(
+    static const SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle
+        owner = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::RegisterOwner(
             { REPLAY_PREDICTION_RESERVE_OWNER,
               SkullbonezCore::Core::Allocation::RuntimeReserveSubsystem::Replay,
               SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
@@ -66,8 +66,8 @@ SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle ReplayPredictionRese
               REPLAY_PREDICTION_RESERVE_HARD_BYTES,
               REPLAY_PREDICTION_RESERVE_GROWTH_LIMIT,
               true,
-              "replay prediction supports large retained path visualization under a hard byte budget" }
-        );
+              "replay prediction supports large retained path visualization under a hard byte budget" } );
+
     return owner;
 }
 
@@ -77,8 +77,7 @@ bool RequestReplayPredictionReserveGrowth(
     int oldCapacityBytes,
     int requestedCapacityBytes,
     int elementSizeBytes,
-    SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult& outResult
-) noexcept
+    SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult& outResult ) noexcept
 {
     outResult = {};
     if ( !targetName || oldCapacityBytes < 0 || requestedCapacityBytes <= oldCapacityBytes ||
@@ -95,8 +94,7 @@ bool RequestReplayPredictionReserveGrowth(
         frameNumber,
         oldCapacityBytes,
         requestedCapacityBytes,
-        elementSizeBytes
-    };
+        elementSizeBytes };
 
     outResult = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
     return outResult.granted;
@@ -134,21 +132,18 @@ uint64_t ReplayPredictionWorldSnapshotMemoryBytes( const ReplaySolverWorldSnapsh
     return bytes;
 }
 
-void AddReplayPredictionFrameCategoryBytes(
-    SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories,
-    const RunReplayPredictionFrame& frame
-)
+void AddReplayPredictionFrameCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories,
+                                            const RunReplayPredictionFrame& frame )
 {
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         categories,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionFrameBodies,
-        ReplayPredictionVectorCapacityBytes( frame.bodies )
-    );
+        ReplayPredictionVectorCapacityBytes( frame.bodies ) );
+
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         categories,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionDebugContacts,
-        ReplayPredictionVectorCapacityBytes( frame.debugContacts )
-    );
+        ReplayPredictionVectorCapacityBytes( frame.debugContacts ) );
 }
 
 std::size_t RoundUpReplayPredictionCapacity( std::size_t requestedCapacity, std::size_t chunk )
@@ -157,6 +152,7 @@ std::size_t RoundUpReplayPredictionCapacity( std::size_t requestedCapacity, std:
     {
         return requestedCapacity;
     }
+
     const std::size_t remainder = requestedCapacity % chunk;
     return remainder == 0 ? requestedCapacity : requestedCapacity + ( chunk - remainder );
 }
@@ -164,19 +160,19 @@ std::size_t RoundUpReplayPredictionCapacity( std::size_t requestedCapacity, std:
 std::size_t ReplayPredictionInitialDebugContactCapacity( int modelCount )
 {
     const std::size_t modelScaled = static_cast<std::size_t>( (std::max)( modelCount, 1 ) ) * 8u;
-    return std::clamp(
-        modelScaled,
-        REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN,
-        REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MAX
-    );
+    return std::clamp( modelScaled,
+                       REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN,
+                       REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MAX );
 }
 
 std::size_t ReplayPredictionNextDebugContactCapacity( std::size_t currentCapacity, std::size_t requiredCapacity )
 {
-    const std::size_t chunked =
-        RoundUpReplayPredictionCapacity( requiredCapacity, REPLAY_PREDICTION_DEBUG_CONTACT_GROWTH_CHUNK );
-    const std::size_t doubled =
-        currentCapacity > 0 ? currentCapacity * 2u : REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN;
+    const std::size_t chunked = RoundUpReplayPredictionCapacity( requiredCapacity,
+                                                                 REPLAY_PREDICTION_DEBUG_CONTACT_GROWTH_CHUNK );
+
+    const std::size_t doubled = currentCapacity > 0 ? currentCapacity * 2u
+                                                    : REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN;
+
     return (std::max)( chunked, doubled );
 }
 
@@ -203,6 +199,7 @@ int ReplayPredictionEngineReserveBytes( const Physics::PhysicsEngine& engine )
     {
         return 0;
     }
+
     return static_cast<int>( bytes );
 }
 } // namespace ReplayPredictionReserveOperations

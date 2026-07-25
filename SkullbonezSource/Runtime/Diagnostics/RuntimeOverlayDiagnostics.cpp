@@ -53,11 +53,9 @@ std::unique_ptr<RuntimeOverlayDiagnostics> RuntimeOverlayDiagnostics::CreateForS
 }
 
 
-void RuntimeOverlayDiagnostics::ApplyStartupPolicy(
-    const RunStartupOverrides& overrides,
-    RunLaunchOptions& launchOptions,
-    UI::InGameUI& operatorUi
-)
+void RuntimeOverlayDiagnostics::ApplyStartupPolicy( const RunStartupOverrides& overrides,
+                                                    RunLaunchOptions& launchOptions,
+                                                    UI::InGameUI& operatorUi )
 {
     const RunLaunchOptions& launch = overrides.launch;
     if ( overrides.hasInitialOverlayMode )
@@ -67,6 +65,7 @@ void RuntimeOverlayDiagnostics::ApplyStartupPolicy(
         {
             operatorUi.SetVisible( true );
         }
+
         switch ( overrides.initialOverlayMode )
         {
         case OverlayMode::SceneStats:
@@ -84,49 +83,56 @@ void RuntimeOverlayDiagnostics::ApplyStartupPolicy(
             break;
         }
     }
+
     if ( overrides.hideTopText )
     {
         m_presentationState.isTopTextHidden = true;
     }
+
     if ( overrides.showBroadphaseVisualizer )
     {
         m_presentationState.isBroadphaseOverlay = true;
     }
+
     if ( launch.generatedObjectTypeOverride != GeneratedObjectTypeOverride::Mixed )
     {
         launchOptions.generatedObjectTypeOverride = launch.generatedObjectTypeOverride;
     }
+
     if ( launch.hasPhysicsDebugFlagsOverride )
     {
         launchOptions.hasPhysicsDebugFlagsOverride = true;
         launchOptions.physicsDebugFlagsOverride = launch.physicsDebugFlagsOverride & PHYSICS_DEBUG_ALL;
     }
+
     if ( launch.hasPhysicsDebugTransparentOverride )
     {
         launchOptions.hasPhysicsDebugTransparentOverride = true;
         launchOptions.physicsDebugTransparentOverride = launch.physicsDebugTransparentOverride;
     }
+
     if ( launch.hasPhysicsDebugAlphaOverride )
     {
         launchOptions.hasPhysicsDebugAlphaOverride = true;
-        launchOptions.physicsDebugAlphaOverride =
-            (std::max)( 0.05f, (std::min)( launch.physicsDebugAlphaOverride, 1.0f ) );
+        launchOptions.physicsDebugAlphaOverride = (std::max)( 0.05f,
+                                                              (std::min)( launch.physicsDebugAlphaOverride, 1.0f ) );
     }
+
     if ( launch.hasPhysicsDebugContactLingerOverride )
     {
         launchOptions.hasPhysicsDebugContactLingerOverride = true;
-        launchOptions.physicsDebugContactLingerOverride =
-            (std::max)( 0.0f, (std::min)( launch.physicsDebugContactLingerOverride, 5.0f ) );
+        launchOptions
+            .physicsDebugContactLingerOverride = (std::max)( 0.0f,
+                                                             (std::min)( launch.physicsDebugContactLingerOverride,
+                                                                         5.0f ) );
     }
 }
 
 
-void RuntimeOverlayDiagnostics::UpdatePostPhysics(
-    SceneWorld& scene,
-    RuntimeValidationHarness& validationHarness,
-    float contactEpsilon,
-    double secondsPerFrame
-)
+void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneWorld& scene,
+                                                   RuntimeValidationHarness& validationHarness,
+                                                   float contactEpsilon,
+                                                   double secondsPerFrame )
 {
     PROFILE_BEGIN( m_profiler, "Frame/PostPhysics" );
 
@@ -141,18 +147,15 @@ void RuntimeOverlayDiagnostics::UpdatePostPhysics(
     const int activeCellCount = grid.GetActiveCellCount();
     grid.GetActiveCells( activeCells, SpatialGrid::MAX_BUCKETS );
     const std::vector<int64_t>& collisionKeys = PhysicsEngine::ReadCollisionCellKeys( physics );
-    m_renderResources.m_broadphaseOverlay.Update(
-        static_cast<float>( secondsPerFrame ),
-        activeCells,
-        activeCellCount,
-        collisionKeys.data(),
-        static_cast<int>( collisionKeys.size() )
-    );
+    m_renderResources.m_broadphaseOverlay.Update( static_cast<float>( secondsPerFrame ),
+                                                  activeCells,
+                                                  activeCellCount,
+                                                  collisionKeys.data(),
+                                                  static_cast<int>( collisionKeys.size() ) );
 
     validationHarness.SceneGates().UpdateRequiredBroadphaseXCells(
         activeCells,
-        (std::min)( activeCellCount, SpatialGrid::MAX_BUCKETS )
-    );
+        (std::min)( activeCellCount, SpatialGrid::MAX_BUCKETS ) );
 
     PROFILE_END( m_profiler, "Frame/PostPhysics/BroadphaseVisualizer" );
 
@@ -172,9 +175,7 @@ void RuntimeOverlayDiagnostics::UpdatePostPhysics(
     PROFILE_BEGIN( m_profiler, "Frame/PostPhysics/PhysicsDebugVisualizer" );
     m_renderResources.m_physicsDebugOverlay.SetFlags( m_presentationState.physicsDebugFlags );
     m_renderResources.m_physicsDebugOverlay.SetContactLingerSeconds( m_presentationState.physicsDebugContactLinger );
-    m_renderResources.m_physicsDebugOverlay.SetPipelineStageCursor(
-        m_presentationState.physicsDebugPipelineStageCursor
-    );
+    m_renderResources.m_physicsDebugOverlay.SetPipelineStageCursor( m_presentationState.physicsDebugPipelineStageCursor );
     const PhysicsDebugFrameView physicsDebugView { scene.BodyStore(),
                                                    scene.Colliders(),
                                                    PhysicsEngine::ReadSleepStates( physics ),
@@ -188,8 +189,7 @@ void RuntimeOverlayDiagnostics::UpdatePostPhysics(
     const std::vector<PhysicsDebugContact>& debugContacts = PhysicsEngine::ReadDebugContacts( physics );
     validationHarness.SceneGates().UpdateRequiredContacts(
         SceneAutomationGatePhysicsView { scene.BodyStore(), scene.Colliders(), debugContacts },
-        contactEpsilon
-    );
+        contactEpsilon );
 
     PROFILE_END( m_profiler, "Frame/PostPhysics/PhysicsDebugVisualizer" );
 
@@ -200,8 +200,8 @@ void RuntimeOverlayDiagnostics::UpdatePostPhysics(
 }
 
 
-RuntimeRenderFramePolicy
-RuntimeOverlayDiagnostics::BuildFramePolicy( double simulationSeconds, double totalSimulationSeconds ) const
+RuntimeRenderFramePolicy RuntimeOverlayDiagnostics::BuildFramePolicy( double simulationSeconds,
+                                                                      double totalSimulationSeconds ) const
 {
     RuntimeRenderFramePolicy policy;
     policy.textOnly = m_presentationState.isTextOnly;
@@ -225,10 +225,8 @@ RuntimeOverlayDiagnostics::BuildFramePolicy( double simulationSeconds, double to
 }
 
 
-void RuntimeOverlayDiagnostics::ObserveSceneLifecycle(
-    const SceneLifecyclePacket& packet,
-    const OverlayDebugState& scenePresentation
-)
+void RuntimeOverlayDiagnostics::ObserveSceneLifecycle( const SceneLifecyclePacket& packet,
+                                                       const OverlayDebugState& scenePresentation )
 {
     // Invariant: scene loading is synchronous. This boundary observes the final
     // phase reached by the attempt, so the detached value already contains all
@@ -237,14 +235,13 @@ void RuntimeOverlayDiagnostics::ObserveSceneLifecycle(
     {
         return;
     }
+
     CommitPresentation( scenePresentation );
 }
 
 
-RuntimeOverlayPresentationEdit::RuntimeOverlayPresentationEdit(
-    RuntimeOverlayDiagnostics& owner,
-    const OverlayDebugState& state
-)
+RuntimeOverlayPresentationEdit::RuntimeOverlayPresentationEdit( RuntimeOverlayDiagnostics& owner,
+                                                                const OverlayDebugState& state )
     : m_owner( owner ), m_state( state )
 {
 }

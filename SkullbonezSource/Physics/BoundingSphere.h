@@ -81,47 +81,41 @@ class BoundingSphere
 {
 
   private:
-    Vector::Vector3 m_position;                 // Local-space collision offset from owning body origin, in meters.
-    float m_radius;                             // Collision radius in meters; also the conservative broadphase radius.
-    float m_dragCoefficient;                    // Runtime-configured drag coefficient cached with the authored sphere.
+    Vector::Vector3 m_position;                           // Local-space collision offset from owning body origin, in meters.
+    float m_radius;                                       // Collision radius in meters; also the conservative broadphase radius.
+    float m_dragCoefficient;                              // Runtime-configured drag coefficient cached with the authored sphere.
 
-    float CollisionDetect(
-        const BoundingSphere& target,
-        const Geometry::Ray& targetRay,
-        const Geometry::Ray& focusRay
-    ) const;                                    // Swept sphere-sphere helper; returns earliest quadratic root or NO_COLLISION.
+    float CollisionDetect( const BoundingSphere& target,
+                           const Geometry::Ray& targetRay,
+                           const Geometry::Ray& focusRay )
+        const;                                            // Swept sphere-sphere helper; returns earliest quadratic root or NO_COLLISION.
 
   public:
-    BoundingSphere();                           // Creates an empty sphere at the local origin for staged shape setup.
+    BoundingSphere();                                     // Creates an empty sphere at the local origin for staged shape setup.
     BoundingSphere(
         float fRadius,
         const Vector::Vector3& vPosition,
-        float fDragCoefficient = 0.4f
-    );                                          // fRadius is meters; vPosition is the owning body's local-space offset.
+        float fDragCoefficient = 0.4f );                  // fRadius is meters; vPosition is the owning body's local-space offset.
     void SetDragCoefficient( float fDragCoefficient );
-    Transformation::Matrix4 GetModelMatrix(
-        const Vector::Vector3& worldPos,
-        const Transformation::Matrix4& rotation
-    ) const;                                    // T(worldPos) * R * T(localOffset) * S(radius) — used for visual sphere mesh
-    float GetVolume() const;                    // V = (4/3) * π * r³
-    float GetSubmergedVolumePercent(
-        float fluidSurfaceHeight
-    ) const;                                    // Fraction [0,1] of sphere volume below fluidSurfaceHeight  (spherical cap integral)
-    float GetDragCoefficient() const;           // C_d ≈ 0.47  (smooth sphere)
-    float GetProjectedSurfaceArea() const;      // A = π * r²  (circular cross-section)
-    float GetRadius() const;                    // Collision radius in meters.
-    float GetBoundingRadius() const;            // Conservative broadphase radius; identical to radius for spheres.
-    const Vector::Vector3& GetPosition() const; // Local-space centre offset used by model transforms and collision queries.
+    Transformation::Matrix4 GetModelMatrix( const Vector::Vector3& worldPos,
+                                            const Transformation::Matrix4& rotation )
+        const;                                            // T(worldPos) * R * T(localOffset) * S(radius) — used for visual sphere mesh
+    float GetVolume() const;                              // V = (4/3) * π * r³
+    float GetSubmergedVolumePercent( float fluidSurfaceHeight )
+        const;                                            // Fraction [0,1] of sphere volume below fluidSurfaceHeight  (spherical cap integral)
+    float GetDragCoefficient() const;                     // C_d ≈ 0.47  (smooth sphere)
+    float GetProjectedSurfaceArea() const;                // A = π * r²  (circular cross-section)
+    float GetRadius() const;                              // Collision radius in meters.
+    float GetBoundingRadius() const;                      // Conservative broadphase radius; identical to radius for spheres.
+    const Vector::Vector3& GetPosition() const;           // Local-space centre offset used by model transforms and collision queries.
     float TestCollision(
         const BoundingSphere& target,
         const Geometry::Ray& targetRay,
-        const Geometry::Ray& focusRay
-    ) const;                                    // Public swept sphere-sphere test (delegates to CollisionDetect)
-    float TestCollision(
-        const BoundingBox& target,
-        const Geometry::Ray& targetRay,
-        const Geometry::Ray& focusRay
-    ) const;                                    // Sphere vs box: approximated via bounding-radius sphere test
+        const Geometry::Ray& focusRay ) const;            // Public swept sphere-sphere test (delegates to CollisionDetect)
+    float
+    TestCollision( const BoundingBox& target,
+                   const Geometry::Ray& targetRay,
+                   const Geometry::Ray& focusRay ) const; // Sphere vs box: approximated via bounding-radius sphere test
     float
     TestCollision( const ConvexHullShape& target, const Geometry::Ray& targetRay, const Geometry::Ray& focusRay ) const;
 };

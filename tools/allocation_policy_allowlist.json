@@ -167,7 +167,7 @@
     {
       "path": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
       "patterns": [
-        "CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );"
+        "CoreAllocation::RuntimeReserveAllocator::RequestGrowth("
       ],
       "owner": "Replay recorder sample payloads",
       "phase": "replay",

@@ -115,16 +115,12 @@ inline ReplayMemoryPolicy ReplayMemoryPresetPolicy( ReplayMemoryPreset preset )
 
 inline ReplayMemoryPolicy ResolveReplayMemoryPolicy( ReplayMemoryPolicy policy )
 {
-    policy.requestedRetentionSeconds = std::clamp(
-        policy.requestedRetentionSeconds,
-        REPLAY_MEMORY_POLICY_MIN_SECONDS,
-        REPLAY_MEMORY_POLICY_MAX_SECONDS
-    );
-    policy.requestedBudgetMiB = std::clamp(
-        policy.requestedBudgetMiB,
-        REPLAY_MEMORY_POLICY_MIN_BUDGET_MIB,
-        REPLAY_MEMORY_POLICY_MAX_BUDGET_MIB
-    );
+    policy.requestedRetentionSeconds = std::clamp( policy.requestedRetentionSeconds,
+                                                   REPLAY_MEMORY_POLICY_MIN_SECONDS,
+                                                   REPLAY_MEMORY_POLICY_MAX_SECONDS );
+    policy.requestedBudgetMiB = std::clamp( policy.requestedBudgetMiB,
+                                            REPLAY_MEMORY_POLICY_MIN_BUDGET_MIB,
+                                            REPLAY_MEMORY_POLICY_MAX_BUDGET_MIB );
     policy.presentationRetentionSeconds = policy.requestedRetentionSeconds;
     policy.solverRetentionSeconds = policy.requestedRetentionSeconds;
 
@@ -153,16 +149,15 @@ inline ReplayMemoryPolicy ResolveReplayMemoryPolicy( ReplayMemoryPolicy policy )
         policy.presentationRetentionSeconds = (std::min)( policy.presentationRetentionSeconds, 30 );
     }
 
-    policy.solverRetentionSeconds =
-        std::clamp( policy.solverRetentionSeconds, REPLAY_MEMORY_POLICY_MIN_SECONDS, REPLAY_MEMORY_POLICY_MAX_SECONDS );
-    policy.presentationRetentionSeconds = std::clamp(
-        policy.presentationRetentionSeconds,
-        REPLAY_MEMORY_POLICY_MIN_SECONDS,
-        REPLAY_MEMORY_POLICY_MAX_SECONDS
-    );
+    policy.solverRetentionSeconds = std::clamp( policy.solverRetentionSeconds,
+                                                REPLAY_MEMORY_POLICY_MIN_SECONDS,
+                                                REPLAY_MEMORY_POLICY_MAX_SECONDS );
+    policy.presentationRetentionSeconds = std::clamp( policy.presentationRetentionSeconds,
+                                                      REPLAY_MEMORY_POLICY_MIN_SECONDS,
+                                                      REPLAY_MEMORY_POLICY_MAX_SECONDS );
     policy.solverWindowReduced = policy.solverRetentionSeconds < policy.requestedRetentionSeconds;
-    policy.budgetClamped =
-        policy.solverWindowReduced || policy.presentationRetentionSeconds < policy.requestedRetentionSeconds;
+    policy.budgetClamped = policy.solverWindowReduced ||
+                           policy.presentationRetentionSeconds < policy.requestedRetentionSeconds;
     return policy;
 }
 } // namespace ReplayTimelineOperations
@@ -266,14 +261,12 @@ class ReplayTimeline
     void ResetCaptureMismatchDiagnostics() noexcept;
 
   private:
-    void InstallLoadedPresentation(
-        const char* path,
-        std::vector<ReplayPresentationSample>& samples,
-        std::size_t bodyDictionaryCount,
-        std::size_t fileBytes,
-        ReplayFrameIndex firstFrame,
-        ReplayFrameIndex lastFrame
-    );
+    void InstallLoadedPresentation( const char* path,
+                                    std::vector<ReplayPresentationSample>& samples,
+                                    std::size_t bodyDictionaryCount,
+                                    std::size_t fileBytes,
+                                    ReplayFrameIndex firstFrame,
+                                    ReplayFrameIndex lastFrame );
     void ReportLatestCaptureMismatch();
     ReplayRecorder m_presentation;
     ReplaySolverRecorder m_solver;

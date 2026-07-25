@@ -84,8 +84,7 @@ inline constexpr std::array<ReplayRetainedOwnershipRule, 4> REPLAY_RETAINED_OWNE
                                   "ReplayV2Document",
                                   "ReplayV2Artifact cold I/O",
                                   false,
-                                  true }
-};
+                                  true } };
 
 enum class ReplayGrowthExhaustionRule : uint8_t
 {
@@ -126,8 +125,7 @@ inline constexpr std::array<ReplayGrowthOwnerPolicy, 3> REPLAY_GROWTH_OWNER_POLI
                               SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
                               REPLAY_PREDICTION_RESERVE_HARD_BYTES,
                               110979828u,
-                              ReplayGrowthExhaustionRule::CancelPredictionBuild }
-};
+                              ReplayGrowthExhaustionRule::CancelPredictionBuild } };
 
 inline const ReplayGrowthOwnerPolicy* FindReplayGrowthOwnerPolicy( const char* ownerName ) noexcept
 {

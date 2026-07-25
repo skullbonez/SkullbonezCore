@@ -58,19 +58,17 @@ namespace Runtime
 class ReplayRestoreService
 {
   public:
-    using ResolvedBodyTable =
-        std::array<Physics::PhysicsBodyHandle, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
+    using ResolvedBodyTable = std::array<Physics::PhysicsBodyHandle,
+                                         SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 
     // Resolves every retained body by stable scene object identity. modelRow is only
     // a cache hint; callers may deliberately pass stale hints to prove that a
     // restore cannot be redirected to another live body.
-    static bool ResolveBodiesForRestore(
-        const Physics::PhysicsBodyStore& bodyStore,
-        const ReplaySolverFrameSample& sample,
-        ResolvedBodyTable& outBodies,
-        char* outReason,
-        std::size_t reasonSize
-    )
+    static bool ResolveBodiesForRestore( const Physics::PhysicsBodyStore& bodyStore,
+                                         const ReplaySolverFrameSample& sample,
+                                         ResolvedBodyTable& outBodies,
+                                         char* outReason,
+                                         std::size_t reasonSize )
     {
         const int liveModelCount = bodyStore.Count();
         if ( sample.bodies.size() > outBodies.size() ||
@@ -84,8 +82,8 @@ class ReplayRestoreService
         for ( std::size_t bodyIndex = 0; bodyIndex < sample.bodies.size(); ++bodyIndex )
         {
             const ReplaySolverBodySample& body = sample.bodies[bodyIndex];
-            const Physics::PhysicsBodyHandle liveHandle =
-                bodyStore.HandleForSceneObjectId( body.id, body.modelRow.value );
+            const Physics::PhysicsBodyHandle liveHandle = bodyStore.HandleForSceneObjectId( body.id,
+                                                                                            body.modelRow.value );
             const Physics::PhysicsBodyRecord* liveBody = bodyStore.RecordForHandle( liveHandle );
             const int liveRow = bodyStore.ModelIndexForHandle( liveHandle );
             // Invariant: the scene object id resolves identity. The retained row is
@@ -111,12 +109,10 @@ class ReplayRestoreService
         return true;
     }
 
-    static bool ApplySolverSampleState(
-        const ReplaySolverSampleRestoreContext& context,
-        const ReplaySolverFrameSample& sample,
-        char* outReason,
-        std::size_t reasonSize
-    )
+    static bool ApplySolverSampleState( const ReplaySolverSampleRestoreContext& context,
+                                        const ReplaySolverFrameSample& sample,
+                                        char* outReason,
+                                        std::size_t reasonSize )
     {
         if ( sample.worldSnapshot.physics.version < 1 || sample.worldSnapshot.physics.version > 2 )
         {
@@ -133,13 +129,11 @@ class ReplayRestoreService
         const int restoreModelCount = static_cast<int>( sample.bodies.size() );
         ResolvedBodyTable resolvedBodies {};
         Physics::PhysicsEngine& physics = context.world.Physics();
-        if ( !ResolveBodiesForRestore(
-                 Physics::PhysicsEngine::ReadBodies( physics ),
-                 sample,
-                 resolvedBodies,
-                 outReason,
-                 reasonSize
-             ) )
+        if ( !ResolveBodiesForRestore( Physics::PhysicsEngine::ReadBodies( physics ),
+                                       sample,
+                                       resolvedBodies,
+                                       outReason,
+                                       reasonSize ) )
         {
             return false;
         }
@@ -154,8 +148,10 @@ class ReplayRestoreService
         for ( std::size_t bodyIndex = 0; bodyIndex < sample.bodies.size(); ++bodyIndex )
         {
             const ReplaySolverBodySample& body = sample.bodies[bodyIndex];
-            Math::Orientation::Quaternion
-                orientation( body.orientation[0], body.orientation[1], body.orientation[2], body.orientation[3] );
+            Math::Orientation::Quaternion orientation( body.orientation[0],
+                                                       body.orientation[1],
+                                                       body.orientation[2],
+                                                       body.orientation[3] );
             const Physics::PhysicsBodyRestoreState restore { resolvedBodies[bodyIndex],
                                                              body.id,
                                                              body.fixed,
@@ -169,31 +165,24 @@ class ReplayRestoreService
                                                              body.inverseRotationalInertia };
             if ( !physics.RestoreReplayBodyState( restore ) )
             {
-                SB_FATAL(
-                    "Runtime/ReplayRestore",
-                    "Replay body commit failed after stable-id preflight; live state may be partially restored"
-                );
+                SB_FATAL( "Runtime/ReplayRestore",
+                          "Replay body commit failed after stable-id preflight; live state may be partially restored" );
             }
         }
         physics.ClearPendingBodyImpulses();
 
         if ( !physics.RestoreReplaySolverSnapshot(
                  sample.worldSnapshot.physics,
-                 Physics::MakePhysicsBodyCountFromNonNegativeInt( restoreModelCount )
-             ) )
+                 Physics::MakePhysicsBodyCountFromNonNegativeInt( restoreModelCount ) ) )
         {
-            SB_FATAL(
-                "Runtime/ReplayRestore",
-                "Replay solver commit rejected the version/count values accepted during preflight"
-            );
+            SB_FATAL( "Runtime/ReplayRestore",
+                      "Replay solver commit rejected the version/count values accepted during preflight" );
         }
-        context.world.Tornado().SetReplayState(
-            sample.worldSnapshot.tornadoCaptureSeconds,
-            sample.worldSnapshot.tornadoEjectCooldownSeconds,
-            sample.worldSnapshot.tornadoConfig,
-            sample.worldSnapshot.tornadoSystemConfig,
-            sample.worldSnapshot.tornadoSystemElapsedSeconds
-        );
+        context.world.Tornado().SetReplayState( sample.worldSnapshot.tornadoCaptureSeconds,
+                                                sample.worldSnapshot.tornadoEjectCooldownSeconds,
+                                                sample.worldSnapshot.tornadoConfig,
+                                                sample.worldSnapshot.tornadoSystemConfig,
+                                                sample.worldSnapshot.tornadoSystemElapsedSeconds );
 
         context.world.Environment().SetGravity( sample.world.gravity );
         context.world.Environment().SetFluidSurfaceHeight( sample.world.fluidHeight );
@@ -206,9 +195,8 @@ class ReplayRestoreService
         context.scene.modelCount = restoreModelCount;
         if ( context.world.Tornado().VisualAutoEnableWithTornado() )
         {
-            context.world.Tornado().SetVisualEnabled(
-                sample.worldSnapshot.tornadoConfig.enabled || sample.worldSnapshot.tornadoSystemConfig.enabled
-            );
+            context.world.Tornado().SetVisualEnabled( sample.worldSnapshot.tornadoConfig.enabled ||
+                                                      sample.worldSnapshot.tornadoSystemConfig.enabled );
         }
 
         context.world.Cameras().CancelTween();
@@ -223,11 +211,9 @@ class ReplayRestoreService
 
     // Captures the live stores through a one-frame verifier recorder so hash
     // calculation uses the exact same field order as normal replay capture.
-    static bool CaptureCurrentSolverSample(
-        const ReplaySolverSampleRestoreContext& context,
-        const ReplaySolverFrameSample& reference,
-        ReplaySolverFrameSample& outSample
-    )
+    static bool CaptureCurrentSolverSample( const ReplaySolverSampleRestoreContext& context,
+                                            const ReplaySolverFrameSample& reference,
+                                            ReplaySolverFrameSample& outSample )
     {
         ReplayRecorderConfig config;
         config.enabled = true;
@@ -273,13 +259,11 @@ class ReplayRestoreService
         return true;
     }
 
-    static bool CaptureCurrentSolverHash(
-        const ReplaySolverSampleRestoreContext& context,
-        const ReplaySolverFrameSample& reference,
-        uint64_t& outSolverHash,
-        uint64_t& outPresentationHash,
-        std::size_t& outBodyCount
-    )
+    static bool CaptureCurrentSolverHash( const ReplaySolverSampleRestoreContext& context,
+                                          const ReplaySolverFrameSample& reference,
+                                          uint64_t& outSolverHash,
+                                          uint64_t& outPresentationHash,
+                                          std::size_t& outBodyCount )
     {
         ReplaySolverFrameSample verified;
         if ( !CaptureCurrentSolverSample( context, reference, verified ) )

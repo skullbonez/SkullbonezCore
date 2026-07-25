@@ -151,70 +151,54 @@ class AttachedCameraController
     TickFollow( Runtime::SceneWorld& collection, float orbitYawDelta, float orbitPitchDelta, float presentationAlpha );
     bool CycleMode( Runtime::SceneWorld& collection );
     bool TogglePin( Runtime::SceneWorld& collection );
-    bool ApplyOrbitInput(
-        Runtime::SceneWorld& collection,
-        bool attachModeActive,
-        int unhandledWheelDelta,
-        bool uiBlocksCameraMouse
-    );
+    bool ApplyOrbitInput( Runtime::SceneWorld& collection,
+                          bool attachModeActive,
+                          int unhandledWheelDelta,
+                          bool uiBlocksCameraMouse );
     bool SetTarget( Runtime::SceneWorld& collection, int modelIndex, AttachedCameraTargetSelection& outSelection );
     AttachedCameraSeedResult
     SeedTarget( Runtime::SceneWorld& collection, int seedModelIndex, AttachedCameraTargetSelection& outSelection );
-    bool PickTarget(
-        Runtime::SceneWorld& collection,
-        bool hasWorldRay,
-        const Math::Vector::Vector3& rayOrigin,
-        const Math::Vector::Vector3& rayDirection,
-        AttachedCameraTargetSelection& outSelection
-    );
+    bool PickTarget( Runtime::SceneWorld& collection,
+                     bool hasWorldRay,
+                     const Math::Vector::Vector3& rayOrigin,
+                     const Math::Vector::Vector3& rayDirection,
+                     AttachedCameraTargetSelection& outSelection );
 
     static void Reset( AttachedCameraState& state );
     static void ClearTarget( AttachedCameraState& state );
-    static bool TryAttachTargetHandlesFromModelIndex(
-        const Runtime::SceneWorld& collection,
-        int modelIndex,
-        AttachedCameraTarget& target
-    );
+    static bool TryAttachTargetHandlesFromModelIndex( const Runtime::SceneWorld& collection,
+                                                      int modelIndex,
+                                                      AttachedCameraTarget& target );
     static bool
     TryResolveTargetIdentity( const Runtime::SceneWorld& collection, AttachedCameraTarget& target, int& outModelIndex );
-    static bool TryResolvePhysicsTarget(
-        const Runtime::SceneWorld& collection,
-        AttachedCameraTarget& target,
-        AttachedCameraPhysicsTarget& outTarget,
-        int* outModelIndex = nullptr
-    );
+    static bool TryResolvePhysicsTarget( const Runtime::SceneWorld& collection,
+                                         AttachedCameraTarget& target,
+                                         AttachedCameraPhysicsTarget& outTarget,
+                                         int* outModelIndex = nullptr );
     static bool
     TryResolveRagdollHead( const Runtime::SceneWorld& collection, int selectedModelIndex, int& outHeadModelIndex );
-    static bool CycleSubmode(
-        const Runtime::SceneWorld& collection,
-        AttachedCameraState& state,
-        AttachedCameraPhysicsTarget& outTarget,
-        bool& outShouldCaptureFixedOffset
-    );
+    static bool CycleSubmode( const Runtime::SceneWorld& collection,
+                              AttachedCameraState& state,
+                              AttachedCameraPhysicsTarget& outTarget,
+                              bool& outShouldCaptureFixedOffset );
 
-    static void CaptureFixedOffset(
-        AttachedCameraState& state,
-        const AttachedCameraPose& currentPose,
-        const AttachedCameraPhysicsTarget& target
-    );
-    static void CaptureOrbit(
-        AttachedCameraState& state,
-        const AttachedCameraPose& currentPose,
-        const AttachedCameraPhysicsTarget& target
-    );
+    static void CaptureFixedOffset( AttachedCameraState& state,
+                                    const AttachedCameraPose& currentPose,
+                                    const AttachedCameraPhysicsTarget& target );
+    static void CaptureOrbit( AttachedCameraState& state,
+                              const AttachedCameraPose& currentPose,
+                              const AttachedCameraPhysicsTarget& target );
     static bool
     ApplyOrbitWheel( AttachedCameraState& state, const AttachedCameraPhysicsTarget& target, int unhandledWheelDelta );
-    static bool BuildFollowPose(
-        const Runtime::SceneWorld& collection,
-        AttachedCameraState& state,
-        const AttachedCameraPhysicsTarget& target,
-        int modelIndex,
-        const AttachedCameraPose& currentPose,
-        float orbitYawDelta,
-        float orbitPitchDelta,
-        float presentationAlpha,
-        AttachedCameraPoseCommand& outCommand
-    );
+    static bool BuildFollowPose( const Runtime::SceneWorld& collection,
+                                 AttachedCameraState& state,
+                                 const AttachedCameraPhysicsTarget& target,
+                                 int modelIndex,
+                                 const AttachedCameraPose& currentPose,
+                                 float orbitYawDelta,
+                                 float orbitPitchDelta,
+                                 float presentationAlpha,
+                                 AttachedCameraPoseCommand& outCommand );
 
     void ObserveSceneLifecycle( const SceneLifecyclePacket& packet )
     {
@@ -225,12 +209,10 @@ class AttachedCameraController
     }
 
   private:
-    static bool SelectTarget(
-        const Runtime::SceneWorld& collection,
-        AttachedCameraState& state,
-        int modelIndex,
-        AttachedCameraTargetSelection& outSelection
-    );
+    static bool SelectTarget( const Runtime::SceneWorld& collection,
+                              AttachedCameraState& state,
+                              int modelIndex,
+                              AttachedCameraTargetSelection& outSelection );
     AttachedCameraState m_state;
     SceneLifecycleGenerationObserver m_sceneLifecycleObserver;
 };

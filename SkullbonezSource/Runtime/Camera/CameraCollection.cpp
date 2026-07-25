@@ -96,13 +96,11 @@ void CameraCollection::AddCamera( const Vector3& vPosition, const Vector3& vView
 {
     if ( m_arrayPosition == SkullbonezCore::Scene::Capacity::TOTAL_CAMERA_COUNT )
     {
-        SB_FATAL(
-            "CameraCollection",
-            "Camera slot capacity exhausted in AddCamera. count=%d capacity=%d hash=0x%08X",
-            m_arrayPosition,
-            SkullbonezCore::Scene::Capacity::TOTAL_CAMERA_COUNT,
-            static_cast<unsigned int>( hash )
-        );
+        SB_FATAL( "CameraCollection",
+                  "Camera slot capacity exhausted in AddCamera. count=%d capacity=%d hash=0x%08X",
+                  m_arrayPosition,
+                  SkullbonezCore::Scene::Capacity::TOTAL_CAMERA_COUNT,
+                  static_cast<unsigned int>( hash ) );
     }
 
     m_cameraHashes[m_arrayPosition] = hash;
@@ -185,13 +183,11 @@ void CameraCollection::SelectCamera( uint32_t hash, const bool fTween )
     // it is not possible to tween if there is only one camera in the scene
     if ( fTween && m_arrayPosition == 1 )
     {
-        SB_FATAL(
-            "CameraCollection",
-            "SelectCamera cannot tween with one registered camera. hash=0x%08X selected=%d count=%d",
-            static_cast<unsigned int>( hash ),
-            m_selectedCamera,
-            m_arrayPosition
-        );
+        SB_FATAL( "CameraCollection",
+                  "SelectCamera cannot tween with one registered camera. hash=0x%08X selected=%d count=%d",
+                  static_cast<unsigned int>( hash ),
+                  m_selectedCamera,
+                  m_arrayPosition );
     }
 
     // where should the tween camera be referenced FROM?
@@ -248,12 +244,10 @@ void CameraCollection::RotatePrimary( float xMove, float yMove )
     // make sure a camera exists to update
     if ( !m_arrayPosition )
     {
-        SB_FATAL(
-            "CameraCollection",
-            "RotatePrimary requires at least one registered camera. count=%d selected=%d",
-            m_arrayPosition,
-            m_selectedCamera
-        );
+        SB_FATAL( "CameraCollection",
+                  "RotatePrimary requires at least one registered camera. count=%d selected=%d",
+                  m_arrayPosition,
+                  m_selectedCamera );
     }
 
     // rotate the primary camera
@@ -295,12 +289,10 @@ void CameraCollection::TweenPrimaryToPose( const Vector3& position, const Vector
 {
     if ( !m_arrayPosition )
     {
-        SB_FATAL(
-            "CameraCollection",
-            "TweenPrimaryToPose requires at least one registered camera. count=%d selected=%d",
-            m_arrayPosition,
-            m_selectedCamera
-        );
+        SB_FATAL( "CameraCollection",
+                  "TweenPrimaryToPose requires at least one registered camera. count=%d selected=%d",
+                  m_arrayPosition,
+                  m_selectedCamera );
     }
 
     const Camera tweenStart = GetTweenSourcePose();
@@ -333,14 +325,12 @@ void CameraCollection::MovePrimary( Camera::TravelDirection enumDir, float fQuan
     // make sure a camera exists to update
     if ( !m_arrayPosition )
     {
-        SB_FATAL(
-            "CameraCollection",
-            "MovePrimary requires at least one registered camera. direction=%d quantity=%f count=%d selected=%d",
-            static_cast<int>( enumDir ),
-            fQuantity,
-            m_arrayPosition,
-            m_selectedCamera
-        );
+        SB_FATAL( "CameraCollection",
+                  "MovePrimary requires at least one registered camera. direction=%d quantity=%f count=%d selected=%d",
+                  static_cast<int>( enumDir ),
+                  fQuantity,
+                  m_arrayPosition,
+                  m_selectedCamera );
     }
 
     // move the primary camera
@@ -458,13 +448,11 @@ void CameraCollection::SetCamera()
     // make sure a camera exists
     if ( !m_arrayPosition )
     {
-        SB_FATAL(
-            "CameraCollection",
-            "SetCamera requires at least one registered camera. count=%d selected=%d tweening=%d",
-            m_arrayPosition,
-            m_selectedCamera,
-            m_isTweening ? 1 : 0
-        );
+        SB_FATAL( "CameraCollection",
+                  "SetCamera requires at least one registered camera. count=%d selected=%d tweening=%d",
+                  m_arrayPosition,
+                  m_selectedCamera,
+                  m_isTweening ? 1 : 0 );
     }
 
     // if we are not in tween mode
@@ -500,8 +488,8 @@ void CameraCollection::SetCamera()
         // their cameras must remain unconstrained in space.
         if ( m_terrain )
         {
-            float terrainHeight =
-                m_terrain->GetTerrainHeightAt( m_tweenCamera.m_position.x, m_tweenCamera.m_position.z );
+            float terrainHeight = m_terrain->GetTerrainHeightAt( m_tweenCamera.m_position.x,
+                                                                 m_tweenCamera.m_position.z );
 
             if ( m_tweenCamera.m_position.y < terrainHeight )
             {
@@ -538,13 +526,11 @@ int CameraCollection::FindIndex( uint32_t hash )
         }
     }
 
-    SB_FATAL(
-        "CameraCollection",
-        "Camera hash lookup failed. hash=0x%08X count=%d selected=%d",
-        static_cast<unsigned int>( hash ),
-        m_arrayPosition,
-        m_selectedCamera
-    );
+    SB_FATAL( "CameraCollection",
+              "Camera hash lookup failed. hash=0x%08X count=%d selected=%d",
+              static_cast<unsigned int>( hash ),
+              m_arrayPosition,
+              m_selectedCamera );
 }
 
 

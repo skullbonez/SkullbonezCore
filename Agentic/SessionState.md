@@ -11,20 +11,19 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-25th-JUL-26` |
-| Current baseline | UI / Renderer Hard Boundary UR0-UR5 are committed. UR6 source, independent-review remediation, static proofs, captures, comment audit, renderer-free link proof, replay fidelity, and broad validation are complete; only the unapproved performance-memory baseline delta remains. |
-| Current objective | Obtain the explicit owner disposition for the UR6 performance-memory comparison, close `ui-renderer-hard-boundary`, then begin `replay-subsystem-partition` RS0. |
-| Active/future progress | UI / Renderer Hard Boundary 6/7; Header Claim Staleness Remediation 0/3; Replay Subsystem Partition 0/6; Downward Domain Bleed Remediation 0/6; Invariant Ownership Governance And Transaction Repair 0/5; active/future ledger 6/27. |
+| Current baseline | UI / Renderer Hard Boundary is complete at 7/7 and removed from the live ledger. The owner-approved DX12 and physics-bench performance baselines pass; the measured increase is attributed to retained solar-path storage introduced by `f7a6e4a3`, while direct pre/post UR6 A/B shows UR6 itself reduced memory. Header-claim staleness HC0 is verified at 1/3, and invariant-ownership governance GV0 is verified at 1/5. |
+| Current objective | Complete header-claim staleness HC1-HC2, then begin `replay-subsystem-partition` RS0. |
+| Active/future progress | Header Claim Staleness Remediation 1/3; Replay Subsystem Partition 0/6; Downward Domain Bleed Remediation 0/6; Invariant Ownership Governance And Transaction Repair 1/5; active/future ledger 2/20. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | UR6 `validate_full.bat` passes: mandatory CPU umbrella plus all five Automation, replay/prediction, DX12, and physics engine processes. |
-| Validation for current edits | Dependency graph 25+1 fixtures / 0 live findings; project filters 767/767; renderer-free UI link probe 11/11 surfaces; all 391 doctest cases / 2,403,286 assertions; 21-case UI suite; DX12 renderer; bounded graphics stress; one-process replay visual fidelity; allocation scan; and full gate pass. `validate_perf.bat` is red only for +6.94 to +7.38 MiB process memory versus the old `8bc929bfe` baseline; no baseline was refreshed. |
+| Validation for current edits | Dependency graph 25+1 fixtures / 0 live findings; project filters 767/767; renderer-free UI link probe 11/11 surfaces; all 391 doctest cases / 2,403,286 assertions; 21-case UI suite; DX12 renderer; bounded graphics stress; one-process replay visual fidelity; allocation scan; full gate; and final `validate_perf.bat` pass. The corrected formatter is stable across 552 source files and 306 headers. |
 
 ## Live Queue
 
-NOW. The 2026-07-25 round-4 architecture campaign is active at 6/27 with
-binding order: `ui-renderer-hard-boundary` (6/7),
-`header-claim-staleness-remediation` (0/3), `replay-subsystem-partition`
-(0/6), `downward-domain-bleed-remediation` (0/6), then
-`invariant-ownership-governance-and-transaction-repair` (0/5).
+NOW. The 2026-07-25 round-4 architecture campaign is active at 2/20 with
+binding order: `header-claim-staleness-remediation` (1/3),
+`replay-subsystem-partition` (0/6), `downward-domain-bleed-remediation`
+(0/6), then `invariant-ownership-governance-and-transaction-repair` (1/5).
 
 The staleness plan is second and small, from
 `Agentic/Reports/2026-07-25/header-comment-staleness-audit.md`. A stale
@@ -35,18 +34,15 @@ campaign to rebuild work that shipped 2026-07-20; the header was corrected in
 comments across 9 files with zero declarations anywhere, three further
 falsified ownership claims, and 12 broken `Related:` pointers. It runs before
 the replay partition because RS0 and GV2 censuses read the affected headers.
-HC0 is comment-only and may run parallel to the UI tail. HC2 and GV0 both
-amend the comment-audit skill in separate sections; second one rebases.
-UR0-UR5 are committed. UR6 has closed every behavioral, ownership, dependency,
-visual, allocation, comment, independent-review, and mapped validation item
-except the performance comparison: the current executable is faster and
-smaller, but its process-memory samples are +6.94 to +7.38 MiB above the old
-baseline, exceeding the 5 MiB tolerance. Explicit owner approval is required
-before refreshing that performance baseline. The permanent draft evidence is
-`Agentic/Reports/2026-07-25/ui-renderer-hard-boundary-closure.md`; the TODO plan
-remains live and unchecked until the ruling. After UR6 closes, remove its seven
-tasks from the active ledger and begin Replay RS0. Implementation continues
-through the repository orchestrator skill. Live plans are under
+HC0 is complete. HC2 and GV0 both amend the comment-audit skill in separate
+sections; second one rebases. UR0-UR6 are complete. The owner-approved
+performance refresh changed only the DX12 and physics-bench baselines, and the
+final performance gate passes. Historical attribution identifies the bounded
+retained solar-path storage added by `f7a6e4a3`; direct same-machine A/B shows
+final UR6 itself is 1.15-1.84 MiB lower. Permanent evidence is
+`Agentic/Reports/2026-07-25/ui-renderer-hard-boundary-closure.md`; the live TODO
+is removed under inventory rule 4. Implementation continues through the
+repository orchestrator skill with HC1 next. Live plans are under
 `Agentic/Plans/TODO/`.
 
 NOW. `solar-prediction-presentation-correction` is complete at 4/4. The
@@ -458,10 +454,7 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Resolve the single UR6 performance-memory ruling. If the measured increase is
-approved, refresh only `TestOutput/baselines/physics_bench_perf.json` from the
-final source, rerun `tools\validate_perf.bat`, finalize the closure report,
-delete the UI TODO plan, reduce the live ledger to 0/17, commit with the
-required task-progress subject, and push. Preserve the two user-owned modified
-replay-golden files unless the owner separately directs their inclusion. Then
-start `replay-subsystem-partition` RS0.
+Commit and push the completed UR6 closure with the owner-approved DX12 and
+physics-bench baselines, formatter changes, and reconciled 2/20 live ledger.
+Then execute header-claim staleness HC1-HC2 before starting
+`replay-subsystem-partition` RS0.

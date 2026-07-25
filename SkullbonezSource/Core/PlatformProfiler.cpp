@@ -75,12 +75,14 @@ uint32_t HashRuntimeName( const char* name )
     {
         return hash;
     }
+
     // Why: FNV hashes the unsigned character representation so bytes above
     // ASCII cannot sign-extend differently across compiler char defaults.
     for ( const unsigned char* p = reinterpret_cast<const unsigned char*>( name ); *p; ++p )
     {
         hash = ( hash ^ static_cast<uint32_t>( *p ) ) * 16777619u;
     }
+
     return hash;
 }
 
@@ -90,6 +92,7 @@ bool HasPathPrefix( const char* name, const char* prefix )
     {
         return false;
     }
+
     const std::size_t prefixLength = std::strlen( prefix );
     return std::strncmp( name, prefix, prefixLength ) == 0 &&
            ( name[prefixLength] == '\0' || name[prefixLength] == '/' );
@@ -101,6 +104,7 @@ bool EndsWith( const char* name, const char* suffix )
     {
         return false;
     }
+
     const std::size_t nameLength = std::strlen( name );
     const std::size_t suffixLength = std::strlen( suffix );
     return suffixLength <= nameLength && std::strcmp( name + nameLength - suffixLength, suffix ) == 0;
@@ -112,42 +116,52 @@ MarkerDomain ClassifyDomain( const char* name )
     {
         return MarkerDomain::Fallback;
     }
+
     if ( std::strcmp( name, "Frame" ) == 0 )
     {
         return MarkerDomain::Frame;
     }
+
     if ( HasPathPrefix( name, "Frame/Physics" ) )
     {
         return MarkerDomain::Physics;
     }
+
     if ( HasPathPrefix( name, "Frame/PostPhysics" ) )
     {
         return MarkerDomain::PostPhysics;
     }
+
     if ( HasPathPrefix( name, "Frame/Shadows" ) )
     {
         return MarkerDomain::Shadows;
     }
+
     if ( HasPathPrefix( name, "Frame/Render" ) )
     {
         return MarkerDomain::Render;
     }
+
     if ( HasPathPrefix( name, "Frame/UI" ) )
     {
         return MarkerDomain::UI;
     }
+
     if ( HasPathPrefix( name, "Frame/Replay" ) )
     {
         return MarkerDomain::Replay;
     }
+
     if ( HasPathPrefix( name, "Frame/SoA" ) )
     {
         return MarkerDomain::SoA;
     }
+
     if ( HasPathPrefix( name, "Frame/VsyncWait" ) || HasPathPrefix( name, "Frame/PipelineSync" ) )
     {
         return MarkerDomain::Sync;
     }
+
     return HasPathPrefix( name, "Frame" ) ? MarkerDomain::Fallback : MarkerDomain::Fallback;
 }
 
@@ -157,18 +171,22 @@ MarkerContext ClassifyContext( const char* name )
     {
         return MarkerContext::Worker;
     }
+
     if ( EndsWith( name, "_Chunk" ) )
     {
         return MarkerContext::Chunk;
     }
+
     if ( EndsWith( name, "_Record" ) )
     {
         return MarkerContext::Record;
     }
+
     if ( EndsWith( name, "_GPU" ) )
     {
         return MarkerContext::Gpu;
     }
+
     return MarkerContext::Default;
 }
 
@@ -344,8 +362,10 @@ void CpuEnd()
         {
             Log().WriteEventf( "platform_profiler_cpu_end_without_begin" );
         }
+
         return;
     }
+
     PIXEndEvent();
     --g_cpuDepth;
 #endif

@@ -10,8 +10,8 @@
 #   positive/negative fixtures so new package rules require data, not code.
 #
 # Glossary:
-#   Physical edge: Resolved quoted include from one tracked source file to
-#     another path below SkullbonezSource.
+#   Physical edge: Resolved quoted or angle-bracket include from one tracked
+#     source file to another path below SkullbonezSource.
 #   Allow rule: Runtime-package row limiting only edges whose target is inside
 #     the Runtime scope.
 #   Deny rule: Source/target prefix pair that must never form an include edge.
@@ -28,7 +28,7 @@
 # Related:
 #   - tools/dependency_graph_rules.json
 #   - AGENTS.md
-#   - Agentic/Plans/TODO/ui-renderer-hard-boundary.md
+#   - Agentic/Reports/2026-07-25/ui-renderer-hard-boundary-closure.md
 
 from __future__ import annotations
 
@@ -38,12 +38,13 @@ import posixpath
 import re
 import subprocess
 import sys
+import tempfile
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
 
 
-INCLUDE_PATTERN = re.compile(r'^\s*#\s*include\s*"([^"]+)"', re.MULTILINE)
+INCLUDE_PATTERN = re.compile(r'^\s*#\s*include\s*[<"]([^">]+)[">]', re.MULTILINE)
 SOURCE_SUFFIXES = {".cpp", ".h", ".hpp", ".inl", ".hlsl"}
 MSBUILD_NAMESPACE = {"m": "http://schemas.microsoft.com/developer/msbuild/2003"}
 
@@ -81,7 +82,9 @@ def edge_violates(rule: dict, source: str, target: str) -> bool:
     if mode == "allow":
         if not matches_prefix(target, rule["target_scope"]):
             return False
-        return not any(matches_prefix(target, prefix) for prefix in rule["allowed_target_prefixes"])
+        allowed_file = target in [normalize(item) for item in rule.get("allowed_target_files", [])]
+        allowed_prefix = any(matches_prefix(target, prefix) for prefix in rule["allowed_target_prefixes"])
+        return not allowed_file and not allowed_prefix
     raise ValueError(f"unsupported rule mode: {mode}")
 
 
@@ -127,9 +130,14 @@ def resolve_include(repo: Path, source_root: str, source: str, include: str) -> 
     return normalize(relative.as_posix())
 
 
-def scan_includes(repo: Path, source_root: str, rules: list[dict]) -> list[Finding]:
+def scan_include_files(
+    repo: Path,
+    source_root: str,
+    rules: list[dict],
+    tracked_files: list[str],
+) -> list[Finding]:
     findings: list[Finding] = []
-    for tracked in tracked_source_files(repo, source_root):
+    for tracked in tracked_files:
         path = repo / tracked
         source = normalize(Path(tracked).relative_to(source_root).as_posix())
         text = path.read_text(encoding="utf-8-sig", errors="replace")
@@ -141,6 +149,10 @@ def scan_includes(repo: Path, source_root: str, rules: list[dict]) -> list[Findi
     return findings
 
 
+def scan_includes(repo: Path, source_root: str, rules: list[dict]) -> list[Finding]:
+    return scan_include_files(repo, source_root, rules, tracked_source_files(repo, source_root))
+
+
 def project_items(repo: Path, project_name: str) -> set[str]:
     root = ET.parse(repo / project_name).getroot()
     items: set[str] = set()
@@ -150,6 +162,22 @@ def project_items(repo: Path, project_name: str) -> set[str]:
             if include:
                 items.add(normalize(include))
     return items
+
+
+def evaluate_project_rule(
+    rule: dict,
+    governed_paths: set[str],
+    membership: dict[str, set[str]],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    for path in sorted(governed_paths):
+        required = rule["required_project"]
+        if path not in membership[required]:
+            findings.append(Finding(rule["id"], path, required, "missing required project ownership"))
+        for forbidden in rule.get("forbidden_projects", []):
+            if path in membership[forbidden]:
+                findings.append(Finding(rule["id"], path, forbidden, "forbidden duplicate project ownership"))
+    return findings
 
 
 def scan_project_rules(repo: Path, rules: list[dict]) -> list[Finding]:
@@ -177,13 +205,7 @@ def scan_project_rules(repo: Path, rules: list[dict]) -> list[Finding]:
             for path in tracked.stdout.splitlines()
             if path and normalize(path).endswith(suffixes)
         }
-        for path in sorted(governed_paths):
-            required = rule["required_project"]
-            if path not in membership[required]:
-                findings.append(Finding(rule["id"], path, required, "missing required project ownership"))
-            for forbidden in rule.get("forbidden_projects", []):
-                if path in membership[forbidden]:
-                    findings.append(Finding(rule["id"], path, forbidden, "forbidden duplicate project ownership"))
+        findings.extend(evaluate_project_rule(rule, governed_paths, membership))
     return findings
 
 
@@ -197,6 +219,32 @@ def self_test(config: dict) -> list[str]:
         negative = rule.get("negative_target")
         if negative is not None and not edge_violates(rule, source, normalize(negative)):
             errors.append(f"{rule['id']}: negative fixture was accepted")
+        if negative is None:
+            continue
+
+        # Exercise the real parser and resolver for every rule. The forbidden
+        # edge deliberately uses angle brackets so repository-local angle
+        # includes cannot bypass a boundary that quoted includes enforce.
+        with tempfile.TemporaryDirectory(prefix="skore_dependency_fixture_") as fixture_dir:
+            repo = Path(fixture_dir)
+            source_root = normalize(config["source_root"])
+            tracked_source = normalize(f"{source_root}/{source}")
+            source_path = repo / tracked_source
+            positive_path = repo / source_root / positive
+            negative_path = repo / source_root / normalize(negative)
+            source_path.parent.mkdir(parents=True, exist_ok=True)
+            positive_path.parent.mkdir(parents=True, exist_ok=True)
+            negative_path.parent.mkdir(parents=True, exist_ok=True)
+            positive_path.touch()
+            negative_path.touch()
+            source_path.write_text(
+                f'#include "{positive}"\n#include <{normalize(negative)}>\n',
+                encoding="utf-8",
+            )
+            fixture_findings = scan_include_files(repo, source_root, [rule], [tracked_source])
+            if len(fixture_findings) != 1 or fixture_findings[0].target != normalize(negative):
+                errors.append(f"{rule['id']}: end-to-end include fixture did not reject only the negative edge")
+
     for rule in config["project_rules"]:
         required = rule["required_project"]
         if rule["positive_projects"] != [required]:
@@ -205,6 +253,21 @@ def self_test(config: dict) -> list[str]:
             project in rule.get("forbidden_projects", []) for project in rule["negative_projects"]
         ):
             errors.append(f"{rule['id']}: negative project fixture does not exercise a forbidden owner")
+            continue
+        fixture_path = normalize(f"{rule['path_prefix']}Fixture{rule['suffixes'][0]}")
+        project_names = {required, *rule.get("forbidden_projects", [])}
+        positive_membership = {
+            project: ({fixture_path} if project in rule["positive_projects"] else set())
+            for project in project_names
+        }
+        if evaluate_project_rule(rule, {fixture_path}, positive_membership):
+            errors.append(f"{rule['id']}: positive project fixture was rejected")
+        negative_membership = {
+            project: ({fixture_path} if project in rule["negative_projects"] else set())
+            for project in project_names
+        }
+        if not evaluate_project_rule(rule, {fixture_path}, negative_membership):
+            errors.append(f"{rule['id']}: negative project fixture was accepted")
     return errors
 
 

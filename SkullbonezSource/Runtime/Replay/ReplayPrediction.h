@@ -262,11 +262,9 @@ struct RunReplayPredictionState
     bool BuildPrefixShouldBePresented() const noexcept;
     bool BuildPrefixHasBeenPresented() const noexcept;
     bool BuildFramesAreComplete() const noexcept;
-    bool FutureTreeReadyForDraw(
-        Physics::PhysicsSceneObjectId rootId,
-        bool usingBuildFrames,
-        std::size_t frameCount
-    ) const noexcept;
+    bool FutureTreeReadyForDraw( Physics::PhysicsSceneObjectId rootId,
+                                 bool usingBuildFrames,
+                                 std::size_t frameCount ) const noexcept;
     void ResetBuildFramePublication() noexcept;
     void PublishBuildFrameSlot( std::size_t frameSlot ) noexcept;
 
@@ -356,8 +354,9 @@ class ReplayPrediction
 
     std::span<const RunReplayPredictionFrame> ActiveFrames() const noexcept
     {
-        const std::vector<RunReplayPredictionFrame>& frames =
-            m_state.BuildFramesAreComplete() ? m_state.build.buildFrames : m_state.simulation.frames;
+        const std::vector<RunReplayPredictionFrame>& frames = m_state.BuildFramesAreComplete()
+                                                                  ? m_state.build.buildFrames
+                                                                  : m_state.simulation.frames;
         return { frames.data(), frames.size() };
     }
 
@@ -369,8 +368,7 @@ class ReplayPrediction
         {
             const std::size_t presentedFrameCount = m_state.build.presentationPublication.PresentedCount(
                 m_state.PublishedBuildFrameCount(),
-                m_state.build.buildFrames.size()
-            );
+                m_state.build.buildFrames.size() );
             view.frames = { m_state.build.buildFrames.data(), presentedFrameCount };
         }
         else
@@ -404,8 +402,9 @@ class ReplayPrediction
         view.futureNodesCacheValid = m_state.futureNodeCache.futureNodesCacheValid;
         view.trajectoryBuildValid = m_state.trajectoryBuild.valid;
         view.trajectoryBuildUsingBuildFrames = m_state.trajectoryBuild.usingBuildFrames;
-        view.futureTreeReady =
-            m_state.FutureTreeReadyForDraw( view.targetId, view.usingBuildFrames, view.frames.size() );
+        view.futureTreeReady = m_state.FutureTreeReadyForDraw( view.targetId,
+                                                               view.usingBuildFrames,
+                                                               view.frames.size() );
         view.showAllFuturePaths = m_state.trajectoryBuild.allBodyPaths;
         view.ragdollVisualsEnabled = m_state.ragdollVisualsEnabled;
         view.baselineValid = m_state.baseline.valid;
@@ -462,13 +461,11 @@ class ReplayPrediction
     // Owner commands used by validation and UI paths. These keep rebuild and
     // baseline invalidation coupled to the state transition that requires it.
     void SetEnabled( bool enabled ) noexcept;
-    void ApplyAuthoringRequest(
-        bool enablePrediction,
-        bool refreshPrediction,
-        bool liveVelocityEdit,
-        float minHorizonSeconds,
-        float maxHorizonSeconds
-    ) noexcept;
+    void ApplyAuthoringRequest( bool enablePrediction,
+                                bool refreshPrediction,
+                                bool liveVelocityEdit,
+                                float minHorizonSeconds,
+                                float maxHorizonSeconds ) noexcept;
     void DisableAndClearCache();
     // Play freezes the visible committed prefix and cancels any worker; unlike
     // an authored enable toggle, that transition must not request a rebuild.
@@ -483,91 +480,71 @@ class ReplayPrediction
     void CommitVelocityMutation() noexcept;
     bool ReadyForDeterministicReveal() const noexcept;
     void ArmDeterministicReveal( ReplayFrameIndex frame, bool resetPresentedFrame ) noexcept;
-    void RunWorkerRange(
-        const SkullbonezCore::Core::EngineConfig& config,
-        Threading::WorkerPool& workerPool,
-        int modelCount,
-        int beginTickIndex,
-        int endTickIndex
-    );
-    ReplayPredictionFrameSourceAction SelectFrameSource(
-        const ReplaySolverFrameSample* latestSolverSample,
-        Physics::PhysicsSceneObjectId targetId,
-        bool targetAvailable,
-        bool liveAdvanceHeld,
-        double simulationTotalSeconds,
-        bool& outWasDirty,
-        bool& outWasPendingLatestRestart
-    );
-    void PrepareFrameRebuild(
-        Physics::PhysicsSceneObjectId targetId,
-        Physics::ModelRowHint targetModelRow,
-        ReplayPredictionUpdateResult& result
-    );
-    ReplayPredictionSourcePreparation BeginFrameSource(
-        Physics::PhysicsEngine& physicsEngine,
-        const SkullbonezCore::Core::EngineConfig& config,
-        bool scenePhysics,
-        double fallbackSourceSimulationSeconds,
-        double simulationTotalSeconds,
-        const ReplaySolverFrameSample* latestSolverSample,
-        Physics::PhysicsSceneObjectId requestedTargetId,
-        Physics::ModelRowHint requestedTargetModelRow,
-        bool targetAvailable,
-        const std::chrono::steady_clock::time_point& budgetStart,
-        double budgetMilliseconds,
-        ReplayPredictionUpdateResult& result
-    );
-    bool BeginFrameSimulation(
-        Physics::PhysicsEngine& physicsEngine,
-        const Gameplay::TornadoGameplay& tornadoGameplay,
-        const SceneEntityStore& entities,
-        const SkullbonezCore::Core::EngineConfig& config,
-        const Physics::PhysicsWorldForces& worldForces,
-        Threading::WorkerPool& workerPool,
-        ReplayPredictionSourcePreparation preparation
-    );
+    void RunWorkerRange( const SkullbonezCore::Core::EngineConfig& config,
+                         Threading::WorkerPool& workerPool,
+                         int modelCount,
+                         int beginTickIndex,
+                         int endTickIndex );
+    ReplayPredictionFrameSourceAction SelectFrameSource( const ReplaySolverFrameSample* latestSolverSample,
+                                                         Physics::PhysicsSceneObjectId targetId,
+                                                         bool targetAvailable,
+                                                         bool liveAdvanceHeld,
+                                                         double simulationTotalSeconds,
+                                                         bool& outWasDirty,
+                                                         bool& outWasPendingLatestRestart );
+    void PrepareFrameRebuild( Physics::PhysicsSceneObjectId targetId,
+                              Physics::ModelRowHint targetModelRow,
+                              ReplayPredictionUpdateResult& result );
+    ReplayPredictionSourcePreparation BeginFrameSource( Physics::PhysicsEngine& physicsEngine,
+                                                        const SkullbonezCore::Core::EngineConfig& config,
+                                                        bool scenePhysics,
+                                                        double fallbackSourceSimulationSeconds,
+                                                        double simulationTotalSeconds,
+                                                        const ReplaySolverFrameSample* latestSolverSample,
+                                                        Physics::PhysicsSceneObjectId requestedTargetId,
+                                                        Physics::ModelRowHint requestedTargetModelRow,
+                                                        bool targetAvailable,
+                                                        const std::chrono::steady_clock::time_point& budgetStart,
+                                                        double budgetMilliseconds,
+                                                        ReplayPredictionUpdateResult& result );
+    bool BeginFrameSimulation( Physics::PhysicsEngine& physicsEngine,
+                               const Gameplay::TornadoGameplay& tornadoGameplay,
+                               const SceneEntityStore& entities,
+                               const SkullbonezCore::Core::EngineConfig& config,
+                               const Physics::PhysicsWorldForces& worldForces,
+                               Threading::WorkerPool& workerPool,
+                               ReplayPredictionSourcePreparation preparation );
     void CompleteFrameSourceBegin( bool began, bool wasDirty, bool wasPendingLatestRestart ) noexcept;
-    bool BeginFrameBudgetExpired(
-        const std::chrono::steady_clock::time_point& budgetStart,
-        double budgetMilliseconds,
-        ReplayPredictionUpdateResult& result
-    );
-    bool AdvanceFrameWorker(
-        Threading::WorkerPool& workerPool,
-        double simulationTotalSeconds,
-        bool historicalSamplePaused,
-        float solverTrackPosition,
-        float solverPresentTrackPosition,
-        const std::chrono::steady_clock::time_point& budgetStart,
-        double budgetMilliseconds,
-        ReplayPredictionUpdateResult& result
-    );
+    bool BeginFrameBudgetExpired( const std::chrono::steady_clock::time_point& budgetStart,
+                                  double budgetMilliseconds,
+                                  ReplayPredictionUpdateResult& result );
+    bool AdvanceFrameWorker( Threading::WorkerPool& workerPool,
+                             double simulationTotalSeconds,
+                             bool historicalSamplePaused,
+                             float solverTrackPosition,
+                             float solverPresentTrackPosition,
+                             const std::chrono::steady_clock::time_point& budgetStart,
+                             double budgetMilliseconds,
+                             ReplayPredictionUpdateResult& result );
     void PublishCompletedFrame( const SceneEntityStore& entities, Physics::PhysicsSceneObjectId targetId );
-    void PreparePresentation(
-        const SceneEntityStore& entities,
-        const Physics::ColliderStore& colliderStore,
-        Physics::PhysicsSceneObjectId targetId,
-        Physics::ModelRowHint targetModelRow,
-        bool targetAvailable,
-        double budgetMilliseconds,
-        ReplayPredictionUpdateResult& result
-    );
-    bool LoadArchive(
-        std::span<const uint8_t> bytes,
-        RunReplayPathVisualizerState& pathVisualizer,
-        char* outReason,
-        std::size_t reasonSize
-    );
+    void PreparePresentation( const SceneEntityStore& entities,
+                              const Physics::ColliderStore& colliderStore,
+                              Physics::PhysicsSceneObjectId targetId,
+                              Physics::ModelRowHint targetModelRow,
+                              bool targetAvailable,
+                              double budgetMilliseconds,
+                              ReplayPredictionUpdateResult& result );
+    bool LoadArchive( std::span<const uint8_t> bytes,
+                      RunReplayPathVisualizerState& pathVisualizer,
+                      char* outReason,
+                      std::size_t reasonSize );
     bool BuildArchive( const RunReplayPathVisualizerState& pathVisualizer, std::vector<uint8_t>& outBytes ) const;
-    ReplayPastTrajectoryUpdate
-    RefreshPastTrajectoryStore( const ReplaySolverRecorder& solver, const ReplayPastTrajectoryView& path );
-    void AppendPastTrajectorySample(
-        const ReplayRecorderStats& solverStats,
-        const ReplayPastTrajectoryView& path,
-        const ReplaySolverFrameSample& sample,
-        ReplayPastTrajectoryUpdate& update
-    );
+    ReplayPastTrajectoryUpdate RefreshPastTrajectoryStore( const ReplaySolverRecorder& solver,
+                                                           const ReplayPastTrajectoryView& path );
+    void AppendPastTrajectorySample( const ReplayRecorderStats& solverStats,
+                                     const ReplayPastTrajectoryView& path,
+                                     const ReplaySolverFrameSample& sample,
+                                     ReplayPastTrajectoryUpdate& update );
     ReplayPredictionMemoryStats CollectMemoryStats() const;
 
   private:
@@ -602,8 +579,8 @@ inline bool RunReplayPredictionState::BuildPrefixHasBeenPresented() const noexce
     {
         return false;
     }
-    const std::size_t presentedCount =
-        build.presentationPublication.PresentedCount( PublishedBuildFrameCount(), build.buildFrames.size() );
+    const std::size_t presentedCount = build.presentationPublication.PresentedCount( PublishedBuildFrameCount(),
+                                                                                     build.buildFrames.size() );
     return presentedCount >= build.buildPresentationFrameCount;
 }
 
@@ -612,11 +589,9 @@ inline bool RunReplayPredictionState::BuildFramesAreComplete() const noexcept
     return BuildPrefixShouldBePresented() && PublishedBuildFrameCount() >= build.buildFrames.size();
 }
 
-inline bool RunReplayPredictionState::FutureTreeReadyForDraw(
-    Physics::PhysicsSceneObjectId rootId,
-    bool usingBuildFrames,
-    std::size_t frameCount
-) const noexcept
+inline bool RunReplayPredictionState::FutureTreeReadyForDraw( Physics::PhysicsSceneObjectId rootId,
+                                                              bool usingBuildFrames,
+                                                              std::size_t frameCount ) const noexcept
 {
     // Invariant: consumers may submit child paths only when the bounded node
     // cache and trajectory publication describe the same root, source bank,

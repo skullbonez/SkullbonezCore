@@ -126,27 +126,23 @@ struct CameraControlState
 
     // Lifetime: each camera tick borrows SceneWorld once and derives Cameras and
     // Terrain locally, keeping subowner identity inside this cohesive boundary.
-    void UpdateViewingOrientation(
-        RunTimerState& timers,
-        Runtime::SceneWorld& world,
-        bool replayCameraActive,
-        bool sceneMode,
-        bool attachedActiveFollow,
-        bool cameraLookCaptured,
-        float presentationAlpha,
-        Core::Profiler* profiler
-    );
+    void UpdateViewingOrientation( RunTimerState& timers,
+                                   Runtime::SceneWorld& world,
+                                   bool replayCameraActive,
+                                   bool sceneMode,
+                                   bool attachedActiveFollow,
+                                   bool cameraLookCaptured,
+                                   float presentationAlpha,
+                                   Core::Profiler* profiler );
     void AdvanceAutoCycleClock( bool sceneMode, float simulationDt );
-    void TickControls(
-        Runtime::SceneWorld& world,
-        AttachedCameraController& attachedCamera,
-        const SkullbonezCore::Core::EngineConfig& config,
-        bool editorModeEnabled,
-        bool viewportLookActive,
-        bool sceneMode,
-        float cameraDt,
-        float presentationAlpha
-    );
+    void TickControls( Runtime::SceneWorld& world,
+                       AttachedCameraController& attachedCamera,
+                       const SkullbonezCore::Core::EngineConfig& config,
+                       bool editorModeEnabled,
+                       bool viewportLookActive,
+                       bool sceneMode,
+                       float cameraDt,
+                       float presentationAlpha );
 
   private:
     SceneLifecycleGenerationObserver m_sceneLifecycleObserver;

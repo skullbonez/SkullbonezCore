@@ -53,12 +53,10 @@ using Math::Vector::VectorMagSquared;
 using Physics::PhysicsBodyRecord;
 using Physics::PhysicsBodyStore;
 
-MousePickupPointerResult RuntimeTools::RouteMousePickupPointer(
-    const MousePickupPointerInput& input,
-    const SceneWorld& world,
-    InputRouter& inputRouter,
-    RuntimeInteractionController& interaction
-)
+MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const MousePickupPointerInput& input,
+                                                                const SceneWorld& world,
+                                                                InputRouter& inputRouter,
+                                                                RuntimeInteractionController& interaction )
 {
     MousePickupPointerResult routeResult;
     if ( !input.manipulatorMode || input.editorMode || input.replayInspection )
@@ -84,6 +82,7 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer(
         {
             return false;
         }
+
         cameraNormal *= 1.0f / sqrtf( normalLenSq );
 
         m_mousePickup.planeNormal = cameraNormal;
@@ -113,6 +112,7 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer(
             CancelMousePickup( inputRouter, interaction );
             return routeResult;
         }
+
         updatePickupTarget();
         return routeResult;
     }
@@ -121,10 +121,12 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer(
     {
         return routeResult;
     }
+
     if ( input.suppressWorldAction || input.uiWantsNativeCursor )
     {
         return routeResult;
     }
+
     routeResult.consumed = true;
 
     if ( !input.hasWorldRay )
@@ -159,6 +161,7 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer(
     {
         return routeResult;
     }
+
     cameraNormal *= 1.0f / sqrtf( normalLenSq );
 
     const Vector3 grabPoint = input.rayOrigin + input.rayDirection * result.rayT;
@@ -167,11 +170,13 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer(
     {
         return routeResult;
     }
+
     if ( !input.hasClientPosition )
     {
         routeResult.consumed = false;
         return routeResult;
     }
+
     RuntimeInteractionGesture gesture;
     gesture.kind = RuntimeInteractionGestureKind::MousePickupDrag;
     gesture.button = RuntimePointerButton::Left;
@@ -204,11 +209,9 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer(
 }
 
 
-void RuntimeTools::ApplyMousePickupPhysicsStep(
-    SceneWorld& world,
-    InputRouter& inputRouter,
-    RuntimeInteractionController& interaction
-)
+void RuntimeTools::ApplyMousePickupPhysicsStep( SceneWorld& world,
+                                                InputRouter& inputRouter,
+                                                RuntimeInteractionController& interaction )
 {
     if ( interaction.Gesture().kind != RuntimeInteractionGestureKind::MousePickupDrag )
     {
@@ -236,6 +239,7 @@ void RuntimeTools::ApplyMousePickupPhysicsStep(
         CancelMousePickup( inputRouter, interaction );
         return;
     }
+
     const Vector3 bodyPosition = PhysicsBodyPosition( hotFields, hotIndex );
     const Vector3 linearVelocity = PhysicsBodyLinearVelocity( hotFields, hotIndex );
     if ( !physics.SetBodyVelocity( pickup.body, linearVelocity, pickup.preservedAngularVelocity, false ) )
@@ -265,11 +269,9 @@ void RuntimeTools::ApplyMousePickupPhysicsStep(
 }
 
 
-void RuntimeTools::RestoreMousePickupAngularVelocity(
-    SceneWorld& world,
-    InputRouter& inputRouter,
-    RuntimeInteractionController& interaction
-)
+void RuntimeTools::RestoreMousePickupAngularVelocity( SceneWorld& world,
+                                                      InputRouter& inputRouter,
+                                                      RuntimeInteractionController& interaction )
 {
     if ( interaction.Gesture().kind != RuntimeInteractionGestureKind::MousePickupDrag )
     {
@@ -295,12 +297,10 @@ void RuntimeTools::RestoreMousePickupAngularVelocity(
         return;
     }
 
-    if ( !physics.SetBodyVelocity(
-             pickup.body,
-             PhysicsBodyLinearVelocity( hotFields, hotIndex ),
-             pickup.preservedAngularVelocity,
-             false
-         ) )
+    if ( !physics.SetBodyVelocity( pickup.body,
+                                   PhysicsBodyLinearVelocity( hotFields, hotIndex ),
+                                   pickup.preservedAngularVelocity,
+                                   false ) )
     {
         CancelMousePickup( inputRouter, interaction );
     }

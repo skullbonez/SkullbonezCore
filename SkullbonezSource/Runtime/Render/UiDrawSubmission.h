@@ -27,7 +27,7 @@ Invariants:
 Related:
   - SkullbonezSource/UI/UIDrawList.h
   - SkullbonezSource/Runtime/Render/UiTextPass.cpp
-  - Agentic/Plans/ui_renderer_hard_boundary_plan.md
+  - Agentic/Reports/2026-07-25/ui-renderer-hard-boundary-closure.md
 */
 #pragma once
 
@@ -71,59 +71,51 @@ class UiDrawSubmission
     UiDrawSubmission( const UiDrawSubmission& ) = delete;
     UiDrawSubmission& operator=( const UiDrawSubmission& ) = delete;
 
-    void Submit(
-        const UI::UIDrawList& drawList,
-        Text::TextBatch& textBatch,
-        Rendering::RenderGpuTimingOwner* gpuTiming,
-        Rendering::Dx12TextureOwner& renderTextures,
-        Rendering::Dx12GeometryOwner& renderGeometry,
-        Rendering::Dx12Diagnostics& renderDiagnostics,
-        int screenW,
-        int screenH,
-        float offsetX = 0.0f,
-        float offsetY = 0.0f
-    );
+    void Submit( const UI::UIDrawList& drawList,
+                 Text::TextBatch& textBatch,
+                 Rendering::RenderGpuTimingOwner* gpuTiming,
+                 Rendering::Dx12TextureOwner& renderTextures,
+                 Rendering::Dx12GeometryOwner& renderGeometry,
+                 Rendering::Dx12Diagnostics& renderDiagnostics,
+                 int screenW,
+                 int screenH,
+                 float offsetX = 0.0f,
+                 float offsetY = 0.0f );
 
-    void SubmitWithPreviews(
-        const UI::UIDrawList& drawList,
-        const RuntimeRenderTargetPreviewSnapshot& previewData,
-        Text::TextBatch& textBatch,
-        Rendering::RenderGpuTimingOwner* gpuTiming,
-        Assets::AssetSystem& assets,
-        Rendering::Dx12ResourceBuilder& renderResources,
-        Rendering::Dx12TextureOwner& renderTextures,
-        Rendering::Dx12GeometryOwner& renderGeometry,
-        Rendering::Dx12Diagnostics& renderDiagnostics,
-        int screenW,
-        int screenH,
-        float offsetX = 0.0f,
-        float offsetY = 0.0f
-    );
+    void SubmitWithPreviews( const UI::UIDrawList& drawList,
+                             const RuntimeRenderTargetPreviewSnapshot& previewData,
+                             Text::TextBatch& textBatch,
+                             Rendering::RenderGpuTimingOwner* gpuTiming,
+                             Assets::AssetSystem& assets,
+                             Rendering::Dx12ResourceBuilder& renderResources,
+                             Rendering::Dx12TextureOwner& renderTextures,
+                             Rendering::Dx12GeometryOwner& renderGeometry,
+                             Rendering::Dx12Diagnostics& renderDiagnostics,
+                             int screenW,
+                             int screenH,
+                             float offsetX = 0.0f,
+                             float offsetY = 0.0f );
 
     void ReleaseGpuResources( Rendering::Dx12GeometryOwner* renderGeometry );
 
   private:
-    void SubmitCommands(
-        const UI::UIDrawList& drawList,
-        const RuntimeRenderTargetPreviewSnapshot* previewData,
-        Text::TextBatch& textBatch,
-        Rendering::RenderGpuTimingOwner* gpuTiming,
-        Assets::AssetSystem* assets,
-        Rendering::Dx12ResourceBuilder* renderResources,
-        Rendering::Dx12TextureOwner& renderTextures,
-        Rendering::Dx12GeometryOwner& renderGeometry,
-        Rendering::Dx12Diagnostics& renderDiagnostics,
-        int screenW,
-        int screenH,
-        float offsetX,
-        float offsetY
-    );
+    void SubmitCommands( const UI::UIDrawList& drawList,
+                         const RuntimeRenderTargetPreviewSnapshot* previewData,
+                         Text::TextBatch& textBatch,
+                         Rendering::RenderGpuTimingOwner* gpuTiming,
+                         Assets::AssetSystem* assets,
+                         Rendering::Dx12ResourceBuilder* renderResources,
+                         Rendering::Dx12TextureOwner& renderTextures,
+                         Rendering::Dx12GeometryOwner& renderGeometry,
+                         Rendering::Dx12Diagnostics& renderDiagnostics,
+                         int screenW,
+                         int screenH,
+                         float offsetX,
+                         float offsetY );
 
-    void EnsurePreviewResources(
-        Assets::AssetSystem& assets,
-        Rendering::Dx12ResourceBuilder& renderResources,
-        Rendering::Dx12GeometryOwner& renderGeometry
-    );
+    void EnsurePreviewResources( Assets::AssetSystem& assets,
+                                 Rendering::Dx12ResourceBuilder& renderResources,
+                                 Rendering::Dx12GeometryOwner& renderGeometry );
 
     std::unique_ptr<Rendering::ShaderDX12> m_previewShader;
     uint32_t m_previewVertexBuffer = 0;

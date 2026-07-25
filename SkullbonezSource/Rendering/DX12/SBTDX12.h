@@ -62,14 +62,12 @@ class SBT
     SBT();
     ~SBT();
 
-    SkullbonezCore::Core::SbResult Build(
-        ID3D12Device* device,
-        ID3D12StateObjectProperties* props,
-        const wchar_t* rayGenName,
-        const wchar_t* missName,
-        const wchar_t* hitGroupTerrainName,
-        const wchar_t* hitGroupSphereName
-    );
+    SkullbonezCore::Core::SbResult Build( ID3D12Device* device,
+                                          ID3D12StateObjectProperties* props,
+                                          const wchar_t* rayGenName,
+                                          const wchar_t* missName,
+                                          const wchar_t* hitGroupTerrainName,
+                                          const wchar_t* hitGroupSphereName );
 
     D3D12_GPU_VIRTUAL_ADDRESS_RANGE RayGenRange() const;
     D3D12_GPU_VIRTUAL_ADDRESS_RANGE_AND_STRIDE MissRange() const;

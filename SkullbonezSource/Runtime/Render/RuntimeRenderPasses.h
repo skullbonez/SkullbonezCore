@@ -551,13 +551,11 @@ class FullscreenQuadPass
 class SkyPass
 {
   public:
-    SkyPass(
-        SkyPassResources& skyResources,
-        FullscreenPassResources& fullscreenResources,
-        std::unique_ptr<Geometry::SkyBox>& skyBox,
-        const SkullbonezCore::Core::EngineConfig& config,
-        SkullbonezCore::Core::Profiler* profiler
-    )
+    SkyPass( SkyPassResources& skyResources,
+             FullscreenPassResources& fullscreenResources,
+             std::unique_ptr<Geometry::SkyBox>& skyBox,
+             const SkullbonezCore::Core::EngineConfig& config,
+             SkullbonezCore::Core::Profiler* profiler )
         : m_skyResources( skyResources ), m_fullscreenResources( fullscreenResources ), m_skyBox( skyBox ),
           m_config( config ), m_profiler( profiler )
     {
@@ -614,22 +612,18 @@ class SceneTargetPass
 class ShadowPass
 {
   public:
-    ShadowPass(
-        ShadowPassResources& resources,
-        SceneTerrain& terrain,
-        const SkullbonezCore::Core::EngineConfig& config,
-        RenderResourceLifecycleLog& lifecycleLog,
-        SkullbonezCore::Core::Profiler* profiler
-    )
+    ShadowPass( ShadowPassResources& resources,
+                SceneTerrain& terrain,
+                const SkullbonezCore::Core::EngineConfig& config,
+                RenderResourceLifecycleLog& lifecycleLog,
+                SkullbonezCore::Core::Profiler* profiler )
         : m_resources( resources ), m_terrain( terrain ), m_config( config ), m_lifecycleLog( lifecycleLog ),
           m_profiler( profiler )
     {
     }
 
-    void EnsureGpuResources(
-        const RenderResourceContext& resources,
-        const SkullbonezCore::Core::CinematicRenderConfig& cinematic
-    );
+    void EnsureGpuResources( const RenderResourceContext& resources,
+                             const SkullbonezCore::Core::CinematicRenderConfig& cinematic );
     void ReleaseGpuResources();
     // Clears last-frame receiver payloads without scheduling a render pass.
     // Disabled space scenes use this path so "shadows off" means no graph work.
@@ -638,32 +632,26 @@ class ShadowPass
 
   private:
     void LogResourceLifecycleStep( const char* phase, const char* step ) const;
-    Rendering::ShadowFrameData BuildTerrainFrameData(
-        const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-        const Math::Vector::Vector3& lightDirectionWorld
-    ) const;
-    Rendering::ShadowFrameData BuildObjectFrameData(
-        const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-        const Math::Vector::Vector3& lightDirectionWorld,
-        const Math::Vector::Vector3& focusHint,
-        const Rendering::RenderInstanceStore& renderInstances,
-        Threading::WorkerPool* renderWorkerPool,
-        bool shadowParallelPrep
-    );
-    void RenderShadowMap(
-        Rendering::FramebufferDX12& target,
-        const Rendering::PrimitiveRenderContext& primitiveContext,
-        const Rendering::ShadowFrameData& shadowFrame,
-        const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-        Rendering::Dx12FrameOwner& renderFrame,
-        Rendering::Dx12TextureOwner& renderTextures,
-        const Rendering::RenderInstanceStore& renderInstances,
-        const Physics::ColliderStore& colliders,
-        Threading::WorkerPool* renderWorkerPool,
-        bool renderTerrain,
-        bool shadowParallelPrep,
-        const Rendering::ShadowCasterBatches* objectCasters
-    );
+    Rendering::ShadowFrameData BuildTerrainFrameData( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+                                                      const Math::Vector::Vector3& lightDirectionWorld ) const;
+    Rendering::ShadowFrameData BuildObjectFrameData( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+                                                     const Math::Vector::Vector3& lightDirectionWorld,
+                                                     const Math::Vector::Vector3& focusHint,
+                                                     const Rendering::RenderInstanceStore& renderInstances,
+                                                     Threading::WorkerPool* renderWorkerPool,
+                                                     bool shadowParallelPrep );
+    void RenderShadowMap( Rendering::FramebufferDX12& target,
+                          const Rendering::PrimitiveRenderContext& primitiveContext,
+                          const Rendering::ShadowFrameData& shadowFrame,
+                          const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+                          Rendering::Dx12FrameOwner& renderFrame,
+                          Rendering::Dx12TextureOwner& renderTextures,
+                          const Rendering::RenderInstanceStore& renderInstances,
+                          const Physics::ColliderStore& colliders,
+                          Threading::WorkerPool* renderWorkerPool,
+                          bool renderTerrain,
+                          bool shadowParallelPrep,
+                          const Rendering::ShadowCasterBatches* objectCasters );
 
     ShadowPassResources& m_resources;
     SceneTerrain& m_terrain;
@@ -686,15 +674,13 @@ class ShadowPass
 class ReflectionPass
 {
   public:
-    ReflectionPass(
-        ReflectionPassResources& resources,
-        Physics::CollisionVisualizer& collisionVisualizer,
-        const SkullbonezCore::Core::EngineConfig& config,
-        Math::Transformation::Matrix4* dxrReflectionTransforms,
-        int dxrReflectionTransformCapacity,
-        RenderResourceLifecycleLog& lifecycleLog,
-        SkullbonezCore::Core::Profiler* profiler
-    )
+    ReflectionPass( ReflectionPassResources& resources,
+                    Physics::CollisionVisualizer& collisionVisualizer,
+                    const SkullbonezCore::Core::EngineConfig& config,
+                    Math::Transformation::Matrix4* dxrReflectionTransforms,
+                    int dxrReflectionTransformCapacity,
+                    RenderResourceLifecycleLog& lifecycleLog,
+                    SkullbonezCore::Core::Profiler* profiler )
         : m_resources( resources ), m_collisionVisualizer( collisionVisualizer ), m_config( config ),
           m_dxrReflectionTransforms( dxrReflectionTransforms ),
           m_dxrReflectionTransformCapacity( dxrReflectionTransformCapacity ), m_lifecycleLog( lifecycleLog ),
@@ -728,11 +714,9 @@ class ReflectionPass
 class ObjectPass
 {
   public:
-    ObjectPass(
-        Physics::CollisionVisualizer& collisionVisualizer,
-        const SkullbonezCore::Core::EngineConfig& config,
-        SkullbonezCore::Core::Profiler* profiler
-    )
+    ObjectPass( Physics::CollisionVisualizer& collisionVisualizer,
+                const SkullbonezCore::Core::EngineConfig& config,
+                SkullbonezCore::Core::Profiler* profiler )
         : m_collisionVisualizer( collisionVisualizer ), m_config( config ), m_profiler( profiler )
     {
     }
@@ -756,11 +740,9 @@ class ObjectPass
 class TerrainPass
 {
   public:
-    TerrainPass(
-        SceneTerrain& terrain,
-        const SkullbonezCore::Core::EngineConfig& config,
-        SkullbonezCore::Core::Profiler* profiler
-    )
+    TerrainPass( SceneTerrain& terrain,
+                 const SkullbonezCore::Core::EngineConfig& config,
+                 SkullbonezCore::Core::Profiler* profiler )
         : m_terrain( terrain ), m_config( config ), m_profiler( profiler )
     {
     }
@@ -786,11 +768,9 @@ class TerrainPass
 class WaterPass
 {
   public:
-    WaterPass(
-        Environment::WorldEnvironment& world,
-        const SkullbonezCore::Core::EngineConfig& config,
-        SkullbonezCore::Core::Profiler* profiler
-    )
+    WaterPass( Environment::WorldEnvironment& world,
+               const SkullbonezCore::Core::EngineConfig& config,
+               SkullbonezCore::Core::Profiler* profiler )
         : m_world( world ), m_config( config ), m_profiler( profiler )
     {
     }
@@ -820,13 +800,11 @@ class WaterPass
 class DebugOverlayPass
 {
   public:
-    DebugOverlayPass(
-        Physics::BroadphaseVisualizer& broadphaseVisualizer,
-        Physics::PhysicsDebugVisualizer& physicsDebugVisualizer,
-        SceneTerrain& terrain,
-        Assets::AssetSystem& assets,
-        SkullbonezCore::Core::Profiler* profiler
-    )
+    DebugOverlayPass( Physics::BroadphaseVisualizer& broadphaseVisualizer,
+                      Physics::PhysicsDebugVisualizer& physicsDebugVisualizer,
+                      SceneTerrain& terrain,
+                      Assets::AssetSystem& assets,
+                      SkullbonezCore::Core::Profiler* profiler )
         : m_broadphaseVisualizer( broadphaseVisualizer ), m_physicsDebugVisualizer( physicsDebugVisualizer ),
           m_terrain( terrain ), m_assets( assets ), m_profiler( profiler )
     {
@@ -857,13 +835,11 @@ class DebugOverlayPass
 class VolumetricPass
 {
   public:
-    VolumetricPass(
-        CinematicScenePassResources& sceneResources,
-        VolumetricLightPassResources& volumetricResources,
-        FullscreenPassResources& fullscreenResources,
-        const SkullbonezCore::Core::EngineConfig& config,
-        SkullbonezCore::Core::Profiler* profiler
-    )
+    VolumetricPass( CinematicScenePassResources& sceneResources,
+                    VolumetricLightPassResources& volumetricResources,
+                    FullscreenPassResources& fullscreenResources,
+                    const SkullbonezCore::Core::EngineConfig& config,
+                    SkullbonezCore::Core::Profiler* profiler )
         : m_sceneResources( sceneResources ), m_volumetricResources( volumetricResources ),
           m_fullscreenResources( fullscreenResources ), m_config( config ), m_profiler( profiler )
     {
@@ -892,14 +868,12 @@ class VolumetricPass
 class TonemapPass
 {
   public:
-    TonemapPass(
-        CinematicScenePassResources& sceneResources,
-        VolumetricLightPassResources& volumetricResources,
-        TonemapPassResources& tonemapResources,
-        FullscreenPassResources& fullscreenResources,
-        const SkullbonezCore::Core::EngineConfig& config,
-        SkullbonezCore::Core::Profiler* profiler
-    )
+    TonemapPass( CinematicScenePassResources& sceneResources,
+                 VolumetricLightPassResources& volumetricResources,
+                 TonemapPassResources& tonemapResources,
+                 FullscreenPassResources& fullscreenResources,
+                 const SkullbonezCore::Core::EngineConfig& config,
+                 SkullbonezCore::Core::Profiler* profiler )
         : m_sceneResources( sceneResources ), m_volumetricResources( volumetricResources ),
           m_tonemapResources( tonemapResources ), m_fullscreenResources( fullscreenResources ), m_config( config ),
           m_profiler( profiler )
@@ -908,12 +882,10 @@ class TonemapPass
 
     void EnsureGpuResources( const RenderResourceContext& resources );
     void ReleaseGpuResources();
-    void Render(
-        const RenderFrameContext& frame,
-        bool sceneAlreadyUnbound,
-        bool volumetricReady,
-        const Rendering::RenderGraphTextureBinding* graphVolumetric = nullptr
-    );
+    void Render( const RenderFrameContext& frame,
+                 bool sceneAlreadyUnbound,
+                 bool volumetricReady,
+                 const Rendering::RenderGraphTextureBinding* graphVolumetric = nullptr );
 
   private:
     CinematicScenePassResources& m_sceneResources;
@@ -940,16 +912,14 @@ class UiTextPass
     {
     }
 
-    SkullbonezCore::Core::SbResult EnsureGpuResources(
-        Rendering::Dx12ResourceBuilder& renderResources,
-        Rendering::Dx12TextureOwner& renderTextures,
-        Rendering::Dx12GeometryOwner& renderGeometry,
-        const Assets::AssetSystem& assets,
-        int screenW,
-        int screenH
-    );
-    void
-    ReleaseGpuResources( Rendering::Dx12TextureOwner* renderTextures, Rendering::Dx12GeometryOwner* renderGeometry );
+    SkullbonezCore::Core::SbResult EnsureGpuResources( Rendering::Dx12ResourceBuilder& renderResources,
+                                                       Rendering::Dx12TextureOwner& renderTextures,
+                                                       Rendering::Dx12GeometryOwner& renderGeometry,
+                                                       const Assets::AssetSystem& assets,
+                                                       int screenW,
+                                                       int screenH );
+    void ReleaseGpuResources( Rendering::Dx12TextureOwner* renderTextures,
+                              Rendering::Dx12GeometryOwner* renderGeometry );
     bool ShouldRender( const UiTextPassState& state, const UI::InGameUI& ui ) const;
     void SetRayTracingCapability( Rendering::Dx12RaytracingOwner* renderRayTracing );
     void Render( const UiTextPassInputs& inputs );
@@ -961,7 +931,7 @@ class UiTextPass
     // Owns draw replay and the preview-only GPU objects. UI provides values and
     // never sees this renderer capability.
     UiDrawSubmission m_uiDrawSubmission;
-    // Fixed scratch streams are retained by the pass so the 8,192-command
+    // Fixed scratch streams are retained by the pass so the 2,048-command
     // capacity never consumes nested Windows stack frames or grows at runtime.
     UI::UIDrawList m_testPatternDrawList;
     UI::UIDrawList m_badgeDrawList;

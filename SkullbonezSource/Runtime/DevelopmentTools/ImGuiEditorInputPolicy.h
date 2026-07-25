@@ -139,8 +139,8 @@ constexpr ImGuiEditorInputCapture EvaluateImGuiEditorInputCapture( const ImGuiEd
     return capture;
 }
 
-constexpr ImGuiEditorMessageDecision
-DecideImGuiEditorMessageRoute( ImGuiEditorMessageClass messageClass, const ImGuiEditorInputCapture& capture ) noexcept
+constexpr ImGuiEditorMessageDecision DecideImGuiEditorMessageRoute( ImGuiEditorMessageClass messageClass,
+                                                                    const ImGuiEditorInputCapture& capture ) noexcept
 {
     bool editorConsumes = false;
     switch ( messageClass )

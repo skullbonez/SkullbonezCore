@@ -37,13 +37,11 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-void PrepareSceneUiOptions(
-    SceneRuntimeUiOptionsContext context,
-    const SceneUIOptions& options,
-    double nowSeconds,
-    bool preserveUIState,
-    bool automationScene
-)
+void PrepareSceneUiOptions( SceneRuntimeUiOptionsContext context,
+                            const SceneUIOptions& options,
+                            double nowSeconds,
+                            bool preserveUIState,
+                            bool automationScene )
 {
     context.activation.authoredOptions = options;
     context.activation.nowSeconds = nowSeconds;
@@ -62,10 +60,12 @@ void PrepareSceneUiOptions(
     {
         context.diagnostics.UIStress().enabled = options.stressEnabled;
     }
+
     if ( options.hasStressSeed )
     {
         context.diagnostics.UIStress().randomState = options.stressSeed;
     }
+
     if ( options.hasStressActions )
     {
         context.diagnostics.UIStress().actionsPerFrame = std::clamp( options.stressActionsPerFrame, 1, 32 );
@@ -90,6 +90,7 @@ void ApplySceneUiActivation( UI::InGameUI& ui, const SceneUiActivation& activati
                 {
                     ui.SetVisible( true, activation.nowSeconds );
                 }
+
                 ui.SetMinimized( true, activation.nowSeconds );
             }
             else if ( !ui.IsVisible() )
@@ -97,6 +98,7 @@ void ApplySceneUiActivation( UI::InGameUI& ui, const SceneUiActivation& activati
                 ui.SetVisible( true, activation.nowSeconds );
             }
         }
+
         if ( options.hasWindowRect )
         {
             ui.SetWindowBounds( options.windowX, options.windowY, options.windowW, options.windowH );
@@ -105,64 +107,79 @@ void ApplySceneUiActivation( UI::InGameUI& ui, const SceneUiActivation& activati
                 ui.SetMinimized( false, activation.nowSeconds );
             }
         }
+
         if ( options.hasActiveTab )
         {
             ui.SetActiveTab( static_cast<UI::InGameUITab>( options.activeTab ) );
         }
+
         if ( options.hasBlur )
         {
             ui.SetBlurEnabled( options.blurEnabled );
         }
+
         if ( options.hasProfilerExpandAll )
         {
             ui.SetProfilerExpandAll( options.profilerExpandAll );
         }
+
         if ( options.hasProfilerTimeline )
         {
             ui.SetProfilerTimelineEnabled( options.profilerTimeline );
         }
+
         if ( options.hasPerformanceHistogram )
         {
             ui.SetPerformanceHistogramEnabled( options.performanceHistogram );
         }
+
         if ( options.hasHitboxOverlay )
         {
             ui.SetHitboxOverlayEnabled( options.hitboxOverlay );
         }
+
         if ( options.hasRendererComboOpen )
         {
             ui.SetRendererComboOpen( options.rendererComboOpen );
         }
+
         if ( options.hasWaterComboOpen )
         {
             ui.SetWaterComboOpen( options.waterComboOpen );
         }
+
         if ( options.hasSceneComboOpen )
         {
             ui.SetSceneComboOpen( options.sceneComboOpen );
         }
+
         if ( options.hasSceneFilter )
         {
             ui.SetSceneFilter( options.sceneFilter );
         }
+
         if ( options.hasScrollY )
         {
             ui.SetScrollY( options.scrollY );
         }
+
         ui.SetMouseOverride( options.hasMouseOverride, options.mouseX, options.mouseY );
         if ( options.hasVisible )
         {
             ui.SetVisible( options.isVisible, activation.nowSeconds );
         }
+
         if ( options.hasMinimized )
         {
             ui.SetMinimized( options.isMinimized, 0.0 );
         }
     }
+
     if ( activation.forceVisible )
     {
         ui.SetVisible( true, activation.nowSeconds );
     }
+
     if ( activation.forceUnminimized )
     {
         ui.SetMinimized( false, activation.nowSeconds );

@@ -42,15 +42,13 @@ class ShaderDX12;
 class Dx12ResourceBuilder
 {
   public:
-    Dx12ResourceBuilder(
-        Dx12RenderDevice& device,
-        Dx12PipelineOwner& pipeline,
-        Dx12TextureOwner& textures,
-        Dx12DescriptorHeaps& descriptors,
-        Dx12FrameOwner& frame,
-        Dx12ShaderDevelopment& shaderDevelopment,
-        Dx12Diagnostics& diagnostics
-    )
+    Dx12ResourceBuilder( Dx12RenderDevice& device,
+                         Dx12PipelineOwner& pipeline,
+                         Dx12TextureOwner& textures,
+                         Dx12DescriptorHeaps& descriptors,
+                         Dx12FrameOwner& frame,
+                         Dx12ShaderDevelopment& shaderDevelopment,
+                         Dx12Diagnostics& diagnostics )
         : m_device( device ), m_pipeline( pipeline ), m_textures( textures ), m_descriptors( descriptors ),
           m_frame( frame ), m_shaderDevelopment( shaderDevelopment ), m_diagnostics( diagnostics )
     {

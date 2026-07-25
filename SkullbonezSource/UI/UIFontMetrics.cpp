@@ -35,6 +35,7 @@ bool UIFontMetrics::Install( const float* advances, int count )
     {
         return false;
     }
+
     if ( s_ready )
     {
         return std::memcmp( s_advances.data(), advances, sizeof( s_advances ) ) == 0;
@@ -65,6 +66,7 @@ float UIFontMetrics::MeasureText( float size, const char* text )
         const unsigned char character = static_cast<unsigned char>( *cursor );
         width += character >= 32 && character <= 127 ? s_advances[character - 32] * size : size * 0.5f;
     }
+
     return width;
 }
 

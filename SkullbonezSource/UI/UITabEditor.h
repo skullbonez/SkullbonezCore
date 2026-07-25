@@ -87,28 +87,24 @@ struct UIEditorTabState
 
 int ContentHeight();
 const char* ObjectLabel( int objectType );
-bool HandleContentClick(
-    UIEditorTabState& state,
-    InGameUIInputResult& result,
-    int mouseX,
-    int mouseY,
-    float contentX,
-    float rowBase,
-    float contentW
-);
+bool HandleContentClick( UIEditorTabState& state,
+                         InGameUIInputResult& result,
+                         int mouseX,
+                         int mouseY,
+                         float contentX,
+                         float rowBase,
+                         float contentW );
 
-void Draw(
-    UIEditorTabState& state,
-    const UIDrawContext& draw,
-    const InGameUIFrameData& data,
-    float contentX,
-    float contentY,
-    float contentW,
-    float contentH,
-    float scrolledY,
-    int mouseX,
-    int mouseY
-);
+void Draw( UIEditorTabState& state,
+           const UIDrawContext& draw,
+           const InGameUIFrameData& data,
+           float contentX,
+           float contentY,
+           float contentW,
+           float contentH,
+           float scrolledY,
+           int mouseX,
+           int mouseY );
 
 } // namespace EditorTab
 } // namespace UI

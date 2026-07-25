@@ -89,8 +89,8 @@ class BoundingBox
     BoundingBox( const Vector::Vector3& halfExtents, const Vector::Vector3& position );
 
     // --- Shape interface (matches BoundingSphere for std::visit dispatch) ---
-    Transformation::Matrix4
-    GetModelMatrix( const Vector::Vector3& worldPos, const Transformation::Matrix4& rotation ) const;
+    Transformation::Matrix4 GetModelMatrix( const Vector::Vector3& worldPos,
+                                            const Transformation::Matrix4& rotation ) const;
     float GetVolume() const;
     float GetSubmergedVolumePercent( float fluidSurfaceHeight ) const;
     float GetDragCoefficient() const;

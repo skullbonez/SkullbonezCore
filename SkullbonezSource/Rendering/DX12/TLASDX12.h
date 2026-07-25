@@ -61,12 +61,10 @@ class TLAS
     ~TLAS();
 
     SkullbonezCore::Core::SbResult Init( ID3D12Device5* device, int maxInstances );
-    SkullbonezCore::Core::SbResult Build(
-        ID3D12Device5* device,
-        ID3D12GraphicsCommandList4* cmdList,
-        const D3D12_RAYTRACING_INSTANCE_DESC* instances,
-        int instanceCount
-    );
+    SkullbonezCore::Core::SbResult Build( ID3D12Device5* device,
+                                          ID3D12GraphicsCommandList4* cmdList,
+                                          const D3D12_RAYTRACING_INSTANCE_DESC* instances,
+                                          int instanceCount );
     D3D12_GPU_VIRTUAL_ADDRESS GetResultVA() const;
     void Reset();
 };

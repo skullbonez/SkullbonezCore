@@ -36,8 +36,15 @@ RotationMatrix::RotationMatrix()
 }
 
 
-RotationMatrix::
-    RotationMatrix( float f11, float f12, float f13, float f21, float f22, float f23, float f31, float f32, float f33 )
+RotationMatrix::RotationMatrix( float f11,
+                                float f12,
+                                float f13,
+                                float f21,
+                                float f22,
+                                float f23,
+                                float f31,
+                                float f32,
+                                float f33 )
     : m11( f11 ), m12( f12 ), m13( f13 ), m21( f21 ), m22( f22 ), m23( f23 ), m31( f31 ), m32( f32 ), m33( f33 )
 {
 }
@@ -61,11 +68,9 @@ void RotationMatrix::Identity()
 
 Vector3 RotationMatrix::operator*( const Vector3& v ) const
 {
-    return Vector3(
-        m11 * v.x + m12 * v.y + m13 * v.z,
-        m21 * v.x + m22 * v.y + m23 * v.z,
-        m31 * v.x + m32 * v.y + m33 * v.z
-    );
+    return Vector3( m11 * v.x + m12 * v.y + m13 * v.z,
+                    m21 * v.x + m22 * v.y + m23 * v.z,
+                    m31 * v.x + m32 * v.y + m33 * v.z );
 }
 
 
@@ -79,9 +84,7 @@ Vector3 RotationMatrix::TransposeMultiply( const Vector3& v ) const
 {
     // For an orthogonal rotation matrix, R^T = R^-1.
     // Columns become rows: (R^T * v)_i = column_i . v
-    return Vector3(
-        m11 * v.x + m21 * v.y + m31 * v.z,
-        m12 * v.x + m22 * v.y + m32 * v.z,
-        m13 * v.x + m23 * v.y + m33 * v.z
-    );
+    return Vector3( m11 * v.x + m21 * v.y + m31 * v.z,
+                    m12 * v.x + m22 * v.y + m32 * v.z,
+                    m13 * v.x + m23 * v.y + m33 * v.z );
 }

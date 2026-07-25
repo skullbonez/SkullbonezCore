@@ -53,47 +53,39 @@ struct UICinematicTabState
 int ContentHeight();
 bool IsComboOpen( const UICinematicTabState& state );
 void CloseCombo( UICinematicTabState& state );
-bool HandleOpenComboClick(
-    UICinematicTabState& state,
-    InGameUIInputResult& result,
-    const char* const* sceneOptions,
-    int sceneOptionCount,
-    int mouseX,
-    int mouseY
-);
-bool HandleContentClick(
-    UICinematicTabState& state,
-    InGameUIInputResult& result,
-    int& activeSlider,
-    int mouseX,
-    int mouseY,
-    float contentX,
-    float scrolledY,
-    float contentW
-);
+bool HandleOpenComboClick( UICinematicTabState& state,
+                           InGameUIInputResult& result,
+                           const char* const* sceneOptions,
+                           int sceneOptionCount,
+                           int mouseX,
+                           int mouseY );
+bool HandleContentClick( UICinematicTabState& state,
+                         InGameUIInputResult& result,
+                         int& activeSlider,
+                         int mouseX,
+                         int mouseY,
+                         float contentX,
+                         float scrolledY,
+                         float contentW );
 bool UpdateActiveSlider( UICinematicTabState& state, int activeSlider, int mouseX, InGameUIInputResult& result );
 bool CommitActiveSlider( UICinematicTabState& state, int activeSlider, int mouseX, InGameUIInputResult& result );
 
-void DrawHitboxes(
-    const UICinematicTabState& state,
-    const UIDrawContext& draw,
-    const InGameUIFrameData& data,
-    float contentR,
-    float contentG,
-    float contentB
-);
-void Draw(
-    UICinematicTabState& state,
-    const UIDrawContext& draw,
-    const InGameUIFrameData& data,
-    float contentX,
-    float contentY,
-    float contentW,
-    float contentH,
-    float scrolledY,
-    int mouseX,
-    int mouseY
-);
+void DrawHitboxes( const UICinematicTabState& state,
+                   const UIDrawContext& draw,
+                   const InGameUIFrameData& data,
+                   float contentR,
+                   float contentG,
+                   float contentB );
+void Draw( UICinematicTabState& state,
+           const UIDrawContext& draw,
+           const InGameUIFrameData& data,
+           float contentX,
+           float contentY,
+           float contentW,
+           float contentH,
+           float scrolledY,
+           int mouseX,
+           int mouseY );
 
 } // namespace CinematicTab
 } // namespace UI

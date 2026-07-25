@@ -47,8 +47,7 @@ enum class MainMemoryReplayTrajectoryLane : std::size_t
     Count
 };
 
-inline constexpr std::size_t MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT =
-    static_cast<std::size_t>( MainMemoryReplayTrajectoryLane::Count );
+inline constexpr std::size_t MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT = static_cast<std::size_t>( MainMemoryReplayTrajectoryLane::Count );
 
 enum class MainMemoryReplayBudgetPass : std::size_t
 {
@@ -59,8 +58,7 @@ enum class MainMemoryReplayBudgetPass : std::size_t
     Count
 };
 
-inline constexpr std::size_t MAIN_MEMORY_REPLAY_BUDGET_PASS_COUNT =
-    static_cast<std::size_t>( MainMemoryReplayBudgetPass::Count );
+inline constexpr std::size_t MAIN_MEMORY_REPLAY_BUDGET_PASS_COUNT = static_cast<std::size_t>( MainMemoryReplayBudgetPass::Count );
 
 enum class MainMemoryReplayRebuildCause : std::size_t
 {
@@ -69,8 +67,7 @@ enum class MainMemoryReplayRebuildCause : std::size_t
     Count
 };
 
-inline constexpr std::size_t MAIN_MEMORY_REPLAY_REBUILD_CAUSE_COUNT =
-    static_cast<std::size_t>( MainMemoryReplayRebuildCause::Count );
+inline constexpr std::size_t MAIN_MEMORY_REPLAY_REBUILD_CAUSE_COUNT = static_cast<std::size_t>( MainMemoryReplayRebuildCause::Count );
 
 enum class MainMemoryReplayByteCategory : std::size_t
 {
@@ -110,26 +107,23 @@ enum class MainMemoryReplayByteCategory : std::size_t
     Count
 };
 
-inline constexpr std::size_t MAIN_MEMORY_REPLAY_BYTE_CATEGORY_COUNT =
-    static_cast<std::size_t>( MainMemoryReplayByteCategory::Count );
+inline constexpr std::size_t MAIN_MEMORY_REPLAY_BYTE_CATEGORY_COUNT = static_cast<std::size_t>( MainMemoryReplayByteCategory::Count );
 
 struct MainMemoryReplayCategoryBytes
 {
     uint64_t bytes[MAIN_MEMORY_REPLAY_BYTE_CATEGORY_COUNT] = {};
 };
 
-inline uint64_t
-MainMemoryReplayCategoryByte( const MainMemoryReplayCategoryBytes& categories, MainMemoryReplayByteCategory category )
+inline uint64_t MainMemoryReplayCategoryByte( const MainMemoryReplayCategoryBytes& categories,
+                                              MainMemoryReplayByteCategory category )
 {
     const std::size_t categoryIndex = static_cast<std::size_t>( category );
     return categoryIndex < MAIN_MEMORY_REPLAY_BYTE_CATEGORY_COUNT ? categories.bytes[categoryIndex] : 0;
 }
 
-inline void MainMemoryAddReplayCategoryBytes(
-    MainMemoryReplayCategoryBytes& categories,
-    MainMemoryReplayByteCategory category,
-    uint64_t bytes
-)
+inline void MainMemoryAddReplayCategoryBytes( MainMemoryReplayCategoryBytes& categories,
+                                              MainMemoryReplayByteCategory category,
+                                              uint64_t bytes )
 {
     const std::size_t categoryIndex = static_cast<std::size_t>( category );
     if ( categoryIndex < MAIN_MEMORY_REPLAY_BYTE_CATEGORY_COUNT )
@@ -138,11 +132,9 @@ inline void MainMemoryAddReplayCategoryBytes(
     }
 }
 
-inline uint64_t MainMemoryReplayCategoryRangeBytes(
-    const MainMemoryReplayCategoryBytes& categories,
-    MainMemoryReplayByteCategory first,
-    MainMemoryReplayByteCategory end
-)
+inline uint64_t MainMemoryReplayCategoryRangeBytes( const MainMemoryReplayCategoryBytes& categories,
+                                                    MainMemoryReplayByteCategory first,
+                                                    MainMemoryReplayByteCategory end )
 {
     const std::size_t firstIndex = static_cast<std::size_t>( first );
     const std::size_t endIndex = static_cast<std::size_t>( end );

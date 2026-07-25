@@ -73,11 +73,10 @@ constexpr std::size_t REPLAY_PATH_MAX_SEGMENTS = 260;
 constexpr float REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ = 0.0001f;
 constexpr float REPLAY_PREDICTION_CHILD_LINEAR_SPEED_SQ = 8.0f * 8.0f;
 constexpr float REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE = 0.05f;
-constexpr float REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE_SQ =
-    REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE * REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE;
+constexpr float REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE_SQ = REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE *
+                                                                 REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE;
 constexpr double REPLAY_PREDICTION_REST_GRACE_SECONDS = 0.4;
-constexpr ReplayFrameIndex REPLAY_PREDICTION_REST_GRACE_FRAMES =
-    static_cast<ReplayFrameIndex>( REPLAY_PREDICTION_REST_GRACE_SECONDS / PHYSICS_FIXED_DT );
+constexpr ReplayFrameIndex REPLAY_PREDICTION_REST_GRACE_FRAMES = static_cast<ReplayFrameIndex>( REPLAY_PREDICTION_REST_GRACE_SECONDS / PHYSICS_FIXED_DT );
 constexpr float REPLAY_PREDICTION_REST_POSITION_EPSILON_SQ = 0.5f * 0.5f;
 
 } // namespace
@@ -88,6 +87,7 @@ std::size_t ReplayPredictionPathStrideForSampleCount( std::size_t sampleCount ) 
     {
         return 1;
     }
+
     return ( sampleCount + REPLAY_PATH_MAX_SEGMENTS - 1 ) / REPLAY_PATH_MAX_SEGMENTS;
 }
 
@@ -109,33 +109,30 @@ void ClearReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction 
 }
 
 
-const ReplaySolverBodySample*
-FindReplayBodyById( const ReplaySolverFrameSample& sample, Physics::PhysicsSceneObjectId id )
+const ReplaySolverBodySample* FindReplayBodyById( const ReplaySolverFrameSample& sample,
+                                                  Physics::PhysicsSceneObjectId id )
 {
     return FindReplayBodyByIdInSample<ReplaySolverFrameSample, ReplaySolverBodySample>( sample, id );
 }
 
-const RunReplayPredictionBodySample*
-FindReplayPredictionBodyById( const RunReplayPredictionFrame& frame, Physics::PhysicsSceneObjectId id )
+const RunReplayPredictionBodySample* FindReplayPredictionBodyById( const RunReplayPredictionFrame& frame,
+                                                                   Physics::PhysicsSceneObjectId id )
 {
     return FindReplayBodyByIdInSample<RunReplayPredictionFrame, RunReplayPredictionBodySample>( frame, id );
 }
 
-const RunReplayPredictionBodySample*
-FindReplayPredictionBodyByModelIndex( const RunReplayPredictionFrame& frame, int modelIndex )
+const RunReplayPredictionBodySample* FindReplayPredictionBodyByModelIndex( const RunReplayPredictionFrame& frame,
+                                                                           int modelIndex )
 {
     return FindReplayBodyByModelIndexInSample<RunReplayPredictionFrame, RunReplayPredictionBodySample, false>(
         frame,
-        modelIndex
-    );
+        modelIndex );
 }
 
 const ReplaySolverBodySample* FindReplayBodyByModelIndex( const ReplaySolverFrameSample& sample, int modelIndex )
 {
-    return FindReplayBodyByModelIndexInSample<ReplaySolverFrameSample, ReplaySolverBodySample, true>(
-        sample,
-        modelIndex
-    );
+    return FindReplayBodyByModelIndexInSample<ReplaySolverFrameSample, ReplaySolverBodySample, true>( sample,
+                                                                                                      modelIndex );
 }
 
 const ReplaySolverBodySample*
@@ -148,16 +145,16 @@ FindReplayBodyByIdWithHint( const ReplaySolverFrameSample& sample, Physics::Phys
             return hinted;
         }
     }
+
     return FindReplayBodyById( sample, id );
 }
 
-Physics::PhysicsSceneObjectId
-ReplayPredictionBodyIdForModelIndex( const RunReplayPredictionFrame& frame, int modelIndex )
+Physics::PhysicsSceneObjectId ReplayPredictionBodyIdForModelIndex( const RunReplayPredictionFrame& frame,
+                                                                   int modelIndex )
 {
     return SceneObjectIdForModelIndexInSample<RunReplayPredictionFrame, RunReplayPredictionBodySample, false>(
         frame,
-        modelIndex
-    );
+        modelIndex );
 }
 
 bool ReplayModelIndexIsRagdollPart( const SceneEntityStore& entities, int modelIndex )
@@ -168,6 +165,7 @@ bool ReplayModelIndexIsRagdollPart( const SceneEntityStore& entities, int modelI
     {
         return false;
     }
+
     const SceneEntityRecord* entity = entities.TryGet( modelIndex );
     return entity && entity->behaviorGroup.kind == SceneBehaviorGroupKind::SimpleRagdoll;
 }
@@ -179,6 +177,7 @@ int ReplayRagdollTorsoModelIndexForPart( const SceneEntityStore& entities, int m
     {
         return modelIndex;
     }
+
     const int rootRow = entities.FindBySceneObjectId( entity->behaviorGroup.rootObjectId );
     return rootRow >= 0 ? rootRow : modelIndex;
 }
@@ -190,15 +189,14 @@ Vector3 ReplayNormalizeOr( Vector3 value, const Vector3& fallback )
     {
         return fallback;
     }
+
     value /= sqrtf( magSq );
     return value;
 }
 
-const RunReplayPredictionBodySample* FindReplayPredictionBodyByIdWithHint(
-    const RunReplayPredictionFrame& frame,
-    Physics::PhysicsSceneObjectId id,
-    int modelIndex
-)
+const RunReplayPredictionBodySample* FindReplayPredictionBodyByIdWithHint( const RunReplayPredictionFrame& frame,
+                                                                           Physics::PhysicsSceneObjectId id,
+                                                                           int modelIndex )
 {
     if ( const RunReplayPredictionBodySample* body = FindReplayPredictionBodyByModelIndex( frame, modelIndex ) )
     {
@@ -207,6 +205,7 @@ const RunReplayPredictionBodySample* FindReplayPredictionBodyByIdWithHint(
             return body;
         }
     }
+
     return FindReplayPredictionBodyById( frame, id );
 }
 
@@ -219,8 +218,8 @@ constexpr uint16_t REPLAY_TRAJECTORY_BUILD_BRANCH = 1;
 
 int ReplayTrajectoryFrameNumberForReserve( ReplayFrameIndex frameIndex )
 {
-    return static_cast<int>( (std::min)( frameIndex,
-                                         static_cast<ReplayFrameIndex>( ( std::numeric_limits<int>::max )() ) ) );
+    return static_cast<int>(
+        (std::min)( frameIndex, static_cast<ReplayFrameIndex>( ( std::numeric_limits<int>::max )() ) ) );
 }
 
 ReplayTrajectoryRecordKey
@@ -233,25 +232,21 @@ ReplayTrajectoryKey( Physics::PhysicsSceneObjectId bodyId, ReplayTrajectoryLane 
     return key;
 }
 
-bool ReserveReplayTrajectoryRecordSlot(
-    ReplayTrajectoryStore& store,
-    const ReplayTrajectoryRecordKey& key,
-    int frameNumber
-)
+bool ReserveReplayTrajectoryRecordSlot( ReplayTrajectoryStore& store,
+                                        const ReplayTrajectoryRecordKey& key,
+                                        int frameNumber )
 {
     return store.FindRecord( key ) || store.ReserveRecords( store.RecordCount() + 1u, frameNumber );
 }
 
-ReplayTrajectoryRecord* BeginReplayTrajectoryRecord(
-    ReplayTrajectoryStore& store,
-    const ReplayTrajectoryRecordKey& key,
-    uint16_t styleId,
-    Physics::PhysicsSceneObjectId parentId,
-    int depth,
-    ReplayFrameIndex firstFrame,
-    bool contactDerived,
-    std::size_t pointCapacity
-)
+ReplayTrajectoryRecord* BeginReplayTrajectoryRecord( ReplayTrajectoryStore& store,
+                                                     const ReplayTrajectoryRecordKey& key,
+                                                     uint16_t styleId,
+                                                     Physics::PhysicsSceneObjectId parentId,
+                                                     int depth,
+                                                     ReplayFrameIndex firstFrame,
+                                                     bool contactDerived,
+                                                     std::size_t pointCapacity )
 {
     const int frameNumber = ReplayTrajectoryFrameNumberForReserve( firstFrame );
     if ( !ReserveReplayTrajectoryRecordSlot( store, key, frameNumber ) )
@@ -259,26 +254,31 @@ ReplayTrajectoryRecord* BeginReplayTrajectoryRecord(
         return nullptr;
     }
 
-    ReplayTrajectoryRecord* record =
-        store.BeginReplaceRecord( key, styleId, parentId, depth, firstFrame, contactDerived );
+    ReplayTrajectoryRecord* record = store.BeginReplaceRecord( key,
+                                                               styleId,
+                                                               parentId,
+                                                               depth,
+                                                               firstFrame,
+                                                               contactDerived );
+
     if ( !record || !store.ReserveRecordPoints( *record, pointCapacity, frameNumber ) )
     {
         return nullptr;
     }
+
     return record;
 }
 
-bool AppendReplayTrajectoryPoint(
-    ReplayTrajectoryStore& store,
-    ReplayTrajectoryRecord& record,
-    ReplayFrameIndex frameIndex,
-    const Vector3& position
-)
+bool AppendReplayTrajectoryPoint( ReplayTrajectoryStore& store,
+                                  ReplayTrajectoryRecord& record,
+                                  ReplayFrameIndex frameIndex,
+                                  const Vector3& position )
 {
     if ( !store.TryAppendPoint( record, { frameIndex, position } ) )
     {
         return false;
     }
+
     store.PublishPrefix( record, record.points.size() );
     return true;
 }
@@ -298,29 +298,26 @@ ReplayTrajectoryRecordKey ReplayPastRootTrajectoryKey( Physics::PhysicsSceneObje
     return ReplayTrajectoryKey( targetId, ReplayTrajectoryLane::PastRoot, 0 );
 }
 
-ReplayTrajectoryRecord* BeginReplayPastRootTrajectoryRecord(
-    ReplayTrajectoryStore& store,
-    Physics::PhysicsSceneObjectId targetId,
-    std::size_t pointCapacity,
-    int frameNumber
-)
+ReplayTrajectoryRecord* BeginReplayPastRootTrajectoryRecord( ReplayTrajectoryStore& store,
+                                                             Physics::PhysicsSceneObjectId targetId,
+                                                             std::size_t pointCapacity,
+                                                             int frameNumber )
 {
-    return BeginReplayTrajectoryRecord(
-        store,
-        ReplayPastRootTrajectoryKey( targetId ),
-        0,
-        Physics::PhysicsSceneObjectId {},
-        0,
-        static_cast<ReplayFrameIndex>( frameNumber ),
-        false,
-        pointCapacity
-    );
+    return BeginReplayTrajectoryRecord( store,
+                                        ReplayPastRootTrajectoryKey( targetId ),
+                                        0,
+                                        Physics::PhysicsSceneObjectId {},
+                                        0,
+                                        static_cast<ReplayFrameIndex>( frameNumber ),
+                                        false,
+                                        pointCapacity );
 }
 
 std::size_t ReplayPredictionTrajectoryRecordCapacity( std::size_t bodyCount )
 {
-    const std::size_t visibleBodyCount =
-        (std::min)( bodyCount, static_cast<std::size_t>( REPLAY_VISUAL_FUTURE_NODE_CAPACITY ) );
+    const std::size_t visibleBodyCount = (std::min)( bodyCount,
+                                                     static_cast<std::size_t>( REPLAY_VISUAL_FUTURE_NODE_CAPACITY ) );
+
     // Mutual-gravity scenes retain committed and in-progress banks for every
     // visible body while the causal incoming/outgoing banks remain available
     // for marker evidence.
@@ -330,16 +327,14 @@ std::size_t ReplayPredictionTrajectoryRecordCapacity( std::size_t bodyCount )
 uint16_t ReplayPredictionChildTrajectoryBranch( std::size_t nodeIndex, bool usingBuildFrames )
 {
     const std::size_t branchBase = usingBuildFrames ? REPLAY_PATH_MAX_FUTURE_NODES : 0u;
-    return static_cast<uint16_t>( (std::min)( branchBase + nodeIndex,
-                                              static_cast<std::size_t>( ( std::numeric_limits<uint16_t>::max )() ) ) );
+    return static_cast<uint16_t>(
+        (std::min)( branchBase + nodeIndex, static_cast<std::size_t>( ( std::numeric_limits<uint16_t>::max )() ) ) );
 }
 
-bool PrepareReplayPredictionTrajectoryBuild(
-    RunReplayPredictionState& prediction,
-    Physics::PhysicsSceneObjectId rootId,
-    std::size_t frameCapacity,
-    std::size_t bodyCount
-)
+bool PrepareReplayPredictionTrajectoryBuild( RunReplayPredictionState& prediction,
+                                             Physics::PhysicsSceneObjectId rootId,
+                                             std::size_t frameCapacity,
+                                             std::size_t bodyCount )
 {
     prediction.trajectoryBuild = RunReplayPredictionTrajectoryBuildState {};
     if ( rootId.value == 0 )
@@ -347,8 +342,9 @@ bool PrepareReplayPredictionTrajectoryBuild(
         return true;
     }
 
-    const std::size_t recordCapacity =
-        (std::max)( prediction.trajectoryStore.RecordCount(), ReplayPredictionTrajectoryRecordCapacity( bodyCount ) );
+    const std::size_t recordCapacity = (std::max)( prediction.trajectoryStore.RecordCount(),
+                                                   ReplayPredictionTrajectoryRecordCapacity( bodyCount ) );
+
     if ( !prediction.trajectoryStore.ReserveRecords( recordCapacity, 0 ) )
     {
         return false;
@@ -362,13 +358,13 @@ bool PrepareReplayPredictionTrajectoryBuild(
         0,
         0,
         false,
-        frameCapacity
-    );
+        frameCapacity );
 
     if ( !rootRecord )
     {
         return false;
     }
+
     rootRecord->points.resize( frameCapacity );
 
     // Invariant: branch 1 is the in-progress prediction record. Branch 0 stays
@@ -380,11 +376,9 @@ bool PrepareReplayPredictionTrajectoryBuild(
     return true;
 }
 
-bool PublishReplayPredictionRootTrajectoryFrame(
-    RunReplayPredictionState& prediction,
-    const RunReplayPredictionFrame& frame,
-    std::size_t frameSlot
-)
+bool PublishReplayPredictionRootTrajectoryFrame( RunReplayPredictionState& prediction,
+                                                 const RunReplayPredictionFrame& frame,
+                                                 std::size_t frameSlot )
 {
     if ( !prediction.trajectoryBuild.valid || prediction.trajectoryBuild.rootId.value == 0 ||
          !prediction.trajectoryBuild.usingBuildFrames )
@@ -392,11 +386,11 @@ bool PublishReplayPredictionRootTrajectoryFrame(
         return true;
     }
 
-    ReplayTrajectoryRecord* record = prediction.trajectoryStore.FindRecord( ReplayTrajectoryKey(
-        prediction.trajectoryBuild.rootId,
-        ReplayTrajectoryLane::FutureRoot,
-        REPLAY_TRAJECTORY_BUILD_BRANCH
-    ) );
+    ReplayTrajectoryRecord* record = prediction.trajectoryStore.FindRecord(
+        ReplayTrajectoryKey( prediction.trajectoryBuild.rootId,
+                             ReplayTrajectoryLane::FutureRoot,
+                             REPLAY_TRAJECTORY_BUILD_BRANCH ) );
+
     if ( !record || frameSlot >= record->points.size() )
     {
         prediction.trajectoryBuild.valid = false;
@@ -406,8 +400,7 @@ bool PublishReplayPredictionRootTrajectoryFrame(
     const RunReplayPredictionBodySample* body = FindReplayPredictionBodyByIdWithHint(
         frame,
         prediction.trajectoryBuild.rootId,
-        prediction.simulation.targetModelRow.value
-    );
+        prediction.simulation.targetModelRow.value );
 
     if ( !body )
     {
@@ -420,10 +413,8 @@ bool PublishReplayPredictionRootTrajectoryFrame(
     return true;
 }
 
-bool PublishReplayPredictionBuildRootTrajectoryPrefix(
-    RunReplayPredictionState& prediction,
-    std::size_t presentedFrameCount
-)
+bool PublishReplayPredictionBuildRootTrajectoryPrefix( RunReplayPredictionState& prediction,
+                                                       std::size_t presentedFrameCount )
 {
     if ( !prediction.trajectoryBuild.valid || !prediction.trajectoryBuild.usingBuildFrames ||
          prediction.trajectoryBuild.rootId.value == 0 )
@@ -431,11 +422,11 @@ bool PublishReplayPredictionBuildRootTrajectoryPrefix(
         return false;
     }
 
-    ReplayTrajectoryRecord* record = prediction.trajectoryStore.FindRecord( ReplayTrajectoryKey(
-        prediction.trajectoryBuild.rootId,
-        ReplayTrajectoryLane::FutureRoot,
-        REPLAY_TRAJECTORY_BUILD_BRANCH
-    ) );
+    ReplayTrajectoryRecord* record = prediction.trajectoryStore.FindRecord(
+        ReplayTrajectoryKey( prediction.trajectoryBuild.rootId,
+                             ReplayTrajectoryLane::FutureRoot,
+                             REPLAY_TRAJECTORY_BUILD_BRANCH ) );
+
     if ( !record )
     {
         prediction.trajectoryBuild.valid = false;
@@ -447,8 +438,8 @@ bool PublishReplayPredictionBuildRootTrajectoryPrefix(
     // grow with the visible prediction prefix without exposing an in-flight row.
     prediction.trajectoryStore.PublishPrefix(
         *record,
-        ReplayPredictionBuildRootPrefixCount( presentedFrameCount, record->points.size() )
-    );
+        ReplayPredictionBuildRootPrefixCount( presentedFrameCount, record->points.size() ) );
+
     return true;
 }
 
@@ -461,18 +452,15 @@ bool RebuildReplayPredictionCommittedRootTrajectory( RunReplayPredictionState& p
 
     ReplayTrajectoryRecord* record = BeginReplayTrajectoryRecord(
         prediction.trajectoryStore,
-        ReplayTrajectoryKey(
-            prediction.simulation.targetId,
-            ReplayTrajectoryLane::FutureRoot,
-            REPLAY_TRAJECTORY_COMMITTED_BRANCH
-        ),
+        ReplayTrajectoryKey( prediction.simulation.targetId,
+                             ReplayTrajectoryLane::FutureRoot,
+                             REPLAY_TRAJECTORY_COMMITTED_BRANCH ),
         0,
         Physics::PhysicsSceneObjectId {},
         0,
         0,
         false,
-        prediction.simulation.frames.size()
-    );
+        prediction.simulation.frames.size() );
 
     if ( !record )
     {
@@ -485,8 +473,7 @@ bool RebuildReplayPredictionCommittedRootTrajectory( RunReplayPredictionState& p
         const RunReplayPredictionBodySample* body = FindReplayPredictionBodyByIdWithHint(
             frame,
             prediction.simulation.targetId,
-            prediction.simulation.targetModelRow.value
-        );
+            prediction.simulation.targetModelRow.value );
 
         if ( body &&
              !AppendReplayTrajectoryPoint( prediction.trajectoryStore, *record, frame.frameIndex, body->position ) )
@@ -495,6 +482,7 @@ bool RebuildReplayPredictionCommittedRootTrajectory( RunReplayPredictionState& p
             return false;
         }
     }
+
     prediction.trajectoryBuild.rootId = prediction.simulation.targetId;
     prediction.trajectoryBuild.usingBuildFrames = false;
     prediction.trajectoryBuild.rootFrameCount = record->points.size();
@@ -505,16 +493,14 @@ bool RebuildReplayPredictionCommittedRootTrajectory( RunReplayPredictionState& p
     return true;
 }
 
-bool BuildReplayPredictionChildTrajectoryRecord(
-    RunReplayPredictionState& prediction,
-    const std::vector<RunReplayPredictionFrame>& frames,
-    std::size_t frameCount,
-    const RunReplayPathTraceNode& node,
-    std::size_t nodeIndex,
-    bool usingBuildFrames,
-    ReplayTrajectoryLane lane,
-    bool seedOutgoingEntry
-)
+bool BuildReplayPredictionChildTrajectoryRecord( RunReplayPredictionState& prediction,
+                                                 const std::vector<RunReplayPredictionFrame>& frames,
+                                                 std::size_t frameCount,
+                                                 const RunReplayPathTraceNode& node,
+                                                 std::size_t nodeIndex,
+                                                 bool usingBuildFrames,
+                                                 ReplayTrajectoryLane lane,
+                                                 bool seedOutgoingEntry )
 {
     if ( frameCount == 0 )
     {
@@ -522,10 +508,12 @@ bool BuildReplayPredictionChildTrajectoryRecord(
     }
 
     const uint16_t branchOrdinal = ReplayPredictionChildTrajectoryBranch( nodeIndex, usingBuildFrames );
-    const std::size_t predictionFrameCapacity =
-        usingBuildFrames ? prediction.build.buildFrames.size() : prediction.simulation.frames.size();
-    const std::size_t pointCapacity =
-        (std::max)( frameCount, predictionFrameCapacity ) + ( seedOutgoingEntry ? 1u : 0u );
+    const std::size_t predictionFrameCapacity = usingBuildFrames ? prediction.build.buildFrames.size()
+                                                                 : prediction.simulation.frames.size();
+
+    const std::size_t pointCapacity = (std::max)( frameCount, predictionFrameCapacity ) +
+                                      ( seedOutgoingEntry ? 1u : 0u );
+
     ReplayTrajectoryRecord* record = BeginReplayTrajectoryRecord(
         prediction.trajectoryStore,
         ReplayTrajectoryKey( node.id, lane, branchOrdinal ),
@@ -534,8 +522,7 @@ bool BuildReplayPredictionChildTrajectoryRecord(
         node.depth,
         node.firstFrame,
         node.contactDerived,
-        pointCapacity
-    );
+        pointCapacity );
 
     if ( !record )
     {
@@ -545,14 +532,14 @@ bool BuildReplayPredictionChildTrajectoryRecord(
 
     if ( seedOutgoingEntry )
     {
-        const RunReplayPredictionBodySample* initial =
-            FindReplayPredictionBodyByIdWithHint( frames[0], node.id, node.modelRow.value );
-        if ( initial && !AppendReplayTrajectoryPoint(
-                            prediction.trajectoryStore,
-                            *record,
-                            frames[0].frameIndex,
-                            initial->position
-                        ) )
+        const RunReplayPredictionBodySample* initial = FindReplayPredictionBodyByIdWithHint( frames[0],
+                                                                                             node.id,
+                                                                                             node.modelRow.value );
+
+        if ( initial && !AppendReplayTrajectoryPoint( prediction.trajectoryStore,
+                                                      *record,
+                                                      frames[0].frameIndex,
+                                                      initial->position ) )
         {
             prediction.trajectoryBuild.valid = false;
             return false;
@@ -566,16 +553,20 @@ bool BuildReplayPredictionChildTrajectoryRecord(
         {
             continue;
         }
+
         const bool includeFrame = lane == ReplayTrajectoryLane::FutureChildIncoming
                                       ? frame.frameIndex <= node.firstFrame
                                       : frame.frameIndex >= node.firstFrame;
+
         if ( !includeFrame )
         {
             continue;
         }
 
-        const RunReplayPredictionBodySample* body =
-            FindReplayPredictionBodyByIdWithHint( frame, node.id, node.modelRow.value );
+        const RunReplayPredictionBodySample* body = FindReplayPredictionBodyByIdWithHint( frame,
+                                                                                          node.id,
+                                                                                          node.modelRow.value );
+
         if ( body &&
              !AppendReplayTrajectoryPoint( prediction.trajectoryStore, *record, frame.frameIndex, body->position ) )
         {
@@ -583,43 +574,45 @@ bool BuildReplayPredictionChildTrajectoryRecord(
             return false;
         }
     }
+
     return true;
 }
 
-bool AppendReplayPredictionChildTrajectoryFrames(
-    RunReplayPredictionState& prediction,
-    const std::vector<RunReplayPredictionFrame>& frames,
-    std::size_t beginFrame,
-    std::size_t frameCount,
-    const RunReplayPathTraceNode& node,
-    std::size_t nodeIndex,
-    bool usingBuildFrames,
-    ReplayTrajectoryLane lane
-)
+bool AppendReplayPredictionChildTrajectoryFrames( RunReplayPredictionState& prediction,
+                                                  const std::vector<RunReplayPredictionFrame>& frames,
+                                                  std::size_t beginFrame,
+                                                  std::size_t frameCount,
+                                                  const RunReplayPathTraceNode& node,
+                                                  std::size_t nodeIndex,
+                                                  bool usingBuildFrames,
+                                                  ReplayTrajectoryLane lane )
 {
     const uint16_t branchOrdinal = ReplayPredictionChildTrajectoryBranch( nodeIndex, usingBuildFrames );
-    ReplayTrajectoryRecord* record =
-        prediction.trajectoryStore.FindRecord( ReplayTrajectoryKey( node.id, lane, branchOrdinal ) );
+    ReplayTrajectoryRecord* record = prediction.trajectoryStore.FindRecord(
+        ReplayTrajectoryKey( node.id, lane, branchOrdinal ) );
+
     if ( !record )
     {
-        return BuildReplayPredictionChildTrajectoryRecord(
-            prediction,
-            frames,
-            frameCount,
-            node,
-            nodeIndex,
-            usingBuildFrames,
-            lane,
-            lane == ReplayTrajectoryLane::FutureChildOutgoing
-        );
+        return BuildReplayPredictionChildTrajectoryRecord( prediction,
+                                                           frames,
+                                                           frameCount,
+                                                           node,
+                                                           nodeIndex,
+                                                           usingBuildFrames,
+                                                           lane,
+                                                           lane == ReplayTrajectoryLane::FutureChildOutgoing );
     }
 
-    const int frameNumber =
-        frameCount > 0u ? ReplayTrajectoryFrameNumberForReserve( frames[frameCount - 1u].frameIndex ) : 0;
-    const std::size_t predictionFrameCapacity =
-        usingBuildFrames ? prediction.build.buildFrames.size() : prediction.simulation.frames.size();
-    if ( !prediction.trajectoryStore
-              .ReserveRecordPoints( *record, (std::max)( frameCount, predictionFrameCapacity ) + 1u, frameNumber ) )
+    const int frameNumber = frameCount > 0u
+                                ? ReplayTrajectoryFrameNumberForReserve( frames[frameCount - 1u].frameIndex )
+                                : 0;
+
+    const std::size_t predictionFrameCapacity = usingBuildFrames ? prediction.build.buildFrames.size()
+                                                                 : prediction.simulation.frames.size();
+
+    if ( !prediction.trajectoryStore.ReserveRecordPoints( *record,
+                                                          (std::max)( frameCount, predictionFrameCapacity ) + 1u,
+                                                          frameNumber ) )
     {
         prediction.trajectoryBuild.valid = false;
         return false;
@@ -631,13 +624,16 @@ bool AppendReplayPredictionChildTrajectoryFrames(
         const bool includeFrame = lane == ReplayTrajectoryLane::FutureChildIncoming
                                       ? frame.frameIndex <= node.firstFrame
                                       : frame.frameIndex >= node.firstFrame;
+
         if ( !includeFrame )
         {
             continue;
         }
 
-        const RunReplayPredictionBodySample* body =
-            FindReplayPredictionBodyByIdWithHint( frame, node.id, node.modelRow.value );
+        const RunReplayPredictionBodySample* body = FindReplayPredictionBodyByIdWithHint( frame,
+                                                                                          node.id,
+                                                                                          node.modelRow.value );
+
         if ( body &&
              !AppendReplayTrajectoryPoint( prediction.trajectoryStore, *record, frame.frameIndex, body->position ) )
         {
@@ -645,21 +641,22 @@ bool AppendReplayPredictionChildTrajectoryFrames(
             return false;
         }
     }
+
     return true;
 }
 
-bool BuildReplayPredictionAllBodyTrajectoryRecord(
-    RunReplayPredictionState& prediction,
-    const std::vector<RunReplayPredictionFrame>& frames,
-    std::size_t frameCount,
-    const RunReplayPredictionBodySample& seedBody,
-    bool usingBuildFrames
-)
+bool BuildReplayPredictionAllBodyTrajectoryRecord( RunReplayPredictionState& prediction,
+                                                   const std::vector<RunReplayPredictionFrame>& frames,
+                                                   std::size_t frameCount,
+                                                   const RunReplayPredictionBodySample& seedBody,
+                                                   bool usingBuildFrames )
 {
-    const uint16_t branchOrdinal =
-        usingBuildFrames ? REPLAY_TRAJECTORY_BUILD_BRANCH : REPLAY_TRAJECTORY_COMMITTED_BRANCH;
-    const std::size_t pointCapacity =
-        usingBuildFrames ? prediction.build.buildFrames.size() : prediction.simulation.frames.size();
+    const uint16_t branchOrdinal = usingBuildFrames ? REPLAY_TRAJECTORY_BUILD_BRANCH
+                                                    : REPLAY_TRAJECTORY_COMMITTED_BRANCH;
+
+    const std::size_t pointCapacity = usingBuildFrames ? prediction.build.buildFrames.size()
+                                                       : prediction.simulation.frames.size();
+
     ReplayTrajectoryRecord* record = BeginReplayTrajectoryRecord(
         prediction.trajectoryStore,
         ReplayTrajectoryKey( seedBody.id, ReplayTrajectoryLane::FutureRoot, branchOrdinal ),
@@ -668,8 +665,7 @@ bool BuildReplayPredictionAllBodyTrajectoryRecord(
         0,
         0,
         false,
-        (std::max)( frameCount, pointCapacity )
-    );
+        (std::max)( frameCount, pointCapacity ) );
 
     if ( !record )
     {
@@ -680,8 +676,10 @@ bool BuildReplayPredictionAllBodyTrajectoryRecord(
     for ( std::size_t frameIndex = 0; frameIndex < frameCount; ++frameIndex )
     {
         const RunReplayPredictionFrame& frame = frames[frameIndex];
-        const RunReplayPredictionBodySample* body =
-            FindReplayPredictionBodyByIdWithHint( frame, seedBody.id, seedBody.modelRow.value );
+        const RunReplayPredictionBodySample* body = FindReplayPredictionBodyByIdWithHint( frame,
+                                                                                          seedBody.id,
+                                                                                          seedBody.modelRow.value );
+
         if ( body &&
              !AppendReplayTrajectoryPoint( prediction.trajectoryStore, *record, frame.frameIndex, body->position ) )
         {
@@ -689,41 +687,42 @@ bool BuildReplayPredictionAllBodyTrajectoryRecord(
             return false;
         }
     }
+
     return true;
 }
 
-bool AppendReplayPredictionAllBodyTrajectoryFrames(
-    RunReplayPredictionState& prediction,
-    const std::vector<RunReplayPredictionFrame>& frames,
-    std::size_t beginFrame,
-    std::size_t frameCount,
-    const RunReplayPredictionBodySample& seedBody,
-    bool usingBuildFrames
-)
+bool AppendReplayPredictionAllBodyTrajectoryFrames( RunReplayPredictionState& prediction,
+                                                    const std::vector<RunReplayPredictionFrame>& frames,
+                                                    std::size_t beginFrame,
+                                                    std::size_t frameCount,
+                                                    const RunReplayPredictionBodySample& seedBody,
+                                                    bool usingBuildFrames )
 {
-    const uint16_t branchOrdinal =
-        usingBuildFrames ? REPLAY_TRAJECTORY_BUILD_BRANCH : REPLAY_TRAJECTORY_COMMITTED_BRANCH;
+    const uint16_t branchOrdinal = usingBuildFrames ? REPLAY_TRAJECTORY_BUILD_BRANCH
+                                                    : REPLAY_TRAJECTORY_COMMITTED_BRANCH;
+
     ReplayTrajectoryRecord* record = prediction.trajectoryStore.FindRecord(
-        ReplayTrajectoryKey( seedBody.id, ReplayTrajectoryLane::FutureRoot, branchOrdinal )
-    );
+        ReplayTrajectoryKey( seedBody.id, ReplayTrajectoryLane::FutureRoot, branchOrdinal ) );
 
     if ( !record )
     {
-        return BuildReplayPredictionAllBodyTrajectoryRecord(
-            prediction,
-            frames,
-            frameCount,
-            seedBody,
-            usingBuildFrames
-        );
+        return BuildReplayPredictionAllBodyTrajectoryRecord( prediction,
+                                                             frames,
+                                                             frameCount,
+                                                             seedBody,
+                                                             usingBuildFrames );
     }
 
-    const int frameNumber =
-        frameCount > 0u ? ReplayTrajectoryFrameNumberForReserve( frames[frameCount - 1u].frameIndex ) : 0;
-    const std::size_t pointCapacity =
-        usingBuildFrames ? prediction.build.buildFrames.size() : prediction.simulation.frames.size();
-    if ( !prediction.trajectoryStore
-              .ReserveRecordPoints( *record, (std::max)( frameCount, pointCapacity ), frameNumber ) )
+    const int frameNumber = frameCount > 0u
+                                ? ReplayTrajectoryFrameNumberForReserve( frames[frameCount - 1u].frameIndex )
+                                : 0;
+
+    const std::size_t pointCapacity = usingBuildFrames ? prediction.build.buildFrames.size()
+                                                       : prediction.simulation.frames.size();
+
+    if ( !prediction.trajectoryStore.ReserveRecordPoints( *record,
+                                                          (std::max)( frameCount, pointCapacity ),
+                                                          frameNumber ) )
     {
         prediction.trajectoryBuild.valid = false;
         return false;
@@ -732,8 +731,10 @@ bool AppendReplayPredictionAllBodyTrajectoryFrames(
     for ( std::size_t frameIndex = beginFrame; frameIndex < frameCount; ++frameIndex )
     {
         const RunReplayPredictionFrame& frame = frames[frameIndex];
-        const RunReplayPredictionBodySample* body =
-            FindReplayPredictionBodyByIdWithHint( frame, seedBody.id, seedBody.modelRow.value );
+        const RunReplayPredictionBodySample* body = FindReplayPredictionBodyByIdWithHint( frame,
+                                                                                          seedBody.id,
+                                                                                          seedBody.modelRow.value );
+
         if ( body &&
              !AppendReplayTrajectoryPoint( prediction.trajectoryStore, *record, frame.frameIndex, body->position ) )
         {
@@ -741,33 +742,29 @@ bool AppendReplayPredictionAllBodyTrajectoryFrames(
             return false;
         }
     }
+
     return true;
 }
 
-bool ReplayPredictionChildTrajectoryRecordMatches(
-    const RunReplayPredictionState& prediction,
-    const RunReplayPathTraceNode& node,
-    std::size_t nodeIndex,
-    bool usingBuildFrames,
-    ReplayTrajectoryLane lane
-)
+bool ReplayPredictionChildTrajectoryRecordMatches( const RunReplayPredictionState& prediction,
+                                                   const RunReplayPathTraceNode& node,
+                                                   std::size_t nodeIndex,
+                                                   bool usingBuildFrames,
+                                                   ReplayTrajectoryLane lane )
 {
     const ReplayTrajectoryRecord* record = prediction.trajectoryStore.FindRecord(
-        ReplayTrajectoryKey( node.id, lane, ReplayPredictionChildTrajectoryBranch( nodeIndex, usingBuildFrames ) )
-    );
+        ReplayTrajectoryKey( node.id, lane, ReplayPredictionChildTrajectoryBranch( nodeIndex, usingBuildFrames ) ) );
 
     return record && record->styleId == static_cast<uint16_t>( std::clamp( node.depth, 0, 0xFFFF ) ) &&
            record->parentId.value == node.parentId.value && record->depth == node.depth &&
            record->firstFrame == node.firstFrame && record->contactDerived == node.contactDerived;
 }
 
-void UpdateReplayPredictionAllBodyTrajectories(
-    RunReplayPredictionState& prediction,
-    const std::vector<RunReplayPredictionFrame>& frames,
-    std::size_t frameCount,
-    bool usingBuildFrames,
-    Physics::PhysicsSceneObjectId rootId
-)
+void UpdateReplayPredictionAllBodyTrajectories( RunReplayPredictionState& prediction,
+                                                const std::vector<RunReplayPredictionFrame>& frames,
+                                                std::size_t frameCount,
+                                                bool usingBuildFrames,
+                                                Physics::PhysicsSceneObjectId rootId )
 {
     const bool showAllFuturePaths = prediction.simulation.predictionWorldForces.mutualGravity.enabled;
     if ( !showAllFuturePaths || frameCount < 2u || frames.empty() )
@@ -778,23 +775,25 @@ void UpdateReplayPredictionAllBodyTrajectories(
         return;
     }
 
-    const std::size_t bodyCount =
-        (std::min)( frames[0].bodies.size(), static_cast<std::size_t>( REPLAY_VISUAL_FUTURE_NODE_CAPACITY ) );
-    const uint16_t activeBranch =
-        usingBuildFrames ? REPLAY_TRAJECTORY_BUILD_BRANCH : REPLAY_TRAJECTORY_COMMITTED_BRANCH;
+    const std::size_t bodyCount = (std::min)( frames[0].bodies.size(),
+                                              static_cast<std::size_t>( REPLAY_VISUAL_FUTURE_NODE_CAPACITY ) );
+
+    const uint16_t activeBranch = usingBuildFrames ? REPLAY_TRAJECTORY_BUILD_BRANCH
+                                                   : REPLAY_TRAJECTORY_COMMITTED_BRANCH;
+
     bool activeBankMissing = false;
     for ( std::size_t bodyIndex = 0; bodyIndex < bodyCount; ++bodyIndex )
     {
         const RunReplayPredictionBodySample& seedBody = frames[0].bodies[bodyIndex];
         if ( seedBody.id.value != 0u && seedBody.id.value != rootId.value &&
              !prediction.trajectoryStore.FindRecord(
-                 ReplayTrajectoryKey( seedBody.id, ReplayTrajectoryLane::FutureRoot, activeBranch )
-             ) )
+                 ReplayTrajectoryKey( seedBody.id, ReplayTrajectoryLane::FutureRoot, activeBranch ) ) )
         {
             activeBankMissing = true;
             break;
         }
     }
+
     const bool sourceChanged = !prediction.trajectoryBuild.allBodyPaths || activeBankMissing ||
                                prediction.trajectoryBuild.rootId.value != rootId.value ||
                                prediction.trajectoryBuild.usingBuildFrames != usingBuildFrames ||
@@ -813,14 +812,13 @@ void UpdateReplayPredictionAllBodyTrajectories(
             {
                 continue;
             }
-            if ( !AppendReplayPredictionAllBodyTrajectoryFrames(
-                     prediction,
-                     frames,
-                     prediction.trajectoryBuild.allBodyFrameCount,
-                     frameCount,
-                     seedBody,
-                     usingBuildFrames
-                 ) )
+
+            if ( !AppendReplayPredictionAllBodyTrajectoryFrames( prediction,
+                                                                 frames,
+                                                                 prediction.trajectoryBuild.allBodyFrameCount,
+                                                                 frameCount,
+                                                                 seedBody,
+                                                                 usingBuildFrames ) )
             {
                 return;
             }
@@ -835,13 +833,12 @@ void UpdateReplayPredictionAllBodyTrajectories(
         {
             continue;
         }
-        if ( !BuildReplayPredictionAllBodyTrajectoryRecord(
-                 prediction,
-                 frames,
-                 frameCount,
-                 seedBody,
-                 usingBuildFrames
-             ) )
+
+        if ( !BuildReplayPredictionAllBodyTrajectoryRecord( prediction,
+                                                            frames,
+                                                            frameCount,
+                                                            seedBody,
+                                                            usingBuildFrames ) )
         {
             return;
         }
@@ -852,13 +849,11 @@ void UpdateReplayPredictionAllBodyTrajectories(
     prediction.trajectoryBuild.allBodyPaths = true;
 }
 
-void UpdateReplayPredictionTrajectoryStore(
-    RunReplayPredictionState& prediction,
-    const std::vector<RunReplayPredictionFrame>& frames,
-    std::size_t frameCount,
-    bool usingBuildFrames,
-    Physics::PhysicsSceneObjectId rootId
-)
+void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction,
+                                            const std::vector<RunReplayPredictionFrame>& frames,
+                                            std::size_t frameCount,
+                                            bool usingBuildFrames,
+                                            Physics::PhysicsSceneObjectId rootId )
 {
     frameCount = (std::min)( frameCount, frames.size() );
     if ( rootId.value == 0 || frameCount < 2u )
@@ -879,38 +874,37 @@ void UpdateReplayPredictionTrajectoryStore(
         return;
     }
 
-    const std::size_t nodeCount =
-        (std::min)( prediction.futureNodeCache.futureNodes.size(), REPLAY_PATH_MAX_FUTURE_NODES );
+    const std::size_t nodeCount = (std::min)( prediction.futureNodeCache.futureNodes.size(),
+                                              REPLAY_PATH_MAX_FUTURE_NODES );
+
     const uint32_t topologyVersion = prediction.futureNodeCache.futureNodesTopologyVersion;
     const std::size_t existingNodeCount = (std::min)( prediction.trajectoryBuild.builtNodeCount, nodeCount );
     bool existingTopologyChanged = false;
     for ( std::size_t nodeIndex = 0; nodeIndex < existingNodeCount; ++nodeIndex )
     {
         const RunReplayPathTraceNode& node = prediction.futureNodeCache.futureNodes[nodeIndex];
-        if ( !ReplayPredictionChildTrajectoryRecordMatches(
-                 prediction,
-                 node,
-                 nodeIndex,
-                 usingBuildFrames,
-                 ReplayTrajectoryLane::FutureChildIncoming
-             ) ||
-             !ReplayPredictionChildTrajectoryRecordMatches(
-                 prediction,
-                 node,
-                 nodeIndex,
-                 usingBuildFrames,
-                 ReplayTrajectoryLane::FutureChildOutgoing
-             ) )
+        if ( !ReplayPredictionChildTrajectoryRecordMatches( prediction,
+                                                            node,
+                                                            nodeIndex,
+                                                            usingBuildFrames,
+                                                            ReplayTrajectoryLane::FutureChildIncoming ) ||
+             !ReplayPredictionChildTrajectoryRecordMatches( prediction,
+                                                            node,
+                                                            nodeIndex,
+                                                            usingBuildFrames,
+                                                            ReplayTrajectoryLane::FutureChildOutgoing ) )
         {
             existingTopologyChanged = true;
             break;
         }
     }
+
     const bool sourceChanged = !prediction.trajectoryBuild.valid ||
                                prediction.trajectoryBuild.rootId.value != rootId.value ||
                                prediction.trajectoryBuild.usingBuildFrames != usingBuildFrames ||
                                existingTopologyChanged || prediction.trajectoryBuild.childFrameCount > frameCount ||
                                prediction.trajectoryBuild.builtNodeCount > nodeCount;
+
     if ( !sourceChanged && prediction.trajectoryBuild.childFrameCount == frameCount &&
          prediction.trajectoryBuild.builtNodeCount == nodeCount )
     {
@@ -925,26 +919,22 @@ void UpdateReplayPredictionTrajectoryStore(
         for ( std::size_t i = 0; i < existingNodeCount; ++i )
         {
             const RunReplayPathTraceNode& node = prediction.futureNodeCache.futureNodes[i];
-            if ( !AppendReplayPredictionChildTrajectoryFrames(
-                     prediction,
-                     frames,
-                     prediction.trajectoryBuild.childFrameCount,
-                     frameCount,
-                     node,
-                     i,
-                     usingBuildFrames,
-                     ReplayTrajectoryLane::FutureChildIncoming
-                 ) ||
-                 !AppendReplayPredictionChildTrajectoryFrames(
-                     prediction,
-                     frames,
-                     prediction.trajectoryBuild.childFrameCount,
-                     frameCount,
-                     node,
-                     i,
-                     usingBuildFrames,
-                     ReplayTrajectoryLane::FutureChildOutgoing
-                 ) )
+            if ( !AppendReplayPredictionChildTrajectoryFrames( prediction,
+                                                               frames,
+                                                               prediction.trajectoryBuild.childFrameCount,
+                                                               frameCount,
+                                                               node,
+                                                               i,
+                                                               usingBuildFrames,
+                                                               ReplayTrajectoryLane::FutureChildIncoming ) ||
+                 !AppendReplayPredictionChildTrajectoryFrames( prediction,
+                                                               frames,
+                                                               prediction.trajectoryBuild.childFrameCount,
+                                                               frameCount,
+                                                               node,
+                                                               i,
+                                                               usingBuildFrames,
+                                                               ReplayTrajectoryLane::FutureChildOutgoing ) )
             {
                 return;
             }
@@ -955,26 +945,22 @@ void UpdateReplayPredictionTrajectoryStore(
     for ( std::size_t i = firstNode; i < nodeCount; ++i )
     {
         const RunReplayPathTraceNode& node = prediction.futureNodeCache.futureNodes[i];
-        if ( !BuildReplayPredictionChildTrajectoryRecord(
-                 prediction,
-                 frames,
-                 frameCount,
-                 node,
-                 i,
-                 usingBuildFrames,
-                 ReplayTrajectoryLane::FutureChildIncoming,
-                 false
-             ) ||
-             !BuildReplayPredictionChildTrajectoryRecord(
-                 prediction,
-                 frames,
-                 frameCount,
-                 node,
-                 i,
-                 usingBuildFrames,
-                 ReplayTrajectoryLane::FutureChildOutgoing,
-                 true
-             ) )
+        if ( !BuildReplayPredictionChildTrajectoryRecord( prediction,
+                                                          frames,
+                                                          frameCount,
+                                                          node,
+                                                          i,
+                                                          usingBuildFrames,
+                                                          ReplayTrajectoryLane::FutureChildIncoming,
+                                                          false ) ||
+             !BuildReplayPredictionChildTrajectoryRecord( prediction,
+                                                          frames,
+                                                          frameCount,
+                                                          node,
+                                                          i,
+                                                          usingBuildFrames,
+                                                          ReplayTrajectoryLane::FutureChildOutgoing,
+                                                          true ) )
         {
             return;
         }
@@ -986,6 +972,7 @@ void UpdateReplayPredictionTrajectoryStore(
         prediction.trajectoryBuild.usingBuildFrames = usingBuildFrames;
         prediction.trajectoryBuild.valid = true;
     }
+
     // New causal nodes are appended records. A version change alone therefore
     // advances readiness without replacing already-published record prefixes.
     prediction.trajectoryBuild.topologyVersion = topologyVersion;
@@ -998,16 +985,14 @@ bool ReplayPredictionBodyHasVisibleLinearMotion( const RunReplayPredictionBodySa
     return VectorMagSquared( body.linearVelocity ) >= REPLAY_PREDICTION_CHILD_LINEAR_SPEED_SQ;
 }
 
-std::size_t BuildReplayPredictionAffectedBodyTrails(
-    std::span<const RunReplayPredictionFrame> frames,
-    std::size_t frameCount,
-    ReplayFrameIndex revealFrame,
-    Physics::PhysicsSceneObjectId rootId,
-    int rootModelIndex,
-    std::span<const RunReplayPathTraceNode> futureNodes,
-    const SceneEntityStore& entities,
-    std::span<ReplayPredictionAffectedBodyTrail> outTrails
-)
+std::size_t BuildReplayPredictionAffectedBodyTrails( std::span<const RunReplayPredictionFrame> frames,
+                                                     std::size_t frameCount,
+                                                     ReplayFrameIndex revealFrame,
+                                                     Physics::PhysicsSceneObjectId rootId,
+                                                     int rootModelIndex,
+                                                     std::span<const RunReplayPathTraceNode> futureNodes,
+                                                     const SceneEntityStore& entities,
+                                                     std::span<ReplayPredictionAffectedBodyTrail> outTrails )
 {
     frameCount = (std::min)( frameCount, frames.size() );
     if ( frameCount < 2 || rootId.value == 0 || outTrails.empty() )
@@ -1024,6 +1009,7 @@ std::size_t BuildReplayPredictionAffectedBodyTrails(
                 return true;
             }
         }
+
         return false;
     };
 
@@ -1038,6 +1024,7 @@ std::size_t BuildReplayPredictionAffectedBodyTrails(
         {
             break;
         }
+
         if ( initialBody.id.value == 0 || initialBody.id.value == rootId.value ||
              initialBody.modelRow.value == rootModelIndex || idIsAlreadyPublished( initialBody.id ) ||
              ReplayModelIndexIsRagdollPart( entities, initialBody.modelRow.value ) )
@@ -1054,8 +1041,11 @@ std::size_t BuildReplayPredictionAffectedBodyTrails(
                 break;
             }
 
-            const RunReplayPredictionBodySample* body =
-                FindReplayPredictionBodyByIdWithHint( frames[frameSlot], initialBody.id, initialBody.modelRow.value );
+            const RunReplayPredictionBodySample* body = FindReplayPredictionBodyByIdWithHint(
+                frames[frameSlot],
+                initialBody.id,
+                initialBody.modelRow.value );
+
             if ( !body || !ReplayPredictionBodyHasVisibleLinearMotion( *body ) )
             {
                 continue;
@@ -1086,14 +1076,12 @@ std::size_t BuildReplayPredictionAffectedBodyTrails(
 // grey box, because any resting pose we could draw for them would be a guess.
 // Invariant: callers must pass a completed frame buffer; a growing build
 // prefix has no authoritative final frame.
-bool ReplayPredictionBodyRestingPose(
-    const std::vector<RunReplayPredictionFrame>& frames,
-    std::size_t frameCount,
-    Physics::PhysicsSceneObjectId id,
-    int modelIndexHint,
-    Vector3& outPosition,
-    Quaternion& outOrientation
-)
+bool ReplayPredictionBodyRestingPose( const std::vector<RunReplayPredictionFrame>& frames,
+                                      std::size_t frameCount,
+                                      Physics::PhysicsSceneObjectId id,
+                                      int modelIndexHint,
+                                      Vector3& outPosition,
+                                      Quaternion& outOrientation )
 {
     frameCount = (std::min)( frameCount, frames.size() );
     if ( frameCount < 2 || id.value == 0 )
@@ -1101,17 +1089,23 @@ bool ReplayPredictionBodyRestingPose(
         return false;
     }
 
-    const RunReplayPredictionBodySample* finalBody =
-        FindReplayPredictionBodyByIdWithHint( frames[frameCount - 1], id, modelIndexHint );
+    const RunReplayPredictionBodySample* finalBody = FindReplayPredictionBodyByIdWithHint( frames[frameCount - 1],
+                                                                                           id,
+                                                                                           modelIndexHint );
+
     if ( !finalBody || ReplayPredictionBodyHasVisibleLinearMotion( *finalBody ) )
     {
         return false;
     }
 
-    const std::size_t graceSlots =
-        (std::min)( static_cast<std::size_t>( REPLAY_PREDICTION_REST_GRACE_FRAMES ), frameCount - 1 );
-    const RunReplayPredictionBodySample* graceBody =
-        FindReplayPredictionBodyByIdWithHint( frames[frameCount - 1 - graceSlots], id, modelIndexHint );
+    const std::size_t graceSlots = (std::min)( static_cast<std::size_t>( REPLAY_PREDICTION_REST_GRACE_FRAMES ),
+                                               frameCount - 1 );
+
+    const RunReplayPredictionBodySample* graceBody = FindReplayPredictionBodyByIdWithHint(
+        frames[frameCount - 1 - graceSlots],
+        id,
+        modelIndexHint );
+
     if ( !graceBody || ReplayPredictionBodyHasVisibleLinearMotion( *graceBody ) ||
          VectorMagSquared( finalBody->position - graceBody->position ) > REPLAY_PREDICTION_REST_POSITION_EPSILON_SQ )
     {
@@ -1123,81 +1117,77 @@ bool ReplayPredictionBodyRestingPose(
     return true;
 }
 
-bool ReplayContactHasModelIndex(
-    const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
-    int modelIndex
-)
+bool ReplayContactHasModelIndex( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
+                                 int modelIndex )
 {
     return modelIndex >= 0 && ( contact.bodyA == modelIndex || contact.bodyB == modelIndex );
 }
 
-int ReplayContactOtherModelIndex(
-    const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
-    int modelIndex
-)
+int ReplayContactOtherModelIndex( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
+                                  int modelIndex )
 {
     if ( contact.bodyA == modelIndex )
     {
         return contact.bodyB;
     }
+
     if ( contact.bodyB == modelIndex )
     {
         return contact.bodyA;
     }
+
     return -1;
 }
 
-Vector3 ReplayContactPoint(
-    const ReplaySolverFrameSample& sample,
-    const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact
-)
+Vector3 ReplayContactPoint( const ReplaySolverFrameSample& sample,
+                            const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact )
 {
     if ( const ReplaySolverBodySample* bodyA = FindReplayBodyByModelIndex( sample, contact.bodyA ) )
     {
         return bodyA->position + contact.rA;
     }
+
     if ( const ReplaySolverBodySample* bodyB = FindReplayBodyByModelIndex( sample, contact.bodyB ) )
     {
         return bodyB->position + contact.rB;
     }
+
     return SkullbonezCore::Math::Vector::ZERO_VECTOR;
 }
 
-Vector3 ReplayContactNormalForModel(
-    const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
-    int modelIndex
-)
+Vector3 ReplayContactNormalForModel( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
+                                     int modelIndex )
 {
     Vector3 normal = contact.normal;
     if ( contact.isTerrain && VectorMagSquared( contact.terrainNormal ) > TOLERANCE * TOLERANCE )
     {
         normal = contact.terrainNormal;
     }
+
     if ( contact.bodyB == modelIndex && !contact.isTerrain )
     {
         normal = normal * -1.0f;
     }
+
     return ReplayNormalizeOr( normal, Vector3( 0.0f, 1.0f, 0.0f ) );
 }
 
-Vector3 ReplayContactImpulseForModel(
-    const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
-    int modelIndex
-)
+Vector3 ReplayContactImpulseForModel( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
+                                      int modelIndex )
 {
-    const Vector3 rowImpulse =
-        contact.normal * contact.accN + contact.tangent1 * contact.accT1 + contact.tangent2 * contact.accT2;
+    const Vector3 rowImpulse = contact.normal * contact.accN + contact.tangent1 * contact.accT1 +
+                               contact.tangent2 * contact.accT2;
+
     if ( contact.bodyB == modelIndex && !contact.isTerrain )
     {
         return rowImpulse;
     }
+
     return rowImpulse * -1.0f;
 }
 
-int ReplayFindPipelineIndexForContact(
-    const SkullbonezCore::Physics::PhysicsSolverSnapshot& snapshot,
-    const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact
-)
+int ReplayFindPipelineIndexForContact( const SkullbonezCore::Physics::PhysicsSolverSnapshot& snapshot,
+                                       const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact )
 {
     for ( int i = 0; i < static_cast<int>( snapshot.pipelineTrace.size() ); ++i )
     {
@@ -1209,6 +1199,7 @@ int ReplayFindPipelineIndexForContact(
             return i;
         }
     }
+
     return -1;
 }
 
@@ -1228,23 +1219,19 @@ void ClearReplayPredictionBaseline( ReplayPredictionBaselineSnapshot& baseline )
 
 bool PublishReplayPredictionBaselineRootTrajectory( RunReplayPredictionState& prediction );
 std::size_t ReplayTrajectoryPublishedPointCount( const ReplayTrajectoryRecord& record );
-const ReplayTrajectoryRecord* ReplayTrajectoryRecordForDraw(
-    const ReplayTrajectoryStore& store,
-    Physics::PhysicsSceneObjectId id,
-    ReplayTrajectoryLane lane,
-    uint16_t branchOrdinal
-);
+const ReplayTrajectoryRecord* ReplayTrajectoryRecordForDraw( const ReplayTrajectoryStore& store,
+                                                             Physics::PhysicsSceneObjectId id,
+                                                             ReplayTrajectoryLane lane,
+                                                             uint16_t branchOrdinal );
 
 // Concept: baseline capture freezes the old committed future before a velocity
 // edit. It keeps a bounded root path plus completed entry/rest poses so the
 // renderer can contrast "what would have happened" against the nudged rebuild.
-bool CaptureReplayPredictionBaselineSnapshot(
-    RunReplayPredictionState& prediction,
-    const std::vector<RunReplayPredictionFrame>& frames,
-    std::size_t frameCount,
-    Physics::PhysicsSceneObjectId rootId,
-    int rootModelIndex
-)
+bool CaptureReplayPredictionBaselineSnapshot( RunReplayPredictionState& prediction,
+                                              const std::vector<RunReplayPredictionFrame>& frames,
+                                              std::size_t frameCount,
+                                              Physics::PhysicsSceneObjectId rootId,
+                                              int rootModelIndex )
 {
     frameCount = (std::min)( frameCount, frames.size() );
     ClearReplayPredictionBaseline( prediction.baseline );
@@ -1255,22 +1242,18 @@ bool CaptureReplayPredictionBaselineSnapshot(
 
     const RunReplayPredictionFrame& firstFrame = frames.front();
     const RunReplayPredictionFrame& lastFrame = frames[frameCount - 1];
-    const std::size_t bodyCapacity =
-        (std::min)( static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ),
-                    firstFrame.bodies.size() );
+    const std::size_t bodyCapacity = (std::min)( static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ),
+                                                 firstFrame.bodies.size() );
+
     const int reserveFrame = static_cast<int>( lastFrame.frameIndex );
-    if ( !ReserveReplayPredictionVector(
-             prediction.baseline.rootPolyline,
-             REPLAY_PREDICTION_BASELINE_ROOT_POINT_CAPACITY,
-             reserveFrame,
-             "ReplayPredictionBaselineRootPoint[]"
-         ) ||
-         !ReserveReplayPredictionVector(
-             prediction.baseline.bodyPoses,
-             bodyCapacity,
-             reserveFrame,
-             "ReplayPredictionBaselineBodyPose[]"
-         ) )
+    if ( !ReserveReplayPredictionVector( prediction.baseline.rootPolyline,
+                                         REPLAY_PREDICTION_BASELINE_ROOT_POINT_CAPACITY,
+                                         reserveFrame,
+                                         "ReplayPredictionBaselineRootPoint[]" ) ||
+         !ReserveReplayPredictionVector( prediction.baseline.bodyPoses,
+                                         bodyCapacity,
+                                         reserveFrame,
+                                         "ReplayPredictionBaselineBodyPose[]" ) )
     {
         ClearReplayPredictionBaseline( prediction.baseline );
         return false;
@@ -1284,6 +1267,7 @@ bool CaptureReplayPredictionBaselineSnapshot(
                                        ? 1u
                                        : ( frameCount + REPLAY_PREDICTION_BASELINE_ROOT_POINT_CAPACITY - 1u ) /
                                              REPLAY_PREDICTION_BASELINE_ROOT_POINT_CAPACITY;
+
     for ( std::size_t frameSlot = 0; frameSlot < frameCount; ++frameSlot )
     {
         const RunReplayPredictionFrame& frame = frames[frameSlot];
@@ -1294,8 +1278,10 @@ bool CaptureReplayPredictionBaselineSnapshot(
             continue;
         }
 
-        const RunReplayPredictionBodySample* body =
-            FindReplayPredictionBodyByIdWithHint( frame, rootId, rootModelIndex );
+        const RunReplayPredictionBodySample* body = FindReplayPredictionBodyByIdWithHint( frame,
+                                                                                          rootId,
+                                                                                          rootModelIndex );
+
         if ( !body )
         {
             continue;
@@ -1323,23 +1309,25 @@ bool CaptureReplayPredictionBaselineSnapshot(
 
         Vector3 restPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
         Quaternion restOrientation = IDENTITY_QUATERNION;
-        const bool hasRestPose = ReplayPredictionBodyRestingPose(
-            frames,
-            frameCount,
-            body.id,
-            body.modelRow.value,
-            restPosition,
-            restOrientation
-        );
+        const bool hasRestPose = ReplayPredictionBodyRestingPose( frames,
+                                                                  frameCount,
+                                                                  body.id,
+                                                                  body.modelRow.value,
+                                                                  restPosition,
+                                                                  restOrientation );
 
         if ( !hasRestPose )
         {
-            const RunReplayPredictionBodySample* horizonBody =
-                FindReplayPredictionBodyByIdWithHint( lastFrame, body.id, body.modelRow.value );
+            const RunReplayPredictionBodySample* horizonBody = FindReplayPredictionBodyByIdWithHint(
+                lastFrame,
+                body.id,
+                body.modelRow.value );
+
             if ( !horizonBody )
             {
                 continue;
             }
+
             // Why: orbital bodies never reach a resting pose. Retain their
             // horizon endpoint for divergence math, but keep hasRestPose false
             // so the renderer does not mislabel it as a grey rest marker.
@@ -1368,6 +1356,7 @@ bool CaptureReplayPredictionBaselineSnapshot(
         ClearReplayPredictionBaseline( prediction.baseline );
         return false;
     }
+
     return prediction.baseline.valid;
 }
 
@@ -1387,8 +1376,7 @@ bool PublishReplayPredictionBaselineRootTrajectory( RunReplayPredictionState& pr
         0,
         0,
         false,
-        baseline.rootPolyline.size()
-    );
+        baseline.rootPolyline.size() );
 
     if ( !record )
     {
@@ -1402,17 +1390,16 @@ bool PublishReplayPredictionBaselineRootTrajectory( RunReplayPredictionState& pr
             return false;
         }
     }
+
     return true;
 }
 
 // Concept: divergence is a demo-facing separation metric, not physics authority.
 // It sums how far matched bodies' resting endpoints moved between the cold
 // baseline and the rebuilt prediction.
-void UpdateReplayPredictionBaselineDivergence(
-    RunReplayPredictionState& prediction,
-    const std::vector<RunReplayPredictionFrame>& frames,
-    std::size_t frameCount
-)
+void UpdateReplayPredictionBaselineDivergence( RunReplayPredictionState& prediction,
+                                               const std::vector<RunReplayPredictionFrame>& frames,
+                                               std::size_t frameCount )
 {
     ReplayPredictionBaselineSnapshot& baseline = prediction.baseline;
     baseline.divergenceValid = false;
@@ -1436,14 +1423,12 @@ void UpdateReplayPredictionBaselineDivergence(
         Quaternion restOrientation = IDENTITY_QUATERNION;
         if ( baselinePose.hasRestPose )
         {
-            if ( !ReplayPredictionBodyRestingPose(
-                     frames,
-                     frameCount,
-                     baselinePose.id,
-                     baselinePose.modelRow.value,
-                     restPosition,
-                     restOrientation
-                 ) )
+            if ( !ReplayPredictionBodyRestingPose( frames,
+                                                   frameCount,
+                                                   baselinePose.id,
+                                                   baselinePose.modelRow.value,
+                                                   restPosition,
+                                                   restOrientation ) )
             {
                 continue;
             }
@@ -1453,13 +1438,13 @@ void UpdateReplayPredictionBaselineDivergence(
             const RunReplayPredictionBodySample* horizonBody = FindReplayPredictionBodyByIdWithHint(
                 frames[frameCount - 1u],
                 baselinePose.id,
-                baselinePose.modelRow.value
-            );
+                baselinePose.modelRow.value );
 
             if ( !horizonBody )
             {
                 continue;
             }
+
             restPosition = horizonBody->position;
         }
 

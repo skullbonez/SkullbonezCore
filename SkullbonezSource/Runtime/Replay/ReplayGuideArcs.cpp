@@ -48,6 +48,7 @@ void ReplayGuideArcs::SetEnabled( bool enabled ) noexcept
     {
         return;
     }
+
     m_enabled = enabled;
     m_nextRefreshSeconds = 0.0;
     if ( !m_enabled )
@@ -94,18 +95,21 @@ void ReplayGuideArcs::Update( const ReplayGuideArcsUpdateInput& input ) noexcept
     {
         return;
     }
+
     if ( !input.mutualGravityEnabled )
     {
         m_nextRefreshSeconds = input.nowSeconds + GUIDE_ARC_REFRESH_SECONDS;
         ClearPublication();
         return;
     }
+
     // Invariant: all live-body resolution and orbital math remain behind this
     // five-second gate. Scene loads and toggles explicitly reset the deadline.
     if ( input.nowSeconds < m_nextRefreshSeconds )
     {
         return;
     }
+
     if ( input.gravitationalConstant <= 0.0f || !ValidGuideBody( input.sun ) || !ValidGuideBody( input.earth ) ||
          !ValidGuideBody( input.mars ) )
     {
@@ -121,22 +125,22 @@ void ReplayGuideArcs::Update( const ReplayGuideArcsUpdateInput& input ) noexcept
         input.earth.position - input.sun.position,
         input.earth.linearVelocity - input.sun.linearVelocity,
         mu,
-        earthElements
-    );
+        earthElements );
 
     const Math::Orbital::OrbitalStatus marsStatus = Math::Orbital::ElementsFromState(
         input.mars.position - input.sun.position,
         input.mars.linearVelocity - input.sun.linearVelocity,
         mu,
-        marsElements
-    );
+        marsElements );
 
     const std::size_t earthCount = earthStatus == Math::Orbital::OrbitalStatus::Ok
                                        ? Math::Orbital::SampleOrbitPolyline( earthElements, m_earthPoints )
                                        : 0u;
+
     const std::size_t marsCount = marsStatus == Math::Orbital::OrbitalStatus::Ok
                                       ? Math::Orbital::SampleOrbitPolyline( marsElements, m_marsPoints )
                                       : 0u;
+
     if ( earthCount != REPLAY_GUIDE_ARC_POINT_COUNT || marsCount != REPLAY_GUIDE_ARC_POINT_COUNT )
     {
         m_nextRefreshSeconds = input.nowSeconds + GUIDE_ARC_REFRESH_SECONDS;
@@ -148,10 +152,12 @@ void ReplayGuideArcs::Update( const ReplayGuideArcsUpdateInput& input ) noexcept
     {
         point += input.sun.position;
     }
+
     for ( Math::Vector::Vector3& point : m_marsPoints )
     {
         point += input.sun.position;
     }
+
     m_sunId = input.sun.id;
     m_earthId = input.earth.id;
     m_marsId = input.mars.id;
@@ -169,7 +175,6 @@ ReplayGuideArcsView ReplayGuideArcs::View() const noexcept
         m_earthId,
         m_marsId,
         m_enabled,
-        m_valid
-    };
+        m_valid };
 }
 } // namespace SkullbonezCore::Runtime

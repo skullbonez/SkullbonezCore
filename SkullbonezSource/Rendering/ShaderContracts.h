@@ -367,10 +367,14 @@ inline const ShaderProgramDesc* ShippingRasterShaderContracts()
     };
 
     static constexpr ShaderUniformDecl skyAtmosphereUniforms[] = {
-        { "uSunParams", ShaderValueType::Vec4, true },     { "uSunColor", ShaderValueType::Vec3, true },
-        { "uHorizonColor", ShaderValueType::Vec3, true },  { "uZenithColor", ShaderValueType::Vec3, true },
-        { "uCloudParams", ShaderValueType::Vec4, true },   { "uInvView", ShaderValueType::Mat4, true },
-        { "uInvProjection", ShaderValueType::Mat4, true }, { "uSkyMode", ShaderValueType::Int, true },
+        { "uSunParams", ShaderValueType::Vec4, true },
+        { "uSunColor", ShaderValueType::Vec3, true },
+        { "uHorizonColor", ShaderValueType::Vec3, true },
+        { "uZenithColor", ShaderValueType::Vec3, true },
+        { "uCloudParams", ShaderValueType::Vec4, true },
+        { "uInvView", ShaderValueType::Mat4, true },
+        { "uInvProjection", ShaderValueType::Mat4, true },
+        { "uSkyMode", ShaderValueType::Int, true },
     };
 
     static constexpr ShaderUniformDecl tonemapUniforms[] = {

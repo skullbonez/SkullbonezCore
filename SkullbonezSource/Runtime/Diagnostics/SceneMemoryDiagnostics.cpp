@@ -48,13 +48,17 @@ SkullbonezCore::Core::MainMemoryGameObjectStats CollectSceneMemoryStats( const S
     stats.colliderStoreCapacity = colliderStore.RecordCapacity();
     stats.renderStoreCapacity = view.renderInstances.RecordCapacity();
     stats.modelVectorBytes = view.renderInstances.PresentationCapacityBytes() + view.entities.CapacityBytes();
-    stats.physicsStoreBytes =
-        static_cast<uint64_t>( bodyStore.RecordCapacity() ) * sizeof( Physics::PhysicsBodyRecord );
-    stats.colliderStoreBytes =
-        static_cast<uint64_t>( colliderStore.RecordCapacity() ) * sizeof( Physics::ColliderRecord ) +
-        static_cast<uint64_t>( colliderStore.AuthoringRecordCapacity() ) * sizeof( Physics::ColliderAuthoringRecord );
-    stats.renderStoreBytes =
-        static_cast<uint64_t>( view.renderInstances.RecordCapacity() ) * sizeof( Rendering::RenderInstanceRecord );
+    stats.physicsStoreBytes = static_cast<uint64_t>( bodyStore.RecordCapacity() ) *
+                              sizeof( Physics::PhysicsBodyRecord );
+
+    stats.colliderStoreBytes = static_cast<uint64_t>( colliderStore.RecordCapacity() ) *
+                                   sizeof( Physics::ColliderRecord ) +
+                               static_cast<uint64_t>( colliderStore.AuthoringRecordCapacity() ) *
+                                   sizeof( Physics::ColliderAuthoringRecord );
+
+    stats.renderStoreBytes = static_cast<uint64_t>( view.renderInstances.RecordCapacity() ) *
+                             sizeof( Rendering::RenderInstanceRecord );
+
     stats.physicsWorldBytes = view.physics.CollectPhysicsWorldMemoryBytes();
     stats.gameplayWorldBytes = view.gameplayWorldBytes;
     // Historical category semantics: debug capacity is an informational
@@ -62,6 +66,7 @@ SkullbonezCore::Core::MainMemoryGameObjectStats CollectSceneMemoryStats( const S
     stats.debugAndBroadphaseBytes = view.physics.CollectDebugAndBroadphaseMemoryBytes() + view.gameplayDebugBytes;
     stats.totalBytes = stats.modelVectorBytes + stats.physicsStoreBytes + stats.colliderStoreBytes +
                        stats.renderStoreBytes + stats.physicsWorldBytes + stats.gameplayWorldBytes;
+
     return stats;
 }
 } // namespace Runtime

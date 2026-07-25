@@ -191,9 +191,8 @@ class Vector3
 
     Vector3& operator/=( const Vector3& v )
     {
-        assert(
-            v.x != 0.0f && v.y != 0.0f && v.z != 0.0f && "Vector3 component divide-assign requires non-zero divisors"
-        );
+        assert( v.x != 0.0f && v.y != 0.0f && v.z != 0.0f &&
+                "Vector3 component divide-assign requires non-zero divisors" );
         x /= v.x;
         y /= v.y;
         z /= v.z;

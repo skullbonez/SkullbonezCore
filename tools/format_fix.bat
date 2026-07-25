@@ -41,11 +41,14 @@ for /r "%REPO%\SkullbonezSource" %%f in (*.cpp *.h) do (
     set /a COUNT+=1
 )
 
+"%PYTHON_EXE%" "%~dp0separate_multiline_cpp_declarations.py" --self-test
+if errorlevel 1 exit /b 1
+
 "%PYTHON_EXE%" "%~dp0separate_multiline_cpp_declarations.py" --repo "%REPO%" --write
 if errorlevel 1 exit /b 1
 
 "%PYTHON_EXE%" "%~dp0align_header_inline_comments.py" --repo "%REPO%" --write
 if errorlevel 1 exit /b 1
 
-echo Formatted %COUNT% C++ files, separated multiline declarations, and aligned header inline comments.
+echo Formatted %COUNT% C++ files, kept assignment heads and compact calls together, separated multiline statements/control blocks, and aligned header inline comments.
 exit /b 0

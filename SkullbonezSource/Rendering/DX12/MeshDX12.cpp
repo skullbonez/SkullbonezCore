@@ -58,17 +58,15 @@ MeshDX12::~MeshDX12()
 }
 
 
-bool MeshDX12::Create(
-    ID3D12Device* device,
-    ID3D12GraphicsCommandList* cmdList,
-    const float* data,
-    int vertexCount,
-    int floatsPerVert,
-    VertexFormat12 format,
-    D3D12_GPU_VIRTUAL_ADDRESS uploadAddr,
-    uint8_t* uploadPtr,
-    ID3D12Resource* uploadBuffer
-)
+bool MeshDX12::Create( ID3D12Device* device,
+                       ID3D12GraphicsCommandList* cmdList,
+                       const float* data,
+                       int vertexCount,
+                       int floatsPerVert,
+                       VertexFormat12 format,
+                       D3D12_GPU_VIRTUAL_ADDRESS uploadAddr,
+                       uint8_t* uploadPtr,
+                       ID3D12Resource* uploadBuffer )
 {
     if ( uploadAddr == 0 || !uploadPtr )
     {
@@ -99,14 +97,12 @@ bool MeshDX12::Create(
     // specifying COPY_DEST fires warning #1328 (CREATERESOURCE_STATE_IGNORED). Use COMMON explicitly;
     // CopyBufferRegion promotes the buffer to COPY_DEST implicitly within the command list.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    HRESULT hr = device->CreateCommittedResource(
-        &defaultHeap,
-        D3D12_HEAP_FLAG_NONE,
-        &bufDesc,
-        D3D12_RESOURCE_STATE_COMMON,
-        nullptr,
-        IID_PPV_ARGS( &m_vertexBuffer )
-    );
+    HRESULT hr = device->CreateCommittedResource( &defaultHeap,
+                                                  D3D12_HEAP_FLAG_NONE,
+                                                  &bufDesc,
+                                                  D3D12_RESOURCE_STATE_COMMON,
+                                                  nullptr,
+                                                  IID_PPV_ARGS( &m_vertexBuffer ) );
 
     if ( FAILED( hr ) )
     {
@@ -118,11 +114,12 @@ bool MeshDX12::Create(
             static_cast<unsigned int>( hr ),
             vertexCount,
             m_stride,
-            static_cast<unsigned long long>( dataSize )
-        );
+            static_cast<unsigned long long>( dataSize ) );
+
         SkullbonezCore::Core::Log().FlushAll();
         return false;
     }
+
     NameDx12Object( m_vertexBuffer, L"Skullbonez DX12 Mesh Vertex Buffer" );
 
     memcpy( uploadPtr, data, (size_t)dataSize );
@@ -133,6 +130,7 @@ bool MeshDX12::Create(
     {
         SB_FATAL( "MeshDX12", "Create requires a DX12 upload buffer." );
     }
+
     UINT64 uploadOffset = uploadAddr - uploadBuffer->GetGPUVirtualAddress();
     // Record a GPU-side copy command: transfer vertex data from the upload buffer (CPU-visible staging
     // memory) to the vertex buffer (fast GPU-only memory). This happens asynchronously on the GPU —
@@ -150,13 +148,15 @@ bool MeshDX12::Create(
     barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
     barrier.Transition.pResource = m_vertexBuffer;
     barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-    barrier.Transition.StateAfter =
-        D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER |
+                                    D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+
     barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
     if ( !m_drawGate.CanRecord() )
     {
         return false;
     }
+
     cmdList->ResourceBarrier( 1, &barrier );
 
     m_vbView.BufferLocation = m_vertexBuffer->GetGPUVirtualAddress();
@@ -179,12 +179,14 @@ void MeshDX12::Draw( const PassRasterStateBucket& bucket ) const
     {
         return;
     }
+
     // Invariant: the pass bucket reaches PSO selection on the same call that
     // submits the mesh. No ambient setter state participates in this draw.
     if ( !m_drawGate.PreparePipelineDraw( m_format, false, nullptr, nullptr, bucket.raster ) )
     {
         return;
     }
+
     commandList->IASetVertexBuffers( 0, 1, &m_vbView );
     m_diagnostics.RecordDrawCall( { DrawCallKind::Mesh, "MeshDeclaredRaster", m_vertexCount, 1 } );
     commandList->DrawInstanced( static_cast<UINT>( m_vertexCount ), 1, 0, 0 );

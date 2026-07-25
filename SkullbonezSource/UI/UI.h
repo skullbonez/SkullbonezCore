@@ -291,20 +291,18 @@ class InGameUI
     // Returns the UI-owned automation pointer substitution by value so Runtime
     // can apply it while constructing the detached input snapshot.
     InputControl::UIPointerOverride InputOverride() const;
-    InGameUIInputResult UpdateInput(
-        const InputControl::UIInputSnapshot& input,
-        int screenWidth,
-        int screenHeight,
-        double now,
-        bool editorModeEnabled,
-        bool editorPlacementMode,
-        bool editorPlaceStatic,
-        bool editorTerrainAlign,
-        int cameraModeIndex,
-        uint32_t cameraModeEnabledMask,
-        std::span<const char* const> sceneOptions,
-        int selectedSceneOption
-    );
+    InGameUIInputResult UpdateInput( const InputControl::UIInputSnapshot& input,
+                                     int screenWidth,
+                                     int screenHeight,
+                                     double now,
+                                     bool editorModeEnabled,
+                                     bool editorPlacementMode,
+                                     bool editorPlaceStatic,
+                                     bool editorTerrainAlign,
+                                     int cameraModeIndex,
+                                     uint32_t cameraModeEnabledMask,
+                                     std::span<const char* const> sceneOptions,
+                                     int selectedSceneOption );
     // Builds one complete ordered frame of backend-neutral draw values. The
     // returned view remains valid until the next Draw call on this owner.
     const UIDrawList& Draw( const InGameUIFrameData& data );
@@ -320,13 +318,11 @@ class InGameUI
     UIDrawList m_frameDrawList;
     UIDrawList m_histogramDrawList;
     UIDrawList m_memoryOverlayDrawList;
-    void DrawHitboxOverlay(
-        const UIDrawContext& draw,
-        const InGameUIFrameData& data,
-        const UIRect& windowBounds,
-        const UIRect& contentBounds,
-        const UIRect& footerBounds
-    );
+    void DrawHitboxOverlay( const UIDrawContext& draw,
+                            const InGameUIFrameData& data,
+                            const UIRect& windowBounds,
+                            const UIRect& contentBounds,
+                            const UIRect& footerBounds );
 };
 
 } // namespace UI

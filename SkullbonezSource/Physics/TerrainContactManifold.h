@@ -98,37 +98,29 @@ struct TerrainContactSweepResult
     Geometry::Plane collidedPlane; // Terrain plane used to build the contact manifold.
 };
 
-TerrainContactSweepResult SweepTerrainContact(
-    Core::Profiler* profiler,
-    const TerrainContactBodyView& body,
-    const Math::CollisionDetection::CollisionShape& shape,
-    float changeInTime
-);
-bool BuildTerrainContactManifold(
-    Core::Profiler* profiler,
-    const TerrainContactBodyView& body,
-    const Math::CollisionDetection::CollisionShape& shape,
-    int bodyIndex,
-    const TerrainContactSweepResult& sweep,
-    float availableTime,
-    TerrainContactManifold& out
-);
-inline TerrainContactSweepResult SweepTerrainContact(
-    const TerrainContactBodyView& body,
-    const Math::CollisionDetection::CollisionShape& shape,
-    float changeInTime
-)
+TerrainContactSweepResult SweepTerrainContact( Core::Profiler* profiler,
+                                               const TerrainContactBodyView& body,
+                                               const Math::CollisionDetection::CollisionShape& shape,
+                                               float changeInTime );
+bool BuildTerrainContactManifold( Core::Profiler* profiler,
+                                  const TerrainContactBodyView& body,
+                                  const Math::CollisionDetection::CollisionShape& shape,
+                                  int bodyIndex,
+                                  const TerrainContactSweepResult& sweep,
+                                  float availableTime,
+                                  TerrainContactManifold& out );
+inline TerrainContactSweepResult SweepTerrainContact( const TerrainContactBodyView& body,
+                                                      const Math::CollisionDetection::CollisionShape& shape,
+                                                      float changeInTime )
 {
     return SweepTerrainContact( nullptr, body, shape, changeInTime );
 }
-inline bool BuildTerrainContactManifold(
-    const TerrainContactBodyView& body,
-    const Math::CollisionDetection::CollisionShape& shape,
-    int bodyIndex,
-    const TerrainContactSweepResult& sweep,
-    float availableTime,
-    TerrainContactManifold& out
-)
+inline bool BuildTerrainContactManifold( const TerrainContactBodyView& body,
+                                         const Math::CollisionDetection::CollisionShape& shape,
+                                         int bodyIndex,
+                                         const TerrainContactSweepResult& sweep,
+                                         float availableTime,
+                                         TerrainContactManifold& out )
 {
     return BuildTerrainContactManifold( nullptr, body, shape, bodyIndex, sweep, availableTime, out );
 }

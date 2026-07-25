@@ -41,19 +41,15 @@ struct RunReplayPredictionState;
 
 namespace ReplayPredictionArchiveOperations
 {
-bool BuildReplayPredictionArchive(
-    const RunReplayPathVisualizerState& pathVisualizer,
-    const RunReplayPredictionState& prediction,
-    std::vector<uint8_t>& outBytes
-);
+bool BuildReplayPredictionArchive( const RunReplayPathVisualizerState& pathVisualizer,
+                                   const RunReplayPredictionState& prediction,
+                                   std::vector<uint8_t>& outBytes );
 
-bool LoadReplayPredictionArchive(
-    std::span<const uint8_t> bytes,
-    RunReplayPathVisualizerState& pathVisualizer,
-    RunReplayPredictionState& prediction,
-    char* outReason,
-    std::size_t reasonSize
-);
+bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes,
+                                  RunReplayPathVisualizerState& pathVisualizer,
+                                  RunReplayPredictionState& prediction,
+                                  char* outReason,
+                                  std::size_t reasonSize );
 
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 // Automation restores and rebuilds one captured RVPD payload. Product

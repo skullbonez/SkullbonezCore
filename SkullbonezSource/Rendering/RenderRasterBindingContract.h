@@ -89,10 +89,8 @@ inline constexpr bool AcceptsSamplerRegister( std::uint32_t slot )
 
 static_assert( sizeof( TEXTURE_SLOTS ) / sizeof( TEXTURE_SLOTS[0] ) == TEXTURE_SLOT_COUNT );
 static_assert( TEXTURE_SLOTS[4].payloadIndex == 4, "UnifiedRaster keeps the material table at payload index 4." );
-static_assert(
-    TEXTURE_SLOTS[5].payloadIndex == 5,
-    "UnifiedRaster keeps the terrain detail shadow at payload index 5."
-);
+static_assert( TEXTURE_SLOTS[5].payloadIndex == 5,
+               "UnifiedRaster keeps the terrain detail shadow at payload index 5." );
 } // namespace UnifiedRasterRootSignature
 
 // Engine-facing texture binding still uses an integer slot count. Native root

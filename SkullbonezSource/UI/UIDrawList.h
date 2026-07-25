@@ -44,14 +44,18 @@ class UIDrawList
     // push rectangles, triangles, and text in UI order; the final draw context
     // translates those records to the active render backend after hit testing
     // has already used the same layout numbers.
-    static constexpr int MAX_COMMANDS = 8192;
-    static constexpr int MAX_TEXT_BYTES = 65536;
+    // Invariant: closure capture measured 289 commands and 1,369 text bytes
+    // across the heaviest editor/render/targets/memory/replay surfaces. These
+    // limits retain at least 7x command and 11x text headroom without making
+    // every retained scratch list carry the obsolete pre-stream 8K/64K budget.
+    static constexpr int MAX_COMMANDS = 2048;
+    static constexpr int MAX_TEXT_BYTES = 16384;
     static constexpr int MAX_CLIP_DEPTH = 32;
 
     struct PreviewTargetId
     {
-        uint16_t catalogIndex = 0;
-        bool valid = false;
+        uint16_t catalogIndex;
+        bool valid;
     };
 
     enum class CommandType : uint8_t
@@ -77,22 +81,25 @@ class UIDrawList
 
     struct Command
     {
-        CommandType type = CommandType::Rect;
-        float x0 = 0.0f;
-        float y0 = 0.0f;
-        float x1 = 0.0f;
-        float y1 = 0.0f;
-        float x2 = 0.0f;
-        float y2 = 0.0f;
-        float w = 0.0f;
-        float h = 0.0f;
-        float radius = 0.0f;
-        float pxSize = 0.0f;
-        float r = 0.0f;
-        float g = 0.0f;
-        float b = 0.0f;
-        float a = 0.0f;
-        int textOffset = 0;
+        // Why: PushCommand value-initializes each committed row. Keeping unused
+        // fixed-capacity rows trivial avoids touching every reserved page when
+        // retained UI scratch owners are constructed.
+        CommandType type;
+        float x0;
+        float y0;
+        float x1;
+        float y1;
+        float x2;
+        float y2;
+        float w;
+        float h;
+        float radius;
+        float pxSize;
+        float r;
+        float g;
+        float b;
+        float a;
+        int textOffset;
         PreviewTargetId preview;
     };
     static_assert( std::is_trivially_copyable_v<Command>, "UI draw commands must remain plain inspectable values." );
@@ -106,18 +113,16 @@ class UIDrawList
     void PopClip();
     // Fallback fill and label are part of the recorded value so a missing
     // frame-local renderer target cannot silently produce a blank panel.
-    void AddPreviewImage(
-        PreviewTargetId target,
-        float x,
-        float y,
-        float w,
-        float h,
-        float fallbackR,
-        float fallbackG,
-        float fallbackB,
-        float fallbackA,
-        const char* fallbackLabel
-    );
+    void AddPreviewImage( PreviewTargetId target,
+                          float x,
+                          float y,
+                          float w,
+                          float h,
+                          float fallbackR,
+                          float fallbackG,
+                          float fallbackB,
+                          float fallbackA,
+                          const char* fallbackLabel );
     // Appends another list in order and applies a screen-space translation to
     // its geometry. Text is copied into this list's bounded storage so neither
     // the source list nor its cache must outlive the composed frame.
@@ -143,6 +148,7 @@ class UIDrawList
     bool m_textOverflow = false;
     bool m_clipOverflow = false;
     int m_clipDepth = 0;
+    int m_suppressedClipDepth = 0;
     int m_maxClipDepth = 0;
 };
 

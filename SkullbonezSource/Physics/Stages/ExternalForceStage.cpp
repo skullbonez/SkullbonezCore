@@ -48,6 +48,7 @@ float SmoothStep01( float edge0, float edge1, float value )
     {
         return value >= edge1 ? 1.0f : 0.0f;
     }
+
     const float t = std::clamp( ( value - edge0 ) / ( edge1 - edge0 ), 0.0f, 1.0f );
     return t * t * ( 3.0f - 2.0f * t );
 }
@@ -66,8 +67,9 @@ Vector3 SampleFieldAcceleration( const ExternalCylindricalForceField& field, con
         return ZERO_VECTOR;
     }
 
-    const Vector3 inward =
-        horizontal > TOLERANCE ? Vector3( -dx / horizontal, 0.0f, -dz / horizontal ) : Vector3( 1.0f, 0.0f, 0.0f );
+    const Vector3 inward = horizontal > TOLERANCE ? Vector3( -dx / horizontal, 0.0f, -dz / horizontal )
+                                                  : Vector3( 1.0f, 0.0f, 0.0f );
+
     const Vector3 tangent( -inward.z, 0.0f, inward.x );
     const float radialMask = 0.18f + 0.82f * SmoothStep01( 1.0f, 0.0f, radial01 );
     const float columnMask = SmoothStep01( 0.0f, 0.12f, height01 ) * SmoothStep01( 1.0f, 0.78f, height01 );
@@ -83,12 +85,14 @@ Vector3 ClampVectorMagnitude( const Vector3& value, float maxMagnitude )
     {
         return ZERO_VECTOR;
     }
+
     const float magnitudeSq = value * value;
     const float maxSq = maxMagnitude * maxMagnitude;
     if ( magnitudeSq <= maxSq || magnitudeSq <= TOLERANCE * TOLERANCE )
     {
         return value;
     }
+
     return value * ( maxMagnitude / sqrtf( magnitudeSq ) );
 }
 
@@ -107,8 +111,8 @@ void ExternalForceStage::Clear()
     m_releaseWakeBodies.clear();
 }
 
-std::span<const int>
-ExternalForceStage::ReleaseFixedBodies( const ExternalForceFrameInput& input, PhysicsBodyStore& bodyStore )
+std::span<const int> ExternalForceStage::ReleaseFixedBodies( const ExternalForceFrameInput& input,
+                                                             PhysicsBodyStore& bodyStore )
 {
     m_releaseWakeBodies.clear();
     m_fixedTreeReleaseWakeScratch.clear();
@@ -131,8 +135,11 @@ ExternalForceStage::ReleaseFixedBodies( const ExternalForceFrameInput& input, Ph
 
         ExternalCylindricalForceField bestField;
         float bestAccelerationSq = 0.0f;
-        const Vector3 acceleration =
-            SampleAcceleration( input, PhysicsBodyPosition( hotRead, row ), bestField, bestAccelerationSq );
+        const Vector3 acceleration = SampleAcceleration( input,
+                                                         PhysicsBodyPosition( hotRead, row ),
+                                                         bestField,
+                                                         bestAccelerationSq );
+
         const float releaseAcceleration = (std::max)( 16.0f, record.contactReleaseImpulseThreshold * 32.0f );
         if ( bestAccelerationSq < releaseAcceleration * releaseAcceleration )
         {
@@ -141,8 +148,7 @@ ExternalForceStage::ReleaseFixedBodies( const ExternalForceFrameInput& input, Ph
 
         const Vector3 seedLinearVelocity = ClampVectorMagnitude(
             acceleration * 0.08f,
-            (std::max)( 10.0f, bestField.maxDeltaVelocityMetersPerSecond * 1.5f )
-        );
+            (std::max)( 10.0f, bestField.maxDeltaVelocityMetersPerSecond * 1.5f ) );
 
         const Vector3 seedAngularVelocity( seedLinearVelocity.z * 0.08f, 0.0f, -seedLinearVelocity.x * 0.08f );
         // Why: release must precede broadphase so every later fixed-body check
@@ -151,22 +157,21 @@ ExternalForceStage::ReleaseFixedBodies( const ExternalForceFrameInput& input, Ph
         m_releaseWakeBodies.push_back( index );
         bodyStore.ReleaseAttachedFixedTreeParts(
             PhysicsFixedTreeReleaseEvent { index, seedLinearVelocity, seedAngularVelocity },
-            m_fixedTreeReleaseWakeScratch
-        );
+            m_fixedTreeReleaseWakeScratch );
 
         for ( int releasedIndex : m_fixedTreeReleaseWakeScratch )
         {
             m_releaseWakeBodies.push_back( releasedIndex );
         }
+
         m_fixedTreeReleaseWakeScratch.clear();
     }
+
     return std::span<const int>( m_releaseWakeBodies.data(), m_releaseWakeBodies.size() );
 }
 
-void ExternalForceStage::ApplyBodyForces(
-    const ExternalForceFrameInput& input,
-    const ExternalForceBodyContext& context
-)
+void ExternalForceStage::ApplyBodyForces( const ExternalForceFrameInput& input,
+                                          const ExternalForceBodyContext& context )
 {
     if ( !input.Active() )
     {
@@ -186,6 +191,7 @@ void ExternalForceStage::ApplyBodyForces(
     const auto applyAt = [&]( int index )
     {
         const std::size_t row = static_cast<std::size_t>( index );
+
         if ( hotFields.fixed[row] != 0u || IsUnderwaterSleepLocked( context.underwaterSleepLocked, modelCount, index ) )
         {
             input.exposureSeconds[row] = 0.0f;
@@ -221,8 +227,9 @@ void ExternalForceStage::ApplyBodyForces(
         const float minExposure = (std::max)( 0.0f, bestField.minimumExposureSeconds );
         const float cooldown = (std::max)( 0.0f, bestField.repeatCooldownSeconds );
         const float maxDeltaVelocity = (std::max)( 1.0f, bestField.maxDeltaVelocityMetersPerSecond );
-        const float minTangentialSpeed =
-            (std::max)( 18.0f, bestField.tangentialAccelerationMetersPerSecondSquared * 0.12f );
+        const float minTangentialSpeed = (std::max)( 18.0f,
+                                                     bestField.tangentialAccelerationMetersPerSecondSquared * 0.12f );
+
         Vector3 outward;
         if ( horizontal > TOLERANCE )
         {
@@ -259,14 +266,12 @@ void ExternalForceStage::ApplyBodyForces(
 
     if ( context.execution.parallel && input.parallelEvaluation )
     {
-        context.workerPool.ParallelForNoAlloc(
-            0,
-            modelCount,
-            applyAt,
-            context.minParallelBodies,
-            context.workerMarkerPath,
-            context.workerMarkerHash
-        );
+        context.workerPool.ParallelForNoAlloc( 0,
+                                               modelCount,
+                                               applyAt,
+                                               context.minParallelBodies,
+                                               context.workerMarkerPath,
+                                               context.workerMarkerHash );
     }
     else
     {
@@ -284,12 +289,10 @@ uint64_t ExternalForceStage::CollectMemoryBytes() const
     return 0u;
 }
 
-Vector3 ExternalForceStage::SampleAcceleration(
-    const ExternalForceFrameInput& input,
-    const Vector3& position,
-    ExternalCylindricalForceField& outBestField,
-    float& outBestAccelerationSq
-) const
+Vector3 ExternalForceStage::SampleAcceleration( const ExternalForceFrameInput& input,
+                                                const Vector3& position,
+                                                ExternalCylindricalForceField& outBestField,
+                                                float& outBestAccelerationSq ) const
 {
     Vector3 acceleration = ZERO_VECTOR;
     outBestField = input.fields.empty() ? ExternalCylindricalForceField {} : input.fields.front();
@@ -307,6 +310,7 @@ Vector3 ExternalForceStage::SampleAcceleration(
             outBestField = field;
         }
     }
+
     return acceleration;
 }
 } // namespace SkullbonezCore::Physics

@@ -55,6 +55,7 @@ int SceneComboScrollForSelection( int selectedIndex, int optionCount )
     {
         return 0;
     }
+
     return ClampSceneComboScroll( selectedIndex - visibleCount / 2, optionCount );
 }
 
@@ -64,6 +65,7 @@ float SceneTabComboWidth( float contentW )
     const float maxComboW = (std::min)( contentW, 520.0f );
     const float buttonW = UI_SCENE_RESET_BUTTON_W + UI_SCENE_RESET_DEFAULTS_BUTTON_W + UI_SCENE_SAVE_DEFAULTS_BUTTON_W +
                           UI_SCENE_HEADER_BUTTON_GAP * 3.0f;
+
     const float withButtons = contentW - buttonW;
     return (std::max)( 180.0f, (std::min)( maxComboW, withButtons ) );
 }

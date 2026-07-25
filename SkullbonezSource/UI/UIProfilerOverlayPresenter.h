@@ -35,24 +35,20 @@ class UIDrawContext;
 class UIProfilerOverlayPresenter
 {
   public:
-    void RecordOverlay(
-        const Core::Profiler::ProfilerFrameView& frame,
-        const UIDrawContext& draw,
-        float xLeft,
-        float yAnchor,
-        float lineHeight,
-        float fontSize,
-        float fps,
-        bool rightAnchored = false
-    ) const;
-    void RecordBarOverlay(
-        const Core::Profiler::ProfilerFrameView& frame,
-        const UIDrawContext& draw,
-        float xLeft,
-        float yBottom,
-        float panelWidth,
-        float panelHeight,
-        bool absolute
-    ) const;
+    void RecordOverlay( const Core::Profiler::ProfilerFrameView& frame,
+                        const UIDrawContext& draw,
+                        float xLeft,
+                        float yAnchor,
+                        float lineHeight,
+                        float fontSize,
+                        float fps,
+                        bool rightAnchored = false ) const;
+    void RecordBarOverlay( const Core::Profiler::ProfilerFrameView& frame,
+                           const UIDrawContext& draw,
+                           float xLeft,
+                           float yBottom,
+                           float panelWidth,
+                           float panelHeight,
+                           bool absolute ) const;
 };
 } // namespace SkullbonezCore::UI

@@ -51,32 +51,33 @@ bool ReplayPredictionBudgetExpired( const std::chrono::steady_clock::time_point&
 // Why: prediction diagnostics need the exact pass that lost work. Keeping the
 // counter beside the single budget predicate prevents extracted publication
 // units from changing either time units or accounting order.
-bool ReplayPredictionBudgetExpiredForPass(
-    ReplayPredictionUpdateResult& result,
-    SkullbonezCore::Core::MainMemoryReplayBudgetPass pass,
-    const std::chrono::steady_clock::time_point& start,
-    double budgetMilliseconds
-)
+bool ReplayPredictionBudgetExpiredForPass( ReplayPredictionUpdateResult& result,
+                                           SkullbonezCore::Core::MainMemoryReplayBudgetPass pass,
+                                           const std::chrono::steady_clock::time_point& start,
+                                           double budgetMilliseconds )
 {
     if ( !ReplayPredictionBudgetExpired( start, budgetMilliseconds ) )
     {
         return false;
     }
+
     const std::size_t passIndex = static_cast<std::size_t>( pass );
     if ( passIndex < result.budgetExpiries.size() )
     {
         ++result.budgetExpiries[passIndex];
     }
+
     return true;
 }
 
-double
-ReplayPredictionRemainingMilliseconds( const std::chrono::steady_clock::time_point& start, double budgetMilliseconds )
+double ReplayPredictionRemainingMilliseconds( const std::chrono::steady_clock::time_point& start,
+                                              double budgetMilliseconds )
 {
     if ( budgetMilliseconds <= 0.0 )
     {
         return 0.0;
     }
+
     return (std::max)( 0.0, budgetMilliseconds - ReplayPredictionElapsedMilliseconds( start ) );
 }
 
@@ -97,15 +98,17 @@ double ReplayPredictionRevealSecondsPerSecond( const RunReplayPredictionState& p
 // the unfold without banking reveal debt.
 // Invariant: the cursor is monotonic per prediction. It plays 0 -> horizon once
 // and then holds, so every revealed line and causal box stays on screen.
-ReplayFrameIndex
-ReplayPredictionRevealFrameIndex( RunReplayPredictionState& prediction, ReplayFrameIndex lastAvailableFrame )
+ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& prediction,
+                                                   ReplayFrameIndex lastAvailableFrame )
 {
     if ( prediction.revealClock.deterministicFrameEnabled )
     {
-        prediction.revealClock.presentedFrame =
-            (std::min)( lastAvailableFrame, prediction.revealClock.deterministicFrame );
+        prediction.revealClock.presentedFrame = (std::min)( lastAvailableFrame,
+                                                            prediction.revealClock.deterministicFrame );
+
         return prediction.revealClock.presentedFrame;
     }
+
     if ( prediction.build.buildMode == ReplayPredictionBuildMode::Instant )
     {
         // Why: instant mode presents the completed future at once. The causal
@@ -113,6 +116,7 @@ ReplayPredictionRevealFrameIndex( RunReplayPredictionState& prediction, ReplayFr
         prediction.revealClock.presentedFrame = lastAvailableFrame;
         return prediction.revealClock.presentedFrame;
     }
+
     const auto now = std::chrono::steady_clock::now();
     if ( !prediction.revealClock.anchorValid )
     {
@@ -123,29 +127,29 @@ ReplayPredictionRevealFrameIndex( RunReplayPredictionState& prediction, ReplayFr
     }
 
     const double availableSeconds = static_cast<double>( lastAvailableFrame ) * ::PHYSICS_FIXED_DT;
-    const double elapsedSeconds =
-        (std::max)( 0.0, std::chrono::duration<double>( now - prediction.revealClock.anchor ).count() );
+    const double elapsedSeconds = (std::max)( 0.0,
+                                              std::chrono::duration<double>( now - prediction.revealClock.anchor )
+                                                  .count() );
+
     const double revealSecondsPerSecond = ReplayPredictionRevealSecondsPerSecond( prediction );
     double revealSeconds = elapsedSeconds * revealSecondsPerSecond;
     if ( prediction.build.building && revealSeconds > availableSeconds )
     {
         revealSeconds = availableSeconds;
-        prediction.revealClock.anchor =
-            now - std::chrono::duration_cast<std::chrono::steady_clock::duration>(
-                      std::chrono::duration<double>( availableSeconds / revealSecondsPerSecond )
-                  );
+        prediction.revealClock.anchor = now - std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                                                  std::chrono::duration<double>( availableSeconds /
+                                                                                 revealSecondsPerSecond ) );
     }
 
     const double revealFrame = revealSeconds / static_cast<double>( ::PHYSICS_FIXED_DT );
-    prediction.revealClock.presentedFrame =
-        (std::min)( lastAvailableFrame, static_cast<ReplayFrameIndex>( revealFrame ) );
+    prediction.revealClock.presentedFrame = (std::min)( lastAvailableFrame,
+                                                        static_cast<ReplayFrameIndex>( revealFrame ) );
+
     return prediction.revealClock.presentedFrame;
 }
 
-std::size_t ReplayPredictionBuildPresentationFrameCountForRefresh(
-    RunReplayPredictionState& prediction,
-    Physics::PhysicsSceneObjectId requestedTargetId
-)
+std::size_t ReplayPredictionBuildPresentationFrameCountForRefresh( RunReplayPredictionState& prediction,
+                                                                   Physics::PhysicsSceneObjectId requestedTargetId )
 {
     if ( requestedTargetId.value == 0 || prediction.simulation.targetId.value != requestedTargetId.value ||
          prediction.simulation.frames.size() < 2u )
@@ -190,6 +194,7 @@ bool ReplayPrediction::PromoteBuildPrefixToCommitted()
     {
         return false;
     }
+
     WaitForJobIdle();
     const std::size_t promotedFrameCount = m_state.PublishedBuildFrameCount();
     if ( promotedFrameCount < 2u || promotedFrameCount > m_state.build.buildFrames.size() )
@@ -209,6 +214,7 @@ bool ReplayPrediction::PromoteBuildPrefixToCommitted()
     {
         return false;
     }
+
     m_state.simulation.predictionEngineReady = false;
     m_state.simulation.predictionBodies.clear();
     m_state.simulation.predictionTornadoGameplay.Clear();

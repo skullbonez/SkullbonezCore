@@ -88,6 +88,7 @@ void Window::BindDevelopmentUiInput( DevelopmentTools::ImGuiEditorOwner& owner )
     {
         SB_FATAL( "Runtime/Window", "A different development UI input owner is already bound." );
     }
+
     m_developmentUiInput = &owner;
 }
 
@@ -100,10 +101,12 @@ void Window::UnbindDevelopmentUiInput( DevelopmentTools::ImGuiEditorOwner& owner
         // calls this one balanced cleanup path and has nothing to remove.
         return;
     }
+
     if ( m_developmentUiInput != &owner )
     {
         SB_FATAL( "Runtime/Window", "Development UI input owner unbound with a different lifetime target." );
     }
+
     m_developmentUiInput = nullptr;
 }
 
@@ -195,12 +198,10 @@ SkullbonezCore::Core::SbResult Window::HandleScreenResize()
     // Invariant: Window owns the projection depth range after startup; resize
     // must not reopen global config while handling OS messages.
     float aspect = static_cast<float>( w ) / static_cast<float>( h );
-    projectionMatrix = Math::Transformation::Matrix4::PerspectiveZeroToOne(
-        45.0f,
-        aspect,
-        m_projectionNearPlane,
-        m_projectionFarPlane
-    );
+    projectionMatrix = Math::Transformation::Matrix4::PerspectiveZeroToOne( 45.0f,
+                                                                            aspect,
+                                                                            m_projectionNearPlane,
+                                                                            m_projectionFarPlane );
 
     return SkullbonezCore::Core::SbResult::Success();
 }
@@ -246,6 +247,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
     // returns WM_CREATE payloads through LPARAM. Recover the typed owner only at
     // this WndProc ABI seam; the window object retains lifetime authority.
     Window* m_cWindow = reinterpret_cast<Window*>( GetWindowLongPtr( hWnd, GWLP_USERDATA ) );
+
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     // Concept: Dear ImGui observes the native stream first, then this value
     // decides whether the established engine input path also receives the
@@ -281,16 +283,20 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
             if ( !resizeResult.ok )
             {
                 const char* owner = resizeResult.error.owner[0] != '\0' ? resizeResult.error.owner : "Runtime/Window";
-                const char* message =
-                    resizeResult.error.message[0] != '\0' ? resizeResult.error.message : "window resize failed";
-                SkullbonezCore::Core::Log()
-                    .WriteEventf( "window_resize_failed owner=\"%s\" message=\"%s\"", owner, message );
+                const char* message = resizeResult.error.message[0] != '\0' ? resizeResult.error.message
+                                                                            : "window resize failed";
+
+                SkullbonezCore::Core::Log().WriteEventf( "window_resize_failed owner=\"%s\" message=\"%s\"",
+                                                         owner,
+                                                         message );
+
                 std::fprintf( stderr, "[window] Resize failed owner=%s reason=\"%s\"\n", owner, message );
                 std::fflush( stderr );
                 SkullbonezCore::Core::Log().FlushAll();
                 PostQuitMessage( 1 );
             }
         }
+
         break;
 
     // WM_PAINT fired when client area is invalidated
@@ -310,6 +316,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
         {
             Input::AccumulateMouseWheelDelta( hWnd, GET_WHEEL_DELTA_WPARAM( wParam ) );
         }
+
         break;
 
     case WM_INPUT:
@@ -329,6 +336,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
         {
             return 0;
         }
+
         break;
 
     case WM_SYSCHAR:
@@ -339,6 +347,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
         {
             return 0;
         }
+
         break;
 
     case WM_SETFOCUS:
@@ -367,8 +376,10 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
                 Input::SetSystemCursorVisible( true );
                 SetCursor( LoadCursor( nullptr, IDC_ARROW ) );
             }
+
             return TRUE;
         }
+
         break;
 
     // WM_DESTROY is fired when the window is closed
@@ -397,15 +408,20 @@ SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE hInstance, boo
 
     DWORD dwStyle = 0; // Window style
 
-    wndclass.style = CS_HREDRAW | CS_VREDRAW;          // Vert and Horiz redraw
-    wndclass.lpfnWndProc = WndProc;                    // Assign callback function
-    wndclass.hInstance = hInstance;                    // Assign hInstance
+    wndclass.style = CS_HREDRAW | CS_VREDRAW; // Vert and Horiz redraw
+    wndclass.lpfnWndProc = WndProc;           // Assign callback function
+
+    wndclass.hInstance = hInstance; // Assign hInstance
+
     wndclass.hIcon = LoadIcon( nullptr, IDI_WINLOGO ); // Default icon
-    wndclass.hCursor = nullptr;                        // Engine/UI draws its own cursor when needed
+
+    wndclass.hCursor = nullptr; // Engine/UI draws its own cursor when needed
+
     // Why: GetStockObject returns a generic GDI handle; WNDCLASS requires the
     // HBRUSH view for this borrowed stock brush and never deletes it.
     wndclass.hbrBackground = reinterpret_cast<HBRUSH>( GetStockObject( WHITE_BRUSH ) ); // White client background
-    wndclass.lpszClassName = WINDOW_NAME;                                               // Assign class name
+
+    wndclass.lpszClassName = WINDOW_NAME; // Assign class name
 
     RegisterClass( &wndclass ); // Register class with OS
 
@@ -443,19 +459,17 @@ SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE hInstance, boo
         }
     }
 
-    hWnd = CreateWindow(
-        WINDOW_NAME, // Window class name
-        TITLE_TEXT,  // Window title text
-        dwStyle,
-        windowX, // Window xPos
-        windowY, // Window yPos
-        windowW,
-        windowH,
-        nullptr,   // Parent window handle
-        nullptr,   // Window menu handle
-        hInstance, // Application instance
-        this
-    ); // Data to pass to WndProc
+    hWnd = CreateWindow( WINDOW_NAME, // Window class name
+                         TITLE_TEXT,  // Window title text
+                         dwStyle,
+                         windowX, // Window xPos
+                         windowY, // Window yPos
+                         windowW,
+                         windowH,
+                         nullptr,   // Parent window handle
+                         nullptr,   // Window menu handle
+                         hInstance, // Application instance
+                         this );    // Data to pass to WndProc
 
     if ( !hWnd )
     {
@@ -463,6 +477,7 @@ SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE hInstance, boo
         // environment, so startup reports the result instead of unwinding.
         return SkullbonezCore::Core::SbResult::Failure( "Runtime/Window", "Window creation failed." );
     }
+
     m_sWindow = hWnd;
     Input::BindWindow( *this );
     // Lifetime: bind callback-fed input queues as soon as the HWND exists so
@@ -483,16 +498,16 @@ SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE hInstance, boo
         RECT clientDimensions = {};
         if ( !GetClientRect( hWnd, &clientDimensions ) || clientDimensions.right <= 0 || clientDimensions.bottom <= 0 )
         {
-            return SkullbonezCore::Core::SbResult::Failure(
-                "Runtime/Window",
-                "Hidden automation window has no drawable client area."
-            );
+            return SkullbonezCore::Core::SbResult::Failure( "Runtime/Window",
+                                                            "Hidden automation window has no drawable client area." );
         }
+
         // Hidden windows do not receive the normal WM_SIZE publication before
         // renderer startup. Publish the real client rectangle here so DX12 uses
         // the same swap-chain dimensions as the shown-window path.
         SetWindowDimensions( clientDimensions );
     }
+
     Input::SetSystemCursorVisible( false );
     (void)Input::RegisterRawMouseInput( hWnd );
     return SkullbonezCore::Core::SbResult::Success();

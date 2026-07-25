@@ -41,7 +41,8 @@ struct RunSceneBrowserState
     std::vector<std::string> paths;
     std::vector<std::string> names;
     std::vector<const char*> namePtrs;
-    int selectedCineModeSceneIndex = -1; // -1=Demo/default look, otherwise scene-browser index of live cine/concept look
+    int selectedCineModeSceneIndex = -1; // -1=Demo/default look, otherwise scene-browser index of live cine/concept
+                                         // look
 };
 
 struct RunSceneUIOverrideState

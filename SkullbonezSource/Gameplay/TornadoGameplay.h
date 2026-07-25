@@ -88,13 +88,11 @@ class TornadoGameplay
     void SetFieldInwardAcceleration( float value );
     void SetFieldSwirlAcceleration( float value );
     void SetFieldLiftAcceleration( float value );
-    void SetReplayState(
-        const std::vector<float>& captureSeconds,
-        const std::vector<float>& ejectCooldownSeconds,
-        const TornadoFieldConfig& fieldConfig,
-        const TornadoSystemConfig& systemConfig,
-        float systemElapsedSeconds
-    );
+    void SetReplayState( const std::vector<float>& captureSeconds,
+                         const std::vector<float>& ejectCooldownSeconds,
+                         const TornadoFieldConfig& fieldConfig,
+                         const TornadoSystemConfig& systemConfig,
+                         float systemElapsedSeconds );
 
     const std::vector<float>& CaptureSeconds() const;
     const std::vector<float>& EjectCooldownSeconds() const;

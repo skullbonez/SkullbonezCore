@@ -41,8 +41,7 @@ struct RunStartupState
     int workerThreads = -1;
 
     void ApplyStartupConfig(
-        const SkullbonezCore::Core::EngineConfig& config
-    ); // Captures startup-only capacity/thread policy from config.
+        const SkullbonezCore::Core::EngineConfig& config ); // Captures startup-only capacity/thread policy from config.
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

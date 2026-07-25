@@ -29,9 +29,7 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-void RenderDefaultsStore::CaptureStartupCinematicBaseline(
-    const SkullbonezCore::Core::CinematicRenderConfig& cinematic
-)
+void RenderDefaultsStore::CaptureStartupCinematicBaseline( const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
 {
     m_cinematicBaseline = cinematic;
 }
@@ -61,12 +59,10 @@ void RenderDefaultsStore::Submit( RenderDefaultsRequestType type )
     {
         // Lane F: a UI frame cannot legally exceed the fixed persistence owner
         // budget. A growth fallback would violate steady-runtime allocation policy.
-        SB_FATAL(
-            "Runtime/RenderDefaultsStore",
-            "Render-default request capacity exhausted. capacity=%d high_water=%d phase=input",
-            RENDER_DEFAULTS_REQUEST_CAPACITY,
-            m_count
-        );
+        SB_FATAL( "Runtime/RenderDefaultsStore",
+                  "Render-default request capacity exhausted. capacity=%d high_water=%d phase=input",
+                  RENDER_DEFAULTS_REQUEST_CAPACITY,
+                  m_count );
     }
 
     const int tail = ( m_head + m_count ) % RENDER_DEFAULTS_REQUEST_CAPACITY;
@@ -75,10 +71,9 @@ void RenderDefaultsStore::Submit( RenderDefaultsRequestType type )
 }
 
 
-RenderDefaultsSaveBatchResult RenderDefaultsStore::DrainAtFrameCheckpoint(
-    const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary,
-    const SkullbonezCore::Core::CinematicRenderConfig& cinematic
-)
+RenderDefaultsSaveBatchResult
+RenderDefaultsStore::DrainAtFrameCheckpoint( const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary,
+                                             const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
 {
     RenderDefaultsSaveBatchResult result;
     while ( m_count > 0 )
@@ -90,6 +85,7 @@ RenderDefaultsSaveBatchResult RenderDefaultsStore::DrainAtFrameCheckpoint(
         const SkullbonezCore::Core::SbResult saveResult = request == RenderDefaultsRequestType::Ordinary
                                                               ? SaveRenderDefaults( ordinary )
                                                               : SaveSkyDefaults( cinematic );
+
         if ( saveResult.ok )
         {
             result.saved[result.savedCount++] = request;
@@ -100,9 +96,11 @@ RenderDefaultsSaveBatchResult RenderDefaultsStore::DrainAtFrameCheckpoint(
             {
                 result.status = saveResult;
             }
+
             ++result.failedCount;
         }
     }
+
     m_head = 0;
     return result;
 }
@@ -119,13 +117,12 @@ RenderDefaultsRequestType RenderDefaultsStore::PendingTypeAt( std::size_t index 
     if ( index >= static_cast<std::size_t>( m_count ) )
     {
         // Lane F: this accessor is diagnostics/test evidence over occupied slots.
-        SB_FATAL(
-            "Runtime/RenderDefaultsStore",
-            "Pending request index out of range. index=%zu count=%d",
-            index,
-            m_count
-        );
+        SB_FATAL( "Runtime/RenderDefaultsStore",
+                  "Pending request index out of range. index=%zu count=%d",
+                  index,
+                  m_count );
     }
+
     return m_requests[( m_head + static_cast<int>( index ) ) % RENDER_DEFAULTS_REQUEST_CAPACITY];
 }
 } // namespace Runtime

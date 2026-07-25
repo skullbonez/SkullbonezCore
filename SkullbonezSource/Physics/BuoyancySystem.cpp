@@ -46,12 +46,10 @@ constexpr float UNDERWATER_SLEEP_LOCK_SUBMERGED_PERCENT = 0.999f;
 }
 
 
-bool BuoyancySystem::IsFullySubmergedBall(
-    const PhysicsBodyRecord& bodyRecord,
-    bool fixed,
-    const ColliderStore& colliderStore,
-    int index
-)
+bool BuoyancySystem::IsFullySubmergedBall( const PhysicsBodyRecord& bodyRecord,
+                                           bool fixed,
+                                           const ColliderStore& colliderStore,
+                                           int index )
 {
     const auto colliders = colliderStore.Records();
     if ( index < 0 || index >= static_cast<int>( colliders.size() ) || fixed ||
@@ -64,12 +62,10 @@ bool BuoyancySystem::IsFullySubmergedBall(
 }
 
 
-bool BuoyancySystem::RefreshUnderwaterSubmersionForBall(
-    const PhysicsWorldForces& worldForces,
-    PhysicsBodyStore& bodyStore,
-    const ColliderStore& colliderStore,
-    int index
-)
+bool BuoyancySystem::RefreshUnderwaterSubmersionForBall( const PhysicsWorldForces& worldForces,
+                                                         PhysicsBodyStore& bodyStore,
+                                                         const ColliderStore& colliderStore,
+                                                         int index )
 {
     PhysicsBodyRecord* bodyRecord = bodyStore.MutableRecordForModelIndex( index );
     if ( !bodyRecord )
@@ -98,10 +94,12 @@ bool BuoyancySystem::RefreshUnderwaterSubmersionForBall(
 
     const PhysicsBodyHotFieldsConstView hotFields = bodyStore.HotFields();
     const std::size_t bodyIndex = static_cast<std::size_t>( index );
-    const Math::Transformation::RotationMatrix rotation =
-        PhysicsBodyOrientation( hotFields, bodyIndex ).GetOrientationMatrix();
-    const Math::Vector::Vector3 center =
-        PhysicsBodyPosition( hotFields, bodyIndex ) + ( rotation * sphere->GetPosition() );
+    const Math::Transformation::RotationMatrix rotation = PhysicsBodyOrientation( hotFields, bodyIndex )
+                                                              .GetOrientationMatrix();
+
+    const Math::Vector::Vector3 center = PhysicsBodyPosition( hotFields, bodyIndex ) +
+                                         ( rotation * sphere->GetPosition() );
+
     const float radius = sphere->GetRadius();
     if ( radius <= TOLERANCE )
     {
@@ -113,6 +111,7 @@ bool BuoyancySystem::RefreshUnderwaterSubmersionForBall(
     {
         return true;
     }
+
     if ( fluidHeightRelativeToCenter >= radius )
     {
         bodyRecord->submergedVolumePercent = 1.0f;
@@ -126,8 +125,7 @@ bool BuoyancySystem::RefreshUnderwaterSubmersionForBall(
     bodyRecord->submergedVolumePercent = std::clamp(
         ( ONE_OVER_THREE * _PI * ( ( 3.0f * radius ) - yValue ) * yValue * yValue ) / sphere->GetVolume(),
         0.0f,
-        1.0f
-    );
+        1.0f );
 
     return true;
 }

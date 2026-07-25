@@ -79,6 +79,7 @@ void AuthoredSceneParser::ApplyPhysicsDebug( const Json& debug, const std::strin
     {
         m_scene.m_sceneOptions.physicsDebugTransparent = ReadBool( *transparent, path, "debug.physics.transparent" );
     }
+
     if ( const Json* alpha = FindMember( debug, "alpha" ) )
     {
         const float value = ReadFloat( *alpha, path, "debug.physics.alpha" );
@@ -86,8 +87,10 @@ void AuthoredSceneParser::ApplyPhysicsDebug( const Json& debug, const std::strin
         {
             Fail( path, "debug.physics.alpha must be 0.05..1.0" );
         }
+
         m_scene.m_sceneOptions.physicsDebugAlpha = value;
     }
+
     if ( const Json* linger = FindMember( debug, "contactLinger" ) )
     {
         const float value = ReadFloat( *linger, path, "debug.physics.contactLinger" );
@@ -95,6 +98,7 @@ void AuthoredSceneParser::ApplyPhysicsDebug( const Json& debug, const std::strin
         {
             Fail( path, "debug.physics.contactLinger must be 0.0..5.0" );
         }
+
         m_scene.m_sceneOptions.physicsDebugContactLinger = value;
     }
 }
@@ -106,33 +110,41 @@ void AuthoredSceneParser::ApplyDebug( const Json& debug, const std::string& path
     RequireObject( debug, path, "debug" );
     if ( const Json* collisionVisualizer = FindMember( debug, "collisionVisualizer" ) )
     {
-        m_scene.m_sceneOptions.collisionVisualizer =
-            ReadBool( *collisionVisualizer, path, "debug.collisionVisualizer" );
+        m_scene.m_sceneOptions.collisionVisualizer = ReadBool( *collisionVisualizer,
+                                                               path,
+                                                               "debug.collisionVisualizer" );
     }
+
     if ( const Json* broadphaseOverlay = FindMember( debug, "broadphaseOverlay" ) )
     {
         m_scene.m_sceneOptions.broadphaseOverlay = ReadBool( *broadphaseOverlay, path, "debug.broadphaseOverlay" );
     }
+
     if ( const Json* waterFreeze = FindMember( debug, "waterFreeze" ) )
     {
         m_scene.m_sceneOptions.waterFreezeDebug = ReadBool( *waterFreeze, path, "debug.waterFreeze" );
     }
+
     if ( const Json* waterFlat = FindMember( debug, "waterFlat" ) )
     {
         m_scene.m_sceneOptions.waterFlatDebug = ReadBool( *waterFlat, path, "debug.waterFlat" );
     }
+
     if ( const Json* waterReflection = FindMember( debug, "waterReflection" ) )
     {
         m_scene.m_sceneOptions.waterReflectionMode = ParseWaterReflectionMode( *waterReflection, path );
     }
+
     if ( const Json* waterHidden = FindMember( debug, "waterHidden" ) )
     {
         m_scene.m_sceneOptions.waterHidden = ReadBool( *waterHidden, path, "debug.waterHidden" );
     }
+
     if ( const Json* terrainHidden = FindMember( debug, "terrainHidden" ) )
     {
         m_scene.m_sceneOptions.terrainHidden = ReadBool( *terrainHidden, path, "debug.terrainHidden" );
     }
+
     if ( const Json* physics = FindMember( debug, "physics" ) )
     {
         ApplyPhysicsDebug( *physics, path );
@@ -149,18 +161,17 @@ void AuthoredSceneParser::ApplyTerrain( const Json& terrain, const std::string& 
         m_scene.m_terrainOverride.flatBaseY = ReadFloat(
             RequireMember( *flatSlope, path, "terrain.flatSlope", "baseY" ),
             path,
-            "terrain.flatSlope.baseY"
-        );
+            "terrain.flatSlope.baseY" );
+
         m_scene.m_terrainOverride.flatSlopeX = ReadFloat(
             RequireMember( *flatSlope, path, "terrain.flatSlope", "slopeX" ),
             path,
-            "terrain.flatSlope.slopeX"
-        );
+            "terrain.flatSlope.slopeX" );
+
         m_scene.m_terrainOverride.flatSlopeZ = ReadFloat(
             RequireMember( *flatSlope, path, "terrain.flatSlope", "slopeZ" ),
             path,
-            "terrain.flatSlope.slopeZ"
-        );
+            "terrain.flatSlope.slopeZ" );
     }
 }
 
@@ -184,16 +195,19 @@ void AuthoredSceneParser::ApplyUI( const Json& ui, const std::string& path )
         out.hasVisible = true;
         out.isVisible = ReadBool( *visible, path, "ui.visible" );
     }
+
     if ( const Json* minimized = FindMember( ui, "minimized" ) )
     {
         out.hasMinimized = true;
         out.isMinimized = ReadBool( *minimized, path, "ui.minimized" );
     }
+
     if ( const Json* tab = FindMember( ui, "tab" ) )
     {
         out.hasActiveTab = true;
         out.activeTab = ParseUITab( *tab, path );
     }
+
     if ( const Json* rect = FindMember( ui, "rect" ) )
     {
         RequireArray( *rect, path, "ui.rect" );
@@ -201,57 +215,68 @@ void AuthoredSceneParser::ApplyUI( const Json& ui, const std::string& path )
         {
             Fail( path, "ui.rect must contain exactly 4 integers" );
         }
+
         out.hasWindowRect = true;
         out.windowX = ReadInt( ( *rect )[0], path, "ui.rect[0]" );
         out.windowY = ReadInt( ( *rect )[1], path, "ui.rect[1]" );
         out.windowW = ReadInt( ( *rect )[2], path, "ui.rect[2]" );
         out.windowH = ReadInt( ( *rect )[3], path, "ui.rect[3]" );
     }
+
     if ( const Json* blur = FindMember( ui, "blur" ) )
     {
         out.hasBlur = true;
         out.blurEnabled = ReadBool( *blur, path, "ui.blur" );
     }
+
     if ( const Json* rendererCombo = FindMember( ui, "rendererCombo" ) )
     {
         out.hasRendererComboOpen = true;
         out.rendererComboOpen = ReadBool( *rendererCombo, path, "ui.rendererCombo" );
     }
+
     if ( const Json* waterCombo = FindMember( ui, "waterCombo" ) )
     {
         out.hasWaterComboOpen = true;
         out.waterComboOpen = ReadBool( *waterCombo, path, "ui.waterCombo" );
     }
+
     if ( const Json* sceneCombo = FindMember( ui, "sceneCombo" ) )
     {
         out.hasSceneComboOpen = true;
         out.sceneComboOpen = ReadBool( *sceneCombo, path, "ui.sceneCombo" );
     }
+
     if ( const Json* sceneFilter = FindMember( ui, "sceneFilter" ) )
     {
         out.hasSceneFilter = true;
         CopyStringField( out.sceneFilter, ReadString( *sceneFilter, path, "ui.sceneFilter" ) );
     }
+
     if ( const Json* profilerExpand = FindMember( ui, "profilerExpand" ) )
     {
         out.hasProfilerExpandAll = true;
         out.profilerExpandAll = ReadBool( *profilerExpand, path, "ui.profilerExpand" );
     }
+
     if ( const Json* timeline = FindMember( ui, "timeline" ) )
     {
         out.hasProfilerTimeline = true;
         out.profilerTimeline = ReadBool( *timeline, path, "ui.timeline" );
     }
+
     if ( const Json* histogram = FindMember( ui, "histogram" ) )
     {
         out.hasPerformanceHistogram = true;
         out.performanceHistogram = ReadBool( *histogram, path, "ui.histogram" );
     }
+
     if ( const Json* hitboxes = FindMember( ui, "hitboxes" ) )
     {
         out.hasHitboxOverlay = true;
         out.hitboxOverlay = ReadBool( *hitboxes, path, "ui.hitboxes" );
     }
+
     if ( const Json* scroll = FindMember( ui, "scroll" ) )
     {
         out.hasScrollY = true;
@@ -264,6 +289,7 @@ void AuthoredSceneParser::ApplyUI( const Json& ui, const std::string& path )
             out.scrollY = ReadFloat( *scroll, path, "ui.scroll" );
         }
     }
+
     if ( const Json* mouse = FindMember( ui, "mouse" ) )
     {
         RequireArray( *mouse, path, "ui.mouse" );
@@ -271,10 +297,12 @@ void AuthoredSceneParser::ApplyUI( const Json& ui, const std::string& path )
         {
             Fail( path, "ui.mouse must contain exactly 2 integers" );
         }
+
         out.hasMouseOverride = true;
         out.mouseX = ReadInt( ( *mouse )[0], path, "ui.mouse[0]" );
         out.mouseY = ReadInt( ( *mouse )[1], path, "ui.mouse[1]" );
     }
+
     if ( const Json* stress = FindMember( ui, "stress" ) )
     {
         out.hasStress = true;
@@ -286,6 +314,7 @@ void AuthoredSceneParser::ApplyUI( const Json& ui, const std::string& path )
         out.hasStressSeed = true;
         out.stressSeed = ReadUInt( *stressSeed, path, "ui.stressSeed" );
     }
+
     if ( const Json* stressActions = FindMember( ui, "stressActions" ) )
     {
         const int actions = ReadInt( *stressActions, path, "ui.stressActions" );
@@ -293,9 +322,11 @@ void AuthoredSceneParser::ApplyUI( const Json& ui, const std::string& path )
         {
             Fail( path, "ui.stressActions must be >= 0" );
         }
+
         out.hasStressActions = true;
         out.stressActionsPerFrame = actions;
     }
+
     if ( const Json* testPattern = FindMember( ui, "testPattern" ) )
     {
         out.hasTestPattern = true;
@@ -342,6 +373,7 @@ void AuthoredSceneParser::ApplyCinematicBool( const Json& cinematic, const std::
             }
         }
     }
+
     if ( const Json* value = FindMember( cinematic, "shadows" ) )
     {
         m_scene.m_sceneOptions.cinematicRender.shadow.enabled = ReadBool( *value, path, "shadows" );
@@ -379,6 +411,7 @@ void AuthoredSceneParser::ApplyCinematicInt( const Json& cinematic, const std::s
                 message << "cinematic." << field.key << " must be " << field.minValue << ".." << field.maxValue;
                 Fail( path, message.str() );
             }
+
             m_scene.m_sceneOptions.cinematicRender.shadow.*( field.field ) = parsed;
             m_scene.m_sceneOptions.cinematicOverrideMask |= field.bit;
         }
@@ -401,6 +434,7 @@ void AuthoredSceneParser::ApplyCinematicFloat( const Json& cinematic, const std:
         { "exposure", &SkullbonezCore::Core::CinematicRenderConfig::exposure, SCENE_CINE_EXPOSURE, 0.0f, 16.0f },
         { "gamma", &SkullbonezCore::Core::CinematicRenderConfig::gamma, SCENE_CINE_GAMMA, 0.1f, 8.0f },
         // Compatibility: scene/style JSON retains its original key spellings;
+
         // only the in-memory owner vocabulary changed.
         { "sunScreenX", &SkullbonezCore::Core::CinematicRenderConfig::sunAzimuth, SCENE_CINE_SUN_AZIMUTH, 0.0f, 1.0f },
         { "sunScreenY",
@@ -535,6 +569,7 @@ void AuthoredSceneParser::ApplyCinematicFloat( const Json& cinematic, const std:
                 message << "cinematic." << field.key << " must be " << field.minValue << ".." << field.maxValue;
                 Fail( path, message.str() );
             }
+
             m_scene.m_sceneOptions.cinematicRender.*( field.field ) = parsed;
             m_scene.m_sceneOptions.cinematicOverrideMask |= field.bit;
             if ( field.bit == SCENE_CINE_EXPOSURE )
@@ -599,6 +634,7 @@ void AuthoredSceneParser::ApplyCinematicFloat( const Json& cinematic, const std:
                 message << "cinematic." << field.key << " must be " << field.minValue << ".." << field.maxValue;
                 Fail( path, message.str() );
             }
+
             m_scene.m_sceneOptions.cinematicRender.shadow.*( field.field ) = parsed;
             m_scene.m_sceneOptions.cinematicOverrideMask |= field.bit;
         }
@@ -616,34 +652,38 @@ void AuthoredSceneParser::ApplyCinematicVector( const Json& cinematic, const std
         {
             Fail( path, "cinematic.styleModes must contain exactly 4 integers" );
         }
+
         c.skyMode = ReadInt( ( *styleModes )[0], path, "cinematic.styleModes[0]" );
         c.terrainMode = ReadInt( ( *styleModes )[1], path, "cinematic.styleModes[1]" );
         c.objectStyle = ReadInt( ( *styleModes )[2], path, "cinematic.styleModes[2]" );
         c.waterMode = ReadInt( ( *styleModes )[3], path, "cinematic.styleModes[3]" );
         m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_STYLE_MODES;
     }
+
     if ( const Json* styleGrade = FindMember( cinematic, "styleGrade" ) )
     {
         ReadVec3( *styleGrade, path, "cinematic.styleGrade", c.styleSaturation, c.styleContrast, c.styleVignette );
         m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_STYLE_GRADE;
     }
+
     if ( const Json* terrainTint = FindMember( cinematic, "terrainTint" ) )
     {
         ReadVec3( *terrainTint, path, "cinematic.terrainTint", c.terrainTintR, c.terrainTintG, c.terrainTintB );
         m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_TERRAIN_TINT;
     }
+
     if ( const Json* terrainAccent = FindMember( cinematic, "terrainAccent" ) )
     {
-        ReadVec3(
-            *terrainAccent,
-            path,
-            "cinematic.terrainAccent",
-            c.terrainAccentR,
-            c.terrainAccentG,
-            c.terrainAccentB
-        );
+        ReadVec3( *terrainAccent,
+                  path,
+                  "cinematic.terrainAccent",
+                  c.terrainAccentR,
+                  c.terrainAccentG,
+                  c.terrainAccentB );
+
         m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_TERRAIN_ACCENT;
     }
+
     if ( const Json* terrainGrid = FindMember( cinematic, "terrainGrid" ) )
     {
         RequireArray( *terrainGrid, path, "cinematic.terrainGrid" );
@@ -651,27 +691,30 @@ void AuthoredSceneParser::ApplyCinematicVector( const Json& cinematic, const std
         {
             Fail( path, "cinematic.terrainGrid must contain exactly 2 numbers" );
         }
+
         c.terrainGridScale = ReadFloat( ( *terrainGrid )[0], path, "cinematic.terrainGrid[0]" );
         c.terrainGridStrength = ReadFloat( ( *terrainGrid )[1], path, "cinematic.terrainGrid[1]" );
         m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_TERRAIN_GRID;
     }
+
     if ( const Json* waterTint = FindMember( cinematic, "waterTint" ) )
     {
         ReadVec3( *waterTint, path, "cinematic.waterTint", c.waterTintR, c.waterTintG, c.waterTintB );
         m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_WATER_TINT;
     }
+
     if ( const Json* waterProfile = FindMember( cinematic, "waterProfile" ) )
     {
-        ReadVec3(
-            *waterProfile,
-            path,
-            "cinematic.waterProfile",
-            c.waterAlpha,
-            c.waterReflectionStrength,
-            c.waterGlintStrength
-        );
+        ReadVec3( *waterProfile,
+                  path,
+                  "cinematic.waterProfile",
+                  c.waterAlpha,
+                  c.waterReflectionStrength,
+                  c.waterGlintStrength );
+
         m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_WATER_PROFILE;
     }
+
     if ( const Json* basinMask = FindMember( cinematic, "basinMask" ) )
     {
         RequireArray( *basinMask, path, "cinematic.basinMask" );
@@ -679,6 +722,7 @@ void AuthoredSceneParser::ApplyCinematicVector( const Json& cinematic, const std
         {
             Fail( path, "cinematic.basinMask must contain exactly 5 numbers" );
         }
+
         c.basinCenterX = ReadFloat( ( *basinMask )[0], path, "cinematic.basinMask[0]" );
         c.basinCenterZ = ReadFloat( ( *basinMask )[1], path, "cinematic.basinMask[1]" );
         c.basinRadiusX = ReadFloat( ( *basinMask )[2], path, "cinematic.basinMask[2]" );
@@ -709,23 +753,19 @@ void AuthoredSceneParser::ApplyCamera( const Json& camera, const std::string& pa
 
     SceneCamera out = {};
     ReadRequiredStringField( out.name, camera, path, "camera", "name" );
-    ReadVec3(
-        RequireMember( camera, path, "camera", "position" ),
-        path,
-        "camera.position",
-        out.m_position.x,
-        out.m_position.y,
-        out.m_position.z
-    );
+    ReadVec3( RequireMember( camera, path, "camera", "position" ),
+              path,
+              "camera.position",
+              out.m_position.x,
+              out.m_position.y,
+              out.m_position.z );
 
-    ReadVec3(
-        RequireMember( camera, path, "camera", "view" ),
-        path,
-        "camera.view",
-        out.view.x,
-        out.view.y,
-        out.view.z
-    );
+    ReadVec3( RequireMember( camera, path, "camera", "view" ),
+              path,
+              "camera.view",
+              out.view.x,
+              out.view.y,
+              out.view.z );
 
     ReadVec3( RequireMember( camera, path, "camera", "up" ), path, "camera.up", out.up.x, out.up.y, out.up.z );
     m_scene.m_cameras.push_back( out );

@@ -12,12 +12,13 @@ validation.
 | `agent_validate.bat` | PR gate when truly unsure; delegates once to `validate_full.bat` | CPU tests + 5 engine processes |
 | `validate_select.bat` | Run any subset of validations by name | ~depends |
 | `validate_fast.bat` | Small code refactors: preflight plus the doctest runner | ~30s |
-| `validate_all_cpu_tests.bat` | Run every mandatory CPU test and coverage gate with fail-fast attribution | incremental builds + 6 console launches |
+| `validate_all_cpu_tests.bat` | Run every mandatory CPU test and coverage gate with fail-fast attribution | incremental builds + 7 console launches |
 | `validate_tests.bat` | Build and run the doctest unit-test executable | build + console test runner |
 | `validate_coverage.bat` | Build the Debug doctest runner, export Cobertura product coverage, and report/check versioned subsystem floors | incremental Debug build + console test runner |
 | `validate_runtime_interaction_policy.bat` | Build/run Debug and Release interaction-policy tests | 2 console test launches |
 | `validate_automation.bat` | Prove Profile excludes scripted diagnostics and run one combined replay/prediction plus development-UI command smoke in Automation | build + 2 engine processes |
 | `validate_scene_parser_tests.bat` | Build/run CPU-side scene/style parser contract tests | build + console test runner |
+| `validate_ui_boundary_tests.bat` | Build/run the production UI library with no Runtime, Rendering, or DX12 link dependency | Release build + console test runner |
 | `validate_dx12_arch_tests.bat` | Build/run CPU-side renderer architecture tests; no device creation | build + console test runner |
 | `validate_dx12_fault_injection.bat` | Debug runtime proof that the first injected DX12 submission failure exits nonzero and issues zero submissions | build + one bounded engine launch |
 | `validate_native_diagnostics.bat` | Opt-in MSVC AddressSanitizer and bounded native static-analysis lane | ~20s; no engine launch |
@@ -51,7 +52,8 @@ order and stops before any engine launch when a CPU target fails:
 1. `validate_fast.bat --preflight-only` runs formatting, production project
    metadata, staged-size policy, and the Profile build without a test launch.
 2. `validate_all_cpu_tests.bat` runs the doctest, enforced coverage floors,
-   runtime-interaction, scene parser, and DX12 architecture targets.
+   runtime-interaction, scene parser, renderer-free UI boundary, and DX12
+   architecture targets.
 3. `validate_automation.bat` proves Profile rejects diagnostic scripts, builds
    the dedicated Automation executable, and runs one combined replay/prediction
    plus development-UI command smoke required on every broad pre-commit pass.
@@ -164,11 +166,11 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `bake_hulls.bat --check\|--write` | Check or rewrite serialized convex hull v2 runtime data from source geometry |
 | `migrate_data_formats.py --check\|--write` | Check or upgrade asset-library, hull, and engine-config files to their current owned versions |
 | `generate_physics_scale_sleepy_scene.py --check\|--write` | Check or deterministically regenerate the 5,000-body sleeping-heavy scale fixture |
-| `validate_format.bat` | Check clang-format, multiline local-declaration spacing, and header comment alignment without auto-fixing |
-| `format_fix.bat` | Auto-fix C++ layout, separate wrapped local declarations, and align header comments in-place |
-| `separate_multiline_cpp_declarations.py --check\|--write\|--stdin` | Add one blank line after wrapped local declarations; `--stdin` previews the post-pass without touching files |
+| `validate_format.bat` | Check the composite clang-format pipeline, including assignment heads, multiline statement/control-flow spacing, and header comment alignment |
+| `format_fix.bat` | Auto-fix C++ layout, keep the first assigned expression beside `=`, separate wrapped statements/control blocks, and align header comments |
+| `separate_multiline_cpp_declarations.py --check\|--check-pipeline\|--write\|--stdin` | Keep assignment heads together and add semantic paragraph breaks; `--stdin` previews the post-pass without touching files |
 | `validate_build.bat <Config>` | Build a specific configuration (`Debug`, `Profile`, `Automation`, `Release`) |
-| `validate_all_cpu_tests.bat` | Run all five first-party CPU/coverage gates, stop at the first failure, print a combined summary, and preserve the child exit code |
+| `validate_all_cpu_tests.bat` | Run all six first-party CPU/coverage gates, stop at the first failure, print a combined summary, and preserve the child exit code |
 | `validate_tests.bat` | Build `SKULLBONEZ_TESTS`, validate its project filters, and run the doctest console runner |
 | `validate_concepts.bat [smoke\|core\|full] [dx12] [frames]` | Run finite concept-scene tiers and write logs plus JSON under `TestOutput\validation\concepts` |
 | `validate_shaders.bat` | Check shader file contracts from `tools\shader_contracts.json`; incomplete symbol, uniform, or resource coverage is reported as warnings |

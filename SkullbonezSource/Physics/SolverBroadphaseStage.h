@@ -72,8 +72,8 @@ inline bool BroadphaseCandidateAppendHasCapacity( std::size_t size, std::size_t 
     return size < capacity;
 }
 
-inline Math::Vector::Vector3
-BroadphaseCandidateBodyPosition( const PhysicsBodyHotFieldsConstView& hotFields, int bodyIndex )
+inline Math::Vector::Vector3 BroadphaseCandidateBodyPosition( const PhysicsBodyHotFieldsConstView& hotFields,
+                                                              int bodyIndex )
 {
     return PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyIndex ) );
 }
@@ -111,10 +111,11 @@ inline bool BroadphaseCandidateGeometryCanTouch( const BroadphaseCandidateFilter
 
     const Math::Vector::Vector3 relativeStart = BroadphaseCandidateBodyPosition( context.hotFields, a ) -
                                                 BroadphaseCandidateBodyPosition( context.hotFields, b );
-    const Math::Vector::Vector3 relativeDisplacement =
-        ( PhysicsBodyLinearVelocity( context.hotFields, static_cast<std::size_t>( a ) ) -
-          PhysicsBodyLinearVelocity( context.hotFields, static_cast<std::size_t>( b ) ) ) *
-        context.dt;
+    const Math::Vector::Vector3 relativeDisplacement = ( PhysicsBodyLinearVelocity( context.hotFields,
+                                                                                    static_cast<std::size_t>( a ) ) -
+                                                         PhysicsBodyLinearVelocity( context.hotFields,
+                                                                                    static_cast<std::size_t>( b ) ) ) *
+                                                       context.dt;
     const float contactRadius = radiusA + radiusB + context.contactSkin;
     const float contactRadiusSq = contactRadius * contactRadius;
     const float relativeLengthSq = Math::Vector::VectorMagSquared( relativeDisplacement );

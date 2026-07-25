@@ -29,8 +29,6 @@ REM  Exit 0 = pass, Exit 1 = formatting violations found.
 REM ===============================================================
 
 set "REPO=%~dp0.."
-set BAD_COUNT=0
-
 call "%~dp0find_clang_format.bat"
 if errorlevel 1 exit /b 99
 
@@ -39,23 +37,15 @@ if errorlevel 1 exit /b 98
 
 echo Checking C++ implementation formatting...
 
-for /r "%REPO%\SkullbonezSource" %%f in (*.cpp) do (
-    "%CLANG_FMT%" --dry-run -Werror "%%f" >nul 2>&1
-    if errorlevel 1 (
-        echo   FAIL: %%f
-        set /a BAD_COUNT+=1
-    )
-)
-
-if %BAD_COUNT% GTR 0 (
-    echo FAIL: %BAD_COUNT% files need formatting.
-    echo       Run: tools\format_fix.bat
+"%PYTHON_EXE%" "%~dp0separate_multiline_cpp_declarations.py" --self-test
+if errorlevel 1 (
+    echo FAIL: Source-layout regression fixture failed.
     exit /b 1
 )
 
-"%PYTHON_EXE%" "%~dp0separate_multiline_cpp_declarations.py" --repo "%REPO%" --check
+"%PYTHON_EXE%" "%~dp0separate_multiline_cpp_declarations.py" --repo "%REPO%" --check-pipeline --clang-format "%CLANG_FMT%"
 if errorlevel 1 (
-    echo FAIL: Multiline local declarations need paragraph spacing.
+    echo FAIL: C++ implementation formatting, paragraph spacing, assignment heads, or compact calls need repair.
     echo       Run: tools\format_fix.bat
     exit /b 1
 )

@@ -53,6 +53,7 @@ int UITabBar::HitTest( int mouseX, int mouseY, int tabCount ) const
     {
         return -1;
     }
+
     const float tabW = m_bounds.w / static_cast<float>( tabCount );
     const int index = static_cast<int>( ( static_cast<float>( mouseX ) - m_bounds.x ) / tabW );
     return index >= 0 && index < tabCount ? index : -1;
@@ -82,47 +83,44 @@ void UITabBar::Draw( const UIDrawContext& draw, const char* const* labels, int t
         }
         else
         {
-            draw.RoundedRect(
-                pillX,
-                ty,
-                pillW,
-                30.0f,
-                radius,
-                palette.windowSubtle.r,
-                palette.windowSubtle.g,
-                palette.windowSubtle.b,
-                0.20f
-            );
+            draw.RoundedRect( pillX,
+                              ty,
+                              pillW,
+                              30.0f,
+                              radius,
+                              palette.windowSubtle.r,
+                              palette.windowSubtle.g,
+                              palette.windowSubtle.b,
+                              0.20f );
         }
+
         if ( active )
         {
-            draw.Rect(
-                pillX + 8.0f,
-                ty + 29.0f,
-                (std::max)( 1.0f, pillW - 16.0f ),
-                2.0f,
-                palette.accent.r,
-                palette.accent.g,
-                palette.accent.b,
-                0.86f
-            );
+            draw.Rect( pillX + 8.0f,
+                       ty + 29.0f,
+                       (std::max)( 1.0f, pillW - 16.0f ),
+                       2.0f,
+                       palette.accent.r,
+                       palette.accent.g,
+                       palette.accent.b,
+                       0.86f );
         }
+
         float textSize = 11.5f;
         while ( textSize > 8.5f && UIFontMetrics::MeasureText( textSize, labels[i] ? labels[i] : "" ) > pillW - 10.0f )
         {
             textSize -= 0.5f;
         }
+
         const float labelW = UIFontMetrics::MeasureText( textSize, labels[i] ? labels[i] : "" );
         const float labelX = pillX + (std::max)( 6.0f, ( pillW - labelW ) * 0.5f );
-        draw.Text(
-            labelX,
-            ty + 8.0f,
-            textSize,
-            active ? palette.textPrimary.r : palette.textSecondary.r,
-            active ? palette.textPrimary.g : palette.textSecondary.g,
-            active ? palette.textPrimary.b : palette.textSecondary.b,
-            labels[i]
-        );
+        draw.Text( labelX,
+                   ty + 8.0f,
+                   textSize,
+                   active ? palette.textPrimary.r : palette.textSecondary.r,
+                   active ? palette.textPrimary.g : palette.textSecondary.g,
+                   active ? palette.textPrimary.b : palette.textSecondary.b,
+                   labels[i] );
     }
 }
 

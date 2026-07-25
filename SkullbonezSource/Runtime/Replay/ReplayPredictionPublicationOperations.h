@@ -123,28 +123,25 @@ Physics::PhysicsSceneObjectId SceneObjectIdForModelIndexInSample( const FrameSam
 {
     if ( const BodySample* body = FindReplayBodyByModelIndexInSample<FrameSample, BodySample, AllowNegativeModelIndex>(
              sample,
-             modelIndex
-         ) )
+             modelIndex ) )
     {
         return body->id;
     }
     return Physics::PhysicsSceneObjectId {};
 }
 
-const ReplaySolverBodySample*
-FindReplayBodyById( const ReplaySolverFrameSample& sample, Physics::PhysicsSceneObjectId id );
+const ReplaySolverBodySample* FindReplayBodyById( const ReplaySolverFrameSample& sample,
+                                                  Physics::PhysicsSceneObjectId id );
 const ReplaySolverBodySample* FindReplayBodyByModelIndex( const ReplaySolverFrameSample& sample, int modelIndex );
-const RunReplayPredictionBodySample*
-FindReplayPredictionBodyById( const RunReplayPredictionFrame& frame, Physics::PhysicsSceneObjectId id );
-const RunReplayPredictionBodySample*
-FindReplayPredictionBodyByModelIndex( const RunReplayPredictionFrame& frame, int modelIndex );
-const RunReplayPredictionBodySample* FindReplayPredictionBodyByIdWithHint(
-    const RunReplayPredictionFrame& frame,
-    Physics::PhysicsSceneObjectId id,
-    int modelIndex
-);
-Physics::PhysicsSceneObjectId
-ReplayPredictionBodyIdForModelIndex( const RunReplayPredictionFrame& frame, int modelIndex );
+const RunReplayPredictionBodySample* FindReplayPredictionBodyById( const RunReplayPredictionFrame& frame,
+                                                                   Physics::PhysicsSceneObjectId id );
+const RunReplayPredictionBodySample* FindReplayPredictionBodyByModelIndex( const RunReplayPredictionFrame& frame,
+                                                                           int modelIndex );
+const RunReplayPredictionBodySample* FindReplayPredictionBodyByIdWithHint( const RunReplayPredictionFrame& frame,
+                                                                           Physics::PhysicsSceneObjectId id,
+                                                                           int modelIndex );
+Physics::PhysicsSceneObjectId ReplayPredictionBodyIdForModelIndex( const RunReplayPredictionFrame& frame,
+                                                                   int modelIndex );
 bool ReplayModelIndexIsRagdollPart( const SceneEntityStore& entities, int modelIndex );
 int ReplayRagdollTorsoModelIndexForPart( const SceneEntityStore& entities, int modelIndex );
 Math::Vector::Vector3 ReplayNormalizeOr( Math::Vector::Vector3 value, const Math::Vector::Vector3& fallback );
@@ -152,8 +149,8 @@ Math::Vector::Vector3 ReplayNormalizeOr( Math::Vector::Vector3 value, const Math
 // Concept: publication and drawing share one bounded sampling policy so the
 // prepared topology and emitted ribbons cannot drift to different densities.
 std::size_t ReplayPredictionPathStrideForSampleCount( std::size_t sampleCount ) noexcept;
-constexpr std::size_t
-ReplayPredictionBuildRootPrefixCount( std::size_t presentedFrameCount, std::size_t rootPointCapacity ) noexcept
+constexpr std::size_t ReplayPredictionBuildRootPrefixCount( std::size_t presentedFrameCount,
+                                                            std::size_t rootPointCapacity ) noexcept
 {
     return presentedFrameCount < rootPointCapacity ? presentedFrameCount : rootPointCapacity;
 }
@@ -161,92 +158,68 @@ ReplayPredictionBuildRootPrefixCount( std::size_t presentedFrameCount, std::size
 ReplayFrameIndex ReplayOldestFrameFromStats( const ReplayRecorderStats& stats );
 int ReplayTrajectoryFrameNumberForReserve( ReplayFrameIndex frameIndex );
 ReplayTrajectoryRecordKey ReplayPastRootTrajectoryKey( Physics::PhysicsSceneObjectId targetId );
-ReplayTrajectoryRecord* BeginReplayPastRootTrajectoryRecord(
-    ReplayTrajectoryStore& store,
-    Physics::PhysicsSceneObjectId targetId,
-    std::size_t pointCapacity,
-    int frameNumber
-);
-bool AppendReplayTrajectoryPoint(
-    ReplayTrajectoryStore& store,
-    ReplayTrajectoryRecord& record,
-    ReplayFrameIndex frameIndex,
-    const Math::Vector::Vector3& position
-);
+ReplayTrajectoryRecord* BeginReplayPastRootTrajectoryRecord( ReplayTrajectoryStore& store,
+                                                             Physics::PhysicsSceneObjectId targetId,
+                                                             std::size_t pointCapacity,
+                                                             int frameNumber );
+bool AppendReplayTrajectoryPoint( ReplayTrajectoryStore& store,
+                                  ReplayTrajectoryRecord& record,
+                                  ReplayFrameIndex frameIndex,
+                                  const Math::Vector::Vector3& position );
 const ReplaySolverBodySample*
 FindReplayBodyByIdWithHint( const ReplaySolverFrameSample& sample, Physics::PhysicsSceneObjectId id, int modelIndex );
 
-bool PrepareReplayPredictionTrajectoryBuild(
-    RunReplayPredictionState& prediction,
-    Physics::PhysicsSceneObjectId rootId,
-    std::size_t frameCapacity,
-    std::size_t bodyCount
-);
-bool PublishReplayPredictionRootTrajectoryFrame(
-    RunReplayPredictionState& prediction,
-    const RunReplayPredictionFrame& frame,
-    std::size_t frameSlot
-);
-bool PublishReplayPredictionBuildRootTrajectoryPrefix(
-    RunReplayPredictionState& prediction,
-    std::size_t presentedFrameCount
-);
+bool PrepareReplayPredictionTrajectoryBuild( RunReplayPredictionState& prediction,
+                                             Physics::PhysicsSceneObjectId rootId,
+                                             std::size_t frameCapacity,
+                                             std::size_t bodyCount );
+bool PublishReplayPredictionRootTrajectoryFrame( RunReplayPredictionState& prediction,
+                                                 const RunReplayPredictionFrame& frame,
+                                                 std::size_t frameSlot );
+bool PublishReplayPredictionBuildRootTrajectoryPrefix( RunReplayPredictionState& prediction,
+                                                       std::size_t presentedFrameCount );
 bool RebuildReplayPredictionCommittedRootTrajectory( RunReplayPredictionState& prediction );
-bool CaptureReplayPredictionBaselineSnapshot(
-    RunReplayPredictionState& prediction,
-    const std::vector<RunReplayPredictionFrame>& frames,
-    std::size_t frameCount,
-    Physics::PhysicsSceneObjectId rootId,
-    int rootModelIndex
-);
+bool CaptureReplayPredictionBaselineSnapshot( RunReplayPredictionState& prediction,
+                                              const std::vector<RunReplayPredictionFrame>& frames,
+                                              std::size_t frameCount,
+                                              Physics::PhysicsSceneObjectId rootId,
+                                              int rootModelIndex );
 bool PublishReplayPredictionBaselineRootTrajectory( RunReplayPredictionState& prediction );
-void UpdateReplayPredictionBaselineDivergence(
-    RunReplayPredictionState& prediction,
-    const std::vector<RunReplayPredictionFrame>& frames,
-    std::size_t frameCount
-);
-void UpdateReplayPredictionTrajectoryStore(
-    RunReplayPredictionState& prediction,
-    const std::vector<RunReplayPredictionFrame>& frames,
-    std::size_t frameCount,
-    bool usingBuildFrames,
-    Physics::PhysicsSceneObjectId rootId
-);
+void UpdateReplayPredictionBaselineDivergence( RunReplayPredictionState& prediction,
+                                               const std::vector<RunReplayPredictionFrame>& frames,
+                                               std::size_t frameCount );
+void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction,
+                                            const std::vector<RunReplayPredictionFrame>& frames,
+                                            std::size_t frameCount,
+                                            bool usingBuildFrames,
+                                            Physics::PhysicsSceneObjectId rootId );
 bool ReplayPredictionBodyHasVisibleLinearMotion( const RunReplayPredictionBodySample& body );
-std::size_t BuildReplayPredictionAffectedBodyTrails(
-    std::span<const RunReplayPredictionFrame> frames,
-    std::size_t frameCount,
-    ReplayFrameIndex revealFrame,
-    Physics::PhysicsSceneObjectId rootId,
-    int rootModelIndex,
-    std::span<const RunReplayPathTraceNode> futureNodes,
-    const SceneEntityStore& entities,
-    std::span<ReplayPredictionAffectedBodyTrail> outTrails
-);
-bool ReplayPredictionBodyRestingPose(
-    const std::vector<RunReplayPredictionFrame>& frames,
-    std::size_t frameCount,
-    Physics::PhysicsSceneObjectId id,
-    int modelIndexHint,
-    Math::Vector::Vector3& outPosition,
-    Math::Orientation::Quaternion& outOrientation
-);
+std::size_t BuildReplayPredictionAffectedBodyTrails( std::span<const RunReplayPredictionFrame> frames,
+                                                     std::size_t frameCount,
+                                                     ReplayFrameIndex revealFrame,
+                                                     Physics::PhysicsSceneObjectId rootId,
+                                                     int rootModelIndex,
+                                                     std::span<const RunReplayPathTraceNode> futureNodes,
+                                                     const SceneEntityStore& entities,
+                                                     std::span<ReplayPredictionAffectedBodyTrail> outTrails );
+bool ReplayPredictionBodyRestingPose( const std::vector<RunReplayPredictionFrame>& frames,
+                                      std::size_t frameCount,
+                                      Physics::PhysicsSceneObjectId id,
+                                      int modelIndexHint,
+                                      Math::Vector::Vector3& outPosition,
+                                      Math::Orientation::Quaternion& outOrientation );
 void ClearReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction );
-void RebuildReplayPredictionCommittedTreeAfterWorkerCompletion(
-    RunReplayPredictionState& prediction,
-    const SceneEntityStore& entities,
-    Physics::PhysicsSceneObjectId rootId
-);
-void PrepareReplayPredictionOverlay(
-    RunReplayPredictionState& prediction,
-    const SceneEntityStore& entities,
-    const Physics::ColliderStore& colliderStore,
-    Physics::PhysicsSceneObjectId targetId,
-    Physics::ModelRowHint targetModelRow,
-    bool targetAvailable,
-    double budgetMilliseconds,
-    ReplayPredictionUpdateResult& result
-);
+void RebuildReplayPredictionCommittedTreeAfterWorkerCompletion( RunReplayPredictionState& prediction,
+                                                                const SceneEntityStore& entities,
+                                                                Physics::PhysicsSceneObjectId rootId );
+void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction,
+                                     const SceneEntityStore& entities,
+                                     const Physics::ColliderStore& colliderStore,
+                                     Physics::PhysicsSceneObjectId targetId,
+                                     Physics::ModelRowHint targetModelRow,
+                                     bool targetAvailable,
+                                     double budgetMilliseconds,
+                                     ReplayPredictionUpdateResult& result );
 } // namespace ReplayPredictionPublicationOperations
 } // namespace Runtime
 } // namespace SkullbonezCore

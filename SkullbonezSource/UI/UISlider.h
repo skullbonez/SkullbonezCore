@@ -39,14 +39,12 @@ class UISlider
     UIRect Bounds() const;
     bool HitTest( int mouseX, int mouseY ) const;
     float ValueFromMouse( int mouseX, float minValue, float maxValue, float step ) const;
-    void Draw(
-        const UIDrawContext& draw,
-        const char* label,
-        const char* valueText,
-        float value,
-        float minValue,
-        float maxValue
-    ) const;
+    void Draw( const UIDrawContext& draw,
+               const char* label,
+               const char* valueText,
+               float value,
+               float minValue,
+               float maxValue ) const;
 
   private:
     float TrackX() const;

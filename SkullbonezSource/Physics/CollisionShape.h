@@ -84,10 +84,9 @@ inline float GetShapeProjectedSurfaceArea( const CollisionShape& shape )
 
 inline float GetShapeSubmergedVolumePercent( const CollisionShape& shape, float fluidSurfaceHeight )
 {
-    return std::visit(
-        [fluidSurfaceHeight]( const auto& s ) { return s.GetSubmergedVolumePercent( fluidSurfaceHeight ); },
-        shape
-    );
+    return std::visit( [fluidSurfaceHeight]( const auto& s )
+                       { return s.GetSubmergedVolumePercent( fluidSurfaceHeight ); },
+                       shape );
 }
 
 inline float GetShapeBoundingRadius( const CollisionShape& shape )
@@ -103,11 +102,9 @@ inline float GetShapeTerrainBottomOffset( const CollisionShape& shape )
     return std::visit( []( const auto& s ) { return s.GetBoundingRadius(); }, shape );
 }
 
-inline Transformation::Matrix4 GetShapeModelMatrix(
-    const CollisionShape& shape,
-    const Vector::Vector3& worldPos,
-    const Transformation::Matrix4& rotation
-)
+inline Transformation::Matrix4 GetShapeModelMatrix( const CollisionShape& shape,
+                                                    const Vector::Vector3& worldPos,
+                                                    const Transformation::Matrix4& rotation )
 {
     return std::visit( [&]( const auto& s ) { return s.GetModelMatrix( worldPos, rotation ); }, shape );
 }
@@ -169,21 +166,17 @@ ScaleShapeAxisFromBase( const CollisionShape& baseShape, int axis, float factor,
     variants produces a compile-time N*N dispatch table. When new shape types
     are added, the compiler will enforce that all pair combinations are handled.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline float TestShapeCollision(
-    const CollisionShape& focus,
-    const CollisionShape& target,
-    const Geometry::Ray& focusRay,
-    const Geometry::Ray& targetRay
-)
+inline float TestShapeCollision( const CollisionShape& focus,
+                                 const CollisionShape& target,
+                                 const Geometry::Ray& focusRay,
+                                 const Geometry::Ray& targetRay )
 {
     // Double visit is the collision-shape switchboard. If focus is a sphere and
     // target is a box, the compiler chooses BoundingSphere::TestCollision(box).
     // If both are boxes, it chooses BoundingBox::TestCollision(box), and so on.
-    return std::visit(
-        [&]( const auto& f, const auto& t ) { return f.TestCollision( t, targetRay, focusRay ); },
-        focus,
-        target
-    );
+    return std::visit( [&]( const auto& f, const auto& t ) { return f.TestCollision( t, targetRay, focusRay ); },
+                       focus,
+                       target );
 }
 
 } // namespace CollisionDetection
