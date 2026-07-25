@@ -25,9 +25,14 @@ Invariants:
   - Transient resources are graph-declared texture requests. The graph compiler
     plans aliasing and descriptor lifetime; a backend executor is the only layer
     that may turn that plan into API objects.
+  - Declared pass accesses are the single source of truth for ordinary
+    frame-resource transitions. The graph derives them; the backend executor
+    emits them. A hand-written ordinary frame-pass barrier is a defect.
 
 Related:
   - SkullbonezSource/Rendering/RenderGraph.cpp
+  - SkullbonezSource/Rendering/DX12/Dx12RenderGraphExecutor.h
+  - Agentic/Reports/2026-07-20/render-graph-completion-closure.md
   - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
@@ -77,12 +82,13 @@ inline constexpr size_t RENDER_GRAPH_MAX_TRANSIENT_ALLOCATIONS = 16;
     Without a shared declaration layer, resource intent gets scattered across
     the codebase. Each pass has to remember what state every texture was in
     before it starts. That is fragile. The render graph keeps the declarations
-    together, while the DX12 backend remains the explicit owner of live
-    transition and UAV barrier emission on this branch.
+    together and derives the required transitions from them, so a pass author
+    declares how it uses a resource and never writes a barrier by hand.
 
-    This class is intentionally small. It can execute callback-owned pass
-    bodies and plan graph-managed transient resource lifetimes. It gives the
-    engine a concrete place to name:
+    This class is intentionally small. It executes callback-owned pass bodies,
+    plans graph-managed transient resource lifetimes, and compiles the
+    transition plan the backend executor emits. It gives the engine a concrete
+    place to name:
 
     - render resources,
     - render passes,
@@ -91,9 +97,18 @@ inline constexpr size_t RENDER_GRAPH_MAX_TRANSIENT_ALLOCATIONS = 16;
     - what DX12-style access the pass expects,
     - whether a reviewed pass body is called by the graph.
 
-    The current renderer keeps DX12 transitions explicit in the backend.
-    Selected pass bodies can use the same pass/resource callback model without
-    transferring barrier derivation to RenderGraph.
+    Barrier derivation moved here on 2026-07-20 (render-graph-completion
+    G0-G5). Dx12RenderGraphExecutor turns the compiled plan into
+    ResourceBarrier calls, with a DryRun mode that records candidates without
+    emitting so the contract stays testable off-device.
+
+    Four bounded transitions remain outside this flow and are deliberate, not
+    leftovers: Present, cold capture/readback, the development ImGui viewport
+    copy, and shutdown/resize reconciliation. Each borrows an access and
+    restores the exact entry state. Resource-owner barriers for uploads, mips,
+    dynamic geometry, and acceleration structures also stay with their owners;
+    they are not frame passes. Adding a fifth ordinary-pass exception is a
+    review failure — declare the access instead.
 ----------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
 // A queue is a lane of GPU work.
