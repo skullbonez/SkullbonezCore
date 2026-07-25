@@ -534,7 +534,15 @@ every edge a destination owner and deletion condition, mapped the reverse
 Runtime/Render composition path, and recorded the expected final comment-audit
 scope. UR1 then established the bounded read-only draw stream, immutable
 baked-font metrics, preview fallback values, measured capacity evidence, and
-renderer-free CPU coverage. UR2 then converted Legacy UI construction,
+renderer-free CPU coverage. The denominator grew 19 → 24 on 2026-07-25 when
+the owner registered `invariant-ownership-governance-and-transaction-repair`
+(5 tasks) as the campaign's fourth entry: the review found that four sound
+bans (context bags, owner reach-back, callback packs, the 12-parameter
+ceiling) intersect to extrude wide transactions into N sibling structs plus
+wide apply free functions plus ordering comments, leaving the correctness
+invariant owned by nobody. GV0 amends the governance to test for invariant
+ownership rather than shape, and GV1-GV4 repair the scene-load transaction
+and every other censused offender. UR2 then converted Legacy UI construction,
 cached replay, Runtime badges, and Replay overlays to one record-only value
 flow with committed semantic fingerprints and Runtime-owned fixed scratch
 streams. UR3 then moved draw translation, preview GPU lifetime, frame-local
@@ -544,13 +552,16 @@ moved profiler layout into UI recording, projected renderer diagnostics at the
 Runtime/UI boundary, and removed the final UI-to-Rendering source edge. UR5
 then established the standalone UI production library, exact single-project
 UI ownership, and the mandatory data-driven dependency graph gate shared by
-the follow-up plans. The active/future ledger is 6/19.
+the follow-up plans. The active/future ledger is 6/24.
 
 ## Current Execution Priority
 
 The 2026-07-25 round-4 campaign is the active queue with binding order:
 1 `ui-renderer-hard-boundary` (6/7), 2 `replay-subsystem-partition` (0/6),
-3 `downward-domain-bleed-remediation` (0/6). Continue with UR6's final census,
+3 `downward-domain-bleed-remediation` (0/6),
+4 `invariant-ownership-governance-and-transaction-repair` (0/5, whose GV0
+documentation-only governance amendment is authorized to run early in
+parallel). Continue with UR6's final census,
 captures, mapped gates, independent review, closure report, and handoff.
 The UI plan preserves the existing UI/Runtime value-command boundary and
 makes Runtime/Render the sole UI-to-renderer composition point, and its UR5
@@ -1625,6 +1636,15 @@ campaign owns plus one amendment set:
    every scene.
 3. **UI plan amendments** — accepted improvements embedded into
    `ui-renderer-hard-boundary` without changing its task count.
+4. **Process-generated complexity** (registered 2026-07-25 as the campaign's
+   fourth plan) — the repository's own rules extrude wide transactions into
+   an unbanned but worse shape. The scene-load transaction is the flagship:
+   four sibling input/participant structs, an 11-parameter
+   `ApplySceneLoadRuntimeReactions`, an 8-parameter
+   `ApplySceneLoadPresentationOutputs` that must follow it, and two inline
+   arbitration helpers whose comments carry the mid-batch which-value-wins
+   rule. No type owns the sequencing or arbitration invariant, and four call
+   sites re-encode the ordering by hand.
 
 Owner decisions ratified at registration: the 2026-07-22 replay ruling stands
 (replay remains the flagship subsystem; the partition is an ownership/naming
@@ -1634,7 +1654,13 @@ placement review rules only — no frozen counts, line budgets, or spelling
 ratchets; the UR5 dependency validator is the single shared enforcement
 vehicle, and RS4/DB4 extend it with rule data plus fixtures rather than new
 mechanisms; physics relocations (terrain boundary, buoyancy store) are
-byte-exact-or-revert — the bounded-divergence allowance does not apply.
+byte-exact-or-revert — the bounded-divergence allowance does not apply. For
+the fourth plan: the invariant-ownership test is the standing arbiter between
+a banned authority-free bag and a legitimate invariant owner; the amendment
+sharpens that test and repeals none of the context-bag, callback, reach-back,
+or forwarding bans; the 12-parameter ceiling remains binding; and the
+enforcement stays qualitative (review plus comment audit) with no counting or
+spelling ratchet added.
 
 Standing rules binding every plan in this campaign: zero behavioral baseline,
 golden, screenshot, replay artifact, scene, config, or physics CSV refresh —
@@ -1645,13 +1671,18 @@ review per plan at closure; no new compatibility spellings, forwarding
 headers, context bags, callback packs, or hot-path inheritance artifacts.
 Execution order is binding: 1 UI/renderer hard boundary, 2 replay subsystem
 partition, 3 downward domain bleed remediation (DB1 additionally requires
-RS1's `Runtime/Prediction` package to exist).
+RS1's `Runtime/Prediction` package to exist), 4 invariant-ownership
+governance and transaction repair. GV0 is the single authorized exception to
+that order: it is documentation-only, touches no source, and its amended
+review rules benefit the in-flight round-4 reviews, so it may execute at any
+time after registration. GV1-GV4 wait their turn.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
 | [ui-renderer-hard-boundary](TODO/ui-renderer-hard-boundary.md) | In progress | 6/7 | UR6 final proof, visual capture, mapped gates, independent review, and closure |
 | [replay-subsystem-partition](TODO/replay-subsystem-partition.md) | Ready | 0/6 | Starts after UR6 closes; RS0 partition census of all 72 Replay files |
 | [downward-domain-bleed-remediation](TODO/downward-domain-bleed-remediation.md) | Ready | 0/6 | Starts after RS5 closes; DB0 bleed census and boundary-contract design |
+| [invariant-ownership-governance-and-transaction-repair](TODO/invariant-ownership-governance-and-transaction-repair.md) | Ready | 0/5 | GV0 governance amendment may run early; GV1-GV4 start after DB5 closes |
 
 ## Features
 
@@ -1666,6 +1697,18 @@ rule 9 applies — it is not live work and is not tracked here).
 
 Binding:
 
+- 2026-07-25 invariant-ownership ruling: an aggregate type is legitimate only
+  when it names and enforces an invariant (header `Invariant:` block plus a
+  focused test); an aggregate that only carries data to shorten a signature
+  remains a banned bag. Multi-step operations whose correctness depends on
+  call order must enforce that order in a type, not in comments or caller
+  discipline. When a review finds three or more sibling structs plus wide
+  apply free functions plus ordering/arbitration comments around one
+  operation, it must report "this operation needs an invariant owner" — a
+  parameter reshuffle is not an accepted remediation. This test repeals no
+  existing ban and does not change the 12-parameter ceiling. `AGENTS.md`
+  carries the rule; `invariant-ownership-governance-and-transaction-repair`
+  GV0 installs it.
 - Satisfied 2026-07-20 by the owner's render-graph decision: RenderGraph is the
   owner of pass scheduling and ordinary frame-resource barrier emission.
   Closure and bounded edge exceptions are recorded in

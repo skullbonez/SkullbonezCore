@@ -13,7 +13,7 @@ plan inventory.
 | Branch | `nightrunner-25th-JUL-26` |
 | Current baseline | UI / Renderer Hard Boundary UR1 provides one bounded inspectable draw stream, immutable baked-font metrics with exact legacy parity, preview fallback values, measured capacity headroom, and renderer-free CPU tests. |
 | Current objective | Continue the round-4 architecture campaign in binding order: `ui-renderer-hard-boundary` UR2, then `replay-subsystem-partition`, then `downward-domain-bleed-remediation`. |
-| Active/future progress | UI / Renderer Hard Boundary 2/7; Replay Subsystem Partition 0/6; Downward Domain Bleed Remediation 0/6; active/future ledger 2/19. |
+| Active/future progress | UI / Renderer Hard Boundary 6/7; Replay Subsystem Partition 0/6; Downward Domain Bleed Remediation 0/6; Invariant Ownership Governance And Transaction Repair 0/5; active/future ledger 6/24. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | Solar prediction presentation correction `validate_full` passes with exit 0 in 165.7 s: mandatory CPU preflight and all Automation, replay/prediction, DX12, and physics runtime lanes passed. |
 | Validation for current edits | UR1 focused UI tests pass 7/7 with 100 assertions; all 388 tests / 2,403,226 assertions pass; format/project filters, allocation scan, and `validate_full` mandatory CPU plus five engine processes pass without baseline refresh. |
@@ -35,7 +35,14 @@ splits `Runtime/Replay` (72 files / 36,900 lines) into Replay, Prediction,
 and Planning packages with anti-accretion direction rules. The bleed plan
 moves retained-trajectory semantics out of Rendering, puts terrain behind a
 Physics-owned boundary (banning Physics→World), and extracts fluid fields
-from `PhysicsBodyRecord` — all byte-exact-or-revert. UR0 ratified the exact
+from `PhysicsBodyRecord` — all byte-exact-or-revert. The fourth plan,
+`invariant-ownership-governance-and-transaction-repair` (0/5), amends the
+governance to test aggregates for invariant ownership rather than shape, then
+repairs the scene-load transaction (four sibling structs, an 11-parameter
+reactions function, an 8-parameter presentation function that must follow it,
+and two inline arbitration helpers whose comments carry the real rule) plus
+every other censused offender. Its GV0 governance amendment is
+documentation-only and authorized to run early in parallel. UR0 ratified the exact
 25-row/14-file edge census and ownership/deletion contract without source
 changes. UR1 adds the bounded read-only draw stream, immutable baked-font
 metric parity, preview fallback values, measured headroom, and CPU coverage.
