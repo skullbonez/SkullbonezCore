@@ -4,8 +4,8 @@ Date: 2026-07-25
 
 Owner: Governance (`AGENTS.md`) + Runtime/Scene + Runtime/App
 
-State: READY (GV0 may run early as a documentation-only parallel lane; GV1+
-sequenced after `downward-domain-bleed-remediation`)
+State: IN PROGRESS (GV0 complete; GV1+ remain sequenced after
+`downward-domain-bleed-remediation`)
 
 Ledger tasks: 5 (GV0-GV4)
 
@@ -163,7 +163,7 @@ this transaction needs). So both are banned, and the invariant is homeless.
 
 ## Ledger
 
-- [ ] **GV0 — Amend the governance.**
+- [x] **GV0 — Amend the governance.**
 
   Documentation-only. Amend `AGENTS.md` and the affected skill docs; no
   source changes.
@@ -219,6 +219,18 @@ this transaction needs). So both are banned, and the invariant is homeless.
   - The comment-audit skill carries the aggregate-invariant check.
   - `MASTER-PLAN.md` Binding Decisions carries the ruling.
   - Diff is documentation-only; no repository validation required.
+
+  Evidence (2026-07-25):
+
+  - `AGENTS.md` now carries the Invariant Ownership Rule, both worked
+    examples, cross-references from the god-object and migration rules, and
+    the mandatory extrusion-signal review finding.
+  - `Agentic/Skills/comment-style-audit/skill.md` now rejects aggregate or
+    transaction types that lack a named invariant and focused test.
+  - `MASTER-PLAN.md` records the installed binding decision.
+  - HC2 coordination is explicit: GV0 landed first, so HC2 must preserve the
+    aggregate-invariant step when adding claim verification.
+  - Documentation-only; no repository validation required.
 
 - [ ] **GV1 — Ratify the offender census.**
 
@@ -404,6 +416,9 @@ this transaction needs). So both are banned, and the invariant is homeless.
   time after registration. GV1-GV4 wait for
   `downward-domain-bleed-remediation` to close so this plan's source repairs
   do not collide with the partition/bleed file moves.
+- Coordination with header-claim staleness HC2: GV0 landed its
+  aggregate-invariant audit step first. HC2 must add claim verification as a
+  separate section without overwriting or weakening that step.
 - GV2 must not weaken any boundary the round-4 plans establish: the
   transaction stays inside `Runtime/Scene` + call-site packages already
   allowed by the standing Runtime package table; no new package edge is

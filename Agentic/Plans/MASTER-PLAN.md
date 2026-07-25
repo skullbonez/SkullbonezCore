@@ -568,7 +568,7 @@ falsified ownership claims, and 12 broken `Related:` pointers. It also
 established that the comment regime is strong at deletion (zero retired
 vocabulary survives) and blind to responsibility movement. This plan is
 sequenced early — before the replay partition — because RS0 and GV2 censuses
-read the exact files carrying false claims. HC0 is verified; the active/future ledger is 7/27.
+read the exact files carrying false claims. HC0 and GV0 are verified; the active/future ledger is 8/27.
 
 ## Current Execution Priority
 
@@ -577,9 +577,9 @@ The 2026-07-25 round-4 campaign is the active queue with binding order:
 2 `header-claim-staleness-remediation` (1/3; HC1 waits for UI closure),
 3 `replay-subsystem-partition` (0/6),
 4 `downward-domain-bleed-remediation` (0/6),
-5 `invariant-ownership-governance-and-transaction-repair` (0/5, whose GV0
-documentation-only governance amendment is authorized to run early in
-parallel). The staleness remediation is deliberately second and small: it is
+5 `invariant-ownership-governance-and-transaction-repair` (1/5; GV0 installed
+  the documentation-only governance amendment, GV1+ wait for the dependency
+  chain). The staleness remediation is deliberately second and small: it is
 comment-only, and leaving it later means the replay-partition and
 transaction-repair censuses both read headers carrying verified false
 ownership claims. Its HC0 may also run in parallel with the UI tail, since
@@ -1720,7 +1720,7 @@ whichever lands second rebases rather than overwrites.
 | [header-claim-staleness-remediation](TODO/header-claim-staleness-remediation.md) | In progress | 1/3 | HC0 corrected 18 false-claim sites; HC1 waits for UR6 closure |
 | [replay-subsystem-partition](TODO/replay-subsystem-partition.md) | Ready | 0/6 | Starts after HC2 closes; RS0 partition census of all 72 Replay files |
 | [downward-domain-bleed-remediation](TODO/downward-domain-bleed-remediation.md) | Ready | 0/6 | Starts after RS5 closes; DB0 bleed census and boundary-contract design |
-| [invariant-ownership-governance-and-transaction-repair](TODO/invariant-ownership-governance-and-transaction-repair.md) | Ready | 0/5 | GV0 governance amendment may run early; GV1-GV4 start after DB5 closes |
+| [invariant-ownership-governance-and-transaction-repair](TODO/invariant-ownership-governance-and-transaction-repair.md) | In progress | 1/5 | GV0 installed; GV1-GV4 start after DB5 closes |
 
 ## Features
 
@@ -1744,9 +1744,9 @@ Binding:
   apply free functions plus ordering/arbitration comments around one
   operation, it must report "this operation needs an invariant owner" — a
   parameter reshuffle is not an accepted remediation. This test repeals no
-  existing ban and does not change the 12-parameter ceiling. `AGENTS.md`
-  carries the rule; `invariant-ownership-governance-and-transaction-repair`
-  GV0 installs it.
+  existing ban and does not change the 12-parameter ceiling. GV0 installed the
+  standing rule in `AGENTS.md`, added the aggregate-invariant check to the
+  comment-audit skill, and made the extrusion signal mandatory review output.
 - Satisfied 2026-07-20 by the owner's render-graph decision: RenderGraph is the
   owner of pass scheduling and ordinary frame-resource barrier emission.
   Closure and bounded edge exceptions are recorded in

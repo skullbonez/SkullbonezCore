@@ -48,15 +48,20 @@ only after it has been inspected against this skill and the guide.
 5. Replace non-assumed acronym-only comments with concept comments.
 6. Replace restatement comments with `Why:`, `Invariant:`, `Lifetime:`, or
    `Hazard:` comments.
-7. Keep comments close to the concept they explain.
-8. Preserve existing useful teaching comments. Do not rewrite good comments
+7. For any type that aggregates unrelated-owner data or orchestrates
+   multi-owner sequencing, require a header `Invariant:` block that names the
+   rule the type enforces and identify the focused test that exercises it.
+   Absence of either artifact is an audit failure; a data-only aggregate that
+   merely shortens a signature remains a banned bag.
+8. Keep comments close to the concept they explain.
+9. Preserve existing useful teaching comments. Do not rewrite good comments
    just to make them look new.
-9. Tick each checklist item only after the file was inspected. Leave deferred
+10. Tick each checklist item only after the file was inspected. Leave deferred
    files unchecked and record the reason beside the item.
-10. Rerun the scoped `git ls-files` inventory before reporting completion and
+11. Rerun the scoped `git ls-files` inventory before reporting completion and
     confirm every tracked source file in scope appears in the checklist exactly
     once.
-11. Confirm the diff is comment/documentation only before reporting completion.
+12. Confirm the diff is comment/documentation only before reporting completion.
 
 ## Checklist
 
@@ -71,6 +76,8 @@ only after it has been inspected against this skill and the guide.
 - Scene/runtime files call out command-line and scene-file compatibility.
 - UI files call out the request/command contract and draw/hitbox consistency.
 - Tools call out bounded output and validation purpose.
+- Aggregate/transaction types name their enforced invariant and focused test;
+  data-only parameter bags fail the audit.
 - No source file in the selected scope is silently skipped. The checklist has no
   unchecked items unless each remaining item has a written deferral reason.
 

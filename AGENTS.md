@@ -298,6 +298,46 @@ state, or dependency authority and the owner boundary they violate. Any such
 finding reopens the owning checklist item and blocks plan/campaign completion;
 it cannot be waived as follow-up debt. Large cohesive files are allowed only
 when the review records why their state and invariants belong to one owner.
+Distinguish banned bags from invariant owners per the Invariant Ownership Rule.
+
+## Invariant Ownership Rule
+
+Judge aggregate types by the invariant they own and enforce, not by their
+shape or their effect on parameter count.
+
+- A struct or class that groups unrelated-owner data or orchestrates
+  multi-owner work is legitimate only when its header names the owned rule in
+  an `Invariant:` block and a focused test exercises that rule.
+- An aggregate that only carries data to shorten a signature is an
+  authority-free bag and remains banned.
+- An invariant-owning transaction stores values and a phase cursor, never
+  long-lived owner pointers. Borrowed owners enter phase methods and expire
+  when those calls return.
+- Multi-step work whose correctness depends on call order must enforce that
+  order in a type, using a phase cursor and lane-F fatal on an illegal
+  transition, rather than relying on comments or caller discipline.
+- Three or more sibling input/participant/output structs combined with a wide
+  apply free function and ordering/arbitration comments are an extrusion
+  signal: the operation needs an invariant owner. Rearranging parameters is
+  not a remediation.
+
+**Banned example — authority-free bag:** the rejected
+`RenderModelPassInput` shape from the 2026-07-23 parameter-bag remediation
+was immediately unpacked by its consumer. Deleting it only widened the
+signature; it enforced no lifecycle, ordering, arbitration, or authority
+rule.
+
+**Legitimate example — invariant owner:** a transaction type may own a phase
+cursor whose legal walk is tested, make an out-of-order phase call lane-F
+fatal, and expose arbitration methods that replace free which-value-wins
+helpers. Its header must name the exact phase-order and arbitration invariant
+it enforces.
+
+This rule does not relax the context-bag, callback-pack, owner reach-back, or
+forwarding bans and does not change the 12-parameter ceiling. Passing a
+legitimate invariant owner as one parameter is not ceiling evasion because
+the header invariant and focused test independently establish why the type
+exists.
 
 ## Migration Cleanup Review Rule
 
@@ -323,6 +363,8 @@ body: owner, reason, deletion condition, and review evidence.
   boundary and move strict-authority work to the appropriate follow-up plan.
 - Use a single independent rubber-duck review at the end of a whole cleanup
   plan, not one review per tiny slice, unless the user explicitly asks for more.
+
+Distinguish banned bags from invariant owners per the Invariant Ownership Rule.
 
 ## Hot-Path Data and Inheritance Review Rule
 
@@ -575,6 +617,11 @@ determinism risks, DX12 validation risks, and hot-path allocation concerns first
 ordered by severity with file and line references. Keep summaries secondary.
 If no issues are found, say so clearly and name any residual validation or test
 risk.
+
+Reviews must report the extrusion signal—three or more sibling structs, a
+wide apply free function, and ordering/arbitration comments—as a design
+finding with a proposed invariant owner. A parameter reshuffle does not close
+that finding.
 
 For bug fixes in subsystems that already have unit coverage, add or update a
 regression test in the same commit unless the user explicitly scopes the work to
