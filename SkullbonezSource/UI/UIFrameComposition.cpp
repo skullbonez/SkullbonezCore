@@ -218,9 +218,9 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashInt( hash, data.UIDrawCalls );
     // Invariant: visibility rows are live diagnostics. Hash every field so a
     // retained UI draw cannot display the preceding frame's culling result.
-    for ( int viewIndex = 0; viewIndex < static_cast<int>( Rendering::RenderVisibilityView::Count ); ++viewIndex )
+    for ( int viewIndex = 0; viewIndex < static_cast<int>( UIRenderVisibilityView::Count ); ++viewIndex )
     {
-        const Rendering::RenderVisibilityViewStats& visibility = data.visibility.views[viewIndex];
+        const UIRenderVisibilityViewStats& visibility = data.visibility.views[viewIndex];
         hash = HashInt( hash, visibility.candidates );
         hash = HashInt( hash, visibility.submitted );
         hash = HashInt( hash, visibility.culled );

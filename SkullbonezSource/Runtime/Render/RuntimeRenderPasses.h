@@ -966,6 +966,7 @@ class UiTextPass
     UI::UIDrawList m_testPatternDrawList;
     UI::UIDrawList m_badgeDrawList;
     UI::UIDrawList m_replayDrawList;
+    UI::UIDrawList m_profilerDrawList;
     SkullbonezCore::Core::Profiler* m_profiler = nullptr;
     Rendering::RenderGpuTimingOwner* m_gpuTiming = nullptr;
     Rendering::Dx12RaytracingOwner* m_renderRayTracing = nullptr;

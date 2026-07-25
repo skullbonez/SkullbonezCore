@@ -59,7 +59,6 @@ Related:
 #include "../../Core/WorkerPool.h"
 #include "../../Physics/PhysicsDebugData.h"
 #include "../../Core/Profiler.h"
-#include "../../Rendering/ProfilerOverlayPresenter.h"
 #include "../../Rendering/DX12/Dx12Diagnostics.h"
 #include "../../Rendering/DX12/RenderBackendDX12.h"
 #include "../../Rendering/Text.h"
@@ -68,6 +67,8 @@ Related:
 #include "../../UI/UIDrawList.h"
 #include "../../UI/UIFrameComposition.h"
 #include "../../UI/UIFontMetrics.h"
+#include "../../UI/UIProfilerOverlayPresenter.h"
+#include "../UI/RenderDiagnosticsProjection.h"
 #include "../../UI/UIStyle.h"
 
 using namespace SkullbonezCore::Runtime;
@@ -259,7 +260,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
     assert( m_profiler && "UiTextPass requires a startup-bound profiler in profile builds." );
     const SkullbonezCore::Core::Profiler& profiler = *m_profiler;
-    const Rendering::ProfilerOverlayPresenter profilerOverlay;
+    const UI::UIProfilerOverlayPresenter profilerOverlay;
 #endif
 
     // Invariant: rolling diagnostics update before any overlay early return so
@@ -669,7 +670,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.selectedSceneOption = state.currentSceneBrowserIndex;
         UIData.selectedCineModeSceneOption = state.sceneBrowser.selectedCineModeSceneIndex;
         UIData.UIDrawCalls = inputs.timers.lastUIDrawCalls;
-        UIData.visibility = inputs.renderDiagnostics.GetFrameVisibilityStats();
+        UIData.visibility = ProjectRenderVisibilityDiagnostics( inputs.renderDiagnostics.GetFrameVisibilityStats() );
         UIData.fps =
             inputs.timers.rollingFpsTime > 0.0f
                 ? inputs.timers.rollingFpsTime
@@ -943,7 +944,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         {
             // The render snapshot is cheap owner-maintained accounting; unlike
             // process memory sampling, it is safe to refresh for the F6 overlay.
-            UIData.renderMemory = inputs.renderDiagnostics.GetRenderMemoryStats();
+            UIData.renderMemory = ProjectRenderMemoryDiagnostics( inputs.renderDiagnostics.GetRenderMemoryStats() );
             UIData.reserveGrowthEventTotalCount =
                 SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::GrowthEventCount();
             UIData.reserveGrowthEventDroppedCount =
@@ -1189,13 +1190,23 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const float panX = -( hw - mX ) + mX * 0.5f;   // slight left margin
         const float panY = -( hh - mY ) + mY * 0.5f;   // slight bottom margin
         const bool absolute = ( state.debug.overlayMode == OverlayMode::BarsAbsolute );
-        profilerOverlay
-            .RenderBarOverlay( profiler.FrameView(), textBatch, renderCommands, panX, panY, panW, panH, absolute );
-        RenderReplayScrubberOverlayFromInputs( m_uiDrawSubmission, textBatch, m_replayDrawList, inputs );
+        m_profilerDrawList.Clear();
+        const UI::UIDrawContext profilerDraw( state.screenW, state.screenH, m_profilerDrawList );
+        profilerOverlay.RecordBarOverlay( profiler.FrameView(), profilerDraw, panX, panY, panW, panH, absolute );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "ProfilerBars" );
-            Text2d::FlushText( textBatch, renderTextures, renderCommands );
+            m_uiDrawSubmission.Submit(
+                m_profilerDrawList,
+                textBatch,
+                m_gpuTiming,
+                renderTextures,
+                renderCommands,
+                inputs.renderDiagnostics,
+                state.screenW,
+                state.screenH
+            );
         }
+        RenderReplayScrubberOverlayFromInputs( m_uiDrawSubmission, textBatch, m_replayDrawList, inputs );
         return;
     }
 #endif
@@ -1293,15 +1304,27 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const float lineH = 0.018f;
         const float profFSz = 0.012f;
         const float padY = lineH * 1.2f;
-        profilerOverlay.RenderOverlay(
+        m_profilerDrawList.Clear();
+        const UI::UIDrawContext profilerDraw( state.screenW, state.screenH, m_profilerDrawList );
+        profilerOverlay.RecordOverlay(
             profiler.FrameView(),
-            textBatch,
-            renderCommands,
+            profilerDraw,
             -( hw - mX ),
             -( hh - mY ) - padY,
             lineH,
             profFSz,
             inputs.timers.rollingFpsTime
+        );
+
+        m_uiDrawSubmission.Submit(
+            m_profilerDrawList,
+            textBatch,
+            m_gpuTiming,
+            renderTextures,
+            renderCommands,
+            inputs.renderDiagnostics,
+            state.screenW,
+            state.screenH
         );
     }
 #endif

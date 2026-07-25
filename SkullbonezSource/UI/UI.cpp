@@ -793,9 +793,9 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
 
         static constexpr const char* visibilityLabels[] = { "Main", "Reflection", "Terrain shadow", "Object shadow" };
         char visibilityText[96];
-        for ( int viewIndex = 0; viewIndex < static_cast<int>( Rendering::RenderVisibilityView::Count ); ++viewIndex )
+        for ( int viewIndex = 0; viewIndex < static_cast<int>( UIRenderVisibilityView::Count ); ++viewIndex )
         {
-            const Rendering::RenderVisibilityViewStats& visibility = data.visibility.views[viewIndex];
+            const UIRenderVisibilityViewStats& visibility = data.visibility.views[viewIndex];
             snprintf(
                 visibilityText,
                 sizeof( visibilityText ),

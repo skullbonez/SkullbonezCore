@@ -245,8 +245,6 @@ DX12_RENDERING_PREFIXES = (
 
 RENDERING_PREFIXES = (
     "DrawCallTrace",
-    "ProfilerOverlayPresenter",
-    "RenderProfilerPresentation",
     "RenderInstanceRenderer",
     "Helper",
     "IRenderBackend",
@@ -501,6 +499,7 @@ RUNTIME_UI_PREFIXES = (
     "OperatorEditorFrameComposer",
     "UiTextPass",
     "RuntimeViewModel",
+    "RenderDiagnosticsProjection",
     "RuntimeUiSurface",
 )
 

@@ -589,7 +589,7 @@ preserves the completed UI value/command boundary as the target architecture.
     physics CSV was refreshed or staged by this slice. The two pre-existing
     replay-golden working-tree edits remain user-owned.
 
-- [ ] **UR4 — Remove operator-presentation policy from Rendering.**
+- [x] **UR4 — Remove operator-presentation policy from Rendering.**
 
   Move operator-facing profiler layout, labels, charts, memory presentation,
   and UI-specific render diagnostic shaping out of `SkullbonezSource/Rendering`.
@@ -609,6 +609,46 @@ preserves the completed UI value/command boundary as the target architecture.
   - Rendering still includes no UI or Runtime header.
   - Profiler, memory, render-target preview, and diagnostics surfaces retain
     their prior information, ordering, units, and visual layout.
+
+  Completion evidence (2026-07-25):
+
+  - Split the mixed renderer translation unit into the measurement-only
+    `Rendering/RenderGpuTimingOwner.cpp` and deleted
+    `Rendering/ProfilerOverlayPresenter.h`. Rendering retains query brackets,
+    completed GPU samples, backend counters, and Tracy publication; it contains
+    no profiler columns, labels, panels, legends, colors, or chart layout.
+  - Added `UIProfilerOverlayPresenter`, which reads the detached Core profiler
+    frame and records the existing table and normalized/absolute bars into a
+    fixed `UIDrawList`. The UI-only projection adapter preserves the legacy
+    coordinate proportions, baked-font measurement order, labels, units,
+    colors, row order, and legend wrapping. `UiTextPass` owns fixed scratch and
+    submits it through the existing concrete `UiDrawSubmission`.
+  - Added UI-owned bounded render memory/visibility values plus explicit
+    `Runtime/UI/RenderDiagnosticsProjection` field and enum mapping. UI now
+    includes no Rendering header and names no Rendering namespace or type.
+    Removing that incidental include also exposed and removed a hidden DX12-to-
+    UI source of the Win32 wheel unit.
+  - Static closure proofs for UI-to-Rendering/Runtime,
+    Rendering-to-UI/Runtime, and downward Replay includes returned no rows.
+    Project/filter validation passed with 767 matching items across three
+    production projects. Allocation-policy scan covered 443 files with zero
+    allowlist errors.
+  - `validate_dx12_renderer.bat` passed with zero DX12 validation errors and
+    committed captures within tolerance. `run_graphics_stress.bat 1` completed
+    its bounded minute crash-free. `validate_ui.bat` passed all 21 UI capture
+    cases.
+  - The replay visual-fidelity authoritative 6,800-frame process passed:
+    2,401 ticks, 200 moved bricks, 175 toppled bricks, 200 causal nodes, and
+    every offline negative/determinism control. `validate_full.bat` passed the
+    mandatory CPU umbrella and all five engine processes after the DX12
+    architecture test was updated to stop requiring the deleted presentation
+    owner.
+  - Touched-source comment audit: 16/16 source-bearing paths inspected against
+    the guide (14 retained/new plus two deleted), zero deferred; this plan is
+    the checklist/evidence record.
+    No baseline, golden, scene, configuration, shader, replay artifact, or
+    physics CSV was refreshed or staged. The two pre-existing replay-golden
+    working-tree edits remain user-owned.
 
 - [ ] **UR5 — Add a build boundary and mandatory dependency regression gate.**
 

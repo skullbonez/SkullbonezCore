@@ -1191,7 +1191,7 @@ void DrawMainMemoryPanel(
     // Concept: upload rows separate the fixed arena waterline from the caller
     // category that consumed it, so a texture-load spike is not mistaken for a
     // steady prediction-overlay regression.
-    const SkullbonezCore::Rendering::RenderMemoryStats& render = data.renderMemory;
+    const SkullbonezCore::UI::UIRenderMemoryStats& render = data.renderMemory;
     FormatMemoryMiB( render.uploadUsedBytes, a, sizeof( a ) );
     FormatMemoryMiB( render.uploadPeakBytes, b, sizeof( b ) );
     FormatMemoryMiB( render.uploadCapacityBytes, c, sizeof( c ) );
@@ -1209,20 +1209,20 @@ void DrawMainMemoryPanel(
     draw.Text( x, row0 + 228.0f, 8.0f, 0.54f, 0.72f, 0.74f, text );
 
     FormatMemoryMiB(
-        render.uploadCategoryPeakBytes
-            [static_cast<std::size_t>( SkullbonezCore::Rendering::RenderUploadCategory::Constants )],
+        render
+            .uploadCategoryPeakBytes[static_cast<std::size_t>( SkullbonezCore::UI::UIRenderUploadCategory::Constants )],
         a,
         sizeof( a )
     );
     FormatMemoryMiB(
         render.uploadCategoryPeakBytes
-            [static_cast<std::size_t>( SkullbonezCore::Rendering::RenderUploadCategory::DynamicVertex )],
+            [static_cast<std::size_t>( SkullbonezCore::UI::UIRenderUploadCategory::DynamicVertex )],
         b,
         sizeof( b )
     );
     FormatMemoryMiB(
         render.uploadCategoryPeakBytes
-            [static_cast<std::size_t>( SkullbonezCore::Rendering::RenderUploadCategory::InstanceData )],
+            [static_cast<std::size_t>( SkullbonezCore::UI::UIRenderUploadCategory::InstanceData )],
         c,
         sizeof( c )
     );
@@ -1231,13 +1231,13 @@ void DrawMainMemoryPanel(
 
     FormatMemoryMiB(
         render.uploadCategoryPeakBytes
-            [static_cast<std::size_t>( SkullbonezCore::Rendering::RenderUploadCategory::TextureRows )],
+            [static_cast<std::size_t>( SkullbonezCore::UI::UIRenderUploadCategory::TextureRows )],
         a,
         sizeof( a )
     );
     FormatMemoryMiB(
         render.uploadCategoryPeakBytes
-            [static_cast<std::size_t>( SkullbonezCore::Rendering::RenderUploadCategory::DebugPredictionOverlay )],
+            [static_cast<std::size_t>( SkullbonezCore::UI::UIRenderUploadCategory::DebugPredictionOverlay )],
         b,
         sizeof( b )
     );

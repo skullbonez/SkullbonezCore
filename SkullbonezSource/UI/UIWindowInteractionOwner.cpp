@@ -39,6 +39,13 @@ using namespace SkullbonezCore::UI::Widgets;
 using namespace SkullbonezCore::UI::Layout;
 using namespace SkullbonezCore::UI::FrameComposition;
 
+namespace
+{
+// Concept: input snapshots retain the Win32 wheel-unit contract as a plain
+// value; UI policy must not recover it through an incidental renderer include.
+constexpr float UI_MOUSE_WHEEL_DELTA = 120.0f;
+} // namespace
+
 UIWindowInteractionOwner::UIWindowInteractionOwner() : m_activeTab( InGameUITab::Scene )
 {
 }
@@ -946,7 +953,7 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
 
     if ( wheelDelta != 0 && inContent && !wheelHandled )
     {
-        m_scrollY -= static_cast<float>( wheelDelta ) / static_cast<float>( WHEEL_DELTA ) * 42.0f;
+        m_scrollY -= static_cast<float>( wheelDelta ) / UI_MOUSE_WHEEL_DELTA * 42.0f;
         m_scrollY = std::clamp( m_scrollY, 0.0f, maxScroll );
         m_scrollbarVisibleUntil = now + 1.4;
     }

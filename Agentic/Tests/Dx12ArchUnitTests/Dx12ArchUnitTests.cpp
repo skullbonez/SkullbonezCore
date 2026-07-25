@@ -26,8 +26,8 @@ Glossary:
     without calling a real command list.
   Platform profiler GPU stack: Nested marker depth suspended when one command
     list is submitted and restored on its replacement list.
-  Profiler value seam: Core-owned fixed spans consumed by concrete Rendering
-    timing and overlay owners without an upward renderer pointer.
+  Profiler value seam: Core-owned fixed spans consumed by the concrete
+    Rendering timing owner without an upward renderer pointer.
 
 Invariants:
   Tests stay CPU-only and must not require a real D3D12 device or renderer launch.
@@ -49,7 +49,6 @@ Related:
 #include "Rendering/DX12/Dx12FrameOwner.h"
 #include "Rendering/DX12/Dx12TextureRegistry.h"
 #include "Rendering/DX12/RenderBackendDX12.h"
-#include "Rendering/ProfilerOverlayPresenter.h"
 #include "Rendering/RenderGpuTimingOwner.h"
 #include "Rendering/RenderGraph.h"
 
@@ -71,27 +70,42 @@ using SkullbonezCore::Core::Allocation::RuntimeAllocationPhase;
 
 static_assert(
     std::is_same<decltype( std::declval<Dx12FrameOwner&>().FlushGPU() ), SkullbonezCore::Core::SbResult>::value,
-    "FlushGPU must return a recoverable result to every resource-mutation caller." );
-static_assert( std::is_same<decltype( std::declval<Dx12FrameOwner&>().DrainForResourceRelease() ),
-                            SkullbonezCore::Core::SbResult>::value,
-               "Terminal resource release must use its own checked drain boundary." );
-static_assert( std::is_trivially_copyable<Dx12SubmittedWorkState>::value,
-               "Submitted-work tracking must remain an allocation-free value record." );
-static_assert( std::is_constructible_v<RenderGpuTimingOwner, SkullbonezCore::Core::Profiler*, Dx12Diagnostics*>,
-               "Runtime rendering must own one explicit concrete GPU timing boundary." );
-static_assert( !std::is_polymorphic_v<RenderGpuTimingOwner>,
-               "GPU timing stays a concrete owner, not a new renderer callback interface." );
-static_assert( !std::is_polymorphic_v<RenderBackendDX12>,
-               "The DX12 composition root must not regrow a polymorphic renderer facade." );
-static_assert( !std::is_polymorphic_v<Dx12FrameOwner> && !std::is_polymorphic_v<Dx12GraphTransientPool> &&
-                   !std::is_polymorphic_v<Dx12ResourceBuilder> && !std::is_polymorphic_v<Dx12TextureOwner> &&
-                   !std::is_polymorphic_v<Dx12GeometryOwner> && !std::is_polymorphic_v<Dx12Diagnostics>,
-               "Concrete DX12 owners must remain non-polymorphic capability boundaries." );
-static_assert( std::is_empty_v<ProfilerOverlayPresenter>,
-               "Profiler overlay presentation must not retain Core frame or command borrows." );
-static_assert( std::is_same_v<decltype( SkullbonezCore::Core::Profiler::ProfilerFrameView::markers ),
-                              std::span<const SkullbonezCore::Core::Profiler::Marker>>,
-               "Core publishes profiler markers as a fixed read-only span." );
+    "FlushGPU must return a recoverable result to every resource-mutation caller."
+);
+static_assert(
+    std::is_same<
+        decltype( std::declval<Dx12FrameOwner&>().DrainForResourceRelease() ),
+        SkullbonezCore::Core::SbResult>::value,
+    "Terminal resource release must use its own checked drain boundary."
+);
+static_assert(
+    std::is_trivially_copyable<Dx12SubmittedWorkState>::value,
+    "Submitted-work tracking must remain an allocation-free value record."
+);
+static_assert(
+    std::is_constructible_v<RenderGpuTimingOwner, SkullbonezCore::Core::Profiler*, Dx12Diagnostics*>,
+    "Runtime rendering must own one explicit concrete GPU timing boundary."
+);
+static_assert(
+    !std::is_polymorphic_v<RenderGpuTimingOwner>,
+    "GPU timing stays a concrete owner, not a new renderer callback interface."
+);
+static_assert(
+    !std::is_polymorphic_v<RenderBackendDX12>,
+    "The DX12 composition root must not regrow a polymorphic renderer facade."
+);
+static_assert(
+    !std::is_polymorphic_v<Dx12FrameOwner> && !std::is_polymorphic_v<Dx12GraphTransientPool> &&
+        !std::is_polymorphic_v<Dx12ResourceBuilder> && !std::is_polymorphic_v<Dx12TextureOwner> &&
+        !std::is_polymorphic_v<Dx12GeometryOwner> && !std::is_polymorphic_v<Dx12Diagnostics>,
+    "Concrete DX12 owners must remain non-polymorphic capability boundaries."
+);
+static_assert(
+    std::is_same_v<
+        decltype( SkullbonezCore::Core::Profiler::ProfilerFrameView::markers ),
+        std::span<const SkullbonezCore::Core::Profiler::Marker>>,
+    "Core publishes profiler markers as a fixed read-only span."
+);
 
 namespace
 {
@@ -119,12 +133,14 @@ void ExpectTrue( bool value, const char* expression, const char* file, int line 
 }
 
 template <typename T, typename U>
-void ExpectEqualImpl( const T& actual,
-                      const U& expected,
-                      const char* actualExpression,
-                      const char* expectedExpression,
-                      const char* file,
-                      int line )
+void ExpectEqualImpl(
+    const T& actual,
+    const U& expected,
+    const char* actualExpression,
+    const char* expectedExpression,
+    const char* file,
+    int line
+)
 {
     if ( !( actual == expected ) )
     {
@@ -173,12 +189,14 @@ struct TestCase
 Dx12DescriptorAllocator MakeDescriptorAllocator()
 {
     Dx12DescriptorAllocator allocator;
-    allocator.Init( reinterpret_cast<ID3D12DescriptorHeap*>( 1 ),
-                    reinterpret_cast<ID3D12DescriptorHeap*>( 2 ),
-                    32,
-                    4,
-                    8,
-                    2 );
+    allocator.Init(
+        reinterpret_cast<ID3D12DescriptorHeap*>( 1 ),
+        reinterpret_cast<ID3D12DescriptorHeap*>( 2 ),
+        32,
+        4,
+        8,
+        2
+    );
     return allocator;
 }
 
@@ -358,7 +376,9 @@ void TestGpuDrainWaitFailureBlocksReopenAndMutation()
     EXPECT_TRUE( drainProgress.CommitSubmission() );
 
     const SkullbonezCore::Core::SbResult waitResult = commandState.CommitWait(
-        SkullbonezCore::Core::SbResult::Failure( "TestWait", "submitted work did not drain" ) );
+        SkullbonezCore::Core::SbResult::Failure( "TestWait", "submitted work did not drain" )
+    );
+
     if ( waitResult.ok )
     {
         drainProgress.CommitWait();
@@ -692,11 +712,11 @@ void TestRenderGraphExplicitInitialStateTransitions()
 void TestRenderGraphTracksSubresourceTransitionsIndependently()
 {
     RenderGraph graph;
-    const RenderGraphResourceHandle texture =
-        graph.AddExternalResource( "MipTexture",
-                                   RenderGraphResourceAccess::PixelShaderResource,
-                                   RenderGraphNativeResourceToken::From(
-                                       reinterpret_cast<ID3D12Resource*>( static_cast<uintptr_t>( 0x6000u ) ) ) );
+    const RenderGraphResourceHandle texture = graph.AddExternalResource(
+        "MipTexture",
+        RenderGraphResourceAccess::PixelShaderResource,
+        RenderGraphNativeResourceToken::From( reinterpret_cast<ID3D12Resource*>( static_cast<uintptr_t>( 0x6000u ) ) )
+    );
 
     const uint32_t writeMipOne = graph.AddPass( "WriteMipOne" );
     graph.AddWrite( writeMipOne, texture, RenderGraphResourceAccess::UnorderedAccess, 1u );
@@ -1045,13 +1065,16 @@ void TestDx12RenderGraphAccessMapsToDx12States()
     EXPECT_TRUE( state == D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE );
 
     EXPECT_TRUE( TryDx12RenderGraphAccessToResourceState( RenderGraphResourceAccess::ShaderResource, state ) );
-    EXPECT_TRUE( state ==
-                 ( D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE ) );
+    EXPECT_TRUE(
+        state == ( D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE )
+    );
 
     EXPECT_TRUE(
-        TryDx12RenderGraphAccessToResourceState( RenderGraphResourceAccess::VertexAndNonPixelShaderResource, state ) );
-    EXPECT_TRUE( state ==
-                 ( D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE ) );
+        TryDx12RenderGraphAccessToResourceState( RenderGraphResourceAccess::VertexAndNonPixelShaderResource, state )
+    );
+    EXPECT_TRUE(
+        state == ( D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE )
+    );
 
     EXPECT_TRUE( !TryDx12RenderGraphAccessToResourceState( RenderGraphResourceAccess::Unknown, state ) );
 }
@@ -1061,10 +1084,11 @@ void TestDx12RenderGraphExecutorDryRunBackbufferTransitions()
     ID3D12Resource* fakeBackbuffer = reinterpret_cast<ID3D12Resource*>( static_cast<uintptr_t>( 0x1000u ) );
 
     RenderGraph graph;
-    const RenderGraphResourceHandle backbuffer =
-        graph.AddExternalResource( "Backbuffer",
-                                   RenderGraphResourceAccess::Present,
-                                   RenderGraphNativeResourceToken::From( fakeBackbuffer ) );
+    const RenderGraphResourceHandle backbuffer = graph.AddExternalResource(
+        "Backbuffer",
+        RenderGraphResourceAccess::Present,
+        RenderGraphNativeResourceToken::From( fakeBackbuffer )
+    );
 
     const uint32_t drawPass = graph.AddPass( "Draw" );
     graph.AddWrite( drawPass, backbuffer, RenderGraphResourceAccess::RenderTarget );
@@ -1097,11 +1121,11 @@ void TestDx12RenderGraphExecutorDryRunBackbufferTransitions()
 void TestDx12RenderGraphExecutorSkipsUnknownInitialAccess()
 {
     RenderGraph graph;
-    const RenderGraphResourceHandle legacyTarget =
-        graph.AddExternalResource( "LegacyTarget",
-                                   RenderGraphResourceAccess::Unknown,
-                                   RenderGraphNativeResourceToken::From(
-                                       reinterpret_cast<ID3D12Resource*>( static_cast<uintptr_t>( 0x2000u ) ) ) );
+    const RenderGraphResourceHandle legacyTarget = graph.AddExternalResource(
+        "LegacyTarget",
+        RenderGraphResourceAccess::Unknown,
+        RenderGraphNativeResourceToken::From( reinterpret_cast<ID3D12Resource*>( static_cast<uintptr_t>( 0x2000u ) ) )
+    );
 
     const uint32_t firstWriter = graph.AddPass( "FirstWriter" );
     graph.AddWrite( firstWriter, legacyTarget, RenderGraphResourceAccess::RenderTarget );
@@ -1118,11 +1142,11 @@ void TestDx12RenderGraphExecutorSkipsUnknownInitialAccess()
 void TestDx12RenderGraphExecutorIdentifiesUavAccess()
 {
     RenderGraph graph;
-    const RenderGraphResourceHandle reflection =
-        graph.AddExternalResource( "Reflection",
-                                   RenderGraphResourceAccess::PixelShaderResource,
-                                   RenderGraphNativeResourceToken::From(
-                                       reinterpret_cast<ID3D12Resource*>( static_cast<uintptr_t>( 0x3000u ) ) ) );
+    const RenderGraphResourceHandle reflection = graph.AddExternalResource(
+        "Reflection",
+        RenderGraphResourceAccess::PixelShaderResource,
+        RenderGraphNativeResourceToken::From( reinterpret_cast<ID3D12Resource*>( static_cast<uintptr_t>( 0x3000u ) ) )
+    );
 
     const uint32_t dispatchPass = graph.AddPass( "DispatchReflection", RenderGraphQueueType::Compute );
     graph.AddWrite( dispatchPass, reflection, RenderGraphResourceAccess::UnorderedAccess );
@@ -1368,38 +1392,49 @@ void TestPlatformProfilerGpuStackResetClearsStaleDeviceEpoch()
 
 void TestUploadOverflowDropsSteadyCallerWithoutDrain()
 {
-    EXPECT_TRUE( SelectDx12UploadOverflowAction( false, RuntimeAllocationPhase::Render ) ==
-                 Dx12UploadOverflowAction::DropCaller );
-    EXPECT_TRUE( SelectDx12UploadOverflowAction( false, RuntimeAllocationPhase::SteadyGameplay ) ==
-                 Dx12UploadOverflowAction::DropCaller );
-    EXPECT_TRUE( SelectDx12UploadOverflowAction( false, RuntimeAllocationPhase::Replay ) ==
-                 Dx12UploadOverflowAction::DropCaller );
-    EXPECT_TRUE( SelectDx12UploadOverflowAction( false, RuntimeAllocationPhase::Physics ) ==
-                 Dx12UploadOverflowAction::DropCaller );
+    EXPECT_TRUE(
+        SelectDx12UploadOverflowAction( false, RuntimeAllocationPhase::Render ) == Dx12UploadOverflowAction::DropCaller
+    );
+    EXPECT_TRUE(
+        SelectDx12UploadOverflowAction( false, RuntimeAllocationPhase::SteadyGameplay ) ==
+        Dx12UploadOverflowAction::DropCaller
+    );
+    EXPECT_TRUE(
+        SelectDx12UploadOverflowAction( false, RuntimeAllocationPhase::Replay ) == Dx12UploadOverflowAction::DropCaller
+    );
+    EXPECT_TRUE(
+        SelectDx12UploadOverflowAction( false, RuntimeAllocationPhase::Physics ) == Dx12UploadOverflowAction::DropCaller
+    );
 }
 
 void TestUploadReservationResolverInvokesOnlyColdRetry()
 {
     int retryCount = 0;
-    const Dx12UploadReservationResolution steady = ResolveDx12UploadReservation( false,
-                                                                                 RuntimeAllocationPhase::Render,
-                                                                                 [&]()
-                                                                                 {
-                                                                                     ++retryCount;
-                                                                                     return true;
-                                                                                 } );
+    const Dx12UploadReservationResolution steady = ResolveDx12UploadReservation(
+        false,
+        RuntimeAllocationPhase::Render,
+        [&]()
+        {
+            ++retryCount;
+            return true;
+        }
+    );
+
     EXPECT_TRUE( !steady.allowed );
     EXPECT_TRUE( steady.dropped );
     EXPECT_TRUE( !steady.coldRetryAttempted );
     EXPECT_EQ( retryCount, 0 );
 
-    const Dx12UploadReservationResolution cold = ResolveDx12UploadReservation( false,
-                                                                               RuntimeAllocationPhase::SceneLoad,
-                                                                               [&]()
-                                                                               {
-                                                                                   ++retryCount;
-                                                                                   return true;
-                                                                               } );
+    const Dx12UploadReservationResolution cold = ResolveDx12UploadReservation(
+        false,
+        RuntimeAllocationPhase::SceneLoad,
+        [&]()
+        {
+            ++retryCount;
+            return true;
+        }
+    );
+
     EXPECT_TRUE( cold.allowed );
     EXPECT_TRUE( !cold.dropped );
     EXPECT_TRUE( cold.coldRetryAttempted );
@@ -1408,12 +1443,17 @@ void TestUploadReservationResolverInvokesOnlyColdRetry()
 
 void TestUploadOverflowKeepsColdFlushRetry()
 {
-    EXPECT_TRUE( SelectDx12UploadOverflowAction( false, RuntimeAllocationPhase::SceneLoad ) ==
-                 Dx12UploadOverflowAction::FlushAndRetry );
-    EXPECT_TRUE( SelectDx12UploadOverflowAction( false, RuntimeAllocationPhase::BackendInit ) ==
-                 Dx12UploadOverflowAction::FlushAndRetry );
-    EXPECT_TRUE( SelectDx12UploadOverflowAction( true, RuntimeAllocationPhase::Render ) ==
-                 Dx12UploadOverflowAction::Allocate );
+    EXPECT_TRUE(
+        SelectDx12UploadOverflowAction( false, RuntimeAllocationPhase::SceneLoad ) ==
+        Dx12UploadOverflowAction::FlushAndRetry
+    );
+    EXPECT_TRUE(
+        SelectDx12UploadOverflowAction( false, RuntimeAllocationPhase::BackendInit ) ==
+        Dx12UploadOverflowAction::FlushAndRetry
+    );
+    EXPECT_TRUE(
+        SelectDx12UploadOverflowAction( true, RuntimeAllocationPhase::Render ) == Dx12UploadOverflowAction::Allocate
+    );
 }
 
 void TestUploadRangeProbeRejectsArithmeticOverflow()

@@ -39,11 +39,11 @@ Related:
 #include "../Core/Config.h"
 #include "../Core/MainMemoryStats.h"
 #include "../Core/Allocation/RuntimeReserveAllocator.h"
-#include "../Rendering/DX12/Dx12Diagnostics.h"
 #include "UIButton.h"
 #include "UICheckBox.h"
 #include "UIComboBox.h"
 #include "UICommands.h"
+#include "UIRenderDiagnostics.h"
 #include "UICache.h"
 #include "UIBackdropBlur.h"
 #include "UIScrollBar.h"
@@ -70,11 +70,6 @@ namespace Core
 {
 class Profiler;
 } // namespace Core
-
-namespace Rendering
-{
-class Dx12Diagnostics;
-} // namespace Rendering
 
 namespace UI
 {
@@ -116,9 +111,9 @@ struct UIProfilerMarkerOption
     const char* leafName = "";
     uint32_t hash = UI_PROFILER_FRAME_TOTAL_HASH;
     float cpuMs = 0.0f;
-    float cpuAverageMs = 0.0f;                 // Same 500 ms moving average used by the profiler table.
+    float cpuAverageMs = 0.0f;        // Same 500 ms moving average used by the profiler table.
     float gpuMs = 0.0f;
-    float colorR = 0.0f;                       // RGB borrowed from the profiler row palette for chart overlays.
+    float colorR = 0.0f;              // RGB borrowed from the profiler row palette for chart overlays.
     float colorG = 0.0f;
     float colorB = 0.0f;
     bool hasGpu = false;
@@ -144,13 +139,13 @@ struct InGameUIFrameData
     int selectedCineModeSceneOption = -1;
     int drawCallsBeforeUI = 0;
     int UIDrawCalls = 0;
-    Rendering::RenderVisibilityStats visibility;
+    UIRenderVisibilityStats visibility;
     float fps = 0.0f;
     float renderMs = 0.0f;
     float physicsMs = 0.0f;
     float cpuFrameMs = 0.0f;
     float gpuFrameMs = 0.0f;
-    float workerCoreTotalMs = 0.0f;            // Sum of worker-pool CPU chunk time from the last committed frame, in ms.
+    float workerCoreTotalMs = 0.0f;   // Sum of worker-pool CPU chunk time from the last committed frame, in ms.
     // Lifetime: profiler and draw-trace names are borrowed for this immediate UI
     // pass. The profiler tab caches only bounded values needed for next-frame
     // input/layout; drawing gets refreshed from this snapshot every frame.
@@ -158,7 +153,7 @@ struct InGameUIFrameData
     UIProfilerMarkerOption profilerMarkerOptions[UI_PROFILER_MARKER_OPTION_MAX];
     int profilerMarkerOptionCount = 0;
     SkullbonezCore::Core::MainMemoryStats mainMemory;
-    Rendering::RenderMemoryStats renderMemory; // Value snapshot for the Memory tab/overlay only.
+    UIRenderMemoryStats renderMemory; // Value snapshot for the Memory tab/overlay only.
     SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView
         reserveGrowthEvents[UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX];
     int reserveGrowthEventCount = 0;

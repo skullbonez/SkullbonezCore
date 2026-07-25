@@ -539,15 +539,17 @@ cached replay, Runtime badges, and Replay overlays to one record-only value
 flow with committed semantic fingerprints and Runtime-owned fixed scratch
 streams. UR3 then moved draw translation, preview GPU lifetime, frame-local
 handle resolution, timing, and draw attribution into a concrete Runtime/Render
-owner while deleting the UI render context and raw preview handles. The
-active/future ledger is 4/19.
+owner while deleting the UI render context and raw preview handles. UR4 then
+moved profiler layout into UI recording, projected renderer diagnostics at the
+Runtime/UI boundary, and removed the final UI-to-Rendering source edge. The
+active/future ledger is 5/19.
 
 ## Current Execution Priority
 
 The 2026-07-25 round-4 campaign is the active queue with binding order:
-1 `ui-renderer-hard-boundary` (4/7), 2 `replay-subsystem-partition` (0/6),
-3 `downward-domain-bleed-remediation` (0/6). Continue with UR4's removal of
-operator-presentation policy and Rendering-owned presentation types from UI.
+1 `ui-renderer-hard-boundary` (5/7), 2 `replay-subsystem-partition` (0/6),
+3 `downward-domain-bleed-remediation` (0/6). Continue with UR5's standalone UI
+production target and data-extensible mandatory dependency validator.
 The UI plan preserves the existing UI/Runtime value-command boundary and
 makes Runtime/Render the sole UI-to-renderer composition point, and its UR5
 validator is the shared enforcement vehicle the two follow-up plans extend
@@ -1590,7 +1592,7 @@ regression gate.
 
 | Plan | State | Verified phase count | Next action |
 |---|---|---:|---|
-| [ui-renderer-hard-boundary](TODO/ui-renderer-hard-boundary.md) | In progress | 4/7 | UR4: move operator-presentation policy and value projection out of Rendering |
+| [ui-renderer-hard-boundary](TODO/ui-renderer-hard-boundary.md) | In progress | 5/7 | UR5: add the standalone UI target and mandatory dependency validator |
 
 Closure requires zero UI-to-Rendering/Runtime includes, zero
 Rendering-to-UI/Runtime includes, a fixed-capacity backend-neutral UI draw
@@ -1645,7 +1647,7 @@ RS1's `Runtime/Prediction` package to exist).
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [ui-renderer-hard-boundary](TODO/ui-renderer-hard-boundary.md) | In progress | 4/7 | UR4 presentation-policy/type ownership; UR3 Runtime/Render submission and GPU lifetime pass |
+| [ui-renderer-hard-boundary](TODO/ui-renderer-hard-boundary.md) | In progress | 5/7 | UR5 standalone UI build and data-extensible dependency enforcement |
 | [replay-subsystem-partition](TODO/replay-subsystem-partition.md) | Ready | 0/6 | Starts after UR6 closes; RS0 partition census of all 72 Replay files |
 | [downward-domain-bleed-remediation](TODO/downward-domain-bleed-remediation.md) | Ready | 0/6 | Starts after RS5 closes; DB0 bleed census and boundary-contract design |
 

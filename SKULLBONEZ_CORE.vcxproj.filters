@@ -378,6 +378,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\UI\RuntimeViewModel.cpp">
       <Filter>Source Files\Runtime\UI</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\UI\RenderDiagnosticsProjection.cpp">
+      <Filter>Source Files\Runtime\UI</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\PrimitiveBatchRenderer.cpp">
       <Filter>Source Files\Rendering</Filter>
     </ClCompile>
@@ -621,7 +624,7 @@
     <ClCompile Include="SkullbonezSource\Core\Profiler.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Rendering\RenderProfilerPresentation.cpp">
+    <ClCompile Include="SkullbonezSource\Rendering\RenderGpuTimingOwner.cpp">
       <Filter>Source Files\Rendering</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\RenderInstanceStore.cpp">
@@ -793,6 +796,9 @@
       <Filter>Source Files\UI</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UIFontMetrics.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\UI\UIProfilerOverlayPresenter.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UIDrawWidgets.cpp">
@@ -1114,6 +1120,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\UI\RuntimeViewModel.h">
       <Filter>Header Files\Runtime\UI</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\UI\RenderDiagnosticsProjection.h">
+      <Filter>Header Files\Runtime\UI</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneAuthoredSetup.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
@@ -1360,9 +1369,6 @@
     <ClInclude Include="SkullbonezSource\Rendering\RenderDiagnosticsTypes.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Rendering\ProfilerOverlayPresenter.h">
-      <Filter>Header Files\Rendering</Filter>
-    </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\RenderGpuTimingOwner.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
@@ -1559,6 +1565,12 @@
       <Filter>Header Files\UI</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIFontMetrics.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\UIProfilerOverlayPresenter.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\UIRenderDiagnostics.h">
       <Filter>Header Files\UI</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIDrawWidgets.h">
