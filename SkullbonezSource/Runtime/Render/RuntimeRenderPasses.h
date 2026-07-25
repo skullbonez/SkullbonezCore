@@ -42,6 +42,7 @@ Related:
 #include "../../Rendering/DX12/FramebufferDX12.h"
 #include "../../Rendering/Shadow.h"
 #include "../../Rendering/Text.h"
+#include "../../UI/UIDrawList.h"
 #include "RenderPresentationSettings.h"
 #include "../Interaction/RuntimeInteractionController.h"
 
@@ -91,6 +92,7 @@ class Dx12RaytracingOwner;
 class Dx12ResourceBuilder;
 class Dx12TextureOwner;
 class RenderInstanceStore;
+class ShaderDX12;
 struct RenderInstancePresentationRecord;
 struct RenderGraphTextureBinding;
 } // namespace Rendering
@@ -952,6 +954,15 @@ class UiTextPass
     // Lifetime: font vertices/projection and optional render capabilities share
     // this pass's process lifetime and are cleared before backend teardown.
     Text::TextBatch m_textBatch;
+    // Lifetime: preview resources are owned by the same late pass that resolves
+    // UI preview identities and are released before backend teardown.
+    std::unique_ptr<Rendering::ShaderDX12> m_uiPreviewShader;
+    uint32_t m_uiPreviewVertexBuffer = 0;
+    // Fixed scratch streams are retained by the pass so the 8,192-command
+    // capacity never consumes nested Windows stack frames or grows at runtime.
+    UI::UIDrawList m_testPatternDrawList;
+    UI::UIDrawList m_badgeDrawList;
+    UI::UIDrawList m_replayDrawList;
     SkullbonezCore::Core::Profiler* m_profiler = nullptr;
     Rendering::RenderGpuTimingOwner* m_gpuTiming = nullptr;
     Rendering::Dx12RaytracingOwner* m_renderRayTracing = nullptr;

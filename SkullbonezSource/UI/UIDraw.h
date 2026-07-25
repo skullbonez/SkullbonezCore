@@ -1,13 +1,12 @@
 /*
 File: SkullbonezSource/UI/UIDraw.h
 Purpose:
-  Implements UI Draw widgets, layout, drawing, or UI state for the in-engine controls.
+  Declares the renderer-free screen-space recorder used by Legacy UI widgets.
 
 Summary:
-  UIDraw.h implements UI Draw widgets, layout, drawing, or UI state for the
-  in-engine controls. As a public header, keep edits anchored on UI request,
-  layout, hit-test, and draw-command flow and on the glossary/invariants
-  below.
+  UIDrawContext turns widget shapes and labels into one bounded UIDrawList.
+  Projection and backend submission happen after UI construction, so tests can
+  build complete streams without a renderer device.
 
 Glossary:
   Draw command: Lightweight record describing a UI shape or text batch to
@@ -17,7 +16,10 @@ Glossary:
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
-  constants.
+    constants.
+  - UIDrawContext retains only its destination list; backend owners, handles,
+    callbacks, and opaque renderer tokens are forbidden.
+  - Commands remain in call order and use screen pixels.
 
 Related:
   - SkullbonezSource/UI/UIDraw.cpp
@@ -25,21 +27,8 @@ Related:
 */
 #pragma once
 
-#include "../Core/Common.h"
-
 namespace SkullbonezCore
 {
-namespace Rendering
-{
-class Dx12GeometryOwner;
-class Dx12TextureOwner;
-} // namespace Rendering
-
-namespace Text
-{
-class TextBatch;
-} // namespace Text
-
 namespace UI
 {
 
@@ -63,14 +52,10 @@ class UIDrawList;
 class UIDrawContext
 {
   public:
-    UIDrawContext(
-        int screenW,
-        int screenH,
-        UIDrawList* drawList = nullptr,
-        Rendering::Dx12TextureOwner* renderTextures = nullptr,
-        Rendering::Dx12GeometryOwner* renderCommands = nullptr,
-        Text::TextBatch* textBatch = nullptr
-    );
+    // The dimensions identify the complete frame being authored. Geometry
+    // remains in screen pixels, so recording does not need projection or
+    // renderer state.
+    UIDrawContext( int screenW, int screenH, UIDrawList& drawList );
 
     void Rect( float x, float y, float w, float h, float r, float g, float b, float a ) const;
     void
@@ -82,32 +67,15 @@ class UIDrawContext
     void Text( float x, float y, float pxSize, float r, float g, float b, const char* value ) const;
     float TextX( float x ) const;
     float TextY( float y ) const;
-
     float HalfW() const;
     float HalfH() const;
-    float ScaleY() const;
-    void FlushQuads() const;
-    void FlushText() const;
 
   private:
-    static float Snap( float value );
-    float PixelXUnsnapped( float x ) const;
-    float PixelYUnsnapped( float y ) const;
-    float PixelX( float x ) const;
-    float PixelY( float y ) const;
-
     float m_hw = 1.0f;
     float m_hh = 1.0f;
     float m_sx = 1.0f;
     float m_sy = 1.0f;
     UIDrawList* m_drawList = nullptr;
-    Rendering::Dx12TextureOwner* m_renderTextures = nullptr;
-    // Lifetime: immediate contexts borrow commands for this draw replay only.
-    // Recording contexts keep this null because they enqueue CPU draw commands.
-    Rendering::Dx12GeometryOwner* m_renderCommands = nullptr;
-    // Lifetime: both recording and immediate contexts borrow the owning
-    // RuntimeRenderer batch so pixel/frustum conversion stays owner-specific.
-    Text::TextBatch* m_textBatch = nullptr;
 };
 
 } // namespace UI

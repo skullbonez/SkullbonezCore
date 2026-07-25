@@ -245,12 +245,6 @@ void UIComboBox::Draw(
         return;
     }
 
-    // Open combos are overlay surfaces.  Immediate draw contexts flush here so
-    // the dropdown backer covers earlier labels; recorded draw lists preserve
-    // that order and leave flushing to replay.
-    draw.FlushQuads();
-    draw.FlushText();
-
     draw.RoundedRect(
         dropdown.x - 4.0f,
         dropdown.y - 4.0f,

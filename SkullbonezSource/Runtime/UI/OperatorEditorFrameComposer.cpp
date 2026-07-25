@@ -593,6 +593,7 @@ void Render(
 
         const ReplayOverlay::ReplayOverlayRenderContext replayOverlayContext { *uiRender.textures,
                                                                                *uiRender.geometry,
+                                                                               renderDiagnostics,
                                                                                host.profiler,
                                                                                replayOverlay,
                                                                                facts.legacyDevelopmentUiActive,

@@ -126,7 +126,11 @@ void FlushUIDrawList(
     int screenW,
     int screenH,
     float offsetX = 0.0f,
-    float offsetY = 0.0f
+    float offsetY = 0.0f,
+    const InGameUIFrameData* previewData = nullptr,
+    std::unique_ptr<Rendering::ShaderDX12>* previewShader = nullptr,
+    uint32_t* previewVertexBuffer = nullptr,
+    const UIRenderContext* previewRender = nullptr
 );
 
 int RenderTargetPreviewCount( const InGameUIFrameData& data );
@@ -174,10 +178,11 @@ void ResetRenderTargetPreviewResources(
 void DrawRenderTargetPreviewTexture(
     std::unique_ptr<Rendering::ShaderDX12>& shader,
     uint32_t& dynamicVB,
-    const UIDrawContext& draw,
     const UIRenderTargetPreviewResource& resource,
     const UIRect& bounds,
     const UIRect& clipBounds,
+    int screenW,
+    int screenH,
     const UIRenderContext& render
 );
 

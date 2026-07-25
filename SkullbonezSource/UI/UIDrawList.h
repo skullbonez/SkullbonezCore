@@ -1,13 +1,12 @@
 /*
 File: SkullbonezSource/UI/UIDrawList.h
 Purpose:
-  Implements UI DrawList widgets, layout, drawing, or UI state for the in-engine controls.
+  Declares the fixed-capacity ordered draw values authored by Legacy UI.
 
 Summary:
-  UIDrawList.h implements UI DrawList widgets, layout, drawing, or UI state
-  for the in-engine controls. As a public header, keep edits anchored on UI
-  request, layout, hit-test, and draw-command flow and on the
-  glossary/invariants below.
+  UIDrawList stores plain screen-space commands plus copied text. Cached lists
+  can be composed with offsets, while Runtime consumes a read-only span and
+  resolves preview identities at submission time.
 
 Glossary:
   Draw command: Lightweight record describing a UI shape or text batch to
@@ -16,8 +15,9 @@ Glossary:
   widget.
 
 Invariants:
-  - Draw geometry and hit testing must be derived from the same layout
-  constants.
+  - Command and text storage never grows in steady runtime.
+  - Append preserves source order and copies referenced text.
+  - Fingerprints hash semantic values, never padding or unused capacity.
 
 Related:
   - SkullbonezSource/UI/UIDrawList.cpp
@@ -118,11 +118,18 @@ class UIDrawList
         float fallbackA,
         const char* fallbackLabel
     );
+    // Appends another list in order and applies a screen-space translation to
+    // its geometry. Text is copied into this list's bounded storage so neither
+    // the source list nor its cache must outlive the composed frame.
+    void Append( const UIDrawList& source, float offsetX = 0.0f, float offsetY = 0.0f );
 
     bool Empty() const;
     Stats GetStats() const;
     std::span<const Command> Commands() const;
     const char* TextAt( int offset ) const;
+    // Returns a semantic fingerprint of command values and referenced text.
+    // Object padding and unused buffer capacity never affect the result.
+    uint64_t Fingerprint() const;
 
   private:
     Command* PushCommand();

@@ -61,6 +61,11 @@ namespace SkullbonezCore::Text
 class TextBatch;
 }
 
+namespace SkullbonezCore::UI
+{
+class UIDrawList;
+}
+
 namespace SkullbonezCore::Physics
 {
 class ColliderStore;
@@ -234,11 +239,31 @@ struct ReplayPathVisualizerRenderResult
     bool retainedRefreshBudgetExpired = false;
 };
 
-void RenderReplayScrubberOverlay( Text::TextBatch& textBatch, const ReplayOverlayRenderContext& context );
-void RenderReplayInterceptOverlay( Text::TextBatch& textBatch, const ReplayOverlayRenderContext& context );
-void RenderReplayTripPlannerOverlay( Text::TextBatch& textBatch, const ReplayOverlayRenderContext& context );
-void RenderReplayPorkchopOverlay( Text::TextBatch& textBatch, const ReplayOverlayRenderContext& context );
-void RenderReplayCauseTreeOverlay( Text::TextBatch& textBatch, const ReplayOverlayRenderContext& context );
+void RenderReplayScrubberOverlay(
+    Text::TextBatch& textBatch,
+    UI::UIDrawList& drawList,
+    const ReplayOverlayRenderContext& context
+);
+void RenderReplayInterceptOverlay(
+    Text::TextBatch& textBatch,
+    UI::UIDrawList& drawList,
+    const ReplayOverlayRenderContext& context
+);
+void RenderReplayTripPlannerOverlay(
+    Text::TextBatch& textBatch,
+    UI::UIDrawList& drawList,
+    const ReplayOverlayRenderContext& context
+);
+void RenderReplayPorkchopOverlay(
+    Text::TextBatch& textBatch,
+    UI::UIDrawList& drawList,
+    const ReplayOverlayRenderContext& context
+);
+void RenderReplayCauseTreeOverlay(
+    Text::TextBatch& textBatch,
+    UI::UIDrawList& drawList,
+    const ReplayOverlayRenderContext& context
+);
 // Appends only newly published/revealed trajectory points to a retained tracer.
 // A generation, topology, record replacement, or palette change resets the
 // bounded list; an unchanged publication token returns without traversing it.

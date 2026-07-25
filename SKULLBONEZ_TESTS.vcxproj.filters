@@ -156,6 +156,9 @@
     <ClCompile Include="SkullbonezSource\UI\UIDrawList.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\UI\UIDraw.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UIFontMetrics.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>

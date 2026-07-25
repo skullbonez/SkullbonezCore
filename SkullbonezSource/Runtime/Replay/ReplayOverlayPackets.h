@@ -36,6 +36,7 @@ Related:
 namespace SkullbonezCore::Rendering
 {
 class Dx12GeometryOwner;
+class Dx12Diagnostics;
 class Dx12TextureOwner;
 } // namespace SkullbonezCore::Rendering
 
@@ -80,6 +81,7 @@ struct ReplayOverlayRenderContext
 {
     Rendering::Dx12TextureOwner& renderTextures;
     Rendering::Dx12GeometryOwner& renderCommands;
+    Rendering::Dx12Diagnostics& renderDiagnostics;
     Core::Profiler* profiler = nullptr;
     // Lifetime: this immutable view is consumed synchronously by the UI-text
     // graph callback and cannot outlive the frame-local selection borrows.

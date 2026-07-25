@@ -65,6 +65,8 @@ Related:
 #include "../../Rendering/Text.h"
 #include "../../UI/UI.h"
 #include "../../UI/UIDraw.h"
+#include "../../UI/UIDrawList.h"
+#include "../../UI/UIFrameComposition.h"
 #include "../../UI/UIFontMetrics.h"
 #include "../../UI/UIStyle.h"
 
@@ -76,15 +78,17 @@ using SkullbonezCore::UI::InGameUITab;
 namespace
 {
 void DrawUiTestPattern(
+    SkullbonezCore::UI::UIDrawList& drawList,
     SkullbonezCore::Text::TextBatch& textBatch,
     SkullbonezCore::Rendering::Dx12TextureOwner& renderTextures,
     SkullbonezCore::Rendering::Dx12GeometryOwner& renderCommands,
+    SkullbonezCore::Rendering::Dx12Diagnostics& renderDiagnostics,
     int screenW,
     int screenH
 )
 {
-    const SkullbonezCore::UI::UIDrawContext
-        draw( screenW, screenH, nullptr, &renderTextures, &renderCommands, &textBatch );
+    drawList.Clear();
+    const SkullbonezCore::UI::UIDrawContext draw( screenW, screenH, drawList );
     draw.Rect( 0.0f, 0.0f, static_cast<float>( screenW ), static_cast<float>( screenH ), 0.20f, 0.31f, 0.36f, 1.0f );
 
     constexpr float tile = 88.0f;
@@ -109,7 +113,16 @@ void DrawUiTestPattern(
     draw.Rect( 76.0f, 116.0f, 720.0f, 8.0f, 0.98f, 0.12f, 0.46f, 0.82f );
     draw.Rect( 76.0f, 300.0f, 720.0f, 8.0f, 0.30f, 1.0f, 0.56f, 0.78f );
     draw.Rect( 76.0f, 484.0f, 720.0f, 8.0f, 0.38f, 0.54f, 1.0f, 0.82f );
-    Text2d::FlushQuads( textBatch, renderCommands );
+    SkullbonezCore::UI::FrameComposition::FlushUIDrawList(
+        drawList,
+        textBatch,
+        nullptr,
+        renderTextures,
+        renderCommands,
+        renderDiagnostics,
+        screenW,
+        screenH
+    );
 }
 
 
@@ -133,9 +146,13 @@ SkullbonezCore::Core::MainMemoryStats BuildMainMemoryOverlayStats(
     return stats;
 }
 
-void RenderReplayScrubberOverlayFromInputs( SkullbonezCore::Text::TextBatch& textBatch, const UiTextPassInputs& inputs )
+void RenderReplayScrubberOverlayFromInputs(
+    SkullbonezCore::Text::TextBatch& textBatch,
+    SkullbonezCore::UI::UIDrawList& drawList,
+    const UiTextPassInputs& inputs
+)
 {
-    ReplayOverlay::RenderReplayScrubberOverlay( textBatch, inputs.replayOverlayContext );
+    ReplayOverlay::RenderReplayScrubberOverlay( textBatch, drawList, inputs.replayOverlayContext );
 }
 
 void RenderReplayDivergenceCounter( SkullbonezCore::Text::TextBatch& textBatch, const UiTextPassInputs& inputs )
@@ -213,6 +230,11 @@ void UiTextPass::ReleaseGpuResources(
     Rendering::Dx12GeometryOwner* renderGeometry
 )
 {
+    UI::FrameComposition::ResetRenderTargetPreviewResources(
+        m_uiPreviewShader,
+        m_uiPreviewVertexBuffer,
+        renderGeometry
+    );
     Text2d::DeleteFont( m_textBatch, renderTextures, renderGeometry );
     m_renderRayTracing = nullptr;
 }
@@ -333,6 +355,12 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     constexpr float TOP_RIGHT_BADGE_MARGIN = 12.0f;
     constexpr float TOP_RIGHT_BADGE_GAP = 6.0f;
     float topRightBadgeY = TOP_RIGHT_BADGE_MARGIN;
+    m_badgeDrawList.Clear();
+    const SkullbonezCore::UI::UIDrawContext badgeDraw(
+        (std::max)( 1, state.screenW ),
+        (std::max)( 1, state.screenH ),
+        m_badgeDrawList
+    );
 
     const auto renderScenePauseBadge = [&]()
     {
@@ -343,9 +371,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         }
 
         const int screenW = (std::max)( 1, state.screenW );
-        const int screenH = (std::max)( 1, state.screenH );
-        const SkullbonezCore::UI::UIDrawContext
-            draw( screenW, screenH, nullptr, &renderTextures, &renderCommands, &textBatch );
+        const SkullbonezCore::UI::UIDrawContext& draw = badgeDraw;
         const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
         const SkullbonezCore::UI::Style::UIRadii& radii = SkullbonezCore::UI::Style::Radii();
 
@@ -412,7 +438,6 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
             0.90f
         );
 
-        Text2d::FlushQuads( textBatch, renderCommands );
         draw.Text(
             x + padX,
             y + padY,
@@ -451,9 +476,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         }
 
         const int screenW = (std::max)( 1, state.screenW );
-        const int screenH = (std::max)( 1, state.screenH );
-        const SkullbonezCore::UI::UIDrawContext
-            draw( screenW, screenH, nullptr, &renderTextures, &renderCommands, &textBatch );
+        const SkullbonezCore::UI::UIDrawContext& draw = badgeDraw;
         const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
         const SkullbonezCore::UI::Style::UIRadii& radii = SkullbonezCore::UI::Style::Radii();
 
@@ -508,7 +531,6 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
             0.88f
         );
 
-        Text2d::FlushQuads( textBatch, renderCommands );
         draw.Text( x + padX, y + padY, titlePx, accent.r, accent.g, accent.b, modeLine );
         draw.Text(
             x + padX,
@@ -523,6 +545,19 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 
     renderScenePauseBadge();
     renderRuntimeModeBadge();
+    if ( !m_badgeDrawList.Empty() )
+    {
+        SkullbonezCore::UI::FrameComposition::FlushUIDrawList(
+            m_badgeDrawList,
+            textBatch,
+            m_gpuTiming,
+            renderTextures,
+            renderCommands,
+            inputs.renderDiagnostics,
+            (std::max)( 1, state.screenW ),
+            (std::max)( 1, state.screenH )
+        );
+    }
     RenderReplayDivergenceCounter( textBatch, inputs );
 
     // Crosshair - always visible when launcher mode is active, regardless of overlay state.
@@ -630,7 +665,15 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.screenH = state.screenH;
         if ( state.debug.isUITestPattern )
         {
-            DrawUiTestPattern( textBatch, renderTextures, renderCommands, UIData.screenW, UIData.screenH );
+            DrawUiTestPattern(
+                m_testPatternDrawList,
+                textBatch,
+                renderTextures,
+                renderCommands,
+                inputs.renderDiagnostics,
+                UIData.screenW,
+                UIData.screenH
+            );
         }
         UIData.rendererName = rendererName;
         UIData.sceneName = sceneName;
@@ -1072,7 +1115,24 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         }
         PROFILE_END( m_profiler, "Frame/UI/PreFlushText" );
         UIData.drawCallsBeforeUI = uiPassDrawCallStart;
-        inputs.ui.Draw( UIData, uiRender );
+        const UI::UIDrawList& uiDrawList = inputs.ui.Draw( UIData );
+        UI::FrameComposition::FlushUIDrawList(
+            uiDrawList,
+            textBatch,
+            m_gpuTiming,
+            renderTextures,
+            renderCommands,
+            inputs.renderDiagnostics,
+            UIData.screenW,
+            UIData.screenH,
+            0.0f,
+            0.0f,
+            &UIData,
+            &m_uiPreviewShader,
+            &m_uiPreviewVertexBuffer,
+            &uiRender
+        );
+
         PROFILE_BEGIN( m_profiler, "Frame/UI/PostFlushText" );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "Frame/UI/PostFlushText" );
@@ -1081,7 +1141,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         PROFILE_END( m_profiler, "Frame/UI/PostFlushText" );
         if ( inputs.ui.IsVisible() )
         {
-            RenderReplayScrubberOverlayFromInputs( textBatch, inputs );
+            RenderReplayScrubberOverlayFromInputs( textBatch, m_replayDrawList, inputs );
             return;
         }
     }
@@ -1089,7 +1149,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     // --- Overlay: None ---
     if ( state.debug.overlayMode == OverlayMode::None )
     {
-        RenderReplayScrubberOverlayFromInputs( textBatch, inputs );
+        RenderReplayScrubberOverlayFromInputs( textBatch, m_replayDrawList, inputs );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "HUD" );
             Text2d::FlushText( textBatch, renderTextures, renderCommands );
@@ -1144,7 +1204,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
             "Scene Energy: %.6f",
             sceneEnergyForDisplay
         );
-        RenderReplayScrubberOverlayFromInputs( textBatch, inputs );
+        RenderReplayScrubberOverlayFromInputs( textBatch, m_replayDrawList, inputs );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "SceneStats" );
             Text2d::FlushText( textBatch, renderTextures, renderCommands );
@@ -1166,7 +1226,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const bool absolute = ( state.debug.overlayMode == OverlayMode::BarsAbsolute );
         profilerOverlay
             .RenderBarOverlay( profiler.FrameView(), textBatch, renderCommands, panX, panY, panW, panH, absolute );
-        RenderReplayScrubberOverlayFromInputs( textBatch, inputs );
+        RenderReplayScrubberOverlayFromInputs( textBatch, m_replayDrawList, inputs );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "ProfilerBars" );
             Text2d::FlushText( textBatch, renderTextures, renderCommands );
@@ -1251,7 +1311,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
             Text2d::Render2dTextColor( textBatch, col2Desc, y, entrySz, 0.85f, 0.85f, 0.85f, "%s", kRight[i].desc );
         }
 
-        RenderReplayScrubberOverlayFromInputs( textBatch, inputs );
+        RenderReplayScrubberOverlayFromInputs( textBatch, m_replayDrawList, inputs );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "Keys" );
             Text2d::FlushText( textBatch, renderTextures, renderCommands );
@@ -1281,7 +1341,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     }
 #endif
 
-    RenderReplayScrubberOverlayFromInputs( textBatch, inputs );
+    RenderReplayScrubberOverlayFromInputs( textBatch, m_replayDrawList, inputs );
     {
         DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "ProfilerOverlay" );
         Text2d::FlushText( textBatch, renderTextures, renderCommands );

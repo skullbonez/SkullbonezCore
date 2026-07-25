@@ -41,7 +41,183 @@ namespace
 {
 constexpr Rendering::PassRasterStateBucket PREVIEW_RASTER_STATE =
     Rendering::MakePassRasterStateBucket( 0, { false, false, false } );
-}
+
+// Concept: UI authors screen-space values; this temporary submitter is the
+// backend-facing half of replay. It deliberately lives beside the current
+// submission function and never escapes into UIDrawContext or widget code.
+class ImmediateUiSubmitter
+{
+  public:
+    ImmediateUiSubmitter(
+        int screenW,
+        int screenH,
+        Text::TextBatch& textBatch,
+        Rendering::Dx12GeometryOwner& renderCommands
+    )
+        : m_textBatch( textBatch ), m_renderCommands( renderCommands )
+    {
+        screenW = (std::max)( 1, screenW );
+        screenH = (std::max)( 1, screenH );
+        m_halfH = Text::Text2d::HalfH( textBatch );
+        m_halfW = Text::Text2d::HalfW( textBatch );
+        m_scaleX = ( m_halfW * 2.0f ) / static_cast<float>( screenW );
+        m_scaleY = ( m_halfH * 2.0f ) / static_cast<float>( screenH );
+    }
+
+    void Rect( float x, float y, float w, float h, float r, float g, float b, float a )
+    {
+        float x0 = Snap( x );
+        float y0 = Snap( y );
+        float x1 = Snap( x + w );
+        float y1 = Snap( y + h );
+        if ( x1 <= x0 && w > 0.0f )
+        {
+            x1 = x0 + 1.0f;
+        }
+        if ( y1 <= y0 && h > 0.0f )
+        {
+            y1 = y0 + 1.0f;
+        }
+        Text::Text2d::BatchQuad(
+            m_textBatch,
+            m_renderCommands,
+            PixelX( x0 ),
+            PixelY( y1 ),
+            PixelX( x1 ),
+            PixelY( y0 ),
+            r,
+            g,
+            b,
+            a
+        );
+    }
+
+    void Triangle( float x0, float y0, float x1, float y1, float x2, float y2, float r, float g, float b, float a )
+    {
+        Text::Text2d::BatchTriangle(
+            m_textBatch,
+            m_renderCommands,
+            PixelX( x0 ),
+            PixelY( y0 ),
+            PixelX( x1 ),
+            PixelY( y1 ),
+            PixelX( x2 ),
+            PixelY( y2 ),
+            r,
+            g,
+            b,
+            a
+        );
+    }
+
+    void RoundedRect( float x, float y, float w, float h, float radius, float r, float g, float b, float a )
+    {
+        if ( radius > 1.0f && w > 4.0f && h > 4.0f && a > 0.05f )
+        {
+            RoundedRectFill( x - 0.5f, y - 0.5f, w + 1.0f, h + 1.0f, radius + 0.5f, r, g, b, a * 0.30f );
+        }
+        RoundedRectFill( x, y, w, h, radius, r, g, b, a );
+    }
+
+    void Text( float x, float y, float pxSize, float r, float g, float b, const char* value )
+    {
+        Text::Text2d::Render2dTextColor(
+            m_textBatch,
+            PixelX( Snap( x ) ),
+            PixelY( Snap( y ) + pxSize ),
+            pxSize * m_scaleY,
+            r,
+            g,
+            b,
+            "%s",
+            value
+        );
+    }
+
+  private:
+    static float Snap( float value )
+    {
+        return std::floor( value + 0.5f );
+    }
+
+    float PixelX( float x ) const
+    {
+        return -m_halfW + x * m_scaleX;
+    }
+
+    float PixelY( float y ) const
+    {
+        return m_halfH - y * m_scaleY;
+    }
+
+    void RoundedSpan( float left, float y, float right, float r, float g, float b, float a )
+    {
+        if ( right <= left || a <= 0.0f )
+        {
+            return;
+        }
+
+        const float fullLeft = std::ceil( left );
+        const float fullRight = std::floor( right );
+        const float leftCoverage = std::clamp( fullLeft - left, 0.0f, 1.0f );
+        const float rightCoverage = std::clamp( right - fullRight, 0.0f, 1.0f );
+        if ( leftCoverage > 0.01f )
+        {
+            Rect( fullLeft - 1.0f, y, 1.0f, 1.0f, r, g, b, a * leftCoverage );
+        }
+        if ( fullRight > fullLeft )
+        {
+            Rect( fullLeft, y, fullRight - fullLeft, 1.0f, r, g, b, a );
+        }
+        if ( rightCoverage > 0.01f )
+        {
+            Rect( fullRight, y, 1.0f, 1.0f, r, g, b, a * rightCoverage );
+        }
+    }
+
+    void RoundedRectFill( float x, float y, float w, float h, float radius, float r, float g, float b, float a )
+    {
+        if ( w <= 0.0f || h <= 0.0f || a <= 0.0f )
+        {
+            return;
+        }
+
+        const float clampedRadius = std::clamp( radius, 0.0f, (std::min)( w, h ) * 0.5f );
+        if ( clampedRadius <= 0.5f )
+        {
+            Rect( x, y, w, h, r, g, b, a );
+            return;
+        }
+
+        const int capRows = (std::max)( 1, static_cast<int>( std::ceil( clampedRadius ) ) );
+        const float middleY = y + static_cast<float>( capRows );
+        const float middleH = h - static_cast<float>( capRows * 2 );
+        if ( middleH > 0.0f )
+        {
+            Rect( x, middleY, w, middleH, r, g, b, a );
+        }
+
+        const float radiusSq = clampedRadius * clampedRadius;
+        for ( int row = 0; row < capRows; ++row )
+        {
+            const float sample = (std::min)( static_cast<float>( row ) + 0.5f, clampedRadius );
+            const float dy = clampedRadius - sample;
+            const float xInset = clampedRadius - std::sqrt( (std::max)( 0.0f, radiusSq - dy * dy ) );
+            const float left = x + xInset;
+            const float right = x + w - xInset;
+            RoundedSpan( left, y + static_cast<float>( row ), right, r, g, b, a );
+            RoundedSpan( left, y + h - static_cast<float>( row ) - 1.0f, right, r, g, b, a );
+        }
+    }
+
+    Text::TextBatch& m_textBatch;
+    Rendering::Dx12GeometryOwner& m_renderCommands;
+    float m_halfW = 1.0f;
+    float m_halfH = 1.0f;
+    float m_scaleX = 1.0f;
+    float m_scaleY = 1.0f;
+};
+} // namespace
 
 uint32_t HashCombine( uint32_t seed, uint32_t value )
 {
@@ -485,11 +661,29 @@ void FlushUIDrawList(
     int screenW,
     int screenH,
     float offsetX,
-    float offsetY
+    float offsetY,
+    const InGameUIFrameData* previewData,
+    std::unique_ptr<Rendering::ShaderDX12>* previewShader,
+    uint32_t* previewVertexBuffer,
+    const UIRenderContext* previewRender
 )
 {
     PROFILE_GPU_BEGIN( gpuTiming, "Frame/UI/Draw" );
-    const UIDrawContext immediateDraw( screenW, screenH, nullptr, &renderTextures, &renderCommands, &textBatch );
+    ImmediateUiSubmitter immediateDraw( screenW, screenH, textBatch, renderCommands );
+    UIRect clipStack[UIDrawList::MAX_CLIP_DEPTH];
+    int clipDepth = 0;
+    auto flushQueued = [&]()
+    {
+        {
+            DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Widgets" );
+            Text::Text2d::FlushQuads( textBatch, renderCommands );
+        }
+        {
+            DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Text" );
+            Text::Text2d::FlushText( textBatch, renderTextures, renderCommands );
+        }
+    };
+
     for ( const UIDrawList::Command& command : drawList.Commands() )
     {
         switch ( command.type )
@@ -545,21 +739,72 @@ void FlushUIDrawList(
             );
             break;
         case UIDrawList::CommandType::PushClip:
+            if ( clipDepth < UIDrawList::MAX_CLIP_DEPTH )
+            {
+                UIRect clip = { command.x0 + offsetX, command.y0 + offsetY, command.w, command.h };
+
+                if ( clipDepth > 0 )
+                {
+                    clip = IntersectRect( clipStack[clipDepth - 1], clip );
+                }
+                clipStack[clipDepth++] = clip;
+            }
+            break;
         case UIDrawList::CommandType::PopClip:
+            if ( clipDepth > 0 )
+            {
+                --clipDepth;
+            }
+            break;
         case UIDrawList::CommandType::PreviewImage:
-            // UR1 defines these backend-neutral values before UR2 converts
-            // their live producers and UR3 gives Runtime/Render submission.
+        {
+            // Invariant: images split the quad/text batches so commands
+            // authored after the image remain above it in the final frame.
+            flushQueued();
+            const UIRect bounds = { command.x0 + offsetX, command.y0 + offsetY, command.w, command.h };
+
+            const UIRect clip =
+                clipDepth > 0 ? clipStack[clipDepth - 1]
+                              : UIRect { 0.0f, 0.0f, static_cast<float>( screenW ), static_cast<float>( screenH ) };
+
+            const int targetIndex = static_cast<int>( command.preview.catalogIndex );
+            const bool canResolve = command.preview.valid && previewData && previewShader && previewVertexBuffer &&
+                                    previewRender && targetIndex >= 0 &&
+                                    targetIndex < RenderTargetPreviewCount( *previewData );
+            const UIRenderTargetPreviewResource* resource =
+                canResolve ? &previewData->renderTargetPreviews[targetIndex] : nullptr;
+            if ( resource && resource->available && resource->textureHandle != 0 )
+            {
+                DrawRenderTargetPreviewTexture(
+                    *previewShader,
+                    *previewVertexBuffer,
+                    *resource,
+                    bounds,
+                    clip,
+                    screenW,
+                    screenH,
+                    *previewRender
+                );
+            }
+            else
+            {
+                immediateDraw
+                    .Rect( bounds.x, bounds.y, bounds.w, bounds.h, command.r, command.g, command.b, command.a );
+                immediateDraw.Text(
+                    bounds.x + 12.0f,
+                    bounds.y + 12.0f,
+                    12.0f,
+                    0.68f,
+                    0.72f,
+                    0.78f,
+                    drawList.TextAt( command.textOffset )
+                );
+            }
             break;
         }
+        }
     }
-    {
-        DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Widgets" );
-        Text::Text2d::FlushQuads( textBatch, renderCommands );
-    }
-    {
-        DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Text" );
-        Text::Text2d::FlushText( textBatch, renderTextures, renderCommands );
-    }
+    flushQueued();
     PROFILE_GPU_END( gpuTiming, "Frame/UI/Draw" );
 }
 
@@ -811,10 +1056,11 @@ void ResetRenderTargetPreviewResources(
 void DrawRenderTargetPreviewTexture(
     std::unique_ptr<Rendering::ShaderDX12>& shader,
     uint32_t& dynamicVB,
-    const UIDrawContext& draw,
     const UIRenderTargetPreviewResource& resource,
     const UIRect& bounds,
     const UIRect& clipBounds,
+    int screenW,
+    int screenH,
     const UIRenderContext& render
 )
 {
@@ -841,17 +1087,27 @@ void DrawRenderTargetPreviewTexture(
     const float uvRight = std::clamp( ( visible.x + visible.w - bounds.x ) / bounds.w, 0.0f, 1.0f );
     const float uvTop = std::clamp( ( visible.y - bounds.y ) / bounds.h, 0.0f, 1.0f );
     const float uvBottom = std::clamp( ( visible.y + visible.h - bounds.y ) / bounds.h, 0.0f, 1.0f );
-    const float left = draw.TextX( visible.x );
-    const float right = draw.TextX( visible.x + visible.w );
-    const float top = draw.TextY( visible.y );
-    const float bottom = draw.TextY( visible.y + visible.h );
+    screenW = (std::max)( 1, screenW );
+    screenH = (std::max)( 1, screenH );
+    const float halfH = std::tan( 22.5f * 3.14159265358979323846f / 180.0f );
+    const float halfW = halfH * static_cast<float>( screenW ) / static_cast<float>( screenH );
+    const float scaleX = ( halfW * 2.0f ) / static_cast<float>( screenW );
+    const float scaleY = ( halfH * 2.0f ) / static_cast<float>( screenH );
+    const auto textX = [&]( float x ) { return -halfW + x * scaleX; };
+
+    const auto textY = [&]( float y ) { return halfH - y * scaleY; };
+
+    const float left = textX( visible.x );
+    const float right = textX( visible.x + visible.w );
+    const float top = textY( visible.y );
+    const float bottom = textY( visible.y + visible.h );
     const float verts[] = {
         left, bottom, uvLeft, uvBottom, right, bottom, uvRight, uvBottom, right, top, uvRight, uvTop,
         left, bottom, uvLeft, uvBottom, right, top,    uvRight, uvTop,    left,  top, uvLeft,  uvTop,
     };
 
     const Math::Transformation::Matrix4 proj =
-        Math::Transformation::Matrix4::Ortho( -draw.HalfW(), draw.HalfW(), -draw.HalfH(), draw.HalfH(), -1.0f, 1.0f );
+        Math::Transformation::Matrix4::Ortho( -halfW, halfW, -halfH, halfH, -1.0f, 1.0f );
     Rendering::Dx12TextureOwner& textures = *render.textures;
     Rendering::Dx12GeometryOwner& geometry = *render.geometry;
     const int mode = resource.depth ? 2 : ( resource.hdr ? 1 : 0 );

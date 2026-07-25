@@ -455,7 +455,7 @@ preserves the completed UI value/command boundary as the target architecture.
     mandatory CPU, Automation, replay/prediction, DX12, and physics lanes; the
     allocation-policy repository scan reports zero allowlist errors.
 
-- [ ] **UR2 — Convert all Legacy UI construction to record-only operation.**
+- [x] **UR2 — Convert all Legacy UI construction to record-only operation.**
 
   Remove immediate renderer calls from UI widgets, tabs, window chrome,
   overlays, cached draw lists, and minimized/full editor paths. Make
@@ -491,6 +491,42 @@ preserves the completed UI value/command boundary as the target architecture.
     byte/value equivalent.
   - `UIDrawContext` contains no Rendering type, pointer, reference, callback,
     or opaque backend token.
+
+  Evidence (2026-07-25):
+
+  - `UIDrawContext` is now a screen-space recorder with one `UIDrawList`
+    destination. All backend owner pointers, `TextBatch`, immediate draw
+    branches, and flush methods were deleted. Legacy widgets, chrome, combo
+    overlays, minimized/full editor, profiler/memory overlays, runtime badges,
+    UI test patterns, and Replay overlays now author bounded values.
+  - `InGameUI::Draw` returns one complete ordered frame. Cache replay uses
+    `UIDrawList::Append` with screen offsets and copied text; standalone
+    overlays append after the main surface. Render-target previews are ordered
+    clip/image commands with the UR1 placeholder contract, and the existing
+    submission path splits batches at the image so later outlines/text remain
+    above it.
+  - `UIDrawList::Fingerprint` hashes initialized semantic fields and referenced
+    text, never object padding. Committed CPU fixtures pin full editor,
+    minimized editor, all eleven tab identities, Replay overlay, and text-only
+    streams. A separate composition case proves cache offsets, text ownership,
+    nested clips, and preview fallback survive append.
+  - The initial UI capture exposed that a 8,192-command scratch list is too
+    large for nested Windows stack frames. `UiTextPass` now retains fixed
+    test-pattern, badge, and Replay scratch streams; no capacity was reduced
+    and no runtime allocation was added. The allocation-policy scan reports
+    zero allowlist errors.
+  - `validate_ui.bat` passed all 21 DX12 UI captures and blur checks.
+    `validate_tests.bat` passed 390 tests / 2,403,250 assertions.
+    `validate_full.bat` passed the CPU umbrella and five engine processes.
+    Replay visual fidelity passed from one 6,800-frame authoritative process:
+    2,401 ticks, 200 moved bricks, 175 toppled bricks, 200 causal nodes, and
+    every negative/determinism control. The wrapper exceeded the caller's
+    three-minute timeout, so its post-run CPU checks were resumed against the
+    exact completed report without starting a second engine process.
+  - Touched-source comment audit: 18/18 inspected, zero deferred. No baseline,
+    golden, scene, configuration, shader, replay artifact, or physics CSV was
+    refreshed or staged by this slice; the two pre-existing working-tree
+    replay-golden edits remain user-owned.
 
 - [ ] **UR3 — Move UI GPU submission and resource lifetime into Runtime/Render.**
 

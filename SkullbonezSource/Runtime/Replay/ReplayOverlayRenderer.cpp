@@ -37,6 +37,8 @@ Related:
 #include "../../Physics/PhysicsTimestep.h"
 #include "../../Rendering/Text.h"
 #include "../../UI/UIDraw.h"
+#include "../../UI/UIDrawList.h"
+#include "../../UI/UIFrameComposition.h"
 #include "../../UI/UIStyle.h"
 
 #include <algorithm>
@@ -77,6 +79,24 @@ float ReplayOverlayTrackPosition( const ReplayScrubberView& scrubber, RunReplayT
     }
     return scrubber.position;
 }
+
+void FlushReplayDrawList(
+    const UI::UIDrawList& drawList,
+    Text::TextBatch& textBatch,
+    const ReplayOverlayRenderContext& context
+)
+{
+    UI::FrameComposition::FlushUIDrawList(
+        drawList,
+        textBatch,
+        nullptr,
+        context.renderTextures,
+        context.renderCommands,
+        context.renderDiagnostics,
+        context.screenW,
+        context.screenH
+    );
+}
 } // namespace
 
 // Concept: the replay overlay is a read-only projection of replay state.
@@ -84,7 +104,11 @@ float ReplayOverlayTrackPosition( const ReplayScrubberView& scrubber, RunReplayT
 // Input code owns mutations such as dragging, toggling prediction, and branch
 // creation. This pass samples the current state and turns it into UI quads and
 // text so rendering cannot accidentally advance or rewrite replay timelines.
-void RenderReplayScrubberOverlay( Text::TextBatch& textBatch, const ReplayOverlayRenderContext& context )
+void RenderReplayScrubberOverlay(
+    Text::TextBatch& textBatch,
+    UI::UIDrawList& drawList,
+    const ReplayOverlayRenderContext& context
+)
 {
     PROFILE_SCOPED( context.profiler, "Frame/Replay/ScrubberOverlay" );
     const ReplayOverlayStateView& replay = context.replay;
@@ -95,15 +119,13 @@ void RenderReplayScrubberOverlay( Text::TextBatch& textBatch, const ReplayOverla
         // inactive. This is a presentation fence, not replay-owner mutation.
         return;
     }
-    RenderReplayInterceptOverlay( textBatch, context );
-    RenderReplayTripPlannerOverlay( textBatch, context );
-    RenderReplayPorkchopOverlay( textBatch, context );
+    RenderReplayInterceptOverlay( textBatch, drawList, context );
+    RenderReplayTripPlannerOverlay( textBatch, drawList, context );
+    RenderReplayPorkchopOverlay( textBatch, drawList, context );
     const ReplayScrubberView& scrubber = replay.scrubber;
-    Rendering::Dx12TextureOwner& renderTextures = context.renderTextures;
-    Rendering::Dx12GeometryOwner& renderCommands = context.renderCommands;
     // Why: the cause tree is an inspection tool, not a child of the scrubber.
     // Draw it even when the scrubber itself is hidden by UI/editor policy.
-    RenderReplayCauseTreeOverlay( textBatch, context );
+    RenderReplayCauseTreeOverlay( textBatch, drawList, context );
 
     if ( !replay.shouldRenderScrubber )
     {
@@ -206,7 +228,8 @@ void RenderReplayScrubberOverlay( Text::TextBatch& textBatch, const ReplayOverla
         sprintf_s( timeLabel, sizeof( timeLabel ), "-%.1fs", secondsBack );
     }
 
-    const UI::UIDrawContext draw( screenW, screenH, nullptr, &renderTextures, &renderCommands, &textBatch );
+    drawList.Clear();
+    const UI::UIDrawContext draw( screenW, screenH, drawList );
     const UI::UIRect panel = control( ReplayScrubberControl::Panel ).drawRect;
     const UI::Style::UIPalette& palette = UI::Style::Palette();
     const UI::Style::UIRadii& radii = UI::Style::Radii();
@@ -603,8 +626,7 @@ void RenderReplayScrubberOverlay( Text::TextBatch& textBatch, const ReplayOverla
 
     if ( loadedPresentation )
     {
-        Text2d::FlushQuads( textBatch, renderCommands );
-        Text2d::FlushText( textBatch, renderTextures, renderCommands );
+        FlushReplayDrawList( drawList, textBatch, context );
         return;
     }
 
@@ -960,11 +982,14 @@ void RenderReplayScrubberOverlay( Text::TextBatch& textBatch, const ReplayOverla
         );
     }
 
-    Text2d::FlushQuads( textBatch, renderCommands );
-    Text2d::FlushText( textBatch, renderTextures, renderCommands );
+    FlushReplayDrawList( drawList, textBatch, context );
 }
 
-void RenderReplayInterceptOverlay( Text::TextBatch& textBatch, const ReplayOverlayRenderContext& context )
+void RenderReplayInterceptOverlay(
+    Text::TextBatch& textBatch,
+    UI::UIDrawList& drawList,
+    const ReplayOverlayRenderContext& context
+)
 {
     // Why: closest approach is useful while the scrubber is hidden, so this
     // independent Legacy surface is invoked before scrubber visibility policy.
@@ -974,10 +999,8 @@ void RenderReplayInterceptOverlay( Text::TextBatch& textBatch, const ReplayOverl
         return;
     }
 
-    Rendering::Dx12TextureOwner& renderTextures = context.renderTextures;
-    Rendering::Dx12GeometryOwner& renderCommands = context.renderCommands;
-    const UI::UIDrawContext
-        draw( context.screenW, context.screenH, nullptr, &renderTextures, &renderCommands, &textBatch );
+    drawList.Clear();
+    const UI::UIDrawContext draw( context.screenW, context.screenH, drawList );
     const UI::UIRect panel = ReplayInterceptReadoutRect( context.screenW );
     const UI::Style::UIPalette& palette = UI::Style::Palette();
     const UI::Style::UIRadii& radii = UI::Style::Radii();
@@ -995,11 +1018,14 @@ void RenderReplayInterceptOverlay( Text::TextBatch& textBatch, const ReplayOverl
     draw.RoundedPanel( panel, radii.control, palette.windowSubtle, palette.innerBorder );
     const float labelWidth = Text2d::MeasureText( 11.0f, label );
     draw.Text( panel.x + ( panel.w - labelWidth ) * 0.5f, panel.y + 7.0f, 11.0f, accent.r, accent.g, accent.b, label );
-    Text2d::FlushQuads( textBatch, renderCommands );
-    Text2d::FlushText( textBatch, renderTextures, renderCommands );
+    FlushReplayDrawList( drawList, textBatch, context );
 }
 
-void RenderReplayTripPlannerOverlay( Text::TextBatch& textBatch, const ReplayOverlayRenderContext& context )
+void RenderReplayTripPlannerOverlay(
+    Text::TextBatch& textBatch,
+    UI::UIDrawList& drawList,
+    const ReplayOverlayRenderContext& context
+)
 {
     const ReplayTripPlannerView& planner = context.replay.tripPlanner;
     if ( !context.legacyReplaySurfaceActive || !planner.visible || !planner.available || context.screenW <= 0 ||
@@ -1008,10 +1034,8 @@ void RenderReplayTripPlannerOverlay( Text::TextBatch& textBatch, const ReplayOve
         return;
     }
 
-    Rendering::Dx12TextureOwner& renderTextures = context.renderTextures;
-    Rendering::Dx12GeometryOwner& renderCommands = context.renderCommands;
-    const UI::UIDrawContext
-        draw( context.screenW, context.screenH, nullptr, &renderTextures, &renderCommands, &textBatch );
+    drawList.Clear();
+    const UI::UIDrawContext draw( context.screenW, context.screenH, drawList );
     const UI::Style::UIPalette& palette = UI::Style::Palette();
     const UI::Style::UIRadii& radii = UI::Style::Radii();
     // Invariant: rendering consumes the same fixed control rectangles that
@@ -1129,11 +1153,14 @@ void RenderReplayTripPlannerOverlay( Text::TextBatch& textBatch, const ReplayOve
     button( ReplayTripPlannerControl::Plan, "PLAN" );
     button( ReplayTripPlannerControl::Commit, "COMMIT" );
     button( ReplayTripPlannerControl::Cancel, "CANCEL" );
-    Text2d::FlushQuads( textBatch, renderCommands );
-    Text2d::FlushText( textBatch, renderTextures, renderCommands );
+    FlushReplayDrawList( drawList, textBatch, context );
 }
 
-void RenderReplayPorkchopOverlay( Text::TextBatch& textBatch, const ReplayOverlayRenderContext& context )
+void RenderReplayPorkchopOverlay(
+    Text::TextBatch& textBatch,
+    UI::UIDrawList& drawList,
+    const ReplayOverlayRenderContext& context
+)
 {
     const ReplayPorkchopPanelView& porkchop = context.replay.porkchop;
     if ( !context.legacyReplaySurfaceActive || !porkchop.visible || context.screenW <= 0 || context.screenH <= 0 )
@@ -1141,10 +1168,8 @@ void RenderReplayPorkchopOverlay( Text::TextBatch& textBatch, const ReplayOverla
         return;
     }
 
-    Rendering::Dx12TextureOwner& renderTextures = context.renderTextures;
-    Rendering::Dx12GeometryOwner& renderCommands = context.renderCommands;
-    const UI::UIDrawContext
-        draw( context.screenW, context.screenH, nullptr, &renderTextures, &renderCommands, &textBatch );
+    drawList.Clear();
+    const UI::UIDrawContext draw( context.screenW, context.screenH, drawList );
     const UI::Style::UIPalette& palette = UI::Style::Palette();
     const UI::Style::UIRadii& radii = UI::Style::Radii();
     const UI::UIRect panel = ReplayPorkchopPanelRect( context.screenW );
@@ -1312,11 +1337,14 @@ void RenderReplayPorkchopOverlay( Text::TextBatch& textBatch, const ReplayOverla
         readout
     );
 
-    Text2d::FlushQuads( textBatch, renderCommands );
-    Text2d::FlushText( textBatch, renderTextures, renderCommands );
+    FlushReplayDrawList( drawList, textBatch, context );
 }
 
-void RenderReplayCauseTreeOverlay( Text::TextBatch& textBatch, const ReplayOverlayRenderContext& context )
+void RenderReplayCauseTreeOverlay(
+    Text::TextBatch& textBatch,
+    UI::UIDrawList& drawList,
+    const ReplayOverlayRenderContext& context
+)
 {
     PROFILE_SCOPED( context.profiler, "Frame/Replay/CauseTree/Overlay" );
     const ReplayOverlayStateView& replay = context.replay;
@@ -1324,8 +1352,6 @@ void RenderReplayCauseTreeOverlay( Text::TextBatch& textBatch, const ReplayOverl
     {
         return;
     }
-    Rendering::Dx12TextureOwner& renderTextures = context.renderTextures;
-    Rendering::Dx12GeometryOwner& renderCommands = context.renderCommands;
     const int screenW = context.screenW;
     const int screenH = context.screenH;
     if ( screenW <= 0 || screenH <= 0 || replay.causeTree.rows.empty() )
@@ -1357,7 +1383,8 @@ void RenderReplayCauseTreeOverlay( Text::TextBatch& textBatch, const ReplayOverl
     const UI::UIRect content = controlRect( ReplayCauseWindowControl::Content );
     const UI::UIRect resize = controlRect( ReplayCauseWindowControl::Resize );
 
-    const UI::UIDrawContext draw( screenW, screenH, nullptr, &renderTextures, &renderCommands, &textBatch );
+    drawList.Clear();
+    const UI::UIDrawContext draw( screenW, screenH, drawList );
     const UI::Style::UIPalette& palette = UI::Style::Palette();
     const UI::Style::UIRadii& radii = UI::Style::Radii();
     UI::Style::UIColor panelFill = palette.windowSubtle;
@@ -1691,7 +1718,6 @@ void RenderReplayCauseTreeOverlay( Text::TextBatch& textBatch, const ReplayOverl
         0.68f
     );
 
-    Text2d::FlushQuads( textBatch, renderCommands );
-    Text2d::FlushText( textBatch, renderTextures, renderCommands );
+    FlushReplayDrawList( drawList, textBatch, context );
 }
 } // namespace SkullbonezCore::Runtime::ReplayOverlay

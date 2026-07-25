@@ -4,7 +4,7 @@ Purpose:
   Declares the in-engine UI draw composer and its stable public command surface.
 
 Summary:
-  InGameUI composes drawing and draw-only resources around a concrete
+  InGameUI composes one bounded draw frame around a concrete
   UIWindowInteractionOwner. Callers keep the stable InGameUI API while window,
   widget, tab-input, gesture, and cache authority live in that owner.
 
@@ -26,6 +26,7 @@ Invariants:
     runtime owners never retain a backpointer to this model.
   - The interaction owner has no InGameUI backpointer, friend edge, callback
     pack, or unrelated runtime context.
+  - Draw returns backend-neutral values and never requires a renderer owner.
 
 Related:
   - SkullbonezSource/UI/UI.cpp
@@ -348,7 +349,9 @@ class InGameUI
         std::span<const char* const> sceneOptions,
         int selectedSceneOption
     );
-    void Draw( const InGameUIFrameData& data, const UIRenderContext& render );
+    // Builds one complete ordered frame of backend-neutral draw values. The
+    // returned view remains valid until the next Draw call on this owner.
+    const UIDrawList& Draw( const InGameUIFrameData& data );
 
   private:
     // Lifetime: Init owns this profiler beyond the cohesive UI owner; input and
@@ -358,6 +361,7 @@ class InGameUI
     // Lifetime: the interaction owner holds every widget and gesture record
     // shared by hit testing and drawing. It never retains an InGameUI reach-back.
     UIWindowInteractionOwner m_windowInteraction;
+    UIDrawList m_frameDrawList;
     UIDrawList m_histogramDrawList;
     UIDrawList m_memoryOverlayDrawList;
     std::unique_ptr<Rendering::ShaderDX12> m_renderTargetPreviewShader;

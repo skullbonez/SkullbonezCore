@@ -280,6 +280,7 @@
     <ClCompile Include="SkullbonezSource\UI\OperatorEditorExchange.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIInput.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIDrawList.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UIDraw.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIFontMetrics.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorLayoutPolicy.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRequestQueue.cpp" />

@@ -1,13 +1,12 @@
 /*
 File: SkullbonezSource/UI/UIDrawList.cpp
 Purpose:
-  Implements UI DrawList widgets, layout, drawing, or UI state for the in-engine controls.
+  Implements bounded Legacy UI command storage, composition, and fingerprints.
 
 Summary:
-  UIDrawList.cpp implements UI DrawList widgets, layout, drawing, or UI state
-  for the in-engine controls. As an implementation unit, keep edits anchored
-  on UI request, layout, hit-test, and draw-command flow and on the
-  glossary/invariants below.
+  Every authoring operation initializes one plain command. Append rebuilds
+  commands through the public bounded operations so text offsets and clip
+  diagnostics remain owned by the destination list.
 
 Glossary:
   Draw command: Lightweight record describing a UI shape or text batch to
@@ -16,8 +15,8 @@ Glossary:
   widget.
 
 Invariants:
-  - Draw geometry and hit testing must be derived from the same layout
-  constants.
+  - Capacity exhaustion sets diagnostics and never allocates or reorders.
+  - Reused command slots are zero-initialized before semantic hashing.
 
 Related:
   - SkullbonezSource/UI/UIDrawList.h
@@ -26,6 +25,7 @@ Related:
 #include "UIDrawList.h"
 
 #include <algorithm>
+#include <bit>
 
 namespace SkullbonezCore
 {
@@ -204,6 +204,92 @@ void UIDrawList::AddPreviewImage(
 }
 
 
+void UIDrawList::Append( const UIDrawList& source, float offsetX, float offsetY )
+{
+    for ( const Command& command : source.Commands() )
+    {
+        switch ( command.type )
+        {
+        case CommandType::Rect:
+            AddRect(
+                command.x0 + offsetX,
+                command.y0 + offsetY,
+                command.w,
+                command.h,
+                command.r,
+                command.g,
+                command.b,
+                command.a
+            );
+            break;
+        case CommandType::RoundedRect:
+            AddRoundedRect(
+                command.x0 + offsetX,
+                command.y0 + offsetY,
+                command.w,
+                command.h,
+                command.radius,
+                command.r,
+                command.g,
+                command.b,
+                command.a
+            );
+            break;
+        case CommandType::Triangle:
+            AddTriangle(
+                command.x0 + offsetX,
+                command.y0 + offsetY,
+                command.x1 + offsetX,
+                command.y1 + offsetY,
+                command.x2 + offsetX,
+                command.y2 + offsetY,
+                command.r,
+                command.g,
+                command.b,
+                command.a
+            );
+            break;
+        case CommandType::Text:
+            AddText(
+                command.x0 + offsetX,
+                command.y0 + offsetY,
+                command.pxSize,
+                command.r,
+                command.g,
+                command.b,
+                source.TextAt( command.textOffset )
+            );
+            break;
+        case CommandType::PushClip:
+            PushClip( command.x0 + offsetX, command.y0 + offsetY, command.w, command.h );
+            break;
+        case CommandType::PopClip:
+            PopClip();
+            break;
+        case CommandType::PreviewImage:
+            AddPreviewImage(
+                command.preview,
+                command.x0 + offsetX,
+                command.y0 + offsetY,
+                command.w,
+                command.h,
+                command.r,
+                command.g,
+                command.b,
+                command.a,
+                source.TextAt( command.textOffset )
+            );
+            break;
+        }
+    }
+
+    const Stats sourceStats = source.GetStats();
+    m_commandOverflow = m_commandOverflow || sourceStats.commandOverflow;
+    m_textOverflow = m_textOverflow || sourceStats.textOverflow;
+    m_clipOverflow = m_clipOverflow || sourceStats.clipOverflow;
+}
+
+
 bool UIDrawList::Empty() const
 {
     return m_commandCount == 0;
@@ -235,6 +321,65 @@ const char* UIDrawList::TextAt( int offset ) const
 }
 
 
+uint64_t UIDrawList::Fingerprint() const
+{
+    constexpr uint64_t OFFSET_BASIS = 14695981039346656037ull;
+    constexpr uint64_t PRIME = 1099511628211ull;
+    uint64_t hash = OFFSET_BASIS;
+    auto addByte = [&]( uint8_t value )
+    {
+        hash ^= value;
+        hash *= PRIME;
+    };
+
+    auto addUint32 = [&]( uint32_t value )
+    {
+        addByte( static_cast<uint8_t>( value ) );
+        addByte( static_cast<uint8_t>( value >> 8 ) );
+        addByte( static_cast<uint8_t>( value >> 16 ) );
+        addByte( static_cast<uint8_t>( value >> 24 ) );
+    };
+
+    auto addFloat = [&]( float value ) { addUint32( std::bit_cast<uint32_t>( value ) ); };
+
+    auto addText = [&]( const char* value )
+    {
+        for ( const unsigned char* cursor = reinterpret_cast<const unsigned char*>( value ); *cursor; ++cursor )
+        {
+            addByte( *cursor );
+        }
+        addByte( 0 );
+    };
+
+    addUint32( static_cast<uint32_t>( m_commandCount ) );
+    for ( const Command& command : Commands() )
+    {
+        addByte( static_cast<uint8_t>( command.type ) );
+        addFloat( command.x0 );
+        addFloat( command.y0 );
+        addFloat( command.x1 );
+        addFloat( command.y1 );
+        addFloat( command.x2 );
+        addFloat( command.y2 );
+        addFloat( command.w );
+        addFloat( command.h );
+        addFloat( command.radius );
+        addFloat( command.pxSize );
+        addFloat( command.r );
+        addFloat( command.g );
+        addFloat( command.b );
+        addFloat( command.a );
+        addUint32( command.preview.catalogIndex );
+        addByte( command.preview.valid ? 1u : 0u );
+        if ( command.type == CommandType::Text || command.type == CommandType::PreviewImage )
+        {
+            addText( TextAt( command.textOffset ) );
+        }
+    }
+    return hash;
+}
+
+
 UIDrawList::Command* UIDrawList::PushCommand()
 {
     if ( m_commandCount >= MAX_COMMANDS )
@@ -242,7 +387,10 @@ UIDrawList::Command* UIDrawList::PushCommand()
         m_commandOverflow = true;
         return nullptr;
     }
-    return &m_commands[m_commandCount++];
+    Command& command = m_commands[m_commandCount++];
+    command = {};
+
+    return &command;
 }
 
 

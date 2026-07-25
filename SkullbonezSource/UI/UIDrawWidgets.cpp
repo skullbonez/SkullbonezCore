@@ -30,8 +30,6 @@ Related:
 
 #include <algorithm>
 
-using namespace SkullbonezCore::Text;
-
 namespace SkullbonezCore
 {
 namespace UI

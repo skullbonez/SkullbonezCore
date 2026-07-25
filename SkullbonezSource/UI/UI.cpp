@@ -4,10 +4,10 @@ Purpose:
   Composes in-engine UI drawing and preserves the public InGameUI command surface.
 
 Summary:
-  UI.cpp draws the current typed widget view, owns draw-only command/resource
-  storage, and delegates persistent window/input state to
-  UIWindowInteractionOwner. Public wrappers preserve existing call sites while
-  authority lives in the concrete interaction owner.
+  UI.cpp records the current typed widget view into one complete ordered frame
+  and delegates persistent window/input state to UIWindowInteractionOwner.
+  Public wrappers preserve existing call sites while authority lives in the
+  concrete interaction owner.
 
 Glossary:
   Draw command: Lightweight record describing a UI shape or text batch to
@@ -22,6 +22,8 @@ Invariants:
     constants.
   - InGameUI never reaches into owner storage through friendship or a retained
     pointer; WidgetView is borrowed only inside the current draw call.
+  - Draw builds values only; Runtime/Render performs every flush, preview
+    resolution, resource operation, and GPU timing scope.
 
 Related:
   - SkullbonezSource/UI/UI.h
@@ -396,8 +398,9 @@ InGameUIInputResult InGameUI::UpdateInput(
         selectedSceneOption
     );
 }
-void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& render )
+const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
 {
+    m_frameDrawList.Clear();
     auto widgets = m_windowInteraction.Widgets();
     const bool histogramEnabled = ProfilerTab::PerformanceHistogramEnabled( widgets.profilerTab );
     const bool memoryOverlayEnabled = MemoryTab::OverlayEnabled( widgets.memoryOverlay );
@@ -406,15 +409,8 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
     ProfilerTab::SetFrameSnapshot( widgets.profilerTab, data.profiler );
     if ( !widgets.window.isVisible && !histogramEnabled && !memoryOverlayEnabled )
     {
-        return;
+        return m_frameDrawList;
     }
-    assert( render.IsReady() );
-    assert( render.textBatch && "InGameUI::Draw requires RuntimeRenderer's text batch" );
-    Text::TextBatch& textBatch = *render.textBatch;
-    Dx12TextureOwner& renderTextures = *render.textures;
-    Dx12GeometryOwner& renderCommands = *render.geometry;
-    Dx12Diagnostics& renderDiagnostics = *render.diagnostics;
-    DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Frame/UI/Draw" );
 
     const int screenW = (std::max)( 1, data.screenW );
     const int screenH = (std::max)( 1, data.screenH );
@@ -441,18 +437,9 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
         // marker samples, selector state, and drag/resize feedback must rebuild
         // every frame.
         m_histogramDrawList.Clear();
-        const UIDrawContext histogramDraw( screenW, screenH, &m_histogramDrawList, nullptr, nullptr, &textBatch );
+        const UIDrawContext histogramDraw( screenW, screenH, m_histogramDrawList );
         ProfilerTab::DrawPerformanceHistogram( widgets.profilerTab, histogramDraw, data );
-        FlushUIDrawList(
-            m_histogramDrawList,
-            textBatch,
-            render.gpuTiming,
-            renderTextures,
-            renderCommands,
-            renderDiagnostics,
-            screenW,
-            screenH
-        );
+        m_frameDrawList.Append( m_histogramDrawList );
     };
 
     auto drawMemoryOverlay = [&]()
@@ -466,21 +453,12 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
         // index. Draw it after the F5 panel so the F6 panel can anchor under
         // the CPU histogram's current position when both are visible.
         m_memoryOverlayDrawList.Clear();
-        const UIDrawContext memoryDraw( screenW, screenH, &m_memoryOverlayDrawList, nullptr, nullptr, &textBatch );
+        const UIDrawContext memoryDraw( screenW, screenH, m_memoryOverlayDrawList );
         const float memoryX = histogramEnabled ? widgets.profilerTab.histogramPanelX : 16.0f;
         const float memoryY =
             histogramEnabled ? widgets.profilerTab.histogramPanelY + widgets.profilerTab.histogramPanelH + 8.0f : 16.0f;
         MemoryTab::DrawOverlay( widgets.memoryOverlay, memoryDraw, data, memoryX, memoryY );
-        FlushUIDrawList(
-            m_memoryOverlayDrawList,
-            textBatch,
-            render.gpuTiming,
-            renderTextures,
-            renderCommands,
-            renderDiagnostics,
-            screenW,
-            screenH
-        );
+        m_frameDrawList.Append( m_memoryOverlayDrawList );
     };
 
     auto drawStandaloneOverlays = [&]()
@@ -501,7 +479,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
     if ( !widgets.window.isVisible )
     {
         drawStandaloneOverlays();
-        return;
+        return m_frameDrawList;
     }
 
     if ( widgets.window.isMinimized )
@@ -509,25 +487,16 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
         widgets.cache.Reset();
         UIDrawList& drawList = widgets.cache.MutableDrawList();
         drawList.Clear();
-        const UIDrawContext draw( screenW, screenH, &drawList, nullptr, nullptr, &textBatch );
+        const UIDrawContext draw( screenW, screenH, drawList );
         if ( widgets.window.animationActive && widgets.window.animationToMinimized )
         {
             const UIRect animBounds = Chrome::CurrentWindowRect( widgets.window, data.now );
             if ( widgets.window.animationActive )
             {
                 Chrome::DrawWindowAnimationShell( draw, animBounds );
-                FlushUIDrawList(
-                    drawList,
-                    textBatch,
-                    render.gpuTiming,
-                    renderTextures,
-                    renderCommands,
-                    renderDiagnostics,
-                    screenW,
-                    screenH
-                );
+                m_frameDrawList.Append( drawList );
                 drawStandaloneOverlays();
-                return;
+                return m_frameDrawList;
             }
         }
 
@@ -600,19 +569,10 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
             );
         }
         DrawEditorObjectCounter( draw, data, screenW, screenH );
-        FlushUIDrawList(
-            drawList,
-            textBatch,
-            render.gpuTiming,
-            renderTextures,
-            renderCommands,
-            renderDiagnostics,
-            screenW,
-            screenH
-        );
+        m_frameDrawList.Append( drawList );
 
         drawStandaloneOverlays();
-        return;
+        return m_frameDrawList;
     }
 
     PROFILE_BEGIN( m_profiler, "Frame/UI/Layout" );
@@ -684,31 +644,19 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
     {
         const float replayOffsetX = widgets.cache.ReplayOffsetX( cacheKey );
         const float replayOffsetY = widgets.cache.ReplayOffsetY( cacheKey );
-        FlushUIDrawList(
-            widgets.cache.DrawList(),
-            textBatch,
-            render.gpuTiming,
-            renderTextures,
-            renderCommands,
-            renderDiagnostics,
-            screenW,
-            screenH,
-            replayOffsetX,
-            replayOffsetY
-        );
+        m_frameDrawList.Append( widgets.cache.DrawList(), replayOffsetX, replayOffsetY );
 
         drawStandaloneOverlays();
         widgets.cache.StoreFrame( cacheKey );
-        return;
+        return m_frameDrawList;
     }
 
     UIDrawList& drawList = widgets.cache.MutableDrawList();
     drawList.Clear();
-    const UIDrawContext draw( screenW, screenH, &drawList, nullptr, nullptr, &textBatch );
+    const UIDrawContext draw( screenW, screenH, drawList );
     PROFILE_BEGIN( m_profiler, "Frame/UI/DrawBuild" );
 
     const UIRect blurBounds = { x, y, w, h };
-    Text2d::FlushQuads( textBatch, renderCommands );
     PROFILE_BEGIN( m_profiler, "Frame/UI/Blur" );
     widgets.backdropBlur
         .Draw( draw, blurBounds, screenW, screenH, data.currentFrame, data.now, widgets.blurPreviewEnabled );
@@ -1031,26 +979,20 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
 
         if ( selectedAvailable && IsBlockVisible( contentY, contentH, previewImage.y, previewImage.h ) )
         {
-            FlushUIDrawList(
-                drawList,
-                textBatch,
-                render.gpuTiming,
-                renderTextures,
-                renderCommands,
-                renderDiagnostics,
-                screenW,
-                screenH
+            drawList.PushClip( previewClip.x, previewClip.y, previewClip.w, previewClip.h );
+            drawList.AddPreviewImage(
+                { static_cast<uint16_t>( selectedIndex ), true },
+                previewImage.x,
+                previewImage.y,
+                previewImage.w,
+                previewImage.h,
+                targetPalette.windowSubtle.r,
+                targetPalette.windowSubtle.g,
+                targetPalette.windowSubtle.b,
+                targetPalette.windowSubtle.a,
+                "Preview unavailable"
             );
-            drawList.Clear();
-            DrawRenderTargetPreviewTexture(
-                m_renderTargetPreviewShader,
-                m_renderTargetPreviewVB,
-                draw,
-                *selected,
-                previewImage,
-                previewClip,
-                render
-            );
+            drawList.PopClip();
         }
         else if ( IsRowVisible( contentY, contentH, scrolledY + UI_TARGETS_PREVIEW_Y + 116.0f, 18.0f ) )
         {
@@ -1365,16 +1307,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
     );
 
     PROFILE_END( m_profiler, "Frame/UI/DrawBuild" );
-    FlushUIDrawList(
-        drawList,
-        textBatch,
-        render.gpuTiming,
-        renderTextures,
-        renderCommands,
-        renderDiagnostics,
-        screenW,
-        screenH
-    );
+    m_frameDrawList.Append( drawList );
     drawStandaloneOverlays();
     if ( drawsLiveRenderTargetPreview )
     {
@@ -1395,7 +1328,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
         drawStatsFlag[0] != '\0';
     if ( drawStatsRequested )
     {
-        const UIDrawList::Stats frameStats = drawList.GetStats();
+        const UIDrawList::Stats frameStats = m_frameDrawList.GetStats();
         const UIDrawList::Stats histogramStats = m_histogramDrawList.GetStats();
         const UIDrawList::Stats memoryStats = m_memoryOverlayDrawList.GetStats();
         std::fprintf(
@@ -1412,4 +1345,5 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
             frameStats.commandOverflow || frameStats.textOverflow || frameStats.clipOverflow ? 1 : 0
         );
     }
+    return m_frameDrawList;
 }
