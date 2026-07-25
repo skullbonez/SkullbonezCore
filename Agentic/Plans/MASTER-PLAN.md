@@ -518,16 +518,30 @@ value-command separation while deleting the remaining UI-to-Rendering backend
 edges, moving GPU submission and resource lifetime into Runtime/Render,
 removing operator-presentation policy from Rendering, establishing a
 standalone UI build target, and adding a mandatory directional dependency
-gate. The active/future ledger is 0/7.
+gate.
+
+The denominator grew 7 → 19 on 2026-07-25 when the owner registered the
+architecture follow-up round-4 campaign from the same-day engine architecture
+review (chat review at main tip `c670e95f`; the plan documents carry the
+dated evidence): replay subsystem partition (6 tasks) and downward domain
+bleed remediation (6 tasks). The same registration amended
+`ui-renderer-hard-boundary` with draw-stream fingerprint gating, baked
+font-metric single sourcing with exact parity, measured capacity high-water,
+preview-fallback contract placement, and consolidation of the standing
+shell-snippet dependency proofs into the UR5 validator; its task count is
+unchanged at 7. The active/future ledger is 0/19.
 
 ## Current Execution Priority
 
-`ui-renderer-hard-boundary` is the active implementation plan at 0/7. Start
-with UR0's source-derived edge census and disposition table; do not begin
-backend migration before every current UI-to-Rendering use has a named owner
-and deletion condition. The plan preserves the existing UI/Runtime
-value-command boundary and makes Runtime/Render the sole UI-to-renderer
-composition point. Use the repository orchestrator skill for implementation.
+The 2026-07-25 round-4 campaign is the active queue with binding order:
+1 `ui-renderer-hard-boundary` (0/7), 2 `replay-subsystem-partition` (0/6),
+3 `downward-domain-bleed-remediation` (0/6). Start with UR0's source-derived
+edge census and disposition table; do not begin backend migration before
+every current UI-to-Rendering use has a named owner and deletion condition.
+The UI plan preserves the existing UI/Runtime value-command boundary and
+makes Runtime/Render the sole UI-to-renderer composition point, and its UR5
+validator is the shared enforcement vehicle the two follow-up plans extend
+(RS4, DB4). Use the repository orchestrator skill for implementation.
 
 `solar-system-slingshot-usability` closed 4/4 on 2026-07-24 after the XY/Z-up
 correction, newest-state held-drag prediction, extended horizon, 32-body Mars
@@ -1573,6 +1587,57 @@ Rendering-to-UI/Runtime includes, a fixed-capacity backend-neutral UI draw
 stream, Runtime/Render-owned submission and GPU lifetime, a standalone UI
 build, mandatory dependency enforcement, unchanged visual behavior, mapped
 DX12/UI/performance/full gates, and one independent review.
+
+## Architecture Follow-Up Campaign Round 4 (2026-07-25)
+
+Source: the owner-requested engine architecture review of 2026-07-25 at main
+tip `c670e95f` (chat review; the plan documents carry the dated file:line
+evidence). The review found the class-level god objects closed and the
+top-level owner hierarchy sound, and named the two structural debts this
+campaign owns plus one amendment set:
+
+1. **Replay accretion** — `Runtime/Replay` is 72 files / 36,900 lines
+   (18.5% of `SkullbonezSource`) and has absorbed orbital-planning product
+   features (trip planner, porkchop panel, guide arcs, intercept readout)
+   plus the whole prediction domain, because features that consume predicted
+   data default into the package that owns prediction.
+2. **Downward domain bleed** — the dependency proofs police include
+   direction, not concept ownership: replay-prediction trajectory semantics
+   (19-float segment layout, feature capacities, continuation repair) live in
+   `Rendering/RenderCommandTypes.h` and the DX12 backend; Physics includes
+   `World/Terrain.h` and stores a borrowed `Geometry::Terrain*` in every
+   body record through an unpoliced Physics→World edge; and five fluid/
+   buoyancy fields sit in the universal `PhysicsBodyRecord` for every body in
+   every scene.
+3. **UI plan amendments** — accepted improvements embedded into
+   `ui-renderer-hard-boundary` without changing its task count.
+
+Owner decisions ratified at registration: the 2026-07-22 replay ruling stands
+(replay remains the flagship subsystem; the partition is an ownership/naming
+correction, not a slimming exercise, and performs zero deduplication);
+enforcement is directional dependency rules, symbol-deletion checks, and
+placement review rules only — no frozen counts, line budgets, or spelling
+ratchets; the UR5 dependency validator is the single shared enforcement
+vehicle, and RS4/DB4 extend it with rule data plus fixtures rather than new
+mechanisms; physics relocations (terrain boundary, buoyancy store) are
+byte-exact-or-revert — the bounded-divergence allowance does not apply.
+
+Standing rules binding every plan in this campaign: zero behavioral baseline,
+golden, screenshot, replay artifact, scene, config, or physics CSV refresh —
+divergence is reverted, never normalized; every DX12 slice runs the bounded
+graphics-stress proof per inventory rule 10; replay-facing slices run the
+one-invocation mega gate per inventory rule 11; one independent rubber-duck
+review per plan at closure; no new compatibility spellings, forwarding
+headers, context bags, callback packs, or hot-path inheritance artifacts.
+Execution order is binding: 1 UI/renderer hard boundary, 2 replay subsystem
+partition, 3 downward domain bleed remediation (DB1 additionally requires
+RS1's `Runtime/Prediction` package to exist).
+
+| Plan | State | Verified phase count | Start condition / next action |
+|---|---|---:|---|
+| [ui-renderer-hard-boundary](TODO/ui-renderer-hard-boundary.md) | Ready | 0/7 | UR0 census; amended 2026-07-25 with fingerprint/font-metric/capacity/fallback/validator-consolidation requirements |
+| [replay-subsystem-partition](TODO/replay-subsystem-partition.md) | Ready | 0/6 | Starts after UR6 closes; RS0 partition census of all 72 Replay files |
+| [downward-domain-bleed-remediation](TODO/downward-domain-bleed-remediation.md) | Ready | 0/6 | Starts after RS5 closes; DB0 bleed census and boundary-contract design |
 
 ## Features
 

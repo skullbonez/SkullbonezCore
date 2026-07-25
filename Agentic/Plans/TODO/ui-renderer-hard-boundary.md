@@ -33,9 +33,19 @@ Required plan-runner commit first line:
 UI Renderer Hard Boundary, TASK <DONE> / 7, <OVERALL_PERCENT>% OVERALL COMPLETE — <ACTION SUMMARY>
 ```
 
-With no other active/future plan, the task percentages after UR0-UR6 are 14%,
-29%, 43%, 57%, 71%, 86%, and 100%. Recalculate from the authoritative master
-ledger if another plan is registered before implementation.
+With the 2026-07-25 registration of `replay-subsystem-partition` (6 tasks)
+and `downward-domain-bleed-remediation` (6 tasks), the active/future ledger is
+19 tasks and the task percentages after UR0-UR6 are 5%, 11%, 16%, 21%, 26%,
+32%, and 37%. Recalculate from the authoritative master ledger if the
+portfolio changes before implementation.
+
+Amendment 2026-07-25: the owner-accepted architecture review added the
+requirements now embedded below — baked-font-metric single sourcing and exact
+text parity (UR1), measured capacity high-water before freezing draw-stream
+limits (UR1), preview-unavailable fallback semantics defined with the value
+contract (UR1), committed draw-stream fingerprint tests gating tab-by-tab
+conversion (UR2), and consolidation of the standing shell-snippet dependency
+proofs into the UR5 validator (UR5). The task count is unchanged.
 
 ## Problem And Measured Evidence
 
@@ -164,6 +174,9 @@ callback, virtual renderer interface, service bag, or generic context.
   create or submit GPU resources.
 - No replacement of the existing fixed-capacity draw list with a broad frame
   context or parameter bag.
+- No retained-trajectory or generic retained-geometry work. That boundary
+  belongs to `downward-domain-bleed-remediation` DB1, which reuses this
+  plan's bounded value-stream + Runtime/Render translator pattern.
 - No baseline, screenshot, replay artifact, physics CSV, shader artifact,
   scene, or configuration refresh. Any visual or behavioral divergence is a
   defect to investigate.
@@ -244,16 +257,42 @@ callback, virtual renderer interface, service bag, or generic context.
 
   Split CPU font metrics and `MeasureText` behavior from GPU font resources.
   UI must be able to compute identical layout using UI-owned metric values
-  without including `Rendering/Text.h`. Runtime may populate immutable metrics
-  during cold initialization, but UI retains no Runtime or renderer owner.
+  without including `Rendering/Text.h`. The **baked font asset is the single
+  source of truth**: the same baked metric data feeds both the UI-owned CPU
+  metric table and the renderer-owned atlas, so the two authorities cannot
+  drift. Runtime populates the immutable UI metric values from that baked
+  data during cold initialization, but UI retains no Runtime or renderer
+  owner. Text-width parity against the pre-migration implementation is
+  **exact equality over a committed corpus** (every live glyph, all in-use
+  pixel sizes, representative mixed strings, DPI/scale rounding cases), not a
+  tolerance comparison — hit geometry derives from the same numbers, so a
+  one-pixel measurement drift is a behavior change.
+
+  Before freezing draw-stream capacities, **measure the real command/text/clip
+  high-water** of the heaviest live surfaces (profiler table and histogram
+  tabs, memory tab, full editor with scene browser open, replay overlay) and
+  record the measured values plus chosen headroom in this plan. The current
+  8,192-command/64KB-text limits predate clip and preview-image commands and
+  are not evidence.
+
+  Define **preview-unavailable fallback semantics as part of the value
+  contract**: when a preview identity cannot be resolved at submission time
+  (scene reload, device reset, retired target), the recorded command must
+  specify the exact presented fallback (placeholder fill plus label). The
+  fallback is a UR1 value-contract decision, not a UR3 submission-time
+  improvisation.
 
   Acceptance:
 
   - The draw stream is fixed-capacity, trivially inspectable, deterministic,
     and has explicit command/text/clip overflow reporting.
   - Focused tests cover command ordering, all primitive variants, nested clip
-    behavior, preview identity, text storage, overflow, and representative
-    text-width parity with the pre-migration implementation.
+    behavior, preview identity including the unavailable fallback, text
+    storage, and overflow.
+  - Text measurement parity is proven by exact equality over the committed
+    corpus, sourced from the same baked font data the atlas consumes.
+  - Capacity values are justified by recorded high-water measurements from
+    the heaviest surfaces plus stated headroom.
   - No dynamic allocation or callback dispatch is added to recording or
     iteration.
 
@@ -265,12 +304,27 @@ callback, virtual renderer interface, service bag, or generic context.
   ordered list and returns typed commands separately; no UI function flushes,
   binds, uploads, creates, destroys, or times GPU work.
 
+  **Gate the conversion with committed draw-stream fingerprints.** Before the
+  first bypass-site conversion, record a stable hash of the complete command
+  stream for a committed set of representative frame states (full editor,
+  minimized editor, each tab, replay overlay, text-only mode) as CPU-test
+  expectations. Then convert immediate-draw bypass sites **surface-by-surface
+  (tab-by-tab)**, keeping the fingerprint suite green between conversions. A
+  fingerprint change is legitimate only when the conversion intentionally
+  adds commands that were previously immediate; the test update must name the
+  commands added and their source surface. This catches reordering and
+  dropped draws in unit tests instead of at the DX12 screenshot gate.
+
   Preserve hit testing, active/hot control identity, clipping, z/order, cached
   list reuse, and deterministic command fingerprints. Capacity exhaustion must
   report through the existing probe/diagnostic lane and must never allocate or
   silently reorder.
 
   Acceptance:
+
+  - The committed fingerprint suite exists before the first conversion and
+    passes from the final UR2 source; every intentional fingerprint update
+    documents its cause.
 
   - UI rendering tests can construct complete representative frames without a
     renderer device or DX12 owner.
@@ -350,11 +404,32 @@ callback, virtual renderer interface, service bag, or generic context.
   change requires an explicit owner-approved graph and `AGENTS.md` update in
   the same change.
 
+  **Consolidate the standing shell-snippet proofs into this validator.** The
+  repository currently enforces its dependency rules through more than twenty
+  hand-maintained `rg` commands in `AGENTS.md` (top-level direction rules,
+  the 18-row Runtime package matrix, the Replay boundary rule) that run only
+  when a reviewer remembers them. UR5 encodes those same rules as validator
+  data with positive/negative fixtures, makes the validator the authoritative
+  enforcement through the mandatory validation chain, and updates `AGENTS.md`
+  in the same change so the prose names the validator as authority (retained
+  `rg` blocks become human-readable mirrors of validator rules, or are
+  deleted where redundant). The rule set must be **data-extensible**: the
+  registered follow-up plans (`replay-subsystem-partition` RS4,
+  `downward-domain-bleed-remediation` DB4) add their package and
+  symbol-deletion rules as new rule rows plus fixtures, with no validator
+  code rewrite.
+
   Acceptance:
 
   - The UI target builds and its CPU tests link without DX12 libraries or
     Runtime objects.
   - Positive and negative fixtures prove every new graph rule.
+  - Every standing `AGENTS.md` dependency proof (top-level direction rules,
+    Runtime package matrix, Replay boundary) is encoded as validator rules
+    with fixtures, and `AGENTS.md` names the validator as the enforcement
+    authority in the same change.
+  - Adding a new directional rule requires only rule data plus fixtures, not
+    validator code changes.
   - `validate_fast`, `validate_all_cpu_tests`, and `validate_full` invoke the
     same dependency validator once through their established call chain.
   - `validate_project_filters` proves exact single-project ownership for UI
@@ -395,6 +470,11 @@ callback, virtual renderer interface, service bag, or generic context.
   final draw stream.
 - UR1-UR4 must close before UR5 freezes the build/dependency graph.
 - UR6 is the sole whole-plan independent review.
+- The registered follow-up plans depend on UR5's validator:
+  `replay-subsystem-partition` RS4 and `downward-domain-bleed-remediation`
+  DB4 register their directional and symbol-deletion rules in it. UR5 must
+  therefore land the data-extensible rule format, not a UI-specific
+  hardcoding.
 - No owner decision is required to start. If implementation discovers a true
   need for UI to include Rendering, stop and request an owner ruling rather
   than adding an exception.
