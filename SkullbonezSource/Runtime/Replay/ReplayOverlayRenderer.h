@@ -76,6 +76,7 @@ class PhysicsEngine;
 namespace SkullbonezCore::Runtime
 {
 class EditorTracer;
+class UiDrawSubmission;
 } // namespace SkullbonezCore::Runtime
 
 namespace SkullbonezCore::Runtime::ReplayOverlay
@@ -240,26 +241,31 @@ struct ReplayPathVisualizerRenderResult
 };
 
 void RenderReplayScrubberOverlay(
+    UiDrawSubmission& submission,
     Text::TextBatch& textBatch,
     UI::UIDrawList& drawList,
     const ReplayOverlayRenderContext& context
 );
 void RenderReplayInterceptOverlay(
+    UiDrawSubmission& submission,
     Text::TextBatch& textBatch,
     UI::UIDrawList& drawList,
     const ReplayOverlayRenderContext& context
 );
 void RenderReplayTripPlannerOverlay(
+    UiDrawSubmission& submission,
     Text::TextBatch& textBatch,
     UI::UIDrawList& drawList,
     const ReplayOverlayRenderContext& context
 );
 void RenderReplayPorkchopOverlay(
+    UiDrawSubmission& submission,
     Text::TextBatch& textBatch,
     UI::UIDrawList& drawList,
     const ReplayOverlayRenderContext& context
 );
 void RenderReplayCauseTreeOverlay(
+    UiDrawSubmission& submission,
     Text::TextBatch& textBatch,
     UI::UIDrawList& drawList,
     const ReplayOverlayRenderContext& context

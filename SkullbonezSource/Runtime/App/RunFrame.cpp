@@ -608,11 +608,6 @@ SkullbonezCore::Core::SbResult Run::RenderOperatorUiPhase(
     );
 
     SkullbonezCore::Rendering::Dx12Diagnostics& diagnostics = *presentation.renderBackendView.renderDiagnostics;
-    const SkullbonezCore::UI::UIRenderContext uiRender = { &host.assets,
-                                                           presentation.renderBackendView.renderResources,
-                                                           presentation.renderBackendView.renderTextures,
-                                                           presentation.renderBackendView.renderGeometry,
-                                                           &diagnostics };
 
     OperatorEditorFrameComposer::Render(
         host,
@@ -624,7 +619,9 @@ SkullbonezCore::Core::SbResult Run::RenderOperatorUiPhase(
         operatorEditorView,
         replayOverlay,
         diagnostics,
-        uiRender,
+        *presentation.renderBackendView.renderResources,
+        *presentation.renderBackendView.renderTextures,
+        *presentation.renderBackendView.renderGeometry,
         renderModels
     );
 

@@ -31,17 +31,9 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "UI.h"
-#include "../Assets/AssetKeys.h"
 #include "UIFrameComposition.h"
 #include "UIFontMetrics.h"
-#include "../Assets/AssetSystem.h"
-#include "../Rendering/RenderCommandTypes.h"
-#include "../Rendering/DX12/Dx12Diagnostics.h"
-#include "../Rendering/DX12/Dx12ResourceBuilder.h"
-#include "../Rendering/DX12/RenderBackendDX12.h"
-#include "../Maths/Matrix4.h"
 #include "../Core/Profiler.h"
-#include "../Rendering/Text.h"
 #include "UIDraw.h"
 #include "UIDrawList.h"
 #include "UIDrawWidgets.h"
@@ -63,9 +55,6 @@ Related:
 #include <cstdlib>
 #include <cstring>
 
-using namespace SkullbonezCore::Math::Transformation;
-using namespace SkullbonezCore::Rendering;
-using namespace SkullbonezCore::Text;
 using namespace SkullbonezCore::UI;
 using namespace SkullbonezCore::UI::Widgets;
 using namespace SkullbonezCore::UI::Layout;
@@ -192,10 +181,9 @@ void InGameUI::SetMouseOverride( bool enabled, int x, int y )
 {
     m_windowInteraction.SetMouseOverride( enabled, x, y );
 }
-void InGameUI::ResetResources( Dx12GeometryOwner* geometry )
+void InGameUI::ResetPresentationState()
 {
     m_windowInteraction.ResetPresentationResources();
-    ResetRenderTargetPreviewResources( m_renderTargetPreviewShader, m_renderTargetPreviewVB, geometry );
 }
 void InGameUI::DrawHitboxOverlay(
     const UIDrawContext& draw,
@@ -877,8 +865,7 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
         const bool hasSelection = selectedIndex >= 0 && selectedIndex < targetCount;
         const UIRenderTargetPreviewResource* selected =
             hasSelection ? &data.renderTargetPreviews[selectedIndex] : nullptr;
-        const bool selectedAvailable = selected && selected->available && selected->textureHandle != 0 &&
-                                       selected->width > 0 && selected->height > 0;
+        const bool selectedAvailable = selected && selected->available && selected->width > 0 && selected->height > 0;
         const Style::UIPalette& targetPalette = Style::Palette();
         const char* options[UI_RENDER_TARGET_PREVIEW_MAX] = {};
 
@@ -887,7 +874,7 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
         {
             const UIRenderTargetPreviewResource& resource = data.renderTargetPreviews[i];
             options[i] = resource.label;
-            if ( resource.available && resource.textureHandle != 0 && resource.width > 0 && resource.height > 0 )
+            if ( resource.available && resource.width > 0 && resource.height > 0 )
             {
                 ++liveCount;
             }
@@ -921,11 +908,11 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
                 snprintf(
                     detailText,
                     sizeof( detailText ),
-                    "%s, %d x %d, #%u",
+                    "%s, %d x %d, #%d",
                     RenderTargetPreviewTypeText( *selected ),
                     selected->width,
                     selected->height,
-                    selected->textureHandle
+                    selectedIndex
                 );
             }
             else

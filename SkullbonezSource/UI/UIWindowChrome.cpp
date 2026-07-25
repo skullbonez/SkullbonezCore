@@ -35,8 +35,6 @@ Related:
 #include <cstdio>
 #include <cstring>
 
-using namespace SkullbonezCore::Text;
-
 namespace SkullbonezCore
 {
 namespace UI

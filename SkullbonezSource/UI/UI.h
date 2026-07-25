@@ -39,7 +39,6 @@ Related:
 #include "../Core/Config.h"
 #include "../Core/MainMemoryStats.h"
 #include "../Core/Allocation/RuntimeReserveAllocator.h"
-#include "../Rendering/DX12/ShaderDX12.h"
 #include "../Rendering/DX12/Dx12Diagnostics.h"
 #include "UIButton.h"
 #include "UICheckBox.h"
@@ -64,7 +63,6 @@ Related:
 #include "UITabSky.h"
 #include "UIWindowInteractionOwner.h"
 #include <cstdint>
-#include <memory>
 
 namespace SkullbonezCore
 {
@@ -73,26 +71,9 @@ namespace Core
 class Profiler;
 } // namespace Core
 
-namespace Text
-{
-class TextBatch;
-} // namespace Text
-
-namespace Assets
-{
-class AssetSystem;
-}
-
 namespace Rendering
 {
-class Dx12GeometryOwner;
 class Dx12Diagnostics;
-class Dx12FrameOwner;
-class Dx12GraphTransientPool;
-class Dx12ResourceBuilder;
-class Dx12TextureOwner;
-class Dx12GeometryOwner;
-class RenderGpuTimingOwner;
 } // namespace Rendering
 
 namespace UI
@@ -119,31 +100,9 @@ constexpr int UI_PROFILER_MARKER_OPTION_MAX = ProfilerTab::MAX_MARKERS + 1;
 constexpr uint32_t UI_PROFILER_FRAME_TOTAL_HASH = 0u;
 constexpr int UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX = 64;
 
-struct UIRenderContext
-{
-    // Lifetime: each pointer is borrowed for the current UI/text pass only.
-    // Resource creation, draw commands, and draw tracing stay split so the UI
-    // never needs the wide renderer facade.
-    Assets::AssetSystem* assets = nullptr;
-    Rendering::Dx12ResourceBuilder* resources = nullptr;
-    Rendering::Dx12TextureOwner* textures = nullptr;
-    Rendering::Dx12GeometryOwner* geometry = nullptr;
-    Rendering::Dx12Diagnostics* diagnostics = nullptr;
-    Rendering::RenderGpuTimingOwner* gpuTiming = nullptr;
-    // Lifetime: the late UI pass installs RuntimeRenderer's batch owner for
-    // this synchronous draw only. Run's wider frame context leaves it null.
-    Text::TextBatch* textBatch = nullptr;
-
-    bool IsReady() const
-    {
-        return assets != nullptr && resources != nullptr && textures != nullptr && geometry != nullptr &&
-               diagnostics != nullptr;
-    }
-};
 struct UIRenderTargetPreviewResource
 {
     const char* label = "";
-    uint32_t textureHandle = 0;
     int width = 0;
     int height = 0;
     bool available = false;
@@ -322,7 +281,9 @@ class InGameUI
     void SetScrollY( float scrollY );
     void SetMouseOverride( bool enabled, int x = 0, int y = 0 );
     void CancelInputCapture();
-    void ResetResources( Rendering::Dx12GeometryOwner* geometry );
+    // Clears UI-owned layout/backdrop caches after presentation invalidation;
+    // GPU resource release belongs exclusively to Runtime/Render.
+    void ResetPresentationState();
     SceneNavigationModel& SceneNavigation()
     {
         return m_sceneNavigation;
@@ -364,8 +325,6 @@ class InGameUI
     UIDrawList m_frameDrawList;
     UIDrawList m_histogramDrawList;
     UIDrawList m_memoryOverlayDrawList;
-    std::unique_ptr<Rendering::ShaderDX12> m_renderTargetPreviewShader;
-    uint32_t m_renderTargetPreviewVB = 0;
     void DrawHitboxOverlay(
         const UIDrawContext& draw,
         const InGameUIFrameData& data,

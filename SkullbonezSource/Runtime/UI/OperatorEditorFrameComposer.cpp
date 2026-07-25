@@ -228,7 +228,9 @@ void Render(
     SkullbonezCore::UI::OperatorEditorFrameView& operatorEditorView,
     const ReplayOverlay::ReplayOverlayStateView& replayOverlay,
     SkullbonezCore::Rendering::Dx12Diagnostics& renderDiagnostics,
-    const SkullbonezCore::UI::UIRenderContext& uiRender,
+    SkullbonezCore::Rendering::Dx12ResourceBuilder& renderResources,
+    SkullbonezCore::Rendering::Dx12TextureOwner& renderTextures,
+    SkullbonezCore::Rendering::Dx12GeometryOwner& renderGeometry,
     const RuntimeRenderModelFrameView& renderModels
 )
 {
@@ -564,10 +566,6 @@ void Render(
                                         replayOverlay.shouldRenderScrubber,
                                         replayRuntime.BuildInputView().hasPathTarget };
 
-    if ( !uiRender.textures || !uiRender.geometry )
-    {
-        SB_FATAL( "Runtime/UI", "Operator editor frame has no UI render resources." );
-    }
     renderer.PrepareUiFrameTarget();
 
     if ( renderer.ResourceLifecycle().ShouldRenderUiText( uiTextState, ui ) )
@@ -591,8 +589,8 @@ void Render(
             uiCinematicRendering && uiCinematic.volumetricLightingEnabled
         );
 
-        const ReplayOverlay::ReplayOverlayRenderContext replayOverlayContext { *uiRender.textures,
-                                                                               *uiRender.geometry,
+        const ReplayOverlay::ReplayOverlayRenderContext replayOverlayContext { renderTextures,
+                                                                               renderGeometry,
                                                                                renderDiagnostics,
                                                                                host.profiler,
                                                                                replayOverlay,
@@ -620,7 +618,10 @@ void Render(
                                                   timers,
                                                   ui,
                                                   renderDiagnostics,
-                                                  uiRender,
+                                                  host.assets,
+                                                  renderResources,
+                                                  renderTextures,
+                                                  renderGeometry,
                                                   renderModels,
                                                   diagnosticsRuntime,
                                                   replayHud,

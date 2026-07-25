@@ -442,6 +442,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Simulation\SimulationSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\RuntimeOverlayDiagnostics.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Automation\RuntimeValidationHarness.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Render\UiDrawSubmission.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\UiTextPass.cpp" />
     <ClCompile Include="SkullbonezSource\World\SkyBox.cpp" />
     <ClCompile Include="SkullbonezSource\World\Terrain.cpp" />
@@ -621,6 +622,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderFrameValues.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RenderModelFramePublisher.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderPasses.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Render\UiDrawSubmission.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RenderResourceLifecycle.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderResources.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderer.h" />

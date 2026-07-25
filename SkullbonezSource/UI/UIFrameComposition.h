@@ -31,14 +31,6 @@ Related:
 #include "UIRenderAuthoringCatalog.h"
 
 #include "UI.h"
-#include "../Assets/AssetSystem.h"
-#include "../Rendering/RenderCommandTypes.h"
-#include "../Rendering/DX12/Dx12Diagnostics.h"
-#include "../Rendering/DX12/Dx12ResourceBuilder.h"
-#include "../Rendering/DX12/RenderBackendDX12.h"
-#include "../Maths/Matrix4.h"
-#include "../Core/Profiler.h"
-#include "../Rendering/Text.h"
 #include "UIDraw.h"
 #include "UIDrawList.h"
 #include "UIDrawWidgets.h"
@@ -116,23 +108,6 @@ uint32_t BuildUIInteractionSignature(
 );
 
 
-void FlushUIDrawList(
-    const UIDrawList& drawList,
-    Text::TextBatch& textBatch,
-    Rendering::RenderGpuTimingOwner* gpuTiming,
-    Rendering::Dx12TextureOwner& renderTextures,
-    Rendering::Dx12GeometryOwner& renderCommands,
-    Rendering::Dx12Diagnostics& renderDiagnostics,
-    int screenW,
-    int screenH,
-    float offsetX = 0.0f,
-    float offsetY = 0.0f,
-    const InGameUIFrameData* previewData = nullptr,
-    std::unique_ptr<Rendering::ShaderDX12>* previewShader = nullptr,
-    uint32_t* previewVertexBuffer = nullptr,
-    const UIRenderContext* previewRender = nullptr
-);
-
 int RenderTargetPreviewCount( const InGameUIFrameData& data );
 
 uint32_t RenderTargetPreviewDisabledMask( const InGameUIFrameData& data );
@@ -162,29 +137,6 @@ void DrawEditorObjectCounter(
     const UIRect* avoidBounds = nullptr
 );
 
-
-void EnsureRenderTargetPreviewResources(
-    std::unique_ptr<Rendering::ShaderDX12>& shader,
-    uint32_t& dynamicVB,
-    const UIRenderContext& render
-);
-
-void ResetRenderTargetPreviewResources(
-    std::unique_ptr<Rendering::ShaderDX12>& shader,
-    uint32_t& dynamicVB,
-    Rendering::Dx12GeometryOwner* geometry
-);
-
-void DrawRenderTargetPreviewTexture(
-    std::unique_ptr<Rendering::ShaderDX12>& shader,
-    uint32_t& dynamicVB,
-    const UIRenderTargetPreviewResource& resource,
-    const UIRect& bounds,
-    const UIRect& clipBounds,
-    int screenW,
-    int screenH,
-    const UIRenderContext& render
-);
 
 int WaterReflectionModeFromData( const InGameUIFrameData& data );
 

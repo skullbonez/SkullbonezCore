@@ -528,7 +528,7 @@ preserves the completed UI value/command boundary as the target architecture.
     refreshed or staged by this slice; the two pre-existing working-tree
     replay-golden edits remain user-owned.
 
-- [ ] **UR3 — Move UI GPU submission and resource lifetime into Runtime/Render.**
+- [x] **UR3 — Move UI GPU submission and resource lifetime into Runtime/Render.**
 
   Make `UiTextPass` or focused child owners consume the bounded UI command
   view and translate it to existing Rendering text/geometry operations.
@@ -553,6 +553,41 @@ preserves the completed UI value/command boundary as the target architecture.
     pass names.
   - Device reset, resize, scene reload, and shutdown probes show no stale
     handle, double release, leak, or missing preview.
+
+  Completion evidence (2026-07-25):
+
+  - `Runtime/Render/UiDrawSubmission` is the concrete draw translator and sole
+    owner of the render-target-preview shader/dynamic vertex buffer.
+    `UiTextPass` retains that owner, lends explicit backend owners for one
+    synchronous submit, and releases preview resources before backend geometry
+    teardown.
+  - Deleted `UIRenderContext`, `InGameUI::ResetResources`, the UI-owned
+    `ShaderDX12`/preview-VB fields, and every GPU-oriented
+    `UIFrameComposition` declaration/definition. The remaining
+    `ResetPresentationState` invalidates UI-only layout/backdrop caches and has
+    no renderer parameter or resource authority.
+  - UI preview records now carry label, dimensions, availability, and format
+    flags only. The bounded draw command records a catalog identity;
+    `UiDrawSubmission` resolves that identity against the renderer-owned
+    frame-local `RuntimeRenderTargetPreviewSnapshot` during submission.
+  - Existing `Frame/UI/Draw`, `Widgets`, `Text`, and
+    `RenderTargetPreview` timing/trace vocabulary is unchanged. Preview commands
+    still form batch barriers so later outlines and text remain above images.
+  - `validate_dx12_renderer.bat` passed with zero DX12 validation errors and
+    all committed image baselines within tolerance. `run_graphics_stress.bat 1`
+    completed its bounded one-minute run. `validate_ui.bat` passed all 21 UI
+    capture/blur cases.
+  - The replay visual-fidelity mega gate passed from one authoritative
+    6,800-frame process: 2,401 ticks, 200 moved bricks, 175 toppled bricks,
+    200 causal nodes, and every negative/determinism control. `validate_full.bat`
+    passed the mandatory CPU umbrella and five engine processes.
+  - Allocation-policy scan: 442 files scanned, zero allowlist errors. Relevant
+    UI/Runtime/Replay dependency proofs returned no rows. Touched-source comment
+    audit: 16/16 inspected against the guide, zero deferred; this plan is the
+    checklist/evidence record.
+  - No baseline, golden, scene, configuration, shader, replay artifact, or
+    physics CSV was refreshed or staged by this slice. The two pre-existing
+    replay-golden working-tree edits remain user-owned.
 
 - [ ] **UR4 — Remove operator-presentation policy from Rendering.**
 

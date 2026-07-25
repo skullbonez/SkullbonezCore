@@ -613,7 +613,7 @@ void ExecuteUiTextGraphCallback(
     UiTextGraphCallbackData& data
 )
 {
-    if ( !data.uiTextPass || !data.renderGraph || !data.inputs || !data.inputs->uiRender.IsReady() )
+    if ( !data.uiTextPass || !data.renderGraph || !data.inputs )
     {
         SB_FATAL( "RunRender", "UiTextPass graph callback missing execution data." );
     }
@@ -2223,7 +2223,7 @@ RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceRelea
             m_collisionVisualizer.ResetResources( backend.renderGeometry );
             break;
         case BackendResourceStep::UIResources:
-            context.ui.ResetResources( backend.renderGeometry );
+            context.ui.ResetPresentationState();
             break;
         case BackendResourceStep::RenderPassResources:
             ReleaseBackendOwnedResources( backend.renderGeometry );

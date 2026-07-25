@@ -540,6 +540,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\OperatorCommandApplier.cpp">
       <Filter>Source Files\Runtime\Settings</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Render\UiDrawSubmission.cpp">
+      <Filter>Source Files\Runtime\Render</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Render\UiTextPass.cpp">
       <Filter>Source Files\Runtime\UI</Filter>
     </ClCompile>
@@ -1094,6 +1097,9 @@
       <Filter>Header Files\Runtime\Render</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderPasses.h">
+      <Filter>Header Files\Runtime\Render</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Render\UiDrawSubmission.h">
       <Filter>Header Files\Runtime\Render</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Render\RenderResourceLifecycle.h">

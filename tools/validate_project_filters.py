@@ -459,6 +459,7 @@ RUNTIME_RENDER_PREFIXES = (
     "RuntimeRenderPasses",
     "RuntimeRenderResources",
     "RuntimeRenderer",
+    "UiDrawSubmission",
 )
 
 RUNTIME_EDITOR_PREFIXES = (

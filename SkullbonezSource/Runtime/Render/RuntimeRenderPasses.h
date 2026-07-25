@@ -44,6 +44,7 @@ Related:
 #include "../../Rendering/Text.h"
 #include "../../UI/UIDrawList.h"
 #include "RenderPresentationSettings.h"
+#include "UiDrawSubmission.h"
 #include "../Interaction/RuntimeInteractionController.h"
 
 #include <cstdint>
@@ -116,7 +117,6 @@ namespace UI
 {
 class InGameUI;
 struct OperatorEditorFrameView;
-struct UIRenderContext;
 } // namespace UI
 namespace Text
 {
@@ -391,9 +391,10 @@ struct RuntimeRenderTargetPreview
 
 struct RuntimeRenderTargetPreviewSnapshot
 {
-    // Value-only UI projection of renderer resources. The UI cannot retain or
-    // traverse framebuffer owners through this boundary.
-    std::array<RuntimeRenderTargetPreview, 10> targets {};
+    // Renderer-owned frame snapshot. Runtime/Render projects only label,
+    // dimensions, format flags, and availability into UI; texture handles stay
+    // here and are resolved from the recorded catalog identity at submission.
+    std::array<RuntimeRenderTargetPreview, 12> targets {};
     int count = 0;
 };
 
@@ -446,7 +447,10 @@ struct UiTextPassInputs
     RunTimerState& timers;
     UI::InGameUI& ui;
     Rendering::Dx12Diagnostics& renderDiagnostics;
-    const UI::UIRenderContext& uiRender;
+    Assets::AssetSystem& assets;
+    Rendering::Dx12ResourceBuilder& renderResources;
+    Rendering::Dx12TextureOwner& renderTextures;
+    Rendering::Dx12GeometryOwner& renderGeometry;
     const RuntimeRenderModelFrameView& models;
     DiagnosticsRuntime& diagnosticsRuntime;
     const ReplayHudStatus& replayHud;
@@ -954,10 +958,9 @@ class UiTextPass
     // Lifetime: font vertices/projection and optional render capabilities share
     // this pass's process lifetime and are cleared before backend teardown.
     Text::TextBatch m_textBatch;
-    // Lifetime: preview resources are owned by the same late pass that resolves
-    // UI preview identities and are released before backend teardown.
-    std::unique_ptr<Rendering::ShaderDX12> m_uiPreviewShader;
-    uint32_t m_uiPreviewVertexBuffer = 0;
+    // Owns draw replay and the preview-only GPU objects. UI provides values and
+    // never sees this renderer capability.
+    UiDrawSubmission m_uiDrawSubmission;
     // Fixed scratch streams are retained by the pass so the 8,192-command
     // capacity never consumes nested Windows stack frames or grows at runtime.
     UI::UIDrawList m_testPatternDrawList;

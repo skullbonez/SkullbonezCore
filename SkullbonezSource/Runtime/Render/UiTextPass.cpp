@@ -78,6 +78,7 @@ using SkullbonezCore::UI::InGameUITab;
 namespace
 {
 void DrawUiTestPattern(
+    UiDrawSubmission& submission,
     SkullbonezCore::UI::UIDrawList& drawList,
     SkullbonezCore::Text::TextBatch& textBatch,
     SkullbonezCore::Rendering::Dx12TextureOwner& renderTextures,
@@ -113,16 +114,8 @@ void DrawUiTestPattern(
     draw.Rect( 76.0f, 116.0f, 720.0f, 8.0f, 0.98f, 0.12f, 0.46f, 0.82f );
     draw.Rect( 76.0f, 300.0f, 720.0f, 8.0f, 0.30f, 1.0f, 0.56f, 0.78f );
     draw.Rect( 76.0f, 484.0f, 720.0f, 8.0f, 0.38f, 0.54f, 1.0f, 0.82f );
-    SkullbonezCore::UI::FrameComposition::FlushUIDrawList(
-        drawList,
-        textBatch,
-        nullptr,
-        renderTextures,
-        renderCommands,
-        renderDiagnostics,
-        screenW,
-        screenH
-    );
+    submission
+        .Submit( drawList, textBatch, nullptr, renderTextures, renderCommands, renderDiagnostics, screenW, screenH );
 }
 
 
@@ -147,12 +140,13 @@ SkullbonezCore::Core::MainMemoryStats BuildMainMemoryOverlayStats(
 }
 
 void RenderReplayScrubberOverlayFromInputs(
+    UiDrawSubmission& submission,
     SkullbonezCore::Text::TextBatch& textBatch,
     SkullbonezCore::UI::UIDrawList& drawList,
     const UiTextPassInputs& inputs
 )
 {
-    ReplayOverlay::RenderReplayScrubberOverlay( textBatch, drawList, inputs.replayOverlayContext );
+    ReplayOverlay::RenderReplayScrubberOverlay( submission, textBatch, drawList, inputs.replayOverlayContext );
 }
 
 void RenderReplayDivergenceCounter( SkullbonezCore::Text::TextBatch& textBatch, const UiTextPassInputs& inputs )
@@ -230,11 +224,7 @@ void UiTextPass::ReleaseGpuResources(
     Rendering::Dx12GeometryOwner* renderGeometry
 )
 {
-    UI::FrameComposition::ResetRenderTargetPreviewResources(
-        m_uiPreviewShader,
-        m_uiPreviewVertexBuffer,
-        renderGeometry
-    );
+    m_uiDrawSubmission.ReleaseGpuResources( renderGeometry );
     Text2d::DeleteFont( m_textBatch, renderTextures, renderGeometry );
     m_renderRayTracing = nullptr;
 }
@@ -264,12 +254,8 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     Text::TextBatch& textBatch = m_textBatch;
     Text2d::RebuildProjection( textBatch, (std::max)( 1, state.screenW ), (std::max)( 1, state.screenH ) );
     const int uiPassDrawCallStart = inputs.renderDiagnostics.GetFrameDrawCallCount();
-    assert( inputs.uiRender.IsReady() );
-    Rendering::Dx12TextureOwner& renderTextures = *inputs.uiRender.textures;
-    Rendering::Dx12GeometryOwner& renderCommands = *inputs.uiRender.geometry;
-    UI::UIRenderContext uiRender = inputs.uiRender;
-    uiRender.gpuTiming = m_gpuTiming;
-    uiRender.textBatch = &textBatch;
+    Rendering::Dx12TextureOwner& renderTextures = inputs.renderTextures;
+    Rendering::Dx12GeometryOwner& renderCommands = inputs.renderGeometry;
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
     assert( m_profiler && "UiTextPass requires a startup-bound profiler in profile builds." );
     const SkullbonezCore::Core::Profiler& profiler = *m_profiler;
@@ -547,7 +533,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     renderRuntimeModeBadge();
     if ( !m_badgeDrawList.Empty() )
     {
-        SkullbonezCore::UI::FrameComposition::FlushUIDrawList(
+        m_uiDrawSubmission.Submit(
             m_badgeDrawList,
             textBatch,
             m_gpuTiming,
@@ -666,6 +652,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         if ( state.debug.isUITestPattern )
         {
             DrawUiTestPattern(
+                m_uiDrawSubmission,
                 m_testPatternDrawList,
                 textBatch,
                 renderTextures,
@@ -1055,56 +1042,37 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.replayMemorySolverRetentionSeconds = UIData.operatorEditor.replay.solverRetentionSeconds;
         UIData.replayMemoryBudgetClamped = UIData.operatorEditor.replay.memoryBudgetClamped;
         UIData.replayMemorySolverWindowReduced = UIData.operatorEditor.replay.solverWindowReduced;
+        // Invariant: the UI projection below omits backend handles. This
+        // renderer-owned copy retains them only until submission resolves the
+        // recorded catalog index for this same frame.
+        RuntimeRenderTargetPreviewSnapshot resolvedPreviews = state.renderTargetPreviews;
         {
-            auto addPreview = [&]( const char* label,
-                                   uint32_t textureHandle,
-                                   int width,
-                                   int height,
-                                   bool available,
-                                   bool depth,
-                                   bool hdr )
+            const uint32_t dxrReflection = m_renderRayTracing ? m_renderRayTracing->GetReflectionUAVTexture() : 0;
+            if ( resolvedPreviews.count < static_cast<int>( resolvedPreviews.targets.size() ) )
             {
-                if ( UIData.renderTargetPreviewCount >= SkullbonezCore::UI::UI_RENDER_TARGET_PREVIEW_MAX )
-                {
-                    return;
-                }
-
-                SkullbonezCore::UI::UIRenderTargetPreviewResource& preview =
-                    UIData.renderTargetPreviews[UIData.renderTargetPreviewCount++];
-                preview.label = label;
-                preview.textureHandle = textureHandle;
-                preview.width = width;
-                preview.height = height;
-                preview.available = available && textureHandle != 0 && width > 0 && height > 0;
-                preview.depth = depth;
-                preview.hdr = hdr;
-            };
-
-            for ( int index = 0; index < state.renderTargetPreviews.count; ++index )
-            {
-                const RuntimeRenderTargetPreview& source =
-                    state.renderTargetPreviews.targets[static_cast<size_t>( index )];
-                addPreview(
-                    source.label,
-                    source.textureHandle,
-                    source.width,
-                    source.height,
-                    source.available,
-                    source.depth,
-                    source.hdr
-                );
+                RuntimeRenderTargetPreview& preview =
+                    resolvedPreviews.targets[static_cast<size_t>( resolvedPreviews.count++ )];
+                preview.label = "DXR Reflection";
+                preview.textureHandle = dxrReflection;
+                preview.width = state.screenW * 2;
+                preview.height = state.screenH * 2;
+                preview.available = UIData.waterRTReflect && !UIData.waterNoReflect && dxrReflection != 0;
+                preview.depth = false;
+                preview.hdr = false;
             }
 
-            const uint32_t dxrReflection = m_renderRayTracing ? m_renderRayTracing->GetReflectionUAVTexture() : 0;
-            addPreview(
-                "DXR Reflection",
-                dxrReflection,
-                state.screenW * 2,
-                state.screenH * 2,
-                UIData.waterRTReflect && !UIData.waterNoReflect,
-                false,
-                false
-            );
+            for ( int index = 0; index < resolvedPreviews.count; ++index )
+            {
+                const RuntimeRenderTargetPreview& source = resolvedPreviews.targets[static_cast<size_t>( index )];
+                SkullbonezCore::UI::UIRenderTargetPreviewResource& preview =
+                    UIData.renderTargetPreviews[UIData.renderTargetPreviewCount++];
+                preview.label = source.label;
+                preview.width = source.width;
+                preview.height = source.height;
+                preview.available = source.available && source.width > 0 && source.height > 0;
+                preview.depth = source.depth;
+                preview.hdr = source.hdr;
+            }
         }
         PROFILE_END( m_profiler, "Frame/UI/BuildData" );
 
@@ -1116,21 +1084,18 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         PROFILE_END( m_profiler, "Frame/UI/PreFlushText" );
         UIData.drawCallsBeforeUI = uiPassDrawCallStart;
         const UI::UIDrawList& uiDrawList = inputs.ui.Draw( UIData );
-        UI::FrameComposition::FlushUIDrawList(
+        m_uiDrawSubmission.SubmitWithPreviews(
             uiDrawList,
+            resolvedPreviews,
             textBatch,
             m_gpuTiming,
+            inputs.assets,
+            inputs.renderResources,
             renderTextures,
             renderCommands,
             inputs.renderDiagnostics,
             UIData.screenW,
-            UIData.screenH,
-            0.0f,
-            0.0f,
-            &UIData,
-            &m_uiPreviewShader,
-            &m_uiPreviewVertexBuffer,
-            &uiRender
+            UIData.screenH
         );
 
         PROFILE_BEGIN( m_profiler, "Frame/UI/PostFlushText" );
@@ -1141,7 +1106,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         PROFILE_END( m_profiler, "Frame/UI/PostFlushText" );
         if ( inputs.ui.IsVisible() )
         {
-            RenderReplayScrubberOverlayFromInputs( textBatch, m_replayDrawList, inputs );
+            RenderReplayScrubberOverlayFromInputs( m_uiDrawSubmission, textBatch, m_replayDrawList, inputs );
             return;
         }
     }
@@ -1149,7 +1114,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     // --- Overlay: None ---
     if ( state.debug.overlayMode == OverlayMode::None )
     {
-        RenderReplayScrubberOverlayFromInputs( textBatch, m_replayDrawList, inputs );
+        RenderReplayScrubberOverlayFromInputs( m_uiDrawSubmission, textBatch, m_replayDrawList, inputs );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "HUD" );
             Text2d::FlushText( textBatch, renderTextures, renderCommands );
@@ -1204,7 +1169,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
             "Scene Energy: %.6f",
             sceneEnergyForDisplay
         );
-        RenderReplayScrubberOverlayFromInputs( textBatch, m_replayDrawList, inputs );
+        RenderReplayScrubberOverlayFromInputs( m_uiDrawSubmission, textBatch, m_replayDrawList, inputs );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "SceneStats" );
             Text2d::FlushText( textBatch, renderTextures, renderCommands );
@@ -1226,7 +1191,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const bool absolute = ( state.debug.overlayMode == OverlayMode::BarsAbsolute );
         profilerOverlay
             .RenderBarOverlay( profiler.FrameView(), textBatch, renderCommands, panX, panY, panW, panH, absolute );
-        RenderReplayScrubberOverlayFromInputs( textBatch, m_replayDrawList, inputs );
+        RenderReplayScrubberOverlayFromInputs( m_uiDrawSubmission, textBatch, m_replayDrawList, inputs );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "ProfilerBars" );
             Text2d::FlushText( textBatch, renderTextures, renderCommands );
@@ -1311,7 +1276,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
             Text2d::Render2dTextColor( textBatch, col2Desc, y, entrySz, 0.85f, 0.85f, 0.85f, "%s", kRight[i].desc );
         }
 
-        RenderReplayScrubberOverlayFromInputs( textBatch, m_replayDrawList, inputs );
+        RenderReplayScrubberOverlayFromInputs( m_uiDrawSubmission, textBatch, m_replayDrawList, inputs );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "Keys" );
             Text2d::FlushText( textBatch, renderTextures, renderCommands );
@@ -1341,7 +1306,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     }
 #endif
 
-    RenderReplayScrubberOverlayFromInputs( textBatch, m_replayDrawList, inputs );
+    RenderReplayScrubberOverlayFromInputs( m_uiDrawSubmission, textBatch, m_replayDrawList, inputs );
     {
         DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "ProfilerOverlay" );
         Text2d::FlushText( textBatch, renderTextures, renderCommands );

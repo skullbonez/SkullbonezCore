@@ -29,6 +29,7 @@ Related:
   - SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h
 */
 #include "ReplayOverlayRenderer.h"
+#include "../Render/UiDrawSubmission.h"
 #include "../../Core/FatalError.h"
 #include "../../Assets/AssetKeys.h"
 #include "ReplayOverlayLayout.h"
@@ -81,12 +82,13 @@ float ReplayOverlayTrackPosition( const ReplayScrubberView& scrubber, RunReplayT
 }
 
 void FlushReplayDrawList(
+    UiDrawSubmission& submission,
     const UI::UIDrawList& drawList,
     Text::TextBatch& textBatch,
     const ReplayOverlayRenderContext& context
 )
 {
-    UI::FrameComposition::FlushUIDrawList(
+    submission.Submit(
         drawList,
         textBatch,
         nullptr,
@@ -105,6 +107,7 @@ void FlushReplayDrawList(
 // creation. This pass samples the current state and turns it into UI quads and
 // text so rendering cannot accidentally advance or rewrite replay timelines.
 void RenderReplayScrubberOverlay(
+    UiDrawSubmission& submission,
     Text::TextBatch& textBatch,
     UI::UIDrawList& drawList,
     const ReplayOverlayRenderContext& context
@@ -119,13 +122,13 @@ void RenderReplayScrubberOverlay(
         // inactive. This is a presentation fence, not replay-owner mutation.
         return;
     }
-    RenderReplayInterceptOverlay( textBatch, drawList, context );
-    RenderReplayTripPlannerOverlay( textBatch, drawList, context );
-    RenderReplayPorkchopOverlay( textBatch, drawList, context );
+    RenderReplayInterceptOverlay( submission, textBatch, drawList, context );
+    RenderReplayTripPlannerOverlay( submission, textBatch, drawList, context );
+    RenderReplayPorkchopOverlay( submission, textBatch, drawList, context );
     const ReplayScrubberView& scrubber = replay.scrubber;
     // Why: the cause tree is an inspection tool, not a child of the scrubber.
     // Draw it even when the scrubber itself is hidden by UI/editor policy.
-    RenderReplayCauseTreeOverlay( textBatch, drawList, context );
+    RenderReplayCauseTreeOverlay( submission, textBatch, drawList, context );
 
     if ( !replay.shouldRenderScrubber )
     {
@@ -626,7 +629,7 @@ void RenderReplayScrubberOverlay(
 
     if ( loadedPresentation )
     {
-        FlushReplayDrawList( drawList, textBatch, context );
+        FlushReplayDrawList( submission, drawList, textBatch, context );
         return;
     }
 
@@ -982,10 +985,11 @@ void RenderReplayScrubberOverlay(
         );
     }
 
-    FlushReplayDrawList( drawList, textBatch, context );
+    FlushReplayDrawList( submission, drawList, textBatch, context );
 }
 
 void RenderReplayInterceptOverlay(
+    UiDrawSubmission& submission,
     Text::TextBatch& textBatch,
     UI::UIDrawList& drawList,
     const ReplayOverlayRenderContext& context
@@ -1018,10 +1022,11 @@ void RenderReplayInterceptOverlay(
     draw.RoundedPanel( panel, radii.control, palette.windowSubtle, palette.innerBorder );
     const float labelWidth = Text2d::MeasureText( 11.0f, label );
     draw.Text( panel.x + ( panel.w - labelWidth ) * 0.5f, panel.y + 7.0f, 11.0f, accent.r, accent.g, accent.b, label );
-    FlushReplayDrawList( drawList, textBatch, context );
+    FlushReplayDrawList( submission, drawList, textBatch, context );
 }
 
 void RenderReplayTripPlannerOverlay(
+    UiDrawSubmission& submission,
     Text::TextBatch& textBatch,
     UI::UIDrawList& drawList,
     const ReplayOverlayRenderContext& context
@@ -1153,10 +1158,11 @@ void RenderReplayTripPlannerOverlay(
     button( ReplayTripPlannerControl::Plan, "PLAN" );
     button( ReplayTripPlannerControl::Commit, "COMMIT" );
     button( ReplayTripPlannerControl::Cancel, "CANCEL" );
-    FlushReplayDrawList( drawList, textBatch, context );
+    FlushReplayDrawList( submission, drawList, textBatch, context );
 }
 
 void RenderReplayPorkchopOverlay(
+    UiDrawSubmission& submission,
     Text::TextBatch& textBatch,
     UI::UIDrawList& drawList,
     const ReplayOverlayRenderContext& context
@@ -1337,10 +1343,11 @@ void RenderReplayPorkchopOverlay(
         readout
     );
 
-    FlushReplayDrawList( drawList, textBatch, context );
+    FlushReplayDrawList( submission, drawList, textBatch, context );
 }
 
 void RenderReplayCauseTreeOverlay(
+    UiDrawSubmission& submission,
     Text::TextBatch& textBatch,
     UI::UIDrawList& drawList,
     const ReplayOverlayRenderContext& context
@@ -1718,6 +1725,6 @@ void RenderReplayCauseTreeOverlay(
         0.68f
     );
 
-    FlushReplayDrawList( drawList, textBatch, context );
+    FlushReplayDrawList( submission, drawList, textBatch, context );
 }
 } // namespace SkullbonezCore::Runtime::ReplayOverlay
