@@ -1,6 +1,6 @@
 # MASTER PLAN — Authoritative Remaining Work
 
-Date: 2026-07-24
+Date: 2026-07-25
 Status: Authoritative inventory of every live repository plan
 
 ## Binding Owner Directive — 2026-07-19: Finish UI, Then Resolve Physics
@@ -512,12 +512,26 @@ mutual-gravity-large-scene-fallback 3/3, math-fatal-survey-restoration 3/3)
 completed at 10/10 on `15th-of-July-Night-Runner` and leave the ledger as
 historical work per commit-contract rule 4.
 
+The denominator grew 0 → 7 on 2026-07-25 when the owner registered
+`ui-renderer-hard-boundary`. UR0-UR6 preserve the completed UI/Runtime
+value-command separation while deleting the remaining UI-to-Rendering backend
+edges, moving GPU submission and resource lifetime into Runtime/Render,
+removing operator-presentation policy from Rendering, establishing a
+standalone UI build target, and adding a mandatory directional dependency
+gate. The active/future ledger is 0/7.
+
 ## Current Execution Priority
 
-No implementation plan is active. `solar-system-slingshot-usability` closed
-4/4 on 2026-07-24 after the XY/Z-up correction, newest-state held-drag
-prediction, extended horizon, 32-body Mars demonstration, independent review,
-and mapped gates. The active/future ledger is 0/0. Closure evidence is in
+`ui-renderer-hard-boundary` is the active implementation plan at 0/7. Start
+with UR0's source-derived edge census and disposition table; do not begin
+backend migration before every current UI-to-Rendering use has a named owner
+and deletion condition. The plan preserves the existing UI/Runtime
+value-command boundary and makes Runtime/Render the sole UI-to-renderer
+composition point. Use the repository orchestrator skill for implementation.
+
+`solar-system-slingshot-usability` closed 4/4 on 2026-07-24 after the XY/Z-up
+correction, newest-state held-drag prediction, extended horizon, 32-body Mars
+demonstration, independent review, and mapped gates. Closure evidence is in
 [`solar-system-slingshot-usability-closure`](../Reports/2026-07-24/solar-system-slingshot-usability-closure.md).
 
 The prior solar-system trajectory planner closed SS0-SS6 on 2026-07-24 after
@@ -1538,6 +1552,27 @@ shadow/reflection opt-out a real no-pass renderer policy. Independent review
 findings and all validation evidence are recorded in
 [`solar-prediction-presentation-correction-closure`](../Reports/2026-07-25/solar-prediction-presentation-correction-closure.md).
 The active/future denominator returns to zero.
+
+## UI / Renderer Hard Boundary (2026-07-25)
+
+The owner registered one seven-task architecture plan after the solar
+prediction correction closed, growing the active/future denominator 0 → 7.
+The prior UI/Runtime separation remains binding: UI consumes detached values,
+emits typed commands, and never includes Runtime. This plan closes the
+remaining backend seam: 25 direct UI-to-Rendering include rows across 14 UI
+files, UI-owned DX12 resource state, renderer-owned operator presentation, the
+shared production build target, and the absence of a mandatory dependency
+regression gate.
+
+| Plan | State | Verified phase count | Next action |
+|---|---|---:|---|
+| [ui-renderer-hard-boundary](TODO/ui-renderer-hard-boundary.md) | Ready | 0/7 | UR0: regenerate the full include/symbol/project census and ratify every edge disposition before source movement |
+
+Closure requires zero UI-to-Rendering/Runtime includes, zero
+Rendering-to-UI/Runtime includes, a fixed-capacity backend-neutral UI draw
+stream, Runtime/Render-owned submission and GPU lifetime, a standalone UI
+build, mandatory dependency enforcement, unchanged visual behavior, mapped
+DX12/UI/performance/full gates, and one independent review.
 
 ## Features
 
