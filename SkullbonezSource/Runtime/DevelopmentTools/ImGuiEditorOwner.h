@@ -47,7 +47,7 @@ Related:
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorInputPolicy.h
   - SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h
-  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E5-E16)
+  - Agentic/Reports/2026-07-21/imgui-tracy-editor-campaign-closure.md (E5-E16)
 */
 #pragma once
 

@@ -30,7 +30,6 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp
   - SkullbonezSource/Runtime/App/Run.h
-  - Agentic/Plans/In_Progress/authoritative-plan-01-run-composition-root.csv
 */
 #pragma once
 

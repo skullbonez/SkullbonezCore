@@ -29,7 +29,7 @@ Related:
   - RunFrame.cpp constructs the views and owns top-level frame order.
   - InputFrameExecution.cpp consumes them during the input turn.
   - RuntimeStressController.cpp consumes them during deterministic stress work.
-  - Agentic/Plans/TODO/frame-view-calling-convention.md owns this convention.
+  - Agentic/Reports/2026-07-12/frame-view-calling-convention-closure.md records this convention.
 */
 #pragma once
 

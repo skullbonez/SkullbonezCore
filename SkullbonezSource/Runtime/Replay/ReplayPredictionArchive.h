@@ -25,7 +25,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h
-  - Agentic/Plans/TODO/replay-visual-fidelity-mega-probe.md
+  - Agentic/Reports/2026-07-14/replay-visual-fidelity-mega-probe-closure.md
 */
 #pragma once
 

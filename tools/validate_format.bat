@@ -43,6 +43,18 @@ if errorlevel 1 (
     exit /b 1
 )
 
+"%PYTHON_EXE%" "%~dp0check_related_paths.py" --self-test
+if errorlevel 1 (
+    echo FAIL: Related-path regression fixtures failed.
+    exit /b 1
+)
+
+"%PYTHON_EXE%" "%~dp0check_related_paths.py" --repo "%REPO%"
+if errorlevel 1 (
+    echo FAIL: Source learning headers contain unresolved Related paths.
+    exit /b 1
+)
+
 "%PYTHON_EXE%" "%~dp0separate_multiline_cpp_declarations.py" --repo "%REPO%" --check-pipeline --clang-format "%CLANG_FMT%"
 if errorlevel 1 (
     echo FAIL: C++ implementation formatting, paragraph spacing, assignment heads, or compact calls need repair.

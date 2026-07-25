@@ -24,7 +24,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Physics/PhysicsEngine.cpp
-  - Agentic/Plans/TODO/physics-settings-snapshot.md
+  - Agentic/Reports/2026-07-20/physics-settings-snapshot-closure.md
 */
 #pragma once
 

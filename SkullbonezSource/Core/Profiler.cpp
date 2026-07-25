@@ -23,7 +23,7 @@ Invariants:
 Related:
   - SkullbonezSource/Core/Profiler.h
   - SkullbonezSource/Core/PlatformProfiler.h
-  - SkullbonezSource/Rendering/RenderProfilerPresentation.cpp
+  - SkullbonezSource/UI/UIProfilerOverlayPresenter.cpp
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Profiler.h"

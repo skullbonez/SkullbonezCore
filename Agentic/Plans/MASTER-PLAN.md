@@ -571,26 +571,23 @@ falsified ownership claims, and 12 broken `Related:` pointers. It also
 established that the comment regime is strong at deletion (zero retired
 vocabulary survives) and blind to responsibility movement. This plan is
 sequenced early — before the replay partition — because RS0 and GV2 censuses
-read the exact files carrying false claims. The UI plan is complete and removed
-from the live inventory under ledger rule 4. HC0 and GV0 are verified, so the
-active/future ledger is 2/20.
+read the exact files carrying false claims. HC0-HC2 then corrected 18
+false-claim sites, repaired 21 dead pointers, and installed claim-verification
+governance plus a mechanical `Related:` resolver. The completed plan is removed
+from the live inventory under ledger rule 4. GV0 remains verified, so the
+active/future ledger is 1/17.
 
 ## Current Execution Priority
 
 The 2026-07-25 round-4 campaign is the active queue with binding order:
-1 `header-claim-staleness-remediation` (1/3; HC1 is next),
-2 `replay-subsystem-partition` (0/6),
-3 `downward-domain-bleed-remediation` (0/6),
-4 `invariant-ownership-governance-and-transaction-repair` (1/5; GV0 installed
+1 `replay-subsystem-partition` (0/6; RS0 is next),
+2 `downward-domain-bleed-remediation` (0/6),
+3 `invariant-ownership-governance-and-transaction-repair` (1/5; GV0 installed
   the documentation-only governance amendment, GV1+ wait for the dependency
-  chain). The staleness remediation is deliberately second and small: it is
-comment-only, and leaving it later means the replay-partition and
-transaction-repair censuses both read headers carrying verified false
-ownership claims. Its HC0 may also run in parallel with the UI tail, since
-its files do not overlap. UR6 source/review evidence is complete; the owner
-approved the retained-path performance baselines, and the final performance
-gate passes. Both authorized early exceptions are complete; HC1 now owns the
-front of the dependency chain.
+  chain). Header-claim staleness remediation is complete at 3/3 and removed
+from the live ledger; its permanent evidence is
+`../Reports/2026-07-25/header-claim-staleness-remediation-closure.md`. Replay
+RS0 now owns the front of the dependency chain.
 The UI plan preserves the existing UI/Runtime value-command boundary and
 makes Runtime/Render the sole UI-to-renderer composition point, and its UR5
 validator is the shared enforcement vehicle the two follow-up plans extend
@@ -1707,24 +1704,23 @@ graphics-stress proof per inventory rule 10; replay-facing slices run the
 one-invocation mega gate per inventory rule 11; one independent rubber-duck
 review per plan at closure; no new compatibility spellings, forwarding
 headers, context bags, callback packs, or hot-path inheritance artifacts.
-Execution order is binding: 1 UI/renderer hard boundary, 2 header claim
+The original binding order was 1 UI/renderer hard boundary, 2 header claim
 staleness remediation, 3 replay subsystem partition, 4 downward domain bleed
 remediation (DB1 additionally requires RS1's `Runtime/Prediction` package to
-exist), 5 invariant-ownership governance and transaction repair. Two
-authorized exceptions to that order, both documentation-only: GV0's
-governance amendment may execute at any time after registration because its
-amended review rules benefit the in-flight round-4 reviews, and HC0 may run
-parallel to the UI tail because its comment-only diffs touch
-Input/Interaction/Editor/Scene files the UI plan does not. GV1-GV4 and
-HC1-HC2 wait their turn. Coordination: HC2 and GV0 both amend
-`Agentic/Skills/comment-style-audit/skill.md` in separate sections —
-whichever lands second rebases rather than overwrites.
+exist), 5 invariant-ownership governance and transaction repair. The two
+authorized documentation-only exceptions are complete: GV0 landed during the
+UI campaign, and HC0 ran beside the UI tail. HC1-HC2 then closed after UR6 as
+sequenced. HC2 preserved GV0's aggregate-invariant procedure and added claim
+verification as a separate step. Replay RS0 is now the binding next task;
+GV1-GV4 still wait for the dependency chain. HC2 and GV0 both amended
+`Agentic/Skills/comment-style-audit/skill.md` in separate sections; HC2 landed
+second and preserved GV0.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
 | [ui-renderer-hard-boundary](../Reports/2026-07-25/ui-renderer-hard-boundary-closure.md) | Complete | 7/7 | Closed and removed from the live ledger under inventory rule 4 |
-| [header-claim-staleness-remediation](TODO/header-claim-staleness-remediation.md) | In progress | 1/3 | HC0 corrected 18 false-claim sites; HC1 waits for UR6 closure |
-| [replay-subsystem-partition](TODO/replay-subsystem-partition.md) | Ready | 0/6 | Starts after HC2 closes; RS0 partition census of all 72 Replay files |
+| [header-claim-staleness-remediation](../Reports/2026-07-25/header-claim-staleness-remediation-closure.md) | Complete | 3/3 | Closed and removed from the live ledger under inventory rule 4 |
+| [replay-subsystem-partition](TODO/replay-subsystem-partition.md) | In progress | 0/6 | RS0 partition census of all 72 Replay files |
 | [downward-domain-bleed-remediation](TODO/downward-domain-bleed-remediation.md) | Ready | 0/6 | Starts after RS5 closes; DB0 bleed census and boundary-contract design |
 | [invariant-ownership-governance-and-transaction-repair](TODO/invariant-ownership-governance-and-transaction-repair.md) | In progress | 1/5 | GV0 installed; GV1-GV4 start after DB5 closes |
 

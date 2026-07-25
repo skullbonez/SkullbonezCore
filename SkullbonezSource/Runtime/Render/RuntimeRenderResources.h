@@ -25,7 +25,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/App/Run.h
-  - SkullbonezSource/Runtime/RunPasses.cpp
+  - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h
 */
 #pragma once

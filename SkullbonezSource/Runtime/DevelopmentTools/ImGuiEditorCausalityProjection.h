@@ -27,7 +27,7 @@ Related:
   - SkullbonezSource/Runtime/Replay/ReplayAuthoring.h
   - SkullbonezSource/Runtime/Replay/ReplayOverlayRenderer.h
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp
-  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E14)
+  - Agentic/Reports/2026-07-21/imgui-tracy-editor-campaign-closure.md (E14)
 */
 #pragma once
 

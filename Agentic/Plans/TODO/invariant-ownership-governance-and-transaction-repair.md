@@ -204,7 +204,10 @@ this transaction needs). So both are banned, and the invariant is homeless.
   6. Do not add any counting, threshold, or spelling ratchet. The rule is a
      qualitative test with named required artifacts (Invariant: block +
      focused test), enforceable by review and comment audit.
-  7. **Coordination:** `header-claim-staleness-remediation` HC2 also amends
+  7. **Coordination:** the completed `header-claim-staleness-remediation` HC2
+     (retained in
+     `Agentic/Reports/2026-07-25/header-claim-staleness-remediation-closure.md`)
+     also amends
      `Agentic/Skills/comment-style-audit/skill.md`, adding a
      claim-verification step in a separate section. Whichever task lands
      second rebases onto the other rather than overwriting the file. Note
@@ -418,7 +421,9 @@ this transaction needs). So both are banned, and the invariant is homeless.
   do not collide with the partition/bleed file moves.
 - Coordination with header-claim staleness HC2: GV0 landed its
   aggregate-invariant audit step first. HC2 must add claim verification as a
-  separate section without overwriting or weakening that step.
+  separate section without overwriting or weakening that step. HC2 landed
+  second on 2026-07-25 and preserved the aggregate-invariant requirement as
+  procedure step 7 while adding claim verification as step 8.
 - GV2 must not weaken any boundary the round-4 plans establish: the
   transaction stays inside `Runtime/Scene` + call-site packages already
   allowed by the standing Runtime package table; no new package edge is

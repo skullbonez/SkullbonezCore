@@ -33,7 +33,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Core/Profiler.cpp
-  - SkullbonezSource/Rendering/RenderProfilerPresentation.cpp
+  - SkullbonezSource/UI/UIProfilerOverlayPresenter.cpp
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */

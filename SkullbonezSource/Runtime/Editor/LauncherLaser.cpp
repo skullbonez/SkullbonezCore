@@ -27,7 +27,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Editor/LauncherLaser.h
-  - SkullbonezSource/Runtime/RunPasses.cpp
+  - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp
 */
 #include "LauncherLaser.h"
 

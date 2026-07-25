@@ -166,9 +166,10 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `bake_hulls.bat --check\|--write` | Check or rewrite serialized convex hull v2 runtime data from source geometry |
 | `migrate_data_formats.py --check\|--write` | Check or upgrade asset-library, hull, and engine-config files to their current owned versions |
 | `generate_physics_scale_sleepy_scene.py --check\|--write` | Check or deterministically regenerate the 5,000-body sleeping-heavy scale fixture |
-| `validate_format.bat` | Check the composite clang-format pipeline, including assignment heads, multiline statement/control-flow spacing, and header comment alignment |
+| `validate_format.bat` | Check the composite clang-format pipeline, including assignment heads, multiline statement/control-flow spacing, header comment alignment, and `Related:` path resolution |
 | `format_fix.bat` | Auto-fix C++ layout, keep the first assigned expression beside `=`, separate wrapped statements/control blocks, and align header comments |
 | `separate_multiline_cpp_declarations.py --check\|--check-pipeline\|--write\|--stdin` | Keep assignment heads together and add semantic paragraph breaks; `--stdin` previews the post-pass without touching files |
+| `check_related_paths.py [--self-test]` | Verify repository-relative paths in tracked source learning-header `Related:` blocks and exercise live/dead fixtures |
 | `validate_build.bat <Config>` | Build a specific configuration (`Debug`, `Profile`, `Automation`, `Release`) |
 | `validate_all_cpu_tests.bat` | Run all six first-party CPU/coverage gates, stop at the first failure, print a combined summary, and preserve the child exit code |
 | `validate_tests.bat` | Build `SKULLBONEZ_TESTS`, validate its project filters, and run the doctest console runner |

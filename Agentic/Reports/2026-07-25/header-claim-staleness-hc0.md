@@ -2,7 +2,8 @@
 
 Date: 2026-07-25
 
-Plan: `Agentic/Plans/TODO/header-claim-staleness-remediation.md`
+Closure report:
+`Agentic/Reports/2026-07-25/header-claim-staleness-remediation-closure.md`
 
 Status: **HC0 complete**
 

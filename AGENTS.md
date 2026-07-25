@@ -241,6 +241,14 @@ Comment quality is part of completion, not a follow-up nicety.
   and any nearby `Concept:`, `Why:`, `Invariant:`, `Lifetime:`, or `Hazard:`
   comments needed by the guide for non-obvious code. Missing either part keeps
   the item unchecked.
+- Comments that assert ownership, sequencing, or subsystem behavior must name
+  owners and paths that exist in the post-change source. When a change moves a
+  responsibility, correct every touched comment describing the previous owner
+  in the same commit.
+- Repository-relative `Related:` entries must resolve. Permanent source
+  history cites closure reports under `Agentic/Reports/<date>/`, never
+  deletion-bound `Agentic/Plans/TODO/` plans; `validate_fast` enforces the
+  mechanical path-resolution portion.
 - Before final reporting on a comment pass, rerun the scoped `git ls-files`
   inventory and reconcile it against the checklist. The final answer or handoff
   must include the checklist path, checked count, deferred count, and any files
