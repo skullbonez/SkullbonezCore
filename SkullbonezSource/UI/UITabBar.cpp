@@ -25,7 +25,7 @@ Related:
 */
 #include "UITabBar.h"
 
-#include "../Rendering/Text.h"
+#include "UIFontMetrics.h"
 #include "UIStyle.h"
 
 #include <algorithm>
@@ -108,11 +108,11 @@ void UITabBar::Draw( const UIDrawContext& draw, const char* const* labels, int t
             );
         }
         float textSize = 11.5f;
-        while ( textSize > 8.5f && Text::Text2d::MeasureText( textSize, labels[i] ? labels[i] : "" ) > pillW - 10.0f )
+        while ( textSize > 8.5f && UIFontMetrics::MeasureText( textSize, labels[i] ? labels[i] : "" ) > pillW - 10.0f )
         {
             textSize -= 0.5f;
         }
-        const float labelW = Text::Text2d::MeasureText( textSize, labels[i] ? labels[i] : "" );
+        const float labelW = UIFontMetrics::MeasureText( textSize, labels[i] ? labels[i] : "" );
         const float labelX = pillX + (std::max)( 6.0f, ( pillW - labelW ) * 0.5f );
         draw.Text(
             labelX,

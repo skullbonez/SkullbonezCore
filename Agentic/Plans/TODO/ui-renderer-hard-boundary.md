@@ -378,7 +378,7 @@ preserves the completed UI value/command boundary as the target architecture.
   the expected final comment-audit inventory. The registration counts are
   unchanged and this slice changes documentation only.
 
-- [ ] **UR1 — Complete the backend-neutral UI draw and text-layout values.**
+- [x] **UR1 — Complete the backend-neutral UI draw and text-layout values.**
 
   Evolve the existing fixed-capacity `UIDrawList`; do not introduce a parallel
   draw-stream owner. Define public, read-only, bounded draw-command values for
@@ -427,6 +427,33 @@ preserves the completed UI value/command boundary as the target architecture.
     the heaviest surfaces plus stated headroom.
   - No dynamic allocation or callback dispatch is added to recording or
     iteration.
+
+  Evidence (2026-07-25):
+
+  - `UIDrawList` now exposes a read-only `std::span` of trivially-copyable
+    commands and bounded text lookup. Rectangle, rounded rectangle, triangle,
+    text, nested clip push/pop, and preview-image values share one ordered
+    stream; no flush callback remains on the list.
+  - `PreviewTargetId` identifies a catalog row without carrying a renderer
+    handle. Every preview command records its placeholder RGBA and the exact
+    `"Preview unavailable"` label as submission-independent fallback data.
+  - `UIFontMetrics` owns the immutable 96-glyph table. `UiTextPass` installs it
+    from the same `font_atlas.sdf` header that creates the renderer atlas and
+    rejects a differing reinstall. All UI measurement callers use this owner;
+    the two stale `Text.h` includes were deleted.
+  - The committed corpus reads the baked atlas, covers every printable glyph,
+    mixed/fallback strings, every live UI size, and 1.25x/1.5x scale cases.
+    Every result exact-compares the legacy loop and operation order.
+  - The opt-in allocation-free `SKORE_UI_DRAW_STATS` probe measured the
+    profiler-table Legacy surface at 226 commands and 612 text bytes with zero
+    overflow. The retained 8,192-command and 65,536-byte capacities therefore
+    provide 36.2x and 107.1x measured headroom. Clip depth remains fixed at 32;
+    the live pre-conversion surface uses depth 0 and the UR2 surface-by-surface
+    conversion must retain the probe and fail if any representative surface
+    exceeds these frozen limits.
+  - Focused tests pass 7/7 with 100 assertions. The final broad gate passes all
+    mandatory CPU, Automation, replay/prediction, DX12, and physics lanes; the
+    allocation-policy repository scan reports zero allowlist errors.
 
 - [ ] **UR2 — Convert all Legacy UI construction to record-only operation.**
 

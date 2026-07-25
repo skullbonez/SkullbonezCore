@@ -30,6 +30,7 @@ Related:
   - UI.cpp owns the surrounding UI frame.
 */
 #include "UIFrameComposition.h"
+#include "UIFontMetrics.h"
 #include "../Rendering/DX12/RenderBackendDX12.h"
 #include "../Assets/AssetKeys.h"
 #include "../Rendering/RenderGpuTimingOwner.h"
@@ -99,7 +100,7 @@ float MinimizedWidthWithCameraModeCombo( const char* title, int screenW )
     constexpr float textSize = 12.5f;
     constexpr float titleLeft = 32.0f;
     const float maxW = (std::max)( 154.0f, static_cast<float>( screenW ) - margin * 2.0f );
-    const float titleW = Text::Text2d::MeasureText( textSize, title ? title : "" );
+    const float titleW = UIFontMetrics::MeasureText( textSize, title ? title : "" );
     const float desiredW =
         titleLeft + titleW + MINIMIZED_CAMERA_MODE_GAP + MINIMIZED_CAMERA_MODE_COMBO_W + MINIMIZED_RESTORE_W;
     return std::clamp( desiredW, 154.0f, maxW );
@@ -489,7 +490,68 @@ void FlushUIDrawList(
 {
     PROFILE_GPU_BEGIN( gpuTiming, "Frame/UI/Draw" );
     const UIDrawContext immediateDraw( screenW, screenH, nullptr, &renderTextures, &renderCommands, &textBatch );
-    drawList.Flush( immediateDraw, offsetX, offsetY );
+    for ( const UIDrawList::Command& command : drawList.Commands() )
+    {
+        switch ( command.type )
+        {
+        case UIDrawList::CommandType::Rect:
+            immediateDraw.Rect(
+                command.x0 + offsetX,
+                command.y0 + offsetY,
+                command.w,
+                command.h,
+                command.r,
+                command.g,
+                command.b,
+                command.a
+            );
+            break;
+        case UIDrawList::CommandType::RoundedRect:
+            immediateDraw.RoundedRect(
+                command.x0 + offsetX,
+                command.y0 + offsetY,
+                command.w,
+                command.h,
+                command.radius,
+                command.r,
+                command.g,
+                command.b,
+                command.a
+            );
+            break;
+        case UIDrawList::CommandType::Triangle:
+            immediateDraw.Triangle(
+                command.x0 + offsetX,
+                command.y0 + offsetY,
+                command.x1 + offsetX,
+                command.y1 + offsetY,
+                command.x2 + offsetX,
+                command.y2 + offsetY,
+                command.r,
+                command.g,
+                command.b,
+                command.a
+            );
+            break;
+        case UIDrawList::CommandType::Text:
+            immediateDraw.Text(
+                command.x0 + offsetX,
+                command.y0 + offsetY,
+                command.pxSize,
+                command.r,
+                command.g,
+                command.b,
+                drawList.TextAt( command.textOffset )
+            );
+            break;
+        case UIDrawList::CommandType::PushClip:
+        case UIDrawList::CommandType::PopClip:
+        case UIDrawList::CommandType::PreviewImage:
+            // UR1 defines these backend-neutral values before UR2 converts
+            // their live producers and UR3 gives Runtime/Render submission.
+            break;
+        }
+    }
     {
         DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Widgets" );
         Text::Text2d::FlushQuads( textBatch, renderCommands );
@@ -656,7 +718,7 @@ void DrawEditorObjectCounter(
     const float availableW = (std::max)( 1.0f, static_cast<float>( screenW ) - margin * 2.0f );
     const float minW = (std::min)( 140.0f, availableW );
     const float width =
-        std::clamp( Text::Text2d::MeasureText( fontSize, counterText ) + padX * 2.0f, minW, availableW );
+        std::clamp( UIFontMetrics::MeasureText( fontSize, counterText ) + padX * 2.0f, minW, availableW );
     UIRect bounds = { static_cast<float>( screenW ) - margin - width, margin, width, height };
 
     if ( avoidBounds && IntersectRect( bounds, *avoidBounds ).w > 0.0f )

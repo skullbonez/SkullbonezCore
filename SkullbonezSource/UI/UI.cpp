@@ -31,6 +31,7 @@ Related:
 #include "UI.h"
 #include "../Assets/AssetKeys.h"
 #include "UIFrameComposition.h"
+#include "UIFontMetrics.h"
 #include "../Assets/AssetSystem.h"
 #include "../Rendering/RenderCommandTypes.h"
 #include "../Rendering/DX12/Dx12Diagnostics.h"
@@ -57,6 +58,7 @@ Related:
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 using namespace SkullbonezCore::Math::Transformation;
@@ -640,7 +642,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
     if ( useTitleStats )
     {
         snprintf( titleStat, sizeof( titleStat ), "%.0f FPS", data.fps );
-        titleStatW = Text2d::MeasureText( 10.5f, titleStat );
+        titleStatW = UIFontMetrics::MeasureText( 10.5f, titleStat );
         titleStatX = (std::max)( x + 148.0f, x + w - 128.0f - titleStatW );
         titleMaxW = titleStatX - ( x + 20.0f ) - 10.0f;
     }
@@ -1381,5 +1383,33 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
     else
     {
         widgets.cache.StoreFrame( cacheKey );
+    }
+
+    // Why: UR1 capacity decisions use real surfaces, not guessed constants.
+    // This opt-in diagnostic stays allocation-free and emits only when a
+    // developer explicitly requests draw-stream measurement.
+    char drawStatsFlag[2] = {};
+    size_t drawStatsFlagLength = 0;
+    const bool drawStatsRequested =
+        getenv_s( &drawStatsFlagLength, drawStatsFlag, sizeof( drawStatsFlag ), "SKORE_UI_DRAW_STATS" ) == 0 &&
+        drawStatsFlag[0] != '\0';
+    if ( drawStatsRequested )
+    {
+        const UIDrawList::Stats frameStats = drawList.GetStats();
+        const UIDrawList::Stats histogramStats = m_histogramDrawList.GetStats();
+        const UIDrawList::Stats memoryStats = m_memoryOverlayDrawList.GetStats();
+        std::fprintf(
+            stderr,
+            "[ui-draw-stats] tab=%d frame=%d/%d histogram=%d/%d memory=%d/%d clip=%d overflow=%d\n",
+            static_cast<int>( widgets.activeTab ),
+            frameStats.commandCount,
+            frameStats.textBytes,
+            histogramStats.commandCount,
+            histogramStats.textBytes,
+            memoryStats.commandCount,
+            memoryStats.textBytes,
+            frameStats.maxClipDepth,
+            frameStats.commandOverflow || frameStats.textOverflow || frameStats.clipOverflow ? 1 : 0
+        );
     }
 }

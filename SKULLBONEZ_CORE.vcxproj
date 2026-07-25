@@ -465,6 +465,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\UI\UIComboBox.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIDraw.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIDrawList.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UIFontMetrics.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIDrawWidgets.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIIconButton.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIInput.cpp" />
@@ -710,6 +711,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\UI\OperatorEditorExchange.h" />
     <ClInclude Include="SkullbonezSource\UI\UIDraw.h" />
     <ClInclude Include="SkullbonezSource\UI\UIDrawList.h" />
+    <ClInclude Include="SkullbonezSource\UI\UIFontMetrics.h" />
     <ClInclude Include="SkullbonezSource\UI\UIDrawWidgets.h" />
     <ClInclude Include="SkullbonezSource\UI\UIIconButton.h" />
     <ClInclude Include="SkullbonezSource\UI\UIInput.h" />

@@ -24,7 +24,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "UIWindowChrome.h"
-#include "../Rendering/Text.h"
+#include "UIFontMetrics.h"
 #include "UI.h"
 #include "UIDrawWidgets.h"
 #include "UILayout.h"
@@ -98,7 +98,7 @@ void BuildWindowTitle( const InGameUIFrameData& data, char* out, size_t outSize 
 
 void FitTitleText( char* text, size_t textSize, float fontSize, float maxWidth )
 {
-    if ( textSize == 0 || Text2d::MeasureText( fontSize, text ) <= maxWidth )
+    if ( textSize == 0 || UIFontMetrics::MeasureText( fontSize, text ) <= maxWidth )
     {
         return;
     }
@@ -109,7 +109,7 @@ void FitTitleText( char* text, size_t textSize, float fontSize, float maxWidth )
     for ( size_t start = 1; start < len; ++start )
     {
         snprintf( text, textSize, "...%s", original + start );
-        if ( Text2d::MeasureText( fontSize, text ) <= maxWidth )
+        if ( UIFontMetrics::MeasureText( fontSize, text ) <= maxWidth )
         {
             return;
         }

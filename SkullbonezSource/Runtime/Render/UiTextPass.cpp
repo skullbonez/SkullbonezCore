@@ -65,6 +65,7 @@ Related:
 #include "../../Rendering/Text.h"
 #include "../../UI/UI.h"
 #include "../../UI/UIDraw.h"
+#include "../../UI/UIFontMetrics.h"
 #include "../../UI/UIStyle.h"
 
 using namespace SkullbonezCore::Runtime;
@@ -178,7 +179,7 @@ SkullbonezCore::Core::SbResult UiTextPass::EnsureGpuResources(
     int screenH
 )
 {
-    return Text2d::BuildFont(
+    const SkullbonezCore::Core::SbResult fontResult = Text2d::BuildFont(
         m_textBatch,
         renderResources,
         renderTextures,
@@ -188,6 +189,22 @@ SkullbonezCore::Core::SbResult UiTextPass::EnsureGpuResources(
         screenH,
         "Verdana"
     );
+
+    if ( !fontResult.ok )
+    {
+        return fontResult;
+    }
+    // Invariant: the renderer atlas and UI layout consume the same 96 values
+    // loaded from the baked font header. A device rebuild may confirm them but
+    // cannot silently change hit geometry during the process lifetime.
+    if ( !SkullbonezCore::UI::UIFontMetrics::Install( Text2d::charAdvance, 96 ) )
+    {
+        return SkullbonezCore::Core::SbResult::Failure(
+            "Runtime/Render/UiTextPass",
+            "Baked font metrics changed after UI layout publication."
+        );
+    }
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 

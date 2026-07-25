@@ -789,6 +789,9 @@
     <ClCompile Include="SkullbonezSource\UI\UIDrawList.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\UI\UIFontMetrics.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UIDrawWidgets.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
@@ -1547,6 +1550,9 @@
       <Filter>Header Files\UI</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIDrawList.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\UIFontMetrics.h">
       <Filter>Header Files\UI</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIDrawWidgets.h">

@@ -24,7 +24,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "UIDrawWidgets.h"
-#include "../Rendering/Text.h"
+#include "UIFontMetrics.h"
 #include "UICheckBox.h"
 #include "UIStyle.h"
 
@@ -115,7 +115,7 @@ void DrawFooterToggle( const UIDrawContext& draw, const UIRect& bounds, const ch
     const float switchX = bounds.x + bounds.w - switchW - 2.0f;
     const float switchY = bounds.y + 5.0f;
     const float labelAreaW = (std::max)( 1.0f, switchX - bounds.x - 6.0f );
-    const float labelW = Text2d::MeasureText( style.labelTextSize, label );
+    const float labelW = UIFontMetrics::MeasureText( style.labelTextSize, label );
     const float labelX = bounds.x + (std::max)( 0.0f, ( labelAreaW - labelW ) * 0.5f );
 
     draw.Text( labelX, bounds.y + 4.0f, style.labelTextSize, style.label.r, style.label.g, style.label.b, label );

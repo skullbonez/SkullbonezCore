@@ -26,7 +26,7 @@ Related:
 */
 #include "UITabProfiler.h"
 
-#include "../Rendering/Text.h"
+#include "UIFontMetrics.h"
 #include "UI.h"
 #include "UIDraw.h"
 #include "UIStyle.h"
@@ -481,7 +481,7 @@ void FitHistogramText( char* text, std::size_t textSize, float pxSize, float max
     {
         return;
     }
-    if ( SkullbonezCore::Text::Text2d::MeasureText( pxSize, text ) <= maxWidth )
+    if ( SkullbonezCore::UI::UIFontMetrics::MeasureText( pxSize, text ) <= maxWidth )
     {
         return;
     }
@@ -497,7 +497,7 @@ void FitHistogramText( char* text, std::size_t textSize, float pxSize, float max
             text[len - 2] = '.';
             text[len - 1] = '.';
         }
-        if ( SkullbonezCore::Text::Text2d::MeasureText( pxSize, text ) <= maxWidth )
+        if ( SkullbonezCore::UI::UIFontMetrics::MeasureText( pxSize, text ) <= maxWidth )
         {
             return;
         }
@@ -967,7 +967,7 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
 
     snprintf( text, sizeof( text ), mainSelected ? "CPU + WORK" : "CPU" );
     draw.Text(
-        panel.x + panel.w - 10.0f - SkullbonezCore::Text::Text2d::MeasureText( 9.6f, text ),
+        panel.x + panel.w - 10.0f - UIFontMetrics::MeasureText( 9.6f, text ),
         panel.y + 8.0f,
         9.6f,
         palette.textSecondary.r,
@@ -1043,7 +1043,7 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
     auto drawAxisLabel = [&]( float y, float ms )
     {
         FormatHistogramMsLabel( text, sizeof( text ), ms );
-        const float textW = SkullbonezCore::Text::Text2d::MeasureText( 8.8f, text );
+        const float textW = UIFontMetrics::MeasureText( 8.8f, text );
         draw.Text(
             plot.x - 6.0f - textW,
             y,
@@ -1287,7 +1287,7 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
         draw.Text( panel.x + 22.0f, footerY, 10.0f, palette.accent.r, palette.accent.g, palette.accent.b, text );
         if ( mainSelected && state.histogramAverageWorkerMs > 0.0f )
         {
-            const float workerX = panel.x + 34.0f + SkullbonezCore::Text::Text2d::MeasureText( 10.0f, text );
+            const float workerX = panel.x + 34.0f + UIFontMetrics::MeasureText( 10.0f, text );
             snprintf( text, sizeof( text ), "Other cores avg %.2f ms", state.histogramAverageWorkerMs );
             draw.Rect( workerX, footerY + 7.0f, 9.0f, 2.0f, workerLineR, workerLineG, workerLineB, 0.90f );
             draw.Text( workerX + 12.0f, footerY, 10.0f, workerLineR, workerLineG, workerLineB, text );

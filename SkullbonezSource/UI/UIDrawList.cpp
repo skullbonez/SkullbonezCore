@@ -25,7 +25,7 @@ Related:
 */
 #include "UIDrawList.h"
 
-#include "UIDraw.h"
+#include <algorithm>
 
 namespace SkullbonezCore
 {
@@ -38,6 +38,9 @@ void UIDrawList::Clear()
     m_textBytes = 0;
     m_commandOverflow = false;
     m_textOverflow = false;
+    m_clipOverflow = false;
+    m_clipDepth = 0;
+    m_maxClipDepth = 0;
     if ( MAX_TEXT_BYTES > 0 )
     {
         m_text[0] = '\0';
@@ -129,48 +132,75 @@ void UIDrawList::AddText( float x, float y, float pxSize, float r, float g, floa
 }
 
 
-void UIDrawList::Flush( const UIDrawContext& draw, float offsetX, float offsetY ) const
+void UIDrawList::PushClip( float x, float y, float w, float h )
 {
-    for ( int i = 0; i < m_commandCount; ++i )
+    if ( m_clipDepth >= MAX_CLIP_DEPTH )
     {
-        const Command& cmd = m_commands[i];
-        switch ( cmd.type )
-        {
-        case CommandType::Rect:
-            draw.Rect( cmd.x0 + offsetX, cmd.y0 + offsetY, cmd.w, cmd.h, cmd.r, cmd.g, cmd.b, cmd.a );
-            break;
-        case CommandType::RoundedRect:
-            draw.RoundedRect(
-                cmd.x0 + offsetX,
-                cmd.y0 + offsetY,
-                cmd.w,
-                cmd.h,
-                cmd.radius,
-                cmd.r,
-                cmd.g,
-                cmd.b,
-                cmd.a
-            );
-            break;
-        case CommandType::Triangle:
-            draw.Triangle(
-                cmd.x0 + offsetX,
-                cmd.y0 + offsetY,
-                cmd.x1 + offsetX,
-                cmd.y1 + offsetY,
-                cmd.x2 + offsetX,
-                cmd.y2 + offsetY,
-                cmd.r,
-                cmd.g,
-                cmd.b,
-                cmd.a
-            );
-            break;
-        case CommandType::Text:
-            draw.Text( cmd.x0 + offsetX, cmd.y0 + offsetY, cmd.pxSize, cmd.r, cmd.g, cmd.b, m_text + cmd.textOffset );
-            break;
-        }
+        m_clipOverflow = true;
+        return;
     }
+
+    Command* command = PushCommand();
+    if ( !command )
+    {
+        return;
+    }
+    command->type = CommandType::PushClip;
+    command->x0 = x;
+    command->y0 = y;
+    command->w = w;
+    command->h = h;
+    ++m_clipDepth;
+    m_maxClipDepth = (std::max)( m_maxClipDepth, m_clipDepth );
+}
+
+
+void UIDrawList::PopClip()
+{
+    if ( m_clipDepth <= 0 )
+    {
+        m_clipOverflow = true;
+        return;
+    }
+    Command* command = PushCommand();
+    if ( !command )
+    {
+        return;
+    }
+    command->type = CommandType::PopClip;
+    --m_clipDepth;
+}
+
+
+void UIDrawList::AddPreviewImage(
+    PreviewTargetId target,
+    float x,
+    float y,
+    float w,
+    float h,
+    float fallbackR,
+    float fallbackG,
+    float fallbackB,
+    float fallbackA,
+    const char* fallbackLabel
+)
+{
+    Command* command = PushCommand();
+    if ( !command )
+    {
+        return;
+    }
+    command->type = CommandType::PreviewImage;
+    command->preview = target;
+    command->x0 = x;
+    command->y0 = y;
+    command->w = w;
+    command->h = h;
+    command->r = fallbackR;
+    command->g = fallbackG;
+    command->b = fallbackB;
+    command->a = fallbackA;
+    command->textOffset = StoreText( fallbackLabel );
 }
 
 
@@ -187,7 +217,21 @@ UIDrawList::Stats UIDrawList::GetStats() const
     stats.textBytes = m_textBytes;
     stats.commandOverflow = m_commandOverflow;
     stats.textOverflow = m_textOverflow;
+    stats.clipOverflow = m_clipOverflow || m_clipDepth != 0;
+    stats.maxClipDepth = m_maxClipDepth;
     return stats;
+}
+
+
+std::span<const UIDrawList::Command> UIDrawList::Commands() const
+{
+    return { m_commands, static_cast<size_t>( m_commandCount ) };
+}
+
+
+const char* UIDrawList::TextAt( int offset ) const
+{
+    return offset >= 0 && offset < m_textBytes ? m_text + offset : "";
 }
 
 

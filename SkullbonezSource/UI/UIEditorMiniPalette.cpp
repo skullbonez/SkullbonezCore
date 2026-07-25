@@ -23,6 +23,7 @@ Related:
   - UI.cpp owns the surrounding UI frame.
 */
 #include "UIFrameComposition.h"
+#include "UIFontMetrics.h"
 
 namespace SkullbonezCore::UI::FrameComposition
 {
@@ -339,13 +340,13 @@ int SceneDropdownHitboxOptionCount( const SceneTab::UISceneTabState& state, cons
 
 void EllipsizeToWidth( char* text, size_t textSize, float pxSize, float maxWidth )
 {
-    if ( !text || textSize == 0 || Text::Text2d::MeasureText( pxSize, text ) <= maxWidth )
+    if ( !text || textSize == 0 || UIFontMetrics::MeasureText( pxSize, text ) <= maxWidth )
     {
         return;
     }
 
     size_t len = strlen( text );
-    while ( len > 3 && Text::Text2d::MeasureText( pxSize, text ) > maxWidth )
+    while ( len > 3 && UIFontMetrics::MeasureText( pxSize, text ) > maxWidth )
     {
         text[len - 3] = '.';
         text[len - 2] = '.';
@@ -513,7 +514,7 @@ void SetRenderSliderResult(
 
 float EditorMiniChipWidth( const char* label )
 {
-    return Text::Text2d::MeasureText( 10.5f, label ? label : "" ) + 18.0f;
+    return UIFontMetrics::MeasureText( 10.5f, label ? label : "" ) + 18.0f;
 }
 
 
@@ -569,7 +570,7 @@ float EditorMinimizedWidth( const InGameUIFrameData& data, int screenW )
     const char* modeLabel = data.editorPlacementMode ? "Place" : "Gizmo";
     const char* bodyLabel = data.editorPlaceStatic ? "Static" : "Dynamic";
     const char* alignLabel = data.editorTerrainAlign ? "Align" : "Level";
-    const float desiredW = 140.0f + Text::Text2d::MeasureText( 12.0f, shapeLabel ) + EditorMiniChipWidth( modeLabel ) +
+    const float desiredW = 140.0f + UIFontMetrics::MeasureText( 12.0f, shapeLabel ) + EditorMiniChipWidth( modeLabel ) +
                            EditorMiniChipWidth( bodyLabel ) + EditorMiniChipWidth( alignLabel );
     return std::clamp( desiredW, 376.0f, maxW );
 }

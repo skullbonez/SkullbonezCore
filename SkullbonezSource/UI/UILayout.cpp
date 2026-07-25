@@ -24,7 +24,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "UILayout.h"
-#include "../Rendering/Text.h"
+#include "UIFontMetrics.h"
 
 #include <algorithm>
 
@@ -97,7 +97,7 @@ float MinimizedWidthForTitle( const char* title, int screenW )
     constexpr float textSize = 12.5f;
     constexpr float chromeW = 76.0f;
     const float maxW = (std::max)( 154.0f, static_cast<float>( screenW ) - margin * 2.0f );
-    const float textW = Text2d::MeasureText( textSize, title ? title : "" );
+    const float textW = UIFontMetrics::MeasureText( textSize, title ? title : "" );
     return std::clamp( textW + chromeW, 154.0f, maxW );
 }
 

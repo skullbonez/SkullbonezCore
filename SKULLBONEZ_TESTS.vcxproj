@@ -229,6 +229,7 @@
     <ClCompile Include="SkullbonezTests\TestRuntimeInputBindings.cpp" />
     <ClCompile Include="SkullbonezTests\TestRuntimeContracts.cpp" />
     <ClCompile Include="SkullbonezTests\TestRuntimeValueSeams.cpp" />
+    <ClCompile Include="SkullbonezTests\TestUIDrawValues.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayPredictionScheduling.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayGuideArcs.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayTripPlanner.cpp" />
@@ -278,6 +279,8 @@
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsPhysicsUI.cpp" />
     <ClCompile Include="SkullbonezSource\UI\OperatorEditorExchange.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIInput.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UIDrawList.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UIFontMetrics.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorLayoutPolicy.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRequestQueue.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneEntityStore.cpp" />

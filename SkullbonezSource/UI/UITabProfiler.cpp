@@ -34,7 +34,6 @@ Related:
 #include "../Assets/AssetKeys.h"
 
 #include "../Core/Common.h"
-#include "../Rendering/Text.h"
 #include "UI.h"
 #include "UIDraw.h"
 #include "UIIconButton.h"

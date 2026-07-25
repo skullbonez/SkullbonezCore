@@ -25,7 +25,7 @@ Related:
 */
 #include "UISlider.h"
 
-#include "../Rendering/Text.h"
+#include "UIFontMetrics.h"
 #include "UIStyle.h"
 
 #include <algorithm>
@@ -89,7 +89,7 @@ void UISlider::Draw(
         maxValue > minValue ? std::clamp( ( value - minValue ) / ( maxValue - minValue ), 0.0f, 1.0f ) : 0.0f;
     const float knobX = trackX + trackW * t;
     const float textSize = 10.5f;
-    const float valueW = Text::Text2d::MeasureText( textSize, valueText ? valueText : "" );
+    const float valueW = UIFontMetrics::MeasureText( textSize, valueText ? valueText : "" );
     const float valueX = m_bounds.x + m_bounds.w - valueW - 4.0f;
 
     draw.Text(
