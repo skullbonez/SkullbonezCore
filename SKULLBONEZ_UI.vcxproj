@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Profile|x64">
+      <Configuration>Profile</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Profile-WPO|x64">
+      <Configuration>Profile-WPO</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{FE510761-8878-4B4F-8BDD-6485E6ACA7D4}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>SKULLBONEZ_UI</RootNamespace>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <PlatformToolset>v145</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Profile|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <PlatformToolset>v145</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Profile-WPO|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <PlatformToolset>v145</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <PlatformToolset>v145</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings" />
+  <ImportGroup Label="Shared" />
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Profile|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Profile-WPO|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>Debug\</OutDir>
+    <IntDir>Debug\SKULLBONEZ_UI\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">
+    <OutDir>Profile\</OutDir>
+    <IntDir>Profile\SKULLBONEZ_UI\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Profile-WPO|x64'">
+    <OutDir>Profile-WPO\</OutDir>
+    <IntDir>Profile-WPO\SKULLBONEZ_UI\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>Release\</OutDir>
+    <IntDir>Release\SKULLBONEZ_UI\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <FloatingPointModel>Precise</FloatingPointModel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;_DEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;SKULLBONEZ_PLATFORM_PROFILER_PIX;USE_PIX;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ExceptionHandling>false</ExceptionHandling>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <RuntimeTypeInfo>false</RuntimeTypeInfo>
+      <PrecompiledHeader />
+      <WarningLevel>Level4</WarningLevel>
+      <TreatWarningAsError>false</TreatWarningAsError>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Lib>
+      <OutputFile>$(OutDir)SKULLBONEZ_UI.lib</OutputFile>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">
+    <ClCompile>
+      <FloatingPointModel>Precise</FloatingPointModel>
+      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;NDEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;SKULLBONEZ_PLATFORM_PROFILER_PIX;USE_PIX;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ExceptionHandling>false</ExceptionHandling>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <RuntimeTypeInfo>false</RuntimeTypeInfo>
+      <PrecompiledHeader />
+      <WarningLevel>Level4</WarningLevel>
+      <TreatWarningAsError>false</TreatWarningAsError>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Lib>
+      <OutputFile>$(OutDir)SKULLBONEZ_UI.lib</OutputFile>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Profile-WPO|x64'">
+    <ClCompile>
+      <FloatingPointModel>Precise</FloatingPointModel>
+      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;NDEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;SKULLBONEZ_PLATFORM_PROFILER_PIX;USE_PIX;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ExceptionHandling>false</ExceptionHandling>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <RuntimeTypeInfo>false</RuntimeTypeInfo>
+      <PrecompiledHeader />
+      <WarningLevel>Level4</WarningLevel>
+      <TreatWarningAsError>false</TreatWarningAsError>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Lib>
+      <OutputFile>$(OutDir)SKULLBONEZ_UI.lib</OutputFile>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <FloatingPointModel>Precise</FloatingPointModel>
+      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;NDEBUG;_WINDOWS;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ExceptionHandling>false</ExceptionHandling>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <RuntimeTypeInfo>false</RuntimeTypeInfo>
+      <PrecompiledHeader />
+      <WarningLevel>Level4</WarningLevel>
+      <TreatWarningAsError>false</TreatWarningAsError>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Lib>
+      <OutputFile>$(OutDir)SKULLBONEZ_UI.lib</OutputFile>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Core\FloatingPointContract.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="SkullbonezSource\UI\OperatorEditorExchange.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UI.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UIBackdropBlur.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UIButton.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UICache.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UICheckBox.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UIComboBox.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UIDraw.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UIDrawList.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UIDrawWidgets.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UIEditorMiniPalette.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UIEditorMiniPaletteDraw.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UIFontMetrics.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UIFrameComposition.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UIIconButton.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UIInput.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UILayout.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UIProfilerOverlayPresenter.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UIScrollBar.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UISlider.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UIStyle.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UITabBar.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UITabCinematic.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UITabControls.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UITabEditor.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UITabMemory.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UITabOptions.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UITabPhysics.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UITabProfiler.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UITabProfilerHistogram.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UITabScene.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UITabSky.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UIWindowChrome.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UIWindowInteractionOwner.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="SkullbonezSource\UI\OperatorEditorExchange.h" />
+    <ClInclude Include="SkullbonezSource\UI\UI.h" />
+    <ClInclude Include="SkullbonezSource\UI\UIBackdropBlur.h" />
+    <ClInclude Include="SkullbonezSource\UI\UIButton.h" />
+    <ClInclude Include="SkullbonezSource\UI\UICache.h" />
+    <ClInclude Include="SkullbonezSource\UI\UICheckBox.h" />
+    <ClInclude Include="SkullbonezSource\UI\UIComboBox.h" />
+    <ClInclude Include="SkullbonezSource\UI\UICommands.h" />
+    <ClInclude Include="SkullbonezSource\UI\UIDraw.h" />
+    <ClInclude Include="SkullbonezSource\UI\UIDrawList.h" />
+    <ClInclude Include="SkullbonezSource\UI\UIDrawWidgets.h" />
+    <ClInclude Include="SkullbonezSource\UI\UIFontMetrics.h" />
+    <ClInclude Include="SkullbonezSource\UI\UIFrameComposition.h" />
+    <ClInclude Include="SkullbonezSource\UI\UIIconButton.h" />
+    <ClInclude Include="SkullbonezSource\UI\UIInput.h" />
+    <ClInclude Include="SkullbonezSource\UI\UILayout.h" />
+    <ClInclude Include="SkullbonezSource\UI\UIProfilerOverlayPresenter.h" />
+    <ClInclude Include="SkullbonezSource\UI\UIRenderAuthoringCatalog.h" />
+    <ClInclude Include="SkullbonezSource\UI\UIRenderDiagnostics.h" />
+    <ClInclude Include="SkullbonezSource\UI\UISceneNavigationModel.h" />
+    <ClInclude Include="SkullbonezSource\UI\UIScrollBar.h" />
+    <ClInclude Include="SkullbonezSource\UI\UISlider.h" />
+    <ClInclude Include="SkullbonezSource\UI\UIState.h" />
+    <ClInclude Include="SkullbonezSource\UI\UIStyle.h" />
+    <ClInclude Include="SkullbonezSource\UI\UITabBar.h" />
+    <ClInclude Include="SkullbonezSource\UI\UITabCinematic.h" />
+    <ClInclude Include="SkullbonezSource\UI\UITabControls.h" />
+    <ClInclude Include="SkullbonezSource\UI\UITabEditor.h" />
+    <ClInclude Include="SkullbonezSource\UI\UITabMemory.h" />
+    <ClInclude Include="SkullbonezSource\UI\UITabOptions.h" />
+    <ClInclude Include="SkullbonezSource\UI\UITabPhysics.h" />
+    <ClInclude Include="SkullbonezSource\UI\UITabProfiler.h" />
+    <ClInclude Include="SkullbonezSource\UI\UITabScene.h" />
+    <ClInclude Include="SkullbonezSource\UI\UITabSky.h" />
+    <ClInclude Include="SkullbonezSource\UI\UIWindowChrome.h" />
+    <ClInclude Include="SkullbonezSource\UI\UIWindowInteractionOwner.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets" />
+</Project>

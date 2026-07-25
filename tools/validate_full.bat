@@ -55,6 +55,7 @@ if not "%PREFLIGHT_EXIT%"=="0" (
     exit /b %PREFLIGHT_EXIT%
 )
 set "SKULLBONEZ_ASSUME_PROFILE_BUILT=1"
+set "SKULLBONEZ_DEPENDENCY_GRAPH_ALREADY_VALIDATED=1"
 
 echo.
 echo === Phase 1: Mandatory CPU Tests ===

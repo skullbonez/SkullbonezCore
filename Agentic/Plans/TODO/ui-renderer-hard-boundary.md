@@ -650,7 +650,7 @@ preserves the completed UI value/command boundary as the target architecture.
     physics CSV was refreshed or staged. The two pre-existing replay-golden
     working-tree edits remain user-owned.
 
-- [ ] **UR5 — Add a build boundary and mandatory dependency regression gate.**
+- [x] **UR5 — Add a build boundary and mandatory dependency regression gate.**
 
   Create a dedicated UI production target that compiles the UI package without
   Runtime/Render or DX12 dependencies. Move each UI source file to exactly one
@@ -704,6 +704,42 @@ preserves the completed UI value/command boundary as the target architecture.
     same dependency validator once through their established call chain.
   - `validate_project_filters` proves exact single-project ownership for UI
     source and headers.
+
+  Completion evidence (2026-07-25):
+
+  - Added `SKULLBONEZ_UI.vcxproj` as a standalone static library owning all
+    34 UI translation units and 36 UI headers. The application and unit-test
+    projects consume the library through project references; neither compiles
+    UI sources directly, and the UI project has no Runtime, Render, Rendering,
+    or DX12 project dependency.
+  - Project/filter validation passed with 767 matching items across four
+    production projects and proved exact single-project ownership for every
+    tracked UI source/header.
+  - Added the data-driven `tools/dependency_graph_rules.json` package graph and
+    `tools/check_dependency_graph.py`. Its 25 include rules encode the standing
+    Core, Physics, Rendering, Gameplay, UI, Runtime-package, and downward Replay
+    boundaries; the project rule prevents UI source/header back-door ownership
+    in the application or test projects.
+  - The validator self-test passed 25 positive/negative include-rule fixture
+    pairs and one project-ownership fixture pair. The live repository scan
+    reported zero findings. New package relationships are expressed through
+    rule data and fixtures without changing the evaluator.
+  - `validate_fast.bat` passed all six stages, including the new dependency
+    preflight, four-project filter census, Profile solution build, and unit
+    tests. `validate_all_cpu_tests.bat` passed the dependency preflight, all
+    390 doctest cases / 2,403,250 assertions, every ratified coverage floor,
+    runtime-interaction policy, scene-parser tests, and DX12 architecture
+    tests.
+  - The validator is wired once through the fast, CPU, full, and hosted
+    mandatory-CPU call chains. `AGENTS.md` now names the data-driven validator
+    as authoritative while retaining its shell snippets as readable review
+    mirrors.
+  - Touched-tool comment audit: 2/2 substantial Python tools inspected against
+    the guide, zero deferred. Build metadata and small batch wrappers are
+    self-explanatory and require no source learning header.
+  - No baseline, golden, scene, configuration, shader, replay artifact, or
+    physics CSV was refreshed or staged. The two pre-existing replay-golden
+    working-tree edits remain user-owned.
 
 - [ ] **UR6 — Close behavior, performance, ownership, and documentation.**
 

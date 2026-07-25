@@ -277,11 +277,6 @@
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RenderDefaultsStore.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsPhysicsUI.cpp" />
-    <ClCompile Include="SkullbonezSource\UI\OperatorEditorExchange.cpp" />
-    <ClCompile Include="SkullbonezSource\UI\UIInput.cpp" />
-    <ClCompile Include="SkullbonezSource\UI\UIDrawList.cpp" />
-    <ClCompile Include="SkullbonezSource\UI\UIDraw.cpp" />
-    <ClCompile Include="SkullbonezSource\UI\UIFontMetrics.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorLayoutPolicy.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRequestQueue.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneEntityStore.cpp" />
@@ -319,6 +314,9 @@
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.h" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="SKULLBONEZ_UI.vcxproj">
+      <Project>{FE510761-8878-4B4F-8BDD-6485E6ACA7D4}</Project>
+    </ProjectReference>
     <ProjectReference Include="SKULLBONEZ_MATHS.vcxproj">
       <Project>{5D4A47DA-54C6-4142-9FA9-1A63E976BA2D}</Project>
     </ProjectReference>

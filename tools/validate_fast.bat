@@ -43,11 +43,11 @@ if not "%~1"=="" if not "%PREFLIGHT_ONLY%"=="1" (
 
 echo.
 echo ========================================
-echo   VALIDATE_FAST - Format + Metadata + Size + Build
+echo   VALIDATE_FAST - Format + Metadata + Dependencies + Size + Build
 echo ========================================
 echo.
 
-echo [1/5] Checking formatting...
+echo [1/6] Checking formatting...
 call "%~dp0validate_format.bat"
 if errorlevel 1 (
     echo.
@@ -55,11 +55,15 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [2/5] Checking Visual Studio project filters...
+echo [2/6] Checking Visual Studio project filters...
 call "%~dp0validate_project_filters.bat"
 if errorlevel 1 exit /b 2
 
-echo [3/5] Checking staged file sizes...
+echo [3/6] Checking dependency graph...
+call "%~dp0validate_dependency_graph.bat"
+if errorlevel 1 exit /b 7
+
+echo [4/6] Checking staged file sizes...
 REM Why: the checker reads the git index, so keep it before the expensive build
 REM steps and pass the repo root explicitly for callers outside the worktree.
 REM Hosted CI supplies a base commit because its clean index contains no pending
@@ -71,11 +75,11 @@ if defined SKORE_SIZE_DIFF_BASE (
 )
 if errorlevel 1 exit /b 3
 
-echo [4/5] Building Profile x64...
+echo [5/6] Building Profile x64...
 call "%~dp0validate_build.bat" Profile
 if errorlevel 1 exit /b 4
 
-echo [5/5] Running unit tests...
+echo [6/6] Running unit tests...
 if "%PREFLIGHT_ONLY%"=="1" goto :tests_deferred
 call "%~dp0validate_tests.bat"
 if errorlevel 1 exit /b 5

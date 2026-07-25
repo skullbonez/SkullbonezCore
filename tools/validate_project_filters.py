@@ -102,6 +102,7 @@ DEFAULT_PRODUCTION_PROJECTS = (
     ("SKULLBONEZ_CORE.vcxproj", "SKULLBONEZ_CORE.vcxproj.filters"),
     ("SKULLBONEZ_MATHS.vcxproj", "SKULLBONEZ_MATHS.vcxproj.filters"),
     ("SKULLBONEZ_PHYSICS.vcxproj", "SKULLBONEZ_PHYSICS.vcxproj.filters"),
+    ("SKULLBONEZ_UI.vcxproj", "SKULLBONEZ_UI.vcxproj.filters"),
 )
 # Concept: extracted single-area libraries already name their subsystem at the
 # project node in Solution Explorer. Their filters should stay shallow instead
@@ -109,6 +110,7 @@ DEFAULT_PRODUCTION_PROJECTS = (
 FLATTENED_LIBRARY_PROJECT_AREAS = {
     "SKULLBONEZ_MATHS.vcxproj": "Maths",
     "SKULLBONEZ_PHYSICS.vcxproj": "Physics",
+    "SKULLBONEZ_UI.vcxproj": "UI",
 }
 # Concept: `.inl` files are source-bearing include slices, not build units.
 # Keep them as ClInclude items so Visual Studio shows ownership splits while

@@ -49,6 +49,14 @@ echo   VALIDATE_ALL_CPU_TESTS - Mandatory CPU Test Umbrella
 echo ============================================================
 echo.
 
+if "%SKULLBONEZ_DEPENDENCY_GRAPH_ALREADY_VALIDATED%"=="1" (
+    echo Dependency graph already passed in the owning preflight.
+) else (
+    echo Running dependency graph preflight...
+    call "%~dp0validate_dependency_graph.bat"
+    if errorlevel 1 exit /b %errorlevel%
+)
+
 echo [1/5] Running validate_tests.bat...
 if not exist "%CPU_TEST_SCRIPT_DIR%validate_tests.bat" (
     set "CHILD_EXIT=99"

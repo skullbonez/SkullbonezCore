@@ -87,7 +87,15 @@ not include Assets, Scene, World, Runtime, or UI. Move a misplaced value or
 implementation to its owning layer instead of adding a forwarding header,
 compatibility alias, callback pack, service bag, or upward include.
 
-Before closing a dependency-direction change, run these exact review proofs;
+Authoritative dependency enforcement lives in
+`tools/check_dependency_graph.py` with data in
+`tools/dependency_graph_rules.json`. `tools/validate_dependency_graph.bat`
+runs its positive/negative fixtures and repository scan through the mandatory
+fast, CPU, full, and hosted gates. Add or change a direction only by updating
+rule data, fixtures, and this ownership table in the same change; do not
+hardcode a new checker branch or count budget.
+
+The exact review proofs below remain human-readable mirrors of the validator;
 all commands must return no rows:
 
 ```powershell
@@ -152,10 +160,12 @@ sequences the turn, `InputRouter.Interactions` remains part of the same router
 owner, and stateless `InputController` applies mode/camera policy. Do not add a
 second retained input state owner or move frame orchestration down into Input.
 
-Before closing a Runtime package change, run every proof below; every command
-must return no rows. Each pattern is the complement of the source package's
-allowed Runtime targets, so a new edge requires an owner-approved table and
-proof update rather than a forwarding header, callback facade, or context bag:
+The dependency-graph validator is authoritative for this Runtime matrix and
+must pass before closing a Runtime package change. The mirror commands below
+must also return no rows. Each pattern is the complement of the source
+package's allowed Runtime targets, so a new edge requires an owner-approved
+table, rule-data/fixture, and proof update rather than a forwarding header,
+callback facade, or context bag:
 
 ```powershell
 rg -n '^#include[[:space:]]+\x22(\.\./)?(Debug|Render|Simulation|Startup|UI)/' SkullbonezSource/Runtime/Automation
@@ -187,8 +197,8 @@ Replay is an upper Runtime consumer, not a type provider to engine layers.
 as value packets or bounded queues. Do not move a Replay type downward or hide
 one behind a forwarding header, alias, callback pack, or broad context object.
 
-Before closing replay-facing work, run this exact review proof; it must return
-no rows:
+The dependency-graph validator is authoritative for this Replay edge. Before
+closing replay-facing work, the mirror proof must also return no rows:
 
 ```powershell
 rg -n '^#include[[:space:]]+.*Runtime/Replay/' SkullbonezSource/Physics SkullbonezSource/Rendering SkullbonezSource/Scene SkullbonezSource/World SkullbonezSource/Core
