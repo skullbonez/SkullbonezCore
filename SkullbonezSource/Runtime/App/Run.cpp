@@ -461,7 +461,8 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
             replay,
             m_interaction,
             m_camera,
-            *m_operatorUi } );
+            *m_operatorUi,
+            m_renderer.FrameGraphSnapshot() } );
     }
     return result;
 #else

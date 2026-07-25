@@ -206,6 +206,9 @@ struct ReplayAutomationView
     const ReplayPorkchopPanelView& porkchop;
     const ReplayTripPlannerView& tripPlanner;
     const RunReplayPathVisualizerState& path;
+    // Closest-approach evidence is a detached value snapshot; automation cannot
+    // mutate the retained target or incremental scan through this view.
+    ReplayInterceptView intercept;
     // Cold artifact writers borrow recorder owners only for the synchronous
     // report write. The view is never retained across a replay mutation.
     const ReplayRecorder& presentationRecorder;
@@ -219,6 +222,7 @@ struct ReplayAutomationView
     const RunReplayPredictionFrame* currentPredictionFrame = nullptr;
     ReplayVisualPacket visualPacket;
     ReplayTrajectorySubmissionProbeStats trajectorySubmission;
+    uint64_t predictionAppearanceInvalidationCount = 0;
     SkullbonezCore::Core::MainMemoryReplayStats memoryStats;
     ReplayInputView input;
     float solverTrackPosition = 0.0f;

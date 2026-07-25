@@ -9,10 +9,14 @@ Summary:
 
 Glossary:
   Retention window: Maximum authored duration requested for retained past samples.
-  Prediction horizon: Maximum future duration exposed by replay prediction controls.
+  Default horizon: Future duration used before an operator changes prediction.
+  Maximum horizon: Longest bounded future exposed by prediction controls.
 
 Invariants:
   - These limits are configuration vocabulary, not mutable runtime state.
+  - The 20-second default preserves ordinary scene and fidelity behavior.
+  - The extended maximum remains subject to the prediction owner's unchanged
+    byte cap; large scenes fail the reserve request instead of exceeding it.
   - Changing either value requires the normal replay compatibility and fidelity review.
 
 Related:
@@ -24,5 +28,6 @@ Related:
 namespace SkullbonezCore::Runtime
 {
 inline constexpr int REPLAY_PAST_BUFFER_SECONDS = 60;
-inline constexpr float REPLAY_FUTURE_BUFFER_SECONDS = 20.0f;
+inline constexpr float REPLAY_FUTURE_DEFAULT_SECONDS = 20.0f;
+inline constexpr float REPLAY_FUTURE_MAX_SECONDS = 120.0f;
 } // namespace SkullbonezCore::Runtime

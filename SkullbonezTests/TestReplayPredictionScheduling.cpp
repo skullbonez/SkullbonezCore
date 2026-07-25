@@ -11,13 +11,16 @@ Summary:
 Glossary:
   Instant build: One worker submission for the remaining prediction horizon.
   Supersede: Retain one pending restart without cancelling in-flight work.
+  Presented replacement: Build prefix prepared coherently by the frame thread
+    at least once, so a newer velocity may safely replace it.
   Model row hint: Sample-local lookup shortcut; stable scene id remains authority.
 
 Invariants:
   - A zero instant budget always preserves amortized scheduling.
   - A large-body prediction remains amortized even when its cheap probe reports
     implausibly high throughput.
-  - Repeated dirty events collapse into one Begin after instant completion.
+  - Repeated dirty events cannot cancel an amortized replacement until one
+    coherent changed prefix has been presented.
   - Publication exposes only a contiguous bounded prefix and reset clears failure.
   - A build-root trajectory exposes exactly the frame-thread presentation prefix.
   - Solver lookup may preserve a negative sentinel; prediction-style lookup rejects it.
@@ -56,13 +59,15 @@ TEST_CASE( "Replay prediction scheduling: measured cost selects instant or amort
 
 TEST_CASE( "Replay prediction scheduling: instant dirty work is superseded without cancellation" )
 {
-    CHECK( ChooseReplayPredictionCoalescerAction( true, true, ReplayPredictionBuildMode::Instant, false ) ==
+    CHECK( ChooseReplayPredictionCoalescerAction( true, true, ReplayPredictionBuildMode::Instant, false, false ) ==
            ReplayPredictionCoalescerAction::Supersede );
-    CHECK( ChooseReplayPredictionCoalescerAction( false, false, ReplayPredictionBuildMode::Instant, true ) ==
+    CHECK( ChooseReplayPredictionCoalescerAction( false, false, ReplayPredictionBuildMode::Instant, true, false ) ==
            ReplayPredictionCoalescerAction::Begin );
-    CHECK( ChooseReplayPredictionCoalescerAction( true, true, ReplayPredictionBuildMode::Amortized, false ) ==
-           ReplayPredictionCoalescerAction::CancelAndBegin );
-    CHECK( ChooseReplayPredictionCoalescerAction( false, true, ReplayPredictionBuildMode::Instant, false ) ==
+    CHECK( ChooseReplayPredictionCoalescerAction( true, true, ReplayPredictionBuildMode::Amortized, false, false ) ==
+           ReplayPredictionCoalescerAction::Supersede );
+    CHECK( ChooseReplayPredictionCoalescerAction( true, true, ReplayPredictionBuildMode::Amortized, false, true ) ==
+           ReplayPredictionCoalescerAction::PromoteAndBegin );
+    CHECK( ChooseReplayPredictionCoalescerAction( false, true, ReplayPredictionBuildMode::Instant, false, false ) ==
            ReplayPredictionCoalescerAction::Nothing );
 }
 

@@ -457,6 +457,32 @@ float RenderValueForParam( const SkullbonezCore::Core::OrdinaryRenderConfig& ord
         return ordinary.boxRoughnessScale;
     case UIRenderParam::BoxSpecular:
         return ordinary.boxSpecularScale;
+    case UIRenderParam::TrajectoryFutureWidth:
+        return ordinary.replayTrajectory.futureWidth;
+    case UIRenderParam::TrajectoryFutureAlpha:
+        return ordinary.replayTrajectory.futureAlpha;
+    case UIRenderParam::TrajectoryFutureEdgeFeather:
+        return ordinary.replayTrajectory.futureEdgeFeather;
+    case UIRenderParam::TrajectoryCausalWidth:
+        return ordinary.replayTrajectory.causalWidth;
+    case UIRenderParam::TrajectoryCausalAlpha:
+        return ordinary.replayTrajectory.causalAlpha;
+    case UIRenderParam::TrajectoryCausalEdgeFeather:
+        return ordinary.replayTrajectory.causalEdgeFeather;
+    case UIRenderParam::TrajectoryBaselineWidth:
+        return ordinary.replayTrajectory.baselineWidth;
+    case UIRenderParam::TrajectoryBaselineAlpha:
+        return ordinary.replayTrajectory.baselineAlpha;
+    case UIRenderParam::TrajectoryBaselineEdgeFeather:
+        return ordinary.replayTrajectory.baselineEdgeFeather;
+    case UIRenderParam::TrajectoryMarkerWidth:
+        return ordinary.replayTrajectory.markerWidth;
+    case UIRenderParam::TrajectoryMarkerAlpha:
+        return ordinary.replayTrajectory.markerAlpha;
+    case UIRenderParam::TrajectoryMarkerEdgeFeather:
+        return ordinary.replayTrajectory.markerEdgeFeather;
+    case UIRenderParam::TrajectorySelectedEmphasis:
+        return ordinary.replayTrajectory.selectedEmphasis;
     default:
         return 0.0f;
     }

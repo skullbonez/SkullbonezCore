@@ -13,6 +13,8 @@ Glossary:
     rebuilt together for the current rendered frame.
   All-body trajectory: Mutual-gravity path record retained for every body,
     independent of the contact-derived future tree.
+  Live edit replacement: Short coherent prefix promoted during a held velocity
+    drag before a newer pointer sample may replace it.
 
 Invariants:
   - Worker publication retains the release/acquire prefix protocol.
@@ -177,6 +179,10 @@ struct RunReplayPredictionBuildState
     // is in flight, this bit remembers only that the newest live state needs one
     // replacement build after completion.
     bool pendingLatestRestart = false;
+    // Newest-state token that gives held velocity edits a short coherent
+    // publication threshold. It survives supersession and clears only after
+    // the requested generation begins successfully.
+    bool liveVelocityEditRefreshPending = false;
     uint32_t supersededRestartCount = 0;
     uint32_t latestRestartBeginCount = 0;
     bool building = false;
@@ -207,7 +213,7 @@ struct RunReplayPredictionBuildState
 // by one isolated future. No live Physics store is reachable through it.
 struct ReplayPredictionIsolatedSimulation
 {
-    float horizonSeconds = REPLAY_FUTURE_BUFFER_SECONDS;
+    float horizonSeconds = REPLAY_FUTURE_DEFAULT_SECONDS;
     Physics::ModelRowHint targetModelRow;
     Physics::PhysicsSceneObjectId targetId;
     ReplayFrameIndex sourceFrameIndex = 0;
@@ -254,6 +260,7 @@ struct RunReplayPredictionState
     std::size_t PublishedBuildFrameCount() const noexcept;
     bool HasPublishedBuildFramePrefix( std::size_t minFrameCount = 2u ) const noexcept;
     bool BuildPrefixShouldBePresented() const noexcept;
+    bool BuildPrefixHasBeenPresented() const noexcept;
     bool BuildFramesAreComplete() const noexcept;
     bool FutureTreeReadyForDraw( Physics::PhysicsSceneObjectId rootId,
                                  bool usingBuildFrames,
@@ -454,6 +461,7 @@ class ReplayPrediction
     void SetEnabled( bool enabled ) noexcept;
     void ApplyAuthoringRequest( bool enablePrediction,
                                 bool refreshPrediction,
+                                bool liveVelocityEdit,
                                 float minHorizonSeconds,
                                 float maxHorizonSeconds ) noexcept;
     void DisableAndClearCache();
@@ -561,6 +569,17 @@ inline bool RunReplayPredictionState::BuildPrefixShouldBePresented() const noexc
                                                ? std::size_t{ 2u }
                                                : build.buildPresentationFrameCount;
     return build.building && publishedCount >= requiredFrameCount;
+}
+
+inline bool RunReplayPredictionState::BuildPrefixHasBeenPresented() const noexcept
+{
+    if ( !BuildPrefixShouldBePresented() )
+    {
+        return false;
+    }
+    const std::size_t presentedCount =
+        build.presentationPublication.PresentedCount( PublishedBuildFrameCount(), build.buildFrames.size() );
+    return presentedCount >= build.buildPresentationFrameCount;
 }
 
 inline bool RunReplayPredictionState::BuildFramesAreComplete() const noexcept

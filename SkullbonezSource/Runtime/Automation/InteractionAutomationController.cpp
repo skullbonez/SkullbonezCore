@@ -20,6 +20,10 @@ Glossary:
     or retargets a fixed camera shot list without taking ownership away from
     the runtime camera state.
   Prediction target: Replay body selected for future-path diagnostics.
+  Intercept assertion: Probe comparison against the replay-owned
+    closest-approach snapshot for one published prediction prefix.
+  Presented generation: Replacement prefix that completed frame-thread
+    preparation and was eligible for rendering before a later edit arrived.
   Automation report: JSON side-channel describing what the scripted interaction
   observed without mutating validation baselines directly.
   Probe failure: CLI validation failure persisted as report `ok=false` and
@@ -75,6 +79,7 @@ Related:
 #include "../../Physics/PhysicsTimestep.h"
 #include "../../Core/Config.h"
 #include "../../Core/ByteView.h"
+#include "../../Rendering/RenderSceneSnapshot.h"
 #include "../../Rendering/DX12/Dx12BackbufferCapture.h"
 #include "../../UI/UI.h"
 
@@ -96,6 +101,7 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
 using SkullbonezCore::Hardware::Input;
 namespace Physics = SkullbonezCore::Physics;
+namespace Rendering = SkullbonezCore::Rendering;
 namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 namespace
@@ -583,6 +589,14 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "replayPredictionEnabled";
     case RunInteractionAutomationAssertKind::ReplayPathTarget:
         return "replayPathTarget";
+    case RunInteractionAutomationAssertKind::ReplayInterceptContact:
+        return "replayInterceptContact";
+    case RunInteractionAutomationAssertKind::ReplayInterceptMissMax:
+        return "replayInterceptMissMax";
+    case RunInteractionAutomationAssertKind::ReplayInterceptEtaMin:
+        return "replayInterceptEtaMin";
+    case RunInteractionAutomationAssertKind::ReplayInterceptEtaMax:
+        return "replayInterceptEtaMax";
     case RunInteractionAutomationAssertKind::ReplayTripPlannerState:
         return "replayTripPlannerState";
     case RunInteractionAutomationAssertKind::ReplayTripPlannerIterationMax:
@@ -621,6 +635,10 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "replayPastTrajectoryPublishedPointCountMin";
     case RunInteractionAutomationAssertKind::PredictionPathVisible:
         return "predictionPathVisible";
+    case RunInteractionAutomationAssertKind::PredictionPresentedGenerationMin:
+        return "predictionPresentedGenerationMin";
+    case RunInteractionAutomationAssertKind::PredictionPresentedRootVelocityDeltaMin:
+        return "predictionPresentedRootVelocityDeltaMin";
     case RunInteractionAutomationAssertKind::PredictionFullHorizonComplete:
         return "predictionFullHorizonComplete";
     case RunInteractionAutomationAssertKind::PredictionBuildMode:
@@ -639,10 +657,22 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "predictionScrubFrameActive";
     case RunInteractionAutomationAssertKind::PredictionTargetDisplacementMin:
         return "predictionTargetDisplacementMin";
+    case RunInteractionAutomationAssertKind::PredictionTargetLastNear:
+        return "predictionTargetLastNear";
     case RunInteractionAutomationAssertKind::LiveSolverHashStableAcrossPrediction:
         return "liveSolverHashStableAcrossPrediction";
     case RunInteractionAutomationAssertKind::PredictionTrajectoryFingerprintReady:
         return "predictionTrajectoryFingerprintReady";
+    case RunInteractionAutomationAssertKind::PredictionAppearanceInvalidationCountMin:
+        return "predictionAppearanceInvalidationCountMin";
+    case RunInteractionAutomationAssertKind::ShadowPassExecuted:
+        return "shadowPassExecuted";
+    case RunInteractionAutomationAssertKind::TerrainShadowValid:
+        return "terrainShadowValid";
+    case RunInteractionAutomationAssertKind::ObjectShadowValid:
+        return "objectShadowValid";
+    case RunInteractionAutomationAssertKind::ReflectionPassExecuted:
+        return "reflectionPassExecuted";
     case RunInteractionAutomationAssertKind::GizmoVisible:
         return "gizmoVisible";
     case RunInteractionAutomationAssertKind::MousePickupActive:
@@ -1816,27 +1846,41 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
             name == "replayPastTrajectoryFullRebuildCountMax" ||
             name == "replayPastTrajectoryIncrementalTrimCountMin" ||
             name == "replayPastTrajectoryPublishedPointCountMin" || name == "replayTripPlannerIterationMax" ||
-            name == "replayTripPlannerMissMax" || name == "replayPorkchopMinimumDeltaVMax" ||
+            name == "replayTripPlannerMissMax" || name == "replayInterceptMissMax" || name == "replayInterceptEtaMin" ||
+            name == "replayInterceptEtaMax" || name == "replayPorkchopMinimumDeltaVMax" ||
             name == "replayPorkchopMinimumDepartureDelayMax" || name == "replayPorkchopMinimumTimeOfFlightMin" ||
             name == "replayPorkchopMinimumTimeOfFlightMax" || name == "replayPorkchopRefreshMillisecondsMax" ||
             name == "replayTripPlannerTimeOfFlightMin" || name == "replayTripPlannerTimeOfFlightMax" ||
             name == "predictionSupersededRestartCountMin" || name == "predictionSupersededRestartCountMax" ||
+            name == "predictionPresentedGenerationMin" || name == "predictionPresentedRootVelocityDeltaMin" ||
             name == "predictionDivergenceMin" || name == "predictionTargetDisplacementMin" ||
-            name == "imguiLayoutResetCountMin" || name == "imguiFocusCountMin" || name == "imguiDpiScale" ||
-            name == "imguiDescriptorHighWaterMax" || name == "imguiViewportRecreationsMin";
+            name == "predictionAppearanceInvalidationCountMin" || name == "imguiLayoutResetCountMin" ||
+            name == "imguiFocusCountMin" || name == "imguiDpiScale" || name == "imguiDescriptorHighWaterMax" ||
+            name == "imguiViewportRecreationsMin";
         const bool expectsBool =
             name == "directorGrabbed" || name == "replayPredictionEnabled" || name == "predictionPathVisible" ||
             name == "predictionFullHorizonComplete" || name == "predictionBaselineVisible" ||
-            name == "replayTripPlannerMissesImprove" || name == "replayPorkchopComplete" ||
-            name == "replayPorkchopSelected" || name == "replaySolverTrackAtPresent" ||
-            name == "predictionScrubFrameActive" || name == "liveSolverHashStableAcrossPrediction" ||
-            name == "predictionTrajectoryFingerprintReady" || name == "gizmoVisible" || name == "mousePickupActive" ||
+            name == "replayInterceptContact" || name == "replayTripPlannerMissesImprove" ||
+            name == "replayPorkchopComplete" || name == "replayPorkchopSelected" ||
+            name == "replaySolverTrackAtPresent" || name == "predictionScrubFrameActive" ||
+            name == "liveSolverHashStableAcrossPrediction" || name == "predictionTrajectoryFingerprintReady" ||
+            name == "shadowPassExecuted" || name == "terrainShadowValid" || name == "objectShadowValid" ||
+            name == "reflectionPassExecuted" || name == "gizmoVisible" || name == "mousePickupActive" ||
             name == "nativeCaptureRequested" || name == "cursorVisibleRequested" || name == "uiBlocksMouse" ||
             name == "launcherRayActive" || name == "replayHistoricalSamplePaused" || name == "memoryOverlayEnabled" ||
             name == "editorSelectionExists" || name == "editorSelectionHasTerrain" || name == "imguiVisible" ||
             name == "legacyReplayPresentationActive" || name == "imguiPreferencesRecovered";
+        const bool expectsPositionTolerance = name == "predictionTargetLastNear";
+        const bool positionToleranceValid =
+            !expectsPositionTolerance ||
+            ( expected.is_object() && expected.contains( "position" ) && expected["position"].is_array() &&
+              expected["position"].size() == 3u && expected["position"][0].is_number() &&
+              expected["position"][1].is_number() && expected["position"][2].is_number() &&
+              expected.contains( "tolerance" ) && expected["tolerance"].is_number() &&
+              expected["tolerance"].get<float>() > 0.0f );
         if ( ( expectsString && !expected.is_string() ) || ( expectsInteger && !expected.is_number_integer() ) ||
-             ( expectsNumber && !expected.is_number() ) || ( expectsBool && !IsBoolValue( expected ) ) )
+             ( expectsNumber && !expected.is_number() ) || ( expectsBool && !IsBoolValue( expected ) ) ||
+             !positionToleranceValid )
         {
             outError = "assertion field has the wrong value type: " + name;
             return false;
@@ -1900,6 +1944,26 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPathTarget;
             CopyText( outAction.text, sizeof( outAction.text ), member.value().get<std::string>() );
+        }
+        else if ( name == "replayInterceptContact" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayInterceptContact;
+            outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "replayInterceptMissMax" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayInterceptMissMax;
+            outAction.numberValue = member.value().get<float>();
+        }
+        else if ( name == "replayInterceptEtaMin" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayInterceptEtaMin;
+            outAction.numberValue = member.value().get<float>();
+        }
+        else if ( name == "replayInterceptEtaMax" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayInterceptEtaMax;
+            outAction.numberValue = member.value().get<float>();
         }
         else if ( name == "replayTripPlannerState" )
         {
@@ -1996,6 +2060,16 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
             outAction.assertKind = RunInteractionAutomationAssertKind::PredictionPathVisible;
             outAction.boolValue = ReadBool( member.value() );
         }
+        else if ( name == "predictionPresentedGenerationMin" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionPresentedGenerationMin;
+            outAction.numberValue = member.value().get<float>();
+        }
+        else if ( name == "predictionPresentedRootVelocityDeltaMin" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionPresentedRootVelocityDeltaMin;
+            outAction.numberValue = member.value().get<float>();
+        }
         else if ( name == "predictionFullHorizonComplete" )
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::PredictionFullHorizonComplete;
@@ -2041,6 +2115,14 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
             outAction.assertKind = RunInteractionAutomationAssertKind::PredictionTargetDisplacementMin;
             outAction.numberValue = member.value().get<float>();
         }
+        else if ( name == "predictionTargetLastNear" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionTargetLastNear;
+            outAction.vectorValue = Vector3( expected["position"][0].get<float>(),
+                                             expected["position"][1].get<float>(),
+                                             expected["position"][2].get<float>() );
+            outAction.numberValue = expected["tolerance"].get<float>();
+        }
         else if ( name == "liveSolverHashStableAcrossPrediction" )
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::LiveSolverHashStableAcrossPrediction;
@@ -2049,6 +2131,31 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         else if ( name == "predictionTrajectoryFingerprintReady" )
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::PredictionTrajectoryFingerprintReady;
+            outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "predictionAppearanceInvalidationCountMin" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionAppearanceInvalidationCountMin;
+            outAction.numberValue = member.value().get<float>();
+        }
+        else if ( name == "shadowPassExecuted" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ShadowPassExecuted;
+            outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "terrainShadowValid" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::TerrainShadowValid;
+            outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "objectShadowValid" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ObjectShadowValid;
+            outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "reflectionPassExecuted" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ReflectionPassExecuted;
             outAction.boolValue = ReadBool( member.value() );
         }
         else if ( name == "gizmoVisible" )
@@ -2249,6 +2356,7 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
                                         const SceneWorld& world,
                                         SkullbonezCore::UI::InGameUI& ui,
                                         const InteractionAutomationDevelopmentUiView& developmentUi,
+                                        const Rendering::RenderSceneSnapshot& renderSnapshot,
                                         const RunInteractionAutomationAction& action,
                                         InspectGizmoInteractionActive inspectGizmoInteractionActive )
 {
@@ -2317,6 +2425,26 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
         evaluation.expected = action.text;
         evaluation.actual = replay.path.hasTarget ? replay.path.targetName : "";
         evaluation.passed = evaluation.actual == evaluation.expected;
+        break;
+    case RunInteractionAutomationAssertKind::ReplayInterceptContact:
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = replay.intercept.valid ? BoolString( replay.intercept.intercept ) : "unavailable";
+        evaluation.passed = replay.intercept.valid && replay.intercept.intercept == action.boolValue;
+        break;
+    case RunInteractionAutomationAssertKind::ReplayInterceptMissMax:
+        evaluation.expected = "<=" + std::to_string( action.numberValue );
+        evaluation.actual = replay.intercept.valid ? std::to_string( replay.intercept.missDistance ) : "unavailable";
+        evaluation.passed = replay.intercept.valid && replay.intercept.missDistance <= action.numberValue;
+        break;
+    case RunInteractionAutomationAssertKind::ReplayInterceptEtaMin:
+        evaluation.expected = ">=" + std::to_string( action.numberValue );
+        evaluation.actual = replay.intercept.valid ? std::to_string( replay.intercept.etaSeconds ) : "unavailable";
+        evaluation.passed = replay.intercept.valid && replay.intercept.etaSeconds >= action.numberValue;
+        break;
+    case RunInteractionAutomationAssertKind::ReplayInterceptEtaMax:
+        evaluation.expected = "<=" + std::to_string( action.numberValue );
+        evaluation.actual = replay.intercept.valid ? std::to_string( replay.intercept.etaSeconds ) : "unavailable";
+        evaluation.passed = replay.intercept.valid && replay.intercept.etaSeconds <= action.numberValue;
         break;
     case RunInteractionAutomationAssertKind::ReplayTripPlannerState:
         evaluation.expected = action.text;
@@ -2455,6 +2583,50 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
         evaluation.passed = visible == action.boolValue;
         break;
     }
+    case RunInteractionAutomationAssertKind::PredictionPresentedGenerationMin:
+    {
+        const uint32_t expectedGeneration = static_cast<uint32_t>( action.numberValue );
+        evaluation.expected = ">=" + std::to_string( expectedGeneration );
+        evaluation.actual = replay.prediction.BuildPrefixHasBeenPresented()
+                                ? std::to_string( replay.prediction.build.generationBeginCount )
+                                : "no presented replacement prefix";
+        evaluation.passed = replay.prediction.BuildPrefixHasBeenPresented() &&
+                            replay.prediction.build.generationBeginCount >= expectedGeneration;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionPresentedRootVelocityDeltaMin:
+    {
+        float velocityDelta = 0.0f;
+        bool comparable = replay.prediction.BuildPrefixHasBeenPresented() &&
+                          !replay.prediction.simulation.frames.empty() && !replay.prediction.build.buildFrames.empty();
+        if ( comparable )
+        {
+            const auto findTargetVelocity = [&]( const RunReplayPredictionFrame& frame, Vector3& outVelocity )
+            {
+                for ( const RunReplayPredictionBodySample& body : frame.bodies )
+                {
+                    if ( body.id.value == replay.prediction.simulation.targetId.value )
+                    {
+                        outVelocity = body.linearVelocity;
+                        return true;
+                    }
+                }
+                return false;
+            };
+            Vector3 committedVelocity = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+            Vector3 replacementVelocity = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+            comparable = findTargetVelocity( replay.prediction.simulation.frames.front(), committedVelocity ) &&
+                         findTargetVelocity( replay.prediction.build.buildFrames.front(), replacementVelocity );
+            if ( comparable )
+            {
+                velocityDelta = std::sqrt( VectorMagSquared( replacementVelocity - committedVelocity ) );
+            }
+        }
+        evaluation.expected = ">=" + std::to_string( action.numberValue );
+        evaluation.actual = comparable ? std::to_string( velocityDelta ) : "no comparable presented prefix";
+        evaluation.passed = comparable && velocityDelta >= action.numberValue;
+        break;
+    }
     case RunInteractionAutomationAssertKind::PredictionFullHorizonComplete:
     {
         const RunReplayPredictionState& prediction = replay.prediction;
@@ -2552,6 +2724,27 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
         evaluation.passed = valid && displacement >= action.numberValue;
         break;
     }
+    case RunInteractionAutomationAssertKind::PredictionTargetLastNear:
+    {
+        float displacement = 0.0f;
+        Vector3 last = ZERO_VECTOR;
+        const bool valid =
+            InteractionAutomationReportWriter::TryPredictionTargetDisplacement( replay, displacement, nullptr, &last );
+        const float error = valid ? sqrtf( VectorMagSquared( last - action.vectorValue ) ) : 0.0f;
+        {
+            std::ostringstream stream;
+            stream << "[" << action.vectorValue.x << "," << action.vectorValue.y << "," << action.vectorValue.z
+                   << "] +/- " << action.numberValue;
+            evaluation.expected = stream.str();
+        }
+        {
+            std::ostringstream stream;
+            stream << "[" << last.x << "," << last.y << "," << last.z << "] error=" << error;
+            evaluation.actual = stream.str();
+        }
+        evaluation.passed = valid && error <= action.numberValue;
+        break;
+    }
     case RunInteractionAutomationAssertKind::LiveSolverHashStableAcrossPrediction:
     {
         const bool stable = InteractionAutomationReportWriter::LiveSolverHashStableAcrossPrediction( replay );
@@ -2568,6 +2761,45 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( ready );
         evaluation.passed = ready == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionAppearanceInvalidationCountMin:
+    {
+        const uint64_t count = replay.predictionAppearanceInvalidationCount;
+        {
+            std::ostringstream stream;
+            stream << ">=" << static_cast<uint64_t>( action.numberValue );
+            evaluation.expected = stream.str();
+        }
+        evaluation.actual = std::to_string( count );
+        evaluation.passed = count >= static_cast<uint64_t>( action.numberValue );
+        break;
+    }
+    case RunInteractionAutomationAssertKind::ShadowPassExecuted:
+    case RunInteractionAutomationAssertKind::TerrainShadowValid:
+    case RunInteractionAutomationAssertKind::ObjectShadowValid:
+    case RunInteractionAutomationAssertKind::ReflectionPassExecuted:
+    {
+        bool actual = false;
+        if ( action.assertKind == RunInteractionAutomationAssertKind::ShadowPassExecuted )
+        {
+            actual = renderSnapshot.shadowPassExecuted;
+        }
+        else if ( action.assertKind == RunInteractionAutomationAssertKind::TerrainShadowValid )
+        {
+            actual = renderSnapshot.terrainShadowValid;
+        }
+        else if ( action.assertKind == RunInteractionAutomationAssertKind::ObjectShadowValid )
+        {
+            actual = renderSnapshot.objectShadowValid;
+        }
+        else
+        {
+            actual = renderSnapshot.reflectionPassExecuted;
+        }
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( actual );
+        evaluation.passed = actual == action.boolValue;
         break;
     }
     case RunInteractionAutomationAssertKind::GizmoVisible:
@@ -3043,7 +3275,8 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
                                                                Window& windowOwner,
                                                                RuntimeFrameInteractionView& interactionOwners,
                                                                RuntimeFrameSceneView& sceneOwners,
-                                                               const ReplayAutomationView& replayView )
+                                                               const ReplayAutomationView& replayView,
+                                                               const Rendering::RenderSceneSnapshot& renderSnapshot )
 {
     Window* window = &windowOwner;
     const SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
@@ -3078,7 +3311,8 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
                                                replayView,
                                                interaction,
                                                camera,
-                                               ui } );
+                                               ui,
+                                               renderSnapshot } );
         if ( result.status.ok )
         {
             result.status = reportResult;
@@ -3216,7 +3450,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
         case RunInteractionAutomationActionType::BeginReplayVisualFidelityCapture:
         {
             state.reportWriter.BeginReplayVisualCapture(
-                static_cast<std::size_t>( REPLAY_FUTURE_BUFFER_SECONDS / PHYSICS_FIXED_DT ) + 2u );
+                static_cast<std::size_t>( REPLAY_FUTURE_DEFAULT_SECONDS / PHYSICS_FIXED_DT ) + 2u );
             // Invariant: the script arms this hold before target/horizon setup
             // and the sole Predict click. Letting wall-clock reveal run first
             // would retain markers, then rewinding to zero would create a
@@ -3482,6 +3716,7 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
     SceneController& scene,
     const ReplayAutomationView& replayView,
     const InteractionAutomationDevelopmentUiView& developmentUiView,
+    const Rendering::RenderSceneSnapshot& renderSnapshot,
     CaptureController& capture,
     Rendering::Dx12BackbufferCapture& backbufferCapture )
 {
@@ -3553,6 +3788,7 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
             scene.Scene(),
             ui,
             developmentUiView,
+            renderSnapshot,
             action,
             [&]()
             { return runtimeTools.InspectGizmoInteractionActive( camera.mode, replayView.input.inspectionActive ); } );
@@ -3621,7 +3857,8 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
                                                replayView,
                                                interaction,
                                                camera,
-                                               ui } );
+                                               ui,
+                                               renderSnapshot } );
         if ( result.status.ok )
         {
             result.status = reportResult;

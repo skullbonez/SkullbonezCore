@@ -77,10 +77,6 @@ constexpr float REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ = 0.0001f;
 // puts ordinary launched bodies near the middle of the heat ramp while leaving
 // high-energy impacts visibly red.
 constexpr float REPLAY_PATH_VELOCITY_HEAT_MAX_SPEED = 80.0f;
-// Why: selection emphasis is presentation-only and fixed. Keeping one bounded
-// value here makes the root-path privilege explicit while every sibling lane
-// continues through the tracer's zero-emphasis default.
-constexpr float REPLAY_SELECTED_PATH_EMPHASIS = 0.75f;
 constexpr uint16_t REPLAY_TRAJECTORY_COMMITTED_BRANCH = 0;
 constexpr uint16_t REPLAY_TRAJECTORY_BUILD_BRANCH = 1;
 
@@ -893,7 +889,7 @@ void DrawReplayPredictionRootTrajectoryFromStore( const ReplayPredictionPresenta
                                         b );
             }
         },
-        REPLAY_SELECTED_PATH_EMPHASIS );
+        1.0f );
 }
 
 void DrawReplayPredictionSmallSceneBodyTrajectories( std::span<const RunReplayPredictionFrame> frames,
@@ -1192,7 +1188,7 @@ void DrawReplayPastRootTrajectoryFromStore( const ReplayPredictionPresentationVi
                                     g,
                                     b );
         },
-        REPLAY_SELECTED_PATH_EMPHASIS );
+        1.0f );
     DrawReplayTrajectoryRecordSegments(
         *record,
         pointCount,
@@ -1215,7 +1211,7 @@ void DrawReplayPastRootTrajectoryFromStore( const ReplayPredictionPresentationVi
                                     g,
                                     b );
         },
-        REPLAY_SELECTED_PATH_EMPHASIS );
+        1.0f );
 }
 
 void DrawReplayPredictionRagdollTorsoTrails( std::span<const RunReplayPredictionFrame> frames,
@@ -1535,7 +1531,7 @@ ReplayPredictionDrawListUpdate UpdateReplayPredictionDrawList( const ReplayPredi
         if ( state.valid )
         {
             drawList.Clear();
-            state = {};
+            state.Reset();
             update.reset = true;
         }
         update.stable = true;
@@ -1598,7 +1594,7 @@ ReplayPredictionDrawListUpdate UpdateReplayPredictionDrawList( const ReplayPredi
         // The prediction store is bounded well below this presentation limit.
         // Returning an empty list keeps this defensive path allocation-free.
         drawList.Clear();
-        state = {};
+        state.Reset();
         update.reset = true;
         return update;
     }
@@ -1606,7 +1602,7 @@ ReplayPredictionDrawListUpdate UpdateReplayPredictionDrawList( const ReplayPredi
     if ( reset )
     {
         drawList.Clear();
-        state = {};
+        state.Reset();
         state.recordCursorCount = prediction.trajectoryRecords.size();
         state.targetId = pathVisualizer.targetId;
         state.generation = prediction.generation;
@@ -1771,9 +1767,8 @@ ReplayPredictionDrawListUpdate UpdateReplayPredictionDrawList( const ReplayPredi
                 {
                     diagnosticLane = SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureChildOutgoing;
                 }
-                const float emphasis = rootLane && record.key.bodyId.value == pathVisualizer.targetId.value
-                                           ? REPLAY_SELECTED_PATH_EMPHASIS
-                                           : 0.0f;
+                const float emphasis =
+                    rootLane && record.key.bodyId.value == pathVisualizer.targetId.value ? 1.0f : 0.0f;
                 if ( EnsureReplayRetainedRangeChunk( drawList, cursor, record, recordIndex, false ) )
                 {
                     drawList.AddRetainedReplayPathSegment( cursor.retainedRangeIndex,
@@ -2060,8 +2055,7 @@ void AppendReplayPredictionProvisionalTails( const ReplayPredictionPresentationV
         {
             diagnosticLane = SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureChildOutgoing;
         }
-        const float emphasis =
-            rootLane && record.key.bodyId.value == pathVisualizer.targetId.value ? REPLAY_SELECTED_PATH_EMPHASIS : 0.0f;
+        const float emphasis = rootLane && record.key.bodyId.value == pathVisualizer.targetId.value ? 1.0f : 0.0f;
         if ( ordinaryTailBudget > 0u )
         {
             tracer.AddReplayPathSegment( previous.position, point.position, r, g, b, diagnosticLane, emphasis );

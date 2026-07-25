@@ -70,6 +70,7 @@ static const float TWO_PI = 6.28318530718f;
 // Keep these values synchronized with CinematicStyleMode::Sky in Config.h.
 static const int SKY_MODE_LOW_POLY_ART = 11;
 static const int SKY_MODE_OPEN_HORIZON = 20;
+static const int SKY_MODE_DEEP_SPACE = 21;
 
 VS_OUT main_vs(VS_IN input)
 {
@@ -189,6 +190,13 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     float3 sunDir = SunDirection();
     float2 coord = DirectionCoord(dir);
     int styleMode = uSkyMode;
+
+    // Invariant: deep-space scenes require literal black, independent of the
+    // ordinary atmosphere's blue mid-sky bias and authored sun/cloud values.
+    if (styleMode == SKY_MODE_DEEP_SPACE)
+    {
+        return float4(0.0f, 0.0f, 0.0f, 1.0f);
+    }
 
     float height = saturate((dir.y + 0.05f) / 1.05f);
     float bandedHeight = floor(height * 11.0f + 0.5f) / 11.0f;

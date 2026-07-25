@@ -137,7 +137,7 @@ enum class ReplayPredictionCoalescerAction : uint8_t
     Nothing,
     Begin,
     Supersede,
-    CancelAndBegin
+    PromoteAndBegin
 };
 
 namespace ReplayPredictionSchedulingOperations
@@ -183,7 +183,8 @@ inline ReplayPredictionBuildMode ChooseReplayPredictionBuildMode( double measure
 inline ReplayPredictionCoalescerAction ChooseReplayPredictionCoalescerAction( bool dirty,
                                                                               bool building,
                                                                               ReplayPredictionBuildMode mode,
-                                                                              bool pendingLatestRestart ) noexcept
+                                                                              bool pendingLatestRestart,
+                                                                              bool replacementPrefixPresented ) noexcept
 {
     const bool restartRequested = dirty || pendingLatestRestart;
     if ( !restartRequested )
@@ -194,11 +195,14 @@ inline ReplayPredictionCoalescerAction ChooseReplayPredictionCoalescerAction( bo
     {
         return ReplayPredictionCoalescerAction::Begin;
     }
-    if ( mode == ReplayPredictionBuildMode::Instant )
+    if ( mode == ReplayPredictionBuildMode::Instant || !replacementPrefixPresented )
     {
+        // Invariant: held edits cannot cancel a replacement generation before
+        // the frame thread presents one coherent changed prefix. The pending
+        // bit keeps only the newest follow-up request.
         return ReplayPredictionCoalescerAction::Supersede;
     }
-    return ReplayPredictionCoalescerAction::CancelAndBegin;
+    return ReplayPredictionCoalescerAction::PromoteAndBegin;
 }
 } // namespace ReplayPredictionSchedulingOperations
 

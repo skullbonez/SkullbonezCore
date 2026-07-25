@@ -89,6 +89,7 @@ Related:
 namespace SkullbonezCore::Core
 {
 struct CinematicRenderConfig;
+struct ReplayTrajectoryAppearanceConfig;
 } // namespace SkullbonezCore::Core
 
 namespace SkullbonezCore::Runtime
@@ -473,11 +474,15 @@ class EditorTracer
 
     // Invariant: every generic path and marker uses zero emphasis. Only the
     // selected-object treatment introduced at the presentation boundary may
-    // feed the shader's halo/bloom branch. These are immutable steady-frame values.
-    static constexpr ReplayRibbonStyle REPLAY_PATH_STYLE = { 2.0f, 1.0f, 1.0f, 0.0f };
-    static constexpr ReplayRibbonStyle REPLAY_CAUSAL_STYLE = { 2.0f, 1.0f, 1.0f, 0.0f };
-    static constexpr ReplayRibbonStyle REPLAY_BASELINE_STYLE = { 1.5f, 1.0f, 1.0f, 0.0f };
-    static constexpr ReplayRibbonStyle REPLAY_MARKER_STYLE = { 2.5f, 1.0f, 1.0f, 0.0f };
+    // feed the shader's halo/bloom branch.
+    ReplayRibbonStyle m_replayPathStyle = { 1.25f, 1.0f, 1.0f, 0.0f };
+    ReplayRibbonStyle m_replayCausalStyle = { 1.25f, 1.0f, 1.0f, 0.0f };
+    ReplayRibbonStyle m_replayBaselineStyle = { 1.0f, 1.0f, 1.0f, 0.0f };
+    ReplayRibbonStyle m_replayMarkerStyle = { 1.5f, 1.0f, 1.0f, 0.0f };
+    float m_replaySelectedEmphasis = 0.45f;
+    // The first authoritative config application follows the same invalidation
+    // path as later live UI edits, even when its values match fallback defaults.
+    bool m_replayTrajectoryAppearanceInitialized = false;
 
     std::vector<float> m_lineData;
     std::vector<float> m_priorityLineData;
@@ -593,6 +598,9 @@ class EditorTracer
 
   public:
     EditorTracer();
+    // Returns true when retained trajectory records must be rebuilt because
+    // their packed presentation values no longer match the active defaults.
+    bool SetReplayTrajectoryAppearance( const SkullbonezCore::Core::ReplayTrajectoryAppearanceConfig& appearance );
     void Clear();
     // Resets only the replay trajectory counters; callers use this before the
     // replay pass so editor tool ribbons do not count as replay trajectory work.

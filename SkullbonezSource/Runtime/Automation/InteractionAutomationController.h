@@ -16,6 +16,10 @@ Mental model:
 Glossary:
   Automation action: One scheduled command from an interaction script.
   Assertion report: Machine-readable proof row for one expected runtime state.
+  Intercept assertion: Lane-P proof over the replay-owned closest-approach
+    snapshot; it observes distance, ETA, and contact without owning the scan.
+  Presented generation: Replacement prefix prepared by the frame thread and
+    therefore safe to compare with the retained prediction.
   Input override: Scripted mouse/key snapshot forwarded through the normal
     runtime input bridge for a bounded frame window.
   Development UI command: Fixed presentation or native-window request emitted
@@ -28,6 +32,8 @@ Invariants:
   - Synthetic input is cleared through `InteractionAutomationInputDriver` after
     actions complete or fail.
   - Development UI commands are fixed-capacity and select at most one surface.
+  - Replay intercept assertions consume a copied value snapshot and cannot
+    retarget or advance the retained closest-approach scan.
   - Editor and window owners are borrowed only while one command batch is
     applied; automation stores neither owner after the synchronous call.
   - Process-wide development-surface selection remains a typed request for Run.
@@ -69,7 +75,8 @@ class EngineConfig;
 namespace Rendering
 {
 class Dx12BackbufferCapture;
-}
+struct RenderSceneSnapshot;
+} // namespace Rendering
 namespace UI
 {
 class InGameUI;
@@ -145,6 +152,10 @@ enum class RunInteractionAutomationAssertKind
     DirectorPhaseStylePath,
     ReplayPredictionEnabled,
     ReplayPathTarget,
+    ReplayInterceptContact,
+    ReplayInterceptMissMax,
+    ReplayInterceptEtaMin,
+    ReplayInterceptEtaMax,
     ReplayTripPlannerState,
     ReplayTripPlannerIterationMax,
     ReplayTripPlannerMissMax,
@@ -164,6 +175,8 @@ enum class RunInteractionAutomationAssertKind
     ReplayPastTrajectoryIncrementalTrimCountMin,
     ReplayPastTrajectoryPublishedPointCountMin,
     PredictionPathVisible,
+    PredictionPresentedGenerationMin,
+    PredictionPresentedRootVelocityDeltaMin,
     PredictionFullHorizonComplete,
     PredictionBuildMode,
     PredictionSupersededRestartCountMin,
@@ -173,8 +186,14 @@ enum class RunInteractionAutomationAssertKind
     ReplaySolverTrackAtPresent,
     PredictionScrubFrameActive,
     PredictionTargetDisplacementMin,
+    PredictionTargetLastNear,
     LiveSolverHashStableAcrossPrediction,
     PredictionTrajectoryFingerprintReady,
+    PredictionAppearanceInvalidationCountMin,
+    ShadowPassExecuted,
+    TerrainShadowValid,
+    ObjectShadowValid,
+    ReflectionPassExecuted,
     GizmoVisible,
     MousePickupActive,
     PointerCapture,
@@ -330,17 +349,20 @@ SkullbonezCore::Core::SbResult ConfigureInteractionAutomation( InteractionAutoma
                                                                const char* reportPath );
 SkullbonezCore::Core::SbResult InteractionAutomationResult( const InteractionAutomationController& state );
 void ClearInteractionAutomationInput( InteractionAutomationController& state );
-InteractionAutomationFrameResult TickInteractionAutomationBeforeInput( InteractionAutomationController& state,
-                                                                       Window& window,
-                                                                       RuntimeFrameInteractionView& interactionOwners,
-                                                                       RuntimeFrameSceneView& sceneOwners,
-                                                                       const ReplayAutomationView& replayView );
+InteractionAutomationFrameResult
+TickInteractionAutomationBeforeInput( InteractionAutomationController& state,
+                                      Window& window,
+                                      RuntimeFrameInteractionView& interactionOwners,
+                                      RuntimeFrameSceneView& sceneOwners,
+                                      const ReplayAutomationView& replayView,
+                                      const Rendering::RenderSceneSnapshot& renderSnapshot );
 InteractionAutomationFrameResult
 TickInteractionAutomationAfterRender( InteractionAutomationController& state,
                                       RuntimeFrameInteractionView& interactionOwners,
                                       SceneController& scene,
                                       const ReplayAutomationView& replayView,
                                       const InteractionAutomationDevelopmentUiView& developmentUiView,
+                                      const Rendering::RenderSceneSnapshot& renderSnapshot,
                                       CaptureController& capture,
                                       Rendering::Dx12BackbufferCapture& backbufferCapture );
 bool InteractionAutomationWillCaptureAfterRender( const InteractionAutomationController& state, int frame );

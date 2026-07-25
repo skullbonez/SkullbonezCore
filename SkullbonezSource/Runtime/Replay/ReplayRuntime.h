@@ -109,6 +109,7 @@ namespace Core
 {
 class EngineConfig;
 class Profiler;
+struct ReplayTrajectoryAppearanceConfig;
 } // namespace Core
 namespace Runtime
 {
@@ -188,6 +189,7 @@ class ReplayRuntime
     void PrepareRenderOverlay( Physics::PhysicsEngine& physics,
                                const SceneEntityStore& entities,
                                EditorTracer& tracer,
+                               const Core::ReplayTrajectoryAppearanceConfig& trajectoryAppearance,
                                bool editorModeEnabled,
                                const RuntimeInteractionGesture& gesture,
                                int sceneFrame,
@@ -516,6 +518,7 @@ class ReplayRuntime
     Math::Vector::Vector3 m_predictionDrawCameraUp = Math::Vector::ZERO_VECTOR;
     uint64_t m_predictionDrawStreamId = 1;
     uint64_t m_predictionDrawRevision = 0;
+    uint64_t m_predictionAppearanceInvalidationCount = 0;
     bool m_predictionDrawPacketDirty = true;
     bool m_predictionDrawCameraValid = false;
     bool m_predictionRetainedRenderingActive = false;

@@ -1006,6 +1006,45 @@ void ApplyOrdinaryRenderUIParam( SkullbonezCore::Core::OrdinaryRenderConfig& ord
     case UIRenderParam::BoxSpecular:
         ordinary.boxSpecularScale = std::clamp( rawValue, 0.0f, 2.0f );
         break;
+    case UIRenderParam::TrajectoryFutureWidth:
+        ordinary.replayTrajectory.futureWidth = std::clamp( rawValue, 1.0f, 6.0f );
+        break;
+    case UIRenderParam::TrajectoryFutureAlpha:
+        ordinary.replayTrajectory.futureAlpha = std::clamp( rawValue, 0.05f, 1.0f );
+        break;
+    case UIRenderParam::TrajectoryFutureEdgeFeather:
+        ordinary.replayTrajectory.futureEdgeFeather = std::clamp( rawValue, 0.25f, 1.25f );
+        break;
+    case UIRenderParam::TrajectoryCausalWidth:
+        ordinary.replayTrajectory.causalWidth = std::clamp( rawValue, 1.0f, 6.0f );
+        break;
+    case UIRenderParam::TrajectoryCausalAlpha:
+        ordinary.replayTrajectory.causalAlpha = std::clamp( rawValue, 0.05f, 1.0f );
+        break;
+    case UIRenderParam::TrajectoryCausalEdgeFeather:
+        ordinary.replayTrajectory.causalEdgeFeather = std::clamp( rawValue, 0.25f, 1.25f );
+        break;
+    case UIRenderParam::TrajectoryBaselineWidth:
+        ordinary.replayTrajectory.baselineWidth = std::clamp( rawValue, 1.0f, 6.0f );
+        break;
+    case UIRenderParam::TrajectoryBaselineAlpha:
+        ordinary.replayTrajectory.baselineAlpha = std::clamp( rawValue, 0.05f, 1.0f );
+        break;
+    case UIRenderParam::TrajectoryBaselineEdgeFeather:
+        ordinary.replayTrajectory.baselineEdgeFeather = std::clamp( rawValue, 0.25f, 1.25f );
+        break;
+    case UIRenderParam::TrajectoryMarkerWidth:
+        ordinary.replayTrajectory.markerWidth = std::clamp( rawValue, 1.0f, 6.0f );
+        break;
+    case UIRenderParam::TrajectoryMarkerAlpha:
+        ordinary.replayTrajectory.markerAlpha = std::clamp( rawValue, 0.05f, 1.0f );
+        break;
+    case UIRenderParam::TrajectoryMarkerEdgeFeather:
+        ordinary.replayTrajectory.markerEdgeFeather = std::clamp( rawValue, 0.25f, 1.25f );
+        break;
+    case UIRenderParam::TrajectorySelectedEmphasis:
+        ordinary.replayTrajectory.selectedEmphasis = std::clamp( rawValue, 0.0f, 1.0f );
+        break;
     default:
         break;
     }

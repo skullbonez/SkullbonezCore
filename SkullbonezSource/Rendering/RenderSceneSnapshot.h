@@ -40,6 +40,7 @@ struct RenderSceneSnapshot
     bool useCinematicTarget = false;      // True when HDR scene color/depth targets were actually used.
     bool terrainShadowValid = false;      // Terrain shadow map was produced and available to receivers.
     bool objectShadowValid = false;       // Object shadow map was produced and available to receivers.
+    bool shadowPassExecuted = false;      // A shadow-map render-graph callback executed this frame.
     bool reflectionPassExecuted = false;  // Water visibility required a reflection producer this frame.
     bool reflectionUsedDxr = false;       // Reflection came from the DXR dispatch instead of the raster target.
     bool objectOpaquePass = false;        // Opaque body pass executed before terrain/water.

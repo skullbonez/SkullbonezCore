@@ -219,6 +219,7 @@ void ReplayPrediction::CancelJob( bool clearSamples )
     m_state.build.complete = false;
     m_state.build.buildMode = ReplayPredictionBuildMode::Undecided;
     m_state.build.pendingLatestRestart = false;
+    m_state.build.liveVelocityEditRefreshPending = false;
     m_state.simulation.targetModelRow.value = -1;
     m_state.build.nextTick = 1;
     m_state.build.targetTickCount = 0;

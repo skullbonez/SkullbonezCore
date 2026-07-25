@@ -70,6 +70,7 @@ UIWindowInteractionOwner::WidgetView UIWindowInteractionOwner::Widgets()
              m_cinematicMasterToggle,
              m_renderShadowToggle,
              m_saveRenderDefaultsButton,
+             m_saveTrajectoryStyleButton,
              m_renderSliders,
              m_backdropBlur,
              m_cache,
@@ -1265,7 +1266,24 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::U
                 const float rowBase = scrolledY + UI_RENDER_START_Y;
                 for ( int i = 0; i < static_cast<int>( UIRenderParam::Count ); ++i )
                 {
-                    m_renderSliders[i].SetBounds( contentX, RenderSliderY( i, rowBase ), contentW, 34.0f );
+                    const float sliderY = RenderSliderY( i, rowBase );
+                    if ( RenderSliderStartsSection( i ) &&
+                         kRenderSliderSpecs[i].section == UIRenderAuthoringSection::PredictionPaths )
+                    {
+                        m_saveTrajectoryStyleButton.SetBounds( contentX + contentW - UI_TRAJECTORY_SAVE_BUTTON_W,
+                                                               sliderY - UI_RENDER_SECTION_H + 1.0f,
+                                                               UI_TRAJECTORY_SAVE_BUTTON_W,
+                                                               20.0f );
+                        if ( m_saveTrajectoryStyleButton.HitTest( m_mouseX, m_mouseY ) )
+                        {
+                            // One persistence owner writes the complete ordinary
+                            // profile; this local affordance saves the edited path
+                            // values without creating a second config writer.
+                            result.commands.renderTuning.saveDefaults = true;
+                            break;
+                        }
+                    }
+                    m_renderSliders[i].SetBounds( contentX, sliderY, contentW, 34.0f );
                     if ( m_renderSliders[i].HitTest( m_mouseX, m_mouseY ) )
                     {
                         m_activeSlider = UI_RENDER_SLIDER_BASE + i;

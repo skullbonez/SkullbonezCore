@@ -1,6 +1,6 @@
 # SkullbonezCore Session State
 
-Date: 2026-07-24
+Date: 2026-07-25
 
 Keep this file operational and short. Detailed evidence belongs in plans,
 reports, and git history. `Agentic/Plans/MASTER-PLAN.md` is the authoritative
@@ -10,15 +10,40 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-23rd-JUL-26` |
-| Current baseline | Solar-system SS0-SS6 are complete. The current branch additionally carries bounded prediction retained-rendering stabilization documented in `Agentic/Reports/2026-07-24/prediction-retained-rendering-handoff.md`. |
-| Current objective | Prediction retained-rendering is merge-ready; hand the committed branch back for owner merge and visible confirmation. No active/future portfolio task is registered. |
-| Active/future progress | Solar-system plan 7/7 complete; active/future denominator returned to 0. |
+| Branch | `nightrunner-24th-JUL-26` |
+| Current baseline | Solar prediction presentation correction is complete: the 32-body Mars-assist scene stays parent/solar bounded for 120 seconds, Replay/live endpoints agree, paths restyle live, and space scenes schedule neither shadow nor reflection passes. |
+| Current objective | No implementation plan is active; await the next owner-selected task. |
+| Active/future progress | Solar prediction presentation correction 4/4 complete; active/future ledger 0/0. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | Prediction retained-rendering `validate_full` passes with exit 0 in 182.7 s: mandatory CPU preflight and all Automation, replay/prediction, DX12, and physics runtime lanes passed. |
-| Validation for current edits | Focused retained geometry, adjacency, DX12 upload, scheduling, and build-root-prefix tests pass. Replay visual fidelity passes in 425.2 s, DX12 validation in 23.7 s with zero errors and accepted images, one-minute graphics stress completes crash-free, and the full gate passes in 182.7 s. |
+| Last broad local gate | Solar prediction presentation correction `validate_full` passes with exit 0 in 165.7 s: mandatory CPU preflight and all Automation, replay/prediction, DX12, and physics runtime lanes passed. |
+| Validation for current edits | 383 tests/2,403,142 assertions, 16/16 focused slingshot assertions, held-drag instant/amortized probes, allocation policy, 23 dependency proofs, accepted DX12 captures, broad gate, and 39/39 touched-source comment audit pass. |
 
 ## Live Queue
+
+NOW. `solar-prediction-presentation-correction` is complete at 4/4. The
+120-second Mars-assist scene keeps every planet/moon bounded, exact-compares
+the Replay endpoint to the live oracle, refreshes retained paths during held
+velocity drags, exposes and globally saves all 13 path-style values, and
+schedules no shadow/reflection pass in either solar scene. The independent
+review's two blockers and three proof gaps were remediated. Closure evidence is
+in
+`Agentic/Reports/2026-07-25/solar-prediction-presentation-correction-closure.md`.
+
+NOW. The 2026-07-25 solar display follow-up is complete. The original
+top-down/+Y-up cameras were the remaining orientation defect; both solar scenes
+now use oblique cameras with +Z up. A scene-selectable `DeepSpace` sky style
+returns literal black before procedural atmosphere and sun shading. Fresh
+four-body and slingshot captures were inspected, their background samples are
+exact `(0,0,0)`, and every mapped shader/scene gate passes.
+
+NOW. `solar-system-slingshot-usability` is complete at 4/4. Solar scenes use
+XY with Z up; prediction refreshes during both instant and amortized held
+velocity drags; the default/operator maximum horizons are 20/120 seconds; and
+the 32-body major-moon demonstration proves a non-contact Earth flyby followed
+by a non-contact Mars encounter. The independent review's amortized starvation
+finding was remediated and its held-drag gap received a real mouse probe.
+Closure evidence is in
+`Agentic/Reports/2026-07-24/solar-system-slingshot-usability-closure.md`.
 
 NOW. `solar-system-trajectory-planner` is complete at 7/7. SS0 supplies bounded,
 allocation-free orbital math. SS1's interactive four-body scene loads cleanly,

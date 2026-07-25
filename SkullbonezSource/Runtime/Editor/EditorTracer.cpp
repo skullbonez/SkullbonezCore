@@ -196,6 +196,9 @@ uint64_t HashReplaySubmissionCanonicalRecords( const std::vector<float>& values,
 
 
 EditorTracer::EditorTracer()
+    : m_retainedReplayRibbonRecords( ( Rendering::RETAINED_TRAJECTORY_ORDINARY_SEGMENT_CAPACITY +
+                                       Rendering::RETAINED_TRAJECTORY_PRIORITY_SEGMENT_CAPACITY ) *
+                                     Rendering::RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT )
 {
     // Runtime allocation policy: overlay line storage is paid once during tool
     // construction. EmitLine refuses overflow so replay prediction, gizmos, and
@@ -207,10 +210,44 @@ EditorTracer::EditorTracer()
     m_priorityReplayRibbonSegments.reserve( EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_FLOAT_CAPACITY );
     m_replayRibbonVertexData.reserve( EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_VERTEX_FLOAT_CAPACITY );
     m_priorityReplayRibbonVertexData.reserve( EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_VERTEX_FLOAT_CAPACITY );
-    m_retainedReplayRibbonRecords.resize( ( Rendering::RETAINED_TRAJECTORY_ORDINARY_SEGMENT_CAPACITY +
-                                            Rendering::RETAINED_TRAJECTORY_PRIORITY_SEGMENT_CAPACITY ) *
-                                          Rendering::RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT );
 }
+
+bool EditorTracer::SetReplayTrajectoryAppearance( const Core::ReplayTrajectoryAppearanceConfig& appearance )
+{
+    const auto boundedStyle = []( float width, float alpha, float edgeFeather )
+    {
+        return ReplayRibbonStyle{ std::clamp( width, 1.0f, 6.0f ),
+                                  std::clamp( alpha, 0.05f, 1.0f ),
+                                  std::clamp( edgeFeather, 0.25f, 1.25f ),
+                                  0.0f };
+    };
+    const ReplayRibbonStyle path =
+        boundedStyle( appearance.futureWidth, appearance.futureAlpha, appearance.futureEdgeFeather );
+    const ReplayRibbonStyle causal =
+        boundedStyle( appearance.causalWidth, appearance.causalAlpha, appearance.causalEdgeFeather );
+    const ReplayRibbonStyle baseline =
+        boundedStyle( appearance.baselineWidth, appearance.baselineAlpha, appearance.baselineEdgeFeather );
+    const ReplayRibbonStyle marker =
+        boundedStyle( appearance.markerWidth, appearance.markerAlpha, appearance.markerEdgeFeather );
+    const float selectedEmphasis = std::clamp( appearance.selectedEmphasis, 0.0f, 1.0f );
+    const auto sameStyle = []( const ReplayRibbonStyle& a, const ReplayRibbonStyle& b )
+    { return a.width == b.width && a.alpha == b.alpha && a.edgeFeather == b.edgeFeather && a.emphasis == b.emphasis; };
+    if ( m_replayTrajectoryAppearanceInitialized && sameStyle( path, m_replayPathStyle ) &&
+         sameStyle( causal, m_replayCausalStyle ) && sameStyle( baseline, m_replayBaselineStyle ) &&
+         sameStyle( marker, m_replayMarkerStyle ) && selectedEmphasis == m_replaySelectedEmphasis )
+    {
+        return false;
+    }
+
+    m_replayPathStyle = path;
+    m_replayCausalStyle = causal;
+    m_replayBaselineStyle = baseline;
+    m_replayMarkerStyle = marker;
+    m_replaySelectedEmphasis = selectedEmphasis;
+    m_replayTrajectoryAppearanceInitialized = true;
+    return true;
+}
+
 
 void EditorTracer::Clear()
 {
@@ -1250,12 +1287,12 @@ void EditorTracer::AddReplayPathSegment( const Vector3& start,
                                          SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane,
                                          float emphasis )
 {
-    ReplayRibbonStyle glow = REPLAY_PATH_STYLE;
-    ReplayRibbonStyle core = REPLAY_PATH_STYLE;
+    ReplayRibbonStyle glow = m_replayPathStyle;
+    ReplayRibbonStyle core = m_replayPathStyle;
     // Invariant: only the replay presentation owner may opt a segment into the
     // shader's halo and bloom-feed branch. All generic editor and non-selected
     // replay paths arrive through the zero-emphasis default.
-    const float boundedEmphasis = std::clamp( emphasis, 0.0f, 1.0f );
+    const float boundedEmphasis = std::clamp( emphasis, 0.0f, 1.0f ) * m_replaySelectedEmphasis;
     glow.emphasis = boundedEmphasis;
     core.emphasis = boundedEmphasis;
     EmitReplayRibbonGlowPairTo( m_replayRibbonSegments, start, end, r, g, b, glow, core, lane );
@@ -1271,8 +1308,8 @@ void EditorTracer::AddRetainedReplayPathSegment( std::size_t rangeIndex,
                                                  SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane,
                                                  float emphasis )
 {
-    ReplayRibbonStyle style = REPLAY_PATH_STYLE;
-    style.emphasis = std::clamp( emphasis, 0.0f, 1.0f );
+    ReplayRibbonStyle style = m_replayPathStyle;
+    style.emphasis = std::clamp( emphasis, 0.0f, 1.0f ) * m_replaySelectedEmphasis;
     (void)EmitRetainedReplayRibbonSegment( rangeIndex, start, end, r, g, b, style, lane );
 }
 
@@ -1282,8 +1319,8 @@ void EditorTracer::AddReplayCausalTrailSegment( const Vector3& start, const Vect
     // Why: retained causal trails are the evidence attached to yellow/grey/ghost
     // boxes. They live with the priority ribbons so overflow in ordinary root
     // path rendering cannot leave a marker without its sampled route.
-    const ReplayRibbonStyle glow = REPLAY_CAUSAL_STYLE;
-    const ReplayRibbonStyle core = REPLAY_CAUSAL_STYLE;
+    const ReplayRibbonStyle glow = m_replayCausalStyle;
+    const ReplayRibbonStyle core = m_replayCausalStyle;
     EmitReplayRibbonGlowPairTo( m_priorityReplayRibbonSegments,
                                 start,
                                 end,
@@ -1309,7 +1346,7 @@ void EditorTracer::AddRetainedReplayCausalTrailSegment( std::size_t rangeIndex,
                                            r,
                                            g,
                                            b,
-                                           REPLAY_CAUSAL_STYLE,
+                                           m_replayCausalStyle,
                                            SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::RetainedTrail );
 }
 
@@ -1321,9 +1358,9 @@ void EditorTracer::AddReplayBaselinePathSegment( const Vector3& start,
                                                  float b,
                                                  float opacity )
 {
-    ReplayRibbonStyle glow = REPLAY_BASELINE_STYLE;
-    ReplayRibbonStyle core = REPLAY_BASELINE_STYLE;
-    glow.alpha = std::clamp( opacity, 0.0f, 1.0f );
+    ReplayRibbonStyle glow = m_replayBaselineStyle;
+    ReplayRibbonStyle core = m_replayBaselineStyle;
+    glow.alpha *= std::clamp( opacity, 0.0f, 1.0f );
     core.alpha = glow.alpha;
     EmitReplayRibbonGlowPairTo( m_replayRibbonSegments,
                                 start,
@@ -1345,8 +1382,8 @@ void EditorTracer::AddRetainedReplayBaselinePathSegment( std::size_t rangeIndex,
                                                          float b,
                                                          float opacity )
 {
-    ReplayRibbonStyle style = REPLAY_BASELINE_STYLE;
-    style.alpha = std::clamp( opacity, 0.0f, 1.0f );
+    ReplayRibbonStyle style = m_replayBaselineStyle;
+    style.alpha *= std::clamp( opacity, 0.0f, 1.0f );
     (void)EmitRetainedReplayRibbonSegment( rangeIndex,
                                            start,
                                            end,
@@ -1407,7 +1444,7 @@ void EditorTracer::AddReplayCausalEntryMarker( const Vector3& position,
     // Why: yellow always means "joined the causal tree here". Keep it as the
     // only marker on the ribbon shader, but emit one logical segment style so
     // marker outlines do not double the retained ribbon budget.
-    const ReplayRibbonStyle singlePass = REPLAY_MARKER_STYLE;
+    const ReplayRibbonStyle singlePass = m_replayMarkerStyle;
     EmitReplayRibbonShapeOutlineTo( m_priorityReplayRibbonSegments,
                                     position,
                                     orientation,

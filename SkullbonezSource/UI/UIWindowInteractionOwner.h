@@ -82,6 +82,7 @@ class UIWindowInteractionOwner
         UICheckBox& cinematicMasterToggle;
         UICheckBox& renderShadowToggle;
         UIButton& saveRenderDefaultsButton;
+        UIButton& saveTrajectoryStyleButton;
         UISlider ( &renderSliders )[static_cast<int>( UIRenderParam::Count )];
         UIBackdropBlur& backdropBlur;
         UICacheState& cache;
@@ -196,6 +197,7 @@ class UIWindowInteractionOwner
     UICheckBox m_cinematicMasterToggle;
     UICheckBox m_renderShadowToggle;
     UIButton m_saveRenderDefaultsButton;
+    UIButton m_saveTrajectoryStyleButton;
     UISlider m_renderSliders[static_cast<int>( UIRenderParam::Count )];
     UIBackdropBlur m_backdropBlur;
     UICacheState m_cache;

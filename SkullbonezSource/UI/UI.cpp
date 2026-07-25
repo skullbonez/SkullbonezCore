@@ -831,6 +831,14 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
                                   sliderY - UI_RENDER_SECTION_H + 4.0f,
                                   12.0f,
                                   UIRenderAuthoringSectionName( spec.section ) );
+                if ( spec.section == UIRenderAuthoringSection::PredictionPaths )
+                {
+                    widgets.saveTrajectoryStyleButton.SetBounds( contentX + contentW - UI_TRAJECTORY_SAVE_BUTTON_W,
+                                                                 sliderY - UI_RENDER_SECTION_H + 1.0f,
+                                                                 UI_TRAJECTORY_SAVE_BUTTON_W,
+                                                                 20.0f );
+                    widgets.saveTrajectoryStyleButton.Draw( draw, "Save Paths", widgets.mouseX, widgets.mouseY );
+                }
             }
             const float value =
                 std::clamp( RenderValueForParam( data.ordinaryRender, spec.param ), spec.minValue, spec.maxValue );

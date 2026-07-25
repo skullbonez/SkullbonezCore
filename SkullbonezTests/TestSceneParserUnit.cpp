@@ -18,6 +18,9 @@
 //   - Malformed JSON returns a path-rich Scene/AuthoredSceneParser failure through
 //     AuthoredScene::TryLoadFromFile.
 //   - Solar body colours are authored material data, not name-based renderer policy.
+//   - Solar scenes use XY orbital coordinates and oblique cameras with Z up,
+//     matching the terrain-camera interaction convention after axis remapping.
+//   - Deep-space presentation is authored as literal black with no second sun.
 //
 // Related:
 //   - SkullbonezSource/Scene/AuthoredScene.h
@@ -32,6 +35,7 @@
 
 #include <cstdio>
 #include <fstream>
+#include <iterator>
 #include <stdexcept>
 #include <string>
 
@@ -45,6 +49,8 @@ namespace
 {
 constexpr const char* kSmallestCommittedScenePath = "SkullbonezData/scenes/terrain_compare.scene.json";
 constexpr const char* kSolarSystemScenePath = "SkullbonezData/scenes/solar_system.scene.json";
+constexpr const char* kSolarSlingshotScenePath =
+    "SkullbonezData/scenes/solar_system_mars_slingshot.scene.json";
 constexpr const char* kVersionedAssetScene =
     R"({"format":"skullbonez.scene.json","version":2,"physics":false,"text":false,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}],"assetLibraries":["unit_versioned.assets.json"]})";
 
@@ -128,6 +134,33 @@ TEST_CASE( "AuthoredSceneParser: smallest committed scene parses expected record
 TEST_CASE( "AuthoredSceneParser: solar bodies publish their authored colours" )
 {
     const AuthoredScene scene = AuthoredScene::LoadFromFile( kSolarSystemScenePath );
+    REQUIRE( scene.GetCameraCount() == 1 );
+    const SceneCamera& camera = scene.GetCamera( 0 );
+    CHECK( camera.m_position.x == doctest::Approx( 0.0f ) );
+    CHECK( camera.m_position.y == doctest::Approx( -260.0f ) );
+    CHECK( camera.m_position.z == doctest::Approx( 100.0f ) );
+    CHECK( camera.view.z == doctest::Approx( 0.0f ) );
+    CHECK( camera.up.x == doctest::Approx( 0.0f ) );
+    CHECK( camera.up.y == doctest::Approx( 0.0f ) );
+    CHECK( camera.up.z == doctest::Approx( 1.0f ) );
+
+    const auto& cinematic = scene.GetCinematicRenderConfig();
+    CHECK( cinematic.skyMode == SkullbonezCore::Core::CinematicStyleMode::Sky::DeepSpace );
+    CHECK( cinematic.sunColorR == doctest::Approx( 0.0f ) );
+    CHECK( cinematic.sunColorG == doctest::Approx( 0.0f ) );
+    CHECK( cinematic.sunColorB == doctest::Approx( 0.0f ) );
+    CHECK( cinematic.sunIntensity == doctest::Approx( 0.0f ) );
+    CHECK_FALSE( cinematic.shadow.enabled );
+    CHECK( scene.GetWaterReflectionMode() == 2 );
+
+    REQUIRE( scene.GetBallStateCount() == 4 );
+    for ( int index = 0; index < scene.GetBallStateCount(); ++index )
+    {
+        const auto& body = scene.GetBallState( index );
+        CHECK( body.posZ == doctest::Approx( 0.0f ) );
+        CHECK( body.velZ == doctest::Approx( 0.0f ) );
+    }
+
     REQUIRE( scene.GetObjectMaterialOverrideCount() == 4 );
 
     struct ExpectedColour
@@ -152,6 +185,45 @@ TEST_CASE( "AuthoredSceneParser: solar bodies publish their authored colours" )
         CHECK( material.material.baseColor[1] == doctest::Approx( expected[index].g ) );
         CHECK( material.material.baseColor[2] == doctest::Approx( expected[index].b ) );
     }
+}
+
+TEST_CASE( "AuthoredSceneParser: Mars slingshot scene contains the complete major-moon system on XY" )
+{
+    const AuthoredScene scene = AuthoredScene::LoadFromFile( kSolarSlingshotScenePath );
+    const char* expectedNames[] = {
+        "sun",       "mercury", "venus",    "earth",   "mars",     "jupiter", "saturn",   "uranus",
+        "neptune",   "moon",    "phobos",   "deimos",  "io",       "europa",  "ganymede", "callisto",
+        "mimas",     "enceladus", "tethys", "dione",   "rhea",     "titan",   "iapetus",  "miranda",
+        "ariel",     "umbriel", "titania",  "oberon",  "proteus",  "triton",  "nereid",   "rocket",
+    };
+
+    REQUIRE( scene.GetCameraCount() == 2 );
+    for ( int index = 0; index < scene.GetCameraCount(); ++index )
+    {
+        const SceneCamera& camera = scene.GetCamera( index );
+        CHECK( camera.m_position.y < camera.view.y );
+        CHECK( camera.m_position.z > camera.view.z );
+        CHECK( camera.up.x == doctest::Approx( 0.0f ) );
+        CHECK( camera.up.y == doctest::Approx( 0.0f ) );
+        CHECK( camera.up.z == doctest::Approx( 1.0f ) );
+    }
+    CHECK( scene.GetCinematicRenderConfig().skyMode ==
+           SkullbonezCore::Core::CinematicStyleMode::Sky::DeepSpace );
+    CHECK_FALSE( scene.GetCinematicRenderConfig().shadow.enabled );
+    CHECK( scene.GetWaterReflectionMode() == 2 );
+    REQUIRE( scene.GetBallStateCount() == static_cast<int>( std::size( expectedNames ) ) );
+    for ( int index = 0; index < scene.GetBallStateCount(); ++index )
+    {
+        const auto& body = scene.GetBallState( index );
+        CHECK( std::string( body.name ) == expectedNames[index] );
+        CHECK( body.posZ == doctest::Approx( 0.0f ) );
+        CHECK( body.velZ == doctest::Approx( 0.0f ) );
+    }
+    const auto& rocket = scene.GetBallState( scene.GetBallStateCount() - 1 );
+    CHECK( rocket.posX == doctest::Approx( 77.594884f ) );
+    CHECK( rocket.posY == doctest::Approx( -7.997296f ) );
+    CHECK( rocket.velX == doctest::Approx( 0.127265f ) );
+    CHECK( rocket.velY == doctest::Approx( 27.470485f ) );
 }
 
 

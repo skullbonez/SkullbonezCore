@@ -296,6 +296,25 @@ inline constexpr ShadowQualityConfig MakeShadowQualityConfig( float strength, fl
     return { true, true, true, true, true, 2048, 1, strength, softness, 0.00005f, 0.00010f, 1500.0f };
 }
 
+// Concept: Replay trajectory appearance is presentation policy, independent of
+// the prediction horizon and physics state that produced each sampled point.
+struct ReplayTrajectoryAppearanceConfig
+{
+    float futureWidth = 1.25f;
+    float futureAlpha = 1.0f;
+    float futureEdgeFeather = 1.0f;
+    float causalWidth = 1.25f;
+    float causalAlpha = 1.0f;
+    float causalEdgeFeather = 1.0f;
+    float baselineWidth = 1.0f;
+    float baselineAlpha = 1.0f;
+    float baselineEdgeFeather = 1.0f;
+    float markerWidth = 1.5f;
+    float markerAlpha = 1.0f;
+    float markerEdgeFeather = 1.0f;
+    float selectedEmphasis = 0.45f;
+};
+
 // RuntimeRenderer owns the ordinary render profile; its pass/shader owners
 // consume these lighting, shadow, water, and material values each frame.
 struct OrdinaryRenderConfig
@@ -325,12 +344,14 @@ struct OrdinaryRenderConfig
     float ballSpecularScale = 1.25f;
     float boxRoughnessScale = 1.08f;
     float boxSpecularScale = 0.82f;
+
+    ReplayTrajectoryAppearanceConfig replayTrajectory;
 };
 
 // Style-mode value table shared by config defaults, authored scene/style data,
 // UI sliders, and shader uniforms. Names either match tracked style assets or
 // describe behavior implemented directly by the owning shader. Sky value 14 is
-// currently unassigned; sky values 21..32 remain parser/UI-compatible generic
+// currently unassigned; sky values 22..32 remain parser/UI-compatible generic
 // fallbacks but have no tracked authored users or distinct shader behavior.
 namespace CinematicStyleMode
 {
@@ -356,6 +377,7 @@ inline constexpr int NordicWinter = 17;
 inline constexpr int AbstractRender = 18;
 inline constexpr int PixarInspired = 19;
 inline constexpr int OpenHorizon = 20;
+inline constexpr int DeepSpace = 21;
 } // namespace Sky
 
 namespace Terrain

@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 60, "screenshot": "TestOutput/interaction/solar_system_z_up_black.bmp" }
+  ]
+}
