@@ -121,10 +121,15 @@ value. No local claims membership it does not have.
 - No new type to hold the renamed locals. Introducing a struct to carry them
   would recreate the bag PB5 just deleted.
 - No changes to `PhysicsDiagnosticsView` itself.
-- The mechanical checker that prevents recurrence belongs to
-  `governance-shape-to-judgment-conversion` G2/G3
-  (`tools/inventory_extraction_scars.py`), not to this plan. It has already
-  landed with self-test fixtures; this plan removes the `repair` rows it reports.
+- No rebuilding of the checker or its fixtures.
+  `governance-shape-to-judgment-conversion` G2/G3 already landed
+  `tools/inventory_extraction_scars.py`, its ten fixtures, and the
+  `validate_fast` step 4/8 wiring. This plan consumes that tool and retires its
+  `repair` rows; it does not re-author it.
+- No widening of a ruling to make a finding disappear. A row leaves the file
+  because its code was fixed, or because an owner recorded a `retain` reason that
+  names a real requirement. Editing a verdict to silence the gate is a closure
+  failure.
 - No frame-view or capability-slice restructuring, even though the two largest
   sites are the frame-view consumers. Renaming a local there does not close
   `runtime-frame-view-retirement`, and that plan owns the boundary question.
@@ -147,14 +152,26 @@ value. No local claims membership it does not have.
   the committed baseline. Because the corrected scope spans Runtime as well as
   Physics, the gate set is cumulative — see Validation.
 
-- [ ] **ES1 — Supply the checker fixtures.**
-  Provide the planted positive and negative fixtures that
-  `governance-shape-to-judgment-conversion` G2's
-  `tools/inventory_extraction_scars.py` self-test consumes: a member-prefixed
-  local that must be reported, a genuine member access that must not be, and a
-  local that aliases a parameter without transforming it. Acceptance: the G2
-  self-test fails when any fixture guard is removed and passes at final source;
-  the repository scan reports zero unruled rows.
+- [ ] **ES1 — Retire the ruling rows and extend the fixtures if ES0 found a new
+  shape.**
+  `governance-shape-to-judgment-conversion` G2 already landed
+  `tools/inventory_extraction_scars.py` with ten planted fixtures — two positive
+  (member-prefixed local, pure reference alias) and eight negative (real class
+  member, member read via `return`, member write from a parameter, loop
+  comparison, assignment from a constant, transformed local, comment/literal,
+  alias of a non-parameter, mutated value copy) — and proved guard load-bearing
+  by disabling the reference-only guard and observing the self-test fail. Do not
+  re-create that work.
+  What remains: delete each `repair` row from
+  `tools/aggregate_ownership_rulings.json` as ES0 fixes its code, so the file
+  ends holding only the one `retain` row. If ES0 encounters a scar shape the
+  scanner does not report — a spelling that evades the declaration matcher, or a
+  legitimate alias class the reference-only rule misses — add a fixture for it in
+  this phase rather than widening a ruling. Acceptance: the ruling file's
+  `extraction_scars` list contains exactly the `retain` rows, with reasons
+  unchanged; `python tools\inventory_extraction_scars.py --self-test` passes and
+  still fails when any fixture guard is removed; the repository scan reports zero
+  findings other than ruled `retain` rows.
 
 - [ ] **ES2 — Reconcile, review, and hand off.**
   Complete the comment audit for the four touched files. Obtain one independent
