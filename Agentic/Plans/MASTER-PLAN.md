@@ -584,16 +584,22 @@ without refresh. RS2 then moved all eight planning files into
 zero-refresh gate result. RS3 then reconciled sibling composition and the
 three-owner reserve inventory without introducing an upward escape. RS4
 installed the standing table, placement rule, and full dependency-fixture
-matrix. With GV0, the active/future ledger is 6/17.
+matrix. With GV0, the active/future ledger was 6/17. The owner-registered
+eight-task parameter-bag plan grew the denominator to 25. Replay RS5 then
+closed final hidden cross-package contracts, moved retained Prediction
+presentation authority out of App, passed the complete census, comment audit,
+independent review, and mapped gates, and completed Replay Subsystem Partition
+at 6/6. The ledger reached 7/25 before the completed six-task plan left the
+active/future inventory under rule 4. The live ledger is now 1/19.
 
 ## Current Execution Priority
 
 The 2026-07-25 round-4 campaign is the active queue with binding order:
-1 `replay-subsystem-partition` (5/6; RS5 is next),
-2 `downward-domain-bleed-remediation` (0/6),
-3 `invariant-ownership-governance-and-transaction-repair` (1/5; GV0 installed
+1 `downward-domain-bleed-remediation` (0/6; DB0 is next),
+2 `invariant-ownership-governance-and-transaction-repair` (1/5; GV0 installed
   the documentation-only governance amendment, GV1+ wait for the dependency
-  chain). Header-claim staleness remediation is complete at 3/3 and removed
+  chain). The owner-registered parameter-bag work follows GV4.
+Header-claim staleness remediation is complete at 3/3 and removed
 from the live ledger; its permanent evidence is
 `../Reports/2026-07-25/header-claim-staleness-remediation-closure.md`. Replay
 RS0 evidence is
@@ -603,8 +609,11 @@ evidence is
 `../Reports/2026-07-25/replay-subsystem-partition-rs2-planning.md`. RS3 now
 has permanent evidence in
 `../Reports/2026-07-26/replay-subsystem-partition-rs3-seams.md`; RS4 evidence
-is `../Reports/2026-07-26/replay-subsystem-partition-rs4-enforcement.md`. RS5
-owns the front of the dependency chain.
+is `../Reports/2026-07-26/replay-subsystem-partition-rs4-enforcement.md`.
+Replay is complete at 6/6 and removed from the live inventory; permanent
+closure evidence is
+`../Reports/2026-07-26/replay-subsystem-partition-closure.md`. Downward Domain
+Bleed Remediation DB0 now owns the front of the dependency chain.
 The UI plan preserves the existing UI/Runtime value-command boundary and
 makes Runtime/Render the sole UI-to-renderer composition point, and its UR5
 validator is the shared enforcement vehicle the two follow-up plans extend
@@ -1728,8 +1737,9 @@ exist), 5 invariant-ownership governance and transaction repair. The two
 authorized documentation-only exceptions are complete: GV0 landed during the
 UI campaign, and HC0 ran beside the UI tail. HC1-HC2 then closed after UR6 as
 sequenced. HC2 preserved GV0's aggregate-invariant procedure and added claim
-verification as a separate step. Replay RS5 is now the binding next task;
-GV1-GV4 still wait for the dependency chain. HC2 and GV0 both amended
+verification as a separate step. Replay RS5 is complete; DB0 is now the
+binding next task, and GV1-GV4 still wait for the dependency chain. HC2 and
+GV0 both amended
 `Agentic/Skills/comment-style-audit/skill.md` in separate sections; HC2 landed
 second and preserved GV0.
 
@@ -1737,8 +1747,8 @@ second and preserved GV0.
 |---|---|---:|---|
 | [ui-renderer-hard-boundary](../Reports/2026-07-25/ui-renderer-hard-boundary-closure.md) | Complete | 7/7 | Closed and removed from the live ledger under inventory rule 4 |
 | [header-claim-staleness-remediation](../Reports/2026-07-25/header-claim-staleness-remediation-closure.md) | Complete | 3/3 | Closed and removed from the live ledger under inventory rule 4 |
-| [replay-subsystem-partition](TODO/replay-subsystem-partition.md) | In progress | 5/6 | RS4 installed anti-accretion enforcement; RS5 closes behavior, ownership, and documentation |
-| [downward-domain-bleed-remediation](TODO/downward-domain-bleed-remediation.md) | Ready | 0/6 | Starts after RS5 closes; DB0 bleed census and boundary-contract design |
+| [replay-subsystem-partition](../Reports/2026-07-26/replay-subsystem-partition-closure.md) | Complete | 6/6 | Closed and removed from the live ledger under inventory rule 4 |
+| [downward-domain-bleed-remediation](TODO/downward-domain-bleed-remediation.md) | Ready | 0/6 | DB0 is next: bleed census and boundary-contract design |
 | [invariant-ownership-governance-and-transaction-repair](TODO/invariant-ownership-governance-and-transaction-repair.md) | In progress | 1/5 | GV0 installed; GV1-GV4 start after DB5 closes |
 
 ## Features

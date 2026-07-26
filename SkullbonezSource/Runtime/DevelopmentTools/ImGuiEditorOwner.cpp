@@ -3058,14 +3058,14 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             const bool hasRetainedTimeline = loaded ? selection.loadedSampleCount >= 2u
                                                     : replay.solverStats.sampleCount >= 2u;
 
-            const bool hasTimeline = hasRetainedTimeline || selection.predictionTimelineAvailable;
+            const bool hasTimeline = hasRetainedTimeline || replay.predictionTimelineAvailable;
             const bool compact = ImGui::GetContentRegionAvail().x < 1180.0f * m_frameInput.dpiScale;
             const float trackPosition = loaded ? replay.scrubber.presentationPosition : replay.scrubber.solverPosition;
             ReplayFrameIndex selectedTick = 0;
             bool hasSelectedTick = false;
-            if ( selection.selectedPrediction )
+            if ( replay.selectedPrediction )
             {
-                selectedTick = selection.selectedPrediction->frameIndex;
+                selectedTick = replay.selectedPrediction->frameIndex;
                 hasSelectedTick = true;
             }
             else if ( selection.selectedSolver )

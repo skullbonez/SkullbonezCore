@@ -695,14 +695,13 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input,
     bool causeTreeRowsReady = false;
     if ( !input.editorModeEnabled && input.screenWidth > 0 && input.screenHeight > 0 )
     {
-        causeTreeRowsReady = m_authoring.BuildCauseTreeRows( m_visualPresentation.PathVisualizer(),
-                                                             m_predictionOwner.State(),
-                                                             m_predictionOwner.ActiveFrames(),
-                                                             CurrentSolverScrubSample(),
-                                                             presentation,
-                                                             bodyStore,
-                                                             m_visualPresentation.CameraView(),
-                                                             focusedCameraRow );
+        causeTreeRowsReady = m_predictionOwner.BuildCauseTreeRows( m_authoring,
+                                                                   m_visualPresentation.PathVisualizer(),
+                                                                   CurrentSolverScrubSample(),
+                                                                   presentation,
+                                                                   bodyStore,
+                                                                   m_visualPresentation.CameraView(),
+                                                                   focusedCameraRow );
     }
 
     if ( focusedCameraRow >= 0 )
@@ -727,17 +726,16 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input,
 
     Vector3 causeTreeTargetPosition = Vector3( 0.0f, 0.0f, 0.0f );
     float causeTreeTargetRadius = 0.0f;
-    if ( requestedCauseTreeFocusRow >= 0 && m_authoring.ActivateCauseTreeRow( requestedCauseTreeFocusRow,
-                                                                              m_visualPresentation,
-                                                                              m_scrubberOwner,
-                                                                              m_predictionOwner.State(),
-                                                                              m_predictionOwner.ActiveFrames(),
-                                                                              CurrentSolverScrubSample(),
-                                                                              bodyStore,
-                                                                              colliderStore,
-                                                                              interaction,
-                                                                              causeTreeTargetPosition,
-                                                                              causeTreeTargetRadius ) )
+    if ( requestedCauseTreeFocusRow >= 0 && m_predictionOwner.ActivateCauseTreeRow( m_authoring,
+                                                                                    requestedCauseTreeFocusRow,
+                                                                                    m_visualPresentation,
+                                                                                    m_scrubberOwner,
+                                                                                    CurrentSolverScrubSample(),
+                                                                                    bodyStore,
+                                                                                    colliderStore,
+                                                                                    interaction,
+                                                                                    causeTreeTargetPosition,
+                                                                                    causeTreeTargetRadius ) )
     {
         output.enterInteractive = true;
         EnterInspectionCamera( cameras, camera, input.normalizedCurrentMode, interaction, inputRouter, mousePickup );

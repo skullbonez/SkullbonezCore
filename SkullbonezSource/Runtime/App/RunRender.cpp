@@ -134,7 +134,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
 
     const uint64_t replayGrowthEventCount = CoreAllocation::RuntimeReserveAllocator::GrowthEventCount();
     const bool debugTransparentBodyPass = debug.isPhysicsDebugTransparent && debug.physicsDebugAlpha < 1.0f;
-    const ReplayPresentationSelection replaySelection = m_replayRuntime.ApplyRenderPose(
+    const ReplayFrameSelection replaySelection = m_replayRuntime.ApplyRenderPose(
         m_sceneController.Scene().MutableRenderInstances(),
         m_sceneController.Scene().Physics(),
         m_runtimeTools );

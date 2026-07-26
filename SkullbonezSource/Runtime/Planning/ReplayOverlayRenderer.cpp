@@ -154,7 +154,7 @@ void RenderReplayScrubberOverlay( UiDrawSubmission& submission,
         solverReplayStats,
         loadedPresentation,
         replay.pathVisualizer.hasTarget,
-        replay.selection.predictionTimelineAvailable,
+        replay.predictionTimelineAvailable,
         replay.selection.currentPresentation != nullptr,
         replay.selection.currentSolver != nullptr,
         context.scenePhysicsEnabled );
@@ -192,7 +192,7 @@ void RenderReplayScrubberOverlay( UiDrawSubmission& submission,
     const ReplayPresentationSample* latestPresentation = replay.selection.latestPresentation;
     const ReplaySolverFrameSample* selected = replay.selection.selectedSolver;
     const ReplaySolverFrameSample* latest = replay.selection.latestSolver;
-    const RunReplayPredictionFrame* selectedPrediction = replay.selection.selectedPrediction;
+    const RunReplayPredictionFrame* selectedPrediction = replay.selectedPrediction;
     const double selectedSeconds = selected ? selected->simulationSeconds : 0.0;
     const double latestSeconds = latest ? latest->simulationSeconds : 0.0;
     const double selectedPresentationSeconds = selectedPresentation ? selectedPresentation->simulationSeconds : 0.0;

@@ -608,7 +608,7 @@ ReplayAutomationView ReplayRuntime::BuildAutomationView() const
              CurrentPredictionScrubFrame(),
              m_predictionOwner.PresentationOwner().PublishedVisualPacketView(),
              m_predictionOwner.PresentationOwner().TrajectorySubmissionProbeSnapshot(),
-             m_predictionAppearanceInvalidationCount,
+             m_predictionOwner.PresentationOwner().AppearanceInvalidationCount(),
              CollectMemoryStats(),
              BuildInputView(),
              m_scrubberOwner.TrackPosition( RunReplayTrack::Solver ),
@@ -626,14 +626,13 @@ ReplayRuntime::BuildOverlayStateView( bool editorModeEnabled,
                                       const PhysicsBodyStore& bodyStore )
 {
     int focusedCameraRow = -1;
-    (void)m_authoring.BuildCauseTreeRows( m_visualPresentation.PathVisualizer(),
-                                          m_predictionOwner.State(),
-                                          m_predictionOwner.ActiveFrames(),
-                                          CurrentSolverScrubSample(),
-                                          presentation,
-                                          bodyStore,
-                                          m_visualPresentation.CameraView(),
-                                          focusedCameraRow );
+    (void)m_predictionOwner.BuildCauseTreeRows( m_authoring,
+                                                m_visualPresentation.PathVisualizer(),
+                                                CurrentSolverScrubSample(),
+                                                presentation,
+                                                bodyStore,
+                                                m_visualPresentation.CameraView(),
+                                                focusedCameraRow );
 
     if ( focusedCameraRow >= 0 )
     {
@@ -641,7 +640,7 @@ ReplayRuntime::BuildOverlayStateView( bool editorModeEnabled,
     }
 
     const ReplayScrubberView scrubber = m_scrubberOwner.View();
-    const ReplayPresentationSelection selection = BuildPresentationSelection();
+    const ReplayFrameSelection selection = BuildPresentationSelection();
 
     return { scrubber,
              m_predictionOwner.PresentationView(),
@@ -652,7 +651,9 @@ ReplayRuntime::BuildOverlayStateView( bool editorModeEnabled,
              m_authoring.VelocityEdit(),
              m_authoring.CauseTree(),
              m_timeline.Solver().GetStats(),
-             selection,
+             selection.replay,
+             selection.selectedPrediction,
+             selection.predictionTimelineAvailable,
              ShouldRenderScrubber( editorModeEnabled, uiVisible, uiMinimized, gesture ),
              m_timeline.RecordingConfigured(),
              m_timeline.RecordingEnabled(),
@@ -660,7 +661,7 @@ ReplayRuntime::BuildOverlayStateView( bool editorModeEnabled,
 }
 
 
-ReplayPresentationSelection ReplayRuntime::BuildPresentationSelection() const
+ReplayFrameSelection ReplayRuntime::BuildPresentationSelection() const
 {
     const bool loadedPresentation = HasLoadedPresentation();
     const RunReplayTrack track = loadedPresentation ? RunReplayTrack::Presentation : RunReplayTrack::Solver;
@@ -669,37 +670,38 @@ ReplayPresentationSelection ReplayRuntime::BuildPresentationSelection() const
     const bool futureSelected = !loadedPresentation &&
                                 ReplayTrackPositionIsFuture( trackPosition, solverPresentTrackPosition );
 
-    ReplayPresentationSelection selection;
-    selection.selectedPresentation = loadedPresentation ? LoadedPresentationSampleAtNormalized( trackPosition )
-                                                        : nullptr;
+    ReplayFrameSelection selection;
+    selection.replay.selectedPresentation = loadedPresentation ? LoadedPresentationSampleAtNormalized( trackPosition )
+                                                               : nullptr;
 
-    selection.latestPresentation = loadedPresentation ? LoadedPresentationLatestSample() : nullptr;
-    selection.selectedSolver = ( loadedPresentation || futureSelected )
-                                   ? nullptr
-                                   : m_timeline.Solver().SampleAtNormalized(
-                                         ReplaySolverNormalizedFromTrack( trackPosition, solverPresentTrackPosition ) );
+    selection.replay.latestPresentation = loadedPresentation ? LoadedPresentationLatestSample() : nullptr;
+    selection.replay.selectedSolver = ( loadedPresentation || futureSelected )
+                                          ? nullptr
+                                          : m_timeline.Solver().SampleAtNormalized(
+                                                ReplaySolverNormalizedFromTrack( trackPosition,
+                                                                                 solverPresentTrackPosition ) );
 
-    selection.latestSolver = loadedPresentation ? nullptr : m_timeline.Solver().LatestSample();
+    selection.replay.latestSolver = loadedPresentation ? nullptr : m_timeline.Solver().LatestSample();
     selection.selectedPrediction = futureSelected ? CurrentPredictionScrubFrame() : nullptr;
-    selection.currentPresentation = CurrentScrubSample();
-    selection.currentSolver = CurrentSolverScrubSample();
-    selection.solverPresentTrackPosition = solverPresentTrackPosition;
-    selection.loadedSampleCount = loadedPresentation ? m_timeline.LoadedPresentation().samples.size() : 0u;
-    selection.loadedPresentation = loadedPresentation;
+    selection.replay.currentPresentation = CurrentScrubSample();
+    selection.replay.currentSolver = CurrentSolverScrubSample();
+    selection.replay.solverPresentTrackPosition = solverPresentTrackPosition;
+    selection.replay.loadedSampleCount = loadedPresentation ? m_timeline.LoadedPresentation().samples.size() : 0u;
+    selection.replay.loadedPresentation = loadedPresentation;
     selection.predictionTimelineAvailable = m_predictionOwner.ActiveFrames().size() >= 2 ||
                                             m_predictionOwner.State().BuildPrefixShouldBePresented();
 
     return selection;
 }
 
-ReplayPresentationSelection ReplayRuntime::ApplyRenderPose( Rendering::RenderInstanceStore& renderInstances,
-                                                            PhysicsEngine& physics,
-                                                            RuntimeTools& runtimeTools )
+ReplayFrameSelection ReplayRuntime::ApplyRenderPose( Rendering::RenderInstanceStore& renderInstances,
+                                                     PhysicsEngine& physics,
+                                                     RuntimeTools& runtimeTools )
 {
-    const ReplayPresentationSelection selection = BuildPresentationSelection();
+    const ReplayFrameSelection selection = BuildPresentationSelection();
     const RunReplayPredictionFrame* predictionFrame = selection.selectedPrediction;
-    const ReplayPresentationSample* presentationSample = selection.currentPresentation;
-    const ReplaySolverFrameSample* solverSample = selection.currentSolver;
+    const ReplayPresentationSample* presentationSample = selection.replay.currentPresentation;
+    const ReplaySolverFrameSample* solverSample = selection.replay.currentSolver;
 
     {
         SkullbonezCore::Core::Allocation::RuntimeAllocationScope replayAllocationScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay );
@@ -746,92 +748,26 @@ void ReplayRuntime::PrepareRenderOverlay(
     std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords )
 {
     (void)tracer.SetReplayTrajectoryAppearance( trajectoryAppearance );
-    if ( m_predictionDrawList.SetReplayTrajectoryAppearance( trajectoryAppearance ) )
-    {
-        // Invariant: packed retained records carry style values. A live UI edit
-        // invalidates geometry only; prediction samples remain authoritative.
-        m_predictionDrawList.Clear();
-        m_predictionDrawListState.Reset();
-        ++m_predictionDrawStreamId;
-        ++m_predictionAppearanceInvalidationCount;
-        m_predictionDrawPacketDirty = true;
-    }
 
     const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
-    if ( !prediction.deterministicRevealEnabled )
-    {
-        const ReplayOverlay::ReplayPredictionDrawListUpdate
-            drawListUpdate = ReplayOverlay::UpdateReplayPredictionDrawList( prediction,
-                                                                            m_visualPresentation.PathVisualizer(),
-                                                                            entities,
-                                                                            PhysicsEngine::ReadColliders( physics ),
-                                                                            m_predictionDrawList,
-                                                                            m_predictionDrawListState );
-
-        if ( drawListUpdate.reset )
-        {
-            ++m_predictionDrawStreamId;
-        }
-
-        if ( drawListUpdate.reset || drawListUpdate.appended )
-        {
-            m_predictionDrawPacketDirty = true;
-        }
-
-        ReplayOverlay::AppendReplayPredictionProvisionalTails( prediction,
-                                                               m_visualPresentation.PathVisualizer(),
-                                                               m_predictionDrawListState,
-                                                               PhysicsEngine::ReadColliders( physics ),
-                                                               tracer );
-
-        m_predictionRetainedRenderingActive = m_predictionDrawListState.valid;
-    }
-    else
-    {
-        // Invariant: deterministic reveal is the untouched frame-local oracle.
-        // It must not mix retained provisional tails into the packet it hashes.
-        m_predictionRetainedRenderingActive = false;
-    }
+    const bool retainedRenderingActive = m_predictionOwner.PresentationOwner().PrepareRetainedTrajectoryDrawList(
+        prediction,
+        m_visualPresentation.PathVisualizer(),
+        entities,
+        PhysicsEngine::ReadColliders( physics ),
+        tracer,
+        trajectoryAppearance );
 
     AppendOverlayTrace( physics,
                         entities,
                         tracer,
                         prediction,
                         ReplayOverlayBuildInput { editorModeEnabled, gesture, sceneFrame },
-                        !m_predictionRetainedRenderingActive );
+                        !retainedRenderingActive );
 
     (void)m_predictionOwner.PresentationOwner().BuildGhostDrawRequests( prediction,
                                                                         presentationRecords,
                                                                         PhysicsEngine::ReadBodies( physics ) );
-}
-
-
-void ReplayRuntime::RefreshRetainedPredictionGeometry( const Math::Vector::Vector3& cameraEye,
-                                                       const Math::Vector::Vector3& cameraUp )
-{
-    if ( !m_predictionDrawPacketDirty )
-    {
-        return;
-    }
-
-    // Compact retained trajectory records are world-space and camera-neutral.
-    // A stable publication therefore takes this O(1) exit even while the camera
-    // moves; the trajectory shader applies the current view projection.
-    m_predictionDrawPacket = m_predictionDrawList.BuildReplayVisualPacket( cameraEye, cameraUp );
-    m_predictionDrawCameraEye = cameraEye;
-    m_predictionDrawCameraUp = cameraUp;
-    m_predictionDrawCameraValid = true;
-    m_predictionDrawPacketDirty = false;
-    ++m_predictionDrawRevision;
-}
-
-
-void ReplayRuntime::AttachRetainedPredictionGeometry( ReplayVisualPacket& packet ) const
-{
-    ReplayVisualPacketOperations::AttachRetainedPredictionGeometry( packet,
-                                                                    m_predictionDrawPacket,
-                                                                    m_predictionDrawStreamId,
-                                                                    m_predictionDrawRevision );
 }
 
 
@@ -842,11 +778,7 @@ void ReplayRuntime::PublishRenderPacket( EditorTracer& tracer,
 {
     const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
     ReplayVisualPacket packet = tracer.BuildReplayVisualPacket( cameraTranslation, cameraUp );
-    if ( m_predictionRetainedRenderingActive )
-    {
-        RefreshRetainedPredictionGeometry( cameraTranslation, cameraUp );
-        AttachRetainedPredictionGeometry( packet );
-    }
+    m_predictionOwner.PresentationOwner().AttachRetainedPredictionGeometry( packet, cameraTranslation, cameraUp );
 
     m_predictionOwner.PresentationOwner().PublishVisualPacket( packet,
                                                                prediction,
@@ -856,15 +788,15 @@ void ReplayRuntime::PublishRenderPacket( EditorTracer& tracer,
 }
 
 
-ReplayRenderFrameView ReplayRuntime::BuildRenderFrameView( const ReplayPresentationSelection& selection,
+ReplayRenderFrameView ReplayRuntime::BuildRenderFrameView( const ReplayFrameSelection& selection,
                                                            PhysicsEngine& physics,
                                                            int modelCount,
                                                            bool collisionVisualizer,
                                                            bool debugTransparentBodyPass )
 {
     const RunReplayPredictionFrame* predictionFrame = selection.selectedPrediction;
-    const ReplayPresentationSample* presentationSample = selection.currentPresentation;
-    const ReplaySolverFrameSample* solverSample = selection.currentSolver;
+    const ReplayPresentationSample* presentationSample = selection.replay.currentPresentation;
+    const ReplaySolverFrameSample* solverSample = selection.replay.currentSolver;
     const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
     const ReplayInputView inputView = BuildInputView();
     bool focusFadeActive = false;

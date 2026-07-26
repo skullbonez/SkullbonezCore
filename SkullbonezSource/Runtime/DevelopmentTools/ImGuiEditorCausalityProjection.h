@@ -148,7 +148,7 @@ BuildImGuiEditorCausalityContext( const ReplayOverlay::ReplayOverlayStateView& r
         context.hasReplayTick = true;
         return true;
     };
-    if ( !setTick( selection.selectedPrediction ) && !setTick( selection.selectedSolver ) &&
+    if ( !setTick( replay.selectedPrediction ) && !setTick( selection.selectedSolver ) &&
          !setTick( selection.selectedPresentation ) && !setTick( selection.currentSolver ) &&
          !setTick( selection.currentPresentation ) && !setTick( selection.latestSolver ) )
     {

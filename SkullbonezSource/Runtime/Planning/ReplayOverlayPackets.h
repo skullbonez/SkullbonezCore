@@ -68,9 +68,11 @@ struct ReplayOverlayStateView
     const RunReplayVelocityEditState& velocityEdit;
     const RunReplayCauseTreeState& causeTree;
     ReplayRecorderStats solverStats;
-    // Concept: overlay consumers receive the Presentation owner's one answer to
-    // selection; they do not flatten or independently resolve timeline state.
+    // Concept: overlay consumers receive the lower Presentation selection plus
+    // the sibling Prediction row selected by App. Planning retains neither.
     ReplayPresentationSelection selection;
+    const RunReplayPredictionFrame* selectedPrediction = nullptr;
+    bool predictionTimelineAvailable = false;
     bool shouldRenderScrubber = false;
     bool recordingConfigured = false;
     bool recordingEnabled = false;

@@ -433,6 +433,7 @@ RUNTIME_APP_PREFIXES = (
 
 RUNTIME_REPLAY_PREFIXES = (
     "ReplayAuthoring",
+    "ReplayAuthoringCauseTreeInput",
     "ReplayAuthoringVelocity",
     "ReplayAuthoringPackets",
     "ReplayArtifactHashLog",

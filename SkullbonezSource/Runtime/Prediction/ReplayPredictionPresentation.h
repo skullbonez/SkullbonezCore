@@ -26,9 +26,11 @@ Related:
 */
 #pragma once
 
+#include "ReplayPredictionDrawing.h"
 #include "ReplayPredictionView.h"
 #include "../Replay/ReplayPresentation.h"
 #include "../Replay/ReplayVisualPacket.h"
+#include "../Tools/RuntimeTools.h"
 #include "../../Core/MainMemoryStats.h"
 #include "../../Core/SceneCapacity.h"
 
@@ -100,6 +102,10 @@ class ReplayPredictionPresentation
     std::span<const ReplayPredictionGhostDrawRequest> GhostDrawRequestsView() const noexcept;
     const std::vector<uint8_t>& FocusModelMaskView() const noexcept;
     ReplayPredictionPresentationMemoryStats CollectMemoryStats() const noexcept;
+    uint64_t AppearanceInvalidationCount() const noexcept
+    {
+        return m_retainedAppearanceInvalidationCount;
+    }
 
     void ReserveRecordingBuffers();
     bool BuildFocusModelMask( const RunReplayPathVisualizerState& path,
@@ -113,6 +119,18 @@ class ReplayPredictionPresentation
     bool BuildGhostDrawRequests( const ReplayPredictionPresentationView& prediction,
                                  std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
                                  const Physics::PhysicsBodyStore& bodyStore );
+    // Owns the retained append-only trajectory list and its publication cursor.
+    // The frame tracer receives provisional tails only; no draw-list state
+    // escapes back to Runtime/App.
+    bool PrepareRetainedTrajectoryDrawList( const ReplayPredictionPresentationView& prediction,
+                                            const RunReplayPathVisualizerState& path,
+                                            const SceneEntityStore& entities,
+                                            const Physics::ColliderStore& colliderStore,
+                                            EditorTracer& frameTracer,
+                                            const Core::ReplayTrajectoryAppearanceConfig& trajectoryAppearance );
+    void AttachRetainedPredictionGeometry( ReplayVisualPacket& packet,
+                                           const Math::Vector::Vector3& cameraEye,
+                                           const Math::Vector::Vector3& cameraUp );
     void PublishVisualPacket( ReplayVisualPacket packet,
                               const ReplayPredictionPresentationView& prediction,
                               Physics::PhysicsSceneObjectId pathTargetId,
@@ -158,6 +176,16 @@ class ReplayPredictionPresentation
     std::vector<ReplayPredictionGhostDrawRequest> m_ghostDrawRequests;
     std::vector<uint8_t> m_focusModelMask;
     std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_renderPoseBodyMatched = {};
+    // Invariant: these fields are the sole retained Prediction trajectory
+    // presentation state. App may sequence commands but cannot mutate cursors.
+    EditorTracer m_retainedDrawList;
+    ReplayOverlay::ReplayPredictionDrawListState m_retainedDrawListState;
+    ReplayVisualPacket m_retainedDrawPacket;
+    uint64_t m_retainedDrawStreamId = 1;
+    uint64_t m_retainedDrawRevision = 0;
+    uint64_t m_retainedAppearanceInvalidationCount = 0;
+    bool m_retainedDrawPacketDirty = true;
+    bool m_retainedRenderingActive = false;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

@@ -372,6 +372,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayAuthoringCauseTree.cpp">
       <Filter>Source Files\Runtime\Prediction</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayAuthoringCauseTreeInput.cpp">
+      <Filter>Source Files\Runtime\Replay</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\App\ReplayScrubberTools.cpp">
       <Filter>Source Files\Runtime\App</Filter>
     </ClCompile>

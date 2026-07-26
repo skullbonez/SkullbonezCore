@@ -81,7 +81,6 @@ Related:
 #include "../Replay/ReplayRecorder.h"
 #include "../Replay/ReplayVisualPacket.h"
 #include "../Prediction/ReplayPredictionScheduling.h"
-#include "../Prediction/ReplayPredictionDrawing.h"
 #include "../../Assets/AssetKeys.h"
 #include "../../Core/SceneCapacity.h"
 #include "../Prediction/TrajectoryStore.h"
@@ -172,6 +171,80 @@ void ArmLoadedPresentation( float normalized,
                             RuntimeInteractionController& interaction );
 } // namespace ReplayPresentationOperations
 
+// App owns the probe workflow because debug verification composes lower Replay
+// state with the sibling Prediction owner. ReplayProbeState.h contains only the
+// bounded values and therefore never exposes this upper-package authority.
+class ReplayProbeRunner
+{
+  public:
+    // Returns whether live prediction generation remains permitted after the
+    // startup capability request is installed.
+    bool Configure( const ReplayStartupRequest& request );
+    const ReplayStartupWorkflowState& Startup() const noexcept
+    {
+        return m_startup;
+    }
+#ifdef _DEBUG
+    // Installs Debug-only CLI probe state after Configure has copied the
+    // product load request and capability bit.
+    void ConfigureDebug( const ReplayStartupRequest& request );
+    SkullbonezCore::Core::SbResult TickScrubProbe( const ReplayRestoreTransaction& transaction,
+                                                   const ReplayTimeline& timeline,
+                                                   ReplayPresentation& presentation );
+    ReplayProbeRestoreRequest PrepareRestoreProbe( const ReplayTimeline& timeline );
+    SkullbonezCore::Core::SbResult
+    CompleteRestoreProbe( const ReplayProbeRestoreRequest& request, bool restored, const char* reason );
+    ReplayProbeSaveRequest PrepareSaveProbe( const ReplayTimeline& timeline );
+    void CompleteSaveProbe( const ReplayProbeSaveRequest& request, const SkullbonezCore::Core::SbResult& result );
+    SkullbonezCore::Core::SbResult CurrentFailure() const;
+    void RecordFailure( const SkullbonezCore::Core::SbResult& result );
+    SkullbonezCore::Core::SbResult VerifyLoadedPresentation( ReplayTimeline& timeline,
+                                                             ReplayScrubber& scrubber,
+                                                             ReplayPresentation& presentation,
+                                                             ReplayAuthoring& authoring,
+                                                             ReplayPrediction& prediction,
+                                                             const ReplayRestoreTransaction& transaction,
+                                                             RunMousePickupState& mousePickup,
+                                                             RunCameraMode normalizedCurrentMode,
+                                                             double now,
+                                                             float normalized );
+    SkullbonezCore::Core::SbResult PrepareCheckpointFileProbe( const char* path,
+                                                               ReplaySolverFrameSample& outCheckpoint,
+                                                               ReplayV2SolverCheckpointLoadResult& outLoadResult );
+    SkullbonezCore::Core::SbResult CompleteCheckpointFileProbe( const char* path,
+                                                                const ReplaySolverFrameSample& checkpoint,
+                                                                const ReplayV2SolverCheckpointLoadResult& loadResult,
+                                                                bool restored,
+                                                                const char* reason );
+    SkullbonezCore::Core::SbResult CompleteTargetFileProbe( const char* path,
+                                                            const RunReplayV2TargetRestoreResult& result,
+                                                            bool restored,
+                                                            const char* reason );
+    ReplayFailureProbeRequest BeginFailureFileProbe( const char* path );
+    ReplayFailureProbeRequest AdvanceFailureFileProbe( const ReplayFailureProbeRequest& request,
+                                                       const ReplayFailureProbeStepResult& result );
+    SkullbonezCore::Core::SbResult PrepareBranchFileProbe( ReplayTimeline& timeline,
+                                                           ReplayScrubber& scrubber,
+                                                           ReplayPresentation& presentation,
+                                                           ReplayAuthoring& authoring,
+                                                           ReplayPrediction& prediction,
+                                                           const ReplayRestoreTransaction& transaction,
+                                                           RunMousePickupState& mousePickup,
+                                                           RunCameraMode normalizedCurrentMode,
+                                                           double now,
+                                                           const char* path,
+                                                           ReplayLiveRestoreRequest& outRequest );
+    SkullbonezCore::Core::SbResult CompleteBranchFileProbe( const char* path, const ReplayLiveRestoreOutcome& outcome );
+#endif
+
+  private:
+    ReplayStartupWorkflowState m_startup;
+#ifdef _DEBUG
+    ReplayProbeState m_probes;
+    ReplayFailureFileProbeState m_failureFile;
+#endif
+};
+
 class ReplayRuntime
 {
   public:
@@ -196,12 +269,12 @@ class ReplayRuntime
                            const Physics::PhysicsBodyStore& bodyStore );
     // Selects at most one historical track plus the prediction preview for the
     // current render turn; returned sample pointers are frame-local borrows.
-    ReplayPresentationSelection BuildPresentationSelection() const;
+    ReplayFrameSelection BuildPresentationSelection() const;
     // Render preparation is deliberately phased: pose mutation, overlay/ghost
     // construction, packet publication, then focus-mask/view selection.
-    ReplayPresentationSelection ApplyRenderPose( Rendering::RenderInstanceStore& renderInstances,
-                                                 Physics::PhysicsEngine& physics,
-                                                 RuntimeTools& runtimeTools );
+    ReplayFrameSelection ApplyRenderPose( Rendering::RenderInstanceStore& renderInstances,
+                                          Physics::PhysicsEngine& physics,
+                                          RuntimeTools& runtimeTools );
     void PrepareRenderOverlay( Physics::PhysicsEngine& physics,
                                const SceneEntityStore& entities,
                                EditorTracer& tracer,
@@ -214,7 +287,7 @@ class ReplayRuntime
                               const Math::Vector::Vector3& cameraTranslation,
                               const Math::Vector::Vector3& cameraUp,
                               uint64_t replayReserveGrowthEvents );
-    ReplayRenderFrameView BuildRenderFrameView( const ReplayPresentationSelection& selection,
+    ReplayRenderFrameView BuildRenderFrameView( const ReplayFrameSelection& selection,
                                                 Physics::PhysicsEngine& physics,
                                                 int modelCount,
                                                 bool collisionVisualizer,
@@ -475,9 +548,6 @@ class ReplayRuntime
     void ApplyPredictionUpdateResult( const ReplayPredictionUpdateResult& result );
     void ApplyPastTrajectoryUpdate( const ReplayPastTrajectoryUpdate& update );
     void AppendSolverTrajectorySampleToStore( const ReplaySolverFrameSample& sample );
-    void RefreshRetainedPredictionGeometry( const Math::Vector::Vector3& cameraEye,
-                                            const Math::Vector::Vector3& cameraUp );
-    void AttachRetainedPredictionGeometry( ReplayVisualPacket& packet ) const;
 #ifdef _DEBUG
     // Runs the configured Debug startup probes after product artifact loading
     // has completed; early probe failures are returned in the value result.
@@ -507,20 +577,6 @@ class ReplayRuntime
     ReplayAuthoring m_authoring;
     ReplayPrediction m_predictionOwner;
     ReplayPlanningRuntime m_planningOwner;
-    // Concept: prediction ribbons are a retained append-only command list.
-    // Frame-local tool/cause overlays keep using RuntimeTools::Tracer(), while
-    // this tracer changes only when trajectory publication or reveal advances.
-    EditorTracer m_predictionDrawList;
-    ReplayOverlay::ReplayPredictionDrawListState m_predictionDrawListState;
-    ReplayVisualPacket m_predictionDrawPacket;
-    Math::Vector::Vector3 m_predictionDrawCameraEye = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 m_predictionDrawCameraUp = Math::Vector::ZERO_VECTOR;
-    uint64_t m_predictionDrawStreamId = 1;
-    uint64_t m_predictionDrawRevision = 0;
-    uint64_t m_predictionAppearanceInvalidationCount = 0;
-    bool m_predictionDrawPacketDirty = true;
-    bool m_predictionDrawCameraValid = false;
-    bool m_predictionRetainedRenderingActive = false;
     SceneLifecycleGenerationObserver m_sceneClearObserver;
     SceneLifecycleGenerationObserver m_sceneActivationObserver;
 };

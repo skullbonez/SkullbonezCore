@@ -59,7 +59,12 @@ namespace Physics
 {
 class ColliderStore;
 class PhysicsEngine;
+class PhysicsBodyStore;
 } // namespace Physics
+namespace Rendering
+{
+struct RenderInstancePresentationRecord;
+}
 namespace Threading
 {
 class WorkerPool;
@@ -68,8 +73,13 @@ class WorkerPool;
 namespace Runtime
 {
 class SceneEntityStore;
+class ReplayAuthoring;
 class ReplayPrediction;
+class ReplayPresentation;
+class ReplayScrubber;
 class ReplaySolverRecorder;
+class RuntimeInteractionController;
+struct RunReplayCameraState;
 struct RunReplayPathVisualizerState;
 
 struct RunReplayPredictionBodyBackup
@@ -424,6 +434,27 @@ class ReplayPrediction
     {
         return m_presentation;
     }
+
+    // Prediction owns cause-row composition that combines its future publication with lower
+    // Replay samples. ReplayAuthoring supplies only bounded row storage and
+    // window state; no lower header names Prediction state.
+    bool BuildCauseTreeRows( ReplayAuthoring& authoring,
+                             const RunReplayPathVisualizerState& path,
+                             const ReplaySolverFrameSample* solverSample,
+                             std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
+                             const Physics::PhysicsBodyStore& bodyStore,
+                             const RunReplayCameraState& camera,
+                             int& outCameraFocusedRow );
+    bool ActivateCauseTreeRow( ReplayAuthoring& authoring,
+                               int rowIndex,
+                               ReplayPresentation& presentationOwner,
+                               ReplayScrubber& scrubberOwner,
+                               const ReplaySolverFrameSample* currentSolverSample,
+                               const Physics::PhysicsBodyStore& bodyStore,
+                               const Physics::ColliderStore& colliderStore,
+                               RuntimeInteractionController& interaction,
+                               Math::Vector::Vector3& outTargetPosition,
+                               float& outTargetRadius );
 
     bool ToggleEnabled() noexcept
     {

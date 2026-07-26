@@ -1,6 +1,6 @@
 # SkullbonezCore Session State
 
-Date: 2026-07-25
+Date: 2026-07-26
 
 Keep this file operational and short. Detailed evidence belongs in plans,
 reports, and git history. `Agentic/Plans/MASTER-PLAN.md` is the authoritative
@@ -11,33 +11,35 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-25th-JUL-26` |
-| Current baseline | Replay Subsystem Partition RS4 is complete: the Runtime table, invariant-5 placement rule, 21 mirror proofs, and 43-edge dependency fixture matrix permanently enforce the partition. |
-| Current objective | Execute `replay-subsystem-partition` RS5 and close behavior, ownership, documentation, and final review evidence. |
-| Active/future progress | Replay Subsystem Partition 5/6; Downward Domain Bleed Remediation 0/6; Invariant Ownership Governance And Transaction Repair 1/5; active/future ledger 6/17. |
+| Current baseline | Replay Subsystem Partition is complete at 6/6 and removed from the live ledger. Replay, Prediction, and Planning have explicit ownership, direction rules, fixtures, and zero-row closure proofs. |
+| Current objective | Execute `downward-domain-bleed-remediation` DB0: ratify the bleed census and design the target boundary contracts. |
+| Active/future progress | Downward Domain Bleed Remediation 0/6; Invariant Ownership Governance And Transaction Repair 1/5; Concrete Parameter-Bag Elimination 0/8; active/future ledger 1/19 (5%). |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | RS2 `validate_full.bat` passes: mandatory CPU/coverage, Automation, replay prediction smoke, DX12, and physics; the 44,401-line physics output is byte-exact. |
-| Validation for current edits | RS4 direct dependency validation, all 21 mirror proofs, fast, and the complete CPU umbrella pass; zero golden/baseline/artifact refresh. |
+| Last broad local gate | RS5 `validate_full.bat` passes: mandatory CPU/coverage and all five required runtime processes. |
+| Validation for current edits | RS5 fast, project/filter, dependency, allocation, strict Replay allocation, full, bounded graphics stress, and the sole replay visual-fidelity generation pass; zero golden/baseline/artifact/scene/config refresh. |
 
 ## Live Queue
 
-NOW. The 2026-07-25 round-4 architecture campaign is active at 6/17 with
-binding order: `replay-subsystem-partition` (5/6),
-`downward-domain-bleed-remediation` (0/6), then
-`invariant-ownership-governance-and-transaction-repair` (1/5).
+NOW. The 2026-07-25 round-4 architecture campaign is active at 1/19 with
+binding order: `downward-domain-bleed-remediation` (0/6),
+`invariant-ownership-governance-and-transaction-repair` (1/5), then
+`concrete-parameter-bag-elimination` (0/8).
 
 Header Claim Staleness Remediation is complete at 3/3 and removed from the live
 inventory under rule 4. Permanent evidence is
 `Agentic/Reports/2026-07-25/header-claim-staleness-remediation-closure.md`.
 Its corrected ownership claims and durable `Related:` paths are now the source
-context for Replay and later GV work. Replay RS0-RS4 are complete; their
+context for Replay and later GV work. Replay RS0-RS5 are complete; their
 permanent evidence is
 `Agentic/Reports/2026-07-25/replay-subsystem-partition-rs0-census.md` and
 `Agentic/Reports/2026-07-25/replay-subsystem-partition-rs1-prediction.md`, and
 `Agentic/Reports/2026-07-25/replay-subsystem-partition-rs2-planning.md`, and
 `Agentic/Reports/2026-07-26/replay-subsystem-partition-rs3-seams.md`, and
-`Agentic/Reports/2026-07-26/replay-subsystem-partition-rs4-enforcement.md`.
-Implementation continues through the repository orchestrator skill with Replay
-RS5 next. Live plans are under
+`Agentic/Reports/2026-07-26/replay-subsystem-partition-rs4-enforcement.md`, and
+`Agentic/Reports/2026-07-26/replay-subsystem-partition-closure.md`.
+The completed Replay plan is removed from the live inventory under rule 4.
+Implementation continues through the repository orchestrator skill with DB0
+next. Live plans are under
 `Agentic/Plans/TODO/`.
 
 NOW. `solar-prediction-presentation-correction` is complete at 4/4. The
@@ -449,7 +451,6 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Execute `replay-subsystem-partition` RS5: rerun the complete partition census
-and all standing proofs, perform the final touched-source comment audit, obtain
-one independent ownership review, run the final mapped gates without refresh,
-write closure evidence, and remove the completed live plan.
+Execute `downward-domain-bleed-remediation` DB0: rerun and ratify the complete
+bleed census, design each target owner and value boundary, reconcile the plan
+inventory, and write permanent DB0 evidence before implementation begins.

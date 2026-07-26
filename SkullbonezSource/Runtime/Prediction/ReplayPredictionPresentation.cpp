@@ -443,6 +443,88 @@ bool ReplayPredictionPresentation::BuildGhostDrawRequests(
     return HasGhostDrawRequests();
 }
 
+
+bool ReplayPredictionPresentation::PrepareRetainedTrajectoryDrawList(
+    const ReplayPredictionPresentationView& prediction,
+    const RunReplayPathVisualizerState& path,
+    const SceneEntityStore& entities,
+    const Physics::ColliderStore& colliderStore,
+    EditorTracer& frameTracer,
+    const Core::ReplayTrajectoryAppearanceConfig& trajectoryAppearance )
+{
+    if ( m_retainedDrawList.SetReplayTrajectoryAppearance( trajectoryAppearance ) )
+    {
+        // Invariant: packed retained records carry style values. A live UI edit
+        // invalidates geometry only; prediction samples remain authoritative.
+        m_retainedDrawList.Clear();
+        m_retainedDrawListState.Reset();
+        ++m_retainedDrawStreamId;
+        ++m_retainedAppearanceInvalidationCount;
+        m_retainedDrawPacketDirty = true;
+    }
+
+    if ( prediction.deterministicRevealEnabled )
+    {
+        // Invariant: deterministic reveal is the untouched frame-local oracle.
+        // It must not mix retained provisional tails into the packet it hashes.
+        m_retainedRenderingActive = false;
+        return false;
+    }
+
+    const ReplayOverlay::ReplayPredictionDrawListUpdate drawListUpdate = ReplayOverlay::UpdateReplayPredictionDrawList(
+        prediction,
+        path,
+        entities,
+        colliderStore,
+        m_retainedDrawList,
+        m_retainedDrawListState );
+
+    if ( drawListUpdate.reset )
+    {
+        ++m_retainedDrawStreamId;
+    }
+
+    if ( drawListUpdate.reset || drawListUpdate.appended )
+    {
+        m_retainedDrawPacketDirty = true;
+    }
+
+    ReplayOverlay::AppendReplayPredictionProvisionalTails( prediction,
+                                                           path,
+                                                           m_retainedDrawListState,
+                                                           colliderStore,
+                                                           frameTracer );
+
+    m_retainedRenderingActive = m_retainedDrawListState.valid;
+    return m_retainedRenderingActive;
+}
+
+
+void ReplayPredictionPresentation::AttachRetainedPredictionGeometry( ReplayVisualPacket& packet,
+                                                                     const Math::Vector::Vector3& cameraEye,
+                                                                     const Math::Vector::Vector3& cameraUp )
+{
+    if ( !m_retainedRenderingActive )
+    {
+        return;
+    }
+
+    if ( m_retainedDrawPacketDirty )
+    {
+        // Compact retained trajectory records are world-space and camera-neutral.
+        // Camera values remain explicit publication inputs for the tracer packet.
+        m_retainedDrawPacket = m_retainedDrawList.BuildReplayVisualPacket( cameraEye, cameraUp );
+        m_retainedDrawPacketDirty = false;
+        ++m_retainedDrawRevision;
+    }
+
+    ReplayVisualPacketOperations::AttachRetainedPredictionGeometry( packet,
+                                                                    m_retainedDrawPacket,
+                                                                    m_retainedDrawStreamId,
+                                                                    m_retainedDrawRevision );
+}
+
+
 void ReplayPredictionPresentation::PublishVisualPacket( ReplayVisualPacket packet,
                                                         const ReplayPredictionPresentationView& prediction,
                                                         Physics::PhysicsSceneObjectId pathTargetId,

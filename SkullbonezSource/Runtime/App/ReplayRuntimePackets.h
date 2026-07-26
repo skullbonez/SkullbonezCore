@@ -24,11 +24,39 @@ Related:
 #pragma once
 
 #include "../Replay/ReplayCoordination.h"
+#include "../Replay/ReplayPresentationPackets.h"
 #include "../Prediction/ReplayPrediction.h"
 #include "../Planning/ReplayPlanningRuntime.h"
 
+#include <vector>
+
 namespace SkullbonezCore::Runtime
 {
+// Concept: App composes the lower Replay selection with the sibling Prediction
+// row selected on the future side of the shared scrub track. Neither sibling
+// header needs to name the other's retained publication.
+// Lifetime: every pointer expires at the next Replay or Prediction mutation.
+struct ReplayFrameSelection
+{
+    ReplayPresentationSelection replay;
+    const RunReplayPredictionFrame* selectedPrediction = nullptr;
+    bool predictionTimelineAvailable = false;
+};
+
+// Render consumes one App-composed view after Replay pose selection and
+// Prediction visual publication are both complete for the frame.
+struct ReplayRenderFrameView
+{
+    const ReplayPresentationSample* presentationSample = nullptr;
+    const ReplaySolverFrameSample* solverSample = nullptr;
+    const RunReplayPredictionFrame* predictionFrame = nullptr;
+    const ReplayVisualPacket* visualPacket = nullptr;
+    const std::vector<uint8_t>* focusModelMask = nullptr;
+    bool predictionEnabled = false;
+    bool liveAdvanceHeld = false;
+    bool focusFadeActive = false;
+};
+
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 struct ReplayAutomationView
 {

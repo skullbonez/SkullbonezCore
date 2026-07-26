@@ -67,8 +67,6 @@ struct ReplayKeyboardVelocityEditInput;
 struct ReplayKeyboardVelocityEditResult;
 struct RunReplayCameraState;
 struct RunReplayPathVisualizerState;
-struct RunReplayPredictionFrame;
-struct RunReplayPredictionState;
 struct CameraControlState;
 struct RunMousePickupState;
 enum class RunCameraMode;
@@ -186,17 +184,6 @@ class ReplayAuthoring
     void BeginCauseTreeMove( int mouseX, int mouseY ) noexcept;
     bool TryGetCauseTreeRow( int rowIndex, RunReplayCauseTreeRow& outRow ) const noexcept;
     void SetCauseTreeFocus( int rowIndex, Physics::PhysicsSceneObjectId focusedId ) noexcept;
-    // Builds the bounded explanatory row publication from read-only owner
-    // views. Camera synchronization is returned as a value so authoring never
-    // reaches into presentation authority.
-    bool BuildCauseTreeRows( const RunReplayPathVisualizerState& path,
-                             const RunReplayPredictionState& prediction,
-                             std::span<const RunReplayPredictionFrame> activePredictionFrames,
-                             const ReplaySolverFrameSample* solverSample,
-                             std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
-                             const Physics::PhysicsBodyStore& bodyStore,
-                             const RunReplayCameraState& camera,
-                             int& outCameraFocusedRow );
     bool TickCauseTreeInput( ReplayPresentation& presentationOwner,
                              ReplayScrubber& scrubberOwner,
                              InputRouter& inputRouter,
@@ -209,19 +196,6 @@ class ReplayAuthoring
                              int screenHeight,
                              int& outFocusRow,
                              bool& outExitInspectionCamera );
-    // Resolves and commits a selected cause row without retaining any frame
-    // publication. Host-camera movement remains a separate ReplayRuntime phase.
-    bool ActivateCauseTreeRow( int rowIndex,
-                               ReplayPresentation& presentationOwner,
-                               ReplayScrubber& scrubberOwner,
-                               const RunReplayPredictionState& prediction,
-                               std::span<const RunReplayPredictionFrame> activePredictionFrames,
-                               const ReplaySolverFrameSample* currentSolverSample,
-                               const Physics::PhysicsBodyStore& bodyStore,
-                               const Physics::ColliderStore& colliderStore,
-                               RuntimeInteractionController& interaction,
-                               Math::Vector::Vector3& outTargetPosition,
-                               float& outTargetRadius );
     // Unwinds a stale drag when velocity editing cannot run this frame. The
     // following gizmo and target-pick phases are invoked only when this succeeds.
     bool PrepareVelocityEditInput( bool editorModeEnabled,
