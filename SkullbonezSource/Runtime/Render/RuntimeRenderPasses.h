@@ -42,6 +42,7 @@ Related:
 #include "../../Rendering/DX12/FramebufferDX12.h"
 #include "../../Rendering/Shadow.h"
 #include "../../Rendering/Text.h"
+#include "../../UI/UI.h"
 #include "../../UI/UIDrawList.h"
 #include "RenderPresentationSettings.h"
 #include "UiDrawSubmission.h"
@@ -914,6 +915,10 @@ class UiTextPass
     UI::UIDrawList m_badgeDrawList;
     UI::UIDrawList m_replayDrawList;
     UI::UIDrawList m_profilerDrawList;
+
+    // Runtime owns the detached label/value snapshot. The frame packet lends
+    // this fixed storage to UI only for the synchronous Memory-tab draw.
+    UI::UIRuntimeReserveCapacityRow m_reserveCapacityRows[UI::UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX];
     SkullbonezCore::Core::Profiler* m_profiler = nullptr;
     Rendering::RenderGpuTimingOwner* m_gpuTiming = nullptr;
     Rendering::Dx12RaytracingOwner* m_renderRayTracing = nullptr;

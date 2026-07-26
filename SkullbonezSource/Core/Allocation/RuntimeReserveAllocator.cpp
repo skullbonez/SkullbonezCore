@@ -23,6 +23,8 @@ Glossary:
     shared compile capability and rejected after its active-byte cap.
   Capacity row: Fixed registry storage carrying one store's live sizing
     telemetry without building a heap-backed report.
+  Capacity session: One scene's high-water interval. A generation lets each
+    retained store reset its local peak lazily without a central store list.
 
 Invariants:
   - The registry uses fixed arrays and atomics only; no STL containers or heap
@@ -117,6 +119,7 @@ struct GrowthEventRecord
 std::atomic<int> s_registeredOwnerCount { 1 };
 std::atomic<uint64_t> s_policyViolations { 0 };
 std::atomic<uint64_t> s_growthEventCount { 0 };
+std::atomic<uint64_t> s_capacitySessionGeneration { 1 };
 std::atomic_flag s_growthEventLock = ATOMIC_FLAG_INIT;
 OwnerRecord s_owners[MAX_RUNTIME_RESERVE_OWNERS] = {};
 RuntimeReserveCapacityView s_capacityRows[MAX_RUNTIME_RESERVE_OWNERS] = {};
@@ -808,6 +811,74 @@ std::span<const RuntimeReserveCapacityView> RuntimeReserveAllocator::CapacityRow
     const int rowCount = s_capacityRowCount.load( std::memory_order_acquire );
     const int boundedCount = rowCount < MAX_RUNTIME_RESERVE_OWNERS ? rowCount : MAX_RUNTIME_RESERVE_OWNERS;
     return std::span<const RuntimeReserveCapacityView>( s_capacityRows, static_cast<std::size_t>( boundedCount ) );
+}
+
+uint64_t RuntimeReserveAllocator::CapacitySessionGeneration() noexcept
+{
+    return s_capacitySessionGeneration.load( std::memory_order_acquire );
+}
+
+void RuntimeReserveAllocator::BeginCapacitySession() noexcept
+{
+    s_capacitySessionGeneration.fetch_add( 1u, std::memory_order_acq_rel );
+    const int rowCount = s_capacityRowCount.load( std::memory_order_acquire );
+    const int boundedCount = rowCount < MAX_RUNTIME_RESERVE_OWNERS ? rowCount : MAX_RUNTIME_RESERVE_OWNERS;
+
+    for ( int index = 0; index < boundedCount; ++index )
+    {
+        RuntimeReserveCapacityView& capacityRow = s_capacityRows[index];
+        capacityRow.sessionHighWater = capacityRow.liveCount;
+    }
+}
+
+void RuntimeReserveAllocator::PrintCapacityRows( FILE* out, const char* sceneName, const char* status ) noexcept
+{
+
+    if ( !out )
+    {
+        return;
+    }
+
+    const std::span<const RuntimeReserveCapacityView> rows = CapacityRows();
+    const RuntimeReserveCapacityView* sortedRows[MAX_RUNTIME_RESERVE_OWNERS] = {};
+    const int rowCount = static_cast<int>( rows.size() );
+
+    for ( int index = 0; index < rowCount; ++index )
+    {
+        sortedRows[index] = &rows[static_cast<std::size_t>( index )];
+    }
+
+    std::sort( sortedRows, sortedRows + rowCount,
+               []( const RuntimeReserveCapacityView* left, const RuntimeReserveCapacityView* right )
+               {
+
+                   if ( left->residentBytes != right->residentBytes )
+                   {
+                       return left->residentBytes > right->residentBytes;
+                   }
+
+                   return std::strcmp( left->ownerName, right->ownerName ) < 0;
+               } );
+
+    std::fprintf( out, "[capacity] scene=\"%s\" status=%s rows=%d\n", sceneName ? sceneName : "",
+                  status ? status : "unknown", rowCount );
+
+    for ( int index = 0; index < rowCount; ++index )
+    {
+        const RuntimeReserveCapacityView& row = *sortedRows[index];
+        const double utilisation = row.currentCapacity > 0 ? static_cast<double>( row.sessionHighWater ) * 100.0 /
+                                                                 static_cast<double>( row.currentCapacity )
+                                                           : 0.0;
+
+        std::fprintf( out,
+                      "[capacity] owner=\"%s\" subsystem=%s reason=\"%s\" element_bytes=%d capacity=%d live=%d "
+                      "high_water=%d utilisation=%.2f%% resident_bytes=%llu\n",
+                      row.ownerName ? row.ownerName : "", RuntimeReserveSubsystemName( row.subsystem ),
+                      row.capacityReason ? row.capacityReason : "", row.elementSizeBytes, row.currentCapacity, row.liveCount,
+                      row.sessionHighWater, utilisation, static_cast<unsigned long long>( row.residentBytes ) );
+    }
+
+    std::fflush( out );
 }
 
 uint64_t RuntimeReserveAllocator::GrowthEventCount() noexcept

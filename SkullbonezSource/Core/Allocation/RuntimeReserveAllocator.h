@@ -9,9 +9,10 @@ Summary:
   budget and high-water use. Owners may commit their hard-cap-bounded initial
   backing during their declared init phase. Scene-sized stores publish live,
   session-high-water, and resident-byte rows into fixed registry storage.
-  Replay owners may additionally ask
-
-  for bounded runtime reserve bumps, and every replay bump is counted.
+  Scene transitions advance an explicit capacity-session generation so a later
+  small scene never inherits an earlier large scene's peak. Replay owners may
+  additionally ask for bounded runtime reserve bumps, and every replay bump is
+  counted.
   Development builds additionally admit explicitly scoped, hard-byte-capped
   ImGui and Tracy owners without changing the gameplay phase.
 
@@ -25,6 +26,8 @@ Glossary:
     calling thread allocate for ImGui or Tracy up to a hard active-byte cap.
   Capacity row: Allocation-free registry view of one fixed store's sizing rule,
     element size, committed capacity, live count, high-water, and resident bytes.
+  Capacity session: One loaded scene's live-usage window, ending immediately
+    before its store rows are cleared or replaced.
 
 Invariants:
   - Registry and counter storage is fixed; reporting and hook attribution must
@@ -235,6 +238,9 @@ class RuntimeReserveAllocator
     static void PublishCapacityUsage( RuntimeReserveOwnerHandle owner, int currentCapacity, int liveCount,
                                       int sessionHighWater ) noexcept;
     static std::span<const RuntimeReserveCapacityView> CapacityRows() noexcept;
+    static uint64_t CapacitySessionGeneration() noexcept;
+    static void BeginCapacitySession() noexcept;
+    static void PrintCapacityRows( FILE* out, const char* sceneName, const char* status ) noexcept;
     static uint64_t GrowthEventCount() noexcept;
     static uint64_t GrowthEventDroppedCount() noexcept;
     static void ResetCounters() noexcept;

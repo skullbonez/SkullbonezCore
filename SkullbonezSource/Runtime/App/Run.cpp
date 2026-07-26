@@ -15,10 +15,13 @@ Glossary:
     an SkullbonezCore::Core::SbResult so the owning boundary can stop before unsafe mutation.
   Probe failure: CLI validation failure reported as bounded result/report data
     so automation exits nonzero without throwing through the frame loop.
+  Process-end capacity table: Final active-scene store rows emitted before
+    subsystem teardown.
 
 Invariants:
   - Backend-owned render resources must be released while the renderer backend
     is still alive, after a GPU flush, and in the explicit release order below.
+  - Final capacity rows are reported while the active scene stores still exist.
 
 Related:
   - SkullbonezSource/Runtime/App/Run.h
@@ -318,6 +321,10 @@ Run::Run( Window& window, std::vector<std::string> sceneQueue, SkullbonezCore::C
 Run::~Run()
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Shutdown );
+    const std::string* currentScenePath = m_sceneController.CurrentPath();
+    m_diagnosticsRuntime.ReportStoreCapacityRows( m_sceneController.State(),
+                                                  currentScenePath ? currentScenePath->c_str() : nullptr, "process_end" );
+
 #ifdef _DEBUG
     m_diagnosticsRuntime.EndPhysicsDiagnosticsRun( m_sceneController.State(), "process_end" );
 #endif

@@ -22,6 +22,9 @@ Glossary:
   Retained draw stream: Fixed-capacity UI command/text storage reused by this
     pass instead of growing or consuming large nested stack frames.
   UI frame data: Borrowed per-frame snapshot passed to the immediate-mode UI.
+  Capacity snapshot: Fixed value rows copied from the allocator registry only
+
+    while the Memory tab is visible.
   Shared editor view: Domain-grouped values copied once and consumed by both
     operator front ends during the same presentation frame.
   Profiler connection snapshot: Three fixed booleans copied from the Tracy
@@ -74,8 +77,10 @@ Related:
 #include "../UI/RenderDiagnosticsProjection.h"
 #include "../../UI/UIStyle.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
 using namespace SkullbonezCore::Runtime;
 using SkullbonezCore::Text::Text2d;
@@ -859,6 +864,8 @@ void UiTextPass::ProjectOperatorDiagnostics( UI::InGameUIFrameData& UIData, cons
     UIData.replayMemorySolverWindowReduced = replayHud.solverWindowReduced;
     const bool memoryTabActive = ui.IsVisible() && !ui.IsMinimized() && ui.GetActiveTab() == InGameUITab::Memory;
     const bool memoryOverlayEnabled = ui.IsMemoryOverlayEnabled();
+    UIData.reserveCapacityRows = nullptr;
+    UIData.reserveCapacityRowCount = 0;
 
     if ( memoryTabActive )
     {
@@ -890,6 +897,38 @@ void UiTextPass::ProjectOperatorDiagnostics( UI::InGameUIFrameData& UIData, cons
 
         UIData.reserveGrowthEventCount = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::
             CopyRecentGrowthEvents( UIData.reserveGrowthEvents, SkullbonezCore::UI::UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX );
+    }
+
+    if ( memoryTabActive )
+    {
+        const std::span<const SkullbonezCore::Core::Allocation::RuntimeReserveCapacityView>
+            capacityRows = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::CapacityRows();
+
+        UIData.reserveCapacityRowCount = (std::min)( static_cast<int>( capacityRows.size() ),
+                                                     SkullbonezCore::UI::UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX );
+
+        for ( int index = 0; index < UIData.reserveCapacityRowCount; ++index )
+        {
+            const SkullbonezCore::Core::Allocation::RuntimeReserveCapacityView&
+                source = capacityRows[static_cast<std::size_t>( index )];
+            SkullbonezCore::UI::UIRuntimeReserveCapacityRow& destination = m_reserveCapacityRows[index];
+            strncpy_s( destination.ownerName, sizeof( destination.ownerName ), source.ownerName ? source.ownerName : "",
+                       _TRUNCATE );
+
+            strncpy_s( destination.capacityReason, sizeof( destination.capacityReason ),
+                       source.capacityReason ? source.capacityReason : "", _TRUNCATE );
+
+            strncpy_s( destination.subsystemName, sizeof( destination.subsystemName ),
+                       SkullbonezCore::Core::Allocation::RuntimeReserveSubsystemName( source.subsystem ), _TRUNCATE );
+
+            destination.elementSizeBytes = source.elementSizeBytes;
+            destination.currentCapacity = source.currentCapacity;
+            destination.liveCount = source.liveCount;
+            destination.sessionHighWater = source.sessionHighWater;
+            destination.residentBytes = source.residentBytes;
+        }
+
+        UIData.reserveCapacityRows = m_reserveCapacityRows;
     }
 }
 

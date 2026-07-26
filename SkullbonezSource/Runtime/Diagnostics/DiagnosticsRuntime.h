@@ -7,6 +7,7 @@ Summary:
   DiagnosticsRuntime owns the process diagnostics lifecycle. Capture, perf,
   memory, and SkullScope controllers keep their artifact-specific state behind
   this boundary while frame code requests synchronous diagnostics operations.
+  Scene-end capacity tables are emitted while old scene identity remains live.
 
 Glossary:
   Capture controller: Screenshot trigger and automation state.
@@ -16,10 +17,13 @@ Glossary:
     presentation state, not simulation state.
   Private working set: Resident process pages not shared with other processes;
     matching it requires a page-level OS query.
+  Capacity table: Resident-descending fixed-store rows emitted at scene unload
+    and final process shutdown.
 
 Invariants:
   - Artifact formatting stays in RuntimeDiagnostics and CaptureSystem.
   - Existing output paths and command-line behavior must not drift here.
+  - Capacity reporting is synchronous and retains no scene path or row span.
 
 Related:
   - SkullbonezSource/Runtime/Capture/CaptureController.h
@@ -160,9 +164,10 @@ class DiagnosticsRuntime
 #endif
 
     // Consumes BeforeSceneUnload while the old scene identity is still live.
-    // Release builds keep the same typed boundary even though SkullScope end
-    // emission is Debug-only.
-    void BeforeSceneUnload( const SceneSessionState& scene );
+    // Capacity rows are emitted in every build; SkullScope end emission remains
+    // Debug-only.
+    void BeforeSceneUnload( const SceneSessionState& scene, const char* scenePath );
+    void ReportStoreCapacityRows( const SceneSessionState& scene, const char* scenePath, const char* status );
 
     // Invariant: UI stress state is deterministic scene-driven input churn.
     // Keep it cheap and seed-based so validation can reproduce failures.

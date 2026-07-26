@@ -6,7 +6,8 @@ Purpose:
 Summary:
   DiagnosticsRuntime sequences capture, performance, memory, and physics
   diagnostic work. Artifact-specific controllers own their formats while this
-  owner retains the process memory cache and shutdown memory-dump lifecycle.
+  owner retains the process memory cache, capacity-table scene-end seam, and
+  shutdown memory-dump lifecycle.
 
 Glossary:
   Artifact path: Stable validation/debug output path written for tools or
@@ -28,6 +29,7 @@ Invariants:
   - Memory sampling is cached for diagnostics reads; deep process samples are
     reserved for explicit dumps and stress/perf evidence.
   - Debug-only physics diagnostics stay behind _DEBUG.
+  - Scene-end capacity reporting runs before old scene identity is replaced.
 
 Related:
   - SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.h
@@ -38,6 +40,7 @@ Related:
 #include "DiagnosticsPhysicsUI.h"
 
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
+#include "../../Core/Allocation/RuntimeReserveAllocator.h"
 #include "../Input/InputController.h"
 #include "OverlayDebugState.h"
 #include "../Scene/SceneRuntime.h"
@@ -1032,13 +1035,26 @@ void DiagnosticsRuntime::EndPhysicsDiagnosticsRun( const SceneSessionState& scen
 #endif
 
 
-void DiagnosticsRuntime::BeforeSceneUnload( const SceneSessionState& scene )
+void DiagnosticsRuntime::BeforeSceneUnload( const SceneSessionState& scene, const char* scenePath )
 {
+    ReportStoreCapacityRows( scene, scenePath, "scene_unload" );
 #ifdef _DEBUG
     EndPhysicsDiagnosticsRun( scene, "scene_reload" );
 #else
     (void)scene;
 #endif
+}
+
+void DiagnosticsRuntime::ReportStoreCapacityRows( const SceneSessionState& scene, const char* scenePath, const char* status )
+{
+
+    if ( scene.loadCount <= 0 )
+    {
+        return;
+    }
+
+    const char* sceneName = scenePath && scenePath[0] != '\0' ? SceneFileNameFromPath( scenePath ) : "<generated>";
+    SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::PrintCapacityRows( stdout, sceneName, status );
 }
 
 

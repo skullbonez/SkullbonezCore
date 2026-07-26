@@ -5,8 +5,8 @@ Status: IN PROGRESS — drafted from the 2026-07-26 from-source architecture
 review of `nightrunner-26th-JUL-26` at tip `35f6de4e` and the owner's same-day
 request to track memory more closely. Registered in `MASTER-PLAN.md` on
 2026-07-26 as plan 3 of the Architecture Follow-Up Campaign Round 5. Starts
-after `scene-sized-store-capacity` closes. MR0-MR1 closed 2026-07-27. 2/4
-phases complete; MR2 is binding.
+after `scene-sized-store-capacity` closes. MR0-MR2 closed 2026-07-27. 3/4
+phases complete; MR3 is binding.
 Impact area: `Core/Allocation/RuntimeReserveAllocator.*`, `Physics/` store
 registration, `UI/UITabMemory.cpp`, scene-unload diagnostics
 Owner: core allocation + physics
@@ -115,7 +115,7 @@ without allocating to do it.
   checker self-test/repository scan, format gate, and clean standalone Debug
   build pass.
 
-- [ ] **MR2 — Surface it in the memory tab and at scene unload.**
+- [x] **MR2 — Surface it in the memory tab and at scene unload.**
   Add a per-owner capacity section to `UI/UITabMemory.cpp` beside the existing
   growth-event list: capacity, live, high-water, resident bytes, and a
   utilisation figure, sorted by resident bytes descending so the largest store is
@@ -127,6 +127,23 @@ without allocating to do it.
   numbers on a loaded scene; the unload dump appears in the log for a scripted
   scene-queue run; `UIDrawList` capacity is not exceeded and its measured
   high-water is recorded; the UI dependency gate passes.
+  Closed 2026-07-27. Runtime now copies the allocator rows into one fixed,
+  pass-owned detached snapshot only while the Memory tab is active; the
+  synchronous frame packet borrows that snapshot by pointer/count, avoiding
+  both allocator ownership leakage and a 30 KiB per-frame value
+  initialization. The Memory tab renders a resident-byte-descending table with
+  owner, subsystem, element bytes, capacity, live count, session peak,
+  utilisation, and resident bytes. A scripted 200-body to 20-body scene queue
+  emitted 95 sorted rows at scene unload and process end; retained
+  `PhysicsBodyStore.bodies` capacity stayed 200 while live/session peak reset
+  from 200 to 20. The measured scrolled draw used 261/2,048 commands and
+  1,453/16,384 text bytes with no overflow. Screenshot review found and fixed
+  header bleed and owner-column crowding, then confirmed the final table.
+  The 413-test umbrella (2,409,518 assertions), focused fixed-list and UI
+  cases, complete UI gate, UI boundary, dependency graph, performance gate,
+  allocation checker self-test/repository scan, format gate, Debug/Profile
+  builds, and fresh runtime screenshot all pass. `Frame/Render` is within
+  noise at -2.2% in DX12 and +1.0% in the physics benchmark.
 
 - [ ] **MR3 — Reconcile, review, and hand off.**
   Run a three-scene session (200-body, 2,000-body, regression scene) and publish

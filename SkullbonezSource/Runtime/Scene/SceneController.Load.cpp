@@ -25,6 +25,8 @@ Glossary:
     once two bodies have produced an exact contact.
   Authored projection: Cold-load, field-by-field copy from parser DTOs into an
     owning subsystem's runtime values.
+  Capacity session: Per-scene live/high-water interval advanced only after the
+    old stores are cleared and before new scene population.
 
 Invariants:
   - Command-line and scene-file spellings are user-facing compatibility
@@ -35,6 +37,8 @@ Invariants:
   - Load orchestration retains no caller pointer, callback, or mutable owner bag.
   - Tornado projection copies every authored field here so Gameplay never
     depends upward on Scene or parser vocabulary.
+  - Capacity rows are logged before clear; the next capacity session begins
+    after clear and before population.
 Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
@@ -45,6 +49,7 @@ Related:
 #include "../Automation/RuntimeValidationHarness.h"
 #include "../../Core/WindowConstants.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
+#include "../../Core/Allocation/RuntimeReserveAllocator.h"
 #include "../Interaction/OperatorCommandApplier.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../Camera/AttachedCameraController.h"
@@ -914,7 +919,8 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     // emitted below therefore belongs to this exact load attempt.
     sceneController.BeginLoadAttempt( index, lifecyclePolicy );
     SceneLifecycleConsumerMask beforeUnloadConsumers = SceneLifecycleConsumerBit( SceneLifecycleConsumer::RenderDrain );
-    diagnosticsRuntime.BeforeSceneUnload( SceneState() );
+    const std::string* unloadingScenePath = sceneController.CurrentPath();
+    diagnosticsRuntime.BeforeSceneUnload( SceneState(), unloadingScenePath ? unloadingScenePath->c_str() : nullptr );
     beforeUnloadConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics );
     sceneController.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeSceneUnload, beforeUnloadConsumers );
     CommitSceneRuntimeLoad( sceneController, sceneNavigation, loadBegin );
@@ -945,6 +951,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 
     sceneController.Scene().Cameras().Reset();
     sceneController.Scene().Clear();
+    SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::BeginCapacitySession();
 
     camera.ResetForSceneLoad( !scenePath.empty() );
     debug.ResetForSceneLoad();

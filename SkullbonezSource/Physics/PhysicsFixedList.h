@@ -27,7 +27,9 @@ Invariants:
   - Only indices below the live count hold constructed T instances.
   - Runtime-reservation and compile-time overflow both fail loudly.
   - Iteration exposes the live prefix as ordinary contiguous pointers, and the
-    list retains and publishes its own monotonic live-count high-water.
+    list retains and publishes its own monotonic per-scene live-count high-water.
+  - Capacity-session changes reset the local peak lazily before the next
+    publication; retained stores do not carry a preceding scene's peak forward.
 
 Related:
   - SkullbonezSource/Physics/PhysicsBodyStore.h
@@ -177,7 +179,10 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
 
     std::size_t high_water() const
     {
-        return m_highWater;
+        return m_capacitySessionGeneration ==
+                       SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::CapacitySessionGeneration()
+                   ? m_highWater
+                   : m_count;
     }
 
     SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle owner_handle() const
@@ -670,14 +675,27 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
             return;
         }
 
+        SyncCapacitySession();
         SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::PublishCapacityUsage( m_ownerHandle,
                                                                                          static_cast<int>( m_runtimeCapacity ),
                                                                                          static_cast<int>( m_count ),
                                                                                          static_cast<int>( m_highWater ) );
     }
 
+    void SyncCapacitySession()
+    {
+        const uint64_t generation = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::CapacitySessionGeneration();
+
+        if ( generation != m_capacitySessionGeneration )
+        {
+            m_capacitySessionGeneration = generation;
+            m_highWater = m_count;
+        }
+    }
+
     void TrackHighWater()
     {
+        SyncCapacitySession();
 
         if ( m_count > m_highWater )
         {
@@ -752,6 +770,7 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
     SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle
         m_ownerHandle = SkullbonezCore::Core::Allocation::INVALID_RUNTIME_RESERVE_OWNER;
     bool m_publishCapacityUsage = false;
+    uint64_t m_capacitySessionGeneration = 0u;
 };
 } // namespace Physics
 } // namespace SkullbonezCore

@@ -8,6 +8,7 @@
 //   The allocator is a fixed-storage policy ledger. Owners register their
 //   initial and hard capacity, replay owners may request bounded growth during
 //   replay, and every grant or denial becomes a compact diagnostic event.
+//   Reportable stores also publish per-scene capacity rows and unload text.
 //
 // Glossary:
 //   Reserve owner: Named runtime storage owner with an initial capacity and hard
@@ -17,6 +18,8 @@
 //   Development tool owner: Thread-local ImGui or Tracy attribution that admits
 //     bounded vendor storage without changing the process gameplay phase.
 //   Growth event: Fixed-ring diagnostic row recording one grant or denial.
+//   Capacity session: One scene's live/high-water interval, advanced after the
+//     preceding scene is cleared.
 //   Lifecycle phase: Always-on calling-thread label used by allocation and
 //     upload policies even when allocation counting is disabled.
 //   Allocation guard: Process-wide measurement mode that attributes global
@@ -30,6 +33,7 @@
 //     independently of guard mode and concurrent scopes.
 //   - Development tool scopes do not mask an ordinary gameplay allocation.
 //   - Tracker cases restore the process-wide guard to Off before returning.
+//   - A new capacity session resets the visible and list-local peak lazily.
 //
 // Related:
 //   - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h
@@ -618,6 +622,25 @@ TEST_CASE( "PhysicsFixedList: scene-load reserve fills exact runtime capacity th
     CHECK( cleared->liveCount == 0 );
     CHECK( cleared->sessionHighWater == 3 );
     CHECK( cleared->residentBytes == 3u * sizeof( int ) );
+
+    RuntimeReserveAllocator::BeginCapacitySession();
+    values.push_back( 44 );
+    const RuntimeReserveCapacityView* nextScene = findCapacityRow( "unit.physics-fixed-list.reserve-fill" );
+    REQUIRE( nextScene != nullptr );
+    CHECK( nextScene->currentCapacity == 3 );
+    CHECK( nextScene->liveCount == 1 );
+    CHECK( nextScene->sessionHighWater == 1 );
+
+    FILE* capacityLog = nullptr;
+    REQUIRE( tmpfile_s( &capacityLog ) == 0 );
+    REQUIRE( capacityLog != nullptr );
+    RuntimeReserveAllocator::PrintCapacityRows( capacityLog, "unit-capacity.scene", "scene_unload" );
+    const std::string capacityText = ReadFileText( capacityLog );
+    std::fclose( capacityLog );
+    CHECK( capacityText.find( "[capacity] scene=\"unit-capacity.scene\" status=scene_unload" ) != std::string::npos );
+    CHECK( capacityText.find( "owner=\"unit.physics-fixed-list.reserve-fill\"" ) != std::string::npos );
+    CHECK( capacityText.find( "capacity=3 live=1 high_water=1 utilisation=33.33% resident_bytes=12" ) !=
+           std::string::npos );
 }
 
 

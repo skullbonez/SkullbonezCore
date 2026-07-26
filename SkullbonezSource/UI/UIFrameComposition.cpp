@@ -15,6 +15,8 @@ Glossary:
   Preview catalog: Bounded render-target list offered to the UI for inspection.
   Profiler connection snapshot: Fixed build, lifetime, and viewer-state flags
     copied into a profiler frame without retaining the live tool owner.
+  Capacity snapshot: Detached owner rows whose labels and counters invalidate
+    cached Memory-tab draws when any value changes.
 
 Invariants:
   - Hash field order is part of draw-cache invalidation behavior.
@@ -24,6 +26,7 @@ Invariants:
     transition invalidates the cached draw without per-frame text allocation.
   - Preview helpers expose identities and layout only; Runtime/Render resolves
     current GPU resources and submits them.
+  - Capacity hashes cover every owned label and numeric field.
 
 Related:
   - UIFrameComposition.h declares value contracts and constants.
@@ -241,6 +244,24 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
         hash = HashInt( hash, visibility.submitted );
         hash = HashInt( hash, visibility.culled );
         hash = HashInt( hash, visibility.draws );
+    }
+
+    hash = HashInt( hash, data.reserveCapacityRowCount );
+
+    for ( int rowIndex = 0; data.reserveCapacityRows && rowIndex < data.reserveCapacityRowCount &&
+                            rowIndex < UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX;
+          ++rowIndex )
+    {
+        const UIRuntimeReserveCapacityRow& row = data.reserveCapacityRows[rowIndex];
+        hash = HashTextValue( hash, row.ownerName );
+        hash = HashTextValue( hash, row.capacityReason );
+        hash = HashTextValue( hash, row.subsystemName );
+        hash = HashInt( hash, row.elementSizeBytes );
+        hash = HashInt( hash, row.currentCapacity );
+        hash = HashInt( hash, row.liveCount );
+        hash = HashInt( hash, row.sessionHighWater );
+        hash = HashInt( hash, static_cast<int>( row.residentBytes & 0xFFFFFFFFu ) );
+        hash = HashInt( hash, static_cast<int>( row.residentBytes >> 32u ) );
     }
 
     hash = HashInt( hash, static_cast<int>( data.reserveGrowthEventTotalCount ) );

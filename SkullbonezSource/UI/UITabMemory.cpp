@@ -6,12 +6,14 @@ Purpose:
 Summary:
   Runtime refreshes memory data for the Memory tab, while the F6 overlay renders
   tracked/cached counters and reserve-growth events without sampling process
-  memory. This file formats snapshots and emits replay-memory policy commands;
-  Replay timeline composition owns the actual recorder reconfiguration.
+  memory. Detached capacity rows are sorted by resident bytes for the tab. This
+  file formats snapshots and emits replay-memory policy commands; Replay
+  timeline composition owns the actual recorder reconfiguration.
 
 Glossary:
   Allocation size: Bytes newly reserved by a successful growth request.
   Capacity span: Old, requested, and granted element capacities for the target.
+  Peak utilisation: Session high-water divided by committed capacity.
   Memory waterline: Compact overlay that tracks known engine memory and pinned
     reserve-growth events without polling process memory.
 
@@ -19,6 +21,8 @@ Invariants:
   - Formatting uses stack buffers only; memory diagnostics must not allocate.
   - Event rows are newest-first because the most recent replay growth is usually
     the one the user is trying to understand.
+  - Capacity rows are resident-bytes-descending with owner name as the stable
+    tie break.
   - The F6 overlay keeps retained event pins in fixed arrays so diagnostics do
     not allocate while visualizing allocator activity.
   - Replay policy controls emit one-frame requests and never resize recorder
@@ -53,6 +57,9 @@ constexpr float MEMORY_PANEL_GAP = 14.0f;
 constexpr float MEMORY_EVENT_HEADER_H = 62.0f;
 constexpr float MEMORY_EVENT_ROW_H = 22.0f;
 constexpr float MEMORY_EVENT_BOTTOM_PAD = 18.0f;
+constexpr float MEMORY_CAPACITY_HEADER_H = 62.0f;
+constexpr float MEMORY_CAPACITY_ROW_H = 22.0f;
+constexpr float MEMORY_CAPACITY_BOTTOM_PAD = 18.0f;
 constexpr float MEMORY_OVERLAY_PANEL_W = 340.0f;
 constexpr float MEMORY_OVERLAY_PANEL_H = 166.0f;
 constexpr float MEMORY_OVERLAY_MARGIN = 16.0f;
@@ -993,12 +1000,146 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw, const S
     draw.Text( x, row0 + 256.0f, 8.0f, 0.50f, 0.66f, 0.68f, text );
 }
 
-void DrawReserveGrowthEvents( const SkullbonezCore::UI::UIDrawContext& draw,
+float CapacityTableHeight( const SkullbonezCore::UI::InGameUIFrameData& data )
+{
+    const int rowCount = data.reserveCapacityRows ? std::clamp( data.reserveCapacityRowCount, 0,
+                                                                SkullbonezCore::UI::UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX )
+                                                  : 0;
+
+    return MEMORY_CAPACITY_HEADER_H + static_cast<float>( rowCount ) * MEMORY_CAPACITY_ROW_H;
+}
+
+void DrawReserveCapacityRows( const SkullbonezCore::UI::UIDrawContext& draw,
                               const SkullbonezCore::UI::InGameUIFrameData& data, float contentX, float contentY,
-                              float contentW, float contentH, float scrolledY )
+                              float contentW, float contentH, float tableY )
 {
     const float tableX = contentX;
-    const float tableY = scrolledY + MEMORY_SUMMARY_BLOCK_H + 18.0f;
+    const float tableW = contentW;
+    const float headerY = tableY + 34.0f;
+    const int rowCount = data.reserveCapacityRows ? std::clamp( data.reserveCapacityRowCount, 0,
+                                                                SkullbonezCore::UI::UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX )
+                                                  : 0;
+
+    const float tableH = CapacityTableHeight( data );
+
+    if ( !IsMemoryRowVisible( contentY, contentH, tableY, tableH ) )
+    {
+        return;
+    }
+
+    const SkullbonezCore::UI::UIRuntimeReserveCapacityRow*
+        sortedRows[SkullbonezCore::UI::UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX] = {};
+
+    for ( int index = 0; index < rowCount; ++index )
+    {
+        sortedRows[index] = &data.reserveCapacityRows[index];
+    }
+
+    std::sort( sortedRows, sortedRows + rowCount,
+               []( const SkullbonezCore::UI::UIRuntimeReserveCapacityRow* left,
+                   const SkullbonezCore::UI::UIRuntimeReserveCapacityRow* right )
+               {
+
+                   if ( left->residentBytes != right->residentBytes )
+                   {
+                       return left->residentBytes > right->residentBytes;
+                   }
+
+                   return std::strcmp( left->ownerName, right->ownerName ) < 0;
+               } );
+
+    const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
+    char text[96] = {};
+    uint64_t totalResidentBytes = 0u;
+
+    for ( int index = 0; index < rowCount; ++index )
+    {
+        totalResidentBytes += sortedRows[index]->residentBytes;
+    }
+
+    char totalResident[32] = {};
+    const float visibleTableTop = (std::max)( tableY, contentY );
+    const float visibleTableBottom = (std::min)( tableY + tableH, contentY + contentH );
+    FormatMemoryMiB( totalResidentBytes, totalResident, sizeof( totalResident ) );
+    draw.Rect( tableX, visibleTableTop, tableW, visibleTableBottom - visibleTableTop, 0.018f, 0.030f, 0.038f, 0.58f );
+
+    if ( tableY >= contentY && tableY + 28.0f <= contentY + contentH )
+    {
+        draw.Text( tableX + 14.0f, tableY + 9.0f, 10.4f, palette.textSecondary.r, palette.textSecondary.g,
+                   palette.textSecondary.b, "Store Capacity" );
+
+        snprintf( text, sizeof( text ), "%d owners  %s resident", rowCount, totalResident );
+        draw.Text( tableX + tableW - 180.0f, tableY + 10.0f, 8.4f, 0.54f, 0.66f, 0.70f, text );
+    }
+
+    const float ownerX = tableX + 14.0f;
+    const float subsystemX = tableX + tableW * 0.43f;
+    const float elementX = tableX + tableW * 0.52f;
+    const float capacityX = tableX + tableW * 0.60f;
+    const float liveX = tableX + tableW * 0.68f;
+    const float peakX = tableX + tableW * 0.75f;
+    const float utilisationX = tableX + tableW * 0.82f;
+    const float residentX = tableX + tableW - 74.0f;
+
+    if ( headerY >= contentY && headerY + 21.0f <= contentY + contentH )
+    {
+        draw.Rect( tableX, headerY + 20.0f, tableW, 1.0f, 0.26f, 0.44f, 0.50f, 0.45f );
+        draw.Text( ownerX, headerY, 8.8f, 0.68f, 0.78f, 0.82f, "Owner" );
+        draw.Text( subsystemX, headerY, 8.8f, 0.68f, 0.78f, 0.82f, "System" );
+        draw.Text( elementX, headerY, 8.8f, 0.68f, 0.78f, 0.82f, "Elem" );
+        draw.Text( capacityX, headerY, 8.8f, 0.68f, 0.78f, 0.82f, "Cap" );
+        draw.Text( liveX, headerY, 8.8f, 0.68f, 0.78f, 0.82f, "Live" );
+        draw.Text( peakX, headerY, 8.8f, 0.68f, 0.78f, 0.82f, "Peak" );
+        draw.Text( utilisationX, headerY, 8.8f, 0.68f, 0.78f, 0.82f, "Use" );
+        draw.Text( residentX, headerY, 8.8f, 0.68f, 0.78f, 0.82f, "Resident" );
+    }
+
+    for ( int index = 0; index < rowCount; ++index )
+    {
+        const SkullbonezCore::UI::UIRuntimeReserveCapacityRow& row = *sortedRows[index];
+        const float rowY = tableY + MEMORY_CAPACITY_HEADER_H + static_cast<float>( index ) * MEMORY_CAPACITY_ROW_H;
+
+        if ( rowY < contentY || rowY + MEMORY_CAPACITY_ROW_H > contentY + contentH )
+        {
+            continue;
+        }
+
+        char owner[40] = {};
+        char element[24] = {};
+        char capacity[24] = {};
+        char live[24] = {};
+        char peak[24] = {};
+        char utilisation[24] = {};
+        char resident[32] = {};
+        CopyShortLabel( row.ownerName, owner, sizeof( owner ) );
+        snprintf( element, sizeof( element ), "%d B", row.elementSizeBytes );
+        snprintf( capacity, sizeof( capacity ), "%d", row.currentCapacity );
+        snprintf( live, sizeof( live ), "%d", row.liveCount );
+        snprintf( peak, sizeof( peak ), "%d", row.sessionHighWater );
+        const double peakUtilisation = row.currentCapacity > 0 ? static_cast<double>( row.sessionHighWater ) * 100.0 /
+                                                                     static_cast<double>( row.currentCapacity )
+                                                               : 0.0;
+
+        snprintf( utilisation, sizeof( utilisation ), "%.1f%%", peakUtilisation );
+        FormatAllocationBytes( row.residentBytes, resident, sizeof( resident ) );
+        draw.Rect( tableX, rowY + MEMORY_CAPACITY_ROW_H - 1.0f, tableW, 1.0f, 0.16f, 0.26f, 0.30f, 0.30f );
+        draw.Text( ownerX, rowY + 5.0f, 8.2f, 0.78f, 0.86f, 0.88f, owner );
+        draw.Text( subsystemX, rowY + 5.0f, 8.2f, 0.58f, 0.68f, 0.72f, row.subsystemName );
+
+        draw.Text( elementX, rowY + 5.0f, 8.2f, 0.58f, 0.68f, 0.72f, element );
+        draw.Text( capacityX, rowY + 5.0f, 8.2f, 0.78f, 0.86f, 0.88f, capacity );
+        draw.Text( liveX, rowY + 5.0f, 8.2f, 0.78f, 0.86f, 0.88f, live );
+        draw.Text( peakX, rowY + 5.0f, 8.2f, 0.78f, 0.86f, 0.88f, peak );
+        draw.Text( utilisationX, rowY + 5.0f, 8.2f, 0.42f, 0.86f, 0.94f, utilisation );
+        draw.Text( residentX, rowY + 5.0f, 8.2f, 0.58f, 0.68f, 0.72f, resident );
+    }
+}
+
+void DrawReserveGrowthEvents( const SkullbonezCore::UI::UIDrawContext& draw,
+                              const SkullbonezCore::UI::InGameUIFrameData& data, float contentX, float contentY,
+                              float contentW, float contentH, float tableY )
+{
+    const float tableX = contentX;
     const float tableW = contentW;
     const float headerY = tableY + 34.0f;
     const int eventCount = std::clamp( data.reserveGrowthEventCount, 0,
@@ -1081,8 +1222,10 @@ namespace MemoryTab
 
 int ContentHeight()
 {
-    return static_cast<int>( MEMORY_REPLAY_POLICY_BLOCK_H + MEMORY_PANEL_GAP + MEMORY_SUMMARY_BLOCK_H + 18.0f + MEMORY_EVENT_HEADER_H +
-                             static_cast<float>( UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX ) * MEMORY_EVENT_ROW_H + MEMORY_EVENT_BOTTOM_PAD );
+    return static_cast<int>( MEMORY_REPLAY_POLICY_BLOCK_H + MEMORY_PANEL_GAP + MEMORY_SUMMARY_BLOCK_H + 18.0f + MEMORY_CAPACITY_HEADER_H +
+                             static_cast<float>( UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX ) * MEMORY_CAPACITY_ROW_H + MEMORY_CAPACITY_BOTTOM_PAD +
+                             MEMORY_EVENT_HEADER_H + static_cast<float>( UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX ) * MEMORY_EVENT_ROW_H +
+                             MEMORY_EVENT_BOTTOM_PAD );
 }
 
 bool OverlayEnabled( const UIMemoryOverlayState& state )
@@ -1296,7 +1439,10 @@ void Draw( const UIDrawContext& draw, UIMemoryOverlayState& state, const InGameU
 
     const float memoryPanelY = scrolledY + MEMORY_REPLAY_POLICY_BLOCK_H + MEMORY_PANEL_GAP;
     DrawMainMemoryPanel( draw, data, contentX, contentY, contentW, contentH, memoryPanelY );
-    DrawReserveGrowthEvents( draw, data, contentX, contentY, contentW, contentH, memoryPanelY );
+    const float capacityTableY = memoryPanelY + MEMORY_SUMMARY_BLOCK_H + 18.0f;
+    DrawReserveCapacityRows( draw, data, contentX, contentY, contentW, contentH, capacityTableY );
+    const float growthTableY = capacityTableY + CapacityTableHeight( data ) + MEMORY_CAPACITY_BOTTOM_PAD;
+    DrawReserveGrowthEvents( draw, data, contentX, contentY, contentW, contentH, growthTableY );
 }
 
 bool HandleContentClick( UIMemoryOverlayState& state, InGameUIInputResult& result, int& activeSlider, int mouseX, int mouseY,
