@@ -36,6 +36,7 @@ Related:
   - SkullbonezSource/Physics/PhysicsBodyStore.h
 */
 #include "PhysicsBodyStore.h"
+
 #include "BuoyancySystem.h"
 #include "ColliderStore.h"
 #include "PhysicsApi.h"
@@ -78,6 +79,8 @@ using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyHotFieldsConstView;
 using SkullbonezCore::Physics::PhysicsBodyHotState;
 using SkullbonezCore::Physics::PhysicsBodyMotionKind;
+using SkullbonezCore::Physics::PhysicsBodyPreservedRefreshState;
+using SkullbonezCore::Physics::PhysicsBodyPreservedRefreshStateList;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyRecordList;
 using SkullbonezCore::Physics::PhysicsBodyStore;
@@ -103,17 +106,8 @@ struct PhysicsBuoyancySample
     float wetWeightTotal = 0.0f;
 };
 
-struct PreservedRefreshState
-{
-    Vector3 pendingImpulse = ZERO_VECTOR;
-    Vector3 pendingImpulseApplicationPoint = ZERO_VECTOR;
-    bool hasPendingImpulse = false;
-    bool isSleeping = false;
-    bool hasState = false;
-};
-
-using PreservedRefreshStateList = PhysicsFixedList<PreservedRefreshState,
-                                                   SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
+using PreservedRefreshState = PhysicsBodyPreservedRefreshState;
+using PreservedRefreshStateList = PhysicsBodyPreservedRefreshStateList;
 
 float PositiveInverseOrZero( float value )
 {
@@ -299,11 +293,10 @@ uint32_t NextHandleGeneration( uint32_t generation )
     return generation == 0u ? PHYSICS_HANDLE_INITIAL_GENERATION : generation;
 }
 
-PreservedRefreshStateList CapturePreservedRefreshState( const PhysicsBodyRecordList& bodies,
-                                                        const PhysicsBodyHotFieldsConstView& hotFields,
-                                                        std::size_t handleSlotCount )
+void CapturePreservedRefreshState( const PhysicsBodyRecordList& bodies, const PhysicsBodyHotFieldsConstView& hotFields,
+                                   std::size_t handleSlotCount, PreservedRefreshStateList& preserved )
 {
-    PreservedRefreshStateList preserved( "PhysicsBodyStore.preservedRefreshStateByHandle" );
+    preserved.clear();
     preserved.resize( handleSlotCount );
 
     for ( std::size_t bodyIndex = 0; bodyIndex < bodies.size(); ++bodyIndex )
@@ -322,8 +315,6 @@ PreservedRefreshStateList CapturePreservedRefreshState( const PhysicsBodyRecordL
         state.isSleeping = hotFields.awake[bodyIndex] == 0u;
         state.hasState = true;
     }
-
-    return preserved;
 }
 
 const PreservedRefreshState* PreservedStateForHandle( const PreservedRefreshStateList& preserved, PhysicsBodyHandle handle )
@@ -1026,6 +1017,40 @@ PhysicsBodyCreateRecord MakeBodyRecord( const PhysicsBodyCreateDesc& desc, bool 
 PhysicsBodyStore::PhysicsBodyStore() = default;
 
 
+void PhysicsBodyStore::ReserveCapacity( std::size_t capacity )
+{
+    m_bodies.Reserve( capacity );
+    m_positionX.Reserve( capacity );
+    m_positionY.Reserve( capacity );
+    m_positionZ.Reserve( capacity );
+    m_orientationX.Reserve( capacity );
+    m_orientationY.Reserve( capacity );
+    m_orientationZ.Reserve( capacity );
+    m_orientationW.Reserve( capacity );
+    m_linearVelocityX.Reserve( capacity );
+    m_linearVelocityY.Reserve( capacity );
+    m_linearVelocityZ.Reserve( capacity );
+    m_angularVelocityX.Reserve( capacity );
+    m_angularVelocityY.Reserve( capacity );
+    m_angularVelocityZ.Reserve( capacity );
+    m_inverseMass.Reserve( capacity );
+    m_inverseInertiaX.Reserve( capacity );
+    m_inverseInertiaY.Reserve( capacity );
+    m_inverseInertiaZ.Reserve( capacity );
+    m_boundingRadius.Reserve( capacity );
+    m_fixed.Reserve( capacity );
+    m_awake.Reserve( capacity );
+    m_modelBodyHandles.Reserve( capacity );
+    m_handleGenerations.Reserve( capacity );
+    m_handleAlive.Reserve( capacity );
+    m_handleModelIndices.Reserve( capacity );
+    m_handleSceneObjectIds.Reserve( capacity );
+    m_freeHandleSlots.Reserve( capacity );
+    m_assignedHandleScratch.Reserve( capacity );
+    m_preservedRefreshStateByHandle.Reserve( capacity );
+}
+
+
 void PhysicsBodyStore::ClearHotFields()
 {
     m_positionX.clear();
@@ -1351,8 +1376,8 @@ void PhysicsBodyStore::Clear()
 void PhysicsBodyStore::LoadFromDescriptors( std::span<const PhysicsBodyCreateDesc> bodyDescs,
                                             std::span<const uint8_t> sleepStates )
 {
-    const PreservedRefreshStateList preservedStateByHandle = CapturePreservedRefreshState( m_bodies, HotFields(),
-                                                                                           m_handleGenerations.size() );
+    CapturePreservedRefreshState( m_bodies, HotFields(), m_handleGenerations.size(), m_preservedRefreshStateByHandle );
+    const PreservedRefreshStateList& preservedStateByHandle = m_preservedRefreshStateByHandle;
 
     m_assignedHandleScratch.assign( m_handleGenerations.size(), 0 );
     PhysicsHandleAssignmentMask& assignedHandleSlots = m_assignedHandleScratch;
@@ -1903,6 +1928,41 @@ SkullbonezCore::Physics::PhysicsBodyHotFieldsView PhysicsBodyStore::MutableHotFi
 std::size_t PhysicsBodyStore::RecordCapacity() const
 {
     return m_bodies.capacity();
+}
+
+
+uint64_t PhysicsBodyStore::CollectRuntimeCapacityMemoryBytes() const
+{
+    uint64_t bytes = m_bodies.committed_bytes();
+    bytes += m_positionX.committed_bytes();
+    bytes += m_positionY.committed_bytes();
+    bytes += m_positionZ.committed_bytes();
+    bytes += m_orientationX.committed_bytes();
+    bytes += m_orientationY.committed_bytes();
+    bytes += m_orientationZ.committed_bytes();
+    bytes += m_orientationW.committed_bytes();
+    bytes += m_linearVelocityX.committed_bytes();
+    bytes += m_linearVelocityY.committed_bytes();
+    bytes += m_linearVelocityZ.committed_bytes();
+    bytes += m_angularVelocityX.committed_bytes();
+    bytes += m_angularVelocityY.committed_bytes();
+    bytes += m_angularVelocityZ.committed_bytes();
+    bytes += m_inverseMass.committed_bytes();
+    bytes += m_inverseInertiaX.committed_bytes();
+    bytes += m_inverseInertiaY.committed_bytes();
+    bytes += m_inverseInertiaZ.committed_bytes();
+    bytes += m_boundingRadius.committed_bytes();
+    bytes += m_fixed.committed_bytes();
+    bytes += m_awake.committed_bytes();
+    bytes += m_modelBodyHandles.committed_bytes();
+    bytes += m_handleGenerations.committed_bytes();
+    bytes += m_handleAlive.committed_bytes();
+    bytes += m_handleModelIndices.committed_bytes();
+    bytes += m_handleSceneObjectIds.committed_bytes();
+    bytes += m_freeHandleSlots.committed_bytes();
+    bytes += m_assignedHandleScratch.committed_bytes();
+    bytes += m_preservedRefreshStateByHandle.committed_bytes();
+    return bytes;
 }
 
 

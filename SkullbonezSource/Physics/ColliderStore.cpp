@@ -31,6 +31,7 @@ Related:
   - SkullbonezSource/Physics/ColliderStore.h
 */
 #include "ColliderStore.h"
+
 #include "PhysicsBodyStore.h"
 #include "PhysicsObjectPolicy.h"
 
@@ -63,6 +64,20 @@ uint32_t NextHandleGeneration( uint32_t generation )
 
 
 ColliderStore::ColliderStore() = default;
+
+
+void ColliderStore::ReserveCapacity( std::size_t capacity )
+{
+    m_colliders.Reserve( capacity );
+    m_authoringRecords.Reserve( capacity );
+    m_modelColliderHandles.Reserve( capacity );
+    m_handleGenerations.Reserve( capacity );
+    m_handleAlive.Reserve( capacity );
+    m_handleModelIndices.Reserve( capacity );
+    m_handleSceneObjectIds.Reserve( capacity );
+    m_freeHandleSlots.Reserve( capacity );
+    m_assignedHandleScratch.Reserve( capacity );
+}
 
 
 // Concept: handle slots are stable identities, not model indices.
@@ -563,6 +578,21 @@ std::size_t ColliderStore::RecordCapacity() const
 std::size_t ColliderStore::AuthoringRecordCapacity() const
 {
     return m_authoringRecords.capacity();
+}
+
+
+uint64_t ColliderStore::CollectRuntimeCapacityMemoryBytes() const
+{
+    uint64_t bytes = m_colliders.committed_bytes();
+    bytes += m_authoringRecords.committed_bytes();
+    bytes += m_modelColliderHandles.committed_bytes();
+    bytes += m_handleGenerations.committed_bytes();
+    bytes += m_handleAlive.committed_bytes();
+    bytes += m_handleModelIndices.committed_bytes();
+    bytes += m_handleSceneObjectIds.committed_bytes();
+    bytes += m_freeHandleSlots.committed_bytes();
+    bytes += m_assignedHandleScratch.committed_bytes();
+    return bytes;
 }
 
 

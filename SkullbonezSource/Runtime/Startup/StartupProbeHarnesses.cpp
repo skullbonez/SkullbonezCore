@@ -31,6 +31,7 @@ Related:
 #include "StartupProbeHarnesses.h"
 #include "StartupCommandLine.h"
 #include "../../Assets/AssetKeys.h"
+#include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Common.h"
 #include "../../Core/Config.h"
 #include "../../Core/LockOrderValidator.h"
@@ -159,7 +160,11 @@ PhysicsEngineLifecycleScenarioResult RunPhysicsEngineLifecycleScenario()
     engine.ApplyRuntimeConfig( config );
     engine.Clear();
     engine.SetTerrainView( terrain.PhysicsView() );
-    engine.ReserveAuthoredBodyCapacity( 3u );
+
+    {
+        Core::Allocation::RuntimeAllocationScope sceneLoadScope( Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        engine.ReserveAuthoredBodyCapacity( 3u );
+    }
 
     const PhysicsAuthoredBodyRegistration fixed = RegisterPhysicsSmokeBody( engine, 71u,
                                                                             Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ),
@@ -610,9 +615,15 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     constexpr uint32_t REORDER_BODY_A_SCENE_OBJECT_ID_VALUE = 100u;
     constexpr uint32_t REORDER_BODY_B_SCENE_OBJECT_ID_VALUE = 101u;
 
-    // Why: PhysicsBodyStore owns SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS fixed arrays. Keep this cold
-    // isolated probe owner off WinMain's bounded thread stack.
+    // Why: keep this cold isolated topology-reorder probe owner off WinMain's
+    // bounded thread stack, then commit only its two required store rows.
     auto reorderBodyStore = std::make_unique<PhysicsBodyStore>();
+
+    {
+        Core::Allocation::RuntimeAllocationScope sceneLoadScope( Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        reorderBodyStore->ReserveCapacity( 2u );
+    }
+
     std::vector<PhysicsBodyCreateDesc> reorderBodyDescs;
 
     for ( int i = 0; i < 2; ++i )

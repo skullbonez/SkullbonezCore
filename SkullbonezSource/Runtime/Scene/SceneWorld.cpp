@@ -53,6 +53,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SceneWorld.h"
+#include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Config.h"
 
 #include "../../Core/FatalError.h"
@@ -154,7 +155,15 @@ void SceneWorld::ReserveForActiveSceneObjectCapacity()
     // setup/config boundary repeats the reserve instead of letting render-time
     // append paths discover the new capacity by reallocating.
     const std::size_t capacity = static_cast<std::size_t>( m_activeSceneObjectCapacity );
-    m_physics.ReserveAuthoredBodyCapacity( capacity );
+
+    {
+
+        // Lifetime: SceneWorld is the outer capacity coordinator. Leaf Physics
+        // owners require this already-active phase and cannot self-authorize.
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        m_physics.ReserveAuthoredBodyCapacity( capacity );
+    }
+
     m_tornadoGameplay.ReserveBodyCapacity( m_activeSceneObjectCapacity );
     m_tornadoGameplay.ReserveVisualCapacity();
     m_renderInstanceStore.ReservePresentationCapacity( capacity );

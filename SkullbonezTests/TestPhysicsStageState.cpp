@@ -38,6 +38,7 @@
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 
 #include "../SkullbonezSource/Core/Config.h"
 #include "../SkullbonezSource/Core/WorkerPool.h"
@@ -84,12 +85,25 @@ using SkullbonezCore::Threading::WorkerPool;
 
 namespace
 {
+void ReserveTestSleepCapacity( PhysicsSleepController& controller )
+{
+    SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+    controller.ReserveBodyCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+}
+
 PhysicsBodyStore& StageBodyStore()
 {
     // Lifetime: the fixed-capacity store is process-owned. Keeping only its
     // pointer in the image avoids inflating the Debug PE's SizeOfImage beyond
     // the Windows loader limit while retaining one reusable test allocation.
     static const std::unique_ptr<PhysicsBodyStore> store = std::make_unique<PhysicsBodyStore>();
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        store->ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    }
     store->Clear();
     return *store;
 }
@@ -99,6 +113,12 @@ ColliderStore& StageColliderStore()
     // Lifetime: see StageBodyStore; the collider capacity is similarly owned
     // by the test process rather than embedded as initialized image data.
     static const std::unique_ptr<ColliderStore> store = std::make_unique<ColliderStore>();
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        store->ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    }
     store->Clear();
     return *store;
 }
@@ -273,6 +293,7 @@ TEST_CASE( "Physics runtime settings: execution switches preserve one-hot proven
 TEST_CASE( "Physics sleep policy: thresholds square after clamp and frame count saturates at 255" )
 {
     PhysicsSleepController controller;
+    ReserveTestSleepCapacity( controller );
     SkullbonezCore::Physics::SleepSettings config;
     config.linearSpeed = -2.0f;
     config.angularSpeed = 3.0f;
@@ -297,6 +318,7 @@ TEST_CASE( "Physics sleep support: fixed anchor propagates through a chained isl
         (void)bodies.CreateBodyRecord( body );
     }
     PhysicsSleepController controller;
+    ReserveTestSleepCapacity( controller );
     CHECK( controller.MirrorFlagsFrom( bodies, 3 ) );
     CHECK( controller.GetAwakeBodyCount() == 2 );
     auto& edges = controller.MutableSupportEdgesForContactSolver();
@@ -332,6 +354,7 @@ TEST_CASE( "Physics sleep awake list: transitions and queued wakes preserve asce
     }
 
     PhysicsSleepController controller;
+    ReserveTestSleepCapacity( controller );
     CHECK( controller.MirrorFlagsFrom( bodies, 3 ) );
     CHECK_FALSE( controller.MirrorFlagsFrom( bodies, 3 ) );
     CHECK( std::vector<int>( controller.GetAwakeBodyIndices().begin(), controller.GetAwakeBodyIndices().end() ) ==
@@ -392,6 +415,7 @@ TEST_CASE( "Physics sleep underwater lock: fully submerged sleeper locks and dis
     collider.boundingRadius = 1.0f;
     colliders.CreateColliderRecord( collider );
     PhysicsSleepController controller;
+    ReserveTestSleepCapacity( controller );
     controller.MirrorFlagsFrom( bodies, 1 );
     REQUIRE( bodies.SeedBodyAsleep( handle ) );
     controller.SeedModelAsleep( bodies, 0 );
@@ -435,6 +459,7 @@ TEST_CASE( "Physics sleep awake list: one-frame transitions visit every row whil
     }
 
     PhysicsSleepController controller;
+    ReserveTestSleepCapacity( controller );
     REQUIRE( controller.MirrorFlagsFrom( bodies, 4 ) );
     std::fill( controller.MutableSupportedStatesForTerrain().begin(),
                controller.MutableSupportedStatesForTerrain().end(),
@@ -492,6 +517,7 @@ TEST_CASE( "Physics sleep point-joint island: stretched anchors block relaxation
         PhysicsWorldForces worldForces;
         std::array<BuoyancyBodyFacts, 2> buoyancyFacts;
         PhysicsSleepController controller;
+        ReserveTestSleepCapacity( controller );
         controller.MirrorFlagsFrom( bodies, 2 );
         const SkullbonezCore::Physics::PhysicsSleepStepPolicy sleepPolicy { 0.01f, 0.01f, 3u };
         controller.RunIslandStage( bodies,
@@ -541,6 +567,7 @@ TEST_CASE( "Physics narrowphase islands: repeated parallel evaluation preserves 
         }
     }
     PhysicsSleepController sleep;
+    ReserveTestSleepCapacity( sleep );
     sleep.MirrorFlagsFrom( bodies, kBodyCount );
     std::vector<float> timeRemaining( kBodyCount, 1.0f / 120.0f );
     PhysicsWorldForces worldForces;

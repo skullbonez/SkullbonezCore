@@ -331,7 +331,12 @@ void PhysicsEngine::ApplyAuthoredColliderPolicy( PhysicsColliderCreateDesc& desc
 void PhysicsEngine::ReserveAuthoredBodyCapacity( std::size_t capacity )
 {
     m_authoredBodyDescs.reserve( capacity );
+    m_bodyStore.ReserveCapacity( capacity );
+    m_colliderStore.ReserveCapacity( capacity );
+    m_buoyancySystem.ReserveCapacity( capacity );
     m_world.ReserveBodyScratchCapacity( capacity );
+    m_fixedTreeReleaseWakeBodies.Reserve( capacity );
+    m_broadphaseQueryScratch.Reserve( capacity );
 }
 
 
@@ -1227,6 +1232,18 @@ uint64_t PhysicsEngine::CollectPhysicsWorldMemoryBytes() const
 uint64_t PhysicsEngine::CollectDebugAndBroadphaseMemoryBytes() const
 {
     return m_world.CollectDebugAndBroadphaseMemoryBytes();
+}
+
+
+uint64_t PhysicsEngine::CollectSceneSizedStoreMemoryBytes() const
+{
+    uint64_t bytes = static_cast<uint64_t>( m_authoredBodyDescs.capacity() ) * sizeof( PhysicsBodyCreateDesc );
+    bytes += m_bodyStore.CollectRuntimeCapacityMemoryBytes();
+    bytes += m_colliderStore.CollectRuntimeCapacityMemoryBytes();
+    bytes += static_cast<uint64_t>( m_buoyancySystem.RecordCapacity() ) * sizeof( BuoyancyBodyFacts );
+    bytes += m_fixedTreeReleaseWakeBodies.committed_bytes();
+    bytes += m_broadphaseQueryScratch.committed_bytes();
+    return bytes;
 }
 
 

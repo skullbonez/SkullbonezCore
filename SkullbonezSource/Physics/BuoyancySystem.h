@@ -62,6 +62,7 @@ class BuoyancySystem
         "BuoyancySystem.bodyFacts" };
 
   public:
+    void ReserveCapacity( std::size_t capacity );
     bool AppendBodyFacts( const PhysicsBodyCreateDesc& desc );
     bool RefreshBodyFacts( int index, const PhysicsBodyCreateDesc& desc );
     bool EraseBodyFactsSwapLast( int index );

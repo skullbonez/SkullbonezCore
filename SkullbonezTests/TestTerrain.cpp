@@ -31,6 +31,7 @@
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 
 #include "../SkullbonezSource/Assets/AssetSystem.h"
 #include "../SkullbonezSource/Core/Config.h"
@@ -65,6 +66,12 @@ namespace
 PhysicsBodyStore& TerrainBodyStore()
 {
     static PhysicsBodyStore store;
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        store.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    }
     store.Clear();
     return store;
 }
@@ -72,6 +79,12 @@ PhysicsBodyStore& TerrainBodyStore()
 ColliderStore& TerrainColliderStore()
 {
     static ColliderStore store;
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        store.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    }
     store.Clear();
     return store;
 }

@@ -25,6 +25,7 @@ Related:
   - Agentic/Reports/2026-07-11/physics-authority-and-identity-closure-review.md
 */
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 
 #include "../SkullbonezSource/Runtime/Scene/SceneEntityStore.h"
 #include "../SkullbonezSource/Physics/ColliderStore.h"
@@ -219,6 +220,13 @@ TEST_CASE( "RenderInstanceStore: fixed-tick poses interpolate and discontinuitie
     using namespace SkullbonezCore::Rendering;
 
     static PhysicsBodyStore bodyStore;
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        bodyStore.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    }
+
     bodyStore.Clear();
     PhysicsBodyCreateRecord createRecord;
     createRecord.cold.sceneObjectId = PhysicsSceneObjectId{ 901u };
@@ -227,6 +235,12 @@ TEST_CASE( "RenderInstanceStore: fixed-tick poses interpolate and discontinuitie
     REQUIRE( bodyHandle.IsValid() );
 
     static ColliderStore colliderStore;
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        colliderStore.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    }
     colliderStore.Clear();
     ColliderRecord collider;
     collider.body = bodyHandle;
@@ -346,11 +360,24 @@ TEST_CASE( "RenderInstanceStore: contact feedback survives swap-last deletion an
     CHECK( renderStore.PresentationRecords()[0].fixedContactAlpha == doctest::Approx( 0.2f ) );
 
     static PhysicsBodyStore bodyStore;
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        bodyStore.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    }
+
     bodyStore.Clear();
     PhysicsBodyCreateRecord createRecord;
     createRecord.cold.sceneObjectId = PhysicsSceneObjectId{ 202u };
     const PhysicsBodyHandle bodyHandle = bodyStore.CreateBodyRecord( createRecord );
     static ColliderStore colliderStore;
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        colliderStore.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    }
     colliderStore.Clear();
     ColliderRecord collider;
     collider.body = bodyHandle;

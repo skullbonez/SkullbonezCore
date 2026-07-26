@@ -573,10 +573,20 @@ and pool exhaustion must assert in Profile/Debug or fail fatally in Release with
 owner, capacity, high-water, and phase diagnostics; there is no gameplay growth
 fallback.
 
+`PhysicsFixedList` may commit or monotonically raise its runtime backing only
+during `SceneLoad`, through `Reserve(count)` and a registered
+`RuntimeReserveAllocator` physics owner. The requested runtime capacity must
+remain beneath the template's compile-time ceiling. Appends never allocate:
+crossing either the committed runtime capacity or the compile-time ceiling is a
+fatal owner/capacity/high-water diagnostic.
+
 Replay is the only runtime subsystem allowed to grow after steady gameplay
 starts, and that growth must be approved by `RuntimeReserveAllocator` through a
 registered owner, replay phase check, hard cap, logged growth counter, and
 policy comment. Unregistered replay allocations are allocation-guard failures.
+`PhysicsFixedList` backing copied into the isolated prediction engine follows
+this existing Replay exception: an outer registered replay owner and granted
+growth scope must already be active, and the list cannot create either scope.
 
 `new`, `delete`, `malloc`, `free`, STL reserve/growth, `std::make_unique`,
 `std::make_shared`, and equivalent heap paths are banned at runtime outside

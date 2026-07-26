@@ -190,7 +190,7 @@ const std::vector<std::pair<int, int>>& PhysicsSleepController::GetSleepSupportE
 
 uint64_t PhysicsSleepController::CollectDynamicMemoryBytes() const
 {
-    uint64_t bytes = 0;
+    uint64_t bytes = m_awakeBodyIndices.committed_bytes() + m_awakeListPositions.committed_bytes();
     bytes += VectorCapacityBytes( m_sleepSupportedThisFrame );
     bytes += VectorCapacityBytes( m_sleepInhibitedThisFrame );
     bytes += VectorCapacityBytes( m_sleepState );

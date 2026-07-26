@@ -259,6 +259,7 @@ struct ReplayPredictionIsolatedSimulation
     // deletion condition: none, this is the end-state isolation boundary;
     // checker budget: 256 MB hard cap registered by ReplayPredictionReserveOwner().
     std::unique_ptr<Physics::PhysicsEngine> predictionEngine;
+    int predictionEngineReserveBytes = 0;    // Monotonic approved byte budget retained with predictionEngine.
     Gameplay::TornadoGameplay predictionTornadoGameplay;
     Physics::PhysicsWorldForces predictionWorldForces;
     bool predictionEngineReady = false;

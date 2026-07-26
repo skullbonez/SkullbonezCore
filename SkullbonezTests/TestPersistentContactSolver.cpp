@@ -39,6 +39,7 @@
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 #include "TestFixedSeed.h"
 #include "../SkullbonezSource/Physics/PhysicsTimestep.h"
 
@@ -92,6 +93,13 @@ PhysicsBodyStore& TestBodyStore()
     // Why: physics fixed lists own SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS rows. Static storage matches
     // runtime ownership and keeps this focused fixture off the doctest stack.
     static PhysicsBodyStore store;
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        store.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    }
+
     store.Clear();
     return store;
 }
@@ -101,6 +109,12 @@ ColliderStore& TestColliderStore()
     // Why: collider records mirror runtime fixed storage. Clearing the same
     // static list keeps each case deterministic without stack-heavy fixtures.
     static ColliderStore store;
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        store.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    }
     store.Clear();
     return store;
 }

@@ -96,6 +96,7 @@ class ColliderStore
 {
   public:
     ColliderStore();
+    void ReserveCapacity( std::size_t capacity );
 
     void Clear();
     bool RefreshBodyBindings( const PhysicsBodyStore& bodyStore );
@@ -145,6 +146,7 @@ class ColliderStore
     std::span<ColliderRecord> MutableRecords();
     std::size_t RecordCapacity() const;
     std::size_t AuthoringRecordCapacity() const;
+    uint64_t CollectRuntimeCapacityMemoryBytes() const;
     ColliderRecord* MutableRecordForHandle( PhysicsColliderHandle handle );
     const ColliderRecord* RecordForHandle( PhysicsColliderHandle handle ) const;
 

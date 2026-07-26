@@ -401,6 +401,7 @@ void PhysicsWorld::InvalidateBodyTopology()
 void PhysicsWorld::ReserveBodyScratchCapacity( std::size_t capacity )
 {
     m_forceStage.ReserveBodyScratchCapacity( capacity );
+    m_sleepController.ReserveBodyCapacity( capacity );
 }
 
 

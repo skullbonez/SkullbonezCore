@@ -40,6 +40,7 @@
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 #include "TestFixedSeed.h"
 
 #include "../SkullbonezSource/Physics/ColliderStore.h"
@@ -104,9 +105,16 @@ ColliderAuthoringRecord MakeColliderAuthoringRecord( const char* contactMaterial
 
 PhysicsBodyStore& TestBodyStore()
 {
-    // Why: PhysicsBodyStore owns fixed-capacity runtime arrays; static storage
-    // keeps the focused unit fixture off the doctest thread stack.
+    // Why: PhysicsBodyStore owns runtime-reserved arrays; static storage keeps
+    // the focused unit fixture off the doctest thread stack.
     static PhysicsBodyStore store;
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        store.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    }
+
     store.Clear();
     return store;
 }
@@ -116,6 +124,12 @@ ColliderStore& TestColliderStore()
     // Why: ColliderStore mirrors runtime fixed storage, so tests reuse one
     // static fixture and Clear() it between cases instead of stack-allocating it.
     static ColliderStore store;
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        store.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    }
     store.Clear();
     return store;
 }
@@ -135,6 +149,12 @@ TEST_CASE( "Buoyancy facts: refresh, swap-last erase, trim, and clear preserve d
     // stores. This focused lifecycle test catches field drift and compaction
     // mistakes without reaching through PhysicsEngine internals.
     static BuoyancySystem buoyancy;
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        buoyancy.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    }
     buoyancy.Clear();
 
     PhysicsBodyCreateDesc first;

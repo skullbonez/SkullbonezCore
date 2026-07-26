@@ -33,6 +33,7 @@
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Core/AmortizedTask.h"
+#include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 #include "../SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h"
 #endif
@@ -42,6 +43,7 @@
 #include "../SkullbonezSource/Core/WorkerPool.h"
 #include "../SkullbonezSource/Physics/SpatialGrid.h"
 #include "../SkullbonezSource/Physics/SleepIslandSystem.h"
+#include "../SkullbonezSource/Physics/PhysicsFixedList.h"
 #include "../SkullbonezSource/Core/TracyClientOwner.h"
 #include "TestFatalCases.h"
 
@@ -60,6 +62,8 @@
 
 using SkullbonezCore::Core::EngineLog;
 using SkullbonezCore::Core::SbResult;
+using SkullbonezCore::Core::Allocation::RuntimeAllocationPhase;
+using SkullbonezCore::Core::Allocation::RuntimeAllocationScope;
 using SkullbonezCore::Math::CollisionDetection::SpatialGrid;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::AppendSleepSupportEdge;
@@ -248,6 +252,30 @@ struct WorkerFatalProbe
 
 bool RunRuntimeFatalCase( const char* caseName )
 {
+    if ( std::strcmp( caseName, "physics-fixed-list-runtime-capacity" ) == 0 )
+    {
+        SkullbonezCore::Physics::PhysicsFixedList<int, 4> values( "fatal.physics-fixed-list.runtime" );
+        {
+            RuntimeAllocationScope sceneLoad( RuntimeAllocationPhase::SceneLoad );
+            values.Reserve( 1u );
+        }
+        values.push_back( 1 );
+        values.push_back( 2 );
+        return true;
+    }
+    if ( std::strcmp( caseName, "physics-fixed-list-compile-capacity" ) == 0 )
+    {
+        SkullbonezCore::Physics::PhysicsFixedList<int, 2> values( "fatal.physics-fixed-list.compile" );
+        RuntimeAllocationScope sceneLoad( RuntimeAllocationPhase::SceneLoad );
+        values.Reserve( 3u );
+        return true;
+    }
+    if ( std::strcmp( caseName, "physics-fixed-list-phase" ) == 0 )
+    {
+        SkullbonezCore::Physics::PhysicsFixedList<int, 2> values( "fatal.physics-fixed-list.phase" );
+        values.Reserve( 1u );
+        return true;
+    }
     if ( std::strcmp( caseName, "spatial-grid-nan" ) == 0 )
     {
         static SpatialGrid grid( 10.0f );
@@ -502,6 +530,27 @@ TEST_CASE( "SbResult: success and formatted failure values propagate owner and m
 
 TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate in child probes" )
 {
+    ExpectFatalCase( "physics-fixed-list-runtime-capacity",
+                     { "FATAL: PhysicsFixedList capacity exceeded",
+                       "owner=fatal.physics-fixed-list.runtime",
+                       "requested=2",
+                       "runtime_capacity=1",
+                       "compile_capacity=4",
+                       "ceiling=runtime_reservation" } );
+    ExpectFatalCase( "physics-fixed-list-compile-capacity",
+                     { "FATAL: PhysicsFixedList capacity exceeded",
+                       "owner=fatal.physics-fixed-list.compile",
+                       "requested=3",
+                       "runtime_capacity=0",
+                       "compile_capacity=2",
+                       "ceiling=compile_time_ceiling" } );
+    ExpectFatalCase( "physics-fixed-list-phase",
+                     { "FATAL: PhysicsFixedList reserve denied",
+                       "owner=fatal.physics-fixed-list.phase",
+                       "requested=1",
+                       "runtime_capacity=0",
+                       "compile_capacity=2",
+                       "phase=startup" } );
     ExpectFatalCase( "spatial-grid-nan",
                      { "FATAL[Physics/SpatialGrid]", "body=7", "min=(nan,-1,-1)", "max_world_coordinate=100000" } );
     ExpectFatalCase( "spatial-grid-extent",

@@ -132,6 +132,14 @@ PhysicsSleepController::PhysicsSleepController()
     m_restingWakeQueueScratch.reserve( bodyCapacity );
 }
 
+
+void PhysicsSleepController::ReserveBodyCapacity( std::size_t capacity )
+{
+    m_awakeBodyIndices.Reserve( capacity );
+    m_awakeListPositions.Reserve( capacity );
+}
+
+
 void PhysicsSleepController::Clear()
 {
     m_sleepSupportedThisFrame.clear();

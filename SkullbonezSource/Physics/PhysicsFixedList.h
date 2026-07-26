@@ -1,25 +1,28 @@
 /*
 File: SkullbonezSource/Physics/PhysicsFixedList.h
 Purpose:
-  Defines fixed-capacity list storage for physics runtime state.
+  Defines runtime-reserved, compile-time-bounded list storage for physics state.
 
 Summary:
-  Physics hot-path owners need vector-like dense rows without owning dynamic
-  standard-library capacity. This type reserves raw fixed storage inside the
-  owner, constructs only the live prefix, and treats growth past the compile-time
-  cap as a policy failure.
+  Physics hot-path owners need vector-like dense rows sized to the active scene,
+  without steady-state reallocation. This type commits one aligned backing range
+  during scene load, or under ReplayPrediction's already-approved replay growth
+  scope, constructs only the live prefix, and treats growth past the runtime
+  reservation or compile-time cap as a policy failure.
 
 Glossary:
-  Fixed-capacity list: Contiguous storage with a runtime size and a compile-time
-    maximum, but no heap-backed reserve or reallocation path.
+  Fixed-capacity list: Contiguous storage with a runtime reservation and a
+    compile-time absolute maximum.
   Live count: Number of initialized entries currently visible to callers.
   Capacity cap: Compile-time maximum entry count that replaces vector capacity.
 
 Invariants:
-  - No method allocates or changes backing storage.
+  - Reserve allocates through a registered SceneLoad owner, except that
+    ReplayPrediction may use its existing registered owner and approved Replay
+    growth scope; the list never creates Replay authority itself.
   - Only indices below the live count hold constructed T instances.
-  - Overflow is fatal to the caller via assertion/abort, not a growth path.
-  - Iteration exposes only the live prefix of the backing array.
+  - Runtime-reservation and compile-time overflow both fail loudly.
+  - Iteration exposes the live prefix as ordinary contiguous pointers.
 
 Related:
   - SkullbonezSource/Physics/PhysicsBodyStore.h
@@ -28,10 +31,14 @@ Related:
 */
 #pragma once
 
+#include "../Core/Allocation/RuntimeReserveAllocator.h"
+
 #include <cassert>
 #include <cstddef>
+#include <cstring>
 #include <cstdio>
 #include <cstdlib>
+#include <memory>
 #include <new>
 #include <type_traits>
 #include <utility>
@@ -44,56 +51,8 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
 {
   public:
     using value_type = T;
-
-    class iterator
-    {
-      public:
-        iterator( PhysicsFixedList* owner, std::size_t index ) : m_owner( owner ), m_index( index )
-        {
-        }
-        T& operator*() const
-        {
-            return ( *m_owner )[m_index];
-        }
-        iterator& operator++()
-        {
-            ++m_index;
-            return *this;
-        }
-        bool operator!=( const iterator& other ) const
-        {
-            return m_owner != other.m_owner || m_index != other.m_index;
-        }
-
-      private:
-        PhysicsFixedList* m_owner = nullptr;
-        std::size_t m_index = 0u;
-    };
-
-    class const_iterator
-    {
-      public:
-        const_iterator( const PhysicsFixedList* owner, std::size_t index ) : m_owner( owner ), m_index( index )
-        {
-        }
-        const T& operator*() const
-        {
-            return ( *m_owner )[m_index];
-        }
-        const_iterator& operator++()
-        {
-            ++m_index;
-            return *this;
-        }
-        bool operator!=( const const_iterator& other ) const
-        {
-            return m_owner != other.m_owner || m_index != other.m_index;
-        }
-
-      private:
-        const PhysicsFixedList* m_owner = nullptr;
-        std::size_t m_index = 0u;
-    };
+    using iterator = T*;
+    using const_iterator = const T*;
 
     explicit PhysicsFixedList( const char* ownerName = "PhysicsFixedList" )
         : m_ownerName( ownerName ? ownerName : "PhysicsFixedList" )
@@ -102,11 +61,8 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
 
     PhysicsFixedList( const PhysicsFixedList& other ) : m_ownerName( other.m_ownerName )
     {
-
-        for ( const T& value : other )
-        {
-            push_back( value );
-        }
+        Reserve( other.m_count );
+        CopyConstructFrom( other );
     }
 
     PhysicsFixedList& operator=( const PhysicsFixedList& other )
@@ -117,12 +73,9 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
             return *this;
         }
 
+        Reserve( other.m_count );
         clear();
-
-        for ( const T& value : other )
-        {
-            push_back( value );
-        }
+        CopyConstructFrom( other );
 
         return *this;
     }
@@ -130,12 +83,8 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
     PhysicsFixedList( PhysicsFixedList&& other ) noexcept( std::is_nothrow_move_constructible<T>::value )
         : m_ownerName( other.m_ownerName )
     {
-
-        for ( T& value : other )
-        {
-            push_back( std::move( value ) );
-        }
-
+        Reserve( other.m_count );
+        MoveConstructFrom( other );
         other.clear();
     }
 
@@ -147,13 +96,9 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
             return *this;
         }
 
+        Reserve( other.m_count );
         clear();
-
-        for ( T& value : other )
-        {
-            push_back( std::move( value ) );
-        }
-
+        MoveConstructFrom( other );
         other.clear();
         return *this;
     }
@@ -173,39 +118,49 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
         return m_count;
     }
 
-    constexpr std::size_t capacity() const
+    std::size_t capacity() const
+    {
+        return m_runtimeCapacity;
+    }
+
+    static constexpr std::size_t max_capacity()
     {
         return Capacity;
     }
 
+    std::size_t committed_bytes() const
+    {
+        return m_runtimeCapacity * sizeof( Storage );
+    }
+
     T* data()
     {
-        return m_count == 0u ? nullptr : ValueAt( 0u );
+        return RawData();
     }
 
     const T* data() const
     {
-        return m_count == 0u ? nullptr : ValueAt( 0u );
+        return RawData();
     }
 
     iterator begin()
     {
-        return iterator( this, 0u );
+        return data();
     }
 
     iterator end()
     {
-        return iterator( this, m_count );
+        return data() ? data() + m_count : nullptr;
     }
 
     const_iterator begin() const
     {
-        return const_iterator( this, 0u );
+        return data();
     }
 
     const_iterator end() const
     {
-        return const_iterator( this, m_count );
+        return data() ? data() + m_count : nullptr;
     }
 
     T& operator[]( std::size_t index )
@@ -230,13 +185,66 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
         return *ValueAt( m_count - 1u );
     }
 
-    void reserve( std::size_t requested ) const
+    void Reserve( std::size_t requested )
     {
 
         if ( requested > Capacity )
         {
-            FailCapacityExceeded( requested );
+            FailCapacityExceeded( requested, "compile_time_ceiling" );
         }
+
+        if ( requested <= m_runtimeCapacity )
+        {
+            return;
+        }
+
+        using namespace SkullbonezCore::Core::Allocation;
+        const RuntimeReservePhase phase = GetRuntimeAllocationPhase();
+
+        if ( phase == RuntimeReservePhase::Replay )
+        {
+            const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::CurrentOwner();
+
+            // Replay prediction is the only post-gameplay consumer. Its outer
+            // byte-budget owner and granted growth scope must already be active;
+            // the list cannot manufacture replay authority for itself.
+
+            if ( owner == INVALID_RUNTIME_RESERVE_OWNER ||
+                 !RuntimeReserveAllocator::IsApprovedReplayGrowthAllocation( owner, static_cast<int>( phase ) ) )
+            {
+                FailReserveDenied( requested, phase );
+            }
+
+            CommitBacking( requested );
+            return;
+        }
+
+        if ( phase != RuntimeReservePhase::SceneLoad )
+        {
+            FailReserveDenied( requested, phase );
+        }
+
+        const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner( { m_ownerName, RuntimeReserveSubsystem::Physics, RuntimeReservePhase::SceneLoad, 0, static_cast<int>( Capacity ),
+                                                                                          0, false, "Scene-sized PhysicsFixedList backing storage" } );
+        const RuntimeReserveGrowthResult
+            growth = RuntimeReserveAllocator::RequestGrowth( owner, { m_ownerName, m_ownerName, phase, -1,
+                                                                      static_cast<int>( m_runtimeCapacity ),
+                                                                      static_cast<int>( requested ),
+                                                                      static_cast<int>( sizeof( Storage ) ) } );
+
+        if ( !growth.granted )
+        {
+            FailReserveDenied( requested, phase );
+        }
+
+        RuntimeReserveOwnerScope ownerScope( owner );
+        RuntimeReserveGrowthScope growthScope( owner, phase, growth );
+        CommitBacking( requested );
+    }
+
+    void reserve( std::size_t requested )
+    {
+        Reserve( requested );
     }
 
     void clear()
@@ -334,28 +342,64 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
     }
 
   private:
-    using Storage = typename std::aligned_storage<sizeof( T ), alignof( T )>::type;
+    struct alignas( alignof( T ) ) Storage
+    {
+        unsigned char bytes[sizeof( T )];
+    };
     static_assert( sizeof( Storage ) == sizeof( T ), "PhysicsFixedList storage must preserve T stride." );
     static_assert( alignof( Storage ) == alignof( T ), "PhysicsFixedList storage must preserve T alignment." );
+    static constexpr std::size_t STORAGE_ALIGNMENT = alignof( T ) > 32u ? alignof( T ) : 32u;
+
+    struct StorageDeleter
+    {
+        void operator()( Storage* storage ) const noexcept
+        {
+            ::operator delete[]( storage, std::align_val_t( STORAGE_ALIGNMENT ) );
+        }
+    };
+
+    using StoragePointer = std::unique_ptr<Storage, StorageDeleter>;
+
+    static StoragePointer AllocateStorage( std::size_t count )
+    {
+
+        if ( count == 0u )
+        {
+            return {};
+        }
+
+        void* storage = ::operator new[]( count * sizeof( Storage ), std::align_val_t( STORAGE_ALIGNMENT ) );
+        return StoragePointer( static_cast<Storage*>( storage ) );
+    }
 
     // Lifetime: placement construction uses the raw slot before T exists.
     // ValueAt is only for already-live entries, where std::launder is valid.
-    // Why: aligned_storage has no T object until placement construction; these
-    // private helpers are the one representation seam, and launder re-establishes
-    // the typed pointer after each slot lifetime begins.
+    // Why: the byte buffer has no T object until placement construction. These
+    // helpers are the one representation seam, and launder re-establishes the
+    // typed pointer after each slot lifetime begins.
     void* RawSlot( std::size_t index )
     {
-        return static_cast<void*>( &m_values[index] );
+        return static_cast<void*>( m_values.get() + index );
+    }
+
+    T* RawData()
+    {
+        return m_values ? reinterpret_cast<T*>( m_values.get() ) : nullptr;
+    }
+
+    const T* RawData() const
+    {
+        return m_values ? reinterpret_cast<const T*>( m_values.get() ) : nullptr;
     }
 
     T* ValueAt( std::size_t index )
     {
-        return std::launder( reinterpret_cast<T*>( &m_values[index] ) );
+        return std::launder( reinterpret_cast<T*>( m_values.get() + index ) );
     }
 
     const T* ValueAt( std::size_t index ) const
     {
-        return std::launder( reinterpret_cast<const T*>( &m_values[index] ) );
+        return std::launder( reinterpret_cast<const T*>( m_values.get() + index ) );
     }
 
     void CheckCapacity( std::size_t requested ) const
@@ -363,7 +407,141 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
 
         if ( requested > Capacity )
         {
-            FailCapacityExceeded( requested );
+            FailCapacityExceeded( requested, "compile_time_ceiling" );
+        }
+
+        if ( requested > m_runtimeCapacity )
+        {
+            FailCapacityExceeded( requested, "runtime_reservation" );
+        }
+    }
+
+    void CopyConstructFrom( const PhysicsFixedList& other )
+    {
+
+        if constexpr ( std::is_trivially_copyable<T>::value )
+        {
+
+            if ( other.m_count > 0u )
+            {
+                std::memcpy( m_values.get(), other.m_values.get(), other.m_count * sizeof( Storage ) );
+            }
+
+            m_count = other.m_count;
+        }
+        else
+        {
+            try
+            {
+
+                for ( const T& value : other )
+                {
+                    new ( RawSlot( m_count ) ) T( value );
+                    ++m_count;
+                }
+            }
+            catch ( ... )
+            {
+                DestroyLivePrefix();
+                throw;
+            }
+        }
+
+        TrackHighWater();
+    }
+
+    void MoveConstructFrom( PhysicsFixedList& other )
+    {
+
+        if constexpr ( std::is_trivially_copyable<T>::value )
+        {
+
+            if ( other.m_count > 0u )
+            {
+                std::memcpy( m_values.get(), other.m_values.get(), other.m_count * sizeof( Storage ) );
+            }
+
+            m_count = other.m_count;
+        }
+        else
+        {
+            try
+            {
+
+                for ( T& value : other )
+                {
+                    new ( RawSlot( m_count ) ) T( std::move( value ) );
+                    ++m_count;
+                }
+            }
+            catch ( ... )
+            {
+                DestroyLivePrefix();
+                throw;
+            }
+        }
+
+        TrackHighWater();
+    }
+
+    void RelocateInto( Storage* replacement )
+    {
+
+        if constexpr ( std::is_trivially_copyable<T>::value )
+        {
+
+            if ( m_count > 0u )
+            {
+                std::memcpy( replacement, m_values.get(), m_count * sizeof( Storage ) );
+            }
+        }
+        else
+        {
+            std::size_t constructed = 0u;
+
+            try
+            {
+
+                for ( ; constructed < m_count; ++constructed )
+                {
+                    new ( static_cast<void*>( &replacement[constructed] ) )
+                        T( std::move_if_noexcept( *ValueAt( constructed ) ) );
+                }
+            }
+            catch ( ... )
+            {
+
+                while ( constructed > 0u )
+                {
+                    --constructed;
+                    std::launder( reinterpret_cast<T*>( &replacement[constructed] ) )->~T();
+                }
+
+                throw;
+            }
+
+            for ( std::size_t index = 0; index < m_count; ++index )
+            {
+                ValueAt( index )->~T();
+            }
+        }
+    }
+
+    void CommitBacking( std::size_t requested )
+    {
+        StoragePointer replacement = AllocateStorage( requested );
+        RelocateInto( replacement.get() );
+        m_values = std::move( replacement );
+        m_runtimeCapacity = requested;
+    }
+
+    void DestroyLivePrefix() noexcept
+    {
+
+        while ( m_count > 0u )
+        {
+            --m_count;
+            ValueAt( m_count )->~T();
         }
     }
 
@@ -376,19 +554,37 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
         }
     }
 
-    [[noreturn]] void FailCapacityExceeded( std::size_t requested ) const
+    [[noreturn]] void FailCapacityExceeded( std::size_t requested, const char* ceiling ) const
     {
         std::fprintf( stderr,
-                      "FATAL: PhysicsFixedList capacity exceeded owner=%s requested=%zu capacity=%zu count=%zu "
-                      "high_water=%zu.\n",
-                      m_ownerName, requested, Capacity, m_count, m_highWater );
+                      "FATAL: PhysicsFixedList capacity exceeded owner=%s requested=%zu runtime_capacity=%zu "
+                      "compile_capacity=%zu count=%zu high_water=%zu ceiling=%s.\n",
+                      m_ownerName, requested, m_runtimeCapacity, Capacity, m_count, m_highWater, ceiling );
         std::fprintf( stdout,
-                      "FATAL: PhysicsFixedList capacity exceeded owner=%s requested=%zu capacity=%zu count=%zu "
-                      "high_water=%zu.\n",
-                      m_ownerName, requested, Capacity, m_count, m_highWater );
+                      "FATAL: PhysicsFixedList capacity exceeded owner=%s requested=%zu runtime_capacity=%zu "
+                      "compile_capacity=%zu count=%zu high_water=%zu ceiling=%s.\n",
+                      m_ownerName, requested, m_runtimeCapacity, Capacity, m_count, m_highWater, ceiling );
         std::fflush( stderr );
         std::fflush( stdout );
         assert( false && "PhysicsFixedList capacity exceeded" );
+        std::abort();
+    }
+
+    [[noreturn]] void FailReserveDenied( std::size_t requested,
+                                         SkullbonezCore::Core::Allocation::RuntimeReservePhase phase ) const
+    {
+        const char* phaseName = SkullbonezCore::Core::Allocation::RuntimeReservePhaseName( phase );
+        std::fprintf( stderr,
+                      "FATAL: PhysicsFixedList reserve denied owner=%s requested=%zu runtime_capacity=%zu "
+                      "compile_capacity=%zu phase=%s.\n",
+                      m_ownerName, requested, m_runtimeCapacity, Capacity, phaseName );
+        std::fprintf( stdout,
+                      "FATAL: PhysicsFixedList reserve denied owner=%s requested=%zu runtime_capacity=%zu "
+                      "compile_capacity=%zu phase=%s.\n",
+                      m_ownerName, requested, m_runtimeCapacity, Capacity, phaseName );
+        std::fflush( stderr );
+        std::fflush( stdout );
+        assert( false && "PhysicsFixedList reserve denied" );
         std::abort();
     }
 
@@ -402,9 +598,10 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
         std::abort();
     }
 
-    Storage m_values[Capacity];
+    StoragePointer m_values;
     std::size_t m_count = 0u;
     std::size_t m_highWater = 0u;
+    std::size_t m_runtimeCapacity = 0u;
     const char* m_ownerName = "PhysicsFixedList";
 };
 } // namespace Physics

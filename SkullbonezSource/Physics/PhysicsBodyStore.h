@@ -123,6 +123,18 @@ struct PhysicsBodyCreateRecord
     PhysicsBodyHotState hot;
 };
 
+// Invariant: rows are indexed by stable body-handle slot, never dense model
+// order, so descriptor refresh can preserve one-shot impulse and sleep state
+// across reordering. TestPhysicsHandles exercises the reorder contract.
+struct PhysicsBodyPreservedRefreshState
+{
+    Math::Vector::Vector3 pendingImpulse = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 pendingImpulseApplicationPoint = Math::Vector::ZERO_VECTOR;
+    bool hasPendingImpulse = false;
+    bool isSleeping = false;
+    bool hasState = false;
+};
+
 struct PhysicsBodyRestoreState
 {
 
@@ -152,6 +164,8 @@ using PhysicsHandleSceneObjectIdList = PhysicsFixedList<PhysicsSceneObjectId,
 using PhysicsHandleSlotList = PhysicsFixedList<uint32_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 using PhysicsHandleAssignmentMask = PhysicsFixedList<uint8_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 using PhysicsBodyIndexList = PhysicsFixedList<int, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
+using PhysicsBodyPreservedRefreshStateList = PhysicsFixedList<PhysicsBodyPreservedRefreshState,
+                                                              SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 
 // Borrowed hot-field spans keep stage inputs explicit and prevent kernels from
 // reaching unrelated cold authoring state. They are the only live hot-state
@@ -316,6 +330,7 @@ class PhysicsBodyStore
 {
   public:
     PhysicsBodyStore();
+    void ReserveCapacity( std::size_t capacity );
 
     void Clear();
 
@@ -389,6 +404,7 @@ class PhysicsBodyStore
     PhysicsBodyHotFieldsConstView HotFields() const;
     PhysicsBodyHotFieldsView MutableHotFields();
     std::size_t RecordCapacity() const;
+    uint64_t CollectRuntimeCapacityMemoryBytes() const;
     PhysicsBodyRecord* MutableRecordForHandle( PhysicsBodyHandle handle );
     const PhysicsBodyRecord* RecordForHandle( PhysicsBodyHandle handle ) const;
     PhysicsBodyRecord* MutableRecordForModelIndex( int modelIndex );
@@ -430,44 +446,44 @@ class PhysicsBodyStore
     void StoreHotStateAt( int modelIndex, const PhysicsBodyHotState& state );
 
     PhysicsBodyRecordList m_bodies { "PhysicsBodyStore.bodies" };                                      // Cold records in dense scene/model order.
-    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_positionX {
+    alignas( 32 ) PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_positionX {
         "PhysicsBodyStore.positionX" };
-    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_positionY {
+    alignas( 32 ) PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_positionY {
         "PhysicsBodyStore.positionY" };
-    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_positionZ {
+    alignas( 32 ) PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_positionZ {
         "PhysicsBodyStore.positionZ" };
-    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_orientationX {
+    alignas( 32 ) PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_orientationX {
         "PhysicsBodyStore.orientationX" };
-    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_orientationY {
+    alignas( 32 ) PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_orientationY {
         "PhysicsBodyStore.orientationY" };
-    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_orientationZ {
+    alignas( 32 ) PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_orientationZ {
         "PhysicsBodyStore.orientationZ" };
-    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_orientationW {
+    alignas( 32 ) PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_orientationW {
         "PhysicsBodyStore.orientationW" };
-    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_linearVelocityX {
+    alignas( 32 ) PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_linearVelocityX {
         "PhysicsBodyStore.linearVelocityX" };
-    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_linearVelocityY {
+    alignas( 32 ) PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_linearVelocityY {
         "PhysicsBodyStore.linearVelocityY" };
-    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_linearVelocityZ {
+    alignas( 32 ) PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_linearVelocityZ {
         "PhysicsBodyStore.linearVelocityZ" };
-    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_angularVelocityX {
+    alignas( 32 ) PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_angularVelocityX {
         "PhysicsBodyStore.angularVelocityX" };
-    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_angularVelocityY {
+    alignas( 32 ) PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_angularVelocityY {
         "PhysicsBodyStore.angularVelocityY" };
-    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_angularVelocityZ {
+    alignas( 32 ) PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_angularVelocityZ {
         "PhysicsBodyStore.angularVelocityZ" };
-    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_inverseMass {
+    alignas( 32 ) PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_inverseMass {
         "PhysicsBodyStore.inverseMass" };
-    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_inverseInertiaX {
+    alignas( 32 ) PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_inverseInertiaX {
         "PhysicsBodyStore.inverseInertiaX" };
-    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_inverseInertiaY {
+    alignas( 32 ) PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_inverseInertiaY {
         "PhysicsBodyStore.inverseInertiaY" };
-    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_inverseInertiaZ {
+    alignas( 32 ) PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_inverseInertiaZ {
         "PhysicsBodyStore.inverseInertiaZ" };
-    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_boundingRadius {
+    alignas( 32 ) PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_boundingRadius {
         "PhysicsBodyStore.boundingRadius" };
-    alignas( 32 ) mutable PhysicsHandleFlagList m_fixed { "PhysicsBodyStore.fixed" };
-    alignas( 32 ) mutable PhysicsHandleFlagList m_awake { "PhysicsBodyStore.awake" };
+    alignas( 32 ) PhysicsHandleFlagList m_fixed { "PhysicsBodyStore.fixed" };
+    alignas( 32 ) PhysicsHandleFlagList m_awake { "PhysicsBodyStore.awake" };
     PhysicsBodyHandleList m_modelBodyHandles { "PhysicsBodyStore.modelBodyHandles" };                  // Model index to body handle map.
     PhysicsHandleGenerationList m_handleGenerations { "PhysicsBodyStore.handleGenerations" };          // Handle-slot generations.
     PhysicsHandleFlagList m_handleAlive { "PhysicsBodyStore.handleAlive" };                            // Live handle slot flags.
@@ -478,6 +494,8 @@ class PhysicsBodyStore
     // Runtime allocation policy: topology repair reuses this handle-slot mask
     // instead of constructing a heap-backed standard-library container.
     PhysicsHandleAssignmentMask m_assignedHandleScratch { "PhysicsBodyStore.assignedHandleScratch" };
+    PhysicsBodyPreservedRefreshStateList m_preservedRefreshStateByHandle {
+        "PhysicsBodyStore.preservedRefreshStateByHandle" };
 };
 #ifdef _MSC_VER
 #pragma warning( pop )

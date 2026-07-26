@@ -27,7 +27,6 @@ Related:
 
 #include <atomic>
 #include <condition_variable>
-#include <memory>
 #include <mutex>
 
 namespace SkullbonezCore
@@ -83,8 +82,6 @@ class Fence
     mutable std::mutex m_mutex;
     std::condition_variable m_complete;
 };
-
-using FenceHandle = std::shared_ptr<Fence>;
 
 } // namespace Threading
 } // namespace SkullbonezCore

@@ -431,7 +431,10 @@ RuntimeReserveGrowthResult RuntimeReserveAllocator::RequestGrowth( RuntimeReserv
 
     owner.counters.lastGrowthFrame.store( request.frameNumber, std::memory_order_relaxed );
 
-    if ( !owner.allowReplayGrowth || request.phase != RuntimeReservePhase::Replay )
+    const bool initPhaseGrowth = request.phase == owner.initPhase;
+    const bool replayGrowth = owner.allowReplayGrowth && request.phase == RuntimeReservePhase::Replay;
+
+    if ( !initPhaseGrowth && !replayGrowth )
     {
         return DenyGrowth( owner, ownerIndex, request, "growth_not_allowed" );
     }
@@ -461,13 +464,20 @@ RuntimeReserveGrowthResult RuntimeReserveAllocator::RequestGrowth( RuntimeReserv
 
     const uint64_t oldGrowthCount = owner.counters.replayGrowths.load( std::memory_order_relaxed );
 
-    if ( ReplayGrowthCountLimitExhausted( owner, oldGrowthCount ) )
+    if ( replayGrowth && ReplayGrowthCountLimitExhausted( owner, oldGrowthCount ) )
     {
         return DenyGrowth( owner, ownerIndex, request, "growth_count_limit" );
     }
 
-    const uint64_t newGrowthCount = owner.counters.replayGrowths.fetch_add( 1u, std::memory_order_relaxed ) + 1u;
-    owner.counters.currentCapacity.store( request.requestedCapacity, std::memory_order_relaxed );
+    const uint64_t newGrowthCount = replayGrowth
+                                        ? owner.counters.replayGrowths.fetch_add( 1u, std::memory_order_relaxed ) + 1u
+                                        : oldGrowthCount;
+
+    // Invariant: owner names describe conceptual buffers and may be reused by
+    // isolated engines or test fixtures. Capacity telemetry is process-monotonic
+    // so a smaller second instance cannot make the registered owner appear to
+    // shrink while larger backing remains live.
+    UpdateHighWaterI32( owner.counters.currentCapacity, request.requestedCapacity );
     UpdateHighWaterI32( owner.counters.highWaterCapacity, request.requestedCapacity );
 
     RuntimeReserveGrowthResult result = {};
@@ -584,6 +594,11 @@ void RuntimeReserveAllocator::RecordAllocation( RuntimeReserveOwnerHandle ownerH
     if ( ownerIndex == UNREGISTERED_OWNER && IsGameplayPhaseIndex( phaseIndex ) )
     {
         s_policyViolations.fetch_add( 1u, std::memory_order_relaxed );
+        std::fprintf( stdout,
+                      "[runtime-reserve] policy_violation owner=unregistered_runtime_allocation phase=%s bytes=%llu "
+                      "reason=missing_owner_scope\n",
+                      RuntimeReservePhaseName( RuntimeReservePhaseFromAllocationPhaseIndex( phaseIndex ) ),
+                      static_cast<unsigned long long>( bytes ) );
     }
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
@@ -596,6 +611,13 @@ void RuntimeReserveAllocator::RecordAllocation( RuntimeReserveOwnerHandle ownerH
         // cap remains a policy violation even though the allocation itself has
         // already succeeded inside the third-party library.
         s_policyViolations.fetch_add( 1u, std::memory_order_relaxed );
+        std::fprintf( stdout,
+                      "[runtime-reserve] policy_violation owner=%s phase=%s bytes=%llu active_bytes=%llu "
+                      "hard_capacity=%d reason=development_tool_byte_cap\n",
+                      SafeOwnerName( owner, ownerIndex ),
+                      RuntimeReservePhaseName( RuntimeReservePhaseFromAllocationPhaseIndex( phaseIndex ) ),
+                      static_cast<unsigned long long>( bytes ), static_cast<unsigned long long>( activeAfter ),
+                      owner.hardCapacity );
     }
 #endif
 }

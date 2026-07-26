@@ -2,26 +2,30 @@
 
 Date: 2026-07-27
 Branch: `nightrunner-26th-JUL-26`
-Source tip: `86dc3302`
+Source basis: SC1 closure working tree; corrects the `86dc3302` baseline census
 Plan phase: `scene-sized-store-capacity` SC0
 
 ## Outcome
 
-Current source has **90 retained dense Physics rows**, not the 65 estimated by
+Current source has **93 retained dense Physics rows**, not the 65 estimated by
 the originating review:
 
-- 40 `PhysicsFixedList` members, not 25;
+- 43 `PhysicsFixedList` members, not 25;
 - 50 `std::vector` members, not 40.
 
 The fixed-list correction comes from counting the complete body/collider handle
-topology and all 20 body hot-field rows. The vector correction includes the
-sleep owner's eighteenth row, four broadphase rows added after the review tip,
-and the five retained `PhysicsContactSolverSideEffects` rows that the original
-owner summary omitted. No row below is unclassified.
+topology, all 20 body hot-field rows, two pre-existing `PhysicsEngine` members
+declared through list aliases, and the handle-keyed refresh-preservation scratch
+retained by SC1. The original SC0 `rg "PhysicsFixedList<"` method missed the two
+alias-typed engine members; SC1's independent review exposed that omission. The
+vector correction includes the sleep owner's eighteenth row, four broadphase
+rows added after the review tip, and the five retained
+`PhysicsContactSolverSideEffects` rows that the original owner summary omitted.
+No row below is unclassified.
 
 The raw sizing-site measurement remains **147** `reserve` / `resize` / `assign`
 call sites under `SkullbonezSource/Physics`. That number includes local vectors,
-replay snapshot values, and repeated operations as well as the 90 retained
+replay snapshot values, and repeated operations as well as the 93 retained
 members. The member tables below name the construction/current sizing source and
 the one target quantity for every retained row; later phases must not treat the
 147 call count as a store count or a frozen gate.
@@ -32,6 +36,7 @@ Declaration census:
 
 ```text
 rg -n "PhysicsFixedList<" SkullbonezSource/Physics -g "*.h"
+rg -n "Physics[A-Za-z]+List\s+m_" SkullbonezSource/Physics -g "*.h"
 rg -n -g "*.h" "^\s+(?:mutable\s+)?std::vector<.*>\s+m_" \
   SkullbonezSource/Physics/Stages SkullbonezSource/Physics/PhysicsEngine.h \
   SkullbonezSource/Physics/PhysicsWorld.h
@@ -62,11 +67,12 @@ Symbols used below:
 | `J` | Point-joint allowance committed before creation: exact authored/ragdoll count for a scene load, or an explicit cold allowance for a standalone/probe engine |
 | `H` | Convex-hull collider count, introduced by SC2 |
 
-## Fixed-List Census — 40 Rows
+## Fixed-List Census — 43 Rows
 
-All rows below currently embed storage for
-`MAX_SCENE_OBJECTS == 8192`. “Hot” means fixed-tick traversal or mutation;
-“cold” means scene topology, authoring, identity, or repair.
+At the SC0 baseline, all rows below embedded storage for
+`MAX_SCENE_OBJECTS == 8192`; SC1 replaced that payload with runtime-committed
+backing while retaining the same ceiling. “Hot” means fixed-tick traversal or
+mutation; “cold” means scene topology, authoring, identity, or repair.
 
 | Owner / declaration | Members (every member named) | Element bytes | Hot/cold | Current capacity source | Target quantity / target owner |
 |---|---|---:|---|---|---|
@@ -75,22 +81,25 @@ All rows below currently embed storage for
 | `PhysicsBodyStore.h:469-470` | `m_fixed`, `m_awake` | 1 | hot | `MAX_SCENE_OBJECTS` | `B`; `PhysicsBodyStore` |
 | `PhysicsBodyStore.h:471` | `m_modelBodyHandles` | 8 | cold topology | `MAX_SCENE_OBJECTS` | `B`; `PhysicsBodyStore` |
 | `PhysicsBodyStore.h:472-480` | `m_handleGenerations`, `m_handleAlive`, `m_handleModelIndices`, `m_handleSceneObjectIds`, `m_freeHandleSlots`, `m_assignedHandleScratch` | 4, 1, 4, 4, 4, 1 | cold identity/repair | `MAX_SCENE_OBJECTS` | `HB = max(B, retained slot high-water)`; `PhysicsBodyStore` |
+| `PhysicsBodyStore.h` | `m_preservedRefreshStateByHandle` | 28 | cold handle-keyed refresh scratch | `MAX_SCENE_OBJECTS` before SC1; runtime-reserved by SC1 | `HB = max(B, retained slot high-water)`; `PhysicsBodyStore` |
 | `ColliderStore.h:161` | `m_colliders` | 7,228 | hot record | `MAX_SCENE_OBJECTS` | SC1 uses `C`; SC2 replaces the inline hull payload with hot row `C` plus hull store `H`; `ColliderStore` |
 | `ColliderStore.h:165` | `m_authoringRecords` | 32 | cold authoring | `MAX_SCENE_OBJECTS` | `C`; `ColliderStore` |
 | `ColliderStore.h:166` | `m_modelColliderHandles` | 8 | cold topology | `MAX_SCENE_OBJECTS` | `C`; `ColliderStore` |
 | `ColliderStore.h:167-175` | `m_handleGenerations`, `m_handleAlive`, `m_handleModelIndices`, `m_handleSceneObjectIds`, `m_freeHandleSlots`, `m_assignedHandleScratch` | 4, 1, 4, 4, 4, 1 | cold identity/repair | `MAX_SCENE_OBJECTS` | `HC = max(C, retained slot high-water)`; `ColliderStore` |
 | `BuoyancySystem.h:61` | `m_bodyFacts` | 20 | hot | `MAX_SCENE_OBJECTS` | `B`; `BuoyancySystem` |
 | `PhysicsSleepController.h:143-146` | `m_awakeBodyIndices`, `m_awakeListPositions` | 4 | hot | `MAX_SCENE_OBJECTS` | `B`; `PhysicsSleepController` |
+| `PhysicsEngine.h` | `m_fixedTreeReleaseWakeBodies`, `m_broadphaseQueryScratch` | 4, 8 | hot bounded consequence / cold borrowed query result | `MAX_SCENE_OBJECTS` | `B`; `PhysicsEngine` |
 
 Payload by fixed-list owner:
 
 | Owner | Rows | Current payload bytes | MiB |
 |---|---:|---:|---:|
-| `PhysicsBodyStore` | 28 | 1,409,024 | 1.344 |
+| `PhysicsBodyStore` | 29 | 1,638,400 | 1.563 |
 | `ColliderStore` | 9 | 59,686,912 | 56.922 |
 | `BuoyancySystem` | 1 | 163,840 | 0.156 |
 | `PhysicsSleepController` | 2 | 65,536 | 0.063 |
-| **Total** | **40** | **61,325,312** | **58.484** |
+| `PhysicsEngine` | 2 | 98,304 | 0.094 |
+| **Total** | **43** | **61,652,992** | **58.797** |
 
 `ColliderStore::m_colliders` alone is 59,211,776 bytes (56.469 MiB). This
 confirms the plan's 7,228-byte row and 56.5 MiB headline before SC2.
@@ -149,7 +158,7 @@ Payload by vector owner at the current default capacities:
 
 Profile/Release omit the three Debug broadphase oracle vectors, reducing this
 vector payload by 786,432 bytes. The current Debug dense payload lower bound is
-therefore **111,714,816 bytes (106.54 MiB) per PhysicsEngine** before object and
+therefore **112,042,496 bytes (106.85 MiB) per PhysicsEngine** before object and
 allocator overhead. An armed prediction engine pays the same fixed-list and most
 vector costs again; SC6 must measure its actual committed capacities rather than
 blindly doubling this lower bound.
@@ -228,13 +237,15 @@ scope. It caught and drove correction of:
 - the final fixed-contact bound, reduced from an overconservative `2K` to `K`
   after proving fixed/fixed candidates cannot enter the solver.
 
-Final latest-source verdict: **ZERO BLOCKERS**.
+The SC0 review originally reported `ZERO BLOCKERS`. SC1's later lifecycle review
+found the two alias-typed engine rows and the new preservation scratch; this
+report and the live plan were corrected before SC1 closure.
 
 ## Validation
 
 - MSVC size probe: PASS; all complex element sizes in the tables were compiled
   from current headers.
-- Declaration counts: PASS; 40 fixed-list rows and 45 direct vector rows plus 5
+- Declaration counts: PASS; 43 fixed-list rows and 45 direct vector rows plus 5
   nested side-effect rows.
 - Sizing-site census: PASS; 147 `reserve` / `resize` / `assign` sites.
 - `python tools/check_related_paths.py`: PASS; 568 files scanned, 1,510
@@ -243,9 +254,9 @@ Final latest-source verdict: **ZERO BLOCKERS**.
 
 ## SC0 Closure
 
-- Fixed-list rows classified: 40/40.
+- Fixed-list rows classified: 43/43.
 - Vector rows classified: 50/50.
-- Total retained dense rows classified: 90/90.
+- Total retained dense rows classified: 93/93.
 - Each row has an element size, current source, hot/cold classification, target
   quantity, and target owner.
 - Existing commit seam: accepted for generalization.

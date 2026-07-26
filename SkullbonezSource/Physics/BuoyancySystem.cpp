@@ -58,6 +58,12 @@ void ApplyDescriptorFacts( const PhysicsBodyCreateDesc& desc, BuoyancyBodyFacts&
 } // namespace
 
 
+void BuoyancySystem::ReserveCapacity( std::size_t capacity )
+{
+    m_bodyFacts.Reserve( capacity );
+}
+
+
 bool BuoyancySystem::AppendBodyFacts( const PhysicsBodyCreateDesc& desc )
 {
 

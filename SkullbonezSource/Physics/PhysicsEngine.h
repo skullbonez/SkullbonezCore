@@ -192,6 +192,7 @@ class PhysicsEngine
     PhysicsDiagnosticsView GetDiagnosticsView() const;
     uint64_t CollectPhysicsWorldMemoryBytes() const;
     uint64_t CollectDebugAndBroadphaseMemoryBytes() const;
+    uint64_t CollectSceneSizedStoreMemoryBytes() const;
     bool ShouldEmitStepDiagnostics() const;
     bool ShouldEmitCollisionTimeDiagnostics() const;
 

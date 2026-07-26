@@ -20,7 +20,7 @@ Glossary:
     sorted owner list at sequencer barriers.
 
 Invariants:
-  - All model-order rows are construction-reserved to scene capacity.
+  - Fixed-list model rows are reserved to the active scene capacity before play.
   - Read-only pipeline stages receive const spans; wake mutations use explicit
     scoped capability values.
   - Packed scratch bits are written only by the serial sleep owner; no worker
@@ -189,6 +189,7 @@ class PhysicsSleepController
 
   public:
     PhysicsSleepController();
+    void ReserveBodyCapacity( std::size_t capacity );
 
     void Clear();
     void ApplyRuntimeSettings( const SleepSettings& settings );

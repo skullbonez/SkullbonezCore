@@ -116,9 +116,20 @@
       ],
       "owner": "Runtime reserve allocator policy gate",
       "phase": "allocator_wrapper",
-      "reason": "The allocator implementation owns the single approved replay reserve-bump API; callsites outside this file still require owner metadata and phase checks.",
-      "cap": "One function definition for the replay growth policy gate; runtime grants remain bounded per registered owner.",
+      "reason": "The allocator implementation owns the single approved reserve-bump API; callsites outside this file still require owner metadata and phase checks.",
+      "cap": "One function definition for the init/replay growth policy gate; runtime grants remain bounded per registered owner.",
       "removal_or_wrapper_plan": "Keep growth approval isolated here and reject any new reserve-bump callsite unless it routes through registered owner wrappers."
+    },
+    {
+      "path": "SkullbonezSource/Physics/PhysicsFixedList.h",
+      "patterns": [
+        "RuntimeReserveAllocator::RequestGrowth("
+      ],
+      "owner": "PhysicsFixedList scene-sized backing storage",
+      "phase": "scene_load_or_approved_replay_prediction",
+      "reason": "Scene-load growth registers the list's named Physics owner. Prediction copies may instead allocate only beneath an already-active registered Replay owner and granted growth scope; the list cannot manufacture that authority.",
+      "cap": "Each list remains bounded by its template Capacity compile-time ceiling, while prediction allocations also share the existing 256 MiB replay_prediction_working_set cap; denial or overflow is fatal and appends cannot allocate.",
+      "removal_or_wrapper_plan": "Keep scene-load requests inside PhysicsFixedList::Reserve and keep the replay branch dependent on the outer approved prediction scope so no Physics store gains a second capacity authority or an unbudgeted steady-gameplay growth path."
     },
     {
       "path": "SkullbonezSource/Runtime/Prediction/ReplayPredictionReserve.cpp",

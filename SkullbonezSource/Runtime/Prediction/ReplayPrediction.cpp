@@ -341,9 +341,7 @@ bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction, Skullbone
         return false;
     }
 
-    const int currentBytes = prediction.simulation.predictionEngine
-                                 ? ReplayPredictionEngineReserveBytes( *prediction.simulation.predictionEngine )
-                                 : 0;
+    const int currentBytes = prediction.simulation.predictionEngineReserveBytes;
 
     if ( prediction.simulation.predictionEngine && currentBytes <= 0 )
     {
@@ -380,13 +378,14 @@ bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction, Skullbone
     // then restores the captured prediction values into the private engine. The
     // live engine is never passed to prediction stepping after this point.
     PhysicsEngine& predictionEngine = *prediction.simulation.predictionEngine;
-    predictionEngine = liveEngine;
 
-    // Invariant: std::vector copy assignment preserves element values, not the
-    // source's spare capacity. The live mutual-gravity pair table is empty at
-    // capture time, so the private engine must re-establish its known body-count
-    // scratch while the registered replay reserve scope is still active.
+    // Invariant: prediction capacity is committed before copy assignment so a
+    // fresh private engine never asks a Physics scene-load owner to allocate
+    // during Replay. Any larger handle high-water copied below remains inside
+    // this already-approved replay byte-growth scope.
     predictionEngine.ReserveAuthoredBodyCapacity( static_cast<std::size_t>( (std::max)( 0, modelCount ) ) );
+    predictionEngine = liveEngine;
+    prediction.simulation.predictionEngineReserveBytes = (std::max)( currentBytes, requestedBytes );
     predictionEngine.BindProfiler( profiler );
     predictionEngine.ApplyRuntimeConfig( config );
     prediction.simulation.predictionWorldForces = worldForces;

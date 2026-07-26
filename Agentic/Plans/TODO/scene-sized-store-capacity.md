@@ -5,8 +5,8 @@ Status: IN PROGRESS — drafted from the 2026-07-26 from-source architecture
 review of `nightrunner-26th-JUL-26` at tip `35f6de4e`, extended by the same-day
 capacity measurement below. Registered in `MASTER-PLAN.md` on 2026-07-26 as
 plan 2 of the Architecture Follow-Up Campaign Round 5. Starts after
-`governance-shape-to-judgment-conversion` closes. SC0 closed 2026-07-27. 1/8
-phases complete.
+`governance-shape-to-judgment-conversion` closes. SC0-SC1 closed 2026-07-27.
+2/8 phases complete; SC2 is binding next.
 Impact area: `Core/SceneCapacity.h`, `Physics/PhysicsFixedList.h`,
 `Physics/ColliderStore.*`, `Physics/PhysicsBodyStore.*`, every
 `Physics/Stages/*` store, `Physics/CollisionShape.h`,
@@ -55,10 +55,10 @@ direct cause of the 7,228-byte record and of the 56.5 MiB figure above.
 ### 3. The fail-loud container is applied to the stores and not to the solver
 
 `Physics/PhysicsFixedList.h` exists specifically to enforce the Runtime Static
-Allocation Policy: it never allocates, and overflow is fatal via
-`FailCapacityExceeded` (`:353`) with owner, capacity, count, and high-water
-diagnostics. The originating review counted 25 members under `Physics/`; SC0's
-current-source declaration census found **40**. The review counted 40 retained
+Allocation Policy: SC1 permits registered scene-load capacity commits, while
+append overflow remains fatal with owner, runtime/compile capacity, count, and
+high-water diagnostics. The originating review counted 25 members under
+`Physics/`; the SC1-corrected census found **43**. The review counted 40 retained
 plain `std::vector` members; SC0 found **50**, including later broadphase oracle
 rows and the contact side-effect storage omitted from the review summary:
 
@@ -136,7 +136,7 @@ its shape costs.
 ## Phases
 
 - [x] **SC0 — Capacity census and sizing contract.**
-  Inventory every dense store under `Physics/` and the prediction engine: the 40
+  Inventory every dense store under `Physics/` and the prediction engine: the 43
   `PhysicsFixedList` members, the 50 `std::vector` members, and their sizing
   sites (147 `reserve`/`resize`/`assign` calls measured 2026-07-26). For each
   row record: element size, current capacity source, whether it is indexed by
@@ -147,31 +147,35 @@ its shape costs.
   `PhysicsWorld::ReserveBodyScratchCapacity` (`PhysicsWorld.cpp:401`) is the
   right existing seam to generalize. Record the measured resident footprint
   before any change, per store, so SC7 can quote a real delta. Acceptance: every
-  one of the 90 members has a named sizing quantity and a target owner; no row is
+  one of the 93 members has a named sizing quantity and a target owner; no row is
   unclassified.
 
   Closed 2026-07-27 with permanent evidence in
   `../../Reports/2026-07-27/scene-sized-store-capacity-sc0-census.md`. Current
   source corrected the originating counts from 25 fixed lists + 40 vectors to
-  **40 fixed lists + 50 vectors = 90 retained dense rows**. The delta is the
-  complete body/collider handle topology, the sleep owner's eighteenth row,
-  later broadphase oracle buffers, and five retained contact side-effect vectors
-  omitted by the review summary. All 90 rows have an MSVC element size, current
+  **43 fixed lists + 50 vectors = 93 retained dense rows**. The delta is the
+  complete body/collider handle topology, two alias-typed `PhysicsEngine` rows,
+  SC1's handle-keyed refresh scratch, the sleep owner's eighteenth row, later
+  broadphase oracle buffers, and five retained contact side-effect vectors
+  omitted by the review summary. All 93 rows have an MSVC element size, current
   capacity source, hot/cold classification, scene-derived or semantic fixed
   sizing quantity, and target owner. The Debug payload lower bound is
-  111,714,816 bytes per engine.
+  112,042,496 bytes per engine.
   `SceneWorld -> PhysicsEngine::ReserveAuthoredBodyCapacity ->
   PhysicsWorld::ReserveBodyScratchCapacity` is the accepted seam to generalize.
   Authored setup owns exact expansion preflight after parse; generated setup
   already knows its counts; `SceneWorld` remains the one commit coordinator.
 
-- [ ] **SC1 — Runtime capacity in the fail-loud container.**
+- [x] **SC1 — Runtime capacity in the fail-loud container.**
   Give `PhysicsFixedList` a runtime `Reserve(count)` that commits backing storage
   once, keeps `Capacity` as the compile-time absolute ceiling, and keeps
   `FailCapacityExceeded` as the response to exceeding either bound. Storage
   allocation is permitted only inside a scene-load allocation phase and must be
-  attributed to a registered reserve owner. In the same phase, fix the carried
-  defects: replace `std::aligned_storage` with an
+  attributed to a registered reserve owner. ReplayPrediction retains its
+  separately governed exception: the container may allocate under its existing
+  registered Replay owner and approved growth scope, but cannot create Replay
+  authority itself. In the same phase, fix the carried defects: replace
+  `std::aligned_storage` with an
   `alignas(alignof(T)) unsigned char[]` buffer; make copy/move use
   `std::memcpy` for trivially copyable `T` and element-wise construction
   otherwise; replace the `(owner, index)` iterators with pointer iterators so the
@@ -181,6 +185,20 @@ its shape costs.
   ceiling, and trivial/non-trivial copy paths; `sizeof` and alignment
   static_asserts hold; `HotFields() const` compiles without `mutable`;
   `rg -n 'FenceHandle' SkullbonezSource SkullbonezTests` returns no rows.
+
+  Closed 2026-07-27. `PhysicsFixedList` now owns aligned runtime backing,
+  preserves the compile-time ceiling, exposes pointer iterators, and uses
+  `memcpy` for trivial rows plus rollback-safe element construction otherwise.
+  SceneWorld is the outer SceneLoad coordinator; leaf stores register named
+  owners without manufacturing phase authority. ReplayPrediction pre-reserves
+  its isolated engine only under its existing registered Replay owner and
+  approved growth grant. The 20 `mutable` qualifiers and `FenceHandle` are gone.
+  A feature-flag-dependent `RuntimeReserveOwnerDesc` layout found by the Profile
+  allocation guard was made ABI-stable across engine libraries. Focused
+  container tests, all 408 doctests / 2,403,974 assertions, physics regression,
+  startup smoke, allocation guard, allocation-policy scans, `validate_perf`,
+  `validate_full`, formatting, and aggregate governance pass. Independent
+  review ended `ZERO BLOCKERS`.
 
 - [ ] **SC2 — Shape-sized collider rows.**
   Remove the hull payload from every non-hull collider row. The dense

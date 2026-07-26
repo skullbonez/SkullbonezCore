@@ -34,6 +34,7 @@ Related:
   - Agentic/Reports/2026-07-11/physics-authority-and-identity-closure-review.md
 */
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 
 #include "../SkullbonezSource/Physics/BoundingBox.h"
 #include "../SkullbonezSource/Physics/BoundingSphere.h"
@@ -169,6 +170,14 @@ TEST_CASE( "Scene save entry policies serialize complete owner publications" )
     static SceneEntityStore entities;
     static PhysicsBodyStore bodies;
     static ColliderStore colliders;
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        bodies.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+        colliders.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    }
+
     entities.Clear();
     bodies.Clear();
     colliders.Clear();
@@ -665,6 +674,14 @@ TEST_CASE( "SceneSnapshotWriter: schema-v2 asset parts reparse from authoritativ
     static SceneEntityStore entities;
     static PhysicsBodyStore bodies;
     static ColliderStore colliders;
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        bodies.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+        colliders.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    }
+
     entities.Clear();
     entities.ConfigureCapacity( 6 );
     bodies.Clear();
@@ -871,6 +888,13 @@ TEST_CASE( "SceneSnapshotWriter: schema-v2 asset parts reparse from authoritativ
     static SceneEntityStore recreatedEntities;
     static PhysicsBodyStore recreatedBodies;
     static ColliderStore recreatedColliders;
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        recreatedBodies.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+        recreatedColliders.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    }
     RecreateParsedOwners( saved, recreatedEntities, recreatedBodies, recreatedColliders );
     CheckRecreatedOwners( entities, bodies, colliders, recreatedEntities, recreatedBodies, recreatedColliders );
 }

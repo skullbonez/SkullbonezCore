@@ -6,9 +6,10 @@ Purpose:
 Summary:
   Runtime allocation policy is enforced by named owners, not by one anonymous
   heap. Gameplay owners register fixed capacity so diagnostics can report their
-  budget and high-water use. Replay owners are the only owners allowed to ask
+  budget and high-water use. Owners may commit their hard-cap-bounded initial
+  backing during their declared init phase. Replay owners may additionally ask
 
-  for hard-cap-bounded runtime reserve bumps, and every bump is counted.
+  for bounded runtime reserve bumps, and every replay bump is counted.
   Development builds additionally admit explicitly scoped, hard-byte-capped
   ImGui and Tracy owners without changing the gameplay phase.
 
@@ -26,7 +27,7 @@ Invariants:
     not allocate.
   - Handle zero is reserved for unregistered allocations so missing owner scopes
     are visible in validation output.
-  - Gameplay owners never receive growth approval from this allocator.
+  - Gameplay owners receive growth approval only during their declared init phase.
   - Replay byte-budget owners share one active-allocation cap across all of
     their vector/object targets.
   - Development tool permission does not exist in Release or Profile-WPO, and
@@ -88,12 +89,12 @@ struct RuntimeReserveOwnerDesc
     int replayGrowthLimit;   // Negative means hard-cap-only; every growth is still counted.
     bool allowReplayGrowth;
     const char* capacityReason;
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 
-    // Permanent-development permission. RuntimeAllocationTracker still requires
-    // the calling thread to enter this exact registered owner scope.
+    // Keep this field unconditional so the descriptor has one ABI across engine
+    // libraries compiled with different feature flags. Release/Profile-WPO
+    // ignore the permission; development builds still require the exact owner
+    // scope before admitting third-party allocations.
     bool allowDevelopmentToolAllocations = false;
-#endif
 };
 
 struct RuntimeReserveGrowthRequest

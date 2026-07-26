@@ -41,6 +41,7 @@
 
 #include "../SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h"
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
+#include "../SkullbonezSource/Physics/PhysicsFixedList.h"
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 #include "../SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h"
 #endif
@@ -48,8 +49,11 @@
 #include <array>
 #include <atomic>
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <new>
+#include <ranges>
+#include <stdexcept>
 #include <string>
 #include <thread>
 
@@ -74,11 +78,13 @@ using SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult;
 using SkullbonezCore::Core::Allocation::RuntimeReserveGrowthScope;
 using SkullbonezCore::Core::Allocation::RuntimeReserveOwnerDesc;
 using SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle;
+using SkullbonezCore::Core::Allocation::RuntimeReserveOwnerScope;
 using SkullbonezCore::Core::Allocation::RuntimeReserveOwnerStatsView;
 using SkullbonezCore::Core::Allocation::RuntimeReservePhase;
 using SkullbonezCore::Core::Allocation::RuntimeReserveSubsystem;
 using SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode;
 using SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase;
+using SkullbonezCore::Physics::PhysicsFixedList;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 using SkullbonezCore::Core::Allocation::CopyDevelopmentToolAllocationStats;
 using SkullbonezCore::Core::Allocation::DevelopmentToolAllocationOwner;
@@ -546,4 +552,223 @@ TEST_CASE( "RuntimeReserveAllocator: owner stats expose fixed-registry growth ev
 
     RuntimeReserveOwnerStatsView missing = {};
     CHECK_FALSE( RuntimeReserveAllocator::CopyOwnerStatsByName( "unit.reserve.e1.missing", missing ) );
+}
+
+
+TEST_CASE( "PhysicsFixedList: scene-load reserve fills exact runtime capacity through contiguous pointers" )
+{
+    using List = PhysicsFixedList<int, 8>;
+    static_assert( std::ranges::contiguous_range<List> );
+    static_assert( std::ranges::contiguous_range<const List> );
+
+    RuntimeAllocationScope sceneLoad( RuntimeAllocationPhase::SceneLoad );
+    List values( "unit.physics-fixed-list.reserve-fill" );
+    CHECK( values.capacity() == 0u );
+    CHECK( values.max_capacity() == 8u );
+    values.Reserve( 3u );
+    CHECK( values.capacity() == 3u );
+    CHECK( reinterpret_cast<std::uintptr_t>( values.data() ) % 32u == 0u );
+
+    values.push_back( 11 );
+    values.push_back( 22 );
+    values.push_back( 33 );
+    CHECK( values.size() == values.capacity() );
+    CHECK( values.end() - values.begin() == 3 );
+    CHECK( values.data()[0] == 11 );
+    CHECK( values.data()[2] == 33 );
+}
+
+
+TEST_CASE( "PhysicsFixedList: runtime and compile-time ceilings remain distinct" )
+{
+    RuntimeAllocationScope sceneLoad( RuntimeAllocationPhase::SceneLoad );
+    PhysicsFixedList<int, 7> values( "unit.physics-fixed-list.ceilings" );
+    values.Reserve( 2u );
+
+    CHECK( values.capacity() == 2u );
+    CHECK( values.max_capacity() == 7u );
+    values.reserve( 2u );
+    CHECK( values.capacity() == 2u );
+}
+
+
+namespace
+{
+struct PhysicsFixedListTrackedValue
+{
+    explicit PhysicsFixedListTrackedValue( int initialValue = 0 ) : value( initialValue )
+    {
+    }
+
+    PhysicsFixedListTrackedValue( const PhysicsFixedListTrackedValue& other ) : value( other.value )
+    {
+        ++copyConstructions;
+    }
+
+    PhysicsFixedListTrackedValue( PhysicsFixedListTrackedValue&& other ) noexcept : value( other.value )
+    {
+        other.value = -1;
+        ++moveConstructions;
+    }
+
+    PhysicsFixedListTrackedValue& operator=( const PhysicsFixedListTrackedValue& ) = default;
+    PhysicsFixedListTrackedValue& operator=( PhysicsFixedListTrackedValue&& ) = default;
+
+    int value = 0;
+    static inline int copyConstructions = 0;
+    static inline int moveConstructions = 0;
+};
+
+struct PhysicsFixedListThrowingValue
+{
+    explicit PhysicsFixedListThrowingValue( int initialValue = 0 ) : value( initialValue )
+    {
+        ++liveCount;
+    }
+
+    PhysicsFixedListThrowingValue( const PhysicsFixedListThrowingValue& other ) : value( other.value )
+    {
+        ++copyAttempts;
+
+        if ( throwOnCopyAttempt > 0 && copyAttempts == throwOnCopyAttempt )
+        {
+            throw std::runtime_error( "PhysicsFixedList copy probe" );
+        }
+
+        ++liveCount;
+    }
+
+    PhysicsFixedListThrowingValue( PhysicsFixedListThrowingValue&& other ) : value( other.value )
+    {
+        other.value = -1;
+        ++liveCount;
+    }
+
+    ~PhysicsFixedListThrowingValue()
+    {
+        --liveCount;
+    }
+
+    int value = 0;
+    static inline int liveCount = 0;
+    static inline int copyAttempts = 0;
+    static inline int throwOnCopyAttempt = 0;
+};
+} // namespace
+
+
+TEST_CASE( "PhysicsFixedList: trivial and non-trivial copy move preserve live values" )
+{
+    RuntimeAllocationScope sceneLoad( RuntimeAllocationPhase::SceneLoad );
+
+    PhysicsFixedList<uint32_t, 8> trivial( "unit.physics-fixed-list.trivial-source" );
+    trivial.Reserve( 4u );
+    trivial.push_back( 4u );
+    trivial.push_back( 9u );
+    PhysicsFixedList<uint32_t, 8> trivialCopy( trivial );
+    PhysicsFixedList<uint32_t, 8> trivialMove( std::move( trivialCopy ) );
+    CHECK( trivialMove.size() == 2u );
+    CHECK( trivialMove[0] == 4u );
+    CHECK( trivialMove[1] == 9u );
+
+    PhysicsFixedListTrackedValue::copyConstructions = 0;
+    PhysicsFixedListTrackedValue::moveConstructions = 0;
+    PhysicsFixedList<PhysicsFixedListTrackedValue, 8> tracked( "unit.physics-fixed-list.tracked-source" );
+    tracked.Reserve( 3u );
+    tracked.push_back( PhysicsFixedListTrackedValue( 17 ) );
+    tracked.push_back( PhysicsFixedListTrackedValue( 23 ) );
+    PhysicsFixedList<PhysicsFixedListTrackedValue, 8> trackedCopy( tracked );
+    PhysicsFixedList<PhysicsFixedListTrackedValue, 8> trackedMove( std::move( trackedCopy ) );
+
+    CHECK( trackedMove.size() == 2u );
+    CHECK( trackedMove[0].value == 17 );
+    CHECK( trackedMove[1].value == 23 );
+    CHECK( PhysicsFixedListTrackedValue::copyConstructions == 2 );
+    CHECK( PhysicsFixedListTrackedValue::moveConstructions >= 4 );
+}
+
+
+TEST_CASE( "PhysicsFixedList: failed non-trivial copy and relocation clean every constructed destination" )
+{
+    RuntimeAllocationScope sceneLoad( RuntimeAllocationPhase::SceneLoad );
+    using List = PhysicsFixedList<PhysicsFixedListThrowingValue, 8>;
+    PhysicsFixedListThrowingValue::liveCount = 0;
+    PhysicsFixedListThrowingValue::copyAttempts = 0;
+    PhysicsFixedListThrowingValue::throwOnCopyAttempt = 0;
+
+    {
+        List source( "unit.physics-fixed-list.throwing-source" );
+        source.Reserve( 3u );
+        source.push_back( PhysicsFixedListThrowingValue( 17 ) );
+        source.push_back( PhysicsFixedListThrowingValue( 23 ) );
+        REQUIRE( PhysicsFixedListThrowingValue::liveCount == 2 );
+
+        PhysicsFixedListThrowingValue::copyAttempts = 0;
+        PhysicsFixedListThrowingValue::throwOnCopyAttempt = 2;
+        bool copyThrew = false;
+
+        try
+        {
+            List failedCopy( source );
+        }
+        catch ( const std::runtime_error& )
+        {
+            copyThrew = true;
+        }
+
+        CHECK( copyThrew );
+        CHECK( PhysicsFixedListThrowingValue::liveCount == 2 );
+
+        PhysicsFixedListThrowingValue::copyAttempts = 0;
+        PhysicsFixedListThrowingValue::throwOnCopyAttempt = 2;
+        bool relocationThrew = false;
+
+        try
+        {
+            source.Reserve( 5u );
+        }
+        catch ( const std::runtime_error& )
+        {
+            relocationThrew = true;
+        }
+
+        CHECK( relocationThrew );
+        CHECK( source.capacity() == 3u );
+        CHECK( source.size() == 2u );
+        CHECK( source[0].value == 17 );
+        CHECK( source[1].value == 23 );
+        CHECK( PhysicsFixedListThrowingValue::liveCount == 2 );
+        PhysicsFixedListThrowingValue::throwOnCopyAttempt = 0;
+    }
+
+    CHECK( PhysicsFixedListThrowingValue::liveCount == 0 );
+}
+
+
+TEST_CASE( "PhysicsFixedList: replay reserve requires an approved outer owner and growth scope" )
+{
+    constexpr const char* ownerName = "unit.physics-fixed-list.replay-owner";
+    const RuntimeReserveOwnerHandle owner =
+        RuntimeReserveAllocator::RegisterOwner( MakeReplayOwnerDesc( ownerName, 0, 1024 ) );
+    RuntimeReserveGrowthRequest request = MakeGrowthRequest( ownerName, 0, 128 );
+    request.elementSizeBytes = 1;
+    const RuntimeReserveGrowthResult growth = RuntimeReserveAllocator::RequestGrowth( owner, request );
+    REQUIRE( growth.granted );
+
+    PhysicsFixedList<int, 8> values( "unit.physics-fixed-list.replay-target" );
+    {
+        RuntimeAllocationScope replayPhase( RuntimeAllocationPhase::Replay );
+        RuntimeReserveOwnerScope ownerScope( owner );
+        RuntimeReserveGrowthScope growthScope( owner, RuntimeReservePhase::Replay, growth );
+        values.Reserve( 4u );
+    }
+
+    CHECK( values.capacity() == 4u );
+}
+
+
+TEST_CASE( "PhysicsFixedList: object size no longer scales with compile-time capacity" )
+{
+    CHECK( sizeof( PhysicsFixedList<uint8_t, 8192> ) == sizeof( PhysicsFixedList<uint8_t, 8> ) );
+    CHECK( sizeof( PhysicsFixedList<uint8_t, 8192> ) <= 64u );
 }

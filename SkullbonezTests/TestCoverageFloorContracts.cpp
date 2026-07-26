@@ -49,6 +49,7 @@
 #include "../SkullbonezSource/Physics/TerrainContactManifold.h"
 #include "../SkullbonezSource/Assets/AssetSystem.h"
 #include "../SkullbonezSource/Core/Config.h"
+#include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayTimeline.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneEntityStore.h"
@@ -152,6 +153,14 @@ void CheckUnderwaterForcePath( const CollisionShape& shape, uint32_t sceneId )
     static const std::unique_ptr<ColliderStore> colliderStorage = std::make_unique<ColliderStore>();
     PhysicsBodyStore& bodies = *bodyStorage;
     ColliderStore& colliders = *colliderStorage;
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        bodies.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+        colliders.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    }
+
     bodies.Clear();
     colliders.Clear();
 
@@ -207,7 +216,11 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     auto engineStorage = std::make_unique<PhysicsEngine>();
     PhysicsEngine& engine = *engineStorage;
     engine.Clear();
-    engine.ReserveAuthoredBodyCapacity( 1 );
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        engine.ReserveAuthoredBodyCapacity( 1 );
+    }
 
     const CollisionShape shape = SphereShape( 1.0f );
     auto bodyDesc = MakePhysicsBodyCreateDesc( PhysicsSceneObjectId{ 501u },
