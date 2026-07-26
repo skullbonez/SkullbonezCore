@@ -692,6 +692,14 @@ payload falls 89.06% for the 200-body scene, and the isolated prediction-engine
 request falls 82.21%. Permanent closure evidence is
 `../Reports/2026-07-27/scene-sized-store-capacity-closure.md`.
 
+The denominator then fell 42 to 38 on 2026-07-27 when
+`store-capacity-memory-reporting` closed MR0-MR3 and left the live inventory
+under rule 4. The final three-scene process reports 95 sorted rows per section,
+the Memory tab and unload log allocate zero in guarded phases, and independent
+review cleared the canonical publisher-token authority after two remediation
+passes. Permanent closure evidence is
+`../Reports/2026-07-27/store-capacity-memory-reporting-closure.md`.
+
 ### Binding Owner Rulings — 2026-07-27: Round 5 Open Decisions Closed
 
 The owner ruled all three blocking Round 5 decisions on 2026-07-27 so the campaign
@@ -732,10 +740,11 @@ owner code style, and the space-scene velocity-drag preview are closed, and the
 completed TODO was deleted under inventory rule 4. Permanent evidence is
 `../Reports/2026-07-26/nightrunner-26-july-closure.md`.
 
-NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 3/42 (7%).
+NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 0/38 (0%).
 `governance-shape-to-judgment-conversion`, `extraction-scar-remediation`, and
 `scene-sized-store-capacity` closed on 2026-07-27 and left the live inventory
-under rule 4. Plan 3 `store-capacity-memory-reporting` closed MR0-MR2; MR3 is
+under rule 4. Plan 3 `store-capacity-memory-reporting` closed MR0-MR3 and left
+the live inventory on 2026-07-27. Plan 4 `ceremonial-aggregate-elimination` is
 the binding next task.
 
 G0 recorded five rule gaps with the admitting `AGENTS.md` text for each; evidence
@@ -2036,8 +2045,8 @@ requires owner divergence authority and the campaign is byte-exact throughout.
 |---:|---|---|---:|---|
 | 1 | [governance-shape-to-judgment-conversion](../Reports/2026-07-27/governance-shape-to-judgment-conversion-closure.md) | Complete | 6/6 | Closed 2026-07-27 and removed from the live ledger under rule 4 |
 | 2 | [scene-sized-store-capacity](../Reports/2026-07-27/scene-sized-store-capacity-closure.md) | Complete | 8/8 | Closed 2026-07-27 and removed from the live ledger under rule 4; 98 retained rows are scene-committed and the final 200-body payload is 89.06% smaller |
-| 3 | [store-capacity-memory-reporting](TODO/store-capacity-memory-reporting.md) | In progress | 3/4 | MR2 surfaces a fixed detached capacity snapshot in the Memory tab and emits sorted unload/process-end rows; the 200-to-20 scene queue proves per-session peaks reset without shrinking retained capacity. **Binding next task: MR3** |
-| 4 | [ceremonial-aggregate-elimination](TODO/ceremonial-aggregate-elimination.md) | Not started | 0/5 | After plan 1. Small aggregates only; frame views and backend view are plans 5 and 6 |
+| 3 | [store-capacity-memory-reporting](../Reports/2026-07-27/store-capacity-memory-reporting-closure.md) | Complete | 4/4 | Closed 2026-07-27 and removed from the live ledger under rule 4; 95 sorted production rows expose capacity/live/session peaks, and the three-scene handoff identifies the retained contact-bound candidates |
+| 4 | [ceremonial-aggregate-elimination](TODO/ceremonial-aggregate-elimination.md) | Not started | 0/5 | After plan 1. Small aggregates only; frame views and backend view are plans 5 and 6. **Binding next task: CA0** |
 | 5 | [runtime-frame-view-retirement](TODO/runtime-frame-view-retirement.md) | Not started | 0/4 | After plan 6, so FV2 need not preserve `renderBackendView`. Endpoint ratified 2026-07-27: concrete operands, no frame transaction |
 | 6 | [render-backend-service-bag-removal](TODO/render-backend-service-bag-removal.md) | Not started | 0/4 | After plan 1. Completes the removal PB3's review started |
 | 7 | [extraction-scar-remediation](../Reports/2026-07-27/extraction-scar-remediation-closure.md) | Complete | 3/3 | Closed 2026-07-27 and removed from the live ledger under rule 4; 88 repairs removed and the sole WorkerPool retain preserved |

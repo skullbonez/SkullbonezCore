@@ -26,6 +26,8 @@ Glossary:
     calling thread allocate for ImGui or Tracy up to a hard active-byte cap.
   Capacity row: Allocation-free registry view of one fixed store's sizing rule,
     element size, committed capacity, live count, high-water, and resident bytes.
+  Canonical publisher: The single claimed list instance allowed to mutate one
+    conceptual owner's capacity row; copies and same-name clones remain silent.
   Capacity session: One loaded scene's live-usage window, ending immediately
     before its store rows are cleared or replaced.
 
@@ -34,6 +36,8 @@ Invariants:
     not allocate.
   - Capacity-row spans borrow allocator storage and are not retained across
     store mutation.
+  - A publisher token gives each row one live authority; noncanonical clones
+    cannot overwrite or clear its capacity, live count, or session peak.
   - Handle zero is reserved for unregistered allocations so missing owner scopes
     are visible in validation output.
   - Gameplay owners receive growth approval only during their declared init phase.
@@ -62,8 +66,10 @@ namespace Core
 namespace Allocation
 {
 using RuntimeReserveOwnerHandle = uint16_t;
+using RuntimeReserveCapacityPublisherToken = uint32_t;
 
 constexpr RuntimeReserveOwnerHandle INVALID_RUNTIME_RESERVE_OWNER = 0u;
+constexpr RuntimeReserveCapacityPublisherToken INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER = 0u;
 constexpr int RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED = -1;
 constexpr int RUNTIME_RESERVE_GROWTH_EVENT_HISTORY = 256;
 
@@ -235,8 +241,11 @@ class RuntimeReserveAllocator
     // domain diagnostics report owners without retaining allocator handles.
     static bool CopyOwnerStats( RuntimeReserveOwnerHandle owner, RuntimeReserveOwnerStatsView& outStats ) noexcept;
     static bool CopyOwnerStatsByName( const char* ownerName, RuntimeReserveOwnerStatsView& outStats ) noexcept;
-    static void PublishCapacityUsage( RuntimeReserveOwnerHandle owner, int currentCapacity, int liveCount,
-                                      int sessionHighWater ) noexcept;
+    static RuntimeReserveCapacityPublisherToken ClaimCapacityPublisher( RuntimeReserveOwnerHandle owner ) noexcept;
+    static void ReleaseCapacityPublisher( RuntimeReserveOwnerHandle owner, RuntimeReserveCapacityPublisherToken publisher,
+                                          int sessionHighWater ) noexcept;
+    static void PublishCapacityUsage( RuntimeReserveOwnerHandle owner, RuntimeReserveCapacityPublisherToken publisher,
+                                      int currentCapacity, int liveCount, int sessionHighWater ) noexcept;
     static std::span<const RuntimeReserveCapacityView> CapacityRows() noexcept;
     static uint64_t CapacitySessionGeneration() noexcept;
     static void BeginCapacitySession() noexcept;

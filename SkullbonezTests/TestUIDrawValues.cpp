@@ -32,6 +32,7 @@ Related:
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 
+#include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 #include "../SkullbonezSource/UI/UIDraw.h"
 #include "../SkullbonezSource/UI/UIDrawList.h"
 #include "../SkullbonezSource/UI/UIFontMetrics.h"
@@ -290,13 +291,31 @@ TEST_CASE( "Memory capacity table sorts detached owner rows by resident bytes wi
     UIMemoryOverlayState state;
     SkullbonezCore::UI::MemoryTab::Draw( draw, state, *data, 20.0f, 0.0f, 720.0f, 260.0f, -450.0f, 0, 0, 0 );
 
-    const int colliderRow = FindDrawTextIndex( list, "ColliderStore.colliders" );
-    const int bodyRow = FindDrawTextIndex( list, "PhysicsBodyStore.bodies" );
+    UIDrawList measuredList;
+    UIDrawContext measuredDraw( 1920, 1080, measuredList );
+    UIMemoryOverlayState measuredState;
+    SkullbonezCore::Core::Allocation::ResetRuntimeAllocationCounters();
+    SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Gameplay );
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope renderScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Render );
+        SkullbonezCore::UI::MemoryTab::Draw( measuredDraw, measuredState, *data, 20.0f, 0.0f, 720.0f, 260.0f, -450.0f, 0,
+                                            0, 0 );
+    }
+    const uint64_t memoryDrawAllocationViolations =
+        SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount();
+    SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Off );
+
+    CHECK( memoryDrawAllocationViolations == 0u );
+    const int colliderRow = FindDrawTextIndex( measuredList, "ColliderStore.colliders" );
+    const int bodyRow = FindDrawTextIndex( measuredList, "PhysicsBodyStore.bodies" );
     REQUIRE( colliderRow >= 0 );
     REQUIRE( bodyRow >= 0 );
     CHECK( colliderRow < bodyRow );
-    CHECK( FindDrawTextIndex( list, "62.5%" ) >= 0 );
-    const UIDrawList::Stats stats = list.GetStats();
+    CHECK( FindDrawTextIndex( measuredList, "62.5%" ) >= 0 );
+    const UIDrawList::Stats stats = measuredList.GetStats();
     CHECK( stats.commandCount > 0 );
     CHECK( stats.commandCount < UIDrawList::MAX_COMMANDS );
     CHECK( stats.textBytes < UIDrawList::MAX_TEXT_BYTES );

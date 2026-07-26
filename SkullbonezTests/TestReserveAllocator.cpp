@@ -636,11 +636,100 @@ TEST_CASE( "PhysicsFixedList: scene-load reserve fills exact runtime capacity th
     REQUIRE( capacityLog != nullptr );
     RuntimeReserveAllocator::PrintCapacityRows( capacityLog, "unit-capacity.scene", "scene_unload" );
     const std::string capacityText = ReadFileText( capacityLog );
-    std::fclose( capacityLog );
     CHECK( capacityText.find( "[capacity] scene=\"unit-capacity.scene\" status=scene_unload" ) != std::string::npos );
     CHECK( capacityText.find( "owner=\"unit.physics-fixed-list.reserve-fill\"" ) != std::string::npos );
     CHECK( capacityText.find( "capacity=3 live=1 high_water=1 utilisation=33.33% resident_bytes=12" ) !=
            std::string::npos );
+
+    ResetRuntimeAllocationCounters();
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Gameplay );
+    {
+        RuntimeAllocationScope steadyGameplay( RuntimeAllocationPhase::SteadyGameplay );
+        RuntimeReserveAllocator::PrintCapacityRows( capacityLog, "unit-capacity.scene", "scene_unload" );
+    }
+    const uint64_t warmedLogAllocationViolations = RuntimeAllocationGuardViolationCount();
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Off );
+    CHECK( warmedLogAllocationViolations == 0u );
+    std::fclose( capacityLog );
+}
+
+
+TEST_CASE( "PhysicsFixedList: one canonical publisher survives same-name clone destruction" )
+{
+    using List = PhysicsFixedList<int, 8>;
+    constexpr const char* ownerName = "unit.physics-fixed-list.canonical-publisher";
+    const auto findCapacityRow = []( const char* targetOwner ) -> const RuntimeReserveCapacityView* {
+        const std::span<const RuntimeReserveCapacityView> rows = RuntimeReserveAllocator::CapacityRows();
+        const auto row =
+            std::find_if( rows.begin(), rows.end(), [targetOwner]( const RuntimeReserveCapacityView& candidate ) {
+                return candidate.ownerName && std::strcmp( candidate.ownerName, targetOwner ) == 0;
+            } );
+        return row != rows.end() ? &*row : nullptr;
+    };
+
+    {
+        RuntimeAllocationScope sceneLoad( RuntimeAllocationPhase::SceneLoad );
+        List canonical( ownerName, ExplicitTestCapacity );
+        canonical.Reserve( 3u );
+        canonical.resize( 2u );
+
+        {
+            List sameNameClone( ownerName, ExplicitTestCapacity );
+            sameNameClone.Reserve( 7u );
+            sameNameClone.resize( 6u );
+
+            const RuntimeReserveCapacityView* whileCloneLives = findCapacityRow( ownerName );
+            REQUIRE( whileCloneLives != nullptr );
+            CHECK( whileCloneLives->currentCapacity == 3 );
+            CHECK( whileCloneLives->liveCount == 2 );
+            CHECK( whileCloneLives->sessionHighWater == 2 );
+            CHECK( whileCloneLives->residentBytes == 3u * sizeof( int ) );
+        }
+
+        const RuntimeReserveCapacityView* afterCloneDestruction = findCapacityRow( ownerName );
+        REQUIRE( afterCloneDestruction != nullptr );
+        CHECK( afterCloneDestruction->currentCapacity == 3 );
+        CHECK( afterCloneDestruction->liveCount == 2 );
+        CHECK( afterCloneDestruction->sessionHighWater == 2 );
+        CHECK( afterCloneDestruction->residentBytes == 3u * sizeof( int ) );
+    }
+
+    const RuntimeReserveCapacityView* afterCanonicalDestruction = findCapacityRow( ownerName );
+    REQUIRE( afterCanonicalDestruction != nullptr );
+    CHECK( afterCanonicalDestruction->currentCapacity == 0 );
+    CHECK( afterCanonicalDestruction->liveCount == 0 );
+    CHECK( afterCanonicalDestruction->sessionHighWater == 2 );
+    CHECK( afterCanonicalDestruction->residentBytes == 0u );
+}
+
+
+TEST_CASE( "PhysicsFixedList: same-name move assignment transfers canonical publication" )
+{
+    using List = PhysicsFixedList<int, 8>;
+    constexpr const char* ownerName = "unit.physics-fixed-list.publisher-move";
+    const auto findCapacityRow = [ownerName]() -> const RuntimeReserveCapacityView* {
+        const std::span<const RuntimeReserveCapacityView> rows = RuntimeReserveAllocator::CapacityRows();
+        const auto row = std::find_if( rows.begin(), rows.end(), [ownerName]( const RuntimeReserveCapacityView& candidate ) {
+            return candidate.ownerName && std::strcmp( candidate.ownerName, ownerName ) == 0;
+        } );
+        return row != rows.end() ? &*row : nullptr;
+    };
+
+    RuntimeAllocationScope sceneLoad( RuntimeAllocationPhase::SceneLoad );
+    List canonical( ownerName, ExplicitTestCapacity );
+    canonical.Reserve( 3u );
+    canonical.resize( 2u );
+    List successor( ownerName, ExplicitTestCapacity );
+    successor.Reserve( 5u );
+    successor.resize( 4u );
+    successor = std::move( canonical );
+
+    const RuntimeReserveCapacityView* transferred = findCapacityRow();
+    REQUIRE( transferred != nullptr );
+    CHECK( transferred->currentCapacity == 5 );
+    CHECK( transferred->liveCount == 2 );
+    CHECK( transferred->sessionHighWater == 4 );
+    CHECK( transferred->residentBytes == 5u * sizeof( int ) );
 }
 
 
@@ -705,6 +794,13 @@ struct PhysicsFixedListThrowingValue
 
     PhysicsFixedListThrowingValue( PhysicsFixedListThrowingValue&& other ) : value( other.value )
     {
+        ++moveAttempts;
+
+        if ( throwOnMoveAttempt > 0 && moveAttempts == throwOnMoveAttempt )
+        {
+            throw std::runtime_error( "PhysicsFixedList move probe" );
+        }
+
         other.value = -1;
         ++liveCount;
     }
@@ -718,6 +814,8 @@ struct PhysicsFixedListThrowingValue
     static inline int liveCount = 0;
     static inline int copyAttempts = 0;
     static inline int throwOnCopyAttempt = 0;
+    static inline int moveAttempts = 0;
+    static inline int throwOnMoveAttempt = 0;
 };
 } // namespace
 
@@ -761,6 +859,8 @@ TEST_CASE( "PhysicsFixedList: failed non-trivial copy and relocation clean every
     PhysicsFixedListThrowingValue::liveCount = 0;
     PhysicsFixedListThrowingValue::copyAttempts = 0;
     PhysicsFixedListThrowingValue::throwOnCopyAttempt = 0;
+    PhysicsFixedListThrowingValue::moveAttempts = 0;
+    PhysicsFixedListThrowingValue::throwOnMoveAttempt = 0;
 
     {
         List source( "unit.physics-fixed-list.throwing-source", ExplicitTestCapacity );
@@ -805,6 +905,34 @@ TEST_CASE( "PhysicsFixedList: failed non-trivial copy and relocation clean every
         CHECK( source[1].value == 23 );
         CHECK( PhysicsFixedListThrowingValue::liveCount == 2 );
         PhysicsFixedListThrowingValue::throwOnCopyAttempt = 0;
+
+        PhysicsFixedListThrowingValue::moveAttempts = 0;
+        PhysicsFixedListThrowingValue::throwOnMoveAttempt = 2;
+        bool moveThrew = false;
+
+        try
+        {
+            List failedMove( std::move( source ) );
+        }
+        catch ( const std::runtime_error& )
+        {
+            moveThrew = true;
+        }
+
+        CHECK( moveThrew );
+        CHECK( PhysicsFixedListThrowingValue::liveCount == 2 );
+        source.clear();
+        const std::span<const RuntimeReserveCapacityView> capacityRows = RuntimeReserveAllocator::CapacityRows();
+        const auto sourceRow =
+            std::find_if( capacityRows.begin(), capacityRows.end(), []( const RuntimeReserveCapacityView& candidate ) {
+                return candidate.ownerName &&
+                       std::strcmp( candidate.ownerName, "unit.physics-fixed-list.throwing-source" ) == 0;
+            } );
+        REQUIRE( sourceRow != capacityRows.end() );
+        CHECK( sourceRow->currentCapacity == 3 );
+        CHECK( sourceRow->liveCount == 0 );
+        CHECK( sourceRow->sessionHighWater == 2 );
+        PhysicsFixedListThrowingValue::throwOnMoveAttempt = 0;
     }
 
     CHECK( PhysicsFixedListThrowingValue::liveCount == 0 );
@@ -830,6 +958,41 @@ TEST_CASE( "PhysicsFixedList: replay reserve requires an approved outer owner an
     }
 
     CHECK( values.capacity() == 4u );
+
+    constexpr const char* publishedOwnerName = "unit.physics-fixed-list.replay-published-source";
+    PhysicsFixedList<int, 8> publishedSource( publishedOwnerName, ExplicitTestCapacity );
+    {
+        RuntimeAllocationScope sceneLoad( RuntimeAllocationPhase::SceneLoad );
+        publishedSource.Reserve( 3u );
+        publishedSource.resize( 2u );
+    }
+
+    const auto findPublishedRow = [publishedOwnerName]() -> const RuntimeReserveCapacityView* {
+        const std::span<const RuntimeReserveCapacityView> rows = RuntimeReserveAllocator::CapacityRows();
+        const auto row = std::find_if( rows.begin(), rows.end(), [publishedOwnerName]( const RuntimeReserveCapacityView& candidate ) {
+            return candidate.ownerName && std::strcmp( candidate.ownerName, publishedOwnerName ) == 0;
+        } );
+        return row != rows.end() ? &*row : nullptr;
+    };
+    const RuntimeReserveCapacityView* beforeReplayClone = findPublishedRow();
+    REQUIRE( beforeReplayClone != nullptr );
+    REQUIRE( beforeReplayClone->currentCapacity == 3 );
+    REQUIRE( beforeReplayClone->liveCount == 2 );
+
+    {
+        RuntimeAllocationScope replayPhase( RuntimeAllocationPhase::Replay );
+        RuntimeReserveOwnerScope ownerScope( owner );
+        RuntimeReserveGrowthScope growthScope( owner, RuntimeReservePhase::Replay, growth );
+        PhysicsFixedList<int, 8> replayClone( publishedSource );
+        CHECK( replayClone.capacity() == 2u );
+        CHECK( replayClone.size() == 2u );
+    }
+
+    const RuntimeReserveCapacityView* afterReplayClone = findPublishedRow();
+    REQUIRE( afterReplayClone != nullptr );
+    CHECK( afterReplayClone->currentCapacity == 3 );
+    CHECK( afterReplayClone->liveCount == 2 );
+    CHECK( afterReplayClone->sessionHighWater == 2 );
 }
 
 

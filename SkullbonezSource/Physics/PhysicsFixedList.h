@@ -9,7 +9,9 @@ Summary:
   during scene load, or under ReplayPrediction's already-approved replay growth
   scope, retains one allocator-registry handle and a concrete sizing reason,
   constructs only the live prefix, and treats growth past the runtime
-  reservation or compile-time cap as a policy failure.
+  reservation or compile-time cap as a policy failure. The first direct
+  instance claims capacity-row publication; copies and same-name clones keep
+  their backing private from that canonical diagnostic row.
 
 Glossary:
   Fixed-capacity list: Contiguous storage with a runtime reservation and a
@@ -17,6 +19,8 @@ Glossary:
   Live count: Number of initialized entries currently visible to callers.
   Capacity cap: Compile-time maximum entry count that replaces vector capacity.
   Capacity reason: Scene quantity or fixed semantic bound that sizes one owner.
+  Canonical publisher: Direct list instance holding the allocator token for its
+    conceptual owner's capacity row.
 
 Invariants:
   - Construction registers one nonzero Physics owner handle in the allocator's
@@ -30,6 +34,8 @@ Invariants:
     list retains and publishes its own monotonic per-scene live-count high-water.
   - Capacity-session changes reset the local peak lazily before the next
     publication; retained stores do not carry a preceding scene's peak forward.
+  - Copy construction never duplicates the publisher token; move construction
+    transfers it, and noncanonical destruction cannot clear the canonical row.
 
 Related:
   - SkullbonezSource/Physics/PhysicsBodyStore.h
@@ -84,7 +90,8 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
     explicit PhysicsFixedList( const char* ownerName, const char* capacityReason )
         : m_ownerName( ownerName ? ownerName : "PhysicsFixedList" ),
           m_capacityReason( capacityReason ? capacityReason : "Unspecified PhysicsFixedList capacity" ),
-          m_ownerHandle( RegisterFixedOwner( m_ownerName, m_capacityReason ) )
+          m_ownerHandle( RegisterFixedOwner( m_ownerName, m_capacityReason ) ),
+          m_capacityPublisher( SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::ClaimCapacityPublisher( m_ownerHandle ) )
     {
 
         if ( m_ownerHandle == SkullbonezCore::Core::Allocation::INVALID_RUNTIME_RESERVE_OWNER )
@@ -120,6 +127,8 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
     {
         Reserve( other.m_count );
         MoveConstructFrom( other );
+        m_capacityPublisher = other.m_capacityPublisher;
+        other.m_capacityPublisher = SkullbonezCore::Core::Allocation::INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER;
         other.clear();
         PublishUsage();
     }
@@ -133,6 +142,15 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
         }
 
         Reserve( other.m_count );
+
+        if ( m_ownerHandle == other.m_ownerHandle &&
+             m_capacityPublisher == SkullbonezCore::Core::Allocation::INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER &&
+             other.m_capacityPublisher != SkullbonezCore::Core::Allocation::INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER )
+        {
+            m_capacityPublisher = other.m_capacityPublisher;
+            other.m_capacityPublisher = SkullbonezCore::Core::Allocation::INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER;
+        }
+
         clear();
         MoveConstructFrom( other );
         other.clear();
@@ -144,11 +162,12 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
     {
         clear();
 
-        if ( m_publishCapacityUsage )
+        if ( m_capacityPublisher != SkullbonezCore::Core::Allocation::INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER )
         {
-            SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::PublishCapacityUsage( m_ownerHandle, 0, 0,
-                                                                                             static_cast<int>( m_highWater ) );
-            m_publishCapacityUsage = false;
+            SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::ReleaseCapacityPublisher( m_ownerHandle,
+                                                                                                 m_capacityPublisher,
+                                                                                                 static_cast<int>( m_highWater ) );
+            m_capacityPublisher = SkullbonezCore::Core::Allocation::INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER;
         }
     }
 
@@ -300,7 +319,6 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
         RuntimeReserveOwnerScope ownerScope( m_ownerHandle );
         RuntimeReserveGrowthScope growthScope( m_ownerHandle, phase, growth );
         CommitBacking( requested );
-        m_publishCapacityUsage = true;
         PublishUsage();
     }
 
@@ -670,13 +688,13 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
     void PublishUsage()
     {
 
-        if ( !m_publishCapacityUsage )
+        if ( m_capacityPublisher == SkullbonezCore::Core::Allocation::INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER )
         {
             return;
         }
 
         SyncCapacitySession();
-        SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::PublishCapacityUsage( m_ownerHandle,
+        SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::PublishCapacityUsage( m_ownerHandle, m_capacityPublisher,
                                                                                          static_cast<int>( m_runtimeCapacity ),
                                                                                          static_cast<int>( m_count ),
                                                                                          static_cast<int>( m_highWater ) );
@@ -769,7 +787,8 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
     const char* m_capacityReason = "Unspecified PhysicsFixedList capacity";
     SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle
         m_ownerHandle = SkullbonezCore::Core::Allocation::INVALID_RUNTIME_RESERVE_OWNER;
-    bool m_publishCapacityUsage = false;
+    SkullbonezCore::Core::Allocation::RuntimeReserveCapacityPublisherToken
+        m_capacityPublisher = SkullbonezCore::Core::Allocation::INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER;
     uint64_t m_capacitySessionGeneration = 0u;
 };
 } // namespace Physics

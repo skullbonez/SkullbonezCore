@@ -92,6 +92,7 @@ struct OwnerRecord
     const char* capacityReason;
     int elementSizeBytes;
     int capacityRowIndex;
+    std::atomic<uint32_t> capacityPublisher;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     bool allowDevelopmentToolAllocations;
 #endif
@@ -120,6 +121,7 @@ std::atomic<int> s_registeredOwnerCount { 1 };
 std::atomic<uint64_t> s_policyViolations { 0 };
 std::atomic<uint64_t> s_growthEventCount { 0 };
 std::atomic<uint64_t> s_capacitySessionGeneration { 1 };
+std::atomic<uint32_t> s_nextCapacityPublisher { 1 };
 std::atomic_flag s_growthEventLock = ATOMIC_FLAG_INIT;
 OwnerRecord s_owners[MAX_RUNTIME_RESERVE_OWNERS] = {};
 RuntimeReserveCapacityView s_capacityRows[MAX_RUNTIME_RESERVE_OWNERS] = {};
@@ -425,6 +427,7 @@ RuntimeReserveOwnerHandle RuntimeReserveAllocator::RegisterOwner( const RuntimeR
     owner.capacityReason = desc.capacityReason && desc.capacityReason[0] != '\0' ? desc.capacityReason : "unspecified";
     owner.elementSizeBytes = desc.elementSizeBytes > 0 ? desc.elementSizeBytes : 0;
     owner.capacityRowIndex = -1;
+    owner.capacityPublisher.store( INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER, std::memory_order_relaxed );
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     owner.allowDevelopmentToolAllocations = desc.allowDevelopmentToolAllocations;
 #endif
@@ -513,24 +516,11 @@ RuntimeReserveGrowthResult RuntimeReserveAllocator::RequestGrowth( RuntimeReserv
                                         ? owner.counters.replayGrowths.fetch_add( 1u, std::memory_order_relaxed ) + 1u
                                         : oldGrowthCount;
 
-    // Invariant: owner names describe conceptual buffers and may be reused by
-    // isolated engines or test fixtures. Capacity telemetry is process-monotonic
-    // so a smaller second instance cannot make the registered owner appear to
-    // shrink while larger backing remains live.
+    // Policy counters are process-monotonic. The separately claimed canonical
+    // publisher owns the live capacity row, so a same-name clone cannot mutate
+    // that row merely by receiving scene-load backing.
     UpdateHighWaterI32( owner.counters.currentCapacity, request.requestedCapacity );
     UpdateHighWaterI32( owner.counters.highWaterCapacity, request.requestedCapacity );
-
-    if ( owner.capacityRowIndex >= 0 )
-    {
-        RuntimeReserveCapacityView& capacityRow = s_capacityRows[owner.capacityRowIndex];
-
-        if ( request.requestedCapacity > capacityRow.currentCapacity )
-        {
-            capacityRow.currentCapacity = request.requestedCapacity;
-            capacityRow.residentBytes = static_cast<uint64_t>( request.requestedCapacity ) *
-                                        static_cast<uint64_t>( capacityRow.elementSizeBytes );
-        }
-    }
 
     RuntimeReserveGrowthResult result = {};
     result.granted = true;
@@ -774,7 +764,82 @@ bool RuntimeReserveAllocator::CopyOwnerStatsByName( const char* ownerName, Runti
     return false;
 }
 
-void RuntimeReserveAllocator::PublishCapacityUsage( RuntimeReserveOwnerHandle ownerHandle, int currentCapacity,
+RuntimeReserveCapacityPublisherToken
+RuntimeReserveAllocator::ClaimCapacityPublisher( RuntimeReserveOwnerHandle ownerHandle ) noexcept
+{
+    const RuntimeReserveOwnerHandle ownerIndex = NormalizeOwnerHandle( ownerHandle );
+
+    if ( ownerIndex == UNREGISTERED_OWNER )
+    {
+        s_policyViolations.fetch_add( 1u, std::memory_order_relaxed );
+        return INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER;
+    }
+
+    OwnerRecord& owner = OwnerForHandle( ownerIndex );
+
+    if ( owner.capacityRowIndex < 0 )
+    {
+        return INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER;
+    }
+
+    RuntimeReserveCapacityPublisherToken publisher = s_nextCapacityPublisher.fetch_add( 1u, std::memory_order_relaxed );
+
+    if ( publisher == INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER )
+    {
+        publisher = s_nextCapacityPublisher.fetch_add( 1u, std::memory_order_relaxed );
+    }
+
+    uint32_t expected = INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER;
+
+    if ( !owner.capacityPublisher.compare_exchange_strong( expected, publisher, std::memory_order_acq_rel,
+                                                           std::memory_order_acquire ) )
+    {
+        return INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER;
+    }
+
+    return publisher;
+}
+
+void RuntimeReserveAllocator::ReleaseCapacityPublisher( RuntimeReserveOwnerHandle ownerHandle,
+                                                        RuntimeReserveCapacityPublisherToken publisher,
+                                                        int sessionHighWater ) noexcept
+{
+
+    if ( publisher == INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER )
+    {
+        return;
+    }
+
+    const RuntimeReserveOwnerHandle ownerIndex = NormalizeOwnerHandle( ownerHandle );
+
+    if ( ownerIndex == UNREGISTERED_OWNER )
+    {
+        s_policyViolations.fetch_add( 1u, std::memory_order_relaxed );
+        return;
+    }
+
+    OwnerRecord& owner = OwnerForHandle( ownerIndex );
+
+    if ( owner.capacityRowIndex < 0 || owner.capacityPublisher.load( std::memory_order_acquire ) != publisher )
+    {
+        return;
+    }
+
+    RuntimeReserveCapacityView& capacityRow = s_capacityRows[owner.capacityRowIndex];
+    capacityRow.currentCapacity = 0;
+    capacityRow.liveCount = 0;
+
+    if ( sessionHighWater > capacityRow.sessionHighWater )
+    {
+        capacityRow.sessionHighWater = sessionHighWater;
+    }
+
+    capacityRow.residentBytes = 0;
+    owner.capacityPublisher.store( INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER, std::memory_order_release );
+}
+
+void RuntimeReserveAllocator::PublishCapacityUsage( RuntimeReserveOwnerHandle ownerHandle,
+                                                    RuntimeReserveCapacityPublisherToken publisher, int currentCapacity,
                                                     int liveCount, int sessionHighWater ) noexcept
 {
     const RuntimeReserveOwnerHandle ownerIndex = NormalizeOwnerHandle( ownerHandle );
@@ -787,7 +852,8 @@ void RuntimeReserveAllocator::PublishCapacityUsage( RuntimeReserveOwnerHandle ow
 
     OwnerRecord& owner = OwnerForHandle( ownerIndex );
 
-    if ( owner.capacityRowIndex < 0 )
+    if ( owner.capacityRowIndex < 0 || publisher == INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER ||
+         owner.capacityPublisher.load( std::memory_order_acquire ) != publisher )
     {
         return;
     }
