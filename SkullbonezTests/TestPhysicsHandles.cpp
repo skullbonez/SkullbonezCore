@@ -50,6 +50,7 @@
 #include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
 #include "../SkullbonezSource/Physics/PhysicsEngine.h"
 #include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
+#include "../SkullbonezSource/Physics/Stages/ExternalForceStage.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRestoreService.h"
 
 #include <cstddef>
@@ -693,9 +694,9 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
     RuntimeReserveGrowthEventView events[128] = {};
     const int eventCount = RuntimeReserveAllocator::CopyRecentGrowthEvents( events, 128 );
 #if defined( _DEBUG )
-    REQUIRE( eventCount == 92 );
+    REQUIRE( eventCount == 94 );
 #else
-    REQUIRE( eventCount == 89 );
+    REQUIRE( eventCount == 91 );
 #endif
     CHECK( static_cast<uint64_t>( eventCount ) == RuntimeReserveAllocator::GrowthEventCount() );
 
@@ -720,6 +721,8 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
         { "PhysicsWorld.pointJointConstraints", 24 },
         { "PhysicsForceStage.m_mutualGravityForces", 2000 },
         { "PhysicsForceStage.m_mutualGravityPairForces", 130816 },
+        { "ExternalForceStage.fixedTreeReleaseWakeScratch", 2000 },
+        { "ExternalForceStage.releaseWakeBodies", 2000 },
         { "PhysicsBroadphaseStage.candidatePairs", 8000 },
         { "PhysicsBroadphaseStage.collisionCellKeys", 8000 },
 #if defined( _DEBUG )
@@ -790,6 +793,45 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
     CHECK( PhysicsEngine::ReadColliders( *engine ).HullShapeCapacity() == 0u );
     CHECK( PhysicsEngine::ReadPointJointConstraints( *engine ).capacity() == 24u );
     CHECK( PhysicsEngine::ReadPointJointCapacity( *engine ) == 24u );
+}
+
+TEST_CASE( "External force fixed release uses scene-committed body scratch" )
+{
+    using SkullbonezCore::Core::Allocation::RuntimeAllocationPhase;
+    using SkullbonezCore::Core::Allocation::RuntimeAllocationScope;
+    using SkullbonezCore::Physics::ExternalCylindricalForceField;
+    using SkullbonezCore::Physics::ExternalForceFrameInput;
+    using SkullbonezCore::Physics::ExternalForceStage;
+
+    PhysicsBodyStore& bodies = TestBodyStore();
+    PhysicsBodyCreateRecord body = MakeBodyRecord( 909u, Vector3( 1.0f, 1.0f, 0.0f ) );
+    body.cold.releasesFromFixedOnContact = true;
+    body.cold.contactReleaseImpulseThreshold = 0.0f;
+    body.hot.fixed = true;
+    REQUIRE( bodies.CreateBodyRecord( body ).IsValid() );
+
+    ExternalForceStage stage;
+
+    {
+        RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+        stage.ReserveBodyCapacity( 1u );
+    }
+
+    ExternalCylindricalForceField field;
+    field.center = Vector3( 0.0f, 0.0f, 0.0f );
+    field.radiusMeters = 10.0f;
+    field.heightMeters = 10.0f;
+    field.inwardAccelerationMetersPerSecondSquared = 100.0f;
+    field.maxDeltaVelocityMetersPerSecond = 100.0f;
+
+    ExternalForceFrameInput input;
+    input.fields = std::span<const ExternalCylindricalForceField>( &field, 1u );
+
+    const std::span<const int> released = stage.ReleaseFixedBodies( input, bodies );
+    REQUIRE( released.size() == 1u );
+    CHECK( released.front() == 0 );
+    CHECK( bodies.HotFields().fixed[0] == 0u );
+    CHECK( stage.CollectMemoryBytes() == sizeof( int ) * 2u );
 }
 
 

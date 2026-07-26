@@ -685,6 +685,13 @@ unchanged, and byte-exact Physics plus independent ownership review are clear.
 Permanent closure evidence is
 `../Reports/2026-07-27/extraction-scar-remediation-closure.md`.
 
+The denominator then fell 50 to 42 on 2026-07-27 when
+`scene-sized-store-capacity` closed SC0-SC7 and left the live inventory under
+rule 4. Final source has 98 scene-committed Physics rows, the complete retained
+payload falls 89.06% for the 200-body scene, and the isolated prediction-engine
+request falls 82.21%. Permanent closure evidence is
+`../Reports/2026-07-27/scene-sized-store-capacity-closure.md`.
+
 ### Binding Owner Rulings — 2026-07-27: Round 5 Open Decisions Closed
 
 The owner ruled all three blocking Round 5 decisions on 2026-07-27 so the campaign
@@ -725,10 +732,10 @@ owner code style, and the space-scene velocity-drag preview are closed, and the
 completed TODO was deleted under inventory rule 4. Permanent evidence is
 `../Reports/2026-07-26/nightrunner-26-july-closure.md`.
 
-NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 7/50 (14%).
-`governance-shape-to-judgment-conversion` and
-`extraction-scar-remediation` closed on 2026-07-27 and left the live inventory
-under rule 4. Plan 2 `scene-sized-store-capacity` closed SC0-SC6; SC7 is the
+NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 0/42 (0%).
+`governance-shape-to-judgment-conversion`, `extraction-scar-remediation`, and
+`scene-sized-store-capacity` closed on 2026-07-27 and left the live inventory
+under rule 4. Plan 3 `store-capacity-memory-reporting` is unblocked; MR0 is the
 binding next task.
 
 G0 recorded five rule gaps with the admitting `AGENTS.md` text for each; evidence
@@ -2028,8 +2035,8 @@ requires owner divergence authority and the campaign is byte-exact throughout.
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
 | 1 | [governance-shape-to-judgment-conversion](../Reports/2026-07-27/governance-shape-to-judgment-conversion-closure.md) | Complete | 6/6 | Closed 2026-07-27 and removed from the live ledger under rule 4 |
-| 2 | [scene-sized-store-capacity](TODO/scene-sized-store-capacity.md) | In progress | 7/8 | SC6 binds the isolated prediction engine to the live scene's exact capacity profile, reducing the measured 200-body private-engine reservation by 134.290 MiB while preserving the one-generation visual oracle; evidence is [`SC6 prediction parity`](../Reports/2026-07-27/scene-sized-store-capacity-sc6-prediction-parity.md). **Binding next task: SC7** |
-| 3 | [store-capacity-memory-reporting](TODO/store-capacity-memory-reporting.md) | Not started | 0/4 | Hard dependency on plan 2 — registering before SC1-SC6 would report the 8,192 constants |
+| 2 | [scene-sized-store-capacity](../Reports/2026-07-27/scene-sized-store-capacity-closure.md) | Complete | 8/8 | Closed 2026-07-27 and removed from the live ledger under rule 4; 98 retained rows are scene-committed and the final 200-body payload is 89.06% smaller |
+| 3 | [store-capacity-memory-reporting](TODO/store-capacity-memory-reporting.md) | In progress | 0/4 | Plan 2 is closed. **Binding next task: MR0** |
 | 4 | [ceremonial-aggregate-elimination](TODO/ceremonial-aggregate-elimination.md) | Not started | 0/5 | After plan 1. Small aggregates only; frame views and backend view are plans 5 and 6 |
 | 5 | [runtime-frame-view-retirement](TODO/runtime-frame-view-retirement.md) | Not started | 0/4 | After plan 6, so FV2 need not preserve `renderBackendView`. Endpoint ratified 2026-07-27: concrete operands, no frame transaction |
 | 6 | [render-backend-service-bag-removal](TODO/render-backend-service-bag-removal.md) | Not started | 0/4 | After plan 1. Completes the removal PB3's review started |

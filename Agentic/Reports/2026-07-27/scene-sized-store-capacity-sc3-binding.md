@@ -2,7 +2,7 @@
 
 Date: 2026-07-27
 Branch: `nightrunner-26th-JUL-26`
-Plan: `../../Plans/TODO/scene-sized-store-capacity.md`
+Plan: `scene-sized-store-capacity` SC3
 
 ## Outcome
 

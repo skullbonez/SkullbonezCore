@@ -2,7 +2,7 @@
 
 Date: 2026-07-27
 Branch: `nightrunner-26th-JUL-26`
-Plan: `../../Plans/TODO/scene-sized-store-capacity.md`
+Plan: `scene-sized-store-capacity` SC6
 
 ## Outcome
 
@@ -25,10 +25,13 @@ the private-engine request through the registered replay reserve owner:
 | Measurement | Bytes | MiB |
 |---|---:|---:|
 | Pre-campaign same-scenario request | 171,278,688 | 163.344 |
-| SC6 same-scenario request | 30,465,820 | 29.054 |
-| Reduction | 140,812,868 | 134.290 |
+| Final same-scenario request | 30,467,508 | 29.056 |
+| Reduction | 140,811,180 | 134.288 |
 
-That is an 82.21% reduction in retained private-engine bytes. The earlier
+That is an 82.21% reduction in retained private-engine bytes. SC7's independent
+review found two pre-existing external-force rows that also needed a
+scene-capacity commit; the final measurement above supersedes SC6's provisional
+30,465,820-byte request by 1,688 bytes. The earlier
 measurement is preserved in
 `TestOutput/validation/replay_visual_fidelity/full_reveal_probe_incremental_candidate.log`;
 the accepted SC6 measurement is in

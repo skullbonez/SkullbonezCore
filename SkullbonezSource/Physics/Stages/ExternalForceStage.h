@@ -33,6 +33,7 @@ Related:
 #include "../../Core/SceneCapacity.h"
 #include "../../Maths/Vector3.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <span>
 
@@ -86,6 +87,7 @@ class ExternalForceStage
   public:
     ExternalForceStage();
     void Clear();
+    void ReserveBodyCapacity( std::size_t bodyCapacity );
     std::span<const int> ReleaseFixedBodies( const ExternalForceFrameInput& input, PhysicsBodyStore& bodyStore );
 
     // Lifetime: the concrete wake capability and worker owner are borrowed only
@@ -100,8 +102,8 @@ class ExternalForceStage
                                               ExternalCylindricalForceField& outBestField,
                                               float& outBestAccelerationSq ) const;
 
-    PhysicsBodyIndexList m_fixedTreeReleaseWakeScratch { "ExternalForceStage fixed-tree release scratch" };
-    PhysicsBodyIndexList m_releaseWakeBodies { "ExternalForceStage release output" };
+    PhysicsBodyIndexList m_fixedTreeReleaseWakeScratch { "ExternalForceStage.fixedTreeReleaseWakeScratch" };
+    PhysicsBodyIndexList m_releaseWakeBodies { "ExternalForceStage.releaseWakeBodies" };
 };
 } // namespace Physics
 } // namespace SkullbonezCore

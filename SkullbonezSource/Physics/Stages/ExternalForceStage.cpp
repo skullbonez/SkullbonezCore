@@ -107,6 +107,12 @@ Vector3 ClampVectorMagnitude( const Vector3& value, float maxMagnitude )
 
 ExternalForceStage::ExternalForceStage() = default;
 
+void ExternalForceStage::ReserveBodyCapacity( std::size_t bodyCapacity )
+{
+    m_fixedTreeReleaseWakeScratch.Reserve( bodyCapacity );
+    m_releaseWakeBodies.Reserve( bodyCapacity );
+}
+
 void ExternalForceStage::Clear()
 {
     m_fixedTreeReleaseWakeScratch.clear();
@@ -287,10 +293,7 @@ void ExternalForceStage::ApplyBodyForces( const ExternalForceFrameInput& input, 
 
 uint64_t ExternalForceStage::CollectMemoryBytes() const
 {
-
-    // Invariant: both scratch lists are inline fixed-capacity stores, so this
-    // stage contributes no dynamic-memory capacity to owner accounting.
-    return 0u;
+    return m_fixedTreeReleaseWakeScratch.committed_bytes() + m_releaseWakeBodies.committed_bytes();
 }
 
 Vector3 ExternalForceStage::SampleAcceleration( const ExternalForceFrameInput& input, const Vector3& position,

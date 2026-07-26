@@ -400,6 +400,7 @@ void PhysicsWorld::ReserveBodyScratchCapacity( std::size_t bodyCapacity, std::si
     m_pointJointConstraints.Reserve( pointJointCapacity );
 
     m_forceStage.ReserveBodyScratchCapacity( bodyCapacity );
+    m_externalForceStage.ReserveBodyCapacity( bodyCapacity );
     m_broadphase.ReserveSceneCapacity( bodyCapacity );
     m_narrowphase.ReserveSceneCapacity( bodyCapacity );
     m_contactSolverStage.ReserveSceneCapacity( bodyCapacity );
