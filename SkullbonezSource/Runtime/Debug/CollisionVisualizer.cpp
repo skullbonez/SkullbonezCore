@@ -609,7 +609,7 @@ void CollisionVisualizer::Render( Assets::AssetSystem& assets, Rendering::Dx12Re
                 continue;
             }
 
-            const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &collider.shape );
+            const ConvexHullShape* hull = GetShapeIf<ConvexHullShape>( &collider.shape );
 
             if ( !hull )
             {

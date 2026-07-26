@@ -98,8 +98,14 @@ struct TerrainContactSweepResult
 
 TerrainContactSweepResult SweepTerrainContact( Core::Profiler* profiler, const TerrainContactBodyView& body,
                                                const Math::CollisionDetection::CollisionShape& shape, float changeInTime );
+TerrainContactSweepResult SweepTerrainContact( Core::Profiler* profiler, const TerrainContactBodyView& body,
+                                               const Math::CollisionDetection::CollisionShapeReference& shape,
+                                               float changeInTime );
 bool BuildTerrainContactManifold( Core::Profiler* profiler, const TerrainContactBodyView& body,
                                   const Math::CollisionDetection::CollisionShape& shape, int bodyIndex,
+                                  const TerrainContactSweepResult& sweep, float availableTime, TerrainContactManifold& out );
+bool BuildTerrainContactManifold( Core::Profiler* profiler, const TerrainContactBodyView& body,
+                                  const Math::CollisionDetection::CollisionShapeReference& shape, int bodyIndex,
                                   const TerrainContactSweepResult& sweep, float availableTime, TerrainContactManifold& out );
 inline TerrainContactSweepResult SweepTerrainContact( const TerrainContactBodyView& body,
                                                       const Math::CollisionDetection::CollisionShape& shape,
@@ -107,8 +113,21 @@ inline TerrainContactSweepResult SweepTerrainContact( const TerrainContactBodyVi
 {
     return SweepTerrainContact( nullptr, body, shape, changeInTime );
 }
+inline TerrainContactSweepResult SweepTerrainContact( const TerrainContactBodyView& body,
+                                                      const Math::CollisionDetection::CollisionShapeReference& shape,
+                                                      float changeInTime )
+{
+    return SweepTerrainContact( nullptr, body, shape, changeInTime );
+}
 inline bool BuildTerrainContactManifold( const TerrainContactBodyView& body,
                                          const Math::CollisionDetection::CollisionShape& shape, int bodyIndex,
+                                         const TerrainContactSweepResult& sweep, float availableTime,
+                                         TerrainContactManifold& out )
+{
+    return BuildTerrainContactManifold( nullptr, body, shape, bodyIndex, sweep, availableTime, out );
+}
+inline bool BuildTerrainContactManifold( const TerrainContactBodyView& body,
+                                         const Math::CollisionDetection::CollisionShapeReference& shape, int bodyIndex,
                                          const TerrainContactSweepResult& sweep, float availableTime,
                                          TerrainContactManifold& out )
 {

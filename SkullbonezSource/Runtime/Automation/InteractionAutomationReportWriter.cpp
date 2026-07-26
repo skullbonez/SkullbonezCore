@@ -1437,9 +1437,9 @@ SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( const Interac
         const Physics::PhysicsColliderHandle colliderHandle = world.Colliders().HandleForModelIndex( modelIndex );
         const Physics::ColliderRecord* collider = world.Colliders().RecordForHandle( colliderHandle );
         const SkullbonezCore::Math::CollisionDetection::BoundingBox*
-            wallBrickShape = collider
-                                 ? std::get_if<SkullbonezCore::Math::CollisionDetection::BoundingBox>( &collider->shape )
-                                 : nullptr;
+            wallBrickShape = collider ? SkullbonezCore::Math::CollisionDetection::GetShapeIf<
+                                            SkullbonezCore::Math::CollisionDetection::BoundingBox>( &collider->shape )
+                                      : nullptr;
 
         const auto grounded = [&]( const RunReplayPredictionBodySample& body )
         {

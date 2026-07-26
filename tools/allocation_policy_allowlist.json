@@ -337,11 +337,11 @@
         ".push_back(",
         ".resize("
       ],
-      "owner": "ColliderStore cold authoring storage",
+      "owner": "ColliderStore cold rows and per-kind shape payload storage",
       "phase": "startup_preallocation_and_scene_mutation",
-      "reason": "Collider records and generation tables are sized during cold scene authoring; steady gameplay reads the preallocated dense store without growing it.",
-      "cap": "Bounded by MAX_SCENE_OBJECTS collider rows and handle-generation slots.",
-      "removal_or_wrapper_plan": "Replace the remaining cold vectors with fixed-capacity storage, then remove these patterns."
+      "reason": "Collider, handle, and per-kind shape backing capacity commits or grows only during SceneLoad; cold scene/editor mutation may append within committed capacity, while steady gameplay performs no backing allocation.",
+      "cap": "Every row family retains the MAX_SCENE_OBJECTS ceiling; per-kind payload capacity scales with its concrete collider count, and hull capacity remains zero until a cold hull insertion.",
+      "removal_or_wrapper_plan": "Teach the allocation scanner to recognize PhysicsFixedList operations and registered reserve phases, then remove this lexical allowlist."
     },
     {
       "path": "SkullbonezSource/Physics/DisjointSet.h",

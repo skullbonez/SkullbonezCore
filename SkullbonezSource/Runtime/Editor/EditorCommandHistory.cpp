@@ -28,13 +28,13 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-bool TryCaptureEditorPrimitiveShape( const Math::CollisionDetection::CollisionShape& shape,
+bool TryCaptureEditorPrimitiveShape( const Math::CollisionDetection::CollisionShapeReference& shape,
                                      EditorPrimitiveShapeSnapshot& outSnapshot )
 {
     using namespace Math::CollisionDetection;
     outSnapshot = {};
 
-    if ( const BoundingSphere* sphere = std::get_if<BoundingSphere>( &shape ) )
+    if ( const BoundingSphere* sphere = GetShapeIf<BoundingSphere>( &shape ) )
     {
         outSnapshot.kind = EditorPrimitiveShapeKind::Sphere;
         outSnapshot.dimensions.x = sphere->GetRadius();
@@ -43,7 +43,7 @@ bool TryCaptureEditorPrimitiveShape( const Math::CollisionDetection::CollisionSh
         return true;
     }
 
-    if ( const BoundingBox* box = std::get_if<BoundingBox>( &shape ) )
+    if ( const BoundingBox* box = GetShapeIf<BoundingBox>( &shape ) )
     {
         outSnapshot.kind = EditorPrimitiveShapeKind::Box;
         outSnapshot.dimensions = box->GetHalfExtents();

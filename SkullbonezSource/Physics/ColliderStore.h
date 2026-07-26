@@ -5,10 +5,13 @@ Purpose:
 
 Summary:
   ColliderStore owns dense hot collider rows plus a parallel cold authoring
-  row for scene round-trip text. Runtime authoring code may replace both rows
-  at explicit create/edit boundaries, while topology repair only refreshes body
-  identity from PhysicsBodyStore. Handles are allocator identity; record order
-  is only an iteration/detail surface.
+  row for scene round-trip text. Exact shape payloads live in separate
+  sphere-, box-, and convex-hull stores, so ordinary collider rows contain only
+  typed references and scenes without hulls allocate no hull payload storage.
+  Runtime authoring code may replace these rows at explicit cold create/edit
+  boundaries, while topology repair only refreshes body identity from
+  PhysicsBodyStore. Handles are allocator identity; record order is only an
+  iteration/detail surface.
 
 Glossary:
   Collider: Shape metadata used to choose sphere, box, or convex-hull tests.
@@ -21,6 +24,10 @@ Glossary:
 Invariants:
   - Body-binding refresh keeps store row order aligned to scene physics order.
   - Hot and authoring rows share the same dense index and compact together.
+  - Shape payload stores compact by kind; every surviving collider reference is
+    rebound after backing relocation or swap-last removal.
+  - Hull capacity is driven by authored hull count, not total collider count;
+    a zero-hull scene retains zero hull storage.
   - Standalone creation keeps rows dense for cache-friendly scans; handles map
     back to the current row after deletions move the last record down.
   - Collider handles are allocator-owned; model-order arrays use explicit maps
@@ -65,7 +72,7 @@ struct ColliderRecord
 
     // Stable cross-system identity paired with this collider.
     PhysicsSceneObjectId sceneObjectId;
-    Math::CollisionDetection::CollisionShape shape;                                                  // Exact shape variant used by narrowphase.
+    Math::CollisionDetection::CollisionShapeReference shape;                                         // Typed borrow into the store's per-kind shape storage.
     ColliderShapeKind shapeKind = ColliderShapeKind::Sphere;                                         // Cheap typed discriminator for tools and migration checks.
     float boundingRadius = 0.0f;                                                                     // Broadphase reads this conservative radius every fixed tick.
     float restitution = 0.0f;                                                                        // Contact generation reads this bounce policy every fixed tick.
@@ -91,31 +98,47 @@ using ColliderHandleSceneObjectIdList = PhysicsFixedList<PhysicsSceneObjectId,
                                                          SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 using ColliderHandleSlotList = PhysicsFixedList<uint32_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 using ColliderHandleAssignmentMask = PhysicsFixedList<uint8_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
+using ColliderSphereShapeList = PhysicsFixedList<Math::CollisionDetection::BoundingSphere,
+                                                 SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
+using ColliderBoxShapeList = PhysicsFixedList<Math::CollisionDetection::BoundingBox,
+                                              SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
+using ColliderHullShapeList = PhysicsFixedList<Math::CollisionDetection::ConvexHullShape,
+                                               SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 
 class ColliderStore
 {
   public:
     ColliderStore();
+    ColliderStore( const ColliderStore& other );
+    ColliderStore& operator=( const ColliderStore& other );
+    ColliderStore( ColliderStore&& other );
+    ColliderStore& operator=( ColliderStore&& other );
     void ReserveCapacity( std::size_t capacity );
+    void ReserveShapeCapacity( std::size_t sphereCapacity, std::size_t boxCapacity, std::size_t hullCapacity );
 
     void Clear();
     bool RefreshBodyBindings( const PhysicsBodyStore& bodyStore );
-    PhysicsColliderHandle CreateColliderRecord( const ColliderRecord& initialRecord );
+    PhysicsColliderHandle CreateColliderRecord( const ColliderRecord& initialRecord,
+                                                const Math::CollisionDetection::CollisionShape& shape );
 
     // Creates hot and cold rows in one topology transaction. Callers that own
     // authored material text must use this overload so row indices cannot drift.
     PhysicsColliderHandle CreateColliderRecord( const ColliderRecord& initialRecord,
+                                                const Math::CollisionDetection::CollisionShape& shape,
                                                 const ColliderAuthoringRecord& initialAuthoringRecord );
 
     // Authoring edits replace row contents through the stable collider handle,
     // so callers do not need to expose model-order slots at the PhysicsEngine
     // owner boundary.
-    bool UpdateRecordForHandle( PhysicsColliderHandle handle, const ColliderRecord& record );
+    bool UpdateRecordForHandle( PhysicsColliderHandle handle, const ColliderRecord& record,
+                                const Math::CollisionDetection::CollisionShape& shape );
 
     // Replaces hot and cold authored facts together while retaining handle identity.
     bool UpdateRecordForHandle( PhysicsColliderHandle handle, const ColliderRecord& record,
+                                const Math::CollisionDetection::CollisionShape& shape,
                                 const ColliderAuthoringRecord& authoringRecord );
-    bool UpdateRecordForModelIndex( int modelIndex, const ColliderRecord& record );
+    bool UpdateRecordForModelIndex( int modelIndex, const ColliderRecord& record,
+                                    const Math::CollisionDetection::CollisionShape& shape );
 
     // Runtime config updates material scalars in-place instead of rebuilding
     // shape records from scene authoring payloads.
@@ -146,6 +169,12 @@ class ColliderStore
     std::span<ColliderRecord> MutableRecords();
     std::size_t RecordCapacity() const;
     std::size_t AuthoringRecordCapacity() const;
+    std::size_t SphereShapeCount() const;
+    std::size_t SphereShapeCapacity() const;
+    std::size_t BoxShapeCount() const;
+    std::size_t BoxShapeCapacity() const;
+    std::size_t HullShapeCount() const;
+    std::size_t HullShapeCapacity() const;
     uint64_t CollectRuntimeCapacityMemoryBytes() const;
     ColliderRecord* MutableRecordForHandle( PhysicsColliderHandle handle );
     const ColliderRecord* RecordForHandle( PhysicsColliderHandle handle ) const;
@@ -159,6 +188,11 @@ class ColliderStore
     PhysicsColliderHandle ResolveHandleForModelIndex( int modelIndex, PhysicsSceneObjectId sceneObjectId,
                                                       ColliderHandleAssignmentMask& assignedHandleSlots );
     void RetireUnassignedHandles( const ColliderHandleAssignmentMask& assignedHandleSlots );
+    Math::CollisionDetection::CollisionShapeReference AppendShape( const Math::CollisionDetection::CollisionShape& shape );
+    void ReplaceShape( int recordIndex, const Math::CollisionDetection::CollisionShape& shape );
+    void RemoveShape( const ColliderRecord& record, int ignoredRecordIndex );
+    void RebindShapeReferences();
+    void RebindShapeReferences( ColliderShapeKind shapeKind );
 
     ColliderRecordList m_colliders { "ColliderStore.colliders" };                                    // Dense live collider records.
 
@@ -175,6 +209,12 @@ class ColliderStore
     // Runtime allocation policy: refresh reuses this handle-slot mask rather
     // than allocating a heap-backed standard-library container in topology repair.
     ColliderHandleAssignmentMask m_assignedHandleScratch { "ColliderStore.assignedHandleScratch" };
+
+    // Shape payloads are dense by concrete type. In particular, hull backing is
+    // absent for a zero-hull scene instead of inflating every ColliderRecord.
+    ColliderSphereShapeList m_sphereShapes { "ColliderStore.sphereShapes" };
+    ColliderBoxShapeList m_boxShapes { "ColliderStore.boxShapes" };
+    ColliderHullShapeList m_hullShapes { "ColliderStore.hullShapes" };
 };
 } // namespace Physics
 } // namespace SkullbonezCore

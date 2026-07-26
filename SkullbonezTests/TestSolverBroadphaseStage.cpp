@@ -43,6 +43,8 @@
 #include <cmath>
 
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
+using SkullbonezCore::Math::CollisionDetection::CollisionShape;
 using SkullbonezCore::Physics::BroadphaseCandidateAppendHasCapacity;
 using SkullbonezCore::Physics::BroadphaseCandidateCanTouch;
 using SkullbonezCore::Physics::ColliderRecord;
@@ -70,7 +72,8 @@ void AddCandidateBody( PhysicsBodyStore& bodyStore,
 
     ColliderRecord collider;
     collider.boundingRadius = radius;
-    (void)colliderStore.CreateColliderRecord( collider );
+    const CollisionShape shape( BoundingSphere( radius, Vector3( 0.0f, 0.0f, 0.0f ), 0.0f ) );
+    (void)colliderStore.CreateColliderRecord( collider, shape );
 }
 
 TEST_CASE( "Broadphase candidate append capacity rejects equality before vector growth" )
@@ -106,6 +109,7 @@ ColliderStore& TestColliderStore()
         SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
             SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         store.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+        store.ReserveShapeCapacity( 16u, 0u, 0u );
     }
     store.Clear();
     return store;

@@ -263,7 +263,7 @@ struct ReplayVelocityBodyView
     Quaternion orientation = IDENTITY_QUATERNION;
     Vector3 linearVelocity = SkullbonezCore::Math::Vector::ZERO_VECTOR;
     Vector3 angularVelocity = SkullbonezCore::Math::Vector::ZERO_VECTOR;
-    const CollisionShape* shape = nullptr;
+    const CollisionShapeReference* shape = nullptr;
     float radius = 1.0f;
     bool fixed = false;
 };

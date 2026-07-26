@@ -718,10 +718,10 @@ owner code style, and the space-scene velocity-drag preview are closed, and the
 completed TODO was deleted under inventory rule 4. Permanent evidence is
 `../Reports/2026-07-26/nightrunner-26-july-closure.md`.
 
-NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 2/53 (4%).
+NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 3/53 (6%).
 `governance-shape-to-judgment-conversion` closed G0-G4 on 2026-07-27 and left
 the live inventory under rule 4. Plan 2 `scene-sized-store-capacity` closed
-SC0-SC1; SC2 is the binding next task. Plan 7 must run before plan 2 reaches
+SC0-SC2; SC3 is the binding next task. Plan 7 must run before plan 2 reaches
 SC4/SC5.
 
 G0 recorded five rule gaps with the admitting `AGENTS.md` text for each; evidence
@@ -2019,7 +2019,7 @@ requires owner divergence authority and the campaign is byte-exact throughout.
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
 | 1 | [governance-shape-to-judgment-conversion](../Reports/2026-07-27/governance-shape-to-judgment-conversion-closure.md) | Complete | 6/6 | Closed 2026-07-27 and removed from the live ledger under rule 4 |
-| 2 | [scene-sized-store-capacity](TODO/scene-sized-store-capacity.md) | In progress | 2/8 | **Binding next task: SC2.** SC0 corrected the census to 93 retained dense rows and a 112,042,496-byte Debug payload lower bound per engine; SC1 added registered runtime backing and closed the container defects; evidence is [`sc0-census`](../Reports/2026-07-27/scene-sized-store-capacity-sc0-census.md) |
+| 2 | [scene-sized-store-capacity](TODO/scene-sized-store-capacity.md) | In progress | 3/8 | **Binding next task: SC3.** SC2 reduced `ColliderRecord` from 7,228 to 80 bytes, split per-kind payload storage, and proved zero hull capacity for zero-hull scenes; evidence is [`SC2 shape storage`](../Reports/2026-07-27/scene-sized-store-capacity-sc2-shape-storage.md) |
 | 3 | [store-capacity-memory-reporting](TODO/store-capacity-memory-reporting.md) | Not started | 0/4 | Hard dependency on plan 2 — registering before SC1-SC6 would report the 8,192 constants |
 | 4 | [ceremonial-aggregate-elimination](TODO/ceremonial-aggregate-elimination.md) | Not started | 0/5 | After plan 1. Small aggregates only; frame views and backend view are plans 5 and 6 |
 | 5 | [runtime-frame-view-retirement](TODO/runtime-frame-view-retirement.md) | Not started | 0/4 | After plan 6, so FV2 need not preserve `renderBackendView`. Endpoint ratified 2026-07-27: concrete operands, no frame transaction |

@@ -218,13 +218,14 @@ struct PickShapeVisitor
 } // namespace
 
 
-bool TryIntersectRuntimePickShape( const Math::CollisionDetection::CollisionShape& shape,
+bool TryIntersectRuntimePickShape( const Math::CollisionDetection::CollisionShapeReference& shape,
                                    const RuntimePickShapeTransform& transform, const Math::Vector::Vector3& rayOrigin,
                                    const Math::Vector::Vector3& rayDirection, float& outT )
 {
     outT = 0.0f;
     const Math::Transformation::RotationMatrix rotation = BuildPickRotation( transform.orientation );
-    return std::visit( PickShapeVisitor { transform, rayOrigin, rayDirection, rotation, outT }, shape );
+    return Math::CollisionDetection::VisitCollisionShape( shape, PickShapeVisitor { transform, rayOrigin, rayDirection,
+                                                                                    rotation, outT } );
 }
 } // namespace Runtime
 } // namespace SkullbonezCore

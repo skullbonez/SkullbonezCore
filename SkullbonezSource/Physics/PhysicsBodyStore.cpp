@@ -61,7 +61,10 @@ using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
 using SkullbonezCore::Math::CollisionDetection::GetShapeBoundingRadius;
+using SkullbonezCore::Math::CollisionDetection::GetShapeIf;
 using SkullbonezCore::Math::CollisionDetection::GetShapeTerrainBottomOffset;
+using SkullbonezCore::Math::CollisionDetection::HoldsShape;
+using SkullbonezCore::Math::CollisionDetection::VisitCollisionShape;
 using SkullbonezCore::Math::Transformation::RotationMatrix;
 using SkullbonezCore::Math::Vector::CrossProduct;
 using SkullbonezCore::Math::Vector::Vector3;
@@ -244,14 +247,14 @@ void ClampBodyToTerrainSurface( SkullbonezCore::Core::Profiler* profiler, const 
         return;
     }
 
-    if ( std::holds_alternative<BoundingBox>( collider.shape ) )
+    if ( HoldsShape<BoundingBox>( collider.shape ) )
     {
         Vector3 closestVertex;
         float terrainHeight = 0.0f;
         Plane terrainPlane;
         float gap = 0.0f;
 
-        if ( FindClosestBoxTerrainVertex( profiler, terrain, hot, std::get<BoundingBox>( collider.shape ), closestVertex,
+        if ( FindClosestBoxTerrainVertex( profiler, terrain, hot, *GetShapeIf<BoundingBox>( &collider.shape ), closestVertex,
                                           terrainHeight, terrainPlane, gap ) &&
              gap < 0.0f )
         {
@@ -261,14 +264,14 @@ void ClampBodyToTerrainSurface( SkullbonezCore::Core::Profiler* profiler, const 
         return;
     }
 
-    if ( std::holds_alternative<ConvexHullShape>( collider.shape ) )
+    if ( HoldsShape<ConvexHullShape>( collider.shape ) )
     {
         Vector3 closestVertex;
         float terrainHeight = 0.0f;
         Plane terrainPlane;
         float gap = 0.0f;
 
-        if ( FindClosestHullTerrainVertex( profiler, terrain, hot, std::get<ConvexHullShape>( collider.shape ),
+        if ( FindClosestHullTerrainVertex( profiler, terrain, hot, *GetShapeIf<ConvexHullShape>( &collider.shape ),
                                            closestVertex, terrainHeight, terrainPlane, gap ) &&
              gap < 0.0f )
         {
@@ -499,45 +502,46 @@ PhysicsBuoyancySample CalculateBuoyancySample( const PhysicsBodyHotState& hot, c
         finishWeightedSample( weightedSum, wetWeight, center );
     };
 
-    std::visit( [&]( const auto& shape )
-                {
-                    using ShapeT = std::decay_t<decltype( shape )>;
+    VisitCollisionShape( collider.shape,
+                         [&]( const auto& shape )
+                         {
+                             using ShapeT = std::decay_t<decltype( shape )>;
 
-                    if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
-                    {
-                        const Vector3 center = bodyPosition + ( rotMat * shape.GetPosition() );
-                        sample.centerOfBuoyancy = center;
-                        const float radius = shape.GetRadius();
-                        const float fluidHeightRelativeToCenter = worldForces.fluidSurfaceHeight - center.y;
+                             if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
+                             {
+                                 const Vector3 center = bodyPosition + ( rotMat * shape.GetPosition() );
+                                 sample.centerOfBuoyancy = center;
+                                 const float radius = shape.GetRadius();
+                                 const float fluidHeightRelativeToCenter = worldForces.fluidSurfaceHeight - center.y;
 
-                        if ( fluidHeightRelativeToCenter <= -radius )
-                        {
-                            sample.submergedVolumePercent = 0.0f;
-                            return;
-                        }
+                                 if ( fluidHeightRelativeToCenter <= -radius )
+                                 {
+                                     sample.submergedVolumePercent = 0.0f;
+                                     return;
+                                 }
 
-                        if ( fluidHeightRelativeToCenter >= radius )
-                        {
-                            sample.submergedVolumePercent = 1.0f;
-                            return;
-                        }
+                                 if ( fluidHeightRelativeToCenter >= radius )
+                                 {
+                                     sample.submergedVolumePercent = 1.0f;
+                                     return;
+                                 }
 
-                        const float yValue = fluidHeightRelativeToCenter + radius;
-                        sample.submergedVolumePercent = (std::clamp)( ( ONE_OVER_THREE * _PI * ( ( 3.0f * radius ) - yValue ) *
-                                                                        yValue * yValue ) /
-                                                                          shape.GetVolume(),
-                                                                      0.0f, 1.0f );
-                    }
-                    else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
-                    {
-                        sampleOrientedBoxVolume( shape.GetPosition(), shape.GetHalfExtents() );
-                    }
-                    else
-                    {
-                        sampleOrientedBoxVolume( shape.GetPosition(), shape.GetInertiaHalfExtents() );
-                    }
-                },
-                collider.shape );
+                                 const float yValue = fluidHeightRelativeToCenter + radius;
+                                 sample.submergedVolumePercent = (std::clamp)( ( ONE_OVER_THREE * _PI *
+                                                                                 ( ( 3.0f * radius ) - yValue ) * yValue *
+                                                                                 yValue ) /
+                                                                                   shape.GetVolume(),
+                                                                               0.0f, 1.0f );
+                             }
+                             else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
+                             {
+                                 sampleOrientedBoxVolume( shape.GetPosition(), shape.GetHalfExtents() );
+                             }
+                             else
+                             {
+                                 sampleOrientedBoxVolume( shape.GetPosition(), shape.GetInertiaHalfExtents() );
+                             }
+                         } );
 
     return sample;
 }
@@ -556,64 +560,65 @@ float CalculateTerrainSupportFactor( const BuoyancyBodyFacts& buoyancyFacts, con
     int terrainSamples = 0;
     const Vector3 position = hot.position;
     const float supportGap = buoyancyFacts.contactEpsilon + SkullbonezCore::Physics::BOX_TERRAIN_VERTEX_SUPPORT_SLACK;
-    std::visit( [&]( const auto& shape )
-                {
-                    using ShapeT = std::decay_t<decltype( shape )>;
+    VisitCollisionShape( collider.shape,
+                         [&]( const auto& shape )
+                         {
+                             using ShapeT = std::decay_t<decltype( shape )>;
 
-                    if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
-                    {
-                        (void)shape;
-                    }
-                    else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
-                    {
-                        const Vector3& halfExtents = shape.GetHalfExtents();
+                             if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
+                             {
+                                 (void)shape;
+                             }
+                             else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
+                             {
+                                 const Vector3& halfExtents = shape.GetHalfExtents();
 
-                        for ( int corner = 0; corner < 8; ++corner )
-                        {
-                            const Vector3 local = shape.GetPosition() +
-                                                  SkullbonezCore::Physics::GetBoxTerrainLocalCorner( halfExtents, corner );
+                                 for ( int corner = 0; corner < 8; ++corner )
+                                 {
+                                     const Vector3 local = shape.GetPosition() +
+                                                           SkullbonezCore::Physics::GetBoxTerrainLocalCorner( halfExtents,
+                                                                                                              corner );
 
-                            const Vector3 worldPoint = position + ( rotMat * local );
+                                     const Vector3 worldPoint = position + ( rotMat * local );
 
-                            if ( !terrain.IsInBounds( worldPoint.x, worldPoint.z ) )
-                            {
-                                continue;
-                            }
+                                     if ( !terrain.IsInBounds( worldPoint.x, worldPoint.z ) )
+                                     {
+                                         continue;
+                                     }
 
-                            ++terrainSamples;
-                            const float terrainHeight = terrain.HeightAt( worldPoint.x, worldPoint.z );
+                                     ++terrainSamples;
+                                     const float terrainHeight = terrain.HeightAt( worldPoint.x, worldPoint.z );
 
-                            if ( worldPoint.y - terrainHeight <= supportGap )
-                            {
-                                ++closeSamples;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        const Vector3 hullCenter = position + ( rotMat * shape.GetPosition() );
-                        const uint16_t vertexCount = shape.GetVertexCount();
+                                     if ( worldPoint.y - terrainHeight <= supportGap )
+                                     {
+                                         ++closeSamples;
+                                     }
+                                 }
+                             }
+                             else
+                             {
+                                 const Vector3 hullCenter = position + ( rotMat * shape.GetPosition() );
+                                 const uint16_t vertexCount = shape.GetVertexCount();
 
-                        for ( uint16_t vertex = 0; vertex < vertexCount; ++vertex )
-                        {
-                            const Vector3 worldPoint = hullCenter + ( rotMat * shape.GetVertex( vertex ) );
+                                 for ( uint16_t vertex = 0; vertex < vertexCount; ++vertex )
+                                 {
+                                     const Vector3 worldPoint = hullCenter + ( rotMat * shape.GetVertex( vertex ) );
 
-                            if ( !terrain.IsInBounds( worldPoint.x, worldPoint.z ) )
-                            {
-                                continue;
-                            }
+                                     if ( !terrain.IsInBounds( worldPoint.x, worldPoint.z ) )
+                                     {
+                                         continue;
+                                     }
 
-                            ++terrainSamples;
-                            const float terrainHeight = terrain.HeightAt( worldPoint.x, worldPoint.z );
+                                     ++terrainSamples;
+                                     const float terrainHeight = terrain.HeightAt( worldPoint.x, worldPoint.z );
 
-                            if ( worldPoint.y - terrainHeight <= supportGap )
-                            {
-                                ++closeSamples;
-                            }
-                        }
-                    }
-                },
-                collider.shape );
+                                     if ( worldPoint.y - terrainHeight <= supportGap )
+                                     {
+                                         ++closeSamples;
+                                     }
+                                 }
+                             }
+                         } );
 
     if ( terrainSamples <= 0 || closeSamples <= 0 )
     {
@@ -657,26 +662,26 @@ Vector3 CalculateBuoyancyRightingTorque( const PhysicsBodyRecord& record, const 
     const RotationMatrix rotMat = orientation.GetOrientationMatrix();
     Vector3 stableHalfExtents( 1.0f, 1.0f, 1.0f );
     bool hasStableHalfExtents = false;
-    std::visit( [&]( const auto& shape )
-                {
-                    using ShapeT = std::decay_t<decltype( shape )>;
+    VisitCollisionShape( collider.shape,
+                         [&]( const auto& shape )
+                         {
+                             using ShapeT = std::decay_t<decltype( shape )>;
 
-                    if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
-                    {
-                        stableHalfExtents = shape.GetHalfExtents();
-                        hasStableHalfExtents = true;
-                    }
-                    else if constexpr ( std::is_same_v<ShapeT, ConvexHullShape> )
-                    {
-                        stableHalfExtents = shape.GetInertiaHalfExtents();
-                        hasStableHalfExtents = true;
-                    }
-                    else
-                    {
-                        (void)shape;
-                    }
-                },
-                collider.shape );
+                             if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
+                             {
+                                 stableHalfExtents = shape.GetHalfExtents();
+                                 hasStableHalfExtents = true;
+                             }
+                             else if constexpr ( std::is_same_v<ShapeT, ConvexHullShape> )
+                             {
+                                 stableHalfExtents = shape.GetInertiaHalfExtents();
+                                 hasStableHalfExtents = true;
+                             }
+                             else
+                             {
+                                 (void)shape;
+                             }
+                         } );
 
     if ( !hasStableHalfExtents )
     {

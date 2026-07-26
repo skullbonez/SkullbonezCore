@@ -463,8 +463,15 @@ SceneEntityCreateResult SceneWorld::TryCreateSceneEntity( SceneEntityCreateDesc 
     // Diagnostics receive stable SceneEntityStore names after the entity row
     // commits, so never retain this packet's displayName pointer.
     bodyDesc.diagnosticName = nullptr;
-    const PhysicsAuthoredBodyRegistration registration = m_physics.RegisterAuthoredBody( bodyDesc,
-                                                                                         std::move( colliderDesc ) );
+    PhysicsAuthoredBodyRegistration registration;
+    {
+
+        // Shape payload backing is scene topology, even when an editor command
+        // appends it after startup. Attribute that cold mutation to scene load
+        // so a newly introduced concrete shape kind can reserve its own store.
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneMutationScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        registration = m_physics.RegisterAuthoredBody( bodyDesc, std::move( colliderDesc ) );
+    }
 
     const PhysicsBodyHandle bodyHandle = registration.body;
     const PhysicsBodyRecord* bodyRecord = BodyStore().RecordForHandle( bodyHandle );

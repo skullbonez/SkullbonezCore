@@ -6,9 +6,12 @@ Purpose:
 Summary:
   Per-tick collider values live in dense ColliderRecord rows. Cold scene
   round-trip text lives in an index-aligned authoring row that compacts with
-  the hot row. Runtime editor/tooling code can replace both at cold authoring
-  edges, while config changes update hot material scalars in-place and topology
-  repair only rebases body identity and handle maps against PhysicsBodyStore.
+  the hot row. Exact geometry lives in compact per-kind stores and hot rows
+  borrow it through typed references, keeping convex-hull payload out of
+  sphere/box rows. Runtime editor/tooling code can replace both at cold
+  authoring edges, while config changes update hot material scalars in-place
+  and topology repair only rebases body identity and handle maps against
+  PhysicsBodyStore.
 
 Glossary:
   Collider: Shape metadata used to decide what precise collision test applies.
@@ -22,6 +25,10 @@ Invariants:
   - Dense collider rows stay in scene/model order for current solver traversal,
     but public collider handles are allocator-owned slots.
   - Authoring rows have exactly the same count and compaction moves as hot rows.
+  - Per-kind shape backing capacity grows only at approved cold mutation
+    boundaries; every relocation or compaction rebinds affected hot-row
+    references.
+  - A scene with no convex-hull colliders reserves no convex-hull shape rows.
   - Standalone records stay dense; deleting a collider may move the final row
     and updates only the moved handle's row map.
   - Body-binding refresh preserves shape/material fields; it must not reopen
@@ -35,17 +42,25 @@ Related:
 #include "PhysicsBodyStore.h"
 #include "PhysicsObjectPolicy.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <stdexcept>
+#include <type_traits>
 #include <variant>
 
 #include "../Core/Common.h"
+using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
+using SkullbonezCore::Math::CollisionDetection::CollisionShape;
+using SkullbonezCore::Math::CollisionDetection::CollisionShapeReference;
+using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
+using SkullbonezCore::Math::CollisionDetection::GetShapeIf;
 using SkullbonezCore::Physics::ColliderAuthoringRecord;
 using SkullbonezCore::Physics::ColliderHandleAssignmentMask;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderRecordList;
+using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::PHYSICS_HANDLE_INITIAL_GENERATION;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
@@ -60,10 +75,102 @@ uint32_t NextHandleGeneration( uint32_t generation )
     ++generation;
     return generation == 0u ? PHYSICS_HANDLE_INITIAL_GENERATION : generation;
 }
+
+std::size_t NextShapeCapacity( std::size_t currentCapacity, std::size_t requiredCapacity )
+{
+    const std::size_t doubled = currentCapacity > 0u ? currentCapacity * 2u : 1u;
+    return (std::max)( requiredCapacity, doubled );
+}
+
+ColliderShapeKind ShapeKindForShape( const CollisionShape& shape )
+{
+    return std::visit( []( const auto& shapeValue )
+                       {
+                           using ShapeT = std::decay_t<decltype( shapeValue )>;
+
+                           if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
+                           {
+                               return ColliderShapeKind::Sphere;
+                           }
+                           else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
+                           {
+                               return ColliderShapeKind::Box;
+                           }
+                           else
+                           {
+                               static_assert( std::is_same_v<ShapeT, ConvexHullShape>,
+                                              "Every CollisionShape alternative requires an explicit ColliderShapeKind." );
+
+                               return ColliderShapeKind::ConvexHull;
+                           }
+                       },
+                       shape );
+}
 } // namespace
 
 
 ColliderStore::ColliderStore() = default;
+
+ColliderStore::ColliderStore( const ColliderStore& other )
+{
+    *this = other;
+}
+
+
+ColliderStore& ColliderStore::operator=( const ColliderStore& other )
+{
+
+    if ( this == &other )
+    {
+        return *this;
+    }
+
+    m_colliders = other.m_colliders;
+    m_authoringRecords = other.m_authoringRecords;
+    m_modelColliderHandles = other.m_modelColliderHandles;
+    m_handleGenerations = other.m_handleGenerations;
+    m_handleAlive = other.m_handleAlive;
+    m_handleModelIndices = other.m_handleModelIndices;
+    m_handleSceneObjectIds = other.m_handleSceneObjectIds;
+    m_freeHandleSlots = other.m_freeHandleSlots;
+    m_assignedHandleScratch = other.m_assignedHandleScratch;
+    m_sphereShapes = other.m_sphereShapes;
+    m_boxShapes = other.m_boxShapes;
+    m_hullShapes = other.m_hullShapes;
+    RebindShapeReferences();
+    return *this;
+}
+
+
+ColliderStore::ColliderStore( ColliderStore&& other )
+{
+    *this = std::move( other );
+}
+
+
+ColliderStore& ColliderStore::operator=( ColliderStore&& other )
+{
+
+    if ( this == &other )
+    {
+        return *this;
+    }
+
+    m_colliders = std::move( other.m_colliders );
+    m_authoringRecords = std::move( other.m_authoringRecords );
+    m_modelColliderHandles = std::move( other.m_modelColliderHandles );
+    m_handleGenerations = std::move( other.m_handleGenerations );
+    m_handleAlive = std::move( other.m_handleAlive );
+    m_handleModelIndices = std::move( other.m_handleModelIndices );
+    m_handleSceneObjectIds = std::move( other.m_handleSceneObjectIds );
+    m_freeHandleSlots = std::move( other.m_freeHandleSlots );
+    m_assignedHandleScratch = std::move( other.m_assignedHandleScratch );
+    m_sphereShapes = std::move( other.m_sphereShapes );
+    m_boxShapes = std::move( other.m_boxShapes );
+    m_hullShapes = std::move( other.m_hullShapes );
+    RebindShapeReferences();
+    return *this;
+}
 
 
 void ColliderStore::ReserveCapacity( std::size_t capacity )
@@ -77,6 +184,14 @@ void ColliderStore::ReserveCapacity( std::size_t capacity )
     m_handleSceneObjectIds.Reserve( capacity );
     m_freeHandleSlots.Reserve( capacity );
     m_assignedHandleScratch.Reserve( capacity );
+}
+
+void ColliderStore::ReserveShapeCapacity( std::size_t sphereCapacity, std::size_t boxCapacity, std::size_t hullCapacity )
+{
+    m_sphereShapes.Reserve( sphereCapacity );
+    m_boxShapes.Reserve( boxCapacity );
+    m_hullShapes.Reserve( hullCapacity );
+    RebindShapeReferences();
 }
 
 
@@ -187,6 +302,9 @@ void ColliderStore::Clear()
     m_colliders.clear();
     m_authoringRecords.clear();
     m_modelColliderHandles.clear();
+    m_sphereShapes.clear();
+    m_boxShapes.clear();
+    m_hullShapes.clear();
 
     for ( uint32_t slot = 0; slot < static_cast<uint32_t>( m_handleAlive.size() ); ++slot )
     {
@@ -255,13 +373,230 @@ bool ColliderStore::RefreshBodyBindings( const PhysicsBodyStore& bodyStore )
 }
 
 
-PhysicsColliderHandle ColliderStore::CreateColliderRecord( const ColliderRecord& initialRecord )
+void ColliderStore::RebindShapeReferences( ColliderShapeKind shapeKind )
 {
-    return CreateColliderRecord( initialRecord, ColliderAuthoringRecord {} );
+
+    for ( ColliderRecord& record : m_colliders )
+    {
+
+        if ( record.shapeKind != shapeKind )
+        {
+            continue;
+        }
+
+        const std::size_t index = record.shape.StorageIndex();
+
+        switch ( shapeKind )
+        {
+        case ColliderShapeKind::Sphere:
+            assert( index < m_sphereShapes.size() );
+            record.shape = CollisionShapeReference( m_sphereShapes[index], static_cast<uint32_t>( index ) );
+            break;
+        case ColliderShapeKind::Box:
+            assert( index < m_boxShapes.size() );
+            record.shape = CollisionShapeReference( m_boxShapes[index], static_cast<uint32_t>( index ) );
+            break;
+        case ColliderShapeKind::ConvexHull:
+            assert( index < m_hullShapes.size() );
+            record.shape = CollisionShapeReference( m_hullShapes[index], static_cast<uint32_t>( index ) );
+            break;
+        }
+    }
 }
 
 
-PhysicsColliderHandle ColliderStore::CreateColliderRecord( const ColliderRecord& initialRecord,
+void ColliderStore::RebindShapeReferences()
+{
+    RebindShapeReferences( ColliderShapeKind::Sphere );
+    RebindShapeReferences( ColliderShapeKind::Box );
+    RebindShapeReferences( ColliderShapeKind::ConvexHull );
+}
+
+
+CollisionShapeReference ColliderStore::AppendShape( const CollisionShape& shape )
+{
+    return std::visit( [&]( const auto& shapeValue ) -> CollisionShapeReference
+                       {
+                           using ShapeT = std::decay_t<decltype( shapeValue )>;
+
+                           if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
+                           {
+                               const std::size_t required = m_sphereShapes.size() + 1u;
+
+                               if ( required > m_sphereShapes.capacity() )
+                               {
+                                   m_sphereShapes.Reserve( NextShapeCapacity( m_sphereShapes.capacity(), required ) );
+                                   RebindShapeReferences( ColliderShapeKind::Sphere );
+                               }
+
+                               const uint32_t index = static_cast<uint32_t>( m_sphereShapes.size() );
+                               m_sphereShapes.push_back( shapeValue );
+                               return CollisionShapeReference( m_sphereShapes[index], index );
+                           }
+                           else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
+                           {
+                               const std::size_t required = m_boxShapes.size() + 1u;
+
+                               if ( required > m_boxShapes.capacity() )
+                               {
+                                   m_boxShapes.Reserve( NextShapeCapacity( m_boxShapes.capacity(), required ) );
+                                   RebindShapeReferences( ColliderShapeKind::Box );
+                               }
+
+                               const uint32_t index = static_cast<uint32_t>( m_boxShapes.size() );
+                               m_boxShapes.push_back( shapeValue );
+                               return CollisionShapeReference( m_boxShapes[index], index );
+                           }
+                           else
+                           {
+                               const std::size_t required = m_hullShapes.size() + 1u;
+
+                               if ( required > m_hullShapes.capacity() )
+                               {
+                                   m_hullShapes.Reserve( NextShapeCapacity( m_hullShapes.capacity(), required ) );
+                                   RebindShapeReferences( ColliderShapeKind::ConvexHull );
+                               }
+
+                               const uint32_t index = static_cast<uint32_t>( m_hullShapes.size() );
+                               m_hullShapes.push_back( shapeValue );
+                               return CollisionShapeReference( m_hullShapes[index], index );
+                           }
+                       },
+                       shape );
+}
+
+
+void ColliderStore::RemoveShape( const ColliderRecord& record, int ignoredRecordIndex )
+{
+    const std::size_t removedIndex = record.shape.StorageIndex();
+
+    const auto remapMovedShape = [&]( std::size_t previousLastIndex )
+    {
+
+        if ( removedIndex == previousLastIndex )
+        {
+            return;
+        }
+
+        for ( int recordIndex = 0; recordIndex < Count(); ++recordIndex )
+        {
+
+            if ( recordIndex == ignoredRecordIndex )
+            {
+                continue;
+            }
+
+            ColliderRecord& candidate = m_colliders[static_cast<std::size_t>( recordIndex )];
+
+            if ( candidate.shapeKind == record.shapeKind && candidate.shape.StorageIndex() == previousLastIndex )
+            {
+                candidate.shape = record.shapeKind == ColliderShapeKind::Sphere
+                                      ? CollisionShapeReference( m_sphereShapes[removedIndex],
+                                                                 static_cast<uint32_t>( removedIndex ) )
+                                  : record.shapeKind == ColliderShapeKind::Box
+                                      ? CollisionShapeReference( m_boxShapes[removedIndex],
+                                                                 static_cast<uint32_t>( removedIndex ) )
+                                      : CollisionShapeReference( m_hullShapes[removedIndex],
+                                                                 static_cast<uint32_t>( removedIndex ) );
+
+                return;
+            }
+        }
+
+        assert( false && "ColliderStore shape compaction lost its owning collider row." );
+    };
+
+    switch ( record.shapeKind )
+    {
+    case ColliderShapeKind::Sphere:
+    {
+        assert( removedIndex < m_sphereShapes.size() );
+        const std::size_t last = m_sphereShapes.size() - 1u;
+
+        if ( removedIndex != last )
+        {
+            m_sphereShapes[removedIndex] = std::move( m_sphereShapes[last] );
+        }
+
+        m_sphereShapes.pop_back();
+        remapMovedShape( last );
+        break;
+    }
+    case ColliderShapeKind::Box:
+    {
+        assert( removedIndex < m_boxShapes.size() );
+        const std::size_t last = m_boxShapes.size() - 1u;
+
+        if ( removedIndex != last )
+        {
+            m_boxShapes[removedIndex] = std::move( m_boxShapes[last] );
+        }
+
+        m_boxShapes.pop_back();
+        remapMovedShape( last );
+        break;
+    }
+    case ColliderShapeKind::ConvexHull:
+    {
+        assert( removedIndex < m_hullShapes.size() );
+        const std::size_t last = m_hullShapes.size() - 1u;
+
+        if ( removedIndex != last )
+        {
+            m_hullShapes[removedIndex] = std::move( m_hullShapes[last] );
+        }
+
+        m_hullShapes.pop_back();
+        remapMovedShape( last );
+        break;
+    }
+    }
+}
+
+
+void ColliderStore::ReplaceShape( int recordIndex, const CollisionShape& shape )
+{
+    ColliderRecord& record = m_colliders[static_cast<std::size_t>( recordIndex )];
+    const ColliderShapeKind nextKind = ShapeKindForShape( shape );
+
+    if ( record.shapeKind == nextKind )
+    {
+        const std::size_t index = record.shape.StorageIndex();
+
+        switch ( nextKind )
+        {
+        case ColliderShapeKind::Sphere:
+            m_sphereShapes[index] = std::get<BoundingSphere>( shape );
+            record.shape = CollisionShapeReference( m_sphereShapes[index], static_cast<uint32_t>( index ) );
+            break;
+        case ColliderShapeKind::Box:
+            m_boxShapes[index] = std::get<BoundingBox>( shape );
+            record.shape = CollisionShapeReference( m_boxShapes[index], static_cast<uint32_t>( index ) );
+            break;
+        case ColliderShapeKind::ConvexHull:
+            m_hullShapes[index] = std::get<ConvexHullShape>( shape );
+            record.shape = CollisionShapeReference( m_hullShapes[index], static_cast<uint32_t>( index ) );
+            break;
+        }
+
+        return;
+    }
+
+    const CollisionShapeReference nextShape = AppendShape( shape );
+    const ColliderRecord previous = record;
+    RemoveShape( previous, recordIndex );
+    record.shape = nextShape;
+    record.shapeKind = nextKind;
+}
+
+
+PhysicsColliderHandle ColliderStore::CreateColliderRecord( const ColliderRecord& initialRecord, const CollisionShape& shape )
+{
+    return CreateColliderRecord( initialRecord, shape, ColliderAuthoringRecord {} );
+}
+
+
+PhysicsColliderHandle ColliderStore::CreateColliderRecord( const ColliderRecord& initialRecord, const CollisionShape& shape,
                                                            const ColliderAuthoringRecord& initialAuthoringRecord )
 {
     uint32_t slot = 0;
@@ -287,6 +622,8 @@ PhysicsColliderHandle ColliderStore::CreateColliderRecord( const ColliderRecord&
 
     ColliderRecord record = initialRecord;
     record.handle = handle;
+    record.shapeKind = ShapeKindForShape( shape );
+    record.shape = AppendShape( shape );
 
     if ( !record.sceneObjectId.IsValid() )
     {
@@ -306,7 +643,8 @@ PhysicsColliderHandle ColliderStore::CreateColliderRecord( const ColliderRecord&
 }
 
 
-bool ColliderStore::UpdateRecordForHandle( PhysicsColliderHandle handle, const ColliderRecord& record )
+bool ColliderStore::UpdateRecordForHandle( PhysicsColliderHandle handle, const ColliderRecord& record,
+                                           const CollisionShape& shape )
 {
 
     if ( !Contains( handle ) )
@@ -315,12 +653,12 @@ bool ColliderStore::UpdateRecordForHandle( PhysicsColliderHandle handle, const C
     }
 
     const int recordIndex = m_handleModelIndices[static_cast<std::size_t>( handle.index )];
-    return UpdateRecordForHandle( handle, record, m_authoringRecords[static_cast<std::size_t>( recordIndex )] );
+    return UpdateRecordForHandle( handle, record, shape, m_authoringRecords[static_cast<std::size_t>( recordIndex )] );
 }
 
 
 bool ColliderStore::UpdateRecordForHandle( PhysicsColliderHandle handle, const ColliderRecord& record,
-                                           const ColliderAuthoringRecord& authoringRecord )
+                                           const CollisionShape& shape, const ColliderAuthoringRecord& authoringRecord )
 {
 
     if ( !Contains( handle ) )
@@ -329,6 +667,9 @@ bool ColliderStore::UpdateRecordForHandle( PhysicsColliderHandle handle, const C
     }
 
     const int recordIndex = m_handleModelIndices[static_cast<std::size_t>( handle.index )];
+    ReplaceShape( recordIndex, shape );
+    const CollisionShapeReference updatedShape = m_colliders[static_cast<std::size_t>( recordIndex )].shape;
+    const ColliderShapeKind updatedShapeKind = m_colliders[static_cast<std::size_t>( recordIndex )].shapeKind;
 
     ColliderRecord updated = record;
 
@@ -336,6 +677,8 @@ bool ColliderStore::UpdateRecordForHandle( PhysicsColliderHandle handle, const C
     // handle slot stays stable so picks, render snapshots, and stale-handle
     // rejection keep their existing contracts.
     updated.handle = handle;
+    updated.shape = updatedShape;
+    updated.shapeKind = updatedShapeKind;
 
     if ( !updated.sceneObjectId.IsValid() )
     {
@@ -354,23 +697,27 @@ void ColliderStore::ApplyPhysicsMaterial( const PhysicsMaterial& material )
 {
 
     // Concept: runtime material config is scalar policy, not shape authoring.
-    // Keep the existing exact shape variants in place and touch only the fields
-    // consumed by contact response and fluid drag.
+    // Keep the existing per-kind payload topology in place and touch only the
+    // fields consumed by contact response and fluid drag.
 
     for ( ColliderRecord& record : m_colliders )
     {
         record.friction = material.frictionCoefficient;
 
-        if ( BoundingSphere* sphere = std::get_if<BoundingSphere>( &record.shape ) )
+        if ( record.shapeKind == ColliderShapeKind::Sphere )
         {
-            sphere->SetDragCoefficient( material.sphereDragCoefficient );
             record.dragCoefficient = material.sphereDragCoefficient;
         }
+    }
+
+    for ( BoundingSphere& sphere : m_sphereShapes )
+    {
+        sphere.SetDragCoefficient( material.sphereDragCoefficient );
     }
 }
 
 
-bool ColliderStore::UpdateRecordForModelIndex( int modelIndex, const ColliderRecord& record )
+bool ColliderStore::UpdateRecordForModelIndex( int modelIndex, const ColliderRecord& record, const CollisionShape& shape )
 {
 
     if ( modelIndex < 0 || modelIndex >= Count() || modelIndex >= static_cast<int>( m_modelColliderHandles.size() ) )
@@ -378,7 +725,7 @@ bool ColliderStore::UpdateRecordForModelIndex( int modelIndex, const ColliderRec
         return false;
     }
 
-    return UpdateRecordForHandle( m_modelColliderHandles[static_cast<std::size_t>( modelIndex )], record );
+    return UpdateRecordForHandle( m_modelColliderHandles[static_cast<std::size_t>( modelIndex )], record, shape );
 }
 
 
@@ -398,6 +745,8 @@ bool ColliderStore::DestroyColliderRecord( PhysicsColliderHandle handle )
     {
         return false;
     }
+
+    RemoveShape( m_colliders[static_cast<std::size_t>( recordIndex )], recordIndex );
 
     // Invariant: collider scans stay dense while handles remain allocator
     // identities. Moving the final hot row also moves its cold authoring row
@@ -581,6 +930,40 @@ std::size_t ColliderStore::AuthoringRecordCapacity() const
 }
 
 
+std::size_t ColliderStore::SphereShapeCount() const
+{
+    return m_sphereShapes.size();
+}
+
+std::size_t ColliderStore::SphereShapeCapacity() const
+{
+    return m_sphereShapes.capacity();
+}
+
+
+std::size_t ColliderStore::BoxShapeCount() const
+{
+    return m_boxShapes.size();
+}
+
+std::size_t ColliderStore::BoxShapeCapacity() const
+{
+    return m_boxShapes.capacity();
+}
+
+
+std::size_t ColliderStore::HullShapeCount() const
+{
+    return m_hullShapes.size();
+}
+
+
+std::size_t ColliderStore::HullShapeCapacity() const
+{
+    return m_hullShapes.capacity();
+}
+
+
 uint64_t ColliderStore::CollectRuntimeCapacityMemoryBytes() const
 {
     uint64_t bytes = m_colliders.committed_bytes();
@@ -592,6 +975,9 @@ uint64_t ColliderStore::CollectRuntimeCapacityMemoryBytes() const
     bytes += m_handleSceneObjectIds.committed_bytes();
     bytes += m_freeHandleSlots.committed_bytes();
     bytes += m_assignedHandleScratch.committed_bytes();
+    bytes += m_sphereShapes.committed_bytes();
+    bytes += m_boxShapes.committed_bytes();
+    bytes += m_hullShapes.committed_bytes();
     return bytes;
 }
 

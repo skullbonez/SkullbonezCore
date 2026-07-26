@@ -20,8 +20,8 @@ Glossary:
     PhysicsEngine::Step and applies presentation-only refresh work after it.
   PhysicsBodyStore: Physics-owned body rows for live pose, velocity, fixed
     state, and replay identity.
-  ColliderStore: Physics-owned collider rows for exact shape variants, material
-    parameters, and broadphase radius.
+  ColliderStore: Physics-owned hot collider rows plus per-kind shape payloads,
+    material parameters, and broadphase radius.
   Lane R result: Recoverable scene-control or capture failure that prevents a
     failed side effect from being reported as a successful frame transition.
   Presentation pin: Per-frame alpha override to exact current solver state for

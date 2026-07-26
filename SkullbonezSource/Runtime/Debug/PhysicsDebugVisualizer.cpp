@@ -59,9 +59,9 @@ float ShapeAxisLength( const ColliderRecord& collider, int axis )
 
     // Scale local-axis arrows to the shape. Boxes use their true half-extent on
     // the selected axis; spheres use bounding radius for all axes.
-    const CollisionShape& shape = collider.shape;
+    const CollisionShapeReference& shape = collider.shape;
 
-    if ( const BoundingBox* box = std::get_if<BoundingBox>( &shape ) )
+    if ( const BoundingBox* box = GetShapeIf<BoundingBox>( &shape ) )
     {
         const Vector3& he = box->GetHalfExtents();
         float extent = axis == 0 ? he.x : ( axis == 1 ? he.y : he.z );
@@ -309,7 +309,7 @@ void PhysicsDebugVisualizer::EmitConvexHullWireframes( const PhysicsDebugFrameVi
     for ( int i = 0; i < count; ++i )
     {
         const ColliderRecord& collider = colliders[static_cast<std::size_t>( i )];
-        const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &collider.shape );
+        const ConvexHullShape* hull = GetShapeIf<ConvexHullShape>( &collider.shape );
 
         if ( !hull )
         {
@@ -494,7 +494,7 @@ void PhysicsDebugVisualizer::EmitTerrainContactProbe( const PhysicsDebugFrameVie
     {
         const ColliderRecord& collider = colliders[static_cast<std::size_t>( i )];
 
-        if ( !std::holds_alternative<BoundingSphere>( collider.shape ) )
+        if ( !HoldsShape<BoundingSphere>( collider.shape ) )
         {
             continue;
         }

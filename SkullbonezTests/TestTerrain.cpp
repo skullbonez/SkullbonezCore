@@ -84,6 +84,7 @@ ColliderStore& TerrainColliderStore()
         SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
             SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         store.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+        store.ReserveShapeCapacity( 16u, 0u, 0u );
     }
     store.Clear();
     return store;
@@ -161,9 +162,9 @@ TEST_CASE( "Physics terrain stage: candidate rows preserve model order and eligi
         const auto handle = bodies.CreateBodyRecord( body );
         ColliderRecord collider;
         collider.body = handle;
-        collider.shape = CollisionShape( BoundingSphere( 1.0f, SkullbonezCore::Math::Vector::ZERO_VECTOR, 0.0f ) );
+        const CollisionShape shape( BoundingSphere( 1.0f, SkullbonezCore::Math::Vector::ZERO_VECTOR, 0.0f ) );
         collider.boundingRadius = 1.0f;
-        colliders.CreateColliderRecord( collider );
+        colliders.CreateColliderRecord( collider, shape );
     }
     const std::array<uint8_t, 3> sleepState = { 0u, 0u, 1u };
     const std::array<float, 3> timeRemaining = { 0.5f, 0.5f, 0.5f };

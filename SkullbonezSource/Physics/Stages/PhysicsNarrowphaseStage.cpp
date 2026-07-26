@@ -117,7 +117,7 @@ bool HasObjectContactAtTime( SkullbonezCore::Core::Profiler* profiler, const Phy
 
     // Query at a candidate time without mutating PhysicsBodyStore or the
     // owner-side presentation rows. CCD refinement only needs temporary pose
-    // views plus the collider shape snapshots.
+    // views plus borrowed references to ColliderStore's per-kind shape payloads.
     ObjectContactManifold manifold;
     return BuildObjectContactManifold( profiler, ObjectContactBodyViewAtTime( hotFields, bodyA, time ),
                                        colliderRecords[static_cast<size_t>( bodyA )].shape,

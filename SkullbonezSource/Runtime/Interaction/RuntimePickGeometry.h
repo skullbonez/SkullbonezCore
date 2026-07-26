@@ -41,7 +41,7 @@ struct RuntimePickShapeTransform
     Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
 };
 
-bool TryIntersectRuntimePickShape( const Math::CollisionDetection::CollisionShape& shape,
+bool TryIntersectRuntimePickShape( const Math::CollisionDetection::CollisionShapeReference& shape,
                                    const RuntimePickShapeTransform& transform, const Math::Vector::Vector3& rayOrigin,
                                    const Math::Vector::Vector3& rayDirection, float& outT );
 } // namespace Runtime

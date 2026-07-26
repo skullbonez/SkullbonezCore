@@ -118,6 +118,7 @@ ColliderStore& StageColliderStore()
         SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
             SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         store->ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+        store->ReserveShapeCapacity( 512u, 0u, 0u );
     }
     store->Clear();
     return *store;
@@ -348,9 +349,8 @@ TEST_CASE( "Physics sleep awake list: transitions and queued wakes preserve asce
         const auto handle = bodies.CreateBodyRecord( body );
         ColliderRecord collider;
         collider.body = handle;
-        collider.shape = sphere;
         collider.boundingRadius = 1.0f;
-        colliders.CreateColliderRecord( collider );
+        colliders.CreateColliderRecord( collider, sphere );
     }
 
     PhysicsSleepController controller;
@@ -411,9 +411,8 @@ TEST_CASE( "Physics sleep underwater lock: fully submerged sleeper locks and dis
     ColliderRecord collider;
     collider.body = handle;
     collider.sceneObjectId = MakePhysicsSceneObjectId( 91u );
-    collider.shape = sphere;
     collider.boundingRadius = 1.0f;
-    colliders.CreateColliderRecord( collider );
+    colliders.CreateColliderRecord( collider, sphere );
     PhysicsSleepController controller;
     ReserveTestSleepCapacity( controller );
     controller.MirrorFlagsFrom( bodies, 1 );
@@ -453,9 +452,8 @@ TEST_CASE( "Physics sleep awake list: one-frame transitions visit every row whil
         const auto handle = bodies.CreateBodyRecord( body );
         ColliderRecord collider;
         collider.body = handle;
-        collider.shape = sphere;
         collider.boundingRadius = 1.0f;
-        colliders.CreateColliderRecord( collider );
+        colliders.CreateColliderRecord( collider, sphere );
     }
 
     PhysicsSleepController controller;
@@ -558,9 +556,8 @@ TEST_CASE( "Physics narrowphase islands: repeated parallel evaluation preserves 
         const auto handle = bodies.CreateBodyRecord( body );
         ColliderRecord collider;
         collider.body = handle;
-        collider.shape = sphere;
         collider.boundingRadius = 1.0f;
-        colliders.CreateColliderRecord( collider );
+        colliders.CreateColliderRecord( collider, sphere );
         if ( ( bodyIndex & 1 ) != 0 )
         {
             candidatePairs.emplace_back( bodyIndex - 1, bodyIndex );

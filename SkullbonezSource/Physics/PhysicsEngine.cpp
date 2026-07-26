@@ -55,6 +55,7 @@ Related:
 #include <cstddef>
 #include <cstring>
 #include <limits>
+#include <type_traits>
 #include <utility>
 #include <variant>
 
@@ -121,18 +122,27 @@ int CountAsInt( PhysicsAuthoredBodyCount count )
 
 ColliderShapeKind ShapeKindForColliderDesc( const SkullbonezCore::Math::CollisionDetection::CollisionShape& shape )
 {
+    return std::visit( []( const auto& shapeValue )
+                       {
+                           using ShapeT = std::decay_t<decltype( shapeValue )>;
 
-    if ( std::holds_alternative<BoundingBox>( shape ) )
-    {
-        return ColliderShapeKind::Box;
-    }
+                           if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
+                           {
+                               return ColliderShapeKind::Sphere;
+                           }
+                           else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
+                           {
+                               return ColliderShapeKind::Box;
+                           }
+                           else
+                           {
+                               static_assert( std::is_same_v<ShapeT, ConvexHullShape>,
+                                              "Every CollisionShape alternative requires an explicit ColliderShapeKind." );
 
-    if ( std::holds_alternative<ConvexHullShape>( shape ) )
-    {
-        return ColliderShapeKind::ConvexHull;
-    }
-
-    return ColliderShapeKind::Sphere;
+                               return ColliderShapeKind::ConvexHull;
+                           }
+                       },
+                       shape );
 }
 
 
@@ -144,7 +154,6 @@ ColliderRecord MakeColliderRecordFromDesc( const PhysicsColliderCreateDesc& desc
     ColliderRecord record;
     record.body = body.handle;
     record.sceneObjectId = desc.sceneObjectId.IsValid() ? desc.sceneObjectId : body.sceneObjectId;
-    record.shape = desc.shape;
     record.shapeKind = ShapeKindForColliderDesc( desc.shape );
     record.boundingRadius = desc.boundingRadius;
     record.restitution = desc.restitution;
@@ -491,6 +500,7 @@ PhysicsAuthoredBodyRegistration PhysicsEngine::RegisterAuthoredBody( const Physi
     ApplyAuthoredColliderPolicy( colliderDesc );
     const PhysicsColliderHandle collider = m_colliderStore.CreateColliderRecord( MakeColliderRecordFromDesc( colliderDesc,
                                                                                                              *record ),
+                                                                                 colliderDesc.shape,
                                                                                  MakeColliderAuthoringRecordFromDesc( colliderDesc ) );
 
     if ( !collider.IsValid() )
@@ -667,8 +677,9 @@ bool PhysicsEngine::UpdateAuthoredBodyAndCollider( const PhysicsBodyUpdateDesc& 
 
     body = m_bodyStore.RecordForHandle( update.body );
 
-    if ( !body || !m_colliderStore.UpdateRecordForHandle( collider, MakeColliderRecordFromDesc( colliderDesc, *body ),
-                                                          MakeColliderAuthoringRecordFromDesc( colliderDesc ) ) )
+    if ( !body ||
+         !m_colliderStore.UpdateRecordForHandle( collider, MakeColliderRecordFromDesc( colliderDesc, *body ),
+                                                 colliderDesc.shape, MakeColliderAuthoringRecordFromDesc( colliderDesc ) ) )
     {
 
         // Lane F: preflighted fixed-capacity rows disappearing during one

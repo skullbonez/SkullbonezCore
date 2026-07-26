@@ -587,7 +587,7 @@ bool ApplyReplayRestoreEditorTransformEvent( SceneWorld& world, const ReplayEven
             return false;
         }
 
-        const CollisionShape baseShape = colliderBeforeScale->shape;
+        const CollisionShapeReference& baseShape = colliderBeforeScale->shape;
         CollisionShape scaledShape;
 
         if ( !ScaleShapeAxisFromBase( baseShape, event.value3, scaleFactor, scaledShape ) )

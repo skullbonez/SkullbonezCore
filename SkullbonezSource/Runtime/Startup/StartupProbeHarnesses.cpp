@@ -144,6 +144,7 @@ PhysicsAuthoredBodyRegistration RegisterPhysicsSmokeBody( PhysicsEngine& engine,
 
     PhysicsColliderCreateDesc collider = MakeColliderCreateDesc( shape, 0.0f, HashStr( "default" ) );
     collider.sceneObjectId = sceneObjectId;
+    SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
     return engine.RegisterAuthoredBody( body, std::move( collider ) );
 }
 
@@ -571,10 +572,21 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     constexpr float EDITED_RESTITUTION = 0.42f;
     PhysicsBodyUpdateDesc colliderUpdate;
     colliderUpdate.body = bodyA;
-    const bool colliderUpdateAccepted = physics.UpdateAuthoredBodyAndCollider( colliderUpdate, MakeColliderCreateDesc( SkullbonezCore::Math::CollisionDetection::
-                                                                                                                           BoundingBox( editedHalfExtents,
-                                                                                                                                        SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) ),
-                                                                                                                       EDITED_RESTITUTION, HashStr( "default" ) ) );
+    bool colliderUpdateAccepted = false;
+
+    {
+
+        // Why: this authoring probe intentionally introduces the first box shape
+        // after scene creation. Per-kind shape backing may grow only at the same
+        // cold topology boundary used by real scene/editor authoring.
+        Core::Allocation::RuntimeAllocationScope sceneLoadScope( Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        const SkullbonezCore::Math::CollisionDetection::BoundingBox
+            editedShape( editedHalfExtents, SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) );
+        colliderUpdateAccepted = physics.UpdateAuthoredBodyAndCollider( colliderUpdate,
+                                                                        MakeColliderCreateDesc( editedShape,
+                                                                                                EDITED_RESTITUTION,
+                                                                                                HashStr( "default" ) ) );
+    }
 
     const ColliderStore& refreshedColliderStore = collection->Scene().Colliders();
     const ColliderRecord& refreshedCollider = refreshedColliderStore.Records()[0];

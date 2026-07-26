@@ -478,7 +478,8 @@ void RenderReplayPredictionGhosts( const ReplayVisualPacket& visualPacket, Skull
 
         const std::size_t modelIndex = static_cast<std::size_t>( request.modelRow.value );
         const Physics::ColliderRecord& collider = colliders[modelIndex];
-        const Math::CollisionDetection::BoundingBox* box = std::get_if<Math::CollisionDetection::BoundingBox>( &collider.shape );
+        const Math::CollisionDetection::BoundingBox*
+            box = Math::CollisionDetection::GetShapeIf<Math::CollisionDetection::BoundingBox>( &collider.shape );
 
         if ( !box )
         {

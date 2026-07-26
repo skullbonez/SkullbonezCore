@@ -4,9 +4,11 @@ Purpose:
   Wraps supported collision shapes behind one variant-style interface.
 
 Summary:
-  CollisionShape.h wraps supported collision shapes behind one variant-style
-  interface. As a public header, keep edits anchored on deterministic physics,
-  diagnostics, or world-state flow and on the glossary/invariants below.
+  CollisionShape owns one supported shape value for authoring and interchange.
+  CollisionShapeReference is the non-owning runtime view used by dense collider
+  rows to point into ColliderStore's separate sphere, box, and hull stores.
+  Shared visitors keep both representations on the same exhaustive nonvirtual
+  dispatch surface.
 
 Glossary:
   Broadphase: Cheap collision pass that finds object pairs worth testing more
@@ -14,10 +16,18 @@ Glossary:
   Narrowphase: Precise collision pass that computes contact points, normals,
   and penetration.
   Manifold: Set of contact points and normals describing one colliding pair.
+  Shape reference: Typed borrowed pointer; store-backed references also carry a
+  per-kind storage index so their owner can rebind them after relocation.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
-  are the validation contract.
+    are the validation contract.
+  - Adding a supported shape kind must make unhandled visitors fail to compile
+
+    for both owning and borrowed shape representations.
+  - CollisionShapeReference never owns payload and remains valid only while its
+    borrowed owning value lives; store-backed references are rebound whenever
+    per-kind backing relocates.
 
 Related:
   - Agentic/Reference/physics-overview.md
@@ -27,7 +37,12 @@ Related:
 
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
+#include <cstdint>
+#include <limits>
+#include <type_traits>
+#include <utility>
 #include <variant>
 #include "BoundingSphere.h"
 #include "BoundingBox.h"
@@ -54,62 +69,155 @@ namespace CollisionDetection
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 using CollisionShape = std::variant<BoundingSphere, BoundingBox, ConvexHullShape>;
 
+// A typed read-only shape view. Collider rows include a per-kind storage index
+// that survives store copies and backing relocation; transient views of owning
+// CollisionShape values omit the index and live only for the call that borrows
+// them.
+class CollisionShapeReference
+{
+  public:
+    static constexpr uint32_t INVALID_STORAGE_INDEX = ( std::numeric_limits<uint32_t>::max )();
+    using Reference = std::variant<const BoundingSphere*, const BoundingBox*, const ConvexHullShape*>;
+
+    CollisionShapeReference() = default;
+    CollisionShapeReference( const BoundingSphere& sphere, uint32_t storageIndex )
+        : m_reference( &sphere ), m_storageIndex( storageIndex )
+    {
+    }
+    CollisionShapeReference( const BoundingBox& box, uint32_t storageIndex )
+        : m_reference( &box ), m_storageIndex( storageIndex )
+    {
+    }
+    CollisionShapeReference( const ConvexHullShape& hull, uint32_t storageIndex )
+        : m_reference( &hull ), m_storageIndex( storageIndex )
+    {
+    }
+    CollisionShapeReference( const CollisionShape& shape )
+        : m_reference( std::visit( []( const auto& value ) -> Reference { return Reference { &value }; }, shape ) )
+    {
+    }
+
+    bool IsValid() const noexcept
+    {
+        return std::visit( []( const auto* shape ) { return shape != nullptr; }, m_reference );
+    }
+    bool HasStorageIndex() const noexcept
+    {
+        return m_storageIndex != INVALID_STORAGE_INDEX;
+    }
+    uint32_t StorageIndex() const noexcept
+    {
+        return m_storageIndex;
+    }
+    const Reference& TypedReference() const noexcept
+    {
+        return m_reference;
+    }
+
+  private:
+    Reference m_reference = static_cast<const BoundingSphere*>( nullptr );
+    uint32_t m_storageIndex = INVALID_STORAGE_INDEX;
+};
+
+template <typename Visitor> decltype( auto ) VisitCollisionShape( const CollisionShape& shape, Visitor&& visitor )
+{
+    return std::visit( std::forward<Visitor>( visitor ), shape );
+}
+
+template <typename Visitor> decltype( auto ) VisitCollisionShape( const CollisionShapeReference& shape, Visitor&& visitor )
+{
+    assert( shape.IsValid() );
+    return std::visit( [&]( const auto* value ) -> decltype( auto ) { return visitor( *value ); }, shape.TypedReference() );
+}
+
+template <typename ShapeT> const ShapeT* GetShapeIf( const CollisionShape* shape )
+{
+    return shape ? std::get_if<ShapeT>( shape ) : nullptr;
+}
+
+template <typename ShapeT> const ShapeT* GetShapeIf( const CollisionShapeReference* shape )
+{
+
+    if ( !shape || !shape->IsValid() )
+    {
+        return nullptr;
+    }
+
+    const auto* reference = std::get_if<const ShapeT*>( &shape->TypedReference() );
+    return reference ? *reference : nullptr;
+}
+
+template <typename ShapeT, typename ShapeLike> bool HoldsShape( const ShapeLike& shape )
+{
+    return GetShapeIf<ShapeT>( &shape ) != nullptr;
+}
+
+inline CollisionShape CopyCollisionShape( const CollisionShapeReference& shape )
+{
+
+    // Explicit cold bridge for authoring transactions that truly require an
+    // owned value. Frame, pick, editor-overlay, and replay drawing scans consume
+    // CollisionShapeReference directly and therefore never copy hull payload.
+    return VisitCollisionShape( shape, []( const auto& value ) -> CollisionShape { return value; } );
+}
+
 /* -- Free-function visitors
 -----------------------------------------------------------------------------------------------------------------------------------------
 
-    These functions dispatch on the CollisionShape variant. For single-dispatch
-    operations, each shape type provides a matching member function. For
-    double-dispatch (collision testing), std::visit over two variants produces
-    a compile-time dispatch table.
+    These functions dispatch on either the owning CollisionShape variant or the
+    borrowed CollisionShapeReference variant. Each shape type provides matching
+    member functions, and collision testing produces a compile-time table.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
-inline const Vector::Vector3& GetShapePosition( const CollisionShape& shape )
+template <typename ShapeLike> inline const Vector::Vector3& GetShapePosition( const ShapeLike& shape )
 {
-    return std::visit( []( const auto& s ) -> const Vector::Vector3& { return s.GetPosition(); }, shape );
+    return VisitCollisionShape( shape, []( const auto& s ) -> const Vector::Vector3& { return s.GetPosition(); } );
 }
 
-inline float GetShapeVolume( const CollisionShape& shape )
+template <typename ShapeLike> inline float GetShapeVolume( const ShapeLike& shape )
 {
-    return std::visit( []( const auto& s ) { return s.GetVolume(); }, shape );
+    return VisitCollisionShape( shape, []( const auto& s ) { return s.GetVolume(); } );
 }
 
-inline float GetShapeDragCoefficient( const CollisionShape& shape )
+template <typename ShapeLike> inline float GetShapeDragCoefficient( const ShapeLike& shape )
 {
-    return std::visit( []( const auto& s ) { return s.GetDragCoefficient(); }, shape );
+    return VisitCollisionShape( shape, []( const auto& s ) { return s.GetDragCoefficient(); } );
 }
 
-inline float GetShapeProjectedSurfaceArea( const CollisionShape& shape )
+template <typename ShapeLike> inline float GetShapeProjectedSurfaceArea( const ShapeLike& shape )
 {
-    return std::visit( []( const auto& s ) { return s.GetProjectedSurfaceArea(); }, shape );
+    return VisitCollisionShape( shape, []( const auto& s ) { return s.GetProjectedSurfaceArea(); } );
 }
 
-inline float GetShapeSubmergedVolumePercent( const CollisionShape& shape, float fluidSurfaceHeight )
+template <typename ShapeLike> inline float GetShapeSubmergedVolumePercent( const ShapeLike& shape, float fluidSurfaceHeight )
 {
-    return std::visit( [fluidSurfaceHeight]( const auto& s ) { return s.GetSubmergedVolumePercent( fluidSurfaceHeight ); },
-                       shape );
+    return VisitCollisionShape( shape, [fluidSurfaceHeight]( const auto& s )
+                                { return s.GetSubmergedVolumePercent( fluidSurfaceHeight ); } );
 }
 
-inline float GetShapeBoundingRadius( const CollisionShape& shape )
+template <typename ShapeLike> inline float GetShapeBoundingRadius( const ShapeLike& shape )
 {
-    return std::visit( []( const auto& s ) { return s.GetBoundingRadius(); }, shape );
+    return VisitCollisionShape( shape, []( const auto& s ) { return s.GetBoundingRadius(); } );
 }
 
-inline float GetShapeTerrainBottomOffset( const CollisionShape& shape )
+template <typename ShapeLike> inline float GetShapeTerrainBottomOffset( const ShapeLike& shape )
 {
 
     // For all shape types, the terrain bottom offset equals the bounding radius
     // (the farthest point from the shape's local origin). For a sphere this is
     // simply the radius. For a box it is the corner distance sqrt(a²+b²+c²).
-    return std::visit( []( const auto& s ) { return s.GetBoundingRadius(); }, shape );
+    return VisitCollisionShape( shape, []( const auto& s ) { return s.GetBoundingRadius(); } );
 }
 
-inline Transformation::Matrix4 GetShapeModelMatrix( const CollisionShape& shape, const Vector::Vector3& worldPos,
+template <typename ShapeLike>
+inline Transformation::Matrix4 GetShapeModelMatrix( const ShapeLike& shape, const Vector::Vector3& worldPos,
                                                     const Transformation::Matrix4& rotation )
 {
-    return std::visit( [&]( const auto& s ) { return s.GetModelMatrix( worldPos, rotation ); }, shape );
+    return VisitCollisionShape( shape, [&]( const auto& s ) { return s.GetModelMatrix( worldPos, rotation ); } );
 }
 
-inline bool ScaleShapeAxisFromBase( const CollisionShape& baseShape, int axis, float factor, CollisionShape& outScaledShape )
+template <typename ShapeLike>
+inline bool ScaleShapeAxisFromBase( const ShapeLike& baseShape, int axis, float factor, CollisionShape& outScaledShape )
 {
 
     if ( axis < 0 || axis > 2 || !std::isfinite( factor ) || factor <= 0.0f )
@@ -119,14 +227,14 @@ inline bool ScaleShapeAxisFromBase( const CollisionShape& baseShape, int axis, f
 
     factor = std::clamp( factor, 0.05f, 20.0f );
 
-    if ( const BoundingSphere* sphere = std::get_if<BoundingSphere>( &baseShape ) )
+    if ( const BoundingSphere* sphere = GetShapeIf<BoundingSphere>( &baseShape ) )
     {
         const float radius = (std::max)( 0.25f, sphere->GetRadius() * factor );
         outScaledShape = BoundingSphere( radius, sphere->GetPosition(), sphere->GetDragCoefficient() );
         return true;
     }
 
-    if ( const BoundingBox* box = std::get_if<BoundingBox>( &baseShape ) )
+    if ( const BoundingBox* box = GetShapeIf<BoundingBox>( &baseShape ) )
     {
         Vector::Vector3 halfExtents = box->GetHalfExtents();
 
@@ -147,7 +255,7 @@ inline bool ScaleShapeAxisFromBase( const CollisionShape& baseShape, int axis, f
         return true;
     }
 
-    if ( const ConvexHullShape* hullBase = std::get_if<ConvexHullShape>( &baseShape ) )
+    if ( const ConvexHullShape* hullBase = GetShapeIf<ConvexHullShape>( &baseShape ) )
     {
         ConvexHullShape hull = *hullBase;
         hull.ScaleAxis( axis, factor );
@@ -167,19 +275,24 @@ inline bool ScaleShapeAxisFromBase( const CollisionShape& baseShape, int axis, f
 /* -- Double-dispatch collision test
 ---------------------------------------------------------------------------------------------------------------------------------
 
-    Tests collision between two CollisionShape variants. std::visit on two
-    variants produces a compile-time N*N dispatch table. When new shape types
-    are added, the compiler will enforce that all pair combinations are handled.
+    Tests collision between any owning/reference shape pair. Nested exhaustive
+    visits produce a compile-time N*N dispatch table, so adding a shape type
+    requires every concrete collision pair to compile.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline float TestShapeCollision( const CollisionShape& focus, const CollisionShape& target, const Geometry::Ray& focusRay,
+template <typename FocusShape, typename TargetShape>
+inline float TestShapeCollision( const FocusShape& focus, const TargetShape& target, const Geometry::Ray& focusRay,
                                  const Geometry::Ray& targetRay )
 {
 
     // Double visit is the collision-shape switchboard. If focus is a sphere and
     // target is a box, the compiler chooses BoundingSphere::TestCollision(box).
     // If both are boxes, it chooses BoundingBox::TestCollision(box), and so on.
-    return std::visit( [&]( const auto& f, const auto& t ) { return f.TestCollision( t, targetRay, focusRay ); }, focus,
-                       target );
+    return VisitCollisionShape( focus,
+                                [&]( const auto& f )
+                                {
+                                    return VisitCollisionShape( target, [&]( const auto& t )
+                                                                { return f.TestCollision( t, targetRay, focusRay ); } );
+                                } );
 }
 
 } // namespace CollisionDetection

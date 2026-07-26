@@ -5,8 +5,8 @@ Status: IN PROGRESS — drafted from the 2026-07-26 from-source architecture
 review of `nightrunner-26th-JUL-26` at tip `35f6de4e`, extended by the same-day
 capacity measurement below. Registered in `MASTER-PLAN.md` on 2026-07-26 as
 plan 2 of the Architecture Follow-Up Campaign Round 5. Starts after
-`governance-shape-to-judgment-conversion` closes. SC0-SC1 closed 2026-07-27.
-2/8 phases complete; SC2 is binding next.
+`governance-shape-to-judgment-conversion` closes. SC0-SC2 closed 2026-07-27.
+3/8 phases complete; SC3 is binding next.
 Impact area: `Core/SceneCapacity.h`, `Physics/PhysicsFixedList.h`,
 `Physics/ColliderStore.*`, `Physics/PhysicsBodyStore.*`, every
 `Physics/Stages/*` store, `Physics/CollisionShape.h`,
@@ -200,7 +200,7 @@ its shape costs.
   `validate_full`, formatting, and aggregate governance pass. Independent
   review ended `ZERO BLOCKERS`.
 
-- [ ] **SC2 — Shape-sized collider rows.**
+- [x] **SC2 — Shape-sized collider rows.**
   Remove the hull payload from every non-hull collider row. The dense
   `ColliderRecord` keeps the hot scalars it already documents
   (`boundingRadius`, `restitution`, `friction`, `contactMaterialId`,
@@ -214,6 +214,20 @@ its shape costs.
   size; a scene with zero hull colliders allocates zero hull storage; the
   physics regression CSV is byte-exact; `validate_physics` and
   `validate_perf` pass.
+
+  Closed 2026-07-27. `ColliderRecord` is now an 80-byte hot row containing its
+  existing scalars, shape kind, and a typed non-owning reference. Sphere, box,
+  and hull payloads live in separate runtime-capacity stores; zero-hull scenes
+  retain zero hull capacity. Copy, move, compaction, update, and backing-growth
+  paths rebind references by per-kind storage index. Runtime consumers use
+  exhaustive compile-time visitation without virtual dispatch or type erasure;
+  the only owning bridge is the explicit cold `CopyCollisionShape` helper.
+  Focused storage coverage passes 40/40 assertions, including forced live
+  backing relocation and zero hull capacity. The 409-doctest broad gate,
+  byte-exact 44,401-line physics oracle, DX12 and physics performance budgets,
+  formatting, allocation policy, and governance inventories pass. Independent
+  review ended `ZERO BLOCKERS`. Permanent evidence:
+  `../../Reports/2026-07-27/scene-sized-store-capacity-sc2-shape-storage.md`.
 
 - [ ] **SC3 — Scene-load capacity commit.**
   One owner computes required capacity from the loaded scene and commits it for

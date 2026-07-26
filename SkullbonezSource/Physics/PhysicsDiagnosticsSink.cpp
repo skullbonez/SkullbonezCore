@@ -128,31 +128,32 @@ bool SkullbonezCore::Physics::TryBuildPhysicsDiagnosticsModelRecord( int index, 
     // Why: regression CSV diagnostics are emitted after the solver, so body and
     // shape state must come from the stores just written by the step. The
     // scene/model edge contributes only the cold presentation name.
-    std::visit( [&]( const auto& shape )
-                {
-                    using ShapeT = std::decay_t<decltype( shape )>;
+    Math::CollisionDetection::
+        VisitCollisionShape( colliderRecord.shape,
+                             [&]( const auto& shape )
+                             {
+                                 using ShapeT = std::decay_t<decltype( shape )>;
 
-                    if constexpr ( std::is_same_v<ShapeT, Math::CollisionDetection::BoundingSphere> )
-                    {
-                        outRecord.shapeName = "sphere";
-                        outRecord.radius = shape.GetRadius();
-                    }
-                    else if constexpr ( std::is_same_v<ShapeT, Math::CollisionDetection::BoundingBox> )
-                    {
-                        outRecord.shapeName = "box";
-                        outRecord.halfExtents = shape.GetHalfExtents();
-                    }
-                    else
-                    {
-                        outRecord.shapeName = "convex_hull";
-                        outRecord.radius = shape.GetBoundingRadius();
-                        outRecord.hullName = shape.GetName();
-                        outRecord.hullVertices = shape.GetVertexCount();
-                        outRecord.hullFaces = shape.GetFaceCount();
-                        outRecord.hullEdges = shape.GetEdgeCount();
-                    }
-                },
-                colliderRecord.shape );
+                                 if constexpr ( std::is_same_v<ShapeT, Math::CollisionDetection::BoundingSphere> )
+                                 {
+                                     outRecord.shapeName = "sphere";
+                                     outRecord.radius = shape.GetRadius();
+                                 }
+                                 else if constexpr ( std::is_same_v<ShapeT, Math::CollisionDetection::BoundingBox> )
+                                 {
+                                     outRecord.shapeName = "box";
+                                     outRecord.halfExtents = shape.GetHalfExtents();
+                                 }
+                                 else
+                                 {
+                                     outRecord.shapeName = "convex_hull";
+                                     outRecord.radius = shape.GetBoundingRadius();
+                                     outRecord.hullName = shape.GetName();
+                                     outRecord.hullVertices = shape.GetVertexCount();
+                                     outRecord.hullFaces = shape.GetFaceCount();
+                                     outRecord.hullEdges = shape.GetEdgeCount();
+                                 }
+                             } );
     return true;
 }
 

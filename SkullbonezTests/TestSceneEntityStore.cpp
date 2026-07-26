@@ -186,11 +186,12 @@ TEST_CASE( "RenderInstanceStore: preflighted creation publishes every render row
     PhysicsBodyHotState hotState;
 
     ColliderRecord collider;
+    const SkullbonezCore::Math::CollisionDetection::BoundingSphere shape(
+        1.5f, SkullbonezCore::Math::Vector::ZERO_VECTOR );
     collider.handle = PhysicsColliderHandle{ 9u, 1u };
     collider.body = body.handle;
     collider.sceneObjectId = body.sceneObjectId;
-    collider.shape =
-        SkullbonezCore::Math::CollisionDetection::BoundingSphere( 1.5f, SkullbonezCore::Math::Vector::ZERO_VECTOR );
+    collider.shape = SkullbonezCore::Math::CollisionDetection::CollisionShapeReference( shape, 0u );
     collider.shapeKind = ColliderShapeKind::Sphere;
     collider.boundingRadius = 1.5f;
 
@@ -240,15 +241,17 @@ TEST_CASE( "RenderInstanceStore: fixed-tick poses interpolate and discontinuitie
         SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
             SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         colliderStore.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+        colliderStore.ReserveShapeCapacity( 1u, 0u, 0u );
     }
     colliderStore.Clear();
     ColliderRecord collider;
+    const SkullbonezCore::Math::CollisionDetection::CollisionShape shape =
+        SkullbonezCore::Math::CollisionDetection::BoundingSphere( 1.0f, ZERO_VECTOR );
     collider.body = bodyHandle;
     collider.sceneObjectId = createRecord.cold.sceneObjectId;
-    collider.shape = SkullbonezCore::Math::CollisionDetection::BoundingSphere( 1.0f, ZERO_VECTOR );
     collider.shapeKind = ColliderShapeKind::Sphere;
     collider.boundingRadius = 1.0f;
-    REQUIRE( colliderStore.CreateColliderRecord( collider ).IsValid() );
+    REQUIRE( colliderStore.CreateColliderRecord( collider, shape ).IsValid() );
 
     RenderInstanceStore renderStore;
     RenderInstancePresentationRecord presentation;
@@ -337,11 +340,12 @@ TEST_CASE( "RenderInstanceStore: contact feedback survives swap-last deletion an
         body.sceneObjectId = PhysicsSceneObjectId{ sceneId };
         PhysicsBodyHotState hotState;
         ColliderRecord collider;
+        const SkullbonezCore::Math::CollisionDetection::BoundingSphere shape(
+            1.0f, SkullbonezCore::Math::Vector::ZERO_VECTOR );
         collider.handle = PhysicsColliderHandle{ static_cast<uint32_t>( index ), 1u };
         collider.body = body.handle;
         collider.sceneObjectId = body.sceneObjectId;
-        collider.shape =
-            SkullbonezCore::Math::CollisionDetection::BoundingSphere( 1.0f, SkullbonezCore::Math::Vector::ZERO_VECTOR );
+        collider.shape = SkullbonezCore::Math::CollisionDetection::CollisionShapeReference( shape, 0u );
         collider.shapeKind = ColliderShapeKind::Sphere;
         collider.boundingRadius = 1.0f;
         renderStore.CommitCreationRow( presentation, body, hotState, collider, index );
@@ -377,16 +381,18 @@ TEST_CASE( "RenderInstanceStore: contact feedback survives swap-last deletion an
         SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
             SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         colliderStore.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+        colliderStore.ReserveShapeCapacity( 1u, 0u, 0u );
     }
     colliderStore.Clear();
     ColliderRecord collider;
+    const SkullbonezCore::Math::CollisionDetection::CollisionShape shape =
+        SkullbonezCore::Math::CollisionDetection::BoundingSphere(
+            1.0f, SkullbonezCore::Math::Vector::ZERO_VECTOR );
     collider.body = bodyHandle;
     collider.sceneObjectId = createRecord.cold.sceneObjectId;
-    collider.shape =
-        SkullbonezCore::Math::CollisionDetection::BoundingSphere( 1.0f, SkullbonezCore::Math::Vector::ZERO_VECTOR );
     collider.shapeKind = ColliderShapeKind::Sphere;
     collider.boundingRadius = 1.0f;
-    REQUIRE( colliderStore.CreateColliderRecord( collider ).IsValid() );
+    REQUIRE( colliderStore.CreateColliderRecord( collider, shape ).IsValid() );
 
     REQUIRE( renderStore.ResizePresentationRecords( 1 ) );
     REQUIRE( renderStore.PresentationCount() == 1 );

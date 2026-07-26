@@ -217,7 +217,7 @@ int PeekSelectedEditorModelIndex( const RunEditorPlacementState& editor, const P
 // transform vocabulary. Keep it narrow so gizmo math, overlay tracing, and
 // placement commits do not rediscover pose or shape facts from legacy object record.
 Math::Vector::Vector3 EditorAxisVector( int axis );
-float EditorShapeAxisExtent( const Math::CollisionDetection::CollisionShape& shape, int axis );
+float EditorShapeAxisExtent( const Math::CollisionDetection::CollisionShapeReference& shape, int axis );
 float EditorColliderRadius( const Physics::ColliderRecord& collider );
 float EditorGizmoAxisLength( float modelRadius );
 float EditorGizmoRotationRadius( float modelRadius );

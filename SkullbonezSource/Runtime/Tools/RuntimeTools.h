@@ -501,9 +501,9 @@ class EditorTracer
                   const Math::Vector::Vector3& yAxis, const Math::Vector::Vector3& zAxis, float r, float g, float bl );
     void EmitShapeOutlineTo( std::vector<float>& lineData, const Math::Vector::Vector3& position,
                              const Math::Orientation::Quaternion& orientation,
-                             const Math::CollisionDetection::CollisionShape& shape, float r, float g, float b );
+                             const Math::CollisionDetection::CollisionShapeReference& shape, float r, float g, float b );
     void EmitShapeOutline( const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation,
-                           const Math::CollisionDetection::CollisionShape& shape, float r, float g, float b );
+                           const Math::CollisionDetection::CollisionShapeReference& shape, float r, float g, float b );
     void EmitReplayRibbonSegmentTo( std::vector<float>& ribbonData, const Math::Vector::Vector3& a,
                                     const Math::Vector::Vector3& b, float r, float g, float bl,
                                     const ReplayRibbonStyle& style,
@@ -514,8 +514,8 @@ class EditorTracer
                                      SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane );
     void EmitReplayRibbonShapeOutlineTo( std::vector<float>& ribbonData, const Math::Vector::Vector3& position,
                                          const Math::Orientation::Quaternion& orientation,
-                                         const Math::CollisionDetection::CollisionShape& shape, float r, float g, float b,
-                                         const ReplayRibbonStyle& style,
+                                         const Math::CollisionDetection::CollisionShapeReference& shape, float r, float g,
+                                         float b, const ReplayRibbonStyle& style,
                                          SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane );
     void BuildReplayRibbonVertices( const Math::Vector::Vector3& cameraEye, const Math::Vector::Vector3& cameraUp );
     SkullbonezCore::Core::MainMemoryReplayTrajectoryStats
@@ -582,51 +582,51 @@ class EditorTracer
     // future-node overlays never fall back to broadphase radius rings.
     void AddReplayFutureTargetMarker( const Math::Vector::Vector3& position,
                                       const Math::Orientation::Quaternion& orientation,
-                                      const Math::CollisionDetection::CollisionShape& shape, int depth );
+                                      const Math::CollisionDetection::CollisionShapeReference& shape, int depth );
 
     // Draws the yellow causal-entry outline: a predicted body's in-place pose
     // at the prediction start (perfect formation for a wall brick). Pose comes
     // from prediction samples, never from live model state.
     void AddReplayCausalEntryMarker( const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation,
-                                     const Math::CollisionDetection::CollisionShape& shape );
+                                     const Math::CollisionDetection::CollisionShapeReference& shape );
 
     // Draws the grey causal-rest outline: a predicted body's final resting
     // pose. Callers place it only when the completed prediction ends with the
     // body at rest; bodies still moving at the horizon get no grey box.
     void AddReplayCausalRestMarker( const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation,
-                                    const Math::CollisionDetection::CollisionShape& shape );
+                                    const Math::CollisionDetection::CollisionShapeReference& shape );
     void AddReplayCausalHorizonMarker( const Math::Vector::Vector3& position,
                                        const Math::Orientation::Quaternion& orientation,
-                                       const Math::CollisionDetection::CollisionShape& shape );
+                                       const Math::CollisionDetection::CollisionShapeReference& shape );
 
     // Draws cold baseline entry/rest outlines from the retained old future.
     // Callers pass explicit pose/shape; live model state is not consulted.
     void AddReplayBaselineEntryMarker( const Math::Vector::Vector3& position,
                                        const Math::Orientation::Quaternion& orientation,
-                                       const Math::CollisionDetection::CollisionShape& shape );
+                                       const Math::CollisionDetection::CollisionShapeReference& shape );
     void AddReplayBaselineRestMarker( const Math::Vector::Vector3& position,
                                       const Math::Orientation::Quaternion& orientation,
-                                      const Math::CollisionDetection::CollisionShape& shape );
+                                      const Math::CollisionDetection::CollisionShapeReference& shape );
 
     // Draws a replay target marker from explicit store values. Replay may still
     // resolve identity by model order, but marker geometry must not read legacy
     // model-side body state.
     void AddReplayTargetMarker( const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation,
-                                const Math::CollisionDetection::CollisionShape& shape, float radius );
+                                const Math::CollisionDetection::CollisionShapeReference& shape, float radius );
     void AddAttachedCameraTargetMarker( const Math::Vector::Vector3& position,
                                         const Math::Orientation::Quaternion& orientation,
-                                        const Math::CollisionDetection::CollisionShape& shape, float radius,
+                                        const Math::CollisionDetection::CollisionShapeReference& shape, float radius,
                                         bool activeFollow );
 
     // Draws a shape-accurate outline from explicit pose/shape values. Replay
     // velocity edit uses this so overlay drawing does not need legacy model-side
     // body state.
     void AddSelectionOutline( const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation,
-                              const Math::CollisionDetection::CollisionShape& shape );
+                              const Math::CollisionDetection::CollisionShapeReference& shape );
     void AddGizmo( const Math::Vector::Vector3& origin, float radius, int hotTranslateAxis, int hotRotationAxis,
                    int activeAxis, bool activeRotation, bool scaleMode, bool activeScale );
     void AddReplayVelocityGizmo( const Math::Vector::Vector3& origin, const Math::Orientation::Quaternion& orientation,
-                                 const Math::CollisionDetection::CollisionShape& shape, float radius,
+                                 const Math::CollisionDetection::CollisionShapeReference& shape, float radius,
                                  const Math::Vector::Vector3& linearVelocity, const Math::Vector::Vector3& angularVelocity,
                                  int hotLinearAxis, int hotAngularAxis, int activeAxis, bool activeAngular );
     void Render( const ReplayVisualPacket& packet, const Math::Transformation::Matrix4& viewProjection,

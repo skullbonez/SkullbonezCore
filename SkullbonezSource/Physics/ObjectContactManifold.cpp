@@ -21,8 +21,8 @@ Glossary:
   Manifold: Set of contact points and normals describing one colliding pair.
   Contact body view: Pose-only body input used by narrowphase so contact
   geometry can be built from PhysicsBodyRecord state.
-  Collider shape snapshot: Exact shape value copied into ColliderStore and read
-    by narrowphase during contact generation.
+  Collider shape reference: Typed non-owning view into ColliderStore's per-kind
+    shape payload, read by narrowphase during contact generation.
   Contact sweep: Conservative object/object time-of-impact query that advances
   fast bodies to a candidate contact before exact manifolds solve the response.
 
@@ -1933,8 +1933,12 @@ bool BuildHullHull( const ObjectContactBodyView& aBody, const ConvexHullShape& a
 }
 } // namespace
 
-ObjectContactSweepResult SkullbonezCore::Physics::SweepObjectContact( const ObjectContactBodyView& a, const CollisionShape& shapeA, const Vector3& linearVelocityA,
-                                                                      const ObjectContactBodyView& b, const CollisionShape& shapeB, const Vector3& linearVelocityB, float changeInTime )
+namespace
+{
+template <typename ShapeA, typename ShapeB>
+ObjectContactSweepResult SweepObjectContactImpl( const ObjectContactBodyView& a, const ShapeA& shapeA,
+                                                 const Vector3& linearVelocityA, const ObjectContactBodyView& b,
+                                                 const ShapeB& shapeB, const Vector3& linearVelocityB, float changeInTime )
 {
 
     // Concept: CCD sweep is only a conservative front-end. It uses each body's
@@ -1963,13 +1967,13 @@ ObjectContactSweepResult SkullbonezCore::Physics::SweepObjectContact( const Obje
 //   Public entry point that returns the contact rows Catto's iterative solver
 //   expects: normal, rA/rB, penetration, and stable contact IDs.
 // ENGINE-SPECIFIC:
-//   Dispatches Skullbonez collision shapes from ColliderStore snapshots to the
-//   local 3D manifold builders. The normal is always oriented from body A toward
-//   body B so the solver can use one impulse sign convention for every pair.
-bool SkullbonezCore::Physics::BuildObjectContactManifold( Core::Profiler* profiler, const ObjectContactBodyView& a,
-                                                          const CollisionShape& shapeA, const ObjectContactBodyView& b,
-                                                          const CollisionShape& shapeB, int bodyA, int bodyB,
-                                                          float contactSkin, ObjectContactManifold& out )
+//   Dispatches owning shapes or ColliderStore's borrowed per-kind shape
+//   references to the local 3D manifold builders. The normal is always oriented
+//   from body A toward body B so the solver can use one impulse sign convention.
+template <typename ShapeA, typename ShapeB>
+bool BuildObjectContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler, const ObjectContactBodyView& a,
+                                     const ShapeA& shapeA, const ObjectContactBodyView& b, const ShapeB& shapeB, int bodyA,
+                                     int bodyB, float contactSkin, ObjectContactManifold& out )
 {
     PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/ObjectManifold" );
 
@@ -1981,71 +1985,166 @@ bool SkullbonezCore::Physics::BuildObjectContactManifold( Core::Profiler* profil
     out.bodyA = bodyA;
     out.bodyB = bodyB;
 
-    if ( const BoundingSphere* sphereA = std::get_if<BoundingSphere>( &shapeA ) )
-    {
+    return VisitCollisionShape( shapeA,
+                                [&]( const auto& shapeValueA )
+                                {
+                                    return VisitCollisionShape( shapeB,
+                                                                [&]( const auto& shapeValueB )
+                                                                {
+                                                                    using ShapeTypeA = std::decay_t<decltype( shapeValueA )>;
+                                                                    using ShapeTypeB = std::decay_t<decltype( shapeValueB )>;
 
-        if ( const BoundingSphere* sphereB = std::get_if<BoundingSphere>( &shapeB ) )
-        {
-            PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/ObjectManifold/SphereSphere" );
-            return BuildSphereSphere( a, *sphereA, b, *sphereB, contactSkin, out );
-        }
+                                                                    if constexpr ( std::is_same_v<ShapeTypeA,
+                                                                                                  BoundingSphere> &&
+                                                                                   std::is_same_v<ShapeTypeB,
+                                                                                                  BoundingSphere> )
+                                                                    {
+                                                                        PROFILE_SCOPED( profiler,
+                                                                                        "Frame/Physics/Narrowphase/"
+                                                                                        "ObjectManifold/SphereSphere" );
 
-        if ( const BoundingBox* boxB = std::get_if<BoundingBox>( &shapeB ) )
-        {
-            PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/ObjectManifold/SphereBox" );
-            return BuildSphereBoxOrdered( a, *sphereA, b, *boxB, true, contactSkin, out );
-        }
+                                                                        return BuildSphereSphere( a, shapeValueA, b,
+                                                                                                  shapeValueB, contactSkin,
+                                                                                                  out );
+                                                                    }
+                                                                    else if constexpr ( std::is_same_v<ShapeTypeA,
+                                                                                                       BoundingSphere> &&
+                                                                                        std::is_same_v<ShapeTypeB,
+                                                                                                       BoundingBox> )
+                                                                    {
+                                                                        PROFILE_SCOPED( profiler,
+                                                                                        "Frame/Physics/Narrowphase/"
+                                                                                        "ObjectManifold/SphereBox" );
 
-        if ( const ConvexHullShape* hullB = std::get_if<ConvexHullShape>( &shapeB ) )
-        {
-            PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/ObjectManifold/SphereHull" );
-            return BuildSphereHullOrdered( a, *sphereA, b, *hullB, true, contactSkin, out );
-        }
-    }
+                                                                        return BuildSphereBoxOrdered( a, shapeValueA, b,
+                                                                                                      shapeValueB, true,
+                                                                                                      contactSkin, out );
+                                                                    }
+                                                                    else if constexpr ( std::is_same_v<ShapeTypeA,
+                                                                                                       BoundingSphere> &&
+                                                                                        std::is_same_v<ShapeTypeB,
+                                                                                                       ConvexHullShape> )
+                                                                    {
+                                                                        PROFILE_SCOPED( profiler,
+                                                                                        "Frame/Physics/Narrowphase/"
+                                                                                        "ObjectManifold/SphereHull" );
 
-    if ( const BoundingBox* boxA = std::get_if<BoundingBox>( &shapeA ) )
-    {
+                                                                        return BuildSphereHullOrdered( a, shapeValueA, b,
+                                                                                                       shapeValueB, true,
+                                                                                                       contactSkin, out );
+                                                                    }
+                                                                    else if constexpr ( std::is_same_v<ShapeTypeA,
+                                                                                                       BoundingBox> &&
+                                                                                        std::is_same_v<ShapeTypeB,
+                                                                                                       BoundingSphere> )
+                                                                    {
+                                                                        PROFILE_SCOPED( profiler,
+                                                                                        "Frame/Physics/Narrowphase/"
+                                                                                        "ObjectManifold/SphereBox" );
 
-        if ( const BoundingSphere* sphereB = std::get_if<BoundingSphere>( &shapeB ) )
-        {
-            PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/ObjectManifold/SphereBox" );
-            return BuildSphereBoxOrdered( b, *sphereB, a, *boxA, false, contactSkin, out );
-        }
+                                                                        return BuildSphereBoxOrdered( b, shapeValueB, a,
+                                                                                                      shapeValueA, false,
+                                                                                                      contactSkin, out );
+                                                                    }
+                                                                    else if constexpr ( std::is_same_v<ShapeTypeA,
+                                                                                                       BoundingBox> &&
+                                                                                        std::is_same_v<ShapeTypeB,
+                                                                                                       BoundingBox> )
+                                                                    {
+                                                                        PROFILE_SCOPED( profiler,
+                                                                                        "Frame/Physics/Narrowphase/"
+                                                                                        "ObjectManifold/BoxBox" );
 
-        if ( const BoundingBox* boxB = std::get_if<BoundingBox>( &shapeB ) )
-        {
-            PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/ObjectManifold/BoxBox" );
-            return BuildBoxBox( a, *boxA, b, *boxB, contactSkin, out );
-        }
+                                                                        return BuildBoxBox( a, shapeValueA, b, shapeValueB,
+                                                                                            contactSkin, out );
+                                                                    }
+                                                                    else if constexpr ( std::is_same_v<ShapeTypeA,
+                                                                                                       BoundingBox> &&
+                                                                                        std::is_same_v<ShapeTypeB,
+                                                                                                       ConvexHullShape> )
+                                                                    {
+                                                                        PROFILE_SCOPED( profiler,
+                                                                                        "Frame/Physics/Narrowphase/"
+                                                                                        "ObjectManifold/BoxHull" );
 
-        if ( const ConvexHullShape* hullB = std::get_if<ConvexHullShape>( &shapeB ) )
-        {
-            PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/ObjectManifold/BoxHull" );
-            return BuildBoxHull( a, *boxA, b, *hullB, true, contactSkin, out );
-        }
-    }
+                                                                        return BuildBoxHull( a, shapeValueA, b, shapeValueB,
+                                                                                             true, contactSkin, out );
+                                                                    }
+                                                                    else if constexpr ( std::is_same_v<ShapeTypeA,
+                                                                                                       ConvexHullShape> &&
+                                                                                        std::is_same_v<ShapeTypeB,
+                                                                                                       BoundingSphere> )
+                                                                    {
+                                                                        PROFILE_SCOPED( profiler,
+                                                                                        "Frame/Physics/Narrowphase/"
+                                                                                        "ObjectManifold/SphereHull" );
 
-    if ( const ConvexHullShape* hullA = std::get_if<ConvexHullShape>( &shapeA ) )
-    {
+                                                                        return BuildSphereHullOrdered( b, shapeValueB, a,
+                                                                                                       shapeValueA, false,
+                                                                                                       contactSkin, out );
+                                                                    }
+                                                                    else if constexpr ( std::is_same_v<ShapeTypeA,
+                                                                                                       ConvexHullShape> &&
+                                                                                        std::is_same_v<ShapeTypeB,
+                                                                                                       BoundingBox> )
+                                                                    {
+                                                                        PROFILE_SCOPED( profiler,
+                                                                                        "Frame/Physics/Narrowphase/"
+                                                                                        "ObjectManifold/BoxHull" );
 
-        if ( const BoundingSphere* sphereB = std::get_if<BoundingSphere>( &shapeB ) )
-        {
-            PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/ObjectManifold/SphereHull" );
-            return BuildSphereHullOrdered( b, *sphereB, a, *hullA, false, contactSkin, out );
-        }
+                                                                        return BuildBoxHull( b, shapeValueB, a, shapeValueA,
+                                                                                             false, contactSkin, out );
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        static_assert( std::is_same_v<ShapeTypeA,
+                                                                                                      ConvexHullShape> &&
+                                                                                           std::is_same_v<ShapeTypeB,
+                                                                                                          ConvexHullShape>,
+                                                                                       "Every CollisionShape pair requires "
+                                                                                       "explicit narrowphase dispatch." );
 
-        if ( const BoundingBox* boxB = std::get_if<BoundingBox>( &shapeB ) )
-        {
-            PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/ObjectManifold/BoxHull" );
-            return BuildBoxHull( b, *boxB, a, *hullA, false, contactSkin, out );
-        }
+                                                                        PROFILE_SCOPED( profiler,
+                                                                                        "Frame/Physics/Narrowphase/"
+                                                                                        "ObjectManifold/HullHull" );
 
-        if ( const ConvexHullShape* hullB = std::get_if<ConvexHullShape>( &shapeB ) )
-        {
-            PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/ObjectManifold/HullHull" );
-            return BuildHullHull( a, *hullA, b, *hullB, contactSkin, out );
-        }
-    }
+                                                                        return BuildHullHull( a, shapeValueA, b, shapeValueB,
+                                                                                              contactSkin, out );
+                                                                    }
+                                                                } );
+                                } );
+}
+} // namespace
 
-    return false;
+ObjectContactSweepResult SkullbonezCore::Physics::SweepObjectContact( const ObjectContactBodyView& a, const CollisionShape& shapeA, const Vector3& linearVelocityA,
+                                                                      const ObjectContactBodyView& b, const CollisionShape& shapeB, const Vector3& linearVelocityB, float changeInTime )
+{
+    return SweepObjectContactImpl( a, shapeA, linearVelocityA, b, shapeB, linearVelocityB, changeInTime );
+}
+
+ObjectContactSweepResult SkullbonezCore::Physics::SweepObjectContact( const ObjectContactBodyView& a,
+                                                                      const CollisionShapeReference& shapeA,
+                                                                      const Vector3& linearVelocityA,
+                                                                      const ObjectContactBodyView& b,
+                                                                      const CollisionShapeReference& shapeB,
+                                                                      const Vector3& linearVelocityB, float changeInTime )
+{
+    return SweepObjectContactImpl( a, shapeA, linearVelocityA, b, shapeB, linearVelocityB, changeInTime );
+}
+
+bool SkullbonezCore::Physics::BuildObjectContactManifold( Core::Profiler* profiler, const ObjectContactBodyView& a,
+                                                          const CollisionShape& shapeA, const ObjectContactBodyView& b,
+                                                          const CollisionShape& shapeB, int bodyA, int bodyB,
+                                                          float contactSkin, ObjectContactManifold& out )
+{
+    return BuildObjectContactManifoldImpl( profiler, a, shapeA, b, shapeB, bodyA, bodyB, contactSkin, out );
+}
+
+bool SkullbonezCore::Physics::BuildObjectContactManifold( Core::Profiler* profiler, const ObjectContactBodyView& a,
+                                                          const CollisionShapeReference& shapeA,
+                                                          const ObjectContactBodyView& b,
+                                                          const CollisionShapeReference& shapeB, int bodyA, int bodyB,
+                                                          float contactSkin, ObjectContactManifold& out )
+{
+    return BuildObjectContactManifoldImpl( profiler, a, shapeA, b, shapeB, bodyA, bodyB, contactSkin, out );
 }

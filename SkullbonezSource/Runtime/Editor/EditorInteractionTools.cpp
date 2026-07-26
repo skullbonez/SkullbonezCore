@@ -291,7 +291,7 @@ float EditorColliderRadius( const ColliderRecord& collider )
 }
 
 
-float EditorShapeAxisExtent( const CollisionShape& shape, int axis )
+float EditorShapeAxisExtent( const CollisionShapeReference& shape, int axis )
 {
 
     if ( axis < 0 || axis > 2 )
@@ -299,12 +299,12 @@ float EditorShapeAxisExtent( const CollisionShape& shape, int axis )
         return 1.0f;
     }
 
-    if ( const BoundingSphere* sphere = std::get_if<BoundingSphere>( &shape ) )
+    if ( const BoundingSphere* sphere = GetShapeIf<BoundingSphere>( &shape ) )
     {
         return (std::max)( sphere->GetRadius(), 0.25f );
     }
 
-    if ( const BoundingBox* box = std::get_if<BoundingBox>( &shape ) )
+    if ( const BoundingBox* box = GetShapeIf<BoundingBox>( &shape ) )
     {
         const Vector3& halfExtents = box->GetHalfExtents();
 
@@ -321,7 +321,7 @@ float EditorShapeAxisExtent( const CollisionShape& shape, int axis )
         return (std::max)( halfExtents.z, 0.25f );
     }
 
-    if ( const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &shape ) )
+    if ( const ConvexHullShape* hull = GetShapeIf<ConvexHullShape>( &shape ) )
     {
         const Vector3& halfExtents = hull->GetInertiaHalfExtents();
 
@@ -342,8 +342,8 @@ float EditorShapeAxisExtent( const CollisionShape& shape, int axis )
 }
 
 
-bool TryEditorScaleFactorFromShapes( const CollisionShape& startShape, const CollisionShape& currentShape, int axis,
-                                     float& outFactor )
+bool TryEditorScaleFactorFromShapes( const CollisionShapeReference& startShape, const CollisionShapeReference& currentShape,
+                                     int axis, float& outFactor )
 {
     const float startExtent = EditorShapeAxisExtent( startShape, axis );
 
@@ -1444,7 +1444,7 @@ bool RuntimeTools::PrepareEditorGizmoGesture( bool inspectGizmoActive, bool scal
         outPlan.kind = EditorGizmoGestureKind::Scale;
         outPlan.axis = m_editor.hotGizmoAxis;
         outPlan.axisParameter = axisParameter;
-        outPlan.startShape = selectedCollider->shape;
+        outPlan.startShape = CopyCollisionShape( selectedCollider->shape );
         const std::size_t bodyIndex = static_cast<std::size_t>( selectedModelIndex );
         const auto hotFields = bodyStore.HotFields();
         outPlan.startPosition = PhysicsBodyPosition( hotFields, bodyIndex );

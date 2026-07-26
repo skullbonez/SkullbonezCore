@@ -195,7 +195,7 @@ bool BuoyancySystem::RefreshUnderwaterSubmersionForBall( const PhysicsWorldForce
         return false;
     }
 
-    const auto* sphere = std::get_if<Math::CollisionDetection::BoundingSphere>( &collider.shape );
+    const auto* sphere = Math::CollisionDetection::GetShapeIf<Math::CollisionDetection::BoundingSphere>( &collider.shape );
 
     if ( !sphere )
     {

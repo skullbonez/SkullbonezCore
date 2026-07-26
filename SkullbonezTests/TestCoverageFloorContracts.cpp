@@ -159,6 +159,7 @@ void CheckUnderwaterForcePath( const CollisionShape& shape, uint32_t sceneId )
             SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         bodies.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
         colliders.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+        colliders.ReserveShapeCapacity( 1u, 1u, 1u );
     }
 
     bodies.Clear();
@@ -188,12 +189,11 @@ void CheckUnderwaterForcePath( const CollisionShape& shape, uint32_t sceneId )
     ColliderRecord collider;
     collider.body = handle;
     collider.sceneObjectId = body.cold.sceneObjectId;
-    collider.shape = shape;
     collider.shapeKind = ShapeKind( shape );
     collider.boundingRadius = body.hot.boundingRadius;
     collider.projectedSurfaceArea = buoyancyFacts.projectedSurfaceArea;
     collider.dragCoefficient = buoyancyFacts.dragCoefficient;
-    REQUIRE( colliders.CreateColliderRecord( collider ).IsValid() );
+    REQUIRE( colliders.CreateColliderRecord( collider, shape ).IsValid() );
 
     PhysicsWorldForces forces;
     forces.gravity = -9.8f;
@@ -236,7 +236,12 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
                                                "coverage-artifact-body" );
     auto colliderDesc = MakeColliderCreateDesc( shape, 0.25f, 4u, "coverage-artifact" );
     colliderDesc.sceneObjectId = bodyDesc.sceneObjectId;
-    const auto registration = engine.RegisterAuthoredBody( bodyDesc, colliderDesc );
+    SkullbonezCore::Physics::PhysicsAuthoredBodyRegistration registration;
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        registration = engine.RegisterAuthoredBody( bodyDesc, colliderDesc );
+    }
     REQUIRE( registration.IsValid() );
 
     SceneEntityStore entities;

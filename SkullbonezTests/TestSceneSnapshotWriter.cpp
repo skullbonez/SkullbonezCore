@@ -176,6 +176,7 @@ TEST_CASE( "Scene save entry policies serialize complete owner publications" )
             SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         bodies.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
         colliders.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+        colliders.ReserveShapeCapacity( 16u, 16u, 16u );
     }
 
     entities.Clear();
@@ -283,11 +284,10 @@ void AppendEntity( SceneEntityStore& entities,
     ColliderRecord collider;
     collider.body = bodyHandle;
     collider.sceneObjectId = body.cold.sceneObjectId;
-    collider.shape = shape;
     collider.restitution = restitution;
     ColliderAuthoringRecord colliderAuthoring;
     strncpy_s( colliderAuthoring.contactMaterialName, contactMaterial, _TRUNCATE );
-    (void)colliders.CreateColliderRecord( collider, colliderAuthoring );
+    (void)colliders.CreateColliderRecord( collider, shape, colliderAuthoring );
 
     SceneEntityCreateDesc entity;
     entity.sceneObjectId = body.cold.sceneObjectId;
@@ -353,29 +353,40 @@ void CheckMaterial( const Rendering::RenderMaterial& actual, const Rendering::Re
     CHECK( actual.flags == expected.flags );
 }
 
-void CheckShape( const CollisionShape& actual, const CollisionShape& expected )
+void CheckShape( const CollisionShapeReference& actual, const CollisionShapeReference& expected )
 {
-    REQUIRE( actual.index() == expected.index() );
-    if ( const auto* sphere = std::get_if<BoundingSphere>( &actual ) )
+    const BoundingSphere* actualSphere = GetShapeIf<BoundingSphere>( &actual );
+    const BoundingSphere* expectedSphere = GetShapeIf<BoundingSphere>( &expected );
+    REQUIRE( ( actualSphere != nullptr ) == ( expectedSphere != nullptr ) );
+
+    if ( actualSphere )
     {
-        CHECK( sphere->GetRadius() == doctest::Approx( std::get<BoundingSphere>( expected ).GetRadius() ) );
+        CHECK( actualSphere->GetRadius() == doctest::Approx( expectedSphere->GetRadius() ) );
+        return;
     }
-    else if ( const auto* box = std::get_if<BoundingBox>( &actual ) )
+
+    const BoundingBox* actualBox = GetShapeIf<BoundingBox>( &actual );
+    const BoundingBox* expectedBox = GetShapeIf<BoundingBox>( &expected );
+    REQUIRE( ( actualBox != nullptr ) == ( expectedBox != nullptr ) );
+
+    if ( actualBox )
     {
-        CheckVector( box->GetHalfExtents(), std::get<BoundingBox>( expected ).GetHalfExtents() );
+        CheckVector( actualBox->GetHalfExtents(), expectedBox->GetHalfExtents() );
+        return;
     }
-    else
+
+    const ConvexHullShape* actualHull = GetShapeIf<ConvexHullShape>( &actual );
+    const ConvexHullShape* expectedHull = GetShapeIf<ConvexHullShape>( &expected );
+    REQUIRE( actualHull );
+    REQUIRE( expectedHull );
+    CHECK( std::string( actualHull->GetName() ) == expectedHull->GetName() );
+    REQUIRE( actualHull->GetVertexCount() == expectedHull->GetVertexCount() );
+    CHECK( actualHull->GetFaceCount() == expectedHull->GetFaceCount() );
+    CHECK( actualHull->GetEdgeCount() == expectedHull->GetEdgeCount() );
+
+    for ( uint16_t index = 0; index < actualHull->GetVertexCount(); ++index )
     {
-        const auto& actualHull = std::get<ConvexHullShape>( actual );
-        const auto& expectedHull = std::get<ConvexHullShape>( expected );
-        CHECK( std::string( actualHull.GetName() ) == expectedHull.GetName() );
-        REQUIRE( actualHull.GetVertexCount() == expectedHull.GetVertexCount() );
-        CHECK( actualHull.GetFaceCount() == expectedHull.GetFaceCount() );
-        CHECK( actualHull.GetEdgeCount() == expectedHull.GetEdgeCount() );
-        for ( uint16_t index = 0; index < actualHull.GetVertexCount(); ++index )
-        {
-            CheckVector( actualHull.GetVertex( index ), expectedHull.GetVertex( index ) );
-        }
+        CheckVector( actualHull->GetVertex( index ), expectedHull->GetVertex( index ) );
     }
 }
 
@@ -552,11 +563,10 @@ void AppendParsedEntity( SceneEntityStore& entities,
     ColliderRecord collider;
     collider.body = bodyHandle;
     collider.sceneObjectId = id;
-    collider.shape = shape;
     collider.restitution = restitution;
     ColliderAuthoringRecord colliderAuthoring;
     strncpy_s( colliderAuthoring.contactMaterialName, contactMaterial, _TRUNCATE );
-    (void)colliders.CreateColliderRecord( collider, colliderAuthoring );
+    (void)colliders.CreateColliderRecord( collider, shape, colliderAuthoring );
 
     SceneEntityCreateDesc entity;
     entity.sceneObjectId = id;
@@ -680,6 +690,7 @@ TEST_CASE( "SceneSnapshotWriter: schema-v2 asset parts reparse from authoritativ
             SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         bodies.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
         colliders.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+        colliders.ReserveShapeCapacity( 16u, 16u, 16u );
     }
 
     entities.Clear();
@@ -687,7 +698,10 @@ TEST_CASE( "SceneSnapshotWriter: schema-v2 asset parts reparse from authoritativ
     bodies.Clear();
     colliders.Clear();
 
-    AppendEntity( entities,
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        AppendEntity( entities,
                   bodies,
                   colliders,
                   300u,
@@ -704,7 +718,7 @@ TEST_CASE( "SceneSnapshotWriter: schema-v2 asset parts reparse from authoritativ
                   true,
                   "box",
                   0u );
-    AppendEntity( entities,
+        AppendEntity( entities,
                   bodies,
                   colliders,
                   42u,
@@ -721,9 +735,9 @@ TEST_CASE( "SceneSnapshotWriter: schema-v2 asset parts reparse from authoritativ
                   false,
                   "sphere",
                   1u );
-    ConvexHullShape hull;
-    REQUIRE( ConvexHullShape::TryLoadFromFile( "SkullbonezData/hulls/pyramid.hull", hull ).ok );
-    AppendEntity( entities,
+        ConvexHullShape hull;
+        REQUIRE( ConvexHullShape::TryLoadFromFile( "SkullbonezData/hulls/pyramid.hull", hull ).ok );
+        AppendEntity( entities,
                   bodies,
                   colliders,
                   777u,
@@ -743,7 +757,7 @@ TEST_CASE( "SceneSnapshotWriter: schema-v2 asset parts reparse from authoritativ
                   SceneBehaviorGroupKind::ReleasableTree,
                   PhysicsSceneObjectId{ 777u },
                   0 );
-    AppendEntity( entities,
+        AppendEntity( entities,
                   bodies,
                   colliders,
                   99u,
@@ -760,7 +774,7 @@ TEST_CASE( "SceneSnapshotWriter: schema-v2 asset parts reparse from authoritativ
                   false,
                   nullptr,
                   0u );
-    AppendEntity( entities,
+        AppendEntity( entities,
                   bodies,
                   colliders,
                   1001u,
@@ -780,7 +794,7 @@ TEST_CASE( "SceneSnapshotWriter: schema-v2 asset parts reparse from authoritativ
                   SceneBehaviorGroupKind::ReleasableTree,
                   PhysicsSceneObjectId{ 1001u },
                   0 );
-    AppendEntity( entities,
+        AppendEntity( entities,
                   bodies,
                   colliders,
                   555u,
@@ -800,6 +814,7 @@ TEST_CASE( "SceneSnapshotWriter: schema-v2 asset parts reparse from authoritativ
                   SceneBehaviorGroupKind::ReleasableTree,
                   PhysicsSceneObjectId{ 1001u },
                   1 );
+    }
 
     MutualGravitySettings mutualGravity;
     mutualGravity.enabled = true;
@@ -894,7 +909,8 @@ TEST_CASE( "SceneSnapshotWriter: schema-v2 asset parts reparse from authoritativ
             SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         recreatedBodies.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
         recreatedColliders.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+        recreatedColliders.ReserveShapeCapacity( 16u, 16u, 16u );
+        RecreateParsedOwners( saved, recreatedEntities, recreatedBodies, recreatedColliders );
     }
-    RecreateParsedOwners( saved, recreatedEntities, recreatedBodies, recreatedColliders );
     CheckRecreatedOwners( entities, bodies, colliders, recreatedEntities, recreatedBodies, recreatedColliders );
 }

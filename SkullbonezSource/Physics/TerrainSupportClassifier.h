@@ -332,16 +332,20 @@ inline BoxTerrainVertexSupportProbe ProbeConvexHullTerrainVertices( const Math::
     return ProbeConvexHullTerrainVerticesImpl( hull, position, orientation, terrain, contactEpsilon );
 }
 
-inline BoxTerrainSupportClassification ClassifyBoxTerrainSupportImpl( Core::Profiler* profiler, const Math::CollisionDetection::CollisionShape& shape, const Math::Vector::Vector3& position,
-                                                                      const Math::Transformation::RotationMatrix& orientation, const Math::Vector::Vector3& terrainNormal,
-                                                                      const PhysicsTerrainView& terrain, int contactCount, float contactEpsilon, bool profileChildren )
+template <typename ShapeView>
+inline BoxTerrainSupportClassification
+ClassifyBoxTerrainSupportImpl( Core::Profiler* profiler, const ShapeView& shape, const Math::Vector::Vector3& position,
+                               const Math::Transformation::RotationMatrix& orientation,
+                               const Math::Vector::Vector3& terrainNormal, const PhysicsTerrainView& terrain,
+                               int contactCount, float contactEpsilon, bool profileChildren )
 {
     using Math::CollisionDetection::BoundingBox;
     using Math::CollisionDetection::ConvexHullShape;
+    using Math::CollisionDetection::GetShapeIf;
 
     BoxTerrainSupportClassification result;
-    const BoundingBox* box = std::get_if<BoundingBox>( &shape );
-    const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &shape );
+    const BoundingBox* box = GetShapeIf<BoundingBox>( &shape );
+    const ConvexHullShape* hull = GetShapeIf<ConvexHullShape>( &shape );
 
     if ( !box && !hull )
     {
@@ -407,9 +411,10 @@ inline BoxTerrainSupportClassification ClassifyBoxTerrainSupportImpl( Core::Prof
     return result;
 }
 
+template <typename ShapeView>
 inline BoxTerrainSupportClassification
-ClassifyBoxTerrainSupport( Core::Profiler* profiler, const Math::CollisionDetection::CollisionShape& shape,
-                           const Math::Vector::Vector3& position, const Math::Transformation::RotationMatrix& orientation,
+ClassifyBoxTerrainSupport( Core::Profiler* profiler, const ShapeView& shape, const Math::Vector::Vector3& position,
+                           const Math::Transformation::RotationMatrix& orientation,
                            const Math::Vector::Vector3& terrainNormal, const PhysicsTerrainView& terrain, int contactCount,
                            float contactEpsilon, bool profile )
 {

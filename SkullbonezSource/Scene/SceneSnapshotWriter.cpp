@@ -271,22 +271,21 @@ Json BuildLiveStateJson( const SceneWorldSaveState& scene, int entityIndex )
 
     const auto& shape = row.collider.shape;
 
-    if ( std::holds_alternative<BoundingSphere>( shape ) )
+    if ( const BoundingSphere* sphere = GetShapeIf<BoundingSphere>( &shape ) )
     {
         state["type"] = "ballState";
-        state["radius"] = std::get<BoundingSphere>( shape ).GetRadius();
+        state["radius"] = sphere->GetRadius();
     }
-    else if ( std::holds_alternative<BoundingBox>( shape ) )
+    else if ( const BoundingBox* box = GetShapeIf<BoundingBox>( &shape ) )
     {
         state["type"] = "boxState";
-        state["halfExtents"] = Vec3Json( std::get<BoundingBox>( shape ).GetHalfExtents() );
+        state["halfExtents"] = Vec3Json( box->GetHalfExtents() );
     }
-    else if ( std::holds_alternative<ConvexHullShape>( shape ) )
+    else if ( const ConvexHullShape* hull = GetShapeIf<ConvexHullShape>( &shape ) )
     {
-        const ConvexHullShape& hull = std::get<ConvexHullShape>( shape );
-        const EditorHullAsset hullAsset = EditorHullAssetFromToken( hull.GetName() );
+        const EditorHullAsset hullAsset = EditorHullAssetFromToken( hull->GetName() );
         state["type"] = "convexHullState";
-        state["hull"] = hullAsset == EditorHullAsset::UNKNOWN ? hull.GetName() : EditorHullAssetToken( hullAsset );
+        state["hull"] = hullAsset == EditorHullAsset::UNKNOWN ? hull->GetName() : EditorHullAssetToken( hullAsset );
         state["contactReleaseOnImpact"] = row.body.releasesFromFixedOnContact;
         state["contactReleaseImpulseThreshold"] = row.body.contactReleaseImpulseThreshold;
         AddSceneObjectGroupJson( state, scene, entityIndex );

@@ -246,9 +246,12 @@ LauncherReproSnapshotStatus RuntimeTools::WriteLauncherReproSnapshot( const Laun
     Quaternion orientation = hotState.orientation;
     orientation.GetComponents( qx, qy, qz, qw );
 
-    const CollisionShape& shape = collider->shape;
-    bool isSphere = std::holds_alternative<BoundingSphere>( shape );
-    bool isBox = std::holds_alternative<BoundingBox>( shape );
+    const CollisionShapeReference& shape = collider->shape;
+    const BoundingSphere* sphereShape = GetShapeIf<BoundingSphere>( &shape );
+    const BoundingBox* boxShape = GetShapeIf<BoundingBox>( &shape );
+    const ConvexHullShape* hullShape = GetShapeIf<ConvexHullShape>( &shape );
+    bool isSphere = sphereShape != nullptr;
+    bool isBox = boxShape != nullptr;
     const char* shapeName = LauncherReproShapeName( collider->shapeKind );
     float boundingRadius = LauncherReproRadius( *collider );
     float shapeVolume = GetShapeVolume( shape );
@@ -351,12 +354,11 @@ LauncherReproSnapshotStatus RuntimeTools::WriteLauncherReproSnapshot( const Laun
     float boxMinTerrainGap = 0.0f;
     float boxMaxTerrainGap = 0.0f;
 
-    if ( std::holds_alternative<BoundingBox>( shape ) && terrain )
+    if ( boxShape && terrain )
     {
-        const BoundingBox& box = std::get<BoundingBox>( shape );
         Quaternion qCopy = hotState.orientation;
         RotationMatrix orientMat = qCopy.GetOrientationMatrix();
-        const BoxTerrainVertexSupportProbe supportProbe = ProbeBoxTerrainVertices( nullptr, box, pos, orientMat,
+        const BoxTerrainVertexSupportProbe supportProbe = ProbeBoxTerrainVertices( nullptr, *boxShape, pos, orientMat,
                                                                                    terrain->PhysicsView(),
                                                                                    context.contactEpsilon, false );
 
@@ -448,13 +450,11 @@ LauncherReproSnapshotStatus RuntimeTools::WriteLauncherReproSnapshot( const Laun
 
     if ( isSphere )
     {
-        const BoundingSphere& sphere = std::get<BoundingSphere>( shape );
-        fprintf( f, "sphere_radius,%.6f\n", sphere.GetRadius() );
+        fprintf( f, "sphere_radius,%.6f\n", sphereShape->GetRadius() );
     }
     else if ( isBox )
     {
-        const BoundingBox& box = std::get<BoundingBox>( shape );
-        const Vector3& he = box.GetHalfExtents();
+        const Vector3& he = boxShape->GetHalfExtents();
         fprintf( f, "box_half_extents,%.6f,%.6f,%.6f\n", he.x, he.y, he.z );
         fprintf( f, "box_terrain_supported_vertices,%d\n", boxTerrainSupportedVertices );
         fprintf( f, "box_min_terrain_gap,%.6f\n", boxMinTerrainGap );
@@ -462,11 +462,10 @@ LauncherReproSnapshotStatus RuntimeTools::WriteLauncherReproSnapshot( const Laun
     }
     else
     {
-        const ConvexHullShape& hull = std::get<ConvexHullShape>( shape );
-        fprintf( f, "hull_name,%s\n", hull.GetName() );
-        fprintf( f, "hull_vertices,%u\n", static_cast<unsigned>( hull.GetVertexCount() ) );
-        fprintf( f, "hull_faces,%u\n", static_cast<unsigned>( hull.GetFaceCount() ) );
-        fprintf( f, "hull_edges,%u\n", static_cast<unsigned>( hull.GetEdgeCount() ) );
+        fprintf( f, "hull_name,%s\n", hullShape->GetName() );
+        fprintf( f, "hull_vertices,%u\n", static_cast<unsigned>( hullShape->GetVertexCount() ) );
+        fprintf( f, "hull_faces,%u\n", static_cast<unsigned>( hullShape->GetFaceCount() ) );
+        fprintf( f, "hull_edges,%u\n", static_cast<unsigned>( hullShape->GetEdgeCount() ) );
     }
 
     fprintf( f, "sleeping,%d\n", sleeping );
@@ -482,21 +481,18 @@ LauncherReproSnapshotStatus RuntimeTools::WriteLauncherReproSnapshot( const Laun
 
     if ( isSphere )
     {
-        const BoundingSphere& sphere = std::get<BoundingSphere>( shape );
-        fprintf( f, " radius=%.6f mass=%.6f restitution=%.6f", sphere.GetRadius(), mass, restitution );
+        fprintf( f, " radius=%.6f mass=%.6f restitution=%.6f", sphereShape->GetRadius(), mass, restitution );
     }
     else if ( isBox )
     {
-        const BoundingBox& box = std::get<BoundingBox>( shape );
-        const Vector3& he = box.GetHalfExtents();
+        const Vector3& he = boxShape->GetHalfExtents();
         fprintf( f, " halfExtents=%.6f,%.6f,%.6f mass=%.6f restitution=%.6f", he.x, he.y, he.z, mass, restitution );
     }
     else
     {
-        const ConvexHullShape& hull = std::get<ConvexHullShape>( shape );
-        fprintf( f, " hull=%s vertices=%u faces=%u edges=%u mass=%.6f restitution=%.6f", hull.GetName(),
-                 static_cast<unsigned>( hull.GetVertexCount() ), static_cast<unsigned>( hull.GetFaceCount() ),
-                 static_cast<unsigned>( hull.GetEdgeCount() ), mass, restitution );
+        fprintf( f, " hull=%s vertices=%u faces=%u edges=%u mass=%.6f restitution=%.6f", hullShape->GetName(),
+                 static_cast<unsigned>( hullShape->GetVertexCount() ), static_cast<unsigned>( hullShape->GetFaceCount() ),
+                 static_cast<unsigned>( hullShape->GetEdgeCount() ), mass, restitution );
     }
 
     fprintf( f, "\n" );

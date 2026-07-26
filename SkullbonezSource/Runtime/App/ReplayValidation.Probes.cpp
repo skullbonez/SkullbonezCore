@@ -403,7 +403,7 @@ SkullbonezCore::Core::SbResult InjectReplaySaveProbePlacementCoverage( RuntimeTo
             return ReplayProbeFailure( "replay save probe failed to resolve placed collider record" );
         }
 
-        const CollisionShape placedShapeBeforeScale = placedColliderBeforeEdit->shape;
+        const CollisionShape placedShapeBeforeScale = CopyCollisionShape( placedColliderBeforeEdit->shape );
         constexpr int PROBE_SCALE_AXIS = 0;
         constexpr float PROBE_SCALE_FACTOR = 1.5f;
         CollisionShape placedShapeAfterScale;

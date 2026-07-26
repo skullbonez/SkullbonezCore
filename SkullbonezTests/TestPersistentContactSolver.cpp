@@ -114,6 +114,7 @@ ColliderStore& TestColliderStore()
         SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
             SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         store.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+        store.ReserveShapeCapacity( 16u, 16u, 4u );
     }
     store.Clear();
     return store;
@@ -185,12 +186,12 @@ struct SolverFixture
         (void)bodyStore.CreateBodyRecord( body );
 
         ColliderRecord collider;
-        collider.shape = CollisionShape( BoundingSphere( radius, Vector3( 0.0f, 0.0f, 0.0f ), 0.0f ) );
+        const CollisionShape shape( BoundingSphere( radius, Vector3( 0.0f, 0.0f, 0.0f ), 0.0f ) );
         collider.shapeKind = ColliderShapeKind::Sphere;
         collider.boundingRadius = radius;
         collider.restitution = restitution;
         collider.friction = config.material.terrainFrictionCoefficient;
-        (void)colliderStore.CreateColliderRecord( collider );
+        (void)colliderStore.CreateColliderRecord( collider, shape );
 
         sleepState.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
         sleepSupportedThisFrame.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
@@ -220,11 +221,11 @@ struct SolverFixture
         ColliderRecord collider;
         // Hazard: Debug poisons a default-constructed Vector3. Shape-local
         // offsets must spell zero explicitly or exact narrowphase receives NaN.
-        collider.shape = CollisionShape( BoundingBox( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) ) );
+        const CollisionShape shape( BoundingBox( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) ) );
         collider.shapeKind = ColliderShapeKind::Box;
         collider.boundingRadius = body.hot.boundingRadius;
         collider.friction = config.material.terrainFrictionCoefficient;
-        (void)colliderStore.CreateColliderRecord( collider );
+        (void)colliderStore.CreateColliderRecord( collider, shape );
 
         sleepState.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
         sleepSupportedThisFrame.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );

@@ -503,18 +503,18 @@ void EditorTracer::EmitBox( const Vector3& center, const Vector3& xAxis, const V
 
 
 void EditorTracer::EmitShapeOutlineTo( std::vector<float>& lineData, const Vector3& position, const Quaternion& orientation,
-                                       const CollisionShape& shape, float r, float g, float b )
+                                       const CollisionShapeReference& shape, float r, float g, float b )
 {
     Quaternion outlineOrientation = orientation;
     const RotationMatrix rot = outlineOrientation.GetOrientationMatrix();
 
-    if ( const BoundingSphere* sphere = std::get_if<BoundingSphere>( &shape ) )
+    if ( const BoundingSphere* sphere = GetShapeIf<BoundingSphere>( &shape ) )
     {
         EmitSphereTo( lineData, position + rot * sphere->GetPosition(), sphere->GetBoundingRadius(), r, g, b );
         return;
     }
 
-    if ( const BoundingBox* box = std::get_if<BoundingBox>( &shape ) )
+    if ( const BoundingBox* box = GetShapeIf<BoundingBox>( &shape ) )
     {
         const Vector3& he = box->GetHalfExtents();
         const Vector3 center = position + rot * box->GetPosition();
@@ -524,7 +524,7 @@ void EditorTracer::EmitShapeOutlineTo( std::vector<float>& lineData, const Vecto
         return;
     }
 
-    if ( const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &shape ) )
+    if ( const ConvexHullShape* hull = GetShapeIf<ConvexHullShape>( &shape ) )
     {
         const Vector3 hullCenter = position + rot * hull->GetPosition();
 
@@ -538,8 +538,8 @@ void EditorTracer::EmitShapeOutlineTo( std::vector<float>& lineData, const Vecto
 }
 
 
-void EditorTracer::EmitShapeOutline( const Vector3& position, const Quaternion& orientation, const CollisionShape& shape,
-                                     float r, float g, float b )
+void EditorTracer::EmitShapeOutline( const Vector3& position, const Quaternion& orientation,
+                                     const CollisionShapeReference& shape, float r, float g, float b )
 {
     EmitShapeOutlineTo( m_lineData, position, orientation, shape, r, g, b );
 }
@@ -614,14 +614,14 @@ void EditorTracer::EmitReplayRibbonGlowPairTo( std::vector<float>& ribbonData, c
 
 
 void EditorTracer::EmitReplayRibbonShapeOutlineTo( std::vector<float>& ribbonData, const Vector3& position,
-                                                   const Quaternion& orientation, const CollisionShape& shape, float r,
-                                                   float g, float b, const ReplayRibbonStyle& style,
+                                                   const Quaternion& orientation, const CollisionShapeReference& shape,
+                                                   float r, float g, float b, const ReplayRibbonStyle& style,
                                                    SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane )
 {
     Quaternion outlineOrientation = orientation;
     const RotationMatrix rot = outlineOrientation.GetOrientationMatrix();
 
-    if ( const BoundingSphere* sphere = std::get_if<BoundingSphere>( &shape ) )
+    if ( const BoundingSphere* sphere = GetShapeIf<BoundingSphere>( &shape ) )
     {
         constexpr int segments = 32;
         const Vector3 center = position + rot * sphere->GetPosition();
@@ -666,7 +666,7 @@ void EditorTracer::EmitReplayRibbonShapeOutlineTo( std::vector<float>& ribbonDat
         return;
     }
 
-    if ( const BoundingBox* box = std::get_if<BoundingBox>( &shape ) )
+    if ( const BoundingBox* box = GetShapeIf<BoundingBox>( &shape ) )
     {
         const Vector3& he = box->GetHalfExtents();
         const Vector3 center = position + rot * box->GetPosition();
@@ -692,7 +692,7 @@ void EditorTracer::EmitReplayRibbonShapeOutlineTo( std::vector<float>& ribbonDat
         return;
     }
 
-    if ( const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &shape ) )
+    if ( const ConvexHullShape* hull = GetShapeIf<ConvexHullShape>( &shape ) )
     {
         const Vector3 hullCenter = position + rot * hull->GetPosition();
 
@@ -1174,7 +1174,7 @@ void EditorTracer::AddReplayImpulseVector( const Vector3& point, const Vector3& 
 
 
 void EditorTracer::AddReplayFutureTargetMarker( const Vector3& position, const Quaternion& orientation,
-                                                const CollisionShape& shape, int depth )
+                                                const CollisionShapeReference& shape, int depth )
 {
     const float depthFade = std::clamp( static_cast<float>( depth - 1 ) * 0.10f, 0.0f, 0.34f );
     const float r = std::clamp( 0.98f - depthFade * 0.55f, 0.52f, 1.0f );
@@ -1185,7 +1185,7 @@ void EditorTracer::AddReplayFutureTargetMarker( const Vector3& position, const Q
 
 
 void EditorTracer::AddReplayCausalEntryMarker( const Vector3& position, const Quaternion& orientation,
-                                               const CollisionShape& shape )
+                                               const CollisionShapeReference& shape )
 {
 
     // Why: yellow always means "joined the causal tree here". Keep it as the
@@ -1198,14 +1198,14 @@ void EditorTracer::AddReplayCausalEntryMarker( const Vector3& position, const Qu
 
 
 void EditorTracer::AddReplayCausalRestMarker( const Vector3& position, const Quaternion& orientation,
-                                              const CollisionShape& shape )
+                                              const CollisionShapeReference& shape )
 {
     EmitShapeOutlineTo( m_priorityLineData, position, orientation, shape, 0.58f, 0.58f, 0.62f );
 }
 
 
 void EditorTracer::AddReplayCausalHorizonMarker( const Vector3& position, const Quaternion& orientation,
-                                                 const CollisionShape& shape )
+                                                 const CollisionShapeReference& shape )
 {
 
     // Concept: horizon ghosts are not landings. They mark "this is where the
@@ -1216,7 +1216,7 @@ void EditorTracer::AddReplayCausalHorizonMarker( const Vector3& position, const 
 
 
 void EditorTracer::AddReplayBaselineEntryMarker( const Vector3& position, const Quaternion& orientation,
-                                                 const CollisionShape& shape )
+                                                 const CollisionShapeReference& shape )
 {
 
     // Concept: cold baseline markers are the old future's footprint. They stay
@@ -1226,14 +1226,14 @@ void EditorTracer::AddReplayBaselineEntryMarker( const Vector3& position, const 
 
 
 void EditorTracer::AddReplayBaselineRestMarker( const Vector3& position, const Quaternion& orientation,
-                                                const CollisionShape& shape )
+                                                const CollisionShapeReference& shape )
 {
     EmitShapeOutline( position, orientation, shape, 0.18f, 0.62f, 0.78f );
 }
 
 
 void EditorTracer::AddReplayTargetMarker( const Vector3& position, const Quaternion& orientation,
-                                          const CollisionShape& shape, float radius )
+                                          const CollisionShapeReference& shape, float radius )
 {
     AddSelectionOutline( position, orientation, shape );
     EmitRing( position, 1, (std::max)( 1.0f, radius ), 1.0f, 1.0f, 1.0f );
@@ -1241,7 +1241,7 @@ void EditorTracer::AddReplayTargetMarker( const Vector3& position, const Quatern
 
 
 void EditorTracer::AddAttachedCameraTargetMarker( const Vector3& position, const Quaternion& orientation,
-                                                  const CollisionShape& shape, float radius, bool activeFollow )
+                                                  const CollisionShapeReference& shape, float radius, bool activeFollow )
 {
     AddSelectionOutline( position, orientation, shape );
     radius = (std::max)( 1.0f, radius );
@@ -1253,7 +1253,8 @@ void EditorTracer::AddAttachedCameraTargetMarker( const Vector3& position, const
 }
 
 
-void EditorTracer::AddSelectionOutline( const Vector3& position, const Quaternion& orientation, const CollisionShape& shape )
+void EditorTracer::AddSelectionOutline( const Vector3& position, const Quaternion& orientation,
+                                        const CollisionShapeReference& shape )
 {
     constexpr float outlineR = 1.0f;
     constexpr float outlineG = 1.0f;
@@ -1337,9 +1338,10 @@ void EditorTracer::AddGizmo( const Vector3& origin, float radius, int hotTransla
 }
 
 
-void EditorTracer::AddReplayVelocityGizmo( const Vector3& origin, const Quaternion& orientation, const CollisionShape& shape,
-                                           float radius, const Vector3& linearVelocity, const Vector3& angularVelocity,
-                                           int hotLinearAxis, int hotAngularAxis, int activeAxis, bool activeAngular )
+void EditorTracer::AddReplayVelocityGizmo( const Vector3& origin, const Quaternion& orientation,
+                                           const CollisionShapeReference& shape, float radius, const Vector3& linearVelocity,
+                                           const Vector3& angularVelocity, int hotLinearAxis, int hotAngularAxis,
+                                           int activeAxis, bool activeAngular )
 {
     AddSelectionOutline( origin, orientation, shape );
 

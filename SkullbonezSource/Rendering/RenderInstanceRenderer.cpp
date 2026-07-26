@@ -104,7 +104,7 @@ ShadowCasterStream ResolveShadowCasterStream( const RenderInstanceRecord& instan
     }
 
     const ColliderRecord& collider = colliders[static_cast<std::size_t>( modelIndex )];
-    const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &collider.shape );
+    const ConvexHullShape* hull = GetShapeIf<ConvexHullShape>( &collider.shape );
 
     if ( !hull )
     {
@@ -544,7 +544,7 @@ void RenderModelsForView( const PrimitiveRenderContext& primitiveContext, const 
             }
 
             const ColliderRecord& collider = colliders[static_cast<std::size_t>( x )];
-            const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &collider.shape );
+            const ConvexHullShape* hull = GetShapeIf<ConvexHullShape>( &collider.shape );
 
             if ( !hull )
             {

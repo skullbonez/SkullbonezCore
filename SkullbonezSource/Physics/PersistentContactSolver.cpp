@@ -414,7 +414,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
         // Broadphase radii must include any local shape offset. If a shape is
         // not centered on the body origin, the "safe maybe touching" sphere has
         // to reach from the origin all the way to the farthest shifted point.
-        const CollisionShape& shape = collider.shape;
+        const CollisionShapeReference& shape = collider.shape;
 
         float radius = GetShapeBoundingRadius( shape );
         const Vector3& offset = GetShapePosition( shape );
@@ -432,8 +432,9 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
     {
 
         // Why: object manifolds need only pose plus shape. Pose now comes from
-        // PhysicsBodyRecord, while ColliderStore owns the shape snapshot; the
-        // solver no longer has to borrow a mutable scene object just to build rows.
+        // PhysicsBodyRecord, while ColliderStore owns the per-kind shape payload
+        // borrowed by its collider row; the solver no longer needs a mutable
+        // scene object just to build rows.
         const size_t bodyIndex = static_cast<size_t>( index );
 
         ObjectContactBodyView view;
@@ -554,7 +555,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
         }
 
         if ( supportedIndex >= static_cast<int>( m_colliderRecords.size() ) ||
-             !std::get_if<ConvexHullShape>( &m_colliderRecords[static_cast<size_t>( supportedIndex )].shape ) )
+             !GetShapeIf<ConvexHullShape>( &m_colliderRecords[static_cast<size_t>( supportedIndex )].shape ) )
         {
             return;
         }
@@ -854,14 +855,14 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
                 PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds/AddRows" );
 
                 contactNormal = manifold.normal;
-                const CollisionShape& shapeA = colliderA.shape;
-                const CollisionShape& shapeB = colliderB.shape;
-                const bool shapeAIsBox = std::get_if<BoundingBox>( &shapeA ) != nullptr;
-                const bool shapeBIsBox = std::get_if<BoundingBox>( &shapeB ) != nullptr;
-                const bool shapeAIsConvexHull = std::get_if<ConvexHullShape>( &shapeA ) != nullptr;
-                const bool shapeBIsConvexHull = std::get_if<ConvexHullShape>( &shapeB ) != nullptr;
+                const CollisionShapeReference& shapeA = colliderA.shape;
+                const CollisionShapeReference& shapeB = colliderB.shape;
+                const bool shapeAIsBox = GetShapeIf<BoundingBox>( &shapeA ) != nullptr;
+                const bool shapeBIsBox = GetShapeIf<BoundingBox>( &shapeB ) != nullptr;
+                const bool shapeAIsConvexHull = GetShapeIf<ConvexHullShape>( &shapeA ) != nullptr;
+                const bool shapeBIsConvexHull = GetShapeIf<ConvexHullShape>( &shapeB ) != nullptr;
                 const bool hasConvexHull = shapeAIsConvexHull || shapeBIsConvexHull;
-                const bool hasSphere = std::get_if<BoundingSphere>( &shapeA ) || std::get_if<BoundingSphere>( &shapeB );
+                const bool hasSphere = GetShapeIf<BoundingSphere>( &shapeA ) || GetShapeIf<BoundingSphere>( &shapeB );
                 const bool sameShapeFaceFootprint = ( shapeAIsBox && shapeBIsBox ) ||
                                                     ( shapeAIsConvexHull && shapeBIsConvexHull );
 
@@ -1495,25 +1496,25 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
                 // conservative average extent for boxes, enough to bleed tiny
                 // residual spin without adding a shape-specific response path.
                 float omegaMag = sqrtf( omegaMagSq );
-                float rEff = std::visit( []( const auto& shape ) -> float
-                                         {
-                                             using ShapeT = std::decay_t<decltype( shape )>;
+                float rEff = VisitCollisionShape( m_colliderRecords[static_cast<size_t>( bodyIndex )].shape,
+                                                  []( const auto& shape ) -> float
+                                                  {
+                                                      using ShapeT = std::decay_t<decltype( shape )>;
 
-                                             if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
-                                             {
-                                                 return shape.GetRadius();
-                                             }
-                                             else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
-                                             {
-                                                 const Vector3& he = shape.GetHalfExtents();
-                                                 return ( he.x + he.y + he.z ) / 3.0f;
-                                             }
-                                             else
-                                             {
-                                                 return shape.GetBoundingRadius() * 0.5f;
-                                             }
-                                         },
-                                         m_colliderRecords[static_cast<size_t>( bodyIndex )].shape );
+                                                      if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
+                                                      {
+                                                          return shape.GetRadius();
+                                                      }
+                                                      else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
+                                                      {
+                                                          const Vector3& he = shape.GetHalfExtents();
+                                                          return ( he.x + he.y + he.z ) / 3.0f;
+                                                      }
+                                                      else
+                                                      {
+                                                          return shape.GetBoundingRadius() * 0.5f;
+                                                      }
+                                                  } );
 
                 const float muRolling = stepPolicy.rollingFrictionCoefficient;
                 float rollingTorqueMag = muRolling * normalForce * rEff;
