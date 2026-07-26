@@ -84,16 +84,11 @@ SelectDx12UploadOverflowAction( bool fits, SkullbonezCore::Core::Allocation::Run
     {
         return Dx12UploadOverflowAction::Allocate;
     }
-    switch ( phase )
+    if ( SkullbonezCore::Core::Allocation::IsRuntimeAllocationGuardedSteadyPhase( phase ) )
     {
-    case SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SteadyGameplay:
-    case SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Physics:
-    case SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Render:
-    case SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay:
         return Dx12UploadOverflowAction::DropCaller;
-    default:
-        return Dx12UploadOverflowAction::FlushAndRetry;
     }
+    return Dx12UploadOverflowAction::FlushAndRetry;
 }
 
 // Executes the same branch production uses while allowing CPU tests to supply

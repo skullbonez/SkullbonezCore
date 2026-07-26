@@ -444,7 +444,7 @@ bool ReplayPredictionPresentation::BuildGhostDrawRequests(
 }
 
 
-bool ReplayPredictionPresentation::PrepareRetainedTrajectoryDrawList(
+bool ReplayPredictionPresentation::PrepareRetainedGeometryDrawList(
     const ReplayPredictionPresentationView& prediction,
     const RunReplayPathVisualizerState& path,
     const SceneEntityStore& entities,
@@ -452,11 +452,14 @@ bool ReplayPredictionPresentation::PrepareRetainedTrajectoryDrawList(
     EditorTracer& frameTracer,
     const Core::ReplayTrajectoryAppearanceConfig& trajectoryAppearance )
 {
-    if ( m_retainedDrawList.SetReplayTrajectoryAppearance( trajectoryAppearance ) )
+    const bool retainedAppearanceChanged = m_retainedGeometry.SetAppearance( trajectoryAppearance );
+    const bool markerAppearanceChanged = m_retainedMarkerDrawList.SetReplayTrajectoryAppearance( trajectoryAppearance );
+    if ( retainedAppearanceChanged || markerAppearanceChanged )
     {
         // Invariant: packed retained records carry style values. A live UI edit
         // invalidates geometry only; prediction samples remain authoritative.
-        m_retainedDrawList.Clear();
+        m_retainedGeometry.Clear();
+        m_retainedMarkerDrawList.Clear();
         m_retainedDrawListState.Reset();
         ++m_retainedDrawStreamId;
         ++m_retainedAppearanceInvalidationCount;
@@ -476,7 +479,8 @@ bool ReplayPredictionPresentation::PrepareRetainedTrajectoryDrawList(
         path,
         entities,
         colliderStore,
-        m_retainedDrawList,
+        m_retainedGeometry,
+        m_retainedMarkerDrawList,
         m_retainedDrawListState );
 
     if ( drawListUpdate.reset )
@@ -513,7 +517,8 @@ void ReplayPredictionPresentation::AttachRetainedPredictionGeometry( ReplayVisua
     {
         // Compact retained trajectory records are world-space and camera-neutral.
         // Camera values remain explicit publication inputs for the tracer packet.
-        m_retainedDrawPacket = m_retainedDrawList.BuildReplayVisualPacket( cameraEye, cameraUp );
+        m_retainedDrawPacket = m_retainedMarkerDrawList.BuildReplayVisualPacket( cameraEye, cameraUp );
+        m_retainedGeometry.PublishToPacket( m_retainedDrawPacket );
         m_retainedDrawPacketDirty = false;
         ++m_retainedDrawRevision;
     }

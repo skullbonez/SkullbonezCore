@@ -55,7 +55,7 @@ DXC_VERSION = "1.8.2502.11"
 SHADER_MODEL = "6_6"
 COMMON_FLAGS = ("-WX", "-Ges", "-O3", "-Zpc", "-Qstrip_debug")
 RASTER_STAGES = (("vs", "main_vs"), ("ps", "main_ps"))
-REFLECTION_HEADER = "SkullbonezSource/Rendering/DX12/GeneratedShaderReflection.h"
+REFLECTION_HEADER = "SkullbonezData/generated/GeneratedShaderReflection.h"
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -67,6 +67,7 @@ def write_bytes_if_changed(path: Path, content: bytes) -> None:
     # bytes would turn every F5 launch into a needless renderer recompile.
     if path.is_file() and path.read_bytes() == content:
         return
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(content)
 
 

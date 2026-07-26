@@ -379,7 +379,8 @@ void Dx12GraphTransientPool::EndGraphTextureRenderTarget( const RenderGraphTextu
 // --- Init / Shutdown ---
 
 
-SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
+SkullbonezCore::Core::SbResult
+RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height, const char* retainedGeometryShaderBaseName )
 {
     Dx12RenderDeviceInitDesc deviceDesc;
     deviceDesc.hwnd = hwnd;
@@ -543,28 +544,28 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, 
     // Dx12FrameUploadSystem owns the actual upload resources and their
     // persistent CPU Map() pointers. RenderBackendDX12 now asks for byte ranges
     // instead of owning the raw upload-buffer lifecycle itself.
-    // Invariant: retained prediction bytes are a fixed suffix of these cold
+    // Invariant: retained geometry bytes are a fixed suffix of these cold
     // device-epoch arenas. Ordinary frame allocation cannot overwrite them,
-    // and entering replay never creates a post-gameplay GPU resource.
+    // and activating an upper-layer feature never creates a steady-phase GPU resource.
     // Capacity preserves the existing 32 MiB frame arena after adding the
-    // disjoint compact retained slice; prediction storage must not starve scene
+    // disjoint compact retained slice; retained storage must not starve scene
     // or UI uploads.
     if ( !m_frameOwner.Uploads().Init(
              Device(),
              Dx12FrameOwner::FRAME_COUNT,
-             Dx12FrameOwner::UPLOAD_BUFFER_SIZE + Dx12GeometryOwner::RetainedTrajectoryCompactBufferSizeBytes(),
-             Dx12GeometryOwner::RetainedTrajectoryBufferSizeBytes(),
+             Dx12FrameOwner::UPLOAD_BUFFER_SIZE + Dx12GeometryOwner::RetainedGeometryCompactBufferSizeBytes(),
+             Dx12GeometryOwner::RetainedGeometryBufferSizeBytes(),
              L"Skullbonez DX12 Frame Upload Buffer" ) )
     {
         return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
                                                         "DX12 frame upload buffer creation or persistent Map failed" );
     }
 
-    if ( !m_geometryOwner.InitializeRetainedTrajectoryCommands( Device() ) )
+    if ( !m_geometryOwner.InitializeRetainedGeometryCommands( Device() ) )
     {
         return SkullbonezCore::Core::SbResult::Failure(
             "Rendering/DX12",
-            "DX12 retained trajectory indirect command signature creation failed" );
+            "DX12 retained geometry indirect command signature creation failed" );
     }
 
     const SkullbonezCore::Core::SbResult rootSignatureResult = m_pipelineOwner.Initialize( Device() );
@@ -590,15 +591,19 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, 
     constexpr TransientTriangleStyle requiredTriangleStyles[] = {
         TransientTriangleStyle::Color,
         TransientTriangleStyle::SoftAdditiveRibbon,
-        TransientTriangleStyle::TrajectoryRibbon,
-        TransientTriangleStyle::TrajectoryRibbonDepthHint,
+        TransientTriangleStyle::InstancedRibbon,
+        TransientTriangleStyle::InstancedRibbonDepthHint,
     };
 
     for ( const TransientTriangleStyle style : requiredTriangleStyles )
     {
+        const bool instancedRibbon = style == TransientTriangleStyle::InstancedRibbon ||
+                                     style == TransientTriangleStyle::InstancedRibbonDepthHint;
+
         m_geometryOwner.AdoptTransientTriangleShader(
             style,
-            m_resourceBuilder.CreateShader( Dx12GeometryOwner::TransientShaderBaseName( style ) ) );
+            instancedRibbon ? m_resourceBuilder.CreateShader( retainedGeometryShaderBaseName, "retained_ribbon" )
+                            : m_resourceBuilder.CreateShader( Dx12GeometryOwner::TransientShaderBaseName( style ) ) );
 
         if ( !m_geometryOwner.HasTransientTriangleShader( style ) )
         {

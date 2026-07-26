@@ -88,33 +88,30 @@ TEST_CASE( "Replay retained prediction attachment reuses cached stable submissio
 
 TEST_CASE( "Replay retained ranges preserve canonical geometry across interleaved appends" )
 {
-    using SkullbonezCore::Rendering::AppendRetainedTrajectoryRecord;
-    using SkullbonezCore::Rendering::RetainedTrajectoryDrawRange;
+    using SkullbonezCore::Rendering::RetainedGeometryRangeToken;
+    using SkullbonezCore::Runtime::ReplayOverlay::AppendPredictionRetainedRecord;
+    using SkullbonezCore::Runtime::ReplayOverlay::ReplayPredictionRetainedRecord;
     constexpr std::size_t floatsPerRecord =
-        SkullbonezCore::Rendering::RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT;
+        SkullbonezCore::Runtime::ReplayOverlay::PREDICTION_TRAJECTORY_FLOATS_PER_RECORD;
     const auto record = []( float ax, float bx, float r, float g, float b ) {
-        return std::array<float, floatsPerRecord>{ ax, 0.0f, 0.0f,
-                                                   bx, 0.0f, 0.0f,
-                                                   2.0f,
-                                                   r, g, b,
-                                                   1.0f, 1.0f, 0.0f,
-                                                   ax, 0.0f, 0.0f,
-                                                   bx, 0.0f, 0.0f };
+        const SkullbonezCore::Math::Vector::Vector3 start( ax, 0.0f, 0.0f );
+        const SkullbonezCore::Math::Vector::Vector3 end( bx, 0.0f, 0.0f );
+        return ReplayPredictionRetainedRecord { start, end, 2.0f, r, g, b, 1.0f, 1.0f, 0.0f, start, end };
     };
 
     std::vector<float> arena( 3u * floatsPerRecord, 0.0f );
-    RetainedTrajectoryDrawRange rangeA = {};
+    RetainedGeometryRangeToken rangeA = {};
     rangeA.identity = 101u;
-    rangeA.firstSegment = 0u;
-    rangeA.segmentCapacity = 2u;
+    rangeA.firstRecord = 0u;
+    rangeA.recordCapacity = 2u;
     rangeA.sourceVersion = 7u;
-    RetainedTrajectoryDrawRange rangeB = {};
+    RetainedGeometryRangeToken rangeB = {};
     rangeB.identity = 202u;
-    rangeB.firstSegment = 2u;
-    rangeB.segmentCapacity = 1u;
+    rangeB.firstRecord = 2u;
+    rangeB.recordCapacity = 1u;
     rangeB.sourceVersion = 9u;
-    REQUIRE( AppendRetainedTrajectoryRecord( arena, rangeA, record( 0.0f, 1.0f, 0.8f, 0.2f, 0.1f ), 0.0001f ) );
-    REQUIRE( AppendRetainedTrajectoryRecord( arena, rangeB, record( 10.0f, 11.0f, 0.1f, 0.4f, 0.9f ), 0.0001f ) );
+    REQUIRE( AppendPredictionRetainedRecord( arena, rangeA, record( 0.0f, 1.0f, 0.8f, 0.2f, 0.1f ), 0.0001f ) );
+    REQUIRE( AppendPredictionRetainedRecord( arena, rangeB, record( 10.0f, 11.0f, 0.1f, 0.4f, 0.9f ), 0.0001f ) );
     const std::array<float, floatsPerRecord> rangeBSnapshot = [&] {
         std::array<float, floatsPerRecord> result = {};
         std::copy_n( arena.begin() + static_cast<std::ptrdiff_t>( 2u * floatsPerRecord ),
@@ -122,19 +119,19 @@ TEST_CASE( "Replay retained ranges preserve canonical geometry across interleave
                      result.begin() );
         return result;
     }();
-    REQUIRE( AppendRetainedTrajectoryRecord( arena, rangeA, record( 1.0f, 2.0f, 0.7f, 0.3f, 0.1f ), 0.0001f ) );
+    REQUIRE( AppendPredictionRetainedRecord( arena, rangeA, record( 1.0f, 2.0f, 0.7f, 0.3f, 0.1f ), 0.0001f ) );
 
-    CHECK( rangeA.segmentCount == 2u );
-    CHECK( rangeB.segmentCount == 1u );
+    CHECK( rangeA.recordCount == 2u );
+    CHECK( rangeB.recordCount == 1u );
     CHECK( std::equal( rangeBSnapshot.begin(),
                        rangeBSnapshot.end(),
                        arena.begin() + static_cast<std::ptrdiff_t>( 2u * floatsPerRecord ) ) );
 
-    auto expectedA0 = record( 0.0f, 1.0f, 0.8f, 0.2f, 0.1f );
+    auto expectedA0 = record( 0.0f, 1.0f, 0.8f, 0.2f, 0.1f ).Packed();
     expectedA0[16] = 2.0f;
-    auto expectedA1 = record( 1.0f, 2.0f, 0.7f, 0.3f, 0.1f );
+    auto expectedA1 = record( 1.0f, 2.0f, 0.7f, 0.3f, 0.1f ).Packed();
     expectedA1[13] = 0.0f;
-    const auto expectedB = record( 10.0f, 11.0f, 0.1f, 0.4f, 0.9f );
+    const auto expectedB = record( 10.0f, 11.0f, 0.1f, 0.4f, 0.9f ).Packed();
     CHECK( std::equal( expectedA0.begin(), expectedA0.end(), arena.begin() ) );
     CHECK( std::equal(
         expectedA1.begin(), expectedA1.end(), arena.begin() + static_cast<std::ptrdiff_t>( floatsPerRecord ) ) );
@@ -145,33 +142,32 @@ TEST_CASE( "Replay retained ranges preserve canonical geometry across interleave
 
 TEST_CASE( "Replay retained continuation chunks repair only their shared adjacency tail" )
 {
-    using SkullbonezCore::Rendering::AppendRetainedTrajectoryContinuationRecord;
-    using SkullbonezCore::Rendering::AppendRetainedTrajectoryRecord;
-    using SkullbonezCore::Rendering::RetainedTrajectoryDrawRange;
+    using SkullbonezCore::Rendering::RetainedGeometryRangeToken;
+    using SkullbonezCore::Runtime::ReplayOverlay::AppendPredictionRetainedContinuation;
+    using SkullbonezCore::Runtime::ReplayOverlay::AppendPredictionRetainedRecord;
+    using SkullbonezCore::Runtime::ReplayOverlay::ReplayPredictionRetainedRecord;
     constexpr std::size_t floatsPerRecord =
-        SkullbonezCore::Rendering::RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT;
+        SkullbonezCore::Runtime::ReplayOverlay::PREDICTION_TRAJECTORY_FLOATS_PER_RECORD;
     const auto record = []( float ax, float bx ) {
-        return std::array<float, floatsPerRecord>{ ax, 0.0f, 0.0f,
-                                                   bx, 0.0f, 0.0f,
-                                                   2.0f,
-                                                   0.8f, 0.2f, 0.1f,
-                                                   1.0f, 1.0f, 0.0f,
-                                                   ax, 0.0f, 0.0f,
-                                                   bx, 0.0f, 0.0f };
+        const SkullbonezCore::Math::Vector::Vector3 start( ax, 0.0f, 0.0f );
+        const SkullbonezCore::Math::Vector::Vector3 end( bx, 0.0f, 0.0f );
+        return ReplayPredictionRetainedRecord {
+            start, end, 2.0f, 0.8f, 0.2f, 0.1f, 1.0f, 1.0f, 0.0f, start, end
+        };
     };
     std::vector<float> arena( 3u * floatsPerRecord, 0.0f );
-    RetainedTrajectoryDrawRange first = {};
-    first.firstSegment = 0u;
-    first.segmentCapacity = 1u;
+    RetainedGeometryRangeToken first = {};
+    first.firstRecord = 0u;
+    first.recordCapacity = 1u;
     first.sourceVersion = 4u;
-    RetainedTrajectoryDrawRange sibling = {};
-    sibling.firstSegment = 1u;
-    sibling.segmentCapacity = 1u;
-    RetainedTrajectoryDrawRange continuation = {};
-    continuation.firstSegment = 2u;
-    continuation.segmentCapacity = 1u;
-    REQUIRE( AppendRetainedTrajectoryRecord( arena, first, record( 0.0f, 1.0f ), 0.0001f ) );
-    REQUIRE( AppendRetainedTrajectoryRecord( arena, sibling, record( 10.0f, 11.0f ), 0.0001f ) );
+    RetainedGeometryRangeToken sibling = {};
+    sibling.firstRecord = 1u;
+    sibling.recordCapacity = 1u;
+    RetainedGeometryRangeToken continuation = {};
+    continuation.firstRecord = 2u;
+    continuation.recordCapacity = 1u;
+    REQUIRE( AppendPredictionRetainedRecord( arena, first, record( 0.0f, 1.0f ), 0.0001f ) );
+    REQUIRE( AppendPredictionRetainedRecord( arena, sibling, record( 10.0f, 11.0f ), 0.0001f ) );
     const std::array<float, floatsPerRecord> siblingSnapshot = [&] {
         std::array<float, floatsPerRecord> result = {};
         std::copy_n( arena.begin() + static_cast<std::ptrdiff_t>( floatsPerRecord ),
@@ -180,7 +176,7 @@ TEST_CASE( "Replay retained continuation chunks repair only their shared adjacen
         return result;
     }();
 
-    REQUIRE( AppendRetainedTrajectoryContinuationRecord(
+    REQUIRE( AppendPredictionRetainedContinuation(
         arena, first, continuation, record( 1.0f, 2.0f ), 0.0001f ) );
     CHECK( first.sourceVersion == 5u );
     CHECK( arena[16] == 2.0f );

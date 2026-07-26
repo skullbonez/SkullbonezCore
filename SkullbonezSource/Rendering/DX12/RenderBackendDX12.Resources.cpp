@@ -71,7 +71,7 @@ static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIn
 // --- Dx12ResourceBuilder methods ---
 
 
-std::unique_ptr<ShaderDX12> Dx12ResourceBuilder::CreateShader( const char* baseName )
+std::unique_ptr<ShaderDX12> Dx12ResourceBuilder::CreateShader( const char* baseName, const char* contractBaseName )
 {
     std::string hlslPath = std::string( DATA_ROOT ) + baseName + ".hlsl";
     if ( !m_device.Device() )
@@ -84,7 +84,7 @@ std::unique_ptr<ShaderDX12> Dx12ResourceBuilder::CreateShader( const char* baseN
                                                 m_shaderDevelopment,
                                                 m_frame.UploadReservations() );
 
-    if ( !shader->Compile( hlslPath.c_str() ) )
+    if ( !shader->Compile( hlslPath.c_str(), contractBaseName ) )
     {
         // Lane R: shader files and compiler output are external inputs. Return
         // a null shader so setup/render owners can skip the dependent draw while

@@ -938,7 +938,7 @@ void RenderGraph::ReleaseCallbackPayloadBorrows()
 {
     // Lifetime: production callbacks borrow stack payloads only through their
     // synchronous append/execute range. Once frame diagnostics are complete,
-    // poison every erased invocation slot so accidental full-graph replay
+    // poison every erased invocation slot so an accidental full-graph rerun
     // fails through the missing-callback invariant instead of dereferencing a
     // payload whose owner has left scope.
     for ( size_t passIndex = 0; passIndex < m_passes.size(); ++passIndex )

@@ -67,7 +67,7 @@ enum class RenderUploadCategory : std::size_t
     DynamicVertex,
     InstanceData,
     TextureRows,
-    DebugPredictionOverlay,
+    RetainedGeometry,
     Count
 };
 

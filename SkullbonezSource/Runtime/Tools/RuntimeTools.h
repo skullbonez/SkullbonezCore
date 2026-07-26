@@ -494,25 +494,9 @@ class EditorTracer
         m_priorityReplayRibbonVertexData;                                   // Priority packed vertices kept separate so ordinary appends never move them.
     std::size_t m_expandedOrdinarySegmentCount = 0;
     std::size_t m_expandedPrioritySegmentCount = 0;
-    // Fixed compact arena used only by the retained prediction owner. Each
-    // trajectory grows through stable eight-segment chunks; extending a sibling
-    // cannot move or invalidate previously published records.
-    std::vector<float> m_retainedReplayRibbonRecords;
-    std::array<Rendering::RetainedTrajectoryDrawRange, Rendering::RETAINED_TRAJECTORY_MAX_DRAW_RANGES>
-        m_retainedReplayRibbonRanges = {};
-    // Packet order is detached from physical range handles. Sorting this fixed
-    // mirror on publication keeps alpha-blended drawing canonical without
-    // moving compact records or invalidating cursor-owned range indices.
-    std::array<Rendering::RetainedTrajectoryDrawRange, Rendering::RETAINED_TRAJECTORY_MAX_DRAW_RANGES>
-        m_retainedReplayRibbonDrawRanges = {};
-    std::size_t m_retainedReplayRibbonRangeCount = 0;
-    std::size_t m_retainedOrdinarySegmentCapacityUsed = 0;
-    std::size_t m_retainedPrioritySegmentCapacityUsed = 0;
-    std::size_t m_retainedOrdinarySegmentCount = 0;
-    std::size_t m_retainedPrioritySegmentCount = 0;
     SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats
         m_replaySubmissionStats;                                            // Frame-local submitted replay ribbon hash sampled after tracer render.
-    uint64_t m_replayGeometryRevision = 0;                                  // Successful ribbon-record append serial for retained draw-list publication.
+    uint64_t m_replayGeometryRevision = 0;                                  // Successful line/ribbon append serial for retained marker publication.
 
     void EmitLineTo( std::vector<float>& lineData,
                      const Math::Vector::Vector3& a,
@@ -575,14 +559,6 @@ class EditorTracer
                                      const ReplayRibbonStyle& glow,
                                      const ReplayRibbonStyle& core,
                                      SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane );
-    bool EmitRetainedReplayRibbonSegment( std::size_t rangeIndex,
-                                          const Math::Vector::Vector3& a,
-                                          const Math::Vector::Vector3& b,
-                                          float r,
-                                          float g,
-                                          float bl,
-                                          const ReplayRibbonStyle& style,
-                                          SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane );
     void EmitReplayRibbonShapeOutlineTo( std::vector<float>& ribbonData,
                                          const Math::Vector::Vector3& position,
                                          const Math::Orientation::Quaternion& orientation,
@@ -624,39 +600,6 @@ class EditorTracer
     // single source of capacity truth.
     std::size_t ReplayPathRibbonSegmentCapacityRemaining() const;
     std::size_t ReplayPriorityRibbonSegmentCapacityRemaining() const;
-    std::size_t
-    BeginRetainedReplayRibbonRange( uint64_t identity,
-                                    uint32_t sourceVersion,
-                                    bool priority,
-                                    std::size_t segmentCapacity,
-                                    uint64_t drawOrder,
-                                    std::size_t continuationRange = Rendering::RETAINED_TRAJECTORY_MAX_DRAW_RANGES );
-    std::size_t RetainedReplayRibbonRangeCapacityRemaining( std::size_t rangeIndex ) const noexcept;
-    std::size_t RetainedReplayOrdinarySegmentCapacityRemaining() const noexcept;
-    std::size_t RetainedReplayPrioritySegmentCapacityRemaining() const noexcept;
-    std::size_t RetainedReplayOrdinarySegmentCountRemaining() const noexcept;
-    std::size_t RetainedReplayPrioritySegmentCountRemaining() const noexcept;
-    void AddRetainedReplayPathSegment( std::size_t rangeIndex,
-                                       const Math::Vector::Vector3& start,
-                                       const Math::Vector::Vector3& end,
-                                       float r,
-                                       float g,
-                                       float b,
-                                       SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane,
-                                       float emphasis = 0.0f );
-    void AddRetainedReplayCausalTrailSegment( std::size_t rangeIndex,
-                                              const Math::Vector::Vector3& start,
-                                              const Math::Vector::Vector3& end,
-                                              float r,
-                                              float g,
-                                              float b );
-    void AddRetainedReplayBaselinePathSegment( std::size_t rangeIndex,
-                                               const Math::Vector::Vector3& start,
-                                               const Math::Vector::Vector3& end,
-                                               float r,
-                                               float g,
-                                               float b,
-                                               float opacity = 1.0f );
     void AddPlacementRay( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& hitPoint );
     void AddPlacementGhost( int objectType,
                             const Math::Vector::Vector3& center,

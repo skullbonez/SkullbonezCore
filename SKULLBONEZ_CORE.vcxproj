@@ -664,6 +664,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRestoreTransactions.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionArchive.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionDrawing.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionRetainedGeometry.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayVisualPacketFingerprint.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayVisualPacket.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayTrajectoryPackets.h" />
@@ -716,7 +717,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderDeviceDX12.h" />
     <ClInclude Include="SkullbonezSource\Rendering\ShaderContracts.h" />
     <ClInclude Include="SkullbonezSource\Rendering\ShaderReflectionContracts.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\DX12\GeneratedShaderReflection.h" />
+    <ClInclude Include="SkullbonezData\generated\GeneratedShaderReflection.h" />
     <ClInclude Include="SkullbonezSource\Rendering\Shadow.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\ShaderBytecodeManifest.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\ShaderDX12.h" />
@@ -956,7 +957,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ShaderBakeInput Include="$(ProjectDir)tools\bake_shaders.bat;$(ProjectDir)tools\bake_shaders.py;@(ShaderBakeRasterSource);$(ProjectDir)SkullbonezData\shaders\generate_mips.hlsl;$(WindowsSdkDir)bin\10.0.26100.0\x64\dxc.exe" />
     <ShaderBakeOutput Include="@(ShaderBakeRasterSource-&gt;'%(RootDir)%(Directory)%(Filename).vs.dxil')" />
     <ShaderBakeOutput Include="@(ShaderBakeRasterSource-&gt;'%(RootDir)%(Directory)%(Filename).ps.dxil')" />
-    <ShaderBakeOutput Include="$(ProjectDir)SkullbonezData\shaders\generate_mips.cs.dxil;$(ProjectDir)SkullbonezData\shaders\shader_manifest.json;$(ProjectDir)SkullbonezSource\Rendering\DX12\GeneratedShaderReflection.h" />
+    <ShaderBakeOutput Include="$(ProjectDir)SkullbonezData\shaders\generate_mips.cs.dxil;$(ProjectDir)SkullbonezData\shaders\shader_manifest.json;$(ProjectDir)SkullbonezData\generated\GeneratedShaderReflection.h" />
   </ItemGroup>
   <Target Name="BakeShippingShaders"
           BeforeTargets="PrepareForBuild"

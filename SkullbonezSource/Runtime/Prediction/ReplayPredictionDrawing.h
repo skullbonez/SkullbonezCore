@@ -23,12 +23,14 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp
+  - SkullbonezSource/Runtime/Prediction/ReplayPredictionRetainedGeometry.h
   - SkullbonezSource/Runtime/Replay/ReplayPathPackets.h
   - SkullbonezSource/Runtime/Replay/ReplayTrajectoryPackets.h
 */
 #pragma once
 
 #include "ReplayPredictionView.h"
+#include "ReplayPredictionRetainedGeometry.h"
 #include "../Replay/ReplayPathPackets.h"
 #include "../Replay/ReplayTrajectoryPackets.h"
 #include "../../Rendering/RenderInstanceStore.h"
@@ -63,7 +65,7 @@ struct ReplayPredictionDrawRecordCursor
     std::size_t sourceRecordIndex = 0;
     std::size_t consumedPointCount = 0;
     std::size_t lastSelectedPointIndex = 0;
-    std::size_t retainedRangeIndex = Rendering::RETAINED_TRAJECTORY_MAX_DRAW_RANGES;
+    std::size_t retainedRangeIndex = PREDICTION_TRAJECTORY_RANGE_CAPACITY;
     uint32_t retainedRangeChunkCount = 0;
     float authoredColorR = 1.0f;
     float authoredColorG = 1.0f;
@@ -206,7 +208,8 @@ ReplayPredictionDrawListUpdate UpdateReplayPredictionDrawList( const ReplayPredi
                                                                const RunReplayPathVisualizerState& pathVisualizer,
                                                                const SceneEntityStore& entities,
                                                                const Physics::ColliderStore& colliderStore,
-                                                               EditorTracer& drawList,
+                                                               ReplayPredictionRetainedGeometry& retainedGeometry,
+                                                               EditorTracer& retainedMarkers,
                                                                ReplayPredictionDrawListState& state );
 void AppendReplayPredictionProvisionalTails( const ReplayPredictionPresentationView& prediction,
                                              const RunReplayPathVisualizerState& pathVisualizer,

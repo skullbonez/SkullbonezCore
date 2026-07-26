@@ -137,7 +137,7 @@ class ShaderDX12
                 bool registerForDevelopment = true );
     ~ShaderDX12();
 
-    bool Compile( const char* hlslPath );
+    bool Compile( const char* hlslPath, const char* contractBaseName = nullptr );
     bool CanAdoptReload( const ShaderDX12& candidate ) const;
     bool PrepareReload( ShaderDX12ReloadPayload& payload ) const;
     void AdoptReload( ShaderDX12ReloadPayload& payload );

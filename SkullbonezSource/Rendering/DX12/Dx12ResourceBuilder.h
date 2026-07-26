@@ -54,7 +54,9 @@ class Dx12ResourceBuilder
     {
     }
 
-    std::unique_ptr<ShaderDX12> CreateShader( const char* baseName );
+    // contractBaseName separates a feature-owned physical asset name from the
+    // generic CPU ABI name used by Rendering.
+    std::unique_ptr<ShaderDX12> CreateShader( const char* baseName, const char* contractBaseName = nullptr );
     std::unique_ptr<MeshDX12> CreateMesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords );
     std::unique_ptr<FramebufferDX12>
     CreateFramebuffer( int width, int height, FramebufferColorFormat colorFormat = FramebufferColorFormat::RGBA8 );

@@ -23,7 +23,7 @@ Glossary:
   Shadow caster stream: Opaque prepared bin selecting the sphere, box, pine, or
     convex-hull submission stream without interpreting content in the renderer.
   RenderSceneSnapshot: Future immutable frame input consumed by render passes.
-  Scene object id: Stable per-scene id shared with physics/replay records.
+  Scene object id: Stable per-scene id shared with other subsystem records.
   Pose history: Previous/current completed solver endpoints stored in the
     existing fixed-capacity instance row for allocation-free presentation.
 
@@ -149,7 +149,7 @@ struct RenderInstancePresentationRecord
     ShadowCasterStream shadowCasterStream = ShadowCasterStream::None;    // Scene-owner stream choice copied into the draw row.
     bool editorVisible = true;                                           // Scene editor visibility copied into the prepared draw row.
     char displayName[64] = {};                                           // Presentation/debug label paired with the model slot.
-    bool simpleRagdollPart = false;                                      // Replay ghost filter metadata copied from scene grouping.
+    bool simpleRagdollPart = false;                                      // Presentation filter metadata copied from scene grouping.
     float fixedContactAlpha = 0.0f;                                      // Render-only red contact feedback strength.
     float fixedContactSeconds = 0.0f;                                    // Seconds remaining for fixed-body contact feedback.
 };
@@ -194,7 +194,7 @@ class RenderInstanceStore
                   const Physics::PhysicsBodyStore& bodyStore,
                   const Physics::ColliderStore& colliderStore,
                   float presentationAlpha = 1.0f );
-    // Applies a one-frame presentation pose, such as replay scrub/prediction,
+    // Applies a one-frame presentation pose, such as a scrub or simulation preview,
     // without writing that pose into PhysicsBodyStore or authoring storage.
     bool OverridePose( int modelIndex,
                        Physics::PhysicsSceneObjectId sceneObjectId,

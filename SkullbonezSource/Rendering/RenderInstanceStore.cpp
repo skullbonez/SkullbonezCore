@@ -14,7 +14,7 @@ Glossary:
     intent.
   Material intent: Engine-level material choice before a renderer maps it to
     shaders, textures, or descriptor rows.
-  Scene object id: Stable per-scene id shared with physics/replay records.
+  Scene object id: Stable per-scene id shared with other subsystem records.
   Contact highlight: Render-only feedback alpha copied from presentation state
     after gameplay/physics feedback has advanced.
   Shadow caster stream: Scene-owner bin copied unchanged into the draw record so
@@ -349,7 +349,7 @@ void RenderInstanceStore::BeginPhysicsStepPoseCapture( const PhysicsBodyStore& b
     {
         RenderInstanceRecord& record = m_instances[static_cast<std::size_t>( index )];
         const PhysicsBodyRecord& body = bodies[static_cast<std::size_t>( index )];
-        // Hazard: input/editor/replay commands can teleport a body between
+        // Hazard: upper-layer commands can teleport a body between
         // fixed ticks. Collapse both endpoints before stepping so presentation
         // never blends across that discontinuity.
         const Vector3 position = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( index ) );
@@ -456,7 +456,7 @@ void RenderInstanceStore::Refresh( const RenderInstancePresentationRecord* prese
         record.handle = MakeRenderInstanceHandleForModelIndex( modelIndex );
         record.sceneObjectId = body.sceneObjectId;
         // A mismatch here did not pass through the fixed-step capture boundary:
-        // scene load, spawn, teleport, replay restore, or scrub changed the pose.
+        // scene load, spawn, teleport, state restore, or scrub changed the pose.
         // Collapse history so the discontinuity is visible immediately.
         const Vector3 bodyPosition = PhysicsBodyPosition( hotFields, index );
         const Quaternion bodyOrientation = PhysicsBodyOrientation( hotFields, index );

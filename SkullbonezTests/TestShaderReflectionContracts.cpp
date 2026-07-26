@@ -22,10 +22,23 @@ Related:
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Rendering/ShaderReflectionContracts.h"
+#include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionRetainedGeometry.h"
 
 #include <string>
 
 using namespace SkullbonezCore::Rendering;
+
+namespace
+{
+const char* ReflectionSourceForContract( const char* contractBaseName )
+{
+    // Why: the Prediction owner preserves the approved physical asset identity,
+    // while Rendering exposes only the feature-neutral retained-ribbon ABI.
+    return ShaderContractMatchesBaseName( "retained_ribbon", contractBaseName )
+               ? SkullbonezCore::Runtime::ReplayOverlay::PREDICTION_RETAINED_RIBBON_SHADER_BASE_NAME
+               : contractBaseName;
+}
+} // namespace
 
 TEST_CASE( "Shader reflection contracts: every shipping stage is represented" )
 {
@@ -50,7 +63,9 @@ TEST_CASE( "Shader reflection contracts: CPU declarations match baked DXIL" )
     for ( size_t i = 0; i < ShippingRasterShaderContractCount(); ++i )
     {
         std::string error;
-        CHECK_MESSAGE( ValidateGeneratedShaderProgramContract( contracts[i].baseName, contracts[i], error ),
+        CHECK_MESSAGE( ValidateGeneratedShaderProgramContract( ReflectionSourceForContract( contracts[i].baseName ),
+                                                               contracts[i],
+                                                               error ),
                        std::string( contracts[i].baseName ),
                        ": ",
                        error );
@@ -115,7 +130,8 @@ TEST_CASE( "Shader reflection contracts: every raster input signature matches th
     REQUIRE( ShippingShaderVertexInputContractCount() == 21u );
     for ( size_t contractIndex = 0; contractIndex < ShippingShaderVertexInputContractCount(); ++contractIndex )
     {
-        const auto* stage = FindGeneratedShaderStage( contracts[contractIndex].baseName, "vs" );
+        const auto* stage = FindGeneratedShaderStage( ReflectionSourceForContract( contracts[contractIndex].baseName ),
+                                                      "vs" );
         REQUIRE( stage != nullptr );
         std::string signature;
         for ( std::uint32_t inputIndex = 0; inputIndex < stage->inputCount; ++inputIndex )

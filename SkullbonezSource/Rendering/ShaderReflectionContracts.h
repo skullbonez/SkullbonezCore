@@ -17,7 +17,7 @@ Invariants:
   - Generated metadata is immutable and covers every shipping stage.
 
 Related:
-  - DX12/GeneratedShaderReflection.h
+  - SkullbonezData/generated/GeneratedShaderReflection.h
   - ShaderContracts.h
   - tools/bake_shaders.py
 */
@@ -25,7 +25,7 @@ Related:
 
 #include "ShaderContracts.h"
 #include "RenderRasterBindingContract.h"
-#include "DX12/GeneratedShaderReflection.h"
+#include "../../SkullbonezData/generated/GeneratedShaderReflection.h"
 
 #include <algorithm>
 #include <cstring>

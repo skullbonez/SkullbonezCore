@@ -620,8 +620,8 @@ static const char* Dx12UploadCategoryName( RenderUploadCategory category )
         return "instance_data";
     case RenderUploadCategory::TextureRows:
         return "texture_rows";
-    case RenderUploadCategory::DebugPredictionOverlay:
-        return "debug_prediction_overlay";
+    case RenderUploadCategory::RetainedGeometry:
+        return "retained_geometry";
     default:
         return "unknown";
     }

@@ -111,10 +111,10 @@ ShaderDX12::~ShaderDX12()
 }
 
 
-bool ShaderDX12::Compile( const char* hlslPath )
+bool ShaderDX12::Compile( const char* hlslPath, const char* contractBaseName )
 {
     m_sourcePath = hlslPath ? hlslPath : "";
-    m_contract = FindShaderProgramDesc( hlslPath );
+    m_contract = FindShaderProgramDesc( contractBaseName ? contractBaseName : hlslPath );
     m_uniformMap.clear();
     m_cbReflectedSize = 0;
     m_cbSize = 0;
@@ -225,7 +225,8 @@ bool ShaderDX12::CanAdoptReload( const ShaderDX12& candidate ) const
 bool ShaderDX12::PrepareReload( ShaderDX12ReloadPayload& payload ) const
 {
     ShaderDX12 candidate( m_device, m_pipeline, m_shaderDevelopment, m_uploadReservations, false );
-    if ( !candidate.Compile( m_sourcePath.c_str() ) || !CanAdoptReload( candidate ) )
+    if ( !candidate.Compile( m_sourcePath.c_str(), m_contract ? m_contract->baseName : nullptr ) ||
+         !CanAdoptReload( candidate ) )
     {
         return false;
     }

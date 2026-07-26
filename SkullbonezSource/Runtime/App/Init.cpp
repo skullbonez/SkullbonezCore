@@ -38,6 +38,7 @@ Related:
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/TracyClientOwner.h"
 #include "../Input/Input.h"
+#include "../Prediction/ReplayPredictionRetainedGeometry.h"
 #include "Run.h"
 #include "../Startup/StartupCommandLine.h"
 #include "../Startup/StartupCrashLogging.h"
@@ -134,10 +135,12 @@ SkullbonezCore::Core::SbResult InitRenderBackend( Window* window,
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
     auto backend = std::make_unique<RenderBackendDX12>();
     RenderBackendDX12* renderBackend = backend.get();
-    const SkullbonezCore::Core::SbResult renderInitResult = renderBackend->Init( window->NativeWindowHandle(),
-                                                                                 window->NativeDeviceContext(),
-                                                                                 window->ClientWidth(),
-                                                                                 window->ClientHeight() );
+    const SkullbonezCore::Core::SbResult renderInitResult = renderBackend->Init(
+        window->NativeWindowHandle(),
+        window->NativeDeviceContext(),
+        window->ClientWidth(),
+        window->ClientHeight(),
+        ReplayOverlay::PREDICTION_RETAINED_RIBBON_SHADER_BASE_NAME );
 
     if ( !renderInitResult.ok )
     {
@@ -146,6 +149,18 @@ SkullbonezCore::Core::SbResult InitRenderBackend( Window* window,
         // are published into RuntimeRenderBackendView.
         renderBackendView = RuntimeRenderBackendView();
         return renderInitResult;
+    }
+
+    // Invariant: Prediction owns the logical record layout and configures the
+    // generic retained-geometry lane while BackendInit still owns all cold
+    // allocation. Frame code receives the geometry owner only after this succeeds.
+    if ( !renderBackend->Geometry().ConfigureRetainedGeometryCapacity(
+             ReplayOverlay::PredictionRetainedGeometryCapacity() ) )
+    {
+        renderBackendView = RuntimeRenderBackendView();
+        return SkullbonezCore::Core::SbResult::Failure(
+            "Runtime/Prediction",
+            "Retained geometry capacity exceeds the renderer's cold safety maximum" );
     }
 
     // Lifetime: the process bootstrap owns the backend unique_ptr. Runtime

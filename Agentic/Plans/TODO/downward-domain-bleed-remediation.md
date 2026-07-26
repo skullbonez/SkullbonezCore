@@ -4,7 +4,7 @@ Date: 2026-07-25
 
 Owner: Rendering + Physics + Runtime/Prediction
 
-State: IN PROGRESS (DB0 complete; DB1 next)
+State: IN PROGRESS (DB0-DB1 complete; DB2 next)
 
 Ledger tasks: 6 (DB0-DB5)
 
@@ -194,7 +194,7 @@ without waiting for it.)
     behavior, baseline, golden, artifact, scene, config, shader, or physics CSV
     changed.
 
-- [ ] **DB1 — Make the Rendering retained-geometry contract feature-neutral.**
+- [x] **DB1 — Make the Rendering retained-geometry contract feature-neutral.**
 
   Generalize the retained stream types in `RenderCommandTypes.h` and the DX12
   buffer/upload-plan machinery so stride, capacities, and range identity are
@@ -217,6 +217,25 @@ without waiting for it.)
     visual-fidelity gate passing with zero refresh.
   - No dynamic allocation, callback, or virtual seam was introduced; the
     generic contract stays constexpr/value-shaped like the current code.
+
+  Evidence (2026-07-26):
+
+  - `Agentic/Reports/2026-07-26/downward-domain-bleed-remediation-db1-retained-geometry.md`
+    records the feature-neutral stream/range/capacity contract, Prediction-owned
+    record packing and retention, exact vocabulary proofs, and the complete
+    touched-source comment-audit checklist.
+  - `tools\validate_dx12_renderer.bat` passed with 43 current stages, zero DX12
+    validation errors, and all three committed screenshot comparisons accepted
+    without refresh; `tools\run_graphics_stress.bat 1` passed on the final
+    runtime source.
+  - `tools\validate_tests.bat` passed 391 cases / 2,403,286 assertions.
+  - The replay visual-fidelity launcher ran exactly one 6,800-frame engine
+    process. Its initial comparison correctly rejected a temporary physical
+    shader-path rename; DB1 restored the approved shader tree byte-for-byte
+    (`9eb658302f3258db762f4383f572ecde5e95a7be05df81f23c1bc069ad434b02`)
+    and all ten non-engine report/control checks then passed against that same
+    captured run. No baseline, golden, artifact, shader, scene, config, or
+    screenshot reference was refreshed.
 
 - [ ] **DB2 — Move terrain behind a Physics-owned boundary.**
 

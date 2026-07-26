@@ -178,12 +178,6 @@ void SubtractActiveBytes( std::atomic<uint64_t>& activeBytes, uint64_t size ) no
     }
 }
 
-bool IsGameplayViolationPhase( RuntimeAllocationPhase phase ) noexcept
-{
-    return phase == RuntimeAllocationPhase::SteadyGameplay || phase == RuntimeAllocationPhase::Physics ||
-           phase == RuntimeAllocationPhase::Render || phase == RuntimeAllocationPhase::Replay;
-}
-
 RuntimeAllocationPhase CurrentPhase() noexcept
 {
     const int phase = static_cast<int>( s_currentPhase );
@@ -297,8 +291,8 @@ bool RecordAllocation( RuntimeAllocationPhase phase,
     constexpr bool approvedDevelopmentToolAllocation = false;
 #endif
     const bool gameplayViolation = CurrentMode() == RuntimeAllocationGuardMode::Gameplay &&
-                                   IsGameplayViolationPhase( phase ) && !approvedReplayGrowth &&
-                                   !approvedDevelopmentToolAllocation;
+                                   SkullbonezCore::Core::Allocation::IsRuntimeAllocationGuardedSteadyPhase( phase ) &&
+                                   !approvedReplayGrowth && !approvedDevelopmentToolAllocation;
 
     // Why: STL allocation helpers often inline several layers below the owner.
     // The fourth captured frame normally clears those helpers while remaining
@@ -657,7 +651,8 @@ void PrintRuntimeAllocationSummary( FILE* out ) noexcept
         const int phaseIndex = counters.phaseIndex.load( std::memory_order_relaxed );
         if ( address == 0u || allocations == 0u || phaseIndex < 0 ||
              phaseIndex >= static_cast<int>( RuntimeAllocationPhase::Count ) ||
-             !IsGameplayViolationPhase( static_cast<RuntimeAllocationPhase>( phaseIndex ) ) )
+             !SkullbonezCore::Core::Allocation::IsRuntimeAllocationGuardedSteadyPhase(
+                 static_cast<RuntimeAllocationPhase>( phaseIndex ) ) )
         {
             continue;
         }

@@ -17,7 +17,7 @@ Glossary:
 Invariants:
   - Registration and callback payload borrows are consumed synchronously.
   - An extension appends exactly one callback-owned graphics pass.
-  - No scene container, replay owner, renderer owner, or backend service is
+  - No scene container, upper-layer owner, renderer owner, or backend service is
     reachable through this seam.
 
 Related:

@@ -129,74 +129,31 @@ struct DynamicVBDX12
     bool perInstance = false;
 };
 
-struct RetainedTrajectoryBufferDX12
+inline constexpr std::size_t INSTANCED_RIBBON_FLOATS_PER_RECORD = 19u;
+inline constexpr std::size_t MAX_RETAINED_GEOMETRY_ORDINARY_RECORDS = 24000u;
+inline constexpr std::size_t MAX_RETAINED_GEOMETRY_PRIORITY_RECORDS = 3000u;
+inline constexpr std::size_t MAX_RETAINED_GEOMETRY_ORDINARY_LINE_FLOATS = 262144u;
+inline constexpr std::size_t MAX_RETAINED_GEOMETRY_PRIORITY_LINE_FLOATS = 524288u;
+inline constexpr std::size_t MAX_RETAINED_GEOMETRY_RANGES = 4096u;
+inline constexpr std::size_t RETAINED_GEOMETRY_ORDINARY_FLOATS = MAX_RETAINED_GEOMETRY_ORDINARY_RECORDS *
+                                                                 INSTANCED_RIBBON_FLOATS_PER_RECORD;
+inline constexpr std::size_t RETAINED_GEOMETRY_PRIORITY_FLOATS = MAX_RETAINED_GEOMETRY_PRIORITY_RECORDS *
+                                                                 INSTANCED_RIBBON_FLOATS_PER_RECORD;
+inline constexpr std::size_t RETAINED_GEOMETRY_EXPANDED_FLOATS = RETAINED_GEOMETRY_ORDINARY_FLOATS +
+                                                                 RETAINED_GEOMETRY_PRIORITY_FLOATS +
+                                                                 MAX_RETAINED_GEOMETRY_ORDINARY_LINE_FLOATS +
+                                                                 MAX_RETAINED_GEOMETRY_PRIORITY_LINE_FLOATS;
+inline constexpr std::size_t RETAINED_GEOMETRY_COMPACT_FLOATS = RETAINED_GEOMETRY_ORDINARY_FLOATS +
+                                                                RETAINED_GEOMETRY_PRIORITY_FLOATS;
+
+struct RetainedGeometryBufferDX12
 {
-    std::array<uint64_t, 4> streamIds = {};
-    std::array<uint64_t, 4> revisions = {};
-    std::array<std::size_t, 4> uploadedFloatCounts = {};
-    uint64_t rangeStreamId = 0;
-    uint64_t rangeRevision = 0;
-    uint32_t rangeTotalSegmentCount = 0;
-    std::array<uint64_t, RETAINED_TRAJECTORY_MAX_DRAW_RANGES> rangeIdentities = {};
-    std::array<uint32_t, RETAINED_TRAJECTORY_MAX_DRAW_RANGES> rangeSourceVersions = {};
-    std::array<uint32_t, RETAINED_TRAJECTORY_MAX_DRAW_RANGES> rangeSegmentCounts = {};
+    std::array<RetainedGeometryStreamToken, 4> streams = {};
+    std::array<std::size_t, 4> uploadedUnitCounts = {};
+    RetainedGeometryStreamToken rangeStream;
+    uint32_t rangeTotalRecordCount = 0;
+    std::array<RetainedGeometryRangeToken, MAX_RETAINED_GEOMETRY_RANGES> rangeTokens = {};
 };
-
-struct RetainedTrajectoryUploadPlanDX12
-{
-    bool uploadRequired = false;
-    std::size_t firstChangedUnit = 0;
-};
-
-// Concept: retained trajectory buffers are invalidated by value tokens, not by
-// frame number. Equal stream/revision pairs therefore produce no upload plan.
-constexpr RetainedTrajectoryUploadPlanDX12 BuildRetainedTrajectoryUploadPlanDX12( uint64_t cachedStreamId,
-                                                                                  uint64_t cachedRevision,
-                                                                                  std::size_t cachedUnitCount,
-                                                                                  uint64_t incomingStreamId,
-                                                                                  uint64_t incomingRevision,
-                                                                                  std::size_t incomingUnitCount,
-                                                                                  bool repairPreviousUnit ) noexcept
-{
-    if ( cachedStreamId == incomingStreamId && cachedRevision == incomingRevision )
-    {
-        return {};
-    }
-
-    const bool append = cachedStreamId == incomingStreamId && cachedUnitCount <= incomingUnitCount;
-    std::size_t firstChangedUnit = append ? cachedUnitCount : 0u;
-    if ( append && repairPreviousUnit && firstChangedUnit > 0u )
-    {
-        --firstChangedUnit;
-    }
-    return { true, firstChangedUnit };
-}
-
-// Concept: each retained trajectory owns an independent compact slice. A
-// sibling append may advance the packet revision without changing this slice,
-// while extending this slice repairs only its formerly open adjacency tail.
-constexpr RetainedTrajectoryUploadPlanDX12
-BuildRetainedTrajectoryRangeUploadPlanDX12( uint64_t cachedIdentity,
-                                            uint32_t cachedSourceVersion,
-                                            std::size_t cachedSegmentCount,
-                                            uint64_t incomingIdentity,
-                                            uint32_t incomingSourceVersion,
-                                            std::size_t incomingSegmentCount ) noexcept
-{
-    const bool sameRange = cachedIdentity == incomingIdentity && cachedSourceVersion == incomingSourceVersion;
-    if ( sameRange && cachedSegmentCount == incomingSegmentCount )
-    {
-        return {};
-    }
-
-    if ( sameRange && cachedSegmentCount < incomingSegmentCount )
-    {
-        return { true, cachedSegmentCount > 0u ? cachedSegmentCount - 1u : 0u };
-    }
-
-    return { true, 0u };
-}
-
 
 // Instanced mesh
 struct InstancedMeshDX12
@@ -583,17 +540,20 @@ class Dx12GeometryOwner
                              Dx12FrameOwner& frame,
                              Dx12PipelineOwner& pipeline,
                              Dx12Diagnostics& diagnostics );
-    static constexpr UINT64 RetainedTrajectoryBufferSizeBytes()
+    // Lifetime: Runtime composition supplies this once during BackendInit,
+    // before the geometry owner is published to frame code.
+    bool ConfigureRetainedGeometryCapacity( RetainedGeometryCapacity capacity ) noexcept;
+    static constexpr UINT64 RetainedGeometryBufferSizeBytes()
     {
-        return static_cast<UINT64>(
-            ( RETAINED_TRAJECTORY_FLOAT_CAPACITY + RETAINED_TRAJECTORY_COMPACT_FLOAT_CAPACITY ) * sizeof( float ) +
-            RETAINED_TRAJECTORY_MAX_DRAW_RANGES * sizeof( D3D12_DRAW_ARGUMENTS ) );
+        return static_cast<UINT64>( ( RETAINED_GEOMETRY_EXPANDED_FLOATS + RETAINED_GEOMETRY_COMPACT_FLOATS ) *
+                                        sizeof( float ) +
+                                    MAX_RETAINED_GEOMETRY_RANGES * sizeof( D3D12_DRAW_ARGUMENTS ) );
     }
-    static constexpr UINT64 RetainedTrajectoryCompactBufferSizeBytes()
+    static constexpr UINT64 RetainedGeometryCompactBufferSizeBytes()
     {
-        return static_cast<UINT64>( RETAINED_TRAJECTORY_COMPACT_FLOAT_CAPACITY * sizeof( float ) );
+        return static_cast<UINT64>( RETAINED_GEOMETRY_COMPACT_FLOATS * sizeof( float ) );
     }
-    bool InitializeRetainedTrajectoryCommands( ID3D12Device* device );
+    bool InitializeRetainedGeometryCommands( ID3D12Device* device );
     // Lifetime: vertex bytes and layout spans are consumed synchronously by
     // cold resource creation and are never retained by the geometry owner.
     uint32_t CreateInstancedMesh( const float* staticVertices,
@@ -624,23 +584,20 @@ class Dx12GeometryOwner
                                         const Math::Transformation::Matrix4& viewProjection,
                                         TransientTriangleStyle style,
                                         const PassRasterStateBucket& bucket );
-    void DrawRetainedTrajectoryRibbon( std::span<const float> packedVertices,
-                                       uint64_t streamId,
-                                       uint64_t revision,
-                                       bool priorityLane,
-                                       const Math::Transformation::Matrix4& viewProjection,
-                                       TransientTriangleStyle style,
-                                       const PassRasterStateBucket& bucket );
-    void DrawRetainedTrajectoryRanges( std::span<const float> compactRecords,
-                                       std::span<const RetainedTrajectoryDrawRange> ranges,
-                                       uint64_t streamId,
-                                       uint64_t revision,
-                                       const Math::Transformation::Matrix4& viewProjection,
-                                       TransientTriangleStyle style,
-                                       const PassRasterStateBucket& bucket );
+    void DrawRetainedGeometryRibbon( std::span<const float> packedVertices,
+                                     RetainedGeometryStreamToken stream,
+                                     bool priorityLane,
+                                     const Math::Transformation::Matrix4& viewProjection,
+                                     TransientTriangleStyle style,
+                                     const PassRasterStateBucket& bucket );
+    void DrawRetainedGeometryRanges( std::span<const float> compactRecords,
+                                     std::span<const RetainedGeometryRangeToken> ranges,
+                                     RetainedGeometryStreamToken stream,
+                                     const Math::Transformation::Matrix4& viewProjection,
+                                     TransientTriangleStyle style,
+                                     const PassRasterStateBucket& bucket );
     void DrawRetainedLinesColored( std::span<const float> packedVertices,
-                                   uint64_t streamId,
-                                   uint64_t revision,
+                                   RetainedGeometryStreamToken stream,
                                    bool priorityLane,
                                    const Math::Transformation::Matrix4& viewProjection,
                                    const PassRasterStateBucket& bucket );
@@ -674,7 +631,7 @@ class Dx12GeometryOwner
                                          TransientTriangleStyle style,
                                          int viewportWidth,
                                          int viewportHeight,
-                                         bool compactTrajectoryInstances,
+                                         bool compactRibbonInstances,
                                          UINT startInstance,
                                          D3D12_GPU_VIRTUAL_ADDRESS vertexAddress,
                                          ID3D12GraphicsCommandList* commandList,
@@ -692,30 +649,17 @@ class Dx12GeometryOwner
     static constexpr size_t MAX_DYNAMIC_VERTEX_BUFFERS = 32;
     static constexpr size_t MAX_GRID_LINE_PSOS = 4;
     static constexpr size_t TRANSIENT_TRIANGLE_STYLE_COUNT = 4;
-    // Retained ribbons store one 19-float instance record per logical segment;
-    // the vertex shader expands six corners from SV_VertexID.
-    static constexpr std::size_t RETAINED_TRAJECTORY_ORDINARY_FLOAT_CAPACITY = 24000u * 19u;
-    static constexpr std::size_t RETAINED_TRAJECTORY_PRIORITY_FLOAT_CAPACITY = 3000u * 19u;
-    static constexpr std::size_t RETAINED_TRAJECTORY_ORDINARY_LINE_FLOAT_CAPACITY = 262144u;
-    static constexpr std::size_t RETAINED_TRAJECTORY_PRIORITY_LINE_FLOAT_CAPACITY = 524288u;
-    static constexpr std::size_t RETAINED_TRAJECTORY_FLOAT_CAPACITY = RETAINED_TRAJECTORY_ORDINARY_FLOAT_CAPACITY +
-                                                                      RETAINED_TRAJECTORY_PRIORITY_FLOAT_CAPACITY +
-                                                                      RETAINED_TRAJECTORY_ORDINARY_LINE_FLOAT_CAPACITY +
-                                                                      RETAINED_TRAJECTORY_PRIORITY_LINE_FLOAT_CAPACITY;
-    // Hazard: legacy marker ribbons/lines and compact path ranges are referenced
-    // by the same command list. Their persistent slices must never alias even
-    // though both contain retained trajectory data.
-    static constexpr std::size_t
-        RETAINED_TRAJECTORY_COMPACT_FLOAT_CAPACITY = RETAINED_TRAJECTORY_ORDINARY_FLOAT_CAPACITY +
-                                                     RETAINED_TRAJECTORY_PRIORITY_FLOAT_CAPACITY;
+    // Hazard: expanded ribbons/lines and compact ranges share one persistent
+    // allocation. Their fixed physical slices must never alias.
     std::vector<DynamicVBDX12> m_dynamicVBs;
     std::vector<InstancedMeshDX12> m_instancedMeshes;
     std::unique_ptr<ShaderDX12> m_gridLineShader;
     std::array<GridLinePSODX12, MAX_GRID_LINE_PSOS> m_gridLinePSOs = {};
     size_t m_gridLinePSOCount = 0;
     std::array<std::unique_ptr<ShaderDX12>, TRANSIENT_TRIANGLE_STYLE_COUNT> m_transientTriangleShaders;
-    std::array<RetainedTrajectoryBufferDX12, Dx12FrameOwner::FRAME_COUNT> m_retainedTrajectoryBuffers = {};
-    Microsoft::WRL::ComPtr<ID3D12CommandSignature> m_retainedTrajectoryCommandSignature;
+    RetainedGeometryCapacity m_retainedGeometryCapacity;
+    std::array<RetainedGeometryBufferDX12, Dx12FrameOwner::FRAME_COUNT> m_retainedGeometryBuffers = {};
+    Microsoft::WRL::ComPtr<ID3D12CommandSignature> m_retainedGeometryCommandSignature;
     Dx12RenderDevice* m_resourceDevice = nullptr;
     Dx12FrameOwner* m_resourceFrame = nullptr;
     Dx12PipelineOwner* m_submissionPipeline = nullptr;
@@ -887,7 +831,10 @@ class RenderBackendDX12
         Shutdown();
     }
 
-    SkullbonezCore::Core::SbResult Init( HWND hwnd, HDC hdc, int width, int height );
+    // Lifetime: retainedGeometryShaderBaseName is consumed during cold shader
+    // creation and is not stored by the backend.
+    SkullbonezCore::Core::SbResult
+    Init( HWND hwnd, HDC hdc, int width, int height, const char* retainedGeometryShaderBaseName );
     void Shutdown();
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     Dx12ImGuiRendererOwner& DevelopmentUiRenderer() noexcept

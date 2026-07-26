@@ -75,7 +75,7 @@ const char* BuiltInShaderBaseNameForLogicalName( const char* logicalName )
         { "shader.collision_visualizer", "shaders/collision_visualizer" },
         { "shader.grid_line", "shaders/grid_line" },
         { "shader.soft_additive_ribbon", "shaders/soft_additive_ribbon" },
-        { "shader.trajectory_ribbon", "shaders/trajectory_ribbon" },
+        { "shader.retained_ribbon", "shaders/trajectory_ribbon" },
         { "shader.launcher_laser", "shaders/launcher_laser" },
         { "shader.transient_colored_triangles", "shaders/transient_colored_triangles" },
         { "shader.ui_backdrop_blur", "shaders/UIBackdropBlur" },
@@ -267,7 +267,7 @@ void AssetSystem::RegisterBuiltInSourceAssets( const SkullbonezCore::Core::Engin
                                ShaderProgramKind::DebugLine,
                                BuiltInShaderContract( false, false, false, false, false ) );
 
-    RegisterShaderSourceAsset( "shader.trajectory_ribbon",
+    RegisterShaderSourceAsset( "shader.retained_ribbon",
                                "shaders/trajectory_ribbon",
                                ShaderProgramKind::DebugLine,
                                BuiltInShaderContract( false, false, false, false, false ) );

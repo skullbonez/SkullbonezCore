@@ -750,7 +750,7 @@ void ReplayRuntime::PrepareRenderOverlay(
     (void)tracer.SetReplayTrajectoryAppearance( trajectoryAppearance );
 
     const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
-    const bool retainedRenderingActive = m_predictionOwner.PresentationOwner().PrepareRetainedTrajectoryDrawList(
+    const bool retainedRenderingActive = m_predictionOwner.PresentationOwner().PrepareRetainedGeometryDrawList(
         prediction,
         m_visualPresentation.PathVisualizer(),
         entities,

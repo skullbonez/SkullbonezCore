@@ -21,6 +21,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Prediction/ReplayPrediction.h
+  - SkullbonezSource/Runtime/Prediction/ReplayPredictionRetainedGeometry.h
   - SkullbonezSource/Runtime/Replay/ReplayPresentation.h
   - SkullbonezSource/Runtime/App/ReplayRuntime.h
 */
@@ -122,12 +123,12 @@ class ReplayPredictionPresentation
     // Owns the retained append-only trajectory list and its publication cursor.
     // The frame tracer receives provisional tails only; no draw-list state
     // escapes back to Runtime/App.
-    bool PrepareRetainedTrajectoryDrawList( const ReplayPredictionPresentationView& prediction,
-                                            const RunReplayPathVisualizerState& path,
-                                            const SceneEntityStore& entities,
-                                            const Physics::ColliderStore& colliderStore,
-                                            EditorTracer& frameTracer,
-                                            const Core::ReplayTrajectoryAppearanceConfig& trajectoryAppearance );
+    bool PrepareRetainedGeometryDrawList( const ReplayPredictionPresentationView& prediction,
+                                          const RunReplayPathVisualizerState& path,
+                                          const SceneEntityStore& entities,
+                                          const Physics::ColliderStore& colliderStore,
+                                          EditorTracer& frameTracer,
+                                          const Core::ReplayTrajectoryAppearanceConfig& trajectoryAppearance );
     void AttachRetainedPredictionGeometry( ReplayVisualPacket& packet,
                                            const Math::Vector::Vector3& cameraEye,
                                            const Math::Vector::Vector3& cameraUp );
@@ -178,7 +179,8 @@ class ReplayPredictionPresentation
     std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_renderPoseBodyMatched = {};
     // Invariant: these fields are the sole retained Prediction trajectory
     // presentation state. App may sequence commands but cannot mutate cursors.
-    EditorTracer m_retainedDrawList;
+    ReplayOverlay::ReplayPredictionRetainedGeometry m_retainedGeometry;
+    EditorTracer m_retainedMarkerDrawList;
     ReplayOverlay::ReplayPredictionDrawListState m_retainedDrawListState;
     ReplayVisualPacket m_retainedDrawPacket;
     uint64_t m_retainedDrawStreamId = 1;

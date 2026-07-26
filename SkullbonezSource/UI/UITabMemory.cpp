@@ -1161,7 +1161,7 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
                      sizeof( a ) );
 
     FormatMemoryMiB( render.uploadCategoryPeakBytes[static_cast<std::size_t>(
-                         SkullbonezCore::UI::UIRenderUploadCategory::DebugPredictionOverlay )],
+                         SkullbonezCore::UI::UIRenderUploadCategory::RetainedGeometry )],
                      b,
                      sizeof( b ) );
 

@@ -40,7 +40,7 @@ enum class UIRenderUploadCategory : std::size_t
     DynamicVertex,
     InstanceData,
     TextureRows,
-    DebugPredictionOverlay,
+    RetainedGeometry,
     Count
 };
 

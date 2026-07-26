@@ -1381,7 +1381,7 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
                 static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>(
                     SkullbonezCore::Rendering::RenderUploadCategory::TextureRows )] ),
                 static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>(
-                    SkullbonezCore::Rendering::RenderUploadCategory::DebugPredictionOverlay )] ),
+                    SkullbonezCore::Rendering::RenderUploadCategory::RetainedGeometry )] ),
                 static_cast<unsigned long long>( renderStats.uploadFlushCount ),
                 static_cast<unsigned long long>( renderStats.uploadDropCount ),
                 renderStats.textureRegistryCount,

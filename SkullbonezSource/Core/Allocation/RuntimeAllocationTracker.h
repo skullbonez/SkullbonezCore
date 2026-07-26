@@ -54,6 +54,14 @@ enum class RuntimeAllocationPhase
     Count
 };
 
+// Concept: steady guarded phases reject runtime growth regardless of which
+// subsystem currently owns the thread-local allocation scope.
+constexpr bool IsRuntimeAllocationGuardedSteadyPhase( RuntimeAllocationPhase phase ) noexcept
+{
+    return phase == RuntimeAllocationPhase::SteadyGameplay || phase == RuntimeAllocationPhase::Physics ||
+           phase == RuntimeAllocationPhase::Render || phase == RuntimeAllocationPhase::Replay;
+}
+
 enum class RuntimeAllocationGuardMode
 {
     Off = 0,

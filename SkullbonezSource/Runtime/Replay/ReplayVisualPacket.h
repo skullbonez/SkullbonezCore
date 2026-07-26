@@ -299,11 +299,11 @@ struct ReplayVisualPacket
     std::span<const float> retainedPredictionPriorityRibbonSegments;
     std::span<const float> retainedPredictionOrdinaryLines;
     std::span<const float> retainedPredictionPriorityLines;
-    // Compact retained records are partitioned into stable per-trajectory
+    // Compact retained records are partitioned into stable feature-owned
     // ranges. The renderer uploads only a changed range tail and preserves the
     // range order rather than flattening reveal growth into a global append.
     std::span<const float> retainedPredictionCompactRibbonRecords;
-    std::span<const Rendering::RetainedTrajectoryDrawRange> retainedPredictionRibbonRanges;
+    std::span<const Rendering::RetainedGeometryRangeToken> retainedPredictionRibbonRanges;
     uint64_t retainedPredictionStreamId = 0;
     uint64_t retainedPredictionRevision = 0;
     std::span<const ReplayTrajectoryRecord> trajectoryRecords;

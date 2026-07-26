@@ -618,7 +618,7 @@ void Dx12Diagnostics::ReportArchitectureStats( const char* reason,
         static_cast<unsigned long long>( categoryPeakBytes[static_cast<size_t>( RenderUploadCategory::InstanceData )] ),
         static_cast<unsigned long long>( categoryPeakBytes[static_cast<size_t>( RenderUploadCategory::TextureRows )] ),
         static_cast<unsigned long long>(
-            categoryPeakBytes[static_cast<size_t>( RenderUploadCategory::DebugPredictionOverlay )] ),
+            categoryPeakBytes[static_cast<size_t>( RenderUploadCategory::RetainedGeometry )] ),
         static_cast<unsigned long long>( frame.UploadFlushCount() ),
         static_cast<unsigned long long>( frame.UploadDropCount() ) );
 }

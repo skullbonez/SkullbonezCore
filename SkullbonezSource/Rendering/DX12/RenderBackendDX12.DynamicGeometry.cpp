@@ -84,9 +84,9 @@ std::size_t TransientTriangleStyleIndex( TransientTriangleStyle style )
 {
     switch ( style )
     {
-    case TransientTriangleStyle::TrajectoryRibbonDepthHint:
+    case TransientTriangleStyle::InstancedRibbonDepthHint:
         return 3;
-    case TransientTriangleStyle::TrajectoryRibbon:
+    case TransientTriangleStyle::InstancedRibbon:
         return 2;
     case TransientTriangleStyle::SoftAdditiveRibbon:
         return 1;
@@ -100,9 +100,9 @@ const char* TransientTriangleShaderBaseName( TransientTriangleStyle style )
 {
     switch ( style )
     {
-    case TransientTriangleStyle::TrajectoryRibbonDepthHint:
-    case TransientTriangleStyle::TrajectoryRibbon:
-        return "shaders/trajectory_ribbon";
+    case TransientTriangleStyle::InstancedRibbonDepthHint:
+    case TransientTriangleStyle::InstancedRibbon:
+        return "shaders/retained_ribbon";
     case TransientTriangleStyle::SoftAdditiveRibbon:
         return "shaders/soft_additive_ribbon";
     case TransientTriangleStyle::Color:
@@ -115,10 +115,10 @@ const char* TransientTriangleTraceLabel( TransientTriangleStyle style )
 {
     switch ( style )
     {
-    case TransientTriangleStyle::TrajectoryRibbonDepthHint:
-        return "TrajectoryRibbonDepthHint";
-    case TransientTriangleStyle::TrajectoryRibbon:
-        return "TrajectoryRibbon";
+    case TransientTriangleStyle::InstancedRibbonDepthHint:
+        return "InstancedRibbonDepthHint";
+    case TransientTriangleStyle::InstancedRibbon:
+        return "InstancedRibbon";
     case TransientTriangleStyle::SoftAdditiveRibbon:
         return "SoftAdditiveRibbon";
     case TransientTriangleStyle::Color:
@@ -127,10 +127,20 @@ const char* TransientTriangleTraceLabel( TransientTriangleStyle style )
     }
 }
 
-bool IsTrajectoryRibbonStyle( TransientTriangleStyle style )
+bool IsInstancedRibbonStyle( TransientTriangleStyle style )
 {
-    return style == TransientTriangleStyle::TrajectoryRibbon ||
-           style == TransientTriangleStyle::TrajectoryRibbonDepthHint;
+    return style == TransientTriangleStyle::InstancedRibbon ||
+           style == TransientTriangleStyle::InstancedRibbonDepthHint;
+}
+
+bool IsRetainedGeometryCapacitySupported( const RetainedGeometryCapacity& capacity )
+{
+    return capacity.floatsPerRecord == INSTANCED_RIBBON_FLOATS_PER_RECORD &&
+           capacity.ordinaryRecordCapacity <= MAX_RETAINED_GEOMETRY_ORDINARY_RECORDS &&
+           capacity.priorityRecordCapacity <= MAX_RETAINED_GEOMETRY_PRIORITY_RECORDS &&
+           capacity.ordinaryLineFloatCapacity <= MAX_RETAINED_GEOMETRY_ORDINARY_LINE_FLOATS &&
+           capacity.priorityLineFloatCapacity <= MAX_RETAINED_GEOMETRY_PRIORITY_LINE_FLOATS &&
+           capacity.rangeCapacity <= MAX_RETAINED_GEOMETRY_RANGES;
 }
 
 bool IsGridLineRasterState( const RasterStateDesc& raster )
@@ -522,7 +532,7 @@ void Dx12GeometryOwner::DrawColoredTrianglesFromBuffer( std::size_t packedFloatC
                                                         TransientTriangleStyle style,
                                                         int viewportWidth,
                                                         int viewportHeight,
-                                                        bool compactTrajectoryInstances,
+                                                        bool compactRibbonInstances,
                                                         UINT startInstance,
                                                         D3D12_GPU_VIRTUAL_ADDRESS vbAddress,
                                                         ID3D12GraphicsCommandList* commandList,
@@ -544,9 +554,9 @@ void Dx12GeometryOwner::DrawColoredTrianglesFromBuffer( std::size_t packedFloatC
     ShaderDX12* shader = static_cast<ShaderDX12*>( transientShader );
     shader->Use();
     shader->SetMat4( "uViewProj", viewProjection );
-    if ( IsTrajectoryRibbonStyle( style ) )
+    if ( IsInstancedRibbonStyle( style ) )
     {
-        // Concept: the trajectory shader expands each compact segment into a
+        // Concept: the retained-ribbon shader expands each compact segment into a
         // screen-space vector spline. The viewport converts the authored full
         // width and analytic anti-aliasing overhang from pixels to
         // normalized-device-coordinate offsets.
@@ -556,16 +566,16 @@ void Dx12GeometryOwner::DrawColoredTrianglesFromBuffer( std::size_t packedFloatC
                          0.0f,
                          0.0f );
 
-        const bool depthHint = style == TransientTriangleStyle::TrajectoryRibbonDepthHint;
+        const bool depthHint = style == TransientTriangleStyle::InstancedRibbonDepthHint;
         shader->SetVec4( "uRibbonStyle", depthHint ? 0.16f : 1.0f, depthHint ? 0.70f : 1.0f, 1.0f, 0.0f );
     }
 
     DynamicVBDX12 vertexLayout = {};
-    vertexLayout.numAttribs = IsTrajectoryRibbonStyle( style ) ? 6 : 3;
+    vertexLayout.numAttribs = IsInstancedRibbonStyle( style ) ? 6 : 3;
     vertexLayout.attribComponents[0] = 3;
     vertexLayout.attribComponents[1] = 4;
     vertexLayout.attribComponents[2] = 4;
-    if ( IsTrajectoryRibbonStyle( style ) )
+    if ( IsInstancedRibbonStyle( style ) )
     {
         vertexLayout.attribComponents[3] = 2;
         vertexLayout.attribComponents[4] = 3;
@@ -578,15 +588,15 @@ void Dx12GeometryOwner::DrawColoredTrianglesFromBuffer( std::size_t packedFloatC
     }
 
     vertexLayout.stride = vertexLayout.floatsPerVertex * static_cast<int>( sizeof( float ) );
-    vertexLayout.perInstance = compactTrajectoryInstances;
+    vertexLayout.perInstance = compactRibbonInstances;
     if ( packedFloatCount % static_cast<size_t>( vertexLayout.floatsPerVertex ) != 0 )
     {
         return;
     }
 
     const int recordCount = static_cast<int>( packedFloatCount / vertexLayout.floatsPerVertex );
-    const int vertexCount = compactTrajectoryInstances ? 6 : recordCount;
-    const int instanceCount = compactTrajectoryInstances ? recordCount : 1;
+    const int vertexCount = compactRibbonInstances ? 6 : recordCount;
+    const int instanceCount = compactRibbonInstances ? recordCount : 1;
     const UINT64 dataSize = static_cast<UINT64>( packedFloatCount * sizeof( float ) );
 
     if ( !drawGate.PreparePipelineDraw( VertexFormat12::Pos3, false, nullptr, &vertexLayout, rasterState ) )
@@ -940,8 +950,8 @@ void Dx12GeometryOwner::Shutdown()
 
     m_instancedMeshes.clear();
     m_dynamicVBs.clear();
-    m_retainedTrajectoryBuffers = {};
-    m_retainedTrajectoryCommandSignature.Reset();
+    m_retainedGeometryBuffers = {};
+    m_retainedGeometryCommandSignature.Reset();
 }
 
 
@@ -1003,7 +1013,7 @@ void Dx12GeometryOwner::DrawLinesColored( std::span<const float> packedVertices,
     const D3D12_GPU_VIRTUAL_ADDRESS address = m_resourceFrame->UploadReservations().ReserveGeometryUpload(
         bytes,
         GridLineConstantBytes(),
-        RenderUploadCategory::DebugPredictionOverlay );
+        RenderUploadCategory::RetainedGeometry );
 
     DrawLinesColored( packedVertices,
                       viewProjection,
@@ -1026,7 +1036,7 @@ void Dx12GeometryOwner::DrawTransientColoredTriangles( std::span<const float> pa
 {
     assert( m_resourceDevice && m_resourceFrame && m_submissionDiagnostics );
     m_resourceFrame->UploadReservations().CancelPendingConstantUpload();
-    const UINT64 floatsPerVertex = IsTrajectoryRibbonStyle( style ) ? 19u : 11u;
+    const UINT64 floatsPerVertex = IsInstancedRibbonStyle( style ) ? 19u : 11u;
     if ( packedVertices.empty() || packedVertices.size() % floatsPerVertex != 0 ||
          !m_resourceFrame->DrawGate().PrepareDraw() )
     {
@@ -1034,9 +1044,8 @@ void Dx12GeometryOwner::DrawTransientColoredTriangles( std::span<const float> pa
     }
 
     const UINT64 bytes = static_cast<UINT64>( packedVertices.size_bytes() );
-    const RenderUploadCategory category = IsTrajectoryRibbonStyle( style )
-                                              ? RenderUploadCategory::DebugPredictionOverlay
-                                              : RenderUploadCategory::DynamicVertex;
+    const RenderUploadCategory category = IsInstancedRibbonStyle( style ) ? RenderUploadCategory::RetainedGeometry
+                                                                          : RenderUploadCategory::DynamicVertex;
 
     const D3D12_GPU_VIRTUAL_ADDRESS address = m_resourceFrame->UploadReservations().ReserveGeometryUpload(
         bytes,
@@ -1059,43 +1068,44 @@ void Dx12GeometryOwner::DrawTransientColoredTriangles( std::span<const float> pa
 }
 
 
-void Dx12GeometryOwner::DrawRetainedTrajectoryRibbon( std::span<const float> packedVertices,
-                                                      uint64_t streamId,
-                                                      uint64_t revision,
-                                                      bool priorityLane,
-                                                      const Math::Transformation::Matrix4& viewProjection,
-                                                      TransientTriangleStyle style,
-                                                      const PassRasterStateBucket& bucket )
+void Dx12GeometryOwner::DrawRetainedGeometryRibbon( std::span<const float> packedVertices,
+                                                    RetainedGeometryStreamToken stream,
+                                                    bool priorityLane,
+                                                    const Math::Transformation::Matrix4& viewProjection,
+                                                    TransientTriangleStyle style,
+                                                    const PassRasterStateBucket& bucket )
 {
     assert( m_resourceDevice && m_resourceFrame && m_submissionDiagnostics );
-    const std::size_t laneIndex = priorityLane ? 1u : 0u;
-    constexpr std::size_t floatsPerRecord = 19u;
-    constexpr std::size_t verticesPerSegment = 6u;
-    constexpr std::size_t floatsPerExpandedSegment = verticesPerSegment * floatsPerRecord;
-    const std::size_t laneCapacity = priorityLane ? RETAINED_TRAJECTORY_PRIORITY_FLOAT_CAPACITY
-                                                  : RETAINED_TRAJECTORY_ORDINARY_FLOAT_CAPACITY;
+    const RetainedGeometryCapacity capacity = m_retainedGeometryCapacity;
+    if ( !IsRetainedGeometryCapacitySupported( capacity ) )
+    {
+        return;
+    }
 
-    const std::size_t laneOffset = priorityLane ? RETAINED_TRAJECTORY_ORDINARY_FLOAT_CAPACITY : 0u;
+    const std::size_t laneIndex = priorityLane ? 1u : 0u;
+    constexpr std::size_t verticesPerSegment = 6u;
+    const std::size_t floatsPerExpandedSegment = verticesPerSegment * capacity.floatsPerRecord;
+    const std::size_t laneRecordCapacity = priorityLane ? capacity.priorityRecordCapacity
+                                                        : capacity.ordinaryRecordCapacity;
+
+    const std::size_t laneOffset = priorityLane ? RETAINED_GEOMETRY_ORDINARY_FLOATS : 0u;
     const std::size_t segmentCount = packedVertices.size() / floatsPerExpandedSegment;
     if ( packedVertices.empty() || packedVertices.size() % floatsPerExpandedSegment != 0u ||
-         segmentCount * floatsPerRecord > laneCapacity || !IsTrajectoryRibbonStyle( style ) ||
+         segmentCount > laneRecordCapacity || !IsInstancedRibbonStyle( style ) ||
          !m_resourceFrame->DrawGate().PrepareDraw() )
     {
         return;
     }
 
     const UINT frameIndex = m_resourceFrame->FrameIndex();
-    RetainedTrajectoryBufferDX12& buffer = m_retainedTrajectoryBuffers[frameIndex];
+    RetainedGeometryBufferDX12& buffer = m_retainedGeometryBuffers[frameIndex];
     uint8_t* retainedBytes = m_resourceFrame->Uploads().PersistentTailPointer( frameIndex );
     const D3D12_GPU_VIRTUAL_ADDRESS retainedAddress = m_resourceFrame->Uploads().PersistentTailAddress( frameIndex );
-    const RetainedTrajectoryUploadPlanDX12 uploadPlan = BuildRetainedTrajectoryUploadPlanDX12(
-        buffer.streamIds[laneIndex],
-        buffer.revisions[laneIndex],
-        buffer.uploadedFloatCounts[laneIndex],
-        streamId,
-        revision,
-        segmentCount,
-        true );
+    const RetainedGeometryUploadPlan uploadPlan = BuildRetainedGeometryUploadPlan( buffer.streams[laneIndex],
+                                                                                   buffer.uploadedUnitCounts[laneIndex],
+                                                                                   stream,
+                                                                                   segmentCount,
+                                                                                   true );
 
     if ( uploadPlan.uploadRequired )
     {
@@ -1105,17 +1115,16 @@ void Dx12GeometryOwner::DrawRetainedTrajectoryRibbon( std::span<const float> pac
         // plus the appended suffix.
         for ( std::size_t segment = uploadPlan.firstChangedUnit; segment < segmentCount; ++segment )
         {
-            memcpy( retainedBytes + ( laneOffset + segment * floatsPerRecord ) * sizeof( float ),
+            memcpy( retainedBytes + ( laneOffset + segment * capacity.floatsPerRecord ) * sizeof( float ),
                     packedVertices.data() + segment * floatsPerExpandedSegment,
-                    floatsPerRecord * sizeof( float ) );
+                    capacity.floatsPerRecord * sizeof( float ) );
         }
 
-        buffer.streamIds[laneIndex] = streamId;
-        buffer.revisions[laneIndex] = revision;
-        buffer.uploadedFloatCounts[laneIndex] = segmentCount;
+        buffer.streams[laneIndex] = stream;
+        buffer.uploadedUnitCounts[laneIndex] = segmentCount;
     }
 
-    DrawColoredTrianglesFromBuffer( segmentCount * floatsPerRecord,
+    DrawColoredTrianglesFromBuffer( segmentCount * capacity.floatsPerRecord,
                                     viewProjection,
                                     style,
                                     m_resourceDevice->Width(),
@@ -1130,106 +1139,97 @@ void Dx12GeometryOwner::DrawRetainedTrajectoryRibbon( std::span<const float> pac
 }
 
 
-void Dx12GeometryOwner::DrawRetainedTrajectoryRanges( std::span<const float> compactRecords,
-                                                      std::span<const RetainedTrajectoryDrawRange> ranges,
-                                                      uint64_t streamId,
-                                                      uint64_t revision,
-                                                      const Math::Transformation::Matrix4& viewProjection,
-                                                      TransientTriangleStyle style,
-                                                      const PassRasterStateBucket& bucket )
+void Dx12GeometryOwner::DrawRetainedGeometryRanges( std::span<const float> compactRecords,
+                                                    std::span<const RetainedGeometryRangeToken> ranges,
+                                                    RetainedGeometryStreamToken stream,
+                                                    const Math::Transformation::Matrix4& viewProjection,
+                                                    TransientTriangleStyle style,
+                                                    const PassRasterStateBucket& bucket )
 {
     assert( m_resourceDevice && m_resourceFrame && m_submissionDiagnostics );
-    if ( ranges.empty() || ranges.size() > RETAINED_TRAJECTORY_MAX_DRAW_RANGES ||
-         compactRecords.size() <
-             ( RETAINED_TRAJECTORY_ORDINARY_SEGMENT_CAPACITY + RETAINED_TRAJECTORY_PRIORITY_SEGMENT_CAPACITY ) *
-                 RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT ||
-         !IsTrajectoryRibbonStyle( style ) || !m_resourceFrame->DrawGate().PrepareDraw() )
+    const RetainedGeometryCapacity capacity = m_retainedGeometryCapacity;
+    const std::size_t recordCapacity = static_cast<std::size_t>( capacity.ordinaryRecordCapacity ) +
+                                       capacity.priorityRecordCapacity;
+
+    if ( !IsRetainedGeometryCapacitySupported( capacity ) || ranges.empty() || ranges.size() > capacity.rangeCapacity ||
+         compactRecords.size() < recordCapacity * capacity.floatsPerRecord || !IsInstancedRibbonStyle( style ) ||
+         !m_resourceFrame->DrawGate().PrepareDraw() )
     {
         return;
     }
 
     const UINT frameIndex = m_resourceFrame->FrameIndex();
-    RetainedTrajectoryBufferDX12& buffer = m_retainedTrajectoryBuffers[frameIndex];
+    RetainedGeometryBufferDX12& buffer = m_retainedGeometryBuffers[frameIndex];
     uint8_t* retainedBytes = m_resourceFrame->Uploads().PersistentTailPointer( frameIndex );
     const D3D12_GPU_VIRTUAL_ADDRESS retainedAddress = m_resourceFrame->Uploads().PersistentTailAddress( frameIndex );
-    constexpr std::size_t compactFloatOffset = RETAINED_TRAJECTORY_FLOAT_CAPACITY;
-    constexpr std::size_t indirectByteOffset = ( RETAINED_TRAJECTORY_FLOAT_CAPACITY +
-                                                 RETAINED_TRAJECTORY_COMPACT_FLOAT_CAPACITY ) *
+    constexpr std::size_t compactFloatOffset = RETAINED_GEOMETRY_EXPANDED_FLOATS;
+    constexpr std::size_t indirectByteOffset = ( RETAINED_GEOMETRY_EXPANDED_FLOATS +
+                                                 RETAINED_GEOMETRY_COMPACT_FLOATS ) *
                                                sizeof( float );
 
     auto* indirectArguments = reinterpret_cast<D3D12_DRAW_ARGUMENTS*>( retainedBytes + indirectByteOffset );
     const D3D12_GPU_VIRTUAL_ADDRESS indirectAddress = retainedAddress + indirectByteOffset;
-    const bool streamChanged = buffer.rangeStreamId != streamId;
-    const bool revisionChanged = streamChanged || buffer.rangeRevision != revision;
+    const bool streamChanged = buffer.rangeStream.identity != stream.identity;
+    const bool revisionChanged = streamChanged || buffer.rangeStream.revision != stream.revision;
     if ( streamChanged )
     {
-        buffer.rangeIdentities.fill( 0 );
-        buffer.rangeSourceVersions.fill( 0 );
-        buffer.rangeSegmentCounts.fill( 0 );
+        buffer.rangeTokens = {};
     }
 
     if ( revisionChanged )
     {
-        uint32_t totalSegmentCount = 0;
+        uint32_t totalRecordCount = 0;
         for ( std::size_t rangeIndex = 0; rangeIndex < ranges.size(); ++rangeIndex )
         {
-            const RetainedTrajectoryDrawRange& range = ranges[rangeIndex];
+            const RetainedGeometryRangeToken& range = ranges[rangeIndex];
             const std::size_t cacheIndex = range.cacheSlot;
-            const std::size_t firstSegment = range.firstSegment;
-            const std::size_t segmentCapacity = range.segmentCapacity;
-            const std::size_t segmentCount = range.segmentCount;
-            const std::size_t laneBegin = range.priority ? RETAINED_TRAJECTORY_ORDINARY_SEGMENT_CAPACITY : 0u;
-            const std::size_t laneEnd = range.priority ? RETAINED_TRAJECTORY_ORDINARY_SEGMENT_CAPACITY +
-                                                             RETAINED_TRAJECTORY_PRIORITY_SEGMENT_CAPACITY
-                                                       : RETAINED_TRAJECTORY_ORDINARY_SEGMENT_CAPACITY;
+            const std::size_t firstRecord = range.firstRecord;
+            const std::size_t rangeRecordCapacity = range.recordCapacity;
+            const std::size_t rangeRecordCount = range.recordCount;
+            const bool priorityLane = range.lane == RetainedGeometryLane::Priority;
+            const std::size_t laneBegin = priorityLane ? capacity.ordinaryRecordCapacity : 0u;
+            const std::size_t laneEnd = priorityLane ? recordCapacity : capacity.ordinaryRecordCapacity;
 
-            if ( cacheIndex >= RETAINED_TRAJECTORY_MAX_DRAW_RANGES || segmentCount > segmentCapacity ||
-                 firstSegment < laneBegin || firstSegment + segmentCapacity > laneEnd )
+            if ( cacheIndex >= capacity.rangeCapacity || rangeRecordCount > rangeRecordCapacity ||
+                 firstRecord < laneBegin || firstRecord + rangeRecordCapacity > laneEnd )
             {
                 indirectArguments[rangeIndex] = {};
 
                 continue;
             }
 
-            const RetainedTrajectoryUploadPlanDX12 uploadPlan = BuildRetainedTrajectoryRangeUploadPlanDX12(
-                buffer.rangeIdentities[cacheIndex],
-                buffer.rangeSourceVersions[cacheIndex],
-                buffer.rangeSegmentCounts[cacheIndex],
-                range.identity,
-                range.sourceVersion,
-                segmentCount );
+            const RetainedGeometryUploadPlan uploadPlan = BuildRetainedGeometryRangeUploadPlan(
+                buffer.rangeTokens[cacheIndex],
+                range );
 
-            if ( uploadPlan.uploadRequired && uploadPlan.firstChangedUnit < segmentCount )
+            if ( uploadPlan.uploadRequired && uploadPlan.firstChangedUnit < rangeRecordCount )
             {
-                const std::size_t sourceFloat = ( firstSegment + uploadPlan.firstChangedUnit ) *
-                                                RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT;
+                const std::size_t sourceFloat = ( firstRecord + uploadPlan.firstChangedUnit ) *
+                                                capacity.floatsPerRecord;
 
-                const std::size_t changedFloatCount = ( segmentCount - uploadPlan.firstChangedUnit ) *
-                                                      RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT;
+                const std::size_t changedFloatCount = ( rangeRecordCount - uploadPlan.firstChangedUnit ) *
+                                                      capacity.floatsPerRecord;
 
                 memcpy( retainedBytes + ( compactFloatOffset + sourceFloat ) * sizeof( float ),
                         compactRecords.data() + sourceFloat,
                         changedFloatCount * sizeof( float ) );
             }
 
-            buffer.rangeIdentities[cacheIndex] = range.identity;
-            buffer.rangeSourceVersions[cacheIndex] = range.sourceVersion;
-            buffer.rangeSegmentCounts[cacheIndex] = static_cast<uint32_t>( segmentCount );
+            buffer.rangeTokens[cacheIndex] = range;
             indirectArguments[rangeIndex] = { 6u,
-                                              static_cast<UINT>( segmentCount ),
+                                              static_cast<UINT>( rangeRecordCount ),
                                               0u,
-                                              static_cast<UINT>( firstSegment ) };
+                                              static_cast<UINT>( firstRecord ) };
 
-            totalSegmentCount += static_cast<uint32_t>( segmentCount );
+            totalRecordCount += static_cast<uint32_t>( rangeRecordCount );
         }
 
-        buffer.rangeStreamId = streamId;
-        buffer.rangeRevision = revision;
-        buffer.rangeTotalSegmentCount = totalSegmentCount;
+        buffer.rangeStream = stream;
+        buffer.rangeTotalRecordCount = totalRecordCount;
     }
 
     ShaderDX12* transientShader = m_transientTriangleShaders[TransientTriangleStyleIndex( style )].get();
-    if ( !transientShader || !m_retainedTrajectoryCommandSignature )
+    if ( !transientShader || !m_retainedGeometryCommandSignature )
     {
         return;
     }
@@ -1242,7 +1242,7 @@ void Dx12GeometryOwner::DrawRetainedTrajectoryRanges( std::span<const float> com
                               0.0f,
                               0.0f );
 
-    const bool depthHint = style == TransientTriangleStyle::TrajectoryRibbonDepthHint;
+    const bool depthHint = style == TransientTriangleStyle::InstancedRibbonDepthHint;
     transientShader->SetVec4( "uRibbonStyle", depthHint ? 0.16f : 1.0f, depthHint ? 0.70f : 1.0f, 1.0f, 0.0f );
 
     DynamicVBDX12 vertexLayout = {};
@@ -1253,7 +1253,7 @@ void Dx12GeometryOwner::DrawRetainedTrajectoryRanges( std::span<const float> com
     vertexLayout.attribComponents[3] = 2;
     vertexLayout.attribComponents[4] = 3;
     vertexLayout.attribComponents[5] = 3;
-    vertexLayout.floatsPerVertex = static_cast<int>( RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT );
+    vertexLayout.floatsPerVertex = static_cast<int>( capacity.floatsPerRecord );
     vertexLayout.stride = vertexLayout.floatsPerVertex * static_cast<int>( sizeof( float ) );
     vertexLayout.perInstance = true;
     if ( !m_resourceFrame->DrawGate()
@@ -1265,20 +1265,20 @@ void Dx12GeometryOwner::DrawRetainedTrajectoryRanges( std::span<const float> com
     D3D12_VERTEX_BUFFER_VIEW vbView = {};
     vbView.BufferLocation = retainedAddress + compactFloatOffset * sizeof( float );
     vbView.SizeInBytes = static_cast<UINT>(
-        ( RETAINED_TRAJECTORY_ORDINARY_SEGMENT_CAPACITY + RETAINED_TRAJECTORY_PRIORITY_SEGMENT_CAPACITY ) *
-        RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT * sizeof( float ) );
+        ( MAX_RETAINED_GEOMETRY_ORDINARY_RECORDS + MAX_RETAINED_GEOMETRY_PRIORITY_RECORDS ) *
+        INSTANCED_RIBBON_FLOATS_PER_RECORD * sizeof( float ) );
 
     vbView.StrideInBytes = static_cast<UINT>( vertexLayout.stride );
     m_resourceDevice->CommandList()->IASetVertexBuffers( 0, 1, &vbView );
     m_submissionDiagnostics->RecordDrawCall( { DrawCallKind::DynamicVertexBuffer,
                                                TransientTriangleTraceLabel( style ),
                                                6,
-                                               static_cast<int>( buffer.rangeTotalSegmentCount ) } );
+                                               static_cast<int>( buffer.rangeTotalRecordCount ) } );
 
     // Stable frames reach this call without visiting a range or copying a byte.
     // The GPU consumes the retained command table in canonical range order.
     m_resourceDevice->CommandList()->ExecuteIndirect(
-        m_retainedTrajectoryCommandSignature.Get(),
+        m_retainedGeometryCommandSignature.Get(),
         static_cast<UINT>( ranges.size() ),
         m_resourceFrame->Uploads().Resource( frameIndex ),
         indirectAddress - m_resourceFrame->Uploads().Resource( frameIndex )->GetGPUVirtualAddress(),
@@ -1288,39 +1288,36 @@ void Dx12GeometryOwner::DrawRetainedTrajectoryRanges( std::span<const float> com
 
 
 void Dx12GeometryOwner::DrawRetainedLinesColored( std::span<const float> packedVertices,
-                                                  uint64_t streamId,
-                                                  uint64_t revision,
+                                                  RetainedGeometryStreamToken stream,
                                                   bool priorityLane,
                                                   const Math::Transformation::Matrix4& viewProjection,
                                                   const PassRasterStateBucket& bucket )
 {
     assert( m_resourceDevice && m_resourceFrame && m_submissionPipeline && m_submissionDiagnostics );
+    const RetainedGeometryCapacity capacity = m_retainedGeometryCapacity;
     const std::size_t channelIndex = priorityLane ? 3u : 2u;
-    const std::size_t ribbonFloatCapacity = RETAINED_TRAJECTORY_ORDINARY_FLOAT_CAPACITY +
-                                            RETAINED_TRAJECTORY_PRIORITY_FLOAT_CAPACITY;
-
-    const std::size_t laneCapacity = priorityLane ? RETAINED_TRAJECTORY_PRIORITY_LINE_FLOAT_CAPACITY
-                                                  : RETAINED_TRAJECTORY_ORDINARY_LINE_FLOAT_CAPACITY;
+    const std::size_t ribbonFloatCapacity = RETAINED_GEOMETRY_ORDINARY_FLOATS + RETAINED_GEOMETRY_PRIORITY_FLOATS;
+    const std::size_t laneCapacity = priorityLane ? capacity.priorityLineFloatCapacity
+                                                  : capacity.ordinaryLineFloatCapacity;
 
     const std::size_t laneOffset = ribbonFloatCapacity +
-                                   ( priorityLane ? RETAINED_TRAJECTORY_ORDINARY_LINE_FLOAT_CAPACITY : 0u );
+                                   ( priorityLane ? MAX_RETAINED_GEOMETRY_ORDINARY_LINE_FLOATS : 0u );
 
-    if ( packedVertices.empty() || packedVertices.size() % 6u != 0u || packedVertices.size() > laneCapacity ||
+    if ( !IsRetainedGeometryCapacitySupported( capacity ) || packedVertices.empty() ||
+         packedVertices.size() % 6u != 0u || packedVertices.size() > laneCapacity ||
          !m_resourceFrame->DrawGate().PrepareDraw() )
     {
         return;
     }
 
     const UINT frameIndex = m_resourceFrame->FrameIndex();
-    RetainedTrajectoryBufferDX12& buffer = m_retainedTrajectoryBuffers[frameIndex];
+    RetainedGeometryBufferDX12& buffer = m_retainedGeometryBuffers[frameIndex];
     uint8_t* retainedBytes = m_resourceFrame->Uploads().PersistentTailPointer( frameIndex );
     const D3D12_GPU_VIRTUAL_ADDRESS retainedAddress = m_resourceFrame->Uploads().PersistentTailAddress( frameIndex );
-    const RetainedTrajectoryUploadPlanDX12 uploadPlan = BuildRetainedTrajectoryUploadPlanDX12(
-        buffer.streamIds[channelIndex],
-        buffer.revisions[channelIndex],
-        buffer.uploadedFloatCounts[channelIndex],
-        streamId,
-        revision,
+    const RetainedGeometryUploadPlan uploadPlan = BuildRetainedGeometryUploadPlan(
+        buffer.streams[channelIndex],
+        buffer.uploadedUnitCounts[channelIndex],
+        stream,
         packedVertices.size(),
         false );
 
@@ -1330,9 +1327,8 @@ void Dx12GeometryOwner::DrawRetainedLinesColored( std::span<const float> packedV
                 packedVertices.data() + uploadPlan.firstChangedUnit,
                 ( packedVertices.size() - uploadPlan.firstChangedUnit ) * sizeof( float ) );
 
-        buffer.streamIds[channelIndex] = streamId;
-        buffer.revisions[channelIndex] = revision;
-        buffer.uploadedFloatCounts[channelIndex] = packedVertices.size();
+        buffer.streams[channelIndex] = stream;
+        buffer.uploadedUnitCounts[channelIndex] = packedVertices.size();
     }
 
     DrawLinesColoredFromBuffer( packedVertices.size(),
@@ -1357,10 +1353,34 @@ void Dx12GeometryOwner::BindResourceOwners( Dx12RenderDevice& device,
     m_submissionDiagnostics = &diagnostics;
 }
 
-
-bool Dx12GeometryOwner::InitializeRetainedTrajectoryCommands( ID3D12Device* device )
+bool Dx12GeometryOwner::ConfigureRetainedGeometryCapacity( RetainedGeometryCapacity capacity ) noexcept
 {
-    m_retainedTrajectoryCommandSignature.Reset();
+    if ( !IsRetainedGeometryCapacitySupported( capacity ) )
+    {
+        return false;
+    }
+
+    // Invariant: the composition root configures one immutable logical layout
+    // before publishing this owner. A second, different layout could reinterpret
+    // persistent bytes that are still referenced by frame-fenced command lists.
+    if ( m_retainedGeometryCapacity.floatsPerRecord != 0u )
+    {
+        return m_retainedGeometryCapacity.floatsPerRecord == capacity.floatsPerRecord &&
+               m_retainedGeometryCapacity.ordinaryRecordCapacity == capacity.ordinaryRecordCapacity &&
+               m_retainedGeometryCapacity.priorityRecordCapacity == capacity.priorityRecordCapacity &&
+               m_retainedGeometryCapacity.ordinaryLineFloatCapacity == capacity.ordinaryLineFloatCapacity &&
+               m_retainedGeometryCapacity.priorityLineFloatCapacity == capacity.priorityLineFloatCapacity &&
+               m_retainedGeometryCapacity.rangeCapacity == capacity.rangeCapacity;
+    }
+
+    m_retainedGeometryCapacity = capacity;
+    return true;
+}
+
+
+bool Dx12GeometryOwner::InitializeRetainedGeometryCommands( ID3D12Device* device )
+{
+    m_retainedGeometryCommandSignature.Reset();
     if ( !device )
     {
         return false;
@@ -1374,7 +1394,7 @@ bool Dx12GeometryOwner::InitializeRetainedTrajectoryCommands( ID3D12Device* devi
     signature.NumArgumentDescs = 1;
     signature.pArgumentDescs = &argument;
     return SUCCEEDED(
-        device->CreateCommandSignature( &signature, nullptr, IID_PPV_ARGS( &m_retainedTrajectoryCommandSignature ) ) );
+        device->CreateCommandSignature( &signature, nullptr, IID_PPV_ARGS( &m_retainedGeometryCommandSignature ) ) );
 }
 
 

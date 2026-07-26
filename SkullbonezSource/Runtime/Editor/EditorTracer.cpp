@@ -215,9 +215,6 @@ uint64_t HashReplaySubmissionCanonicalRecords( const std::vector<float>& values,
 
 
 EditorTracer::EditorTracer()
-    : m_retainedReplayRibbonRecords( ( Rendering::RETAINED_TRAJECTORY_ORDINARY_SEGMENT_CAPACITY +
-                                       Rendering::RETAINED_TRAJECTORY_PRIORITY_SEGMENT_CAPACITY ) *
-                                     Rendering::RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT )
 {
     // Runtime allocation policy: overlay line storage is paid once during tool
     // construction. EmitLine refuses overflow so replay prediction, gizmos, and
@@ -289,11 +286,6 @@ void EditorTracer::Clear()
     m_priorityReplayRibbonVertexData.clear();
     m_expandedOrdinarySegmentCount = 0;
     m_expandedPrioritySegmentCount = 0;
-    m_retainedReplayRibbonRangeCount = 0;
-    m_retainedOrdinarySegmentCapacityUsed = 0;
-    m_retainedPrioritySegmentCapacityUsed = 0;
-    m_retainedOrdinarySegmentCount = 0;
-    m_retainedPrioritySegmentCount = 0;
     ClearReplayTrajectoryStats();
     m_replaySubmissionStats = SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats {};
 }
@@ -346,20 +338,6 @@ ReplayVisualPacket EditorTracer::BuildReplayVisualPacket( const Vector3& cameraE
     packet.priorityRibbonSegments = m_priorityReplayRibbonSegments;
     packet.expandedRibbonVertices = m_replayRibbonVertexData;
     packet.priorityExpandedRibbonVertices = m_priorityReplayRibbonVertexData;
-    packet.retainedPredictionCompactRibbonRecords = m_retainedReplayRibbonRecords;
-    std::copy_n( m_retainedReplayRibbonRanges.begin(),
-                 m_retainedReplayRibbonRangeCount,
-                 m_retainedReplayRibbonDrawRanges.begin() );
-
-    std::sort( m_retainedReplayRibbonDrawRanges.begin(),
-               m_retainedReplayRibbonDrawRanges.begin() + m_retainedReplayRibbonRangeCount,
-               []( const Rendering::RetainedTrajectoryDrawRange& lhs,
-                   const Rendering::RetainedTrajectoryDrawRange& rhs ) { return lhs.drawOrder < rhs.drawOrder; } );
-
-    packet.retainedPredictionRibbonRanges = std::span<const Rendering::RetainedTrajectoryDrawRange>(
-        m_retainedReplayRibbonDrawRanges.data(),
-        m_retainedReplayRibbonRangeCount );
-
     packet.submission = m_replaySubmissionStats;
     return packet;
 }
@@ -385,162 +363,6 @@ std::size_t EditorTracer::ReplayPriorityRibbonSegmentCapacityRemaining() const
 
     return ( m_priorityReplayRibbonSegments.capacity() - m_priorityReplayRibbonSegments.size() ) /
            EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
-}
-
-
-std::size_t EditorTracer::BeginRetainedReplayRibbonRange( uint64_t identity,
-                                                          uint32_t sourceVersion,
-                                                          bool priority,
-                                                          std::size_t segmentCapacity,
-                                                          uint64_t drawOrder,
-                                                          std::size_t continuationRange )
-{
-    if ( segmentCapacity == 0u || m_retainedReplayRibbonRangeCount >= Rendering::RETAINED_TRAJECTORY_MAX_DRAW_RANGES )
-    {
-        return ( std::numeric_limits<std::size_t>::max )();
-    }
-
-    const std::size_t laneCapacity = priority ? Rendering::RETAINED_TRAJECTORY_PRIORITY_SEGMENT_CAPACITY
-                                              : Rendering::RETAINED_TRAJECTORY_ORDINARY_SEGMENT_CAPACITY;
-
-    std::size_t& laneUsed = priority ? m_retainedPrioritySegmentCapacityUsed : m_retainedOrdinarySegmentCapacityUsed;
-    if ( segmentCapacity > laneCapacity - laneUsed )
-    {
-        return ( std::numeric_limits<std::size_t>::max )();
-    }
-
-    const std::size_t rangeIndex = m_retainedReplayRibbonRangeCount++;
-    Rendering::RetainedTrajectoryDrawRange& range = m_retainedReplayRibbonRanges[rangeIndex];
-    range = {};
-
-    range.identity = identity;
-    range.drawOrder = drawOrder;
-    range.sourceVersion = sourceVersion;
-    range.cacheSlot = static_cast<uint32_t>( rangeIndex );
-    range.continuationRange = static_cast<uint32_t>( continuationRange );
-    range.firstSegment = static_cast<uint32_t>(
-        laneUsed + ( priority ? Rendering::RETAINED_TRAJECTORY_ORDINARY_SEGMENT_CAPACITY : 0u ) );
-
-    range.segmentCapacity = static_cast<uint32_t>( segmentCapacity );
-    range.priority = priority;
-    laneUsed += segmentCapacity;
-    return rangeIndex;
-}
-
-
-std::size_t EditorTracer::RetainedReplayRibbonRangeCapacityRemaining( std::size_t rangeIndex ) const noexcept
-{
-    if ( rangeIndex >= m_retainedReplayRibbonRangeCount )
-    {
-        return 0u;
-    }
-
-    const Rendering::RetainedTrajectoryDrawRange& range = m_retainedReplayRibbonRanges[rangeIndex];
-    return range.segmentCapacity - range.segmentCount;
-}
-
-
-std::size_t EditorTracer::RetainedReplayOrdinarySegmentCapacityRemaining() const noexcept
-{
-    return Rendering::RETAINED_TRAJECTORY_ORDINARY_SEGMENT_CAPACITY - m_retainedOrdinarySegmentCapacityUsed;
-}
-
-
-std::size_t EditorTracer::RetainedReplayPrioritySegmentCapacityRemaining() const noexcept
-{
-    return Rendering::RETAINED_TRAJECTORY_PRIORITY_SEGMENT_CAPACITY - m_retainedPrioritySegmentCapacityUsed;
-}
-
-
-std::size_t EditorTracer::RetainedReplayOrdinarySegmentCountRemaining() const noexcept
-{
-    return Rendering::RETAINED_TRAJECTORY_ORDINARY_SEGMENT_CAPACITY - m_retainedOrdinarySegmentCount;
-}
-
-
-std::size_t EditorTracer::RetainedReplayPrioritySegmentCountRemaining() const noexcept
-{
-    return Rendering::RETAINED_TRAJECTORY_PRIORITY_SEGMENT_CAPACITY - m_retainedPrioritySegmentCount;
-}
-
-
-bool EditorTracer::EmitRetainedReplayRibbonSegment( std::size_t rangeIndex,
-                                                    const Vector3& a,
-                                                    const Vector3& b,
-                                                    float r,
-                                                    float g,
-                                                    float bl,
-                                                    const ReplayRibbonStyle& style,
-                                                    SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane )
-{
-    if ( rangeIndex >= m_retainedReplayRibbonRangeCount )
-    {
-        RecordReplayRibbonDroppedSegments( lane );
-        return false;
-    }
-
-    Rendering::RetainedTrajectoryDrawRange& range = m_retainedReplayRibbonRanges[rangeIndex];
-    if ( range.segmentCount >= range.segmentCapacity )
-    {
-        RecordReplayRibbonDroppedSegments( lane );
-        return false;
-    }
-
-    const std::size_t laneIndex = static_cast<std::size_t>( lane );
-    if ( laneIndex < SkullbonezCore::Core::MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT )
-    {
-        ++m_replayTrajectoryStats.emittedSegments[laneIndex];
-    }
-
-    const std::array<float, Rendering::RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT> values = { a.x,
-                                                                                          a.y,
-                                                                                          a.z,
-                                                                                          b.x,
-                                                                                          b.y,
-                                                                                          b.z,
-                                                                                          style.width,
-                                                                                          r,
-                                                                                          g,
-                                                                                          bl,
-                                                                                          style.alpha,
-                                                                                          style.edgeFeather,
-                                                                                          style.emphasis,
-                                                                                          a.x,
-                                                                                          a.y,
-                                                                                          a.z,
-                                                                                          b.x,
-                                                                                          b.y,
-                                                                                          b.z };
-
-    const bool appended = range.segmentCount == 0u && range.continuationRange < m_retainedReplayRibbonRangeCount
-                              ? Rendering::AppendRetainedTrajectoryContinuationRecord(
-                                    m_retainedReplayRibbonRecords,
-                                    m_retainedReplayRibbonRanges[range.continuationRange],
-                                    range,
-                                    values,
-                                    TOLERANCE * TOLERANCE )
-                              : Rendering::AppendRetainedTrajectoryRecord( m_retainedReplayRibbonRecords,
-                                                                           range,
-                                                                           values,
-                                                                           TOLERANCE * TOLERANCE );
-
-    if ( !appended )
-    {
-        RecordReplayRibbonDroppedSegments( lane );
-        return false;
-    }
-
-    if ( range.priority )
-    {
-        ++m_retainedPrioritySegmentCount;
-    }
-    else
-    {
-        ++m_retainedOrdinarySegmentCount;
-    }
-
-    ++m_replayGeometryRevision;
-    return true;
 }
 
 
@@ -1400,21 +1222,6 @@ void EditorTracer::AddReplayPathSegment( const Vector3& start,
 }
 
 
-void EditorTracer::AddRetainedReplayPathSegment( std::size_t rangeIndex,
-                                                 const Vector3& start,
-                                                 const Vector3& end,
-                                                 float r,
-                                                 float g,
-                                                 float b,
-                                                 SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane,
-                                                 float emphasis )
-{
-    ReplayRibbonStyle style = m_replayPathStyle;
-    style.emphasis = std::clamp( emphasis, 0.0f, 1.0f ) * m_replaySelectedEmphasis;
-    (void)EmitRetainedReplayRibbonSegment( rangeIndex, start, end, r, g, b, style, lane );
-}
-
-
 void EditorTracer::AddReplayCausalTrailSegment( const Vector3& start, const Vector3& end, float r, float g, float b )
 {
     // Why: retained causal trails are the evidence attached to yellow/grey/ghost
@@ -1431,24 +1238,6 @@ void EditorTracer::AddReplayCausalTrailSegment( const Vector3& start, const Vect
                                 glow,
                                 core,
                                 SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::RetainedTrail );
-}
-
-
-void EditorTracer::AddRetainedReplayCausalTrailSegment( std::size_t rangeIndex,
-                                                        const Vector3& start,
-                                                        const Vector3& end,
-                                                        float r,
-                                                        float g,
-                                                        float b )
-{
-    (void)EmitRetainedReplayRibbonSegment( rangeIndex,
-                                           start,
-                                           end,
-                                           r,
-                                           g,
-                                           b,
-                                           m_replayCausalStyle,
-                                           SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::RetainedTrail );
 }
 
 
@@ -1472,27 +1261,6 @@ void EditorTracer::AddReplayBaselinePathSegment( const Vector3& start,
                                 glow,
                                 core,
                                 SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::BaselineRoot );
-}
-
-
-void EditorTracer::AddRetainedReplayBaselinePathSegment( std::size_t rangeIndex,
-                                                         const Vector3& start,
-                                                         const Vector3& end,
-                                                         float r,
-                                                         float g,
-                                                         float b,
-                                                         float opacity )
-{
-    ReplayRibbonStyle style = m_replayBaselineStyle;
-    style.alpha *= std::clamp( opacity, 0.0f, 1.0f );
-    (void)EmitRetainedReplayRibbonSegment( rangeIndex,
-                                           start,
-                                           end,
-                                           r,
-                                           g,
-                                           b,
-                                           style,
-                                           SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::BaselineRoot );
 }
 
 
@@ -1774,11 +1542,13 @@ void EditorTracer::Render( const ReplayVisualPacket& packet,
         return;
     }
 
+    const Rendering::RetainedGeometryStreamToken retainedStream = { packet.retainedPredictionStreamId,
+                                                                    packet.retainedPredictionRevision };
+
     if ( !packet.retainedPredictionOrdinaryLines.empty() )
     {
         renderCommands.DrawRetainedLinesColored( packet.retainedPredictionOrdinaryLines,
-                                                 packet.retainedPredictionStreamId,
-                                                 packet.retainedPredictionRevision,
+                                                 retainedStream,
                                                  false,
                                                  viewProjection,
                                                  REPLAY_LINE_RASTER );
@@ -1787,8 +1557,7 @@ void EditorTracer::Render( const ReplayVisualPacket& packet,
     if ( !packet.retainedPredictionPriorityLines.empty() )
     {
         renderCommands.DrawRetainedLinesColored( packet.retainedPredictionPriorityLines,
-                                                 packet.retainedPredictionStreamId,
-                                                 packet.retainedPredictionRevision,
+                                                 retainedStream,
                                                  true,
                                                  viewProjection,
                                                  REPLAY_LINE_RASTER );
@@ -1806,68 +1575,62 @@ void EditorTracer::Render( const ReplayVisualPacket& packet,
         // The retained lane owns a frame-fenced GPU buffer. Stream/revision
         // changes refresh the affected slot; stable frames submit these two
         // draws without reserving or copying geometry upload memory.
-        renderCommands.DrawRetainedTrajectoryRibbon( packet.retainedPredictionRibbonVertices,
-                                                     packet.retainedPredictionStreamId,
-                                                     packet.retainedPredictionRevision,
-                                                     false,
-                                                     viewProjection,
-                                                     Rendering::TransientTriangleStyle::TrajectoryRibbonDepthHint,
-                                                     REPLAY_RIBBON_DEPTH_HINT_RASTER );
+        renderCommands.DrawRetainedGeometryRibbon( packet.retainedPredictionRibbonVertices,
+                                                   retainedStream,
+                                                   false,
+                                                   viewProjection,
+                                                   Rendering::TransientTriangleStyle::InstancedRibbonDepthHint,
+                                                   REPLAY_RIBBON_DEPTH_HINT_RASTER );
     }
 
     if ( !packet.retainedPredictionPriorityRibbonVertices.empty() )
     {
-        renderCommands.DrawRetainedTrajectoryRibbon( packet.retainedPredictionPriorityRibbonVertices,
-                                                     packet.retainedPredictionStreamId,
-                                                     packet.retainedPredictionRevision,
-                                                     true,
-                                                     viewProjection,
-                                                     Rendering::TransientTriangleStyle::TrajectoryRibbonDepthHint,
-                                                     REPLAY_RIBBON_DEPTH_HINT_RASTER );
+        renderCommands.DrawRetainedGeometryRibbon( packet.retainedPredictionPriorityRibbonVertices,
+                                                   retainedStream,
+                                                   true,
+                                                   viewProjection,
+                                                   Rendering::TransientTriangleStyle::InstancedRibbonDepthHint,
+                                                   REPLAY_RIBBON_DEPTH_HINT_RASTER );
     }
 
     if ( !packet.retainedPredictionRibbonRanges.empty() )
     {
-        renderCommands.DrawRetainedTrajectoryRanges( packet.retainedPredictionCompactRibbonRecords,
-                                                     packet.retainedPredictionRibbonRanges,
-                                                     packet.retainedPredictionStreamId,
-                                                     packet.retainedPredictionRevision,
-                                                     viewProjection,
-                                                     Rendering::TransientTriangleStyle::TrajectoryRibbonDepthHint,
-                                                     REPLAY_RIBBON_DEPTH_HINT_RASTER );
+        renderCommands.DrawRetainedGeometryRanges( packet.retainedPredictionCompactRibbonRecords,
+                                                   packet.retainedPredictionRibbonRanges,
+                                                   retainedStream,
+                                                   viewProjection,
+                                                   Rendering::TransientTriangleStyle::InstancedRibbonDepthHint,
+                                                   REPLAY_RIBBON_DEPTH_HINT_RASTER );
     }
 
     if ( !packet.retainedPredictionRibbonVertices.empty() )
     {
-        renderCommands.DrawRetainedTrajectoryRibbon( packet.retainedPredictionRibbonVertices,
-                                                     packet.retainedPredictionStreamId,
-                                                     packet.retainedPredictionRevision,
-                                                     false,
-                                                     viewProjection,
-                                                     Rendering::TransientTriangleStyle::TrajectoryRibbon,
-                                                     REPLAY_RIBBON_VISIBLE_RASTER );
+        renderCommands.DrawRetainedGeometryRibbon( packet.retainedPredictionRibbonVertices,
+                                                   retainedStream,
+                                                   false,
+                                                   viewProjection,
+                                                   Rendering::TransientTriangleStyle::InstancedRibbon,
+                                                   REPLAY_RIBBON_VISIBLE_RASTER );
     }
 
     if ( !packet.retainedPredictionPriorityRibbonVertices.empty() )
     {
-        renderCommands.DrawRetainedTrajectoryRibbon( packet.retainedPredictionPriorityRibbonVertices,
-                                                     packet.retainedPredictionStreamId,
-                                                     packet.retainedPredictionRevision,
-                                                     true,
-                                                     viewProjection,
-                                                     Rendering::TransientTriangleStyle::TrajectoryRibbon,
-                                                     REPLAY_RIBBON_VISIBLE_RASTER );
+        renderCommands.DrawRetainedGeometryRibbon( packet.retainedPredictionPriorityRibbonVertices,
+                                                   retainedStream,
+                                                   true,
+                                                   viewProjection,
+                                                   Rendering::TransientTriangleStyle::InstancedRibbon,
+                                                   REPLAY_RIBBON_VISIBLE_RASTER );
     }
 
     if ( !packet.retainedPredictionRibbonRanges.empty() )
     {
-        renderCommands.DrawRetainedTrajectoryRanges( packet.retainedPredictionCompactRibbonRecords,
-                                                     packet.retainedPredictionRibbonRanges,
-                                                     packet.retainedPredictionStreamId,
-                                                     packet.retainedPredictionRevision,
-                                                     viewProjection,
-                                                     Rendering::TransientTriangleStyle::TrajectoryRibbon,
-                                                     REPLAY_RIBBON_VISIBLE_RASTER );
+        renderCommands.DrawRetainedGeometryRanges( packet.retainedPredictionCompactRibbonRecords,
+                                                   packet.retainedPredictionRibbonRanges,
+                                                   retainedStream,
+                                                   viewProjection,
+                                                   Rendering::TransientTriangleStyle::InstancedRibbon,
+                                                   REPLAY_RIBBON_VISIBLE_RASTER );
     }
 
     if ( !packet.expandedRibbonVertices.empty() || !packet.priorityExpandedRibbonVertices.empty() )
@@ -1880,7 +1643,7 @@ void EditorTracer::Render( const ReplayVisualPacket& packet,
         {
             renderCommands.DrawTransientColoredTriangles( packet.expandedRibbonVertices,
                                                           viewProjection,
-                                                          Rendering::TransientTriangleStyle::TrajectoryRibbonDepthHint,
+                                                          Rendering::TransientTriangleStyle::InstancedRibbonDepthHint,
                                                           REPLAY_RIBBON_DEPTH_HINT_RASTER );
         }
 
@@ -1888,7 +1651,7 @@ void EditorTracer::Render( const ReplayVisualPacket& packet,
         {
             renderCommands.DrawTransientColoredTriangles( packet.priorityExpandedRibbonVertices,
                                                           viewProjection,
-                                                          Rendering::TransientTriangleStyle::TrajectoryRibbonDepthHint,
+                                                          Rendering::TransientTriangleStyle::InstancedRibbonDepthHint,
                                                           REPLAY_RIBBON_DEPTH_HINT_RASTER );
         }
 
@@ -1896,7 +1659,7 @@ void EditorTracer::Render( const ReplayVisualPacket& packet,
         {
             renderCommands.DrawTransientColoredTriangles( packet.expandedRibbonVertices,
                                                           viewProjection,
-                                                          Rendering::TransientTriangleStyle::TrajectoryRibbon,
+                                                          Rendering::TransientTriangleStyle::InstancedRibbon,
                                                           REPLAY_RIBBON_VISIBLE_RASTER );
         }
 
@@ -1904,7 +1667,7 @@ void EditorTracer::Render( const ReplayVisualPacket& packet,
         {
             renderCommands.DrawTransientColoredTriangles( packet.priorityExpandedRibbonVertices,
                                                           viewProjection,
-                                                          Rendering::TransientTriangleStyle::TrajectoryRibbon,
+                                                          Rendering::TransientTriangleStyle::InstancedRibbon,
                                                           REPLAY_RIBBON_VISIBLE_RASTER );
         }
     }

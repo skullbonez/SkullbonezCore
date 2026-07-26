@@ -10,7 +10,8 @@ Summary:
   lane retains the frame-local builder as an independent visual oracle.
 
 Glossary:
-  Replay ribbon: Screen-space-width overlay stroke emitted through EditorTracer.
+  Frame-local ribbon: Screen-space-width overlay stroke emitted through
+    EditorTracer for the deterministic visual oracle.
   Draw quota: Frame-local cap for ordinary replay ribbon segments.
   Published prefix: Contiguous prediction frames released by the worker for readers.
   Retained range chunk: Small stable slice appended when one trajectory outgrows
@@ -40,6 +41,7 @@ Related:
 #include "ReplayPredictionPresentation.h"
 #include "ReplayPredictionPublicationOperations.h"
 #include "../Replay/ReplayPresentationSubmission.h"
+#include "../Replay/ReplayVisualPacket.h"
 #include "../Editor/EditorTools.h"
 #include "../Tools/RuntimeTools.h"
 #include "../Scene/SceneEntityStore.h"
@@ -47,6 +49,7 @@ Related:
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Physics/PhysicsTimestep.h"
+#include "../../Core/Config.h"
 
 #include <algorithm>
 #include <array>
@@ -54,6 +57,7 @@ Related:
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::CollisionDetection;
@@ -579,20 +583,20 @@ std::size_t ReplayTrajectoryPublishedPointCount( const ReplayTrajectoryRecord& r
 
 constexpr std::size_t REPLAY_RETAINED_RANGE_CHUNK_SEGMENTS = 8u;
 
-bool EnsureReplayRetainedRangeChunk( EditorTracer& drawList,
+bool EnsureReplayRetainedRangeChunk( ReplayPredictionRetainedGeometry& drawList,
                                      ReplayPredictionDrawRecordCursor& cursor,
                                      const ReplayTrajectoryRecord& record,
                                      std::size_t canonicalRecordIndex,
                                      bool retainedTrail )
 {
-    if ( drawList.RetainedReplayRibbonRangeCapacityRemaining( cursor.retainedRangeIndex ) > 0u )
+    if ( drawList.RangeCapacityRemaining( cursor.retainedRangeIndex ) > 0u )
     {
         return true;
     }
 
     const bool priority = retainedTrail;
-    const std::size_t laneRemaining = priority ? drawList.RetainedReplayPrioritySegmentCapacityRemaining()
-                                               : drawList.RetainedReplayOrdinarySegmentCapacityRemaining();
+    const std::size_t laneRemaining = priority ? drawList.PriorityCapacityRemaining()
+                                               : drawList.OrdinaryCapacityRemaining();
 
     const std::size_t chunkCapacity = (std::min)( REPLAY_RETAINED_RANGE_CHUNK_SEGMENTS, laneRemaining );
     if ( chunkCapacity == 0u )
@@ -606,7 +610,7 @@ bool EnsureReplayRetainedRangeChunk( EditorTracer& drawList,
                                static_cast<uint64_t>( chunkOrdinal );
 
     const std::size_t continuationRange = cursor.retainedRangeIndex;
-    const std::size_t rangeIndex = drawList.BeginRetainedReplayRibbonRange(
+    const std::size_t rangeIndex = drawList.BeginRange(
         ReplayRetainedRangeIdentity( record.key, retainedTrail, chunkOrdinal ),
         record.version,
         priority,
@@ -614,7 +618,7 @@ bool EnsureReplayRetainedRangeChunk( EditorTracer& drawList,
         drawOrder,
         continuationRange );
 
-    if ( rangeIndex >= SkullbonezCore::Rendering::RETAINED_TRAJECTORY_MAX_DRAW_RANGES )
+    if ( rangeIndex >= PREDICTION_TRAJECTORY_RANGE_CAPACITY )
     {
         return false;
     }
@@ -1586,15 +1590,290 @@ void DrawReplayPredictionVisualizer( const RunReplayPathVisualizerState& pathVis
 
 namespace SkullbonezCore::Runtime::ReplayOverlay
 {
+ReplayPredictionRetainedGeometry::ReplayPredictionRetainedGeometry()
+    : m_records( ( PREDICTION_TRAJECTORY_ORDINARY_RECORD_CAPACITY + PREDICTION_TRAJECTORY_PRIORITY_RECORD_CAPACITY ) *
+                 PREDICTION_TRAJECTORY_FLOATS_PER_RECORD )
+{
+}
+
+
+bool ReplayPredictionRetainedGeometry::SetAppearance( const Core::ReplayTrajectoryAppearanceConfig& appearance )
+{
+    const auto boundedStyle = []( float width, float alpha, float edgeFeather )
+    {
+        return RibbonStyle { std::clamp( width, 1.0f, 6.0f ),
+                             std::clamp( alpha, 0.05f, 1.0f ),
+                             std::clamp( edgeFeather, 0.25f, 1.25f ),
+                             0.0f };
+    };
+
+    const RibbonStyle path = boundedStyle( appearance.futureWidth,
+                                           appearance.futureAlpha,
+                                           appearance.futureEdgeFeather );
+
+    const RibbonStyle causal = boundedStyle( appearance.causalWidth,
+                                             appearance.causalAlpha,
+                                             appearance.causalEdgeFeather );
+
+    const RibbonStyle baseline = boundedStyle( appearance.baselineWidth,
+                                               appearance.baselineAlpha,
+                                               appearance.baselineEdgeFeather );
+
+    const float selectedEmphasis = std::clamp( appearance.selectedEmphasis, 0.0f, 1.0f );
+    const auto sameStyle = []( const RibbonStyle& lhs, const RibbonStyle& rhs )
+    {
+        return lhs.width == rhs.width && lhs.alpha == rhs.alpha && lhs.edgeFeather == rhs.edgeFeather &&
+               lhs.emphasis == rhs.emphasis;
+    };
+
+    if ( m_appearanceInitialized && sameStyle( path, m_pathStyle ) && sameStyle( causal, m_causalStyle ) &&
+         sameStyle( baseline, m_baselineStyle ) && selectedEmphasis == m_selectedEmphasis )
+    {
+        return false;
+    }
+
+    m_pathStyle = path;
+    m_causalStyle = causal;
+    m_baselineStyle = baseline;
+    m_selectedEmphasis = selectedEmphasis;
+    m_appearanceInitialized = true;
+    return true;
+}
+
+
+void ReplayPredictionRetainedGeometry::Clear() noexcept
+{
+    m_rangeCount = 0;
+    m_ordinaryRecordCapacityUsed = 0;
+    m_priorityRecordCapacityUsed = 0;
+    m_ordinaryRecordCount = 0;
+    m_priorityRecordCount = 0;
+    m_stats = {};
+}
+
+
+void ReplayPredictionRetainedGeometry::PublishToPacket( ReplayVisualPacket& packet )
+{
+    std::copy_n( m_ranges.begin(), m_rangeCount, m_drawRanges.begin() );
+    std::sort( m_drawRanges.begin(),
+               m_drawRanges.begin() + m_rangeCount,
+               []( const Rendering::RetainedGeometryRangeToken& lhs, const Rendering::RetainedGeometryRangeToken& rhs )
+               { return lhs.drawOrder < rhs.drawOrder; } );
+
+    packet.retainedPredictionCompactRibbonRecords = m_records;
+    packet.retainedPredictionRibbonRanges = std::span<const Rendering::RetainedGeometryRangeToken>( m_drawRanges.data(),
+                                                                                                    m_rangeCount );
+}
+
+
+std::size_t ReplayPredictionRetainedGeometry::BeginRange( uint64_t identity,
+                                                          uint32_t sourceVersion,
+                                                          bool priority,
+                                                          std::size_t recordCapacity,
+                                                          uint64_t drawOrder,
+                                                          std::size_t continuationRange )
+{
+    if ( recordCapacity == 0u || m_rangeCount >= PREDICTION_TRAJECTORY_RANGE_CAPACITY )
+    {
+        return ( std::numeric_limits<std::size_t>::max )();
+    }
+
+    const std::size_t laneCapacity = priority ? PREDICTION_TRAJECTORY_PRIORITY_RECORD_CAPACITY
+                                              : PREDICTION_TRAJECTORY_ORDINARY_RECORD_CAPACITY;
+
+    std::size_t& laneUsed = priority ? m_priorityRecordCapacityUsed : m_ordinaryRecordCapacityUsed;
+    if ( recordCapacity > laneCapacity - laneUsed )
+    {
+        return ( std::numeric_limits<std::size_t>::max )();
+    }
+
+    const std::size_t rangeIndex = m_rangeCount++;
+    Rendering::RetainedGeometryRangeToken& range = m_ranges[rangeIndex];
+    range = {};
+    range.identity = identity;
+    range.drawOrder = drawOrder;
+    range.sourceVersion = sourceVersion;
+    range.cacheSlot = static_cast<uint32_t>( rangeIndex );
+    range.continuationRange = static_cast<uint32_t>( continuationRange );
+    range.firstRecord = static_cast<uint32_t>( laneUsed +
+                                               ( priority ? PREDICTION_TRAJECTORY_ORDINARY_RECORD_CAPACITY : 0u ) );
+
+    range.recordCapacity = static_cast<uint32_t>( recordCapacity );
+    range.lane = priority ? Rendering::RetainedGeometryLane::Priority : Rendering::RetainedGeometryLane::Ordinary;
+    laneUsed += recordCapacity;
+    return rangeIndex;
+}
+
+
+std::size_t ReplayPredictionRetainedGeometry::RangeCapacityRemaining( std::size_t rangeIndex ) const noexcept
+{
+    if ( rangeIndex >= m_rangeCount )
+    {
+        return 0u;
+    }
+
+    const Rendering::RetainedGeometryRangeToken& range = m_ranges[rangeIndex];
+    return range.recordCapacity - range.recordCount;
+}
+
+
+std::size_t ReplayPredictionRetainedGeometry::OrdinaryCapacityRemaining() const noexcept
+{
+    return PREDICTION_TRAJECTORY_ORDINARY_RECORD_CAPACITY - m_ordinaryRecordCapacityUsed;
+}
+
+
+std::size_t ReplayPredictionRetainedGeometry::PriorityCapacityRemaining() const noexcept
+{
+    return PREDICTION_TRAJECTORY_PRIORITY_RECORD_CAPACITY - m_priorityRecordCapacityUsed;
+}
+
+
+std::size_t ReplayPredictionRetainedGeometry::OrdinaryCountRemaining() const noexcept
+{
+    return PREDICTION_TRAJECTORY_ORDINARY_RECORD_CAPACITY - m_ordinaryRecordCount;
+}
+
+
+std::size_t ReplayPredictionRetainedGeometry::PriorityCountRemaining() const noexcept
+{
+    return PREDICTION_TRAJECTORY_PRIORITY_RECORD_CAPACITY - m_priorityRecordCount;
+}
+
+
+void ReplayPredictionRetainedGeometry::RecordDropped( SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane )
+{
+    const std::size_t laneIndex = static_cast<std::size_t>( lane );
+    if ( laneIndex < SkullbonezCore::Core::MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT )
+    {
+        ++m_stats.droppedSegments[laneIndex];
+    }
+}
+
+
+bool ReplayPredictionRetainedGeometry::EmitRecord( std::size_t rangeIndex,
+                                                   const Vector3& start,
+                                                   const Vector3& end,
+                                                   float r,
+                                                   float g,
+                                                   float b,
+                                                   const RibbonStyle& style,
+                                                   SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane )
+{
+    if ( rangeIndex >= m_rangeCount )
+    {
+        RecordDropped( lane );
+        return false;
+    }
+
+    Rendering::RetainedGeometryRangeToken& range = m_ranges[rangeIndex];
+    if ( range.recordCount >= range.recordCapacity )
+    {
+        RecordDropped( lane );
+        return false;
+    }
+
+    const std::size_t laneIndex = static_cast<std::size_t>( lane );
+    if ( laneIndex < SkullbonezCore::Core::MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT )
+    {
+        ++m_stats.emittedSegments[laneIndex];
+    }
+
+    const ReplayPredictionRetainedRecord record = { start, end, style.width, r, g, b, style.alpha, style.edgeFeather, style.emphasis, start, end };
+
+    const bool appended = range.recordCount == 0u && range.continuationRange < m_rangeCount
+                              ? AppendPredictionRetainedContinuation( m_records,
+                                                                      m_ranges[range.continuationRange],
+                                                                      range,
+                                                                      record,
+                                                                      TOLERANCE * TOLERANCE )
+                              : AppendPredictionRetainedRecord( m_records, range, record, TOLERANCE * TOLERANCE );
+
+    if ( !appended )
+    {
+        RecordDropped( lane );
+        return false;
+    }
+
+    if ( range.lane == Rendering::RetainedGeometryLane::Priority )
+    {
+        ++m_priorityRecordCount;
+    }
+    else
+    {
+        ++m_ordinaryRecordCount;
+    }
+
+    ++m_revision;
+    return true;
+}
+
+
+void ReplayPredictionRetainedGeometry::AddPathSegment( std::size_t rangeIndex,
+                                                       const Vector3& start,
+                                                       const Vector3& end,
+                                                       float r,
+                                                       float g,
+                                                       float b,
+                                                       SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane,
+                                                       float emphasis )
+{
+    RibbonStyle style = m_pathStyle;
+    style.emphasis = std::clamp( emphasis, 0.0f, 1.0f ) * m_selectedEmphasis;
+    (void)EmitRecord( rangeIndex, start, end, r, g, b, style, lane );
+}
+
+
+void ReplayPredictionRetainedGeometry::AddCausalTrailSegment( std::size_t rangeIndex,
+                                                              const Vector3& start,
+                                                              const Vector3& end,
+                                                              float r,
+                                                              float g,
+                                                              float b )
+{
+    (void)EmitRecord( rangeIndex,
+                      start,
+                      end,
+                      r,
+                      g,
+                      b,
+                      m_causalStyle,
+                      SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::RetainedTrail );
+}
+
+
+void ReplayPredictionRetainedGeometry::AddBaselinePathSegment( std::size_t rangeIndex,
+                                                               const Vector3& start,
+                                                               const Vector3& end,
+                                                               float r,
+                                                               float g,
+                                                               float b,
+                                                               float opacity )
+{
+    RibbonStyle style = m_baselineStyle;
+    style.alpha *= std::clamp( opacity, 0.0f, 1.0f );
+    (void)EmitRecord( rangeIndex,
+                      start,
+                      end,
+                      r,
+                      g,
+                      b,
+                      style,
+                      SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::BaselineRoot );
+}
+
+
 ReplayPredictionDrawListUpdate UpdateReplayPredictionDrawList( const ReplayPredictionPresentationView& prediction,
                                                                const RunReplayPathVisualizerState& pathVisualizer,
                                                                const SceneEntityStore& entities,
                                                                const ColliderStore& colliderStore,
-                                                               EditorTracer& drawList,
+                                                               ReplayPredictionRetainedGeometry& retainedGeometry,
+                                                               EditorTracer& retainedMarkers,
                                                                ReplayPredictionDrawListState& state )
 {
     ReplayPredictionDrawListUpdate update;
-    const uint64_t geometryRevisionBefore = drawList.ReplayGeometryRevision();
+    const uint64_t geometryRevisionBefore = retainedGeometry.Revision();
+    const uint64_t markerRevisionBefore = retainedMarkers.ReplayGeometryRevision();
     const bool hasPrediction = prediction.enabled && prediction.frames.size() >= 2u &&
                                !prediction.trajectoryRecords.empty();
 
@@ -1602,7 +1881,8 @@ ReplayPredictionDrawListUpdate UpdateReplayPredictionDrawList( const ReplayPredi
     {
         if ( state.valid )
         {
-            drawList.Clear();
+            retainedGeometry.Clear();
+            retainedMarkers.Clear();
             state.Reset();
             update.reset = true;
         }
@@ -1673,7 +1953,8 @@ ReplayPredictionDrawListUpdate UpdateReplayPredictionDrawList( const ReplayPredi
     {
         // The prediction store is bounded well below this presentation limit.
         // Returning an empty list keeps this defensive path allocation-free.
-        drawList.Clear();
+        retainedGeometry.Clear();
+        retainedMarkers.Clear();
         state.Reset();
         update.reset = true;
         return update;
@@ -1681,7 +1962,8 @@ ReplayPredictionDrawListUpdate UpdateReplayPredictionDrawList( const ReplayPredi
 
     if ( reset )
     {
-        drawList.Clear();
+        retainedGeometry.Clear();
+        retainedMarkers.Clear();
         state.Reset();
         state.recordCursorCount = prediction.trajectoryRecords.size();
         state.targetId = pathVisualizer.targetId;
@@ -1834,18 +2116,18 @@ ReplayPredictionDrawListUpdate UpdateReplayPredictionDrawList( const ReplayPredi
 
             if ( baselineLane )
             {
-                if ( EnsureReplayRetainedRangeChunk( drawList, cursor, record, recordIndex, false ) )
+                if ( EnsureReplayRetainedRangeChunk( retainedGeometry, cursor, record, recordIndex, false ) )
                 {
-                    drawList.AddRetainedReplayBaselinePathSegment( cursor.retainedRangeIndex,
-                                                                   previous.position,
-                                                                   point.position,
-                                                                   r,
-                                                                   g,
-                                                                   b );
+                    retainedGeometry.AddBaselinePathSegment( cursor.retainedRangeIndex,
+                                                             previous.position,
+                                                             point.position,
+                                                             r,
+                                                             g,
+                                                             b );
                 }
                 else
                 {
-                    drawList.RecordReplayRibbonDroppedSegments( SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::BaselineRoot );
+                    retainedGeometry.RecordDroppedSegment( SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::BaselineRoot );
                 }
             }
             else
@@ -1865,20 +2147,20 @@ ReplayPredictionDrawListUpdate UpdateReplayPredictionDrawList( const ReplayPredi
                 const float emphasis = rootLane && record.key.bodyId.value == pathVisualizer.targetId.value ? 1.0f
                                                                                                             : 0.0f;
 
-                if ( EnsureReplayRetainedRangeChunk( drawList, cursor, record, recordIndex, false ) )
+                if ( EnsureReplayRetainedRangeChunk( retainedGeometry, cursor, record, recordIndex, false ) )
                 {
-                    drawList.AddRetainedReplayPathSegment( cursor.retainedRangeIndex,
-                                                           previous.position,
-                                                           point.position,
-                                                           r,
-                                                           g,
-                                                           b,
-                                                           diagnosticLane,
-                                                           emphasis );
+                    retainedGeometry.AddPathSegment( cursor.retainedRangeIndex,
+                                                     previous.position,
+                                                     point.position,
+                                                     r,
+                                                     g,
+                                                     b,
+                                                     diagnosticLane,
+                                                     emphasis );
                 }
                 else
                 {
-                    drawList.RecordReplayRibbonDroppedSegments( diagnosticLane );
+                    retainedGeometry.RecordDroppedSegment( diagnosticLane );
                 }
             }
 
@@ -1976,18 +2258,14 @@ ReplayPredictionDrawListUpdate UpdateReplayPredictionDrawList( const ReplayPredi
                                     g,
                                     b );
 
-            if ( EnsureReplayRetainedRangeChunk( drawList, cursor, record, markerIndex, true ) )
+            if ( EnsureReplayRetainedRangeChunk( retainedGeometry, cursor, record, markerIndex, true ) )
             {
-                drawList.AddRetainedReplayCausalTrailSegment( cursor.retainedRangeIndex,
-                                                              previous.position,
-                                                              point.position,
-                                                              r,
-                                                              g,
-                                                              b );
+                retainedGeometry
+                    .AddCausalTrailSegment( cursor.retainedRangeIndex, previous.position, point.position, r, g, b );
             }
             else
             {
-                drawList.RecordReplayRibbonDroppedSegments( SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::RetainedTrail );
+                retainedGeometry.RecordDroppedSegment( SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::RetainedTrail );
             }
 
             cursor.lastSelectedPointIndex = pointIndex;
@@ -2010,12 +2288,14 @@ ReplayPredictionDrawListUpdate UpdateReplayPredictionDrawList( const ReplayPredi
 
             if ( pose.hasEntryPose )
             {
-                drawList.AddReplayBaselineEntryMarker( pose.entryPosition, pose.entryOrientation, collider->shape );
+                retainedMarkers.AddReplayBaselineEntryMarker( pose.entryPosition,
+                                                              pose.entryOrientation,
+                                                              collider->shape );
             }
 
             if ( pose.hasRestPose )
             {
-                drawList.AddReplayBaselineRestMarker( pose.restPosition, pose.restOrientation, collider->shape );
+                retainedMarkers.AddReplayBaselineRestMarker( pose.restPosition, pose.restOrientation, collider->shape );
             }
         }
 
@@ -2037,18 +2317,24 @@ ReplayPredictionDrawListUpdate UpdateReplayPredictionDrawList( const ReplayPredi
 
         if ( marker.hasEntryPose && !cursor.entryMarkerAppended )
         {
-            drawList.AddReplayCausalEntryMarker( marker.entryPosition, marker.entryOrientation, collider->shape );
+            retainedMarkers.AddReplayCausalEntryMarker( marker.entryPosition,
+                                                        marker.entryOrientation,
+                                                        collider->shape );
+
             cursor.entryMarkerAppended = true;
         }
 
         if ( marker.hasRestPose && !cursor.endMarkerAppended )
         {
-            drawList.AddReplayCausalRestMarker( marker.restPosition, marker.restOrientation, collider->shape );
+            retainedMarkers.AddReplayCausalRestMarker( marker.restPosition, marker.restOrientation, collider->shape );
             cursor.endMarkerAppended = true;
         }
         else if ( finalReveal && marker.hasHorizonPose && !cursor.endMarkerAppended )
         {
-            drawList.AddReplayCausalHorizonMarker( marker.horizonPosition, marker.horizonOrientation, collider->shape );
+            retainedMarkers.AddReplayCausalHorizonMarker( marker.horizonPosition,
+                                                          marker.horizonOrientation,
+                                                          collider->shape );
+
             cursor.endMarkerAppended = true;
         }
     }
@@ -2058,10 +2344,12 @@ ReplayPredictionDrawListUpdate UpdateReplayPredictionDrawList( const ReplayPredi
     state.trajectoryBuildTopologyVersion = prediction.trajectoryBuildTopologyVersion;
     state.retainedMarkerCount = prediction.retainedMarkers.size();
     state.trajectoryPublicationVersion = prediction.trajectoryPublicationVersion;
-    state.ordinaryRibbonCapacityRemaining = drawList.RetainedReplayOrdinarySegmentCountRemaining();
-    state.priorityRibbonCapacityRemaining = drawList.RetainedReplayPrioritySegmentCountRemaining();
+    state.ordinaryRibbonCapacityRemaining = retainedGeometry.OrdinaryCountRemaining();
+    state.priorityRibbonCapacityRemaining = retainedGeometry.PriorityCountRemaining();
     state.saturated = state.ordinaryRibbonCapacityRemaining == 0u && state.priorityRibbonCapacityRemaining == 0u;
-    update.appended = drawList.ReplayGeometryRevision() != geometryRevisionBefore;
+    update.appended = retainedGeometry.Revision() != geometryRevisionBefore ||
+                      retainedMarkers.ReplayGeometryRevision() != markerRevisionBefore;
+
     return update;
 }
 

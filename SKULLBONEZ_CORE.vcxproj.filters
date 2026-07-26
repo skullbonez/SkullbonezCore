@@ -1237,6 +1237,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionDrawing.h">
       <Filter>Header Files\Runtime\Prediction</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionRetainedGeometry.h">
+      <Filter>Header Files\Runtime\Prediction</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayVisualPacketFingerprint.h">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
@@ -1390,7 +1393,7 @@
     <ClInclude Include="SkullbonezSource\Rendering\ShaderReflectionContracts.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Rendering\DX12\GeneratedShaderReflection.h">
+    <ClInclude Include="SkullbonezData\generated\GeneratedShaderReflection.h">
       <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\Shadow.h">
