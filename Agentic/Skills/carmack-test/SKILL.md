@@ -128,10 +128,10 @@ contained:
 - The code has "manager" objects that own unrelated policy, storage, execution,
   and presentation state.
 - An aggregate carries data for one operation without enforcing a rule. A
-  **single-member** aggregate is authority-free by definition — it cannot shorten
-  a signature, so it exists only to add a name. So is one whose sole consumer
-  destructures every member at entry. Two aggregates with identical member lists
-  are one aggregate or none.
+  behavior-free aggregate whose sole member borrows another owner is
+  authority-free, as is one whose sole consumer destructures every member at
+  entry. A one-field behavior owner or tested strong value type is not the first
+  shape. Two aggregates with identical member lists are one aggregate or none.
 - Reference-carrying view or slice structs partition an owner's member list, and
   some operation receives every slice. Judge the slice set as one surface: if one
   call reaches all of it, the split is nominal. A convention followed by some

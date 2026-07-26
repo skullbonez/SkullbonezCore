@@ -170,10 +170,9 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `format_fix.bat` | Auto-fix C++ layout, keep the first assigned expression beside `=`, separate wrapped statements/control blocks, and align header comments |
 | `separate_multiline_cpp_declarations.py --check\|--check-pipeline\|--write\|--stdin` | Keep assignment heads together and add semantic paragraph breaks; `--stdin` previews the post-pass without touching files |
 | `check_related_paths.py [--self-test]` | Verify repository-relative paths in tracked source learning-header `Related:` blocks and exercise live/dead fixtures |
-| `inventory_authority_free_aggregates.py [--repo .] [--self-test] [--format json]` | Report aggregate member counts, stated invariants, and lexical construction/consumer sites; fail on a signalled aggregate with no owner ruling |
-| `inventory_extraction_scars.py [--repo .] [--self-test]` | Report member-prefixed locals and pure reference aliases of parameters; fail on a finding with no owner ruling |
+| `inventory_authority_free_aggregates.py [--repo .] [--self-test] [--format json]` | Discover data-bearing structs/classes without suffix filtering; report members, behavior, stated invariants, and lexical sites; fail on a signalled borrowed-member courier with no owner ruling |
+| `inventory_extraction_scars.py [--repo .] [--self-test]` | Report function-block member-prefixed locals and pure reference aliases, including control/direct initializers and structured bindings; fail on a finding with no owner ruling |
 | `cpp_source_scan.py` | Shared tracked-source enumeration and comment/literal masking for the two inventories; masking is imported from `inventory_wide_signatures.py` so there is one implementation |
-| `generate_aggregate_rulings.py` | One-shot seed generator for `aggregate_ownership_rulings.json`; not a gate, deleted when `governance-shape-to-judgment-conversion` closes |
 | `validate_build.bat <Config>` | Build a specific configuration (`Debug`, `Profile`, `Automation`, `Release`) |
 | `validate_all_cpu_tests.bat` | Run all six first-party CPU/coverage gates, stop at the first failure, print a combined summary, and preserve the child exit code |
 | `validate_tests.bat` | Build `SKULLBONEZ_TESTS`, validate its project filters, and run the doctest console runner |

@@ -83,14 +83,18 @@ independent meaning. Nothing exists to make a call site look tidier.
 
 ## Non-Goals
 
-- No re-decision of any PB0 `Explicit Retain Ruling`
-  (`../Reports/2026-07-26/concrete-parameter-bag-elimination-pb0-census.md:82-99`).
+- No re-decision of PB0 `Explicit Retain Ruling` rows
+  (`../Reports/2026-07-26/concrete-parameter-bag-elimination-pb0-census.md:82-99`)
+  except the two behavior-free borrowed-member couriers reopened by the
+  independent governance G4 review: `ShadowGraphInputs` and
+  `ReflectionGraphInputs`.
   `RenderResourceContext`, `PrimitiveRenderContext`,
   `RuntimeRenderer::FrameEntryContext`, `ReplayOverlayStateView`,
   `ReplayWorkspaceFrameInput`, `ReplayWorldPointerInput`,
   `ReplayStartupLoadInput`, `ReplayPathPickInput`, `RuntimePickRequest`, the four
-  Editor/Launcher pointer command values, the ten `*GraphInputs`, and the six
-  non-UI `*PassInputs` are ruled and carried forward untouched.
+  Editor/Launcher pointer command values, the remaining eight multi-member
+  `*GraphInputs`, and the six non-UI `*PassInputs` are ruled and carried forward
+  untouched.
 - No scope on `RuntimeRenderBackendView` or the four `RuntimeFrame*View`
   structs. Those are owned by `render-backend-service-bag-removal` and
   `runtime-frame-view-retirement` respectively; the owner scoped this plan to
@@ -111,7 +115,8 @@ independent meaning. Nothing exists to make a call site look tidier.
 ## Phases
 
 - [ ] **CA0 — Census and rule every matched aggregate.**
-  Produce the complete current-tip table for all 99 matched aggregates: type,
+  Produce the complete current-tip table for every mechanically signalled
+  borrowed-member aggregate plus the legacy-suffix review context: type,
   file:line, member count, every construction site, every consumer site, whether
   the consumer destructures immediately, and a verdict of `remove`,
   `retain` (with the invariant it owns), or `retain-prior` (with the PB0 or GV1
@@ -152,15 +157,17 @@ independent meaning. Nothing exists to make a call site look tidier.
   cinematic mode selection are behaviourally identical; scene snapshot and
   lifecycle tests pass; physics CSV byte-exact.
 
-- [ ] **CA3 — Remove the Editor, Diagnostics, Input, Capture, and Assets
-  remainder.**
+- [ ] **CA3 — Remove the Editor, Diagnostics, Input, Capture, Assets, Render,
+  and Replay remainder.**
   Delete every remaining CA0 `remove` row: `EditorGizmoContext`,
   `EditorPlacementPreviewContext`, `EditorObjectPlacementContext`,
   `EditorInteractionPreviewContext`, `EditorToolOverlayTraceContext`,
   `RuntimeAfterUiDismissInput`, `RuntimeCameraInputFrameContext`,
   `DiagnosticsKeyboardShortcutContext`, `DiagnosticsUIKeyboardShortcutContext`,
   `RuntimePerfTickContext`, `RuntimeCaptureSceneContext`,
-  `RuntimeViewModelContext`, `ReplayPastRootRebuildContext`, and `AssetContext`.
+  `RuntimeViewModelContext`, `ReplayPastRootRebuildContext`, `AssetContext`,
+  `ShadowGraphInputs`, `ReflectionGraphInputs`, `RenderReplayOverlayView`, and
+  `ReplayTimelineCaptureResult`.
   Editor pointer *command* values ruled `retain` by PB0 stay. Acceptance: the
   CA0 `remove` set is empty at re-run; editor placement/gizmo/trace behavior,
   diagnostics hotkeys, camera input, capture, and asset resolution are unchanged;

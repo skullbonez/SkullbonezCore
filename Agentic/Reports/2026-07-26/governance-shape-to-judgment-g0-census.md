@@ -52,7 +52,8 @@ data to shorten a signature") with no decidable form, and the surrounding
 God-Object Closure Rule enumerates *names* (`*Internal`, `*Context`, `*Services`,
 `*Bindings`). A reviewer checking names passes anything named plausibly; a
 reviewer checking intent has no artifact to point at. Three of the eight
-single-member aggregates do not even shorten a signature, so they fail the rule's
+behavior-free single borrowed-member couriers do not even shorten a signature,
+so they fail the rule's
 own stated test and survived anyway.
 
 | Aggregate | Site | Members | Ruling |
@@ -73,7 +74,8 @@ naming ban does no work. `SceneRuntimeCreateContext` is passed **by value** into
 strictly worse than `CreateSceneFromUI( SceneController&, const char* )`.
 
 **Wording change (G1).** Add decidable sub-tests to the Invariant Ownership Rule:
-a single-member aggregate is authority-free by definition; an aggregate whose sole
+a behavior-free aggregate whose sole member borrows another owner is
+authority-free; an aggregate whose sole
 consumer destructures every member at entry owns nothing; two aggregates with
 identical member lists are one or none. State that renaming never legitimises a
 shape. Landed as the "The Test Is Ownership, Not Spelling" subsection.
@@ -207,9 +209,11 @@ unchanged and is out of scope for redecision: `SceneDefaultsSaveView`,
 `EditorGizmoDragPointerInput`, `LauncherPointerInput`, `ReplayPathPickInput`,
 `RuntimePickRequest`, `ReplayStartupLoadInput`, `ReplayOverlayStateView`.
 
-Two of those (`ShadowGraphInputs`, `ReflectionGraphInputs`) are single-member and
-therefore appear in the gating set; both are recorded `retain-prior` in
-`tools/aggregate_ownership_rulings.json` with the PB0 reason.
+G4 independent review reopened two of those rulings. `ShadowGraphInputs` and
+`ReflectionGraphInputs` each carry one borrowed pass input and their sole
+consumer forwards that member unchanged, so the PB0 "ABI thunk" explanation
+does not name an invariant. Both are now `remove` rows owned by
+`ceremonial-aggregate-elimination` CA3.
 
 One new `retain` ruling was made during this census: `Core/WorkerPool.h:228`
 (`IndexFunctionT& indexFn = fn;`) binds a forwarding reference to an lvalue
@@ -223,7 +227,7 @@ required by G4:
 
 | Rows | Owning plan |
 |---|---|
-| 6 `remove` aggregates | `ceremonial-aggregate-elimination` CA1/CA2/CA3 |
+| 10 `remove` aggregates | `ceremonial-aggregate-elimination` CA1/CA2/CA3 |
 | 88 `repair` scars | `extraction-scar-remediation` ES0 |
 | Frame views (4) | `runtime-frame-view-retirement` |
 | `RuntimeRenderBackendView` | `render-backend-service-bag-removal` |
@@ -248,7 +252,7 @@ reproduce exactly the frozen-metric failure this plan exists to replace.
   not findings. Some are certainly legitimate domain values (`ParsedArgs` at 81
   members is a parsed CLI record). `ceremonial-aggregate-elimination` CA0 must
   rule them; until then they are unowned by design, not by omission.
-- `state_own_invariant=0` means the gating exemption for a stated invariant is
-  currently untested against real source. Its behavior is pinned by a planted
-  self-test fixture only. The first plan to add an `Invariant:` block to an
-  aggregate should confirm the row leaves the gating set.
+- G4 removed the former comment-only exemption: an `Invariant:` sentence is
+  review evidence but cannot make a behavior-free borrowed-member courier leave
+  the gating set. Planted fixtures pin that rule, suffix-independent discovery,
+  `class` discovery, behavior-owner exclusion, and strong-scalar exclusion.

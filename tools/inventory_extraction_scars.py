@@ -41,6 +41,10 @@ Invariants:
   - Comments, literals, and preprocessor lines cannot create a row.
   - Only block scope is inspected. A declaration directly inside a class body is
     a real member and must never be reported.
+  - Namespace/global declarations and function parameter declarations are never
+    block-scope findings.
+  - Function-body initializers use the same rules whether they appear as a
+    statement, `if`/`for` initializer, direct initializer, or structured binding.
   - A statement that is not a declaration cannot produce a row, so member reads
     (`return m_x;`) and member writes (`m_x = p;`) are structurally excluded.
   - The script is read-only and never edits the ruling file.
@@ -50,8 +54,8 @@ Invariants:
 Related:
   - tools/aggregate_ownership_rulings.json
   - tools/inventory_authority_free_aggregates.py
-  - Agentic/Plans/TODO/extraction-scar-remediation.md
-  - Agentic/Plans/TODO/governance-shape-to-judgment-conversion.md
+  - Agentic/Reports/2026-07-26/governance-shape-to-judgment-g0-census.md
+  - Agentic/Reports/2026-07-27/governance-shape-to-judgment-conversion-closure.md
 """
 
 from __future__ import annotations
@@ -76,16 +80,29 @@ TYPE_EXPRESSION = r"(?:[A-Za-z_]\w*\s*::\s*)*[A-Za-z_]\w*(?:\s*<[^;{}()]*?>)?"
 # expression statement has an operator there instead.
 DECLARATION_RE = re.compile(
     rf"""
-    (?:^|[;{{}}])                    # statement boundary
+    (?:^|[;{{}}(])                   # statement or control-initializer boundary
     \s*
     (?P<quals>{DECL_QUALIFIERS})
     (?P<type>{TYPE_EXPRESSION})
     (?P<ptr>[\s]*[*&]*[\s]*|[\s]+)
     (?P<name>[A-Za-z_]\w*)\b
     \s*
-    (?P<init>=\s*(?P<rhs>[^;{{}}]*);|;|\{{)
+    (?P<init>
+        =\s*(?P<rhs>[^;{{}}]*);
+        |
+        \(\s*(?P<direct_rhs>[A-Za-z_]\w*)\s*\)\s*;
+        |
+        ;
+        |
+        \{{
+    )
     """,
     re.X | re.M,
+)
+
+STRUCTURED_BINDING_RE = re.compile(
+    r"(?:^|[;{}(])\s*(?:const\s+)?auto\s*&\s*\[(?P<names>[^\]]+)\]\s*=\s*[^;]+;",
+    re.M,
 )
 
 # Words that can lead a statement and look like a type to a regex.
@@ -148,6 +165,13 @@ class Scar:
         return f"{self.path}:{self.name}"
 
 
+@dataclass(frozen=True)
+class FunctionSpan:
+    start: int
+    end: int
+    parameters: frozenset[str]
+
+
 def _matched_brace_span(masked: str, open_index: int) -> tuple[int, int] | None:
     depth = 0
     index = open_index
@@ -161,6 +185,68 @@ def _matched_brace_span(masked: str, open_index: int) -> tuple[int, int] | None:
                 return (open_index, index + 1)
         index += 1
     return None
+
+
+def _matching_open_paren(masked: str, close_index: int) -> int:
+    depth = 0
+    probe = close_index
+    while probe >= 0:
+        if masked[probe] == ")":
+            depth += 1
+        elif masked[probe] == "(":
+            depth -= 1
+            if depth == 0:
+                return probe
+        probe -= 1
+    return -1
+
+
+def _parameter_names(parameter_text: str) -> frozenset[str]:
+    names: set[str] = set()
+    for raw in _split_top_level(parameter_text):
+        words = IDENTIFIER_RE.findall(raw.split("=")[0])
+        if words and words[-1] not in {"void"}:
+            names.add(words[-1])
+    return frozenset(names)
+
+
+def _function_spans(masked: str) -> list[FunctionSpan]:
+    """Find function bodies so namespace/class declarations cannot become locals."""
+    spans: list[FunctionSpan] = []
+    for open_index, char in enumerate(masked):
+        if char != "{":
+            continue
+        close_paren = masked.rfind(")", 0, open_index)
+        if close_paren < 0:
+            continue
+        between = masked[close_paren + 1 : open_index]
+        if any(token in between for token in (";", "{", "}")):
+            continue
+        open_paren = _matching_open_paren(masked, close_paren)
+        if open_paren < 0:
+            continue
+        prefix = masked[max(0, open_paren - 96) : open_paren]
+        words = IDENTIFIER_RE.findall(prefix)
+        if not words or words[-1] in {"if", "for", "while", "switch", "catch"}:
+            continue
+        span = _matched_brace_span(masked, open_index)
+        if not span:
+            continue
+        spans.append(
+            FunctionSpan(
+                start=span[0],
+                end=span[1],
+                parameters=_parameter_names(masked[open_paren + 1 : close_paren]),
+            )
+        )
+    return spans
+
+
+def _enclosing_function(spans: list[FunctionSpan], offset: int) -> FunctionSpan | None:
+    candidates = [span for span in spans if span.start < offset < span.end]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda span: span.start)
 
 
 def _class_body_spans(masked: str) -> list[tuple[int, int]]:
@@ -271,11 +357,15 @@ def _iter_declarations(masked: str):
 def scan_text(path: str, text: str) -> list[Scar]:
     masked = mask_cpp(text)
     class_spans = _class_body_spans(masked)
+    function_spans = _function_spans(masked)
     scars: list[Scar] = []
     seen: set[tuple[str, int, str]] = set()
 
     for match in _iter_declarations(masked):
         offset = match.start("name")
+        function = _enclosing_function(function_spans, offset)
+        if function is None:
+            continue
         if _directly_in_class_body(class_spans, masked, offset):
             continue
         name = match.group("name")
@@ -303,12 +393,12 @@ def scan_text(path: str, text: str) -> list[Scar]:
         # is a real semantic difference from the parameter, not a scar.
         if "&" not in match.group("ptr"):
             continue
-        rhs = (match.group("rhs") or "").strip()
+        rhs = (match.group("rhs") or match.group("direct_rhs") or "").strip()
         if not rhs or not re.fullmatch(r"[A-Za-z_]\w*", rhs):
             continue
         if rhs in {"nullptr", "true", "false", "this"} or rhs == name:
             continue
-        if rhs not in _enclosing_parameter_names(masked, offset):
+        if rhs not in function.parameters:
             continue
         signature = (path, line, name)
         if signature in seen:
@@ -324,6 +414,29 @@ def scan_text(path: str, text: str) -> list[Scar]:
                 "use the parameter directly or record why the alias is required.",
             )
         )
+
+    for match in STRUCTURED_BINDING_RE.finditer(masked):
+        function = _enclosing_function(function_spans, match.start("names"))
+        if function is None:
+            continue
+        for name in (item.strip() for item in match.group("names").split(",")):
+            if not name.startswith("m_"):
+                continue
+            line = line_of_offset(masked, match.start("names"))
+            signature = (path, line, name)
+            if signature in seen:
+                continue
+            seen.add(signature)
+            scars.append(
+                Scar(
+                    path=path,
+                    line=line,
+                    kind="member-prefixed-local",
+                    name=name,
+                    detail="Structured binding uses the m_ member convention for a "
+                    "block-scoped name.",
+                )
+            )
 
     scars.sort(key=lambda scar: (scar.path, scar.line, scar.name))
     return scars
@@ -388,6 +501,42 @@ void Stage::Run( Store& bodyStore )
 {
     Store& records = bodyStore;
     records.Touch();
+}
+"""
+
+POSITIVE_FOR_INITIALIZER = """
+void Stage::Run( Store& bodyStore )
+{
+    for ( Store& records = bodyStore; Ready( records ); )
+    {
+        records.Touch();
+    }
+}
+"""
+
+POSITIVE_IF_INITIALIZER = """
+void Stage::Run( Store& bodyStore )
+{
+    if ( Store& records = bodyStore; Ready( records ) )
+    {
+        records.Touch();
+    }
+}
+"""
+
+POSITIVE_DIRECT_INITIALIZER = """
+void Stage::Run( Store& bodyStore )
+{
+    Store& records( bodyStore );
+    records.Touch();
+}
+"""
+
+POSITIVE_STRUCTURED_BINDING = """
+void Stage::Run( Pair& pair )
+{
+    auto& [m_first, second] = pair;
+    Touch( m_first, second );
 }
 """
 
@@ -471,6 +620,10 @@ void Stage::Run()
 }
 """
 
+NEGATIVE_NAMESPACE_GLOBAL = """
+int m_global = 0;
+"""
+
 
 def self_test() -> int:
     failures: list[str] = []
@@ -481,6 +634,10 @@ def self_test() -> int:
     positives = [
         ("member-prefixed local", POSITIVE_MEMBER_LOCAL, "member-prefixed-local"),
         ("pure parameter alias", POSITIVE_PURE_ALIAS, "pure-parameter-alias"),
+        ("for initializer alias", POSITIVE_FOR_INITIALIZER, "pure-parameter-alias"),
+        ("if initializer alias", POSITIVE_IF_INITIALIZER, "pure-parameter-alias"),
+        ("direct initializer alias", POSITIVE_DIRECT_INITIALIZER, "pure-parameter-alias"),
+        ("structured binding member name", POSITIVE_STRUCTURED_BINDING, "member-prefixed-local"),
     ]
     for label, source, expected in positives:
         if expected not in kinds(source):
@@ -496,6 +653,7 @@ def self_test() -> int:
         ("mutated value copy of a parameter", NEGATIVE_MUTATED_COPY),
         ("comment and string literal", NEGATIVE_COMMENT_AND_STRING),
         ("alias of a non-parameter", NEGATIVE_NON_PARAMETER_SOURCE),
+        ("namespace-scope member-prefixed global", NEGATIVE_NAMESPACE_GLOBAL),
     ]
     for label, source in negatives:
         found = kinds(source)

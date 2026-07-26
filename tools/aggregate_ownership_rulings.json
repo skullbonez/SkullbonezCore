@@ -28,9 +28,25 @@
       "key": "ReflectionGraphInputs",
       "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:331",
       "members": 1,
-      "verdict": "retain-prior",
-      "owner": "concrete-parameter-bag-elimination PB0",
-      "reason": "PB0 Explicit Retain Ruling: see ShadowGraphInputs."
+      "verdict": "remove",
+      "owner": "ceremonial-aggregate-elimination CA3",
+      "reason": "The wrapper carries only `const ReflectionPassInputs&`, and its sole consumer immediately forwards `inputs.pass`; CA3 deletes it and takes the pass input directly."
+    },
+    {
+      "key": "RenderReplayOverlayView",
+      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderHost.h:135",
+      "members": 1,
+      "verdict": "remove",
+      "owner": "ceremonial-aggregate-elimination CA3",
+      "reason": "The wrapper carries only `const ReplayRenderFrameView&`; CA3 passes the replay frame view directly."
+    },
+    {
+      "key": "ReplayTimelineCaptureResult",
+      "site": "SkullbonezSource/Runtime/Replay/ReplayTimeline.h:195",
+      "members": 1,
+      "verdict": "remove",
+      "owner": "ceremonial-aggregate-elimination CA3",
+      "reason": "The result carries only one borrowed solver sample pointer and enforces no result invariant; CA3 returns the pointer directly."
     },
     {
       "key": "SceneAuthoredCameraContext",
@@ -60,9 +76,9 @@
       "key": "ShadowGraphInputs",
       "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:327",
       "members": 1,
-      "verdict": "retain-prior",
-      "owner": "concrete-parameter-bag-elimination PB0",
-      "reason": "PB0 Explicit Retain Ruling: the ten private *GraphInputs each feed one distinct concrete graph node and do not converge on an apply transaction. Single-member by design as a render-graph ABI thunk payload."
+      "verdict": "remove",
+      "owner": "ceremonial-aggregate-elimination CA3",
+      "reason": "The wrapper carries only `const ShadowPassInputs&`, and its sole consumer immediately forwards `inputs.pass`; CA3 deletes it and takes the pass input directly."
     },
     {
       "key": "TornadoUICommandContext",

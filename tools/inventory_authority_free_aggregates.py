@@ -6,25 +6,25 @@ Purpose:
   invariant, so a reviewer can rule each one instead of pattern-matching a name.
 
 Summary:
-  The repository bans context bags, service bags, and parameter bags by name.
-  Naming is the one property a type can change for free, so the bans produced
-  more types rather than fewer. This inventory keys on structure instead: how
-  many members an aggregate has, whether its header names an invariant it owns,
-  how many sites construct it, and whether its consumers immediately destructure
-  it. Those four facts are what separate a domain value from a bag.
+  The repository historically described context bags, service bags, and
+  parameter bags by name. Naming is the one property a type can change for free,
+  so this inventory discovers every data-bearing struct or class before it uses
+  legacy suffixes only to rank manual review context. It reports member count,
+  whether the type names an invariant, and lexical construction/consumer sites.
 
 Mental model:
   A legitimate aggregate answers "what rule do I enforce?" — a phase order, a
   lifetime, an arbitration policy — and its header says so in an `Invariant:`
   block. An authority-free bag answers only "what does this call need?", so it is
   built at one site, unpacked at one site, and its header describes its fields.
-  The strongest mechanical signals are a single member (a type that shortens
-  nothing) and one-construction/one-consumer with no stated invariant.
+  The strongest mechanical signal is a behavior-free type whose sole member is
+  a borrowed pointer/reference. Strong scalar values and one-field behavior
+  owners remain visible as review context without being mistaken for couriers.
 
 Glossary:
-  Aggregate: A `struct` whose members are data, with no owned invariant claimed.
-  Single-member aggregate: An aggregate with exactly one member. It cannot
-    shorten a signature, so it exists only to add a name.
+  Aggregate: A data-bearing `struct` or `class`.
+  Borrowed-member courier: A behavior-free aggregate whose sole member is a
+    borrowed pointer/reference forwarded to another operation.
   Stated invariant: An `Invariant:` line in the type's own doc comment, or the
     file header, naming the rule the type enforces.
   Destructured at entry: The sole consumer reads members straight into locals or
@@ -39,7 +39,9 @@ Invariants:
   - The inventory reports and ranks; it never decides. Only the ruling file
     decides, and only an owner edits the ruling file.
   - An unruled aggregate carrying a signal fails the gate. A ruled row passes
-    regardless of its signals, because the owner has judged it.
+    only as evidence that an owner and repair plan have judged it.
+  - Discovery never depends on a type suffix or on choosing `struct` over
+    `class`; renaming cannot remove a shape from the inventory.
   - No count, ratio, or member budget is frozen anywhere in this script or its
     ruling file.
   - The script is read-only.
@@ -47,8 +49,8 @@ Invariants:
 Related:
   - tools/aggregate_ownership_rulings.json
   - tools/inventory_extraction_scars.py
-  - Agentic/Plans/TODO/ceremonial-aggregate-elimination.md
-  - Agentic/Plans/TODO/governance-shape-to-judgment-conversion.md
+  - Agentic/Reports/2026-07-26/governance-shape-to-judgment-g0-census.md
+  - Agentic/Reports/2026-07-27/governance-shape-to-judgment-conversion-closure.md
 """
 
 from __future__ import annotations
@@ -66,8 +68,8 @@ DEFAULT_ROOTS = ["SkullbonezSource"]
 RULINGS_RELATIVE = "tools/aggregate_ownership_rulings.json"
 
 # Suffix families the repository has historically used for per-operation data.
-# The suffix selects candidates for review; it is never the finding itself.
-CANDIDATE_SUFFIXES = (
+# They rank manual review context only; discovery and gating are suffix-free.
+LEGACY_SUFFIXES = (
     "Context",
     "Inputs",
     "Input",
@@ -79,11 +81,11 @@ CANDIDATE_SUFFIXES = (
     "Bag",
 )
 
-STRUCT_RE = re.compile(r"\bstruct\s+(?P<name>[A-Za-z_]\w*)\s*(?::[^{;]*)?\{", re.M)
+TYPE_RE = re.compile(r"\b(?P<kind>struct|class)\s+(?P<name>[A-Za-z_]\w*)\s*(?::[^{;]*)?\{", re.M)
 MEMBER_RE = re.compile(
     r"""
     ^[ \t]*
-    (?!(?:public|private|protected|using|typedef|static_assert|friend|template|return)\b)
+    (?!(?:public|private|protected|using|typedef|static_assert|friend|template|return|class|struct|union|enum)\b)
     (?P<decl>[A-Za-z_][\w:<>,\s\*&\[\]]*?)
     \s(?P<name>[A-Za-z_]\w*)
     \s*(?:\[[^\]]*\])?
@@ -102,6 +104,8 @@ class Aggregate:
     line: int
     member_count: int
     member_names: list[str]
+    member_declarations: list[str]
+    has_behavior: bool
     has_stated_invariant: bool
     construction_sites: list[str] = field(default_factory=list)
     parameter_sites: list[str] = field(default_factory=list)
@@ -112,25 +116,27 @@ class Aggregate:
     def structural_signals(self) -> list[str]:
         """Exact shape facts computed from the type body alone.
 
-        Only facts that need no cross-file resolution appear here. A single-member
-        aggregate cannot shorten a signature, and an empty one carries nothing, so
-        both are decidable from the declaration and safe to gate on.
+        Only facts that need no cross-file resolution appear here. A wrapper
+        whose sole field is a borrowed pointer/reference carries another owner
+        without narrowing its representation or identity, so it is safe to gate.
+        A one-scalar strong value remains review context rather than being
+        mistaken for a parameter bag.
         """
         found: list[str] = []
-        if self.member_count == 0:
-            found.append("empty")
-        elif self.member_count == 1:
-            found.append("single-member")
+        if (
+            not self.has_behavior
+            and self.member_count == 1
+            and any(token in self.member_declarations[0] for token in ("&", "*"))
+        ):
+            found.append("single-borrow-member")
         return found
 
     def signals(self) -> list[str]:
         """Gating signals.
 
-        Why a conjunction: a type that names the invariant it owns is never
-        flagged, whatever its shape, because the owner has already answered the
-        question this inventory asks. "No stated invariant" alone is not a defect
-        either — it becomes one only when the shape also says the type carries
-        data for one call.
+        A stated invariant is review evidence, not a mechanical exemption. The
+        borrowed-member rule asks whether the wrapper enforces anything; adding
+        an `Invariant:` sentence cannot make an unchanged courier disappear.
 
         Why "sole consumer destructures at entry" is not gated here: deciding it
         requires distinguishing a construction from a same-named local, which is
@@ -139,11 +145,9 @@ class Aggregate:
         question. Gating on an unreliable count would reproduce the frozen-metric
         failure this inventory exists to replace.
         """
-        if self.has_stated_invariant:
-            return []
         found = self.structural_signals()
         if found:
-            found.append("no-stated-invariant")
+            found.append("stated-invariant" if self.has_stated_invariant else "no-stated-invariant")
         return found
 
 
@@ -168,15 +172,42 @@ def _doc_comment_above(text: str, offset: int) -> str:
     return text[start if start >= 0 else 0 : offset]
 
 
-def _count_members(body: str) -> tuple[int, list[str]]:
+def _top_level_type_body(body: str) -> str:
+    # Why: inline methods and nested types contain declarations that are not
+    # fields of the outer type. Blank nested brace bodies while preserving line
+    # shape; a field's default initializer remains countable from its head.
+    chars = list(body)
+    depth = 0
+    for index, char in enumerate(body):
+        if char == "{":
+            depth += 1
+            chars[index] = " "
+        elif char == "}":
+            chars[index] = " "
+            depth = max(0, depth - 1)
+        elif depth > 0 and char != "\n":
+            chars[index] = " "
+    return "".join(chars)
+
+
+def _count_members(body: str) -> tuple[int, list[str], list[str]]:
+    top_level = _top_level_type_body(body)
+
     names: list[str] = []
-    for match in MEMBER_RE.finditer(body):
+    declarations: list[str] = []
+    for match in MEMBER_RE.finditer(top_level):
         decl = match.group("decl")
         # A method declaration has a parameter list; a member does not.
         if "(" in decl or ")" in decl:
             continue
         names.append(match.group("name"))
-    return (len(names), names)
+        declarations.append(decl.strip())
+    return (len(names), names, declarations)
+
+
+def _has_behavior(body: str) -> bool:
+    top_level = _top_level_type_body(body)
+    return bool(re.search(r"^[^;\n{}]*\([^;{}\n]*\)", top_level, re.M))
 
 
 def collect_aggregates(repo: Path, roots: list[str]) -> dict[str, Aggregate]:
@@ -191,15 +222,15 @@ def collect_aggregates(repo: Path, roots: list[str]) -> dict[str, Aggregate]:
         text = file_path.read_text(encoding="utf-8", errors="replace")
         masked = mask_cpp(text)
         masked_cache[file_path] = masked
-        for match in STRUCT_RE.finditer(masked):
+        for match in TYPE_RE.finditer(masked):
             name = match.group("name")
-            if not name.endswith(CANDIDATE_SUFFIXES):
-                continue
             open_index = masked.find("{", match.start())
             body = _matched_brace_body(masked, open_index)
             if body is None:
                 continue
-            member_count, member_names = _count_members(body[0])
+            member_count, member_names, member_declarations = _count_members(body[0])
+            if member_count == 0:
+                continue
             line = line_of_offset(masked, match.start("name"))
             # A forward declaration has no body content worth reading; skip it in
             # favour of the definition, wherever that lives.
@@ -209,15 +240,22 @@ def collect_aggregates(repo: Path, roots: list[str]) -> dict[str, Aggregate]:
                 line=line,
                 member_count=member_count,
                 member_names=member_names,
+                member_declarations=member_declarations,
+                has_behavior=_has_behavior(body[0]),
                 has_stated_invariant=bool(INVARIANT_RE.search(_doc_comment_above(text, match.start()))),
             )
 
     # Second pass: construction and parameter sites for the collected names.
     # Why: one combined alternation per file is the difference between a
     # sub-second scan and a per-identifier regex storm across ~180K lines.
-    if not aggregates:
+    usage_names = {
+        name for name, item in aggregates.items() if item.signals() or name.endswith(LEGACY_SUFFIXES)
+    }
+    if not usage_names:
         return aggregates
-    usage_re = re.compile(r"\b(?:" + "|".join(sorted(map(re.escape, aggregates), key=len, reverse=True)) + r")\b")
+    usage_re = re.compile(
+        r"\b(?:" + "|".join(sorted(map(re.escape, usage_names), key=len, reverse=True)) + r")\b"
+    )
     construction_re = re.compile(r"\s*[{(]")
     parameter_re = re.compile(r"\s*(?:const\s*)?[&*]?\s*[A-Za-z_]\w*\s*[,)]")
     declaration_re = re.compile(r"\b(?:struct|class)\s*$")
@@ -270,7 +308,13 @@ def report(aggregates: dict[str, Aggregate], rulings: dict[str, dict], verbose: 
         # Review context: the widest candidates are where the destructuring
         # question matters most, but the counts are lexical and not gated.
         review = sorted(
-            (item for item in aggregates.values() if not item.has_stated_invariant and item.member_count >= 4),
+            (
+                item
+                for item in aggregates.values()
+                if item.name.endswith(LEGACY_SUFFIXES)
+                and not item.has_stated_invariant
+                and item.member_count >= 4
+            ),
             key=lambda entry: (-entry.member_count, entry.name),
         )
         if review:
@@ -329,6 +373,47 @@ struct SceneLoadTransactionInput
 };
 """
 
+FIXTURE_RENAMED_SINGLE_MEMBER = """
+struct FooPayload
+{
+    SceneWorld& world;
+};
+"""
+
+FIXTURE_CLASS_SINGLE_MEMBER = """
+class FooContext
+{
+  public:
+    SceneWorld& world;
+};
+"""
+
+FIXTURE_CLAIM_ONLY_SINGLE_MEMBER = """
+// Invariant: this sentence must not exempt an unchanged courier.
+struct ClaimedContext
+{
+    SceneWorld& world;
+};
+"""
+
+FIXTURE_ONE_FIELD_BEHAVIOR_OWNER = """
+class WakeAccess
+{
+  public:
+    explicit WakeAccess( Store& store ) : m_store( store ) {}
+    void Forget( int body );
+  private:
+    Store& m_store;
+};
+"""
+
+FIXTURE_STRONG_SCALAR = """
+struct BodyId
+{
+    int value;
+};
+"""
+
 FIXTURE_UNRELATED_STRUCT = """
 struct PhysicsBodyRecord
 {
@@ -350,20 +435,22 @@ struct GhostContext
 def _parse(source: str) -> dict[str, Aggregate]:
     masked = mask_cpp(source)
     found: dict[str, Aggregate] = {}
-    for match in STRUCT_RE.finditer(masked):
+    for match in TYPE_RE.finditer(masked):
         name = match.group("name")
-        if not name.endswith(CANDIDATE_SUFFIXES):
-            continue
         body = _matched_brace_body(masked, masked.find("{", match.start()))
         if body is None:
             continue
-        count, names = _count_members(body[0])
+        count, names, declarations = _count_members(body[0])
+        if count == 0:
+            continue
         found[name] = Aggregate(
             name=name,
             path="fixture.h",
             line=line_of_offset(masked, match.start("name")),
             member_count=count,
             member_names=names,
+            member_declarations=declarations,
+            has_behavior=_has_behavior(body[0]),
             has_stated_invariant=bool(INVARIANT_RE.search(_doc_comment_above(source, match.start()))),
         )
     return found
@@ -379,8 +466,8 @@ def self_test() -> int:
         failures.append(
             f"single-member fixture counted {single['TornadoUICommandContext'].member_count} members"
         )
-    elif "single-member" not in single["TornadoUICommandContext"].signals():
-        failures.append("single-member signal was not raised")
+    elif "single-borrow-member" not in single["TornadoUICommandContext"].signals():
+        failures.append("single borrowed-member signal was not raised")
 
     plain = _parse(FIXTURE_NO_INVARIANT)
     key = "RuntimePresentationUICommandContext"
@@ -407,14 +494,39 @@ def self_test() -> int:
     elif not owner[key].has_stated_invariant:
         failures.append("a stated Invariant: block must be detected")
     else:
-        # An invariant owner stays unflagged even with the strongest shape
-        # signal, because the owner has already answered the question.
         owner[key].construction_sites.append("fixture.cpp:10")
         if owner[key].signals():
-            failures.append("an aggregate that states its invariant must never be flagged")
+            failures.append("a multi-member invariant owner must not gain a shape signal")
 
-    if _parse(FIXTURE_UNRELATED_STRUCT):
-        failures.append("a struct outside the candidate suffixes must not be collected")
+    renamed = _parse(FIXTURE_RENAMED_SINGLE_MEMBER)
+    if "FooPayload" not in renamed or "single-borrow-member" not in renamed["FooPayload"].signals():
+        failures.append("renaming a single-member aggregate outside legacy suffixes must not hide it")
+
+    class_shape = _parse(FIXTURE_CLASS_SINGLE_MEMBER)
+    if "FooContext" not in class_shape or "single-borrow-member" not in class_shape["FooContext"].signals():
+        failures.append("changing a single-member struct to class must not hide it")
+
+    claim_only = _parse(FIXTURE_CLAIM_ONLY_SINGLE_MEMBER)
+    if "ClaimedContext" not in claim_only or "single-borrow-member" not in claim_only["ClaimedContext"].signals():
+        failures.append("an Invariant comment alone must not exempt a single-member courier")
+
+    behavior_owner = _parse(FIXTURE_ONE_FIELD_BEHAVIOR_OWNER)
+    if "WakeAccess" not in behavior_owner:
+        failures.append("a one-field behavior owner must remain visible as review context")
+    elif behavior_owner["WakeAccess"].signals():
+        failures.append("a one-field behavior owner must not be classified as a courier")
+
+    strong_scalar = _parse(FIXTURE_STRONG_SCALAR)
+    if "BodyId" not in strong_scalar:
+        failures.append("a strong scalar wrapper must remain visible as review context")
+    elif strong_scalar["BodyId"].signals():
+        failures.append("a strong scalar wrapper must not be classified as a borrowed courier")
+
+    unrelated = _parse(FIXTURE_UNRELATED_STRUCT)
+    if "PhysicsBodyRecord" not in unrelated:
+        failures.append("a data-bearing struct outside legacy suffixes must still be collected")
+    elif unrelated["PhysicsBodyRecord"].signals():
+        failures.append("a multi-member domain record must not gain a shape signal")
     if _parse(FIXTURE_COMMENTED_STRUCT):
         failures.append("a commented-out struct must not be collected")
 
@@ -453,6 +565,8 @@ def main() -> int:
                 "line": item.line,
                 "members": item.member_count,
                 "member_names": item.member_names,
+                "member_declarations": item.member_declarations,
+                "has_behavior": item.has_behavior,
                 "stated_invariant": item.has_stated_invariant,
                 "construction_sites": sorted(set(item.construction_sites)),
                 "parameter_sites": sorted(set(item.parameter_sites)),

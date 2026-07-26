@@ -326,16 +326,18 @@ structure without ratcheting anything:
 | Tool | Reports | Owning rule |
 |---|---|---|
 | `tools/inventory_wide_signatures.py` | parameter counts per operation | 12-parameter ceiling |
-| `tools/inventory_authority_free_aggregates.py` | aggregate members, stated invariants, sites | Invariant Ownership Rule |
-| `tools/inventory_extraction_scars.py` | member-prefixed locals, pure parameter aliases | Extraction Scar Rule |
+| `tools/inventory_authority_free_aggregates.py` | suffix-free data-bearing type discovery, members, behavior, stated invariants, sites | Invariant Ownership Rule |
+| `tools/inventory_extraction_scars.py` | function-block member-prefixed locals, pure parameter aliases | Extraction Scar Rule |
 
-The contract for all three is the same: output is a **current measurement
-requiring rulings**, never an allowance. A finding with no owner ruling fails the
-gate, because the point is that the judgement cannot be skipped. A ruled finding
-passes, because an owner has made it. Never convert one of these into a count
-threshold, a ratio, or a "no more than N" budget, and never add a ruling row to
-make a number look better — a row records a judgement and names the plan that
-owns the repair.
+All three outputs are **current measurements requiring review**, never
+allowances. The aggregate and extraction-scar inventories additionally use the
+shared unruled-fails/ruled-passes gate backed by
+`tools/aggregate_ownership_rulings.json`; the wide-signature inventory reports
+its prior dispositions for review and the 12-parameter ceiling remains the
+binding decision rule. Never convert any inventory into a count threshold,
+ratio, or "no more than N" budget, and never add a ruling merely to make a
+number look better — a row records a judgement and names the plan that owns
+the repair.
 
 Any review that `AGENTS.md` delegates a rule to must state that rule in the skill
 file the reviewer actually reads. A rule that exists only here, while
@@ -412,10 +414,11 @@ and is banned no matter what it is named. Renaming a banned shape has never made
 it legitimate, and the following cases are explicitly not exempt because their
 names avoid the banned nouns.
 
-- **A single-member aggregate is always authority-free.** It cannot shorten a
-  signature, so it exists only to add a name. Take the member directly. Passing
-  such a type by value where a plain reference would do is strictly worse than
-  the parameter it replaced.
+- **A behavior-free aggregate whose only member borrows another owner is
+  authority-free.** It cannot narrow representation or enforce identity, so it
+  exists only to add a name. Take the pointer/reference directly. A one-field
+  class that provides real behavior, or a strong value type that narrows a
+  scalar into a tested domain identity, is not this shape.
 - **An aggregate whose sole consumer destructures every member at entry owns
   nothing.** If the first thing the consumer does is copy members into locals or
   forward them onward unchanged, the type is a courier. This is the case the
@@ -788,8 +791,9 @@ An ownership review must answer these five questions explicitly, and a review
 that does not is incomplete rather than clean:
 
 1. **Aggregate ownership.** Does every aggregate the change touches or adds name
-   a rule it enforces? A single-member aggregate, or one whose sole consumer
-   destructures it at entry, is authority-free — say so and name the replacement.
+   a rule it enforces? A behavior-free aggregate whose sole member is a borrowed
+   owner, or one whose sole consumer destructures it at entry, is authority-free
+   — say so and name the replacement.
 2. **Capability slices.** Can any single operation reach the whole surface? Do
    some operations take slices while others reach the same owners as members?
 3. **Extraction scars.** Does any local use the `m_` member convention, or exist

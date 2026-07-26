@@ -41,10 +41,11 @@ A long parameter list is a readable problem. A struct that exists only to hide i
 is a hidden one, and `AGENTS.md` bans it under the Invariant Ownership Rule. Two
 cases are settled and need no debate:
 
-- **One member is never worth a type.** `Foo( Bar& bar )` beats
-  `struct FooContext { Bar& bar; };` plus `Foo( FooContext )` on every axis: fewer
-  names, fewer lines, no by-value copy of a reference wrapper, and no reader
-  wondering what the context owns.
+- **One borrowed member without behavior is never worth a type.**
+  `Foo( Bar& bar )` beats `struct FooContext { Bar& bar; };` plus
+  `Foo( FooContext )` on every axis: fewer names, fewer lines, no by-value copy
+  of a reference wrapper, and no reader wondering what the context owns. A
+  one-field behavior owner or tested strong scalar type is a different shape.
 - **If the callee destructures it immediately, it is a courier.** When the first
   lines of the body copy members into locals, the type carried nothing. Widen the
   signature instead, and if that breaches the 12-parameter ceiling, that is the

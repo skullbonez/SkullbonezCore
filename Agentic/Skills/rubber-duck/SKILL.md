@@ -48,10 +48,10 @@ waived as follow-up debt, closed by a rename, or closed by a parameter reshuffle
 
 1. **Aggregate ownership.** Does every aggregate the change touches or adds name a
    rule it enforces, in an `Invariant:` block a test exercises? Two shapes are
-   authority-free by definition: a **single-member** aggregate (it cannot shorten
-   a signature, so it only adds a name), and one whose **sole consumer
-   destructures every member at entry** without retaining it. Report the
-   replacement, not just the defect.
+   authority-free: a behavior-free aggregate whose sole member is a borrowed
+   pointer/reference, and one whose **sole consumer destructures every member at
+   entry** without retaining it. A one-field behavior owner or tested strong
+   value type is not the first shape. Report the replacement, not just the defect.
 2. **Capability slices.** Judge reference-carrying view structs as one surface. Can
    any single operation receive every slice? Do some operations take slices while
    others reach the same owners as members? Either answer is a finding: the first
@@ -75,10 +75,12 @@ python tools/inventory_extraction_scars.py --repo .
 python tools/inventory_wide_signatures.py --repo .
 ```
 
-Their verdicts live in `tools/aggregate_ownership_rulings.json`. An `UNRULED` row
-means nobody has judged it yet; a ruled row means an owner has, and the reason
-field says why. None of these tools is a count budget — do not report a number as
-a finding, report the unowned invariant.
+Verdicts for the aggregate and extraction-scar inventories live in
+`tools/aggregate_ownership_rulings.json`. An `UNRULED` row means nobody has
+judged it yet; a ruled row means an owner has, and the reason field says why.
+The wide-signature inventory reports prior dispositions inline for review. None
+of these tools is a count budget — do not report a number as a finding, report
+the unowned invariant.
 
 ## Output Shape
 
