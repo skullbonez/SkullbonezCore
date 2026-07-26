@@ -102,10 +102,21 @@ the outcome is a bounded, diagnosable decision rather than undefined behavior.
   defend. At minimum: count foreign frees per process, report them with the
   pointer value and the current phase, and make the count visible in the
   allocation diagnostics so a real occurrence is discovered rather than absorbed.
-  Rule whether the fallback stays `std::free` (documented as "the foreign
-  allocator is assumed to be this CRT", with the assumption stated as an
-  `Invariant:`/`Hazard:` comment and the counter as its tripwire) or becomes a
-  lane-F fatal. In the same phase, add the overflow check to
+  **Owner ruling 2026-07-27: lane-F fatal in Debug and Profile, counted and
+  reported in Release.** An unprovable foreign free stops the process immediately
+  in Debug/Profile with owner, phase, and pointer; in Release it increments the
+  counter, reports, and falls back to `std::free` as today. The reason, recorded
+  so it is not relitigated: nobody currently knows whether this path ever fires,
+  and this configuration answers that during development without betting a shipped
+  build on the answer. It also matches the split the engine already uses elsewhere
+  — Debug NaN poisoning in `Vector3`, `PhysicsFixedList` assertions, the
+  Debug-only `LockOrderValidator`. Always-fatal was rejected because a long-silent
+  third-party interaction, most plausibly in the ImGui or Tracy development
+  allocators, would become a hard crash at shutdown. Counted-only was rejected
+  because it leaves the heap risk with no development signal.
+  Document the Release fallback assumption ("the foreign allocator is assumed to
+  be this CRT") as an `Invariant:`/`Hazard:` comment with the counter named as its
+  tripwire. In the same phase, add the overflow check to
   `AllocateTrackedMemory`'s `totalSize` computation and route an overflowed
   request through `FatalAllocationFailure`. Acceptance: foreign frees are counted
   and reported; the chosen fallback is documented with owner, reason, and hazard;
@@ -131,11 +142,11 @@ the outcome is a bounded, diagnosable decision rather than undefined behavior.
 - `store-capacity-memory-reporting` MR2 surfaces allocation diagnostics in the UI
   memory tab. If that plan closes first, AF1's foreign-free counter joins the same
   readout rather than inventing a second surface.
-- Open decision for the owner, recorded not assumed: whether an unprovable
-  foreign free should be lane-F fatal. AF1 produces the evidence — how many occur
-  in practice across the full gate and at shutdown — and recommends. A fatal is
-  the safer engineering choice but would turn a currently-silent third-party
-  interaction into a crash, so the owner rules.
+- **Ratified 2026-07-27: fatal in Debug/Profile, counted in Release.** No open
+  decision remains. AF1 still reports how many foreign frees occur across the full
+  gate and at shutdown, because a non-zero Debug count now means the gate fails and
+  the cause must be found before closure — that is the point of the ruling, not an
+  obstacle to it.
 - The ImGui and Tracy development-tool allocation owners
   (`Core/Allocation/DevelopmentToolAllocation.h`) are the most likely real source
   of foreign frees. AF0 must confirm whether their allocations carry hook headers
@@ -147,8 +158,10 @@ the outcome is a bounded, diagnosable decision rather than undefined behavior.
 - No pointer reaches an allocator that did not produce it without a documented,
   counted, owner-ruled decision.
 - Allocation size arithmetic cannot overflow silently.
-- Zero foreign frees observed across the full validation run, or the occurrences
-  explained.
+- Zero foreign frees observed across the full validation run. Under the ruling a
+  Debug/Profile occurrence is a gate failure, so "explained and accepted" is no
+  longer available — a real occurrence must be fixed, or the owner must revisit
+  the ruling.
 - No happy-path cost added.
 
 ## Validation

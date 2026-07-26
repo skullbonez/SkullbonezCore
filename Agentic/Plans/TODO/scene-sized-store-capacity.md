@@ -252,7 +252,7 @@ its shape costs.
   scene-load capacity commits by registered owners. That amendment belongs to
   this plan, not to G1, and must state the phase, the owner registration
   requirement, and that fixed-tick growth remains a policy failure.
-- Open decision for the owner, recorded not assumed: whether `SceneCapacity.h`
+- Owner-overridable default, agent does not stop: whether `SceneCapacity.h`
   should keep `DEFAULT_SCENE_OBJECT_CAPACITY = 4000` once capacity is
   scene-derived. SC0 reports every remaining consumer; SC3 leaves the constant
   in place unless the owner rules otherwise.

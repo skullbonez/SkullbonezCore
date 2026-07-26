@@ -657,6 +657,39 @@ campaign section below. `governance-shape-to-judgment-conversion` runs first
 because its amended rules are the acceptance test every sibling plan's closure
 review uses.
 
+### Binding Owner Rulings — 2026-07-27: Round 5 Open Decisions Closed
+
+The owner ruled all three blocking Round 5 decisions on 2026-07-27 so the campaign
+can run to completion without stopping. Each is recorded in its owning plan with
+the reason, and each rejected alternative is named so a later reviewer does not
+relitigate it.
+
+1. **Plan 5 FV0 — frame loop endpoint: concrete operands.** Delete all four
+   `RuntimeFrame*View` structs; every phase takes only the owners it uses. The
+   frame-turn phase-cursor transaction is rejected: a cursor earns its keep when
+   many call sites re-encode the order, and `Run::Execute` is a single call site
+   that already enforces order by being a linear schedule. A long but honest
+   argument list is the accepted outcome; reintroducing an aggregate to shorten one
+   is a closure failure.
+2. **Plan 11 AF1 — foreign free: lane-F fatal in Debug/Profile, counted in
+   Release.** Always-fatal is rejected because a long-silent third-party
+   interaction would become a shutdown crash; counted-only is rejected because it
+   leaves the heap risk with no development signal. A non-zero Debug/Profile count
+   is now a gate failure rather than an explainable observation.
+3. **Plan 13 T3 — terrain contact seed: ratify the approximation.** Name the
+   constant, state the vertical-gravity assumption, add tests pinning the two
+   behaviors it exists for. Replacement is rejected on cost: it would require a
+   full physics and replay baseline transition for no visible gameplay gain. A
+   principled replacement is explicitly not a deferred follow-up row.
+
+Consequence for the campaign: **no Round 5 plan requires divergence authority and
+no plan may refresh a physics, SkullScope, replay, visual, or DX12 baseline.** The
+whole campaign is byte-exact. Two smaller decisions were given explicit safe
+defaults in the same pass so no phase stalls on them: plan 13 T2 leaves
+`LocatePolygon` in place behind a bound guard and only reports whether its debug
+caller should move, and plan 1's Capability Slice Ownership Rule landed
+layer-agnostic rather than Runtime-only, which changes no current finding.
+
 ## Current Execution Priority
 
 The Nightrunner 26 July campaign is complete at 3/3. Replay scrub performance,
@@ -1955,8 +1988,8 @@ ledger row (`FenceHandle`, the 20 `mutable` hot arrays, and the
 `render-interface-retirement` ruling stands — no plan may reintroduce a render
 interface, virtual dispatch, or type erasure. Every PB0 and GV1 explicit retain
 ruling is carried forward untouched. No plan may refresh a physics, replay,
-visual, or DX12 baseline; `terrain-legacy-and-contact-seed-remediation` T3 is
-the only phase that can require owner divergence authority and must stop and ask.
+visual, or DX12 baseline; Following the 2026-07-27 rulings below, no plan
+requires owner divergence authority and the campaign is byte-exact throughout.
 
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
@@ -1964,15 +1997,15 @@ the only phase that can require owner divergence authority and must stop and ask
 | 2 | [scene-sized-store-capacity](TODO/scene-sized-store-capacity.md) | Not started | 0/8 | After plan 1. SC2 removes the 56.5 MiB collider hull payload; SC3 installs the scene-load capacity commit |
 | 3 | [store-capacity-memory-reporting](TODO/store-capacity-memory-reporting.md) | Not started | 0/4 | Hard dependency on plan 2 — registering before SC1-SC6 would report the 8,192 constants |
 | 4 | [ceremonial-aggregate-elimination](TODO/ceremonial-aggregate-elimination.md) | Not started | 0/5 | After plan 1. Small aggregates only; frame views and backend view are plans 5 and 6 |
-| 5 | [runtime-frame-view-retirement](TODO/runtime-frame-view-retirement.md) | Not started | 0/4 | After plan 6, so FV2 need not preserve `renderBackendView`. FV0 carries an open owner decision between two endpoints |
+| 5 | [runtime-frame-view-retirement](TODO/runtime-frame-view-retirement.md) | Not started | 0/4 | After plan 6, so FV2 need not preserve `renderBackendView`. Endpoint ratified 2026-07-27: concrete operands, no frame transaction |
 | 6 | [render-backend-service-bag-removal](TODO/render-backend-service-bag-removal.md) | Not started | 0/4 | After plan 1. Completes the removal PB3's review started |
 | 7 | [extraction-scar-remediation](TODO/extraction-scar-remediation.md) | Not started | 0/3 | Before plan 2's SC4/SC5 touch the same solver and sleep files. Scope corrected by G0 tooling to 89 findings / 12 files; ES1's tooling dependency is already satisfied |
 | 8 | [scene-runtime-verb-partition-consolidation](TODO/scene-runtime-verb-partition-consolidation.md) | Not started | 0/4 | After plan 4 deletes the three `SceneRuntime*Context` types |
 | 9 | [operator-command-invariant-ownership](TODO/operator-command-invariant-ownership.md) | Not started | 0/4 | After plan 4's CA1 hands over any operation left wide |
 | 10 | [coverage-gate-test-reorganization](TODO/coverage-gate-test-reorganization.md) | Not started | 0/3 | After plans 2 and 7 change the physics source these tests cover |
-| 11 | [allocator-foreign-pointer-safety](TODO/allocator-foreign-pointer-safety.md) | Not started | 0/3 | No dependency; may run at any point. AF1 carries an open owner decision on fatal-vs-counted |
+| 11 | [allocator-foreign-pointer-safety](TODO/allocator-foreign-pointer-safety.md) | Not started | 0/3 | No dependency; may run at any point. AF1 ratified 2026-07-27: fatal in Debug/Profile, counted in Release |
 | 12 | [sbresult-frame-path-cost](TODO/sbresult-frame-path-cost.md) | Not started | 0/3 | After plan 5 changes the frame-phase signatures. "No change, documented" is a permitted SR0 outcome |
-| 13 | [terrain-legacy-and-contact-seed-remediation](TODO/terrain-legacy-and-contact-seed-remediation.md) | Not started | 0/5 | Runs last. T3 carries an open owner decision and is the campaign's only possible divergence request |
+| 13 | [terrain-legacy-and-contact-seed-remediation](TODO/terrain-legacy-and-contact-seed-remediation.md) | Not started | 0/5 | Runs last. T3 ratified 2026-07-27: ratify the seed. No plan in the campaign now requests divergence authority |
 
 ## Features
 

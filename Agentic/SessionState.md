@@ -12,7 +12,7 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-26th-JUL-26` |
 | Current baseline | Nightrunner 26 July is complete at N26-1 through N26-3: replay scrub spikes removed, owner code style ratified, and selected-body velocity-drag preview published. |
-| Current objective | Architecture Follow-Up Campaign Round 5. `governance-shape-to-judgment-conversion` closed G0-G3; G4 (independent governance review + final CPU gate) is the binding next task. |
+| Current objective | Architecture Follow-Up Campaign Round 5. `governance-shape-to-judgment-conversion` closed G0-G3; G4 (independent governance review + final CPU gate) is the binding next task. All three blocking owner decisions ruled 2026-07-27; no plan is waiting on the owner. |
 | Active/future progress | 5/56 (9%). Round 5 is the live queue; execution order 1->13 per the campaign section. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | N26-3 `validate_full.bat` passes: 402 doctests, Automation/Replay, zero-error DX12 with accepted baselines, and byte-exact 44,401-line Physics regression. |
@@ -42,8 +42,14 @@ fail-loud ceiling, capacity monotonic within a process, no shrink path.
 Standing campaign constraints: no baseline, golden, schema, or config refresh in
 any plan; no render interface, virtual dispatch, or type erasure reintroduced;
 every PB0/GV1 explicit retain ruling carried forward untouched.
-`terrain-legacy-and-contact-seed-remediation` T3 is the only phase that can
-request owner divergence authority and must stop and ask.
+All three blocking owner decisions were ruled 2026-07-27 and recorded in their
+owning plans: plan 5 FV0 takes concrete operands and no frame transaction; plan 11
+AF1 is lane-F fatal in Debug/Profile and counted in Release; plan 13 T3 ratifies
+the terrain seed rather than replacing it. Consequently **no Round 5 plan requires
+divergence authority and none may refresh a baseline** — the campaign is
+byte-exact throughout. Two smaller decisions received explicit safe defaults in
+the same pass (plan 13 T2 keeps `LocatePolygon` behind a guard and only reports on
+its debug caller; the Capability Slice Ownership Rule landed layer-agnostic).
 
 DONE. Nightrunner 26 July is complete at 3/3 and removed from the live
 inventory under rule 4. N26-1 caches dense solver scrub resolution and removes

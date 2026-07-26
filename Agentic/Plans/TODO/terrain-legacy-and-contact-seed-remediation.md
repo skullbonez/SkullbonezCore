@@ -91,11 +91,9 @@ approximation with a named constant, a stated assumption, and a test.
 
 ## Non-Goals
 
-- **No unrequested behavior change.** The 44,401-row physics regression CSV is
-  byte-exact unless the owner explicitly authorizes a transition under the
-  MASTER-PLAN Task-Scoped Bounded Deterministic Divergence rule. T3 is the only
-  phase that can require that authority, and it must stop and ask rather than
-  refresh a baseline.
+- **No behavior change at all.** The 44,401-row physics regression CSV stays
+  byte-exact in every phase. Following the 2026-07-27 T3 ruling no phase in this
+  plan may request divergence authority or refresh a baseline.
 - No terrain rewrite. No change to heightfield storage, generation, normals,
   render mesh construction, or the terrain file format.
 - No change to the terrain collision algorithm, manifold construction, or the
@@ -141,24 +139,30 @@ approximation with a named constant, a stated assumption, and a test.
   deliberately out-of-range probe trips the guard in Debug; physics CSV byte-exact;
   the debug visualizer still draws the same polygon.
 
-- [ ] **T3 — Rule the terrain contact support seed.**
-  Present the owner with the measured behavior of the current seed and a ruling
-  choice. Produce evidence: what happens to a first-frame resting contact, a
-  shoreline edge contact, and a three-box stack with the seed at full strength, at
-  `0.35`, and at zero, measured through the focused tests and SkullScope. Then
-  implement exactly one of:
-  - **Ratify as an approximation.** Name the `0.35f` constant, state the
-    vertical-gravity and `fabsf(normal.y)` assumptions as `Invariant:`/`Hazard:`
-    comments, and add focused tests pinning both the resting-support and shoreline
-    behaviors the seed exists for. Byte-exact, no owner divergence authority
-    needed. This is the default outcome.
-  - **Replace with a principled seed.** Only if the owner authorizes a behavioral
-    transition under the MASTER-PLAN bounded-divergence rule, with the complete
-    artifact delta inspected and the causal shape recorded.
+- [ ] **T3 — Document and test the ratified terrain contact support seed.**
+  **Owner ruling 2026-07-27: ratify the approximation. Do not replace the seed.**
+  The reason, recorded so it is not relitigated: the seed works, its existing
+  comment is already honest about what it is, and replacing it would cost a full
+  physics and replay baseline transition needing personal owner re-approval for no
+  visible gameplay gain. This plan therefore stays byte-exact and requires no
+  divergence authority at any phase.
+
+  Produce the measured behavior as evidence anyway, because it is what the tests
+  are written against: what happens to a first-frame resting contact, a shoreline
+  edge contact, and a three-box stack with the seed at full strength, at `0.35`,
+  and at zero, measured through the focused tests and SkullScope.
+
+  Then implement the ratified outcome: name the `0.35f` constant, state the
+  vertical-gravity and `fabsf(normal.y)` assumptions as `Invariant:`/`Hazard:`
+  comments at the seed site, and add focused tests pinning both behaviors the seed
+  exists for — a first-frame resting contact that must not sink, and a shoreline
+  edge contact that must not bob. `stepPolicy.gravityMagnitude` is a scalar
+  (`PersistentContactSolver.cpp:104`), so a non-vertical gravity configuration
+  would silently misattribute the seed; say so in the `Hazard:` comment rather
+  than fixing it, because non-vertical gravity support is an explicit non-goal.
   Acceptance: the seed has a named constant, stated assumptions, and tests pinning
-  the behavior it exists for; if the default outcome is taken, physics CSV is
-  byte-exact; if a transition is taken, the owner authorization and complete delta
-  assessment are recorded before any baseline moves.
+  both behaviors; the physics CSV is byte-exact against the committed baseline; no
+  baseline, golden, or config moves.
 
 - [ ] **T4 — Reconcile, review, and hand off.**
   Re-run the T0 harness at final source. Complete the comment audit for all four
@@ -178,15 +182,16 @@ approximation with a named constant, a stated assumption, and a test.
   doing this plan after them keeps each byte-exactness proof attributable to one
   change.
 - Depends on `governance-shape-to-judgment-conversion` G1 for T4's review test.
-- Open decision for the owner, recorded not assumed: T3's ruling. The default is
-  ratify-and-test, which needs no divergence authority. Replacing the seed changes
-  physics output and therefore requires explicit owner authorization under the
-  MASTER-PLAN Task-Scoped Bounded Deterministic Divergence rule — the implementing
-  agent must stop and ask, and may not refresh a physics baseline on its own
-  judgement.
-- Open decision for the owner, recorded not assumed: whether `LocatePolygon`
-  survives as a public `Terrain` method with one debug caller. T2 reports; the
-  owner rules.
+- **Ratified 2026-07-27: T3 ratifies the approximation.** No open decision
+  remains and this plan requires no divergence authority at any phase, so the
+  campaign is byte-exact throughout. A principled replacement is explicitly *not*
+  a deferred follow-up row: if the owner later wants it, it is registered as its
+  own plan with its own divergence gate.
+- `LocatePolygon`'s survival is a T2 implementation call, not an owner decision.
+  Default, so the agent is not blocked: add the bound guard and leave the method in
+  place, then report — without implementing — whether its one debug-visualizer
+  caller should move to the guarded cache path. Moving it would change what the
+  visualizer draws, which is behavior this plan does not own.
 
 ## Acceptance
 
@@ -196,8 +201,8 @@ approximation with a named constant, a stated assumption, and a test.
   invariant.
 - The contact support seed has a named constant, stated assumptions, and focused
   tests.
-- Physics output byte-exact, unless the owner explicitly authorized a T3
-  transition with a recorded complete delta assessment.
+- Physics output byte-exact throughout. Under the T3 ruling no phase of this plan
+  may move a physics, SkullScope, replay, or DX12 baseline.
 
 ## Validation
 

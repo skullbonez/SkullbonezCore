@@ -118,7 +118,7 @@ inline diagnostic message, `[[nodiscard]]` enforcement, and zero heap ownership.
 - Sequence after `runtime-frame-view-retirement` if both are run, because that
   plan changes the frame-phase signatures that return `SbResult`. Running this
   first would touch the same lines twice.
-- Open decision for the owner, recorded not assumed: whether a 528-byte
+- Owner-overridable default, agent does not stop: whether a 528-byte
   per-frame copy is worth changing at all. SR0 produces the measurement; "no
   change, documented" is an acceptable and explicitly permitted outcome. Do not
   refactor a hot-path value type on aesthetics alone.

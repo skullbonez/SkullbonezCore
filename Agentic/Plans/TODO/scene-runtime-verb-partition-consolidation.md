@@ -137,7 +137,7 @@ named after a verb.
   `SceneRuntimeUiOptionsContext`. Running this plan first would move operations and
   then have to move them again when their contexts are deleted.
 - Depends on `governance-shape-to-judgment-conversion` G1 for SR3's review test.
-- Open decision for the owner, recorded not assumed: whether `class SceneRuntime`
+- Owner-overridable default, agent does not stop: whether `class SceneRuntime`
   survives at all. SR0 reports its members and consumers; SR2 folds it into
   `SceneController` unless the owner rules it a distinct owner.
 

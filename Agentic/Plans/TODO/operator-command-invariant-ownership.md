@@ -151,7 +151,7 @@ same value, and produces one acceptance ledger. `RunInternal` is gone.
   `SceneGeneratedControlTransaction` are the ratified shape. OC1 must match them —
   private detached record plus exhaustive phase cursor, borrowed owners
   synchronous only.
-- Open decision for the owner, recorded not assumed: whether the arbitration
+- Owner-overridable default, agent does not stop: whether the arbitration
   behavior OC0 measures is the *intended* behavior. If OC0 finds a case where the
   current winner looks accidental, the transaction preserves today's behavior and
   the case is reported for a separate owner ruling; it is not silently corrected,

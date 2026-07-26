@@ -300,11 +300,15 @@ current measurements with owner rulings, never as frozen budgets.
   ceiling (see `scene-sized-store-capacity`), so the Runtime Static Allocation
   Policy amendment for scene-sized runtime capacity belongs to that plan's SC1,
   not to G1. G1 must not pre-empt it.
-- Open decision for the owner, recorded not assumed: whether the
-  Capability Slice Ownership rule should also apply to `Rendering` and `UI`
-  view structs, or only to Runtime composition-root slices. G0 reports the
-  affected sites in both layers; G1 implements the narrower Runtime-only rule
-  unless the owner widens it.
+- **Resolved by implementation 2026-07-26, recorded as a deviation.** G1 landed
+  the Capability Slice Ownership Rule **layer-agnostic** rather than the narrower
+  Runtime-only form this plan proposed. The wider form is safe because it does not
+  reopen the PB0-retained families: the ten `*GraphInputs` and six non-UI
+  `*PassInputs` carry `retain-prior` rulings, and the rule's own second bullet
+  exempts a slice whose members are the borrowed owners of one named subsystem —
+  which is what those are. The rule bites only on a partition of a composition
+  root's member list. The owner may narrow it to Runtime-only at G4 review; doing
+  so would not change any current finding.
 
 ## Acceptance
 

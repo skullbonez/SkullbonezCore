@@ -58,10 +58,10 @@ who owns the ordering rule.
 
 ## Goal
 
-One calling convention for the frame turn. Either a phase receives the concrete
-owners it uses, or the frame turn has a real owner that enforces phase order —
-not a partition of `Run`'s members handed around as four structs while the
-heaviest phase bypasses them.
+One calling convention for the frame turn: every phase receives the concrete
+owners it uses. No partition of `Run`'s members is handed around as four structs,
+and no phase bypasses the convention. A phase's signature is the honest statement
+of what that phase can affect.
 
 ## Non-Goals
 
@@ -81,48 +81,56 @@ heaviest phase bypasses them.
 
 ## Phases
 
-- [ ] **FV0 — Census the frame surface and choose the endpoint.**
-  For each of the twelve `Run` frame phases, record exactly which of the 23
-  references it actually reads or writes, and which reach members directly
-  instead. Produce the two candidate endpoints with evidence, and rule between
-  them:
-  - **(a) Concrete operands.** Delete all four views; each phase takes the owners
-    it uses. FV0 must report, per phase, the resulting parameter count so ceiling
-    breaches are known up front.
-  - **(b) One frame-turn invariant owner.** A non-copyable phase-cursor type owns
-    the legal walk (Input -> Simulation -> PrepareRender -> PublishModels ->
-    RenderWorld -> OperatorUi -> PostDraw -> Screenshots -> FinishWork ->
-    Present -> Complete), makes an out-of-order call lane-F fatal, stores values
-    and a cursor only, and never retains an owner across phase calls — the shape
-    GV2/GV3 ratified for `SceneLoadTransaction` and
-    `SceneGeneratedControlTransaction`.
-  Acceptance: the census shows per-phase reference usage; the ruling names one
-  endpoint with the reason; if (a) is chosen, no phase exceeds 12 parameters, and
-  if (b) is chosen, the exact phase-order and arbitration invariant is written
-  before implementation.
+- [ ] **FV0 — Census the frame surface against the ratified endpoint.**
+  **Owner ruling 2026-07-27: endpoint (a), concrete operands.** Delete all four
+  views; each phase takes only the owners it uses. The rejected alternative was a
+  frame-turn phase-cursor transaction. The owner's reason, recorded so a later
+  reader does not relitigate it: a phase cursor earns its keep when many call
+  sites re-encode the order — `SceneLoadTransaction` (GV2) had four — but
+  `Run::Execute` is a single call site and already a short linear schedule, so
+  the order is enforced by construction and the steps cannot be called out of
+  turn. The defect here is only the fake capability split, so a transaction would
+  add machinery to enforce something the schedule already guarantees. Do not
+  introduce a frame transaction under this plan.
+
+  Remaining FV0 work is measurement, not decision. For each of the twelve `Run`
+  frame phases record exactly which of the 23 references it reads or writes, which
+  reach members directly instead, and the resulting parameter count per phase.
+  Acceptance: the census shows per-phase reference usage and post-removal
+  parameter count; every phase is at or below the 12-parameter ceiling, or the
+  over-ceiling phase is named with the decomposition that brings it under. A long
+  but honest argument list is the accepted outcome here — reintroducing an
+  aggregate to shorten one is a closure failure under the Invariant Ownership
+  Rule.
 
 - [ ] **FV1 — Make the convention uniform.**
-  Whichever endpoint FV0 rules, apply it to `TickPhysics`, `UpdateLogic`,
+  Apply concrete operands to `TickPhysics`, `UpdateLogic`,
   `AfterPhysicsStep`, `TickScreenshots`, `TickAutoCycle`, and `TickSceneAdvance`
   first — the phases that currently bypass the views. This is deliberately the
-  first implementation step: if the endpoint cannot express the heaviest phase, it
-  is the wrong endpoint and FV0 reopens. Acceptance: no frame phase mixes view
+  first implementation step: if concrete operands cannot express the heaviest
+  phase within the ceiling, that is discovered before the other ten phases are
+  converted, and the decomposition it needs is recorded rather than worked around
+  with a new aggregate. Acceptance: no frame phase mixes view
   access with direct member access; `Run::Execute` remains a phase schedule;
   physics CSV byte-exact; frame order and marker boundaries unchanged.
 
-- [ ] **FV2 — Convert the remaining phases and delete or justify the views.**
-  Apply the endpoint to `RunInputPhase`, `RunSimulationPhase`,
+- [ ] **FV2 — Convert the remaining phases and delete the views.**
+  Apply concrete operands to `RunInputPhase`, `RunSimulationPhase`,
   `PrepareRenderPhase`, `PublishRenderModelsPhase`, `RenderWorldPhase`,
   `RenderOperatorUiPhase`, `RunPostDrawDiagnosticsPhase`, `FinishFrameWorkPhase`,
   `PresentFramePhase`, and `CompleteFramePhase`, plus the two external consumers
   named by `RuntimeFrameViews.h:30-31`
-  (`InputFrameExecution.cpp`, `RuntimeStressController.cpp`). Any surviving view
-  must state the owned invariant in its header and be exercised by a focused
-  test; `RuntimeFrameViews.h:24`'s invariant text is corrected or deleted — it may
-  not remain false. Acceptance: no operation receives every slice;
-  `rg -n 'RuntimeFrame(Host|Interaction|Scene|Presentation)View' SkullbonezSource`
-  either returns no rows or only rows for a ruled invariant owner; DX12 baselines
-  unchanged; capture restart and stress paths behave identically.
+  (`InputFrameExecution.cpp`, `RuntimeStressController.cpp`). Those two files are
+  also the campaign's two largest extraction-scar sites (25 and 14 findings), and
+  they destructure the views straight back into `m_`-named locals — so converting
+  them is where the views' real purpose becomes visible. Coordinate with
+  `extraction-scar-remediation` ES0 rather than renaming the same locals twice.
+  `RuntimeFrameViews.h:24`'s invariant text is deleted with the views; under the
+  ratified endpoint no view survives to restate it. Acceptance:
+  `rg -n 'RuntimeFrame(Host|Interaction|Scene|Presentation)View' SkullbonezSource SkullbonezTests`
+  returns no rows; `RuntimeFrameViews.h` is deleted or contains only
+  `RuntimeUiTextFrameFacts` and forward declarations; DX12 baselines unchanged;
+  capture restart and stress paths behave identically.
 
 - [ ] **FV3 — Reconcile, review, and hand off.**
   Complete the comment audit for every touched file, with particular attention to
@@ -142,10 +150,10 @@ heaviest phase bypasses them.
 - Sequence after `render-backend-service-bag-removal` so FV2 does not have to
   preserve `RuntimeFramePresentationView::renderBackendView`. If the owner
   reorders, FV0 must record the compensating decision.
-- Open decision for the owner, recorded not assumed: endpoint (a) or (b). FV0
-  produces the evidence and a recommendation; the owner may rule directly. The
-  reviewer's judgement alone is not sufficient here because the choice changes the
-  frame loop's calling convention permanently.
+- **Ratified 2026-07-27: endpoint (a), concrete operands.** No open decision
+  remains in this plan. The frame-turn transaction alternative is rejected for the
+  reason recorded in FV0 and must not be reintroduced by a reviewer or a later
+  phase.
 
 ## Acceptance
 
