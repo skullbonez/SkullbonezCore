@@ -2727,7 +2727,11 @@ bool ReplaySolverRecorder::Configure( const ReplayRecorderConfig& config )
     m_promotedSolverSample.bodies.clear();
     m_solverResolveStateScratch.clear();
     m_solverResolveActiveScratch.clear();
-    ClearSolverWorldSnapshotValues( m_solverResolveWorldScratch );
+    m_scrubResolveCacheValid = false;
+    m_scrubResolveCacheOffset = 0;
+    m_scrubResolveCacheRevision = 0;
+    m_denseSampleResolveCount = 0;
+    ++m_contentRevision;
     m_sampleHead = 0;
     m_sampleCount = 0;
     m_checkpointHead = 0;
@@ -2804,7 +2808,8 @@ void ReplaySolverRecorder::ResetTimeline( const char* sceneLabel )
     m_promotedSolverSample.bodies.clear();
     m_solverResolveStateScratch.clear();
     m_solverResolveActiveScratch.clear();
-    ClearSolverWorldSnapshotValues( m_solverResolveWorldScratch );
+    m_scrubResolveCacheValid = false;
+    ++m_contentRevision;
     for ( ReplaySolverDeltaFrame& frame : m_solverFrames )
     {
         frame.keyframe = false;
@@ -2992,6 +2997,8 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayBranchInfo& branch,
 
     m_latestSolverHash = solverHash;
     ++m_totalFramesCaptured;
+    m_scrubResolveCacheValid = false;
+    ++m_contentRevision;
 
     if ( sample.checkpointBoundary )
     {
@@ -3016,6 +3023,7 @@ ReplayRecorderStats ReplaySolverRecorder::GetStats() const
     stats.checkpointCapacity = m_checkpoints.size();
     stats.checkpointCount = m_checkpointCount;
     stats.latestStateHash = m_latestSolverHash;
+    stats.denseSampleResolveCount = m_denseSampleResolveCount;
     return stats;
 }
 
@@ -3098,7 +3106,6 @@ void ReplaySolverRecorder::CollectMemoryCategoryBytes( SkullbonezCore::Core::Mai
         SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverWorldState,
         SolverWorldSnapshotMemoryBytes( m_solverCaptureWorldSnapshot ) +
             SolverWorldSnapshotMemoryBytes( m_solverWorldCarrySnapshot ) +
-            SolverWorldSnapshotMemoryBytes( m_solverResolveWorldScratch ) +
             SolverWorldSnapshotMemoryBytes( m_resolvedSolverSample.worldSnapshot ) +
             SolverWorldSnapshotMemoryBytes( m_latestResolvedSolverSample.worldSnapshot ) +
             SolverWorldSnapshotMemoryBytes( m_promotedSolverSample.worldSnapshot ) );
@@ -3140,7 +3147,22 @@ const ReplaySolverFrameSample* ReplaySolverRecorder::SampleAtNormalized( float n
     const std::size_t maxOffset = m_sampleCount - 1;
     const std::size_t offset = static_cast<std::size_t>( static_cast<float>( maxOffset ) * t + 0.5f );
     const std::size_t resolvedOffset = (std::min)( offset, maxOffset );
-    return ResolveSolverSampleAtOffset( resolvedOffset, m_resolvedSolverSample ) ? &m_resolvedSolverSample : nullptr;
+
+    if ( m_scrubResolveCacheValid && m_scrubResolveCacheOffset == resolvedOffset &&
+         m_scrubResolveCacheRevision == m_contentRevision )
+    {
+        return &m_resolvedSolverSample;
+    }
+
+    m_scrubResolveCacheValid = ResolveSolverSampleAtOffset( resolvedOffset, m_resolvedSolverSample );
+    if ( !m_scrubResolveCacheValid )
+    {
+        return nullptr;
+    }
+
+    m_scrubResolveCacheOffset = resolvedOffset;
+    m_scrubResolveCacheRevision = m_contentRevision;
+    return &m_resolvedSolverSample;
 }
 
 std::size_t ReplaySolverRecorder::AcquireSampleSlotIndex()
@@ -3322,6 +3344,8 @@ bool ReplaySolverRecorder::ResolveSolverSampleAtOffset( std::size_t offset, Repl
         return false;
     }
 
+    ++m_denseSampleResolveCount;
+
     std::size_t keyOffset = offset;
     for ( ;; )
     {
@@ -3342,7 +3366,7 @@ bool ReplaySolverRecorder::ResolveSolverSampleAtOffset( std::size_t offset, Repl
     m_solverResolveStateScratch.resize( m_solverBodyMetadata.size() );
     m_solverResolveActiveScratch.resize( m_solverBodyMetadata.size(), static_cast<uint8_t>( 0 ) );
     std::fill( m_solverResolveActiveScratch.begin(), m_solverResolveActiveScratch.end(), static_cast<uint8_t>( 0 ) );
-    ClearSolverWorldSnapshotValues( m_solverResolveWorldScratch );
+    ClearSolverWorldSnapshotValues( outSample.worldSnapshot );
 
     for ( std::size_t frameOffset = keyOffset; frameOffset <= offset; ++frameOffset )
     {
@@ -3354,7 +3378,7 @@ bool ReplaySolverRecorder::ResolveSolverSampleAtOffset( std::size_t offset, Repl
                        m_solverResolveActiveScratch.end(),
                        static_cast<uint8_t>( 0 ) );
 
-            ClearSolverWorldSnapshotValues( m_solverResolveWorldScratch );
+            ClearSolverWorldSnapshotValues( outSample.worldSnapshot );
         }
 
         for ( const ReplaySolverBodyDelta& delta : frame.changedBodies )
@@ -3369,7 +3393,7 @@ bool ReplaySolverRecorder::ResolveSolverSampleAtOffset( std::size_t offset, Repl
             m_solverResolveActiveScratch[metadataIndex] = static_cast<uint8_t>( 1 );
         }
 
-        if ( !ApplySolverWorldDeltaFrame( frame.world, m_solverResolveWorldScratch, m_samples[frameIndex].frameIndex ) )
+        if ( !ApplySolverWorldDeltaFrame( frame.world, outSample.worldSnapshot, m_samples[frameIndex].frameIndex ) )
         {
             return false;
         }
@@ -3401,11 +3425,6 @@ bool ReplaySolverRecorder::ResolveSolverSampleAtOffset( std::size_t offset, Repl
 
         outSample.bodies.push_back( body );
     }
-
-    CopySolverWorldSnapshotWithReserve( outSample.worldSnapshot,
-                                        m_solverResolveWorldScratch,
-                                        source.frameIndex,
-                                        "ReplaySolverResolve::worldSnapshot" );
 
     return true;
 }

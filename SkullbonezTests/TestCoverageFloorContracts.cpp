@@ -295,6 +295,13 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     REQUIRE( sample != nullptr );
     presentation.CaptureFrameFromSolverSample( *sample );
 
+    const ReplaySolverFrameSample* historical = solver.SampleAtNormalized( 0.0f );
+    REQUIRE( historical != nullptr );
+    const uint64_t firstResolveCount = solver.GetStats().denseSampleResolveCount;
+    CHECK( firstResolveCount == 1u );
+    CHECK( solver.SampleAtNormalized( 0.0f ) == historical );
+    CHECK( solver.GetStats().denseSampleResolveCount == firstResolveCount );
+
     REQUIRE( engine.SetBodyVelocity( registration.body,
                                      Vector3( 2.0f, 1.0f, -1.0f ),
                                      Vector3( 0.1f, 0.2f, 0.3f ),
@@ -314,6 +321,10 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     sample = solver.LatestSample();
     REQUIRE( sample != nullptr );
     presentation.CaptureFrameFromSolverSample( *sample );
+
+    historical = solver.SampleAtNormalized( 0.0f );
+    REQUIRE( historical != nullptr );
+    CHECK( solver.GetStats().denseSampleResolveCount == firstResolveCount + 1u );
 
     for ( ReplayFrameIndex frame = 0u; frame < 2u; ++frame )
     {

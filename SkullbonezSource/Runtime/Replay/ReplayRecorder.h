@@ -573,6 +573,8 @@ class ReplaySolverRecorder
     // void-pointer callback bridge from becoming runtime authority.
     template <typename Visitor> void ForEachSampleChronological( Visitor visitor ) const
     {
+        m_scrubResolveCacheValid = false;
+
         if ( m_sampleCount == 0 || m_samples.empty() )
         {
             return;
@@ -699,7 +701,14 @@ class ReplaySolverRecorder
     mutable ReplaySolverFrameSample m_promotedSolverSample;
     mutable std::vector<ReplaySolverBodyState> m_solverResolveStateScratch;
     mutable std::vector<uint8_t> m_solverResolveActiveScratch;
-    mutable ReplaySolverWorldSnapshot m_solverResolveWorldScratch;
+    // Invariant: the dense scrub value belongs to exactly one retained offset
+    // at one content revision. Capture, reset, and artifact iteration invalidate
+    // it before any caller can observe a buffer overwritten for another use.
+    mutable bool m_scrubResolveCacheValid = false;
+    mutable std::size_t m_scrubResolveCacheOffset = 0;
+    mutable uint64_t m_scrubResolveCacheRevision = 0;
+    mutable uint64_t m_denseSampleResolveCount = 0;
+    uint64_t m_contentRevision = 0;
     std::size_t m_sampleHead = 0;
     std::size_t m_sampleCount = 0;
     std::size_t m_checkpointHead = 0;

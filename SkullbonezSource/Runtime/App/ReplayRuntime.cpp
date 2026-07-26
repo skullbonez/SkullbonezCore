@@ -680,6 +680,7 @@ ReplayRuntime::BuildOverlayStateView( bool editorModeEnabled,
 
 ReplayFrameSelection ReplayRuntime::BuildPresentationSelection() const
 {
+    const ReplayScrubberView scrubber = m_scrubberOwner.View();
     const bool loadedPresentation = HasLoadedPresentation();
     const RunReplayTrack track = loadedPresentation ? RunReplayTrack::Presentation : RunReplayTrack::Solver;
     const float trackPosition = m_scrubberOwner.TrackPosition( track );
@@ -701,7 +702,8 @@ ReplayFrameSelection ReplayRuntime::BuildPresentationSelection() const
     selection.replay.latestSolver = loadedPresentation ? nullptr : m_timeline.Solver().LatestSample();
     selection.selectedPrediction = futureSelected ? CurrentPredictionScrubFrame() : nullptr;
     selection.replay.currentPresentation = CurrentScrubSample();
-    selection.replay.currentSolver = CurrentSolverScrubSample();
+    selection.replay.currentSolver =
+        scrubber.activeTrack == RunReplayTrack::Solver && IsScrubPaused() ? selection.replay.selectedSolver : nullptr;
     selection.replay.solverPresentTrackPosition = solverPresentTrackPosition;
     selection.replay.loadedSampleCount = loadedPresentation ? m_timeline.LoadedPresentation().samples.size() : 0u;
     selection.replay.loadedPresentation = loadedPresentation;
@@ -1537,8 +1539,7 @@ bool ReplayRuntime::IsScrubPaused() const
 
     if ( scrubber.activeTrack == RunReplayTrack::Presentation && HasLoadedPresentation() )
     {
-        return LoadedPresentationSampleAtNormalized( m_scrubberOwner.TrackPosition( RunReplayTrack::Presentation ) ) !=
-               nullptr;
+        return !m_timeline.LoadedPresentation().samples.empty();
     }
 
     const float position = m_scrubberOwner.TrackPosition( scrubber.activeTrack );
@@ -1550,8 +1551,7 @@ bool ReplayRuntime::IsScrubPaused() const
 
     if ( scrubber.activeTrack == RunReplayTrack::Presentation )
     {
-        return m_timeline.Presentation().IsEnabled() &&
-               m_timeline.Presentation().SampleAtNormalized( position ) != nullptr;
+        return m_timeline.Presentation().IsEnabled() && m_timeline.Presentation().GetStats().sampleCount != 0u;
     }
 
     if ( ReplayTrackPositionIsFuture( position, presentT ) )
@@ -1559,8 +1559,7 @@ bool ReplayRuntime::IsScrubPaused() const
         return CurrentPredictionScrubFrame() != nullptr;
     }
 
-    return m_timeline.Solver().IsEnabled() &&
-           m_timeline.Solver().SampleAtNormalized( ReplaySolverNormalizedFromTrack( position, presentT ) ) != nullptr;
+    return m_timeline.Solver().IsEnabled() && m_timeline.Solver().GetStats().sampleCount != 0u;
 }
 
 

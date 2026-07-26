@@ -39,6 +39,9 @@ struct ReplayRecorderStats
     std::size_t checkpointCapacity = 0;
     std::size_t checkpointCount = 0;
     uint64_t latestStateHash = 0;
+    // Why: scrub tests and diagnostics can prove repeated reads hit the dense
+    // cache without exposing recorder storage or mutation authority.
+    uint64_t denseSampleResolveCount = 0;
 };
 
 struct ReplayEventRecorderStats
