@@ -5,8 +5,9 @@ Purpose:
   environment settings, and render-instance presentation.
 
 Summary:
-  SceneWorld commits aligned entity/body/collider/render topology and exposes
-  stable-identity operations, including transient editor visibility and locks.
+  SceneWorld commits aligned entity/body/collider/buoyancy/render topology and
+  exposes stable-identity operations, including transient editor visibility
+  and locks.
 
 Mental model:
   SceneController decides when a scene lifecycle advances. SceneWorld owns what
@@ -17,16 +18,17 @@ Mental model:
 Glossary:
   World owner: Concrete lifetime boundary joining the stores replaced together
     by a successful scene load or replay topology restore.
-  Dense topology: Entity, body, collider, and render rows sharing one temporary
-    model order while stable PhysicsSceneObjectId remains durable identity.
+  Dense topology: Entity, body, collider, buoyancy, and render rows sharing one
+    temporary model order while stable PhysicsSceneObjectId remains durable
+    identity.
   Presentation capture: Previous/current physics poses retained by the render
     store across one fixed step for interpolation.
   Post-step output: Bounded physics facts borrowed synchronously by presentation.
 
 Invariants:
   - All six owned domains are born, cleared, and replaced as one scene lifetime.
-  - Entity, body, collider, and render row counts remain aligned after every
-    successful topology mutation.
+  - Entity, body, collider, buoyancy, and render row counts remain aligned
+    after every successful topology mutation.
   - Physics stepping and topology repair occur inside this owner; there is no
     reach-back to SceneController or the process shell.
   - Accessors return borrowed owners and never transfer or duplicate authority.
@@ -139,8 +141,8 @@ class SceneWorld
                                         const Math::Vector::Vector3& seedAngularVelocity );
     void CaptureReplaySolverWorldSnapshot( Physics::PhysicsSolverSnapshot& outSnapshot ) const;
     bool RestoreReplaySolverWorldSnapshot( const Physics::PhysicsSolverSnapshot& snapshot );
-    // Explicit cold boundary used before tools borrow paired body/collider
-    // handles. Hot passes must never trigger topology repair.
+    // Explicit cold boundary used before tools borrow aligned physics rows and
+    // paired body/collider handles. Hot passes never trigger topology repair.
     bool RepairPhysicsBodyAndColliderTopology();
 
     std::span<const Rendering::RenderInstancePresentationRecord> RenderPresentationRecords() const

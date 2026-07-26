@@ -56,13 +56,12 @@ bool IsSolverBodyFixed( const PhysicsBodyHotFieldsConstView& hotFields, int body
     return hotFields.fixed[static_cast<size_t>( bodyIndex )] != 0u;
 }
 
-TerrainContactBodyView TerrainContactBodyViewForIndex( std::span<const PhysicsBodyRecord> bodyRecords,
+TerrainContactBodyView TerrainContactBodyViewForIndex( std::span<const BuoyancyBodyFacts> buoyancyFacts,
                                                        const PhysicsBodyHotFieldsConstView& hotFields,
                                                        const PhysicsTerrainView& terrain,
                                                        const PhysicsRuntimeSettings& settings,
                                                        int index )
 {
-    const PhysicsBodyRecord& record = bodyRecords[static_cast<size_t>( index )];
     const size_t bodyIndex = static_cast<size_t>( index );
     TerrainContactBodyView body;
     body.position = PhysicsBodyPosition( hotFields, bodyIndex );
@@ -70,7 +69,7 @@ TerrainContactBodyView TerrainContactBodyViewForIndex( std::span<const PhysicsBo
     body.linearVelocity = PhysicsBodyLinearVelocity( hotFields, bodyIndex );
     body.terrain = terrain;
     body.boundingRadius = hotFields.boundingRadius[bodyIndex];
-    body.contactEpsilon = record.contactEpsilon;
+    body.contactEpsilon = buoyancyFacts[bodyIndex].contactEpsilon;
     body.terrainContactThreshold = settings.terrain.threshold;
     body.restitutionThreshold = settings.body.contactRestitutionThreshold;
     body.isFixed = hotFields.fixed[bodyIndex] != 0u;
@@ -118,7 +117,11 @@ void PhysicsTerrainStage::DetectTerrainAt( const TerrainDetectionStageContext& c
     candidate.sweep = SweepTerrainContact(
         context.profiler,
         TerrainContactBodyViewForIndex(
-            context.bodyRecords, context.hotFields, context.terrain, context.settings, bodyIndex ),
+            context.buoyancyFacts,
+            context.hotFields,
+            context.terrain,
+            context.settings,
+            bodyIndex ),
         context.colliderRecords[static_cast<size_t>( bodyIndex )].shape,
         candidate.availableTime );
 
@@ -168,12 +171,21 @@ PhysicsTerrainStage::PrepareCandidateCommit( const TerrainCandidateCommitContext
     {
         const float colTime = sweep.collisionTime;
         (void)context.bodyStore.IntegrateBodyPose(
-            context.profiler, context.colliderStore, context.terrain, bodyIndex, colTime );
+            context.profiler,
+            context.colliderStore,
+            context.terrain,
+            context.buoyancyFacts[static_cast<std::size_t>( bodyIndex )],
+            bodyIndex,
+            colTime );
         const float remainingTime = (std::max)( 0.0f, availableTime - colTime );
         const bool hasManifold = Physics::BuildTerrainContactManifold(
             context.profiler,
             TerrainContactBodyViewForIndex(
-                context.bodyRecords, context.hotFields, context.terrain, context.settings, bodyIndex ),
+                context.buoyancyFacts,
+                context.hotFields,
+                context.terrain,
+                context.settings,
+                bodyIndex ),
             context.colliderRecords[static_cast<size_t>( bodyIndex )].shape,
             bodyIndex,
             sweep,

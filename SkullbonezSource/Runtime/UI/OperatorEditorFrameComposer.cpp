@@ -48,6 +48,7 @@ Related:
 #include "../../Core/Profiler.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsApi.h"
+#include "../../Physics/PhysicsEngine.h"
 #include "../../Rendering/DX12/Dx12Diagnostics.h"
 #include "../../Rendering/RenderInstanceStore.h"
 #include "../../UI/UI.h"
@@ -355,7 +356,7 @@ void Render( RuntimeFrameHostView& host,
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     // Why: the legacy surface does not consume E12 contextual detail. Sampling
-    // cold body/collider/material rows only while the secondary editor is
+    // cold body/collider/buoyancy/material rows only while the secondary editor is
     // visible keeps ordinary Profile and shipping frames on their prior path.
     if ( operatorEditorView.surfaces.secondaryVisible )
     {
@@ -372,13 +373,16 @@ void Render( RuntimeFrameHostView& host,
             const SceneEntityRecord* entity = hierarchyEntities.TryGet( selectedHierarchyRow );
             const PhysicsBodyStore& bodyStore = sceneController.Scene().BodyStore();
             const ColliderStore& colliderStore = sceneController.Scene().Colliders();
+            const std::span<const BuoyancyBodyFacts> buoyancyFacts =
+                PhysicsEngine::ReadBuoyancyFacts( sceneController.Scene().Physics() );
             const PhysicsBodyRecord* body = entity ? bodyStore.RecordForHandle( entity->body ) : nullptr;
             const PhysicsColliderHandle colliderHandle = entity ? colliderStore.HandleForBodyHandle( entity->body )
                                                                 : PhysicsColliderHandle {};
 
             const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
             const ColliderAuthoringRecord* colliderAuthoring = colliderStore.AuthoringRecordForHandle( colliderHandle );
-            if ( !entity || !body || !collider || !colliderAuthoring )
+            if ( !entity || !body || !collider || !colliderAuthoring ||
+                 selectedHierarchyRow >= static_cast<int>( buoyancyFacts.size() ) )
             {
                 inspector.selectionState = SkullbonezCore::UI::OperatorEditorInspectorSelectionState::Stale;
             }
@@ -426,7 +430,7 @@ void Render( RuntimeFrameHostView& host,
                 }
 
                 inspector.mass = body->mass;
-                inspector.volume = body->volume;
+                inspector.volume = buoyancyFacts[row].volume;
                 inspector.boundingRadius = collider->boundingRadius;
                 inspector.dragCoefficient = collider->dragCoefficient;
                 inspector.friction = collider->friction;

@@ -86,6 +86,7 @@ namespace Physics
 {
 class ColliderStore;
 class PhysicsBodyStore;
+struct BuoyancyBodyFacts;
 struct ColliderRecord;
 struct PhysicsBodyRecord;
 struct PhysicsPointJointCreateDesc;
@@ -160,6 +161,7 @@ class PhysicsWorld
 
     void RunSolverPhysics( PhysicsBodyStore& bodyStore,
                            const ColliderStore& colliderStore,
+                           std::span<BuoyancyBodyFacts> buoyancyFacts,
                            float dt,
                            const PhysicsRuntimeSettings& settings,
                            const PhysicsWorldForces& worldForces,
@@ -168,9 +170,11 @@ class PhysicsWorld
                            bool probeDormantUnderwaterLocks );
     void CommitContactSolverConsequences( PhysicsBodyStore& bodyStore,
                                           const ColliderStore& colliderStore,
+                                          std::span<BuoyancyBodyFacts> buoyancyFacts,
                                           const PhysicsWorldForces& worldForces );
     void ApplyExternalForces( PhysicsBodyStore& bodyStore,
                               const ColliderStore& colliderStore,
+                              std::span<BuoyancyBodyFacts> buoyancyFacts,
                               const PhysicsWorldForces& worldForces,
                               const ExternalForceFrameInput& input,
                               const PhysicsExecutionSettings& execution,
@@ -189,6 +193,7 @@ class PhysicsWorld
     // fixed events only; name lookup and file output occur after the hot pass.
     void RunPhysics( PhysicsBodyStore& bodyStore,
                      const ColliderStore& colliderStore,
+                     std::span<BuoyancyBodyFacts> buoyancyFacts,
                      float fChangeInTime,
                      const PhysicsRuntimeSettings& settings,
                      const PhysicsWorldForces& worldForces,
@@ -210,6 +215,7 @@ class PhysicsWorld
     void WakeModel( PhysicsBodyStore& bodyStore, int index );
     void WakeModel( PhysicsBodyStore& bodyStore,
                     const ColliderStore& colliderStore,
+                    std::span<BuoyancyBodyFacts> buoyancyFacts,
                     const PhysicsWorldForces& worldForces,
                     int index );
     void SeedModelAsleep( const PhysicsBodyStore& bodyStore, int index );

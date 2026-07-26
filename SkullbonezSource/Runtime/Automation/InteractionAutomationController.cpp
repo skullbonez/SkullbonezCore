@@ -184,12 +184,15 @@ EditorSelectionFingerprint BuildEditorSelectionFingerprint( RuntimeTools& runtim
 
     const SceneEntityRecord& entity = world.Entities().At( modelIndex );
     const Physics::PhysicsBodyRecord* body = world.BodyStore().RecordForModelIndex( modelIndex );
+    const std::span<const Physics::BuoyancyBodyFacts> buoyancyFacts =
+        Physics::PhysicsEngine::ReadBuoyancyFacts( world.Physics() );
     const Physics::PhysicsColliderHandle colliderHandle = world.Colliders().HandleForModelIndex( modelIndex );
     const Physics::ColliderRecord* collider = world.Colliders().RecordForHandle( colliderHandle );
     const Physics::ColliderAuthoringRecord* colliderAuthoring = world.Colliders().AuthoringRecordForHandle( colliderHandle );
 
     EditorPrimitiveShapeSnapshot shape;
-    if ( !body || !collider || !colliderAuthoring || body->sceneObjectId.value != entity.sceneObjectId.value ||
+    if ( !body || !collider || !colliderAuthoring || modelIndex >= static_cast<int>( buoyancyFacts.size() ) ||
+         body->sceneObjectId.value != entity.sceneObjectId.value ||
          !TryCaptureEditorPrimitiveShape( collider->shape, shape ) )
     {
         return fingerprint;
@@ -239,12 +242,13 @@ EditorSelectionFingerprint BuildEditorSelectionFingerprint( RuntimeTools& runtim
     HashPredictionVector( hash, body->rotationalInertia );
     HashPredictionFloat( hash, body->mass );
     HashPredictionFloat( hash, hotState.boundingRadius );
-    HashPredictionFloat( hash, body->volume );
-    HashPredictionFloat( hash, body->projectedSurfaceArea );
-    HashPredictionFloat( hash, body->dragCoefficient );
+    const Physics::BuoyancyBodyFacts& fluidFacts = buoyancyFacts[static_cast<std::size_t>( modelIndex )];
+    HashPredictionFloat( hash, fluidFacts.volume );
+    HashPredictionFloat( hash, fluidFacts.projectedSurfaceArea );
+    HashPredictionFloat( hash, fluidFacts.dragCoefficient );
     HashPredictionFloat( hash, body->contactReleaseImpulseThreshold );
     HashPredictionFloat( hash, body->angularVelocityLimit );
-    HashPredictionFloat( hash, body->contactEpsilon );
+    HashPredictionFloat( hash, fluidFacts.contactEpsilon );
     HashPredictionScalar( hash, static_cast<uint8_t>( hotState.fixed ) );
     HashPredictionScalar( hash, static_cast<uint8_t>( !hotState.awake ) );
     HashPredictionScalar( hash, static_cast<uint8_t>( body->releasesFromFixedOnContact ) );

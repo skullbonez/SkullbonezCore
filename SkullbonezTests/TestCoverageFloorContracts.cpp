@@ -65,6 +65,7 @@ using SkullbonezCore::Math::CollisionDetection::CollisionShape;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::BuildObjectContactManifold;
 using SkullbonezCore::Physics::BuildTerrainContactManifold;
+using SkullbonezCore::Physics::BuoyancyBodyFacts;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
@@ -155,12 +156,13 @@ void CheckUnderwaterForcePath( const CollisionShape& shape, uint32_t sceneId )
     colliders.Clear();
 
     PhysicsBodyCreateRecord body;
+    BuoyancyBodyFacts buoyancyFacts;
     body.cold.sceneObjectId = PhysicsSceneObjectId{ sceneId };
     body.cold.mass = 4.0f;
-    body.cold.volume = SkullbonezCore::Math::CollisionDetection::GetShapeVolume( shape );
-    body.cold.projectedSurfaceArea =
+    buoyancyFacts.volume = SkullbonezCore::Math::CollisionDetection::GetShapeVolume( shape );
+    buoyancyFacts.projectedSurfaceArea =
         SkullbonezCore::Math::CollisionDetection::GetShapeProjectedSurfaceArea( shape );
-    body.cold.dragCoefficient = 0.4f;
+    buoyancyFacts.dragCoefficient = 0.4f;
     body.cold.rotationalInertia = Vector3( 8.0f, 2.0f, 6.0f );
     body.cold.angularVelocityLimit = 100.0f;
     body.cold.usesWorldInertia = true;
@@ -180,8 +182,8 @@ void CheckUnderwaterForcePath( const CollisionShape& shape, uint32_t sceneId )
     collider.shape = shape;
     collider.shapeKind = ShapeKind( shape );
     collider.boundingRadius = body.hot.boundingRadius;
-    collider.projectedSurfaceArea = body.cold.projectedSurfaceArea;
-    collider.dragCoefficient = body.cold.dragCoefficient;
+    collider.projectedSurfaceArea = buoyancyFacts.projectedSurfaceArea;
+    collider.dragCoefficient = buoyancyFacts.dragCoefficient;
     REQUIRE( colliders.CreateColliderRecord( collider ).IsValid() );
 
     PhysicsWorldForces forces;
@@ -191,7 +193,7 @@ void CheckUnderwaterForcePath( const CollisionShape& shape, uint32_t sceneId )
     forces.gasDensity = 0.05f;
     forces.angularDragMultiplier = 2.0f;
     const Vector3 mutualForce( 1.0f, 0.0f, -0.5f );
-    REQUIRE( bodies.ApplyForces( forces, colliders, {}, 0, 1.0f / 120.0f, &mutualForce ) );
+    REQUIRE( bodies.ApplyForces( forces, colliders, {}, buoyancyFacts, 0, 1.0f / 120.0f, &mutualForce ) );
     const auto hot = bodies.HotFields();
     CHECK( std::isfinite( hot.linearVelocityX[0] ) );
     CHECK( std::isfinite( hot.linearVelocityY[0] ) );

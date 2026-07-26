@@ -44,6 +44,7 @@ Related:
 #include <vector>
 
 #include "../PhysicsDebugData.h"
+#include "../BuoyancySystem.h"
 #include "../PhysicsFixedList.h"
 #include "../PhysicsRuntimeSettings.h"
 #include "../Ragdoll.h"
@@ -77,6 +78,7 @@ class PhysicsNarrowphaseWakeAccess
     const ColliderStore& m_colliderStore;
     PhysicsTerrainView m_terrain;
     const PhysicsWorldForces& m_worldForces;
+    std::span<BuoyancyBodyFacts> m_buoyancyFacts;
     std::span<PhysicsBodyRecord> m_bodyRecords;
     PhysicsBodyHotFieldsView m_hotFields;
     std::span<float> m_timeRemaining;
@@ -88,6 +90,7 @@ class PhysicsNarrowphaseWakeAccess
                                   const ColliderStore& colliderStore,
                                   PhysicsTerrainView terrain,
                                   const PhysicsWorldForces& worldForces,
+                                  std::span<BuoyancyBodyFacts> buoyancyFacts,
                                   std::span<PhysicsBodyRecord> bodyRecords,
                                   const PhysicsBodyHotFieldsView& hotFields,
                                   std::span<float> timeRemaining,
@@ -117,6 +120,7 @@ struct PhysicsSleepWakeContext
     const ColliderStore* colliderStore = nullptr;
     PhysicsTerrainView terrain;
     const PhysicsWorldForces* worldForces = nullptr;
+    std::span<BuoyancyBodyFacts> buoyancyFacts;
     std::span<float> timeRemaining;
     PhysicsContactCacheWakeAccess contactCache;
     std::span<const PersistentContact> persistentContacts;
@@ -129,6 +133,7 @@ struct PhysicsSleepIslandStageContext
     const ColliderStore& colliderStore;
     PhysicsTerrainView terrain;
     const PhysicsWorldForces& worldForces;
+    std::span<BuoyancyBodyFacts> buoyancyFacts;
     std::span<PhysicsBodyRecord> bodyRecords;
     PhysicsBodyHotFieldsView hotFields;
     std::span<float> timeRemaining;
@@ -227,6 +232,7 @@ class PhysicsSleepController
                                                               const ColliderStore& colliderStore,
                                                               PhysicsTerrainView terrain,
                                                               const PhysicsWorldForces& worldForces,
+                                                              std::span<BuoyancyBodyFacts> buoyancyFacts,
                                                               std::span<PhysicsBodyRecord> bodyRecords,
                                                               std::span<float> timeRemaining,
                                                               int modelCount,
@@ -237,6 +243,7 @@ class PhysicsSleepController
     void LockUnderwaterSleeperIfReady( const PhysicsWorldForces& worldForces,
                                        PhysicsBodyStore& bodyStore,
                                        const ColliderStore& colliderStore,
+                                       std::span<BuoyancyBodyFacts> buoyancyFacts,
                                        std::span<float> timeRemaining,
                                        int index );
     void PropagateSupport( const PhysicsBodyStore& bodyStore );
@@ -247,6 +254,7 @@ class PhysicsSleepController
                                         const ColliderStore& colliderStore,
                                         PhysicsTerrainView terrain,
                                         const PhysicsWorldForces& worldForces,
+                                        std::span<BuoyancyBodyFacts> buoyancyFacts,
                                         std::span<float> timeRemaining,
                                         PhysicsContactCacheWakeAccess contactCache,
                                         std::span<const PersistentContact> persistentContacts,

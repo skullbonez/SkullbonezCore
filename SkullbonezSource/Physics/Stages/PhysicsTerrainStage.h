@@ -38,6 +38,7 @@ Related:
 #include <vector>
 
 #include "../../Core/SceneCapacity.h"
+#include "../BuoyancySystem.h"
 #include "../PhysicsDebugData.h"
 #include "../PhysicsBodyStore.h"
 #include "../PhysicsRuntimeSettings.h"
@@ -74,6 +75,7 @@ struct TerrainDetectionStageContext
     // Lifetime: terrain workers borrow this fixed-step snapshot only during
     // synchronous dispatch; each writes one stage-owned candidate row.
     std::span<const PhysicsBodyRecord> bodyRecords;
+    std::span<const BuoyancyBodyFacts> buoyancyFacts;
     PhysicsBodyHotFieldsConstView hotFields;
     std::span<const ColliderRecord> colliderRecords;
     PhysicsTerrainView terrain;
@@ -90,6 +92,7 @@ struct TerrainCandidateCommitContext
     PhysicsBodyStore& bodyStore;
     const ColliderStore& colliderStore;
     PhysicsTerrainView terrain;
+    std::span<BuoyancyBodyFacts> buoyancyFacts;
     std::span<const PhysicsBodyRecord> bodyRecords;
     PhysicsBodyHotFieldsConstView hotFields;
     std::span<const ColliderRecord> colliderRecords;

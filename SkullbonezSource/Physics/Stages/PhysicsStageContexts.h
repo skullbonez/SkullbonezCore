@@ -32,6 +32,7 @@ Related:
 #include <vector>
 
 #include "../../Maths/Vector3.h"
+#include "../BuoyancySystem.h"
 #include "../PhysicsBodyStore.h"
 
 namespace SkullbonezCore
@@ -54,6 +55,7 @@ struct ApplyForcesStageContext
     const ColliderStore& colliderStore;
     PhysicsTerrainView terrain;
     const PhysicsWorldForces& worldForces;
+    std::span<const BuoyancyBodyFacts> buoyancyFacts;
     std::span<const PhysicsBodyRecord> bodyRecords;
     PhysicsBodyHotFieldsConstView hotFields;
     std::span<const uint8_t> sleepState;
@@ -72,6 +74,7 @@ struct IntegrateRemainingStageContext
     PhysicsBodyStore& bodyStore;
     const ColliderStore& colliderStore;
     PhysicsTerrainView terrain;
+    std::span<BuoyancyBodyFacts> buoyancyFacts;
     std::span<const PhysicsBodyRecord> bodyRecords;
     PhysicsBodyHotFieldsConstView hotFields;
     std::span<const uint8_t> sleepState;

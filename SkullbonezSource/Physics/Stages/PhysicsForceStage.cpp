@@ -83,6 +83,7 @@ void ApplyForcesForSolverBody( Physics::PhysicsBodyStore& bodyStore,
                                const Physics::ColliderStore& colliderStore,
                                const Physics::PhysicsTerrainView& terrain,
                                const Physics::PhysicsWorldForces& worldForces,
+                               std::span<const Physics::BuoyancyBodyFacts> buoyancyFacts,
                                const Physics::PhysicsBodyHotFieldsConstView& hotFields,
                                std::span<const uint8_t> sleepState,
                                std::vector<float>& timeRemaining,
@@ -105,13 +106,16 @@ void ApplyForcesForSolverBody( Physics::PhysicsBodyStore& bodyStore,
     }
 
     const Vector3* mutualGravityForce = mutualGravityForces ? &mutualGravityForces[bodyIndex] : nullptr;
-    (void)bodyStore.ApplyForces( worldForces, colliderStore, terrain, bodyIndex, dt, mutualGravityForce );
+    (void)bodyStore.ApplyForces(
+        worldForces, colliderStore, terrain, buoyancyFacts[static_cast<std::size_t>( bodyIndex )], bodyIndex, dt,
+        mutualGravityForce );
 }
 
 void IntegrateRemainingSolverBody( Physics::PhysicsBodyStore& bodyStore,
                                    SkullbonezCore::Core::Profiler* profiler,
                                    const Physics::ColliderStore& colliderStore,
                                    const Physics::PhysicsTerrainView& terrain,
+                                   std::span<Physics::BuoyancyBodyFacts> buoyancyFacts,
                                    const Physics::PhysicsBodyHotFieldsConstView& hotFields,
                                    std::span<const uint8_t> sleepState,
                                    std::span<const float> timeRemaining,
@@ -124,7 +128,12 @@ void IntegrateRemainingSolverBody( Physics::PhysicsBodyStore& bodyStore,
 
     if ( timeRemaining[bodyIndex] > 0.0f )
     {
-        (void)bodyStore.IntegrateBodyPose( profiler, colliderStore, terrain, bodyIndex, timeRemaining[bodyIndex] );
+        (void)bodyStore.IntegrateBodyPose( profiler,
+                                           colliderStore,
+                                           terrain,
+                                           buoyancyFacts[static_cast<std::size_t>( bodyIndex )],
+                                           bodyIndex,
+                                           timeRemaining[bodyIndex] );
     }
 }
 } // namespace
@@ -139,6 +148,7 @@ void ApplyForcesStageContext::operator()( int bodyIndex ) const
                               colliderStore,
                               terrain,
                               worldForces,
+                              buoyancyFacts,
                               hotFields,
                               sleepState,
                               timeRemaining,
@@ -150,7 +160,7 @@ void ApplyForcesStageContext::operator()( int bodyIndex ) const
 void IntegrateRemainingStageContext::operator()( int bodyIndex ) const
 {
     IntegrateRemainingSolverBody(
-        bodyStore, profiler, colliderStore, terrain, hotFields, sleepState, timeRemaining, bodyIndex );
+        bodyStore, profiler, colliderStore, terrain, buoyancyFacts, hotFields, sleepState, timeRemaining, bodyIndex );
 }
 
 PhysicsForceStage::PhysicsForceStage()

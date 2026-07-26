@@ -1,12 +1,13 @@
 //
 // File: SkullbonezTests/TestPhysicsHandles.cpp
 // Purpose:
-//   Lock the first focused tests for physics body and collider handle semantics.
+//   Lock body/collider handle semantics and aligned buoyancy-row lifecycle.
 //
 // Summary:
 //   Physics handles are allocator identities, not dense row indices. The stores
 //   keep simulation rows compact by moving the final row into a deleted slot,
 //   while handle maps preserve live identity and reject stale generations.
+//   Buoyancy tests prove its feature-owned facts mirror the same row operations.
 //
 // Glossary:
 //   Handle generation: Version counter incremented when a handle slot is
@@ -25,6 +26,7 @@
 //   - HandleForModelIndex() and ModelIndexForHandle() are inverse for live rows.
 //   - Destroying a middle row moves the final row down and updates its handle map.
 //   - Collider hot and authoring rows compact together under the same handle.
+//   - Buoyancy facts remain a compact five-float row and compact by swap-last.
 //   - Reused handle slots must increment generation before accepting new records.
 //   - Hot state has one authority: aligned SoA arrays; cold records do not
 //     duplicate pose, velocity, inertia, motion-kind, or sleep fields.
@@ -32,6 +34,7 @@
 // Related:
 //   - SkullbonezSource/Physics/PhysicsBodyStore.h
 //   - SkullbonezSource/Physics/ColliderStore.h
+//   - SkullbonezSource/Physics/BuoyancySystem.h
 //   - Agentic/Reports/2026-07-15/math-fatal-call-site-survey.md
 //   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 //
@@ -40,6 +43,7 @@
 #include "TestFixedSeed.h"
 
 #include "../SkullbonezSource/Physics/ColliderStore.h"
+#include "../SkullbonezSource/Physics/BuoyancySystem.h"
 #include "../SkullbonezSource/Physics/PhysicsApi.h"
 #include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
 #include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
@@ -52,6 +56,8 @@
 
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::ColliderAuthoringRecord;
+using SkullbonezCore::Physics::BuoyancyBodyFacts;
+using SkullbonezCore::Physics::BuoyancySystem;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::MakePhysicsSceneObjectId;
@@ -119,6 +125,56 @@ ColliderStore& TestColliderStore()
 TEST_CASE( "Physics body cold record: vector metadata retains its 16-byte boundary" )
 {
     CHECK_EQ( offsetof( PhysicsBodyRecord, rotationalInertia ), 16u );
+    CHECK_EQ( sizeof( BuoyancyBodyFacts ), sizeof( float ) * 5u );
+}
+
+
+TEST_CASE( "Buoyancy facts: refresh, swap-last erase, trim, and clear preserve dense row semantics" )
+{
+    // Why: the fixed-step owner relies on row equality with body/collider
+    // stores. This focused lifecycle test catches field drift and compaction
+    // mistakes without reaching through PhysicsEngine internals.
+    static BuoyancySystem buoyancy;
+    buoyancy.Clear();
+
+    PhysicsBodyCreateDesc first;
+    first.volume = 1.0f;
+    first.projectedSurfaceArea = 2.0f;
+    first.dragCoefficient = 3.0f;
+    first.contactEpsilon = 0.01f;
+    PhysicsBodyCreateDesc middle = first;
+    middle.volume = 11.0f;
+    middle.projectedSurfaceArea = 12.0f;
+    middle.dragCoefficient = 13.0f;
+    middle.contactEpsilon = 0.02f;
+    PhysicsBodyCreateDesc last = first;
+    last.volume = 21.0f;
+    last.projectedSurfaceArea = 22.0f;
+    last.dragCoefficient = 23.0f;
+    last.contactEpsilon = 0.03f;
+
+    REQUIRE( buoyancy.AppendBodyFacts( first ) );
+    REQUIRE( buoyancy.AppendBodyFacts( middle ) );
+    REQUIRE( buoyancy.AppendBodyFacts( last ) );
+    REQUIRE( buoyancy.Count() == 3 );
+    buoyancy.MutableFacts()[0].submergedVolumePercent = 0.75f;
+
+    first.volume = 4.0f;
+    REQUIRE( buoyancy.RefreshBodyFacts( 0, first ) );
+    CHECK( buoyancy.Facts()[0].volume == doctest::Approx( 4.0f ) );
+    CHECK( buoyancy.Facts()[0].submergedVolumePercent == doctest::Approx( 0.0f ) );
+
+    REQUIRE( buoyancy.EraseBodyFactsSwapLast( 1 ) );
+    REQUIRE( buoyancy.Count() == 2 );
+    CHECK( buoyancy.Facts()[1].volume == doctest::Approx( 21.0f ) );
+    CHECK( buoyancy.Facts()[1].projectedSurfaceArea == doctest::Approx( 22.0f ) );
+    CHECK( buoyancy.Facts()[1].dragCoefficient == doctest::Approx( 23.0f ) );
+    CHECK( buoyancy.Facts()[1].contactEpsilon == doctest::Approx( 0.03f ) );
+
+    REQUIRE( buoyancy.TrimToCount( 1 ) );
+    CHECK( buoyancy.Count() == 1 );
+    buoyancy.Clear();
+    CHECK( buoyancy.Facts().empty() );
 }
 
 
@@ -460,7 +516,9 @@ TEST_CASE( "Physics impulses: zero mass and inertia absorb immediate and pending
     colliders.CreateColliderRecord( MakeColliderRecord( handle, 808u, 1.0f ) );
 
     const Vector3 mutualGravityImpulse( 9.0f, 8.0f, 7.0f );
-    REQUIRE( bodies.ApplyForces( PhysicsWorldForces{}, colliders, {}, 0, 1.0f, &mutualGravityImpulse ) );
+    const BuoyancyBodyFacts buoyancyFacts;
+    REQUIRE(
+        bodies.ApplyForces( PhysicsWorldForces{}, colliders, {}, buoyancyFacts, 0, 1.0f, &mutualGravityImpulse ) );
     auto hot = bodies.HotFields();
     CHECK( hot.linearVelocityX[0] == doctest::Approx( 1.0f ) );
     CHECK( hot.linearVelocityY[0] == doctest::Approx( 2.0f ) );

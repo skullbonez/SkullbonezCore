@@ -23,8 +23,8 @@ Glossary:
     and render-owned presentation rows before frame passes.
   Collider descriptor: Value packet containing shape/material facts that
     PhysicsEngine turns into a live ColliderStore row.
-  Topology drift: A body/collider/model count mismatch that means stores must
-    import explicit construction descriptors before stepping.
+  Topology drift: A body/collider/buoyancy/model count mismatch that means
+    stores must import explicit construction descriptors before stepping.
   Scene-object group: Cold metadata that maps multi-part authored objects, such
     as ragdolls or releasable trees, to a stable root scene object id.
   Fixed-tree release: Authored scene rule that lets tree parts become dynamic
@@ -361,23 +361,25 @@ void SceneWorld::AssertSceneCreationTopology( int expectedCount ) const
     const int descriptorCount = static_cast<int>( m_physics.AuthoredBodyDescriptorCount().value );
     const int bodyCount = BodyStore().Count();
     const int colliderCount = Colliders().Count();
+    const int buoyancyCount = static_cast<int>( Physics::PhysicsEngine::ReadBuoyancyFacts( m_physics ).size() );
     const int renderPresentationCount = m_renderInstanceStore.PresentationCount();
     const int renderCount = m_renderInstanceStore.Count();
     const bool reservationsReady = m_renderInstanceStore.PresentationCapacity() >=
                                    static_cast<std::size_t>( m_activeSceneObjectCapacity );
 
     if ( expectedCount < 0 || Entities().Count() != expectedCount || descriptorCount != expectedCount ||
-         bodyCount != expectedCount || colliderCount != expectedCount || renderPresentationCount != expectedCount ||
-         renderCount != expectedCount || !reservationsReady )
+         bodyCount != expectedCount || colliderCount != expectedCount || buoyancyCount != expectedCount ||
+         renderPresentationCount != expectedCount || renderCount != expectedCount || !reservationsReady )
     {
         SB_FATAL( "Scene/SceneWorld",
                   "Scene creation topology diverged. expected=%d entities=%d descriptors=%d "
-                  "bodies=%d colliders=%d render_presentation=%d render=%d reservations_ready=%d",
+                  "bodies=%d colliders=%d buoyancy=%d render_presentation=%d render=%d reservations_ready=%d",
                   expectedCount,
                   Entities().Count(),
                   descriptorCount,
                   bodyCount,
                   colliderCount,
+                  buoyancyCount,
                   renderPresentationCount,
                   renderCount,
                   reservationsReady ? 1 : 0 );
@@ -503,7 +505,9 @@ bool SceneWorld::DestroySceneEntity( PhysicsBodyHandle body )
     const int modelIndex = bodyStore.ModelIndexForHandle( body );
     const int modelCount = SceneEntityCount();
     if ( modelIndex < 0 || modelIndex >= modelCount || bodyStore.Count() != modelCount ||
-         Colliders().Count() != modelCount || m_renderInstanceStore.PresentationCount() != modelCount ||
+         Colliders().Count() != modelCount ||
+         static_cast<int>( Physics::PhysicsEngine::ReadBuoyancyFacts( m_physics ).size() ) != modelCount ||
+         m_renderInstanceStore.PresentationCount() != modelCount ||
          m_renderInstanceStore.Count() != modelCount )
     {
         return false;
@@ -550,7 +554,8 @@ bool SceneWorld::DestroySceneEntity( PhysicsBodyHandle body )
                   renderRemoved ? 1 : 0 );
     }
 
-    // Invariant: PhysicsEngine already compacted the live body/collider rows.
+    // Invariant: PhysicsEngine already compacted the live body, collider, and
+    // buoyancy rows.
     // Reloading authored descriptors here would teleport every surviving body
     // whose solver/replay pose has diverged from its cold creation pose.
     RefreshRenderInstances();
@@ -615,8 +620,11 @@ bool SceneWorld::TrimForReplayRestore( int bodyCount )
 {
     const int liveBodyCount = Physics::PhysicsEngine::ReadBodies( m_physics ).Count();
     const int liveColliderCount = Physics::PhysicsEngine::ReadColliders( m_physics ).Count();
+    const int liveBuoyancyCount =
+        static_cast<int>( Physics::PhysicsEngine::ReadBuoyancyFacts( m_physics ).size() );
     const uint32_t authoredBodyCount = m_physics.AuthoredBodyDescriptorCount().value;
-    if ( bodyCount < 0 || bodyCount > liveBodyCount || static_cast<uint32_t>( bodyCount ) > authoredBodyCount ||
+    if ( bodyCount < 0 || bodyCount > liveBodyCount || bodyCount > liveBuoyancyCount ||
+         static_cast<uint32_t>( bodyCount ) > authoredBodyCount ||
          !CanTrimPresentationRowsForSceneRestore( bodyCount ) || bodyCount > m_entities.Count() )
     {
         return false;
@@ -651,15 +659,17 @@ bool SceneWorld::TrimForReplayRestore( int bodyCount )
 void SceneWorld::BeginPhysicsStepPresentationCapture()
 {
     // Invariant: this hook now precedes StepPhysics, whose first action used to
-    // repair supported descriptor/body topology drift. Preserve that repair
-    // boundary before RenderInstanceStore validates paired dense rows.
+    // repair supported physics topology drift. Preserve that repair boundary
+    // before RenderInstanceStore validates paired dense rows.
     if ( !RepairPhysicsBodyAndColliderTopology() )
     {
         SB_FATAL( "Scene/SceneWorld",
-                  "Presentation capture could not repair scene/physics topology. entities=%d bodies=%d colliders=%d",
+                  "Presentation capture could not repair scene/physics topology. "
+                  "entities=%d bodies=%d colliders=%d buoyancy=%zu",
                   SceneEntityCount(),
                   BodyStore().Count(),
-                  Colliders().Count() );
+                  Colliders().Count(),
+                  Physics::PhysicsEngine::ReadBuoyancyFacts( m_physics ).size() );
     }
 
     m_renderInstanceStore.BeginPhysicsStepPoseCapture( BodyStore() );
@@ -756,7 +766,8 @@ bool SceneWorld::RestoreReplaySolverWorldSnapshot( const Physics::PhysicsSolverS
 
 bool SceneWorld::RepairPhysicsBodyTopology()
 {
-    if ( BodyStore().Count() != SceneEntityCount() )
+    if ( BodyStore().Count() != SceneEntityCount() ||
+         static_cast<int>( Physics::PhysicsEngine::ReadBuoyancyFacts( m_physics ).size() ) != SceneEntityCount() )
     {
         // Invariant: topology repair imports construction rows only. Same-count
         // state edits are physics-store authority and must not be overwritten by
@@ -764,7 +775,8 @@ bool SceneWorld::RepairPhysicsBodyTopology()
         (void)RefreshPhysicsBodyStoreFromAuthoredDescriptors();
     }
 
-    return BodyStore().Count() == SceneEntityCount();
+    return BodyStore().Count() == SceneEntityCount() &&
+           static_cast<int>( Physics::PhysicsEngine::ReadBuoyancyFacts( m_physics ).size() ) == SceneEntityCount();
 }
 
 
@@ -773,22 +785,27 @@ bool SceneWorld::RepairPhysicsBodyAndColliderTopology()
     const int modelCount = SceneEntityCount();
     const bool bodyTopologyChanged = BodyStore().Count() != modelCount;
     const bool colliderTopologyChanged = Colliders().Count() != modelCount;
-    if ( bodyTopologyChanged || colliderTopologyChanged )
+    const bool buoyancyTopologyChanged =
+        static_cast<int>( Physics::PhysicsEngine::ReadBuoyancyFacts( m_physics ).size() ) != modelCount;
+    if ( bodyTopologyChanged || colliderTopologyChanged || buoyancyTopologyChanged )
     {
         // Why: body rows can be repaired from explicit body descriptors, but
         // collider shape/material rows are store-owned once created. Count drift
         // in ColliderStore is a construction bug, not a reason to rediscover
         // shape facts from legacy object record.
-        if ( bodyTopologyChanged )
+        if ( bodyTopologyChanged || buoyancyTopologyChanged )
         {
             (void)RefreshPhysicsBodyStoreFromAuthoredDescriptors();
         }
 
         const bool colliderBindingsReady = m_physics.RefreshColliderSnapshot();
-        return BodyStore().Count() == modelCount && Colliders().Count() == modelCount && colliderBindingsReady;
+        return BodyStore().Count() == modelCount && Colliders().Count() == modelCount &&
+               static_cast<int>( Physics::PhysicsEngine::ReadBuoyancyFacts( m_physics ).size() ) == modelCount &&
+               colliderBindingsReady;
     }
 
-    return BodyStore().Count() == modelCount && Colliders().Count() == modelCount;
+    return BodyStore().Count() == modelCount && Colliders().Count() == modelCount &&
+           static_cast<int>( Physics::PhysicsEngine::ReadBuoyancyFacts( m_physics ).size() ) == modelCount;
 }
 
 

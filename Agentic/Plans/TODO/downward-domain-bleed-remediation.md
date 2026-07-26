@@ -4,7 +4,7 @@ Date: 2026-07-25
 
 Owner: Rendering + Physics + Runtime/Prediction
 
-State: IN PROGRESS (DB0-DB2 complete; DB3 next)
+State: IN PROGRESS (DB0-DB3 complete; DB4 next)
 
 Ledger tasks: 6 (DB0-DB5)
 
@@ -276,7 +276,7 @@ without waiting for it.)
   - No baseline, golden, replay artifact, screenshot, shader, scene, config,
     or physics CSV reference was refreshed.
 
-- [ ] **DB3 — Move fluid per-body facts to the buoyancy owner.**
+- [x] **DB3 — Move fluid per-body facts to the buoyancy owner.**
 
   Extract `volume`, `projectedSurfaceArea`, `dragCoefficient`,
   `submergedVolumePercent`, and the buoyancy-support `contactEpsilon` from
@@ -298,6 +298,28 @@ without waiting for it.)
     allocation-policy violations (the new store is fixed-capacity,
     scene-load-reserved).
   - Replay solver snapshot round-trip coverage passes unchanged if touched.
+
+  Evidence (2026-07-26):
+
+  - `Agentic/Reports/2026-07-26/downward-domain-bleed-remediation-db3-buoyancy-owner.md`
+    records the final field-owner map, aligned lifecycle transaction, stage
+    reads, determinism result, static proofs, and 27/27 comment audit.
+  - `PhysicsBodyRecord` contains none of the five registered fields.
+    `BuoyancyBodyFacts` is statically fixed at five floats and lives in one
+    8,192-row `PhysicsFixedList` owned by `BuoyancySystem`.
+  - `tools\validate_physics.bat` passed with two byte-identical 44,401-line
+    output runs matching the committed baseline without refresh.
+  - `tools\validate_tests.bat` passed 393 cases / 2,403,315 assertions;
+    `tools\validate_perf.bat` passed every scale/perf comparison with zero
+    gameplay allocation violations; the allocation checker and dependency
+    validator both passed with zero findings.
+  - `tools\validate_physics_deep.bat` was not required: the DB0 census and
+    final source scan prove none of the moved fields feeds SkullScope or a
+    deep known-signature baseline.
+  - Replay solver snapshot/artifact schemas were untouched because none of
+    the moved facts participates in either contract.
+  - No baseline, golden, replay artifact, screenshot, shader, scene, config,
+    or physics CSV reference was refreshed.
 
 - [ ] **DB4 — Install the anti-bleed enforcement.**
 

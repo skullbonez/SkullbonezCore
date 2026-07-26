@@ -425,6 +425,7 @@ void PhysicsSleepController::WakePointJointConnectedBodies(
     const ColliderStore& colliderStore,
     PhysicsTerrainView terrain,
     const PhysicsWorldForces& worldForces,
+    std::span<BuoyancyBodyFacts> buoyancyFacts,
     std::span<float> timeRemaining,
     PhysicsContactCacheWakeAccess contactCache,
     std::span<const PersistentContact> persistentContacts,
@@ -496,6 +497,7 @@ void PhysicsSleepController::WakePointJointConnectedBodies(
                                                 &colliderStore,
                                                 terrain,
                                                 &worldForces,
+                                                buoyancyFacts,
                                                 timeRemaining,
                                                 contactCache,
                                                 persistentContacts,
@@ -824,6 +826,7 @@ void PhysicsSleepController::ApplyTransitions( const PhysicsSleepIslandStageCont
             LockUnderwaterSleeperIfReady( context.worldForces,
                                           context.bodyStore,
                                           context.colliderStore,
+                                          context.buoyancyFacts,
                                           context.timeRemaining,
                                           x );
 

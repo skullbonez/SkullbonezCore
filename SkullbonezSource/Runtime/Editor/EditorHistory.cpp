@@ -108,10 +108,14 @@ bool CapturePrimitiveRecipe( const SceneWorld& world, int modelIndex, EditorPrim
     }
 
     const PhysicsBodyStore& bodyStore = world.BodyStore();
+    const std::span<const BuoyancyBodyFacts> buoyancyFacts =
+        PhysicsEngine::ReadBuoyancyFacts( world.Physics() );
     const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex );
     const ColliderRecord* collider = ColliderForModelIndex( world.Colliders(), modelIndex );
     const ColliderAuthoringRecord* colliderAuthoring = ColliderAuthoringForModelIndex( world.Colliders(), modelIndex );
-    if ( !body || !collider || !colliderAuthoring || body->sceneObjectId.value != entity.sceneObjectId.value ||
+    if ( !body || !collider || !colliderAuthoring ||
+         modelIndex >= static_cast<int>( buoyancyFacts.size() ) ||
+         body->sceneObjectId.value != entity.sceneObjectId.value ||
          !TryCaptureEditorPrimitiveShape( collider->shape, outRecipe.shape ) )
     {
         return false;
@@ -137,12 +141,13 @@ bool CapturePrimitiveRecipe( const SceneWorld& world, int modelIndex, EditorPrim
     outRecipe.body.rotationalInertia = body->rotationalInertia;
     outRecipe.body.mass = body->mass;
     outRecipe.body.boundingRadius = hotState.boundingRadius;
-    outRecipe.body.volume = body->volume;
-    outRecipe.body.projectedSurfaceArea = body->projectedSurfaceArea;
-    outRecipe.body.dragCoefficient = body->dragCoefficient;
+    const BuoyancyBodyFacts& fluidFacts = buoyancyFacts[static_cast<std::size_t>( modelIndex )];
+    outRecipe.body.volume = fluidFacts.volume;
+    outRecipe.body.projectedSurfaceArea = fluidFacts.projectedSurfaceArea;
+    outRecipe.body.dragCoefficient = fluidFacts.dragCoefficient;
     outRecipe.body.contactReleaseImpulseThreshold = body->contactReleaseImpulseThreshold;
     outRecipe.body.angularVelocityLimit = body->angularVelocityLimit;
-    outRecipe.body.contactEpsilon = body->contactEpsilon;
+    outRecipe.body.contactEpsilon = fluidFacts.contactEpsilon;
     outRecipe.body.isFixed = hotState.fixed;
     outRecipe.body.isSleeping = !hotState.awake;
     outRecipe.body.releasesFromFixedOnContact = body->releasesFromFixedOnContact;

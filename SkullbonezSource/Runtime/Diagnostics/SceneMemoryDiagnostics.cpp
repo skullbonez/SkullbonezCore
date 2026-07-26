@@ -49,7 +49,9 @@ SkullbonezCore::Core::MainMemoryGameObjectStats CollectSceneMemoryStats( const S
     stats.renderStoreCapacity = view.renderInstances.RecordCapacity();
     stats.modelVectorBytes = view.renderInstances.PresentationCapacityBytes() + view.entities.CapacityBytes();
     stats.physicsStoreBytes = static_cast<uint64_t>( bodyStore.RecordCapacity() ) *
-                              sizeof( Physics::PhysicsBodyRecord );
+                                  sizeof( Physics::PhysicsBodyRecord ) +
+                              static_cast<uint64_t>( Physics::PhysicsEngine::ReadBuoyancyFactCapacity( view.physics ) ) *
+                                  sizeof( Physics::BuoyancyBodyFacts );
 
     stats.colliderStoreBytes = static_cast<uint64_t>( colliderStore.RecordCapacity() ) *
                                    sizeof( Physics::ColliderRecord ) +

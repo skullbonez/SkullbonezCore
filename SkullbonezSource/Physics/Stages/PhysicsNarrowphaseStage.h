@@ -37,6 +37,7 @@ Related:
 #include <vector>
 
 #include "../PersistentContactSolver.h"
+#include "../BuoyancySystem.h"
 #include "../PhysicsBodyStore.h"
 #include "../PhysicsDebugData.h"
 #include "../PhysicsRuntimeSettings.h"
@@ -97,6 +98,7 @@ struct ObjectNarrowphasePairStageContext
     const ColliderStore& colliderStore;
     PhysicsTerrainView terrain;
     const PhysicsWorldForces& worldForces;
+    std::span<BuoyancyBodyFacts> buoyancyFacts;
     std::span<PhysicsBodyRecord> bodyRecords;
     PhysicsBodyHotFieldsConstView hotFields;
     std::span<const ColliderRecord> colliderRecords;

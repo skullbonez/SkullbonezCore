@@ -371,6 +371,18 @@
       "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
     },
     {
+      "path": "SkullbonezSource/Physics/BuoyancySystem.cpp",
+      "patterns": [
+        ".push_back(",
+        ".resize("
+      ],
+      "owner": "BuoyancySystem fixed-capacity per-body fluid facts",
+      "phase": "scene_topology_mutation_and_replay_trim",
+      "reason": "The append call constructs one row in PhysicsFixedList inline storage, and resize is preflighted to shrink the live prefix only. Neither call can allocate or grow backing storage.",
+      "cap": "One inline PhysicsFixedList<BuoyancyBodyFacts, 8192>: 163,840 bytes with no heap or fallback growth path.",
+      "removal_or_wrapper_plan": "Teach the checker to distinguish PhysicsFixedList append and shrink calls from dynamic STL growth, then remove this syntactic allowlist row."
+    },
+    {
       "path": "SkullbonezSource/Physics/PhysicsEngine.cpp",
       "patterns": [
         ".push_back(",

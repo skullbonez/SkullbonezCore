@@ -65,6 +65,7 @@ class Profiler;
 namespace Physics
 {
 class ColliderStore;
+struct BuoyancyBodyFacts;
 struct PhysicsBodyCreateDesc;
 struct PhysicsWorldForces;
 
@@ -89,13 +90,8 @@ struct PhysicsBodyRecord
     Math::Vector::Vector3 pendingImpulse = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 pendingImpulseApplicationPoint = Math::Vector::ZERO_VECTOR;
     float mass = 0.0f;                                                                          // Authoring mass; fixed bodies still report mass.
-    float volume = 0.0f;                                                                        // Cached body volume used by buoyancy force math.
-    float projectedSurfaceArea = 0.0f;                                                          // Cached drag area used by world-force integration.
-    float dragCoefficient = 0.0f;                                                               // Cached drag coefficient used by world-force integration.
-    float submergedVolumePercent = 0.0f;                                                        // Targeted water snapshot for underwater sleep gates.
     float contactReleaseImpulseThreshold = 1.0f;                                                // Minimum contact impulse before authored fixed props release.
     float angularVelocityLimit = 5.0f;                                                          // Per-body spin cap applied before force integration.
-    float contactEpsilon = 0.05f;                                                               // Terrain proximity tolerance used by buoyancy support damping.
     int fixedTreeReleaseRootIndex = -1;                                                         // Authored release group root; -1 means no fixed-tree group.
     bool usesWorldInertia = false;                                                              // Non-sphere bodies rotate inertia through orientation.
     bool releasesFromFixedOnContact = false;                                                    // Authored fixed prop can become dynamic after strong contact.
@@ -417,11 +413,13 @@ class PhysicsBodyStore
     bool IntegrateBodyPose( Core::Profiler* profiler,
                             const ColliderStore& colliderStore,
                             const PhysicsTerrainView& terrain,
+                            BuoyancyBodyFacts& buoyancyFacts,
                             int modelIndex,
                             float deltaSeconds );
     bool ApplyForces( const PhysicsWorldForces& worldForces,
                       const ColliderStore& colliderStore,
                       const PhysicsTerrainView& terrain,
+                      const BuoyancyBodyFacts& buoyancyFacts,
                       int modelIndex,
                       float deltaSeconds,
                       const Math::Vector::Vector3* precomputedMutualGravityForce = nullptr );

@@ -1,12 +1,12 @@
 /*
 File: SkullbonezSource/Physics/PhysicsEngine.cpp
 Purpose:
-  Coordinates PhysicsWorld with deterministic body and collider stores.
+  Coordinates PhysicsWorld with deterministic body, collider, and buoyancy stores.
 
 Summary:
   PhysicsWorld still owns the solver. PhysicsEngine is the coordination boundary
-  that refreshes body and collider state around that solver while preserving
-  the live model order and the caller-owned presentation boundary.
+  that refreshes aligned body, collider, and buoyancy state around that solver
+  while preserving live model order and the caller-owned presentation boundary.
 
 Glossary:
   Solver: Physics step that integrates motion and applies collision/contact
@@ -70,6 +70,7 @@ using SkullbonezCore::Physics::ColliderAuthoringRecord;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
+using SkullbonezCore::Physics::BuoyancyBodyFacts;
 using SkullbonezCore::Physics::ContactPolicy;
 using SkullbonezCore::Physics::PhysicsAuthoredBodyCount;
 using SkullbonezCore::Physics::PhysicsAuthoredBodyRefreshView;
@@ -342,6 +343,8 @@ bool PhysicsEngine::CanRegisterAuthoredBody( PhysicsAuthoredBodyCount expectedBo
     const std::size_t expected = static_cast<std::size_t>( expectedBodyCount.value );
     return m_authoredBodyDescs.size() == expected &&
            m_bodyStore.Count() == static_cast<int>( expectedBodyCount.value ) &&
+           m_colliderStore.Count() == static_cast<int>( expectedBodyCount.value ) &&
+           m_buoyancySystem.Count() == static_cast<int>( expectedBodyCount.value ) &&
            m_authoredBodyDescs.size() < m_authoredBodyDescs.capacity() &&
            expected < SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS;
 }
@@ -378,6 +381,7 @@ void PhysicsEngine::Clear()
     m_authoredBodyDescs.clear();
     m_bodyStore.Clear();
     m_colliderStore.Clear();
+    m_buoyancySystem.Clear();
 }
 
 
@@ -417,6 +421,15 @@ bool PhysicsEngine::RefreshBodyStoreFromAuthoredDescriptors( const PhysicsAuthor
 
 void PhysicsEngine::LoadBodyDescriptors( const std::vector<PhysicsBodyCreateDesc>& bodyDescs )
 {
+    m_buoyancySystem.Clear();
+    for ( const PhysicsBodyCreateDesc& desc : bodyDescs )
+    {
+        if ( !m_buoyancySystem.AppendBodyFacts( desc ) )
+        {
+            SB_FATAL( "Physics/PhysicsEngine", "Buoyancy facts exceeded fixed scene capacity during descriptor load." );
+        }
+    }
+
     m_bodyStore.LoadFromDescriptors( bodyDescs, m_world.GetSleepStates() );
     m_world.InvalidateBodyTopology();
 }
@@ -449,6 +462,13 @@ PhysicsAuthoredBodyRegistration PhysicsEngine::RegisterAuthoredBody( const Physi
         return {};
     }
 
+    if ( !m_buoyancySystem.AppendBodyFacts( authoredDesc ) )
+    {
+        (void)m_bodyStore.DestroyBodyRecord( body );
+        m_authoredBodyDescs.pop_back();
+        return {};
+    }
+
     colliderDesc.body = body;
     colliderDesc.sceneObjectId = record->sceneObjectId;
     ApplyAuthoredColliderPolicy( colliderDesc );
@@ -461,6 +481,7 @@ PhysicsAuthoredBodyRegistration PhysicsEngine::RegisterAuthoredBody( const Physi
         // Invariant: registration is all-or-nothing even if a future collider
         // capacity rule rejects after body append. Retiring the handle here
         // prevents a partial live body from escaping the physics boundary.
+        (void)m_buoyancySystem.EraseBodyFactsSwapLast( m_buoyancySystem.Count() - 1 );
         (void)m_bodyStore.DestroyBodyRecord( body );
         m_authoredBodyDescs.pop_back();
         return {};
@@ -485,6 +506,11 @@ bool PhysicsEngine::DestroyAuthoredBody( PhysicsBodyHandle body )
     if ( !m_colliderStore.DestroyColliderRecord( collider ) )
     {
         return false;
+    }
+
+    if ( !m_buoyancySystem.EraseBodyFactsSwapLast( bodyRow ) )
+    {
+        SB_FATAL( "Physics/PhysicsEngine", "Buoyancy destruction failed after paired collider removal." );
     }
 
     if ( !m_bodyStore.DestroyBodyRecord( body ) )
@@ -565,6 +591,10 @@ bool PhysicsEngine::UpdateAuthoredBody( const PhysicsBodyUpdateDesc& update )
     ApplyAuthoredBodyPolicy( desc );
     m_authoredBodyDescs[static_cast<std::size_t>( bodyRow )] = desc;
     m_bodyStore.RefreshRecordFromDescriptorAt( desc, bodyRow );
+    if ( !m_buoyancySystem.RefreshBodyFacts( bodyRow, desc ) )
+    {
+        SB_FATAL( "Physics/PhysicsEngine", "Buoyancy refresh lost an aligned body row." );
+    }
     if ( update.updateMask & PHYSICS_BODY_UPDATE_SLEEP_STATE )
     {
         if ( update.sleeping )
@@ -630,6 +660,10 @@ bool PhysicsEngine::UpdateAuthoredBodyAndCollider( const PhysicsBodyUpdateDesc& 
     authored.usesWorldInertia = !std::holds_alternative<BoundingSphere>( authored.shape );
     ApplyAuthoredBodyPolicy( authored );
     m_bodyStore.RefreshRecordFromDescriptorAt( authored, bodyRow );
+    if ( !m_buoyancySystem.RefreshBodyFacts( bodyRow, authored ) )
+    {
+        SB_FATAL( "Physics/PhysicsEngine", "Buoyancy shape refresh lost an aligned body row." );
+    }
     return true;
 }
 
@@ -642,9 +676,19 @@ void PhysicsEngine::ClearPendingBodyImpulses()
 
 bool PhysicsEngine::TrimBodiesToCount( PhysicsBodyCount bodyCount )
 {
-    const bool trimmed = m_bodyStore.TrimToCount( CountAsInt( bodyCount ) );
+    const int targetCount = CountAsInt( bodyCount );
+    if ( targetCount < 0 || targetCount > m_bodyStore.Count() || targetCount > m_buoyancySystem.Count() )
+    {
+        return false;
+    }
+
+    const bool trimmed = m_bodyStore.TrimToCount( targetCount );
     if ( trimmed )
     {
+        if ( !m_buoyancySystem.TrimToCount( targetCount ) )
+        {
+            SB_FATAL( "Physics/PhysicsEngine", "Buoyancy trim failed after body-store trim." );
+        }
         m_world.InvalidateBodyTopology();
     }
 
@@ -681,6 +725,7 @@ void PhysicsEngine::ValidatePhysicsStoreMappings( int modelCount ) const
 {
     assert( m_bodyStore.Count() == modelCount );
     assert( m_colliderStore.Count() == modelCount );
+    assert( m_buoyancySystem.Count() == modelCount );
 
     const auto bodies = m_bodyStore.Records();
     const auto colliders = m_colliderStore.Records();
@@ -725,6 +770,7 @@ void PhysicsEngine::Step( float fChangeInTime,
 
     m_world.RunPhysics( m_bodyStore,
                         m_colliderStore,
+                        m_buoyancySystem.MutableFacts(),
                         fChangeInTime,
                         m_runtimeSettings,
                         worldForces,
@@ -755,7 +801,7 @@ void PhysicsEngine::ApplyFixedTreeReleaseEvents( const PhysicsWorldForces& world
         m_bodyStore.ReleaseAttachedFixedTreeParts( event, m_fixedTreeReleaseWakeBodies );
         for ( int index : m_fixedTreeReleaseWakeBodies )
         {
-            m_world.WakeModel( m_bodyStore, m_colliderStore, worldForces, index );
+            m_world.WakeModel( m_bodyStore, m_colliderStore, m_buoyancySystem.MutableFacts(), worldForces, index );
         }
     }
 }
@@ -806,7 +852,8 @@ bool PhysicsEngine::ReleaseFixedBodyAndAttachedTreeParts( PhysicsBodyHandle sour
     {
         if ( m_hasLastWorldForces )
         {
-            m_world.WakeModel( m_bodyStore, m_colliderStore, m_lastWorldForces, index );
+            m_world.WakeModel(
+                m_bodyStore, m_colliderStore, m_buoyancySystem.MutableFacts(), m_lastWorldForces, index );
         }
         else
         {
@@ -846,7 +893,8 @@ void PhysicsEngine::WakeBody( PhysicsBodyHandle body )
 
     if ( m_hasLastWorldForces )
     {
-        m_world.WakeModel( m_bodyStore, m_colliderStore, m_lastWorldForces, index );
+        m_world.WakeModel(
+            m_bodyStore, m_colliderStore, m_buoyancySystem.MutableFacts(), m_lastWorldForces, index );
     }
     else
     {
@@ -876,7 +924,8 @@ bool PhysicsEngine::SetBodyVelocity( PhysicsBodyHandle body,
     {
         if ( m_hasLastWorldForces )
         {
-            m_world.WakeModel( m_bodyStore, m_colliderStore, m_lastWorldForces, index );
+            m_world.WakeModel(
+                m_bodyStore, m_colliderStore, m_buoyancySystem.MutableFacts(), m_lastWorldForces, index );
         }
         else
         {
@@ -1180,6 +1229,18 @@ const PhysicsBodyStore& PhysicsEngine::ReadBodies( const PhysicsEngine& engine )
 const ColliderStore& PhysicsEngine::ReadColliders( const PhysicsEngine& engine )
 {
     return engine.m_colliderStore;
+}
+
+
+std::span<const BuoyancyBodyFacts> PhysicsEngine::ReadBuoyancyFacts( const PhysicsEngine& engine )
+{
+    return engine.m_buoyancySystem.Facts();
+}
+
+
+std::size_t PhysicsEngine::ReadBuoyancyFactCapacity( const PhysicsEngine& engine )
+{
+    return engine.m_buoyancySystem.RecordCapacity();
 }
 
 

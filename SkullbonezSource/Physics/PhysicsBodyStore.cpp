@@ -35,6 +35,7 @@ Related:
   - SkullbonezSource/Physics/PhysicsBodyStore.h
 */
 #include "PhysicsBodyStore.h"
+#include "BuoyancySystem.h"
 #include "ColliderStore.h"
 #include "PhysicsApi.h"
 #include "TerrainSupportClassifier.h"
@@ -68,6 +69,7 @@ using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderRecordList;
 using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
+using SkullbonezCore::Physics::BuoyancyBodyFacts;
 using SkullbonezCore::Physics::PHYSICS_HANDLE_INITIAL_GENERATION;
 using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyCreateRecord;
@@ -562,7 +564,7 @@ PhysicsBuoyancySample CalculateBuoyancySample( const PhysicsBodyHotState& hot,
     return sample;
 }
 
-float CalculateTerrainSupportFactor( const PhysicsBodyRecord& record,
+float CalculateTerrainSupportFactor( const BuoyancyBodyFacts& buoyancyFacts,
                                      const PhysicsBodyHotState& hot,
                                      const ColliderRecord& collider,
                                      const PhysicsTerrainView& terrain,
@@ -576,7 +578,8 @@ float CalculateTerrainSupportFactor( const PhysicsBodyRecord& record,
     int closeSamples = 0;
     int terrainSamples = 0;
     const Vector3 position = hot.position;
-    const float supportGap = record.contactEpsilon + SkullbonezCore::Physics::BOX_TERRAIN_VERTEX_SUPPORT_SLACK;
+    const float supportGap = buoyancyFacts.contactEpsilon +
+                             SkullbonezCore::Physics::BOX_TERRAIN_VERTEX_SUPPORT_SLACK;
     std::visit(
         [&]( const auto& shape )
         {
@@ -639,6 +642,7 @@ float CalculateTerrainSupportFactor( const PhysicsBodyRecord& record,
 }
 
 Vector3 CalculateBuoyancyRightingTorque( const PhysicsBodyRecord& record,
+                                         const BuoyancyBodyFacts& buoyancyFacts,
                                          const PhysicsBodyHotState& hot,
                                          const ColliderRecord& collider,
                                          const PhysicsTerrainView& terrain,
@@ -775,7 +779,7 @@ Vector3 CalculateBuoyancyRightingTorque( const PhysicsBodyRecord& record,
     const float cappedLift = (std::min)( buoyancyForce, weight * 6.0f );
     const float waterCoupling = sqrtf( (std::clamp)( submergedVolumePercent, 0.0f, 1.0f ) );
     const float supportBlend =
-        1.0f - CalculateTerrainSupportFactor( record, hot, collider, terrain, rotMat ) * 0.85f;
+        1.0f - CalculateTerrainSupportFactor( buoyancyFacts, hot, collider, terrain, rotMat ) * 0.85f;
     const float torqueMagnitude = cappedLift * hot.boundingRadius * anisotropy * waterCoupling * supportBlend * error;
     return correctionAxis * torqueMagnitude;
 }
@@ -837,6 +841,7 @@ void ApplyPendingImpulse( PhysicsBodyRecord& record, PhysicsBodyHotState& hot )
 // force math here prevents hot physics paths from borrowing authoring owners to
 // mutate velocities.
 void ApplyWorldForces( PhysicsBodyRecord& record,
+                       const BuoyancyBodyFacts& buoyancyFacts,
                        PhysicsBodyHotState& hot,
                        const ColliderRecord& collider,
                        const PhysicsTerrainView& terrain,
@@ -858,12 +863,14 @@ void ApplyWorldForces( PhysicsBodyRecord& record,
         worldForce += *precomputedMutualGravityForce;
     }
 
-    const float buoyancyForce = CalculateBuoyancyForce( worldForces, record.volume * submergedVolumePercent );
+    const float buoyancyForce = CalculateBuoyancyForce( worldForces,
+                                                        buoyancyFacts.volume * submergedVolumePercent );
     const Vector3 buoyancyForceVector( 0.0f, buoyancyForce, 0.0f );
     const Vector3 buoyancyArm = buoyancySample.centerOfBuoyancy - hot.position;
     worldForce += buoyancyForceVector;
     worldTorque += CrossProduct( buoyancyArm, buoyancyForceVector );
     worldTorque += CalculateBuoyancyRightingTorque( record,
+                                                    buoyancyFacts,
                                                     hot,
                                                     collider,
                                                     terrain,
@@ -943,8 +950,8 @@ void ApplyWorldForces( PhysicsBodyRecord& record,
     worldForce += CalculateViscousDrag( worldForces,
                                         hot.linearVelocity,
                                         submergedVolumePercent,
-                                        record.dragCoefficient,
-                                        record.projectedSurfaceArea );
+                                        buoyancyFacts.dragCoefficient,
+                                        buoyancyFacts.projectedSurfaceArea );
 
     if ( !hot.angularVelocity.IsCloseToZero() )
     {
@@ -953,7 +960,7 @@ void ApplyWorldForces( PhysicsBodyRecord& record,
                                  ( worldForces.fluidDensity * submergedVolumePercent *
                                    worldForces.angularDragMultiplier );
 
-        const float angularDragCoeff = record.dragCoefficient * avgDensity * radius * radius * radius;
+        const float angularDragCoeff = buoyancyFacts.dragCoefficient * avgDensity * radius * radius * radius;
         Vector3 angularDragTorque = hot.angularVelocity * ( -angularDragCoeff );
 
         angularDragTorque.x = ClampAngularDragTorqueAxis( angularDragTorque.x,
@@ -1011,18 +1018,11 @@ void ApplyBodyDescriptorState( const PhysicsBodyCreateDesc& desc, PhysicsBodyRec
     cold.mass = desc.mass;
     hot.inverseMass = desc.motionKind == PhysicsBodyMotionKind::Fixed || desc.mass <= 0.0f ? 0.0f : 1.0f / desc.mass;
     // Why: descriptor refresh carries body-only scalars that are not derivable
-    // from collider rows. Keeping them explicit preserves broadphase, fluid, and
-    // fixed-release behavior while keeping descriptor refresh self-contained.
+    // from collider rows. Fluid and terrain-support facts are stamped by the
+    // aligned BuoyancySystem owner at the same boundary.
     hot.boundingRadius = desc.boundingRadius > 0.0f ? desc.boundingRadius : GetShapeBoundingRadius( desc.shape );
-    cold.volume = desc.volume;
-    cold.projectedSurfaceArea = desc.projectedSurfaceArea;
-    cold.dragCoefficient = desc.dragCoefficient;
-    // Why: buoyancy sampling is deliberately targeted. Ordinary body refreshes
-    // clear this field, and underwater sleep probes refresh only the candidate.
-    cold.submergedVolumePercent = 0.0f;
     cold.contactReleaseImpulseThreshold = desc.contactReleaseImpulseThreshold;
     cold.angularVelocityLimit = desc.angularVelocityLimit;
-    cold.contactEpsilon = desc.contactEpsilon;
     hot.fixed = desc.motionKind == PhysicsBodyMotionKind::Fixed;
     cold.usesWorldInertia = desc.usesWorldInertia;
     cold.releasesFromFixedOnContact = desc.releasesFromFixedOnContact;
@@ -2058,6 +2058,7 @@ bool PhysicsBodyStore::ConsumePendingBodyImpulse( int modelIndex )
 bool PhysicsBodyStore::IntegrateBodyPose( Core::Profiler* profiler,
                                           const ColliderStore& colliderStore,
                                           const PhysicsTerrainView& terrain,
+                                          BuoyancyBodyFacts& buoyancyFacts,
                                           int modelIndex,
                                           float deltaSeconds )
 {
@@ -2095,7 +2096,7 @@ bool PhysicsBodyStore::IntegrateBodyPose( Core::Profiler* profiler,
     ClampBodyToTerrainSurface( profiler, terrain, hot, *collider );
     // Why: this value is a targeted underwater-sleep probe, not general body
     // state. Any pose integration invalidates the previous water sample.
-    record->submergedVolumePercent = 0.0f;
+    buoyancyFacts.submergedVolumePercent = 0.0f;
     // Invariant: pose integration simplifies both velocity vectors and mutates
     // only pose plus velocity, so unrelated mass, radius, and flags stay cold.
     m_positionX[bodyIndex] = hot.position.x;
@@ -2119,6 +2120,7 @@ bool PhysicsBodyStore::IntegrateBodyPose( Core::Profiler* profiler,
 bool PhysicsBodyStore::ApplyForces( const PhysicsWorldForces& worldForces,
                                     const ColliderStore& colliderStore,
                                     const PhysicsTerrainView& terrain,
+                                    const BuoyancyBodyFacts& buoyancyFacts,
                                     int modelIndex,
                                     float deltaSeconds,
                                     const Vector3* precomputedMutualGravityForce )
@@ -2160,7 +2162,8 @@ bool PhysicsBodyStore::ApplyForces( const PhysicsWorldForces& worldForces,
     }
 
     ThrottleAngularVelocity( *record, hot );
-    ApplyWorldForces( *record, hot, *collider, terrain, worldForces, deltaSeconds, precomputedMutualGravityForce );
+    ApplyWorldForces(
+        *record, buoyancyFacts, hot, *collider, terrain, worldForces, deltaSeconds, precomputedMutualGravityForce );
     ApplyPendingImpulse( *record, hot );
     // Invariant: force and pending-impulse integration are velocity-only edits.
     // Keeping the writes narrow avoids a 20-field round trip per active body.

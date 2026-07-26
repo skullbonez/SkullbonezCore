@@ -75,25 +75,26 @@ bool PhysicsSleepController::IsUnderwaterSleepLocked( int bodyCount, int index )
 void PhysicsSleepController::LockUnderwaterSleeperIfReady( const PhysicsWorldForces& worldForces,
                                                            PhysicsBodyStore& bodyStore,
                                                            const ColliderStore& colliderStore,
+                                                           std::span<BuoyancyBodyFacts> buoyancyFacts,
                                                            std::span<float> timeRemaining,
                                                            int index )
 {
     const int bodyCount = bodyStore.Count();
     EnsureUnderwaterSleepLockBuffer( bodyCount );
     if ( index < 0 || index >= bodyCount || index >= static_cast<int>( m_sleepState.size() ) || !m_sleepState[index] ||
-         m_underwaterSleepLocked[index] )
+         index >= static_cast<int>( buoyancyFacts.size() ) || m_underwaterSleepLocked[index] )
     {
         return;
     }
 
-    if ( !BuoyancySystem::RefreshUnderwaterSubmersionForBall( worldForces, bodyStore, colliderStore, index ) )
+    BuoyancyBodyFacts& facts = buoyancyFacts[static_cast<std::size_t>( index )];
+    if ( !BuoyancySystem::RefreshUnderwaterSubmersionForBall(
+             worldForces, bodyStore, colliderStore, facts, index ) )
     {
         return;
     }
 
-    PhysicsBodyRecord* record = bodyStore.MutableRecordForModelIndex( index );
-    if ( !record ||
-         !BuoyancySystem::IsFullySubmergedBall( *record,
+    if ( !BuoyancySystem::IsFullySubmergedBall( facts,
                                                 bodyStore.HotFields().fixed[static_cast<std::size_t>( index )] != 0u,
                                                 colliderStore,
                                                 index ) )
@@ -163,10 +164,14 @@ bool PhysicsSleepController::WakeDynamicBodyState( const PhysicsSleepWakeContext
     }
 
     if ( applyForces && wasSleeping && dt > TOLERANCE && context.bodyStore && context.worldForces &&
-         context.colliderStore )
+         context.colliderStore && index < static_cast<int>( context.buoyancyFacts.size() ) )
     {
-        (void)context.bodyStore->ApplyForces(
-            *context.worldForces, *context.colliderStore, context.terrain, index, dt );
+        (void)context.bodyStore->ApplyForces( *context.worldForces,
+                                              *context.colliderStore,
+                                              context.terrain,
+                                              context.buoyancyFacts[static_cast<std::size_t>( index )],
+                                              index,
+                                              dt );
     }
 
     context.contactCache.ForgetBody( index );
@@ -387,17 +392,20 @@ void PhysicsSleepController::WakeModel( const PhysicsSleepWakeContext& context, 
         if ( context.bodyStore && !m_underwaterSleepLocked[index] && m_sleepState[index] )
         {
             bool refreshedSubmersion = false;
-            if ( context.colliderStore && context.worldForces )
+            if ( context.colliderStore && context.worldForces &&
+                 index < static_cast<int>( context.buoyancyFacts.size() ) )
             {
                 refreshedSubmersion = BuoyancySystem::RefreshUnderwaterSubmersionForBall( *context.worldForces,
                                                                                           *context.bodyStore,
                                                                                           *context.colliderStore,
+                                                                                          context.buoyancyFacts[static_cast<std::size_t>( index )],
                                                                                           index );
             }
 
-            const PhysicsBodyRecord* record = context.bodyStore->RecordForModelIndex( index );
-            if ( record && context.colliderStore && ( refreshedSubmersion || record->submergedVolumePercent > 0.0f ) &&
-                 BuoyancySystem::IsFullySubmergedBall( *record,
+            if ( context.colliderStore && index < static_cast<int>( context.buoyancyFacts.size() ) &&
+                 ( refreshedSubmersion ||
+                   context.buoyancyFacts[static_cast<std::size_t>( index )].submergedVolumePercent > 0.0f ) &&
+                 BuoyancySystem::IsFullySubmergedBall( context.buoyancyFacts[static_cast<std::size_t>( index )],
                                                        context.hotFields.fixed[static_cast<std::size_t>( index )] != 0u,
                                                        *context.colliderStore,
                                                        index ) )
@@ -428,14 +436,16 @@ PhysicsNarrowphaseWakeAccess::PhysicsNarrowphaseWakeAccess( PhysicsSleepControll
                                                             const ColliderStore& colliderStore,
                                                             PhysicsTerrainView terrain,
                                                             const PhysicsWorldForces& worldForces,
+                                                            std::span<BuoyancyBodyFacts> buoyancyFacts,
                                                             std::span<PhysicsBodyRecord> bodyRecords,
                                                             const PhysicsBodyHotFieldsView& hotFields,
                                                             std::span<float> timeRemaining,
                                                             int modelCount,
                                                             float dt )
     : m_sleepController( sleepController ), m_bodyStore( bodyStore ), m_colliderStore( colliderStore ),
-      m_terrain( terrain ), m_worldForces( worldForces ), m_bodyRecords( bodyRecords ), m_hotFields( hotFields ),
-      m_timeRemaining( timeRemaining ), m_modelCount( modelCount ), m_dt( dt )
+      m_terrain( terrain ), m_worldForces( worldForces ), m_buoyancyFacts( buoyancyFacts ),
+      m_bodyRecords( bodyRecords ), m_hotFields( hotFields ), m_timeRemaining( timeRemaining ),
+      m_modelCount( modelCount ), m_dt( dt )
 {
 }
 
@@ -476,7 +486,12 @@ void PhysicsNarrowphaseWakeAccess::WakeBody( int sleepingIndex ) const
     m_sleepController.m_sleepIslandVisualId[sleepingIndex] = 0;
     m_timeRemaining[sleepingIndex] = m_dt;
     m_hotFields.awake[static_cast<std::size_t>( sleepingIndex )] = 1u;
-    (void)m_bodyStore.ApplyForces( m_worldForces, m_colliderStore, m_terrain, sleepingIndex, m_dt );
+    (void)m_bodyStore.ApplyForces( m_worldForces,
+                                   m_colliderStore,
+                                   m_terrain,
+                                   m_buoyancyFacts[static_cast<std::size_t>( sleepingIndex )],
+                                   sleepingIndex,
+                                   m_dt );
 }
 
 PhysicsNarrowphaseWakeAccess
@@ -484,6 +499,7 @@ PhysicsSleepController::CreateNarrowphaseWakeAccess( PhysicsBodyStore& bodyStore
                                                      const ColliderStore& colliderStore,
                                                      PhysicsTerrainView terrain,
                                                      const PhysicsWorldForces& worldForces,
+                                                     std::span<BuoyancyBodyFacts> buoyancyFacts,
                                                      std::span<PhysicsBodyRecord> bodyRecords,
                                                      std::span<float> timeRemaining,
                                                      int modelCount,
@@ -494,6 +510,7 @@ PhysicsSleepController::CreateNarrowphaseWakeAccess( PhysicsBodyStore& bodyStore
                                          colliderStore,
                                          terrain,
                                          worldForces,
+                                         buoyancyFacts,
                                          bodyRecords,
                                          bodyStore.MutableHotFields(),
                                          timeRemaining,

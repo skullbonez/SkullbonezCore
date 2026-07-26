@@ -526,6 +526,7 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& sna
 
 void PhysicsWorld::CommitContactSolverConsequences( PhysicsBodyStore& bodyStore,
                                                     const ColliderStore& colliderStore,
+                                                    std::span<BuoyancyBodyFacts> buoyancyFacts,
                                                     const PhysicsWorldForces& worldForces )
 {
     const PersistentContactSolverSideEffects& effects = m_contactSolverStage.GetSideEffects();
@@ -541,13 +542,14 @@ void PhysicsWorld::CommitContactSolverConsequences( PhysicsBodyStore& bodyStore,
 
     for ( int index : effects.releaseWakeBodies )
     {
-        WakeModel( bodyStore, colliderStore, worldForces, index );
+        WakeModel( bodyStore, colliderStore, buoyancyFacts, worldForces, index );
     }
 }
 
 
 void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
                                const ColliderStore& colliderStore,
+                               std::span<BuoyancyBodyFacts> buoyancyFacts,
                                float fChangeInTime,
                                const PhysicsRuntimeSettings& settings,
                                const PhysicsWorldForces& worldForces,
@@ -567,6 +569,15 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
     // Determinism note: changing this ordering can change byte-exact physics
     // baselines even when the final scene "looks" similar.
     const int modelCount = bodyStore.Count();
+    if ( colliderStore.Count() != modelCount || static_cast<int>( buoyancyFacts.size() ) != modelCount )
+    {
+        SB_FATAL( "Physics/PhysicsWorld",
+                  "Aligned store mismatch before fixed step: bodies=%d colliders=%d buoyancy=%zu.",
+                  modelCount,
+                  colliderStore.Count(),
+                  buoyancyFacts.size() );
+    }
+
     const auto bodyRecords = bodyStore.Records();
     const bool timeStepChanged = !m_lastTimeRemainingStepValid || fChangeInTime != m_lastTimeRemainingStep;
     if ( static_cast<int>( m_timeRemaining.size() ) != modelCount || timeStepChanged )
@@ -599,6 +610,7 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
     m_underwaterSleepProbeNeeded = false;
     RunSolverPhysics( bodyStore,
                       colliderStore,
+                      buoyancyFacts,
                       fChangeInTime,
                       settings,
                       worldForces,
@@ -617,6 +629,7 @@ void PhysicsWorld::WakeModel( PhysicsBodyStore& bodyStore, int index )
                                       nullptr,
                                       m_terrainView,
                                       nullptr,
+                                      {},
                                       m_timeRemaining,
                                       m_contactSolverStage.CreateWakeAccess(),
                                       m_contactSolverStage.GetPersistentContacts(),
@@ -628,6 +641,7 @@ void PhysicsWorld::WakeModel( PhysicsBodyStore& bodyStore, int index )
 
 void PhysicsWorld::WakeModel( PhysicsBodyStore& bodyStore,
                               const ColliderStore& colliderStore,
+                              std::span<BuoyancyBodyFacts> buoyancyFacts,
                               const PhysicsWorldForces& worldForces,
                               int index )
 {
@@ -638,6 +652,7 @@ void PhysicsWorld::WakeModel( PhysicsBodyStore& bodyStore,
                                       &colliderStore,
                                       m_terrainView,
                                       &worldForces,
+                                      buoyancyFacts,
                                       m_timeRemaining,
                                       m_contactSolverStage.CreateWakeAccess(),
                                       m_contactSolverStage.GetPersistentContacts(),
@@ -671,6 +686,7 @@ bool PhysicsWorld::IsPhysicsSleepEnabled() const
 
 void PhysicsWorld::ApplyExternalForces( PhysicsBodyStore& bodyStore,
                                         const ColliderStore& colliderStore,
+                                        std::span<BuoyancyBodyFacts> buoyancyFacts,
                                         const PhysicsWorldForces& worldForces,
                                         const ExternalForceFrameInput& input,
                                         const PhysicsExecutionSettings& execution,
@@ -685,7 +701,7 @@ void PhysicsWorld::ApplyExternalForces( PhysicsBodyStore& bodyStore,
     const std::span<const int> releaseWakeBodies = m_externalForceStage.ReleaseFixedBodies( input, bodyStore );
     for ( int releasedIndex : releaseWakeBodies )
     {
-        WakeModel( bodyStore, colliderStore, worldForces, releasedIndex );
+        WakeModel( bodyStore, colliderStore, buoyancyFacts, worldForces, releasedIndex );
     }
 
     ExternalForceBodyContext bodyForceContext {
@@ -696,6 +712,7 @@ void PhysicsWorld::ApplyExternalForces( PhysicsBodyStore& bodyStore,
                                                        colliderStore,
                                                        m_terrainView,
                                                        worldForces,
+                                                       buoyancyFacts,
                                                        bodyStore.MutableRecords(),
                                                        m_timeRemaining,
                                                        bodyStore.Count(),
@@ -749,6 +766,7 @@ void PhysicsWorld::CommitObjectNarrowphaseEvent( const ObjectNarrowphaseEvent& e
 
 void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                      const ColliderStore& colliderStore,
+                                     std::span<BuoyancyBodyFacts> buoyancyFacts,
                                      float dt,
                                      const PhysicsRuntimeSettings& settings,
                                      const PhysicsWorldForces& worldForces,
@@ -762,7 +780,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     const auto colliderRecords = colliderStore.Records();
     const int modelCount = (std::min)( { bodyStore.Count(),
                                          static_cast<int>( bodyRecords.size() ),
-                                         static_cast<int>( colliderRecords.size() ) } );
+                                         static_cast<int>( colliderRecords.size() ),
+                                         static_cast<int>( buoyancyFacts.size() ) } );
 
     const std::span<const uint8_t> sleepStates = m_sleepController.GetSleepStates();
     std::span<const int> awakeBodyIndices = m_sleepController.GetAwakeBodyIndices();
@@ -783,6 +802,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                 m_sleepController.LockUnderwaterSleeperIfReady( worldForces,
                                                                 bodyStore,
                                                                 colliderStore,
+                                                                buoyancyFacts,
                                                                 m_timeRemaining,
                                                                 x );
             }
@@ -805,6 +825,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         colliderStore,
         m_terrainView,
         worldForces,
+        buoyancyFacts,
         bodyRecords,
         hotFields,
         sleepStates,
@@ -819,7 +840,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 #endif
     m_forceStage.ApplyForces( applyForcesStage, awakeBodyIndices, workerPool, settings.execution );
 
-    ApplyExternalForces( bodyStore, colliderStore, worldForces, externalForces, settings.execution, workerPool );
+    ApplyExternalForces(
+        bodyStore, colliderStore, buoyancyFacts, worldForces, externalForces, settings.execution, workerPool );
     m_sleepController.FlushPendingAwakeBodyIndices();
     awakeBodyIndices = m_sleepController.GetAwakeBodyIndices();
 
@@ -853,6 +875,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         colliderStore,
         m_terrainView,
         worldForces,
+        buoyancyFacts,
         bodyRecords,
         hotFields,
         colliderRecords,
@@ -861,6 +884,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                        colliderStore,
                                                        m_terrainView,
                                                        worldForces,
+                                                       buoyancyFacts,
                                                        bodyRecords,
                                                        m_timeRemaining,
                                                        modelCount,
@@ -920,6 +944,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     PROFILE_BEGIN( m_profiler, "Frame/Physics/Terrain" );
     PROFILE_BEGIN( m_profiler, "Frame/Physics/Terrain/Detect" );
     TerrainDetectionStageContext terrainDetectionContext { bodyRecords,
+                                                           buoyancyFacts,
                                                            hotFields,
                                                            colliderRecords,
                                                            m_terrainView,
@@ -931,6 +956,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     TerrainCandidateCommitContext terrainCandidateCommitContext { bodyStore,
                                                                   colliderStore,
                                                                   m_terrainView,
+                                                                  buoyancyFacts,
                                                                   bodyRecords,
                                                                   hotFields,
                                                                   colliderRecords,
@@ -997,11 +1023,12 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         m_profiler };
 
     m_contactSolverStage.Solve( contactSolverContext, dt );
-    CommitContactSolverConsequences( bodyStore, colliderStore, worldForces );
+    CommitContactSolverConsequences( bodyStore, colliderStore, buoyancyFacts, worldForces );
     m_sleepController.WakePointJointConnectedBodies( bodyStore,
                                                      colliderStore,
                                                      m_terrainView,
                                                      worldForces,
+                                                     buoyancyFacts,
                                                      m_timeRemaining,
                                                      m_contactSolverStage.CreateWakeAccess(),
                                                      m_contactSolverStage.GetPersistentContacts(),
@@ -1020,6 +1047,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     IntegrateRemainingStageContext integrateRemainingStage { bodyStore,
                                                              colliderStore,
                                                              m_terrainView,
+                                                             buoyancyFacts,
                                                              bodyRecords,
                                                              hotFields,
                                                              m_sleepController.GetSleepStates(),
@@ -1035,6 +1063,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                               colliderStore,
                                                               m_terrainView,
                                                               worldForces,
+                                                              buoyancyFacts,
                                                               bodyRecords,
                                                               mutableHotFields,
                                                               m_timeRemaining,

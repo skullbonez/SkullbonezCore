@@ -155,7 +155,9 @@ TEST_CASE( "Physics terrain stage: candidate rows preserve model order and eligi
     }
     const std::array<uint8_t, 3> sleepState = { 0u, 0u, 1u };
     const std::array<float, 3> timeRemaining = { 0.5f, 0.5f, 0.5f };
+    const std::array<SkullbonezCore::Physics::BuoyancyBodyFacts, 3> buoyancyFacts;
     const TerrainDetectionStageContext context{ bodies.Records(),
+                                                buoyancyFacts,
                                                 bodies.HotFields(),
                                                 colliders.Records(),
                                                 terrain.PhysicsView(),

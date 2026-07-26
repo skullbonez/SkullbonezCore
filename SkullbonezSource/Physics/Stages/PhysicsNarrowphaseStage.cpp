@@ -432,7 +432,12 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( const ObjectNarrowph
                     EmitObjectCollisionTimeEvent( event, y, x, colTime, availableTime );
 
                     (void)context.bodyStore.IntegrateBodyPose(
-                        context.profiler, context.colliderStore, context.terrain, y, colTime );
+                        context.profiler,
+                        context.colliderStore,
+                        context.terrain,
+                        context.buoyancyFacts[static_cast<std::size_t>( y )],
+                        y,
+                        colTime );
                     context.timeRemaining[y] = (std::max)( 0.0f, context.timeRemaining[y] - colTime );
                     if ( !sleepingLocked )
                     {
@@ -524,7 +529,12 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( const ObjectNarrowph
                     EmitObjectCollisionTimeEvent( event, x, y, colTime, availableTime );
 
                     (void)context.bodyStore.IntegrateBodyPose(
-                        context.profiler, context.colliderStore, context.terrain, x, colTime );
+                        context.profiler,
+                        context.colliderStore,
+                        context.terrain,
+                        context.buoyancyFacts[static_cast<std::size_t>( x )],
+                        x,
+                        colTime );
                     context.timeRemaining[x] = (std::max)( 0.0f, context.timeRemaining[x] - colTime );
                     if ( !sleepingLocked )
                     {
@@ -632,9 +642,19 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( const ObjectNarrowph
         EmitObjectCollisionTimeEvent( event, x, y, colTime, availableTime );
 
         (void)context.bodyStore.IntegrateBodyPose(
-            context.profiler, context.colliderStore, context.terrain, x, colTime );
+            context.profiler,
+            context.colliderStore,
+            context.terrain,
+            context.buoyancyFacts[static_cast<std::size_t>( x )],
+            x,
+            colTime );
         (void)context.bodyStore.IntegrateBodyPose(
-            context.profiler, context.colliderStore, context.terrain, y, colTime );
+            context.profiler,
+            context.colliderStore,
+            context.terrain,
+            context.buoyancyFacts[static_cast<std::size_t>( y )],
+            y,
+            colTime );
         context.timeRemaining[x] = (std::max)( 0.0f, context.timeRemaining[x] - colTime );
         context.timeRemaining[y] = (std::max)( 0.0f, context.timeRemaining[y] - colTime );
 

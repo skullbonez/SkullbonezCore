@@ -62,6 +62,7 @@ using SkullbonezCore::Math::CollisionDetection::CollisionShape;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderStore;
+using SkullbonezCore::Physics::BuoyancyBodyFacts;
 using SkullbonezCore::Physics::MakePhysicsSceneObjectId;
 using SkullbonezCore::Physics::ObjectNarrowphaseEvent;
 using SkullbonezCore::Physics::ObjectNarrowphaseEventKind;
@@ -341,11 +342,13 @@ TEST_CASE( "Physics sleep awake list: transitions and queued wakes preserve asce
     CHECK( controller.GetAwakeBodyIndices()[0] == 2 );
 
     PhysicsWorldForces worldForces;
+    std::array<BuoyancyBodyFacts, 3> buoyancyFacts;
     std::array<float, 3> timeRemaining = { 1.0f / 120.0f, 1.0f / 120.0f, 1.0f / 120.0f };
     const auto wakeAccess = controller.CreateNarrowphaseWakeAccess( bodies,
                                                                     colliders,
                                                                     {},
                                                                     worldForces,
+                                                                    buoyancyFacts,
                                                                     bodies.MutableRecords(),
                                                                     timeRemaining,
                                                                     3,
@@ -400,8 +403,9 @@ TEST_CASE( "Physics sleep underwater lock: fully submerged sleeper locks and dis
     worldForces.fluidSurfaceHeight = 10.0f;
     worldForces.fluidDensity = 1000.0f;
     std::array<float, 1> timeRemaining = { 1.0f / 120.0f };
+    std::array<BuoyancyBodyFacts, 1> buoyancyFacts;
 
-    controller.LockUnderwaterSleeperIfReady( worldForces, bodies, colliders, timeRemaining, 0 );
+    controller.LockUnderwaterSleeperIfReady( worldForces, bodies, colliders, buoyancyFacts, timeRemaining, 0 );
 
     REQUIRE( controller.GetUnderwaterSleepLocks().size() == 1u );
     CHECK( controller.GetUnderwaterSleepLocks()[0] == 1u );
@@ -441,10 +445,12 @@ TEST_CASE( "Physics sleep awake list: one-frame transitions visit every row whil
     const std::vector<SkullbonezCore::Physics::PointJointConstraint> joints;
     std::vector<SkullbonezCore::Physics::PhysicsPipelineRecord> pipeline;
     PhysicsWorldForces worldForces;
+    std::array<BuoyancyBodyFacts, 4> buoyancyFacts;
     const SkullbonezCore::Physics::PhysicsSleepIslandStageContext context{ bodies,
                                                                            colliders,
                                                                            {},
                                                                            worldForces,
+                                                                           buoyancyFacts,
                                                                            bodies.MutableRecords(),
                                                                            bodies.MutableHotFields(),
                                                                            timeRemaining,
@@ -492,12 +498,14 @@ TEST_CASE( "Physics sleep point-joint island: stretched anchors block relaxation
         std::array<uint16_t, 2> restingCounts = { 0u, 0u };
         std::vector<SkullbonezCore::Physics::PhysicsPipelineRecord> pipeline;
         PhysicsWorldForces worldForces;
+        std::array<BuoyancyBodyFacts, 2> buoyancyFacts;
         PhysicsSleepController controller;
         controller.MirrorFlagsFrom( bodies, 2 );
         const SkullbonezCore::Physics::PhysicsSleepIslandStageContext context{ bodies,
                                                                                colliders,
                                                                                {},
                                                                                worldForces,
+                                                                               buoyancyFacts,
                                                                                bodies.MutableRecords(),
                                                                                bodies.MutableHotFields(),
                                                                                timeRemaining,
@@ -552,11 +560,13 @@ TEST_CASE( "Physics narrowphase islands: repeated parallel evaluation preserves 
     sleep.MirrorFlagsFrom( bodies, kBodyCount );
     std::vector<float> timeRemaining( kBodyCount, 1.0f / 120.0f );
     PhysicsWorldForces worldForces;
+    std::vector<BuoyancyBodyFacts> buoyancyFacts( kBodyCount );
     std::vector<SkullbonezCore::Physics::PersistentContactCacheEntry> persistentCache;
     const auto wakeAccess = sleep.CreateNarrowphaseWakeAccess( bodies,
                                                                colliders,
                                                                {},
                                                                worldForces,
+                                                               buoyancyFacts,
                                                                bodies.MutableRecords(),
                                                                timeRemaining,
                                                                kBodyCount,
@@ -565,6 +575,7 @@ TEST_CASE( "Physics narrowphase islands: repeated parallel evaluation preserves 
                                                      colliders,
                                                      {},
                                                      worldForces,
+                                                     buoyancyFacts,
                                                      bodies.MutableRecords(),
                                                      bodies.HotFields(),
                                                      colliders.Records(),
