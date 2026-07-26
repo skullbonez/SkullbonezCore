@@ -118,27 +118,6 @@ class Window;
 struct OverlayDebugState;
 struct RuntimeFrameInteractionView;
 
-struct EditorPointerRouteInput
-{
-    // Lifetime: one post-UI pointer frame. The world ray is sampled once by
-    // composition and remains immutable across preview, drag, and selection.
-    bool leftDown = false;
-    bool leftPressed = false;
-    bool leftReleased = false;
-    bool suppressWorldAction = false;
-    bool blocksCameraMouse = false;
-    bool controlDown = false;
-    bool hasClientPosition = false;
-    bool hasWorldRay = false;
-    bool replayInspectionActive = false;
-    int clientX = 0;
-    int clientY = 0;
-    int activeModelCapacity = 0;
-    RunCameraMode cameraMode;
-    Math::Vector::Vector3 rayOrigin = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
-};
-
 // Operation-specific facts for the after-UI escape pass. The frame-selected
 // surface bit prevents Escape from opening the dormant Legacy UI while ImGui
 // owns window focus.
@@ -159,34 +138,6 @@ struct EditorPointerRouteResult
     bool hasInteractionTransition = false;
     std::array<RuntimeInputAction, MAX_MODE_ACTIONS> modeActions = {};
     std::size_t modeActionCount = 0;
-};
-
-struct RuntimePointerRouteInput
-{
-    // Lifetime: one post-UI frame shared by every pointer-domain owner. Normal
-    // and clamped rays are sampled once before any owner mutates scene state.
-    bool leftDown = false;
-    bool leftPressed = false;
-    bool leftReleased = false;
-    bool suppressWorldAction = false;
-    bool uiWantsNativeCursor = false;
-    bool shiftDown = false;
-    bool controlDown = false;
-    bool blocksCameraMouse = false;
-    bool hasClientPosition = false;
-    bool hasWorldRay = false;
-    bool hasClampedWorldRay = false;
-    bool replayInspectionActive = false;
-    int clientX = 0;
-    int clientY = 0;
-    int activeModelCapacity = 0;
-    RunCameraMode cameraMode;
-    Math::Vector::Vector3 rayOrigin = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 clampedRayOrigin = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 clampedRayDirection = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 cameraEye = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 cameraView = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
 };
 
 struct RuntimePointerRouteResult
@@ -454,12 +405,22 @@ class InputRouter
                            RuntimeInputContext& runtimeInput,
                            RuntimeInputAction action,
                            RuntimeInputActionSource source );
-    EditorPointerRouteResult RouteEditorPointer( const EditorPointerRouteInput& input,
+    EditorPointerRouteResult RouteEditorPointer( const RuntimePointerEvent& pointer,
+                                                 bool hasWorldRay,
+                                                 const Math::Vector::Vector3& rayOrigin,
+                                                 const Math::Vector::Vector3& rayDirection,
+                                                 RunCameraMode cameraMode,
+                                                 bool replayInspectionActive,
+                                                 int activeModelCapacity,
                                                  Assets::AssetSystem& assets,
                                                  RuntimeTools& runtimeTools,
                                                  RuntimeInteractionController& interaction,
                                                  SceneController& sceneController );
-    RuntimePointerRouteResult RouteRuntimePointer( const RuntimePointerRouteInput& input,
+    RuntimePointerRouteResult RouteRuntimePointer( const RuntimePointerEvent& pointer,
+                                                   RunCameraMode cameraMode,
+                                                   bool replayInspectionActive,
+                                                   int activeModelCapacity,
+                                                   const Window& window,
                                                    Assets::AssetSystem& assets,
                                                    RuntimeFrameInteractionView& interactionOwners,
                                                    SceneController& sceneController,

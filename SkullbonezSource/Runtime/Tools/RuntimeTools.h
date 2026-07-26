@@ -239,31 +239,6 @@ struct RunMousePickupState
     Math::Vector::Vector3 lastImpulse = Math::Vector::ZERO_VECTOR;
 };
 
-struct MousePickupPointerInput
-{
-    // Lifetime: one input-frame value. Rays and camera values are sampled by
-    // input composition before the tool mutates its durable pickup state.
-    bool manipulatorMode = false;
-    bool editorMode = false;
-    bool replayInspection = false;
-    bool suppressWorldAction = false;
-    bool uiWantsNativeCursor = false;
-    bool leftPressed = false;
-    bool leftReleased = false;
-    bool leftDown = false;
-    bool hasWorldRay = false;
-    bool hasClampedWorldRay = false;
-    bool hasClientPosition = false;
-    int clientX = 0;
-    int clientY = 0;
-    Math::Vector::Vector3 rayOrigin = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 clampedRayOrigin = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 clampedRayDirection = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 cameraEye = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 cameraView = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
-};
-
 struct EditorPointerPreviewInput
 {
     // Lifetime: one post-UI pointer sample; world rays are values so the tool
@@ -781,7 +756,19 @@ class RuntimeTools
 
     RunMousePickupState& MousePickup();
     const RunMousePickupState& MousePickup() const;
-    MousePickupPointerResult RouteMousePickupPointer( const MousePickupPointerInput& input,
+    // Called only after editor routing declines the pointer and composition
+    // proves manipulator mode is the active world owner. All borrows expire
+    // before the method returns; pickup retains only its typed body handle and
+    // camera-plane values.
+    MousePickupPointerResult RouteMousePickupPointer( const RuntimePointerEvent& pointer,
+                                                      bool hasWorldRay,
+                                                      const Math::Vector::Vector3& rayOrigin,
+                                                      const Math::Vector::Vector3& rayDirection,
+                                                      bool hasClampedWorldRay,
+                                                      const Math::Vector::Vector3& clampedRayOrigin,
+                                                      const Math::Vector::Vector3& clampedRayDirection,
+                                                      const Math::Vector::Vector3& cameraEye,
+                                                      const Math::Vector::Vector3& cameraView,
                                                       const SceneWorld& world,
                                                       InputRouter& inputRouter,
                                                       RuntimeInteractionController& interaction );

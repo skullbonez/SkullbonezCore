@@ -11,21 +11,22 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-25th-JUL-26` |
-| Current baseline | Concrete Parameter-Bag Elimination PB1 is complete: Scene save uses three owner publications, the scene-load policy bag and mixed editor hotkey context are deleted, and broad behavior passes without refresh. |
-| Current objective | Execute `concrete-parameter-bag-elimination` PB2: collapse the Runtime, editor, and mouse-pick pointer projection chain. |
-| Active/future progress | Concrete Parameter-Bag Elimination 2/8; active/future ledger 2/8 (25%). |
+| Current baseline | Concrete Parameter-Bag Elimination PB2 is complete: the Runtime/editor/mouse-pick pointer bags are deleted and concrete routing preserves exact arbitration order. |
+| Current objective | Execute `concrete-parameter-bag-elimination` PB3: remove render-frame, UI-text, Replay-overlay, and graph-callback payload bags. |
+| Active/future progress | Concrete Parameter-Bag Elimination 3/8; active/future ledger 3/8 (38%). |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | PB1 `validate_full.bat` passes in 173.3 s: mandatory CPU/coverage, Automation/replay, DX12, and byte-exact 44,401-line physics regression. |
-| Validation for current edits | PB1: 398 doctests / 2,403,462 assertions and final full gate pass; four retired symbols, changed threshold-13 operations, and introduced indirection scans are clean. |
+| Last broad local gate | PB2 `validate_full.bat` passes in 256.6 s: mandatory CPU/coverage, Automation/Replay, DX12 without refresh, and byte-exact 44,401-line physics regression. |
+| Validation for current edits | PB2: fast and full gates pass; three retired symbols, threshold-13, introduced indirection/allocation, and UI-to-Runtime scans are clean. |
 
 ## Live Queue
 
 NOW. The 2026-07-25 round-4 architecture campaign has one live plan:
-`concrete-parameter-bag-elimination` (2/8), so the ledger is 2/8 (25%). PB0
+`concrete-parameter-bag-elimination` (3/8), so the ledger is 3/8 (38%). PB0
 ratified all 22 registered rows, added eight repair rows, carried forward three
 13-parameter render/UI operations, and ruled every other reviewed hit. PB1
-then repaired Scene save/load and split editor save/capture authority; PB2 is
-next.
+then repaired Scene save/load and split editor save/capture authority. PB2
+deleted the pointer-routing projection chain while preserving exact editor,
+mouse-pick, camera, Replay, and launcher precedence; PB3 is next.
 
 Header Claim Staleness Remediation is complete at 3/3 and removed from the live
 inventory under rule 4. Permanent evidence is
@@ -55,7 +56,9 @@ PB0 permanent evidence is
 `Agentic/Reports/2026-07-26/concrete-parameter-bag-elimination-pb0-census.md`.
 PB1 permanent evidence is
 `Agentic/Reports/2026-07-26/concrete-parameter-bag-elimination-pb1-scene.md`.
-Implementation continues through the repository orchestrator skill with PB2
+PB2 permanent evidence is
+`Agentic/Reports/2026-07-26/concrete-parameter-bag-elimination-pb2-pointer-routing.md`.
+Implementation continues through the repository orchestrator skill with PB3
 next. Live plans are under
 `Agentic/Plans/TODO/`.
 
@@ -468,9 +471,9 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Execute `concrete-parameter-bag-elimination` PB2: delete
-`RuntimePointerRouteInput`, `EditorPointerRouteInput`, and
-`MousePickupPointerInput`; route focused gesture/ray/selection values directly
-while preserving editor, mouse-pick, Replay, launcher, UI-consumption, and
-camera precedence. Preserve the ban on retained host pointers, allocation,
-inheritance, interfaces, callbacks, and replacement union bags.
+Execute `concrete-parameter-bag-elimination` PB3: delete `RenderFrameContext`,
+`UiTextPassInputs`, `ReplayOverlayRenderContext`, `UiTextPassState`, and the
+PB0-named graph callback payload family; repair all three assigned
+13-parameter operations through concrete render phases while preserving pass
+order, resource lifetimes, overlay semantics, UI text, allocation behavior,
+and render fingerprints.

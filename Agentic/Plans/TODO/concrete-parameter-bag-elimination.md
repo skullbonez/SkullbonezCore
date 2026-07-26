@@ -2,7 +2,7 @@
 
 Date: 2026-07-26
 Owner: skullbonez
-State: IN PROGRESS (PB0-PB1 complete; PB2 next)
+State: IN PROGRESS (PB0-PB2 complete; PB3 next)
 Ledger tasks: 8 (PB0-PB7)
 Branch: `nightrunner-25th-JUL-26`
 
@@ -262,7 +262,7 @@ or type erasure is allowed.
   - permanent report:
     `../../Reports/2026-07-26/concrete-parameter-bag-elimination-pb1-scene.md`.
 
-- [ ] **PB2 - Collapse the pointer-routing projection chain.**
+- [x] **PB2 - Collapse the pointer-routing projection chain.**
 
   Delete the Runtime, Editor, and mouse-pick pointer bags. Route real gesture,
   ray, selection, and command values directly to their concrete owners while
@@ -275,6 +275,27 @@ or type erasure is allowed.
   - editor interaction, mouse pickup, Replay picking, and UI-consumption tests
     cover the unchanged precedence rules;
   - no inheritance, interface, callback, retained host pointer, or allocation.
+
+  Evidence:
+
+  - `RuntimePointerEvent` is the sole semantic pointer value and InputRouter
+    samples normal/clamped world rays once before any concrete owner mutates
+    state;
+  - editor preview/end-drag/begin/selection, mouse pickup, attached camera,
+    Replay, and launcher precedence is unchanged;
+  - the three retired symbols have zero definitions/usages and repaired
+    signatures are 10, 11, and 12 parameters;
+  - CodeGraph found no isolated orchestration test seam; the existing input,
+    interaction, Replay, Automation, and runtime suites cover the behavior
+    without introducing a test-only callback or replacement union bag;
+  - introduced inheritance/interface/callback/allocation and UI-to-Runtime
+    dependency scans return no rows;
+  - comment audit: 6/6 touched source files checked, 0 deferred;
+  - `validate_fast.bat`: PASS;
+  - `validate_full.bat`: PASS in 256.6 seconds with DX12 validation clean, no
+    baseline refresh, and the 44,401-line physics oracle byte-exact;
+  - permanent report:
+    `../../Reports/2026-07-26/concrete-parameter-bag-elimination-pb2-pointer-routing.md`.
 
 - [ ] **PB3 - Remove render-frame, UI-text, and Replay-overlay service bags.**
 

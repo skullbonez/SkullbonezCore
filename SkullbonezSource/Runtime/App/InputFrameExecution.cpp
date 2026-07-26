@@ -1177,37 +1177,15 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     const RuntimeInputSnapshot& inputSnapshot = m_inputRouter.PublishRuntimeSnapshot( frameInput,
                                                                                       suppressWorldActionThisFrame );
 
-    const DeviceInputFrame& pointerDevice = m_inputRouter.DeviceFrame();
-    RuntimePointerRouteInput pointerInput;
-    pointerInput.leftDown = mouseEdges.leftDown;
-    pointerInput.leftPressed = inputSnapshot.pointer.leftPressed;
-    pointerInput.leftReleased = mouseEdges.leftReleased;
-    pointerInput.suppressWorldAction = inputSnapshot.pointer.suppressWorldAction;
-    pointerInput.uiWantsNativeCursor = inputSnapshot.pointer.uiWantsNativeMouseCursor;
-    pointerInput.shiftDown = inputSnapshot.pointer.shiftDown;
-    pointerInput.controlDown = inputSnapshot.pointer.controlDown;
-    pointerInput.blocksCameraMouse = routedUiSnapshot.blocksCameraMouse;
-    pointerInput.hasClientPosition = pointerDevice.hasClientPosition;
-    pointerInput.replayInspectionActive = replayInput.inspectionActive;
-    pointerInput.clientX = pointerDevice.clientX;
-    pointerInput.clientY = pointerDevice.clientY;
-    pointerInput.activeModelCapacity = SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config );
-    pointerInput.cameraMode = m_camera.mode;
-    pointerInput.hasWorldRay = m_inputRouter.TryBuildWorldRay( m_sceneController.Scene().Cameras(),
-                                                               m_window,
-                                                               pointerInput.rayOrigin,
-                                                               pointerInput.rayDirection );
-
-    pointerInput.hasClampedWorldRay = m_inputRouter.TryBuildWorldRay( m_sceneController.Scene().Cameras(),
-                                                                      m_window,
-                                                                      pointerInput.clampedRayOrigin,
-                                                                      pointerInput.clampedRayDirection,
-                                                                      true );
-
-    pointerInput.cameraEye = m_sceneController.Scene().Cameras().GetCameraTranslation();
-    pointerInput.cameraView = m_sceneController.Scene().Cameras().GetCameraView();
+    // Invariant: InputRouter samples both world rays before the first domain
+    // owner can mutate selection, camera, or scene state. Consumers receive the
+    // existing semantic pointer value plus only their focused leaf operands.
     const RuntimePointerRouteResult pointerResult = m_inputRouter.RouteRuntimePointer(
-        pointerInput,
+        inputSnapshot.pointer,
+        m_camera.mode,
+        replayInput.inspectionActive,
+        SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ),
+        m_window,
         m_assets,
         interactionOwners,
         m_sceneController,

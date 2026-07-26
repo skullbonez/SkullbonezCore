@@ -53,30 +53,32 @@ using Math::Vector::VectorMagSquared;
 using Physics::PhysicsBodyRecord;
 using Physics::PhysicsBodyStore;
 
-MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const MousePickupPointerInput& input,
+MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const RuntimePointerEvent& pointer,
+                                                                bool hasWorldRay,
+                                                                const Vector3& rayOrigin,
+                                                                const Vector3& rayDirection,
+                                                                bool hasClampedWorldRay,
+                                                                const Vector3& clampedRayOrigin,
+                                                                const Vector3& clampedRayDirection,
+                                                                const Vector3& cameraEye,
+                                                                const Vector3& cameraView,
                                                                 const SceneWorld& world,
                                                                 InputRouter& inputRouter,
                                                                 RuntimeInteractionController& interaction )
 {
     MousePickupPointerResult routeResult;
-    if ( !input.manipulatorMode || input.editorMode || input.replayInspection )
-    {
-        CancelMousePickup( inputRouter, interaction );
-        return routeResult;
-    }
-
     const auto updatePickupTarget = [&]() -> bool
     {
         // Concept: Manipulator drag follows a camera-facing plane at the
         // captured grab depth. Rebuilding that plane from the current camera
         // lets forward/back camera movement change object depth without
         // introducing a mouse-driven depth jump.
-        if ( !input.hasClampedWorldRay )
+        if ( !hasClampedWorldRay )
         {
             return false;
         }
 
-        Vector3 cameraNormal = input.cameraView - input.cameraEye;
+        Vector3 cameraNormal = cameraView - cameraEye;
         const float normalLenSq = VectorMagSquared( cameraNormal );
         if ( normalLenSq <= TOLERANCE * TOLERANCE )
         {
@@ -86,28 +88,28 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const MousePicku
         cameraNormal *= 1.0f / sqrtf( normalLenSq );
 
         m_mousePickup.planeNormal = cameraNormal;
-        m_mousePickup.planePoint = input.cameraEye + cameraNormal * m_mousePickup.cameraPlaneDistance;
+        m_mousePickup.planePoint = cameraEye + cameraNormal * m_mousePickup.cameraPlaneDistance;
 
-        const float denom = input.clampedRayDirection * cameraNormal;
+        const float denom = clampedRayDirection * cameraNormal;
         if ( fabsf( denom ) <= 1.0e-5f )
         {
             return false;
         }
 
-        const float planeT = ( ( m_mousePickup.planePoint - input.clampedRayOrigin ) * cameraNormal ) / denom;
+        const float planeT = ( ( m_mousePickup.planePoint - clampedRayOrigin ) * cameraNormal ) / denom;
         if ( planeT < 0.0f )
         {
             return false;
         }
 
-        m_mousePickup.targetPoint = input.clampedRayOrigin + input.clampedRayDirection * planeT;
+        m_mousePickup.targetPoint = clampedRayOrigin + clampedRayDirection * planeT;
         return true;
     };
 
     if ( interaction.Gesture().kind == RuntimeInteractionGestureKind::MousePickupDrag )
     {
         routeResult.consumed = true;
-        if ( input.leftReleased || !input.leftDown )
+        if ( pointer.leftReleased || !pointer.leftDown )
         {
             CancelMousePickup( inputRouter, interaction );
             return routeResult;
@@ -117,19 +119,19 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const MousePicku
         return routeResult;
     }
 
-    if ( !input.leftPressed )
+    if ( !pointer.leftPressed )
     {
         return routeResult;
     }
 
-    if ( input.suppressWorldAction || input.uiWantsNativeCursor )
+    if ( pointer.suppressWorldAction || pointer.uiWantsNativeMouseCursor )
     {
         return routeResult;
     }
 
     routeResult.consumed = true;
 
-    if ( !input.hasWorldRay )
+    if ( !hasWorldRay )
     {
         return routeResult;
     }
@@ -138,8 +140,8 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const MousePicku
     request.purpose = RuntimePickPurpose::ManipulatorPickup;
     request.bodyStore = &world.BodyStore();
     request.colliderStore = &world.Colliders();
-    request.rayOrigin = input.rayOrigin;
-    request.rayDirection = input.rayDirection;
+    request.rayOrigin = rayOrigin;
+    request.rayDirection = rayDirection;
 
     RuntimePickResult result;
     if ( !RuntimePickService::TryPickModel( request, result ) )
@@ -155,7 +157,7 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const MousePicku
         return routeResult;
     }
 
-    Vector3 cameraNormal = input.cameraView - input.cameraEye;
+    Vector3 cameraNormal = cameraView - cameraEye;
     const float normalLenSq = VectorMagSquared( cameraNormal );
     if ( normalLenSq <= TOLERANCE * TOLERANCE )
     {
@@ -164,14 +166,14 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const MousePicku
 
     cameraNormal *= 1.0f / sqrtf( normalLenSq );
 
-    const Vector3 grabPoint = input.rayOrigin + input.rayDirection * result.rayT;
-    const float cameraPlaneDistance = ( grabPoint - input.cameraEye ) * cameraNormal;
+    const Vector3 grabPoint = rayOrigin + rayDirection * result.rayT;
+    const float cameraPlaneDistance = ( grabPoint - cameraEye ) * cameraNormal;
     if ( cameraPlaneDistance <= TOLERANCE )
     {
         return routeResult;
     }
 
-    if ( !input.hasClientPosition )
+    if ( !pointer.hasClientPosition )
     {
         routeResult.consumed = false;
         return routeResult;
@@ -180,8 +182,8 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const MousePicku
     RuntimeInteractionGesture gesture;
     gesture.kind = RuntimeInteractionGestureKind::MousePickupDrag;
     gesture.button = RuntimePointerButton::Left;
-    gesture.startX = input.clientX;
-    gesture.startY = input.clientY;
+    gesture.startX = pointer.clientX;
+    gesture.startY = pointer.clientY;
     gesture.body = result.body;
     RuntimeGestureCommand command;
     command.gesture = gesture;

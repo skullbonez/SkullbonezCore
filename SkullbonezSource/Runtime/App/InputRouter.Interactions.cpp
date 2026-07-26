@@ -15,11 +15,13 @@ Glossary:
     capture, applied after UI and interaction policy settle.
   Semantic action: Fixed ordered key-edge event routed without polling live
     hardware again later in the frame.
-  World ray: Camera-projected pointer direction consumed by editor tools after
-    UI has declined the gesture.
+  World ray: Camera-projected pointer direction sampled once before editor,
+    pickup, camera, Replay, or launcher owners can mutate scene state.
 
 Invariants:
   - Exactly one interaction owner receives a world gesture.
+  - World-click precedence is editor, mouse pickup, attached camera, Replay,
+    then launcher; a consumed gesture never reaches a later owner.
   - Focus loss cancels active gestures before releasing native capture.
   - InputRouter retains input policy state but never retains borrowed domain
     owners passed to routing operations.
@@ -64,6 +66,7 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::UI::Layout;
 using namespace SkullbonezCore::Runtime::RunInternal;
+using SkullbonezCore::Math::Vector::Vector3;
 
 
 void InputRouter::ApplyInteractionTransitionCleanup( const RuntimeInteractionTransition& transition,
@@ -232,7 +235,11 @@ void InputRouter::RecordModeAction( RuntimeFrameInteractionView& interactionOwne
 }
 
 
-RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointerRouteInput& input,
+RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointerEvent& pointer,
+                                                            RunCameraMode cameraMode,
+                                                            bool replayInspectionActive,
+                                                            int activeModelCapacity,
+                                                            const Window& window,
                                                             Assets::AssetSystem& assets,
                                                             RuntimeFrameInteractionView& interactionOwners,
                                                             SceneController& models,
@@ -249,6 +256,14 @@ RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointer
     Environment::CameraCollection& cameras = models.Scene().Cameras();
     const bool attachedCameraFollow = attachedCamera.State().activeFollow;
     const bool directorGrabbed = camera.director.grabbed;
+    Vector3 rayOrigin = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    Vector3 rayDirection = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    Vector3 clampedRayOrigin = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    Vector3 clampedRayDirection = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    const bool hasWorldRay = TryBuildWorldRay( cameras, window, rayOrigin, rayDirection );
+    const bool hasClampedWorldRay = TryBuildWorldRay( cameras, window, clampedRayOrigin, clampedRayDirection, true );
+    const Vector3 cameraEye = cameras.GetCameraTranslation();
+    const Vector3 cameraView = cameras.GetCameraView();
     RuntimePointerRouteResult result;
     auto appendModeAction = [&result]( RuntimeInputAction action )
     {
@@ -265,21 +280,16 @@ RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointer
         return result;
     }
 
-    const EditorPointerRouteResult editorResult = RouteEditorPointer( { input.leftDown,
-                                                                        input.leftPressed,
-                                                                        input.leftReleased,
-                                                                        input.suppressWorldAction,
-                                                                        input.blocksCameraMouse,
-                                                                        input.controlDown,
-                                                                        input.hasClientPosition,
-                                                                        input.hasWorldRay,
-                                                                        input.replayInspectionActive,
-                                                                        input.clientX,
-                                                                        input.clientY,
-                                                                        input.activeModelCapacity,
-                                                                        input.cameraMode,
-                                                                        input.rayOrigin,
-                                                                        input.rayDirection },
+    // Invariant: this order is the world-pointer arbitration contract. Each
+    // concrete owner sees the immutable pointer/ray values only when every
+    // earlier owner declined the gesture.
+    const EditorPointerRouteResult editorResult = RouteEditorPointer( pointer,
+                                                                      hasWorldRay,
+                                                                      rayOrigin,
+                                                                      rayDirection,
+                                                                      cameraMode,
+                                                                      replayInspectionActive,
+                                                                      activeModelCapacity,
                                                                       assets,
                                                                       runtimeTools,
                                                                       interaction,
@@ -315,46 +325,37 @@ RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointer
 
     if ( !consumed )
     {
-        MousePickupPointerInput pickupInput;
-        pickupInput.manipulatorMode = RunCameraModeIsManipulator( input.cameraMode );
-        pickupInput.editorMode = runtimeTools.Editor().editorModeEnabled;
-        pickupInput.replayInspection = input.replayInspectionActive;
-        pickupInput.suppressWorldAction = input.suppressWorldAction;
-        pickupInput.uiWantsNativeCursor = input.uiWantsNativeCursor;
-        pickupInput.leftPressed = input.leftPressed;
-        pickupInput.leftReleased = input.leftReleased;
-        pickupInput.leftDown = input.leftDown;
-        pickupInput.hasClientPosition = input.hasClientPosition;
-        pickupInput.clientX = input.clientX;
-        pickupInput.clientY = input.clientY;
-        pickupInput.cameraEye = input.cameraEye;
-        pickupInput.cameraView = input.cameraView;
-        if ( pickupInput.manipulatorMode && !pickupInput.editorMode && !pickupInput.replayInspection &&
-             ( interaction.Gesture().kind == RuntimeInteractionGestureKind::MousePickupDrag ||
-               pickupInput.leftPressed ) )
+        const bool pickupModeActive = RunCameraModeIsManipulator( cameraMode ) &&
+                                      !runtimeTools.Editor().editorModeEnabled && !replayInspectionActive;
+
+        if ( !pickupModeActive )
         {
-            pickupInput.hasWorldRay = input.hasWorldRay;
-            pickupInput.hasClampedWorldRay = input.hasClampedWorldRay;
-            pickupInput.rayOrigin = input.rayOrigin;
-            pickupInput.rayDirection = input.rayDirection;
-            pickupInput.clampedRayOrigin = input.clampedRayOrigin;
-            pickupInput.clampedRayDirection = input.clampedRayDirection;
+            runtimeTools.CancelMousePickup( *this, interaction );
         }
+        else if ( interaction.Gesture().kind == RuntimeInteractionGestureKind::MousePickupDrag || pointer.leftPressed )
+        {
+            const MousePickupPointerResult pickupResult = runtimeTools.RouteMousePickupPointer( pointer,
+                                                                                                hasWorldRay,
+                                                                                                rayOrigin,
+                                                                                                rayDirection,
+                                                                                                hasClampedWorldRay,
+                                                                                                clampedRayOrigin,
+                                                                                                clampedRayDirection,
+                                                                                                cameraEye,
+                                                                                                cameraView,
+                                                                                                models.Scene(),
+                                                                                                *this,
+                                                                                                interaction );
 
-        const MousePickupPointerResult pickupResult = runtimeTools.RouteMousePickupPointer( pickupInput,
-                                                                                            models.Scene(),
-                                                                                            *this,
-                                                                                            interaction );
-
-        result.enteredInteractiveScene |= pickupResult.enteredInteractive;
-        consumed = pickupResult.consumed;
+            result.enteredInteractiveScene |= pickupResult.enteredInteractive;
+            consumed = pickupResult.consumed;
+        }
     }
 
-    if ( !consumed && RunCameraModeIsAttached( input.cameraMode ) && input.leftPressed && !input.suppressWorldAction )
+    if ( !consumed && RunCameraModeIsAttached( cameraMode ) && pointer.leftPressed && !pointer.suppressWorldAction )
     {
         AttachedCameraTargetSelection selection;
-        if ( attachedCamera
-                 .PickTarget( models.Scene(), input.hasWorldRay, input.rayOrigin, input.rayDirection, selection ) )
+        if ( attachedCamera.PickTarget( models.Scene(), hasWorldRay, rayOrigin, rayDirection, selection ) )
         {
             RuntimeInteractionCommand command;
             command.type = RuntimeInteractionCommandType::SetEditorSelection;
@@ -375,40 +376,39 @@ RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointer
     if ( !consumed )
     {
         ReplayPathPickInput pickInput;
-        pickInput.hasWorldRay = input.leftPressed && input.hasWorldRay;
-        pickInput.rayOrigin = input.rayOrigin;
-        pickInput.rayDirection = input.rayDirection;
-        pickInput.additive = input.shiftDown;
-        pickInput.clearOnMiss = !input.shiftDown;
-        consumed = replayRuntime.RouteWorldPointer(
-            ReplayWorldPointerInput { input.leftPressed,
-                                      input.suppressWorldAction,
-                                      runtimeTools.Editor().editorModeEnabled,
-                                      input.controlDown,
-                                      RunCameraModeUsesLauncher( input.cameraMode ),
-                                      pickInput,
-                                      replayRestoreCameraMode,
-                                      attachedCameraFollow,
-                                      directorGrabbed },
-            entities,
-            models.Scene().BodyStore(),
-            models.Scene().Colliders(),
-            models.Scene().RenderPresentationRecords(),
-            &cameras,
-            terrain,
-            camera,
-            interaction,
-            *this );
+        pickInput.hasWorldRay = pointer.leftPressed && hasWorldRay;
+        pickInput.rayOrigin = rayOrigin;
+        pickInput.rayDirection = rayDirection;
+        pickInput.additive = pointer.shiftDown;
+        pickInput.clearOnMiss = !pointer.shiftDown;
+        consumed = replayRuntime.RouteWorldPointer( ReplayWorldPointerInput { pointer.leftPressed,
+                                                                              pointer.suppressWorldAction,
+                                                                              runtimeTools.Editor().editorModeEnabled,
+                                                                              pointer.controlDown,
+                                                                              RunCameraModeUsesLauncher( cameraMode ),
+                                                                              pickInput,
+                                                                              replayRestoreCameraMode,
+                                                                              attachedCameraFollow,
+                                                                              directorGrabbed },
+                                                    entities,
+                                                    models.Scene().BodyStore(),
+                                                    models.Scene().Colliders(),
+                                                    models.Scene().RenderPresentationRecords(),
+                                                    &cameras,
+                                                    terrain,
+                                                    camera,
+                                                    interaction,
+                                                    *this );
     }
 
     if ( !consumed )
     {
         const LauncherPointerResult launcherResult = runtimeTools.RouteLauncherPointer(
-            { RunCameraModeUsesLauncher( input.cameraMode ),
-              input.leftPressed,
-              input.suppressWorldAction,
-              input.uiWantsNativeCursor,
-              input.activeModelCapacity },
+            { RunCameraModeUsesLauncher( cameraMode ),
+              pointer.leftPressed,
+              pointer.suppressWorldAction,
+              pointer.uiWantsNativeMouseCursor,
+              activeModelCapacity },
             models.Scene(),
             scene );
 
