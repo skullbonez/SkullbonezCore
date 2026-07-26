@@ -1054,6 +1054,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneController.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneLoadTransaction.h">
+      <Filter>Header Files\Runtime\Scene</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneWorld.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>

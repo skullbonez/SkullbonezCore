@@ -29,6 +29,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SceneController.h"
+#include "SceneLoadTransaction.h"
 #include "../Automation/RuntimeValidationHarness.h"
 #include "../Tools/RuntimeTools.h"
 #include "SceneRuntimeCreate.h"
@@ -47,10 +48,10 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 
 
-bool SceneController::ExecutePending( const SceneLoadPolicyInputs& policy,
+bool SceneController::ExecutePending( SceneLoadTransaction& transaction,
+                                      const SceneLoadPolicyInputs& policy,
                                       const SceneLoadInteractionParticipants& interaction,
-                                      const SceneLoadPresentationParticipants& presentation,
-                                      SceneLoadConsumerOutputs& consumerOutputs )
+                                      const SceneLoadPresentationParticipants& presentation )
 {
     SceneRequestBatch completedRequests;
     SceneController& m_sceneController = *this;
@@ -61,7 +62,7 @@ bool SceneController::ExecutePending( const SceneLoadPolicyInputs& policy,
             return false;
         }
 
-        return m_sceneController.Load( request, policy, interaction, presentation, consumerOutputs ).ok;
+        return transaction.Load( m_sceneController, request, policy, interaction, presentation ).ok;
     };
 
     const SceneRequestBatch batch = m_sceneController.TakePendingRequests();
@@ -103,18 +104,16 @@ bool SceneController::ExecutePending( const SceneLoadPolicyInputs& policy,
             // Why: file creation can succeed before a later load phase fails.
             // The UI still needs to discover that durable authored file, while
             // replay records the create action only after the load completes.
-            consumerOutputs.refreshSceneBrowser = createRequest.accepted;
+            transaction.m_outputs.refreshSceneBrowser = createRequest.accepted;
             break;
         }
         case SceneRequestType::SaveCurrentDefaults:
         {
-            const OverlayDebugState& presentationState = ScenePresentationForFollowingRequest( presentation.debug,
-                                                                                               consumerOutputs,
-                                                                                               LifecyclePacket() );
+            const OverlayDebugState& presentationState = transaction.PresentationForFollowingRequest(
+                presentation.debug,
+                LifecyclePacket() );
 
-            const SceneLoadNavigationState& currentNavigation = SceneNavigationForFollowingRequest(
-                interaction.navigation,
-                consumerOutputs );
+            const SceneLoadNavigationState& currentNavigation = transaction.NavigationForFollowingRequest( interaction.navigation );
 
             const SkullbonezCore::Core::SbResult saveResult = m_sceneController.SaveCurrentDefaults(
                 SceneDefaultsSaveView { presentationState,
@@ -155,6 +154,7 @@ bool SceneController::ExecutePending( const SceneLoadPolicyInputs& policy,
         }
     }
 
-    consumerOutputs.completedRequests = completedRequests;
+    transaction.m_outputs.completedRequests = completedRequests;
+    transaction.FinishLoadPhase();
     return batch.count > 0;
 }

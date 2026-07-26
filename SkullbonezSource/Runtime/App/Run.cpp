@@ -38,6 +38,7 @@ Related:
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
 #include "../Scene/SceneRuntimeLoad.h"
+#include "../Scene/SceneLoadTransaction.h"
 #include "../Diagnostics/SceneMemoryDiagnostics.h"
 #include "../../Scene/SceneSnapshotWriter.h"
 #include "../../Core/FatalError.h"
@@ -612,33 +613,31 @@ void Run::Initialise()
                                                                     m_renderBackendView.renderResources,
                                                                     m_renderer };
 
-    SceneLoadConsumerOutputs sceneLoadOutputs;
-    m_lastSceneLoadResult = m_sceneController.Load( SceneLoadRequest::Load( 0, false, false, false ),
-                                                    sceneLoadPolicy,
-                                                    sceneLoadInteraction,
-                                                    sceneLoadPresentation,
-                                                    sceneLoadOutputs );
+    SceneLoadTransaction sceneLoad;
+    m_lastSceneLoadResult = sceneLoad.Load( m_sceneController,
+                                            SceneLoadRequest::Load( 0, false, false, false ),
+                                            sceneLoadPolicy,
+                                            sceneLoadInteraction,
+                                            sceneLoadPresentation );
 
-    ApplySceneLoadRuntimeReactions( sceneLoadOutputs,
-                                    m_launchOptions,
-                                    m_timers,
-                                    *m_overlayDiagnostics,
-                                    m_sceneController,
-                                    m_inputRouter,
-                                    m_interaction,
-                                    m_camera,
-                                    m_attachedCamera,
-                                    m_runtimeTools,
-                                    m_replayRuntime );
+    sceneLoad.ApplyRuntimeReactions( m_launchOptions,
+                                     m_timers,
+                                     *m_overlayDiagnostics,
+                                     m_sceneController,
+                                     m_inputRouter,
+                                     m_interaction,
+                                     m_camera,
+                                     m_attachedCamera,
+                                     m_runtimeTools,
+                                     m_replayRuntime );
 
-    ApplySceneLoadPresentationOutputs( sceneLoadOutputs,
-                                       m_window,
-                                       *m_operatorUi,
-                                       *m_validationHarness,
-                                       m_launchOptions,
-                                       m_renderBackendView.renderDevice,
-                                       m_renderer.VsyncEnabled(),
-                                       m_sceneController );
+    sceneLoad.ApplyPresentationOutputs( m_window,
+                                        *m_operatorUi,
+                                        *m_validationHarness,
+                                        m_launchOptions,
+                                        m_renderBackendView.renderDevice,
+                                        m_renderer.VsyncEnabled(),
+                                        m_sceneController );
 
     if ( !m_lastSceneLoadResult.ok )
     {
@@ -849,8 +848,9 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
 
     for ( int i = 1; i < sceneCount; ++i )
     {
-        SceneLoadConsumerOutputs sceneLoadOutputs;
-        const SkullbonezCore::Core::SbResult loadResult = m_sceneController.Load(
+        SceneLoadTransaction sceneLoad;
+        const SkullbonezCore::Core::SbResult loadResult = sceneLoad.Load(
+            m_sceneController,
             SceneLoadRequest::Load( i, false, false, false ),
             SceneLoadPolicyInputs { m_config,
                                     m_launchOptions,
@@ -866,29 +866,26 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
             SceneLoadPresentationParticipants { m_overlayDiagnostics->PresentationSnapshot(),
                                                 m_renderBackendView.renderFrame,
                                                 m_renderBackendView.renderResources,
-                                                m_renderer },
-            sceneLoadOutputs );
+                                                m_renderer } );
 
-        ApplySceneLoadRuntimeReactions( sceneLoadOutputs,
-                                        m_launchOptions,
-                                        m_timers,
-                                        *m_overlayDiagnostics,
-                                        m_sceneController,
-                                        m_inputRouter,
-                                        m_interaction,
-                                        m_camera,
-                                        m_attachedCamera,
-                                        m_runtimeTools,
-                                        m_replayRuntime );
+        sceneLoad.ApplyRuntimeReactions( m_launchOptions,
+                                         m_timers,
+                                         *m_overlayDiagnostics,
+                                         m_sceneController,
+                                         m_inputRouter,
+                                         m_interaction,
+                                         m_camera,
+                                         m_attachedCamera,
+                                         m_runtimeTools,
+                                         m_replayRuntime );
 
-        ApplySceneLoadPresentationOutputs( sceneLoadOutputs,
-                                           m_window,
-                                           *m_operatorUi,
-                                           *m_validationHarness,
-                                           m_launchOptions,
-                                           m_renderBackendView.renderDevice,
-                                           m_renderer.VsyncEnabled(),
-                                           m_sceneController );
+        sceneLoad.ApplyPresentationOutputs( m_window,
+                                            *m_operatorUi,
+                                            *m_validationHarness,
+                                            m_launchOptions,
+                                            m_renderBackendView.renderDevice,
+                                            m_renderer.VsyncEnabled(),
+                                            m_sceneController );
 
         if ( !loadResult.ok )
         {

@@ -43,6 +43,7 @@ Related:
 #include "../Interaction/RuntimeInteractionController.h"
 #include "../Interaction/OperatorCommandApplier.h"
 #include "../Scene/SceneController.h"
+#include "../Scene/SceneLoadTransaction.h"
 #include "../Scene/SceneRuntimeCoordinator.h"
 #include "../Scene/SceneRuntimeGeneratedControls.h"
 #include "../Scene/SceneRuntimeStyle.h"
@@ -1109,9 +1110,10 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
             return false;
         }
 
-        SceneLoadConsumerOutputs sceneLoadOutputs;
-        const bool loaded = sceneController
-                                .Load( request,
+        SceneLoadTransaction sceneLoad;
+        const bool loaded = sceneLoad
+                                .Load( sceneController,
+                                       request,
                                        SceneLoadPolicyInputs { config,
                                                                launchOptions,
                                                                defaultCinematicRender,
@@ -1127,39 +1129,34 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
                                        SceneLoadPresentationParticipants { sceneOwners.overlays.PresentationSnapshot(),
                                                                            renderBackendView.renderFrame,
                                                                            renderBackendView.renderResources,
-                                                                           renderer },
-                                       sceneLoadOutputs )
+                                                                           renderer } )
                                 .ok;
 
         if ( !legacyDevelopmentUiActive )
         {
             // Invariant: scene churn may update diagnostics and runtime state,
             // but it cannot reactivate the mutually exclusive Legacy surface.
-            sceneLoadOutputs.uiActivation.preserveUIState = true;
-            sceneLoadOutputs.uiActivation.forceVisible = false;
-            sceneLoadOutputs.uiActivation.forceUnminimized = false;
+            sceneLoad.PreserveInactiveDevelopmentUi();
         }
 
-        ApplySceneLoadRuntimeReactions( sceneLoadOutputs,
-                                        launchOptions,
-                                        timers,
-                                        sceneOwners.overlays,
-                                        sceneController,
-                                        inputRouter,
-                                        interaction,
-                                        camera,
-                                        attachedCamera,
-                                        runtimeTools,
-                                        replayRuntime );
+        sceneLoad.ApplyRuntimeReactions( launchOptions,
+                                         timers,
+                                         sceneOwners.overlays,
+                                         sceneController,
+                                         inputRouter,
+                                         interaction,
+                                         camera,
+                                         attachedCamera,
+                                         runtimeTools,
+                                         replayRuntime );
 
-        ApplySceneLoadPresentationOutputs( sceneLoadOutputs,
-                                           *window,
-                                           ui,
-                                           presentationOwners.validationHarness,
-                                           launchOptions,
-                                           renderBackendView.renderDevice,
-                                           renderer.VsyncEnabled(),
-                                           sceneController );
+        sceneLoad.ApplyPresentationOutputs( *window,
+                                            ui,
+                                            presentationOwners.validationHarness,
+                                            launchOptions,
+                                            renderBackendView.renderDevice,
+                                            renderer.VsyncEnabled(),
+                                            sceneController );
 
         return loaded;
     };

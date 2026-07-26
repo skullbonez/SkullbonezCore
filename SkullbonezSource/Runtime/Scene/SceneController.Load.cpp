@@ -4,10 +4,10 @@ Purpose:
   Loads, resets, and advances authored and generated scenes.
 
 Summary:
-  SceneController owns the cold load transaction and borrows only the owners
-  required while scene storage is changing. It returns detached values and a
-  lifecycle generation; composition then sequences idempotent reactions at the
-  excluded camera, input, interaction, tool, Replay, UI, and validation owners.
+  SceneController owns cold scene mutation and borrows only the owners required
+  while scene storage is changing. SceneLoadTransaction owns the phase cursor
+  and detached outputs, then sequences idempotent reactions at the excluded
+  camera, input, interaction, tool, Replay, UI, and validation owners.
 
 Glossary:
   CLI (Command-Line Interface): Text arguments or scripts used to launch
@@ -39,6 +39,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SceneController.h"
+#include "SceneLoadTransaction.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "../Automation/RuntimeValidationHarness.h"
 #include "../../Core/WindowConstants.h"
@@ -580,7 +581,7 @@ void ApplyTornadoDefaultsForActiveScene( TornadoFieldConfig& field,
 } // namespace
 
 
-void SceneLoadConsumerOutputs::ResetForLoad()
+void SceneLoadTransaction::Outputs::ResetForLoad()
 {
     uiActivation = SceneUiActivation {};
     automationGates.Reset();
@@ -596,18 +597,79 @@ void SceneLoadConsumerOutputs::ResetForLoad()
 }
 
 
-void SkullbonezCore::Runtime::ApplySceneLoadRuntimeReactions( SceneLoadConsumerOutputs& outputs,
-                                                              const RunLaunchOptions& launchOptions,
-                                                              RunTimerState& timers,
-                                                              RuntimeOverlayDiagnostics& overlays,
-                                                              SceneController& sceneController,
-                                                              InputRouter& inputRouter,
-                                                              RuntimeInteractionController& interaction,
-                                                              CameraControlState& camera,
-                                                              AttachedCameraController& attachedCamera,
-                                                              RuntimeTools& runtimeTools,
-                                                              ReplayRuntime& replayRuntime )
+void SceneLoadTransaction::AdvanceOrFatal( SceneLoadPhaseCursor::Phase next, const char* operation )
 {
+    const SceneLoadPhaseCursor::Phase current = m_phase.Current();
+    if ( !m_phase.TryAdvance( next ) )
+    {
+        // Lane F: accepting an out-of-order phase would expose partially
+        // updated scene owners or publish presentation before reactions.
+        SB_FATAL( "Runtime/SceneLoadTransaction",
+                  "Illegal phase transition. operation=%s current=%u next=%u",
+                  operation,
+                  static_cast<unsigned int>( current ),
+                  static_cast<unsigned int>( next ) );
+    }
+}
+
+
+void SceneLoadTransaction::FinishLoadPhase()
+{
+    if ( m_phase.Current() == SceneLoadPhaseCursor::Phase::Idle )
+    {
+        AdvanceOrFatal( SceneLoadPhaseCursor::Phase::Load, "FinishLoadPhase" );
+        return;
+    }
+
+    if ( m_phase.Current() != SceneLoadPhaseCursor::Phase::Load )
+    {
+        SB_FATAL( "Runtime/SceneLoadTransaction",
+                  "Load phase finished from an invalid phase. current=%u",
+                  static_cast<unsigned int>( m_phase.Current() ) );
+    }
+}
+
+
+SkullbonezCore::Core::SbResult SceneLoadTransaction::Load( SceneController& sceneController,
+                                                           const SceneLoadRequest& request,
+                                                           const SceneLoadPolicyInputs& policy,
+                                                           const SceneLoadInteractionParticipants& interaction,
+                                                           const SceneLoadPresentationParticipants& presentation )
+{
+    AdvanceOrFatal( SceneLoadPhaseCursor::Phase::Load, "Load" );
+    m_request = request;
+    return sceneController.Load( request, policy, interaction, presentation, *this );
+}
+
+
+void SceneLoadTransaction::PreserveInactiveDevelopmentUi()
+{
+    if ( m_phase.Current() != SceneLoadPhaseCursor::Phase::Load )
+    {
+        SB_FATAL( "Runtime/SceneLoadTransaction",
+                  "Development UI policy changed outside the load phase. current=%u",
+                  static_cast<unsigned int>( m_phase.Current() ) );
+    }
+
+    m_outputs.uiActivation.preserveUIState = true;
+    m_outputs.uiActivation.forceVisible = false;
+    m_outputs.uiActivation.forceUnminimized = false;
+}
+
+
+void SceneLoadTransaction::ApplyRuntimeReactions( const RunLaunchOptions& launchOptions,
+                                                  RunTimerState& timers,
+                                                  RuntimeOverlayDiagnostics& overlays,
+                                                  SceneController& sceneController,
+                                                  InputRouter& inputRouter,
+                                                  RuntimeInteractionController& interaction,
+                                                  CameraControlState& camera,
+                                                  AttachedCameraController& attachedCamera,
+                                                  RuntimeTools& runtimeTools,
+                                                  ReplayRuntime& replayRuntime )
+{
+    AdvanceOrFatal( SceneLoadPhaseCursor::Phase::RuntimeReactions, "ApplyRuntimeReactions" );
+    Outputs& outputs = m_outputs;
     // Lifetime: lifecycle identity stays owned by SceneController. Consumers
     // sample this reference synchronously and retain only their generation.
     const SceneLifecyclePacket& lifecycle = sceneController.LifecyclePacket();
@@ -733,18 +795,16 @@ void SkullbonezCore::Runtime::ApplySceneLoadRuntimeReactions( SceneLoadConsumerO
 }
 
 
-void SkullbonezCore::Runtime::ApplySceneLoadPresentationOutputs( SceneLoadConsumerOutputs& outputs,
-                                                                 Window& window,
-                                                                 UI::InGameUI& operatorUi,
-                                                                 RuntimeValidationHarness& validationHarness,
-                                                                 const RunLaunchOptions& launchOptions,
-                                                                 Rendering::Dx12RenderDevice* renderDevice,
-                                                                 bool rendererVsyncEnabled,
-                                                                 SceneController& sceneController )
+void SceneLoadTransaction::ApplyPresentationOutputs( Window& window,
+                                                     UI::InGameUI& operatorUi,
+                                                     RuntimeValidationHarness& validationHarness,
+                                                     const RunLaunchOptions& launchOptions,
+                                                     Rendering::Dx12RenderDevice* renderDevice,
+                                                     bool rendererVsyncEnabled,
+                                                     SceneController& sceneController )
 {
-    // Invariant: callers run ApplySceneLoadRuntimeReactions first, so external
-    // presentation cannot expose a lifecycle generation that runtime owners
-    // have not observed.
+    AdvanceOrFatal( SceneLoadPhaseCursor::Phase::Presentation, "ApplyPresentationOutputs" );
+    Outputs& outputs = m_outputs;
     const SceneLifecyclePacket& lifecycle = sceneController.LifecyclePacket();
     validationHarness.SceneGates().ObserveSceneLifecycle( lifecycle, std::move( outputs.automationGates ) );
     // Invariant: device swap policy commits only with a fully activated scene;
@@ -774,17 +834,19 @@ void SkullbonezCore::Runtime::ApplySceneLoadPresentationOutputs( SceneLoadConsum
 
     ApplySceneUiActivation( operatorUi, outputs.uiActivation );
     validationHarness.ObserveSceneLifecycle( lifecycle, launchOptions );
+    AdvanceOrFatal( SceneLoadPhaseCursor::Phase::Complete, "CompletePresentation" );
 }
 
 SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& request,
                                                       const SceneLoadPolicyInputs& policy,
                                                       const SceneLoadInteractionParticipants& interactionParticipants,
                                                       const SceneLoadPresentationParticipants& presentation,
-                                                      SceneLoadConsumerOutputs& consumerOutputs )
+                                                      SceneLoadTransaction& transaction )
 {
-    // Lifetime: these aliases make the long load transaction readable without
-    // recovering a retained context. They refer only to the four caller-owned
-    // phase values and die with this synchronous call.
+    SceneLoadTransaction::Outputs& consumerOutputs = transaction.m_outputs;
+    // Lifetime: these aliases make cold scene mutation readable without
+    // recovering a retained context. They refer only to synchronously borrowed
+    // phase inputs or transaction-owned outputs and die with this call.
     SkullbonezCore::Core::EngineConfig& config = policy.config;
     RunLaunchOptions& launchOptions = policy.launchOptions;
     const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender = policy.defaultCinematicRender;

@@ -60,6 +60,7 @@ Related:
 #include "../SkullbonezSource/Runtime/Replay/ReplayAuthoring.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneController.h"
+#include "../SkullbonezSource/Runtime/Scene/SceneLoadTransaction.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneRequestQueue.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneControllerState.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneRuntime.h"
@@ -68,6 +69,7 @@ Related:
 #include "../SkullbonezSource/UI/UICommands.h"
 #include "../SkullbonezSource/UI/UITabPhysics.h"
 
+#include <array>
 #include <cmath>
 #include <cstring>
 #include <filesystem>
@@ -159,8 +161,8 @@ TEST_CASE( "Runtime applies Physics-tab diagnostics and publishes matching detac
     commands.toggleCollisionVisualizer = true;
     commands.togglePhysicsDebugTransparent = true;
     commands.toggleBroadphaseOverlay = true;
-    const DiagnosticsPhysicsOverlayUICommandResult overlayResult =
-        ApplyDiagnosticsPhysicsOverlayUICommands( debug, commands );
+    const DiagnosticsPhysicsOverlayUICommandResult overlayResult = ApplyDiagnosticsPhysicsOverlayUICommands( debug,
+                                                                                                             commands );
     CHECK( overlayResult.toggledCollisionVisualizer );
     CHECK( overlayResult.toggledPhysicsDebugTransparent );
     CHECK( overlayResult.toggledBroadphaseOverlay );
@@ -187,8 +189,9 @@ TEST_CASE( "Runtime applies Physics-tab diagnostics and publishes matching detac
     commands = {};
     commands.requestedPhysicsDebugAlpha = 2.0f;
     commands.requestedPhysicsDebugContactLinger = 8.0f;
-    const DiagnosticsPhysicsDebugValueUICommandResult valueResult =
-        ApplyDiagnosticsPhysicsDebugValueUICommands( debug, commands );
+    const DiagnosticsPhysicsDebugValueUICommandResult valueResult = ApplyDiagnosticsPhysicsDebugValueUICommands(
+        debug,
+        commands );
     CHECK( valueResult.setAlpha );
     CHECK( valueResult.setContactLinger );
     status = BuildDiagnosticsPhysicsUIStatus( debug );
@@ -239,7 +242,7 @@ TEST_CASE( "Scene lifecycle accepts only ordered phases within one generation" )
 
 TEST_CASE( "Scene lifecycle generations publish failures and repeated scene loads exactly once" )
 {
-    SceneRuntime scene( std::vector<std::string>{ "alpha.scene.json" } );
+    SceneRuntime scene( std::vector<std::string> { "alpha.scene.json" } );
     SceneLifecycleGenerationObserver clearObserver;
     SceneLifecycleGenerationObserver activationObserver;
 
@@ -248,7 +251,7 @@ TEST_CASE( "Scene lifecycle generations publish failures and repeated scene load
     CHECK( scene.LifecyclePacket().generation == 0 );
     CHECK_FALSE( clearObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
 
-    const SceneLifecycleBeginPolicy policy{ true, false, true, true, true };
+    const SceneLifecycleBeginPolicy policy { true, false, true, true, true };
     scene.BeginLoadAttempt( 0, policy );
     scene.BeginLoad( 0 );
     CHECK( scene.LifecyclePacket().generation == 1 );
@@ -330,16 +333,48 @@ TEST_CASE( "Scene batch followers prefer presentation values emitted by a comple
 {
     OverlayDebugState submitted;
     submitted.physicsDebugAlpha = 0.25f;
-    SceneLoadConsumerOutputs outputs;
-    outputs.presentation.physicsDebugAlpha = 0.75f;
+    OverlayDebugState loaded;
+    loaded.physicsDebugAlpha = 0.75f;
     SceneLifecyclePacket lifecycle;
 
-    CHECK( ScenePresentationForFollowingRequest( submitted, outputs, lifecycle ).physicsDebugAlpha ==
+    CHECK( SceneLoadTransaction::SelectFollowingPresentation( submitted, loaded, lifecycle.event ).physicsDebugAlpha ==
            doctest::Approx( 0.25f ) );
     lifecycle.generation = 1;
     lifecycle.event = SceneRuntimeLifecycleEvent::AfterSceneCleared;
-    CHECK( ScenePresentationForFollowingRequest( submitted, outputs, lifecycle ).physicsDebugAlpha ==
+    CHECK( SceneLoadTransaction::SelectFollowingPresentation( submitted, loaded, lifecycle.event ).physicsDebugAlpha ==
            doctest::Approx( 0.75f ) );
+}
+
+TEST_CASE( "Scene load phase cursor accepts only the complete adjacent walk" )
+{
+    using Phase = SceneLoadPhaseCursor::Phase;
+    constexpr std::array phases { Phase::Idle,
+                                  Phase::Load,
+                                  Phase::RuntimeReactions,
+                                  Phase::Presentation,
+                                  Phase::Complete,
+                                  Phase::Count };
+
+    for ( std::size_t fromIndex = 0; fromIndex < phases.size(); ++fromIndex )
+    {
+        for ( std::size_t toIndex = 0; toIndex < phases.size(); ++toIndex )
+        {
+            const bool expected = fromIndex < 4 && toIndex == fromIndex + 1;
+            CHECK( SceneLoadPhaseCursor::IsLegalTransition( phases[fromIndex], phases[toIndex] ) == expected );
+        }
+    }
+
+    SceneLoadPhaseCursor cursor;
+    CHECK_FALSE( cursor.TryAdvance( Phase::Presentation ) );
+    CHECK( cursor.Current() == Phase::Idle );
+    CHECK( cursor.TryAdvance( Phase::Load ) );
+    CHECK( cursor.TryAdvance( Phase::RuntimeReactions ) );
+    CHECK_FALSE( cursor.TryAdvance( Phase::Complete ) );
+    CHECK( cursor.Current() == Phase::RuntimeReactions );
+    CHECK( cursor.TryAdvance( Phase::Presentation ) );
+    CHECK( cursor.TryAdvance( Phase::Complete ) );
+    CHECK_FALSE( cursor.TryAdvance( Phase::Idle ) );
+    CHECK( cursor.Current() == Phase::Complete );
 }
 
 TEST_CASE( "Scene navigation returns value-only accepted load decisions" )
@@ -370,7 +405,7 @@ TEST_CASE( "UI scene navigation owns browser queue and demo decisions" )
 {
     SkullbonezCore::UI::SceneNavigationModel navigation;
     navigation.browser.paths = { "SkullbonezData\\scenes\\alpha.scene.json", "SkullbonezData/scenes/beta.scene.json" };
-    SceneRuntime scene( std::vector<std::string>{ "SkullbonezData/scenes/alpha.scene.json" } );
+    SceneRuntime scene( std::vector<std::string> { "SkullbonezData/scenes/alpha.scene.json" } );
     scene.BeginLoad( 0 );
 
     const SceneLoadRequest current = LoadSceneFromBrowserIndex( navigation, 0, scene );
@@ -409,7 +444,7 @@ TEST_CASE( "Scene load navigation snapshot is detached from the UI owner" )
     CHECK( loadNavigation.overrides.timeScaleOverride == doctest::Approx( 0.5f ) );
     CHECK( loadNavigation.overrides.modelCountOverride == 24 );
 
-    SceneRuntime scene( std::vector<std::string>{ "alpha.scene.json" } );
+    SceneRuntime scene( std::vector<std::string> { "alpha.scene.json" } );
     scene.BeginLoad( 0 );
     const SceneLoadRequest request = loadNavigation.LoadSceneFromBrowserIndex( 1, scene );
     CHECK( request.HasLoad() );
@@ -431,7 +466,7 @@ TEST_CASE( "UI scene navigation cycles cinematic browser rows" )
                                  "ordinary_two.scene.json",
                                  "cinematic_two.scene.json" };
     navigation.browser.selectedCineModeSceneIndex = 1;
-    SceneRuntime scene( std::vector<std::string>{ "ordinary.scene.json" } );
+    SceneRuntime scene( std::vector<std::string> { "ordinary.scene.json" } );
     scene.BeginLoad( 0 );
 
     CHECK( AdjacentCinematicModeBrowserIndex( navigation, 1, 0, false ) == 3 );
@@ -601,14 +636,15 @@ TEST_CASE( "Scene request execution saves navigation committed by an earlier loa
     submitted.overrides.timeScaleOverride = 2.0f;
     submitted.overrides.modelCountOverride = 80;
 
-    SceneLoadConsumerOutputs outputs;
-    outputs.navigation.overrides.timeScaleOverride = 0.5f;
-    outputs.navigation.overrides.modelCountOverride = 24;
-    CHECK( &SceneNavigationForFollowingRequest( submitted, outputs ) == &submitted );
+    SceneLoadNavigationState loaded;
+    loaded.overrides.timeScaleOverride = 0.5f;
+    loaded.overrides.modelCountOverride = 24;
+    CHECK( &SceneLoadTransaction::SelectFollowingNavigation( submitted, loaded, false ) == &submitted );
 
-    outputs.applyNavigation = true;
-    const SceneLoadNavigationState& committed = SceneNavigationForFollowingRequest( submitted, outputs );
-    CHECK( &committed == &outputs.navigation );
+    const SceneLoadNavigationState& committed = SceneLoadTransaction::SelectFollowingNavigation( submitted,
+                                                                                                 loaded,
+                                                                                                 true );
+    CHECK( &committed == &loaded );
     CHECK( committed.overrides.timeScaleOverride == doctest::Approx( 0.5f ) );
     CHECK( committed.overrides.modelCountOverride == 24 );
 }
@@ -640,9 +676,9 @@ TEST_CASE( "RenderDefaultsStore excludes failed writes from accepted events" )
 
     RenderDefaultsStore store;
     store.SubmitOrdinarySave();
-    const RenderDefaultsSaveBatchResult result =
-        store.DrainAtFrameCheckpoint( SkullbonezCore::Core::OrdinaryRenderConfig{},
-                                      SkullbonezCore::Core::CinematicRenderConfig{} );
+    const RenderDefaultsSaveBatchResult result = store.DrainAtFrameCheckpoint(
+        SkullbonezCore::Core::OrdinaryRenderConfig {},
+        SkullbonezCore::Core::CinematicRenderConfig {} );
 
     fs::current_path( originalPath, filesystemError );
     CHECK_FALSE( filesystemError );
@@ -750,9 +786,9 @@ TEST_CASE( "RenderDefaultsStore legacy writers remove retired config rows" )
 
         fs::current_path( testRoot, filesystemError );
         REQUIRE_FALSE( filesystemError );
-        const RenderDefaultsSaveBatchResult result =
-            store.DrainAtFrameCheckpoint( SkullbonezCore::Core::OrdinaryRenderConfig{},
-                                          SkullbonezCore::Core::CinematicRenderConfig{} );
+        const RenderDefaultsSaveBatchResult result = store.DrainAtFrameCheckpoint(
+            SkullbonezCore::Core::OrdinaryRenderConfig {},
+            SkullbonezCore::Core::CinematicRenderConfig {} );
         fs::current_path( originalPath, filesystemError );
         REQUIRE_FALSE( filesystemError );
 
@@ -800,9 +836,9 @@ TEST_CASE( "RenderDefaultsStore rejects future config without rewriting bytes" )
     store.SubmitOrdinarySave();
     fs::current_path( testRoot, filesystemError );
     REQUIRE_FALSE( filesystemError );
-    const RenderDefaultsSaveBatchResult result =
-        store.DrainAtFrameCheckpoint( SkullbonezCore::Core::OrdinaryRenderConfig{},
-                                      SkullbonezCore::Core::CinematicRenderConfig{} );
+    const RenderDefaultsSaveBatchResult result = store.DrainAtFrameCheckpoint(
+        SkullbonezCore::Core::OrdinaryRenderConfig {},
+        SkullbonezCore::Core::CinematicRenderConfig {} );
     fs::current_path( originalPath, filesystemError );
     REQUIRE_FALSE( filesystemError );
 
@@ -996,32 +1032,32 @@ TEST_CASE( "Operator editor world previews stay local and commits project to est
 
     OperatorEditorCommandQueues commits;
     for ( const OperatorEditorPropertyCommand& command :
-          { OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetTimeScale, 0.75f },
-            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::ToggleFixedStep },
-            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetModelCount, 0.0f, 120 },
-            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetSeed, 0.0f, 42 },
-            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetSolverBallCount, 0.0f, 70 },
-            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetSolverBoxCount, 0.0f, 50 },
-            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetWorldGravity, -12.0f },
-            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetWorldFluidHeight, 8.0f },
-            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetWorldFluidDensity, 1.2f },
-            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::TogglePhysicsSleepPolicy },
-            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetTerrainFriction, 0.8f },
-            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetObjectFriction, 0.6f },
-            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetRollingFriction, 0.04f },
-            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::ToggleTornado },
-            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetTornadoRadius, 140.0f },
-            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetTornadoHeight, 180.0f },
-            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetTornadoInward, 90.0f },
-            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetTornadoSwirl, 130.0f },
-            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetTornadoLift, 65.0f } } )
+          { OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::SetTimeScale, 0.75f },
+            OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::ToggleFixedStep },
+            OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::SetModelCount, 0.0f, 120 },
+            OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::SetSeed, 0.0f, 42 },
+            OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::SetSolverBallCount, 0.0f, 70 },
+            OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::SetSolverBoxCount, 0.0f, 50 },
+            OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::SetWorldGravity, -12.0f },
+            OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::SetWorldFluidHeight, 8.0f },
+            OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::SetWorldFluidDensity, 1.2f },
+            OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::TogglePhysicsSleepPolicy },
+            OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::SetTerrainFriction, 0.8f },
+            OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::SetObjectFriction, 0.6f },
+            OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::SetRollingFriction, 0.04f },
+            OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::ToggleTornado },
+            OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::SetTornadoRadius, 140.0f },
+            OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::SetTornadoHeight, 180.0f },
+            OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::SetTornadoInward, 90.0f },
+            OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::SetTornadoSwirl, 130.0f },
+            OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::SetTornadoLift, 65.0f } } )
     {
         REQUIRE( SubmitOperatorEditorCommand( commits.property, command ).ok );
     }
     REQUIRE( commits.property.count == 19u );
     REQUIRE(
         SubmitOperatorEditorCommand( commits.scene,
-                                     OperatorEditorSceneCommand{ OperatorEditorSceneCommandType::RequestDemoScene } )
+                                     OperatorEditorSceneCommand { OperatorEditorSceneCommandType::RequestDemoScene } )
             .ok );
 
     InGameUICommands projected;
@@ -1093,8 +1129,8 @@ TEST_CASE( "Operator editor world previews stay local and commits project to est
     CHECK_FALSE( legacy.water.requestWorldFluidHeight );
     CHECK_FALSE( legacy.physics.toggleTornado );
     CHECK( legacy.operatorEditor.property.count == 19u );
-    const OperatorEditorArbitrationResult arbitration =
-        ArbitrateOperatorEditorCommands( legacy.operatorEditor, commits );
+    const OperatorEditorArbitrationResult arbitration = ArbitrateOperatorEditorCommands( legacy.operatorEditor,
+                                                                                         commits );
     REQUIRE( arbitration.status.ok );
     CHECK( arbitration.acceptedLegacyCommands == 20u );
     CHECK( arbitration.acceptedSecondaryCommands == 0u );
@@ -1103,7 +1139,7 @@ TEST_CASE( "Operator editor world previews stay local and commits project to est
     OperatorEditorPropertyCommandQueue invalid;
     CHECK_FALSE( SubmitOperatorEditorCommand(
                      invalid,
-                     OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetSeed, 0.0f, 0 } )
+                     OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::SetSeed, 0.0f, 0 } )
                      .ok );
 }
 
@@ -1269,26 +1305,26 @@ TEST_CASE( "Operator editor scene hierarchy and asset intents project through ty
     REQUIRE( SubmitOperatorEditorCommand( secondary.scene, create ).ok );
     REQUIRE( SubmitOperatorEditorCommand(
                  secondary.scene,
-                 OperatorEditorSceneCommand{ OperatorEditorSceneCommandType::SetCurrentSceneIndex, 4 } )
+                 OperatorEditorSceneCommand { OperatorEditorSceneCommandType::SetCurrentSceneIndex, 4 } )
                  .ok );
     REQUIRE(
         SubmitOperatorEditorCommand( secondary.scene,
-                                     OperatorEditorSceneCommand{ OperatorEditorSceneCommandType::SaveCurrentScene } )
+                                     OperatorEditorSceneCommand { OperatorEditorSceneCommandType::SaveCurrentScene } )
             .ok );
     REQUIRE(
         SubmitOperatorEditorCommand( secondary.scene,
-                                     OperatorEditorSceneCommand{ OperatorEditorSceneCommandType::ResetSceneDefaults } )
+                                     OperatorEditorSceneCommand { OperatorEditorSceneCommandType::ResetSceneDefaults } )
             .ok );
 
     for ( const OperatorEditorToolCommand& command :
-          { OperatorEditorToolCommand{ OperatorEditorToolCommandType::SelectSceneObject, 91u },
-            OperatorEditorToolCommand{ OperatorEditorToolCommandType::SetEntityVisible, 91u, 0, false },
-            OperatorEditorToolCommand{ OperatorEditorToolCommandType::SetEntityLocked, 91u, 0, true },
-            OperatorEditorToolCommand{ OperatorEditorToolCommandType::SetPlacementObjectType, 0u, 30 },
-            OperatorEditorToolCommand{ OperatorEditorToolCommandType::SetPlaceStatic, 0u, 0, true },
-            OperatorEditorToolCommand{ OperatorEditorToolCommandType::ToggleTerrainAlign },
-            OperatorEditorToolCommand{ OperatorEditorToolCommandType::DuplicateSelection },
-            OperatorEditorToolCommand{ OperatorEditorToolCommandType::DeleteSelection } } )
+          { OperatorEditorToolCommand { OperatorEditorToolCommandType::SelectSceneObject, 91u },
+            OperatorEditorToolCommand { OperatorEditorToolCommandType::SetEntityVisible, 91u, 0, false },
+            OperatorEditorToolCommand { OperatorEditorToolCommandType::SetEntityLocked, 91u, 0, true },
+            OperatorEditorToolCommand { OperatorEditorToolCommandType::SetPlacementObjectType, 0u, 30 },
+            OperatorEditorToolCommand { OperatorEditorToolCommandType::SetPlaceStatic, 0u, 0, true },
+            OperatorEditorToolCommand { OperatorEditorToolCommandType::ToggleTerrainAlign },
+            OperatorEditorToolCommand { OperatorEditorToolCommandType::DuplicateSelection },
+            OperatorEditorToolCommand { OperatorEditorToolCommandType::DeleteSelection } } )
     {
         REQUIRE( SubmitOperatorEditorCommand( secondary.tools, command ).ok );
     }
@@ -1317,13 +1353,13 @@ TEST_CASE( "Operator editor scene hierarchy and asset intents project through ty
     CHECK( projected.editor.requestDeleteSelection );
 
     OperatorEditorToolCommandQueue malformed;
-    CHECK_FALSE(
-        SubmitOperatorEditorCommand( malformed,
-                                     OperatorEditorToolCommand{ OperatorEditorToolCommandType::SelectSceneObject, 0u } )
-            .ok );
     CHECK_FALSE( SubmitOperatorEditorCommand(
                      malformed,
-                     OperatorEditorToolCommand{ OperatorEditorToolCommandType::SetPlacementObjectType, 0u, 37 } )
+                     OperatorEditorToolCommand { OperatorEditorToolCommandType::SelectSceneObject, 0u } )
+                     .ok );
+    CHECK_FALSE( SubmitOperatorEditorCommand(
+                     malformed,
+                     OperatorEditorToolCommand { OperatorEditorToolCommandType::SetPlacementObjectType, 0u, 37 } )
                      .ok );
 }
 
@@ -1348,7 +1384,7 @@ TEST_CASE( "Operator editor tool commands coalesce and project into established 
                                                        OperatorEditorToolCommandType::ToggleCrossScenePause,
                                                        OperatorEditorToolCommandType::StepPausedScene } )
     {
-        REQUIRE( SubmitOperatorEditorCommand( secondary.tools, OperatorEditorToolCommand{ type } ).ok );
+        REQUIRE( SubmitOperatorEditorCommand( secondary.tools, OperatorEditorToolCommand { type } ).ok );
     }
 
     const OperatorEditorArbitrationResult merged = ArbitrateOperatorEditorCommands( legacy.operatorEditor, secondary );
@@ -1367,7 +1403,7 @@ TEST_CASE( "Operator editor tool commands coalesce and project into established 
     OperatorEditorToolCommandQueue malformed;
     CHECK_FALSE(
         SubmitOperatorEditorCommand( malformed,
-                                     OperatorEditorToolCommand{ static_cast<OperatorEditorToolCommandType>( 255 ) } )
+                                     OperatorEditorToolCommand { static_cast<OperatorEditorToolCommandType>( 255 ) } )
             .ok );
     CHECK( malformed.count == 0u );
 }
@@ -1405,8 +1441,8 @@ TEST_CASE( "Editor preferences round trip and recover stale layout identity" )
 
     ImGuiEditorPreferences preferences;
     preferences.topologyFingerprint = FingerprintImGuiEditorDefaultTopology();
-    preferences.panelVisibilityMask =
-        IMGUI_EDITOR_DEFAULT_PANEL_MASK & ~ImGuiEditorPanelBit( ImGuiEditorPanelId::Diagnostics );
+    preferences.panelVisibilityMask = IMGUI_EDITOR_DEFAULT_PANEL_MASK &
+                                      ~ImGuiEditorPanelBit( ImGuiEditorPanelId::Diagnostics );
     strcpy_s( preferences.sceneFilter, "stack" );
     strcpy_s( preferences.hierarchyFilter, "crate" );
     strcpy_s( preferences.assetFilter, "terrain" );
@@ -1423,8 +1459,8 @@ TEST_CASE( "Editor preferences round trip and recover stale layout identity" )
     CHECK( std::strcmp( roundTrip.preferences.hierarchyFilter, "crate" ) == 0 );
     CHECK( std::strcmp( roundTrip.preferences.assetFilter, "terrain" ) == 0 );
 
-    constexpr const char* stale =
-        "schema=1\nlayout=1\ntopology=17\npanels=0\nscene_filter=keep\nhierarchy_filter=bounded\nasset_filter=text\n";
+    constexpr const char* stale = "schema=1\nlayout=1\ntopology=17\npanels=0\nscene_filter=keep\nhierarchy_filter="
+                                  "bounded\nasset_filter=text\n";
     const ImGuiEditorPreferenceParseResult migrated = ParseImGuiEditorPreferences( stale, std::strlen( stale ) );
     REQUIRE( migrated.valid );
     CHECK( migrated.layoutResetRequired );
@@ -1435,8 +1471,8 @@ TEST_CASE( "Editor preferences round trip and recover stale layout identity" )
     CHECK( std::strcmp( migrated.preferences.sceneFilter, "keep" ) == 0 );
 
     constexpr const char* malformed = "schema=1\nlayout=2\ntopology=not-a-number\npanels=4294967295\n";
-    const ImGuiEditorPreferenceParseResult recovered =
-        ParseImGuiEditorPreferences( malformed, std::strlen( malformed ) );
+    const ImGuiEditorPreferenceParseResult recovered = ParseImGuiEditorPreferences( malformed,
+                                                                                    std::strlen( malformed ) );
     CHECK_FALSE( recovered.valid );
     CHECK( recovered.layoutResetRequired );
     CHECK( recovered.recoveredDefaults );
@@ -1465,7 +1501,7 @@ TEST_CASE( "Compact causality projection is bounded and exposes explicit edge st
     RunReplayCauseTreeState tree;
     ReplayRecorderStats solverStats;
     ReplayOverlayStateView
-        replay{ scrubber, prediction, intercept, porkchop, planner, path, velocity, tree, solverStats };
+        replay { scrubber, prediction, intercept, porkchop, planner, path, velocity, tree, solverStats };
 
     ImGuiEditorCausalityContext context = BuildImGuiEditorCausalityContext( replay );
     CHECK( context.state == ImGuiEditorCausalityState::Empty );
@@ -1534,8 +1570,8 @@ TEST_CASE( "Compact causality projection is bounded and exposes explicit edge st
 TEST_CASE( "Game viewport policy letterboxes and maps physical client pixels" )
 {
     using namespace SkullbonezCore::Runtime::DevelopmentTools;
-    const ImGuiGameViewportRect widePane =
-        ResolveImGuiGameViewportRect( 100.0f, 50.0f, 1000.0f, 500.0f, 800, 600, 1.5f );
+    const ImGuiGameViewportRect
+        widePane = ResolveImGuiGameViewportRect( 100.0f, 50.0f, 1000.0f, 500.0f, 800, 600, 1.5f );
     REQUIRE( widePane.valid );
     CHECK( widePane.letterboxed );
     CHECK( widePane.imageMinX == doctest::Approx( 266.6667f ) );
@@ -1553,8 +1589,8 @@ TEST_CASE( "Game viewport policy letterboxes and maps physical client pixels" )
     CHECK( sourceX == 0 );
     CHECK( sourceY == 0 );
 
-    const ImGuiGameViewportRect tallPane =
-        ResolveImGuiGameViewportRect( 10.0f, 20.0f, 500.0f, 900.0f, 1920, 1080, 2.0f );
+    const ImGuiGameViewportRect
+        tallPane = ResolveImGuiGameViewportRect( 10.0f, 20.0f, 500.0f, 900.0f, 1920, 1080, 2.0f );
     REQUIRE( tallPane.valid );
     CHECK( tallPane.letterboxed );
     CHECK( tallPane.imageMinX == doctest::Approx( 10.0f ) );

@@ -64,6 +64,7 @@ Related:
 #include "../Interaction/OperatorCommandApplier.h"
 #include "../Scene/SceneRuntimeGeneratedControls.h"
 #include "../Scene/SceneRuntimeLoad.h"
+#include "../Scene/SceneLoadTransaction.h"
 #include "../Scene/SceneRuntimeStyle.h"
 #include "../Scene/SceneController.h"
 #include "../../Core/Log.h"
@@ -469,9 +470,10 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         }
 
         presentationEdit.Commit();
-        SceneLoadConsumerOutputs sceneLoadOutputs;
-        const bool loaded = m_sceneController
-                                .Load( request,
+        SceneLoadTransaction sceneLoad;
+        const bool loaded = sceneLoad
+                                .Load( m_sceneController,
+                                       request,
                                        SceneLoadPolicyInputs { m_config,
                                                                m_launchOptions,
                                                                m_renderDefaults.CinematicBaseline(),
@@ -488,30 +490,27 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                        SceneLoadPresentationParticipants { m_debug,
                                                                            m_renderBackendView.renderFrame,
                                                                            m_renderBackendView.renderResources,
-                                                                           m_renderer },
-                                       sceneLoadOutputs )
+                                                                           m_renderer } )
                                 .ok;
 
-        ApplySceneLoadRuntimeReactions( sceneLoadOutputs,
-                                        m_launchOptions,
-                                        m_timers,
-                                        sceneOwners.overlays,
-                                        m_sceneController,
-                                        m_inputRouter,
-                                        m_interaction,
-                                        m_camera,
-                                        m_attachedCamera,
-                                        m_runtimeTools,
-                                        m_replayRuntime );
+        sceneLoad.ApplyRuntimeReactions( m_launchOptions,
+                                         m_timers,
+                                         sceneOwners.overlays,
+                                         m_sceneController,
+                                         m_inputRouter,
+                                         m_interaction,
+                                         m_camera,
+                                         m_attachedCamera,
+                                         m_runtimeTools,
+                                         m_replayRuntime );
 
-        ApplySceneLoadPresentationOutputs( sceneLoadOutputs,
-                                           m_window,
-                                           interactionOwners.operatorUi,
-                                           m_validationHarness,
-                                           m_launchOptions,
-                                           m_renderBackendView.renderDevice,
-                                           m_renderer.VsyncEnabled(),
-                                           m_sceneController );
+        sceneLoad.ApplyPresentationOutputs( m_window,
+                                            interactionOwners.operatorUi,
+                                            m_validationHarness,
+                                            m_launchOptions,
+                                            m_renderBackendView.renderDevice,
+                                            m_renderer.VsyncEnabled(),
+                                            m_sceneController );
 
         presentationEdit.Refresh();
         return loaded;
@@ -1307,32 +1306,30 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                                                     m_renderBackendView.renderResources,
                                                                     m_renderer };
 
-    SceneLoadConsumerOutputs sceneLoadOutputs;
-    const bool processedScene = m_sceneController.ExecutePending( sceneLoadPolicy,
+    SceneLoadTransaction sceneLoad;
+    const bool processedScene = m_sceneController.ExecutePending( sceneLoad,
+                                                                  sceneLoadPolicy,
                                                                   sceneLoadInteraction,
-                                                                  sceneLoadPresentation,
-                                                                  sceneLoadOutputs );
+                                                                  sceneLoadPresentation );
 
-    ApplySceneLoadRuntimeReactions( sceneLoadOutputs,
-                                    m_launchOptions,
-                                    m_timers,
-                                    sceneOwners.overlays,
-                                    m_sceneController,
-                                    m_inputRouter,
-                                    m_interaction,
-                                    m_camera,
-                                    m_attachedCamera,
-                                    m_runtimeTools,
-                                    m_replayRuntime );
+    sceneLoad.ApplyRuntimeReactions( m_launchOptions,
+                                     m_timers,
+                                     sceneOwners.overlays,
+                                     m_sceneController,
+                                     m_inputRouter,
+                                     m_interaction,
+                                     m_camera,
+                                     m_attachedCamera,
+                                     m_runtimeTools,
+                                     m_replayRuntime );
 
-    ApplySceneLoadPresentationOutputs( sceneLoadOutputs,
-                                       m_window,
-                                       interactionOwners.operatorUi,
-                                       m_validationHarness,
-                                       m_launchOptions,
-                                       m_renderBackendView.renderDevice,
-                                       m_renderer.VsyncEnabled(),
-                                       m_sceneController );
+    sceneLoad.ApplyPresentationOutputs( m_window,
+                                        interactionOwners.operatorUi,
+                                        m_validationHarness,
+                                        m_launchOptions,
+                                        m_renderBackendView.renderDevice,
+                                        m_renderer.VsyncEnabled(),
+                                        m_sceneController );
 
     presentationEdit.Refresh();
     if ( processedCapture || processedDefaults || processedScene )

@@ -72,6 +72,7 @@ Related:
 #include "../Planning/ReplayOverlayPackets.h"
 #include "../Direction/DemoDirectorPlayback.h"
 #include "../Scene/SceneRuntimeLoad.h"
+#include "../Scene/SceneLoadTransaction.h"
 
 #include "../Capture/CaptureSystem.h"
 #include "../Editor/EditorTools.h"
@@ -1192,9 +1193,10 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
         bool advanced = false;
         if ( request.HasLoad() )
         {
-            SceneLoadConsumerOutputs sceneLoadOutputs;
-            advanced = m_sceneController
-                           .Load( request,
+            SceneLoadTransaction sceneLoad;
+            advanced = sceneLoad
+                           .Load( m_sceneController,
+                                  request,
                                   SceneLoadPolicyInputs { m_config,
                                                           m_launchOptions,
                                                           m_renderDefaults.CinematicBaseline(),
@@ -1210,30 +1212,27 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
                                   SceneLoadPresentationParticipants { m_overlayDiagnostics->PresentationSnapshot(),
                                                                       m_renderBackendView.renderFrame,
                                                                       m_renderBackendView.renderResources,
-                                                                      m_renderer },
-                                  sceneLoadOutputs )
+                                                                      m_renderer } )
                            .ok;
 
-            ApplySceneLoadRuntimeReactions( sceneLoadOutputs,
-                                            m_launchOptions,
-                                            m_timers,
-                                            *m_overlayDiagnostics,
-                                            m_sceneController,
-                                            m_inputRouter,
-                                            m_interaction,
-                                            m_camera,
-                                            m_attachedCamera,
-                                            m_runtimeTools,
-                                            m_replayRuntime );
+            sceneLoad.ApplyRuntimeReactions( m_launchOptions,
+                                             m_timers,
+                                             *m_overlayDiagnostics,
+                                             m_sceneController,
+                                             m_inputRouter,
+                                             m_interaction,
+                                             m_camera,
+                                             m_attachedCamera,
+                                             m_runtimeTools,
+                                             m_replayRuntime );
 
-            ApplySceneLoadPresentationOutputs( sceneLoadOutputs,
-                                               m_window,
-                                               *m_operatorUi,
-                                               *m_validationHarness,
-                                               m_launchOptions,
-                                               m_renderBackendView.renderDevice,
-                                               m_renderer.VsyncEnabled(),
-                                               m_sceneController );
+            sceneLoad.ApplyPresentationOutputs( m_window,
+                                                *m_operatorUi,
+                                                *m_validationHarness,
+                                                m_launchOptions,
+                                                m_renderBackendView.renderDevice,
+                                                m_renderer.VsyncEnabled(),
+                                                m_sceneController );
         }
 
         if ( !advanced )
@@ -1347,9 +1346,10 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
     bool loadSucceeded = true;
     if ( result.loadRequest.HasLoad() )
     {
-        SceneLoadConsumerOutputs sceneLoadOutputs;
-        loadSucceeded = m_sceneController
-                            .Load( result.loadRequest,
+        SceneLoadTransaction sceneLoad;
+        loadSucceeded = sceneLoad
+                            .Load( m_sceneController,
+                                   result.loadRequest,
                                    SceneLoadPolicyInputs { m_config,
                                                            m_launchOptions,
                                                            m_renderDefaults.CinematicBaseline(),
@@ -1365,30 +1365,27 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
                                    SceneLoadPresentationParticipants { m_overlayDiagnostics->PresentationSnapshot(),
                                                                        m_renderBackendView.renderFrame,
                                                                        m_renderBackendView.renderResources,
-                                                                       m_renderer },
-                                   sceneLoadOutputs )
+                                                                       m_renderer } )
                             .ok;
 
-        ApplySceneLoadRuntimeReactions( sceneLoadOutputs,
-                                        m_launchOptions,
-                                        m_timers,
-                                        *m_overlayDiagnostics,
-                                        m_sceneController,
-                                        m_inputRouter,
-                                        m_interaction,
-                                        m_camera,
-                                        m_attachedCamera,
-                                        m_runtimeTools,
-                                        m_replayRuntime );
+        sceneLoad.ApplyRuntimeReactions( m_launchOptions,
+                                         m_timers,
+                                         *m_overlayDiagnostics,
+                                         m_sceneController,
+                                         m_inputRouter,
+                                         m_interaction,
+                                         m_camera,
+                                         m_attachedCamera,
+                                         m_runtimeTools,
+                                         m_replayRuntime );
 
-        ApplySceneLoadPresentationOutputs( sceneLoadOutputs,
-                                           m_window,
-                                           *m_operatorUi,
-                                           *m_validationHarness,
-                                           m_launchOptions,
-                                           m_renderBackendView.renderDevice,
-                                           m_renderer.VsyncEnabled(),
-                                           m_sceneController );
+        sceneLoad.ApplyPresentationOutputs( m_window,
+                                            *m_operatorUi,
+                                            *m_validationHarness,
+                                            m_launchOptions,
+                                            m_renderBackendView.renderDevice,
+                                            m_renderer.VsyncEnabled(),
+                                            m_sceneController );
     }
 
     if ( loadSucceeded && result.restartSimulationTimerAfterLoad )

@@ -1,13 +1,13 @@
 /*
 File: SkullbonezSource/Runtime/Scene/SceneController.h
 Purpose:
-  Owns scene lifecycle, queue navigation, load transactions, and scene requests.
+  Owns scene lifecycle, queue navigation, cold scene mutation, and scene requests.
 
 Summary:
-  SceneController owns scene queue, load transactions, frame completion policy,
-  and the ordered request batch. It composes one concrete SceneWorld for the
-  active scene; callers borrow that owner explicitly instead of reaching world
-  domains through lifecycle forwarding methods.
+  SceneController owns the scene queue, cold mutation, frame completion policy,
+  and ordered request batch. SceneLoadTransaction separately enforces consumer
+  phase order. The controller composes one concrete SceneWorld for the active
+  scene; callers borrow it instead of reaching domains through forwarding.
 
 Glossary:
   Scene runtime: Current scene state plus queue navigation data.
@@ -30,6 +30,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntime.h
+  - SkullbonezSource/Runtime/Scene/SceneLoadTransaction.h
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
@@ -48,7 +49,6 @@ Related:
 #include "../../Core/SbResult.h"
 #include "../../Maths/Vector3.h"
 
-#include <array>
 #include <string>
 #include <vector>
 
@@ -101,6 +101,7 @@ class RuntimeValidationHarness;
 struct SceneAutomationGateStatus;
 class RuntimeRenderer;
 class RuntimeTools;
+class SceneLoadTransaction;
 class SimulationSystem;
 class Window;
 struct AttachedCameraState;
@@ -191,74 +192,6 @@ struct SceneLoadCompletedWorldChange
     float fluidDensity = 0.0f;
 };
 
-struct SceneLoadConsumerOutputs
-{
-    // Concept: only payloads that cannot be reconstructed by an observing
-    // owner remain here. Lifecycle identity, capacity, owner reset policy, and
-    // apply-once state come directly from SceneController or the target owner.
-    SceneUiActivation uiActivation;
-    SceneAutomationGateConfiguration automationGates;
-    SceneLoadNavigationState navigation;
-    OverlayDebugState presentation;
-    CameraControlState camera;
-    std::array<SceneLoadCompletedWorldChange, 2> completedWorldChanges = {};
-    std::size_t completedWorldChangeCount = 0;
-    SceneRequestBatch completedRequests;
-    char windowTitle[256] = {};
-    bool applyNavigation = false;
-    bool refreshSceneBrowser = false;
-
-    void ResetForLoad();
-};
-
-// Returns the navigation values visible to a later request in the same owner
-// batch. A completed load commits into the output value before the excluded UI
-// owner applies it, so follow-up persistence must not fall back to the stale
-// submitted snapshot.
-inline const SceneLoadNavigationState& SceneNavigationForFollowingRequest( const SceneLoadNavigationState& submitted,
-                                                                           const SceneLoadConsumerOutputs& outputs )
-{
-    return outputs.applyNavigation ? outputs.navigation : submitted;
-}
-
-// A later cold action in the same fixed batch must observe authored/debug
-// policy produced by the completed load, even though the overlay owner applies
-// that detached value only after ExecutePending returns.
-inline const OverlayDebugState& ScenePresentationForFollowingRequest( const OverlayDebugState& submitted,
-                                                                      const SceneLoadConsumerOutputs& outputs,
-                                                                      const SceneLifecyclePacket& lifecycle )
-{
-    return SceneLifecycleReached( lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneCleared )
-               ? outputs.presentation
-               : submitted;
-}
-
-// Applies one completed transaction to runtime owners before any external
-// window/UI/validation presentation. Call after Load/ExecutePending, including
-// failures that progressed past scene clearing and emitted reset effects.
-void ApplySceneLoadRuntimeReactions( SceneLoadConsumerOutputs& outputs,
-                                     const RunLaunchOptions& launchOptions,
-                                     RunTimerState& timers,
-                                     RuntimeOverlayDiagnostics& overlays,
-                                     SceneController& sceneController,
-                                     InputRouter& inputRouter,
-                                     RuntimeInteractionController& interaction,
-                                     CameraControlState& camera,
-                                     AttachedCameraController& attachedCamera,
-                                     RuntimeTools& runtimeTools,
-                                     ReplayRuntime& replayRuntime );
-
-// Publishes external presentation only after ApplySceneLoadRuntimeReactions
-// has advanced every runtime owner to the completed lifecycle generation.
-void ApplySceneLoadPresentationOutputs( SceneLoadConsumerOutputs& outputs,
-                                        Window& window,
-                                        UI::InGameUI& operatorUi,
-                                        RuntimeValidationHarness& validationHarness,
-                                        const RunLaunchOptions& launchOptions,
-                                        Rendering::Dx12RenderDevice* renderDevice,
-                                        bool rendererVsyncEnabled,
-                                        SceneController& sceneController );
-
 class SceneController
 {
   public:
@@ -306,20 +239,13 @@ class SceneController
     SceneLoadRequest ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState );
     SceneLoadRequest AdvanceScene( bool perfTestActive, bool preserveInteractiveUI );
     int PerfPass() const;
-    // Lifetime: cold load orchestration borrows each phase value only for this
-    // call. No Run backpointer or complete mutable context is retained behind
-    // the scene boundary.
-    SkullbonezCore::Core::SbResult Load( const SceneLoadRequest& request,
-                                         const SceneLoadPolicyInputs& policy,
-                                         const SceneLoadInteractionParticipants& interaction,
-                                         const SceneLoadPresentationParticipants& presentation,
-                                         SceneLoadConsumerOutputs& consumerOutputs );
     // Executes the fixed pending batch inside the scene owner. Replay records
-    // only requests whose load/create/save operation completes successfully.
-    bool ExecutePending( const SceneLoadPolicyInputs& policy,
+    // only requests whose operation completes successfully. The transaction
+    // owns outputs and enforces the later reaction/presentation phases.
+    bool ExecutePending( SceneLoadTransaction& transaction,
+                         const SceneLoadPolicyInputs& policy,
                          const SceneLoadInteractionParticipants& interaction,
-                         const SceneLoadPresentationParticipants& presentation,
-                         SceneLoadConsumerOutputs& consumerOutputs );
+                         const SceneLoadPresentationParticipants& presentation );
     SkullbonezCore::Core::SbResult SaveCurrentDefaults( const SceneDefaultsSaveView& view ) const;
 
     // Scene request submission and ordered batch execution stay owner-specific;
@@ -337,6 +263,17 @@ class SceneController
     const SceneRuntime& Runtime() const;
 
   private:
+    friend class SceneLoadTransaction;
+
+    // Lifetime: cold load orchestration borrows each phase value only for this
+    // call. The transaction owns detached outputs; neither owner stores a Run
+    // backpointer or complete mutable context.
+    SkullbonezCore::Core::SbResult Load( const SceneLoadRequest& request,
+                                         const SceneLoadPolicyInputs& policy,
+                                         const SceneLoadInteractionParticipants& interaction,
+                                         const SceneLoadPresentationParticipants& presentation,
+                                         SceneLoadTransaction& transaction );
+
     SceneRuntime m_runtime;               // Scene queue and active scene-run state
     SceneRequestQueue m_requests;         // Fixed scene-only deferred intent ring.
     int m_perfPass = 0;                   // Scene navigation pass index for two-pass performance captures.

@@ -4,7 +4,7 @@ Date: 2026-07-25
 
 Owner: Governance (`AGENTS.md`) + Runtime/Scene + Runtime/App
 
-State: IN PROGRESS (GV0-GV1 complete; GV2 is next)
+State: IN PROGRESS (GV0-GV2 complete; GV3 is next)
 
 Ledger tasks: 5 (GV0-GV4)
 
@@ -290,7 +290,7 @@ this transaction needs). So both are banned, and the invariant is homeless.
     invariants.
   - Documentation-only; no repository validation required.
 
-- [ ] **GV2 — Repair the scene-load transaction.**
+- [x] **GV2 — Repair the scene-load transaction.**
 
   Introduce `SceneLoadTransaction` in `Runtime/Scene` as the invariant owner
   for one request-batch execution, and delete the extruded ceremony.
@@ -371,6 +371,19 @@ this transaction needs). So both are banned, and the invariant is homeless.
     hand-sequences reactions/presentation anymore.
   - `tools\validate_full.bat` passes (Run*/Runtime/* mapping) with no
     baseline motion; focused lifecycle tests pass.
+
+  Evidence (2026-07-26):
+
+  - Permanent closure record:
+    `../../Reports/2026-07-26/invariant-ownership-governance-gv2-scene-load-transaction.md`.
+  - The phase cursor exhaustively covers all legal/illegal transitions and
+    restart-after-failure behavior; focused arbitration tests cover submitted
+    versus loaded navigation and presentation values.
+  - The four retired free helpers and the caller-visible output bag return
+    zero source/test rows.
+  - `tools\validate_tests.bat`, `tools\validate_project_filters.bat`, and
+    `tools\validate_full.bat` pass with no baseline, golden, scene, config,
+    replay artifact, or physics CSV refresh.
 
 - [ ] **GV3 — Repair the remaining repair-now census rows.**
 
