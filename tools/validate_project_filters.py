@@ -207,6 +207,7 @@ PHYSICS_DIAGNOSTICS_PREFIXES = (
 
 PHYSICS_SUPPORT_PREFIXES = (
     "PhysicsFixedList",
+    "PhysicsSceneVectorReserve",
     "PhysicsTimestep",
 )
 

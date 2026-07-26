@@ -91,7 +91,19 @@ class PhysicsEngine
     // descriptors before they become store rows.
     void ApplyAuthoredBodyPolicy( PhysicsBodyCreateDesc& desc ) const;
     void ApplyAuthoredColliderPolicy( PhysicsColliderCreateDesc& desc ) const;
-    void ReserveAuthoredBodyCapacity( std::size_t capacity );
+
+    // SceneWorld orders one monotonic scene-load commit across concrete owners.
+    // Shape counts are per-kind backing limits; point joints use the exact
+    // authored/ragdoll allowance and fail loud if creation exceeds it.
+    void ReserveAuthoredBodyCapacity( std::size_t bodyCapacity, std::size_t sphereCapacity = 0u,
+                                      std::size_t boxCapacity = 0u, std::size_t hullCapacity = 0u,
+                                      std::size_t pointJointCapacity = 0u );
+
+    // Cold editor/tool topology can extend a loaded scene one body at a time.
+    // A complete load-time commit makes this a no-op during initial population.
+    void ReserveAdditionalAuthoredBodyCapacity( const Math::CollisionDetection::CollisionShape& shape );
+    void ReserveAdditionalAuthoredCapacity( std::size_t sphereCount, std::size_t boxCount, std::size_t hullCount,
+                                            std::size_t pointJointCount );
     PhysicsAuthoredBodyCount AuthoredBodyDescriptorCount() const;
 
     // Scene creation uses this before its first owner mutation; false is a
@@ -218,6 +230,7 @@ class PhysicsEngine
     static const std::vector<PhysicsDebugContact>& ReadDebugContacts( const PhysicsEngine& engine );
     static const std::vector<PhysicsPipelineRecord>& ReadPipelineTrace( const PhysicsEngine& engine );
     static const std::vector<PointJointConstraint>& ReadPointJointConstraints( const PhysicsEngine& engine );
+    static std::size_t ReadPointJointCapacity( const PhysicsEngine& engine );
 
 #ifdef _DEBUG
     void SetPhysicsRegressionLogPath( const char* path );

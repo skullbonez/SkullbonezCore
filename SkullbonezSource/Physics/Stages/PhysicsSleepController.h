@@ -189,7 +189,7 @@ class PhysicsSleepController
 
   public:
     PhysicsSleepController();
-    void ReserveBodyCapacity( std::size_t capacity );
+    void ReserveBodyCapacity( std::size_t bodyCapacity, std::size_t pointJointCapacity = 0u );
 
     void Clear();
     void ApplyRuntimeSettings( const SleepSettings& settings );

@@ -132,6 +132,18 @@
       "removal_or_wrapper_plan": "Keep scene-load requests inside PhysicsFixedList::Reserve and keep the replay branch dependent on the outer approved prediction scope so no Physics store gains a second capacity authority or an unbudgeted steady-gameplay growth path."
     },
     {
+      "path": "SkullbonezSource/Physics/PhysicsSceneVectorReserve.h",
+      "patterns": [
+        "growth = RuntimeReserveAllocator::RequestGrowth(",
+        ".reserve("
+      ],
+      "owner": "Named Physics scene-vector reserve boundary",
+      "phase": "scene_load_or_approved_replay_prediction",
+      "reason": "SC3 routes every remaining raw Physics vector reserve through one phase-checked helper. SceneLoad growth registers a distinct concrete Physics owner and event per vector; isolated prediction growth may only reuse the already-active approved replay_prediction_working_set owner and is attributed to that outer Replay budget.",
+      "cap": "Each call supplies its concrete hard row ceiling: 8,192 body/joint rows, 32,768 sleep-support edges, or 130,816 bounded mutual-gravity pairs. Prediction allocation also shares the existing 256 MiB replay_prediction_working_set byte cap. Denial, phase mismatch, and overflow are fatal.",
+      "removal_or_wrapper_plan": "SC5 replaces the remaining raw vectors with runtime-capacity stores, then removes this helper and its lexical allowlist row."
+    },
+    {
       "path": "SkullbonezSource/Runtime/Prediction/ReplayPredictionReserve.cpp",
       "patterns": [
         "SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::RequestGrowth( owner, request );"
@@ -424,10 +436,10 @@
         ".reserve("
       ],
       "owner": "PhysicsWorld bounded scratch and replay vectors",
-      "phase": "startup_preallocation_scene_load_replay",
-      "reason": "PhysicsWorld reserves its remaining model/contact/replay vectors before steady gameplay; the runtime allocation guard rejects accidental growth after the owning setup or replay boundary.",
-      "cap": "Remaining vectors are bounded by scene model/body/contact capacities or replay snapshot hard caps.",
-      "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
+      "phase": "scene_load_replay",
+      "reason": "SC3 commits the exact incoming body and point-joint allowances before topology mutation; fixed ticks reuse that backing and point-joint append fails loud at the committed limit.",
+      "cap": "Time-remaining rows are bounded by exact incoming body count B; point joints are bounded by exact authored/ragdoll allowance J; replay snapshot rows retain their registered replay cap.",
+      "removal_or_wrapper_plan": "SC5 replaces the remaining PhysicsWorld vectors with runtime-capacity stores, then removes the matching allowlist patterns."
     },
     {
       "path": "SkullbonezSource/Physics/Stages/PhysicsSleepController.cpp",
@@ -435,13 +447,12 @@
         ".assign(",
         ".emplace_back(",
         ".push_back(",
-        ".reserve(",
         ".resize("
       ],
       "owner": "PhysicsSleepController bounded sleep state and scratch",
-      "phase": "startup_preallocation_scene_load_replay",
-      "reason": "The extracted sleep owner preserves the former PhysicsWorld model-order arrays and bounded graph scratch; construction reserves scene capacity and the runtime allocation guard rejects growth after setup.",
-      "cap": "All arrays are bounded by the configured scene body capacity; support edges reserve four rows per body and pipeline output retains its existing fixed cap.",
+      "phase": "scene_load_replay",
+      "reason": "The extracted sleep owner preserves the former PhysicsWorld model-order arrays and bounded graph scratch; SC3 commits exact body capacity before topology mutation and the runtime allocation guard rejects growth after setup.",
+      "cap": "Model-order arrays are bounded by exact incoming body count B; support edges commit min(P + 2J, 32,768) rows from exact scene pair and point-joint allowances.",
       "removal_or_wrapper_plan": "Replace model-order sleep vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
     },
     {
@@ -529,13 +540,12 @@
     {
       "path": "SkullbonezSource/Physics/Stages/PhysicsForceStage.cpp",
       "patterns": [
-        ".assign(",
-        ".reserve("
+        ".assign("
       ],
       "owner": "PhysicsForceStage bounded mutual-gravity scratch",
-      "phase": "startup_preallocation_scene_load",
-      "reason": "The force owner reserves model-order and triangular pair-force storage before steady gameplay, then assigns only within retained capacity during fixed ticks; the runtime allocation guard rejects accidental growth.",
-      "cap": "The parallel path is capped at 512 bodies: 130,816 pair Vector3 rows (1,569,792 bytes). Larger fields through the 8,192-body scene limit use exact serial accumulation into body-count scratch.",
+      "phase": "scene_load",
+      "reason": "SC3 commits model-order and triangular pair-force storage from exact incoming body count B before steady gameplay; fixed ticks assign only within retained capacity.",
+      "cap": "The body vector is B rows. The parallel path is choose2(min(B, 512)); larger fields through the 8,192-body hard ceiling use exact serial accumulation into body-count scratch.",
       "removal_or_wrapper_plan": "Replace both vectors with fixed-capacity arrays owned by PhysicsForceStage, then remove this row."
     },
     {

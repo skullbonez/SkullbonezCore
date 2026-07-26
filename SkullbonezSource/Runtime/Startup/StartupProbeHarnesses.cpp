@@ -18,8 +18,9 @@ Glossary:
     probe.
 
 Invariants:
-  - Output strings, output files, exit codes, and call positions are startup
-    compatibility surface and remain byte-identical to the pre-split Init.cpp.
+  - Output field names, output files, exit codes, and call positions are startup
+    compatibility surfaces; new probes append named fields without changing
+    the meaning of existing fields.
   - Probe state is local to one synchronous invocation and is never retained.
   - Physics probes finish before ordinary runtime ownership begins.
 
@@ -46,6 +47,8 @@ Related:
 #include "../../Rendering/Text.h"
 #include "../../World/WorldEnvironment.h"
 #include "../Scene/SceneController.h"
+#include "../Scene/SceneAuthoredSetup.h"
+#include "../Scene/SceneGeneratedSetup.h"
 #include "../../Core/WindowConstants.h"
 #include <cstdio>
 #include <cstdint>
@@ -164,7 +167,7 @@ PhysicsEngineLifecycleScenarioResult RunPhysicsEngineLifecycleScenario()
 
     {
         Core::Allocation::RuntimeAllocationScope sceneLoadScope( Core::Allocation::RuntimeAllocationPhase::SceneLoad );
-        engine.ReserveAuthoredBodyCapacity( 3u );
+        engine.ReserveAuthoredBodyCapacity( 3u, 3u, 0u, 0u, 2u );
     }
 
     const PhysicsAuthoredBodyRegistration fixed = RegisterPhysicsSmokeBody( engine, 71u,
@@ -449,6 +452,8 @@ struct PhysicsRuntimeHandleSmokeResult
     bool failedCreationIsAtomic = false;
     bool deletionIsAtomic = false;
     bool mutationUsesStableHandle = false;
+    bool ragdollCapacityPreflight = false;
+    bool generatedCapacityPreflight = false;
     int bodyCount = 0;
     int colliderCount = 0;
     int renderInstanceCount = 0;
@@ -456,6 +461,49 @@ struct PhysicsRuntimeHandleSmokeResult
     PhysicsBodyHandle bodyA;
     std::string errorMessage;
 };
+
+bool RunRagdollCapacityPreflightSmoke()
+{
+    auto collection = std::make_unique<SkullbonezCore::Runtime::SceneController>();
+    int jointCount = 0;
+    (void)Ragdoll::SimpleJoints( jointCount );
+    RagdollBuildOptions options;
+    options.namePrefix = "capacity_smoke";
+    options.firstSceneObjectId = collection->State().AllocateSceneObjectIdRange( Ragdoll::SIMPLE_PART_COUNT );
+    SceneSimpleRagdollAppendContext context {
+        collection->State(),
+        collection->Scene(),
+    };
+
+    const SkullbonezCore::Core::SbResult result = SceneAuthoredSetup::AppendSimpleRagdoll( context, options );
+    const PhysicsEngine& physics = collection->Scene().Physics();
+    return result.ok && collection->Scene().SceneEntityCount() == Ragdoll::SIMPLE_PART_COUNT &&
+           collection->Scene().BodyStore().Count() == Ragdoll::SIMPLE_PART_COUNT &&
+           collection->Scene().Colliders().BoxShapeCount() == static_cast<std::size_t>( Ragdoll::SIMPLE_PART_COUNT ) &&
+           PhysicsEngine::ReadPointJointConstraints( physics ).size() == static_cast<std::size_t>( jointCount ) &&
+           PhysicsEngine::ReadPointJointCapacity( physics ) == static_cast<std::size_t>( jointCount );
+}
+
+bool RunGeneratedCapacityPreflightSmoke()
+{
+    auto collection = std::make_unique<SkullbonezCore::Runtime::SceneController>();
+    Core::EngineConfig config;
+    SceneSessionState& state = collection->State();
+    state.rngState = 1u;
+    SceneGeneratedModelContext context {
+        state,
+        config,
+        collection->Scene(),
+        GeneratedObjectTypeOverride::Mixed,
+    };
+
+    const SkullbonezCore::Core::SbResult result = SceneGeneratedSetup::SetUpSceneEntities( context, 32 );
+    const ColliderStore& colliders = collection->Scene().Colliders();
+    return result.ok && state.rngState == 0x72A6EE09u && collection->Scene().SceneEntityCount() == 32 &&
+           colliders.SphereShapeCount() == 24u && colliders.BoxShapeCount() == 8u &&
+           colliders.SphereShapeCapacity() == 24u && colliders.BoxShapeCapacity() == 8u &&
+           colliders.HullShapeCapacity() == 0u;
+}
 
 PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
 {
@@ -473,6 +521,13 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     SkullbonezCore::Runtime::SceneEntityStore& sceneEntities = collection->Scene().Entities();
     PhysicsRuntimeHandleSmokeResult result;
     PhysicsBodyHandle createdBodies[2];
+    const SkullbonezCore::Core::SbResult capacityCommit = collection->Scene().CommitPhysicsSceneCapacity( 2, 2, 0, 0, 1 );
+
+    if ( !capacityCommit.ok )
+    {
+        result.errorMessage = capacityCommit.error.message;
+        return result;
+    }
 
     for ( int i = 0; i < 2; ++i )
     {
@@ -771,13 +826,16 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     result.failedCreationIsAtomic = failedCreationIsAtomic;
     result.deletionIsAtomic = deletionIsAtomic;
     result.mutationUsesStableHandle = mutationUsesStableHandle;
+    result.ragdollCapacityPreflight = RunRagdollCapacityPreflightSmoke();
+    result.generatedCapacityPreflight = RunGeneratedCapacityPreflightSmoke();
     result.bodyCount = bodyCountBeforeFailure;
     result.colliderCount = colliderCountBeforeFailure;
     result.renderInstanceCount = renderCountBeforeFailure;
     result.pointJointCount = jointUsesHandles ? 1u : 0u;
     result.bodyA = bodyA;
     result.passed = handlesMatchStores && renderMirrorMatches && jointUsesHandles && colliderRefreshMatches &&
-                    reorderPreservesHandleState && failedCreationIsAtomic && deletionIsAtomic && mutationUsesStableHandle;
+                    reorderPreservesHandleState && failedCreationIsAtomic && deletionIsAtomic && mutationUsesStableHandle &&
+                    result.ragdollCapacityPreflight && result.generatedCapacityPreflight;
 
     return result;
 }
@@ -867,14 +925,17 @@ bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outE
         fprintf( stream,
                  "[physics-runtime-handle-smoke] bodies=%d colliders=%d render_instances=%d point_joints=%zu "
                  "handle_a=(%u,%u) store_handles=%s render_mirror=%s joint_handles=%s collider_refresh=%s "
-                 "reorder_state=%s creation_atomic=%s deletion_atomic=%s mutation_handle=%s\n",
+                 "reorder_state=%s creation_atomic=%s deletion_atomic=%s mutation_handle=%s "
+                 "ragdoll_capacity=%s generated_capacity=%s\n",
                  runtimeMirror.bodyCount, runtimeMirror.colliderCount, runtimeMirror.renderInstanceCount,
                  runtimeMirror.pointJointCount, runtimeMirror.bodyA.index, runtimeMirror.bodyA.generation,
                  runtimeMirror.handlesMatchStores ? "pass" : "fail", runtimeMirror.renderMirrorMatches ? "pass" : "fail",
                  runtimeMirror.jointUsesHandles ? "pass" : "fail", runtimeMirror.colliderRefreshMatches ? "pass" : "fail",
                  runtimeMirror.reorderPreservesHandleState ? "pass" : "fail",
                  runtimeMirror.failedCreationIsAtomic ? "pass" : "fail", runtimeMirror.deletionIsAtomic ? "pass" : "fail",
-                 runtimeMirror.mutationUsesStableHandle ? "pass" : "fail" );
+                 runtimeMirror.mutationUsesStableHandle ? "pass" : "fail",
+                 runtimeMirror.ragdollCapacityPreflight ? "pass" : "fail",
+                 runtimeMirror.generatedCapacityPreflight ? "pass" : "fail" );
 
         if ( !runtimeMirror.errorMessage.empty() )
         {

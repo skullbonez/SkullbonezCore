@@ -161,6 +161,7 @@ class PhysicsWorld
     // Point joints are PhysicsWorld-owned solver state; the solver and sleep
     // owner borrow the dense rows synchronously.
     std::vector<PointJointConstraint> m_pointJointConstraints;
+    std::size_t m_pointJointCapacity = 0u;
     uint32_t m_nextPointJointHandleIndex = 0u;
     uint32_t m_pointJointHandleGeneration = PHYSICS_HANDLE_INITIAL_GENERATION;
 #ifdef _DEBUG
@@ -190,7 +191,8 @@ class PhysicsWorld
     void SetTerrainView( PhysicsTerrainView terrain ) noexcept;
     void ClearTerrainView() noexcept;
     void Clear();
-    void ReserveBodyScratchCapacity( std::size_t capacity );
+    void ReserveBodyScratchCapacity( std::size_t bodyCapacity, std::size_t pointJointCapacity );
+    std::size_t PointJointCapacity() const noexcept;
 
     // Runs one fixed world step over the stores. Collision diagnostics append
     // fixed events only; name lookup and file output occur after the hot pass.

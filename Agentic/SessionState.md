@@ -12,18 +12,19 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-26th-JUL-26` |
 | Current baseline | Nightrunner 26 July is complete at N26-1 through N26-3: replay scrub spikes removed, owner code style ratified, and selected-body velocity-drag preview published. |
-| Current objective | Architecture Follow-Up Campaign Round 5. `scene-sized-store-capacity` closed SC0-SC2; SC3 scene-load capacity commit is the binding next task. All three blocking owner decisions are ruled; no plan is waiting on the owner. |
-| Active/future progress | 3/53 (6%). Round 5 is the live queue; plan 14 added three tasks on 2026-07-27 and the completed six-task governance plan is excluded under rule 4. |
+| Current objective | Architecture Follow-Up Campaign Round 5. `scene-sized-store-capacity` closed SC0-SC3. Plan 7 `extraction-scar-remediation` ES0 is binding before SC4/SC5 touch the same solver and sleep files. All three blocking owner decisions are ruled; no plan is waiting on the owner. |
+| Active/future progress | 4/53 (8%). Round 5 is the live queue; plan 14 added three tasks on 2026-07-27 and the completed six-task governance plan is excluded under rule 4. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | SC2 `validate_full.bat` passes: 409 doctests / 2,404,024 assertions, Automation/Replay, zero-error DX12 with accepted baselines, and byte-exact 44,401-line Physics regression. |
 | Validation for governance G0-G4 | `tools\validate_fast.bat` passes in 112.9 s: aggregate 1,205 candidates / 10 signalled / 10 ruled / 0 unruled, scars 89 / 89 / 0, zero build warnings/errors. `tools\validate_all_cpu_tests.bat` passes in 60.4 s: all six lanes, 402 doctests / 2,403,914 assertions, and every coverage floor. Independent review ended `ZERO BLOCKERS`; comment audit 29/29. |
 | Validation for scene capacity SC0-SC1 | Current-source declaration census 43 fixed + 50 vector = 93 rows and 112,042,496-byte Debug payload lower bound. SC1 passes 408 doctests / 2,403,974 assertions, `validate_fast`, `validate_perf`, `validate_full`, byte-exact physics regression, standalone smoke, allocation guard, allocation-policy scans, aggregate governance, and a 32/32 touched-source comment audit. Independent review ended `ZERO BLOCKERS`. |
 | Validation for scene capacity SC2 | `ColliderRecord` is 80 bytes, per-kind backing relocation passes 40/40 focused assertions, and zero-hull capacity remains zero. `validate_physics`, `validate_perf`, and `validate_full` pass with byte-exact physics and unchanged DX12/physics budgets; all 44 touched source files were comment-audited. Independent review ended `ZERO BLOCKERS`. |
+| Validation for scene capacity SC3 | Exact scene topology commits before mutation; 300→200 yields zero growth and 300→2,000 yields 67 unique owner events. Logical joint shrink, 9,000-row fatal, editor ragdoll, and pinned mixed-generation RNG probes pass. `validate_fast`, `validate_physics`, `validate_perf`, and `validate_full` pass; 410 doctests / 2,406,382 assertions, byte-exact physics, accepted DX12, 17/17 comment audit. Independent review ended `ZERO BLOCKERS`. |
 | Validation for prior edits | N26: Replay scrub 17/17 and 75 assertions, focused preview 2/2 and 24 assertions, format, fast, allocation, dependency, performance, full, and 60.83-second graphics stress pass; comment audit is 24/24. |
 
 ## Live Queue
 
-NOW. Architecture Follow-Up Campaign Round 5 is live at 3/53, registered
+NOW. Architecture Follow-Up Campaign Round 5 is live at 4/53, registered
 2026-07-26 from the same-day from-source architecture review of
 `nightrunner-26th-JUL-26` at tip `35f6de4e` (review read only source and tests;
 no plans, reports, or git history). The owner added plan 14 on 2026-07-27.
@@ -38,10 +39,13 @@ review's 65 rows to 93 current rows and measured a 112,042,496-byte Debug
 payload lower bound per engine. SC1 then introduced registered runtime backing,
 preserved the separately governed ReplayPrediction exception, and closed the
 container defects. SC2 split collider payloads by shape kind and reduced the
-hot row from 7,228 to 80 bytes. SC3 is the binding next task. Plan 7 runs before
-plan 2 reaches SC4/SC5. Evidence:
+hot row from 7,228 to 80 bytes. SC3 then committed exact body, shape-kind, and
+joint topology before mutation while preserving monotonic backing, generated RNG,
+and Replay's existing owner. Plan 7 ES0 is now binding before plan 2 reaches
+SC4/SC5. Evidence:
 `Agentic/Reports/2026-07-27/scene-sized-store-capacity-sc0-census.md` and
-`Agentic/Reports/2026-07-27/scene-sized-store-capacity-sc2-shape-storage.md`.
+`Agentic/Reports/2026-07-27/scene-sized-store-capacity-sc2-shape-storage.md` and
+`Agentic/Reports/2026-07-27/scene-sized-store-capacity-sc3-binding.md`.
 
 SC2 removed the headline collider-row inflation: `ColliderRecord` is now 80
 bytes and borrows per-kind sphere, box, or hull backing; a zero-hull scene
@@ -551,6 +555,7 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `scene-sized-store-capacity` at SC3: compute and commit every required
-store capacity from scene topology before the first fixed tick. Plan 7 must run
-before SC4/SC5 touch the solver and sleep files.
+Continue `extraction-scar-remediation` at ES0: remove every repair-ruled alias,
+record unused parameters, and document borrowed-span lifetimes. Preserve the one
+ruled `WorkerPool::indexFn` retain row. Return to `scene-sized-store-capacity`
+SC4 after plan 7 closes.

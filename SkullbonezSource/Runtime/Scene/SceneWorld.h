@@ -99,6 +99,13 @@ class SceneWorld
     // duplicate config-derived capacity among its detached outputs.
     int ActiveSceneObjectCapacity() const;
 
+    // Authored/generated setup supplies exact topology before its first append;
+    // SceneWorld sequences concrete Physics owners without retaining a bag.
+    SkullbonezCore::Core::SbResult CommitPhysicsSceneCapacity( int bodyCount, int sphereCount, int boxCount, int hullCount,
+                                                               int pointJointCount );
+    SkullbonezCore::Core::SbResult ReserveAdditionalPhysicsSceneCapacity( int sphereCount, int boxCount, int hullCount,
+                                                                          int pointJointCount );
+
     // One preflighted command publishes entity, physics, collider, and render
     // rows together. A mismatched post-commit count is a fatal invariant.
     SceneEntityCreateResult TryCreateSceneEntity( SceneEntityCreateDesc entity, Physics::PhysicsBodyCreateDesc bodyDesc,

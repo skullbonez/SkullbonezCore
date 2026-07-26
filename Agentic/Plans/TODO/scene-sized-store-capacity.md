@@ -5,8 +5,8 @@ Status: IN PROGRESS — drafted from the 2026-07-26 from-source architecture
 review of `nightrunner-26th-JUL-26` at tip `35f6de4e`, extended by the same-day
 capacity measurement below. Registered in `MASTER-PLAN.md` on 2026-07-26 as
 plan 2 of the Architecture Follow-Up Campaign Round 5. Starts after
-`governance-shape-to-judgment-conversion` closes. SC0-SC2 closed 2026-07-27.
-3/8 phases complete; SC3 is binding next.
+`governance-shape-to-judgment-conversion` closes. SC0-SC3 closed 2026-07-27.
+4/8 phases complete; SC4 follows after the binding plan-7 dependency.
 Impact area: `Core/SceneCapacity.h`, `Physics/PhysicsFixedList.h`,
 `Physics/ColliderStore.*`, `Physics/PhysicsBodyStore.*`, every
 `Physics/Stages/*` store, `Physics/CollisionShape.h`,
@@ -229,7 +229,7 @@ its shape costs.
   review ended `ZERO BLOCKERS`. Permanent evidence:
   `../../Reports/2026-07-27/scene-sized-store-capacity-sc2-shape-storage.md`.
 
-- [ ] **SC3 — Scene-load capacity commit.**
+- [x] **SC3 — Scene-load capacity commit.**
   One owner computes required capacity from the loaded scene and commits it for
   every store before the first fixed tick, inside the existing SceneLoad
   allocation phase. If the incoming scene fits current capacity, the commit is a
@@ -241,6 +241,17 @@ its shape costs.
   300-body scene, then a 200-body scene, reports zero allocations for the second
   load; loading 300 then 2,000 reports exactly one attributed growth per affected
   owner; a 9,000-body scene fails loud at load; physics CSV byte-exact.
+  Closed 2026-07-27. Authored/generated setup commits exact body, per-kind shape,
+  and point-joint topology before mutation; editor ragdolls preflight bodies and
+  joints; mixed generated preflight preserves the live RNG stream; retained
+  point-joint backing is distinct from the current logical allowance. The
+  300→200→2,000 proof reports zero then exactly 67 unique growth events, and
+  fatal probes pin the 8,192 hard ceiling plus a retained-12/logical-8 ninth
+  joint failure. Replay reconstruction reuses only its approved 256 MiB outer
+  owner. Full, physics, performance, allocation, format, focused, and shipping
+  smoke gates pass; independent review ended `ZERO BLOCKERS`. Permanent
+  evidence:
+  `../../Reports/2026-07-27/scene-sized-store-capacity-sc3-binding.md`.
 
 - [ ] **SC4 — Convert the hot solver and narrowphase vectors.**
   Move the 10 `PhysicsContactSolverStage` (including its five retained side

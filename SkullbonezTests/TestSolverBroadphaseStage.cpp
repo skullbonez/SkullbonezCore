@@ -208,7 +208,11 @@ TEST_CASE( "Physics force stage: mutual gravity respects fixed sleeping and mass
     LockOrderValidator lockOrderValidator;
     WorkerPool inlinePool( lockOrderValidator );
     PhysicsForceStage stage;
-    stage.ReserveBodyScratchCapacity( 4u );
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        stage.ReserveBodyScratchCapacity( 4u );
+    }
 
     const Vector3* forces = stage.PrepareMutualGravityForces( bodyStore.Records(),
                                                               bodyStore.HotFields(),
@@ -233,7 +237,11 @@ TEST_CASE( "Property invariant: mutual gravity obeys Newton-pair antisymmetry [s
     SkullbonezTests::FixedSeed random( 0x16B0D1E5u );
     PhysicsBodyStore& bodyStore = TestBodyStore();
     PhysicsForceStage stage;
-    stage.ReserveBodyScratchCapacity( 2u );
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        stage.ReserveBodyScratchCapacity( 2u );
+    }
     SkullbonezCore::Physics::PhysicsExecutionSettings execution;
     execution.parallel = false;
     LockOrderValidator lockOrderValidator;

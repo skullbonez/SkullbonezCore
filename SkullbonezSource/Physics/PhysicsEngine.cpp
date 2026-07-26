@@ -46,6 +46,7 @@ Related:
 #include "../Core/Config.h"
 #include "../Core/SceneCapacity.h"
 #include "PhysicsApi.h"
+#include "PhysicsSceneVectorReserve.h"
 
 #include "../Core/Common.h"
 #include "../Core/FatalError.h"
@@ -61,6 +62,7 @@ Related:
 
 using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
+using SkullbonezCore::Math::CollisionDetection::CollisionShape;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
 using SkullbonezCore::Math::CollisionDetection::GetShapeBoundingRadius;
 using SkullbonezCore::Math::CollisionDetection::GetShapePosition;
@@ -337,15 +339,70 @@ void PhysicsEngine::ApplyAuthoredColliderPolicy( PhysicsColliderCreateDesc& desc
 }
 
 
-void PhysicsEngine::ReserveAuthoredBodyCapacity( std::size_t capacity )
+void PhysicsEngine::ReserveAuthoredBodyCapacity( std::size_t bodyCapacity, std::size_t sphereCapacity,
+                                                 std::size_t boxCapacity, std::size_t hullCapacity,
+                                                 std::size_t pointJointCapacity )
 {
-    m_authoredBodyDescs.reserve( capacity );
-    m_bodyStore.ReserveCapacity( capacity );
-    m_colliderStore.ReserveCapacity( capacity );
-    m_buoyancySystem.ReserveCapacity( capacity );
-    m_world.ReserveBodyScratchCapacity( capacity );
-    m_fixedTreeReleaseWakeBodies.Reserve( capacity );
-    m_broadphaseQueryScratch.Reserve( capacity );
+    constexpr std::size_t ceiling = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS;
+
+    if ( bodyCapacity > ceiling || sphereCapacity > ceiling || boxCapacity > ceiling || hullCapacity > ceiling ||
+         pointJointCapacity > ceiling )
+    {
+        SB_FATAL( "Physics/SceneCapacity",
+                  "Scene capacity exceeds the hard ceiling: owner=Physics/PhysicsEngine requested_bodies=%zu "
+                  "requested_spheres=%zu requested_boxes=%zu requested_hulls=%zu requested_point_joints=%zu ceiling=%zu.",
+                  bodyCapacity, sphereCapacity, boxCapacity, hullCapacity, pointJointCapacity, ceiling );
+    }
+
+    ReservePhysicsSceneVector( m_authoredBodyDescs, bodyCapacity, ceiling, "PhysicsEngine.m_authoredBodyDescs",
+                               "Exact scene body rows for cold authored descriptors" );
+
+    m_bodyStore.ReserveCapacity( bodyCapacity );
+    m_colliderStore.ReserveCapacity( bodyCapacity );
+    m_colliderStore.ReserveShapeCapacity( sphereCapacity, boxCapacity, hullCapacity );
+    m_buoyancySystem.ReserveCapacity( bodyCapacity );
+    m_world.ReserveBodyScratchCapacity( bodyCapacity, pointJointCapacity );
+    m_fixedTreeReleaseWakeBodies.Reserve( bodyCapacity );
+    m_broadphaseQueryScratch.Reserve( bodyCapacity );
+}
+
+
+void PhysicsEngine::ReserveAdditionalAuthoredBodyCapacity( const CollisionShape& shape )
+{
+    std::visit( [&]( const auto& shapeValue )
+                {
+                    using ShapeT = std::decay_t<decltype( shapeValue )>;
+
+                    if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
+                    {
+                        ReserveAdditionalAuthoredCapacity( 1u, 0u, 0u, 0u );
+                    }
+                    else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
+                    {
+                        ReserveAdditionalAuthoredCapacity( 0u, 1u, 0u, 0u );
+                    }
+                    else
+                    {
+                        static_assert( std::is_same_v<ShapeT, ConvexHullShape>,
+                                       "Every CollisionShape alternative requires an explicit capacity commit." );
+
+                        ReserveAdditionalAuthoredCapacity( 0u, 0u, 1u, 0u );
+                    }
+                },
+                shape );
+}
+
+
+void PhysicsEngine::ReserveAdditionalAuthoredCapacity( std::size_t sphereCount, std::size_t boxCount, std::size_t hullCount,
+                                                       std::size_t pointJointCount )
+{
+    const std::size_t bodyCapacity = m_authoredBodyDescs.size() + sphereCount + boxCount + hullCount;
+    const std::size_t sphereCapacity = m_colliderStore.SphereShapeCount() + sphereCount;
+    const std::size_t boxCapacity = m_colliderStore.BoxShapeCount() + boxCount;
+    const std::size_t hullCapacity = m_colliderStore.HullShapeCount() + hullCount;
+    const std::size_t requiredPointJointCapacity = m_world.GetPointJointConstraints().size() + pointJointCount;
+    const std::size_t pointJointCapacity = (std::max)( m_world.PointJointCapacity(), requiredPointJointCapacity );
+    ReserveAuthoredBodyCapacity( bodyCapacity, sphereCapacity, boxCapacity, hullCapacity, pointJointCapacity );
 }
 
 
@@ -1362,6 +1419,12 @@ const std::vector<PhysicsPipelineRecord>& PhysicsEngine::ReadPipelineTrace( cons
 const std::vector<PointJointConstraint>& PhysicsEngine::ReadPointJointConstraints( const PhysicsEngine& engine )
 {
     return engine.m_world.GetPointJointConstraints();
+}
+
+
+std::size_t PhysicsEngine::ReadPointJointCapacity( const PhysicsEngine& engine )
+{
+    return engine.m_world.PointJointCapacity();
 }
 
 #ifdef _DEBUG

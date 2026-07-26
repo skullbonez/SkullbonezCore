@@ -35,6 +35,7 @@ Related:
 #include "../ColliderStore.h"
 #include "../DisjointSet.h"
 #include "../PhysicsBodyStore.h"
+#include "../PhysicsSceneVectorReserve.h"
 #include "../PhysicsWorldForces.h"
 
 #include <algorithm>
@@ -109,34 +110,49 @@ void SkullbonezCore::Physics::AppendSleepSupportEdge( std::vector<std::pair<int,
     edges.emplace_back( supporter, supported );
 }
 
-PhysicsSleepController::PhysicsSleepController()
-{
-    const std::size_t bodyCapacity = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS;
-    m_sleepSupportedThisFrame.reserve( bodyCapacity );
-    m_sleepInhibitedThisFrame.reserve( bodyCapacity );
-    m_sleepState.reserve( bodyCapacity );
-    m_sleepCounter.reserve( bodyCapacity );
-    m_underwaterSleepLocked.reserve( bodyCapacity );
-    m_sleepIslandVisualId.reserve( bodyCapacity );
-    m_sleepIslandAssignedVisualId.reserve( bodyCapacity );
-    m_sleepSupportEdges.reserve( MAX_SLEEP_SUPPORT_EDGES );
-    m_sleepIslandParent.reserve( bodyCapacity );
-    m_sleepIslandRank.reserve( bodyCapacity );
-    m_sleepIslandHasAwake.reserve( bodyCapacity );
-    m_sleepIslandHasSupportAnchor.reserve( bodyCapacity );
-    m_sleepIslandEligible.reserve( bodyCapacity );
-    m_sleepIslandCanSleep.reserve( bodyCapacity );
-    m_sleepScratchFlags.reserve( bodyCapacity );
-    m_sleepVisualIslandIds.reserve( bodyCapacity );
-    m_sleepVisualIslandBodies.reserve( bodyCapacity );
-    m_restingWakeQueueScratch.reserve( bodyCapacity );
-}
+PhysicsSleepController::PhysicsSleepController() = default;
 
 
-void PhysicsSleepController::ReserveBodyCapacity( std::size_t capacity )
+void PhysicsSleepController::ReserveBodyCapacity( std::size_t bodyCapacity, std::size_t pointJointCapacity )
 {
-    m_awakeBodyIndices.Reserve( capacity );
-    m_awakeListPositions.Reserve( capacity );
+    constexpr std::size_t bodyCeiling = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS;
+    const auto reserveBodyRows = [&]( auto& values, const char* ownerName )
+    {
+        ReservePhysicsSceneVector( values, bodyCapacity, bodyCeiling, ownerName,
+                                   "Exact scene body rows for sleep and island state" );
+    };
+
+    reserveBodyRows( m_sleepSupportedThisFrame, "PhysicsSleepController.m_sleepSupportedThisFrame" );
+    reserveBodyRows( m_sleepInhibitedThisFrame, "PhysicsSleepController.m_sleepInhibitedThisFrame" );
+    reserveBodyRows( m_sleepState, "PhysicsSleepController.m_sleepState" );
+    reserveBodyRows( m_sleepCounter, "PhysicsSleepController.m_sleepCounter" );
+    reserveBodyRows( m_underwaterSleepLocked, "PhysicsSleepController.m_underwaterSleepLocked" );
+    reserveBodyRows( m_sleepIslandVisualId, "PhysicsSleepController.m_sleepIslandVisualId" );
+    reserveBodyRows( m_sleepIslandAssignedVisualId, "PhysicsSleepController.m_sleepIslandAssignedVisualId" );
+    reserveBodyRows( m_sleepIslandParent, "PhysicsSleepController.m_sleepIslandParent" );
+    reserveBodyRows( m_sleepIslandRank, "PhysicsSleepController.m_sleepIslandRank" );
+    reserveBodyRows( m_sleepIslandHasAwake, "PhysicsSleepController.m_sleepIslandHasAwake" );
+    reserveBodyRows( m_sleepIslandHasSupportAnchor, "PhysicsSleepController.m_sleepIslandHasSupportAnchor" );
+    reserveBodyRows( m_sleepIslandEligible, "PhysicsSleepController.m_sleepIslandEligible" );
+    reserveBodyRows( m_sleepIslandCanSleep, "PhysicsSleepController.m_sleepIslandCanSleep" );
+    reserveBodyRows( m_sleepScratchFlags, "PhysicsSleepController.m_sleepScratchFlags" );
+    reserveBodyRows( m_sleepVisualIslandIds, "PhysicsSleepController.m_sleepVisualIslandIds" );
+    reserveBodyRows( m_sleepVisualIslandBodies, "PhysicsSleepController.m_sleepVisualIslandBodies" );
+    reserveBodyRows( m_restingWakeQueueScratch, "PhysicsSleepController.m_restingWakeQueueScratch" );
+
+    const std::size_t pairCapacity = (std::min)( bodyCapacity * ( bodyCapacity > 0u ? bodyCapacity - 1u : 0u ) / 2u,
+                                                 MAX_SLEEP_SUPPORT_EDGES );
+
+    const std::size_t supportCapacity = (std::min)( pairCapacity +
+                                                        (std::min)( pointJointCapacity, MAX_SLEEP_SUPPORT_EDGES / 2u ) * 2u,
+                                                    MAX_SLEEP_SUPPORT_EDGES );
+
+    ReservePhysicsSceneVector( m_sleepSupportEdges, supportCapacity, MAX_SLEEP_SUPPORT_EDGES,
+                               "PhysicsSleepController.m_sleepSupportEdges",
+                               "Bounded candidate-pair and point-joint support edges for the scene" );
+
+    m_awakeBodyIndices.Reserve( bodyCapacity );
+    m_awakeListPositions.Reserve( bodyCapacity );
 }
 
 

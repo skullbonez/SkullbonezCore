@@ -59,6 +59,7 @@ Related:
 #include "DisjointSet.h"
 #include "PhysicsApi.h"
 #include "PhysicsBodyStore.h"
+#include "PhysicsSceneVectorReserve.h"
 #include "SolverBroadphaseStage.h"
 #include "PhysicsWorldForces.h"
 #include "ColliderStore.h"
@@ -337,11 +338,7 @@ void ReserveReplaySolverSnapshotVector( std::vector<T>& values, std::size_t requ
     SB_REPLAY_SOLVER_CONTACT_STAGE_VECTOR_FIELDS( VISIT )
 
 
-PhysicsWorld::PhysicsWorld()
-{
-    m_timeRemaining.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
-    m_pointJointConstraints.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
-}
+PhysicsWorld::PhysicsWorld() = default;
 
 void PhysicsWorld::BindProfiler( SkullbonezCore::Core::Profiler* profiler ) noexcept
 {
@@ -398,10 +395,24 @@ void PhysicsWorld::InvalidateBodyTopology()
 }
 
 
-void PhysicsWorld::ReserveBodyScratchCapacity( std::size_t capacity )
+void PhysicsWorld::ReserveBodyScratchCapacity( std::size_t bodyCapacity, std::size_t pointJointCapacity )
 {
-    m_forceStage.ReserveBodyScratchCapacity( capacity );
-    m_sleepController.ReserveBodyCapacity( capacity );
+    constexpr std::size_t bodyCeiling = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS;
+    ReservePhysicsSceneVector( m_timeRemaining, bodyCapacity, bodyCeiling, "PhysicsWorld.timeRemaining",
+                               "Exact scene body rows for fixed-step time scratch" );
+
+    ReservePhysicsSceneVector( m_pointJointConstraints, pointJointCapacity, bodyCeiling,
+                               "PhysicsWorld.pointJointConstraints", "Exact current-scene point-joint backing allowance" );
+
+    m_forceStage.ReserveBodyScratchCapacity( bodyCapacity );
+    m_sleepController.ReserveBodyCapacity( bodyCapacity, pointJointCapacity );
+    m_pointJointCapacity = pointJointCapacity;
+}
+
+
+std::size_t PhysicsWorld::PointJointCapacity() const noexcept
+{
+    return m_pointJointCapacity;
 }
 
 
@@ -1020,6 +1031,14 @@ PhysicsConstraintHandle PhysicsWorld::CreatePointJoint( const PhysicsPointJointC
     if ( !desc.bodyA.IsValid() || !desc.bodyB.IsValid() || desc.bodyA == desc.bodyB )
     {
         return PhysicsConstraintHandle {};
+    }
+
+    if ( m_pointJointConstraints.size() >= m_pointJointCapacity )
+    {
+        SB_FATAL( "Physics/PointJoint",
+                  "Point-joint scene capacity exhausted: owner=Physics/PhysicsWorld requested=%zu capacity=%zu "
+                  "retained_capacity=%zu phase=scene_topology.",
+                  m_pointJointConstraints.size() + 1u, m_pointJointCapacity, m_pointJointConstraints.capacity() );
     }
 
     // Why: callers create constraints with handle-keyed descriptors, while the

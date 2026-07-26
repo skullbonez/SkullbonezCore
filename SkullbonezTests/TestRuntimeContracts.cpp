@@ -43,6 +43,8 @@
 #include "../SkullbonezSource/Core/WorkerPool.h"
 #include "../SkullbonezSource/Physics/SpatialGrid.h"
 #include "../SkullbonezSource/Physics/SleepIslandSystem.h"
+#include "../SkullbonezSource/Physics/PhysicsApi.h"
+#include "../SkullbonezSource/Physics/PhysicsEngine.h"
 #include "../SkullbonezSource/Physics/PhysicsFixedList.h"
 #include "../SkullbonezSource/Core/TracyClientOwner.h"
 #include "TestFatalCases.h"
@@ -56,6 +58,7 @@
 #include <cstring>
 #include <initializer_list>
 #include <limits>
+#include <memory>
 #include <string>
 #include <thread>
 #include <vector>
@@ -68,6 +71,7 @@ using SkullbonezCore::Math::CollisionDetection::SpatialGrid;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::AppendSleepSupportEdge;
 using SkullbonezCore::Physics::MAX_SLEEP_SUPPORT_EDGES;
+using SkullbonezCore::Physics::PhysicsEngine;
 using SkullbonezCore::Threading::AmortizedTask;
 using SkullbonezCore::Threading::LockOrderValidator;
 using SkullbonezCore::Threading::RunWorkerSystemSelfTest;
@@ -374,6 +378,63 @@ bool RunRuntimeFatalCase( const char* caseName )
             std::this_thread::yield();
         }
     }
+    if ( std::strcmp( caseName, "scene-capacity-hard-ceiling" ) == 0 )
+    {
+        auto engine = std::make_unique<PhysicsEngine>();
+        RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+        engine->ReserveAuthoredBodyCapacity( 9000u, 9000u, 0u, 0u, 0u );
+        return true;
+    }
+    if ( std::strcmp( caseName, "point-joint-scene-capacity" ) == 0 )
+    {
+        auto engine = std::make_unique<PhysicsEngine>();
+        SkullbonezCore::Physics::PhysicsBodyHandle bodies[2];
+        {
+            RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+            engine->ReserveAuthoredBodyCapacity( 2u, 2u, 0u, 0u, 12u );
+            engine->ReserveAuthoredBodyCapacity( 2u, 2u, 0u, 0u, 8u );
+
+            const SkullbonezCore::Math::CollisionDetection::CollisionShape shape =
+                SkullbonezCore::Math::CollisionDetection::BoundingSphere( 1.0f, Vector3( 0.0f, 0.0f, 0.0f ) );
+
+            for ( uint32_t bodyIndex = 0u; bodyIndex < 2u; ++bodyIndex )
+            {
+                const SkullbonezCore::Physics::PhysicsSceneObjectId sceneObjectId { bodyIndex + 1u };
+                const auto bodyDesc = SkullbonezCore::Physics::MakePhysicsBodyCreateDesc(
+                    sceneObjectId,
+                    shape,
+                    Vector3( static_cast<float>( bodyIndex ) * 3.0f, 0.0f, 0.0f ),
+                    SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
+                    Vector3( 0.0f, 0.0f, 0.0f ),
+                    Vector3( 0.0f, 0.0f, 0.0f ),
+                    Vector3( 1.0f, 1.0f, 1.0f ),
+                    1.0f,
+                    0.0f,
+                    SkullbonezCore::Physics::PhysicsBodyMotionKind::Dynamic,
+                    "fatal-point-joint-body" );
+                auto colliderDesc = SkullbonezCore::Physics::MakeColliderCreateDesc( shape, 0.0f, 0u, "fatal" );
+                colliderDesc.sceneObjectId = sceneObjectId;
+                const auto registration = engine->RegisterAuthoredBody( bodyDesc, colliderDesc );
+
+                if ( !registration.IsValid() )
+                {
+                    return false;
+                }
+
+                bodies[bodyIndex] = registration.body;
+            }
+        }
+
+        SkullbonezCore::Physics::PhysicsPointJointCreateDesc desc;
+        desc.bodyA = bodies[0];
+        desc.bodyB = bodies[1];
+
+        for ( int jointIndex = 0; jointIndex < 9; ++jointIndex )
+        {
+            (void)engine->CreatePointJoint( desc );
+        }
+        return true;
+    }
     return false;
 }
 
@@ -577,4 +638,15 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
     ExpectFatalCase( "amortized-task-in-flight-destroy",
                      { "FATAL[Core/AmortizedTask]", "Destroying AmortizedTask while worker chunk is in flight" } );
     ExpectFatalCase( "worker-fatal-log", { "FATAL[Tests/WorkerFatalProbe]", "worker-thread fatal logging probe" } );
+    ExpectFatalCase( "scene-capacity-hard-ceiling",
+                     { "FATAL[Physics/SceneCapacity]",
+                       "owner=Physics/PhysicsEngine",
+                       "requested_bodies=9000",
+                       "ceiling=8192" } );
+    ExpectFatalCase( "point-joint-scene-capacity",
+                     { "FATAL[Physics/PointJoint]",
+                       "owner=Physics/PhysicsWorld",
+                       "requested=9",
+                       "capacity=8",
+                       "retained_capacity=12" } );
 }

@@ -173,6 +173,8 @@ SkullbonezCore::Core::SbResult AppendAuthoredSimpleRagdoll( SceneSimpleRagdollAp
     const Vector3 base = options.terrainPoint + rotation * Vector3( 0.0f, Ragdoll::SurfaceEpsilon(), 0.0f );
     const char* prefix = options.namePrefix && options.namePrefix[0] ? options.namePrefix : "ragdoll";
     const RagdollPartDesc* parts = Ragdoll::SimpleParts();
+    int jointCount = 0;
+    const RagdollJointDesc* joints = Ragdoll::SimpleJoints( jointCount );
 
     // Invariant: the caller reserves SIMPLE_PART_COUNT ids as one range so
     // ragdoll parts append with deterministic, gap-free scene identity.
@@ -196,6 +198,19 @@ SkullbonezCore::Core::SbResult AppendAuthoredSimpleRagdoll( SceneSimpleRagdollAp
             return SkullbonezCore::Core::SbResult::
                 Failure( "Runtime/SceneAuthoredSetup", "Ragdoll part name exceeds the 63-character display-name limit." );
         }
+    }
+
+    // Transaction preflight: reserve every body, box payload, and joint before
+    // the first part row is published. During initial scene load this is a
+    // no-op against the exact whole-scene commit; editor placement extends the
+    // retained backing and logical joint allowance once.
+    const SkullbonezCore::Core::SbResult
+        capacityCommit = context.sceneWorld.ReserveAdditionalPhysicsSceneCapacity( 0, Ragdoll::SIMPLE_PART_COUNT, 0,
+                                                                                   jointCount );
+
+    if ( !capacityCommit.ok )
+    {
+        return capacityCommit;
     }
 
     for ( int i = 0; i < Ragdoll::SIMPLE_PART_COUNT; ++i )
@@ -232,8 +247,6 @@ SkullbonezCore::Core::SbResult AppendAuthoredSimpleRagdoll( SceneSimpleRagdollAp
         }
     }
 
-    int jointCount = 0;
-    const RagdollJointDesc* joints = Ragdoll::SimpleJoints( jointCount );
     const PhysicsBodyStore& bodyStore = context.sceneWorld.BodyStore();
 
     for ( int i = 0; i < jointCount; ++i )
@@ -500,13 +513,29 @@ void SceneAuthoredSetup::SetUpCameras( SceneAuthoredCameraContext context, const
 SkullbonezCore::Core::SbResult SceneAuthoredSetup::SetUpSceneEntities( SceneAuthoredModelContext context,
                                                                        const AuthoredScene& scene )
 {
+    int simpleRagdollJointCount = 0;
+    (void)Ragdoll::SimpleJoints( simpleRagdollJointCount );
+    const int sphereCount = scene.GetBallCount() + scene.GetBallStateCount();
+    const int boxCount = scene.GetBoxCount() + scene.GetBoxStateCount() +
+                         scene.GetRagdollCount() * Ragdoll::SIMPLE_PART_COUNT;
+
+    const int hullCount = scene.GetConvexHullCount() + scene.GetConvexHullStateCount();
+    const int bodyCount = sphereCount + boxCount + hullCount;
+    const int pointJointCount = scene.GetPointJointConstraintCount() + scene.GetRagdollCount() * simpleRagdollJointCount;
+    const SkullbonezCore::Core::SbResult capacityCommit = context.sceneWorld.CommitPhysicsSceneCapacity( bodyCount,
+                                                                                                         sphereCount,
+                                                                                                         boxCount, hullCount,
+                                                                                                         pointJointCount );
+
+    if ( !capacityCommit.ok )
+    {
+        return capacityCommit;
+    }
 
     // Invariant: Model insertion order follows scene schema sections. Runtime
     // validation, saved editable scenes, and point-joint name resolution all
     // depend on this deterministic order.
-    context.sceneState.modelCount = scene.GetBallCount() + scene.GetBallStateCount() + scene.GetBoxCount() +
-                                    scene.GetBoxStateCount() + scene.GetConvexHullCount() + scene.GetConvexHullStateCount() +
-                                    scene.GetRagdollCount() * Ragdoll::SIMPLE_PART_COUNT;
+    context.sceneState.modelCount = bodyCount;
 
     context.sceneWorld.Physics().ClearPointJointConstraints();
 

@@ -41,12 +41,14 @@
 
 #include "../ThirdPtySource/doctest/doctest.h"
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
+#include "../SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h"
 #include "TestFixedSeed.h"
 
 #include "../SkullbonezSource/Physics/ColliderStore.h"
 #include "../SkullbonezSource/Physics/BuoyancySystem.h"
 #include "../SkullbonezSource/Physics/PhysicsApi.h"
 #include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
+#include "../SkullbonezSource/Physics/PhysicsEngine.h"
 #include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRestoreService.h"
 
@@ -75,6 +77,7 @@ using SkullbonezCore::Physics::PhysicsBodyPosition;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
+using SkullbonezCore::Physics::PhysicsEngine;
 using SkullbonezCore::Physics::PhysicsWorldForces;
 using SkullbonezCore::Runtime::ReplayRestoreService;
 using SkullbonezCore::Runtime::ReplaySolverBodySample;
@@ -642,6 +645,120 @@ TEST_CASE( "Collider shape stores: hot rows stay compact and zero-hull scenes co
     CHECK( GetShapeIf<BoundingBox>( &store->RecordForHandle( first )->shape )->GetHalfExtents() ==
            Vector3( 4.0f, 5.0f, 6.0f ) );
     CHECK( store->HullShapeCapacity() == 0u );
+}
+
+
+TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owner once" )
+{
+    using SkullbonezCore::Core::Allocation::RuntimeAllocationPhase;
+    using SkullbonezCore::Core::Allocation::RuntimeAllocationScope;
+    using SkullbonezCore::Core::Allocation::RuntimeReserveAllocator;
+    using SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView;
+
+    auto engine = std::make_unique<PhysicsEngine>();
+
+    {
+        RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+        engine->ReserveAuthoredBodyCapacity( 300u, 150u, 150u, 0u, 12u );
+    }
+
+    CHECK( PhysicsEngine::ReadBodies( *engine ).RecordCapacity() == 300u );
+    CHECK( PhysicsEngine::ReadColliders( *engine ).RecordCapacity() == 300u );
+    CHECK( PhysicsEngine::ReadColliders( *engine ).SphereShapeCapacity() == 150u );
+    CHECK( PhysicsEngine::ReadColliders( *engine ).BoxShapeCapacity() == 150u );
+    CHECK( PhysicsEngine::ReadColliders( *engine ).HullShapeCapacity() == 0u );
+    CHECK( PhysicsEngine::ReadPointJointConstraints( *engine ).capacity() == 12u );
+    CHECK( PhysicsEngine::ReadPointJointCapacity( *engine ) == 12u );
+
+    RuntimeReserveAllocator::ResetCounters();
+
+    {
+        RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+        engine->ReserveAuthoredBodyCapacity( 200u, 100u, 100u, 0u, 8u );
+    }
+
+    CHECK( RuntimeReserveAllocator::GrowthEventCount() == 0u );
+    CHECK( PhysicsEngine::ReadBodies( *engine ).RecordCapacity() == 300u );
+    CHECK( PhysicsEngine::ReadColliders( *engine ).SphereShapeCapacity() == 150u );
+    CHECK( PhysicsEngine::ReadPointJointConstraints( *engine ).capacity() == 12u );
+    CHECK( PhysicsEngine::ReadPointJointCapacity( *engine ) == 8u );
+
+    RuntimeReserveAllocator::ResetCounters();
+
+    {
+        RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+        engine->ReserveAuthoredBodyCapacity( 2000u, 1000u, 1000u, 0u, 24u );
+    }
+
+    RuntimeReserveGrowthEventView events[128] = {};
+    const int eventCount = RuntimeReserveAllocator::CopyRecentGrowthEvents( events, 128 );
+    REQUIRE( eventCount == 67 );
+    CHECK( static_cast<uint64_t>( eventCount ) == RuntimeReserveAllocator::GrowthEventCount() );
+
+    for ( int eventIndex = 0; eventIndex < eventCount; ++eventIndex )
+    {
+        CHECK( events[eventIndex].granted );
+
+        for ( int earlierIndex = 0; earlierIndex < eventIndex; ++earlierIndex )
+        {
+            CHECK( std::strcmp( events[eventIndex].ownerName, events[earlierIndex].ownerName ) != 0 );
+        }
+    }
+
+    struct ExpectedVectorGrowth
+    {
+        const char* ownerName;
+        int requestedCapacity;
+    };
+    const ExpectedVectorGrowth expectedVectorGrowth[] = {
+        { "PhysicsEngine.m_authoredBodyDescs", 2000 },
+        { "PhysicsWorld.timeRemaining", 2000 },
+        { "PhysicsWorld.pointJointConstraints", 24 },
+        { "PhysicsForceStage.m_mutualGravityForces", 2000 },
+        { "PhysicsForceStage.m_mutualGravityPairForces", 130816 },
+        { "PhysicsSleepController.m_sleepSupportedThisFrame", 2000 },
+        { "PhysicsSleepController.m_sleepInhibitedThisFrame", 2000 },
+        { "PhysicsSleepController.m_sleepState", 2000 },
+        { "PhysicsSleepController.m_sleepCounter", 2000 },
+        { "PhysicsSleepController.m_underwaterSleepLocked", 2000 },
+        { "PhysicsSleepController.m_sleepIslandVisualId", 2000 },
+        { "PhysicsSleepController.m_sleepIslandAssignedVisualId", 2000 },
+        { "PhysicsSleepController.m_sleepIslandParent", 2000 },
+        { "PhysicsSleepController.m_sleepIslandRank", 2000 },
+        { "PhysicsSleepController.m_sleepIslandHasAwake", 2000 },
+        { "PhysicsSleepController.m_sleepIslandHasSupportAnchor", 2000 },
+        { "PhysicsSleepController.m_sleepIslandEligible", 2000 },
+        { "PhysicsSleepController.m_sleepIslandCanSleep", 2000 },
+        { "PhysicsSleepController.m_sleepScratchFlags", 2000 },
+        { "PhysicsSleepController.m_sleepVisualIslandIds", 2000 },
+        { "PhysicsSleepController.m_sleepVisualIslandBodies", 2000 },
+        { "PhysicsSleepController.m_restingWakeQueueScratch", 2000 },
+    };
+
+    for ( const ExpectedVectorGrowth& expected : expectedVectorGrowth )
+    {
+        int matchingEvents = 0;
+
+        for ( int eventIndex = 0; eventIndex < eventCount; ++eventIndex )
+        {
+
+            if ( std::strcmp( events[eventIndex].ownerName, expected.ownerName ) == 0 )
+            {
+                ++matchingEvents;
+                CHECK( events[eventIndex].requestedCapacity == expected.requestedCapacity );
+            }
+        }
+
+        CHECK( matchingEvents == 1 );
+    }
+
+    CHECK( PhysicsEngine::ReadBodies( *engine ).RecordCapacity() == 2000u );
+    CHECK( PhysicsEngine::ReadColliders( *engine ).RecordCapacity() == 2000u );
+    CHECK( PhysicsEngine::ReadColliders( *engine ).SphereShapeCapacity() == 1000u );
+    CHECK( PhysicsEngine::ReadColliders( *engine ).BoxShapeCapacity() == 1000u );
+    CHECK( PhysicsEngine::ReadColliders( *engine ).HullShapeCapacity() == 0u );
+    CHECK( PhysicsEngine::ReadPointJointConstraints( *engine ).capacity() == 24u );
+    CHECK( PhysicsEngine::ReadPointJointCapacity( *engine ) == 24u );
 }
 
 
