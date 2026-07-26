@@ -145,27 +145,6 @@ struct SceneDefaultsSaveView
     const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides;
 };
 
-// Concept: scene loading borrows phase-oriented transaction inputs instead of
-// accepting the process shell's complete owner graph. Interaction and Replay
-// owners remain outside Load: camera, navigation, time, and debug presentation
-// cross as detached values. Reactive owners consume the lifecycle packet
-// through SceneLoadTransaction; inputs remain synchronous and outputs stay
-// transaction-private until completion.
-struct SceneLoadPolicyInputs
-{
-    SkullbonezCore::Core::EngineConfig& config;
-    RunLaunchOptions& launchOptions;
-    const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender;
-    const RunStartupState& startup;
-    Assets::AssetSystem& assets;
-    Threading::WorkerPool& workerPool;
-    // Diagnostics consumes authored automation/physics settings while the
-    // parsed scene is live, so it is the one justified non-target survivor.
-    DiagnosticsRuntime& diagnosticsRuntime;
-    const char* rendererName = "unknown";
-    double sceneTimeSeconds = 0.0;
-};
-
 struct SceneLoadCompletedWorldChange
 {
     float previousGravity = 0.0f;
@@ -227,10 +206,13 @@ class SceneController
     // only requests whose operation completes successfully. The transaction
     // owns outputs and enforces the later reaction/presentation phases.
     bool ExecutePending( SceneLoadTransaction& transaction,
-                         const SceneLoadPolicyInputs& policy,
-                         const CameraControlState& camera,
-                         const SceneLoadNavigationState& navigation,
-                         const OverlayDebugState& debug,
+                         SkullbonezCore::Core::EngineConfig& config,
+                         RunLaunchOptions& launchOptions,
+                         const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender,
+                         const RunStartupState& startup,
+                         Assets::AssetSystem& assets,
+                         Threading::WorkerPool& workerPool,
+                         DiagnosticsRuntime& diagnosticsRuntime,
                          Rendering::Dx12FrameOwner* renderFrame,
                          Rendering::Dx12ResourceBuilder* renderResources,
                          RuntimeRenderer& renderer );
@@ -259,10 +241,13 @@ class SceneController
     // Hazard: renderFrame proves old GPU use complete before scene mutation;
     // renderResources is borrowed only afterward for cold terrain construction.
     SkullbonezCore::Core::SbResult Load( const SceneLoadRequest& request,
-                                         const SceneLoadPolicyInputs& policy,
-                                         const CameraControlState& camera,
-                                         const SceneLoadNavigationState& navigation,
-                                         const OverlayDebugState& debug,
+                                         SkullbonezCore::Core::EngineConfig& config,
+                                         RunLaunchOptions& launchOptions,
+                                         const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender,
+                                         const RunStartupState& startup,
+                                         Assets::AssetSystem& assets,
+                                         Threading::WorkerPool& workerPool,
+                                         DiagnosticsRuntime& diagnosticsRuntime,
                                          Rendering::Dx12FrameOwner* renderFrame,
                                          Rendering::Dx12ResourceBuilder* renderResources,
                                          RuntimeRenderer& renderer,

@@ -2,7 +2,7 @@
 
 Date: 2026-07-26
 Owner: skullbonez
-State: IN PROGRESS (PB0 complete; PB1 next)
+State: IN PROGRESS (PB0-PB1 complete; PB2 next)
 Ledger tasks: 8 (PB0-PB7)
 Branch: `nightrunner-25th-JUL-26`
 
@@ -227,7 +227,7 @@ or type erasure is allowed.
   - permanent report:
     `../../Reports/2026-07-26/concrete-parameter-bag-elimination-pb0-census.md`.
 
-- [ ] **PB1 - Repair Scene save and consume the scene-load transaction.**
+- [x] **PB1 - Repair Scene save and consume the scene-load transaction.**
 
   Introduce the three concrete owner-produced save values, reduce
   `SceneSaveRequest` to path plus those values, delete `SceneSaveView`, and
@@ -245,6 +245,22 @@ or type erasure is allowed.
   - `SceneSaveRequest` contains only path and three owner-produced values;
   - `EditorSaveHotkeyContext` has zero definitions/usages;
   - no inheritance, interface, callback, service bag, or behavior change.
+
+  Evidence:
+
+  - `SceneSaveRequest` is path plus `SceneWorldSaveState`,
+    `SceneSessionSaveState`, and `PresentationSaveState`;
+  - all three production save entry points use concrete owner publications;
+  - the four retired symbols have zero definitions/usages;
+  - changed Scene/load/editor operations remain below 13 parameters;
+  - focused tests cover every persisted policy/environment/camera value and
+    the existing object/asset round trip;
+  - comment audit: 20/20 touched source files checked, 0 deferred;
+  - `validate_tests.bat`: 398/398 tests, 2,403,462 assertions;
+  - authoritative `validate_full.bat`: PASS in 173.3 seconds with DX12
+    baselines unchanged and the 44,401-line physics oracle byte-exact;
+  - permanent report:
+    `../../Reports/2026-07-26/concrete-parameter-bag-elimination-pb1-scene.md`.
 
 - [ ] **PB2 - Collapse the pointer-routing projection chain.**
 

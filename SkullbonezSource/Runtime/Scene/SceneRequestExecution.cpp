@@ -49,16 +49,21 @@ using namespace SkullbonezCore::Physics;
 
 
 bool SceneController::ExecutePending( SceneLoadTransaction& transaction,
-                                      const SceneLoadPolicyInputs& policy,
-                                      const CameraControlState& camera,
-                                      const SceneLoadNavigationState& navigation,
-                                      const OverlayDebugState& debug,
+                                      SkullbonezCore::Core::EngineConfig& config,
+                                      RunLaunchOptions& launchOptions,
+                                      const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender,
+                                      const RunStartupState& startup,
+                                      Assets::AssetSystem& assets,
+                                      Threading::WorkerPool& workerPool,
+                                      DiagnosticsRuntime& diagnosticsRuntime,
                                       Rendering::Dx12FrameOwner* renderFrame,
                                       Rendering::Dx12ResourceBuilder* renderResources,
                                       RuntimeRenderer& renderer )
 {
     SceneRequestBatch completedRequests;
     SceneController& m_sceneController = *this;
+    const CameraControlState& camera = transaction.m_outputs.camera;
+    const SceneLoadNavigationState& navigation = transaction.m_outputs.navigation;
     const auto executeSceneLoadRequest = [&]( const SceneLoadRequest& request )
     {
         if ( !request.accepted )
@@ -69,10 +74,13 @@ bool SceneController::ExecutePending( SceneLoadTransaction& transaction,
         return transaction
             .Load( m_sceneController,
                    request,
-                   policy,
-                   camera,
-                   navigation,
-                   debug,
+                   config,
+                   launchOptions,
+                   defaultCinematicRender,
+                   startup,
+                   assets,
+                   workerPool,
+                   diagnosticsRuntime,
                    renderFrame,
                    renderResources,
                    renderer )
@@ -124,10 +132,10 @@ bool SceneController::ExecutePending( SceneLoadTransaction& transaction,
         case SceneRequestType::SaveCurrentDefaults:
         {
             const OverlayDebugState& presentationState = transaction.PresentationForFollowingRequest(
-                debug,
+                transaction.m_outputs.presentation,
                 LifecyclePacket() );
 
-            const SceneLoadNavigationState& currentNavigation = transaction.NavigationForFollowingRequest( navigation );
+            const SceneLoadNavigationState& currentNavigation = transaction.NavigationForFollowingRequest( transaction.m_outputs.navigation );
 
             const SkullbonezCore::Core::SbResult saveResult = m_sceneController.SaveCurrentDefaults(
                 SceneDefaultsSaveView { presentationState, renderer, camera, currentNavigation.overrides } );

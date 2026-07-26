@@ -82,6 +82,10 @@ namespace Geometry
 {
 class Terrain;
 }
+namespace GameObjects
+{
+struct PresentationSaveState;
+}
 namespace Runtime
 {
 class SceneController;
@@ -444,6 +448,7 @@ class InputRouter
                                  DiagnosticsRuntime& diagnosticsRuntime,
                                  RuntimeFrameInteractionView& interactionOwners,
                                  SceneController& sceneController,
+                                 const GameObjects::PresentationSaveState& presentation,
                                  const ReplayInputView& replayInput );
     void RecordModeAction( RuntimeFrameInteractionView& interactionOwners,
                            RuntimeInputContext& runtimeInput,

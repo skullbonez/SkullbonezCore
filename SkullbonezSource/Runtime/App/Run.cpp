@@ -60,7 +60,6 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using SkullbonezCore::Environment::WorldEnvironment;
 using SkullbonezCore::GameObjects::SceneSaveRequest;
-using SkullbonezCore::GameObjects::SceneSaveView;
 using SkullbonezCore::GameObjects::SceneSnapshotWriter;
 using SkullbonezCore::Geometry::Terrain;
 using SkullbonezCore::Geometry::XZBounds;
@@ -596,25 +595,24 @@ void Run::Initialise()
         return;
     }
 
-    const SceneLoadPolicyInputs sceneLoadPolicy { m_config,
-                                                  m_launchOptions,
-                                                  m_renderDefaults.CinematicBaseline(),
-                                                  m_startup,
-                                                  m_assets,
-                                                  m_workerPool,
-                                                  m_diagnosticsRuntime,
-                                                  m_renderBackendView.RendererName(),
-                                                  m_timers.simulationTimer.GetTotalTime() };
-
     SceneLoadNavigationState sceneLoadNavigation = CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() );
 
     SceneLoadTransaction sceneLoad;
+    sceneLoad.CaptureSubmittedState( m_camera,
+                                     sceneLoadNavigation,
+                                     m_overlayDiagnostics->PresentationSnapshot(),
+                                     m_renderBackendView.RendererName(),
+                                     m_timers.simulationTimer.GetTotalTime() );
+
     m_lastSceneLoadResult = sceneLoad.Load( m_sceneController,
                                             SceneLoadRequest::Load( 0, false, false, false ),
-                                            sceneLoadPolicy,
-                                            m_camera,
-                                            sceneLoadNavigation,
-                                            m_overlayDiagnostics->PresentationSnapshot(),
+                                            m_config,
+                                            m_launchOptions,
+                                            m_renderDefaults.CinematicBaseline(),
+                                            m_startup,
+                                            m_assets,
+                                            m_workerPool,
+                                            m_diagnosticsRuntime,
                                             m_renderBackendView.renderFrame,
                                             m_renderBackendView.renderResources,
                                             m_renderer );
@@ -807,36 +805,13 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
 
     if ( writeSnapshot )
     {
-        // Lifetime: scene-load-only borrows owner arrays only until the
-        // synchronous snapshot write completes.
-        const auto& joints = Physics::PhysicsEngine::ReadPointJointConstraints( m_sceneController.Scene().Physics() );
-        const SceneSaveView saveView { m_sceneController.Scene().Entities(),
-                                       m_sceneController.Scene().BodyStore(),
-                                       m_sceneController.Scene().Colliders(),
-                                       joints.data(),
-                                       static_cast<int>( joints.size() ),
-                                       m_sceneController.Scene().Environment().GetGravity(),
-                                       m_sceneController.Scene().Environment().GetFluidSurfaceHeight(),
-                                       m_sceneController.Scene().Environment().GetFluidDensity(),
-                                       m_sceneController.Scene().Environment().GetMutualGravitySettings() };
-
         const OverlayDebugState presentation = m_overlayDiagnostics->PresentationSnapshot();
         const SceneSaveRequest saveRequest { snapshotOutPath,
-                                             m_sceneController.Scene().Cameras().GetCameraTranslation(),
-                                             m_sceneController.Scene().Cameras().GetCameraView(),
-                                             m_sceneController.Scene().Cameras().GetCameraUp(),
-                                             m_sceneController.State().isScenePhysics,
-                                             m_sceneController.State().isSceneText,
-                                             m_sceneController.State().isEditableScene,
-                                             m_sceneController.State().isFixedStep,
-                                             presentation.isWaterHidden,
-                                             presentation.isTerrainHidden,
-                                             m_sceneController.State().hasFlatSlope,
-                                             m_sceneController.State().flatBaseY,
-                                             m_sceneController.State().flatSlopeX,
-                                             m_sceneController.State().flatSlopeZ };
+                                             m_sceneController.Scene().GetSaveState(),
+                                             m_sceneController.State().GetSaveState(),
+                                             presentation.GetSaveState() };
 
-        const SkullbonezCore::Core::SbResult saveResult = SceneSnapshotWriter::Save( saveView, saveRequest );
+        const SkullbonezCore::Core::SbResult saveResult = SceneSnapshotWriter::Save( saveRequest );
         if ( !saveResult.ok )
         {
             return saveResult;
@@ -848,21 +823,22 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
     for ( int i = 1; i < sceneCount; ++i )
     {
         SceneLoadTransaction sceneLoad;
+        sceneLoad.CaptureSubmittedState( m_camera,
+                                         CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
+                                         m_overlayDiagnostics->PresentationSnapshot(),
+                                         m_renderBackendView.RendererName(),
+                                         m_timers.simulationTimer.GetTotalTime() );
+
         const SkullbonezCore::Core::SbResult loadResult = sceneLoad.Load(
             m_sceneController,
             SceneLoadRequest::Load( i, false, false, false ),
-            SceneLoadPolicyInputs { m_config,
-                                    m_launchOptions,
-                                    m_renderDefaults.CinematicBaseline(),
-                                    m_startup,
-                                    m_assets,
-                                    m_workerPool,
-                                    m_diagnosticsRuntime,
-                                    m_renderBackendView.RendererName(),
-                                    m_timers.simulationTimer.GetTotalTime() },
-            m_camera,
-            CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
-            m_overlayDiagnostics->PresentationSnapshot(),
+            m_config,
+            m_launchOptions,
+            m_renderDefaults.CinematicBaseline(),
+            m_startup,
+            m_assets,
+            m_workerPool,
+            m_diagnosticsRuntime,
             m_renderBackendView.renderFrame,
             m_renderBackendView.renderResources,
             m_renderer );

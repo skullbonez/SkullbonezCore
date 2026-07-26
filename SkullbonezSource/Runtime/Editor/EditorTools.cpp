@@ -1,12 +1,13 @@
 /*
 File: SkullbonezSource/Runtime/Editor/EditorTools.cpp
 Purpose:
-  Owns editor placement scale math for primitive bodies, hulls, trees, and compound assets.
+  Owns editor placement math and the focused cold save/capture actions invoked
+  by editor input.
 
 Summary:
-  Placement gestures start as mouse deltas and wheel clicks. This file maps
-  that input into safe object scale values before EditorObjectPlacement commits
-  the object.
+  Placement gestures map to safe object scale values before commit. Separate
+  scene-snapshot and screenshot operations keep persistence authority from
+  travelling in one multi-owner hotkey context.
 
 Glossary:
   Placement gesture: Mouse drag and wheel input used to size an editor object
@@ -42,7 +43,6 @@ Related:
 #include <utility>
 
 using SkullbonezCore::GameObjects::SceneSaveRequest;
-using SkullbonezCore::GameObjects::SceneSaveView;
 using SkullbonezCore::GameObjects::SceneSnapshotWriter;
 using SkullbonezCore::Math::Vector::Vector3;
 
@@ -430,91 +430,62 @@ EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( E
 }
 
 
-void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction action, bool wasPressed )
+void HandleEditorSceneSaveHotkey( SceneWorld& world,
+                                  const SceneSessionState& scene,
+                                  const GameObjects::PresentationSaveState& presentation,
+                                  bool wasPressed )
 {
-    // Why: the binding table owns the key/action pair, while editor tools keep
-    // numbered snapshot paths and screenshot commands behind the editor boundary.
-    switch ( action )
+    if ( !wasPressed )
     {
-    case RuntimeInputAction::SaveSceneSnapshot:
-    {
-        if ( !wasPressed )
-        {
-            return;
-        }
-
-        static int sSnapshotSeq = 0;
-        char path[256] = {};
-
-        if ( RuntimeFileWriter::NextNumberedPath( path,
-                                                  sizeof( path ),
-                                                  "Scenes",
-                                                  "snapshot_",
-                                                  ".scene.json",
-                                                  sSnapshotSeq,
-                                                  100 ) )
-        {
-            // Lifetime: the save view borrows cold owner arrays only for this
-            // synchronous file write; editor input retains none of the rows.
-            const auto& joints = Physics::PhysicsEngine::ReadPointJointConstraints( context.world.Physics() );
-            const SceneSaveView saveView { context.world.Entities(),
-                                           context.world.BodyStore(),
-                                           context.world.Colliders(),
-                                           joints.data(),
-                                           static_cast<int>( joints.size() ),
-                                           context.world.Environment().GetGravity(),
-                                           context.world.Environment().GetFluidSurfaceHeight(),
-                                           context.world.Environment().GetFluidDensity(),
-                                           context.world.Environment().GetMutualGravitySettings() };
-
-            const SceneSaveRequest request { path,
-                                             context.world.Cameras().GetCameraTranslation(),
-                                             context.world.Cameras().GetCameraView(),
-                                             context.world.Cameras().GetCameraUp(),
-                                             context.scene.isScenePhysics,
-                                             context.scene.isSceneText };
-
-            const SkullbonezCore::Core::SbResult saveResult = SceneSnapshotWriter::Save( saveView, request );
-            if ( !saveResult.ok )
-            {
-                fprintf( stderr, "[%s] %s\n", saveResult.error.owner, saveResult.error.message );
-            }
-        }
-
         return;
     }
 
-    case RuntimeInputAction::SaveScreenshot:
+    static int sSnapshotSeq = 0;
+    char path[256] = {};
+    if ( RuntimeFileWriter::NextNumberedPath( path,
+                                              sizeof( path ),
+                                              "Scenes",
+                                              "snapshot_",
+                                              ".scene.json",
+                                              sSnapshotSeq,
+                                              100 ) )
     {
-        if ( !wasPressed )
+        // Lifetime: the composed request borrows SceneWorld stores only for this
+        // synchronous write. Session and presentation fields are detached values.
+        const SceneSaveRequest request { path, world.GetSaveState(), scene.GetSaveState(), presentation };
+
+        const SkullbonezCore::Core::SbResult saveResult = SceneSnapshotWriter::Save( request );
+        if ( !saveResult.ok )
         {
-            return;
+            fprintf( stderr, "[%s] %s\n", saveResult.error.owner, saveResult.error.message );
         }
+    }
+}
 
-        static int sScreenshotSeq = 0;
-        char path[256] = {};
 
-        if ( RuntimeFileWriter::NextNumberedPath( path,
-                                                  sizeof( path ),
-                                                  "Screenshots",
-                                                  "screenshot_",
-                                                  ".bmp",
-                                                  sScreenshotSeq,
-                                                  100 ) )
-        {
-            const SkullbonezCore::Core::SbResult queueResult = context.capture.QueueScreenshot( path );
-            if ( !queueResult.ok )
-            {
-                std::fprintf( stderr, "%s: %s\n", queueResult.error.owner, queueResult.error.message );
-                std::fflush( stderr );
-            }
-        }
-
+void HandleEditorScreenshotHotkey( CaptureController& capture, bool wasPressed )
+{
+    if ( !wasPressed )
+    {
         return;
     }
 
-    default:
-        return;
+    static int sScreenshotSeq = 0;
+    char path[256] = {};
+    if ( RuntimeFileWriter::NextNumberedPath( path,
+                                              sizeof( path ),
+                                              "Screenshots",
+                                              "screenshot_",
+                                              ".bmp",
+                                              sScreenshotSeq,
+                                              100 ) )
+    {
+        const SkullbonezCore::Core::SbResult queueResult = capture.QueueScreenshot( path );
+        if ( !queueResult.ok )
+        {
+            std::fprintf( stderr, "%s: %s\n", queueResult.error.owner, queueResult.error.message );
+            std::fflush( stderr );
+        }
     }
 }
 

@@ -1,12 +1,13 @@
 /*
 File: SkullbonezTests/TestSceneSnapshotWriter.cpp
 Purpose:
-  Verifies version-2 scene snapshots preserve asset-instance live part state.
+  Verifies version-2 scene snapshots preserve every owner-published save field
+  and asset-instance live part state.
 
 Summary:
-  The writer borrows scene/entity, body, collider, group, and joint owner data.
-  Asset-backed rows are grouped by stable asset-root id and serialized as
-  authoritative part states; the parser then rebuilds shape-specific rows.
+  The writer consumes SceneWorld, session, and presentation publications.
+  Tests cover their persisted policy fields, then reparse asset-backed rows as
+  authoritative shape-specific part states.
 
 Glossary:
   Live part state: Current body/collider values, independent of the original
@@ -34,7 +35,9 @@ Related:
 #include "../SkullbonezSource/Physics/ColliderStore.h"
 #include "../SkullbonezSource/Physics/ConvexHullShape.h"
 #include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
+#include "../SkullbonezSource/Runtime/Diagnostics/OverlayDebugState.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneEntityStore.h"
+#include "../SkullbonezSource/Runtime/Scene/SceneRuntime.h"
 #include "../SkullbonezSource/Scene/SceneSnapshotWriter.h"
 #include "../SkullbonezSource/Scene/AuthoredScene.h"
 
@@ -80,6 +83,36 @@ void WriteAssetLibrary()
   ]}]
 })";
     REQUIRE( output.good() );
+}
+
+TEST_CASE( "Scene save owners publish every session and presentation field" )
+{
+    SceneSessionState session;
+    session.isScenePhysics = false;
+    session.isSceneText = false;
+    session.isEditableScene = true;
+    session.isFixedStep = true;
+    session.hasFlatSlope = true;
+    session.flatBaseY = 3.5f;
+    session.flatSlopeX = -0.125f;
+    session.flatSlopeZ = 0.375f;
+
+    const SceneSessionSaveState sessionSave = session.GetSaveState();
+    CHECK_FALSE( sessionSave.physicsOn );
+    CHECK_FALSE( sessionSave.textOn );
+    CHECK( sessionSave.editableScene );
+    CHECK( sessionSave.fixedStep );
+    CHECK( sessionSave.hasFlatSlope );
+    CHECK( sessionSave.flatBaseY == doctest::Approx( 3.5f ) );
+    CHECK( sessionSave.flatSlopeX == doctest::Approx( -0.125f ) );
+    CHECK( sessionSave.flatSlopeZ == doctest::Approx( 0.375f ) );
+
+    OverlayDebugState presentation;
+    presentation.isWaterHidden = true;
+    presentation.isTerrainHidden = true;
+    const PresentationSaveState presentationSave = presentation.GetSaveState();
+    CHECK( presentationSave.waterHidden );
+    CHECK( presentationSave.terrainHidden );
 }
 
 void AppendEntity( SceneEntityStore& entities,
@@ -634,17 +667,53 @@ TEST_CASE( "SceneSnapshotWriter: schema-v2 asset parts reparse from authoritativ
                   PhysicsSceneObjectId{ 1001u },
                   1 );
 
-    const SceneSaveView view{ entities, bodies, colliders, nullptr, 0, -9.81f, 5.0f, 1000.0f, {} };
-    SceneSaveRequest request;
-    request.path = kSnapshotPath;
-    request.cameraEye = Vector3( 1.0f, 2.0f, 3.0f );
-    request.cameraView = ZERO_VECTOR;
-    request.cameraUp = Vector3( 0.0f, 1.0f, 0.0f );
-    request.physicsOn = true;
-    REQUIRE( SceneSnapshotWriter::Save( view, request ).ok );
+    MutualGravitySettings mutualGravity;
+    mutualGravity.enabled = true;
+    mutualGravity.gravitationalConstant = 6.25f;
+    mutualGravity.softeningLength = 0.75f;
+    mutualGravity.elasticCollisions = false;
+    const SceneWorldSaveState world { entities,
+                                      bodies,
+                                      colliders,
+                                      nullptr,
+                                      0,
+                                      -9.81f,
+                                      5.0f,
+                                      1000.0f,
+                                      mutualGravity,
+                                      Vector3( 1.0f, 2.0f, 3.0f ),
+                                      Vector3( 4.0f, 5.0f, 6.0f ),
+                                      Vector3( 0.0f, 1.0f, 0.0f ) };
+
+    const SceneSessionSaveState session { true, false, true, true, true, 7.5f, 0.25f, -0.5f };
+    const PresentationSaveState presentation { true, true };
+    const SceneSaveRequest request { kSnapshotPath, world, session, presentation };
+    REQUIRE( SceneSnapshotWriter::Save( request ).ok );
 
     const AuthoredScene saved = AuthoredScene::LoadFromFile( kSnapshotPath );
     CHECK( saved.GetSchemaVersion() == 2u );
+    CHECK( saved.IsPhysicsEnabled() );
+    CHECK_FALSE( saved.IsTextEnabled() );
+    CHECK( saved.IsEditableScene() );
+    CHECK( saved.IsFixedStep() );
+    CHECK( saved.IsWaterHidden() );
+    CHECK( saved.IsTerrainHidden() );
+    CHECK( saved.HasFlatSlope() );
+    CHECK( saved.GetFlatBaseY() == doctest::Approx( 7.5f ) );
+    CHECK( saved.GetFlatSlopeX() == doctest::Approx( 0.25f ) );
+    CHECK( saved.GetFlatSlopeZ() == doctest::Approx( -0.5f ) );
+    CHECK( saved.GetWorldGravity() == doctest::Approx( -9.81f ) );
+    CHECK( saved.GetWorldFluidHeight() == doctest::Approx( 5.0f ) );
+    CHECK( saved.GetWorldFluidDensity() == doctest::Approx( 1000.0f ) );
+    REQUIRE( saved.GetCameraCount() == 1 );
+    CHECK( saved.GetCamera( 0 ).m_position == Vector3( 1.0f, 2.0f, 3.0f ) );
+    CHECK( saved.GetCamera( 0 ).view == Vector3( 4.0f, 5.0f, 6.0f ) );
+    CHECK( saved.GetCamera( 0 ).up == Vector3( 0.0f, 1.0f, 0.0f ) );
+    const MutualGravitySettings& savedMutualGravity = saved.GetWorldMutualGravitySettings();
+    CHECK( savedMutualGravity.enabled );
+    CHECK( savedMutualGravity.gravitationalConstant == doctest::Approx( 6.25f ) );
+    CHECK( savedMutualGravity.softeningLength == doctest::Approx( 0.75f ) );
+    CHECK_FALSE( savedMutualGravity.elasticCollisions );
     CHECK( saved.GetAssetLibraryCount() == 1 );
     CHECK( saved.GetAssetInstanceCount() == 1 );
     CHECK( saved.GetAssetPartCount() == 3 );

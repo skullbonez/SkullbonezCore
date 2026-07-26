@@ -731,6 +731,24 @@ int SceneWorld::SceneEntityCount() const
 }
 
 
+SkullbonezCore::GameObjects::SceneWorldSaveState SceneWorld::GetSaveState() const
+{
+    const auto& joints = Physics::PhysicsEngine::ReadPointJointConstraints( Physics() );
+    return { Entities(),
+             BodyStore(),
+             Colliders(),
+             joints.data(),
+             static_cast<int>( joints.size() ),
+             Environment().GetGravity(),
+             Environment().GetFluidSurfaceHeight(),
+             Environment().GetFluidDensity(),
+             Environment().GetMutualGravitySettings(),
+             Cameras().GetCameraTranslation(),
+             Cameras().GetCameraView(),
+             Cameras().GetCameraUp() };
+}
+
+
 bool SceneWorld::CanTrimPresentationRowsForSceneRestore( int modelCount ) const
 {
     return modelCount >= 0 && modelCount <= SceneEntityCount() &&

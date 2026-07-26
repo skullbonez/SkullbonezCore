@@ -1120,21 +1120,22 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
         }
 
         SceneLoadTransaction sceneLoad;
+        sceneLoad.CaptureSubmittedState( camera,
+                                         CaptureSceneLoadNavigationState( ui.SceneNavigation() ),
+                                         sceneOwners.overlays.PresentationSnapshot(),
+                                         renderBackendView.RendererName(),
+                                         timers.simulationTimer.GetTotalTime() );
+
         const bool loaded = sceneLoad
                                 .Load( sceneController,
                                        request,
-                                       SceneLoadPolicyInputs { config,
-                                                               launchOptions,
-                                                               defaultCinematicRender,
-                                                               startup,
-                                                               assets,
-                                                               workerPool,
-                                                               diagnosticsRuntime,
-                                                               renderBackendView.RendererName(),
-                                                               timers.simulationTimer.GetTotalTime() },
-                                       camera,
-                                       CaptureSceneLoadNavigationState( ui.SceneNavigation() ),
-                                       sceneOwners.overlays.PresentationSnapshot(),
+                                       config,
+                                       launchOptions,
+                                       defaultCinematicRender,
+                                       startup,
+                                       assets,
+                                       workerPool,
+                                       diagnosticsRuntime,
                                        renderBackendView.renderFrame,
                                        renderBackendView.renderResources,
                                        renderer )

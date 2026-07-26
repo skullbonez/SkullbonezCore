@@ -471,25 +471,26 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
 
         presentationEdit.Commit();
         SceneLoadTransaction sceneLoad;
+        sceneLoad.CaptureSubmittedState(
+            m_camera,
+            CaptureSceneLoadNavigationState( interactionOwners.operatorUi.SceneNavigation() ),
+            m_debug,
+            m_renderBackendView.RendererName(),
+            m_timers.simulationTimer.GetTotalTime() );
+
         const bool loaded = sceneLoad
-                                .Load(
-                                    m_sceneController,
-                                    request,
-                                    SceneLoadPolicyInputs { m_config,
-                                                            m_launchOptions,
-                                                            m_renderDefaults.CinematicBaseline(),
-                                                            m_startup,
-                                                            m_assets,
-                                                            m_workerPool,
-                                                            m_diagnosticsRuntime,
-                                                            m_renderBackendView.RendererName(),
-                                                            m_timers.simulationTimer.GetTotalTime() },
-                                    m_camera,
-                                    CaptureSceneLoadNavigationState( interactionOwners.operatorUi.SceneNavigation() ),
-                                    m_debug,
-                                    m_renderBackendView.renderFrame,
-                                    m_renderBackendView.renderResources,
-                                    m_renderer )
+                                .Load( m_sceneController,
+                                       request,
+                                       m_config,
+                                       m_launchOptions,
+                                       m_renderDefaults.CinematicBaseline(),
+                                       m_startup,
+                                       m_assets,
+                                       m_workerPool,
+                                       m_diagnosticsRuntime,
+                                       m_renderBackendView.renderFrame,
+                                       m_renderBackendView.renderResources,
+                                       m_renderer )
                                 .ok;
 
         sceneLoad.ApplyRuntimeReactions( m_launchOptions,
@@ -1245,6 +1246,7 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                               m_diagnosticsRuntime,
                                               interactionOwners,
                                               m_sceneController,
+                                              sceneOwners.overlays.PresentationSnapshot().GetSaveState(),
                                               m_replayRuntime.BuildInputView() );
 
         const RuntimeInteractionFramePolicy inputPolicy = m_interaction.BuildFramePolicy( inputSnapshot.frameInput );
@@ -1286,25 +1288,24 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     const bool processedDefaults = DrainRenderDefaultRequests();
     const bool processedCapture = DrainCaptureRequests();
     presentationEdit.Commit();
-    const SceneLoadPolicyInputs sceneLoadPolicy { m_config,
-                                                  m_launchOptions,
-                                                  m_renderDefaults.CinematicBaseline(),
-                                                  m_startup,
-                                                  m_assets,
-                                                  m_workerPool,
-                                                  m_diagnosticsRuntime,
-                                                  m_renderBackendView.RendererName(),
-                                                  m_timers.simulationTimer.GetTotalTime() };
-
     const SceneLoadNavigationState sceneLoadNavigation = CaptureSceneLoadNavigationState(
         interactionOwners.operatorUi.SceneNavigation() );
 
     SceneLoadTransaction sceneLoad;
+    sceneLoad.CaptureSubmittedState( m_camera,
+                                     sceneLoadNavigation,
+                                     m_debug,
+                                     m_renderBackendView.RendererName(),
+                                     m_timers.simulationTimer.GetTotalTime() );
+
     const bool processedScene = m_sceneController.ExecutePending( sceneLoad,
-                                                                  sceneLoadPolicy,
-                                                                  m_camera,
-                                                                  sceneLoadNavigation,
-                                                                  m_debug,
+                                                                  m_config,
+                                                                  m_launchOptions,
+                                                                  m_renderDefaults.CinematicBaseline(),
+                                                                  m_startup,
+                                                                  m_assets,
+                                                                  m_workerPool,
+                                                                  m_diagnosticsRuntime,
                                                                   m_renderBackendView.renderFrame,
                                                                   m_renderBackendView.renderResources,
                                                                   m_renderer );

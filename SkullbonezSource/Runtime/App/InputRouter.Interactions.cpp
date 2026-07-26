@@ -733,6 +733,7 @@ void InputRouter::DispatchCaptureActions( InputActions& actions,
                                           DiagnosticsRuntime& diagnosticsRuntime,
                                           RuntimeFrameInteractionView& interactionOwners,
                                           SceneController& sceneController,
+                                          const GameObjects::PresentationSaveState& presentation,
                                           const ReplayInputView& replayInput )
 {
     const CameraControlState& camera = interactionOwners.camera;
@@ -762,10 +763,6 @@ void InputRouter::DispatchCaptureActions( InputActions& actions,
         SB_FATAL( "InputRouter", "Fixed input action capacity exhausted while routing capture actions." );
     }
 
-    const RunInternal::EditorSaveHotkeyContext editorSaveHotkeyContext { sceneController.Scene(),
-                                                                         sceneController.State(),
-                                                                         diagnosticsRuntime.Capture() };
-
     // Invariant: side-effect dispatch consumes only accepted semantic events.
     // It must not reopen hardware polling or maintain a second edge latch.
     for ( std::size_t index = 0; index < actions.Count(); ++index )
@@ -779,8 +776,14 @@ void InputRouter::DispatchCaptureActions( InputActions& actions,
         switch ( event.action )
         {
         case RuntimeInputAction::SaveSceneSnapshot:
+            RunInternal::HandleEditorSceneSaveHotkey( sceneController.Scene(),
+                                                      sceneController.State(),
+                                                      presentation,
+                                                      true );
+
+            break;
         case RuntimeInputAction::SaveScreenshot:
-            RunInternal::HandleEditorSaveHotkey( editorSaveHotkeyContext, event.action, true );
+            RunInternal::HandleEditorScreenshotHotkey( diagnosticsRuntime.Capture(), true );
             break;
         case RuntimeInputAction::ResetScene:
             // R reloads after capture actions have had their persistence slot.

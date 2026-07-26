@@ -28,6 +28,7 @@ Related:
 #pragma once
 
 #include "../../Physics/PhysicsDebugData.h"
+#include "../../Scene/SceneSnapshotWriter.h"
 
 #include <cstdint>
 
@@ -73,6 +74,11 @@ struct OverlayDebugState
     char reproSnapshotMessage[128] = {};                      // Short HUD confirmation after launcher-mode repro dump
     double reproSnapshotMessageUntil = 0.0;                   // Simulation timer value after which the HUD message expires
 #endif
+
+    GameObjects::PresentationSaveState GetSaveState() const
+    {
+        return { isWaterHidden, isTerrainHidden };
+    }
 
     void ResetForSceneLoad()
     {

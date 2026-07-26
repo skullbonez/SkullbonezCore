@@ -6,7 +6,7 @@ Purpose:
 Summary:
   Input owns gestures. Editor tools own how those gestures translate into
   editable object scale, clamp ranges, placement semantics, and editor command
-  side effects that can be described with explicit borrowed context.
+  side effects expressed through focused per-operation borrows.
 
 Glossary:
   Asset system: Runtime-owned registry that resolves editor asset-library names
@@ -19,7 +19,7 @@ Glossary:
 
 Invariants:
   - Scale helpers must be deterministic and side-effect free.
-  - Command helpers must take every mutable service through an explicit context.
+  - Command helpers borrow only the concrete owners used by that operation.
   - Object-type helpers must stay aligned with the editor tab object enum.
   - Preview, preflight, and commit contexts must borrow the same asset registry.
 
@@ -51,6 +51,10 @@ namespace Environment
 class CameraCollection;
 class WorldEnvironment;
 } // namespace Environment
+namespace GameObjects
+{
+struct PresentationSaveState;
+}
 namespace Runtime
 {
 class SceneController;
@@ -85,16 +89,6 @@ struct SceneSessionState;
 
 namespace RunInternal
 {
-// Lifetime: editor command contexts borrow SceneWorld once per synchronous
-// action; helpers resolve physics, terrain, environment, and entity rows
-// locally instead of accepting parallel routes to the same authority.
-struct EditorSaveHotkeyContext
-{
-    SceneWorld& world;
-    const SceneSessionState& scene;
-    CaptureController& capture;
-};
-
 struct EditorTerrainPlacement
 {
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
@@ -345,9 +339,13 @@ void UpdateEditorGizmoHotAxes( EditorGizmoContext context,
                                const Math::Vector::Vector3& rayOrigin,
                                const Math::Vector::Vector3& rayDirection,
                                bool scaleMode );
-// Concept: InputController owns keybinding data, while editor tools own the
-// cold save and screenshot side effects behind this action boundary.
-void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction action, bool wasPressed );
+// InputController owns keybinding data. Editor tools keep the two unrelated
+// cold side effects separate so scene-save authority never travels with capture.
+void HandleEditorSceneSaveHotkey( SceneWorld& world,
+                                  const SceneSessionState& scene,
+                                  const GameObjects::PresentationSaveState& presentation,
+                                  bool wasPressed );
+void HandleEditorScreenshotHotkey( CaptureController& capture, bool wasPressed );
 } // namespace RunInternal
 } // namespace Runtime
 } // namespace SkullbonezCore

@@ -6,8 +6,9 @@ Purpose:
 Summary:
   SceneLoadTransaction replaces caller-enforced Load, runtime-reaction, and
   presentation ordering with a stack-scoped invariant owner. It retains only
-  the detached request, outputs, and a phase cursor; concrete runtime owners
-  are borrowed by the phase method that uses them and are never stored.
+  detached request/submission values, outputs, and a phase cursor; concrete
+  runtime owners are borrowed by the phase method that uses them and are never
+  stored.
 
 Mental model:
   The transaction is a one-way turnstile. Scene mutation fills its private
@@ -26,8 +27,9 @@ Glossary:
 Invariants:
   - The only legal phase walk is Idle -> Load -> RuntimeReactions ->
     Presentation -> Complete; an illegal transition is lane-F fatal.
-  - Request, outputs, and arbitration state are private transaction values. No
-    runtime owner pointer or reference survives a phase-method return.
+  - Request, submitted camera/navigation/presentation/time/name, outputs, and
+    arbitration state are private values. No runtime owner pointer or reference
+    survives a phase-method return.
   - Following requests use loaded navigation after it is committed, and loaded
     presentation only after this transaction loads and reaches AfterSceneCleared.
 
@@ -106,12 +108,23 @@ class SceneLoadTransaction
     SceneLoadTransaction( const SceneLoadTransaction& ) = delete;
     SceneLoadTransaction& operator=( const SceneLoadTransaction& ) = delete;
 
+    // Captures detached per-batch values before any request is executed.
+    // Concrete load owners are still borrowed only by Load below.
+    void CaptureSubmittedState( const CameraControlState& camera,
+                                const SceneLoadNavigationState& navigation,
+                                const OverlayDebugState& debug,
+                                const char* rendererName,
+                                double sceneTimeSeconds );
+
     SkullbonezCore::Core::SbResult Load( SceneController& sceneController,
                                          const SceneLoadRequest& request,
-                                         const SceneLoadPolicyInputs& policy,
-                                         const CameraControlState& camera,
-                                         const SceneLoadNavigationState& navigation,
-                                         const OverlayDebugState& debug,
+                                         SkullbonezCore::Core::EngineConfig& config,
+                                         RunLaunchOptions& launchOptions,
+                                         const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender,
+                                         const RunStartupState& startup,
+                                         Assets::AssetSystem& assets,
+                                         Threading::WorkerPool& workerPool,
+                                         DiagnosticsRuntime& diagnosticsRuntime,
                                          Rendering::Dx12FrameOwner* renderFrame,
                                          Rendering::Dx12ResourceBuilder* renderResources,
                                          RuntimeRenderer& renderer );
@@ -188,6 +201,8 @@ class SceneLoadTransaction
     SceneLoadRequest m_request = SceneLoadRequest::None();
     Outputs m_outputs;
     SceneLoadPhaseCursor m_phase;
+    char m_rendererName[64] = "unknown";
+    double m_sceneTimeSeconds = 0.0;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

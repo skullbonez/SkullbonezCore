@@ -649,12 +649,16 @@ The active/future ledger is now 1/8 (13%).
 ## Current Execution Priority
 
 The 2026-07-25 round-4 campaign now has one live plan:
-`concrete-parameter-bag-elimination` (1/8). Invariant Ownership Governance And
+`concrete-parameter-bag-elimination` (2/8). Invariant Ownership Governance And
 Transaction Repair closed GV0-GV4 and left the live ledger under rule 4;
 permanent evidence is
 `../Reports/2026-07-26/invariant-ownership-governance-and-transaction-repair-closure.md`.
-PB0 is complete. PB1 is next: repair Scene save, consume the existing
-scene-load transaction, and split the mixed save/screenshot hotkey context.
+PB1 then installed the three owner-produced save publications, removed the
+duplicate writer view and scene-load policy bag, split the editor hotkey
+authority, and passed 398 doctests plus the 173.3-second broad gate. Permanent
+evidence is
+`../Reports/2026-07-26/concrete-parameter-bag-elimination-pb1-scene.md`.
+PB0-PB1 are complete. The active/future ledger is 2/8 (25%), with PB2 next.
 Header-claim staleness remediation is complete at 3/3 and removed
 from the live ledger; its permanent evidence is
 `../Reports/2026-07-25/header-claim-staleness-remediation-closure.md`. Replay
@@ -1830,7 +1834,7 @@ second and preserved GV0.
 | [replay-subsystem-partition](../Reports/2026-07-26/replay-subsystem-partition-closure.md) | Complete | 6/6 | Closed and removed from the live ledger under inventory rule 4 |
 | [downward-domain-bleed-remediation](../Reports/2026-07-26/downward-domain-bleed-remediation-closure.md) | Complete | 6/6 | Closed and removed from the live ledger under inventory rule 4 |
 | [invariant-ownership-governance-and-transaction-repair](../Reports/2026-07-26/invariant-ownership-governance-and-transaction-repair-closure.md) | Complete | 5/5 | Closed and removed from the live ledger under rule 4 |
-| [concrete-parameter-bag-elimination](TODO/concrete-parameter-bag-elimination.md) | In progress | 1/8 | PB1 repairs Scene save/load and the mixed save hotkey context |
+| [concrete-parameter-bag-elimination](TODO/concrete-parameter-bag-elimination.md) | In progress | 2/8 | PB2 collapses the pointer-routing projection chain |
 
 ## Features
 

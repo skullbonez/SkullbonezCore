@@ -5,8 +5,8 @@ Purpose:
 
 Summary:
   SceneRuntime is intentionally narrow. It owns queue/index bookkeeping and
-  scene-run state, while Run still performs the current object,
-  camera, terrain, UI, and renderer side effects around scene loads.
+  session values. SceneController/SceneWorld perform cold mutation, while
+  SceneLoadTransaction sequences the runtime and presentation reactions.
 
 Glossary:
   Scene queue: Ordered list of authored scene paths, where an empty path means
@@ -39,6 +39,19 @@ Related:
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Physics;
+
+
+SkullbonezCore::GameObjects::SceneSessionSaveState SceneSessionState::GetSaveState() const
+{
+    return { isScenePhysics,
+             isSceneText,
+             isEditableScene,
+             isFixedStep,
+             hasFlatSlope,
+             flatBaseY,
+             flatSlopeX,
+             flatSlopeZ };
+}
 
 const char* SkullbonezCore::Runtime::SceneFileNameFromPath( const char* path )
 {

@@ -4,9 +4,9 @@ Purpose:
   Owns scene queue and scene-run state for the application runtime.
 
 Summary:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. SceneRuntime is the scene
-  lifecycle owner; Run coordinates higher-level work around it.
+  SceneRuntime owns queue/index bookkeeping and session values.
+  SceneController owns lifecycle and cold mutation, while Run coordinates
+  higher-level process work around those concrete owners.
 
 Glossary:
   Scene queue: Ordered list of authored scene paths, where an empty path means
@@ -39,6 +39,7 @@ Related:
 #include "../../Physics/SpatialGrid.h"
 #include "SceneAuthoredSetup.h"
 #include "SceneLifecycle.h"
+#include "../../Scene/SceneSnapshotWriter.h"
 
 #include <string>
 #include <vector>
@@ -67,6 +68,7 @@ struct SceneSessionState
     Physics::PhysicsSceneObjectId AllocateSceneObjectId();
     Physics::PhysicsSceneObjectId AllocateSceneObjectIdRange( int count );
     void ResetSceneObjectIdCursor( const Physics::PhysicsBodyStore& bodyStore );
+    GameObjects::SceneSessionSaveState GetSaveState() const;
 
     int currentSceneIndex = -1;                 // Index into scene queue (-1 = not yet loaded)
     int loadCount = 0;                          // Number of scene/generated loads since startup

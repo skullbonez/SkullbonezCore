@@ -93,7 +93,6 @@ using SkullbonezCore::Assets::ResolveEditorHullAssetPath;
 using SkullbonezCore::Environment::CameraCollection;
 using SkullbonezCore::Environment::WorldEnvironment;
 using SkullbonezCore::GameObjects::SceneSaveRequest;
-using SkullbonezCore::GameObjects::SceneSaveView;
 using SkullbonezCore::GameObjects::SceneSnapshotWriter;
 using SkullbonezCore::Gameplay::TornadoFieldConfig;
 using SkullbonezCore::Gameplay::TornadoSystemConfig;
@@ -526,43 +525,20 @@ SkullbonezCore::Core::SbResult UseFlatSlopeTerrain( SceneWorld& sceneWorld,
     return SkullbonezCore::Core::SbResult::Success();
 }
 
-SkullbonezCore::Core::SbResult SaveCurrentEditableSceneSnapshot( const std::string& scenePath,
-                                                                 const SceneSessionState& sceneState,
-                                                                 const SceneWorld& sceneWorld,
-                                                                 bool waterHidden,
-                                                                 bool terrainHidden )
+SkullbonezCore::Core::SbResult
+SaveCurrentEditableSceneSnapshot( const std::string& scenePath,
+                                  const SceneSessionState& sceneState,
+                                  const SceneWorld& sceneWorld,
+                                  const SkullbonezCore::GameObjects::PresentationSaveState& presentation )
 {
     // Lifetime: editable persistence borrows the concrete scene world only for
     // this synchronous write; scene reload may replace its stores afterward.
-    const WorldEnvironment& world = sceneWorld.Environment();
-    const CameraCollection& cameras = sceneWorld.Cameras();
-    const auto& joints = SkullbonezCore::Physics::PhysicsEngine::ReadPointJointConstraints( sceneWorld.Physics() );
-    const SceneSaveView saveView { sceneWorld.Entities(),
-                                   sceneWorld.BodyStore(),
-                                   sceneWorld.Colliders(),
-                                   joints.data(),
-                                   static_cast<int>( joints.size() ),
-                                   world.GetGravity(),
-                                   world.GetFluidSurfaceHeight(),
-                                   world.GetFluidDensity(),
-                                   world.GetMutualGravitySettings() };
-
     const SceneSaveRequest request { scenePath.c_str(),
-                                     cameras.GetCameraTranslation(),
-                                     cameras.GetCameraView(),
-                                     cameras.GetCameraUp(),
-                                     sceneState.isScenePhysics,
-                                     sceneState.isSceneText,
-                                     true,
-                                     sceneState.isFixedStep,
-                                     waterHidden,
-                                     terrainHidden,
-                                     sceneState.hasFlatSlope,
-                                     sceneState.flatBaseY,
-                                     sceneState.flatSlopeX,
-                                     sceneState.flatSlopeZ };
+                                     sceneWorld.GetSaveState(),
+                                     sceneState.GetSaveState(),
+                                     presentation };
 
-    return SceneSnapshotWriter::Save( saveView, request );
+    return SceneSnapshotWriter::Save( request );
 }
 
 void ApplyTornadoDefaultsForActiveScene( TornadoFieldConfig& field,
@@ -630,20 +606,57 @@ void SceneLoadTransaction::FinishLoadPhase()
 }
 
 
-SkullbonezCore::Core::SbResult SceneLoadTransaction::Load( SceneController& sceneController,
-                                                           const SceneLoadRequest& request,
-                                                           const SceneLoadPolicyInputs& policy,
-                                                           const CameraControlState& camera,
-                                                           const SceneLoadNavigationState& navigation,
-                                                           const OverlayDebugState& debug,
-                                                           Rendering::Dx12FrameOwner* renderFrame,
-                                                           Rendering::Dx12ResourceBuilder* renderResources,
-                                                           RuntimeRenderer& renderer )
+void SceneLoadTransaction::CaptureSubmittedState( const CameraControlState& camera,
+                                                  const SceneLoadNavigationState& navigation,
+                                                  const OverlayDebugState& debug,
+                                                  const char* rendererName,
+                                                  double sceneTimeSeconds )
+{
+    if ( m_phase.Current() != SceneLoadPhaseCursor::Phase::Idle )
+    {
+        SB_FATAL( "Runtime/SceneLoadTransaction",
+                  "Submitted scene-load values changed after the load phase began. current=%u",
+                  static_cast<unsigned int>( m_phase.Current() ) );
+    }
+
+    m_request = SceneLoadRequest::None();
+    m_outputs.ResetForLoad();
+    m_outputs.camera = camera;
+    m_outputs.navigation = navigation;
+    m_outputs.presentation = debug;
+    sprintf_s( m_rendererName, "%s", rendererName ? rendererName : "unknown" );
+    m_sceneTimeSeconds = sceneTimeSeconds;
+}
+
+
+SkullbonezCore::Core::SbResult
+SceneLoadTransaction::Load( SceneController& sceneController,
+                            const SceneLoadRequest& request,
+                            SkullbonezCore::Core::EngineConfig& config,
+                            RunLaunchOptions& launchOptions,
+                            const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender,
+                            const RunStartupState& startup,
+                            Assets::AssetSystem& assets,
+                            Threading::WorkerPool& workerPool,
+                            DiagnosticsRuntime& diagnosticsRuntime,
+                            Rendering::Dx12FrameOwner* renderFrame,
+                            Rendering::Dx12ResourceBuilder* renderResources,
+                            RuntimeRenderer& renderer )
 {
     AdvanceOrFatal( SceneLoadPhaseCursor::Phase::Load, "Load" );
     m_request = request;
-    return sceneController
-        .Load( request, policy, camera, navigation, debug, renderFrame, renderResources, renderer, *this );
+    return sceneController.Load( request,
+                                 config,
+                                 launchOptions,
+                                 defaultCinematicRender,
+                                 startup,
+                                 assets,
+                                 workerPool,
+                                 diagnosticsRuntime,
+                                 renderFrame,
+                                 renderResources,
+                                 renderer,
+                                 *this );
 }
 
 
@@ -842,33 +855,26 @@ void SceneLoadTransaction::ApplyPresentationOutputs( Window& window,
     AdvanceOrFatal( SceneLoadPhaseCursor::Phase::Complete, "CompletePresentation" );
 }
 
-SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& request,
-                                                      const SceneLoadPolicyInputs& policy,
-                                                      const CameraControlState& submittedCamera,
-                                                      const SceneLoadNavigationState& submittedNavigation,
-                                                      const OverlayDebugState& submittedDebug,
-                                                      Rendering::Dx12FrameOwner* renderFrame,
-                                                      Rendering::Dx12ResourceBuilder* renderResources,
-                                                      RuntimeRenderer& renderer,
-                                                      SceneLoadTransaction& transaction )
+SkullbonezCore::Core::SbResult
+SceneController::Load( const SceneLoadRequest& request,
+                       SkullbonezCore::Core::EngineConfig& config,
+                       RunLaunchOptions& launchOptions,
+                       const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender,
+                       const RunStartupState& startup,
+                       Assets::AssetSystem& assets,
+                       Threading::WorkerPool& workerPool,
+                       DiagnosticsRuntime& diagnosticsRuntime,
+                       Rendering::Dx12FrameOwner* renderFrame,
+                       Rendering::Dx12ResourceBuilder* renderResources,
+                       RuntimeRenderer& renderer,
+                       SceneLoadTransaction& transaction )
 {
     SceneLoadTransaction::Outputs& consumerOutputs = transaction.m_outputs;
     // Lifetime: these aliases make cold scene mutation readable without
     // recovering a retained context. They refer only to synchronously borrowed
     // phase inputs or transaction-owned outputs and die with this call.
-    SkullbonezCore::Core::EngineConfig& config = policy.config;
-    RunLaunchOptions& launchOptions = policy.launchOptions;
-    const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender = policy.defaultCinematicRender;
-    const RunStartupState& startup = policy.startup;
-    SkullbonezCore::Assets::AssetSystem& assets = policy.assets;
-    Threading::WorkerPool& workerPool = policy.workerPool;
-    DiagnosticsRuntime& diagnosticsRuntime = policy.diagnosticsRuntime;
-    const char* rendererName = policy.rendererName ? policy.rendererName : "unknown";
+    const char* rendererName = transaction.m_rendererName;
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::SceneLoad );
-    consumerOutputs.ResetForLoad();
-    consumerOutputs.navigation = submittedNavigation;
-    consumerOutputs.presentation = submittedDebug;
-    consumerOutputs.camera = submittedCamera;
     SceneLoadNavigationState& sceneNavigation = consumerOutputs.navigation;
     OverlayDebugState& m_debug = consumerOutputs.presentation;
     CameraControlState& camera = consumerOutputs.camera;
@@ -1164,7 +1170,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         m_debug.isWaterNoReflect = waterReflectionMode == 2;
         if ( m_debug.isWaterFreezeDebug )
         {
-            m_debug.frozenWaterTime = static_cast<float>( policy.sceneTimeSeconds );
+            m_debug.frozenWaterTime = static_cast<float>( transaction.m_sceneTimeSeconds );
         }
 
         SceneState().timeScale = scene.GetTimeScale();
@@ -1184,7 +1190,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
                                       scene.GetCinematicRenderConfig() );
 
         const SceneUIOptions& UIOptions = scene.GetUIOptions();
-        const double UINow = policy.sceneTimeSeconds;
+        const double UINow = transaction.m_sceneTimeSeconds;
         bool isAutomationScene = scene.IsExitOnComplete() || scene.IsScreenshotAndExit() ||
                                  scene.GetScreenshotFrame() >= 0 || scene.GetScreenshotMs() >= 0 ||
                                  scene.GetScreenshotInterval() > 0 || scene.GetPerfLogPath()[0] != '\0';
@@ -1489,7 +1495,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         diagnosticsRuntime.UIStress().enabled = true;
         diagnosticsRuntime.UIStress().randomState = launchOptions.uiStressSeed;
         diagnosticsRuntime.UIStress().actionsPerFrame = launchOptions.uiStressActions;
-        consumerOutputs.uiActivation.nowSeconds = policy.sceneTimeSeconds;
+        consumerOutputs.uiActivation.nowSeconds = transaction.m_sceneTimeSeconds;
         consumerOutputs.uiActivation.forceVisible = true;
         consumerOutputs.uiActivation.forceUnminimized = true;
     }
@@ -1506,7 +1512,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         diagnosticsRuntime.Capture().ResetScreenshot();
         diagnosticsRuntime.ClosePerfLog();
         diagnosticsRuntime.ResetPerfLogForSceneLoad();
-        consumerOutputs.uiActivation.nowSeconds = policy.sceneTimeSeconds;
+        consumerOutputs.uiActivation.nowSeconds = transaction.m_sceneTimeSeconds;
         consumerOutputs.uiActivation.forceVisible = true;
         consumerOutputs.uiActivation.forceUnminimized = true;
     }
@@ -1576,9 +1582,9 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 }
 
 
-// Concept: save authority belongs to the scene owner. The view is a synchronous
-// read-only join over concrete world/presentation owners; it is never retained
-// and does not allow the writer to recover Run or collection-order identity.
+// Concept: each save owner publishes only its own persisted fields. The
+// composed request is synchronous, is never retained, and does not let the
+// writer recover Run or collection-order identity.
 SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const SceneDefaultsSaveView& view ) const
 {
     const std::string* scenePath = CurrentPath();
@@ -1590,12 +1596,10 @@ SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const Scene
 
     if ( State().isEditableScene )
     {
-        const SkullbonezCore::Core::SbResult saveResult = SaveCurrentEditableSceneSnapshot(
-            *scenePath,
-            State(),
-            Scene(),
-            view.debug.isWaterHidden,
-            view.debug.isTerrainHidden );
+        const SkullbonezCore::Core::SbResult saveResult = SaveCurrentEditableSceneSnapshot( *scenePath,
+                                                                                            State(),
+                                                                                            Scene(),
+                                                                                            view.debug.GetSaveState() );
 
         return saveResult;
     }

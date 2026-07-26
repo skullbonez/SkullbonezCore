@@ -42,6 +42,7 @@ Related:
 
 #include "SceneEntityStore.h"
 #include "SceneTerrain.h"
+#include "../../Scene/SceneSnapshotWriter.h"
 #include "../../Maths/Vector3.h"
 #include "../../Gameplay/TornadoGameplay.h"
 #include "../../Physics/PhysicsApi.h"
@@ -123,6 +124,9 @@ class SceneWorld
                                  Math::Vector::Vector3& outPosition,
                                  Math::Orientation::Quaternion& outOrientation ) const;
     int SceneEntityCount() const;
+    // Publishes every SceneWorld-owned field needed by one synchronous scene
+    // save. Borrowed store rows remain valid only until the writer returns.
+    GameObjects::SceneWorldSaveState GetSaveState() const;
     // Current prepared physics views. Callers must not retain either span/view
     // across topology mutation or scene replacement.
     const Physics::PhysicsBodyStore& BodyStore() const;

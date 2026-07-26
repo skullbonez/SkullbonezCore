@@ -1194,21 +1194,22 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
         if ( request.HasLoad() )
         {
             SceneLoadTransaction sceneLoad;
+            sceneLoad.CaptureSubmittedState( m_camera,
+                                             CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
+                                             m_overlayDiagnostics->PresentationSnapshot(),
+                                             m_renderBackendView.RendererName(),
+                                             m_timers.simulationTimer.GetTotalTime() );
+
             advanced = sceneLoad
                            .Load( m_sceneController,
                                   request,
-                                  SceneLoadPolicyInputs { m_config,
-                                                          m_launchOptions,
-                                                          m_renderDefaults.CinematicBaseline(),
-                                                          m_startup,
-                                                          m_assets,
-                                                          m_workerPool,
-                                                          m_diagnosticsRuntime,
-                                                          m_renderBackendView.RendererName(),
-                                                          m_timers.simulationTimer.GetTotalTime() },
-                                  m_camera,
-                                  CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
-                                  m_overlayDiagnostics->PresentationSnapshot(),
+                                  m_config,
+                                  m_launchOptions,
+                                  m_renderDefaults.CinematicBaseline(),
+                                  m_startup,
+                                  m_assets,
+                                  m_workerPool,
+                                  m_diagnosticsRuntime,
                                   m_renderBackendView.renderFrame,
                                   m_renderBackendView.renderResources,
                                   m_renderer )
@@ -1346,21 +1347,22 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
     if ( result.loadRequest.HasLoad() )
     {
         SceneLoadTransaction sceneLoad;
+        sceneLoad.CaptureSubmittedState( m_camera,
+                                         CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
+                                         m_overlayDiagnostics->PresentationSnapshot(),
+                                         m_renderBackendView.RendererName(),
+                                         m_timers.simulationTimer.GetTotalTime() );
+
         loadSucceeded = sceneLoad
                             .Load( m_sceneController,
                                    result.loadRequest,
-                                   SceneLoadPolicyInputs { m_config,
-                                                           m_launchOptions,
-                                                           m_renderDefaults.CinematicBaseline(),
-                                                           m_startup,
-                                                           m_assets,
-                                                           m_workerPool,
-                                                           m_diagnosticsRuntime,
-                                                           m_renderBackendView.RendererName(),
-                                                           m_timers.simulationTimer.GetTotalTime() },
-                                   m_camera,
-                                   CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
-                                   m_overlayDiagnostics->PresentationSnapshot(),
+                                   m_config,
+                                   m_launchOptions,
+                                   m_renderDefaults.CinematicBaseline(),
+                                   m_startup,
+                                   m_assets,
+                                   m_workerPool,
+                                   m_diagnosticsRuntime,
                                    m_renderBackendView.renderFrame,
                                    m_renderBackendView.renderResources,
                                    m_renderer )

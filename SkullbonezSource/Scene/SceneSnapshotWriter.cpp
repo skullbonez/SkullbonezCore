@@ -177,12 +177,12 @@ Json RenderMaterialJson( const char* target, const SkullbonezCore::Rendering::Re
     return materialJson;
 }
 
-const SceneBehaviorGroup& BehaviorGroupAt( const SceneSaveView& scene, int entityIndex )
+const SceneBehaviorGroup& BehaviorGroupAt( const SceneWorldSaveState& scene, int entityIndex )
 {
     return scene.entities.At( entityIndex ).behaviorGroup;
 }
 
-void AddSceneObjectGroupJson( Json& object, const SceneSaveView& scene, int entityIndex )
+void AddSceneObjectGroupJson( Json& object, const SceneWorldSaveState& scene, int entityIndex )
 {
     const SceneBehaviorGroup& group = BehaviorGroupAt( scene, entityIndex );
     if ( group.kind != SceneBehaviorGroupKind::ReleasableTree )
@@ -218,7 +218,7 @@ struct LiveSceneRow
     const ColliderAuthoringRecord& colliderAuthoring;
 };
 
-LiveSceneRow ResolveLiveSceneRow( const SceneSaveView& scene, int entityIndex )
+LiveSceneRow ResolveLiveSceneRow( const SceneWorldSaveState& scene, int entityIndex )
 {
     const SceneEntityRecord& entity = scene.entities.At( entityIndex );
     const PhysicsBodyRecord* body = scene.bodies.RecordForHandle( entity.body );
@@ -245,7 +245,7 @@ LiveSceneRow ResolveLiveSceneRow( const SceneSaveView& scene, int entityIndex )
              *colliderAuthoring };
 }
 
-Json BuildLiveStateJson( const SceneSaveView& scene, int entityIndex )
+Json BuildLiveStateJson( const SceneWorldSaveState& scene, int entityIndex )
 {
     const LiveSceneRow row = ResolveLiveSceneRow( scene, entityIndex );
     const char* contactMaterial = row.colliderAuthoring.contactMaterialName[0] != '\0'
@@ -308,9 +308,11 @@ bool SameAssetInstance( const SceneAssetAffiliation& a, const SceneAssetAffiliat
 } // namespace
 
 
-SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveView& sceneView,
-                                                          const SceneSaveRequest& request )
+SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveRequest& request )
 {
+    const SceneWorldSaveState& sceneView = request.world;
+    const SceneSessionSaveState& session = request.session;
+    const PresentationSaveState& presentation = request.presentation;
     // Invariant: Editable scene saves emit state-form objects whose positions,
     // velocities, sleeping flags, and materials can round-trip through
     // AuthoredSceneParser without reinterpreting authored placement offsets.
@@ -328,8 +330,8 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveView& s
     scene["format"] = "skullbonez.scene.json";
     scene["version"] = 2;
     scene["simulation"] = Json::object();
-    scene["simulation"]["physics"] = request.physicsOn;
-    scene["simulation"]["text"] = request.textOn;
+    scene["simulation"]["physics"] = session.physicsOn;
+    scene["simulation"]["text"] = session.textOn;
     scene["simulation"]["world"] = {
         { "gravity", sceneView.gravity },
         { "fluidHeight", sceneView.fluidSurfaceHeight },
@@ -349,8 +351,8 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveView& s
 
     scene["playback"] = Json::object();
     scene["playback"]["frames"] = "unlimited";
-    scene["playback"]["fixedStep"] = request.fixedStep;
-    if ( request.editableScene )
+    scene["playback"]["fixedStep"] = session.fixedStep;
+    if ( session.editableScene )
     {
         scene["editor"] = {
             { "editableScene", true },
@@ -358,16 +360,16 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveView& s
     }
 
     scene["debug"] = Json::object();
-    scene["debug"]["waterHidden"] = request.waterHidden;
-    scene["debug"]["terrainHidden"] = request.terrainHidden;
-    if ( request.hasFlatSlope )
+    scene["debug"]["waterHidden"] = presentation.waterHidden;
+    scene["debug"]["terrainHidden"] = presentation.terrainHidden;
+    if ( session.hasFlatSlope )
     {
         scene["terrain"] = {
             { "flatSlope",
               {
-                  { "baseY", request.flatBaseY },
-                  { "slopeX", request.flatSlopeX },
-                  { "slopeZ", request.flatSlopeZ },
+                  { "baseY", session.flatBaseY },
+                  { "slopeX", session.flatSlopeX },
+                  { "slopeZ", session.flatSlopeZ },
               } },
         };
     }
@@ -375,9 +377,9 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveView& s
     scene["cameras"] = Json::array();
     scene["cameras"].push_back( {
         { "name", "main" },
-        { "position", Vec3Json( request.cameraEye ) },
-        { "view", Vec3Json( request.cameraView ) },
-        { "up", Vec3Json( request.cameraUp ) },
+        { "position", Vec3Json( sceneView.cameraEye ) },
+        { "view", Vec3Json( sceneView.cameraView ) },
+        { "up", Vec3Json( sceneView.cameraUp ) },
     } );
     scene["objects"] = Json::array();
     Json objectMaterials = Json::array();

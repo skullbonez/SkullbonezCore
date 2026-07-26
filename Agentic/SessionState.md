@@ -11,19 +11,20 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-25th-JUL-26` |
-| Current baseline | Invariant Ownership Governance And Transaction Repair is complete at 5/5 and removed from the live inventory: both runtime transactions enforce their named invariants, the hostile review is clear, and final gates pass without refresh. |
-| Current objective | Execute `concrete-parameter-bag-elimination` PB1: repair Scene save/load and split the mixed save/screenshot hotkey context. |
-| Active/future progress | Concrete Parameter-Bag Elimination 1/8; active/future ledger 1/8 (13%). |
+| Current baseline | Concrete Parameter-Bag Elimination PB1 is complete: Scene save uses three owner publications, the scene-load policy bag and mixed editor hotkey context are deleted, and broad behavior passes without refresh. |
+| Current objective | Execute `concrete-parameter-bag-elimination` PB2: collapse the Runtime, editor, and mouse-pick pointer projection chain. |
+| Active/future progress | Concrete Parameter-Bag Elimination 2/8; active/future ledger 2/8 (25%). |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | GV4 `validate_full.bat` passes in 165.3 s: mandatory CPU/coverage, Automation/replay, DX12, and byte-exact 44,401-line physics regression. |
-| Validation for current edits | GV4: 397 doctests / 2,403,431 assertions, final full gate, and 61-second graphics stress pass; retired-symbol, extrusion, and baseline-motion scans are clean. |
+| Last broad local gate | PB1 `validate_full.bat` passes in 173.3 s: mandatory CPU/coverage, Automation/replay, DX12, and byte-exact 44,401-line physics regression. |
+| Validation for current edits | PB1: 398 doctests / 2,403,462 assertions and final full gate pass; four retired symbols, changed threshold-13 operations, and introduced indirection scans are clean. |
 
 ## Live Queue
 
 NOW. The 2026-07-25 round-4 architecture campaign has one live plan:
-`concrete-parameter-bag-elimination` (1/8), so the ledger is 1/8 (13%). PB0
+`concrete-parameter-bag-elimination` (2/8), so the ledger is 2/8 (25%). PB0
 ratified all 22 registered rows, added eight repair rows, carried forward three
-13-parameter render/UI operations, and ruled every other reviewed hit. PB1 is
+13-parameter render/UI operations, and ruled every other reviewed hit. PB1
+then repaired Scene save/load and split editor save/capture authority; PB2 is
 next.
 
 Header Claim Staleness Remediation is complete at 3/3 and removed from the live
@@ -52,7 +53,9 @@ GV4 closed the plan at 5/5; permanent evidence is
 `Agentic/Reports/2026-07-26/invariant-ownership-governance-and-transaction-repair-closure.md`.
 PB0 permanent evidence is
 `Agentic/Reports/2026-07-26/concrete-parameter-bag-elimination-pb0-census.md`.
-Implementation continues through the repository orchestrator skill with PB1
+PB1 permanent evidence is
+`Agentic/Reports/2026-07-26/concrete-parameter-bag-elimination-pb1-scene.md`.
+Implementation continues through the repository orchestrator skill with PB2
 next. Live plans are under
 `Agentic/Plans/TODO/`.
 
@@ -465,10 +468,9 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Execute `concrete-parameter-bag-elimination` PB1: introduce three concrete
-owner-produced Scene save values, reduce `SceneSaveRequest`, delete
-`SceneSaveView` and `SceneLoadPolicyInputs`, verify
-`SceneLoadConsumerOutputs` stays absent, and split `EditorSaveHotkeyContext`
-into focused scene-save and screenshot operations. Preserve the plan's ban on
-inheritance, interfaces, callbacks, type erasure, and renamed service/context
-bags.
+Execute `concrete-parameter-bag-elimination` PB2: delete
+`RuntimePointerRouteInput`, `EditorPointerRouteInput`, and
+`MousePickupPointerInput`; route focused gesture/ray/selection values directly
+while preserving editor, mouse-pick, Replay, launcher, UI-consumption, and
+camera precedence. Preserve the ban on retained host pointers, allocation,
+inheritance, interfaces, callbacks, and replacement union bags.
