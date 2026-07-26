@@ -1,10 +1,12 @@
 # Ceremonial Aggregate Elimination
 
 Date: 2026-07-26
-Status: NOT STARTED — drafted from the 2026-07-26 from-source architecture
+Status: IN PROGRESS — CA0 closed on 2026-07-27 from parent tip `c3d4fe80`;
+the complete machine census and owner rulings leave CA1 as the binding task.
+Originally drafted from the 2026-07-26 from-source architecture
 review of `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 4 of the Architecture Follow-Up Campaign
-Round 5. Starts after `governance-shape-to-judgment-conversion` closes. 0/5
+Round 5. Starts after `governance-shape-to-judgment-conversion` closes. 1/5
 phases complete.
 Impact area: `Runtime/Interaction/OperatorCommandApplier.h`,
 `Runtime/Scene/SceneRuntime*.h`, `Runtime/Scene/SceneAuthoredSetup.h`,
@@ -114,7 +116,7 @@ independent meaning. Nothing exists to make a call site look tidier.
 
 ## Phases
 
-- [ ] **CA0 — Census and rule every matched aggregate.**
+- [x] **CA0 — Census and rule every matched aggregate.**
   Produce the complete current-tip table for every mechanically signalled
   borrowed-member aggregate plus the legacy-suffix review context: type,
   file:line, member count, every construction site, every consumer site, whether
@@ -126,7 +128,15 @@ independent meaning. Nothing exists to make a call site look tidier.
   `tools/aggregate_ownership_rulings.json` from
   `governance-shape-to-judgment-conversion` G2. Acceptance: no row unruled; every
   `remove` row names its post-removal signature; the inventory tool reproduces
-  the table exactly.
+  the table exactly. Closed 2026-07-27: the suffix-independent inventory found
+  1,207 data-bearing types and emitted 119 complete review rows (10 mechanically
+  signalled couriers plus the legacy suffix context), with 35 `remove`, 62
+  `retain`, 22 `retain-prior`, and zero unruled or stale rows. All 35 removal
+  endpoints stay at or below 10 parameters; the return/field substitutions do
+  not raise arity. Evidence:
+  `../../Reports/2026-07-27/ceremonial-aggregate-elimination-ca0-summary.md`
+  and the generated complete table
+  `../../Reports/2026-07-27/ceremonial-aggregate-elimination-ca0-census.md`.
 
 - [ ] **CA1 — Remove the UI command context family.**
   Delete `TornadoUICommandContext`, `PhysicsSleepPolicyUICommandContext`,

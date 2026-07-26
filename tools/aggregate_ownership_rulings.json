@@ -1,102 +1,1128 @@
 {
-  "schema": 1,
-  "purpose": "Owner rulings for the two governance shape inventories. A row records a judgement, not a budget: no count in this file is a threshold, and adding a row is never a way to raise an allowance. An unruled finding fails the gate so the judgement cannot be skipped; a ruled finding passes because an owner has answered for it.",
-  "verdicts": {
-    "remove": "Authority-free; delete it and let callers take the real owners.",
-    "retain": "Owns a real invariant or binding requirement stated in the reason.",
-    "retain-prior": "Already ruled by a named earlier plan; carried forward unchanged.",
-    "repair": "Confirmed defect owned by the named plan; not yet implemented."
-  },
-  "aggregates": [
-    {
-      "key": "AssetContext",
-      "site": "SkullbonezSource/Assets/AssetSystem.h:190",
-      "members": 1,
-      "verdict": "remove",
-      "owner": "ceremonial-aggregate-elimination CA3",
-      "reason": "One nullable `const AssetSystem*`. The nullable-registry fallback it documents is a parameter default, not an invariant, so the operations take the pointer directly."
-    },
-    {
-      "key": "PhysicsSleepPolicyUICommandContext",
-      "site": "SkullbonezSource/Runtime/Interaction/OperatorCommandApplier.h:87",
-      "members": 1,
-      "verdict": "remove",
-      "owner": "ceremonial-aggregate-elimination CA1",
-      "reason": "One `SceneWorld&` member, duplicating TornadoUICommandContext exactly."
-    },
-    {
-      "key": "ReflectionGraphInputs",
-      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:331",
-      "members": 1,
-      "verdict": "remove",
-      "owner": "ceremonial-aggregate-elimination CA3",
-      "reason": "The wrapper carries only `const ReflectionPassInputs&`, and its sole consumer immediately forwards `inputs.pass`; CA3 deletes it and takes the pass input directly."
-    },
-    {
-      "key": "RenderReplayOverlayView",
-      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderHost.h:135",
-      "members": 1,
-      "verdict": "remove",
-      "owner": "ceremonial-aggregate-elimination CA3",
-      "reason": "The wrapper carries only `const ReplayRenderFrameView&`; CA3 passes the replay frame view directly."
-    },
-    {
-      "key": "ReplayTimelineCaptureResult",
-      "site": "SkullbonezSource/Runtime/Replay/ReplayTimeline.h:195",
-      "members": 1,
-      "verdict": "remove",
-      "owner": "ceremonial-aggregate-elimination CA3",
-      "reason": "The result carries only one borrowed solver sample pointer and enforces no result invariant; CA3 returns the pointer directly."
-    },
-    {
-      "key": "SceneAuthoredCameraContext",
-      "site": "SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.h:64",
-      "members": 1,
-      "verdict": "remove",
-      "owner": "ceremonial-aggregate-elimination CA2",
-      "reason": "Single-member authored-setup context; the setup operation takes its one owner directly."
-    },
-    {
-      "key": "SceneGeneratedCameraContext",
-      "site": "SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.h:68",
-      "members": 1,
-      "verdict": "remove",
-      "owner": "ceremonial-aggregate-elimination CA2",
-      "reason": "Single-member generated-setup context; the setup operation takes its one owner directly."
-    },
-    {
-      "key": "SceneRuntimeCreateContext",
-      "site": "SkullbonezSource/Runtime/Scene/SceneRuntimeCreate.h:35",
-      "members": 1,
-      "verdict": "remove",
-      "owner": "ceremonial-aggregate-elimination CA2",
-      "reason": "One `SceneController&` member, passed by value into CreateSceneFromUI. Strictly longer than taking SceneController& and shortens nothing."
-    },
-    {
-      "key": "ShadowGraphInputs",
-      "site": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:327",
-      "members": 1,
-      "verdict": "remove",
-      "owner": "ceremonial-aggregate-elimination CA3",
-      "reason": "The wrapper carries only `const ShadowPassInputs&`, and its sole consumer immediately forwards `inputs.pass`; CA3 deletes it and takes the pass input directly."
-    },
-    {
-      "key": "TornadoUICommandContext",
-      "site": "SkullbonezSource/Runtime/Interaction/OperatorCommandApplier.h:78",
-      "members": 1,
-      "verdict": "remove",
-      "owner": "ceremonial-aggregate-elimination CA1",
-      "reason": "One `SceneWorld&` member. Identical in shape to PhysicsSleepPolicyUICommandContext; the two differ only by name and comment. Apply operations take SceneWorld& directly."
-    }
-  ],
-  "extraction_scars": [
-    {
-      "key": "SkullbonezSource/Core/WorkerPool.h:indexFn",
-      "site": "SkullbonezSource/Core/WorkerPool.h:228",
-      "kind": "pure-parameter-alias",
-      "verdict": "retain",
-      "owner": "core threading",
-      "reason": "`IndexFunctionT& indexFn = fn;` binds a forwarding reference to an lvalue reference so the chunk lambda can capture it by reference. Deleting the alias changes capture semantics; this is a required binding, not a preserved pre-extraction spelling."
-    }
-  ]
+    "schema":  2,
+    "purpose":  "Owner rulings for the governance aggregate and extraction-scar inventories. Aggregate rows cover every mechanically signalled borrowed-member courier and every legacy-suffix review candidate. Counts are observations, never allowances; an unruled review row fails the gate.",
+    "verdicts":  {
+                     "remove":  "Authority-free; delete it and let callers take the real owners.",
+                     "retain":  "Owns a real invariant or binding requirement stated in the reason.",
+                     "retain-prior":  "Already ruled by a named earlier plan; carried forward unchanged.",
+                     "repair":  "Confirmed defect owned by the named plan; not yet implemented."
+                 },
+    "aggregates":  [
+                       {
+                           "key":  "AssetContext",
+                           "site":  "SkullbonezSource/Assets/AssetSystem.h:190",
+                           "members":  1,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA3",
+                           "reason":  "One nullable `const AssetSystem*`. The nullable-registry fallback it documents is a parameter default, not an invariant, so the operations take the pointer directly.",
+                           "destructures_at_entry":  "no",
+                           "post_removal_signature":  "asset-loading functions take const AssetSystem* directly — at most 4 parameters"
+                       },
+                       {
+                           "key":  "BackbufferAcquireGraphInputs",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:321",
+                           "members":  3,
+                           "verdict":  "retain-prior",
+                           "owner":  "PB0 / GV1 render graph ruling",
+                           "reason":  "Distinct concrete render-graph node input; the graph nodes do not converge on one apply transaction.",
+                           "destructures_at_entry":  "yes"
+                       },
+                       {
+                           "key":  "BackendResourceReleaseContext",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:216",
+                           "members":  3,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Render",
+                           "reason":  "Current-tip review retains this cohesive domain value: its fields form the named BackendResourceReleaseContext boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "BuoyancyBodyFacts",
+                           "site":  "SkullbonezSource/Physics/BuoyancySystem.h:47",
+                           "members":  5,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Physics/BuoyancySystem.h",
+                           "reason":  "Current-tip review retains this snapshot facts: its fields form the named BuoyancyBodyFacts boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "CaptureRequest",
+                           "site":  "SkullbonezSource/Runtime/Capture/CaptureController.h:40",
+                           "members":  1,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Capture",
+                           "reason":  "Current-tip review retains this domain request: its fields form the named CaptureRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "CinematicPostGraphInputs",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:308",
+                           "members":  10,
+                           "verdict":  "retain-prior",
+                           "owner":  "PB0 / GV1 render graph ruling",
+                           "reason":  "Distinct concrete render-graph node input; the graph nodes do not converge on one apply transaction.",
+                           "destructures_at_entry":  "yes"
+                       },
+                       {
+                           "key":  "CinematicUICommandContext",
+                           "site":  "SkullbonezSource/Runtime/Interaction/OperatorCommandApplier.h:119",
+                           "members":  4,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA1",
+                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 4 fields become concrete consumer operands.",
+                           "destructures_at_entry":  "yes",
+                           "post_removal_signature":  "cinematic apply operations take launchOptions, scene, cinematic, renderDefaults plus commands — at most 5 parameters"
+                       },
+                       {
+                           "key":  "DebugOverlayGraphInputs",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:376",
+                           "members":  2,
+                           "verdict":  "retain-prior",
+                           "owner":  "PB0 / GV1 render graph ruling",
+                           "reason":  "Distinct concrete render-graph node input; the graph nodes do not converge on one apply transaction.",
+                           "destructures_at_entry":  "yes"
+                       },
+                       {
+                           "key":  "DebugOverlayPassInputs",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:412",
+                           "members":  10,
+                           "verdict":  "retain-prior",
+                           "owner":  "PB0 / GV1 render pass ruling",
+                           "reason":  "Distinct concrete render-pass input; it is a pass boundary rather than a cross-domain authority bag.",
+                           "destructures_at_entry":  "yes"
+                       },
+                       {
+                           "key":  "DiagnosticsKeyboardShortcutContext",
+                           "site":  "SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.h:66",
+                           "members":  6,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA3",
+                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 6 fields become concrete consumer operands.",
+                           "destructures_at_entry":  "yes",
+                           "post_removal_signature":  "HandleDiagnosticsKeyboardShortcut expands six context members plus action/pressed — 8 parameters"
+                       },
+                       {
+                           "key":  "DiagnosticsUIKeyboardShortcutContext",
+                           "site":  "SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.h:81",
+                           "members":  5,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA3",
+                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 5 fields become concrete consumer operands.",
+                           "destructures_at_entry":  "yes",
+                           "post_removal_signature":  "HandleDiagnosticsUIKeyboardShortcut expands five context members plus action/pressed — 7 parameters"
+                       },
+                       {
+                           "key":  "EditorGizmoContext",
+                           "site":  "SkullbonezSource/Runtime/Editor/EditorTools.h:140",
+                           "members":  3,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA3",
+                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 3 fields become concrete consumer operands.",
+                           "destructures_at_entry":  "mixed",
+                           "post_removal_signature":  "editor gizmo operations take editor, world, interaction plus operation values — at most 8 parameters"
+                       },
+                       {
+                           "key":  "EditorGizmoDragPointerInput",
+                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:280",
+                           "members":  7,
+                           "verdict":  "retain",
+                           "owner":  "prior owner ruling carried by CA0",
+                           "reason":  "PB0 explicit retain: small consumer-specific command value with no mutable-owner grant.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "EditorInteractionPreviewContext",
+                           "site":  "SkullbonezSource/Runtime/Editor/EditorOverlayTools.h:74",
+                           "members":  4,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA3",
+                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 4 fields become concrete consumer operands.",
+                           "destructures_at_entry":  "yes",
+                           "post_removal_signature":  "UpdateEditorInteractionPreview(editor, world, interaction, assets, input) — 5 parameters"
+                       },
+                       {
+                           "key":  "EditorInteractionPreviewInput",
+                           "site":  "SkullbonezSource/Runtime/Editor/EditorOverlayTools.h:82",
+                           "members":  6,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Editor",
+                           "reason":  "Current-tip review retains this bounded input value: its fields form the named EditorInteractionPreviewInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "EditorObjectPlacementContext",
+                           "site":  "SkullbonezSource/Runtime/Editor/EditorTools.h:107",
+                           "members":  5,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA3",
+                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 5 fields become concrete consumer operands.",
+                           "destructures_at_entry":  "yes",
+                           "post_removal_signature":  "placement operations take editor, world, scene, assets, activeModelCapacity plus request/output — at most 8 parameters"
+                       },
+                       {
+                           "key":  "EditorObjectPlacementRequest",
+                           "site":  "SkullbonezSource/Runtime/Editor/EditorTools.h:116",
+                           "members":  3,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Editor",
+                           "reason":  "Current-tip review retains this domain request: its fields form the named EditorObjectPlacementRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "EditorPlacementPreviewContext",
+                           "site":  "SkullbonezSource/Runtime/Editor/EditorTools.h:99",
+                           "members":  4,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA3",
+                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 4 fields become concrete consumer operands.",
+                           "destructures_at_entry":  "yes",
+                           "post_removal_signature":  "TryUpdateEditorPlacementPreview(editor, terrain, assets, scaleGestureActive, objectType, mousePlacement) — 6 parameters"
+                       },
+                       {
+                           "key":  "EditorPointerPreviewInput",
+                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:244",
+                           "members":  6,
+                           "verdict":  "retain",
+                           "owner":  "prior owner ruling carried by CA0",
+                           "reason":  "PB0 explicit retain: small consumer-specific command value with no mutable-owner grant.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "EditorPointerSelectionInput",
+                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:257",
+                           "members":  4,
+                           "verdict":  "retain",
+                           "owner":  "prior owner ruling carried by CA0",
+                           "reason":  "PB0 explicit retain: small consumer-specific command value with no mutable-owner grant.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "EditorToolOverlayTraceContext",
+                           "site":  "SkullbonezSource/Runtime/Editor/EditorOverlayTools.h:98",
+                           "members":  6,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA3",
+                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 6 fields become concrete consumer operands.",
+                           "destructures_at_entry":  "yes",
+                           "post_removal_signature":  "BuildEditorToolOverlayTrace(editor, rayCastTest, mousePickup, world, assets, tracer, input) — 7 parameters"
+                       },
+                       {
+                           "key":  "EditorToolOverlayTraceInput",
+                           "site":  "SkullbonezSource/Runtime/Editor/EditorOverlayTools.h:108",
+                           "members":  6,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Editor",
+                           "reason":  "Current-tip review retains this bounded input value: its fields form the named EditorToolOverlayTraceInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "EditorViewportPlacementInput",
+                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:345",
+                           "members":  10,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Tools",
+                           "reason":  "Current-tip review retains this bounded input value: its fields form the named EditorViewportPlacementInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ExternalForceFrameInput",
+                           "site":  "SkullbonezSource/Physics/Stages/ExternalForceStage.h:68",
+                           "members":  5,
+                           "verdict":  "retain",
+                           "owner":  "prior owner ruling carried by CA0",
+                           "reason":  "PB0 explicit retain: cohesive gameplay/frame value used across the force stage.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "FrameEntryContext",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:223",
+                           "members":  7,
+                           "verdict":  "retain-prior",
+                           "owner":  "prior owner ruling carried by CA0",
+                           "reason":  "PB0 explicit retain: narrowed synchronous renderer entry contract, distinct from the deleted frame service bag.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ImGuiEditorCausalityContext",
+                           "site":  "SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h:62",
+                           "members":  12,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/DevelopmentTools",
+                           "reason":  "Current-tip review retains this cohesive domain value: its fields form the named ImGuiEditorCausalityContext boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ImGuiEditorFrameInput",
+                           "site":  "SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h:105",
+                           "members":  7,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/DevelopmentTools",
+                           "reason":  "Current-tip review retains this bounded input value: its fields form the named ImGuiEditorFrameInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "InteractionAutomationReportInputs",
+                           "site":  "SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.h:195",
+                           "members":  11,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Automation",
+                           "reason":  "Current-tip review retains this bounded input value: its fields form the named InteractionAutomationReportInputs boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "KeyboardContextFacts",
+                           "site":  "SkullbonezSource/Runtime/App/InputFrame.h:149",
+                           "members":  10,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/App",
+                           "reason":  "Current-tip review retains this snapshot facts: its fields form the named KeyboardContextFacts boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "LauncherPointerInput",
+                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:384",
+                           "members":  5,
+                           "verdict":  "retain",
+                           "owner":  "prior owner ruling carried by CA0",
+                           "reason":  "PB0 explicit retain: small consumer-specific command value with no mutable-owner grant.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "LauncherReproSnapshotContext",
+                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:208",
+                           "members":  12,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Tools",
+                           "reason":  "Current-tip review retains this cohesive domain value: its fields form the named LauncherReproSnapshotContext boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ObjectGraphInputs",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:340",
+                           "members":  2,
+                           "verdict":  "retain-prior",
+                           "owner":  "PB0 / GV1 render graph ruling",
+                           "reason":  "Distinct concrete render-graph node input; the graph nodes do not converge on one apply transaction.",
+                           "destructures_at_entry":  "yes"
+                       },
+                       {
+                           "key":  "ObjectPassInputs",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:247",
+                           "members":  16,
+                           "verdict":  "retain-prior",
+                           "owner":  "PB0 / GV1 render pass ruling",
+                           "reason":  "Distinct concrete render-pass input; it is a pass boundary rather than a cross-domain authority bag.",
+                           "destructures_at_entry":  "yes"
+                       },
+                       {
+                           "key":  "ParsedArgs",
+                           "site":  "SkullbonezSource/Runtime/Startup/StartupCommandLine.h:56",
+                           "members":  81,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Startup",
+                           "reason":  "Current-tip review retains this cohesive domain value: its fields form the named ParsedArgs boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "PhysicsDiagnosticsFrameInput",
+                           "site":  "SkullbonezSource/Physics/PhysicsDiagnosticsSink.h:80",
+                           "members":  6,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Physics/PhysicsDiagnosticsSink.h",
+                           "reason":  "Current-tip review retains this bounded input value: its fields form the named PhysicsDiagnosticsFrameInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "PhysicsFrictionUICommandContext",
+                           "site":  "SkullbonezSource/Runtime/Interaction/OperatorCommandApplier.h:95",
+                           "members":  2,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA1",
+                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 2 fields become concrete consumer operands.",
+                           "destructures_at_entry":  "yes",
+                           "post_removal_signature":  "ApplyPhysicsFrictionUICommands(config, world, commands) — 3 parameters"
+                       },
+                       {
+                           "key":  "PhysicsSleepPolicyUICommandContext",
+                           "site":  "SkullbonezSource/Runtime/Interaction/OperatorCommandApplier.h:87",
+                           "members":  1,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA1",
+                           "reason":  "One `SceneWorld\u0026` member, duplicating TornadoUICommandContext exactly.",
+                           "destructures_at_entry":  "yes",
+                           "post_removal_signature":  "ApplyPhysicsSleepPolicyUICommand(world, commands) — 2 parameters"
+                       },
+                       {
+                           "key":  "PointerPresentationPolicyInput",
+                           "site":  "SkullbonezSource/Runtime/Input/InputRouter.h:283",
+                           "members":  6,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Input",
+                           "reason":  "Current-tip review retains this bounded input value: its fields form the named PointerPresentationPolicyInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "PrimitiveBatchShaderParams",
+                           "site":  "SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp:381",
+                           "members":  11,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Rendering/PrimitiveBatchRenderer.cpp",
+                           "reason":  "Current-tip review retains this cohesive domain value: its fields form the named PrimitiveBatchShaderParams boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "PrimitiveRenderContext",
+                           "site":  "SkullbonezSource/Rendering/PrimitiveBatchRenderer.h:75",
+                           "members":  7,
+                           "verdict":  "retain-prior",
+                           "owner":  "prior owner ruling carried by CA0",
+                           "reason":  "PB0 explicit retain and wide-signature W1: concrete hot render-command resource/value boundary.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ReflectionGraphInputs",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:331",
+                           "members":  1,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA3",
+                           "reason":  "The wrapper carries only `const ReflectionPassInputs\u0026`, and its sole consumer immediately forwards `inputs.pass`; CA3 deletes it and takes the pass input directly.",
+                           "destructures_at_entry":  "yes",
+                           "post_removal_signature":  "ExecuteReflectionThroughRenderGraph(const ReflectionPassInputs\u0026) — 1 parameter"
+                       },
+                       {
+                           "key":  "ReflectionPassInputs",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:290",
+                           "members":  24,
+                           "verdict":  "retain-prior",
+                           "owner":  "PB0 / GV1 render pass ruling",
+                           "reason":  "Distinct concrete render-pass input; it is a pass boundary rather than a cross-domain authority bag.",
+                           "destructures_at_entry":  "yes"
+                       },
+                       {
+                           "key":  "RenderDeviceUICommandContext",
+                           "site":  "SkullbonezSource/Runtime/Interaction/OperatorCommandApplier.h:212",
+                           "members":  2,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA1",
+                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 2 fields become concrete consumer operands.",
+                           "destructures_at_entry":  "yes",
+                           "post_removal_signature":  "ApplyRenderVsyncUICommand(renderer, renderDevice, commands) — 3 parameters"
+                       },
+                       {
+                           "key":  "RenderGraphPassContext",
+                           "site":  "SkullbonezSource/Rendering/RenderGraph.h:161",
+                           "members":  5,
+                           "verdict":  "retain-prior",
+                           "owner":  "prior owner ruling carried by CA0",
+                           "reason":  "Render graph execution closure: callback ABI carries only graph/pass/debug-label state.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "RenderReplayOverlayView",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderHost.h:135",
+                           "members":  1,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA3",
+                           "reason":  "The wrapper carries only `const ReplayRenderFrameView\u0026`; CA3 passes the replay frame view directly.",
+                           "destructures_at_entry":  "yes",
+                           "post_removal_signature":  "FrameEntryContext stores const ReplayRenderFrameView\u0026 directly — no operation arity change"
+                       },
+                       {
+                           "key":  "RenderResourceContext",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:232",
+                           "members":  7,
+                           "verdict":  "retain",
+                           "owner":  "prior owner ruling carried by CA0",
+                           "reason":  "PB0 explicit retain: concrete DX12 resource-lifetime boundary.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ReplayAuthoringPredictionRequest",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayAuthoring.h:80",
+                           "members":  8,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Replay",
+                           "reason":  "Current-tip review retains this domain request: its fields form the named ReplayAuthoringPredictionRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ReplayEventInput",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayRecorder.h:444",
+                           "members":  10,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Replay",
+                           "reason":  "Current-tip review retains this bounded input value: its fields form the named ReplayEventInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ReplayFailureProbeRequest",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayProbeState.h:179",
+                           "members":  5,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Replay",
+                           "reason":  "Current-tip review retains this domain request: its fields form the named ReplayFailureProbeRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ReplayGhostGraphInputs",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:365",
+                           "members":  8,
+                           "verdict":  "retain-prior",
+                           "owner":  "PB0 / GV1 render graph ruling",
+                           "reason":  "Distinct concrete render-graph node input; the graph nodes do not converge on one apply transaction.",
+                           "destructures_at_entry":  "yes"
+                       },
+                       {
+                           "key":  "ReplayGuideArcsUpdateInput",
+                           "site":  "SkullbonezSource/Runtime/Planning/ReplayGuideArcs.h:51",
+                           "members":  6,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Planning",
+                           "reason":  "Current-tip review retains this bounded input value: its fields form the named ReplayGuideArcsUpdateInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ReplayInteractionExitInput",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:185",
+                           "members":  5,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Replay",
+                           "reason":  "Current-tip review retains this bounded input value: its fields form the named ReplayInteractionExitInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ReplayInterceptUpdateInput",
+                           "site":  "SkullbonezSource/Runtime/Planning/ReplayInterceptReadout.h:60",
+                           "members":  9,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Planning",
+                           "reason":  "Current-tip review retains this bounded input value: its fields form the named ReplayInterceptUpdateInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ReplayKeyboardVelocityEditInput",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:294",
+                           "members":  4,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Replay",
+                           "reason":  "Current-tip review retains this bounded input value: its fields form the named ReplayKeyboardVelocityEditInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ReplayLiveRestoreRequest",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayScrubber.h:162",
+                           "members":  9,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Replay",
+                           "reason":  "Current-tip review retains this domain request: its fields form the named ReplayLiveRestoreRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ReplayMemoryPolicyRequest",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayTimeline.h:64",
+                           "members":  3,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Replay",
+                           "reason":  "Current-tip review retains this domain request: its fields form the named ReplayMemoryPolicyRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ReplayOverlayBuildInput",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayPresentation.h:85",
+                           "members":  3,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Replay",
+                           "reason":  "Current-tip review retains this bounded input value: its fields form the named ReplayOverlayBuildInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ReplayPastRootRebuildContext",
+                           "site":  "SkullbonezSource/Runtime/Prediction/ReplayPredictionPublicationOperations.h:50",
+                           "members":  6,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA3",
+                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 6 fields become concrete consumer operands.",
+                           "destructures_at_entry":  "no",
+                           "post_removal_signature":  "inline store, record, targetModelRow, firstFrame, hasSample, and ok at the sole rebuild scope — no operation exceeds 12"
+                       },
+                       {
+                           "key":  "ReplayPathChildDrawContext",
+                           "site":  "SkullbonezSource/Runtime/Prediction/ReplayPredictionTopologyPublication.cpp:300",
+                           "members":  2,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Prediction",
+                           "reason":  "Current-tip review retains this cohesive domain value: its fields form the named ReplayPathChildDrawContext boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ReplayPathPickInput",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayPresentation.h:92",
+                           "members":  5,
+                           "verdict":  "retain",
+                           "owner":  "prior owner ruling carried by CA0",
+                           "reason":  "PB0 explicit retain: independently meaningful pick request with multiple domain consumers.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ReplayPathVisualizerRenderContext",
+                           "site":  "SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.h:196",
+                           "members":  9,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Prediction",
+                           "reason":  "Current-tip review retains this cohesive domain value: its fields form the named ReplayPathVisualizerRenderContext boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ReplayPorkchopSweepInput",
+                           "site":  "SkullbonezSource/Runtime/Planning/ReplayPorkchopPanel.h:63",
+                           "members":  6,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Planning",
+                           "reason":  "Current-tip review retains this bounded input value: its fields form the named ReplayPorkchopSweepInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ReplayPredictionFutureContext",
+                           "site":  "SkullbonezSource/Runtime/Prediction/ReplayPredictionTopologyPublication.cpp:701",
+                           "members":  5,
+                           "verdict":  "retain-prior",
+                           "owner":  "prior owner ruling carried by CA0",
+                           "reason":  "Wide-signature W1 accepted cohesive replay topology publication state.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ReplayPredictionGhostDrawRequest",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayVisualPacket.h:191",
+                           "members":  8,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Replay",
+                           "reason":  "Current-tip review retains this domain request: its fields form the named ReplayPredictionGhostDrawRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ReplayProbeRestoreRequest",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayProbeState.h:144",
+                           "members":  5,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Replay",
+                           "reason":  "Current-tip review retains this domain request: its fields form the named ReplayProbeRestoreRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ReplayProbeSaveRequest",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayProbeState.h:161",
+                           "members":  2,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Replay",
+                           "reason":  "Current-tip review retains this domain request: its fields form the named ReplayProbeSaveRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ReplaySaveProbeArtifactContext",
+                           "site":  "SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp:487",
+                           "members":  5,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/App",
+                           "reason":  "Current-tip review retains this cohesive domain value: its fields form the named ReplaySaveProbeArtifactContext boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ReplaySceneTimelineResetInput",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:244",
+                           "members":  11,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Replay",
+                           "reason":  "Current-tip review retains this bounded input value: its fields form the named ReplaySceneTimelineResetInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ReplayScrubberSurfaceInput",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h:96",
+                           "members":  11,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Replay",
+                           "reason":  "Current-tip review retains this bounded input value: its fields form the named ReplayScrubberSurfaceInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ReplayStartupLoadInput",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h:53",
+                           "members":  11,
+                           "verdict":  "retain-prior",
+                           "owner":  "prior owner ruling carried by CA0",
+                           "reason":  "PB0 explicit retain: startup boundary excludes solver, topology, and diagnostic authority.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ReplayStartupRequest",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:203",
+                           "members":  12,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Replay",
+                           "reason":  "Current-tip review retains this domain request: its fields form the named ReplayStartupRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ReplayTimelineCaptureResult",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayTimeline.h:195",
+                           "members":  1,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA3",
+                           "reason":  "The result carries only one borrowed solver sample pointer and enforces no result invariant; CA3 returns the pointer directly.",
+                           "destructures_at_entry":  "no",
+                           "post_removal_signature":  "ReplayTimeline::CaptureFrame returns const ReplaySolverFrameSample* directly — existing 11-parameter input signature unchanged"
+                       },
+                       {
+                           "key":  "ReplayTransportHostContext",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:149",
+                           "members":  6,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Replay",
+                           "reason":  "Current-tip review retains this cohesive domain value: its fields form the named ReplayTransportHostContext boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ReplayTripPlannerLiveInput",
+                           "site":  "SkullbonezSource/Runtime/Planning/ReplayTripPlanner.h:86",
+                           "members":  9,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Planning",
+                           "reason":  "Current-tip review retains this bounded input value: its fields form the named ReplayTripPlannerLiveInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ReplayTripPlannerPredictionInput",
+                           "site":  "SkullbonezSource/Runtime/Planning/ReplayTripPlanner.h:99",
+                           "members":  9,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Planning",
+                           "reason":  "Current-tip review retains this bounded input value: its fields form the named ReplayTripPlannerPredictionInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ReplayVisualPacketBufferFacts",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayVisualPacketFingerprint.h:74",
+                           "members":  15,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Replay",
+                           "reason":  "Current-tip review retains this snapshot facts: its fields form the named ReplayVisualPacketBufferFacts boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ReplayWorkspaceFrameInput",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayCoordination.h:85",
+                           "members":  16,
+                           "verdict":  "retain-prior",
+                           "owner":  "prior owner ruling carried by CA0",
+                           "reason":  "PB0 explicit retain: top-level value-only replay input-turn message.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "ReplayWorldPointerInput",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayPresentation.h:139",
+                           "members":  9,
+                           "verdict":  "retain-prior",
+                           "owner":  "prior owner ruling carried by CA0",
+                           "reason":  "PB0/W1 explicit retain: focused replay gesture/pick command value.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "RunSimulationUICommandContext",
+                           "site":  "SkullbonezSource/Runtime/Interaction/OperatorCommandApplier.h:172",
+                           "members":  4,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA1",
+                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 4 fields become concrete consumer operands.",
+                           "destructures_at_entry":  "yes",
+                           "post_removal_signature":  "ApplyRunSimulationUICommands(scene, uiOverrides, config, workerPool, sceneOptions, run, profiler) — 7 parameters"
+                       },
+                       {
+                           "key":  "RuntimeAfterUiDismissInput",
+                           "site":  "SkullbonezSource/Runtime/Input/InputRouter.h:129",
+                           "members":  3,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA3",
+                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 3 fields become concrete consumer operands.",
+                           "destructures_at_entry":  "yes",
+                           "post_removal_signature":  "DispatchAfterUiDismiss expands uiUserInteracted, nowSeconds, legacyUiActive — at most 9 parameters"
+                       },
+                       {
+                           "key":  "RuntimeCameraInputFrameContext",
+                           "site":  "SkullbonezSource/Runtime/Input/InputController.h:267",
+                           "members":  5,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA3",
+                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 5 fields become concrete consumer operands.",
+                           "destructures_at_entry":  "yes",
+                           "post_removal_signature":  "ApplyCameraInputFrame(camera, appFocused, cameraMouseLookActive, mouseLookOwnsCursor, cameraKeyboardControlsActive, deviceFrame) — 6 parameters"
+                       },
+                       {
+                           "key":  "RuntimeCameraMovementInput",
+                           "site":  "SkullbonezSource/Runtime/Input/InputController.h:288",
+                           "members":  10,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Input",
+                           "reason":  "Current-tip review retains this bounded input value: its fields form the named RuntimeCameraMovementInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "RuntimeCaptureSceneContext",
+                           "site":  "SkullbonezSource/Runtime/Capture/CaptureSystem.h:74",
+                           "members":  5,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA3",
+                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 5 fields become concrete consumer operands.",
+                           "destructures_at_entry":  "mixed",
+                           "post_removal_signature":  "capture operations expand isSceneMode, isInteractiveRun, currentFrame, elapsedMs, currentScenePath — at most 8 parameters"
+                       },
+                       {
+                           "key":  "RuntimeInputContext",
+                           "site":  "SkullbonezSource/Runtime/Input/InputController.h:310",
+                           "members":  9,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Input",
+                           "reason":  "Current-tip review retains this behavior owner: its fields form the named RuntimeInputContext boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "RuntimeInputFrameFacts",
+                           "site":  "SkullbonezSource/Runtime/App/InputFrame.h:103",
+                           "members":  8,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/App",
+                           "reason":  "Current-tip review retains this snapshot facts: its fields form the named RuntimeInputFrameFacts boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "RuntimeInteractionFrameInput",
+                           "site":  "SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h:184",
+                           "members":  10,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Interaction",
+                           "reason":  "Current-tip review retains this bounded input value: its fields form the named RuntimeInteractionFrameInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "RuntimePerfTickContext",
+                           "site":  "SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.h:153",
+                           "members":  4,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA3",
+                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 4 fields become concrete consumer operands.",
+                           "destructures_at_entry":  "mixed",
+                           "post_removal_signature":  "perf tick operations expand pass, frame, physicsTimeSeconds, renderTimeSeconds — at most 6 parameters"
+                       },
+                       {
+                           "key":  "RuntimePickRequest",
+                           "site":  "SkullbonezSource/Runtime/Interaction/RuntimePickService.h:54",
+                           "members":  5,
+                           "verdict":  "retain",
+                           "owner":  "prior owner ruling carried by CA0",
+                           "reason":  "PB0 explicit retain: independently meaningful pick request with multiple domain consumers.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "RuntimePresentationUICommandContext",
+                           "site":  "SkullbonezSource/Runtime/Interaction/OperatorCommandApplier.h:104",
+                           "members":  7,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA1",
+                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 7 fields become concrete consumer operands.",
+                           "destructures_at_entry":  "yes",
+                           "post_removal_signature":  "ApplyRuntimePresentationUICommands(debug, scene, config, launchOptions, renderDefaults, graphicsReady, simulationSeconds, sceneOptions, renderTuning, water) — 10 parameters"
+                       },
+                       {
+                           "key":  "RuntimeReserveGrowthRequest",
+                           "site":  "SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h:117",
+                           "members":  7,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Core/Allocation",
+                           "reason":  "Current-tip review retains this domain request: its fields form the named RuntimeReserveGrowthRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "RuntimeUiTextFrameFacts",
+                           "site":  "SkullbonezSource/Runtime/RuntimeFrameViews.h:178",
+                           "members":  10,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/RuntimeFrameViews.h",
+                           "reason":  "Current-tip review retains this snapshot facts: its fields form the named RuntimeUiTextFrameFacts boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "RuntimeViewModelContext",
+                           "site":  "SkullbonezSource/Runtime/UI/RuntimeViewModel.h:62",
+                           "members":  7,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA3",
+                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 7 fields become concrete consumer operands.",
+                           "destructures_at_entry":  "yes",
+                           "post_removal_signature":  "RuntimeViewModelBuilder::Build(scene, world, sceneCount, capture, presentationInterpolation, presentationPinned, presentationAlpha) — 7 parameters"
+                       },
+                       {
+                           "key":  "SceneAuthoredCameraContext",
+                           "site":  "SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.h:64",
+                           "members":  1,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA2",
+                           "reason":  "Single-member authored-setup context; the setup operation takes its one owner directly.",
+                           "destructures_at_entry":  "yes",
+                           "post_removal_signature":  "SceneAuthoredSetup::SetUpCameras(sceneWorld, scene) — 2 parameters"
+                       },
+                       {
+                           "key":  "SceneAuthoredModelContext",
+                           "site":  "SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.h:69",
+                           "members":  3,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA2",
+                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 3 fields become concrete consumer operands.",
+                           "destructures_at_entry":  "yes",
+                           "post_removal_signature":  "authored model operations take sceneState, sceneWorld, automationGates plus scene — at most 4 parameters"
+                       },
+                       {
+                           "key":  "SceneFixedStepUICommandContext",
+                           "site":  "SkullbonezSource/Runtime/Interaction/OperatorCommandApplier.h:221",
+                           "members":  2,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA1",
+                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 2 fields become concrete consumer operands.",
+                           "destructures_at_entry":  "yes",
+                           "post_removal_signature":  "ApplySceneFixedStepUICommand(scene, simulation, commands) — 3 parameters"
+                       },
+                       {
+                           "key":  "SceneGeneratedCameraContext",
+                           "site":  "SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.h:68",
+                           "members":  1,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA2",
+                           "reason":  "Single-member generated-setup context; the setup operation takes its one owner directly.",
+                           "destructures_at_entry":  "yes",
+                           "post_removal_signature":  "SceneGeneratedSetup::SetUpCameras(sceneWorld) — 1 parameter"
+                       },
+                       {
+                           "key":  "SceneGeneratedModelContext",
+                           "site":  "SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.h:73",
+                           "members":  4,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA2",
+                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 4 fields become concrete consumer operands.",
+                           "destructures_at_entry":  "yes",
+                           "post_removal_signature":  "generated model operations take scene, config, sceneWorld, objectTypeOverride plus operation values — at most 6 parameters"
+                       },
+                       {
+                           "key":  "SceneGeneratedPopulationRequest",
+                           "site":  "SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.h:81",
+                           "members":  6,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA2",
+                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 6 fields become concrete consumer operands.",
+                           "destructures_at_entry":  "yes",
+                           "post_removal_signature":  "TrySetUpRequestedModels takes six population counts, model owners, and default flag — 8 parameters after used-subset projection"
+                       },
+                       {
+                           "key":  "SceneLoadRequest",
+                           "site":  "SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.h:50",
+                           "members":  7,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Scene",
+                           "reason":  "Current-tip review retains this domain request: its fields form the named SceneLoadRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "SceneRequest",
+                           "site":  "SkullbonezSource/Runtime/Scene/SceneRequestQueue.h:47",
+                           "members":  6,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Scene",
+                           "reason":  "Current-tip review retains this domain request: its fields form the named SceneRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "SceneRuntimeCreateContext",
+                           "site":  "SkullbonezSource/Runtime/Scene/SceneRuntimeCreate.h:35",
+                           "members":  1,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA2",
+                           "reason":  "One `SceneController\u0026` member, passed by value into CreateSceneFromUI. Strictly longer than taking SceneController\u0026 and shortens nothing.",
+                           "destructures_at_entry":  "yes",
+                           "post_removal_signature":  "CreateSceneFromUI(controller, requestedName) — 2 parameters"
+                       },
+                       {
+                           "key":  "SceneRuntimeStyleContext",
+                           "site":  "SkullbonezSource/Runtime/Scene/SceneRuntimeStyle.h:48",
+                           "members":  7,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA2",
+                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 7 fields become concrete consumer operands.",
+                           "destructures_at_entry":  "mixed",
+                           "post_removal_signature":  "style operations take only their used subset of launchOptions, scene, sceneBrowser, world, assets, activeCinematic, defaultCinematic — at most 10 parameters"
+                       },
+                       {
+                           "key":  "SceneRuntimeUiOptionsContext",
+                           "site":  "SkullbonezSource/Runtime/Scene/SceneRuntimeUiOptions.h:57",
+                           "members":  3,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA2",
+                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 3 fields become concrete consumer operands.",
+                           "destructures_at_entry":  "yes",
+                           "post_removal_signature":  "PrepareSceneUiOptions(diagnostics, debug, activation, options, nowSeconds, preserveUIState, automationScene) — 7 parameters"
+                       },
+                       {
+                           "key":  "SceneSaveRequest",
+                           "site":  "SkullbonezSource/Scene/SceneSnapshotWriter.h:89",
+                           "members":  4,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Scene/SceneSnapshotWriter.h",
+                           "reason":  "Current-tip review retains this domain request: its fields form the named SceneSaveRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "SceneSimpleRagdollAppendContext",
+                           "site":  "SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.h:76",
+                           "members":  2,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA2",
+                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 2 fields become concrete consumer operands.",
+                           "destructures_at_entry":  "yes",
+                           "post_removal_signature":  "ragdoll append operations take sceneState, sceneWorld, options — 3 parameters"
+                       },
+                       {
+                           "key":  "ShadowGraphInputs",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:327",
+                           "members":  1,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA3",
+                           "reason":  "The wrapper carries only `const ShadowPassInputs\u0026`, and its sole consumer immediately forwards `inputs.pass`; CA3 deletes it and takes the pass input directly.",
+                           "destructures_at_entry":  "yes",
+                           "post_removal_signature":  "ExecuteShadowThroughRenderGraph(const ShadowPassInputs\u0026) — 1 parameter"
+                       },
+                       {
+                           "key":  "ShadowPassInputs",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:430",
+                           "members":  12,
+                           "verdict":  "retain-prior",
+                           "owner":  "PB0 / GV1 render pass ruling",
+                           "reason":  "Distinct concrete render-pass input; it is a pass boundary rather than a cross-domain authority bag.",
+                           "destructures_at_entry":  "yes"
+                       },
+                       {
+                           "key":  "SimulationTickInput",
+                           "site":  "SkullbonezSource/Runtime/Simulation/SimulationSystem.h:45",
+                           "members":  8,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Simulation",
+                           "reason":  "Current-tip review retains this bounded input value: its fields form the named SimulationTickInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "SleepSupportPropagationContext",
+                           "site":  "SkullbonezSource/Physics/SleepIslandSystem.h:60",
+                           "members":  3,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Physics/SleepIslandSystem.h",
+                           "reason":  "Current-tip review retains this cohesive domain value: its fields form the named SleepSupportPropagationContext boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "TerrainGraphInputs",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:345",
+                           "members":  2,
+                           "verdict":  "retain-prior",
+                           "owner":  "PB0 / GV1 render graph ruling",
+                           "reason":  "Distinct concrete render-graph node input; the graph nodes do not converge on one apply transaction.",
+                           "destructures_at_entry":  "yes"
+                       },
+                       {
+                           "key":  "TerrainPassInputs",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:273",
+                           "members":  10,
+                           "verdict":  "retain-prior",
+                           "owner":  "PB0 / GV1 render pass ruling",
+                           "reason":  "Distinct concrete render-pass input; it is a pass boundary rather than a cross-domain authority bag.",
+                           "destructures_at_entry":  "yes"
+                       },
+                       {
+                           "key":  "ToolOverlayBuildInput",
+                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:193",
+                           "members":  6,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / Runtime/Tools",
+                           "reason":  "Current-tip review retains this bounded input value: its fields form the named ToolOverlayBuildInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "TornadoUICommandContext",
+                           "site":  "SkullbonezSource/Runtime/Interaction/OperatorCommandApplier.h:78",
+                           "members":  1,
+                           "verdict":  "remove",
+                           "owner":  "ceremonial-aggregate-elimination CA1",
+                           "reason":  "One `SceneWorld\u0026` member. Identical in shape to PhysicsSleepPolicyUICommandContext; the two differ only by name and comment. Apply operations take SceneWorld\u0026 directly.",
+                           "destructures_at_entry":  "yes",
+                           "post_removal_signature":  "ApplyTornadoUICommands(world, commands) — 2 parameters"
+                       },
+                       {
+                           "key":  "UIDrawContext",
+                           "site":  "SkullbonezSource/UI/UIDraw.h:52",
+                           "members":  5,
+                           "verdict":  "retain-prior",
+                           "owner":  "prior owner ruling carried by CA0",
+                           "reason":  "UI renderer hard-boundary closure: behavior owner recording value-only draw commands, with renderer pointers removed.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "WaterGraphInputs",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:350",
+                           "members":  2,
+                           "verdict":  "retain-prior",
+                           "owner":  "PB0 / GV1 render graph ruling",
+                           "reason":  "Distinct concrete render-graph node input; the graph nodes do not converge on one apply transaction.",
+                           "destructures_at_entry":  "yes"
+                       },
+                       {
+                           "key":  "WaterPassInputs",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:335",
+                           "members":  13,
+                           "verdict":  "retain-prior",
+                           "owner":  "PB0 / GV1 render pass ruling",
+                           "reason":  "Distinct concrete render-pass input; it is a pass boundary rather than a cross-domain authority bag.",
+                           "destructures_at_entry":  "yes"
+                       },
+                       {
+                           "key":  "WaterReflectionInput",
+                           "site":  "SkullbonezSource/World/WorldEnvironment.h:84",
+                           "members":  4,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / World/WorldEnvironment.h",
+                           "reason":  "Current-tip review retains this bounded input value: its fields form the named WaterReflectionInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "WaterStyleParams",
+                           "site":  "SkullbonezSource/World/WorldEnvironment.h:92",
+                           "members":  19,
+                           "verdict":  "retain",
+                           "owner":  "CA0 / World/WorldEnvironment.h",
+                           "reason":  "Current-tip review retains this cohesive domain value: its fields form the named WaterStyleParams boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "WorldExtensionGraphInputs",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:355",
+                           "members":  7,
+                           "verdict":  "retain-prior",
+                           "owner":  "PB0 / GV1 render graph ruling",
+                           "reason":  "Distinct concrete render-graph node input; the graph nodes do not converge on one apply transaction.",
+                           "destructures_at_entry":  "yes"
+                       }
+                   ],
+    "extraction_scars":  [
+                             {
+                                 "key":  "SkullbonezSource/Core/WorkerPool.h:indexFn",
+                                 "site":  "SkullbonezSource/Core/WorkerPool.h:228",
+                                 "kind":  "pure-parameter-alias",
+                                 "verdict":  "retain",
+                                 "owner":  "core threading",
+                                 "reason":  "`IndexFunctionT\u0026 indexFn = fn;` binds a forwarding reference to an lvalue reference so the chunk lambda can capture it by reference. Deleting the alias changes capture semantics; this is a required binding, not a preserved pre-extraction spelling."
+                             }
+                         ]
 }
