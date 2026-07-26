@@ -4,7 +4,7 @@ Date: 2026-07-25
 
 Owner: Rendering + Physics + Runtime/Prediction
 
-State: READY (sequenced after `replay-subsystem-partition`)
+State: IN PROGRESS (DB0 complete; DB1 next)
 
 Ledger tasks: 6 (DB0-DB5)
 
@@ -148,7 +148,7 @@ without waiting for it.)
 
 ## Ledger
 
-- [ ] **DB0 — Ratify the complete bleed census.**
+- [x] **DB0 — Ratify the complete bleed census.**
 
   From the implementation tip, inventory: every `RETAINED_TRAJECTORY*` /
   `RetainedTrajectory*` symbol and consumer with file:line; every include
@@ -175,6 +175,24 @@ without waiting for it.)
   - The determinism strategy for B2/B3 is written down: which functions move,
     why float arithmetic order is unchanged, and which gates prove it.
   - No source behavior changes in DB0.
+
+  Evidence (2026-07-26):
+
+  - `Agentic/Reports/2026-07-26/downward-domain-bleed-remediation-db0-census.md`
+    records all fourteen exact-symbol B1 source/test files, the complete
+    Rendering vocabulary sweep, all thirteen upward Physics include rows, every
+    terrain query and body-field phase, and the expected final comment-audit
+    scope.
+  - The implementation-tip drift is bounded: nine unused
+    `Assets/AssetKeys.h` includes are registered as B4 and assigned to DB2.
+    Physics still has zero Scene, Gameplay, Runtime, or UI include rows.
+  - The report fixes exact feature-neutral retained-geometry and
+    `PhysicsTerrainView` signatures, chooses one scene-lifetime terrain slot,
+    defines the dense `BuoyancySystem` row lifecycle, and records byte-exact
+    arithmetic-order strategy for DB2/DB3.
+  - Documentation only; no repository validation required and no source
+    behavior, baseline, golden, artifact, scene, config, shader, or physics CSV
+    changed.
 
 - [ ] **DB1 — Make the Rendering retained-geometry contract feature-neutral.**
 

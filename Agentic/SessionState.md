@@ -11,17 +11,17 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-25th-JUL-26` |
-| Current baseline | Replay Subsystem Partition is complete at 6/6 and removed from the live ledger. Replay, Prediction, and Planning have explicit ownership, direction rules, fixtures, and zero-row closure proofs. |
-| Current objective | Execute `downward-domain-bleed-remediation` DB0: ratify the bleed census and design the target boundary contracts. |
-| Active/future progress | Downward Domain Bleed Remediation 0/6; Invariant Ownership Governance And Transaction Repair 1/5; Concrete Parameter-Bag Elimination 0/8; active/future ledger 1/19 (5%). |
+| Current baseline | Downward Domain Bleed DB0 is complete: the final census, one added unused-Assets drift row, exact retained-geometry/terrain contracts, dense buoyancy lifecycle, and byte-exact strategy are ratified. |
+| Current objective | Execute `downward-domain-bleed-remediation` DB1: make retained Rendering geometry feature-neutral and move trajectory semantics to Runtime/Prediction. |
+| Active/future progress | Downward Domain Bleed Remediation 1/6; Invariant Ownership Governance And Transaction Repair 1/5; Concrete Parameter-Bag Elimination 0/8; active/future ledger 2/19 (11%). |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | RS5 `validate_full.bat` passes: mandatory CPU/coverage and all five required runtime processes. |
-| Validation for current edits | RS5 fast, project/filter, dependency, allocation, strict Replay allocation, full, bounded graphics stress, and the sole replay visual-fidelity generation pass; zero golden/baseline/artifact/scene/config refresh. |
+| Validation for current edits | DB0 is documentation-only; no repository validation required. RS5 remains the last broad final-source gate. |
 
 ## Live Queue
 
-NOW. The 2026-07-25 round-4 architecture campaign is active at 1/19 with
-binding order: `downward-domain-bleed-remediation` (0/6),
+NOW. The 2026-07-25 round-4 architecture campaign is active at 2/19 with
+binding order: `downward-domain-bleed-remediation` (1/6),
 `invariant-ownership-governance-and-transaction-repair` (1/5), then
 `concrete-parameter-bag-elimination` (0/8).
 
@@ -38,7 +38,9 @@ permanent evidence is
 `Agentic/Reports/2026-07-26/replay-subsystem-partition-rs4-enforcement.md`, and
 `Agentic/Reports/2026-07-26/replay-subsystem-partition-closure.md`.
 The completed Replay plan is removed from the live inventory under rule 4.
-Implementation continues through the repository orchestrator skill with DB0
+Downward Domain Bleed DB0 evidence is
+`Agentic/Reports/2026-07-26/downward-domain-bleed-remediation-db0-census.md`.
+Implementation continues through the repository orchestrator skill with DB1
 next. Live plans are under
 `Agentic/Plans/TODO/`.
 
@@ -451,6 +453,8 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Execute `downward-domain-bleed-remediation` DB0: rerun and ratify the complete
-bleed census, design each target owner and value boundary, reconcile the plan
-inventory, and write permanent DB0 evidence before implementation begins.
+Execute `downward-domain-bleed-remediation` DB1: replace trajectory-named
+Rendering contracts with the ratified retained-geometry values, move the
+19-float layout/capacities/adjacency repair into Runtime/Prediction, preserve
+upload-plan coverage, and run the DX12, tests, bounded stress, and sole replay
+visual-fidelity gates without refresh.

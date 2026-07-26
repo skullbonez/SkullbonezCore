@@ -590,12 +590,16 @@ closed final hidden cross-package contracts, moved retained Prediction
 presentation authority out of App, passed the complete census, comment audit,
 independent review, and mapped gates, and completed Replay Subsystem Partition
 at 6/6. The ledger reached 7/25 before the completed six-task plan left the
-active/future inventory under rule 4. The live ledger is now 1/19.
+active/future inventory under rule 4. Downward Domain Bleed DB0 then
+ratified the three registered bleed classes, added nine unused
+Physics-to-Assets include rows to DB2, fixed the exact retained-geometry and
+terrain value contracts, and recorded the B2/B3 byte-exact strategy. The live
+ledger is now 2/19.
 
 ## Current Execution Priority
 
 The 2026-07-25 round-4 campaign is the active queue with binding order:
-1 `downward-domain-bleed-remediation` (0/6; DB0 is next),
+1 `downward-domain-bleed-remediation` (1/6; DB1 is next),
 2 `invariant-ownership-governance-and-transaction-repair` (1/5; GV0 installed
   the documentation-only governance amendment, GV1+ wait for the dependency
   chain). The owner-registered parameter-bag work follows GV4.
@@ -613,7 +617,9 @@ is `../Reports/2026-07-26/replay-subsystem-partition-rs4-enforcement.md`.
 Replay is complete at 6/6 and removed from the live inventory; permanent
 closure evidence is
 `../Reports/2026-07-26/replay-subsystem-partition-closure.md`. Downward Domain
-Bleed Remediation DB0 now owns the front of the dependency chain.
+Bleed Remediation DB0 evidence is
+`../Reports/2026-07-26/downward-domain-bleed-remediation-db0-census.md`; DB1
+now owns the front of the dependency chain.
 The UI plan preserves the existing UI/Runtime value-command boundary and
 makes Runtime/Render the sole UI-to-renderer composition point, and its UR5
 validator is the shared enforcement vehicle the two follow-up plans extend
@@ -1737,8 +1743,9 @@ exist), 5 invariant-ownership governance and transaction repair. The two
 authorized documentation-only exceptions are complete: GV0 landed during the
 UI campaign, and HC0 ran beside the UI tail. HC1-HC2 then closed after UR6 as
 sequenced. HC2 preserved GV0's aggregate-invariant procedure and added claim
-verification as a separate step. Replay RS5 is complete; DB0 is now the
-binding next task, and GV1-GV4 still wait for the dependency chain. HC2 and
+verification as a separate step. Replay RS5 and DB0 are complete; DB1 is
+now the binding next task, and GV1-GV4 still wait for the dependency chain.
+HC2 and
 GV0 both amended
 `Agentic/Skills/comment-style-audit/skill.md` in separate sections; HC2 landed
 second and preserved GV0.
@@ -1748,7 +1755,7 @@ second and preserved GV0.
 | [ui-renderer-hard-boundary](../Reports/2026-07-25/ui-renderer-hard-boundary-closure.md) | Complete | 7/7 | Closed and removed from the live ledger under inventory rule 4 |
 | [header-claim-staleness-remediation](../Reports/2026-07-25/header-claim-staleness-remediation-closure.md) | Complete | 3/3 | Closed and removed from the live ledger under inventory rule 4 |
 | [replay-subsystem-partition](../Reports/2026-07-26/replay-subsystem-partition-closure.md) | Complete | 6/6 | Closed and removed from the live ledger under inventory rule 4 |
-| [downward-domain-bleed-remediation](TODO/downward-domain-bleed-remediation.md) | Ready | 0/6 | DB0 is next: bleed census and boundary-contract design |
+| [downward-domain-bleed-remediation](TODO/downward-domain-bleed-remediation.md) | In progress | 1/6 | DB0 ratified the census/contracts; DB1 makes retained geometry feature-neutral |
 | [invariant-ownership-governance-and-transaction-repair](TODO/invariant-ownership-governance-and-transaction-repair.md) | In progress | 1/5 | GV0 installed; GV1-GV4 start after DB5 closes |
 
 ## Features
