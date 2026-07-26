@@ -24,7 +24,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Interaction/OperatorCommandApplier.h
-  - SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp
+  - SkullbonezSource/Runtime/App/InputFrame.cpp
 */
 #include "OperatorCommandApplier.h"
 
@@ -222,7 +222,8 @@ void ApplyWorkerThreadCountOverride( SkullbonezCore::Core::EngineConfig& config,
     }
 }
 
-bool ApplyRenderVsyncUICommand( RenderDeviceUICommandContext context, const UI::UIRendererCommands& commands )
+bool ApplyRenderVsyncUICommand( RuntimeRenderer& renderer, Rendering::Dx12RenderDevice* renderDevice,
+                                const UI::UIRendererCommands& commands )
 {
 
     if ( !commands.toggleVsync )
@@ -230,18 +231,19 @@ bool ApplyRenderVsyncUICommand( RenderDeviceUICommandContext context, const UI::
         return false;
     }
 
-    const bool vsyncEnabled = !context.renderer.VsyncEnabled();
-    context.renderer.SetVsyncEnabled( vsyncEnabled );
+    const bool vsyncEnabled = !renderer.VsyncEnabled();
+    renderer.SetVsyncEnabled( vsyncEnabled );
 
-    if ( context.renderDevice )
+    if ( renderDevice )
     {
-        context.renderDevice->SetVsyncEnabled( vsyncEnabled );
+        renderDevice->SetVsyncEnabled( vsyncEnabled );
     }
 
     return true;
 }
 
-bool ApplySceneFixedStepUICommand( SceneFixedStepUICommandContext context, const UI::UISceneOptionCommands& commands )
+bool ApplySceneFixedStepUICommand( SceneSessionState& scene, SimulationSystem& simulation,
+                                   const UI::UISceneOptionCommands& commands )
 {
 
     if ( !commands.toggleFixedStep )
@@ -249,8 +251,8 @@ bool ApplySceneFixedStepUICommand( SceneFixedStepUICommandContext context, const
         return false;
     }
 
-    context.scene.isFixedStep = !context.scene.isFixedStep;
-    context.simulation.Reset();
+    scene.isFixedStep = !scene.isFixedStep;
+    simulation.Reset();
     return true;
 }
 
@@ -270,17 +272,18 @@ RunCameraModeUICommandResult DecodeRunCameraModeUICommand( const UI::UIRunComman
 }
 
 
-RunSimulationUICommandResult ApplyRunSimulationUICommands( RunSimulationUICommandContext context,
-                                                           const UI::UISceneOptionCommands& sceneOptions,
-                                                           const UI::UIRunCommands& run,
-                                                           const UI::UIProfilerCommands& profiler )
+RunSimulationUICommandResult
+ApplyRunSimulationUICommands( SceneSessionState& scene, SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+                              SkullbonezCore::Core::EngineConfig& config, SkullbonezCore::Threading::WorkerPool& workerPool,
+                              const UI::UISceneOptionCommands& sceneOptions, const UI::UIRunCommands& run,
+                              const UI::UIProfilerCommands& profiler )
 {
     RunSimulationUICommandResult result;
 
     if ( sceneOptions.requestedTimeScale > 0.0f )
     {
-        context.uiOverrides.timeScaleOverride = std::clamp( sceneOptions.requestedTimeScale, 0.10f, 10.00f );
-        context.scene.timeScale = context.uiOverrides.timeScaleOverride;
+        uiOverrides.timeScaleOverride = std::clamp( sceneOptions.requestedTimeScale, 0.10f, 10.00f );
+        scene.timeScale = uiOverrides.timeScaleOverride;
         result.setTimeScale = true;
     }
 
@@ -289,14 +292,14 @@ RunSimulationUICommandResult ApplyRunSimulationUICommands( RunSimulationUIComman
 
         // Invariant: seed edits reset rngState immediately so generated rebuilds
         // and live frame code observe the same deterministic starting point.
-        context.scene.rngSeed = static_cast<unsigned int>( std::clamp( run.requestedSeed, 1, 999999 ) );
-        context.scene.rngState = context.scene.rngSeed;
+        scene.rngSeed = static_cast<unsigned int>( std::clamp( run.requestedSeed, 1, 999999 ) );
+        scene.rngState = scene.rngSeed;
         result.setRunSeed = true;
     }
 
     if ( profiler.requestedWorkerThreads >= -1 )
     {
-        ApplyWorkerThreadCountOverride( context.config, context.workerPool, profiler.requestedWorkerThreads );
+        ApplyWorkerThreadCountOverride( config, workerPool, profiler.requestedWorkerThreads );
         result.setWorkerThreads = true;
     }
 
@@ -354,14 +357,14 @@ bool ApplyRuntimeTextOnlyUICommand( OverlayDebugState& debug, const UI::UISceneO
     return true;
 }
 
-RuntimePresentationUICommandResult ApplyRuntimePresentationUICommands( RuntimePresentationUICommandContext context,
-                                                                       const UI::UISceneOptionCommands& sceneOptions,
-                                                                       const UI::UIRenderCommands& renderTuning,
-                                                                       const UI::UIWaterCommands& water )
+RuntimePresentationUICommandResult
+ApplyRuntimePresentationUICommands( OverlayDebugState& debug, SceneSessionState& scene,
+                                    SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions,
+                                    RenderDefaultsStore& renderDefaults, bool graphicsReady, double simulationSeconds,
+                                    const UI::UISceneOptionCommands& sceneOptions, const UI::UIRenderCommands& renderTuning,
+                                    const UI::UIWaterCommands& water )
 {
     RuntimePresentationUICommandResult result;
-    OverlayDebugState& debug = context.debug;
-    SkullbonezCore::Core::EngineConfig& config = context.config;
 
     if ( sceneOptions.toggleTerrainHidden )
     {
@@ -381,7 +384,7 @@ RuntimePresentationUICommandResult ApplyRuntimePresentationUICommands( RuntimePr
 
         if ( debug.isWaterFreezeDebug )
         {
-            debug.frozenWaterTime = static_cast<float>( context.simulationSeconds );
+            debug.frozenWaterTime = static_cast<float>( simulationSeconds );
         }
 
         result.toggledWaterFreeze = true;
@@ -396,12 +399,11 @@ RuntimePresentationUICommandResult ApplyRuntimePresentationUICommands( RuntimePr
     if ( sceneOptions.toggleShadows )
     {
 
-        if ( IsSceneCinematicRenderingEnabled( context.scene, config, context.launchOptions, debug, context.graphicsReady ) )
+        if ( IsSceneCinematicRenderingEnabled( scene, config, launchOptions, debug, graphicsReady ) )
         {
-            const bool shadowsActive = ActiveSceneCinematicConfig( context.scene, config ).shadow.enabled;
-            context.launchOptions.hasCinematicShadowsOverride = false;
-            SetCinematicShadowsEnabledFromUI( ActiveSceneCinematicConfig( context.scene, config ), context.scene,
-                                              !shadowsActive );
+            const bool shadowsActive = ActiveSceneCinematicConfig( scene, config ).shadow.enabled;
+            launchOptions.hasCinematicShadowsOverride = false;
+            SetCinematicShadowsEnabledFromUI( ActiveSceneCinematicConfig( scene, config ), scene, !shadowsActive );
         }
         else
         {
@@ -419,7 +421,7 @@ RuntimePresentationUICommandResult ApplyRuntimePresentationUICommands( RuntimePr
 
     if ( renderTuning.saveDefaults )
     {
-        context.renderDefaults.SubmitOrdinarySave();
+        renderDefaults.SubmitOrdinarySave();
         result.queuedRenderDefaultsSave = true;
     }
 
@@ -456,7 +458,9 @@ RuntimePresentationUICommandResult ApplyRuntimePresentationUICommands( RuntimePr
     return result;
 }
 
-bool ApplyCinematicRenderingToggleUICommand( CinematicUICommandContext context, const UI::UICinematicCommands& commands )
+bool ApplyCinematicRenderingToggleUICommand( RunLaunchOptions& launchOptions, SceneSessionState& scene,
+                                             SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+                                             const UI::UICinematicCommands& commands )
 {
 
     if ( !commands.toggleRendering )
@@ -466,25 +470,24 @@ bool ApplyCinematicRenderingToggleUICommand( CinematicUICommandContext context, 
 
     // Master Cine switch. Clearing the launch override lets the runtime toggle
     // become the new source of truth after launch arguments have been consumed.
-    const bool currentlyEnabled = context.launchOptions.hasCinematicRenderingOverride
-                                      ? context.launchOptions.cinematicRendering
-                                      : context.cinematic.enabled;
+    const bool currentlyEnabled = launchOptions.hasCinematicRenderingOverride ? launchOptions.cinematicRendering
+                                                                              : cinematic.enabled;
 
-    context.cinematic.enabled = !currentlyEnabled;
-    context.launchOptions.hasCinematicRenderingOverride = false;
+    cinematic.enabled = !currentlyEnabled;
+    launchOptions.hasCinematicRenderingOverride = false;
 
-    if ( context.scene.isSceneMode )
+    if ( scene.isSceneMode )
     {
-        context.scene.hasCinematicRenderingOverride = true;
-        context.scene.isCinematicRenderingEnabled = context.cinematic.enabled;
-        context.scene.cinematicOverrideMask |= SCENE_CINE_RENDERING;
-        context.scene.uiCinematicOverrideMask |= SCENE_CINE_RENDERING;
+        scene.hasCinematicRenderingOverride = true;
+        scene.isCinematicRenderingEnabled = cinematic.enabled;
+        scene.cinematicOverrideMask |= SCENE_CINE_RENDERING;
+        scene.uiCinematicOverrideMask |= SCENE_CINE_RENDERING;
     }
 
     return true;
 }
 
-bool QueueCinematicSkyDefaultsUICommand( CinematicUICommandContext context, const UI::UICinematicCommands& commands )
+bool QueueCinematicSkyDefaultsUICommand( RenderDefaultsStore& renderDefaults, const UI::UICinematicCommands& commands )
 {
 
     if ( !commands.saveSkyDefaults )
@@ -492,7 +495,7 @@ bool QueueCinematicSkyDefaultsUICommand( CinematicUICommandContext context, cons
         return false;
     }
 
-    context.renderDefaults.SubmitCinematicSave();
+    renderDefaults.SubmitCinematicSave();
     return true;
 }
 
@@ -518,7 +521,8 @@ bool ApplyCinematicModeUICommand( SceneRuntimeStyleContext context, const UI::UI
     return true;
 }
 
-CinematicTuningUICommandResult ApplyCinematicTuningUICommands( CinematicUICommandContext context,
+CinematicTuningUICommandResult ApplyCinematicTuningUICommands( RunLaunchOptions& launchOptions, SceneSessionState& scene,
+                                                               SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                                                const UI::UICinematicCommands& commands )
 {
     CinematicTuningUICommandResult result;
@@ -528,23 +532,23 @@ CinematicTuningUICommandResult ApplyCinematicTuningUICommands( CinematicUIComman
 
         if ( commands.requestedFeature == UICinematicFeature::Shadows )
         {
-            context.launchOptions.hasCinematicShadowsOverride = false;
+            launchOptions.hasCinematicShadowsOverride = false;
         }
 
-        ToggleCinematicUIFeature( context.cinematic, context.scene, commands.requestedFeature );
+        ToggleCinematicUIFeature( cinematic, scene, commands.requestedFeature );
         result.toggledFeature = true;
     }
 
     if ( commands.requestedParam != UICinematicParam::None )
     {
-        ApplyCinematicUIParam( context.cinematic, context.scene, commands.requestedParam, commands.requestedValue );
+        ApplyCinematicUIParam( cinematic, scene, commands.requestedParam, commands.requestedValue );
         result.appliedParam = true;
     }
 
     return result;
 }
 
-bool ApplyPhysicsSleepPolicyUICommand( PhysicsSleepPolicyUICommandContext context, const UI::UIPhysicsCommands& commands )
+bool ApplyPhysicsSleepPolicyUICommand( SceneWorld& world, const UI::UIPhysicsCommands& commands )
 {
 
     if ( !commands.togglePhysicsSleepPolicy )
@@ -552,22 +556,21 @@ bool ApplyPhysicsSleepPolicyUICommand( PhysicsSleepPolicyUICommandContext contex
         return false;
     }
 
-    context.world.Physics().SetSleepEnabled( !context.world.Physics().IsSleepEnabled() );
+    world.Physics().SetSleepEnabled( !world.Physics().IsSleepEnabled() );
     return true;
 }
 
-PhysicsFrictionUICommandResult ApplyPhysicsFrictionUICommands( PhysicsFrictionUICommandContext context,
+PhysicsFrictionUICommandResult ApplyPhysicsFrictionUICommands( SkullbonezCore::Core::EngineConfig& config, SceneWorld& world,
                                                                const UI::UIPhysicsCommands& commands )
 {
     PhysicsFrictionUICommandResult result;
-    SkullbonezCore::Core::EngineConfig& liveConfig = context.config;
     bool runtimePhysicsConfigChanged = false;
 
     if ( commands.requestTerrainFrictionCoeff )
     {
-        liveConfig.physicsMaterial.frictionCoeff = std::clamp( commands.requestedTerrainFrictionCoeff,
-                                                               UI::Layout::UI_FRICTION_COEFF_MIN,
-                                                               UI::Layout::UI_FRICTION_COEFF_MAX );
+        config.physicsMaterial.frictionCoeff = std::clamp( commands.requestedTerrainFrictionCoeff,
+                                                           UI::Layout::UI_FRICTION_COEFF_MIN,
+                                                           UI::Layout::UI_FRICTION_COEFF_MAX );
 
         runtimePhysicsConfigChanged = true;
         ++result.applySettingsActionCount;
@@ -575,9 +578,9 @@ PhysicsFrictionUICommandResult ApplyPhysicsFrictionUICommands( PhysicsFrictionUI
 
     if ( commands.requestObjectFrictionCoeff )
     {
-        liveConfig.physicsMaterial.objectFrictionCoeff = std::clamp( commands.requestedObjectFrictionCoeff,
-                                                                     UI::Layout::UI_FRICTION_COEFF_MIN,
-                                                                     UI::Layout::UI_FRICTION_COEFF_MAX );
+        config.physicsMaterial.objectFrictionCoeff = std::clamp( commands.requestedObjectFrictionCoeff,
+                                                                 UI::Layout::UI_FRICTION_COEFF_MIN,
+                                                                 UI::Layout::UI_FRICTION_COEFF_MAX );
 
         runtimePhysicsConfigChanged = true;
         ++result.applySettingsActionCount;
@@ -585,9 +588,9 @@ PhysicsFrictionUICommandResult ApplyPhysicsFrictionUICommands( PhysicsFrictionUI
 
     if ( commands.requestRollingFrictionCoeff )
     {
-        liveConfig.physicsMaterial.rollingFrictionCoeff = std::clamp( commands.requestedRollingFrictionCoeff,
-                                                                      UI::Layout::UI_ROLLING_FRICTION_COEFF_MIN,
-                                                                      UI::Layout::UI_ROLLING_FRICTION_COEFF_MAX );
+        config.physicsMaterial.rollingFrictionCoeff = std::clamp( commands.requestedRollingFrictionCoeff,
+                                                                  UI::Layout::UI_ROLLING_FRICTION_COEFF_MIN,
+                                                                  UI::Layout::UI_ROLLING_FRICTION_COEFF_MAX );
 
         runtimePhysicsConfigChanged = true;
         ++result.applySettingsActionCount;
@@ -599,19 +602,19 @@ PhysicsFrictionUICommandResult ApplyPhysicsFrictionUICommands( PhysicsFrictionUI
         // Invariant: SceneWorld caches per-model runtime tuning so
         // existing bodies and newly added bodies must observe the same live
         // physics settings immediately after UI config edits.
-        context.world.ApplyRuntimeConfig( liveConfig );
+        world.ApplyRuntimeConfig( config );
     }
 
     return result;
 }
 
-TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, const UI::UIPhysicsCommands& commands )
+TornadoUICommandResult ApplyTornadoUICommands( SceneWorld& world, const UI::UIPhysicsCommands& commands )
 {
 
     // Why: InputFrame routes accepted UI actions through InputController mode
     // bookkeeping; this helper owns the gameplay mutation and tornado sync.
     TornadoUICommandResult result;
-    Gameplay::TornadoGameplay& tornado = context.world.Tornado();
+    Gameplay::TornadoGameplay& tornado = world.Tornado();
 
     if ( commands.toggleTornado )
     {

@@ -866,8 +866,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
         updateInputMode( RuntimeInputAction::ToggleEditor, source );
     };
 
-    if ( ApplyRenderVsyncUICommand( RenderDeviceUICommandContext { renderer, renderBackendView.renderDevice },
-                                    uiCommands.renderer ) )
+    if ( ApplyRenderVsyncUICommand( renderer, renderBackendView.renderDevice, uiCommands.renderer ) )
     {
         recordUIAction( RuntimeInputAction::ToggleVsync );
     }
@@ -1019,15 +1018,13 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
         recordUIAction( RuntimeInputAction::ToggleCollisionVisualizer );
     }
 
-    if ( ApplyPhysicsSleepPolicyUICommand( PhysicsSleepPolicyUICommandContext { sceneController.Scene() },
-                                           uiCommands.physics ) )
+    if ( ApplyPhysicsSleepPolicyUICommand( sceneController.Scene(), uiCommands.physics ) )
     {
         recordUIAction( RuntimeInputAction::TogglePhysicsSleepPolicy );
     }
 
     RecordDiagnosticsPhysicsOverlayUIActions( physicsDiagnosticsCommands, recordUIAction );
-    const TornadoUICommandResult
-        tornadoCommands = ApplyTornadoUICommands( TornadoUICommandContext { sceneController.Scene() }, uiCommands.physics );
+    const TornadoUICommandResult tornadoCommands = ApplyTornadoUICommands( sceneController.Scene(), uiCommands.physics );
 
     RecordTornadoToggleUIActions( tornadoCommands, recordUIAction );
 
@@ -1048,16 +1045,17 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
         recordUIAction( RuntimeInputAction::ToggleTextOnly );
     }
 
-    if ( ApplySceneFixedStepUICommand( SceneFixedStepUICommandContext { sceneController.State(), simulation },
-                                       uiCommands.sceneOptions ) )
+    if ( ApplySceneFixedStepUICommand( sceneController.State(), simulation, uiCommands.sceneOptions ) )
     {
         recordUIAction( RuntimeInputAction::ToggleFixedStep );
     }
 
-    const RuntimePresentationUICommandResult presentationCommands = ApplyRuntimePresentationUICommands( RuntimePresentationUICommandContext { debug, sceneController.State(), config, launchOptions, renderDefaults,
-                                                                                                                                              renderBackendView.renderDevice != nullptr,
-                                                                                                                                              timers.simulationTimer.GetTimeSinceLastStart() },
-                                                                                                        uiCommands.sceneOptions, uiCommands.renderTuning, uiCommands.water );
+    const RuntimePresentationUICommandResult
+        presentationCommands = ApplyRuntimePresentationUICommands( debug, sceneController.State(), config, launchOptions,
+                                                                   renderDefaults, renderBackendView.renderDevice != nullptr,
+                                                                   timers.simulationTimer.GetTimeSinceLastStart(),
+                                                                   uiCommands.sceneOptions, uiCommands.renderTuning,
+                                                                   uiCommands.water );
 
     RecordRuntimePresentationUIActions( presentationCommands, recordUIAction );
 
@@ -1078,11 +1076,12 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
     }
 
     RecordRuntimePresentationWaterUIActions( presentationCommands, recordUIAction );
-    const RunSimulationUICommandResult
-        runSimulationCommands = ApplyRunSimulationUICommands( RunSimulationUICommandContext { sceneController.State(),
-                                                                                              ui.SceneNavigation().overrides,
-                                                                                              config, workerPool },
-                                                              uiCommands.sceneOptions, uiCommands.run, uiCommands.profiler );
+    const RunSimulationUICommandResult runSimulationCommands = ApplyRunSimulationUICommands( sceneController.State(),
+                                                                                             ui.SceneNavigation().overrides,
+                                                                                             config, workerPool,
+                                                                                             uiCommands.sceneOptions,
+                                                                                             uiCommands.run,
+                                                                                             uiCommands.profiler );
 
     RecordRunSimulationUIActions( runSimulationCommands, recordUIAction );
     const DiagnosticsPhysicsDebugValueUICommandResult
@@ -1109,12 +1108,9 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
         recordUIAction( RuntimeInputAction::SetLauncherProjectileSpeed );
     }
 
-    SkullbonezCore::Core::EngineConfig& liveConfig = config;
-    const PhysicsFrictionUICommandResult
-        physicsFrictionCommands = ApplyPhysicsFrictionUICommands( PhysicsFrictionUICommandContext { liveConfig,
-                                                                                                    sceneController
-                                                                                                        .Scene() },
-                                                                  uiCommands.physics );
+    const PhysicsFrictionUICommandResult physicsFrictionCommands = ApplyPhysicsFrictionUICommands( config,
+                                                                                                   sceneController.Scene(),
+                                                                                                   uiCommands.physics );
 
     RecordPhysicsFrictionUIActions( physicsFrictionCommands, recordUIAction );
     const auto executeSceneGeneratedControlAction = [&]( const SceneRuntimeGeneratedControlAction& action )
@@ -1143,7 +1139,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
                                                                               launchOptions.generatedObjectTypeOverride,
                                                                               facts.sceneObjectCapacity );
 
-    const SceneGeneratedUICommandResult modelCountCommand = modelCountTransaction.Execute( liveConfig, sceneController,
+    const SceneGeneratedUICommandResult modelCountCommand = modelCountTransaction.Execute( config, sceneController,
                                                                                            ui.SceneNavigation().overrides,
                                                                                            camera, simulation, runtimeTools,
                                                                                            renderBackendView.renderFrame );
@@ -1170,7 +1166,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
                          facts.sceneObjectCapacity );
 
     const SceneGeneratedUICommandResult solverBallCountCommand = solverBallCountTransaction
-                                                                     .Execute( liveConfig, sceneController,
+                                                                     .Execute( config, sceneController,
                                                                                ui.SceneNavigation().overrides, camera,
                                                                                simulation, runtimeTools,
                                                                                renderBackendView.renderFrame );
@@ -1194,7 +1190,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
                                                                                       facts.sceneObjectCapacity );
 
     const SceneGeneratedUICommandResult solverBoxCountCommand = solverBoxCountTransaction
-                                                                    .Execute( liveConfig, sceneController,
+                                                                    .Execute( config, sceneController,
                                                                               ui.SceneNavigation().overrides, camera,
                                                                               simulation, runtimeTools,
                                                                               renderBackendView.renderFrame );
@@ -1226,15 +1222,13 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
     SkullbonezCore::Core::CinematicRenderConfig& activeCinematic = ActiveSceneCinematicConfig( sceneController.State(),
                                                                                                config );
 
-    const CinematicUICommandContext cinematicUICommandContext { launchOptions, sceneController.State(), activeCinematic,
-                                                                renderDefaults };
-
-    if ( ApplyCinematicRenderingToggleUICommand( cinematicUICommandContext, uiCommands.cinematic ) )
+    if ( ApplyCinematicRenderingToggleUICommand( launchOptions, sceneController.State(), activeCinematic,
+                                                 uiCommands.cinematic ) )
     {
         recordUIAction( RuntimeInputAction::ToggleCinematicRendering );
     }
 
-    if ( QueueCinematicSkyDefaultsUICommand( cinematicUICommandContext, uiCommands.cinematic ) )
+    if ( QueueCinematicSkyDefaultsUICommand( renderDefaults, uiCommands.cinematic ) )
     {
         recordUIAction( RuntimeInputAction::SaveSkyDefaults );
     }
@@ -1251,7 +1245,9 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
         recordUIAction( RuntimeInputAction::SelectCinematicScene );
     }
 
-    const CinematicTuningUICommandResult cinematicTuningCommands = ApplyCinematicTuningUICommands( cinematicUICommandContext,
+    const CinematicTuningUICommandResult cinematicTuningCommands = ApplyCinematicTuningUICommands( launchOptions,
+                                                                                                   sceneController.State(),
+                                                                                                   activeCinematic,
                                                                                                    uiCommands.cinematic );
 
     RecordCinematicTuningUIActions( cinematicTuningCommands, recordUIAction );

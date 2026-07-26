@@ -64,16 +64,6 @@
                            "destructures_at_entry":  "yes"
                        },
                        {
-                           "key":  "CinematicUICommandContext",
-                           "site":  "SkullbonezSource/Runtime/Interaction/OperatorCommandApplier.h:119",
-                           "members":  4,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA1",
-                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 4 fields become concrete consumer operands.",
-                           "destructures_at_entry":  "yes",
-                           "post_removal_signature":  "cinematic apply operations take launchOptions, scene, cinematic, renderDefaults plus commands — at most 5 parameters"
-                       },
-                       {
                            "key":  "DebugOverlayGraphInputs",
                            "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:376",
                            "members":  2,
@@ -333,26 +323,6 @@
                            "destructures_at_entry":  "no"
                        },
                        {
-                           "key":  "PhysicsFrictionUICommandContext",
-                           "site":  "SkullbonezSource/Runtime/Interaction/OperatorCommandApplier.h:95",
-                           "members":  2,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA1",
-                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 2 fields become concrete consumer operands.",
-                           "destructures_at_entry":  "yes",
-                           "post_removal_signature":  "ApplyPhysicsFrictionUICommands(config, world, commands) — 3 parameters"
-                       },
-                       {
-                           "key":  "PhysicsSleepPolicyUICommandContext",
-                           "site":  "SkullbonezSource/Runtime/Interaction/OperatorCommandApplier.h:87",
-                           "members":  1,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA1",
-                           "reason":  "One `SceneWorld\u0026` member, duplicating TornadoUICommandContext exactly.",
-                           "destructures_at_entry":  "yes",
-                           "post_removal_signature":  "ApplyPhysicsSleepPolicyUICommand(world, commands) — 2 parameters"
-                       },
-                       {
                            "key":  "PointerPresentationPolicyInput",
                            "site":  "SkullbonezSource/Runtime/Input/InputRouter.h:283",
                            "members":  6,
@@ -397,16 +367,6 @@
                            "owner":  "PB0 / GV1 render pass ruling",
                            "reason":  "Distinct concrete render-pass input; it is a pass boundary rather than a cross-domain authority bag.",
                            "destructures_at_entry":  "yes"
-                       },
-                       {
-                           "key":  "RenderDeviceUICommandContext",
-                           "site":  "SkullbonezSource/Runtime/Interaction/OperatorCommandApplier.h:212",
-                           "members":  2,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA1",
-                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 2 fields become concrete consumer operands.",
-                           "destructures_at_entry":  "yes",
-                           "post_removal_signature":  "ApplyRenderVsyncUICommand(renderer, renderDevice, commands) — 3 parameters"
                        },
                        {
                            "key":  "RenderGraphPassContext",
@@ -727,16 +687,6 @@
                            "destructures_at_entry":  "no"
                        },
                        {
-                           "key":  "RunSimulationUICommandContext",
-                           "site":  "SkullbonezSource/Runtime/Interaction/OperatorCommandApplier.h:172",
-                           "members":  4,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA1",
-                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 4 fields become concrete consumer operands.",
-                           "destructures_at_entry":  "yes",
-                           "post_removal_signature":  "ApplyRunSimulationUICommands(scene, uiOverrides, config, workerPool, sceneOptions, run, profiler) — 7 parameters"
-                       },
-                       {
                            "key":  "RuntimeAfterUiDismissInput",
                            "site":  "SkullbonezSource/Runtime/Input/InputRouter.h:129",
                            "members":  3,
@@ -822,16 +772,6 @@
                            "destructures_at_entry":  "no"
                        },
                        {
-                           "key":  "RuntimePresentationUICommandContext",
-                           "site":  "SkullbonezSource/Runtime/Interaction/OperatorCommandApplier.h:104",
-                           "members":  7,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA1",
-                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 7 fields become concrete consumer operands.",
-                           "destructures_at_entry":  "yes",
-                           "post_removal_signature":  "ApplyRuntimePresentationUICommands(debug, scene, config, launchOptions, renderDefaults, graphicsReady, simulationSeconds, sceneOptions, renderTuning, water) — 10 parameters"
-                       },
-                       {
                            "key":  "RuntimeReserveGrowthRequest",
                            "site":  "SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h:117",
                            "members":  7,
@@ -878,16 +818,6 @@
                            "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 3 fields become concrete consumer operands.",
                            "destructures_at_entry":  "yes",
                            "post_removal_signature":  "authored model operations take sceneState, sceneWorld, automationGates plus scene — at most 4 parameters"
-                       },
-                       {
-                           "key":  "SceneFixedStepUICommandContext",
-                           "site":  "SkullbonezSource/Runtime/Interaction/OperatorCommandApplier.h:221",
-                           "members":  2,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA1",
-                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 2 fields become concrete consumer operands.",
-                           "destructures_at_entry":  "yes",
-                           "post_removal_signature":  "ApplySceneFixedStepUICommand(scene, simulation, commands) — 3 parameters"
                        },
                        {
                            "key":  "SceneGeneratedCameraContext",
@@ -1049,16 +979,6 @@
                            "owner":  "CA0 / Runtime/Tools",
                            "reason":  "Current-tip review retains this bounded input value: its fields form the named ToolOverlayBuildInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
                            "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "TornadoUICommandContext",
-                           "site":  "SkullbonezSource/Runtime/Interaction/OperatorCommandApplier.h:78",
-                           "members":  1,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA1",
-                           "reason":  "One `SceneWorld\u0026` member. Identical in shape to PhysicsSleepPolicyUICommandContext; the two differ only by name and comment. Apply operations take SceneWorld\u0026 directly.",
-                           "destructures_at_entry":  "yes",
-                           "post_removal_signature":  "ApplyTornadoUICommands(world, commands) — 2 parameters"
                        },
                        {
                            "key":  "UIDrawContext",

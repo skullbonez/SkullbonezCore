@@ -229,6 +229,7 @@
     <ClCompile Include="SkullbonezTests\TestRuntimeInputBindings.cpp" />
     <ClCompile Include="SkullbonezTests\TestRuntimeContracts.cpp" />
     <ClCompile Include="SkullbonezTests\TestRuntimeValueSeams.cpp" />
+    <ClCompile Include="SkullbonezTests\TestOperatorCommandApplier.cpp" />
     <ClCompile Include="SkullbonezTests\TestUIDrawValues.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayPredictionScheduling.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayGuideArcs.cpp" />

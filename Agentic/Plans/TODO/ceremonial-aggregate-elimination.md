@@ -1,12 +1,12 @@
 # Ceremonial Aggregate Elimination
 
 Date: 2026-07-26
-Status: IN PROGRESS — CA0 closed on 2026-07-27 from parent tip `c3d4fe80`;
-the complete machine census and owner rulings leave CA1 as the binding task.
+Status: IN PROGRESS — CA0 and CA1 closed on 2026-07-27; the UI command
+context family is gone and CA2 is the binding task.
 Originally drafted from the 2026-07-26 from-source architecture
 review of `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 4 of the Architecture Follow-Up Campaign
-Round 5. Starts after `governance-shape-to-judgment-conversion` closes. 1/5
+Round 5. Starts after `governance-shape-to-judgment-conversion` closes. 2/5
 phases complete.
 Impact area: `Runtime/Interaction/OperatorCommandApplier.h`,
 `Runtime/Scene/SceneRuntime*.h`, `Runtime/Scene/SceneAuthoredSetup.h`,
@@ -138,7 +138,7 @@ independent meaning. Nothing exists to make a call site look tidier.
   and the generated complete table
   `../../Reports/2026-07-27/ceremonial-aggregate-elimination-ca0-census.md`.
 
-- [ ] **CA1 — Remove the UI command context family.**
+- [x] **CA1 — Remove the UI command context family.**
   Delete `TornadoUICommandContext`, `PhysicsSleepPolicyUICommandContext`,
   `PhysicsFrictionUICommandContext`, `RuntimePresentationUICommandContext`,
   `CinematicUICommandContext`, `RunSimulationUICommandContext`,
@@ -149,7 +149,13 @@ independent meaning. Nothing exists to make a call site look tidier.
   `operator-command-invariant-ownership` rather than inventing a replacement
   type. Acceptance: `rg -n 'UICommandContext' SkullbonezSource SkullbonezTests`
   returns no rows; every UI-tab command still applies with identical observable
-  effect; focused operator-command tests pass.
+  effect; focused operator-command tests pass. Closed 2026-07-27: all eight
+  context types were deleted, their operations now expose concrete owners
+  directly, and the widest resulting signature has 10 parameters. The literal
+  source/test search returns no rows, the inventory reports 1,199 candidates
+  with all 111 review rows ruled, and the focused compile-time contract plus
+  complete 416-case unit suite pass. Evidence:
+  `../../Reports/2026-07-27/ceremonial-aggregate-elimination-ca1-ui-contexts.md`.
 
 - [ ] **CA2 — Remove the Scene setup and runtime context family.**
   Delete `SceneRuntimeCreateContext`, `SceneRuntimeUiOptionsContext`,
