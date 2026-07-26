@@ -12,15 +12,36 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-26th-JUL-26` |
 | Current baseline | Nightrunner 26 July is complete at N26-1 through N26-3: replay scrub spikes removed, owner code style ratified, and selected-body velocity-drag preview published. |
-| Current objective | No live implementation plan; await the next owner direction. |
-| Active/future progress | No live plans; active/future ledger denominator is 0. |
+| Current objective | Architecture Follow-Up Campaign Round 5: 13 plans / 56 tasks registered 2026-07-26. `governance-shape-to-judgment-conversion` G0 is the binding next task. |
+| Active/future progress | 0/56 (0%). Round 5 is the live queue; execution order 1->13 per the campaign section. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | N26-3 `validate_full.bat` passes: 402 doctests, Automation/Replay, zero-error DX12 with accepted baselines, and byte-exact 44,401-line Physics regression. |
 | Validation for current edits | N26: Replay scrub 17/17 and 75 assertions, focused preview 2/2 and 24 assertions, format, fast, allocation, dependency, performance, full, and 60.83-second graphics stress pass; comment audit is 24/24. |
 
 ## Live Queue
 
-NOW. Nightrunner 26 July is complete at 3/3 and removed from the live
+NOW. Architecture Follow-Up Campaign Round 5 is live at 0/56, registered
+2026-07-26 from the same-day from-source architecture review of
+`nightrunner-26th-JUL-26` at tip `35f6de4e` (review read only source and tests;
+no plans, reports, or git history). Thirteen plans, one per review finding plus
+the owner's two same-day requests. `governance-shape-to-judgment-conversion` G0
+is the binding next task and nothing else may close before its G4, because its
+amended `AGENTS.md` / review-skill rules are every sibling plan's closure test.
+
+Headline finding: `ColliderStore::m_colliders` is 7,228 x 8,192 = 56.5 MiB
+resident in every scene because `CollisionShape` is a variant sized by
+`ConvexHullShape`'s inline arrays, so a sphere pays for a hull; prediction's
+second engine pays it again. Owner ruling at registration: runtime capacity
+sized from the loaded scene, `MAX_SCENE_OBJECTS = 8192` retained as an absolute
+fail-loud ceiling, capacity monotonic within a process, no shrink path.
+
+Standing campaign constraints: no baseline, golden, schema, or config refresh in
+any plan; no render interface, virtual dispatch, or type erasure reintroduced;
+every PB0/GV1 explicit retain ruling carried forward untouched.
+`terrain-legacy-and-contact-seed-remediation` T3 is the only phase that can
+request owner divergence authority and must stop and ask.
+
+DONE. Nightrunner 26 July is complete at 3/3 and removed from the live
 inventory under rule 4. N26-1 caches dense solver scrub resolution and removes
 duplicate availability/copy work. N26-2 ratifies the owner's 125-column,
 compact-parameter, control-flow, assertion, comment, and parameter-order

@@ -1,6 +1,6 @@
 # MASTER PLAN — Authoritative Remaining Work
 
-Date: 2026-07-25
+Date: 2026-07-26
 Status: Authoritative inventory of every live repository plan
 
 ## Binding Owner Directive — 2026-07-19: Finish UI, Then Resolve Physics
@@ -646,13 +646,30 @@ hit. Permanent PB0 evidence is
 `../Reports/2026-07-26/concrete-parameter-bag-elimination-pb0-census.md`.
 The active/future ledger is now 1/8 (13%).
 
+The denominator grew 0 → 56 on 2026-07-26 when the owner registered the
+thirteen-plan Architecture Follow-Up Campaign Round 5 from the same-day
+from-source engine architecture review of `nightrunner-26th-JUL-26` at tip
+`35f6de4e` (review conducted without plan files or git history; each plan
+document carries the dated file:line evidence). The campaign owns one plan per
+review finding plus the owner's two same-day requests: scene-sized store
+capacity and closer memory tracking. Execution order is 1→13 as listed in the
+campaign section below. `governance-shape-to-judgment-conversion` runs first
+because its amended rules are the acceptance test every sibling plan's closure
+review uses.
+
 ## Current Execution Priority
 
 The Nightrunner 26 July campaign is complete at 3/3. Replay scrub performance,
 owner code style, and the space-scene velocity-drag preview are closed, and the
 completed TODO was deleted under inventory rule 4. Permanent evidence is
-`../Reports/2026-07-26/nightrunner-26-july-closure.md`. No live implementation
-plan remains; the active/future ledger denominator is 0.
+`../Reports/2026-07-26/nightrunner-26-july-closure.md`.
+
+NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 0/56.
+`governance-shape-to-judgment-conversion` G0 is the binding next task: it
+censuses which `AGENTS.md` rule wording admits each current offender, and its
+G1/G1b amendments to `AGENTS.md`, the two independent-review skills, the
+orchestrator skill, and the reference style guides gate every sibling plan's
+closure review. Nothing else in the campaign may close before G4.
 
 The 2026-07-25 round-4 campaign has no live plans. Concrete Parameter-Bag
 Elimination closed PB0-PB7 and left the live ledger under rule 4. Invariant
@@ -1873,6 +1890,76 @@ second and preserved GV0.
 | [downward-domain-bleed-remediation](../Reports/2026-07-26/downward-domain-bleed-remediation-closure.md) | Complete | 6/6 | Closed and removed from the live ledger under inventory rule 4 |
 | [invariant-ownership-governance-and-transaction-repair](../Reports/2026-07-26/invariant-ownership-governance-and-transaction-repair-closure.md) | Complete | 5/5 | Closed and removed from the live ledger under rule 4 |
 | [concrete-parameter-bag-elimination](../Reports/2026-07-26/concrete-parameter-bag-elimination-closure.md) | Complete | 8/8 | Closed and removed from the live ledger under inventory rule 4 |
+
+## Architecture Follow-Up Campaign Round 5 (2026-07-26)
+
+Source: the owner-requested from-source engine architecture review of
+2026-07-26 on `nightrunner-26th-JUL-26` at tip `35f6de4e`. The review read only
+source and tests — no plan files, no reports, no git history — so its findings
+are independent of the campaign record. Each plan document carries the dated
+file:line evidence.
+
+The review found the class-level god objects closed, the layering real, the
+determinism apparatus genuinely strong (zero `throw`, zero `virtual`, zero
+`std::function` across ~180K lines; `#pragma fp_contract(off)` force-included;
+worker-count-invariant byte-exact tests), and named two structural debts plus
+the owner's two same-day requests:
+
+1. **Governance enforced by shape rather than by ownership.** The aggregate bans
+   are satisfied by renaming. 99 aggregate parameter types match the banned
+   suffix families; six carry one member, two of those wrap the *same* single
+   reference, and one is passed by value where a plain reference would be
+   shorter. Four physics translation units preserve lifted god-class bodies by
+   rebinding parameters to `m_`-prefixed locals, which no checker can see.
+   `RuntimeFrameViews.h:24` states "No capability slice spans the complete frame
+   surface" and then declares four views totalling 23 references that two
+   operations receive in full. The two independent-review skills that `AGENTS.md`
+   delegates enforcement to contain no aggregate criteria at all.
+2. **Fixed-capacity policy applied to the wrong containers, at the wrong
+   scale.** `PhysicsFixedList` fails loud at capacity and is used by 25 members
+   under `Physics/`; forty other members are plain `std::vector` that grow
+   silently, two of them `reserve`d inside the fixed tick. Separately,
+   `ColliderStore::m_colliders` is 7,228 × 8,192 = **56.5 MiB resident in every
+   scene** because `CollisionShape` is a variant sized by `ConvexHullShape`'s
+   inline 64-vertex / 96-face / 160-edge / 1,536-index arrays, so a sphere pays
+   for a hull. Prediction's second engine pays it again.
+3. **Owner request — scene-sized capacity.** Stores size from the loaded scene;
+   a scene that fits allocates nothing; a larger scene allocates once at load.
+   Owner decision ratified at registration: `MAX_SCENE_OBJECTS = 8192` is
+   retained as an absolute fail-loud ceiling, capacity is monotonic within a
+   process, and there is no shrink path or deferred follow-up for one.
+4. **Owner request — closer memory tracking.** Per-owner capacity, live count,
+   and session high-water, surfaced in the memory tab and dumped at scene
+   unload. `RuntimeReserveAllocator` already carries the registry and
+   `PhysicsFixedList` already tracks `m_highWater` and discards it. A committed
+   memory budget gate and per-frame allocation breakpoints were considered and
+   rejected at registration.
+
+Owner decisions ratified at registration: one plan per review finding, with
+trivial one-line items folded into their owning plan rather than given their own
+ledger row (`FenceHandle`, the 20 `mutable` hot arrays, and the
+`PhysicsFixedList` container defects join `scene-sized-store-capacity`). The
+`render-interface-retirement` ruling stands — no plan may reintroduce a render
+interface, virtual dispatch, or type erasure. Every PB0 and GV1 explicit retain
+ruling is carried forward untouched. No plan may refresh a physics, replay,
+visual, or DX12 baseline; `terrain-legacy-and-contact-seed-remediation` T3 is
+the only phase that can require owner divergence authority and must stop and ask.
+
+| # | Plan | State | Verified phase count | Start condition / next action |
+|---:|---|---|---:|---|
+| 1 | [governance-shape-to-judgment-conversion](TODO/governance-shape-to-judgment-conversion.md) | Not started | 0/6 | **Binding next task.** G0 censuses rule gaps; G1/G1b amend `AGENTS.md`, both review skills, the orchestrator skill, and the reference guides; G2/G3 add the two repeatable inventories and gate them |
+| 2 | [scene-sized-store-capacity](TODO/scene-sized-store-capacity.md) | Not started | 0/8 | After plan 1. SC2 removes the 56.5 MiB collider hull payload; SC3 installs the scene-load capacity commit |
+| 3 | [store-capacity-memory-reporting](TODO/store-capacity-memory-reporting.md) | Not started | 0/4 | Hard dependency on plan 2 — registering before SC1-SC6 would report the 8,192 constants |
+| 4 | [ceremonial-aggregate-elimination](TODO/ceremonial-aggregate-elimination.md) | Not started | 0/5 | After plan 1. Small aggregates only; frame views and backend view are plans 5 and 6 |
+| 5 | [runtime-frame-view-retirement](TODO/runtime-frame-view-retirement.md) | Not started | 0/4 | After plan 6, so FV2 need not preserve `renderBackendView`. FV0 carries an open owner decision between two endpoints |
+| 6 | [render-backend-service-bag-removal](TODO/render-backend-service-bag-removal.md) | Not started | 0/4 | After plan 1. Completes the removal PB3's review started |
+| 7 | [extraction-scar-remediation](TODO/extraction-scar-remediation.md) | Not started | 0/3 | Before plan 2's SC4/SC5 touch the same solver and sleep files |
+| 8 | [scene-runtime-verb-partition-consolidation](TODO/scene-runtime-verb-partition-consolidation.md) | Not started | 0/4 | After plan 4 deletes the three `SceneRuntime*Context` types |
+| 9 | [operator-command-invariant-ownership](TODO/operator-command-invariant-ownership.md) | Not started | 0/4 | After plan 4's CA1 hands over any operation left wide |
+| 10 | [coverage-gate-test-reorganization](TODO/coverage-gate-test-reorganization.md) | Not started | 0/3 | After plans 2 and 7 change the physics source these tests cover |
+| 11 | [allocator-foreign-pointer-safety](TODO/allocator-foreign-pointer-safety.md) | Not started | 0/3 | No dependency; may run at any point. AF1 carries an open owner decision on fatal-vs-counted |
+| 12 | [sbresult-frame-path-cost](TODO/sbresult-frame-path-cost.md) | Not started | 0/3 | After plan 5 changes the frame-phase signatures. "No change, documented" is a permitted SR0 outcome |
+| 13 | [terrain-legacy-and-contact-seed-remediation](TODO/terrain-legacy-and-contact-seed-remediation.md) | Not started | 0/5 | Runs last. T3 carries an open owner decision and is the campaign's only possible divergence request |
 
 ## Features
 
