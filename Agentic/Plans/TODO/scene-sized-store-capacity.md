@@ -1,11 +1,12 @@
 # Scene-Sized Store Capacity
 
 Date: 2026-07-26
-Status: NOT STARTED — drafted from the 2026-07-26 from-source architecture
+Status: IN PROGRESS — drafted from the 2026-07-26 from-source architecture
 review of `nightrunner-26th-JUL-26` at tip `35f6de4e`, extended by the same-day
 capacity measurement below. Registered in `MASTER-PLAN.md` on 2026-07-26 as
 plan 2 of the Architecture Follow-Up Campaign Round 5. Starts after
-`governance-shape-to-judgment-conversion` closes. 0/8 phases complete.
+`governance-shape-to-judgment-conversion` closes. SC0 closed 2026-07-27. 1/8
+phases complete.
 Impact area: `Core/SceneCapacity.h`, `Physics/PhysicsFixedList.h`,
 `Physics/ColliderStore.*`, `Physics/PhysicsBodyStore.*`, every
 `Physics/Stages/*` store, `Physics/CollisionShape.h`,
@@ -56,26 +57,31 @@ direct cause of the 7,228-byte record and of the 56.5 MiB figure above.
 `Physics/PhysicsFixedList.h` exists specifically to enforce the Runtime Static
 Allocation Policy: it never allocates, and overflow is fatal via
 `FailCapacityExceeded` (`:353`) with owner, capacity, count, and high-water
-diagnostics. It is used by 25 members under `Physics/`. Forty other members are
-plain `std::vector` and grow silently:
+diagnostics. The originating review counted 25 members under `Physics/`; SC0's
+current-source declaration census found **40**. The review counted 40 retained
+plain `std::vector` members; SC0 found **50**, including later broadphase oracle
+rows and the contact side-effect storage omitted from the review summary:
 
 | Owner | Members | Header |
 |---|---:|---|
-| `PhysicsSleepController` | 17 | `Stages/PhysicsSleepController.h:134-165` |
+| `PhysicsSleepController` | 18 | `Stages/PhysicsSleepController.h:134-165` |
 | `PhysicsNarrowphaseStage` | 7 | `Stages/PhysicsNarrowphaseStage.h:123-129` |
-| `PhysicsContactSolverStage` | 5 | `Stages/PhysicsContactSolverStage.h:148-153` |
+| `PhysicsContactSolverStage` | 10 | `Stages/PhysicsContactSolverStage.h:123-127,148-153` |
 | `PhysicsStepDiagnostics` | 3 | `Stages/PhysicsStepDiagnostics.h:52-55` |
 | `PhysicsTerrainStage` | 2 | `Stages/PhysicsTerrainStage.h:91-92` |
 | `PhysicsForceStage` | 2 | `Stages/PhysicsForceStage.h:72-73` |
 | `PhysicsWorld` | 2 | `PhysicsWorld.h:139,163` |
-| `PhysicsBroadphaseStage` | 1 | `Stages/PhysicsBroadphaseStage.h:77` |
+| `PhysicsBroadphaseStage` | 5 | `Stages/PhysicsBroadphaseStage.h:76-91` |
 | `PhysicsEngine` | 1 | `PhysicsEngine.h:237` |
 
-Two of those are `reserve`d **inside the fixed tick**:
+Three of those are `reserve`d **inside the fixed tick**:
 `PersistentContactSolver.cpp:805` (`m_persistentContacts.reserve(candidatePairs
-* 4)`) and `:992` (`reserve(size() + terrainRowCount)`). Today both are no-ops
-because `PhysicsContactSolverStage.cpp:100` pre-reserves `8192 * 4`. Exceed that
-and the vector reallocates mid-solve instead of tripping — a silent breach of
+* 4)`), `:992` (`reserve(size() + terrainRowCount)`), and `:1591`
+(`m_physicsDebugContacts.reserve(m_persistentContacts.size())`). The first two
+are no-ops only while combined object/terrain contact rows fit the constructor's
+`8192 * 4` reserve; the Debug reserve is likewise conditional on its current
+capacity. Exceed either capacity and the vector reallocates mid-solve instead of
+tripping — a silent breach of
 `PhysicsWorld.h:35` ("scratch capacity is established during scene load and may
 not grow while fixed ticks are running") and of the Runtime Static Allocation
 Policy, in the one place where the policy has no teeth.
@@ -129,20 +135,35 @@ its shape costs.
 
 ## Phases
 
-- [ ] **SC0 — Capacity census and sizing contract.**
-  Inventory every dense store under `Physics/` and the prediction engine: the 25
-  `PhysicsFixedList` members, the 40 `std::vector` members, and their sizing
+- [x] **SC0 — Capacity census and sizing contract.**
+  Inventory every dense store under `Physics/` and the prediction engine: the 40
+  `PhysicsFixedList` members, the 50 `std::vector` members, and their sizing
   sites (147 `reserve`/`resize`/`assign` calls measured 2026-07-26). For each
   row record: element size, current capacity source, whether it is indexed by
   body / collider / pair / contact / island, hot-or-cold, and the exact
   scene-derived quantity that should size it. Establish which owner knows the
   final body and collider count during scene load and at what phase, and confirm
-  `PhysicsEngine::ReserveBodyScratchCapacity` /
+  `PhysicsEngine::ReserveAuthoredBodyCapacity` /
   `PhysicsWorld::ReserveBodyScratchCapacity` (`PhysicsWorld.cpp:401`) is the
   right existing seam to generalize. Record the measured resident footprint
   before any change, per store, so SC7 can quote a real delta. Acceptance: every
-  one of the 65 members has a named sizing quantity and a target owner; no row is
+  one of the 90 members has a named sizing quantity and a target owner; no row is
   unclassified.
+
+  Closed 2026-07-27 with permanent evidence in
+  `../../Reports/2026-07-27/scene-sized-store-capacity-sc0-census.md`. Current
+  source corrected the originating counts from 25 fixed lists + 40 vectors to
+  **40 fixed lists + 50 vectors = 90 retained dense rows**. The delta is the
+  complete body/collider handle topology, the sleep owner's eighteenth row,
+  later broadphase oracle buffers, and five retained contact side-effect vectors
+  omitted by the review summary. All 90 rows have an MSVC element size, current
+  capacity source, hot/cold classification, scene-derived or semantic fixed
+  sizing quantity, and target owner. The Debug payload lower bound is
+  111,714,816 bytes per engine.
+  `SceneWorld -> PhysicsEngine::ReserveAuthoredBodyCapacity ->
+  PhysicsWorld::ReserveBodyScratchCapacity` is the accepted seam to generalize.
+  Authored setup owns exact expansion preflight after parse; generated setup
+  already knows its counts; `SceneWorld` remains the one commit coordinator.
 
 - [ ] **SC1 — Runtime capacity in the fail-loud container.**
   Give `PhysicsFixedList` a runtime `Reserve(count)` that commits backing storage
@@ -190,26 +211,30 @@ its shape costs.
   owner; a 9,000-body scene fails loud at load; physics CSV byte-exact.
 
 - [ ] **SC4 — Convert the hot solver and narrowphase vectors.**
-  Move the 5 `PhysicsContactSolverStage`, 7 `PhysicsNarrowphaseStage`, 1
-  `PhysicsBroadphaseStage`, and 2 `PhysicsForceStage` members onto the
-  runtime-capacity container, and delete the two in-tick `reserve` calls at
-  `PersistentContactSolver.cpp:805` and `:992` so an overrun trips
+  Move the 10 `PhysicsContactSolverStage` (including its five retained side
+  effect rows), 7 `PhysicsNarrowphaseStage`, 5 `PhysicsBroadphaseStage`, and 2
+  `PhysicsForceStage` members onto the runtime-capacity container, and delete
+  the two in-tick contact reserves at `PersistentContactSolver.cpp:805` and
+  `:992` plus the Debug-contact reserve at `:1591` so an overrun trips
   `FailCapacityExceeded` instead of reallocating. Preserve exact serial and
   parallel pair ordering and the mutual-gravity triangular pair scratch
-  semantics. Acceptance: no `reserve`/`resize`/`assign` remains on a
-  fixed-tick path under `Physics/`; physics CSV byte-exact; the existing
-  worker-count determinism tests
+  semantics. Acceptance: no `reserve` remains on the converted contact,
+  narrowphase, broadphase, or force fixed-tick paths; the SC3-committed Debug
+  contact row no longer reserves during the tick; remaining sleep/terrain/
+  diagnostics operations are explicitly owned by SC5; physics CSV byte-exact;
+  the existing worker-count determinism tests
   (`SkullbonezTests/TestDeterminism.cpp:1115,1161,1482`) pass unchanged at 0/1/4
   workers; `validate_physics` and `validate_perf` pass.
 
 - [ ] **SC5 — Convert the sleep, terrain, diagnostics, and world vectors.**
-  Move the 17 `PhysicsSleepController`, 2 `PhysicsTerrainStage`, 3
+  Move the 18 `PhysicsSleepController`, 2 `PhysicsTerrainStage`, 3
   `PhysicsStepDiagnostics`, 2 `PhysicsWorld`, and 1 `PhysicsEngine` members.
   `PhysicsWorld::m_timeRemaining` is the cross-stage CCD clock
   (`PhysicsWorld.h:137`) and must keep exactly its current semantics.
   `m_pointJointConstraints` keeps its handle-generation behavior. Diagnostics
   rows may stay Debug-only but must still be capacity-committed rather than
-  grown. Acceptance: zero `std::vector` members remain under `Physics/` except
+  grown. Acceptance: no `reserve`/`resize`/`assign` remains on a fixed-tick path
+  under `Physics/`; zero `std::vector` members remain under `Physics/` except
   rows SC0 explicitly ruled cold-and-unbounded with a reason; physics CSV
   byte-exact; sleep/island focused tests and `validate_physics_deep` pass.
 

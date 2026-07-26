@@ -12,16 +12,17 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-26th-JUL-26` |
 | Current baseline | Nightrunner 26 July is complete at N26-1 through N26-3: replay scrub spikes removed, owner code style ratified, and selected-body velocity-drag preview published. |
-| Current objective | Architecture Follow-Up Campaign Round 5. `governance-shape-to-judgment-conversion` is complete at G0-G4 and removed from the live ledger; `scene-sized-store-capacity` SC0 is the binding next task. All three blocking owner decisions are ruled; no plan is waiting on the owner. |
-| Active/future progress | 0/53 (0%). Round 5 is the live queue; plan 14 added three tasks on 2026-07-27 and the completed six-task governance plan is excluded under rule 4. |
+| Current objective | Architecture Follow-Up Campaign Round 5. `scene-sized-store-capacity` closed SC0; SC1 runtime capacity and container defects is the binding next task. All three blocking owner decisions are ruled; no plan is waiting on the owner. |
+| Active/future progress | 1/53 (2%). Round 5 is the live queue; plan 14 added three tasks on 2026-07-27 and the completed six-task governance plan is excluded under rule 4. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | N26-3 `validate_full.bat` passes: 402 doctests, Automation/Replay, zero-error DX12 with accepted baselines, and byte-exact 44,401-line Physics regression. |
 | Validation for governance G0-G4 | `tools\validate_fast.bat` passes in 112.9 s: aggregate 1,205 candidates / 10 signalled / 10 ruled / 0 unruled, scars 89 / 89 / 0, zero build warnings/errors. `tools\validate_all_cpu_tests.bat` passes in 60.4 s: all six lanes, 402 doctests / 2,403,914 assertions, and every coverage floor. Independent review ended `ZERO BLOCKERS`; comment audit 29/29. |
+| Validation for scene capacity SC0 | Current-source declaration census 40 fixed + 50 vector = 90 rows; MSVC element-size probe and 147-site sizing scan pass. Independent review ended `ZERO BLOCKERS`; `check_related_paths` 568 files / 1,510 paths / 0 findings; `git diff --check` clean. |
 | Validation for prior edits | N26: Replay scrub 17/17 and 75 assertions, focused preview 2/2 and 24 assertions, format, fast, allocation, dependency, performance, full, and 60.83-second graphics stress pass; comment audit is 24/24. |
 
 ## Live Queue
 
-NOW. Architecture Follow-Up Campaign Round 5 is live at 0/53, registered
+NOW. Architecture Follow-Up Campaign Round 5 is live at 1/53, registered
 2026-07-26 from the same-day from-source architecture review of
 `nightrunner-26th-JUL-26` at tip `35f6de4e` (review read only source and tests;
 no plans, reports, or git history). The owner added plan 14 on 2026-07-27.
@@ -31,8 +32,11 @@ now every sibling plan's closure test. Two inventories gate `validate_fast`
 step 4/8 on an unruled-fails/ruled-passes contract with no frozen count.
 Permanent closure evidence is
 `Agentic/Reports/2026-07-27/governance-shape-to-judgment-conversion-closure.md`.
-`scene-sized-store-capacity` SC0 is the binding next task; plan 7 runs before
-plan 2 reaches SC4/SC5.
+`scene-sized-store-capacity` SC0 corrected the dense-store census from the
+review's 65 rows to 90 current rows and measured a 111,714,816-byte Debug
+payload lower bound per engine. SC1 is the binding next task. Plan 7 runs before
+plan 2 reaches SC4/SC5. Evidence:
+`Agentic/Reports/2026-07-27/scene-sized-store-capacity-sc0-census.md`.
 
 Headline finding: `ColliderStore::m_colliders` is 7,228 x 8,192 = 56.5 MiB
 resident in every scene because `CollisionShape` is a variant sized by
