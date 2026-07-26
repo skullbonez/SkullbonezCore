@@ -70,8 +70,8 @@ struct ColliderRecord
     float restitution = 0.0f;                                                                        // Contact generation reads this bounce policy every fixed tick.
     float friction = 0.0f;                                                                           // Contact solving reads this tangential resistance every fixed tick.
     uint32_t contactMaterialId = 0;                                                                  // Runtime contact/gameplay classification hash.
-    float projectedSurfaceArea = 0.0f;                                                               // Fluid forces read this drag area every fixed tick.
-    float dragCoefficient = 0.0f;                                                                    // Fluid forces read this shape coefficient every fixed tick.
+    float projectedSurfaceArea = 0.0f;                                                               // Shape/editor query copy; BuoyancySystem owns the fixed-step fluid value.
+    float dragCoefficient = 0.0f;                                                                    // Shape/editor query copy; BuoyancySystem owns the fixed-step fluid value.
 };
 
 struct ColliderAuthoringRecord

@@ -129,6 +129,18 @@ struct DynamicVBDX12
     bool perInstance = false;
 };
 
+// Concept: these are backend physical safety budgets, not feature capacities.
+//
+// DX12 creates fixed retained buffers before gameplay, so the backend owns a
+// hard upper bound for each resource and command table. The upper feature owner
+// supplies active logical counts through ConfigureRetainedGeometryCapacity. It
+// may fill a budget exactly; that equality does not give Rendering authority
+// over its retention policy. The 19-float stride is the generic
+// instanced-ribbon shader ABI, while record meaning and packing remain
+// feature-owned.
+//
+// Invariant: change these caps only with bounded GPU-memory and draw-command
+// evidence. Do not mirror a feature-policy increase automatically.
 inline constexpr std::size_t INSTANCED_RIBBON_FLOATS_PER_RECORD = 19u;
 inline constexpr std::size_t MAX_RETAINED_GEOMETRY_ORDINARY_RECORDS = 24000u;
 inline constexpr std::size_t MAX_RETAINED_GEOMETRY_PRIORITY_RECORDS = 3000u;
