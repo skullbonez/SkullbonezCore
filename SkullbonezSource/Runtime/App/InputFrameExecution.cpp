@@ -830,11 +830,12 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
                                                                           currentSceneBrowserIndex, isCinematicTabActive );
 
             const bool appliedCinematic = cinematicIndex >= 0 &&
-                                          ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext { launchOptions, SceneState(),
-                                                                                                         ui.SceneNavigation().browser,
-                                                                                                         sceneController.Scene(), assets,
-                                                                                                         ActiveSceneCinematicConfig( SceneState(), config ),
-                                                                                                         renderDefaults.CinematicBaseline() },
+                                          ApplyCinematicModeFromBrowserIndex( launchOptions, SceneState(),
+                                                                              ui.SceneNavigation().browser,
+                                                                              sceneController.Scene(), assets,
+                                                                              ActiveSceneCinematicConfig( SceneState(),
+                                                                                                          config ),
+                                                                              renderDefaults.CinematicBaseline(),
                                                                               cinematicIndex );
 
             if ( !appliedCinematic )

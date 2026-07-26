@@ -1,12 +1,12 @@
 # Ceremonial Aggregate Elimination
 
 Date: 2026-07-26
-Status: IN PROGRESS — CA0 and CA1 closed on 2026-07-27; the UI command
-context family is gone and CA2 is the binding task.
+Status: IN PROGRESS — CA0 through CA2 closed on 2026-07-27; the UI command
+and Scene setup/runtime context families are gone and CA3 is binding.
 Originally drafted from the 2026-07-26 from-source architecture
 review of `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 4 of the Architecture Follow-Up Campaign
-Round 5. Starts after `governance-shape-to-judgment-conversion` closes. 2/5
+Round 5. Starts after `governance-shape-to-judgment-conversion` closes. 3/5
 phases complete.
 Impact area: `Runtime/Interaction/OperatorCommandApplier.h`,
 `Runtime/Scene/SceneRuntime*.h`, `Runtime/Scene/SceneAuthoredSetup.h`,
@@ -157,7 +157,7 @@ independent meaning. Nothing exists to make a call site look tidier.
   complete 416-case unit suite pass. Evidence:
   `../../Reports/2026-07-27/ceremonial-aggregate-elimination-ca1-ui-contexts.md`.
 
-- [ ] **CA2 — Remove the Scene setup and runtime context family.**
+- [x] **CA2 — Remove the Scene setup and runtime context family.**
   Delete `SceneRuntimeCreateContext`, `SceneRuntimeUiOptionsContext`,
   `SceneRuntimeStyleContext`, `SceneAuthoredCameraContext`,
   `SceneAuthoredModelContext`, `SceneSimpleRagdollAppendContext`,
@@ -171,7 +171,13 @@ independent meaning. Nothing exists to make a call site look tidier.
   invariant owners. Acceptance: the nine types are gone with no replacement
   aggregate; scene load, generated-demo population, live-style application, and
   cinematic mode selection are behaviourally identical; scene snapshot and
-  lifecycle tests pass; physics CSV byte-exact.
+  lifecycle tests pass; physics CSV byte-exact. Closed 2026-07-27: all nine
+  types were deleted, setup/style helpers now expose only their concrete
+  operands, and generated population uses an eight-parameter endpoint with a
+  domain enum rather than a replacement aggregate. The complete unit suite
+  passes 416/416, the Profile application builds with zero errors, and
+  `validate_physics.bat` passes without a baseline change. Evidence:
+  `../../Reports/2026-07-27/ceremonial-aggregate-elimination-ca2-scene-contexts.md`.
 
 - [ ] **CA3 — Remove the Editor, Diagnostics, Input, Capture, Assets, Render,
   and Replay remainder.**

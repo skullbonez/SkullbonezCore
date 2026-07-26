@@ -637,12 +637,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context, Edit
         options.fixed = placementFixed;
         options.startsAsleep = ragdollStartsAsleep && !placementFixed;
         options.firstSceneObjectId = context.scene.AllocateSceneObjectIdRange( Ragdoll::SIMPLE_PART_COUNT );
-        SceneSimpleRagdollAppendContext ragdollContext {
-            context.scene,
-            context.world,
-        };
-
-        const SkullbonezCore::Core::SbResult appendResult = SceneAuthoredSetup::AppendSimpleRagdoll( ragdollContext,
+        const SkullbonezCore::Core::SbResult appendResult = SceneAuthoredSetup::AppendSimpleRagdoll( context.world,
                                                                                                      options );
 
         if ( !appendResult.ok )

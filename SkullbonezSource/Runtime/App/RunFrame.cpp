@@ -407,10 +407,10 @@ Run::FrameInputPhaseResult Run::RunInputPhase( RuntimeFrameHostView& host, Runti
 #endif
     const SceneFrameProceedPolicy proceedPolicy = m_sceneController.BuildFrameProceedPolicy( m_inputRouter.RuntimeSnapshot().frameInput.stepHeld );
 
-    m_validationHarness->TickLiveStyle( SceneRuntimeStyleContext { m_launchOptions, m_sceneController.State(), m_operatorUi->SceneNavigation().browser,
-                                                                   m_sceneController.Scene(), m_assets,
-                                                                   ActiveSceneCinematicConfig( m_sceneController.State(), m_config ),
-                                                                   m_renderDefaults.CinematicBaseline() } );
+    m_validationHarness->TickLiveStyle( m_launchOptions, m_sceneController.State(), m_operatorUi->SceneNavigation().browser,
+                                        m_sceneController.Scene(), m_assets,
+                                        ActiveSceneCinematicConfig( m_sceneController.State(), m_config ),
+                                        m_renderDefaults.CinematicBaseline() );
 
     return FrameInputPhaseResult { proceedPolicy, legacyDevelopmentUiActive };
 }
@@ -948,13 +948,13 @@ float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned,
         DemoDirectorPredictionView directorPrediction;
         directorPrediction.revealAvailable = directorReplayInput.predictionRevealAvailable;
         directorPrediction.revealProgress = directorReplayInput.predictionRevealProgress;
-        const DemoDirectorTickResult directorResult = DemoDirectorPlayback::
-            Tick( m_camera, directorPrediction,
-                  SceneRuntimeStyleContext { m_launchOptions, m_sceneController.State(),
-                                             m_operatorUi->SceneNavigation().browser, m_sceneController.Scene(), m_assets,
-                                             ActiveSceneCinematicConfig( m_sceneController.State(), m_config ),
-                                             m_renderDefaults.CinematicBaseline() },
-                  static_cast<float>( secondsPerFrame ) );
+        const DemoDirectorTickResult
+            directorResult = DemoDirectorPlayback::Tick( m_camera, directorPrediction, m_launchOptions,
+                                                         m_sceneController.State(), m_operatorUi->SceneNavigation().browser,
+                                                         m_sceneController.Scene(), m_assets,
+                                                         ActiveSceneCinematicConfig( m_sceneController.State(), m_config ),
+                                                         m_renderDefaults.CinematicBaseline(),
+                                                         static_cast<float>( secondsPerFrame ) );
 
         if ( directorResult.applyRevealRate )
         {
@@ -1305,13 +1305,12 @@ void Run::UpdateLogic( float simulationDt, float cameraDt, float presentationAlp
     const ReplayInputView replayInput = m_replayRuntime.BuildInputView();
     directorPrediction.revealAvailable = replayInput.predictionRevealAvailable;
     directorPrediction.revealProgress = replayInput.predictionRevealProgress;
-    const DemoDirectorTickResult directorResult = DemoDirectorPlayback::
-        Tick( m_camera, directorPrediction,
-              SceneRuntimeStyleContext { m_launchOptions, m_sceneController.State(), m_operatorUi->SceneNavigation().browser,
-                                         m_sceneController.Scene(), m_assets,
-                                         ActiveSceneCinematicConfig( m_sceneController.State(), m_config ),
-                                         m_renderDefaults.CinematicBaseline() },
-              cameraDt );
+    const DemoDirectorTickResult
+        directorResult = DemoDirectorPlayback::Tick( m_camera, directorPrediction, m_launchOptions,
+                                                     m_sceneController.State(), m_operatorUi->SceneNavigation().browser,
+                                                     m_sceneController.Scene(), m_assets,
+                                                     ActiveSceneCinematicConfig( m_sceneController.State(), m_config ),
+                                                     m_renderDefaults.CinematicBaseline(), cameraDt );
 
     if ( directorResult.applyRevealRate )
     {

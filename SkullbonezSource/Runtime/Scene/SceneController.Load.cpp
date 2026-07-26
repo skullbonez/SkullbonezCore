@@ -381,30 +381,6 @@ const char* WaterReflectionJsonValue( bool noReflect, bool rtReflect )
     return rtReflect ? "dxr" : "fbo";
 }
 
-SceneAuthoredCameraContext BuildSceneAuthoredCameraContext( SceneWorld& sceneWorld )
-{
-    return SceneAuthoredCameraContext { sceneWorld };
-}
-
-SceneAuthoredModelContext BuildSceneAuthoredModelContext( SceneSessionState& sceneState, SceneWorld& sceneWorld,
-                                                          SceneAutomationGateConfiguration& automationGates )
-{
-    return SceneAuthoredModelContext { sceneState, sceneWorld, automationGates };
-}
-
-SceneGeneratedCameraContext BuildSceneGeneratedCameraContext( SceneWorld& sceneWorld )
-{
-    return SceneGeneratedCameraContext { sceneWorld };
-}
-
-SceneGeneratedModelContext BuildSceneGeneratedModelContext( SceneSessionState& scene,
-                                                            const SkullbonezCore::Core::EngineConfig& config,
-                                                            SceneWorld& sceneWorld,
-                                                            GeneratedObjectTypeOverride objectTypeOverride )
-{
-    return SceneGeneratedModelContext { scene, config, sceneWorld, objectTypeOverride };
-}
-
 void UpdateWorldTerrainBounds( WorldEnvironment& world, Terrain* terrain )
 {
 
@@ -1028,17 +1004,24 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         }
 
         SceneState().isSceneMode = false;
-        SceneGeneratedSetup::SetUpCameras( BuildSceneGeneratedCameraContext( sceneController.Scene() ) );
-        const SceneGeneratedSetupResult generatedSetup = SceneGeneratedSetup::
-            TrySetUpRequestedModels( BuildSceneGeneratedModelContext( SceneState(), config, sceneController.Scene(),
-                                                                      launchOptions.generatedObjectTypeOverride ),
-                                     SceneGeneratedPopulationRequest { sceneNavigation.overrides.modelCountOverride,
-                                                                       sceneNavigation.overrides.solverBallCountOverride,
-                                                                       sceneNavigation.overrides.solverBoxCountOverride, 0,
-                                                                       0,
-                                                                       SkullbonezCore::Scene::Capacity::
-                                                                           DEFAULT_SCENE_OBJECTS },
-                                     true );
+        SceneGeneratedSetup::SetUpCameras( sceneController.Scene() );
+        const bool hasUiSolverCount = sceneNavigation.overrides.solverBallCountOverride >= 0 ||
+                                      sceneNavigation.overrides.solverBoxCountOverride >= 0;
+
+        const GeneratedPopulationMode generatedMode = hasUiSolverCount ? GeneratedPopulationMode::Solver
+                                                                       : GeneratedPopulationMode::Models;
+
+        const int generatedModelCount = sceneNavigation.overrides.modelCountOverride >= 0
+                                            ? sceneNavigation.overrides.modelCountOverride
+                                            : SkullbonezCore::Scene::Capacity::DEFAULT_SCENE_OBJECTS;
+
+        const SceneGeneratedSetupResult
+            generatedSetup = SceneGeneratedSetup::TrySetUpRequestedModels( SceneState(), config, sceneController.Scene(),
+                                                                           launchOptions.generatedObjectTypeOverride,
+                                                                           generatedMode, generatedModelCount,
+                                                                           sceneNavigation.overrides.solverBallCountOverride,
+                                                                           sceneNavigation.overrides
+                                                                               .solverBoxCountOverride );
 
         if ( !generatedSetup.status.ok )
         {
@@ -1050,8 +1033,8 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         SkullbonezCore::UI::RunSceneBrowserState styleBrowser;
         styleBrowser.paths = sceneNavigation.browserPaths;
         styleBrowser.selectedCineModeSceneIndex = sceneNavigation.selectedCineModeSceneIndex;
-        ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext { launchOptions, SceneState(), styleBrowser, sceneController.Scene(), assets,
-                                                               ActiveSceneCinematicConfig( SceneState(), config ), defaultCinematicRender } );
+        ApplyDemoHeroStyleOverride( launchOptions, SceneState(), styleBrowser, sceneController.Scene(), assets,
+                                    ActiveSceneCinematicConfig( SceneState(), config ), defaultCinematicRender );
 
         sceneNavigation.selectedCineModeSceneIndex = styleBrowser.selectedCineModeSceneIndex;
         sprintf_s( consumerOutputs.windowTitle, "%s [%s]", TITLE_TEXT, rendererName );
@@ -1148,8 +1131,8 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 #ifdef _DEBUG
         isAutomationScene = isAutomationScene || diagnosticsRuntime.PhysicsDiagnostics().isEnabled;
 #endif
-        PrepareSceneUiOptions( SceneRuntimeUiOptionsContext { diagnosticsRuntime, debug, consumerOutputs.uiActivation },
-                               UIOptions, UINow, preserveUIState, isAutomationScene );
+        PrepareSceneUiOptions( diagnosticsRuntime, debug, consumerOutputs.uiActivation, UIOptions, UINow, preserveUIState,
+                               isAutomationScene );
 
         SceneState().targetFrameCount = scene.GetFrameCount();
         SceneState().isExitOnComplete = suppressAutomationExit ? false : scene.IsExitOnComplete();
@@ -1248,17 +1231,32 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
             recordCompletedWorldChange( change );
         }
 
-        SceneAuthoredSetup::SetUpCameras( BuildSceneAuthoredCameraContext( sceneController.Scene() ), scene );
+        SceneAuthoredSetup::SetUpCameras( sceneController.Scene(), scene );
 
-        const SceneGeneratedSetupResult generatedModels = SceneGeneratedSetup::
-            TrySetUpRequestedModels( BuildSceneGeneratedModelContext( SceneState(), config, sceneController.Scene(),
-                                                                      launchOptions.generatedObjectTypeOverride ),
-                                     SceneGeneratedPopulationRequest { sceneNavigation.overrides.modelCountOverride,
-                                                                       sceneNavigation.overrides.solverBallCountOverride,
-                                                                       sceneNavigation.overrides.solverBoxCountOverride,
-                                                                       scene.GetSolverBallCount(), scene.GetSolverBoxCount(),
-                                                                       0 },
-                                     false );
+        const bool hasUiSolverCount = sceneNavigation.overrides.solverBallCountOverride >= 0 ||
+                                      sceneNavigation.overrides.solverBoxCountOverride >= 0;
+
+        const bool hasUiModelCount = sceneNavigation.overrides.modelCountOverride >= 0;
+        const bool hasSceneSolverCount = scene.GetSolverBallCount() > 0 || scene.GetSolverBoxCount() > 0;
+        const GeneratedPopulationMode generatedMode = hasUiSolverCount
+                                                          ? GeneratedPopulationMode::Solver
+                                                          : ( hasUiModelCount ? GeneratedPopulationMode::Models
+                                                                              : ( hasSceneSolverCount
+                                                                                      ? GeneratedPopulationMode::Solver
+                                                                                      : GeneratedPopulationMode::None ) );
+
+        const int generatedBalls = hasUiSolverCount ? sceneNavigation.overrides.solverBallCountOverride
+                                                    : scene.GetSolverBallCount();
+
+        const int generatedBoxes = hasUiSolverCount ? sceneNavigation.overrides.solverBoxCountOverride
+                                                    : scene.GetSolverBoxCount();
+
+        const SceneGeneratedSetupResult
+            generatedModels = SceneGeneratedSetup::TrySetUpRequestedModels( SceneState(), config, sceneController.Scene(),
+                                                                            launchOptions.generatedObjectTypeOverride,
+                                                                            generatedMode,
+                                                                            sceneNavigation.overrides.modelCountOverride,
+                                                                            generatedBalls, generatedBoxes );
 
         if ( !generatedModels.status.ok )
         {
@@ -1269,10 +1267,9 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 
         if ( !generatedModels.applied )
         {
-            const SkullbonezCore::Core::SbResult authoredSetup = SceneAuthoredSetup::
-                SetUpSceneEntities( BuildSceneAuthoredModelContext( SceneState(), sceneController.Scene(),
-                                                                    consumerOutputs.automationGates ),
-                                    scene );
+            const SkullbonezCore::Core::SbResult
+                authoredSetup = SceneAuthoredSetup::SetUpSceneEntities( SceneState(), sceneController.Scene(),
+                                                                        consumerOutputs.automationGates, scene );
 
             if ( !authoredSetup.ok )
             {

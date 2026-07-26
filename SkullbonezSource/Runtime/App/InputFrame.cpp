@@ -1236,10 +1236,8 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
     if ( HasCinematicModeUICommand( uiCommands.cinematic ) )
     {
         result.enterInteractiveScene = true;
-        ApplyCinematicModeUICommand( SceneRuntimeStyleContext { launchOptions, sceneController.State(),
-                                                                ui.SceneNavigation().browser, sceneController.Scene(),
-                                                                assets, activeCinematic,
-                                                                renderDefaults.CinematicBaseline() },
+        ApplyCinematicModeUICommand( launchOptions, sceneController.State(), ui.SceneNavigation().browser,
+                                     sceneController.Scene(), assets, activeCinematic, renderDefaults.CinematicBaseline(),
                                      uiCommands.cinematic );
 
         recordUIAction( RuntimeInputAction::SelectCinematicScene );

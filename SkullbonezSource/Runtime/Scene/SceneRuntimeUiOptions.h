@@ -54,15 +54,8 @@ struct SceneUiActivation
     bool forceUnminimized = false;
 };
 
-struct SceneRuntimeUiOptionsContext
-{
-    DiagnosticsRuntime& diagnostics;
-    OverlayDebugState& debug;
-    SceneUiActivation& activation;
-};
-
-void PrepareSceneUiOptions( SceneRuntimeUiOptionsContext context, const SceneUIOptions& options, double nowSeconds,
-                            bool preserveUIState, bool automationScene );
+void PrepareSceneUiOptions( DiagnosticsRuntime& diagnostics, OverlayDebugState& debug, SceneUiActivation& activation,
+                            const SceneUIOptions& options, double nowSeconds, bool preserveUIState, bool automationScene );
 void ApplySceneUiActivation( UI::InGameUI& ui, const SceneUiActivation& activation );
 
 } // namespace Runtime

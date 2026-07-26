@@ -220,7 +220,11 @@ void ApplyPhaseRevealRateIfNeeded( DemoDirectorPlaybackState& director, DemoDire
                  director.currentPhaseIndex, phase.name[0] ? phase.name : "<unnamed>" );
 }
 
-void ApplyPhaseStyleIfNeeded( DemoDirectorPlaybackState& director, SceneRuntimeStyleContext styleContext )
+void ApplyPhaseStyleIfNeeded( DemoDirectorPlaybackState& director, RunLaunchOptions& launchOptions, SceneSessionState& scene,
+                              SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser, SceneWorld& world,
+                              const Assets::AssetSystem& assets,
+                              SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                              const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic )
 {
 
     if ( !IsCurrentPhaseValid( director ) )
@@ -243,12 +247,12 @@ void ApplyPhaseStyleIfNeeded( DemoDirectorPlaybackState& director, SceneRuntimeS
     }
 
     AuthoredScene styleScene;
-    const SkullbonezCore::Core::SbResult loadResult = AuthoredScene::TryLoadStyleFromFile( phase.stylePath,
-                                                                                           styleContext.assets, styleScene );
+    const SkullbonezCore::Core::SbResult loadResult = AuthoredScene::TryLoadStyleFromFile( phase.stylePath, assets,
+                                                                                           styleScene );
 
     if ( loadResult.ok )
     {
-        ApplyLiveStyleScene( styleContext, styleScene );
+        ApplyLiveStyleScene( launchOptions, scene, sceneBrowser, world, activeCinematic, defaultCinematic, styleScene );
         ++director.appliedStyleCount;
         std::printf( "[demo-director] applied style %s for phase %d (%s)\n", phase.stylePath, director.currentPhaseIndex,
                      phase.name[0] ? phase.name : "<unnamed>" );
@@ -452,14 +456,17 @@ bool SaveShotList( const CameraControlState& camera )
 }
 
 DemoDirectorTickResult Tick( CameraControlState& camera, DemoDirectorPredictionView prediction,
-                             SceneRuntimeStyleContext styleContext, float cameraDt )
+                             RunLaunchOptions& launchOptions, SceneSessionState& scene,
+                             SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser, SceneWorld& world,
+                             const Assets::AssetSystem& assets, SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                             const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic, float cameraDt )
 {
     DemoDirectorTickResult result;
     DemoDirectorPlaybackState& director = camera.director;
 
     // Lifetime: the director's pose and style mutations derive from one world
     // borrow, so phase playback cannot split authority across two scenes.
-    Environment::CameraCollection& cameras = styleContext.world.Cameras();
+    Environment::CameraCollection& cameras = world.Cameras();
 
     if ( camera.mode != RunCameraMode::Director || !HasPlayableShotList( director ) )
     {
@@ -477,7 +484,9 @@ DemoDirectorTickResult Tick( CameraControlState& camera, DemoDirectorPredictionV
     // Why: Style JSON is cold phase-entry authoring data. Remembering the phase
     // and path keeps it out of the per-frame camera blend unless the phase or
     // authored style path actually changes.
-    ApplyPhaseStyleIfNeeded( director, styleContext );
+    ApplyPhaseStyleIfNeeded( director, launchOptions, scene, sceneBrowser, world, assets, activeCinematic,
+                             defaultCinematic );
+
     ApplyPhaseRevealRateIfNeeded( director, result );
 
     if ( director.grabbed )

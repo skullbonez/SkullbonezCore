@@ -16,12 +16,14 @@ Glossary:
     objects to all balls or all boxes.
   Solver object: Exact-count validation object used by deterministic physics
     scenes.
+  Population mode: Caller-resolved choice between model, exact-solver, and no
+    generated population after UI/authored/default precedence is applied.
   Population result: Recoverable setup status plus a flag that says whether
     generated setup actually owned the model population for this load.
 
 Invariants:
   - The setup helpers preserve the existing MSVC-compatible RNG sequence.
-  - Context structs borrow SceneWorld as one owner and retain no store pointer.
+  - Helpers borrow SceneWorld as one owner and retain no store pointer.
   - Generated setup does not load authored scene files.
 
 Related:
@@ -65,30 +67,11 @@ enum class GeneratedObjectTypeOverride
     AllBoxes
 };
 
-struct SceneGeneratedCameraContext
+enum class GeneratedPopulationMode
 {
-    SceneWorld& sceneWorld;
-};
-
-struct SceneGeneratedModelContext
-{
-    SceneSessionState& scene;
-    const SkullbonezCore::Core::EngineConfig& config;
-    SceneWorld& sceneWorld;
-    GeneratedObjectTypeOverride objectTypeOverride = GeneratedObjectTypeOverride::Mixed;
-};
-
-struct SceneGeneratedPopulationRequest
-{
-
-    // Concept: One request captures the generated-scene source of authority:
-    // UI exact counts, scene-authored solver counts, or demo defaults.
-    int uiModelCountOverride = -1;
-    int uiSolverBallCountOverride = -1;
-    int uiSolverBoxCountOverride = -1;
-    int sceneSolverBallCount = 0;
-    int sceneSolverBoxCount = 0;
-    int defaultModelCount = 0;
+    None,
+    Models,
+    Solver
 };
 
 struct SceneGeneratedSetupResult
@@ -100,12 +83,18 @@ struct SceneGeneratedSetupResult
 class SceneGeneratedSetup
 {
   public:
-    static void SetUpCameras( SceneGeneratedCameraContext context );
-    static SkullbonezCore::Core::SbResult SetUpSceneEntities( SceneGeneratedModelContext context, int count );
-    static SkullbonezCore::Core::SbResult SetUpSolverObjects( SceneGeneratedModelContext context, int balls, int boxes );
-    static SceneGeneratedSetupResult TrySetUpRequestedModels( SceneGeneratedModelContext context,
-                                                              const SceneGeneratedPopulationRequest& request,
-                                                              bool useDefaultWhenNoRequest );
+    static void SetUpCameras( SceneWorld& sceneWorld );
+    static SkullbonezCore::Core::SbResult SetUpSceneEntities( SceneSessionState& scene,
+                                                              const SkullbonezCore::Core::EngineConfig& config,
+                                                              SceneWorld& sceneWorld,
+                                                              GeneratedObjectTypeOverride objectTypeOverride, int count );
+    static SkullbonezCore::Core::SbResult
+    SetUpSolverObjects( SceneSessionState& scene, const SkullbonezCore::Core::EngineConfig& config, SceneWorld& sceneWorld,
+                        GeneratedObjectTypeOverride objectTypeOverride, int balls, int boxes );
+    static SceneGeneratedSetupResult
+    TrySetUpRequestedModels( SceneSessionState& scene, const SkullbonezCore::Core::EngineConfig& config,
+                             SceneWorld& sceneWorld, GeneratedObjectTypeOverride objectTypeOverride,
+                             GeneratedPopulationMode mode, int modelCount, int balls, int boxes );
 };
 
 } // namespace Runtime

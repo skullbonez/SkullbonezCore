@@ -396,9 +396,13 @@ void RuntimeValidationHarness::MarkLiveStyleReady()
 }
 
 
-void RuntimeValidationHarness::TickLiveStyle( SceneRuntimeStyleContext context )
+void RuntimeValidationHarness::TickLiveStyle( RunLaunchOptions& launchOptions, SceneSessionState& scene,
+                                              SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser, SceneWorld& world,
+                                              const Assets::AssetSystem& assets,
+                                              SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                                              const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic )
 {
-    m_liveStyle.Tick( context );
+    m_liveStyle.Tick( launchOptions, scene, sceneBrowser, world, assets, activeCinematic, defaultCinematic );
 }
 
 

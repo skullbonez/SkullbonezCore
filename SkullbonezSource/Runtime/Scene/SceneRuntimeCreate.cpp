@@ -198,7 +198,7 @@ bool WriteStarterSceneFile( const std::filesystem::path& path, const std::string
 
 } // namespace
 
-SceneLoadRequest CreateSceneFromUI( SceneRuntimeCreateContext context, const char* requestedName )
+SceneLoadRequest CreateSceneFromUI( SceneController& controller, const char* requestedName )
 {
 
     // Concept: Creating a scene queues a load action instead of loading
@@ -232,7 +232,7 @@ SceneLoadRequest CreateSceneFromUI( SceneRuntimeCreateContext context, const cha
     }
 
     const std::string normalizedPath = NormalizeScenePathForCreate( scenePath.generic_string() );
-    return SceneLoadRequest::Load( context.controller.Append( normalizedPath ), true, true, false, true );
+    return SceneLoadRequest::Load( controller.Append( normalizedPath ), true, true, false, true );
 }
 
 } // namespace Runtime

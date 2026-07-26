@@ -295,105 +295,116 @@ void ApplyCinematicSceneOverrides( SkullbonezCore::Core::CinematicRenderConfig& 
 }
 
 
-bool ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext context, int index )
+bool ApplyCinematicModeFromBrowserIndex( RunLaunchOptions& launchOptions, SceneSessionState& scene,
+                                         SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser, SceneWorld& world,
+                                         const Assets::AssetSystem& assets,
+                                         SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                                         const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic, int index )
 {
-    context.launchOptions.hasCinematicRenderingOverride = false;
+    launchOptions.hasCinematicRenderingOverride = false;
 
     if ( index < 0 )
     {
-        context.activeCinematic = context.defaultCinematic;
+        activeCinematic = defaultCinematic;
 
-        if ( context.scene.isSceneMode )
+        if ( scene.isSceneMode )
         {
-            context.scene.hasCinematicRenderingOverride = false;
-            context.scene.isCinematicRenderingEnabled = context.activeCinematic.enabled;
-            context.scene.hasCinematicExposure = false;
-            context.scene.cinematicExposure = context.activeCinematic.exposure;
-            context.scene.hasCinematicGamma = false;
-            context.scene.cinematicGamma = context.activeCinematic.gamma;
-            context.scene.cinematicOverrideMask = 0;
-            context.scene.uiCinematicOverrideMask = 0;
+            scene.hasCinematicRenderingOverride = false;
+            scene.isCinematicRenderingEnabled = activeCinematic.enabled;
+            scene.hasCinematicExposure = false;
+            scene.cinematicExposure = activeCinematic.exposure;
+            scene.hasCinematicGamma = false;
+            scene.cinematicGamma = activeCinematic.gamma;
+            scene.cinematicOverrideMask = 0;
+            scene.uiCinematicOverrideMask = 0;
         }
 
-        ResetObjectMaterials( context.world );
-        context.sceneBrowser.selectedCineModeSceneIndex = -1;
+        ResetObjectMaterials( world );
+        sceneBrowser.selectedCineModeSceneIndex = -1;
         return true;
     }
 
-    if ( index >= static_cast<int>( context.sceneBrowser.paths.size() ) ||
-         !IsCineScenePath( context.sceneBrowser.paths[index] ) )
+    if ( index >= static_cast<int>( sceneBrowser.paths.size() ) || !IsCineScenePath( sceneBrowser.paths[index] ) )
     {
         return false;
     }
 
     AuthoredScene lookScene;
-    const SkullbonezCore::Core::SbResult
-        loadResult = AuthoredScene::TryLoadFromFile( context.sceneBrowser.paths[index].c_str(), context.assets, lookScene );
+    const SkullbonezCore::Core::SbResult loadResult = AuthoredScene::TryLoadFromFile( sceneBrowser.paths[index].c_str(),
+                                                                                      assets, lookScene );
 
     if ( !loadResult.ok )
     {
-        LogStyleSceneLoadFailure( loadResult, context.sceneBrowser.paths[index].c_str() );
+        LogStyleSceneLoadFailure( loadResult, sceneBrowser.paths[index].c_str() );
         return false;
     }
 
-    context.activeCinematic = context.defaultCinematic;
-    ApplyCinematicSceneOverrides( context.activeCinematic, lookScene.GetCinematicOverrideMask(),
+    activeCinematic = defaultCinematic;
+    ApplyCinematicSceneOverrides( activeCinematic, lookScene.GetCinematicOverrideMask(),
                                   lookScene.GetCinematicRenderConfig() );
 
-    if ( context.scene.isSceneMode )
+    if ( scene.isSceneMode )
     {
-        context.scene.hasCinematicRenderingOverride = lookScene.HasCinematicRenderingOverride();
-        context.scene.isCinematicRenderingEnabled = lookScene.IsCinematicRenderingEnabled();
-        context.scene.hasCinematicExposure = lookScene.HasCinematicExposure();
-        context.scene.cinematicExposure = lookScene.GetCinematicExposure();
-        context.scene.hasCinematicGamma = lookScene.HasCinematicGamma();
-        context.scene.cinematicGamma = lookScene.GetCinematicGamma();
-        context.scene.cinematicOverrideMask = lookScene.GetCinematicOverrideMask();
-        context.scene.uiCinematicOverrideMask = 0;
+        scene.hasCinematicRenderingOverride = lookScene.HasCinematicRenderingOverride();
+        scene.isCinematicRenderingEnabled = lookScene.IsCinematicRenderingEnabled();
+        scene.hasCinematicExposure = lookScene.HasCinematicExposure();
+        scene.cinematicExposure = lookScene.GetCinematicExposure();
+        scene.hasCinematicGamma = lookScene.HasCinematicGamma();
+        scene.cinematicGamma = lookScene.GetCinematicGamma();
+        scene.cinematicOverrideMask = lookScene.GetCinematicOverrideMask();
+        scene.uiCinematicOverrideMask = 0;
     }
 
-    ApplyObjectMaterials( context.world, lookScene );
-    context.sceneBrowser.selectedCineModeSceneIndex = index;
+    ApplyObjectMaterials( world, lookScene );
+    sceneBrowser.selectedCineModeSceneIndex = index;
     return true;
 }
 
 
-void ApplyLiveStyleScene( SceneRuntimeStyleContext context, const AuthoredScene& styleScene )
+void ApplyLiveStyleScene( RunLaunchOptions& launchOptions, SceneSessionState& scene,
+                          SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser, SceneWorld& world,
+                          SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                          const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic,
+                          const AuthoredScene& styleScene )
 {
-    context.launchOptions.hasCinematicRenderingOverride = false;
-    ApplyObjectMaterials( context.world, styleScene );
+    launchOptions.hasCinematicRenderingOverride = false;
+    ApplyObjectMaterials( world, styleScene );
 
-    context.activeCinematic = context.defaultCinematic;
-    ApplyCinematicSceneOverrides( context.activeCinematic, styleScene.GetCinematicOverrideMask(),
+    activeCinematic = defaultCinematic;
+    ApplyCinematicSceneOverrides( activeCinematic, styleScene.GetCinematicOverrideMask(),
                                   styleScene.GetCinematicRenderConfig() );
 
-    if ( context.scene.isSceneMode )
+    if ( scene.isSceneMode )
     {
-        context.scene.hasCinematicRenderingOverride = styleScene.HasCinematicRenderingOverride();
-        context.scene.isCinematicRenderingEnabled = styleScene.IsCinematicRenderingEnabled();
-        context.scene.hasCinematicExposure = styleScene.HasCinematicExposure();
-        context.scene.cinematicExposure = styleScene.GetCinematicExposure();
-        context.scene.hasCinematicGamma = styleScene.HasCinematicGamma();
-        context.scene.cinematicGamma = styleScene.GetCinematicGamma();
-        context.scene.cinematicOverrideMask = styleScene.GetCinematicOverrideMask();
-        context.scene.uiCinematicOverrideMask = 0;
+        scene.hasCinematicRenderingOverride = styleScene.HasCinematicRenderingOverride();
+        scene.isCinematicRenderingEnabled = styleScene.IsCinematicRenderingEnabled();
+        scene.hasCinematicExposure = styleScene.HasCinematicExposure();
+        scene.cinematicExposure = styleScene.GetCinematicExposure();
+        scene.hasCinematicGamma = styleScene.HasCinematicGamma();
+        scene.cinematicGamma = styleScene.GetCinematicGamma();
+        scene.cinematicOverrideMask = styleScene.GetCinematicOverrideMask();
+        scene.uiCinematicOverrideMask = 0;
     }
 
-    context.sceneBrowser.selectedCineModeSceneIndex = -1;
+    sceneBrowser.selectedCineModeSceneIndex = -1;
 }
 
 
-bool ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext context )
+bool ApplyDemoHeroStyleOverride( RunLaunchOptions& launchOptions, SceneSessionState& scene,
+                                 SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser, SceneWorld& world,
+                                 const Assets::AssetSystem& assets,
+                                 SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                                 const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic )
 {
 
-    if ( !context.launchOptions.demoHeroStyle || context.scene.isSceneMode )
+    if ( !launchOptions.demoHeroStyle || scene.isSceneMode )
     {
         return false;
     }
 
     const std::string stylePath = std::string( DATA_ROOT ) + "styles/low_poly_art_style.style.json";
     AuthoredScene styleScene;
-    const SkullbonezCore::Core::SbResult loadResult = AuthoredScene::TryLoadStyleFromFile( stylePath.c_str(), context.assets,
+    const SkullbonezCore::Core::SbResult loadResult = AuthoredScene::TryLoadStyleFromFile( stylePath.c_str(), assets,
                                                                                            styleScene );
 
     if ( !loadResult.ok )
@@ -402,7 +413,7 @@ bool ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext context )
         return false;
     }
 
-    ApplyLiveStyleScene( context, styleScene );
+    ApplyLiveStyleScene( launchOptions, scene, sceneBrowser, world, activeCinematic, defaultCinematic, styleScene );
     printf( "[scene] Applied low-poly hero rendering mode to generated demo scene.\n" );
     return true;
 }

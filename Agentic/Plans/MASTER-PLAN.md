@@ -740,12 +740,12 @@ owner code style, and the space-scene velocity-drag preview are closed, and the
 completed TODO was deleted under inventory rule 4. Permanent evidence is
 `../Reports/2026-07-26/nightrunner-26-july-closure.md`.
 
-NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 2/38 (5%).
+NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 3/38 (7%).
 `governance-shape-to-judgment-conversion`, `extraction-scar-remediation`, and
 `scene-sized-store-capacity` closed on 2026-07-27 and left the live inventory
 under rule 4. Plan 3 `store-capacity-memory-reporting` closed MR0-MR3 and left
 the live inventory on 2026-07-27. Plan 4 `ceremonial-aggregate-elimination`
-closed CA0 and CA1 on 2026-07-27; CA2 is the binding next task.
+closed CA0 through CA2 on 2026-07-27; CA3 is the binding next task.
 
 G0 recorded five rule gaps with the admitting `AGENTS.md` text for each; evidence
 is `../Reports/2026-07-26/governance-shape-to-judgment-g0-census.md`. The measured
@@ -2046,7 +2046,7 @@ requires owner divergence authority and the campaign is byte-exact throughout.
 | 1 | [governance-shape-to-judgment-conversion](../Reports/2026-07-27/governance-shape-to-judgment-conversion-closure.md) | Complete | 6/6 | Closed 2026-07-27 and removed from the live ledger under rule 4 |
 | 2 | [scene-sized-store-capacity](../Reports/2026-07-27/scene-sized-store-capacity-closure.md) | Complete | 8/8 | Closed 2026-07-27 and removed from the live ledger under rule 4; 98 retained rows are scene-committed and the final 200-body payload is 89.06% smaller |
 | 3 | [store-capacity-memory-reporting](../Reports/2026-07-27/store-capacity-memory-reporting-closure.md) | Complete | 4/4 | Closed 2026-07-27 and removed from the live ledger under rule 4; 95 sorted production rows expose capacity/live/session peaks, and the three-scene handoff identifies the retained contact-bound candidates |
-| 4 | [ceremonial-aggregate-elimination](TODO/ceremonial-aggregate-elimination.md) | In progress | 2/5 | CA1 removed all eight UI command contexts, left a maximum 10-parameter signature, and passed the focused contract plus complete unit suite. **Binding next task: CA2** |
+| 4 | [ceremonial-aggregate-elimination](TODO/ceremonial-aggregate-elimination.md) | In progress | 3/5 | CA2 removed all nine Scene setup/runtime couriers, retained an eight-parameter maximum endpoint, and passed unit plus byte-exact physics validation. **Binding next task: CA3** |
 | 5 | [runtime-frame-view-retirement](TODO/runtime-frame-view-retirement.md) | Not started | 0/4 | After plan 6, so FV2 need not preserve `renderBackendView`. Endpoint ratified 2026-07-27: concrete operands, no frame transaction |
 | 6 | [render-backend-service-bag-removal](TODO/render-backend-service-bag-removal.md) | Not started | 0/4 | After plan 1. Completes the removal PB3's review started |
 | 7 | [extraction-scar-remediation](../Reports/2026-07-27/extraction-scar-remediation-closure.md) | Complete | 3/3 | Closed 2026-07-27 and removed from the live ledger under rule 4; 88 repairs removed and the sole WorkerPool retain preserved |

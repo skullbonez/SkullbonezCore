@@ -470,12 +470,7 @@ bool RunRagdollCapacityPreflightSmoke()
     RagdollBuildOptions options;
     options.namePrefix = "capacity_smoke";
     options.firstSceneObjectId = collection->State().AllocateSceneObjectIdRange( Ragdoll::SIMPLE_PART_COUNT );
-    SceneSimpleRagdollAppendContext context {
-        collection->State(),
-        collection->Scene(),
-    };
-
-    const SkullbonezCore::Core::SbResult result = SceneAuthoredSetup::AppendSimpleRagdoll( context, options );
+    const SkullbonezCore::Core::SbResult result = SceneAuthoredSetup::AppendSimpleRagdoll( collection->Scene(), options );
     const PhysicsEngine& physics = collection->Scene().Physics();
     return result.ok && collection->Scene().SceneEntityCount() == Ragdoll::SIMPLE_PART_COUNT &&
            collection->Scene().BodyStore().Count() == Ragdoll::SIMPLE_PART_COUNT &&
@@ -490,14 +485,10 @@ bool RunGeneratedCapacityPreflightSmoke()
     Core::EngineConfig config;
     SceneSessionState& state = collection->State();
     state.rngState = 1u;
-    SceneGeneratedModelContext context {
-        state,
-        config,
-        collection->Scene(),
-        GeneratedObjectTypeOverride::Mixed,
-    };
+    const SkullbonezCore::Core::SbResult
+        result = SceneGeneratedSetup::SetUpSceneEntities( state, config, collection->Scene(),
+                                                          GeneratedObjectTypeOverride::Mixed, 32 );
 
-    const SkullbonezCore::Core::SbResult result = SceneGeneratedSetup::SetUpSceneEntities( context, 32 );
     const ColliderStore& colliders = collection->Scene().Colliders();
     return result.ok && state.rngState == 0x72A6EE09u && collection->Scene().SceneEntityCount() == 32 &&
            colliders.SphereShapeCount() == 24u && colliders.BoxShapeCount() == 8u &&

@@ -37,36 +37,36 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-void PrepareSceneUiOptions( SceneRuntimeUiOptionsContext context, const SceneUIOptions& options, double nowSeconds,
-                            bool preserveUIState, bool automationScene )
+void PrepareSceneUiOptions( DiagnosticsRuntime& diagnostics, OverlayDebugState& debug, SceneUiActivation& activation,
+                            const SceneUIOptions& options, double nowSeconds, bool preserveUIState, bool automationScene )
 {
-    context.activation.authoredOptions = options;
-    context.activation.nowSeconds = nowSeconds;
-    context.activation.hasAuthoredOptions = true;
-    context.activation.preserveUIState = preserveUIState;
-    context.activation.automationScene = automationScene;
+    activation.authoredOptions = options;
+    activation.nowSeconds = nowSeconds;
+    activation.hasAuthoredOptions = true;
+    activation.preserveUIState = preserveUIState;
+    activation.automationScene = automationScene;
 
     // Why: diagnostics and debug values already have genuine load-phase owners;
     // only window presentation crosses the returned activation value.
 
     if ( !preserveUIState && options.hasTestPattern )
     {
-        context.debug.isUITestPattern = options.testPatternEnabled;
+        debug.isUITestPattern = options.testPatternEnabled;
     }
 
     if ( options.hasStress )
     {
-        context.diagnostics.UIStress().enabled = options.stressEnabled;
+        diagnostics.UIStress().enabled = options.stressEnabled;
     }
 
     if ( options.hasStressSeed )
     {
-        context.diagnostics.UIStress().randomState = options.stressSeed;
+        diagnostics.UIStress().randomState = options.stressSeed;
     }
 
     if ( options.hasStressActions )
     {
-        context.diagnostics.UIStress().actionsPerFrame = std::clamp( options.stressActionsPerFrame, 1, 32 );
+        diagnostics.UIStress().actionsPerFrame = std::clamp( options.stressActionsPerFrame, 1, 32 );
     }
 }
 

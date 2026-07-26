@@ -136,14 +136,6 @@ namespace
 // Concept: replay flags are compact wire-format fields. Keep these masks local
 // to decode logic so new replay payload versions do not inherit accidental UI
 // or runtime enum values.
-SceneGeneratedModelContext BuildSceneGeneratedModelContext( SceneSessionState& scene,
-                                                            const SkullbonezCore::Core::EngineConfig& config,
-                                                            SceneWorld& sceneWorld,
-                                                            GeneratedObjectTypeOverride objectTypeOverride )
-{
-    return SceneGeneratedModelContext { scene, config, sceneWorld, objectTypeOverride };
-}
-
 float ReplayEventFloatFromBits( int32_t signedBits )
 {
     uint32_t bits = 0;
@@ -1304,9 +1296,9 @@ bool RebuildReplayGeneratedSceneTopology( RuntimeTools& runtimeTools, Simulation
 
     if ( exactSolverCounts || uiSolverCounts )
     {
-        const SkullbonezCore::Core::SbResult setupResult = SceneGeneratedSetup::
-            SetUpSolverObjects( BuildSceneGeneratedModelContext( scene, config, world, generatedObjectTypeOverride ),
-                                event.value1, event.value2 );
+        const SkullbonezCore::Core::SbResult
+            setupResult = SceneGeneratedSetup::SetUpSolverObjects( scene, config, world, generatedObjectTypeOverride,
+                                                                   event.value1, event.value2 );
 
         if ( !setupResult.ok )
         {
@@ -1316,9 +1308,9 @@ bool RebuildReplayGeneratedSceneTopology( RuntimeTools& runtimeTools, Simulation
     }
     else
     {
-        const SkullbonezCore::Core::SbResult setupResult = SceneGeneratedSetup::
-            SetUpSceneEntities( BuildSceneGeneratedModelContext( scene, config, world, generatedObjectTypeOverride ),
-                                event.value0 );
+        const SkullbonezCore::Core::SbResult
+            setupResult = SceneGeneratedSetup::SetUpSceneEntities( scene, config, world, generatedObjectTypeOverride,
+                                                                   event.value0 );
 
         if ( !setupResult.ok )
         {

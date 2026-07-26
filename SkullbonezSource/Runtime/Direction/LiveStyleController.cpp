@@ -264,7 +264,11 @@ void LiveStyleController::MarkReady()
 }
 
 
-void LiveStyleController::Tick( SceneRuntimeStyleContext context )
+void LiveStyleController::Tick( RunLaunchOptions& launchOptions, SceneSessionState& scene,
+                                SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser, SceneWorld& world,
+                                const Assets::AssetSystem& assets,
+                                SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                                const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic )
 {
 
     if ( !m_enabled )
@@ -278,12 +282,12 @@ void LiveStyleController::Tick( SceneRuntimeStyleContext context )
     {
         m_styleStamp = styleStamp;
         AuthoredScene styleScene;
-        const SkullbonezCore::Core::SbResult loadResult = AuthoredScene::TryLoadStyleFromFile( m_stylePath, context.assets,
+        const SkullbonezCore::Core::SbResult loadResult = AuthoredScene::TryLoadStyleFromFile( m_stylePath, assets,
                                                                                                styleScene );
 
         if ( loadResult.ok )
         {
-            ApplyLiveStyleScene( context, styleScene );
+            ApplyLiveStyleScene( launchOptions, scene, sceneBrowser, world, activeCinematic, defaultCinematic, styleScene );
             ++m_styleApplyCount;
             WriteStatus( "style_applied", m_stylePath );
             printf( "[style-harness] Applied %s\n", m_stylePath );

@@ -344,20 +344,6 @@ void ApplyUIStressAction( SkullbonezCore::UI::InGameUI& ui, RuntimeFrameSceneVie
 }
 
 
-SceneRuntimeStyleContext BuildGraphicsStressStyleContext( RunLaunchOptions& launchOptions, SceneSessionState& scene, SkullbonezCore::UI::RunSceneBrowserState& browser,
-                                                          SceneWorld& world, const SkullbonezCore::Assets::AssetSystem& assets, SkullbonezCore::Core::EngineConfig& config,
-                                                          const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender )
-{
-    return SceneRuntimeStyleContext { launchOptions,
-                                      scene,
-                                      browser,
-                                      world,
-                                      assets,
-                                      ActiveSceneCinematicConfig( scene, config ),
-                                      defaultCinematicRender };
-}
-
-
 void ApplyGraphicsStressAction( const SkullbonezCore::Assets::AssetSystem& assets,
                                 RuntimeFrameInteractionView& interactionOwners, RuntimeFrameSceneView& sceneOwners,
                                 const RenderDefaultsStore& renderDefaults, RuntimeRenderer& renderer,
@@ -421,10 +407,9 @@ void ApplyGraphicsStressAction( const SkullbonezCore::Assets::AssetSystem& asset
     {
         const int browserCount = static_cast<int>( ui.SceneNavigation().browser.paths.size() );
         const int browserIndex = ( browserCount > 0 && stress.NextInt( 5 ) != 0 ) ? stress.NextInt( browserCount ) : -1;
-        (void)ApplyCinematicModeFromBrowserIndex( BuildGraphicsStressStyleContext( launchOptions, scene,
-                                                                                   ui.SceneNavigation().browser,
-                                                                                   sceneController.Scene(), assets, config,
-                                                                                   defaultCinematicRender ),
+        (void)ApplyCinematicModeFromBrowserIndex( launchOptions, scene, ui.SceneNavigation().browser,
+                                                  sceneController.Scene(), assets,
+                                                  ActiveSceneCinematicConfig( scene, config ), defaultCinematicRender,
                                                   browserIndex );
 
         break;

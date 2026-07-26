@@ -17,7 +17,7 @@ Glossary:
 
 Invariants:
   - Helpers do not create or destroy scene models.
-  - Context borrows active cinematic, model state, and asset metadata only for
+  - Helpers borrow active cinematic, model state, and asset metadata only for
     the call.
 
 Related:
@@ -45,21 +45,6 @@ class AuthoredScene;
 class SceneWorld;
 struct OverlayDebugState;
 
-struct SceneRuntimeStyleContext
-{
-    RunLaunchOptions& launchOptions;
-    SceneSessionState& scene;
-    SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser;
-
-    // Lifetime: live-style code borrows the one scene-lifetime owner and then
-    // resolves its entity/collider rows locally. Do not republish sibling
-    // subowners or reach back through SceneController.
-    SceneWorld& world;
-    const Assets::AssetSystem& assets;
-    SkullbonezCore::Core::CinematicRenderConfig& activeCinematic;
-    const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic;
-};
-
 void ApplyCinematicSceneOverrides( SkullbonezCore::Core::CinematicRenderConfig& target, uint64_t mask,
                                    const SkullbonezCore::Core::CinematicRenderConfig& source );
 SkullbonezCore::Core::CinematicRenderConfig& ActiveSceneCinematicConfig( SceneSessionState& scene,
@@ -69,9 +54,21 @@ ActiveSceneCinematicConfig( const SceneSessionState& scene, const SkullbonezCore
 bool IsSceneCinematicRenderingEnabled( const SceneSessionState& scene, const SkullbonezCore::Core::EngineConfig& config,
                                        const RunLaunchOptions& launchOptions, const OverlayDebugState& debug,
                                        bool graphicsReady );
-bool ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext context, int index );
-void ApplyLiveStyleScene( SceneRuntimeStyleContext context, const AuthoredScene& styleScene );
-bool ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext context );
+bool ApplyCinematicModeFromBrowserIndex( RunLaunchOptions& launchOptions, SceneSessionState& scene,
+                                         SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser, SceneWorld& world,
+                                         const Assets::AssetSystem& assets,
+                                         SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                                         const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic, int index );
+void ApplyLiveStyleScene( RunLaunchOptions& launchOptions, SceneSessionState& scene,
+                          SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser, SceneWorld& world,
+                          SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                          const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic,
+                          const AuthoredScene& styleScene );
+bool ApplyDemoHeroStyleOverride( RunLaunchOptions& launchOptions, SceneSessionState& scene,
+                                 SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser, SceneWorld& world,
+                                 const Assets::AssetSystem& assets,
+                                 SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                                 const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic );
 
 } // namespace Runtime
 } // namespace SkullbonezCore

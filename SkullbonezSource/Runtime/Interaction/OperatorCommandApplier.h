@@ -177,7 +177,12 @@ bool ApplyCinematicRenderingToggleUICommand( RunLaunchOptions& launchOptions, Sc
                                              const UI::UICinematicCommands& commands );
 bool QueueCinematicSkyDefaultsUICommand( RenderDefaultsStore& renderDefaults, const UI::UICinematicCommands& commands );
 bool HasCinematicModeUICommand( const UI::UICinematicCommands& commands );
-bool ApplyCinematicModeUICommand( SceneRuntimeStyleContext context, const UI::UICinematicCommands& commands );
+bool ApplyCinematicModeUICommand( RunLaunchOptions& launchOptions, SceneSessionState& scene,
+                                  UI::RunSceneBrowserState& sceneBrowser, SceneWorld& world,
+                                  const Assets::AssetSystem& assets,
+                                  SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                                  const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic,
+                                  const UI::UICinematicCommands& commands );
 CinematicTuningUICommandResult ApplyCinematicTuningUICommands( RunLaunchOptions& launchOptions, SceneSessionState& scene,
                                                                SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                                                const UI::UICinematicCommands& commands );

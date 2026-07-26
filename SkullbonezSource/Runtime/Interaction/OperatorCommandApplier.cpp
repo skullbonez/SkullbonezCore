@@ -506,7 +506,12 @@ bool HasCinematicModeUICommand( const UI::UICinematicCommands& commands )
 }
 
 
-bool ApplyCinematicModeUICommand( SceneRuntimeStyleContext context, const UI::UICinematicCommands& commands )
+bool ApplyCinematicModeUICommand( RunLaunchOptions& launchOptions, SceneSessionState& scene,
+                                  UI::RunSceneBrowserState& sceneBrowser, SceneWorld& world,
+                                  const Assets::AssetSystem& assets,
+                                  SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                                  const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic,
+                                  const UI::UICinematicCommands& commands )
 {
 
     if ( !HasCinematicModeUICommand( commands ) )
@@ -517,7 +522,8 @@ bool ApplyCinematicModeUICommand( SceneRuntimeStyleContext context, const UI::UI
     // Invariant: input action reporting tracks the accepted UI request. The
     // underlying style loader can fail closed for a bad/missing scene, but the
     // InputFrame transition record still preserves the accepted selection.
-    (void)ApplyCinematicModeFromBrowserIndex( context, commands.requestedModeSceneIndex );
+    (void)ApplyCinematicModeFromBrowserIndex( launchOptions, scene, sceneBrowser, world, assets, activeCinematic,
+                                              defaultCinematic, commands.requestedModeSceneIndex );
     return true;
 }
 

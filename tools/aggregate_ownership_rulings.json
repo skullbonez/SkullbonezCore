@@ -800,56 +800,6 @@
                            "post_removal_signature":  "RuntimeViewModelBuilder::Build(scene, world, sceneCount, capture, presentationInterpolation, presentationPinned, presentationAlpha) — 7 parameters"
                        },
                        {
-                           "key":  "SceneAuthoredCameraContext",
-                           "site":  "SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.h:64",
-                           "members":  1,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA2",
-                           "reason":  "Single-member authored-setup context; the setup operation takes its one owner directly.",
-                           "destructures_at_entry":  "yes",
-                           "post_removal_signature":  "SceneAuthoredSetup::SetUpCameras(sceneWorld, scene) — 2 parameters"
-                       },
-                       {
-                           "key":  "SceneAuthoredModelContext",
-                           "site":  "SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.h:69",
-                           "members":  3,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA2",
-                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 3 fields become concrete consumer operands.",
-                           "destructures_at_entry":  "yes",
-                           "post_removal_signature":  "authored model operations take sceneState, sceneWorld, automationGates plus scene — at most 4 parameters"
-                       },
-                       {
-                           "key":  "SceneGeneratedCameraContext",
-                           "site":  "SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.h:68",
-                           "members":  1,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA2",
-                           "reason":  "Single-member generated-setup context; the setup operation takes its one owner directly.",
-                           "destructures_at_entry":  "yes",
-                           "post_removal_signature":  "SceneGeneratedSetup::SetUpCameras(sceneWorld) — 1 parameter"
-                       },
-                       {
-                           "key":  "SceneGeneratedModelContext",
-                           "site":  "SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.h:73",
-                           "members":  4,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA2",
-                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 4 fields become concrete consumer operands.",
-                           "destructures_at_entry":  "yes",
-                           "post_removal_signature":  "generated model operations take scene, config, sceneWorld, objectTypeOverride plus operation values — at most 6 parameters"
-                       },
-                       {
-                           "key":  "SceneGeneratedPopulationRequest",
-                           "site":  "SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.h:81",
-                           "members":  6,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA2",
-                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 6 fields become concrete consumer operands.",
-                           "destructures_at_entry":  "yes",
-                           "post_removal_signature":  "TrySetUpRequestedModels takes six population counts, model owners, and default flag — 8 parameters after used-subset projection"
-                       },
-                       {
                            "key":  "SceneLoadRequest",
                            "site":  "SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.h:50",
                            "members":  7,
@@ -868,36 +818,6 @@
                            "destructures_at_entry":  "no"
                        },
                        {
-                           "key":  "SceneRuntimeCreateContext",
-                           "site":  "SkullbonezSource/Runtime/Scene/SceneRuntimeCreate.h:35",
-                           "members":  1,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA2",
-                           "reason":  "One `SceneController\u0026` member, passed by value into CreateSceneFromUI. Strictly longer than taking SceneController\u0026 and shortens nothing.",
-                           "destructures_at_entry":  "yes",
-                           "post_removal_signature":  "CreateSceneFromUI(controller, requestedName) — 2 parameters"
-                       },
-                       {
-                           "key":  "SceneRuntimeStyleContext",
-                           "site":  "SkullbonezSource/Runtime/Scene/SceneRuntimeStyle.h:48",
-                           "members":  7,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA2",
-                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 7 fields become concrete consumer operands.",
-                           "destructures_at_entry":  "mixed",
-                           "post_removal_signature":  "style operations take only their used subset of launchOptions, scene, sceneBrowser, world, assets, activeCinematic, defaultCinematic — at most 10 parameters"
-                       },
-                       {
-                           "key":  "SceneRuntimeUiOptionsContext",
-                           "site":  "SkullbonezSource/Runtime/Scene/SceneRuntimeUiOptions.h:57",
-                           "members":  3,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA2",
-                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 3 fields become concrete consumer operands.",
-                           "destructures_at_entry":  "yes",
-                           "post_removal_signature":  "PrepareSceneUiOptions(diagnostics, debug, activation, options, nowSeconds, preserveUIState, automationScene) — 7 parameters"
-                       },
-                       {
                            "key":  "SceneSaveRequest",
                            "site":  "SkullbonezSource/Scene/SceneSnapshotWriter.h:89",
                            "members":  4,
@@ -905,16 +825,6 @@
                            "owner":  "CA0 / Scene/SceneSnapshotWriter.h",
                            "reason":  "Current-tip review retains this domain request: its fields form the named SceneSaveRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
                            "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "SceneSimpleRagdollAppendContext",
-                           "site":  "SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.h:76",
-                           "members":  2,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA2",
-                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 2 fields become concrete consumer operands.",
-                           "destructures_at_entry":  "yes",
-                           "post_removal_signature":  "ragdoll append operations take sceneState, sceneWorld, options — 3 parameters"
                        },
                        {
                            "key":  "ShadowGraphInputs",

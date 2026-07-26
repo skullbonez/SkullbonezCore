@@ -109,8 +109,7 @@ bool SceneController::ExecutePending( SceneLoadTransaction& transaction, Skullbo
             break;
         case SceneRequestType::CreateScene:
         {
-            const SceneLoadRequest createRequest = CreateSceneFromUI( SceneRuntimeCreateContext { sceneController },
-                                                                      request.text );
+            const SceneLoadRequest createRequest = CreateSceneFromUI( sceneController, request.text );
 
             accepted = executeSceneLoadRequest( createRequest );
 

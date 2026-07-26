@@ -144,11 +144,15 @@ void SceneGeneratedControlTransaction::Repopulate( const SkullbonezCore::Core::E
 
     const unsigned int seed = scene.State().rngSeed > 0 ? scene.State().rngSeed : 1u;
     scene.State().rngState = seed;
-    const SceneGeneratedModelContext context { scene.State(), config, scene.Scene(), m_objectTypeOverride };
-
     const SkullbonezCore::Core::SbResult setupResult = m_kind == RequestKind::ModelCount
-                                                           ? SceneGeneratedSetup::SetUpSceneEntities( context, m_modelCount )
-                                                           : SceneGeneratedSetup::SetUpSolverObjects( context, m_solverBalls,
+                                                           ? SceneGeneratedSetup::SetUpSceneEntities( scene.State(), config,
+                                                                                                      scene.Scene(),
+                                                                                                      m_objectTypeOverride,
+                                                                                                      m_modelCount )
+                                                           : SceneGeneratedSetup::SetUpSolverObjects( scene.State(), config,
+                                                                                                      scene.Scene(),
+                                                                                                      m_objectTypeOverride,
+                                                                                                      m_solverBalls,
                                                                                                       m_solverBoxes );
 
     if ( !setupResult.ok )
