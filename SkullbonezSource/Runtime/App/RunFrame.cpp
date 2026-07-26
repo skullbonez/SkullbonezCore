@@ -607,8 +607,6 @@ SkullbonezCore::Core::SbResult Run::RenderOperatorUiPhase( RuntimeFrameHostView&
         renderModels.presentationRecords,
         renderModels.bodyStore );
 
-    SkullbonezCore::Rendering::Dx12Diagnostics& diagnostics = *presentation.renderBackendView.renderDiagnostics;
-
     OperatorEditorFrameComposer::Render( host,
                                          interaction,
                                          scene,
@@ -617,10 +615,6 @@ SkullbonezCore::Core::SbResult Run::RenderOperatorUiPhase( RuntimeFrameHostView&
                                          uiTextFacts,
                                          operatorEditorView,
                                          replayOverlay,
-                                         diagnostics,
-                                         *presentation.renderBackendView.renderResources,
-                                         *presentation.renderBackendView.renderTextures,
-                                         *presentation.renderBackendView.renderGeometry,
                                          renderModels );
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )

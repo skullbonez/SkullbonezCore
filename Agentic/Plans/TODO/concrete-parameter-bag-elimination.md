@@ -2,7 +2,7 @@
 
 Date: 2026-07-26
 Owner: skullbonez
-State: IN PROGRESS (PB0-PB2 complete; PB3 next)
+State: IN PROGRESS (PB0-PB3 complete; PB4 next)
 Ledger tasks: 8 (PB0-PB7)
 Branch: `nightrunner-25th-JUL-26`
 
@@ -297,7 +297,7 @@ or type erasure is allowed.
   - permanent report:
     `../../Reports/2026-07-26/concrete-parameter-bag-elimination-pb2-pointer-routing.md`.
 
-- [ ] **PB3 - Remove render-frame, UI-text, and Replay-overlay service bags.**
+- [x] **PB3 - Remove render-frame, UI-text, and Replay-overlay service bags.**
 
   Delete `RenderFrameContext`, `UiTextPassInputs`, and
   `ReplayOverlayRenderContext`, eliminate `UiTextPassState` and the PB0-named
@@ -317,6 +317,28 @@ or type erasure is allowed.
   - pass order, resource lifetime, overlay semantics, UI text, allocation
     behavior, and render fingerprints remain exact;
   - DX12 and graphics-stress gates pass with zero refresh.
+
+  Evidence:
+
+  - the three service-bag targets, `BuildRenderFrameContext`,
+    `UiTextPassState`, and all 13 PB0-named graph callback payloads have zero
+    definitions/usages;
+  - UI text is split into concrete responsibility phases, graph invocations
+    are node-local stack ABI values, and RuntimeRenderer retains all concrete
+    backend owners;
+  - the three repaired operations have 11, 11, and 9 parameters, and the
+    repository threshold-13 inventory is empty;
+  - an intermediate `RuntimeRenderBackendView` composer parameter was rejected
+    as a replacement service bag and removed before closure;
+  - the performance gate found and repaired cold Scene-load copies attributed
+    to steady gameplay; the rerun has zero guarded allocations;
+  - introduced indirection/allocation, UI-to-Runtime, downward-Replay, and
+    dependency proofs are clean;
+  - comment audit: 17/17 touched source files checked, 0 deferred;
+  - DX12, bounded graphics stress, performance, Replay visual fidelity, and
+    full validation pass with zero baseline refresh;
+  - permanent report:
+    `../../Reports/2026-07-26/concrete-parameter-bag-elimination-pb3-render-ui.md`.
 
 - [ ] **PB4 - Repair Replay capture, camera focus, and restore.**
 

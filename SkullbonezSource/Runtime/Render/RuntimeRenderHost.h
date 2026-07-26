@@ -102,7 +102,6 @@ class RuntimeInputContext;
 class RuntimeOverlayRenderResources;
 class SceneTerrain;
 enum class RunCameraMode;
-struct RenderFrameContext;
 struct ReplayPresentationSample;
 struct ReplaySolverFrameSample;
 struct CameraControlState;

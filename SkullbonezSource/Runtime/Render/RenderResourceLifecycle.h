@@ -58,7 +58,11 @@ class RenderResourceLifecycle
     RuntimeRenderTargetPreviewSnapshot BuildRenderTargetPreviewSnapshot( bool shadowsAvailable,
                                                                          bool cinematicTargetsAvailable,
                                                                          bool volumetricAvailable ) const;
-    bool ShouldRenderUiText( const UiTextPassState& state, const UI::InGameUI& ui ) const;
+    bool ShouldRenderUiText( const UiHudScenePhase& scene,
+                             const UiHudInteractionPhase& interaction,
+                             const UI::InGameUI& ui,
+                             bool replayScrubberVisible,
+                             bool replayPathVisualizerHasTarget ) const;
     void SetUiTextRayTracingCapability( Rendering::Dx12RaytracingOwner* rayTracing );
 
   private:

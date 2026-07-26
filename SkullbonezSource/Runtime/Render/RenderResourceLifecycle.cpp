@@ -234,9 +234,13 @@ RenderResourceLifecycle::BuildRenderTargetPreviewSnapshot( bool shadowsAvailable
 }
 
 
-bool RenderResourceLifecycle::ShouldRenderUiText( const UiTextPassState& state, const UI::InGameUI& ui ) const
+bool RenderResourceLifecycle::ShouldRenderUiText( const UiHudScenePhase& scene,
+                                                  const UiHudInteractionPhase& interaction,
+                                                  const UI::InGameUI& ui,
+                                                  bool replayScrubberVisible,
+                                                  bool replayPathVisualizerHasTarget ) const
 {
-    return m_uiTextPass.ShouldRender( state, ui );
+    return m_uiTextPass.ShouldRender( scene, interaction, ui, replayScrubberVisible, replayPathVisualizerHasTarget );
 }
 
 

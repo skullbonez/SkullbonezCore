@@ -32,13 +32,6 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Rendering
-{
-class Dx12Diagnostics;
-class Dx12GeometryOwner;
-class Dx12ResourceBuilder;
-class Dx12TextureOwner;
-} // namespace Rendering
 namespace UI
 {
 struct OperatorEditorFrameView;
@@ -68,10 +61,6 @@ void Render( RuntimeFrameHostView& host,
              const RuntimeUiTextFrameFacts& facts,
              UI::OperatorEditorFrameView& operatorEditorView,
              const ReplayOverlay::ReplayOverlayStateView& replayOverlay,
-             Rendering::Dx12Diagnostics& renderDiagnostics,
-             Rendering::Dx12ResourceBuilder& renderResources,
-             Rendering::Dx12TextureOwner& renderTextures,
-             Rendering::Dx12GeometryOwner& renderGeometry,
              const RuntimeRenderModelFrameView& renderModels );
 } // namespace OperatorEditorFrameComposer
 } // namespace Runtime

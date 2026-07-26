@@ -57,6 +57,14 @@ struct RunReplayVelocityEditState;
 
 namespace SkullbonezCore::Runtime::ReplayOverlay
 {
+struct ReplayOverlayViewport
+{
+    // One presentation value keeps width and height coupled at every overlay
+    // call site; neither dimension has meaning without the other.
+    int width = 1;
+    int height = 1;
+};
+
 struct ReplayOverlayStateView
 {
     ReplayScrubberView scrubber;
@@ -79,23 +87,4 @@ struct ReplayOverlayStateView
     bool recordingLockedByHashLog = false;
 };
 
-struct ReplayOverlayRenderContext
-{
-    Rendering::Dx12TextureOwner& renderTextures;
-    Rendering::Dx12GeometryOwner& renderCommands;
-    Rendering::Dx12Diagnostics& renderDiagnostics;
-    Core::Profiler* profiler = nullptr;
-    // Lifetime: this immutable view is consumed synchronously by the UI-text
-    // graph callback and cannot outlive the frame-local selection borrows.
-    const ReplayOverlayStateView& replay;
-    bool legacyReplaySurfaceActive = true;
-    bool editorModeEnabled = false;
-    bool uiVisible = false;
-    bool uiMinimized = false;
-    bool scenePhysicsEnabled = false;
-    RuntimeInteractionGestureKind gesture = RuntimeInteractionGestureKind::None;
-    int screenW = 0;
-    int screenH = 0;
-    double nowSeconds = 0.0;
-};
 } // namespace SkullbonezCore::Runtime::ReplayOverlay

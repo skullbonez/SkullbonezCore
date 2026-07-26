@@ -238,9 +238,7 @@ void UiDrawSubmission::Submit( const UI::UIDrawList& drawList,
                                Rendering::Dx12GeometryOwner& renderGeometry,
                                Rendering::Dx12Diagnostics& renderDiagnostics,
                                int screenW,
-                               int screenH,
-                               float offsetX,
-                               float offsetY )
+                               int screenH )
 {
     SubmitCommands( drawList,
                     nullptr,
@@ -252,9 +250,7 @@ void UiDrawSubmission::Submit( const UI::UIDrawList& drawList,
                     renderGeometry,
                     renderDiagnostics,
                     screenW,
-                    screenH,
-                    offsetX,
-                    offsetY );
+                    screenH );
 }
 
 void UiDrawSubmission::SubmitWithPreviews( const UI::UIDrawList& drawList,
@@ -267,9 +263,7 @@ void UiDrawSubmission::SubmitWithPreviews( const UI::UIDrawList& drawList,
                                            Rendering::Dx12GeometryOwner& renderGeometry,
                                            Rendering::Dx12Diagnostics& renderDiagnostics,
                                            int screenW,
-                                           int screenH,
-                                           float offsetX,
-                                           float offsetY )
+                                           int screenH )
 {
     SubmitCommands( drawList,
                     &previewData,
@@ -281,9 +275,7 @@ void UiDrawSubmission::SubmitWithPreviews( const UI::UIDrawList& drawList,
                     renderGeometry,
                     renderDiagnostics,
                     screenW,
-                    screenH,
-                    offsetX,
-                    offsetY );
+                    screenH );
 }
 
 void UiDrawSubmission::SubmitCommands( const UI::UIDrawList& drawList,
@@ -296,10 +288,10 @@ void UiDrawSubmission::SubmitCommands( const UI::UIDrawList& drawList,
                                        Rendering::Dx12GeometryOwner& renderGeometry,
                                        Rendering::Dx12Diagnostics& renderDiagnostics,
                                        int screenW,
-                                       int screenH,
-                                       float offsetX,
-                                       float offsetY )
+                                       int screenH )
 {
+    constexpr float offsetX = 0.0f;
+    constexpr float offsetY = 0.0f;
     PROFILE_GPU_BEGIN( gpuTiming, "Frame/UI/Draw" );
     ImmediateUiSubmitter immediateDraw( screenW, screenH, textBatch, renderGeometry );
     UI::UIRect clipStack[UI::UIDrawList::MAX_CLIP_DEPTH];

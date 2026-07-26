@@ -10,8 +10,8 @@ Summary:
 
 Glossary:
   Pass: Ordered unit of frame rendering owned by RuntimeRenderer.
-  Frame context: Per-frame camera, projection, lighting, water, and store-backed
-  render inputs shared by passes.
+  Camera-lighting sample: Per-frame camera matrices, axes, and directional
+    light values shared by concrete world passes.
   Lane R result: Recoverable resource setup failure reported through an
     owner/message result at startup instead of throwing through the render owner.
   Resource context: Creation/rebuild-only render factory bundle used by
@@ -166,7 +166,7 @@ struct ReplayHudStatus;
 struct ReplayVisualPacket;
 namespace ReplayOverlay
 {
-struct ReplayOverlayRenderContext;
+struct ReplayOverlayStateView;
 }
 struct RuntimeRenderModelFrameView;
 struct RuntimeViewModel;
@@ -209,93 +209,27 @@ class RenderResourceLifecycleLog
     const SceneSessionState& m_scene;
 };
 
-struct RenderFrameContext
+struct RenderCameraLighting
 {
-    // Shared inputs for the ordered world-render passes. This is a borrowed
-    // per-frame contract: every value is rebuilt after SetCamera(), consumed
-    // during RuntimeRenderer::RenderPreparedFrame(), and discarded before the next frame.
+    // Cohesive value sampled after SetCamera(). It carries no owner or resource
+    // pointer and cannot grant a pass access to unrelated runtime state.
     Math::Transformation::Matrix4 baseView;
     Math::Transformation::Matrix4 projection;
     Math::Transformation::Matrix4 viewProjection;
-    Math::Transformation::Matrix4 reflectionView;
-    Math::Transformation::Matrix4 reflectionViewProjection;
     Math::Vector::Vector3 eye;
     Math::Vector::Vector3 viewCenter;
     Math::Vector::Vector3 up;
-    Math::Vector::Vector3 reflectionEye;
-    Math::Vector::Vector3 reflectionCenter;
-    Math::Vector::Vector3 reflectionUp;
 
     // Invariant: ordinary and cinematic lighting both use a directional sun
     // so direct-light shading and shadow maps agree on the same vector.
     float lightPosition[4] = { 200.0f, 400.0f, 1200.0f, 0.0f };
-    float waterY = 0.0f;                             // World-space fluid surface height used by reflection clipping and water shading.
-
-    // Non-null only when cinematic rendering wraps this frame. Passes use
-    // the pointer as an opt-in contract, not as ownership.
-    bool cinematicEnabled = false;
-    const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
-
-    // Store-backed render inputs prepared once before the pass chain. Object,
-    // shadow, and reflection passes must consume these instead of reopening the
-    // scene/model collection.
-    const Rendering::RenderInstanceStore* renderInstances = nullptr;
-    const Physics::ColliderStore* colliders = nullptr;
-    const Physics::PhysicsBodyStore* bodyStore = nullptr;
-    Physics::PhysicsEngine* physicsEngine = nullptr;
-    // Lifetime: spans borrow the frame model stores and remain valid only for
-    // this synchronous render-graph execution.
-    std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords;
-    const std::vector<uint8_t>* collisionVisualContacts = nullptr;
-    std::span<const uint8_t> sleepStates;
-    std::span<const int> sleepIslandVisualIds;
-    std::span<const uint8_t> sleepSupportedStates;
-    std::span<const uint8_t> sleepInhibitedStates;
-    const std::vector<Physics::PhysicsDebugContact>* physicsDebugContacts = nullptr;
-    const std::vector<Physics::PhysicsPipelineRecord>* physicsPipelineTrace = nullptr;
-    Threading::WorkerPool* renderWorkerPool = nullptr;
-    int modelCount = 0;
-    bool renderCollisionVolumes = false;
-    bool shadowParallelPrep = false;
-    double sceneKineticEnergy = 0.0;
-
-    // Lifetime: borrowed from RuntimeRenderer's resource owner for this frame
-    // only. Pass code must not store it beyond RenderPreparedFrame.
-    Assets::AssetSystem* assets = nullptr;
-    // Lifetime: borrowed texture binding service for this frame only. Pass code
-    // uses it to resolve legacy texture handles without reopening Run state.
-    Textures::TextureCollection* textures = nullptr;
-    // Lifetime: borrowed from RuntimeRenderer's backend owner for lazy debug
-    // resource creation in this frame only.
-    Rendering::Dx12ResourceBuilder* renderResources = nullptr;
-    Rendering::Dx12TextureOwner* renderTextures = nullptr;
-    Rendering::Dx12GeometryOwner* renderGeometry = nullptr;
-    // Lifetime: borrowed from RuntimeRenderer's backend owner for this frame
-    // only. Pass code must not store it beyond RenderPreparedFrame.
-    Rendering::Dx12FrameOwner* renderFrame = nullptr;
-    Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
-    // Lifetime: borrowed from RuntimeRenderer's backend owner for capability
-    // checks and tracing decisions in this frame only.
-    Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
-    // Lifetime: RuntimeRenderer-owned concrete GPU timing boundary borrowed by
-    // pass recording for this frame only.
-    Rendering::RenderGpuTimingOwner* renderGpuTiming = nullptr;
-    // Lifetime: owned by RuntimeRenderer for the active process. Passes borrow
-    // it for primitive batch scratch and renderer-owned backend resource handles.
-    Rendering::PrimitiveBatchRenderer* primitiveBatches = nullptr;
-    // Lifetime: optional DXR capability borrowed for this frame only. It stays
-    // nullable so the reflection pass can fall back to planar rendering when
-    // raytracing is unavailable.
-    Rendering::Dx12RaytracingOwner* renderRayTracing = nullptr;
-    int windowWidth = 1;                             // Active render-target width sampled from the runtime window service.
-    int windowHeight = 1;                            // Active render-target height sampled from the runtime window service.
 };
 
 struct RenderResourceContext
 {
     // Creation/rebuild-only contract. Passes receive this context from
-    // RuntimeRenderer::EnsureFrameResources() or explicit ensure calls, while
-    // draw methods keep using RenderFrameContext.
+    // RuntimeRenderer::EnsureFrameResources() or explicit ensure calls; draw
+    // phases borrow only their concrete resources.
     bool cinematicEnabled = false;
     Assets::AssetSystem& assets;
     Rendering::Dx12ResourceBuilder& renderResources;
@@ -310,7 +244,14 @@ struct ObjectPassInputs
     // Object pass view of the body collection. It can act as the opaque
     // pass or the transparent debug pass, but target binding stays with the
     // caller.
-    const RenderFrameContext& frame;
+    const RenderCameraLighting& camera;
+    const RuntimeRenderModelFrameView& models;
+    const Rendering::PrimitiveRenderContext& primitive;
+    Assets::AssetSystem& assets;
+    Textures::TextureCollection& textures;
+    Rendering::Dx12TextureOwner& renderTextures;
+    Rendering::Dx12Diagnostics& renderDiagnostics;
+    Rendering::RenderGpuTimingOwner* gpuTiming = nullptr;
     // Documents where this object pass sits in the frame ordering.
     ObjectPassMode mode;
     const SkullbonezCore::Core::CinematicRenderConfig* cinematic;
@@ -326,7 +267,11 @@ struct TerrainPassInputs
 {
     // Terrain reads the same camera/light contract as objects, plus the
     // terrain shadow frame when shadows were built for the current frame.
-    const RenderFrameContext& frame;
+    const RenderCameraLighting& camera;
+    Textures::TextureCollection& textures;
+    Rendering::Dx12TextureOwner& renderTextures;
+    Rendering::Dx12Diagnostics& renderDiagnostics;
+    Rendering::RenderGpuTimingOwner* gpuTiming = nullptr;
     const SkullbonezCore::Core::CinematicRenderConfig* cinematic;
     const Rendering::ShadowFrameData* shadow;
     const Rendering::ShadowFrameData* detailShadow;
@@ -339,7 +284,21 @@ struct ReflectionPassInputs
     // Produces the texture sampled by water. The pass may choose the DXR
     // raytraced path or the mirrored-camera render-target path, but both
     // must return a texture handle and matching sample transform.
-    const RenderFrameContext& frame;
+    const RenderCameraLighting& camera;
+    const RuntimeRenderModelFrameView& models;
+    const Rendering::PrimitiveRenderContext& primitive;
+    Assets::AssetSystem& assets;
+    Textures::TextureCollection& textures;
+    Rendering::Dx12TextureOwner& renderTextures;
+    Rendering::Dx12FrameOwner& renderFrame;
+    Rendering::Dx12Diagnostics& renderDiagnostics;
+    Rendering::RenderGpuTimingOwner* gpuTiming = nullptr;
+    Rendering::Dx12RaytracingOwner* rayTracing = nullptr;
+    Math::Transformation::Matrix4 reflectionView;
+    Math::Transformation::Matrix4 reflectionViewProjection;
+    float waterY = 0.0f;
+    int windowWidth = 1;
+    int windowHeight = 1;
     const SkullbonezCore::Core::CinematicRenderConfig* cinematic;
     const Rendering::ShadowFrameData* objectShadow;
     bool waterRayTracingReflection;                  // Frame snapshot of the debug water reflection mode.
@@ -367,9 +326,13 @@ struct WaterPassInputs
     // Water is deliberately downstream of reflection. It must not rebuild
     // reflection itself; it only receives the texture/sample transform that
     // the reflection pass produced for this frame.
-    const RenderFrameContext& frame;
+    const RenderCameraLighting& camera;
+    Rendering::Dx12TextureOwner& renderTextures;
+    Rendering::Dx12Diagnostics& renderDiagnostics;
+    Rendering::RenderGpuTimingOwner* gpuTiming = nullptr;
     const ReflectionPassOutput& reflection;
     const SkullbonezCore::Core::CinematicRenderConfig* cinematic;
+    bool cinematicEnabled = false;
     bool waterHidden;                                // Caller-controlled debug visibility; reflection resources stay outside this flag.
     bool flatWater;                                  // Debug water style: flat shading instead of animated waves.
     bool noReflection;                               // Debug override: keep water visible but force the no-reflection shader path.
@@ -398,28 +361,32 @@ struct RuntimeRenderTargetPreviewSnapshot
     int count = 0;
 };
 
-struct UiTextPassState
+struct UiHudScenePhase
 {
-    // UI/text is the late overlay pass, so this read-only projection samples
-    // already-owned runtime state for one frame. Writable timer/UI owners are
-    // separate explicit inputs below and cannot be reached through this view.
+    // Scene/HUD policy stays separate from interaction and viewport facts so
+    // the text pass cannot receive a replacement all-purpose UI context.
     const OverlayDebugState& debug;
     bool crossScenePauseLocked = false;
     const SceneSessionState& scene;
     const RenderPresentationSettings& renderPresentation;
-    // Lifetime: one world borrow supplies the environment and physics facets;
-    // the overlay cannot traverse scene lifecycle or request authority.
     const SceneWorld& world;
     const SkullbonezCore::Core::EngineConfig& config;
+};
+
+struct UiHudInteractionPhase
+{
+    // Interaction diagnostics borrow the concrete state owners whose values
+    // they label. No command or pointer-routing authority crosses this phase.
     const RunRayCastTestState& rayCastTest;
     const RunEditorPlacementState& editor;
     const RuntimeInputContext& runtimeInput;
     const CameraControlState& camera;
-    const RuntimeViewModel& runtimeViewModel;
-    const SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser;
-    const RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews;
-    const UI::OperatorEditorFrameView& operatorEditorView;
     Threading::WorkerPool* workerPool = nullptr;
+};
+
+struct UiHudFramePhase
+{
+    // Frame-local layout and scene-browser labels are detached scalar values.
     int screenW = 1;
     int screenH = 1;
     int sceneQueueSize = 0;
@@ -430,31 +397,44 @@ struct UiTextPassState
     const char* cameraModeLabel = "";
     const char* launcherFireModeLabel = "";
     bool launcherCameraMode = false;
-    bool replayScrubberVisible = false;
-    bool replayPathVisualizerHasTarget = false;
 };
 
-struct UiTextPassInputs
+struct UiOperatorTextPhase
 {
-    // Lifetime: this stack-only frame record is consumed synchronously by the
-    // renderer-owned UI-text graph callback. It cannot outlive the caller's
-    // replay, diagnostics, model, or operator-UI snapshots.
-    //
-    // Why: UI/text can run even when text-only mode skips world rendering, so
-    // one named record carries only the per-frame facts sampled by overlays.
-    // Pass-owned font/profiler/ray-tracing resources do not cross this boundary.
-    const UiTextPassState& state;
+    // UI-facing values are detached snapshots. The phase cannot reopen scene,
+    // Replay, or diagnostics owners while translating operator commands.
+    const RuntimeViewModel& runtimeViewModel;
+    const SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser;
+    const RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews;
+    const UI::OperatorEditorFrameView& operatorEditorView;
+};
+
+struct UiReplayTextPhase
+{
+    // Replay owns the immutable publication; this phase adds only the concrete
+    // gesture, scene, viewport, and clock facts needed to draw it.
+    const ReplayHudStatus& hud;
+    const ReplayOverlay::ReplayOverlayStateView& overlay;
+    Core::Profiler* profiler = nullptr;
+    bool legacySurfaceActive = true;
+    bool scenePhysicsEnabled = false;
+    RuntimeInteractionGestureKind gesture = RuntimeInteractionGestureKind::None;
+    int screenW = 1;
+    int screenH = 1;
+    double nowSeconds = 0.0;
+    bool scrubberVisible = false;
+    bool pathVisualizerHasTarget = false;
+};
+
+struct UiTextSubmissionPhase
+{
+    // Non-backend submission borrows are consumed synchronously by UiTextPass.
+    // RuntimeRenderer supplies its four concrete backend owners at execution.
     RunTimerState& timers;
     UI::InGameUI& ui;
-    Rendering::Dx12Diagnostics& renderDiagnostics;
     Assets::AssetSystem& assets;
-    Rendering::Dx12ResourceBuilder& renderResources;
-    Rendering::Dx12TextureOwner& renderTextures;
-    Rendering::Dx12GeometryOwner& renderGeometry;
     const RuntimeRenderModelFrameView& models;
     DiagnosticsRuntime& diagnosticsRuntime;
-    const ReplayHudStatus& replayHud;
-    const ReplayOverlay::ReplayOverlayRenderContext& replayOverlayContext;
     // Lifetime: selected by Run for this UI frame. UI text can render without
     // world passes, so it receives its own snapshot instead of reopening host state.
     const SkullbonezCore::Core::CinematicRenderConfig& cinematic;
@@ -494,7 +474,13 @@ struct DebugOverlayPassInputs
     // Debug overlays draw after production geometry and use the final world
     // view-projection. They do not participate in material or pass-resource
     // ownership.
-    const RenderFrameContext& frame;
+    const RenderCameraLighting& camera;
+    const RuntimeRenderModelFrameView& models;
+    Assets::AssetSystem& assets;
+    Rendering::Dx12ResourceBuilder& renderResources;
+    Rendering::Dx12GeometryOwner& renderGeometry;
+    Rendering::Dx12Diagnostics& renderDiagnostics;
+    Rendering::RenderGpuTimingOwner* gpuTiming = nullptr;
     const DebugOverlaySnapshot& snapshot;
     RuntimeTools& runtimeTools;
     const ReplayVisualPacket& replayVisualPacket;
@@ -504,7 +490,15 @@ struct ShadowPassInputs
 {
     // Shadows are optional. A null cinematic pointer means no shadow maps
     // should be built and receivers should get null shadow outputs.
-    const RenderFrameContext& frame;
+    const RenderCameraLighting& camera;
+    const RuntimeRenderModelFrameView& models;
+    const Rendering::PrimitiveRenderContext& primitive;
+    Rendering::Dx12FrameOwner& renderFrame;
+    Rendering::Dx12TextureOwner& renderTextures;
+    Rendering::Dx12Diagnostics& renderDiagnostics;
+    Rendering::RenderGpuTimingOwner* gpuTiming = nullptr;
+    int windowWidth = 1;
+    int windowHeight = 1;
     const SkullbonezCore::Core::CinematicRenderConfig* cinematic;
     bool terrainHidden;                              // Frame snapshot of debug/scene terrain visibility.
     bool collisionVisualizerVisible;                 // Collision-color mode disables object shadow casters.
@@ -563,10 +557,19 @@ class SkyPass
 
     void EnsureGpuResources( const RenderResourceContext& resources );
     void ReleaseGpuResources();
-    void Render( const RenderFrameContext& frame, const Math::Transformation::Matrix4& view, SkyPassMode mode );
+    void Render( const RenderCameraLighting& camera,
+                 const Math::Transformation::Matrix4& view,
+                 const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
+                 Rendering::Dx12GeometryOwner& renderGeometry,
+                 Rendering::Dx12TextureOwner& renderTextures,
+                 SkyPassMode mode );
 
   private:
-    void RenderCinematicSky( const RenderFrameContext& frame, const Math::Transformation::Matrix4& view );
+    void RenderCinematicSky( const RenderCameraLighting& camera,
+                             const Math::Transformation::Matrix4& view,
+                             const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+                             Rendering::Dx12GeometryOwner& renderGeometry,
+                             Rendering::Dx12TextureOwner& renderTextures );
 
     SkyPassResources& m_skyResources;
     FullscreenPassResources& m_fullscreenResources;
@@ -587,18 +590,27 @@ class SkyPass
 class SceneTargetPass
 {
   public:
-    SceneTargetPass( CinematicScenePassResources& resources, SkullbonezCore::Core::Profiler* profiler )
-        : m_resources( resources ), m_profiler( profiler )
+    SceneTargetPass( CinematicScenePassResources& resources,
+                     SkyPass& skyPass,
+                     SkullbonezCore::Core::Profiler* profiler )
+        : m_resources( resources ), m_skyPass( skyPass ), m_profiler( profiler )
     {
     }
 
     void EnsureGpuResources( const RenderResourceContext& resources );
     void ReleaseGpuResources();
     bool IsReady() const;
-    void Begin( const RenderFrameContext& frame, SkyPass& skyPass );
+    void Begin( const RenderCameraLighting& camera,
+                const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+                Rendering::Dx12FrameOwner& renderFrame,
+                Rendering::Dx12GeometryOwner& renderGeometry,
+                Rendering::Dx12TextureOwner& renderTextures,
+                Rendering::Dx12Diagnostics& renderDiagnostics,
+                Rendering::RenderGpuTimingOwner* gpuTiming );
 
   private:
     CinematicScenePassResources& m_resources;
+    SkyPass& m_skyPass;
     SkullbonezCore::Core::Profiler* m_profiler;      // Startup-bound diagnostics borrow; null when profiling is disabled.
 };
 
@@ -676,13 +688,14 @@ class ReflectionPass
   public:
     ReflectionPass( ReflectionPassResources& resources,
                     Physics::CollisionVisualizer& collisionVisualizer,
+                    SkyPass& skyPass,
                     const SkullbonezCore::Core::EngineConfig& config,
                     Math::Transformation::Matrix4* dxrReflectionTransforms,
                     int dxrReflectionTransformCapacity,
                     RenderResourceLifecycleLog& lifecycleLog,
                     SkullbonezCore::Core::Profiler* profiler )
-        : m_resources( resources ), m_collisionVisualizer( collisionVisualizer ), m_config( config ),
-          m_dxrReflectionTransforms( dxrReflectionTransforms ),
+        : m_resources( resources ), m_collisionVisualizer( collisionVisualizer ), m_skyPass( skyPass ),
+          m_config( config ), m_dxrReflectionTransforms( dxrReflectionTransforms ),
           m_dxrReflectionTransformCapacity( dxrReflectionTransformCapacity ), m_lifecycleLog( lifecycleLog ),
           m_profiler( profiler )
     {
@@ -690,13 +703,14 @@ class ReflectionPass
 
     void EnsureGpuResources( const RenderResourceContext& resources );
     void ReleaseGpuResources();
-    ReflectionPassOutput Render( const ReflectionPassInputs& inputs, SkyPass& skyPass );
+    ReflectionPassOutput Render( const ReflectionPassInputs& inputs );
 
   private:
     void LogResourceLifecycleStep( const char* phase, const char* step ) const;
 
     ReflectionPassResources& m_resources;
     Physics::CollisionVisualizer& m_collisionVisualizer;
+    SkyPass& m_skyPass;
     const SkullbonezCore::Core::EngineConfig& m_config;
     Math::Transformation::Matrix4* m_dxrReflectionTransforms = nullptr;
     int m_dxrReflectionTransformCapacity = 0;
@@ -847,8 +861,18 @@ class VolumetricPass
 
     void EnsureGpuResources( const RenderResourceContext& resources );
     void ReleaseGpuResources();
-    bool CanRender( const RenderFrameContext& frame ) const;
-    bool Render( const RenderFrameContext& frame, const Rendering::RenderGraphTextureBinding* graphOutput = nullptr );
+    bool CanRender( bool cinematicEnabled, const SkullbonezCore::Core::CinematicRenderConfig* cinematic ) const;
+    bool Render( const RenderCameraLighting& camera,
+                 const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+                 Rendering::Dx12GeometryOwner& renderGeometry,
+                 Rendering::Dx12TextureOwner& renderTextures,
+                 Rendering::Dx12FrameOwner& renderFrame,
+                 Rendering::Dx12GraphTransientPool& renderGraph,
+                 Rendering::Dx12Diagnostics& renderDiagnostics,
+                 Rendering::RenderGpuTimingOwner* gpuTiming,
+                 int windowWidth,
+                 int windowHeight,
+                 const Rendering::RenderGraphTextureBinding* graphOutput = nullptr );
 
   private:
     CinematicScenePassResources& m_sceneResources;
@@ -882,7 +906,14 @@ class TonemapPass
 
     void EnsureGpuResources( const RenderResourceContext& resources );
     void ReleaseGpuResources();
-    void Render( const RenderFrameContext& frame,
+    void Render( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+                 Rendering::Dx12GeometryOwner& renderGeometry,
+                 Rendering::Dx12TextureOwner& renderTextures,
+                 Rendering::Dx12FrameOwner& renderFrame,
+                 Rendering::Dx12Diagnostics& renderDiagnostics,
+                 Rendering::RenderGpuTimingOwner* gpuTiming,
+                 int windowWidth,
+                 int windowHeight,
                  bool sceneAlreadyUnbound,
                  bool volumetricReady,
                  const Rendering::RenderGraphTextureBinding* graphVolumetric = nullptr );
@@ -920,9 +951,22 @@ class UiTextPass
                                                        int screenH );
     void ReleaseGpuResources( Rendering::Dx12TextureOwner* renderTextures,
                               Rendering::Dx12GeometryOwner* renderGeometry );
-    bool ShouldRender( const UiTextPassState& state, const UI::InGameUI& ui ) const;
+    bool ShouldRender( const UiHudScenePhase& scene,
+                       const UiHudInteractionPhase& interaction,
+                       const UI::InGameUI& ui,
+                       bool replayScrubberVisible,
+                       bool replayPathVisualizerHasTarget ) const;
     void SetRayTracingCapability( Rendering::Dx12RaytracingOwner* renderRayTracing );
-    void Render( const UiTextPassInputs& inputs );
+    void Render( const UiHudScenePhase& scene,
+                 const UiHudInteractionPhase& interaction,
+                 const UiHudFramePhase& frameFacts,
+                 const UiOperatorTextPhase& operatorPhase,
+                 const UiReplayTextPhase& replay,
+                 const UiTextSubmissionPhase& submission,
+                 Rendering::Dx12ResourceBuilder& renderResources,
+                 Rendering::Dx12TextureOwner& renderTextures,
+                 Rendering::Dx12GeometryOwner& renderGeometry,
+                 Rendering::Dx12Diagnostics& renderDiagnostics );
 
   private:
     // Lifetime: font vertices/projection and optional render capabilities share

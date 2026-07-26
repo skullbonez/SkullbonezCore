@@ -612,6 +612,11 @@ void SceneLoadTransaction::CaptureSubmittedState( const CameraControlState& came
                                                   const char* rendererName,
                                                   double sceneTimeSeconds )
 {
+    // Why: submitted navigation and presentation values own growable cold-load
+    // storage. Attribute their copies to SceneLoad even when the transaction is
+    // opened from the steady-gameplay frame boundary.
+    SkullbonezCore::Core::Allocation::RuntimeAllocationScope allocationScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+
     if ( m_phase.Current() != SceneLoadPhaseCursor::Phase::Idle )
     {
         SB_FATAL( "Runtime/SceneLoadTransaction",

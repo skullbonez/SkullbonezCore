@@ -49,7 +49,6 @@ Related:
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsEngine.h"
-#include "../../Rendering/DX12/Dx12Diagnostics.h"
 #include "../../Rendering/RenderInstanceStore.h"
 #include "../../UI/UI.h"
 #include "../../UI/UITabEditor.h"
@@ -223,10 +222,6 @@ void Render( RuntimeFrameHostView& host,
              const RuntimeUiTextFrameFacts& facts,
              SkullbonezCore::UI::OperatorEditorFrameView& operatorEditorView,
              const ReplayOverlay::ReplayOverlayStateView& replayOverlay,
-             SkullbonezCore::Rendering::Dx12Diagnostics& renderDiagnostics,
-             SkullbonezCore::Rendering::Dx12ResourceBuilder& renderResources,
-             SkullbonezCore::Rendering::Dx12TextureOwner& renderTextures,
-             SkullbonezCore::Rendering::Dx12GeometryOwner& renderGeometry,
              const RuntimeRenderModelFrameView& renderModels )
 {
     DiagnosticsRuntime& diagnosticsRuntime = host.diagnosticsRuntime;
@@ -495,9 +490,9 @@ void Render( RuntimeFrameHostView& host,
         // Invariant: the right rail reads fixed snapshots and cached counters;
         // opening Diagnostics must not trigger an allocation scan or grow data.
         const SkullbonezCore::Core::MainMemoryStats& mainMemory = diagnosticsRuntime.MainMemoryStatsSnapshot();
-        const SkullbonezCore::Rendering::RenderMemoryStats renderMemory = renderDiagnostics.GetRenderMemoryStats();
-        diagnostics.rendererName = renderDiagnostics.GetRendererName();
-        diagnostics.drawCalls = renderDiagnostics.GetFrameDrawCallCount();
+        const RuntimeRenderDiagnosticsSnapshot renderDiagnostics = renderer.CaptureDiagnosticsSnapshot();
+        diagnostics.rendererName = renderDiagnostics.rendererName;
+        diagnostics.drawCalls = renderDiagnostics.drawCalls;
         diagnostics.uiDrawCalls = timers.lastUIDrawCalls;
         diagnostics.workerThreadCount = workerPool.GetThreadCount();
         diagnostics.maxWorkerThreadCount = SkullbonezCore::Threading::WorkerPool::MaxThreadCount();
@@ -535,8 +530,8 @@ void Render( RuntimeFrameHostView& host,
         diagnostics.rayCastVisualization = runtimeTools.RayCastTest().visualizeRays;
         diagnostics.trackedEngineBytes = mainMemory.trackedEngineBytes;
         diagnostics.reconciledTotalBytes = mainMemory.reconciledTotalBytes;
-        diagnostics.uploadUsedBytes = renderMemory.uploadUsedBytes;
-        diagnostics.uploadCapacityBytes = renderMemory.uploadCapacityBytes;
+        diagnostics.uploadUsedBytes = renderDiagnostics.memory.uploadUsedBytes;
+        diagnostics.uploadCapacityBytes = renderDiagnostics.memory.uploadCapacityBytes;
         diagnostics
             .replayReserveGrowthEvents = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::GrowthEventCount();
         diagnostics.renderTargetCount = (std::min)( renderTargetPreviews.count,
@@ -554,37 +549,44 @@ void Render( RuntimeFrameHostView& host,
         }
     }
 
-    const UiTextPassState uiTextState { debug,
-                                        sceneController.CrossScenePauseLocked(),
-                                        scene,
-                                        renderer.PresentationSettings(),
-                                        sceneController.Scene(),
-                                        config,
-                                        runtimeTools.RayCastTest(),
-                                        runtimeTools.Editor(),
-                                        runtimeInput,
-                                        camera,
-                                        runtimeViewModel,
-                                        uiSceneBrowser,
-                                        renderTargetPreviews,
-                                        operatorEditorView,
-                                        &workerPool,
-                                        window.ClientWidth(),
-                                        window.ClientHeight(),
-                                        sceneController.QueueSize(),
-                                        sceneController.HasCurrentEntry(),
-                                        uiScenePath ? uiScenePath->c_str() : nullptr,
-                                        CurrentSceneBrowserIndex( sceneController, uiSceneBrowser ),
-                                        facts.cameraModeEnabledMask,
-                                        facts.cameraModeLabel,
-                                        facts.launcherFireModeLabel,
-                                        facts.isLauncherCameraMode,
-                                        replayOverlay.shouldRenderScrubber,
-                                        replayRuntime.BuildInputView().hasPathTarget };
+    const UiHudScenePhase hudScene { debug,
+                                     sceneController.CrossScenePauseLocked(),
+                                     scene,
+                                     renderer.PresentationSettings(),
+                                     sceneController.Scene(),
+                                     config };
+
+    const UiHudInteractionPhase hudInteraction { runtimeTools.RayCastTest(),
+                                                 runtimeTools.Editor(),
+                                                 runtimeInput,
+                                                 camera,
+                                                 &workerPool };
+
+    const UiHudFramePhase hudFrame { window.ClientWidth(),
+                                     window.ClientHeight(),
+                                     sceneController.QueueSize(),
+                                     sceneController.HasCurrentEntry(),
+                                     uiScenePath ? uiScenePath->c_str() : nullptr,
+                                     CurrentSceneBrowserIndex( sceneController, uiSceneBrowser ),
+                                     facts.cameraModeEnabledMask,
+                                     facts.cameraModeLabel,
+                                     facts.launcherFireModeLabel,
+                                     facts.isLauncherCameraMode };
+
+    const UiOperatorTextPhase operatorPhase { runtimeViewModel,
+                                              uiSceneBrowser,
+                                              renderTargetPreviews,
+                                              operatorEditorView };
+
+    const bool replayPathVisualizerHasTarget = replayRuntime.BuildInputView().hasPathTarget;
 
     renderer.PrepareUiFrameTarget();
 
-    if ( renderer.ResourceLifecycle().ShouldRenderUiText( uiTextState, ui ) )
+    if ( renderer.ResourceLifecycle().ShouldRenderUiText( hudScene,
+                                                          hudInteraction,
+                                                          ui,
+                                                          replayOverlay.shouldRenderScrubber,
+                                                          replayPathVisualizerHasTarget ) )
     {
         runtimeViewModel = RuntimeViewModelBuilder::Build(
             RuntimeViewModelContext { sceneController.State(),
@@ -605,53 +607,44 @@ void Render( RuntimeFrameHostView& host,
             uiCinematicRendering,
             uiCinematicRendering && uiCinematic.volumetricLightingEnabled );
 
-        const ReplayOverlay::ReplayOverlayRenderContext replayOverlayContext { renderTextures,
-                                                                               renderGeometry,
-                                                                               renderDiagnostics,
-                                                                               host.profiler,
-                                                                               replayOverlay,
-                                                                               facts.legacyDevelopmentUiActive,
-                                                                               runtimeTools.Editor().editorModeEnabled,
-                                                                               ui.IsVisible(),
-                                                                               ui.IsMinimized(),
-                                                                               scene.isScenePhysics,
-                                                                               facts.interactionGestureKind,
-                                                                               window.ClientWidth(),
-                                                                               window.ClientHeight(),
-                                                                               timers.simulationTimer.GetTotalTime() };
-
-        const int uiDrawCallStart = renderDiagnostics.GetFrameDrawCallCount();
         const bool replayMemoryStatsRequested = ui.IsVisible() && !ui.IsMinimized() &&
                                                 ui.GetActiveTab() == SkullbonezCore::UI::InGameUITab::Memory;
 
         const ReplayHudStatus replayHud = replayRuntime.BuildHudStatus( replayMemoryStatsRequested );
+        const UiReplayTextPhase replayPhase { replayHud,
+                                              replayOverlay,
+                                              host.profiler,
+                                              facts.legacyDevelopmentUiActive,
+                                              scene.isScenePhysics,
+                                              facts.interactionGestureKind,
+                                              window.ClientWidth(),
+                                              window.ClientHeight(),
+                                              timers.simulationTimer.GetTotalTime(),
+                                              replayOverlay.shouldRenderScrubber,
+                                              replayPathVisualizerHasTarget };
+
         PROFILE_BEGIN( host.profiler, "Frame/UI" );
         {
             CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Render );
-            DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Frame/UI" );
             // Lifetime: every reference in this stack record remains valid until
             // the renderer executes the synchronous UI-text graph callback below.
-            const UiTextPassInputs uiTextInputs { uiTextState,
-                                                  timers,
-                                                  ui,
-                                                  renderDiagnostics,
-                                                  host.assets,
-                                                  renderResources,
-                                                  renderTextures,
-                                                  renderGeometry,
-                                                  renderModels,
-                                                  diagnosticsRuntime,
-                                                  replayHud,
-                                                  replayOverlayContext,
-                                                  uiCinematic,
-                                                  uiCinematicRendering,
-                                                  facts.secondsPerFrame };
+            const UiTextSubmissionPhase submissionPhase { timers,
+                                                          ui,
+                                                          host.assets,
+                                                          renderModels,
+                                                          diagnosticsRuntime,
+                                                          uiCinematic,
+                                                          uiCinematicRendering,
+                                                          facts.secondsPerFrame };
 
-            renderer.RenderUiText( uiTextInputs );
+            timers.lastUIDrawCalls = renderer.RenderUiText( hudScene,
+                                                            hudInteraction,
+                                                            hudFrame,
+                                                            operatorPhase,
+                                                            replayPhase,
+                                                            submissionPhase );
         }
         PROFILE_END( host.profiler, "Frame/UI" );
-        const int uiDrawCallEnd = renderDiagnostics.GetFrameDrawCallCount();
-        timers.lastUIDrawCalls = (std::max)( 0, uiDrawCallEnd - uiDrawCallStart );
     }
     else
     {

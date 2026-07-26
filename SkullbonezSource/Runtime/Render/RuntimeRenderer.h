@@ -9,7 +9,7 @@ Summary:
   supply lifetime-stable dependencies; immutable per-frame records carry
   submission facts and completed overlays.
   UiTextPass owns its font batch and presentation capabilities; this class
-  contributes only the late graph-scheduling edge for UI text.
+  contributes the late graph edge and supplies its backend-epoch owners.
   A content-neutral extension scope lets higher composition append one typed
   world pass at the renderer-owned post-water scheduling point.
 
@@ -33,7 +33,8 @@ Invariants:
   - Backend resource release begins only after a successful GPU drain, then
     keeps consumer passes ahead of producer passes.
   - The world-extension registration is consumed before its stack scope ends.
-  - UI-text input is one stack record consumed synchronously by UiTextPass.
+  - UI-text callers provide only non-backend phases; RuntimeRenderer injects
+    its current resource, texture, geometry, and diagnostics owners.
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h
@@ -48,6 +49,7 @@ Related:
 #include "RenderResourceLifecycle.h"
 #include "RenderPresentationSettings.h"
 #include "../../Rendering/RenderGraph.h"
+#include "../../Rendering/RenderDiagnosticsTypes.h"
 #include "../../Rendering/RenderSceneSnapshot.h"
 #include "../../Rendering/WorldRenderExtension.h"
 
@@ -65,6 +67,15 @@ class ImGuiEditorOwner;
 #endif
 namespace Runtime
 {
+struct RuntimeRenderDiagnosticsSnapshot
+{
+    // Detached UI-facing diagnostics; no backend owner or command surface
+    // escapes RuntimeRenderer.
+    const char* rendererName = "";
+    int drawCalls = 0;
+    Rendering::RenderMemoryStats memory;
+};
+
 class RuntimeRenderer
 {
   public:
@@ -130,9 +141,15 @@ class RuntimeRenderer
     // Validates a restart frame with no Present edge, then releases every
     // callback/resource borrow before capture automation can replace the scene.
     void FinalizeCaptureOnlyFrameGraph();
-    // Schedules the cohesive UI-text owner with one stack-only frame record.
-    // RuntimeRenderer owns graph order, not HUD/replay/operator composition.
-    void RenderUiText( const UiTextPassInputs& inputs );
+    // Schedules concrete HUD scene/interaction/frame, operator, Replay, and
+    // submission phases. RuntimeRenderer owns graph order, not composition.
+    int RenderUiText( const UiHudScenePhase& scene,
+                      const UiHudInteractionPhase& interaction,
+                      const UiHudFramePhase& frame,
+                      const UiOperatorTextPhase& operatorPhase,
+                      const UiReplayTextPhase& replay,
+                      const UiTextSubmissionPhase& submission );
+    RuntimeRenderDiagnosticsSnapshot CaptureDiagnosticsSnapshot() const;
     const Rendering::RenderSceneSnapshot& FrameGraphSnapshot() const
     {
         return m_frameGraphSnapshot;
@@ -150,7 +167,16 @@ class RuntimeRenderer
     };
     struct CinematicPostGraphInputs
     {
-        const RenderFrameContext& frame;                  // Complete immutable render facts borrowed for this post chain.
+        const RenderCameraLighting& camera;
+        const SkullbonezCore::Core::CinematicRenderConfig& cinematic;
+        Rendering::Dx12GeometryOwner& renderGeometry;
+        Rendering::Dx12TextureOwner& renderTextures;
+        Rendering::Dx12FrameOwner& renderFrame;
+        Rendering::Dx12GraphTransientPool& renderGraph;
+        Rendering::Dx12Diagnostics& renderDiagnostics;
+        Rendering::RenderGpuTimingOwner& gpuTiming;
+        int windowWidth = 1;
+        int windowHeight = 1;
     };
     struct BackbufferAcquireGraphInputs
     {
@@ -160,23 +186,11 @@ class RuntimeRenderer
     };
     struct ShadowGraphInputs
     {
-        const RenderFrameContext& frame;
-        const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
-        bool terrainHidden = false;
-        bool collisionVisualizerVisible = false;
+        const ShadowPassInputs& pass;
     };
     struct ReflectionGraphInputs
     {
-        const RenderFrameContext& frame;
-        const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
-        const Rendering::ShadowFrameData* objectShadow = nullptr;
-        bool collisionStateColorsVisible = false;
-        bool transparentBodyPass = false;
-        float collisionVisualizerAlphaOverride = -1.0f;
-        float bodyAlpha = 1.0f;
-        bool waterRayTracingReflection = false;
-        bool waterNoReflection = false;
-        float simulationTimeSeconds = 0.0f;
+        const ReflectionPassInputs& pass;
     };
     // Concept: each world-pass graph wrapper receives one named record so
     // visibility and target-selection flags cannot be swapped positionally.
@@ -184,48 +198,35 @@ class RuntimeRenderer
     // wrapper's synchronous compile, dry-run, and callback execution.
     struct ObjectGraphInputs
     {
-        const RenderFrameContext& frame;
-        ObjectPassMode mode = ObjectPassMode::Opaque;
+        const ObjectPassInputs& pass;
         bool useCinematicTarget = false;
-        const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
-        const Rendering::ShadowFrameData* shadow = nullptr;
-        bool collisionStateColorsVisible = false;
-        float collisionVisualizerAlphaOverride = -1.0f;
-        float bodyAlpha = 1.0f;
-        const std::vector<uint8_t>* modelMask = nullptr;
-        bool drawMaskedModels = true;
     };
     struct TerrainGraphInputs
     {
-        const RenderFrameContext& frame;
+        const TerrainPassInputs& pass;
         bool useCinematicTarget = false;
-        const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
-        const Rendering::ShadowFrameData* shadow = nullptr;
-        const Rendering::ShadowFrameData* detailShadow = nullptr;
-        bool terrainHidden = false;
     };
     struct WaterGraphInputs
     {
-        const RenderFrameContext& frame;
-        const ReflectionPassOutput& reflection;
+        const WaterPassInputs& pass;
         bool useCinematicTarget = false;
-        const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
-        bool waterHidden = false;
-        bool flatWater = false;
-        bool noReflection = false;
-        bool freezeTime = false;
-        float frozenTime = 0.0f;
-        float liveWaterTime = 0.0f;
     };
     struct WorldExtensionGraphInputs
     {
-        const RenderFrameContext& frame;
+        const RenderCameraLighting& camera;
         const Rendering::WorldRenderExtensionRegistration& registration;
+        Rendering::Dx12TextureOwner& renderTextures;
+        Rendering::Dx12GeometryOwner& renderGeometry;
+        Rendering::Dx12Diagnostics& renderDiagnostics;
+        Rendering::RenderGpuTimingOwner& gpuTiming;
         bool useCinematicTarget = false;
     };
     struct ReplayGhostGraphInputs
     {
-        const RenderFrameContext& frame;
+        const RenderCameraLighting& camera;
+        const RuntimeRenderModelFrameView& models;
+        const Rendering::PrimitiveRenderContext& primitive;
+        Textures::TextureCollection& textures;
         const ReplayVisualPacket& replayVisualPacket;
         bool useCinematicTarget = false;
         const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
@@ -233,18 +234,12 @@ class RuntimeRenderer
     };
     struct DebugOverlayGraphInputs
     {
-        const RenderFrameContext& frame;
-        const DebugOverlaySnapshot& snapshot;
-        RuntimeTools& runtimeTools;
-        const ReplayVisualPacket* replayVisualPacket = nullptr;
+        const DebugOverlayPassInputs& pass;
         bool useCinematicTarget = false;
     };
     bool RenderPreparedFrame( const FrameEntryContext& context,
                               const SkullbonezCore::Core::CinematicRenderConfig& renderConfig,
                               bool cinematicRender );
-    RenderFrameContext BuildRenderFrameContext( const RuntimeRenderModelFrameView& models,
-                                                bool cinematicRender,
-                                                const SkullbonezCore::Core::CinematicRenderConfig& renderConfig );
     RenderResourceContext BuildRenderResourceContext( bool cinematicRender );
     Rendering::RenderGraph& BeginRenderPassGraph();
     const Rendering::RenderGraphCompileResult& CompileRenderPassGraph( Rendering::RenderGraph& graph );
@@ -252,9 +247,19 @@ class RuntimeRenderer
     FinalizeFrameGraphInternal( const char* declarationOnlyPassName, bool appendPresent, bool releaseGraphStorage );
     void ExecuteBackbufferAcquireThroughRenderGraph( const BackbufferAcquireGraphInputs& inputs );
     ShadowPassOutput ExecuteShadowThroughRenderGraph( const ShadowGraphInputs& inputs );
-    void ExecuteSkyboxThroughRenderGraph( const RenderFrameContext& frame );
+    void ExecuteSkyboxThroughRenderGraph( const RenderCameraLighting& camera,
+                                          Rendering::Dx12GeometryOwner& renderGeometry,
+                                          Rendering::Dx12TextureOwner& renderTextures,
+                                          Rendering::Dx12GraphTransientPool& renderGraph );
     ReflectionPassOutput ExecuteReflectionThroughRenderGraph( const ReflectionGraphInputs& inputs );
-    void ExecuteSceneTargetBeginThroughRenderGraph( const RenderFrameContext& frame );
+    void ExecuteSceneTargetBeginThroughRenderGraph( const RenderCameraLighting& camera,
+                                                    const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+                                                    Rendering::Dx12GeometryOwner& renderGeometry,
+                                                    Rendering::Dx12TextureOwner& renderTextures,
+                                                    Rendering::Dx12FrameOwner& renderFrame,
+                                                    Rendering::Dx12GraphTransientPool& renderGraph,
+                                                    Rendering::Dx12Diagnostics& renderDiagnostics,
+                                                    Rendering::RenderGpuTimingOwner& gpuTiming );
     void ExecuteObjectThroughRenderGraph( const ObjectGraphInputs& inputs );
     void ExecuteTerrainThroughRenderGraph( const TerrainGraphInputs& inputs );
     void ExecuteWaterThroughRenderGraph( const WaterGraphInputs& inputs );
@@ -265,7 +270,12 @@ class RuntimeRenderer
     void ExecuteReplayGhostsThroughRenderGraph( const ReplayGhostGraphInputs& inputs );
     bool ExecuteDebugOverlayThroughRenderGraph( const DebugOverlayGraphInputs& inputs );
     CinematicPostFrameOutput ExecuteCinematicPostThroughRenderGraph( const CinematicPostGraphInputs& inputs );
-    void ExecuteUiTextThroughRenderGraph( const UiTextPassInputs& inputs );
+    void ExecuteUiTextThroughRenderGraph( const UiHudScenePhase& scene,
+                                          const UiHudInteractionPhase& interaction,
+                                          const UiHudFramePhase& frame,
+                                          const UiOperatorTextPhase& operatorPhase,
+                                          const UiReplayTextPhase& replay,
+                                          const UiTextSubmissionPhase& submission );
     void ReleaseBackendOwnedResources( Rendering::Dx12GeometryOwner* renderGeometry );
     // Owner: backend-epoch state and cold setup live behind one resource seam;
     // frame graph and pass scheduling below retain no duplicate backend borrows.

@@ -78,9 +78,7 @@ class UiDrawSubmission
                  Rendering::Dx12GeometryOwner& renderGeometry,
                  Rendering::Dx12Diagnostics& renderDiagnostics,
                  int screenW,
-                 int screenH,
-                 float offsetX = 0.0f,
-                 float offsetY = 0.0f );
+                 int screenH );
 
     void SubmitWithPreviews( const UI::UIDrawList& drawList,
                              const RuntimeRenderTargetPreviewSnapshot& previewData,
@@ -92,9 +90,7 @@ class UiDrawSubmission
                              Rendering::Dx12GeometryOwner& renderGeometry,
                              Rendering::Dx12Diagnostics& renderDiagnostics,
                              int screenW,
-                             int screenH,
-                             float offsetX = 0.0f,
-                             float offsetY = 0.0f );
+                             int screenH );
 
     void ReleaseGpuResources( Rendering::Dx12GeometryOwner* renderGeometry );
 
@@ -109,9 +105,7 @@ class UiDrawSubmission
                          Rendering::Dx12GeometryOwner& renderGeometry,
                          Rendering::Dx12Diagnostics& renderDiagnostics,
                          int screenW,
-                         int screenH,
-                         float offsetX,
-                         float offsetY );
+                         int screenH );
 
     void EnsurePreviewResources( Assets::AssetSystem& assets,
                                  Rendering::Dx12ResourceBuilder& renderResources,

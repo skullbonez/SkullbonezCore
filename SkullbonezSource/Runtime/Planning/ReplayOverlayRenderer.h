@@ -23,7 +23,7 @@ Glossary:
 Invariants:
   - Replay state reaches the context only through the published overlay view.
   - Published references and sample pointers remain valid for one frame only.
-  - Overlay functions must not store references from the context.
+  - Overlay functions consume every publication and render borrow synchronously.
   - A stable trajectory publication returns before traversing source records.
   - Legacy scrubber and cause-tree pixels draw only while the Legacy
     development surface owns presentation; ImGui consumes the same values in
@@ -79,21 +79,50 @@ namespace SkullbonezCore::Runtime::ReplayOverlay
 void RenderReplayScrubberOverlay( UiDrawSubmission& submission,
                                   Text::TextBatch& textBatch,
                                   UI::UIDrawList& drawList,
-                                  const ReplayOverlayRenderContext& context );
+                                  const ReplayOverlayStateView& replay,
+                                  Rendering::Dx12TextureOwner& renderTextures,
+                                  Rendering::Dx12GeometryOwner& renderCommands,
+                                  Rendering::Dx12Diagnostics& renderDiagnostics,
+                                  Core::Profiler* profiler,
+                                  bool scenePhysicsEnabled,
+                                  RuntimeInteractionGestureKind gesture,
+                                  ReplayOverlayViewport viewport,
+                                  double nowSeconds );
 void RenderReplayInterceptOverlay( UiDrawSubmission& submission,
                                    Text::TextBatch& textBatch,
                                    UI::UIDrawList& drawList,
-                                   const ReplayOverlayRenderContext& context );
+                                   const ReplayOverlayStateView& replay,
+                                   Rendering::Dx12TextureOwner& renderTextures,
+                                   Rendering::Dx12GeometryOwner& renderCommands,
+                                   Rendering::Dx12Diagnostics& renderDiagnostics,
+                                   int screenW,
+                                   int screenH );
 void RenderReplayTripPlannerOverlay( UiDrawSubmission& submission,
                                      Text::TextBatch& textBatch,
                                      UI::UIDrawList& drawList,
-                                     const ReplayOverlayRenderContext& context );
+                                     const ReplayOverlayStateView& replay,
+                                     Rendering::Dx12TextureOwner& renderTextures,
+                                     Rendering::Dx12GeometryOwner& renderCommands,
+                                     Rendering::Dx12Diagnostics& renderDiagnostics,
+                                     int screenW,
+                                     int screenH );
 void RenderReplayPorkchopOverlay( UiDrawSubmission& submission,
                                   Text::TextBatch& textBatch,
                                   UI::UIDrawList& drawList,
-                                  const ReplayOverlayRenderContext& context );
+                                  const ReplayOverlayStateView& replay,
+                                  Rendering::Dx12TextureOwner& renderTextures,
+                                  Rendering::Dx12GeometryOwner& renderCommands,
+                                  Rendering::Dx12Diagnostics& renderDiagnostics,
+                                  int screenW,
+                                  int screenH );
 void RenderReplayCauseTreeOverlay( UiDrawSubmission& submission,
                                    Text::TextBatch& textBatch,
                                    UI::UIDrawList& drawList,
-                                   const ReplayOverlayRenderContext& context );
+                                   const ReplayOverlayStateView& replay,
+                                   Rendering::Dx12TextureOwner& renderTextures,
+                                   Rendering::Dx12GeometryOwner& renderCommands,
+                                   Rendering::Dx12Diagnostics& renderDiagnostics,
+                                   Core::Profiler* profiler,
+                                   int screenW,
+                                   int screenH );
 } // namespace SkullbonezCore::Runtime::ReplayOverlay
