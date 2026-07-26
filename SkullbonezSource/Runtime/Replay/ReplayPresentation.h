@@ -21,11 +21,12 @@ Invariants:
   - ReplayHudStatus borrows no owner and is coherent for one UI frame.
 
 Related:
-  - ReplayRuntime.h
-  - ReplayRecorder.h
+  - SkullbonezSource/Runtime/App/ReplayRuntime.h
+  - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
 */
 #pragma once
 
+#include "ReplayAuthoringPackets.h"
 #include "ReplayIdentity.h"
 #include "ReplayPathPackets.h"
 #include "ReplayPresentationPackets.h"
@@ -200,28 +201,6 @@ struct RunReplayCameraState
     bool focusTerrain = false;
 };
 
-// Value-only selection applied by the presentation owner after cause-tree hit
-// testing. Restore-camera state remains private and cannot be overwritten by a
-// focus command.
-struct ReplayCameraFocusRequest
-{
-    RunReplayCameraFocusKind focusKind = RunReplayCameraFocusKind::None;
-    Physics::PhysicsSceneObjectId focusedId;
-    Physics::PhysicsSceneObjectId counterpartId;
-    int focusedRow = -1;
-    RunReplayCauseTreeRowKind focusRowKind = RunReplayCauseTreeRowKind::Body;
-    Physics::ModelRowHint focusModelRow;
-    Physics::ModelRowHint focusCounterpartModelRow;
-    int focusContactIndex = -1;
-    int focusSolverRowIndex = -1;
-    int focusFeatureId = 0;
-    bool focusTerrain = false;
-    Math::Vector::Vector3 targetPoint = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 targetNormal = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
-    Math::Vector::Vector3 impulseVector = Math::Vector::ZERO_VECTOR;
-    float targetRadius = 1.0f;
-};
-
 struct ReplayPresentationMemoryStats
 {
     uint64_t pathOwnerBytes = 0;
@@ -246,7 +225,9 @@ class ReplayPresentation
     ReplayPresentationMemoryStats CollectMemoryStats() const noexcept;
     bool HasLauncherVisualBackup() const noexcept;
     void ReserveLauncherVisualCaptureBuffers();
-    void PopulateLauncherVisualCapture( ReplayCaptureInput& input, RuntimeTools& runtimeTools );
+    // Lifetime: the returned capture scratch remains valid until this owner
+    // builds the next launcher sample; ReplayRuntime consumes it synchronously.
+    const ReplayLauncherVisualSample& CaptureLauncherVisual( RuntimeTools& runtimeTools );
     void StoreLauncherVisualBackupFrom( RuntimeTools& runtimeTools );
     void RestoreAndClearLauncherVisualBackup( RuntimeTools& runtimeTools );
     void BeginCameraInspection( RunCameraMode restoreMode,
@@ -256,7 +237,14 @@ class ReplayPresentation
                                 const Math::Vector::Vector3& restoreUp ) noexcept;
     void EndCameraInspection() noexcept;
     void SetCameraPauseOwnership( bool ownsPause ) noexcept;
-    void ApplyCameraFocus( const ReplayCameraFocusRequest& request ) noexcept;
+    // Applies the selected cause-tree values without exposing restore-camera
+    // state, which remains private to the presentation owner.
+    void ApplyCameraFocus( const RunReplayCauseTreeRow& row,
+                           int rowIndex,
+                           RunReplayCameraFocusKind focusKind,
+                           const Math::Vector::Vector3& resolvedPoint,
+                           const Math::Vector::Vector3& resolvedNormal,
+                           float resolvedRadius ) noexcept;
     void SetCameraFocusedRow( int row ) noexcept;
     bool ClearCameraFocus() noexcept;
     void ClearPathState();

@@ -31,8 +31,8 @@ Invariants:
   - Process policy consumes typed results; it never rescans InputRouter actions.
 
 Related:
-  - InputFrame.cpp implements shared value and UI-command policy.
-  - InputRouter.h owns retained input state.
+  - SkullbonezSource/Runtime/App/InputFrame.cpp implements shared value and UI-command policy.
+  - SkullbonezSource/Runtime/Input/InputRouter.h owns retained input state.
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
@@ -1101,39 +1101,34 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
             SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ),
             static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
 
-        ReplaySolverSampleRestoreContext sampleOwners { m_sceneController.Scene(),
-                                                        SceneState(),
-                                                        m_renderer,
-                                                        m_debug,
-                                                        m_runtimeTools };
-
-        ReplaySceneTimelineResetOwners timelineOwners {
-            m_inputRouter,
-            m_interaction,
-            &m_sceneController.Scene().Cameras(),
-            m_sceneController.Scene().Terrain().Get(),
-            m_camera,
-            NormalizeCameraModeForCurrentScene( m_replayRuntime.BuildInputView().restoreCameraMode ),
-            m_attachedCamera.State().activeFollow,
-            m_camera.director.grabbed };
-
-        const ReplayRestoreTransaction transaction { sampleOwners,
-                                                     m_diagnosticsRuntime,
-                                                     timelineReset,
-                                                     timelineOwners };
-
-        const ReplayArtifactTopologyOwners topologyOwners {
+        ReplayRestoreTransaction transaction { timelineReset };
+        ReplayLiveRestoreOutcome restoreOutcome = m_replayRuntime.ApplyLiveRestoreRequest(
+            transaction,
+            restoreRequest,
+            m_sceneController.Scene(),
+            SceneState(),
+            m_debug,
+            m_runtimeTools,
             m_simulation,
             m_config,
             m_assets,
             m_workerPool,
             m_UI.SceneNavigation().overrides,
-            m_launchOptions.generatedObjectTypeOverride,
-            SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ) };
+            m_launchOptions.generatedObjectTypeOverride );
 
-        const ReplayLiveRestoreOutcome restoreOutcome = m_replayRuntime.ApplyLiveRestoreRequest( transaction,
-                                                                                                 topologyOwners,
-                                                                                                 restoreRequest );
+        m_replayRuntime.CompleteLiveRestoreRequest(
+            transaction,
+            restoreRequest,
+            restoreOutcome,
+            m_sceneController.Scene(),
+            SceneState(),
+            m_diagnosticsRuntime,
+            m_inputRouter,
+            m_interaction,
+            m_camera,
+            NormalizeCameraModeForCurrentScene( m_replayRuntime.BuildInputView().restoreCameraMode ),
+            m_attachedCamera.State().activeFollow,
+            m_camera.director.grabbed );
 
         if ( restoreOutcome.enterInteractive )
         {

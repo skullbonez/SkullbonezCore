@@ -2,7 +2,7 @@
 
 Date: 2026-07-26
 Owner: skullbonez
-State: IN PROGRESS (PB0-PB3 complete; PB4 next)
+State: IN PROGRESS (PB0-PB4 complete; PB5 next)
 Ledger tasks: 8 (PB0-PB7)
 Branch: `nightrunner-25th-JUL-26`
 
@@ -340,7 +340,7 @@ or type erasure is allowed.
   - permanent report:
     `../../Reports/2026-07-26/concrete-parameter-bag-elimination-pb3-render-ui.md`.
 
-- [ ] **PB4 - Repair Replay capture, camera focus, and restore.**
+- [x] **PB4 - Repair Replay capture, camera focus, and restore.**
 
   Replace `ReplayCaptureInput` with concrete owner-produced capture values,
   remove the isomorphic camera-focus request, and implement the concrete
@@ -359,6 +359,19 @@ or type erasure is allowed.
   - the transaction stores no owner pointer/reference or callback;
   - Replay artifact, scrub, visual-fidelity, allocation, and broad behavior
     gates pass with zero refresh.
+  - all eight target symbols are deleted and the threshold-13 inventory is
+    empty;
+  - `ReplayTimeline::CaptureFrame` and camera focus consume concrete domain
+    values without immediate repacking;
+  - `ReplayRestoreTransaction` owns detached values and an exhaustive phase
+    cursor, while concrete runtime owners are synchronous method borrows;
+  - review restored detached success/failure/fallback/probe diagnostics and
+    the scoped profiler frame required during target stepping;
+  - comment audit: 25/25 touched source files checked, 0 deferred;
+  - Replay artifact, allocation-policy, scrub/visual-fidelity, focused test,
+    and full gates pass with zero baseline refresh;
+  - permanent report:
+    `../../Reports/2026-07-26/concrete-parameter-bag-elimination-pb4-replay.md`.
 
 - [ ] **PB5 - Repair Physics collision and solver stage bags.**
 

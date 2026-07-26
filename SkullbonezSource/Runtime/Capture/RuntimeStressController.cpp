@@ -969,16 +969,15 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host,
                 SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ),
                 static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
 
-            m_replayRuntime.ResetSceneTimeline(
-                reset,
-                ReplaySceneTimelineResetOwners { m_inputRouter,
-                                                 m_interaction,
-                                                 &m_sceneController.Scene().Cameras(),
-                                                 m_sceneController.Scene().Terrain().Get(),
-                                                 m_camera,
-                                                 replayRestoreCameraMode,
-                                                 m_attachedCamera.State().activeFollow,
-                                                 m_camera.director.grabbed } );
+            m_replayRuntime.ResetSceneTimeline( reset,
+                                                m_inputRouter,
+                                                m_interaction,
+                                                &m_sceneController.Scene().Cameras(),
+                                                m_sceneController.Scene().Terrain().Get(),
+                                                m_camera,
+                                                replayRestoreCameraMode,
+                                                m_attachedCamera.State().activeFollow,
+                                                m_camera.director.grabbed );
         }
 
         if ( action.scheduleProfileReset )

@@ -22,8 +22,8 @@ Invariants:
     as applied to replay or later frame phases.
 
 Related:
-  - InputFrameExecution.cpp owns the fixed frame sequence.
-  - Scene/SceneRequestExecution.cpp owns scene-request execution.
+  - SkullbonezSource/Runtime/App/InputFrameExecution.cpp owns the fixed frame sequence.
+  - SkullbonezSource/Runtime/Scene/SceneRequestExecution.cpp owns scene-request execution.
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
@@ -1177,14 +1177,14 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                 static_cast<uint32_t>( launchOptions.generatedObjectTypeOverride ) );
 
             replayRuntime.ResetSceneTimeline( reset,
-                                              ReplaySceneTimelineResetOwners { inputRouter,
-                                                                               interaction,
-                                                                               &sceneController.Scene().Cameras(),
-                                                                               sceneController.Scene().Terrain().Get(),
-                                                                               camera,
-                                                                               facts.replayRestoreCameraMode,
-                                                                               attachedCamera.State().activeFollow,
-                                                                               camera.director.grabbed } );
+                                              inputRouter,
+                                              interaction,
+                                              &sceneController.Scene().Cameras(),
+                                              sceneController.Scene().Terrain().Get(),
+                                              camera,
+                                              facts.replayRestoreCameraMode,
+                                              attachedCamera.State().activeFollow,
+                                              camera.director.grabbed );
         }
 
         if ( action.scheduleProfileReset )

@@ -50,6 +50,7 @@ Related:
 #include "../Input/InputController.h"
 #include "../Replay/ReplayOverlayLayout.h"
 #include "../Replay/ReplayRestoreTransactions.h"
+#include "../Scene/SceneWorld.h"
 #include "../../World/Terrain.h"
 
 #include <algorithm>
@@ -821,22 +822,29 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input,
 
 
 void ReplayRuntime::ResetSceneTimeline( const ReplaySceneTimelineResetInput& input,
-                                        const ReplaySceneTimelineResetOwners& owners )
+                                        InputRouter& inputRouter,
+                                        RuntimeInteractionController& interaction,
+                                        Environment::CameraCollection* cameras,
+                                        Geometry::Terrain* terrain,
+                                        CameraControlState& camera,
+                                        RunCameraMode normalizedRestoreMode,
+                                        bool attachedFollow,
+                                        bool directorGrabbed )
 {
-    ReplayInteractionOperations::CancelToolDragState( owners.interaction, owners.inputRouter );
+    ReplayInteractionOperations::CancelToolDragState( interaction, inputRouter );
     const ReplaySceneTimelineResetResult begin = BeginSceneTimelineReset( input );
     if ( begin.exitInspectionCamera )
     {
         ReplayPresentationOperations::ExitInspectionCamera( m_visualPresentation,
                                                             m_authoring,
-                                                            owners.cameras,
-                                                            owners.terrain,
-                                                            owners.camera,
-                                                            owners.normalizedRestoreMode,
-                                                            owners.attachedFollow,
-                                                            owners.directorGrabbed,
-                                                            owners.interaction,
-                                                            owners.inputRouter );
+                                                            cameras,
+                                                            terrain,
+                                                            camera,
+                                                            normalizedRestoreMode,
+                                                            attachedFollow,
+                                                            directorGrabbed,
+                                                            interaction,
+                                                            inputRouter );
     }
 
     const ReplaySceneTimelineResetResult finish = FinishSceneTimelineReset( input );
@@ -844,21 +852,31 @@ void ReplayRuntime::ResetSceneTimeline( const ReplaySceneTimelineResetInput& inp
     {
         ReplayPresentationOperations::ExitInspectionCamera( m_visualPresentation,
                                                             m_authoring,
-                                                            owners.cameras,
-                                                            owners.terrain,
-                                                            owners.camera,
-                                                            owners.normalizedRestoreMode,
-                                                            owners.attachedFollow,
-                                                            owners.directorGrabbed,
-                                                            owners.interaction,
-                                                            owners.inputRouter );
+                                                            cameras,
+                                                            terrain,
+                                                            camera,
+                                                            normalizedRestoreMode,
+                                                            attachedFollow,
+                                                            directorGrabbed,
+                                                            interaction,
+                                                            inputRouter );
     }
 }
 
 
-ReplayLiveRestoreOutcome ReplayRuntime::ApplyLiveRestoreRequest( const ReplayRestoreTransaction& transaction,
-                                                                 const ReplayArtifactTopologyOwners& topologyOwners,
-                                                                 const ReplayLiveRestoreRequest& request )
+ReplayLiveRestoreOutcome
+ReplayRuntime::ApplyLiveRestoreRequest( ReplayRestoreTransaction& transaction,
+                                        const ReplayLiveRestoreRequest& request,
+                                        SceneWorld& world,
+                                        SceneSessionState& scene,
+                                        OverlayDebugState& debug,
+                                        RuntimeTools& runtimeTools,
+                                        SimulationSystem& simulation,
+                                        const SkullbonezCore::Core::EngineConfig& config,
+                                        SkullbonezCore::Assets::AssetSystem& assets,
+                                        SkullbonezCore::Threading::WorkerPool& workerPool,
+                                        SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+                                        GeneratedObjectTypeOverride& generatedObjectTypeOverride )
 {
     ReplayLiveRestoreOutcome outcome;
     outcome.requested = request.kind != ReplayLiveRestoreKind::None;
@@ -872,29 +890,96 @@ ReplayLiveRestoreOutcome ReplayRuntime::ApplyLiveRestoreRequest( const ReplayRes
     // a caller constructs the request without using the scrubber request builder.
     m_predictionOwner.CancelJob( false );
 
-    char reason[160] = {};
-    RunReplayV2TargetRestoreResult v2Result;
     if ( request.kind == ReplayLiveRestoreKind::V2ArtifactTarget )
     {
         outcome.restored = RestoreV2ArtifactTargetState( transaction,
-                                                         topologyOwners,
-                                                         request.path,
-                                                         request.requestedFrame,
-                                                         request.makeLiveBranch,
-                                                         v2Result,
-                                                         reason,
-                                                         sizeof( reason ) );
+                                                         request,
+                                                         world,
+                                                         scene,
+                                                         debug,
+                                                         runtimeTools,
+                                                         simulation,
+                                                         config,
+                                                         assets,
+                                                         workerPool,
+                                                         uiOverrides,
+                                                         generatedObjectTypeOverride );
     }
     else if ( request.kind == ReplayLiveRestoreKind::SolverSample && request.solverSample )
     {
-        outcome.restored = RestoreSolverSampleAsLive( transaction, *request.solverSample, reason, sizeof( reason ) );
+        outcome.restored = RestoreSolverSampleAsLive( transaction,
+                                                      world,
+                                                      scene,
+                                                      debug,
+                                                      runtimeTools,
+                                                      *request.solverSample );
     }
 
-    outcome.v2Result = v2Result;
-    strncpy_s( outcome.reason, sizeof( outcome.reason ), reason, _TRUNCATE );
-    m_scrubberOwner.CompleteRestore( request, outcome.restored, v2Result, reason );
-    outcome.enterInteractive = v2Result.enterInteractiveRequested;
+    outcome.v2Result = transaction.Result();
+    strncpy_s( outcome.reason, sizeof( outcome.reason ), transaction.FailureReason(), _TRUNCATE );
+    outcome.enterInteractive = transaction.EnterInteractiveRequested();
     return outcome;
+}
+
+void ReplayRuntime::CompleteLiveRestoreRequest( ReplayRestoreTransaction& transaction,
+                                                const ReplayLiveRestoreRequest& request,
+                                                ReplayLiveRestoreOutcome& outcome,
+                                                SceneWorld& world,
+                                                SceneSessionState& scene,
+                                                DiagnosticsRuntime& diagnosticsRuntime,
+                                                InputRouter& inputRouter,
+                                                RuntimeInteractionController& interaction,
+                                                CameraControlState& camera,
+                                                RunCameraMode normalizedRestoreMode,
+                                                bool attachedFollow,
+                                                bool directorGrabbed )
+{
+    // Invariant: a verified live restore does not reach Complete until the
+    // branch-preserving timeline reset and provenance event are both applied.
+    // Owners remain direct synchronous borrows for this completion phase.
+#ifdef _DEBUG
+    PublishRestoreDiagnostic( transaction, diagnosticsRuntime, scene );
+#else
+    (void)scene;
+    (void)diagnosticsRuntime;
+#endif
+    if ( outcome.restored && transaction.TimelineResetRequired() )
+    {
+        ReplaySceneTimelineResetInput reset = transaction.TimelineReset();
+        reset.preserveBranchMetadata = true;
+        ResetSceneTimeline( reset,
+                            inputRouter,
+                            interaction,
+                            &world.Cameras(),
+                            world.Terrain().Get(),
+                            camera,
+                            normalizedRestoreMode,
+                            attachedFollow,
+                            directorGrabbed );
+
+        SubmitEvent( ReplayEventCommandOperations::BuildCommand( ReplayEventKind::BranchRestore,
+                                                                 0,
+                                                                 false,
+                                                                 0,
+                                                                 static_cast<int32_t>( transaction.ParentBranchId() ),
+                                                                 transaction.BranchSceneFrame(),
+                                                                 0,
+                                                                 0,
+                                                                 transaction.BranchSolverHash(),
+                                                                 "hash-verified replay restore" ) );
+
+        transaction.Complete();
+    }
+
+    const char* reason = outcome.restored ? "restored hash match" : transaction.FailureReason();
+    strncpy_s( outcome.reason, sizeof( outcome.reason ), reason, _TRUNCATE );
+    m_scrubberOwner.CompleteRestore( request,
+                                     outcome.restored,
+                                     transaction.Result(),
+                                     reason,
+                                     &outcome.v2Result,
+                                     outcome.reason,
+                                     sizeof( outcome.reason ) );
 }
 
 namespace

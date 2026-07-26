@@ -42,6 +42,10 @@ Invariants:
     lifecycle generation at most once.
   - Generated-scene rebuilds accept only the adjacent drain, repopulate,
     follow-up publication, and completion walk.
+  - Replay restore accepts only the adjacent select-to-verify walk, a
+    pre-mutation failure, or rollback after a live backup exists.
+  - Restore diagnostics retain exact value fields and bounded text without
+    borrowing source or failure buffers.
   - Transaction tests drive the production arbitration and drain gates through
     bounded friend access; they do not duplicate those decisions in test code.
 
@@ -63,6 +67,7 @@ Related:
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayAuthoring.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
+#include "../SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneController.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneLoadTransaction.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneRuntimeGeneratedControls.h"
@@ -507,6 +512,137 @@ TEST_CASE( "Generated-scene control phase cursor accepts only the complete adjac
     CHECK_FALSE( cursor.TryAdvance( Phase::Idle ) );
     CHECK( cursor.Current() == Phase::Complete );
 }
+
+TEST_CASE( "Replay restore phase cursor exposes the complete legal transition matrix" )
+{
+    using Phase = ReplayRestorePhaseCursor::Phase;
+    constexpr std::array phases {
+        Phase::Idle,
+        Phase::ArtifactSelected,
+        Phase::LiveBackupCaptured,
+        Phase::TopologyPrepared,
+        Phase::CheckpointApplied,
+        Phase::TargetStepped,
+        Phase::TargetVerified,
+        Phase::Complete,
+        Phase::Failed,
+        Phase::RolledBack,
+        Phase::Count,
+    };
+
+    for ( std::size_t fromIndex = 0; fromIndex < phases.size(); ++fromIndex )
+    {
+        for ( std::size_t toIndex = 0; toIndex < phases.size(); ++toIndex )
+        {
+            const bool adjacentSuccess = fromIndex < 7u && toIndex == fromIndex + 1u;
+            const bool preMutationFailure = fromIndex <= 3u && phases[toIndex] == Phase::Failed;
+            const bool rollback =
+                fromIndex >= 2u && fromIndex <= 6u && phases[toIndex] == Phase::RolledBack;
+            const bool expected = adjacentSuccess || preMutationFailure || rollback;
+            CHECK( ReplayRestorePhaseCursor::IsLegalTransition( phases[fromIndex], phases[toIndex] ) == expected );
+        }
+    }
+
+    ReplayRestorePhaseCursor cursor;
+    CHECK( cursor.TryAdvance( Phase::ArtifactSelected ) );
+    CHECK( cursor.TryAdvance( Phase::LiveBackupCaptured ) );
+    CHECK( cursor.TryAdvance( Phase::TopologyPrepared ) );
+    CHECK( cursor.TryAdvance( Phase::CheckpointApplied ) );
+    CHECK( cursor.TryAdvance( Phase::TargetStepped ) );
+    CHECK( cursor.TryAdvance( Phase::TargetVerified ) );
+    CHECK( cursor.TryAdvance( Phase::Complete ) );
+    CHECK( cursor.Current() == Phase::Complete );
+    CHECK_FALSE( cursor.TryAdvance( Phase::Failed ) );
+}
+
+#ifdef _DEBUG
+TEST_CASE( "Replay restore transaction detaches exact diagnostic values and text" )
+{
+    ReplayRestoreTransaction transaction;
+
+    ReplayRestoreProbeDiagnostic probe;
+    probe.targetReplayFrame = 71;
+    probe.targetSceneFrame = 19;
+    probe.targetSolverHash = 0xA1u;
+    probe.targetPresentationHash = 0xB2u;
+    probe.targetBodyCount = 13;
+    probe.restoredSolverHash = 0xC3u;
+    probe.restoredPresentationHash = 0xD4u;
+    probe.restoredBodyCount = 12;
+    probe.contactCount = 7;
+    probe.pipelineRecordCount = 8;
+    probe.checkpointBoundary = true;
+    probe.hashCaptured = true;
+    probe.hashMatched = false;
+    probe.fallbackAttempted = true;
+    probe.fallbackRestored = true;
+    transaction.RecordRestoreProbeDiagnostic( probe );
+
+    REQUIRE( transaction.HasRestoreProbeDiagnostic() );
+    const ReplayRestoreProbeDiagnostic& storedProbe = transaction.RestoreProbeDiagnostic();
+    CHECK( storedProbe.targetReplayFrame == 71 );
+    CHECK( storedProbe.targetSceneFrame == 19 );
+    CHECK( storedProbe.targetSolverHash == 0xA1u );
+    CHECK( storedProbe.targetPresentationHash == 0xB2u );
+    CHECK( storedProbe.targetBodyCount == 13 );
+    CHECK( storedProbe.restoredSolverHash == 0xC3u );
+    CHECK( storedProbe.restoredPresentationHash == 0xD4u );
+    CHECK( storedProbe.restoredBodyCount == 12 );
+    CHECK( storedProbe.contactCount == 7 );
+    CHECK( storedProbe.pipelineRecordCount == 8 );
+    CHECK( storedProbe.checkpointBoundary );
+    CHECK( storedProbe.hashCaptured );
+    CHECK_FALSE( storedProbe.hashMatched );
+    CHECK( storedProbe.fallbackAttempted );
+    CHECK( storedProbe.fallbackRestored );
+
+    char source[] = "v2_file_branch";
+    char failure[] = "forced target hash mismatch";
+    ReplayRestoreResultDiagnostic result;
+    result.restoreSource = source;
+    result.targetReplayFrame = 91;
+    result.targetSceneFrame = 23;
+    result.checkpointReplayFrame = 80;
+    result.targetSolverHash = 0x11u;
+    result.targetPresentationHash = 0x22u;
+    result.targetBodyCount = 17;
+    result.restoredSolverHash = 0x33u;
+    result.restoredPresentationHash = 0x44u;
+    result.restoredBodyCount = 16;
+    result.contactCount = 9;
+    result.pipelineRecordCount = 10;
+    result.checkpointBoundary = true;
+    result.hashCaptured = true;
+    result.hashMatched = false;
+    result.fallbackAttempted = true;
+    result.fallbackRestored = true;
+    result.failureReason = failure;
+    transaction.RecordRestoreResultDiagnostic( result );
+    source[0] = 'x';
+    failure[0] = 'x';
+
+    REQUIRE( transaction.HasRestoreResultDiagnostic() );
+    const ReplayRestoreResultDiagnostic& storedResult = transaction.RestoreResultDiagnostic();
+    CHECK( std::strcmp( storedResult.restoreSource, "v2_file_branch" ) == 0 );
+    CHECK( std::strcmp( storedResult.failureReason, "forced target hash mismatch" ) == 0 );
+    CHECK( storedResult.targetReplayFrame == 91 );
+    CHECK( storedResult.targetSceneFrame == 23 );
+    CHECK( storedResult.checkpointReplayFrame == 80 );
+    CHECK( storedResult.targetSolverHash == 0x11u );
+    CHECK( storedResult.targetPresentationHash == 0x22u );
+    CHECK( storedResult.targetBodyCount == 17 );
+    CHECK( storedResult.restoredSolverHash == 0x33u );
+    CHECK( storedResult.restoredPresentationHash == 0x44u );
+    CHECK( storedResult.restoredBodyCount == 16 );
+    CHECK( storedResult.contactCount == 9 );
+    CHECK( storedResult.pipelineRecordCount == 10 );
+    CHECK( storedResult.checkpointBoundary );
+    CHECK( storedResult.hashCaptured );
+    CHECK_FALSE( storedResult.hashMatched );
+    CHECK( storedResult.fallbackAttempted );
+    CHECK( storedResult.fallbackRestored );
+}
+#endif
 
 TEST_CASE( "Generated-scene control transaction blocks mutation after a failed drain" )
 {

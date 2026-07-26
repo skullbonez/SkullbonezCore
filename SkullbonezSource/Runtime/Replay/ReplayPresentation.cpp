@@ -70,10 +70,10 @@ ReplayPastTrajectoryView ReplayPresentation::PastTrajectoryView() const noexcept
     return view;
 }
 
-void ReplayPresentation::PopulateLauncherVisualCapture( ReplayCaptureInput& input, RuntimeTools& runtimeTools )
+const ReplayLauncherVisualSample& ReplayPresentation::CaptureLauncherVisual( RuntimeTools& runtimeTools )
 {
     runtimeTools.BuildReplayLauncherVisualSample( m_launcherVisualCaptureScratch );
-    input.launcherVisual = &m_launcherVisualCaptureScratch;
+    return m_launcherVisualCaptureScratch;
 }
 
 void ReplayPresentation::ReserveLauncherVisualCaptureBuffers()
@@ -428,23 +428,28 @@ void ReplayPresentation::SetCameraPauseOwnership( bool ownsPause ) noexcept
 }
 
 
-void ReplayPresentation::ApplyCameraFocus( const ReplayCameraFocusRequest& request ) noexcept
+void ReplayPresentation::ApplyCameraFocus( const RunReplayCauseTreeRow& row,
+                                           int rowIndex,
+                                           RunReplayCameraFocusKind focusKind,
+                                           const Math::Vector::Vector3& resolvedPoint,
+                                           const Math::Vector::Vector3& resolvedNormal,
+                                           float resolvedRadius ) noexcept
 {
-    m_camera.focusKind = request.focusKind;
-    m_camera.focusedId = request.focusedId;
-    m_camera.counterpartId = request.counterpartId;
-    m_camera.focusedRow = request.focusedRow;
-    m_camera.focusRowKind = request.focusRowKind;
-    m_camera.focusModelRow = request.focusModelRow;
-    m_camera.focusCounterpartModelRow = request.focusCounterpartModelRow;
-    m_camera.focusContactIndex = request.focusContactIndex;
-    m_camera.focusSolverRowIndex = request.focusSolverRowIndex;
-    m_camera.focusFeatureId = request.focusFeatureId;
-    m_camera.focusTerrain = request.focusTerrain;
-    m_camera.targetPoint = request.targetPoint;
-    m_camera.targetNormal = request.targetNormal;
-    m_camera.impulseVector = request.impulseVector;
-    m_camera.targetRadius = request.targetRadius;
+    m_camera.focusKind = focusKind;
+    m_camera.focusedId = row.id;
+    m_camera.counterpartId = row.counterpartId;
+    m_camera.focusedRow = rowIndex;
+    m_camera.focusRowKind = row.kind;
+    m_camera.focusModelRow = row.modelRow;
+    m_camera.focusCounterpartModelRow = row.counterpartModelRow;
+    m_camera.focusContactIndex = row.contactIndex;
+    m_camera.focusSolverRowIndex = row.solverRowIndex;
+    m_camera.focusFeatureId = row.featureId;
+    m_camera.focusTerrain = row.terrain;
+    m_camera.targetPoint = resolvedPoint;
+    m_camera.targetNormal = resolvedNormal;
+    m_camera.impulseVector = row.impulse;
+    m_camera.targetRadius = resolvedRadius;
 }
 
 

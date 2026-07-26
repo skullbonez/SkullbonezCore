@@ -1,21 +1,27 @@
 /*
 File: SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h
 Purpose:
-  Defines frame-scoped transactions used by replay startup and restore.
+  Enforces replay restore phase order while retaining only detached values.
 
 Summary:
-  These operation-specific values are short-lived borrow packets assembled at the application
-  composition boundary. They expose only the owners required by one replay
-  operation and are never stored.
+  ReplayRestoreTransaction owns the restore cursor, live backup, result, and
+  branch-reset values needed across synchronous restore phases. Runtime owners
+  enter individual phase calls as borrows and are never retained here.
 
 Glossary:
-  Sample restore: Transaction that applies one solver sample to live owners.
+  Live backup: Detached solver sample captured before any restore mutation.
   Topology restore: Cold scene rebuild needed when an artifact's body layout
     differs from the current generated scene.
+  Phase cursor: Value that admits only the legal restore walk and terminal
+    failure transitions.
 
 Invariants:
-  - Production startup cannot borrow solver or scene-rebuild owners.
-  - Sample and topology operands remain separate at the production boundary.
+  - The normal walk is select, backup, topology, checkpoint, step, verify,
+    complete; illegal transitions are Lane F.
+  - Failure before mutation ends in Failed; failure after a live backup and
+    possible mutation ends only after rollback.
+  - No owner pointer, reference, callback, or service bundle is retained;
+    Debug diagnostics copy bounded text before synchronous App publication.
 
 Related:
   - SkullbonezSource/Runtime/App/ReplayRuntime.h
@@ -24,80 +30,383 @@ Related:
 #pragma once
 
 #include "ReplayCoordination.h"
+#include "ReplayRecorder.h"
+#include "ReplayScrubber.h"
+#include "../../Core/FatalError.h"
+#ifdef _DEBUG
+#include "../Diagnostics/RuntimeDiagnostics.h"
+#endif
+
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <utility>
 
 namespace SkullbonezCore
 {
-namespace Assets
-{
-class AssetSystem;
-}
-namespace Core
-{
-class EngineConfig;
-}
-namespace Threading
-{
-class WorkerPool;
-}
-namespace UI
-{
-struct RunSceneUIOverrideState;
-}
 namespace Runtime
 {
-class DiagnosticsRuntime;
-class RuntimeRenderer;
-class SceneController;
-class SceneWorld;
-class SimulationSystem;
-class RuntimeTools;
-enum class GeneratedObjectTypeOverride;
-struct OverlayDebugState;
-struct SceneSessionState;
-struct ReplaySolverSampleRestoreContext
-{
-    // Lifetime: the composition root builds this from live owners for one
-    // restore call. ReplayRuntime applies sampled values synchronously and does
-    // not retain any reference.
-    SceneWorld& world;
-    SceneSessionState& scene;
-    RuntimeRenderer& renderer;
-    OverlayDebugState& debug;
-    RuntimeTools& runtimeTools;
-};
-
-// Lifetime: startup replay loading borrows only interaction/camera owners.
-// Solver, scene-rebuild, and diagnostic owners are intentionally excluded so
-// a normal artifact load cannot gain the debug probe's authority.
+// Lifetime: startup presentation activation borrows input, interaction,
+// camera, and terrain owners only for the synchronous load call. Solver,
+// scene-rebuild, and diagnostic authority is intentionally excluded.
 struct ReplayStartupLoadInput
 {
     double now = 0.0;
     Environment::CameraCollection* cameras = nullptr;
     RunMousePickupState& mousePickup;
     RunCameraMode normalizedCurrentMode = RunCameraMode::Demo;
-    const ReplaySceneTimelineResetOwners& timelineOwners;
+    InputRouter& inputRouter;
+    RuntimeInteractionController& interaction;
+    Geometry::Terrain* terrain = nullptr;
+    CameraControlState& camera;
+    RunCameraMode normalizedRestoreMode = RunCameraMode::Demo;
+    bool attachedFollow = false;
+    bool directorGrabbed = false;
 };
 
-// Concept: live restore composes two narrow operand sets. The sample service
-// owns physics/presentation mutation; artifact topology rebuilding separately
-// borrows cold scene-construction owners. Neither grants a callback into Run.
-struct ReplayRestoreTransaction
+class ReplayRestorePhaseCursor
 {
-    ReplaySolverSampleRestoreContext& sampleOwners;
-    DiagnosticsRuntime& diagnostics;
-    ReplaySceneTimelineResetInput timelineReset;
-    const ReplaySceneTimelineResetOwners& timelineOwners;
+  public:
+    enum class Phase : uint8_t
+    {
+        Idle,
+        ArtifactSelected,
+        LiveBackupCaptured,
+        TopologyPrepared,
+        CheckpointApplied,
+        TargetStepped,
+        TargetVerified,
+        Complete,
+        Failed,
+        RolledBack,
+        Count
+    };
+
+    static constexpr bool IsLegalTransition( Phase from, Phase to )
+    {
+        const bool adjacent = ( from == Phase::Idle && to == Phase::ArtifactSelected ) ||
+                              ( from == Phase::ArtifactSelected && to == Phase::LiveBackupCaptured ) ||
+                              ( from == Phase::LiveBackupCaptured && to == Phase::TopologyPrepared ) ||
+                              ( from == Phase::TopologyPrepared && to == Phase::CheckpointApplied ) ||
+                              ( from == Phase::CheckpointApplied && to == Phase::TargetStepped ) ||
+                              ( from == Phase::TargetStepped && to == Phase::TargetVerified ) ||
+                              ( from == Phase::TargetVerified && to == Phase::Complete );
+        const bool preMutationFailure = ( from == Phase::Idle || from == Phase::ArtifactSelected ||
+                                          from == Phase::LiveBackupCaptured || from == Phase::TopologyPrepared ) &&
+                                        to == Phase::Failed;
+        const bool rollback = ( from == Phase::LiveBackupCaptured || from == Phase::TopologyPrepared ||
+                                from == Phase::CheckpointApplied || from == Phase::TargetStepped ||
+                                from == Phase::TargetVerified ) &&
+                              to == Phase::RolledBack;
+        return adjacent || preMutationFailure || rollback;
+    }
+
+    bool TryAdvance( Phase next )
+    {
+        if ( !IsLegalTransition( m_phase, next ) )
+        {
+            return false;
+        }
+        m_phase = next;
+        return true;
+    }
+
+    Phase Current() const
+    {
+        return m_phase;
+    }
+
+  private:
+    Phase m_phase = Phase::Idle;
 };
 
-struct ReplayArtifactTopologyOwners
+// Invariant:
+// - Restore follows the adjacent selection, backup, topology, checkpoint,
+//   stepping, verification, and completion walk. Illegal order is Lane F.
+// - Recoverable failure before mutation ends in Failed. Once live state may
+//   have changed, failure can return only after the retained backup is applied
+//   and the cursor reaches RolledBack.
+// - The transaction owns only detached values and its phase cursor. Every
+//   runtime owner is borrowed by one ReplayRuntime phase call and expires when
+//   that call returns.
+// - TestOwnerRequestQueues.cpp proves the complete cursor transition matrix.
+class ReplayRestoreTransaction
 {
-    SimulationSystem& simulation;
-    const SkullbonezCore::Core::EngineConfig& config;
-    Assets::AssetSystem& assets;
-    Threading::WorkerPool& workerPool;
-    SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides;
-    GeneratedObjectTypeOverride& generatedObjectTypeOverride;
-    int sceneObjectCapacity = 0;
+  public:
+    explicit ReplayRestoreTransaction( const ReplaySceneTimelineResetInput& timelineReset = {} )
+        : m_timelineReset( timelineReset )
+    {
+    }
+
+    ReplayRestoreTransaction( const ReplayRestoreTransaction& ) = delete;
+    ReplayRestoreTransaction& operator=( const ReplayRestoreTransaction& ) = delete;
+
+    void SelectArtifact( std::size_t checkpointIndex, std::size_t targetIndex )
+    {
+        AdvanceOrFatal( ReplayRestorePhaseCursor::Phase::ArtifactSelected, "SelectArtifact" );
+        m_checkpointIndex = checkpointIndex;
+        m_targetIndex = targetIndex;
+    }
+
+    void CaptureLiveBackup( ReplaySolverFrameSample&& sample )
+    {
+        AdvanceOrFatal( ReplayRestorePhaseCursor::Phase::LiveBackupCaptured, "CaptureLiveBackup" );
+        // Hazard: ReplaySolverFrameSample owns a replay-policy vector. Moving
+        // the freshly captured sample transfers its registered allocation;
+        // copying here would add an unregistered restore-time growth path.
+        m_liveBackup = std::move( sample );
+        m_hasLiveBackup = true;
+    }
+
+    void MarkTopologyPrepared( bool rebuilt, bool stateMutated )
+    {
+        AdvanceOrFatal( ReplayRestorePhaseCursor::Phase::TopologyPrepared, "MarkTopologyPrepared" );
+        m_generatedTopologyRebuilt = rebuilt;
+        m_stateMutated = stateMutated;
+    }
+
+    void MarkCheckpointApplied()
+    {
+        AdvanceOrFatal( ReplayRestorePhaseCursor::Phase::CheckpointApplied, "MarkCheckpointApplied" );
+        m_stateMutated = true;
+    }
+
+    void MarkTargetStepped( ReplayFrameIndex frame, uint32_t eventCursor, std::size_t eventsApplied )
+    {
+        AdvanceOrFatal( ReplayRestorePhaseCursor::Phase::TargetStepped, "MarkTargetStepped" );
+        m_targetFrame = frame;
+        m_eventCursor = eventCursor;
+        m_eventsApplied = eventsApplied;
+    }
+
+    void MarkTargetVerified()
+    {
+        AdvanceOrFatal( ReplayRestorePhaseCursor::Phase::TargetVerified, "MarkTargetVerified" );
+    }
+
+    void PrepareTimelineReset( uint32_t parentBranchId, int sceneFrame, uint64_t solverHash )
+    {
+        m_timelineResetRequired = true;
+        m_parentBranchId = parentBranchId;
+        m_branchSceneFrame = sceneFrame;
+        m_branchSolverHash = solverHash;
+    }
+
+    void Complete()
+    {
+        AdvanceOrFatal( ReplayRestorePhaseCursor::Phase::Complete, "Complete" );
+    }
+
+    void FailBeforeMutation( const char* reason )
+    {
+        if ( m_stateMutated )
+        {
+            SB_FATAL( "Runtime/ReplayRestoreTransaction",
+                      "Pre-mutation failure reported after live state mutation. phase=%u",
+                      static_cast<unsigned int>( m_phase.Current() ) );
+        }
+        AdvanceOrFatal( ReplayRestorePhaseCursor::Phase::Failed, "FailBeforeMutation" );
+        CopyFailure( reason );
+    }
+
+    void MarkRolledBack( const char* reason )
+    {
+        AdvanceOrFatal( ReplayRestorePhaseCursor::Phase::RolledBack, "MarkRolledBack" );
+        CopyFailure( reason );
+    }
+
+    ReplayRestorePhaseCursor::Phase Phase() const
+    {
+        return m_phase.Current();
+    }
+
+    const ReplaySceneTimelineResetInput& TimelineReset() const
+    {
+        return m_timelineReset;
+    }
+
+    const ReplaySolverFrameSample& LiveBackup() const
+    {
+        return m_liveBackup;
+    }
+
+    bool HasLiveBackup() const
+    {
+        return m_hasLiveBackup;
+    }
+
+    bool StateMutated() const
+    {
+        return m_stateMutated;
+    }
+
+    bool GeneratedTopologyRebuilt() const
+    {
+        return m_generatedTopologyRebuilt;
+    }
+
+    std::size_t CheckpointIndex() const
+    {
+        return m_checkpointIndex;
+    }
+
+    std::size_t TargetIndex() const
+    {
+        return m_targetIndex;
+    }
+
+    ReplayFrameIndex TargetFrame() const
+    {
+        return m_targetFrame;
+    }
+
+    uint32_t EventCursor() const
+    {
+        return m_eventCursor;
+    }
+
+    std::size_t EventsApplied() const
+    {
+        return m_eventsApplied;
+    }
+
+    const char* FailureReason() const
+    {
+        return m_failureReason;
+    }
+
+    void RecordFailure( const char* reason )
+    {
+        CopyFailure( reason );
+    }
+
+    RunReplayV2TargetRestoreResult& Result()
+    {
+        return m_result;
+    }
+
+    const RunReplayV2TargetRestoreResult& Result() const
+    {
+        return m_result;
+    }
+
+    void RequestInteractiveScene()
+    {
+        m_enterInteractiveRequested = true;
+    }
+
+    bool EnterInteractiveRequested() const
+    {
+        return m_enterInteractiveRequested;
+    }
+
+    bool TimelineResetRequired() const
+    {
+        return m_timelineResetRequired;
+    }
+
+    uint32_t ParentBranchId() const
+    {
+        return m_parentBranchId;
+    }
+
+    int BranchSceneFrame() const
+    {
+        return m_branchSceneFrame;
+    }
+
+    uint64_t BranchSolverHash() const
+    {
+        return m_branchSolverHash;
+    }
+
+#ifdef _DEBUG
+    void RecordRestoreProbeDiagnostic( const ReplayRestoreProbeDiagnostic& diagnostic )
+    {
+        m_restoreProbeDiagnostic = diagnostic;
+        m_hasRestoreProbeDiagnostic = true;
+    }
+
+    bool HasRestoreProbeDiagnostic() const
+    {
+        return m_hasRestoreProbeDiagnostic;
+    }
+
+    const ReplayRestoreProbeDiagnostic& RestoreProbeDiagnostic() const
+    {
+        return m_restoreProbeDiagnostic;
+    }
+
+    void RecordRestoreResultDiagnostic( const ReplayRestoreResultDiagnostic& diagnostic )
+    {
+        m_restoreResultDiagnostic = diagnostic;
+        strncpy_s( m_restoreSource, diagnostic.restoreSource ? diagnostic.restoreSource : "unknown", _TRUNCATE );
+        strncpy_s( m_restoreFailureReason, diagnostic.failureReason ? diagnostic.failureReason : "", _TRUNCATE );
+        m_restoreResultDiagnostic.restoreSource = m_restoreSource;
+        m_restoreResultDiagnostic.failureReason = m_restoreFailureReason;
+        m_hasRestoreResultDiagnostic = true;
+    }
+
+    bool HasRestoreResultDiagnostic() const
+    {
+        return m_hasRestoreResultDiagnostic;
+    }
+
+    const ReplayRestoreResultDiagnostic& RestoreResultDiagnostic() const
+    {
+        return m_restoreResultDiagnostic;
+    }
+#endif
+
+  private:
+    void AdvanceOrFatal( ReplayRestorePhaseCursor::Phase next, const char* operation )
+    {
+        const ReplayRestorePhaseCursor::Phase current = m_phase.Current();
+        if ( !m_phase.TryAdvance( next ) )
+        {
+            // Lane F: accepting an out-of-order restore phase could publish a
+            // partial topology or return after mutation without rollback.
+            SB_FATAL( "Runtime/ReplayRestoreTransaction",
+                      "Illegal phase transition. operation=%s current=%u next=%u",
+                      operation,
+                      static_cast<unsigned int>( current ),
+                      static_cast<unsigned int>( next ) );
+        }
+    }
+
+    void CopyFailure( const char* reason )
+    {
+        strncpy_s( m_failureReason, reason ? reason : "restore failed", _TRUNCATE );
+    }
+
+    ReplaySceneTimelineResetInput m_timelineReset;
+    ReplaySolverFrameSample m_liveBackup;
+    RunReplayV2TargetRestoreResult m_result;
+    ReplayRestorePhaseCursor m_phase;
+    std::size_t m_checkpointIndex = 0;
+    std::size_t m_targetIndex = 0;
+    ReplayFrameIndex m_targetFrame = 0;
+    uint32_t m_eventCursor = 0;
+    std::size_t m_eventsApplied = 0;
+    bool m_hasLiveBackup = false;
+    bool m_stateMutated = false;
+    bool m_generatedTopologyRebuilt = false;
+    bool m_enterInteractiveRequested = false;
+    bool m_timelineResetRequired = false;
+    uint32_t m_parentBranchId = 0;
+    int m_branchSceneFrame = 0;
+    uint64_t m_branchSolverHash = 0;
+    char m_failureReason[320] = {};
+#ifdef _DEBUG
+    // Lifetime: diagnostic strings are copied into transaction-owned bounded
+    // storage so publication never borrows an artifact or stack reason buffer.
+    ReplayRestoreProbeDiagnostic m_restoreProbeDiagnostic;
+    ReplayRestoreResultDiagnostic m_restoreResultDiagnostic;
+    char m_restoreSource[32] = {};
+    char m_restoreFailureReason[320] = {};
+    bool m_hasRestoreProbeDiagnostic = false;
+    bool m_hasRestoreResultDiagnostic = false;
+#endif
 };
 
 } // namespace Runtime

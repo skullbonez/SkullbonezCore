@@ -22,9 +22,9 @@ Invariants:
   - Hash-log paths stay paired beside the presentation log.
 
 Related:
-  - ReplayTimeline.h
-  - ReplayRecorder.cpp
-  - ReplayRuntime.cpp
+  - SkullbonezSource/Runtime/Replay/ReplayTimeline.h
+  - SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp
+  - SkullbonezSource/Runtime/App/ReplayRuntime.cpp
 */
 #include "ReplayTimeline.h"
 
@@ -352,7 +352,17 @@ void ReplayTimeline::ReportLatestCaptureMismatch()
     }
 }
 
-ReplayTimelineCaptureResult ReplayTimeline::CaptureFrame( ReplayCaptureInput input )
+ReplayTimelineCaptureResult ReplayTimeline::CaptureFrame( int sceneFrame,
+                                                          float physicsDt,
+                                                          const ReplayWorldPresentationSample& world,
+                                                          const ReplayCameraSample& camera,
+                                                          const ReplayLauncherVisualSample& launcherVisual,
+                                                          Physics::PhysicsEngine& physics,
+                                                          const Gameplay::TornadoGameplay& tornadoGameplay,
+                                                          const SceneEntityStore& entities,
+                                                          const Physics::PhysicsBodyStore& bodyStore,
+                                                          const Physics::ColliderStore& colliderStore,
+                                                          const ReplayBranchInfo& branch )
 {
     ReplayTimelineCaptureResult result;
     if ( !m_recordingEnabled )
@@ -360,11 +370,23 @@ ReplayTimelineCaptureResult ReplayTimeline::CaptureFrame( ReplayCaptureInput inp
         return result;
     }
 
-    input.eventCursor = m_events.GetStats().nextSequence;
+    const uint32_t eventCursor = m_events.GetStats().nextSequence;
     if ( m_solver.IsEnabled() )
     {
         const ReplayFrameIndex expectedSolverFrame = m_solver.GetStats().nextFrameIndex;
-        m_solver.CaptureFrame( input );
+        m_solver.CaptureFrame( branch,
+                               eventCursor,
+                               sceneFrame,
+                               physicsDt,
+                               world,
+                               camera,
+                               launcherVisual,
+                               physics,
+                               tornadoGameplay,
+                               entities,
+                               bodyStore,
+                               colliderStore );
+
         const ReplaySolverFrameSample* solverSample = m_solver.LatestSample();
         if ( solverSample && solverSample->frameIndex == expectedSolverFrame )
         {
@@ -384,7 +406,17 @@ ReplayTimelineCaptureResult ReplayTimeline::CaptureFrame( ReplayCaptureInput inp
         }
     }
 
-    m_presentation.CaptureFrame( input );
+    m_presentation.CaptureFrame( branch,
+                                 eventCursor,
+                                 sceneFrame,
+                                 physicsDt,
+                                 world,
+                                 camera,
+                                 physics,
+                                 entities,
+                                 bodyStore,
+                                 colliderStore );
+
     const ReplayPresentationSample* presentationSample = m_presentation.LatestSample();
     if ( presentationSample )
     {

@@ -726,7 +726,7 @@ void SceneLoadTransaction::ApplyRuntimeReactions( const RunLaunchOptions& launch
         Hardware::Input::ResetMouseLookDeltas();
     }
 
-    const auto replayOwners = [&]( CameraControlState& cameraOwner )
+    const auto replayRestoreMode = [&]()
     {
         RunCameraMode restoreMode = replayRuntime.BuildInputView().restoreCameraMode;
 
@@ -743,14 +743,7 @@ void SceneLoadTransaction::ApplyRuntimeReactions( const RunLaunchOptions& launch
             restoreMode = RunCameraMode::Inspect;
         }
 
-        return ReplaySceneTimelineResetOwners { inputRouter,
-                                                interaction,
-                                                &sceneController.Scene().Cameras(),
-                                                sceneController.Scene().Terrain().Get(),
-                                                cameraOwner,
-                                                restoreMode,
-                                                attachedCamera.State().activeFollow,
-                                                cameraOwner.director.grabbed };
+        return restoreMode;
     };
 
     const ReplaySceneTimelineResetInput timelineReset = DescribeReplaySceneTimeline(
@@ -760,8 +753,17 @@ void SceneLoadTransaction::ApplyRuntimeReactions( const RunLaunchOptions& launch
         sceneController.Scene().ActiveSceneObjectCapacity(),
         static_cast<uint32_t>( launchOptions.generatedObjectTypeOverride ) );
 
-    ReplaySceneTimelineResetOwners activationOwners = replayOwners( camera );
-    replayRuntime.ObserveSceneLifecycleAfterActivation( lifecycle, timelineReset, activationOwners );
+    replayRuntime.ObserveSceneLifecycleAfterActivation( lifecycle,
+                                                        timelineReset,
+                                                        inputRouter,
+                                                        interaction,
+                                                        &sceneController.Scene().Cameras(),
+                                                        sceneController.Scene().Terrain().Get(),
+                                                        camera,
+                                                        replayRestoreMode(),
+                                                        attachedCamera.State().activeFollow,
+                                                        camera.director.grabbed );
+
     if ( launchOptions.replayGuideArcsAtStartup && lifecycle.event == SceneRuntimeLifecycleEvent::AfterSceneActivated )
     {
         // Why: clear-phase processing restores the product's default-off state.

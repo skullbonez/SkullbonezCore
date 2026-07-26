@@ -454,33 +454,6 @@ struct ReplayEventInput
     const char* text = nullptr;
 };
 
-struct ReplayCaptureInput
-{
-    ReplayBranchInfo branch;
-    uint32_t eventCursor = 0;
-    int sceneFrame = 0;
-    double simulationSeconds = 0.0;
-    float physicsDt = 0.0f;
-    bool fixedStep = false;
-    bool scenePhysicsEnabled = true;
-    bool sceneTextEnabled = true;
-    bool waterHidden = false;
-    bool terrainHidden = false;
-    Environment::CameraCollection* cameras = nullptr;
-    Environment::WorldEnvironment* world = nullptr;
-    // PhysicsEngine is the replay capture command owner for solver snapshots
-    // and diagnostics. Body/collider stores remain explicit read views so the
-    // recorder cannot recover presentation or scene authority through it.
-    Physics::PhysicsEngine* physics = nullptr;
-    const Gameplay::TornadoGameplay* tornadoGameplay = nullptr;
-    const SceneEntityStore* entities = nullptr;
-    // Replay recorders borrow stores for physics state and the scene entity
-    // owner for names, so capture does not depend on legacy object record writeback.
-    const Physics::PhysicsBodyStore* bodyStore = nullptr;
-    const Physics::ColliderStore* colliderStore = nullptr;
-    const ReplayLauncherVisualSample* launcherVisual = nullptr;
-};
-
 struct ReplayRecorderConfig
 {
     bool enabled = false;
@@ -497,7 +470,16 @@ class ReplayRecorder
   public:
     bool Configure( const ReplayRecorderConfig& config );
     void ResetTimeline( const char* sceneLabel );
-    void CaptureFrame( const ReplayCaptureInput& input );
+    void CaptureFrame( const ReplayBranchInfo& branch,
+                       uint32_t eventCursor,
+                       int sceneFrame,
+                       float physicsDt,
+                       const ReplayWorldPresentationSample& world,
+                       const ReplayCameraSample& camera,
+                       Physics::PhysicsEngine& physics,
+                       const SceneEntityStore& entities,
+                       const Physics::PhysicsBodyStore& bodyStore,
+                       const Physics::ColliderStore& colliderStore );
     // Records the presentation track from an already captured solver sample.
     // Use this when both tracks are enabled so frame capture does one model walk.
     void CaptureFrameFromSolverSample( const ReplaySolverFrameSample& solverSample );
@@ -569,7 +551,18 @@ class ReplaySolverRecorder
   public:
     bool Configure( const ReplayRecorderConfig& config );
     void ResetTimeline( const char* sceneLabel );
-    void CaptureFrame( const ReplayCaptureInput& input );
+    void CaptureFrame( const ReplayBranchInfo& branch,
+                       uint32_t eventCursor,
+                       int sceneFrame,
+                       float physicsDt,
+                       const ReplayWorldPresentationSample& world,
+                       const ReplayCameraSample& camera,
+                       const ReplayLauncherVisualSample& launcherVisual,
+                       Physics::PhysicsEngine& physics,
+                       const Gameplay::TornadoGameplay& tornadoGameplay,
+                       const SceneEntityStore& entities,
+                       const Physics::PhysicsBodyStore& bodyStore,
+                       const Physics::ColliderStore& colliderStore );
     bool IsEnabled() const;
     ReplayRecorderStats GetStats() const;
     // Adds this track's fixed-capacity storage to the shared replay memory categories.

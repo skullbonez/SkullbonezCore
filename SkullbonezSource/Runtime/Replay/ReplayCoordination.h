@@ -25,8 +25,8 @@ Invariants:
   - Scene reset facts contain no mutable scene or physics authority.
 
 Related:
-  - ReplayRuntime.h
-  - ReplayRestoreTransactions.h
+  - SkullbonezSource/Runtime/App/ReplayRuntime.h
+  - SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h
 */
 #pragma once
 
@@ -64,8 +64,7 @@ class InputRouter;
 class RuntimeInteractionController;
 class SceneController;
 class SceneEntityStore;
-struct ReplayArtifactTopologyOwners;
-struct ReplayRestoreTransaction;
+class ReplayRestoreTransaction;
 struct ReplayStartupLoadInput;
 struct CameraControlState;
 struct RunMousePickupState;
@@ -290,18 +289,6 @@ struct ReplaySceneTimelineResetResult
 {
     bool exitInspectionCamera = false;
     bool timelineStarted = false;
-};
-
-struct ReplaySceneTimelineResetOwners
-{
-    InputRouter& inputRouter;
-    RuntimeInteractionController& interaction;
-    Environment::CameraCollection* cameras = nullptr;
-    Geometry::Terrain* terrain = nullptr;
-    CameraControlState& camera;
-    RunCameraMode normalizedRestoreMode = RunCameraMode::Demo;
-    bool attachedFollow = false;
-    bool directorGrabbed = false;
 };
 
 struct ReplayKeyboardVelocityEditInput

@@ -2065,12 +2065,27 @@ void ReplayRecorder::ResetTimeline( const char* sceneLabel )
     (void)sceneLabel;
 }
 
-void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
+void ReplayRecorder::CaptureFrame( const ReplayBranchInfo& branch,
+                                   uint32_t eventCursor,
+                                   int sceneFrame,
+                                   float physicsDt,
+                                   const ReplayWorldPresentationSample& world,
+                                   const ReplayCameraSample& camera,
+                                   Physics::PhysicsEngine& physics,
+                                   const SceneEntityStore& entities,
+                                   const Physics::PhysicsBodyStore& bodyStore,
+                                   const Physics::ColliderStore& colliderStore )
 {
-    if ( !m_config.enabled || !input.physics || !input.tornadoGameplay || !input.entities || !input.bodyStore ||
-         !input.colliderStore )
+    if ( !m_config.enabled )
     {
         return;
+    }
+
+    if ( physicsDt <= 0.0f )
+    {
+        // Lane F: recorder time is derived from its monotonic frame index.
+        // A non-positive fixed step would make artifact time ambiguous.
+        SB_FATAL( "Runtime/ReplayRecorder", "Capture requires a positive physics step" );
     }
 
     const std::size_t sampleSlot = AcquireSampleSlotIndex();
@@ -2080,19 +2095,13 @@ void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
     // ring-buffer slots are evicted, saved branches and hash logs still compare
     // frames by this increasing index.
     sample.frameIndex = m_nextFrameIndex++;
-    sample.branch = NormalizeBranchInfo( input.branch );
-    sample.eventCursor = input.eventCursor;
-    sample.sceneFrame = input.sceneFrame;
-    sample.physicsDt = input.physicsDt;
-    sample.simulationSeconds = input.physicsDt > 0.0f
-                                   ? static_cast<double>( sample.frameIndex ) * static_cast<double>( input.physicsDt )
-                                   : input.simulationSeconds;
+    sample.branch = NormalizeBranchInfo( branch );
+    sample.eventCursor = eventCursor;
+    sample.sceneFrame = sceneFrame;
+    sample.physicsDt = physicsDt;
+    sample.simulationSeconds = static_cast<double>( sample.frameIndex ) * static_cast<double>( physicsDt );
 
-    sample.world.fixedStep = input.fixedStep;
-    sample.world.scenePhysicsEnabled = input.scenePhysicsEnabled;
-    sample.world.sceneTextEnabled = input.sceneTextEnabled;
-    sample.world.waterHidden = input.waterHidden;
-    sample.world.terrainHidden = input.terrainHidden;
+    sample.world = world;
     sample.contactCount = 0;
     sample.pipelineRecordCount = 0;
     sample.checkpointBoundary = ( sample.frameIndex == 0 ) ||
@@ -2100,24 +2109,7 @@ void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
                                       static_cast<ReplayFrameIndex>( m_config.checkpointIntervalFrames ) ==
                                   0 );
 
-    if ( input.world )
-    {
-        sample.world.gravity = input.world->GetGravity();
-        sample.world.fluidHeight = input.world->GetFluidSurfaceHeight();
-        sample.world.fluidDensity = input.world->GetFluidDensity();
-    }
-
-    if ( input.cameras )
-    {
-        sample.camera.eye = input.cameras->GetCameraTranslation();
-        sample.camera.view = input.cameras->GetCameraView();
-        sample.camera.up = input.cameras->GetCameraUp();
-    }
-
-    Physics::PhysicsEngine& physics = *input.physics;
-    const SceneEntityStore& entities = *input.entities;
-    const Physics::PhysicsBodyStore& bodyStore = *input.bodyStore;
-    const Physics::ColliderStore& colliderStore = *input.colliderStore;
+    sample.camera = camera;
     const int modelCount = bodyStore.Count();
     const std::size_t modelCountSize = static_cast<std::size_t>( modelCount );
     m_captureBodyScratch.clear();
@@ -2824,12 +2816,29 @@ void ReplaySolverRecorder::ResetTimeline( const char* sceneLabel )
     (void)sceneLabel;
 }
 
-void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
+void ReplaySolverRecorder::CaptureFrame( const ReplayBranchInfo& branch,
+                                         uint32_t eventCursor,
+                                         int sceneFrame,
+                                         float physicsDt,
+                                         const ReplayWorldPresentationSample& world,
+                                         const ReplayCameraSample& camera,
+                                         const ReplayLauncherVisualSample& launcherVisual,
+                                         Physics::PhysicsEngine& physics,
+                                         const Gameplay::TornadoGameplay& tornadoGameplay,
+                                         const SceneEntityStore& entities,
+                                         const Physics::PhysicsBodyStore& bodyStore,
+                                         const Physics::ColliderStore& colliderStore )
 {
-    if ( !m_config.enabled || !input.physics || !input.tornadoGameplay || !input.entities || !input.bodyStore ||
-         !input.colliderStore )
+    if ( !m_config.enabled )
     {
         return;
+    }
+
+    if ( physicsDt <= 0.0f )
+    {
+        // Lane F: solver hashes and presentation hashes share recorder-local
+        // time, so every capture must advance by one positive fixed step.
+        SB_FATAL( "Runtime/ReplaySolverRecorder", "Capture requires a positive physics step" );
     }
 
     const std::size_t sampleSlot = AcquireSampleSlotIndex();
@@ -2837,60 +2846,23 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
     sample.bodies.clear();
     ClearSolverWorldSnapshotValues( sample.worldSnapshot );
     sample.frameIndex = m_nextFrameIndex++;
-    sample.branch = NormalizeBranchInfo( input.branch );
-    sample.eventCursor = input.eventCursor;
-    sample.sceneFrame = input.sceneFrame;
-    sample.physicsDt = input.physicsDt;
-    sample.simulationSeconds = input.physicsDt > 0.0f
-                                   ? static_cast<double>( sample.frameIndex ) * static_cast<double>( input.physicsDt )
-                                   : input.simulationSeconds;
+    sample.branch = NormalizeBranchInfo( branch );
+    sample.eventCursor = eventCursor;
+    sample.sceneFrame = sceneFrame;
+    sample.physicsDt = physicsDt;
+    sample.simulationSeconds = static_cast<double>( sample.frameIndex ) * static_cast<double>( physicsDt );
 
-    sample.world.fixedStep = input.fixedStep;
-    sample.world.scenePhysicsEnabled = input.scenePhysicsEnabled;
-    sample.world.sceneTextEnabled = input.sceneTextEnabled;
-    sample.world.waterHidden = input.waterHidden;
-    sample.world.terrainHidden = input.terrainHidden;
+    sample.world = world;
     sample.contactCount = 0;
     sample.pipelineRecordCount = 0;
-    if ( input.launcherVisual )
-    {
-        sample.launcherVisual = *input.launcherVisual;
-    }
-    else
-    {
-        sample.launcherVisual.rayLines.clear();
-        sample.launcherVisual.laserShots.clear();
-        sample.launcherVisual.nextRayLine = 0;
-        sample.launcherVisual.nextLaserShot = 0;
-        sample.launcherVisual.fireMode = ReplayLauncherFireMode::Laser;
-        sample.launcherVisual.visualizeRays = false;
-        sample.launcherVisual.impulseStrength = 0.0f;
-        sample.launcherVisual.projectileSpeed = 0.0f;
-    }
+    sample.launcherVisual = launcherVisual;
 
     sample.checkpointBoundary = ( sample.frameIndex == 0 ) ||
                                 ( sample.frameIndex %
                                       static_cast<ReplayFrameIndex>( m_config.checkpointIntervalFrames ) ==
                                   0 );
 
-    if ( input.world )
-    {
-        sample.world.gravity = input.world->GetGravity();
-        sample.world.fluidHeight = input.world->GetFluidSurfaceHeight();
-        sample.world.fluidDensity = input.world->GetFluidDensity();
-    }
-
-    if ( input.cameras )
-    {
-        sample.camera.eye = input.cameras->GetCameraTranslation();
-        sample.camera.view = input.cameras->GetCameraView();
-        sample.camera.up = input.cameras->GetCameraUp();
-    }
-
-    Physics::PhysicsEngine& physics = *input.physics;
-    const SceneEntityStore& entities = *input.entities;
-    const Physics::PhysicsBodyStore& bodyStore = *input.bodyStore;
-    const Physics::ColliderStore& colliderStore = *input.colliderStore;
+    sample.camera = camera;
     const int modelCount = bodyStore.Count();
     const std::size_t modelCountSize = static_cast<std::size_t>( modelCount );
     m_solverCaptureBodies.clear();
@@ -2927,7 +2899,6 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
         m_solverCaptureWorldSnapshot.physics,
         Physics::MakePhysicsBodyCountFromNonNegativeInt( static_cast<int>( modelCount ) ) );
 
-    const Gameplay::TornadoGameplay& tornadoGameplay = *input.tornadoGameplay;
     m_solverCaptureWorldSnapshot.tornadoConfig = tornadoGameplay.GetFieldConfig();
     CopyTornadoSystemConfigWithReserve( m_solverCaptureWorldSnapshot.tornadoSystemConfig,
                                         tornadoGameplay.GetSystemConfig(),

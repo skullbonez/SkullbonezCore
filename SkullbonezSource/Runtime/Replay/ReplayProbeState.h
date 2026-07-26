@@ -42,10 +42,9 @@ namespace SkullbonezCore
 namespace Runtime
 {
 struct ReplayStartupRequest;
-struct ReplayArtifactTopologyOwners;
 struct ReplayLiveRestoreOutcome;
 struct ReplayLiveRestoreRequest;
-struct ReplayRestoreTransaction;
+class ReplayRestoreTransaction;
 struct ReplayV2SolverCheckpointLoadResult;
 struct RunReplayV2TargetRestoreResult;
 class ReplayAuthoring;

@@ -53,8 +53,8 @@ Invariants:
     without reconstructing or overriding their domain decisions.
 
 Related:
-  - RuntimeFrameViews.h defines the frame-helper calling convention.
-  - Runtime/UI/OperatorEditorFrameComposer.cpp owns operator UI projection.
+  - SkullbonezSource/Runtime/RuntimeFrameViews.h defines the frame-helper calling convention.
+  - SkullbonezSource/Runtime/UI/OperatorEditorFrameComposer.cpp owns operator UI projection.
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
@@ -149,7 +149,6 @@ namespace
 // inputs. It cannot reach unrelated frame owners through the root view slices.
 void CaptureReplayPostStep( RuntimeTools& runtimeTools,
                             SkullbonezCore::Runtime::SceneController& sceneController,
-                            RunTimerState& timers,
                             const RuntimeOverlayDiagnostics& overlays,
                             ReplayRuntime& replayRuntime,
                             SkullbonezCore::Core::Profiler* profiler )
@@ -162,23 +161,31 @@ void CaptureReplayPostStep( RuntimeTools& runtimeTools,
     const SceneEntityStore& entities = sceneController.Scene().Entities();
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
     PROFILE_SCOPED( profiler, "Frame/Physics/Step/ReplayCapture" );
-    ReplayCaptureInput input;
-    input.sceneFrame = scene.currentFrame;
-    input.simulationSeconds = timers.simulationTimer.GetTimeSinceLastStart();
-    input.physicsDt = PHYSICS_FIXED_DT;
-    input.fixedStep = scene.isFixedStep;
-    input.scenePhysicsEnabled = scene.isScenePhysics;
-    input.sceneTextEnabled = scene.isSceneText;
-    input.waterHidden = debug.isWaterHidden;
-    input.terrainHidden = debug.isTerrainHidden;
-    input.cameras = &cameras;
-    input.world = &world;
-    input.physics = &physics;
-    input.tornadoGameplay = &sceneController.Scene().Tornado();
-    input.entities = &entities;
-    input.bodyStore = &sceneController.Scene().BodyStore();
-    input.colliderStore = &sceneController.Scene().Colliders();
-    replayRuntime.CaptureFrame( input, runtimeTools );
+    ReplayWorldPresentationSample worldSample;
+    worldSample.gravity = world.GetGravity();
+    worldSample.fluidHeight = world.GetFluidSurfaceHeight();
+    worldSample.fluidDensity = world.GetFluidDensity();
+    worldSample.fixedStep = scene.isFixedStep;
+    worldSample.scenePhysicsEnabled = scene.isScenePhysics;
+    worldSample.sceneTextEnabled = scene.isSceneText;
+    worldSample.waterHidden = debug.isWaterHidden;
+    worldSample.terrainHidden = debug.isTerrainHidden;
+
+    ReplayCameraSample cameraSample;
+    cameraSample.eye = cameras.GetCameraTranslation();
+    cameraSample.view = cameras.GetCameraView();
+    cameraSample.up = cameras.GetCameraUp();
+
+    replayRuntime.CaptureFrame( scene.currentFrame,
+                                PHYSICS_FIXED_DT,
+                                worldSample,
+                                cameraSample,
+                                physics,
+                                sceneController.Scene().Tornado(),
+                                entities,
+                                sceneController.Scene().BodyStore(),
+                                sceneController.Scene().Colliders(),
+                                runtimeTools );
 }
 
 } // namespace
@@ -1017,12 +1024,7 @@ void Run::AfterPhysicsStep()
     const bool replayCaptured = m_replayRuntime.BuildInputView().captureEnabled;
     if ( replayCaptured )
     {
-        CaptureReplayPostStep( m_runtimeTools,
-                               m_sceneController,
-                               m_timers,
-                               *m_overlayDiagnostics,
-                               m_replayRuntime,
-                               m_profiler );
+        CaptureReplayPostStep( m_runtimeTools, m_sceneController, *m_overlayDiagnostics, m_replayRuntime, m_profiler );
     }
 
 #ifdef _DEBUG
@@ -1052,39 +1054,22 @@ void Run::AfterPhysicsStep()
             sceneObjectCapacity,
             generatedObjectTypeOverrideBits );
 
-        ReplaySolverSampleRestoreContext probeSample { sceneWorld,
-                                                       sceneState,
-                                                       m_renderer,
-                                                       presentationEdit.State(),
-                                                       m_runtimeTools };
-
-        const ReplaySceneTimelineResetOwners timelineOwners { m_inputRouter,
-                                                              m_interaction,
-                                                              &sceneWorld.Cameras(),
-                                                              sceneWorld.Terrain().Get(),
-                                                              m_camera,
-                                                              normalizedRestoreMode,
-                                                              m_attachedCamera.State().activeFollow,
-                                                              m_camera.director.grabbed };
-
-        const ReplayRestoreTransaction probeTransaction { probeSample,
-                                                          m_diagnosticsRuntime,
-                                                          timelineReset,
-                                                          timelineOwners };
-
-        const ReplayArtifactTopologyOwners probeTopology {
-            m_simulation,
-            m_config,
-            m_assets,
-            m_workerPool,
-            sceneOverrides,
-            generatedObjectTypeOverride,
-            SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ) };
-
         // Why: ReplayRuntime owns probe sequencing and bounded failure state;
         // the application exit latch only preserves that first owned failure
         // while WM_QUIT unwinds the frame loop.
-        const ReplayProbeTickResult probeResult = m_replayRuntime.TickProbes( probeTransaction, probeTopology );
+        const ReplayProbeTickResult probeResult = m_replayRuntime.TickProbes( m_sceneController,
+                                                                              presentationEdit.State(),
+                                                                              m_runtimeTools,
+                                                                              m_config,
+                                                                              m_assets,
+                                                                              timelineReset,
+                                                                              m_diagnosticsRuntime,
+                                                                              m_inputRouter,
+                                                                              m_interaction,
+                                                                              m_camera,
+                                                                              normalizedRestoreMode,
+                                                                              m_attachedCamera.State().activeFollow );
+
         if ( !probeResult.status.ok )
         {
             m_applicationExit.RequestOwnedFailure( probeResult.status );

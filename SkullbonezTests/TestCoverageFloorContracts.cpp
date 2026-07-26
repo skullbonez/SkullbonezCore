@@ -271,22 +271,26 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     shot.active = true;
     launcher.laserShots.push_back( shot );
 
-    ReplayCaptureInput capture;
     SkullbonezCore::Gameplay::TornadoGameplay tornadoGameplay;
-    capture.branch.branchId = 9u;
-    capture.branch.parentBranchId = 4u;
-    capture.eventCursor = 3u;
-    capture.sceneFrame = 20;
-    capture.physicsDt = 1.0f / 120.0f;
-    capture.fixedStep = true;
-    capture.physics = &engine;
-    capture.tornadoGameplay = &tornadoGameplay;
-    capture.entities = &entities;
-    capture.bodyStore = &PhysicsEngine::ReadBodies( engine );
-    capture.colliderStore = &PhysicsEngine::ReadColliders( engine );
-    capture.launcherVisual = &launcher;
+    ReplayBranchInfo captureBranch;
+    captureBranch.branchId = 9u;
+    captureBranch.parentBranchId = 4u;
+    ReplayWorldPresentationSample captureWorld;
+    captureWorld.fixedStep = true;
+    ReplayCameraSample captureCamera;
 
-    solver.CaptureFrame( capture );
+    solver.CaptureFrame( captureBranch,
+                         3u,
+                         20,
+                         1.0f / 120.0f,
+                         captureWorld,
+                         captureCamera,
+                         launcher,
+                         engine,
+                         tornadoGameplay,
+                         entities,
+                         PhysicsEngine::ReadBodies( engine ),
+                         PhysicsEngine::ReadColliders( engine ) );
     const ReplaySolverFrameSample* sample = solver.LatestSample();
     REQUIRE( sample != nullptr );
     presentation.CaptureFrameFromSolverSample( *sample );
@@ -295,9 +299,18 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
                                      Vector3( 2.0f, 1.0f, -1.0f ),
                                      Vector3( 0.1f, 0.2f, 0.3f ),
                                      true ) );
-    capture.eventCursor = 4u;
-    capture.sceneFrame = 21;
-    solver.CaptureFrame( capture );
+    solver.CaptureFrame( captureBranch,
+                         4u,
+                         21,
+                         1.0f / 120.0f,
+                         captureWorld,
+                         captureCamera,
+                         launcher,
+                         engine,
+                         tornadoGameplay,
+                         entities,
+                         PhysicsEngine::ReadBodies( engine ),
+                         PhysicsEngine::ReadColliders( engine ) );
     sample = solver.LatestSample();
     REQUIRE( sample != nullptr );
     presentation.CaptureFrameFromSolverSample( *sample );
@@ -306,7 +319,7 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     {
         ReplayEventInput event;
         event.frameIndex = frame;
-        event.branch = capture.branch;
+        event.branch = captureBranch;
         event.kind = ReplayEventKind::OwnerAction;
         event.flags = 5u + static_cast<uint32_t>( frame );
         event.value0 = 100 + static_cast<int32_t>( frame );

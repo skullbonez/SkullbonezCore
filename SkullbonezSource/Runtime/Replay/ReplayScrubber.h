@@ -17,8 +17,8 @@ Invariants:
   - Prediction cancellation completes before a live restore mutates authority.
 
 Related:
-  - ReplayRuntime.h
-  - ReplayRecorder.h
+  - SkullbonezSource/Runtime/App/ReplayRuntime.h
+  - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
 */
 #pragma once
 
@@ -164,6 +164,11 @@ struct ReplayLiveRestoreRequest
     const ReplaySolverFrameSample* solverSample = nullptr; // Borrowed until the workspace command is applied this frame.
     ReplayFrameIndex requestedFrame = 0;
     bool makeLiveBranch = false;
+#ifdef _DEBUG
+    // Debug-only probe seam: corrupt expected target metadata after artifact
+    // selection so rollback is exercised after live-state mutation.
+    bool injectTargetHashMismatchForProbe = false;
+#endif
     bool enterInteractive = false;
     RunReplayTrack messageTrack = RunReplayTrack::Solver;
     double now = 0.0;

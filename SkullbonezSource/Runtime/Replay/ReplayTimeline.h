@@ -20,8 +20,8 @@ Invariants:
   - Hash-log recording cannot be stopped by an editor command.
 
 Related:
-  - ReplayRuntime.h
-  - ReplayRecorder.h
+  - SkullbonezSource/Runtime/App/ReplayRuntime.h
+  - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
 */
 #pragma once
 
@@ -250,7 +250,17 @@ class ReplayTimeline
     // exposing temporary sample storage to the composition root.
     bool LoadPresentationArtifact( const char* path );
     bool NextPresentationSavePath( char* outPath, std::size_t outPathSize );
-    ReplayTimelineCaptureResult CaptureFrame( ReplayCaptureInput input );
+    ReplayTimelineCaptureResult CaptureFrame( int sceneFrame,
+                                              float physicsDt,
+                                              const ReplayWorldPresentationSample& world,
+                                              const ReplayCameraSample& camera,
+                                              const ReplayLauncherVisualSample& launcherVisual,
+                                              Physics::PhysicsEngine& physics,
+                                              const Gameplay::TornadoGameplay& tornadoGameplay,
+                                              const SceneEntityStore& entities,
+                                              const Physics::PhysicsBodyStore& bodyStore,
+                                              const Physics::ColliderStore& colliderStore,
+                                              const ReplayBranchInfo& branch );
     void RecordEvent( const ReplayEventInput& input );
     // Concept: event sequencing belongs to the timeline owner. The caller
     // supplies branch provenance as a value so recording never reaches into

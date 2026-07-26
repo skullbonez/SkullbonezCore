@@ -305,26 +305,23 @@ ReplayTimelineOperations::DescribeReplaySceneTimeline( const SceneController& sc
 }
 
 
-bool ReplayRuntime::RestoreSolverSampleAsLive( const ReplayRestoreTransaction& transaction,
-                                               const ReplaySolverFrameSample& sample,
-                                               char* outReason,
-                                               std::size_t reasonSize )
+bool ReplayRuntime::RestoreSolverSampleAsLive( ReplayRestoreTransaction& transaction,
+                                               SceneWorld& world,
+                                               SceneSessionState& scene,
+                                               OverlayDebugState& debug,
+                                               RuntimeTools& runtimeTools,
+                                               const ReplaySolverFrameSample& sample )
 {
     SKORE_TRACY_SCOPED_OWNER_ZONE( "Frame/Replay/Restore", ::HashStr( "Frame/Replay/Restore" ) );
-    auto writeReason = [outReason, reasonSize]( const char* message )
-    {
-        if ( outReason && reasonSize > 0 )
-        {
-            strncpy_s( outReason, reasonSize, message ? message : "restore failed", _TRUNCATE );
-        }
-    };
-
+    transaction.SelectArtifact( 0, 0 );
     ReplaySolverFrameSample liveBackup;
-    if ( !ReplayRestoreService::CaptureCurrentSolverSample( transaction.sampleOwners, sample, liveBackup ) )
+    if ( !ReplayRestoreService::CaptureCurrentSolverSample( world, scene, debug, runtimeTools, sample, liveBackup ) )
     {
-        writeReason( "failed to capture live replay backup" );
+        transaction.FailBeforeMutation( "failed to capture live replay backup" );
         return false;
     }
+
+    transaction.CaptureLiveBackup( std::move( liveBackup ) );
 
     const uint64_t materializedSolverHash = ReplaySolverHashForSample( sample );
     if ( materializedSolverHash != sample.solverHash )
@@ -337,24 +334,35 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( const ReplayRestoreTransaction& t
                    static_cast<unsigned long long>( materializedSolverHash ),
                    static_cast<unsigned long long>( sample.solverHash ) );
 
-        writeReason( payloadReason );
+        transaction.FailBeforeMutation( payloadReason );
         return false;
     }
 
+    transaction.MarkTopologyPrepared( false, false );
     char applyReason[128] = {};
-    if ( !ReplayRestoreService::ApplySolverSampleState( transaction.sampleOwners,
+    if ( !ReplayRestoreService::ApplySolverSampleState( world,
+                                                        scene,
+                                                        debug,
+                                                        runtimeTools,
                                                         sample,
                                                         applyReason,
                                                         sizeof( applyReason ) ) )
     {
-        writeReason( applyReason[0] != '\0' ? applyReason : "restore apply failed" );
+        transaction.FailBeforeMutation( applyReason[0] != '\0' ? applyReason : "restore apply failed" );
         return false;
     }
 
+    transaction.MarkCheckpointApplied();
+
     ReplaySolverFrameSample restoredSample;
-    const bool hashCaptured = ReplayRestoreService::CaptureCurrentSolverSample( transaction.sampleOwners,
+    const bool hashCaptured = ReplayRestoreService::CaptureCurrentSolverSample( world,
+                                                                                scene,
+                                                                                debug,
+                                                                                runtimeTools,
                                                                                 sample,
                                                                                 restoredSample );
+
+    transaction.MarkTargetStepped( sample.frameIndex, sample.eventCursor, 0 );
 
     const uint64_t restoredSolverHash = hashCaptured ? restoredSample.solverHash : 0;
     const uint64_t restoredPresentationHash = hashCaptured ? restoredSample.presentationHash : 0;
@@ -366,8 +374,11 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( const ReplayRestoreTransaction& t
     {
         char fallbackReason[128] = {};
 
-        fallbackRestored = ReplayRestoreService::ApplySolverSampleState( transaction.sampleOwners,
-                                                                         liveBackup,
+        fallbackRestored = ReplayRestoreService::ApplySolverSampleState( world,
+                                                                         scene,
+                                                                         debug,
+                                                                         runtimeTools,
+                                                                         transaction.LiveBackup(),
                                                                          fallbackReason,
                                                                          sizeof( fallbackReason ) );
     }
@@ -389,7 +400,7 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( const ReplayRestoreTransaction& t
     restoreProbe.hashMatched = hashMatched;
     restoreProbe.fallbackAttempted = !hashMatched;
     restoreProbe.fallbackRestored = fallbackRestored;
-    transaction.diagnostics.LogReplayRestoreProbe( transaction.sampleOwners.scene, restoreProbe );
+    transaction.RecordRestoreProbeDiagnostic( restoreProbe );
 #endif
 
     // Hazard: a recoverable restore failure may return only after the live
@@ -403,7 +414,7 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( const ReplayRestoreTransaction& t
 
     if ( !hashCaptured )
     {
-        writeReason( "restore hash capture failed" );
+        transaction.MarkRolledBack( "restore hash capture failed" );
         return false;
     }
 
@@ -432,31 +443,37 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( const ReplayRestoreTransaction& t
                    static_cast<unsigned long long>( sample.bodies.size() ),
                    fallbackRestored ? "live state restored" : "fallback unavailable" );
 
-        writeReason( mismatchReason );
+        transaction.MarkRolledBack( mismatchReason );
         return false;
     }
 
+    transaction.MarkTargetVerified();
     const uint32_t parentBranchId = m_authoring.BeginRestoredBranch( sample.branch,
                                                                      sample.frameIndex,
                                                                      sample.solverHash );
 
-    ReplaySceneTimelineResetInput reset = transaction.timelineReset;
-    reset.preserveBranchMetadata = true;
-    ResetSceneTimeline( reset, transaction.timelineOwners );
-    SubmitEvent( ReplayEventCommandOperations::BuildCommand( ReplayEventKind::BranchRestore,
-                                                             0,
-                                                             false,
-                                                             0,
-                                                             static_cast<int32_t>( parentBranchId ),
-                                                             sample.sceneFrame,
-                                                             0,
-                                                             0,
-                                                             sample.solverHash,
-                                                             "hash-verified solver restore" ) );
-
-    writeReason( "restored hash match" );
+    transaction.PrepareTimelineReset( parentBranchId, sample.sceneFrame, sample.solverHash );
     return true;
 }
+
+#ifdef _DEBUG
+void ReplayRuntime::PublishRestoreDiagnostic( const ReplayRestoreTransaction& transaction,
+                                              DiagnosticsRuntime& diagnosticsRuntime,
+                                              const SceneSessionState& scene ) const
+{
+    // Lifetime: transaction-owned diagnostic strings remain valid for this
+    // synchronous write; neither DiagnosticsRuntime nor Scene is retained.
+    if ( transaction.HasRestoreProbeDiagnostic() )
+    {
+        diagnosticsRuntime.LogReplayRestoreProbe( scene, transaction.RestoreProbeDiagnostic() );
+    }
+
+    if ( transaction.HasRestoreResultDiagnostic() )
+    {
+        diagnosticsRuntime.LogReplayRestoreResult( scene, transaction.RestoreResultDiagnostic() );
+    }
+}
+#endif
 
 
 void ReplayRuntime::AppendOverlayTrace( PhysicsEngine& physics,
@@ -1179,11 +1196,26 @@ void ReplayRuntime::ObserveSceneLifecycleAfterClear( const SceneLifecyclePacket&
 
 void ReplayRuntime::ObserveSceneLifecycleAfterActivation( const SceneLifecyclePacket& packet,
                                                           const ReplaySceneTimelineResetInput& input,
-                                                          const ReplaySceneTimelineResetOwners& owners )
+                                                          InputRouter& inputRouter,
+                                                          RuntimeInteractionController& interaction,
+                                                          Environment::CameraCollection* cameras,
+                                                          Geometry::Terrain* terrain,
+                                                          CameraControlState& camera,
+                                                          RunCameraMode normalizedRestoreMode,
+                                                          bool attachedFollow,
+                                                          bool directorGrabbed )
 {
     if ( m_sceneActivationObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneActivated ) )
     {
-        ResetSceneTimeline( input, owners );
+        ResetSceneTimeline( input,
+                            inputRouter,
+                            interaction,
+                            cameras,
+                            terrain,
+                            camera,
+                            normalizedRestoreMode,
+                            attachedFollow,
+                            directorGrabbed );
     }
 }
 
@@ -1398,14 +1430,33 @@ void ReplayRuntime::AppendSolverTrajectorySampleToStore( const ReplaySolverFrame
     ApplyPastTrajectoryUpdate( update );
 }
 
-void ReplayRuntime::CaptureFrame( ReplayCaptureInput input, RuntimeTools& runtimeTools )
+void ReplayRuntime::CaptureFrame( int sceneFrame,
+                                  float physicsDt,
+                                  const ReplayWorldPresentationSample& world,
+                                  const ReplayCameraSample& camera,
+                                  Physics::PhysicsEngine& physics,
+                                  const Gameplay::TornadoGameplay& tornadoGameplay,
+                                  const SceneEntityStore& entities,
+                                  const Physics::PhysicsBodyStore& bodyStore,
+                                  const Physics::ColliderStore& colliderStore,
+                                  RuntimeTools& runtimeTools )
 {
     // Invariant: presentation, solver, and event timelines share the same
     // branch and event cursor for this frame. Save/export code depends on that
     // alignment when it pairs visual frames with restore checkpoints.
-    m_visualPresentation.PopulateLauncherVisualCapture( input, runtimeTools );
-    input.branch = m_authoring.Branch();
-    const ReplayTimelineCaptureResult result = m_timeline.CaptureFrame( input );
+    const ReplayLauncherVisualSample& launcherVisual = m_visualPresentation.CaptureLauncherVisual( runtimeTools );
+    const ReplayTimelineCaptureResult result = m_timeline.CaptureFrame( sceneFrame,
+                                                                        physicsDt,
+                                                                        world,
+                                                                        camera,
+                                                                        launcherVisual,
+                                                                        physics,
+                                                                        tornadoGameplay,
+                                                                        entities,
+                                                                        bodyStore,
+                                                                        colliderStore,
+                                                                        m_authoring.Branch() );
+
     if ( result.solverSample )
     {
         AppendSolverTrajectorySampleToStore( *result.solverSample );

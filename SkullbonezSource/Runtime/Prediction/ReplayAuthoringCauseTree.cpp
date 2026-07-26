@@ -932,23 +932,13 @@ bool ReplayPrediction::ActivateCauseTreeRow( ReplayAuthoring& authoring,
         presentationOwner.SetCameraPauseOwnership( false );
     }
 
-    ReplayCameraFocusRequest focus;
-    focus.focusKind = focusKind;
-    focus.focusedId = row.id;
-    focus.counterpartId = row.counterpartId;
-    focus.focusedRow = rowIndex;
-    focus.focusRowKind = row.kind;
-    focus.focusModelRow = row.modelRow;
-    focus.focusCounterpartModelRow = row.counterpartModelRow;
-    focus.focusContactIndex = row.contactIndex;
-    focus.focusSolverRowIndex = row.solverRowIndex;
-    focus.focusFeatureId = row.featureId;
-    focus.focusTerrain = row.terrain;
-    focus.targetPoint = targetPosition;
-    focus.targetNormal = ReplayCauseTreeNormalizeOr( row.normal, Vector3( 0.0f, 1.0f, 0.0f ) );
-    focus.impulseVector = row.impulse;
-    focus.targetRadius = targetRadius;
-    presentationOwner.ApplyCameraFocus( focus );
+    presentationOwner.ApplyCameraFocus( row,
+                                        rowIndex,
+                                        focusKind,
+                                        targetPosition,
+                                        ReplayCauseTreeNormalizeOr( row.normal, Vector3( 0.0f, 1.0f, 0.0f ) ),
+                                        targetRadius );
+
     authoring.SetCauseTreeFocus( rowIndex, row.id );
     outTargetPosition = targetPosition;
     outTargetRadius = targetRadius;

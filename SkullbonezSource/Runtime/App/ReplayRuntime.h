@@ -156,7 +156,9 @@ struct RunMousePickupState;
 class RuntimeRenderer;
 struct SceneSessionState;
 struct ReplayV2SaveResult;
-struct ReplaySolverSampleRestoreContext;
+#ifdef _DEBUG
+struct ReplayScrubProbeDiagnostic;
+#endif
 
 namespace ReplayPresentationOperations
 {
@@ -188,9 +190,12 @@ class ReplayProbeRunner
     // Installs Debug-only CLI probe state after Configure has copied the
     // product load request and capability bit.
     void ConfigureDebug( const ReplayStartupRequest& request );
-    SkullbonezCore::Core::SbResult TickScrubProbe( const ReplayRestoreTransaction& transaction,
+    // Lifetime: outDiagnostic borrows the selected body's bounded name only
+    // until TickProbes publishes the row synchronously.
+    SkullbonezCore::Core::SbResult TickScrubProbe( SceneWorld& world,
                                                    const ReplayTimeline& timeline,
-                                                   ReplayPresentation& presentation );
+                                                   ReplayPresentation& presentation,
+                                                   ReplayScrubProbeDiagnostic* outDiagnostic );
     ReplayProbeRestoreRequest PrepareRestoreProbe( const ReplayTimeline& timeline );
     SkullbonezCore::Core::SbResult
     CompleteRestoreProbe( const ReplayProbeRestoreRequest& request, bool restored, const char* reason );
@@ -203,10 +208,9 @@ class ReplayProbeRunner
                                                              ReplayPresentation& presentation,
                                                              ReplayAuthoring& authoring,
                                                              ReplayPrediction& prediction,
-                                                             const ReplayRestoreTransaction& transaction,
-                                                             RunMousePickupState& mousePickup,
-                                                             RunCameraMode normalizedCurrentMode,
-                                                             double now,
+                                                             const ReplayStartupLoadInput& loadInput,
+                                                             SceneWorld& world,
+                                                             RuntimeTools& runtimeTools,
                                                              float normalized );
     SkullbonezCore::Core::SbResult PrepareCheckpointFileProbe( const char* path,
                                                                ReplaySolverFrameSample& outCheckpoint,
@@ -228,10 +232,8 @@ class ReplayProbeRunner
                                                            ReplayPresentation& presentation,
                                                            ReplayAuthoring& authoring,
                                                            ReplayPrediction& prediction,
-                                                           const ReplayRestoreTransaction& transaction,
-                                                           RunMousePickupState& mousePickup,
-                                                           RunCameraMode normalizedCurrentMode,
-                                                           double now,
+                                                           const ReplayStartupLoadInput& loadInput,
+                                                           SceneWorld& world,
                                                            const char* path,
                                                            ReplayLiveRestoreRequest& outRequest );
     SkullbonezCore::Core::SbResult CompleteBranchFileProbe( const char* path, const ReplayLiveRestoreOutcome& outcome );
@@ -346,36 +348,102 @@ class ReplayRuntime
     ReplayShutdownReport FinishShutdown();
     ReplaySceneTimelineResetResult BeginSceneTimelineReset( const ReplaySceneTimelineResetInput& input );
     ReplaySceneTimelineResetResult FinishSceneTimelineReset( const ReplaySceneTimelineResetInput& input );
-    void ResetSceneTimeline( const ReplaySceneTimelineResetInput& input, const ReplaySceneTimelineResetOwners& owners );
+    void ResetSceneTimeline( const ReplaySceneTimelineResetInput& input,
+                             InputRouter& inputRouter,
+                             RuntimeInteractionController& interaction,
+                             Environment::CameraCollection* cameras,
+                             Geometry::Terrain* terrain,
+                             CameraControlState& camera,
+                             RunCameraMode normalizedRestoreMode,
+                             bool attachedFollow,
+                             bool directorGrabbed );
     void ObserveSceneLifecycleAfterClear( const SceneLifecyclePacket& packet,
                                           RuntimeInteractionController& interaction,
                                           InputRouter& inputRouter );
     void ObserveSceneLifecycleAfterActivation( const SceneLifecyclePacket& packet,
                                                const ReplaySceneTimelineResetInput& input,
-                                               const ReplaySceneTimelineResetOwners& owners );
-    bool RestoreSolverSampleAsLive( const ReplayRestoreTransaction& transaction,
-                                    const ReplaySolverFrameSample& sample,
-                                    char* outReason,
-                                    std::size_t reasonSize );
-    bool RestoreV2ArtifactTargetState( const ReplayRestoreTransaction& transaction,
-                                       const ReplayArtifactTopologyOwners& topologyOwners,
-                                       const char* path,
-                                       ReplayFrameIndex requestedFrame,
-                                       bool makeLiveBranch,
-                                       RunReplayV2TargetRestoreResult& outResult,
-                                       char* outReason,
-                                       std::size_t reasonSize );
-    ReplayLiveRestoreOutcome ApplyLiveRestoreRequest( const ReplayRestoreTransaction& transaction,
-                                                      const ReplayArtifactTopologyOwners& topologyOwners,
-                                                      const ReplayLiveRestoreRequest& request );
+                                               InputRouter& inputRouter,
+                                               RuntimeInteractionController& interaction,
+                                               Environment::CameraCollection* cameras,
+                                               Geometry::Terrain* terrain,
+                                               CameraControlState& camera,
+                                               RunCameraMode normalizedRestoreMode,
+                                               bool attachedFollow,
+                                               bool directorGrabbed );
+    bool RestoreSolverSampleAsLive( ReplayRestoreTransaction& transaction,
+                                    SceneWorld& world,
+                                    SceneSessionState& scene,
+                                    OverlayDebugState& debug,
+                                    RuntimeTools& runtimeTools,
+                                    const ReplaySolverFrameSample& sample );
+    bool RestoreV2ArtifactTargetState( ReplayRestoreTransaction& transaction,
+                                       const ReplayLiveRestoreRequest& request,
+                                       SceneWorld& world,
+                                       SceneSessionState& scene,
+                                       OverlayDebugState& debug,
+                                       RuntimeTools& runtimeTools,
+                                       SimulationSystem& simulation,
+                                       const SkullbonezCore::Core::EngineConfig& config,
+                                       Assets::AssetSystem& assets,
+                                       Threading::WorkerPool& workerPool,
+                                       SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+                                       GeneratedObjectTypeOverride& generatedObjectTypeOverride );
+    ReplayLiveRestoreOutcome ApplyLiveRestoreRequest( ReplayRestoreTransaction& transaction,
+                                                      const ReplayLiveRestoreRequest& request,
+                                                      SceneWorld& world,
+                                                      SceneSessionState& scene,
+                                                      OverlayDebugState& debug,
+                                                      RuntimeTools& runtimeTools,
+                                                      SimulationSystem& simulation,
+                                                      const SkullbonezCore::Core::EngineConfig& config,
+                                                      Assets::AssetSystem& assets,
+                                                      Threading::WorkerPool& workerPool,
+                                                      SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+                                                      GeneratedObjectTypeOverride& generatedObjectTypeOverride );
+    void CompleteLiveRestoreRequest( ReplayRestoreTransaction& transaction,
+                                     const ReplayLiveRestoreRequest& request,
+                                     ReplayLiveRestoreOutcome& outcome,
+                                     SceneWorld& world,
+                                     SceneSessionState& scene,
+                                     DiagnosticsRuntime& diagnosticsRuntime,
+                                     InputRouter& inputRouter,
+                                     RuntimeInteractionController& interaction,
+                                     CameraControlState& camera,
+                                     RunCameraMode normalizedRestoreMode,
+                                     bool attachedFollow,
+                                     bool directorGrabbed );
 #ifdef _DEBUG
-    // Debug probes compose the same restore transaction and topology operands
-    // as production restore. No whole-runtime probe fixture or Run backdoor is accepted.
-    ReplayProbeTickResult TickProbes( const ReplayRestoreTransaction& transaction,
-                                      const ReplayArtifactTopologyOwners& topology );
+    // Debug probes use the production phase transaction and receive concrete
+    // owners only for the synchronous operation that needs them.
+    ReplayProbeTickResult TickProbes( SceneController& sceneController,
+                                      OverlayDebugState& debug,
+                                      RuntimeTools& runtimeTools,
+                                      const SkullbonezCore::Core::EngineConfig& config,
+                                      Assets::AssetSystem& assets,
+                                      const ReplaySceneTimelineResetInput& timelineReset,
+                                      DiagnosticsRuntime& diagnosticsRuntime,
+                                      InputRouter& inputRouter,
+                                      RuntimeInteractionController& interaction,
+                                      CameraControlState& camera,
+                                      RunCameraMode restoreMode,
+                                      bool attachedFollow );
+    // Publishes detached diagnostic values without retaining diagnostics or
+    // scene authority in Replay or its transaction.
+    void PublishRestoreDiagnostic( const ReplayRestoreTransaction& transaction,
+                                   DiagnosticsRuntime& diagnosticsRuntime,
+                                   const SceneSessionState& scene ) const;
 
 #endif
-    void CaptureFrame( ReplayCaptureInput input, RuntimeTools& runtimeTools );
+    void CaptureFrame( int sceneFrame,
+                       float physicsDt,
+                       const ReplayWorldPresentationSample& world,
+                       const ReplayCameraSample& camera,
+                       Physics::PhysicsEngine& physics,
+                       const Gameplay::TornadoGameplay& tornadoGameplay,
+                       const SceneEntityStore& entities,
+                       const Physics::PhysicsBodyStore& bodyStore,
+                       const Physics::ColliderStore& colliderStore,
+                       RuntimeTools& runtimeTools );
     SkullbonezCore::Core::MainMemoryReplayStats CollectMemoryStats() const;
     // Publishes the value-only replay facts consumed by the late HUD pass.
     // Memory accounting is sampled only when explicitly requested for the tab.
@@ -412,11 +480,16 @@ class ReplayRuntime
     ReplayStartupResult RunStartupWorkflows( const ReplayStartupLoadInput& loadInput
 #ifdef _DEBUG
                                              ,
-                                             const ReplayRestoreTransaction& probeTransaction,
-                                             const ReplayArtifactTopologyOwners& probeTopology,
-                                             RunMousePickupState& probeMousePickup,
-                                             RunCameraMode probeNormalizedCurrentMode,
-                                             double probeNow
+                                             SceneController& sceneController,
+                                             DiagnosticsRuntime& diagnosticsRuntime,
+                                             OverlayDebugState& debug,
+                                             RuntimeTools& runtimeTools,
+                                             SimulationSystem& simulation,
+                                             const SkullbonezCore::Core::EngineConfig& config,
+                                             Assets::AssetSystem& assets,
+                                             Threading::WorkerPool& workerPool,
+                                             SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+                                             GeneratedObjectTypeOverride& generatedObjectTypeOverride
 #endif
     );
     // Advances and publishes the private prediction during frame update.
@@ -552,22 +625,30 @@ class ReplayRuntime
     // Runs the configured Debug startup probes after product artifact loading
     // has completed; early probe failures are returned in the value result.
     ReplayStartupResult RunStartupProbeWorkflows( const ReplayStartupWorkflowState& startup,
-                                                  ReplayStartupResult result,
-                                                  const ReplayRestoreTransaction& probeTransaction,
-                                                  const ReplayArtifactTopologyOwners& probeTopology,
-                                                  RunMousePickupState& probeMousePickup,
-                                                  RunCameraMode probeNormalizedCurrentMode,
-                                                  double probeNow );
+                                                  const ReplayStartupLoadInput& loadInput,
+                                                  SceneController& sceneController,
+                                                  DiagnosticsRuntime& diagnosticsRuntime,
+                                                  OverlayDebugState& debug,
+                                                  RuntimeTools& runtimeTools,
+                                                  SimulationSystem& simulation,
+                                                  const SkullbonezCore::Core::EngineConfig& config,
+                                                  Assets::AssetSystem& assets,
+                                                  Threading::WorkerPool& workerPool,
+                                                  SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+                                                  GeneratedObjectTypeOverride& generatedObjectTypeOverride );
 #endif
-    bool RestoreV2ArtifactTargetStateImpl( const ReplayRestoreTransaction& transaction,
-                                           const ReplayArtifactTopologyOwners& topologyOwners,
-                                           const char* path,
-                                           ReplayFrameIndex requestedFrame,
-                                           bool makeLiveBranch,
-                                           bool injectTargetHashMismatchForProbe,
-                                           RunReplayV2TargetRestoreResult& outResult,
-                                           char* outReason,
-                                           std::size_t reasonSize );
+    bool RestoreV2ArtifactTargetStateImpl( ReplayRestoreTransaction& transaction,
+                                           const ReplayLiveRestoreRequest& request,
+                                           SceneWorld& world,
+                                           SceneSessionState& scene,
+                                           OverlayDebugState& debug,
+                                           RuntimeTools& runtimeTools,
+                                           SimulationSystem& simulation,
+                                           const SkullbonezCore::Core::EngineConfig& config,
+                                           Assets::AssetSystem& assets,
+                                           Threading::WorkerPool& workerPool,
+                                           SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+                                           GeneratedObjectTypeOverride& generatedObjectTypeOverride );
     // Lifetime: startup-bound diagnostics borrow shared only with concrete replay owners.
     Core::Profiler* m_profiler;
     ReplayTimeline m_timeline;

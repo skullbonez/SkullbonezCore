@@ -11,24 +11,26 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-25th-JUL-26` |
-| Current baseline | Concrete Parameter-Bag Elimination PB3 is complete: render-frame, UI-text, Replay-overlay, and graph-callback service bags are deleted. |
-| Current objective | Execute `concrete-parameter-bag-elimination` PB4: repair Replay capture, camera focus, and restore through concrete values and a phase-checked transaction. |
-| Active/future progress | Concrete Parameter-Bag Elimination 4/8; active/future ledger 4/8 (50%). |
+| Current baseline | Concrete Parameter-Bag Elimination PB4 is complete: Replay capture/focus bags and all restore service/context bags are deleted. |
+| Current objective | Execute `concrete-parameter-bag-elimination` PB5: repair Physics collision and solver stage bags without changing hot-loop order. |
+| Active/future progress | Concrete Parameter-Bag Elimination 5/8; active/future ledger 5/8 (63%). |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | PB3 `validate_full.bat` passes in 336.2 s: mandatory CPU/coverage, Automation/Replay, DX12 without refresh, and byte-exact 44,401-line physics regression. |
-| Validation for current edits | PB3: DX12, stress, performance, Replay visual fidelity, and full gates pass; retired symbols, threshold-13, dependency, allocation, and direction scans are clean. |
+| Last broad local gate | PB4 `validate_full.bat` passes in 170.1 s: mandatory CPU/coverage, Automation/Replay, DX12 without refresh, and byte-exact 44,401-line physics regression. |
+| Validation for current edits | PB4: focused tests, Replay artifact, allocation-policy, scrub/visual-fidelity, and full gates pass; retired symbols, threshold-13, dependency, allocation, and direction scans are clean. |
 
 ## Live Queue
 
 NOW. The 2026-07-25 round-4 architecture campaign has one live plan:
-`concrete-parameter-bag-elimination` (4/8), so the ledger is 4/8 (50%). PB0
+`concrete-parameter-bag-elimination` (5/8), so the ledger is 5/8 (63%). PB0
 ratified all 22 registered rows, added eight repair rows, carried forward three
 13-parameter render/UI operations, and ruled every other reviewed hit. PB1
 then repaired Scene save/load and split editor save/capture authority. PB2
 deleted the pointer-routing projection chain while preserving exact editor,
 mouse-pick, camera, Replay, and launcher precedence. PB3 deleted the
 render-frame, UI-text, Replay-overlay, and graph-callback service bags while
-preserving exact render, allocation, and visual behavior; PB4 is next.
+preserving exact render, allocation, and visual behavior. PB4 replaced Replay
+capture/focus bags with concrete values and restore bags with an owner-free,
+phase-checked transaction; PB5 is next.
 
 Header Claim Staleness Remediation is complete at 3/3 and removed from the live
 inventory under rule 4. Permanent evidence is
@@ -62,7 +64,9 @@ PB2 permanent evidence is
 `Agentic/Reports/2026-07-26/concrete-parameter-bag-elimination-pb2-pointer-routing.md`.
 PB3 permanent evidence is
 `Agentic/Reports/2026-07-26/concrete-parameter-bag-elimination-pb3-render-ui.md`.
-Implementation continues through the repository orchestrator skill with PB4
+PB4 permanent evidence is
+`Agentic/Reports/2026-07-26/concrete-parameter-bag-elimination-pb4-replay.md`.
+Implementation continues through the repository orchestrator skill with PB5
 next. Live plans are under
 `Agentic/Plans/TODO/`.
 
@@ -475,8 +479,7 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Execute `concrete-parameter-bag-elimination` PB4: replace
-`ReplayCaptureInput` with concrete owner-produced capture values, remove the
-camera-focus request, and rebuild Replay restore as a phase-checked transaction
-that stores values and cursor state but no owner pointers, callbacks, or
-service bags.
+Execute `concrete-parameter-bag-elimination` PB5: delete the collision,
+solver, narrowphase, broadphase, and broadphase-filter context bags through
+concrete stage owners and direct store/settings/step values without changing
+hot-loop order.

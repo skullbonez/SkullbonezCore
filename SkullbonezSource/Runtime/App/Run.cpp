@@ -666,49 +666,31 @@ void Run::Initialise()
                                                                                      sceneObjectCapacity,
                                                                                      generatedObjectTypeOverrideBits );
 
-    ReplaySceneTimelineResetOwners timelineOwners { m_inputRouter,
-                                                    m_interaction,
-                                                    &sceneWorld.Cameras(),
-                                                    sceneWorld.Terrain().Get(),
-                                                    m_camera,
-                                                    normalizedRestoreMode,
-                                                    m_attachedCamera.State().activeFollow,
-                                                    m_camera.director.grabbed };
-
     const ReplayStartupLoadInput loadInput { m_timers.simulationTimer.GetTotalTime(),
                                              &sceneWorld.Cameras(),
                                              m_runtimeTools.MousePickup(),
                                              normalizedCameraMode,
-                                             timelineOwners };
+                                             m_inputRouter,
+                                             m_interaction,
+                                             sceneWorld.Terrain().Get(),
+                                             m_camera,
+                                             normalizedRestoreMode,
+                                             m_attachedCamera.State().activeFollow,
+                                             m_camera.director.grabbed };
 
 #ifdef _DEBUG
     RuntimeOverlayPresentationEdit presentationEdit = m_overlayDiagnostics->EditPresentation();
-    ReplaySolverSampleRestoreContext probeSample { sceneWorld,
-                                                   sceneState,
-                                                   m_renderer,
-                                                   presentationEdit.State(),
-                                                   m_runtimeTools };
-
-    const ReplayRestoreTransaction probeTransaction { probeSample,
-                                                      m_diagnosticsRuntime,
-                                                      timelineReset,
-                                                      timelineOwners };
-
-    const ReplayArtifactTopologyOwners probeTopology { m_simulation,
-                                                       m_config,
-                                                       m_assets,
-                                                       m_workerPool,
-                                                       sceneOverrides,
-                                                       generatedObjectTypeOverride,
-                                                       sceneObjectCapacity };
-
-    const ReplayStartupResult replayStartup = m_replayRuntime.RunStartupWorkflows(
-        loadInput,
-        probeTransaction,
-        probeTopology,
-        m_runtimeTools.MousePickup(),
-        normalizedCameraMode,
-        m_timers.simulationTimer.GetTotalTime() );
+    const ReplayStartupResult replayStartup = m_replayRuntime.RunStartupWorkflows( loadInput,
+                                                                                   m_sceneController,
+                                                                                   m_diagnosticsRuntime,
+                                                                                   presentationEdit.State(),
+                                                                                   m_runtimeTools,
+                                                                                   m_simulation,
+                                                                                   m_config,
+                                                                                   m_assets,
+                                                                                   m_workerPool,
+                                                                                   sceneOverrides,
+                                                                                   generatedObjectTypeOverride );
 
 #else
     const ReplayStartupResult replayStartup = m_replayRuntime.RunStartupWorkflows( loadInput );
