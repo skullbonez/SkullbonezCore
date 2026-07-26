@@ -134,22 +134,24 @@ Runtime targets:
 | Source package | Allowed Runtime package targets |
 |---|---|
 | `App` | Every Runtime package |
-| `Automation` | `App`, `Camera`, `Capture`, `DevelopmentTools`, `Diagnostics`, `Direction`, `Editor`, `Input`, `Interaction`, `Replay`, top-level frame views, `Scene`, `Tools` |
+| `Automation` | `App`, `Camera`, `Capture`, `DevelopmentTools`, `Diagnostics`, `Direction`, `Editor`, `Input`, `Interaction`, `Planning`, `Prediction`, `Replay`, top-level frame views, `Scene`, `Tools` |
 | `Camera` | `App` process values, `Direction`, `Input`, `Interaction`, `Scene`; never `Render` |
 | `Capture` | `App`, `Automation`, `Camera`, `Diagnostics`, `Input`, `Interaction`, `Render`, `Replay`, top-level frame views, `Scene`, `Simulation`, `Tools` |
-| `DevelopmentTools` | `App`, `Input`, `Replay` |
+| `DevelopmentTools` | `App`, `Input`, `Planning`, `Replay` |
 | `Diagnostics` | `App`, `Automation`, `Capture`, `Debug`, `Input`, `Render`, `Replay`, `Scene` |
 | `Direction` | `Camera`, `Capture`, `Scene`, `Tools` |
 | `Editor` | `App`, `Camera`, `Capture`, `Diagnostics`, `Input`, `Interaction`, `Replay`, top-level frame views, `Scene`, `Tools` |
 | `Input` | `App/Window` platform capability, `Camera`, `Interaction`, `ReplayEventCommand`, `SceneLifecycle`; never `Render`, `UI`, or `DevelopmentTools` |
 | `Interaction` | `Camera`, `Diagnostics`, `Render`, `Scene`, `Simulation` |
-| `Render` | `App`, `Camera`, `Debug`, `DevelopmentTools`, `Diagnostics`, `Input`, `Interaction`, `Replay`, top-level frame views, `Scene`, `Tools`, `UI` |
-| `Replay` | `Camera`, `Diagnostics`, `Editor`, `Input`, `Interaction`, `Render`, `Scene`, `Simulation`, `Tools`, `UI`; Replay remains an upper Runtime consumer |
-| `Scene` | `App`, `Automation`, `Camera`, `Debug`, `Diagnostics`, `Editor`, `Input`, `Interaction`, `Render`, `Replay`, `Simulation`, `Tools` |
+| `Render` | `App`, `Camera`, `Debug`, `DevelopmentTools`, `Diagnostics`, `Input`, `Interaction`, `Planning`, `Prediction`, `Replay`, top-level frame views, `Scene`, `Tools`, `UI` |
+| `Replay` | `Camera`, `Diagnostics`, `Editor`, `Input`, `Interaction`, `Render`, `Scene`, `Simulation`, `Tools`, `UI`; never `Prediction` or `Planning` |
+| `Prediction` | `Camera`, `Editor`, `Input`, `Replay`, `Scene`, `Tools`; never `Planning` |
+| `Planning` | `Input`, `Interaction`, `Prediction`, `Render`, `Replay`, `Scene`, `UI` |
+| `Scene` | `App`, `Automation`, `Camera`, `Debug`, `Diagnostics`, `Editor`, `Input`, `Interaction`, `Planning`, `Render`, `Replay`, `Simulation`, `Tools` |
 | `Simulation` | `Interaction`, `Scene` |
 | `Startup` | `App`, `Replay`, `Scene` |
 | `Tools` | `Camera`, `Editor`, `Input`, `Interaction`, `Replay`, `Scene` |
-| `UI` | `App`, `Automation`, `Capture`, `Diagnostics`, `Editor`, `Replay`, top-level frame views, `Scene` |
+| `UI` | `App`, `Automation`, `Capture`, `Diagnostics`, `Editor`, `Planning`, `Replay`, top-level frame views, `Scene` |
 | `Debug` | No other Runtime package |
 | top-level frame views | No Runtime package |
 
@@ -169,23 +171,25 @@ callback facade, or context bag:
 
 ```powershell
 rg -n '^#include[[:space:]]+\x22(\.\./)?(Debug|Render|Simulation|Startup|UI)/' SkullbonezSource/Runtime/Automation
-rg -n '^#include[[:space:]]+\x22((\.\./)?(Automation|Capture|Debug|DevelopmentTools|Diagnostics|Editor|Render|Replay|Simulation|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Camera
-rg -n '^#include[[:space:]]+\x22(\.\./)?(Debug|DevelopmentTools|Direction|Editor|Startup|UI)/' SkullbonezSource/Runtime/Capture
-rg -n '^#include[[:space:]]+\x22((\.\./)?(Automation|Camera|Capture|Debug|Diagnostics|Direction|Editor|Interaction|Render|Scene|Simulation|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/DevelopmentTools
-rg -n '^#include[[:space:]]+\x22((\.\./)?(Camera|DevelopmentTools|Direction|Editor|Interaction|Simulation|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Diagnostics
-rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Debug|DevelopmentTools|Diagnostics|Editor|Input|Interaction|Render|Replay|Simulation|Startup|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Direction
-rg -n '^#include[[:space:]]+\x22(\.\./)?(Automation|Debug|DevelopmentTools|Direction|Render|Simulation|Startup|UI)/' SkullbonezSource/Runtime/Editor
-rg -n '^#include[[:space:]]+\x22((\.\./)?(Automation|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Render|Simulation|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Input
-rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Capture|Debug|DevelopmentTools|Direction|Editor|Input|Replay|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Interaction
+rg -n '^#include[[:space:]]+\x22((\.\./)?(Automation|Capture|Debug|DevelopmentTools|Diagnostics|Editor|Planning|Prediction|Render|Replay|Simulation|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Camera
+rg -n '^#include[[:space:]]+\x22(\.\./)?(Debug|DevelopmentTools|Direction|Editor|Planning|Prediction|Startup|UI)/' SkullbonezSource/Runtime/Capture
+rg -n '^#include[[:space:]]+\x22((\.\./)?(Automation|Camera|Capture|Debug|Diagnostics|Direction|Editor|Interaction|Prediction|Render|Scene|Simulation|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/DevelopmentTools
+rg -n '^#include[[:space:]]+\x22((\.\./)?(Camera|DevelopmentTools|Direction|Editor|Interaction|Planning|Prediction|Simulation|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Diagnostics
+rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Debug|DevelopmentTools|Diagnostics|Editor|Input|Interaction|Planning|Prediction|Render|Replay|Simulation|Startup|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Direction
+rg -n '^#include[[:space:]]+\x22(\.\./)?(Automation|Debug|DevelopmentTools|Direction|Planning|Prediction|Render|Simulation|Startup|UI)/' SkullbonezSource/Runtime/Editor
+rg -n '^#include[[:space:]]+\x22((\.\./)?(Automation|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Planning|Prediction|Render|Simulation|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Input
+rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Capture|Debug|DevelopmentTools|Direction|Editor|Input|Planning|Prediction|Replay|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Interaction
 rg -n '^#include[[:space:]]+\x22(\.\./)?(Automation|Capture|Direction|Editor|Simulation|Startup)/' SkullbonezSource/Runtime/Render
-rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Capture|Debug|DevelopmentTools|Direction|Startup)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Replay
-rg -n '^#include[[:space:]]+\x22((\.\./)?(Capture|DevelopmentTools|Direction|Startup|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Scene
-rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Camera|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Input|Render|Replay|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Simulation
-rg -n '^#include[[:space:]]+\x22((\.\./)?(Automation|Camera|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Input|Interaction|Render|Simulation|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Startup
-rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Render|Simulation|Startup|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Tools
-rg -n '^#include[[:space:]]+\x22(\.\./)?(Camera|Debug|DevelopmentTools|Direction|Input|Interaction|Render|Simulation|Startup|Tools)/' SkullbonezSource/Runtime/UI
-rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Camera|Capture|DevelopmentTools|Diagnostics|Direction|Editor|Input|Interaction|Render|Replay|Scene|Simulation|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Debug
-rg -n '^#include[[:space:]]+\x22(\.\./)?(App|Automation|Camera|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Input|Interaction|Render|Replay|Scene|Simulation|Startup|Tools|UI)/' SkullbonezSource/Runtime/RuntimeFrameViews.h
+rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Capture|Debug|DevelopmentTools|Direction|Planning|Prediction|Startup)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Replay
+rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Interaction|Planning|Render|Simulation|Startup|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Prediction
+rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Camera|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Simulation|Startup|Tools)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Planning
+rg -n '^#include[[:space:]]+\x22((\.\./)?(Capture|DevelopmentTools|Direction|Prediction|Startup|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Scene
+rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Camera|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Input|Planning|Prediction|Render|Replay|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Simulation
+rg -n '^#include[[:space:]]+\x22((\.\./)?(Automation|Camera|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Input|Interaction|Planning|Prediction|Render|Simulation|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Startup
+rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Planning|Prediction|Render|Simulation|Startup|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Tools
+rg -n '^#include[[:space:]]+\x22(\.\./)?(Camera|Debug|DevelopmentTools|Direction|Input|Interaction|Prediction|Render|Simulation|Startup|Tools)/' SkullbonezSource/Runtime/UI
+rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Camera|Capture|DevelopmentTools|Diagnostics|Direction|Editor|Input|Interaction|Planning|Prediction|Render|Replay|Scene|Simulation|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Debug
+rg -n '^#include[[:space:]]+\x22(\.\./)?(App|Automation|Camera|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Input|Interaction|Planning|Prediction|Render|Replay|Scene|Simulation|Startup|Tools|UI)/' SkullbonezSource/Runtime/RuntimeFrameViews.h
 ```
 
 ## Replay Boundary Rule
@@ -205,6 +209,22 @@ closing replay-facing work, the mirror proof must also return no rows:
 ```powershell
 rg -n '^#include[[:space:]]+.*Runtime/(Replay|Prediction|Planning)/' SkullbonezSource/Physics SkullbonezSource/Rendering SkullbonezSource/Scene SkullbonezSource/World SkullbonezSource/Core
 ```
+
+### Replay-Family Placement Rule
+
+A new operator-facing feature built on predicted or recorded data belongs in
+`Runtime/Planning/`, or in a future explicitly named product package above it.
+It must not be placed in `Runtime/Replay/` or `Runtime/Prediction/`. Replay owns
+recorded-data infrastructure; Prediction owns future-simulation production and
+publication; neither is a miscellaneous home for trip analysis, launch-window
+tools, product panels, or later operator workflows.
+
+Review placement by responsibility and dependency direction. New retained
+product state, commands, panels, or orchestration in Replay or Prediction are a
+closure failure even if their names avoid planning vocabulary. Shared immutable
+values stay in the lowest honest owner, while App may compose siblings. Do not
+add frozen type counts, line budgets, or spelling ratchets to enforce this
+rule.
 
 Replay retains the only post-gameplay growth privilege, and only through a
 `RuntimeReserveAllocator`-registered owner with a replay-phase check, hard cap,

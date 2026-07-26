@@ -16,8 +16,8 @@
 #   Allow rule: Runtime-package row limiting only edges whose target is inside
 #     the Runtime scope.
 #   Deny rule: Source/target prefix pair that must never form an include edge.
-#   Fixture: Synthetic edge or project membership proving a rule accepts and
-#     rejects the intended cases.
+#   Fixture matrix: Synthetic source/target edges proving every governed
+#     package accepts one allowed edge and rejects every named forbidden edge.
 #
 # Invariants:
 #   - Rules are qualitative package relationships, never frozen hit counts.
@@ -221,41 +221,65 @@ def scan_project_rules(repo: Path, rules: list[dict]) -> list[Finding]:
     return findings
 
 
+def include_fixture_sources(rule: dict) -> list[str]:
+    source_files = rule.get("source_files", [])
+    if source_files:
+        return [normalize(source) for source in source_files]
+    return [normalize(f"{prefix}/Fixture.cpp") for prefix in rule.get("source_prefixes", ["Core"])]
+
+
+def include_fixture_negative_targets(rule: dict) -> list[str]:
+    targets = [*rule.get("negative_targets", [])]
+    if rule.get("negative_target") is not None:
+        targets.append(rule["negative_target"])
+    return list(dict.fromkeys(normalize(target) for target in targets))
+
+
 def self_test(config: dict) -> list[str]:
     errors: list[str] = []
     for rule in config["include_rules"]:
-        source = normalize(rule.get("source_files", [rule.get("source_prefixes", ["Core"])[0] + "/Fixture.cpp"])[0])
+        sources = include_fixture_sources(rule)
         positive = normalize(rule["positive_target"])
-        if edge_violates(rule, source, positive):
-            errors.append(f"{rule['id']}: positive fixture was rejected")
-        negative = rule.get("negative_target")
-        if negative is not None and not edge_violates(rule, source, normalize(negative)):
-            errors.append(f"{rule['id']}: negative fixture was accepted")
-        if negative is None:
+        negatives = include_fixture_negative_targets(rule)
+        for source in sources:
+            if edge_violates(rule, source, positive):
+                errors.append(f"{rule['id']}: positive fixture was rejected for {source}")
+            for negative in negatives:
+                if not edge_violates(rule, source, negative):
+                    errors.append(f"{rule['id']}: negative fixture was accepted for {source} -> {negative}")
+        if not negatives:
+            errors.append(f"{rule['id']}: restrictive rule has no negative fixture")
             continue
 
-        # Exercise the real parser and resolver for every rule. The forbidden
-        # edge deliberately uses angle brackets so repository-local angle
-        # includes cannot bypass a boundary that quoted includes enforce.
+        # Exercise the real parser and resolver for the complete fixture
+        # matrix. Forbidden edges deliberately use angle brackets so
+        # repository-local angle includes cannot bypass a quoted-include rule.
         with tempfile.TemporaryDirectory(prefix="skore_dependency_fixture_") as fixture_dir:
             repo = Path(fixture_dir)
             source_root = normalize(config["source_root"])
-            tracked_source = normalize(f"{source_root}/{source}")
-            source_path = repo / tracked_source
             positive_path = repo / source_root / positive
-            negative_path = repo / source_root / normalize(negative)
-            source_path.parent.mkdir(parents=True, exist_ok=True)
             positive_path.parent.mkdir(parents=True, exist_ok=True)
-            negative_path.parent.mkdir(parents=True, exist_ok=True)
             positive_path.touch()
-            negative_path.touch()
-            source_path.write_text(
-                f'#include "{positive}"\n#include <{normalize(negative)}>\n',
-                encoding="utf-8",
-            )
-            fixture_findings = scan_include_files(repo, source_root, [rule], [tracked_source])
-            if len(fixture_findings) != 1 or fixture_findings[0].target != normalize(negative):
-                errors.append(f"{rule['id']}: end-to-end include fixture did not reject only the negative edge")
+            for negative in negatives:
+                negative_path = repo / source_root / negative
+                negative_path.parent.mkdir(parents=True, exist_ok=True)
+                negative_path.touch()
+
+            tracked_sources: list[str] = []
+            for source in sources:
+                tracked_source = normalize(f"{source_root}/{source}")
+                tracked_sources.append(tracked_source)
+                source_path = repo / tracked_source
+                source_path.parent.mkdir(parents=True, exist_ok=True)
+                include_lines = [f'#include "{positive}"']
+                include_lines.extend(f"#include <{negative}>" for negative in negatives)
+                source_path.write_text("\n".join(include_lines) + "\n", encoding="utf-8")
+
+            fixture_findings = scan_include_files(repo, source_root, [rule], tracked_sources)
+            expected_edges = {(source, negative) for source in sources for negative in negatives}
+            actual_edges = {(finding.source, finding.target) for finding in fixture_findings}
+            if len(fixture_findings) != len(expected_edges) or actual_edges != expected_edges:
+                errors.append(f"{rule['id']}: end-to-end include fixture did not reject the full edge matrix")
 
     for rule in config["project_rules"]:
         required = rule["required_project"]
@@ -306,8 +330,13 @@ def main() -> int:
             print(f"SELF_TEST_FAIL: {error}", file=sys.stderr)
         return 1
     if args.self_test:
+        negative_fixture_count = sum(
+            len(include_fixture_sources(rule)) * len(include_fixture_negative_targets(rule))
+            for rule in config["include_rules"]
+        )
         print(
-            f"SELF_TEST_PASS: {len(config['include_rules'])} include-rule fixtures and "
+            f"SELF_TEST_PASS: {len(config['include_rules'])} include rules with "
+            f"{negative_fixture_count} negative edge fixtures and "
             f"{len(config['project_rules'])} project-rule fixtures passed"
         )
         return 0

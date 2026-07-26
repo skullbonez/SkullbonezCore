@@ -4,7 +4,7 @@ Date: 2026-07-25
 
 Owner: Runtime/Replay + Runtime composition
 
-State: IN PROGRESS (RS0-RS3 complete; RS4 next)
+State: IN PROGRESS (RS0-RS4 complete; RS5 next)
 
 Ledger tasks: 6 (RS0-RS5)
 
@@ -326,7 +326,7 @@ back-reference.
   - No golden, baseline, manifest, replay artifact, scene, config, shader, or
     physics CSV file changed.
 
-- [ ] **RS4 — Install the anti-accretion enforcement.**
+- [x] **RS4 — Install the anti-accretion enforcement.**
 
   Update `AGENTS.md`: add `Prediction` and `Planning` rows to the Runtime
   package table, update every consumer row the RS0 census ratified, add the
@@ -347,6 +347,19 @@ back-reference.
     each fail the validator in the negative fixtures.
   - No frozen-count, line-budget, or spelling-ratchet rule was added — the
     enforcement is directional edges plus the placement review rule only.
+
+  Evidence (2026-07-26):
+
+  - `Agentic/Reports/2026-07-26/replay-subsystem-partition-rs4-enforcement.md`
+    records the standing table, 21 zero-row proofs, fixture matrix, one-file
+    comment audit, and validation results.
+  - The validator passes 27 include rules with 43 negative edge fixtures,
+    including explicit Replay-to-Prediction, Replay-to-Planning,
+    Prediction-to-Planning, and lower-engine-to-replay-family failures.
+  - Prediction-to-Replay and Planning-to-Prediction positive fixtures pass;
+    the repository dependency scan has zero findings.
+  - Fast and the complete mandatory CPU umbrella pass. No frozen count, line
+    budget, spelling ratchet, golden, baseline, or artifact refresh was added.
 
 - [ ] **RS5 — Close behavior, ownership, and documentation.**
 
