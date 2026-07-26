@@ -1267,12 +1267,6 @@
     <ClInclude Include="SkullbonezSource\World\Terrain.h">
       <Filter>Header Files\World</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Physics\PhysicsTerrainView.h">
-      <Filter>Header Files\Physics</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Physics\TerrainSupportClassifier.h">
-      <Filter>Header Files\Physics</Filter>
-    </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\Text.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>

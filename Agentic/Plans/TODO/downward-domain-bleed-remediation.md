@@ -4,7 +4,7 @@ Date: 2026-07-25
 
 Owner: Rendering + Physics + Runtime/Prediction
 
-State: IN PROGRESS (DB0-DB3 complete; DB4 next)
+State: IN PROGRESS (DB0-DB4 complete; DB5 next)
 
 Ledger tasks: 6 (DB0-DB5)
 
@@ -321,7 +321,7 @@ without waiting for it.)
   - No baseline, golden, replay artifact, screenshot, shader, scene, config,
     or physics CSV reference was refreshed.
 
-- [ ] **DB4 — Install the anti-bleed enforcement.**
+- [x] **DB4 — Install the anti-bleed enforcement.**
 
   Update `AGENTS.md`: extend the Physics dependency sentence and proof to ban
   World/Scene/Assets explicitly; add invariant 2 (Rendering feature
@@ -342,6 +342,31 @@ without waiting for it.)
     not a general word census.
   - `tools\validate_fast.bat` and the CPU umbrella invoke the extended
     validator through the established call chain.
+
+  Evidence (2026-07-26):
+
+  - `Agentic/Reports/2026-07-26/downward-domain-bleed-remediation-db4-enforcement.md`
+    records the rule schema, planted-failure matrix, standing review proofs,
+    project-ownership reconciliation, formatting repair, and 24/24 touched
+    source comment audit.
+  - The Physics deny rule now rejects Assets, Gameplay, Scene, World, Runtime,
+    and UI edges. Its four negative targets include an end-to-end
+    `#include "../World/Terrain.h"` fixture under Physics.
+  - The bounded Rendering deletion rule rejects both retired exact names:
+    `RetainedTrajectory` and `RETAINED_TRAJECTORY`. Its positive fixture uses
+    the generic retained-geometry contract; its planted type and constant
+    fixtures both fail.
+  - No frozen count, broad word census, or spelling budget was added. The
+    checker enforces exact retired-name deletion while `AGENTS.md` carries the
+    broader feature-neutral review rule and zero-row proofs.
+  - The direct validator passed 27 include rules / 46 negative edge fixtures,
+    one content rule / two negative content fixtures, and one project rule with
+    zero repository findings. `tools\validate_fast.bat` and
+    `tools\validate_all_cpu_tests.bat` passed from final source. The cumulative
+    `tools\validate_full.bat` gate also passed.
+  - The CPU umbrella passed all six lanes, including 393/393 doctest cases,
+    2,403,315 assertions, every ratified coverage floor, and the dependency
+    preflight.
 
 - [ ] **DB5 — Close behavior, ownership, and documentation.**
 

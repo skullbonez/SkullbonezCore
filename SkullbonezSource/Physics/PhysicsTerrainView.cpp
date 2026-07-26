@@ -37,8 +37,10 @@ using SkullbonezCore::Physics::PhysicsTerrainView;
 
 bool PhysicsTerrainView::IsValid() const noexcept
 {
-    const std::size_t requiredCellCount =
-        quadsPerSide > 0 ? static_cast<std::size_t>( quadsPerSide ) * static_cast<std::size_t>( quadsPerSide ) : 0u;
+    const std::size_t requiredCellCount = quadsPerSide > 0 ? static_cast<std::size_t>( quadsPerSide ) *
+                                                                 static_cast<std::size_t>( quadsPerSide )
+                                                           : 0u;
+
     return flatSlope ? flatSlopeExtent > 0.0f
                      : requiredCellCount > 0u && scaledStepSize > 0.0f && worldExtent > 0.0f &&
                            cells.size() >= requiredCellCount;

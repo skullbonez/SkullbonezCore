@@ -249,10 +249,7 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler,
 
                 float vertexTerrainHeight = 0.0f;
                 Plane vertexPlane;
-                body.terrain.HeightAndPlaneAt( worldVertex.x,
-                                               worldVertex.z,
-                                               vertexTerrainHeight,
-                                               vertexPlane );
+                body.terrain.HeightAndPlaneAt( worldVertex.x, worldVertex.z, vertexTerrainHeight, vertexPlane );
 
                 const Ray vertexRay( worldVertex, body.linearVelocity * changeInTime );
                 const float vertexCollisionTime = GeometricMath::CalculateIntersectionTime( vertexPlane, vertexRay );
@@ -315,10 +312,7 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler,
 
                 float vertexTerrainHeight = 0.0f;
                 Plane vertexPlane;
-                body.terrain.HeightAndPlaneAt( worldVertex.x,
-                                               worldVertex.z,
-                                               vertexTerrainHeight,
-                                               vertexPlane );
+                body.terrain.HeightAndPlaneAt( worldVertex.x, worldVertex.z, vertexTerrainHeight, vertexPlane );
 
                 const Ray vertexRay( worldVertex, body.linearVelocity * changeInTime );
                 const float vertexCollisionTime = GeometricMath::CalculateIntersectionTime( vertexPlane, vertexRay );

@@ -162,8 +162,10 @@ PHYSICS_COLLISION_PREFIXES = (
     "CollisionShape",
     "ConvexHullShape",
     "ObjectContactManifold",
+    "PhysicsTerrainView",
     "SpatialGrid",
     "TerrainContactManifold",
+    "TerrainSupportClassifier",
 )
 
 PHYSICS_FORCE_PREFIXES = (
@@ -288,7 +290,6 @@ WORLD_PREFIXES = (
     "FluidSurfaceAdjustment",
     "SkyBox",
     "Terrain",
-    "TerrainSupportClassifier",
     "WorldEnvironment",
 )
 
@@ -405,6 +406,7 @@ RUNTIME_PREDICTION_PREFIXES = (
     "ReplayPredictionPublication",
     "ReplayPredictionPublicationOperations",
     "ReplayPredictionReserve",
+    "ReplayPredictionRetainedGeometry",
     "ReplayPredictionRetainedMemory",
     "ReplayPredictionScheduling",
     "ReplayPredictionTopologyPublication",

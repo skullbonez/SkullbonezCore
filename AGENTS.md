@@ -80,12 +80,14 @@ bypass it.
 
 Dependency direction must remain visible from physical include paths. `Core/`
 is the infrastructure floor and must not include Assets, Gameplay, Physics,
-Rendering, Scene, World, Runtime, or UI. Physics and Rendering may include Core
-and Maths, but must not include Gameplay, Runtime, or UI. Gameplay may include
-Core, Maths, and stable Physics/Rendering value or registration seams, but must
-not include Assets, Scene, World, Runtime, or UI. Move a misplaced value or
-implementation to its owning layer instead of adding a forwarding header,
-compatibility alias, callback pack, service bag, or upward include.
+Rendering, Scene, World, Runtime, or UI. Physics may include Core and Maths, but
+must not include Assets, Gameplay, Scene, World, Runtime, or UI. Rendering may
+include Core and Maths, but must not include Gameplay, Runtime, or UI. Gameplay
+may include Core, Maths, and stable Physics/Rendering value or registration
+seams, but must not include Assets, Scene, World, Runtime, or UI. Move a
+misplaced value or implementation to its owning layer instead of adding a
+forwarding header, compatibility alias, callback pack, service bag, or upward
+include.
 
 Authoritative dependency enforcement lives in
 `tools/check_dependency_graph.py` with data in
@@ -100,9 +102,29 @@ all commands must return no rows:
 
 ```powershell
 rg -n '^#include[[:space:]]+.*(Assets|Gameplay|Physics|Rendering|Scene|World|Runtime|UI)/' SkullbonezSource/Core
-rg -n '^#include[[:space:]]+.*(Gameplay|Runtime|UI)/' SkullbonezSource/Physics SkullbonezSource/Rendering
+rg -n '^#include[[:space:]]+.*(Assets|Gameplay|Scene|World|Runtime|UI)/' SkullbonezSource/Physics
+rg -n '^#include[[:space:]]+.*(Gameplay|Runtime|UI)/' SkullbonezSource/Rendering
 rg -n '^#include[[:space:]]+.*(Assets|Scene|World|Runtime|UI)/' SkullbonezSource/Gameplay
 ```
+
+Rendering contracts must remain feature-neutral. No type, constant, or function
+under `SkullbonezSource/Rendering` may name Runtime feature domains such as
+trajectory, replay, prediction, planning, cause trees, porkchops, or operator
+panels. Feature owners supply layouts, capacities, and presentation data through
+generic Rendering value contracts. The validator mechanically rejects the
+retired `RetainedTrajectory` and `RETAINED_TRAJECTORY` names; the broader review
+proof below prevents a renamed feature-specific replacement:
+
+```powershell
+rg -n --ignore-case 'trajectory|porkchop|replay|prediction' SkullbonezSource/Rendering
+rg -n 'RetainedTrajectory|RETAINED_TRAJECTORY' SkullbonezSource/Rendering
+```
+
+`PhysicsBodyRecord` and hot physics store arrays gain a per-body field only
+with an owner ruling in the owning plan or commit body. The ruling must name the
+consuming stage and explain why a stage-owned fixed-capacity parallel store is
+insufficient. This is a review invariant rather than a frozen field-count or
+spelling-budget check.
 
 If an edge cannot be inverted in the owning task, record it in that task's
 exception table with the owner, reason, and deletion condition. An unrecorded

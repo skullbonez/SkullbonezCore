@@ -14,9 +14,15 @@
       "id": "physics_direction",
       "source_prefixes": ["Physics"],
       "mode": "deny",
-      "target_prefixes": ["Gameplay", "Runtime", "UI"],
+      "target_prefixes": ["Assets", "Gameplay", "Scene", "World", "Runtime", "UI"],
       "positive_target": "Core/Common.h",
-      "negative_target": "Runtime/Scene/SceneRuntime.h"
+      "negative_targets": ["Assets/AssetKeys.h", "Scene/AuthoredScene.h", "Runtime/Scene/SceneRuntime.h"],
+      "negative_include_fixtures": [
+        {
+          "target": "World/Terrain.h",
+          "include": "../World/Terrain.h"
+        }
+      ]
     },
     {
       "id": "rendering_direction",
@@ -238,6 +244,29 @@
       "target_prefixes": ["Runtime"],
       "positive_target": "Core/Common.h",
       "negative_target": "Runtime/App/Run.h"
+    }
+  ],
+  "content_rules": [
+    {
+      "id": "rendering_retired_trajectory_vocabulary",
+      "source_prefixes": ["Rendering"],
+      "forbidden_literals": ["RetainedTrajectory", "RETAINED_TRAJECTORY"],
+      "positive_fixture": {
+        "source": "Rendering/RetainedGeometryFixture.h",
+        "text": "struct RetainedGeometryStream {};"
+      },
+      "negative_fixtures": [
+        {
+          "source": "Rendering/RetainedTrajectoryFixture.h",
+          "text": "struct RetainedTrajectory {};",
+          "literal": "RetainedTrajectory"
+        },
+        {
+          "source": "Rendering/RetainedTrajectoryConstantFixture.h",
+          "text": "constexpr unsigned RETAINED_TRAJECTORY_CAPACITY = 1;",
+          "literal": "RETAINED_TRAJECTORY"
+        }
+      ]
     }
   ],
   "project_rules": [

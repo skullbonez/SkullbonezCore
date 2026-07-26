@@ -840,8 +840,14 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 #endif
     m_forceStage.ApplyForces( applyForcesStage, awakeBodyIndices, workerPool, settings.execution );
 
-    ApplyExternalForces(
-        bodyStore, colliderStore, buoyancyFacts, worldForces, externalForces, settings.execution, workerPool );
+    ApplyExternalForces( bodyStore,
+                         colliderStore,
+                         buoyancyFacts,
+                         worldForces,
+                         externalForces,
+                         settings.execution,
+                         workerPool );
+
     m_sleepController.FlushPendingAwakeBodyIndices();
     awakeBodyIndices = m_sleepController.GetAwakeBodyIndices();
 

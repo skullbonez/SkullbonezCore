@@ -205,7 +205,8 @@ class Terrain
                                      float zPosition,
                                      float& outHeight,
                                      Plane& outPlane );                                               // Physics fast path: direct cached plane plus height lookup.
-    Physics::PhysicsTerrainView PhysicsView() const noexcept;                                         // Detached scene-lifetime collision view registered with Physics.
+    Physics::PhysicsTerrainView
+    PhysicsView() const noexcept;                                                                     // Detached scene-lifetime collision view registered with Physics.
 
   private:
     std::uint32_t displayListReference;                                                               // Legacy display-list token retained for serialized state.

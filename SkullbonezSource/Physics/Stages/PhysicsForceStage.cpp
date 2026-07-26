@@ -106,9 +106,13 @@ void ApplyForcesForSolverBody( Physics::PhysicsBodyStore& bodyStore,
     }
 
     const Vector3* mutualGravityForce = mutualGravityForces ? &mutualGravityForces[bodyIndex] : nullptr;
-    (void)bodyStore.ApplyForces(
-        worldForces, colliderStore, terrain, buoyancyFacts[static_cast<std::size_t>( bodyIndex )], bodyIndex, dt,
-        mutualGravityForce );
+    (void)bodyStore.ApplyForces( worldForces,
+                                 colliderStore,
+                                 terrain,
+                                 buoyancyFacts[static_cast<std::size_t>( bodyIndex )],
+                                 bodyIndex,
+                                 dt,
+                                 mutualGravityForce );
 }
 
 void IntegrateRemainingSolverBody( Physics::PhysicsBodyStore& bodyStore,
@@ -159,8 +163,15 @@ void ApplyForcesStageContext::operator()( int bodyIndex ) const
 
 void IntegrateRemainingStageContext::operator()( int bodyIndex ) const
 {
-    IntegrateRemainingSolverBody(
-        bodyStore, profiler, colliderStore, terrain, buoyancyFacts, hotFields, sleepState, timeRemaining, bodyIndex );
+    IntegrateRemainingSolverBody( bodyStore,
+                                  profiler,
+                                  colliderStore,
+                                  terrain,
+                                  buoyancyFacts,
+                                  hotFields,
+                                  sleepState,
+                                  timeRemaining,
+                                  bodyIndex );
 }
 
 PhysicsForceStage::PhysicsForceStage()

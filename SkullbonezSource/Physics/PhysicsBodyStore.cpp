@@ -65,11 +65,11 @@ using SkullbonezCore::Math::Vector::CrossProduct;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Math::Vector::VectorMagSquared;
 using SkullbonezCore::Math::Vector::ZERO_VECTOR;
+using SkullbonezCore::Physics::BuoyancyBodyFacts;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderRecordList;
 using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
-using SkullbonezCore::Physics::BuoyancyBodyFacts;
 using SkullbonezCore::Physics::PHYSICS_HANDLE_INITIAL_GENERATION;
 using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyCreateRecord;
@@ -80,10 +80,10 @@ using SkullbonezCore::Physics::PhysicsBodyMotionKind;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyRecordList;
 using SkullbonezCore::Physics::PhysicsBodyStore;
-using SkullbonezCore::Physics::PhysicsTerrainView;
 using SkullbonezCore::Physics::PhysicsFixedList;
 using SkullbonezCore::Physics::PhysicsHandleAssignmentMask;
 using SkullbonezCore::Physics::PhysicsSceneObjectId;
+using SkullbonezCore::Physics::PhysicsTerrainView;
 using SkullbonezCore::Physics::PhysicsWorldForces;
 
 namespace
@@ -578,8 +578,7 @@ float CalculateTerrainSupportFactor( const BuoyancyBodyFacts& buoyancyFacts,
     int closeSamples = 0;
     int terrainSamples = 0;
     const Vector3 position = hot.position;
-    const float supportGap = buoyancyFacts.contactEpsilon +
-                             SkullbonezCore::Physics::BOX_TERRAIN_VERTEX_SUPPORT_SLACK;
+    const float supportGap = buoyancyFacts.contactEpsilon + SkullbonezCore::Physics::BOX_TERRAIN_VERTEX_SUPPORT_SLACK;
     std::visit(
         [&]( const auto& shape )
         {
@@ -778,8 +777,9 @@ Vector3 CalculateBuoyancyRightingTorque( const PhysicsBodyRecord& record,
     const float weight = record.mass * gravityMagnitude;
     const float cappedLift = (std::min)( buoyancyForce, weight * 6.0f );
     const float waterCoupling = sqrtf( (std::clamp)( submergedVolumePercent, 0.0f, 1.0f ) );
-    const float supportBlend =
-        1.0f - CalculateTerrainSupportFactor( buoyancyFacts, hot, collider, terrain, rotMat ) * 0.85f;
+    const float supportBlend = 1.0f -
+                               CalculateTerrainSupportFactor( buoyancyFacts, hot, collider, terrain, rotMat ) * 0.85f;
+
     const float torqueMagnitude = cappedLift * hot.boundingRadius * anisotropy * waterCoupling * supportBlend * error;
     return correctionAxis * torqueMagnitude;
 }
@@ -863,8 +863,7 @@ void ApplyWorldForces( PhysicsBodyRecord& record,
         worldForce += *precomputedMutualGravityForce;
     }
 
-    const float buoyancyForce = CalculateBuoyancyForce( worldForces,
-                                                        buoyancyFacts.volume * submergedVolumePercent );
+    const float buoyancyForce = CalculateBuoyancyForce( worldForces, buoyancyFacts.volume * submergedVolumePercent );
     const Vector3 buoyancyForceVector( 0.0f, buoyancyForce, 0.0f );
     const Vector3 buoyancyArm = buoyancySample.centerOfBuoyancy - hot.position;
     worldForce += buoyancyForceVector;
@@ -2162,8 +2161,15 @@ bool PhysicsBodyStore::ApplyForces( const PhysicsWorldForces& worldForces,
     }
 
     ThrottleAngularVelocity( *record, hot );
-    ApplyWorldForces(
-        *record, buoyancyFacts, hot, *collider, terrain, worldForces, deltaSeconds, precomputedMutualGravityForce );
+    ApplyWorldForces( *record,
+                      buoyancyFacts,
+                      hot,
+                      *collider,
+                      terrain,
+                      worldForces,
+                      deltaSeconds,
+                      precomputedMutualGravityForce );
+
     ApplyPendingImpulse( *record, hot );
     // Invariant: force and pending-impulse integration are velocity-only edits.
     // Keeping the writes narrow avoids a 20-field round trip per active body.

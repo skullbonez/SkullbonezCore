@@ -58,10 +58,7 @@ struct PhysicsTerrainView
     bool IsValid() const noexcept;
     bool IsInBounds( float x, float z ) const noexcept;
     float HeightAt( float x, float z ) const;
-    void HeightAndPlaneAt( float x,
-                           float z,
-                           float& outHeight,
-                           Geometry::Plane& outPlane ) const;
+    void HeightAndPlaneAt( float x, float z, float& outHeight, Geometry::Plane& outPlane ) const;
     float MaxHeight() const noexcept;
 };
 } // namespace SkullbonezCore::Physics

@@ -507,8 +507,7 @@ bool SceneWorld::DestroySceneEntity( PhysicsBodyHandle body )
     if ( modelIndex < 0 || modelIndex >= modelCount || bodyStore.Count() != modelCount ||
          Colliders().Count() != modelCount ||
          static_cast<int>( Physics::PhysicsEngine::ReadBuoyancyFacts( m_physics ).size() ) != modelCount ||
-         m_renderInstanceStore.PresentationCount() != modelCount ||
-         m_renderInstanceStore.Count() != modelCount )
+         m_renderInstanceStore.PresentationCount() != modelCount || m_renderInstanceStore.Count() != modelCount )
     {
         return false;
     }
@@ -620,8 +619,7 @@ bool SceneWorld::TrimForReplayRestore( int bodyCount )
 {
     const int liveBodyCount = Physics::PhysicsEngine::ReadBodies( m_physics ).Count();
     const int liveColliderCount = Physics::PhysicsEngine::ReadColliders( m_physics ).Count();
-    const int liveBuoyancyCount =
-        static_cast<int>( Physics::PhysicsEngine::ReadBuoyancyFacts( m_physics ).size() );
+    const int liveBuoyancyCount = static_cast<int>( Physics::PhysicsEngine::ReadBuoyancyFacts( m_physics ).size() );
     const uint32_t authoredBodyCount = m_physics.AuthoredBodyDescriptorCount().value;
     if ( bodyCount < 0 || bodyCount > liveBodyCount || bodyCount > liveBuoyancyCount ||
          static_cast<uint32_t>( bodyCount ) > authoredBodyCount ||
@@ -785,8 +783,10 @@ bool SceneWorld::RepairPhysicsBodyAndColliderTopology()
     const int modelCount = SceneEntityCount();
     const bool bodyTopologyChanged = BodyStore().Count() != modelCount;
     const bool colliderTopologyChanged = Colliders().Count() != modelCount;
-    const bool buoyancyTopologyChanged =
-        static_cast<int>( Physics::PhysicsEngine::ReadBuoyancyFacts( m_physics ).size() ) != modelCount;
+    const bool buoyancyTopologyChanged = static_cast<int>(
+                                             Physics::PhysicsEngine::ReadBuoyancyFacts( m_physics ).size() ) !=
+                                         modelCount;
+
     if ( bodyTopologyChanged || colliderTopologyChanged || buoyancyTopologyChanged )
     {
         // Why: body rows can be repaired from explicit body descriptors, but

@@ -2,13 +2,15 @@
 #
 # File: tools/check_dependency_graph.py
 # Purpose:
-#   Enforce physical include direction and single-project source ownership.
+#   Enforce physical include direction, retired ownership vocabulary, and
+#   single-project source ownership.
 #
 # Summary:
-#   Loads a data-only package graph, resolves live repository include edges,
-#   and checks Visual Studio project membership. The same evaluator runs
-#   embedded positive/negative fixtures so new package rules require data, not
-#   code.
+#   Loads data-only package and content rules, resolves live repository include
+#   edges, scans bounded source scopes for explicitly retired concept names,
+#   and checks Visual Studio project membership. The same evaluators run
+#   embedded positive/negative fixtures so new ownership rules require data,
+#   not checker branches.
 #
 # Glossary:
 #   Physical edge: Resolved quoted or angle-bracket include from one tracked or
@@ -16,11 +18,16 @@
 #   Allow rule: Runtime-package row limiting only edges whose target is inside
 #     the Runtime scope.
 #   Deny rule: Source/target prefix pair that must never form an include edge.
+#   Content rule: Bounded deletion check for named retired vocabulary. It is
+#     not a general word census or frozen occurrence budget.
 #   Fixture matrix: Synthetic source/target edges proving every governed
-#     package accepts one allowed edge and rejects every named forbidden edge.
+#     package accepts one allowed edge and rejects every named forbidden edge,
+#     plus source snippets proving every retired literal is detected.
 #
 # Invariants:
 #   - Rules are qualitative package relationships, never frozen hit counts.
+#   - Content rules name deleted concepts exactly; broad architectural language
+#     remains a review proof instead of becoming a spelling budget.
 #   - Missing/unresolved external includes are ignored; resolved repository
 #     edges and declared project items are authoritative.
 #   - Every restrictive rule has both a passing and failing fixture.
@@ -232,7 +239,60 @@ def include_fixture_negative_targets(rule: dict) -> list[str]:
     targets = [*rule.get("negative_targets", [])]
     if rule.get("negative_target") is not None:
         targets.append(rule["negative_target"])
+    targets.extend(fixture["target"] for fixture in rule.get("negative_include_fixtures", []))
     return list(dict.fromkeys(normalize(target) for target in targets))
+
+
+def include_fixture_negative_entries(rule: dict) -> list[tuple[str, str, bool]]:
+    entries = {
+        target: (target, target, True)
+        for target in include_fixture_negative_targets(rule)
+    }
+    for fixture in rule.get("negative_include_fixtures", []):
+        target = normalize(fixture["target"])
+        entries[target] = (target, fixture["include"], False)
+    return list(entries.values())
+
+
+def evaluate_content_rule(rule: dict, source: str, text: str) -> list[Finding]:
+    if not source_matches(rule, source):
+        return []
+
+    findings: list[Finding] = []
+    for literal in rule["forbidden_literals"]:
+        offset = text.find(literal)
+        while offset != -1:
+            line = text.count("\n", 0, offset) + 1
+            findings.append(
+                Finding(
+                    rule_id=rule["id"],
+                    source=source,
+                    target=literal,
+                    detail=f'retired vocabulary "{literal}" found at line {line}',
+                )
+            )
+            offset = text.find(literal, offset + len(literal))
+    return findings
+
+
+def scan_content_files(
+    repo: Path,
+    source_root: str,
+    rules: list[dict],
+    tracked_files: list[str],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    for tracked in tracked_files:
+        path = repo / tracked
+        source = normalize(Path(tracked).relative_to(source_root).as_posix())
+        text = path.read_text(encoding="utf-8-sig", errors="replace")
+        for rule in rules:
+            findings.extend(evaluate_content_rule(rule, source, text))
+    return findings
+
+
+def scan_content(repo: Path, source_root: str, rules: list[dict]) -> list[Finding]:
+    return scan_content_files(repo, source_root, rules, repository_source_files(repo, source_root))
 
 
 def self_test(config: dict) -> list[str]:
@@ -240,7 +300,8 @@ def self_test(config: dict) -> list[str]:
     for rule in config["include_rules"]:
         sources = include_fixture_sources(rule)
         positive = normalize(rule["positive_target"])
-        negatives = include_fixture_negative_targets(rule)
+        negative_entries = include_fixture_negative_entries(rule)
+        negatives = [target for target, _, _ in negative_entries]
         for source in sources:
             if edge_violates(rule, source, positive):
                 errors.append(f"{rule['id']}: positive fixture was rejected for {source}")
@@ -272,7 +333,8 @@ def self_test(config: dict) -> list[str]:
                 source_path = repo / tracked_source
                 source_path.parent.mkdir(parents=True, exist_ok=True)
                 include_lines = [f'#include "{positive}"']
-                include_lines.extend(f"#include <{negative}>" for negative in negatives)
+                for _, include, use_angles in negative_entries:
+                    include_lines.append(f"#include <{include}>" if use_angles else f'#include "{include}"')
                 source_path.write_text("\n".join(include_lines) + "\n", encoding="utf-8")
 
             fixture_findings = scan_include_files(repo, source_root, [rule], tracked_sources)
@@ -280,6 +342,47 @@ def self_test(config: dict) -> list[str]:
             actual_edges = {(finding.source, finding.target) for finding in fixture_findings}
             if len(fixture_findings) != len(expected_edges) or actual_edges != expected_edges:
                 errors.append(f"{rule['id']}: end-to-end include fixture did not reject the full edge matrix")
+
+    for rule in config.get("content_rules", []):
+        literals = set(rule.get("forbidden_literals", []))
+        if not literals:
+            errors.append(f"{rule['id']}: restrictive content rule has no forbidden literal")
+            continue
+
+        positive = rule["positive_fixture"]
+        positive_source = normalize(positive["source"])
+        if not source_matches(rule, positive_source):
+            errors.append(f"{rule['id']}: positive content fixture is outside the governed scope")
+        elif evaluate_content_rule(rule, positive_source, positive["text"]):
+            errors.append(f"{rule['id']}: positive content fixture was rejected")
+
+        negative_fixtures = rule.get("negative_fixtures", [])
+        covered_literals = {fixture["literal"] for fixture in negative_fixtures}
+        if covered_literals != literals:
+            errors.append(f"{rule['id']}: negative content fixtures do not cover every forbidden literal")
+            continue
+
+        with tempfile.TemporaryDirectory(prefix="skore_dependency_content_fixture_") as fixture_dir:
+            repo = Path(fixture_dir)
+            source_root = normalize(config["source_root"])
+            tracked_sources: list[str] = []
+            expected_findings: set[tuple[str, str]] = set()
+
+            fixture_rows = [positive, *negative_fixtures]
+            for fixture in fixture_rows:
+                source = normalize(fixture["source"])
+                tracked_source = normalize(f"{source_root}/{source}")
+                tracked_sources.append(tracked_source)
+                source_path = repo / tracked_source
+                source_path.parent.mkdir(parents=True, exist_ok=True)
+                source_path.write_text(fixture["text"] + "\n", encoding="utf-8")
+                if fixture is not positive:
+                    expected_findings.add((source, fixture["literal"]))
+
+            fixture_findings = scan_content_files(repo, source_root, [rule], tracked_sources)
+            actual_findings = {(finding.source, finding.target) for finding in fixture_findings}
+            if len(fixture_findings) != len(expected_findings) or actual_findings != expected_findings:
+                errors.append(f"{rule['id']}: end-to-end content fixture did not reject the retired vocabulary")
 
     for rule in config["project_rules"]:
         required = rule["required_project"]
@@ -334,14 +437,21 @@ def main() -> int:
             len(include_fixture_sources(rule)) * len(include_fixture_negative_targets(rule))
             for rule in config["include_rules"]
         )
+        content_fixture_count = sum(
+            len(rule.get("negative_fixtures", []))
+            for rule in config.get("content_rules", [])
+        )
         print(
             f"SELF_TEST_PASS: {len(config['include_rules'])} include rules with "
             f"{negative_fixture_count} negative edge fixtures and "
+            f"{len(config.get('content_rules', []))} content rules with "
+            f"{content_fixture_count} negative content fixtures and "
             f"{len(config['project_rules'])} project-rule fixtures passed"
         )
         return 0
 
     findings = scan_includes(repo, config["source_root"], config["include_rules"])
+    findings.extend(scan_content(repo, config["source_root"], config.get("content_rules", [])))
     findings.extend(scan_project_rules(repo, config["project_rules"]))
     for finding in findings:
         print(
@@ -350,6 +460,7 @@ def main() -> int:
         )
     print(
         f"Dependency graph summary: include_rules={len(config['include_rules'])} "
+        f"content_rules={len(config.get('content_rules', []))} "
         f"project_rules={len(config['project_rules'])} findings={len(findings)}"
     )
     if findings:

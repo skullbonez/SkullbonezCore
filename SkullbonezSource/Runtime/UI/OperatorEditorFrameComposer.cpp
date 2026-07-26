@@ -373,8 +373,9 @@ void Render( RuntimeFrameHostView& host,
             const SceneEntityRecord* entity = hierarchyEntities.TryGet( selectedHierarchyRow );
             const PhysicsBodyStore& bodyStore = sceneController.Scene().BodyStore();
             const ColliderStore& colliderStore = sceneController.Scene().Colliders();
-            const std::span<const BuoyancyBodyFacts> buoyancyFacts =
-                PhysicsEngine::ReadBuoyancyFacts( sceneController.Scene().Physics() );
+            const std::span<const BuoyancyBodyFacts> buoyancyFacts = PhysicsEngine::ReadBuoyancyFacts(
+                sceneController.Scene().Physics() );
+
             const PhysicsBodyRecord* body = entity ? bodyStore.RecordForHandle( entity->body ) : nullptr;
             const PhysicsColliderHandle colliderHandle = entity ? colliderStore.HandleForBodyHandle( entity->body )
                                                                 : PhysicsColliderHandle {};

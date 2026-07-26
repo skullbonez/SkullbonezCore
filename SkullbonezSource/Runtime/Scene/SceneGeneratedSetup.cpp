@@ -208,12 +208,7 @@ SkullbonezCore::Core::SbResult SceneGeneratedSetup::SetUpSceneEntities( SceneGen
             const BoundingBox shape( Vector3( hx, hy, hz ), Vector3( 0.0f, 0.0f, 0.0f ) );
             const auto appendResult = context.sceneWorld.TryCreateSceneEntity(
                 std::move( gameModel ),
-                MakeGeneratedBodyDesc( sceneObjectId,
-                                       shape,
-                                       Vector3( posX, posY, posZ ),
-                                       inertia,
-                                       mass,
-                                       restitution ),
+                MakeGeneratedBodyDesc( sceneObjectId, shape, Vector3( posX, posY, posZ ), inertia, mass, restitution ),
                 MakeGeneratedColliderDesc( shape, restitution ) );
 
             if ( !appendResult.status.ok )
@@ -378,12 +373,7 @@ SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context, int
         const BoundingBox shape( Vector3( hx, hy, hz ), Vector3( 0.0f, 0.0f, 0.0f ) );
         const auto appendResult = context.sceneWorld.TryCreateSceneEntity(
             std::move( gameModel ),
-            MakeGeneratedBodyDesc( sceneObjectId,
-                                   shape,
-                                   Vector3( posX, posY, posZ ),
-                                   inertia,
-                                   mass,
-                                   restitution ),
+            MakeGeneratedBodyDesc( sceneObjectId, shape, Vector3( posX, posY, posZ ), inertia, mass, restitution ),
             MakeGeneratedColliderDesc( shape, restitution ) );
 
         if ( !appendResult.status.ok )

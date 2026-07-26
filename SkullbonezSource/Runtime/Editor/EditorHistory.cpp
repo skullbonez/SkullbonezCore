@@ -108,13 +108,11 @@ bool CapturePrimitiveRecipe( const SceneWorld& world, int modelIndex, EditorPrim
     }
 
     const PhysicsBodyStore& bodyStore = world.BodyStore();
-    const std::span<const BuoyancyBodyFacts> buoyancyFacts =
-        PhysicsEngine::ReadBuoyancyFacts( world.Physics() );
+    const std::span<const BuoyancyBodyFacts> buoyancyFacts = PhysicsEngine::ReadBuoyancyFacts( world.Physics() );
     const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex );
     const ColliderRecord* collider = ColliderForModelIndex( world.Colliders(), modelIndex );
     const ColliderAuthoringRecord* colliderAuthoring = ColliderAuthoringForModelIndex( world.Colliders(), modelIndex );
-    if ( !body || !collider || !colliderAuthoring ||
-         modelIndex >= static_cast<int>( buoyancyFacts.size() ) ||
+    if ( !body || !collider || !colliderAuthoring || modelIndex >= static_cast<int>( buoyancyFacts.size() ) ||
          body->sceneObjectId.value != entity.sceneObjectId.value ||
          !TryCaptureEditorPrimitiveShape( collider->shape, outRecipe.shape ) )
     {

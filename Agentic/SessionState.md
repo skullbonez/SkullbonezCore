@@ -11,17 +11,17 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-25th-JUL-26` |
-| Current baseline | Downward Domain Bleed DB3 is complete: all five per-body fluid facts live in the fixed-capacity BuoyancySystem store, PhysicsBodyRecord is clear, and final unit, byte-exact physics, perf, allocation, and dependency gates pass. |
-| Current objective | Execute `downward-domain-bleed-remediation` DB4: install the anti-bleed dependency and vocabulary enforcement with fixtures. |
-| Active/future progress | Downward Domain Bleed Remediation 4/6; Invariant Ownership Governance And Transaction Repair 1/5; Concrete Parameter-Bag Elimination 0/8; active/future ledger 5/19 (26%). |
+| Current baseline | Downward Domain Bleed DB4 is complete: Physics upward edges and retired Rendering trajectory names are mechanically rejected with planted fixtures; final fast and CPU gates pass. |
+| Current objective | Execute `downward-domain-bleed-remediation` DB5: close the complete census, final validation, documentation, and independent ownership review. |
+| Active/future progress | Downward Domain Bleed Remediation 5/6; Invariant Ownership Governance And Transaction Repair 1/5; Concrete Parameter-Bag Elimination 0/8; active/future ledger 6/19 (32%). |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | RS5 `validate_full.bat` passes: mandatory CPU/coverage and all five required runtime processes. |
-| Validation for current edits | DB3 `validate_tests`, `validate_physics`, `validate_perf`, allocation self-test/repository scan, and `validate_dependency_graph` pass; no baseline refresh. |
+| Last broad local gate | DB4 `validate_full.bat` passes: mandatory CPU/coverage and all five required runtime processes. |
+| Validation for current edits | DB4 direct dependency validator, `validate_fast`, `validate_all_cpu_tests`, and `validate_full` pass; all four static closure proofs return no rows; no baseline refresh. |
 
 ## Live Queue
 
-NOW. The 2026-07-25 round-4 architecture campaign is active at 5/19 with
-binding order: `downward-domain-bleed-remediation` (4/6),
+NOW. The 2026-07-25 round-4 architecture campaign is active at 6/19 with
+binding order: `downward-domain-bleed-remediation` (5/6),
 `invariant-ownership-governance-and-transaction-repair` (1/5), then
 `concrete-parameter-bag-elimination` (0/8).
 
@@ -40,13 +40,15 @@ permanent evidence is
 The completed Replay plan is removed from the live inventory under rule 4.
 Downward Domain Bleed DB0 evidence is
 `Agentic/Reports/2026-07-26/downward-domain-bleed-remediation-db0-census.md`.
-DB1 through DB3 evidence is
+DB1 through DB4 evidence is
 `Agentic/Reports/2026-07-26/downward-domain-bleed-remediation-db1-retained-geometry.md`
 and
 `Agentic/Reports/2026-07-26/downward-domain-bleed-remediation-db2-terrain-boundary.md`
 and
-`Agentic/Reports/2026-07-26/downward-domain-bleed-remediation-db3-buoyancy-owner.md`.
-Implementation continues through the repository orchestrator skill with DB4
+`Agentic/Reports/2026-07-26/downward-domain-bleed-remediation-db3-buoyancy-owner.md`
+and
+`Agentic/Reports/2026-07-26/downward-domain-bleed-remediation-db4-enforcement.md`.
+Implementation continues through the repository orchestrator skill with DB5
 next. Live plans are under
 `Agentic/Plans/TODO/`.
 

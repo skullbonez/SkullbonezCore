@@ -1155,15 +1155,14 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         // its analytic terrain into the next height-map scene.
         if ( scene.HasFlatSlope() )
         {
-            const SkullbonezCore::Core::SbResult terrainResult = UseFlatSlopeTerrain(
-                m_sceneController.Scene(),
-                assets,
-                config,
-                scene.GetFlatBaseY(),
-                scene.GetFlatSlopeX(),
-                scene.GetFlatSlopeZ(),
-                renderFrame,
-                renderResources );
+            const SkullbonezCore::Core::SbResult terrainResult = UseFlatSlopeTerrain( m_sceneController.Scene(),
+                                                                                      assets,
+                                                                                      config,
+                                                                                      scene.GetFlatBaseY(),
+                                                                                      scene.GetFlatSlopeX(),
+                                                                                      scene.GetFlatSlopeZ(),
+                                                                                      renderFrame,
+                                                                                      renderResources );
 
             if ( !terrainResult.ok )
             {

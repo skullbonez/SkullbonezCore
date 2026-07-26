@@ -184,8 +184,9 @@ EditorSelectionFingerprint BuildEditorSelectionFingerprint( RuntimeTools& runtim
 
     const SceneEntityRecord& entity = world.Entities().At( modelIndex );
     const Physics::PhysicsBodyRecord* body = world.BodyStore().RecordForModelIndex( modelIndex );
-    const std::span<const Physics::BuoyancyBodyFacts> buoyancyFacts =
-        Physics::PhysicsEngine::ReadBuoyancyFacts( world.Physics() );
+    const std::span<const Physics::BuoyancyBodyFacts> buoyancyFacts = Physics::PhysicsEngine::ReadBuoyancyFacts(
+        world.Physics() );
+
     const Physics::PhysicsColliderHandle colliderHandle = world.Colliders().HandleForModelIndex( modelIndex );
     const Physics::ColliderRecord* collider = world.Colliders().RecordForHandle( colliderHandle );
     const Physics::ColliderAuthoringRecord* colliderAuthoring = world.Colliders().AuthoringRecordForHandle( colliderHandle );

@@ -88,8 +88,7 @@ void PhysicsSleepController::LockUnderwaterSleeperIfReady( const PhysicsWorldFor
     }
 
     BuoyancyBodyFacts& facts = buoyancyFacts[static_cast<std::size_t>( index )];
-    if ( !BuoyancySystem::RefreshUnderwaterSubmersionForBall(
-             worldForces, bodyStore, colliderStore, facts, index ) )
+    if ( !BuoyancySystem::RefreshUnderwaterSubmersionForBall( worldForces, bodyStore, colliderStore, facts, index ) )
     {
         return;
     }
@@ -395,11 +394,12 @@ void PhysicsSleepController::WakeModel( const PhysicsSleepWakeContext& context, 
             if ( context.colliderStore && context.worldForces &&
                  index < static_cast<int>( context.buoyancyFacts.size() ) )
             {
-                refreshedSubmersion = BuoyancySystem::RefreshUnderwaterSubmersionForBall( *context.worldForces,
-                                                                                          *context.bodyStore,
-                                                                                          *context.colliderStore,
-                                                                                          context.buoyancyFacts[static_cast<std::size_t>( index )],
-                                                                                          index );
+                refreshedSubmersion = BuoyancySystem::RefreshUnderwaterSubmersionForBall(
+                    *context.worldForces,
+                    *context.bodyStore,
+                    *context.colliderStore,
+                    context.buoyancyFacts[static_cast<std::size_t>( index )],
+                    index );
             }
 
             if ( context.colliderStore && index < static_cast<int>( context.buoyancyFacts.size() ) &&

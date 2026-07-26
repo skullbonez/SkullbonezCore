@@ -114,16 +114,14 @@ void PhysicsTerrainStage::DetectTerrainAt( const TerrainDetectionStageContext& c
     }
 
     candidate.availableTime = context.timeRemaining[bodyIndex];
-    candidate.sweep = SweepTerrainContact(
-        context.profiler,
-        TerrainContactBodyViewForIndex(
-            context.buoyancyFacts,
-            context.hotFields,
-            context.terrain,
-            context.settings,
-            bodyIndex ),
-        context.colliderRecords[static_cast<size_t>( bodyIndex )].shape,
-        candidate.availableTime );
+    candidate.sweep = SweepTerrainContact( context.profiler,
+                                           TerrainContactBodyViewForIndex( context.buoyancyFacts,
+                                                                           context.hotFields,
+                                                                           context.terrain,
+                                                                           context.settings,
+                                                                           bodyIndex ),
+                                           context.colliderRecords[static_cast<size_t>( bodyIndex )].shape,
+                                           candidate.availableTime );
 
     candidate.tested = 1;
 }
@@ -170,22 +168,20 @@ PhysicsTerrainStage::PrepareCandidateCommit( const TerrainCandidateCommitContext
     if ( sweep.hit )
     {
         const float colTime = sweep.collisionTime;
-        (void)context.bodyStore.IntegrateBodyPose(
-            context.profiler,
-            context.colliderStore,
-            context.terrain,
-            context.buoyancyFacts[static_cast<std::size_t>( bodyIndex )],
-            bodyIndex,
-            colTime );
+        (void)context.bodyStore.IntegrateBodyPose( context.profiler,
+                                                   context.colliderStore,
+                                                   context.terrain,
+                                                   context.buoyancyFacts[static_cast<std::size_t>( bodyIndex )],
+                                                   bodyIndex,
+                                                   colTime );
         const float remainingTime = (std::max)( 0.0f, availableTime - colTime );
         const bool hasManifold = Physics::BuildTerrainContactManifold(
             context.profiler,
-            TerrainContactBodyViewForIndex(
-                context.buoyancyFacts,
-                context.hotFields,
-                context.terrain,
-                context.settings,
-                bodyIndex ),
+            TerrainContactBodyViewForIndex( context.buoyancyFacts,
+                                            context.hotFields,
+                                            context.terrain,
+                                            context.settings,
+                                            bodyIndex ),
             context.colliderRecords[static_cast<size_t>( bodyIndex )].shape,
             bodyIndex,
             sweep,

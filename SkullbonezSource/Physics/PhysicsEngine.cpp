@@ -66,11 +66,11 @@ using SkullbonezCore::Math::Transformation::RotationMatrix;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Math::Vector::VectorMag;
 using SkullbonezCore::Physics::BodySimulationLimits;
+using SkullbonezCore::Physics::BuoyancyBodyFacts;
 using SkullbonezCore::Physics::ColliderAuthoringRecord;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
-using SkullbonezCore::Physics::BuoyancyBodyFacts;
 using SkullbonezCore::Physics::ContactPolicy;
 using SkullbonezCore::Physics::PhysicsAuthoredBodyCount;
 using SkullbonezCore::Physics::PhysicsAuthoredBodyRefreshView;
@@ -595,6 +595,7 @@ bool PhysicsEngine::UpdateAuthoredBody( const PhysicsBodyUpdateDesc& update )
     {
         SB_FATAL( "Physics/PhysicsEngine", "Buoyancy refresh lost an aligned body row." );
     }
+
     if ( update.updateMask & PHYSICS_BODY_UPDATE_SLEEP_STATE )
     {
         if ( update.sleeping )
@@ -664,6 +665,7 @@ bool PhysicsEngine::UpdateAuthoredBodyAndCollider( const PhysicsBodyUpdateDesc& 
     {
         SB_FATAL( "Physics/PhysicsEngine", "Buoyancy shape refresh lost an aligned body row." );
     }
+
     return true;
 }
 
@@ -689,6 +691,7 @@ bool PhysicsEngine::TrimBodiesToCount( PhysicsBodyCount bodyCount )
         {
             SB_FATAL( "Physics/PhysicsEngine", "Buoyancy trim failed after body-store trim." );
         }
+
         m_world.InvalidateBodyTopology();
     }
 
@@ -852,8 +855,11 @@ bool PhysicsEngine::ReleaseFixedBodyAndAttachedTreeParts( PhysicsBodyHandle sour
     {
         if ( m_hasLastWorldForces )
         {
-            m_world.WakeModel(
-                m_bodyStore, m_colliderStore, m_buoyancySystem.MutableFacts(), m_lastWorldForces, index );
+            m_world.WakeModel( m_bodyStore,
+                               m_colliderStore,
+                               m_buoyancySystem.MutableFacts(),
+                               m_lastWorldForces,
+                               index );
         }
         else
         {
@@ -893,8 +899,7 @@ void PhysicsEngine::WakeBody( PhysicsBodyHandle body )
 
     if ( m_hasLastWorldForces )
     {
-        m_world.WakeModel(
-            m_bodyStore, m_colliderStore, m_buoyancySystem.MutableFacts(), m_lastWorldForces, index );
+        m_world.WakeModel( m_bodyStore, m_colliderStore, m_buoyancySystem.MutableFacts(), m_lastWorldForces, index );
     }
     else
     {
@@ -924,8 +929,11 @@ bool PhysicsEngine::SetBodyVelocity( PhysicsBodyHandle body,
     {
         if ( m_hasLastWorldForces )
         {
-            m_world.WakeModel(
-                m_bodyStore, m_colliderStore, m_buoyancySystem.MutableFacts(), m_lastWorldForces, index );
+            m_world.WakeModel( m_bodyStore,
+                               m_colliderStore,
+                               m_buoyancySystem.MutableFacts(),
+                               m_lastWorldForces,
+                               index );
         }
         else
         {

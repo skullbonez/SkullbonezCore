@@ -1659,8 +1659,10 @@ void ReplayPredictionRetainedGeometry::PublishToPacket( ReplayVisualPacket& pack
                []( const Rendering::RetainedGeometryRangeToken& lhs, const Rendering::RetainedGeometryRangeToken& rhs )
                { return lhs.drawOrder < rhs.drawOrder; } );
 
-    packet.retainedPredictionCompactRibbonRecords =
-        std::span<const float>( m_records.get(), PREDICTION_TRAJECTORY_RECORD_FLOAT_CAPACITY );
+    packet.retainedPredictionCompactRibbonRecords = std::span<const float>(
+        m_records.get(),
+        PREDICTION_TRAJECTORY_RECORD_FLOAT_CAPACITY );
+
     packet.retainedPredictionRibbonRanges = std::span<const Rendering::RetainedGeometryRangeToken>( m_drawRanges.data(),
                                                                                                     m_rangeCount );
 }

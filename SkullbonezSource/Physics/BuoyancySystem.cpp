@@ -54,7 +54,7 @@ void ApplyDescriptorFacts( const PhysicsBodyCreateDesc& desc, BuoyancyBodyFacts&
     facts.submergedVolumePercent = 0.0f;
     facts.contactEpsilon = desc.contactEpsilon;
 }
-}
+} // namespace
 
 
 bool BuoyancySystem::AppendBodyFacts( const PhysicsBodyCreateDesc& desc )
