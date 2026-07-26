@@ -256,7 +256,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
     // Why: Win32 stores the non-owning Window address in LONG_PTR user data and
     // returns WM_CREATE payloads through LPARAM. Recover the typed owner only at
     // this WndProc ABI seam; the window object retains lifetime authority.
-    Window* m_cWindow = reinterpret_cast<Window*>( GetWindowLongPtr( hWnd, GWLP_USERDATA ) );
+    Window* window = reinterpret_cast<Window*>( GetWindowLongPtr( hWnd, GWLP_USERDATA ) );
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 
@@ -265,9 +265,9 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
     // event. Window/OS lifecycle messages are never captured by editor policy.
     DevelopmentTools::ImGuiEditorNativeMessageRoute developmentUiRoute;
 
-    if ( m_cWindow )
+    if ( window )
     {
-        developmentUiRoute = m_cWindow->RouteDevelopmentUiMessage( hWnd, iMsg, wParam, lParam );
+        developmentUiRoute = window->RouteDevelopmentUiMessage( hWnd, iMsg, wParam, lParam );
     }
 #endif
 
@@ -282,8 +282,8 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
     case WM_CREATE:
     {
         CREATESTRUCT* create = reinterpret_cast<CREATESTRUCT*>( lParam );
-        m_cWindow = reinterpret_cast<Window*>( create->lpCreateParams );
-        SetWindowLongPtr( hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>( m_cWindow ) );
+        window = reinterpret_cast<Window*>( create->lpCreateParams );
+        SetWindowLongPtr( hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>( window ) );
         break;
     }
 
@@ -292,10 +292,10 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
 
         // LoWord = m_width, HiWord = m_height
 
-        if ( m_cWindow )
+        if ( window )
         {
-            m_cWindow->SetWindowDimensions( LOWORD( lParam ), HIWORD( lParam ) );
-            const SkullbonezCore::Core::SbResult resizeResult = m_cWindow->HandleScreenResize();
+            window->SetWindowDimensions( LOWORD( lParam ), HIWORD( lParam ) );
+            const SkullbonezCore::Core::SbResult resizeResult = window->HandleScreenResize();
 
             if ( !resizeResult.ok )
             {

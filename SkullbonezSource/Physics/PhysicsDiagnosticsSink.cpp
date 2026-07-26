@@ -206,9 +206,12 @@ void PhysicsDiagnosticsSink::EmitRegressionLog( const PhysicsDiagnosticsFrameInp
     }
 
     const PhysicsDiagnosticsView& diagnosticsView = frame.world;
-    const auto& m_sleepSupportedThisFrame = diagnosticsView.sleepSupportedThisFrame;
-    const auto& m_sleepState = diagnosticsView.sleepState;
-    const auto& m_sleepInhibitedThisFrame = diagnosticsView.sleepInhibitedThisFrame;
+
+    // Lifetime: regression rows borrow the current fixed-step diagnostics view
+    // only while this CSV frame is emitted.
+    const auto& sleepSupportedThisFrame = diagnosticsView.sleepSupportedThisFrame;
+    const auto& sleepState = diagnosticsView.sleepState;
+    const auto& sleepInhibitedThisFrame = diagnosticsView.sleepInhibitedThisFrame;
 
     const int modelCount = frame.bodyStore.Count();
 
@@ -233,9 +236,9 @@ void PhysicsDiagnosticsSink::EmitRegressionLog( const PhysicsDiagnosticsFrameInp
         const Vector3& omega = model.angularVelocity;
         float speed = sqrtf( vel.x * vel.x + vel.y * vel.y + vel.z * vel.z );
         float omegaMag = sqrtf( omega.x * omega.x + omega.y * omega.y + omega.z * omega.z );
-        int sleepSupported = m_sleepSupportedThisFrame[i];
-        int sleeping = ( i < static_cast<int>( m_sleepState.size() ) ) ? m_sleepState[i] : 0;
-        int sleepInhibited = ( i < static_cast<int>( m_sleepInhibitedThisFrame.size() ) ) ? m_sleepInhibitedThisFrame[i] : 0;
+        int sleepSupported = sleepSupportedThisFrame[i];
+        int sleeping = ( i < static_cast<int>( sleepState.size() ) ) ? sleepState[i] : 0;
+        int sleepInhibited = ( i < static_cast<int>( sleepInhibitedThisFrame.size() ) ) ? sleepInhibitedThisFrame[i] : 0;
 
         frame.csvWriter
             .Writef( m_physicsRegressionLogPath,

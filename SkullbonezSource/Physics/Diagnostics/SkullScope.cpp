@@ -170,22 +170,26 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
     }
 
     const Physics::PhysicsDiagnosticsView& physicsDiagnostics = frameInput.world;
-    const auto& m_persistentContacts = physicsDiagnostics.persistentContacts;
-    const auto& m_persistentContactSolverStats = physicsDiagnostics.persistentContactSolverStats;
-    const auto& m_sleepIslandParent = physicsDiagnostics.sleepIslandParent;
-    const auto& m_sleepSupportedThisFrame = physicsDiagnostics.sleepSupportedThisFrame;
-    const auto& m_sleepInhibitedThisFrame = physicsDiagnostics.sleepInhibitedThisFrame;
-    const auto& m_sleepState = physicsDiagnostics.sleepState;
-    const auto& m_sleepCounter = physicsDiagnostics.sleepCounter;
-    const auto& m_sleepIslandEligible = physicsDiagnostics.sleepIslandEligible;
-    const auto& m_sleepIslandCanSleep = physicsDiagnostics.sleepIslandCanSleep;
-    const auto& m_spatialGrid = physicsDiagnostics.spatialGrid;
-    const auto& m_candidatePairs = physicsDiagnostics.candidatePairs;
-    const auto& m_collisionCellKeys = physicsDiagnostics.collisionCellKeys;
-    const auto& m_sleepSupportEdges = physicsDiagnostics.sleepSupportEdges;
-    const auto& m_sleepIslandVisualId = physicsDiagnostics.sleepIslandVisualId;
-    const auto& m_physicsPipelineTrace = physicsDiagnostics.physicsPipelineTrace;
-    const auto& m_terrainContactManifolds = physicsDiagnostics.terrainContactManifolds;
+
+    // Lifetime: every named row below borrows the current PhysicsWorld
+    // diagnostics view only until this frame is serialized. SkullScope retains
+    // counters and paths, never solver containers.
+    const auto& persistentContacts = physicsDiagnostics.persistentContacts;
+    const auto& persistentContactSolverStats = physicsDiagnostics.persistentContactSolverStats;
+    const auto& sleepIslandParent = physicsDiagnostics.sleepIslandParent;
+    const auto& sleepSupportedThisFrame = physicsDiagnostics.sleepSupportedThisFrame;
+    const auto& sleepInhibitedThisFrame = physicsDiagnostics.sleepInhibitedThisFrame;
+    const auto& sleepState = physicsDiagnostics.sleepState;
+    const auto& sleepCounters = physicsDiagnostics.sleepCounter;
+    const auto& sleepIslandEligible = physicsDiagnostics.sleepIslandEligible;
+    const auto& sleepIslandCanSleep = physicsDiagnostics.sleepIslandCanSleep;
+    const auto& spatialGrid = physicsDiagnostics.spatialGrid;
+    const auto& candidatePairs = physicsDiagnostics.candidatePairs;
+    const auto& collisionCellKeys = physicsDiagnostics.collisionCellKeys;
+    const auto& sleepSupportEdges = physicsDiagnostics.sleepSupportEdges;
+    const auto& sleepIslandVisualId = physicsDiagnostics.sleepIslandVisualId;
+    const auto& physicsPipelineTrace = physicsDiagnostics.physicsPipelineTrace;
+    const auto& terrainContactManifolds = physicsDiagnostics.terrainContactManifolds;
 
     // Frame rows summarize the whole physics island graph, not just individual
     // bodies.  The query layer uses these aggregate maxima/counts to decide which
@@ -223,7 +227,7 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
         double totalEnergy = 0.0;
     };
 
-    for ( const auto& c : m_persistentContacts )
+    for ( const auto& c : persistentContacts )
     {
 
         if ( c.penetration > maxPenetration )
@@ -249,9 +253,9 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
     {
         int root = index;
 
-        while ( root >= 0 && root < static_cast<int>( m_sleepIslandParent.size() ) && m_sleepIslandParent[root] != root )
+        while ( root >= 0 && root < static_cast<int>( sleepIslandParent.size() ) && sleepIslandParent[root] != root )
         {
-            root = m_sleepIslandParent[root];
+            root = sleepIslandParent[root];
         }
 
         if ( root < 0 || root >= modelCount )
@@ -297,14 +301,12 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
             maxOmegaBody = i;
         }
 
-        const int sleeping = ( i < static_cast<int>( m_sleepState.size() ) ) ? m_sleepState[i] : 0;
-        const int sleepSupported = ( i < static_cast<int>( m_sleepSupportedThisFrame.size() ) )
-                                       ? m_sleepSupportedThisFrame[i]
-                                       : 0;
+        const int sleeping = ( i < static_cast<int>( sleepState.size() ) ) ? sleepState[i] : 0;
+        const int sleepSupported = ( i < static_cast<int>( sleepSupportedThisFrame.size() ) ) ? sleepSupportedThisFrame[i]
+                                                                                              : 0;
 
-        const int sleepInhibited = ( i < static_cast<int>( m_sleepInhibitedThisFrame.size() ) )
-                                       ? m_sleepInhibitedThisFrame[i]
-                                       : 0;
+        const int sleepInhibited = ( i < static_cast<int>( sleepInhibitedThisFrame.size() ) ) ? sleepInhibitedThisFrame[i]
+                                                                                              : 0;
 
         if ( sleeping )
         {
@@ -325,7 +327,7 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
             ++inhibitedCount;
         }
 
-        const int root = ( i < static_cast<int>( m_sleepIslandParent.size() ) ) ? findIslandRoot( i ) : i;
+        const int root = ( i < static_cast<int>( sleepIslandParent.size() ) ) ? findIslandRoot( i ) : i;
         const int islandId = root + 1;
         bodyIslandIds[i] = islandId;
         DiagnosticsIslandStats& island = islandStats[root];
@@ -334,9 +336,9 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
         {
             island.root = root;
             island.islandId = islandId;
-            island.eligible = ( root < static_cast<int>( m_sleepIslandEligible.size() ) ) ? m_sleepIslandEligible[root] : 0;
+            island.eligible = ( root < static_cast<int>( sleepIslandEligible.size() ) ) ? sleepIslandEligible[root] : 0;
 
-            island.canSleep = ( root < static_cast<int>( m_sleepIslandCanSleep.size() ) ) ? m_sleepIslandCanSleep[root] : 0;
+            island.canSleep = ( root < static_cast<int>( sleepIslandCanSleep.size() ) ) ? sleepIslandCanSleep[root] : 0;
 
             bool seen = false;
 
@@ -399,7 +401,7 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
                  "6f,\"max_speed\":%.6f,\"max_speed_body\":%d,\"max_omega\":%.6f,\"max_omega_body\":%d,\"max_"
                  "penetration\":%.6f,\"max_penetration_contact\":\"%s\"}\n",
                  m_physicsDiagnosticsRunId, frame, m_physicsDiagnosticsTimeSeconds, dt, modelCount, awakeCount,
-                 sleepingCount, supportedCount, inhibitedCount, m_persistentContacts.size(), islandRoots.size(), totalEnergy,
+                 sleepingCount, supportedCount, inhibitedCount, persistentContacts.size(), islandRoots.size(), totalEnergy,
                  totalLinearEnergy, totalAngularEnergy, maxSpeed, maxSpeedBody, maxOmega, maxOmegaBody, maxPenetration,
                  maxPenetrationContact );
 
@@ -408,18 +410,17 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
                  "{\"kind\":\"solver_stats\",\"run\":\"%s\",\"frame\":%d,\"row_count\":%d,\"cache_previous_rows\":%d,"
                  "\"cache_hits\":%d,\"cache_misses\":%d,\"warm_started_rows\":%d,\"position_correction_rows\":%d,"
                  "\"position_correction_total\":%.6f,\"position_correction_max\":%.6f,\"solver_iterations\":%d}\n",
-                 m_physicsDiagnosticsRunId, frame, m_persistentContactSolverStats.rowCount,
-                 m_persistentContactSolverStats.cachePreviousRows, m_persistentContactSolverStats.cacheHits,
-                 m_persistentContactSolverStats.cacheMisses, m_persistentContactSolverStats.warmStartedRows,
-                 m_persistentContactSolverStats.positionCorrectionRows,
-                 m_persistentContactSolverStats.positionCorrectionTotal,
-                 m_persistentContactSolverStats.positionCorrectionMax, m_persistentContactSolverStats.solverIterations );
+                 m_physicsDiagnosticsRunId, frame, persistentContactSolverStats.rowCount,
+                 persistentContactSolverStats.cachePreviousRows, persistentContactSolverStats.cacheHits,
+                 persistentContactSolverStats.cacheMisses, persistentContactSolverStats.warmStartedRows,
+                 persistentContactSolverStats.positionCorrectionRows, persistentContactSolverStats.positionCorrectionTotal,
+                 persistentContactSolverStats.positionCorrectionMax, persistentContactSolverStats.solverIterations );
 
     {
         const int stageCount = static_cast<int>( Physics::PhysicsPipelineStage::Count );
         int stageCounts[static_cast<int>( Physics::PhysicsPipelineStage::Count )] = {};
 
-        for ( const Physics::PhysicsPipelineRecord& record : m_physicsPipelineTrace )
+        for ( const Physics::PhysicsPipelineRecord& record : physicsPipelineTrace )
         {
             const int stageIndex = static_cast<int>( record.stage );
 
@@ -431,7 +432,7 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
 
         SkullbonezCore::Core::Log().Writef( m_physicsDiagnosticsPath,
                                             "{\"kind\":\"pipeline_stages\",\"run\":\"%s\",\"frame\":%d,\"record_count\":%zu",
-                                            m_physicsDiagnosticsRunId, frame, m_physicsPipelineTrace.size() );
+                                            m_physicsDiagnosticsRunId, frame, physicsPipelineTrace.size() );
 
         for ( int i = 0; i < stageCount; ++i )
         {
@@ -467,13 +468,13 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
     m_physicsDiagnosticsPrevEnergy = totalEnergy;
     m_physicsDiagnosticsHasPrevEnergy = true;
 
-    int activeCellCount = m_spatialGrid.GetActiveCellCount();
+    int activeCellCount = spatialGrid.GetActiveCellCount();
     int maxCellOccupancy = 0;
 
     if ( activeCellCount > 0 )
     {
         std::vector<SpatialGrid::ActiveCell> activeCells( activeCellCount );
-        m_spatialGrid.GetActiveCells( activeCells.data(), activeCellCount );
+        spatialGrid.GetActiveCells( activeCells.data(), activeCellCount );
 
         for ( const SpatialGrid::ActiveCell& cell : activeCells )
         {
@@ -486,9 +487,9 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
     }
 
     std::vector<std::pair<int, int>> contactPairs;
-    contactPairs.reserve( m_persistentContacts.size() );
+    contactPairs.reserve( persistentContacts.size() );
 
-    for ( const auto& c : m_persistentContacts )
+    for ( const auto& c : persistentContacts )
     {
 
         if ( c.isTerrain )
@@ -522,7 +523,7 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
         }
     }
 
-    int rejectedPairs = static_cast<int>( m_candidatePairs.size() ) - static_cast<int>( contactPairs.size() );
+    int rejectedPairs = static_cast<int>( candidatePairs.size() ) - static_cast<int>( contactPairs.size() );
 
     if ( rejectedPairs < 0 )
     {
@@ -533,10 +534,10 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
         .Writef( m_physicsDiagnosticsPath,
                  "{\"kind\":\"broadphase\",\"run\":\"%s\",\"frame\":%d,\"candidate_pairs\":%zu,\"contact_pairs\":%zu,"
                  "\"rejected_pairs\":%d,\"active_cells\":%d,\"max_cell_occupancy\":%d,\"collision_cell_count\":%zu}\n",
-                 m_physicsDiagnosticsRunId, frame, m_candidatePairs.size(), contactPairs.size(), rejectedPairs,
-                 activeCellCount, maxCellOccupancy, m_collisionCellKeys.size() );
+                 m_physicsDiagnosticsRunId, frame, candidatePairs.size(), contactPairs.size(), rejectedPairs,
+                 activeCellCount, maxCellOccupancy, collisionCellKeys.size() );
 
-    if ( m_candidatePairs.size() > (std::max)( 128, modelCount * 8 ) || maxCellOccupancy > 32 )
+    if ( candidatePairs.size() > (std::max)( 128, modelCount * 8 ) || maxCellOccupancy > 32 )
     {
         const int eventId = ++m_physicsDiagnosticsEventCounter;
         SkullbonezCore::Core::Log()
@@ -546,7 +547,7 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
                      "\"Broadphase candidate work is unusually high for this "
                      "frame.\",\"data\":{\"candidate_pairs\":%zu,\"active_cells\":%d,\"max_cell_occupancy\":%d,"
                      "\"followups\":[\"broadphase --frames %d:%d\",\"frame %d\"]}}\n",
-                     m_physicsDiagnosticsRunId, eventId, frame, m_candidatePairs.size(), activeCellCount, maxCellOccupancy,
+                     m_physicsDiagnosticsRunId, eventId, frame, candidatePairs.size(), activeCellCount, maxCellOccupancy,
                      (std::max)( 0, frame - 30 ), frame + 30, frame );
     }
 
@@ -669,7 +670,7 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
         ResetPenetrationState();
     }
 
-    for ( const auto& c : m_persistentContacts )
+    for ( const auto& c : persistentContacts )
     {
 
         if ( c.bodyA < 0 || c.bodyA >= modelCount || ( !c.isTerrain && ( c.bodyB < 0 || c.bodyB >= modelCount ) ) )
@@ -696,14 +697,14 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
         const char* shapeB = c.isTerrain ? "terrain" : modelDiagnostics[static_cast<std::size_t>( c.bodyB )].shapeName;
         char contactType[32] = "";
         sprintf_s( contactType, sizeof( contactType ), "%s/%s", shapeA, shapeB );
-        const int supportsSleep = c.isTerrain ? ( c.bodyA < static_cast<int>( m_sleepSupportedThisFrame.size() ) &&
-                                                  m_sleepSupportedThisFrame[c.bodyA] )
+        const int supportsSleep = c.isTerrain ? ( c.bodyA < static_cast<int>( sleepSupportedThisFrame.size() ) &&
+                                                  sleepSupportedThisFrame[c.bodyA] )
                                               : ( ( c.normal.y > 0.25f &&
-                                                    c.bodyB < static_cast<int>( m_sleepSupportedThisFrame.size() ) &&
-                                                    m_sleepSupportedThisFrame[c.bodyB] ) ||
+                                                    c.bodyB < static_cast<int>( sleepSupportedThisFrame.size() ) &&
+                                                    sleepSupportedThisFrame[c.bodyB] ) ||
                                                   ( c.normal.y < -0.25f &&
-                                                    c.bodyA < static_cast<int>( m_sleepSupportedThisFrame.size() ) &&
-                                                    m_sleepSupportedThisFrame[c.bodyA] ) );
+                                                    c.bodyA < static_cast<int>( sleepSupportedThisFrame.size() ) &&
+                                                    sleepSupportedThisFrame[c.bodyA] ) );
 
         const Vector3 diagnosticNormal = c.isTerrain ? c.terrainNormal : c.normal;
 
@@ -722,7 +723,7 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
                      supportsSleep ? 1 : 0 );
     }
 
-    for ( const auto& edge : m_sleepSupportEdges )
+    for ( const auto& edge : sleepSupportEdges )
     {
         SkullbonezCore::Core::Log()
             .Writef( m_physicsDiagnosticsPath,
@@ -731,7 +732,7 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
                      m_physicsDiagnosticsRunId, frame, edge.first, edge.second );
     }
 
-    for ( const auto& manifold : m_terrainContactManifolds )
+    for ( const auto& manifold : terrainContactManifolds )
     {
 
         if ( manifold.supportsRestingPolicy )
@@ -795,18 +796,16 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
                                              static_cast<double>( inertia.y ) * omega.y * omega.y +
                                              static_cast<double>( inertia.z ) * omega.z * omega.z );
 
-        const int sleeping = ( i < static_cast<int>( m_sleepState.size() ) ) ? m_sleepState[i] : 0;
-        const int sleepSupported = ( i < static_cast<int>( m_sleepSupportedThisFrame.size() ) )
-                                       ? m_sleepSupportedThisFrame[i]
-                                       : 0;
+        const int sleeping = ( i < static_cast<int>( sleepState.size() ) ) ? sleepState[i] : 0;
+        const int sleepSupported = ( i < static_cast<int>( sleepSupportedThisFrame.size() ) ) ? sleepSupportedThisFrame[i]
+                                                                                              : 0;
 
-        const int sleepInhibited = ( i < static_cast<int>( m_sleepInhibitedThisFrame.size() ) )
-                                       ? m_sleepInhibitedThisFrame[i]
-                                       : 0;
+        const int sleepInhibited = ( i < static_cast<int>( sleepInhibitedThisFrame.size() ) ) ? sleepInhibitedThisFrame[i]
+                                                                                              : 0;
 
-        const int sleepCounter = ( i < static_cast<int>( m_sleepCounter.size() ) ) ? m_sleepCounter[i] : 0;
+        const int sleepCounter = ( i < static_cast<int>( sleepCounters.size() ) ) ? sleepCounters[i] : 0;
         const int islandId = bodyIslandIds[i];
-        const int visualIslandId = ( i < static_cast<int>( m_sleepIslandVisualId.size() ) ) ? m_sleepIslandVisualId[i] : 0;
+        const int visualIslandId = ( i < static_cast<int>( sleepIslandVisualId.size() ) ) ? sleepIslandVisualId[i] : 0;
 
         const float radius = model.radius;
         const Vector3& halfExtents = model.halfExtents;

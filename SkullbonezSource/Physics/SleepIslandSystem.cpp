@@ -50,13 +50,15 @@ void SleepIslandSystem::PropagateSupport( SleepSupportPropagationContext& contex
     // B can be considered supported too. Repeating that rule lets a whole tower
     // become one stable sleep island instead of requiring every object to touch
     // terrain directly.
-    auto& m_sleepState = context.sleepState;
-    auto& m_sleepSupportEdges = context.sleepSupportEdges;
-    auto& m_sleepSupportedThisFrame = context.sleepSupportedThisFrame;
+    // Lifetime: the three rows below borrow controller-owned spans only for
+    // this bounded propagation pass; the system retains no sleep state.
+    auto& sleepState = context.sleepState;
+    auto& sleepSupportEdges = context.sleepSupportEdges;
+    auto& sleepSupportedThisFrame = context.sleepSupportedThisFrame;
 
     const int modelCount = static_cast<int>( hotFields.fixed.size() );
 
-    if ( modelCount <= 0 || m_sleepSupportEdges.empty() )
+    if ( modelCount <= 0 || sleepSupportEdges.empty() )
     {
         return;
     }
@@ -70,7 +72,7 @@ void SleepIslandSystem::PropagateSupport( SleepSupportPropagationContext& contex
         // cheap.
         bool changed = false;
 
-        for ( const auto& edge : m_sleepSupportEdges )
+        for ( const auto& edge : sleepSupportEdges )
         {
             const int supporter = edge.first;
             const int supported = edge.second;
@@ -80,22 +82,21 @@ void SleepIslandSystem::PropagateSupport( SleepSupportPropagationContext& contex
                 continue;
             }
 
-            bool supporterHasSupport = m_sleepSupportedThisFrame[supporter] != 0;
+            bool supporterHasSupport = sleepSupportedThisFrame[supporter] != 0;
 
             if ( !supporterHasSupport && hotFields.fixed[static_cast<std::size_t>( supporter )] != 0u )
             {
                 supporterHasSupport = true;
             }
 
-            if ( !supporterHasSupport && supporter < static_cast<int>( m_sleepState.size() ) &&
-                 m_sleepState[supporter] != 0 )
+            if ( !supporterHasSupport && supporter < static_cast<int>( sleepState.size() ) && sleepState[supporter] != 0 )
             {
                 supporterHasSupport = true;
             }
 
-            if ( supporterHasSupport && m_sleepSupportedThisFrame[supported] == 0 )
+            if ( supporterHasSupport && sleepSupportedThisFrame[supported] == 0 )
             {
-                m_sleepSupportedThisFrame[supported] = 1;
+                sleepSupportedThisFrame[supported] = 1;
                 changed = true;
             }
         }

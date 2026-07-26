@@ -532,17 +532,17 @@ Input::MouseCoordinatesResult Input::GetClientMouseCoordinates()
         return mousePos;
     }
 
-    Window* m_cWindow = BoundInputWindow();
-    assert( m_cWindow && "Input client mouse coordinates require a bound window" );
+    Window* window = BoundInputWindow();
+    assert( window && "Input client mouse coordinates require a bound window" );
 
-    if ( !m_cWindow )
+    if ( !window )
     {
         FatalInputWindowBridgeMissing( "Input::GetClientMouseCoordinates" );
     }
 
     POINT clientCoordinates = mousePos.coordinates;
 
-    if ( !ScreenToClient( m_cWindow->NativeWindowHandle(), &clientCoordinates ) )
+    if ( !ScreenToClient( window->NativeWindowHandle(), &clientCoordinates ) )
     {
         result.result = SkullbonezCore::Core::SbResult::
             Failure( "Runtime/Input", "ScreenToClient failed in Input::GetClientMouseCoordinates lastError=%lu",

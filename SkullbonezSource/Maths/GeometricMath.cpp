@@ -53,9 +53,9 @@ Vector3 GeometricMath::ComputeTriangleNormal( const Triangle& triangle )
     Vector3 edge1 = triangle.v2 - triangle.v1;
     Vector3 edge2 = triangle.v3 - triangle.v2;
 
-    Vector3 m_normal = Vector::CrossProduct( edge1, edge2 );
+    Vector3 normal = Vector::CrossProduct( edge1, edge2 );
 
-    if ( !m_normal.TryNormalise() )
+    if ( !normal.TryNormalise() )
     {
 
         // Fallback: a degenerate triangle has no direction-bearing plane; a
@@ -63,7 +63,7 @@ Vector3 GeometricMath::ComputeTriangleNormal( const Triangle& triangle )
         return ZERO_VECTOR;
     }
 
-    return m_normal;
+    return normal;
 }
 
 
@@ -269,16 +269,16 @@ bool GeometricMath::IsPointInsideTriangle( const Triangle& triangle, const Vecto
 
 Vector3 GeometricMath::ComputeBarycentricCoordinates( const Triangle& triangle, const Vector3& point )
 {
-    Vector3 m_normal = GeometricMath::ComputeTriangleNormal( triangle );
+    Vector3 normal = GeometricMath::ComputeTriangleNormal( triangle );
 
-    // convert the m_normal to an absolute representation
-    m_normal.Absolute();
+    // convert the normal to an absolute representation
+    normal.Absolute();
 
     /*
         In order to get the most accurate calculation,  it is optimal to
         project the triangle onto the plane that will give the projected
         triangle the largest possible area.  this is done by taking the
-        largest absolute component of the m_normal, and discarding this
+        largest absolute component of the normal, and discarding this
         component from the supplied point and triangle
 
         Triangle after projection (assume XY projection):
@@ -354,7 +354,7 @@ Vector3 GeometricMath::ComputeBarycentricCoordinates( const Triangle& triangle, 
         v2_p_axis1,    // inner edge 2
         v2_p_axis2;    // inner edge 2
 
-    if ( m_normal.x >= m_normal.y && m_normal.x >= m_normal.z )
+    if ( normal.x >= normal.y && normal.x >= normal.z )
     {
 
         // discard 'x' component, project onto yz plane
@@ -373,7 +373,7 @@ Vector3 GeometricMath::ComputeBarycentricCoordinates( const Triangle& triangle, 
 
         v2_p_axis2 = point.z - triangle.v3.z; // inner edge 2
     }
-    else if ( m_normal.y >= m_normal.z )
+    else if ( normal.y >= normal.z )
     {
 
         // discard 'y' component, project onto xz plane

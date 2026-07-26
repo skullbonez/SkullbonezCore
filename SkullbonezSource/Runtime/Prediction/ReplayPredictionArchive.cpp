@@ -570,21 +570,23 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
         return false;
     }
 
-    RunReplayPredictionState& state = prediction;
     pathVisualizer.targets.clear();
     pathVisualizer.pastTrajectory = {};
 
-    state.simulation.frames.clear();
-    state.futureNodeCache.futureNodes.clear();
-    state.trajectoryStore.records.clear();
-    state.baseline.rootPolyline.clear();
-    state.baseline.bodyPoses.clear();
-    state.futureNodeCache.retainedMarkerCount = 0;
+    prediction.simulation.frames.clear();
+    prediction.futureNodeCache.futureNodes.clear();
+    prediction.trajectoryStore.records.clear();
+    prediction.baseline.rootPolyline.clear();
+    prediction.baseline.bodyPoses.clear();
+    prediction.futureNodeCache.retainedMarkerCount = 0;
 
-    if ( !reader.Float( state.simulation.horizonSeconds ) || !reader.Scalar( state.simulation.targetModelRow.value ) ||
-         !reader.Scalar( state.simulation.targetId.value ) || !reader.Scalar( state.simulation.sourceFrameIndex ) ||
-         !reader.Scalar( state.simulation.sourceSolverHash ) || !reader.Double( state.simulation.sourceSimulationSeconds ) ||
-         !reader.Scalar( state.build.generationBeginCount ) )
+    if ( !reader.Float( prediction.simulation.horizonSeconds ) ||
+         !reader.Scalar( prediction.simulation.targetModelRow.value ) ||
+         !reader.Scalar( prediction.simulation.targetId.value ) ||
+         !reader.Scalar( prediction.simulation.sourceFrameIndex ) ||
+         !reader.Scalar( prediction.simulation.sourceSolverHash ) ||
+         !reader.Double( prediction.simulation.sourceSimulationSeconds ) ||
+         !reader.Scalar( prediction.build.generationBeginCount ) )
     {
         WriteReason( outReason, reasonSize, "truncated prediction metadata" );
         return false;
@@ -598,7 +600,7 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
         return false;
     }
 
-    state.simulation.frames.reserve( frameCount );
+    prediction.simulation.frames.reserve( frameCount );
 
     for ( uint32_t frameIndex = 0; frameIndex < frameCount; ++frameIndex )
     {
@@ -625,23 +627,23 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
             }
         }
 
-        state.simulation.frames.push_back( std::move( frame ) );
+        prediction.simulation.frames.push_back( std::move( frame ) );
     }
 
     uint32_t nodeCount = 0;
 
-    if ( !reader.Scalar( state.futureNodeCache.futureNodesTopologyVersion ) ||
-         !reader.Scalar( state.futureNodeCache.nextFutureNodesTopologyVersion ) ||
-         !reader.Boolean( state.futureNodeCache.futureNodesBuiltRagdollVisuals ) ||
+    if ( !reader.Scalar( prediction.futureNodeCache.futureNodesTopologyVersion ) ||
+         !reader.Scalar( prediction.futureNodeCache.nextFutureNodesTopologyVersion ) ||
+         !reader.Boolean( prediction.futureNodeCache.futureNodesBuiltRagdollVisuals ) ||
          !ReadBoundedCount( reader, REPLAY_PREDICTION_MARKER_CAPACITY, nodeCount ) )
     {
         WriteReason( outReason, reasonSize, "invalid future-node block" );
         return false;
     }
 
-    state.futureNodeCache.futureNodes.resize( nodeCount );
+    prediction.futureNodeCache.futureNodes.resize( nodeCount );
 
-    for ( RunReplayPathTraceNode& node : state.futureNodeCache.futureNodes )
+    for ( RunReplayPathTraceNode& node : prediction.futureNodeCache.futureNodes )
     {
 
         if ( !ReadNode( reader, node ) )
@@ -662,25 +664,25 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
     for ( uint32_t markerIndex = 0; markerIndex < markerCount; ++markerIndex )
     {
 
-        if ( !ReadMarker( reader, state.futureNodeCache.retainedMarkers[markerIndex] ) )
+        if ( !ReadMarker( reader, prediction.futureNodeCache.retainedMarkers[markerIndex] ) )
         {
             WriteReason( outReason, reasonSize, "truncated retained marker" );
             return false;
         }
     }
 
-    state.futureNodeCache.retainedMarkerCount = markerCount;
+    prediction.futureNodeCache.retainedMarkerCount = markerCount;
 
     uint32_t recordCount = 0;
 
-    if ( !reader.Scalar( state.trajectoryStore.nextVersion ) ||
+    if ( !reader.Scalar( prediction.trajectoryStore.nextVersion ) ||
          !ReadBoundedCount( reader, REPLAY_PREDICTION_ARCHIVE_MAX_RECORDS, recordCount ) )
     {
         WriteReason( outReason, reasonSize, "invalid trajectory record count" );
         return false;
     }
 
-    state.trajectoryStore.records.reserve( recordCount );
+    prediction.trajectoryStore.records.reserve( recordCount );
     uint64_t totalPointCount = 0;
 
     for ( uint32_t recordIndex = 0; recordIndex < recordCount; ++recordIndex )
@@ -724,32 +726,34 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
             }
         }
 
-        state.trajectoryStore.records.push_back( std::move( record ) );
+        prediction.trajectoryStore.records.push_back( std::move( record ) );
     }
 
     uint32_t rootFrameCount = 0;
     uint32_t childFrameCount = 0;
     uint32_t builtNodeCount = 0;
 
-    if ( !reader.Scalar( state.trajectoryBuild.rootId.value ) || !reader.Boolean( state.trajectoryBuild.usingBuildFrames ) ||
-         !reader.Scalar( rootFrameCount ) || !reader.Scalar( childFrameCount ) || !reader.Scalar( builtNodeCount ) ||
-         !reader.Scalar( state.trajectoryBuild.topologyVersion ) || !reader.Boolean( state.trajectoryBuild.valid ) )
+    if ( !reader.Scalar( prediction.trajectoryBuild.rootId.value ) ||
+         !reader.Boolean( prediction.trajectoryBuild.usingBuildFrames ) || !reader.Scalar( rootFrameCount ) ||
+         !reader.Scalar( childFrameCount ) || !reader.Scalar( builtNodeCount ) ||
+         !reader.Scalar( prediction.trajectoryBuild.topologyVersion ) ||
+         !reader.Boolean( prediction.trajectoryBuild.valid ) )
     {
         WriteReason( outReason, reasonSize, "truncated trajectory build state" );
         return false;
     }
 
-    state.trajectoryBuild.rootFrameCount = rootFrameCount;
-    state.trajectoryBuild.childFrameCount = childFrameCount;
-    state.trajectoryBuild.builtNodeCount = builtNodeCount;
-    const uint16_t activeRootBranch = state.trajectoryBuild.usingBuildFrames ? REPLAY_TRAJECTORY_BUILD_BRANCH
-                                                                             : REPLAY_TRAJECTORY_COMMITTED_BRANCH;
+    prediction.trajectoryBuild.rootFrameCount = rootFrameCount;
+    prediction.trajectoryBuild.childFrameCount = childFrameCount;
+    prediction.trajectoryBuild.builtNodeCount = builtNodeCount;
+    const uint16_t activeRootBranch = prediction.trajectoryBuild.usingBuildFrames ? REPLAY_TRAJECTORY_BUILD_BRANCH
+                                                                                  : REPLAY_TRAJECTORY_COMMITTED_BRANCH;
 
-    for ( const ReplayTrajectoryRecord& record : state.trajectoryStore.records )
+    for ( const ReplayTrajectoryRecord& record : prediction.trajectoryStore.records )
     {
 
         if ( record.key.lane != ReplayTrajectoryLane::FutureRoot || record.key.branchOrdinal != activeRootBranch ||
-             record.key.bodyId.value == state.trajectoryBuild.rootId.value )
+             record.key.bodyId.value == prediction.trajectoryBuild.rootId.value )
         {
             continue;
         }
@@ -757,18 +761,18 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
         // Backward compatibility: all-body space publication reuses the
         // existing FutureRoot wire shape, so schema-2 archives advertise the
         // mode through their additional body-keyed records.
-        state.trajectoryBuild.allBodyPaths = true;
-        ++state.trajectoryBuild.builtAllBodyCount;
-        state.trajectoryBuild.allBodyFrameCount = (std::max)( state.trajectoryBuild.allBodyFrameCount,
-                                                              record.publishedPointCount );
+        prediction.trajectoryBuild.allBodyPaths = true;
+        ++prediction.trajectoryBuild.builtAllBodyCount;
+        prediction.trajectoryBuild.allBodyFrameCount = (std::max)( prediction.trajectoryBuild.allBodyFrameCount,
+                                                                   record.publishedPointCount );
     }
 
-    if ( state.trajectoryBuild.allBodyPaths )
+    if ( prediction.trajectoryBuild.allBodyPaths )
     {
-        ++state.trajectoryBuild.builtAllBodyCount; // The selected root owns the canonical root record.
+        ++prediction.trajectoryBuild.builtAllBodyCount; // The selected root owns the canonical root record.
     }
 
-    ReplayPredictionBaselineSnapshot& baseline = state.baseline;
+    ReplayPredictionBaselineSnapshot& baseline = prediction.baseline;
     uint32_t baselinePointCount = 0;
     uint32_t baselinePoseCount = 0;
 
@@ -820,23 +824,23 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
 
     pathVisualizer.hasTarget = archivedHasTarget;
     pathVisualizer.pastPathVisible = archivedPastPathVisible;
-    state.enabled = true;
-    state.ragdollVisualsEnabled = ragdollVisuals;
-    state.build.dirty = false;
-    state.build.pendingLatestRestart = false;
-    state.velocityDragPreview.Clear();
-    state.build.building = false;
-    state.build.complete = true;
-    state.ResetBuildFramePublication();
-    state.futureNodeCache.futureNodesBuiltFrameCount = state.simulation.frames.size();
-    state.futureNodeCache.futureNodesBuiltContactIndex = 0;
-    state.futureNodeCache.futureNodesBuiltTargetId = state.simulation.targetId;
-    state.futureNodeCache.futureNodesBuiltFromBuildFrames = false;
-    state.futureNodeCache.futureNodesCacheValid = true;
-    state.revealClock.deterministicFrameEnabled = true;
-    state.revealClock.deterministicFrame = 0;
-    state.revealClock.presentedFrame = 0;
-    state.revealClock.anchorValid = false;
+    prediction.enabled = true;
+    prediction.ragdollVisualsEnabled = ragdollVisuals;
+    prediction.build.dirty = false;
+    prediction.build.pendingLatestRestart = false;
+    prediction.velocityDragPreview.Clear();
+    prediction.build.building = false;
+    prediction.build.complete = true;
+    prediction.ResetBuildFramePublication();
+    prediction.futureNodeCache.futureNodesBuiltFrameCount = prediction.simulation.frames.size();
+    prediction.futureNodeCache.futureNodesBuiltContactIndex = 0;
+    prediction.futureNodeCache.futureNodesBuiltTargetId = prediction.simulation.targetId;
+    prediction.futureNodeCache.futureNodesBuiltFromBuildFrames = false;
+    prediction.futureNodeCache.futureNodesCacheValid = true;
+    prediction.revealClock.deterministicFrameEnabled = true;
+    prediction.revealClock.deterministicFrame = 0;
+    prediction.revealClock.presentedFrame = 0;
+    prediction.revealClock.anchorValid = false;
     return true;
 }
 

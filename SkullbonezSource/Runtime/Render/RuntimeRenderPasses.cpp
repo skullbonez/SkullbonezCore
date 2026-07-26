@@ -270,10 +270,14 @@ ScreenSunPosition ProjectCinematicSunToScreen( const Vector3& eye, const Matrix4
                                                const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
 {
     const Vector3 sunPoint = eye + CinematicSkySunDirection( cinematic ) * 1000.0f;
-    const Matrix4& vp = viewProjection;
-    const float clipX = vp.m[0] * sunPoint.x + vp.m[4] * sunPoint.y + vp.m[8] * sunPoint.z + vp.m[12];
-    const float clipY = vp.m[1] * sunPoint.x + vp.m[5] * sunPoint.y + vp.m[9] * sunPoint.z + vp.m[13];
-    const float clipW = vp.m[3] * sunPoint.x + vp.m[7] * sunPoint.y + vp.m[11] * sunPoint.z + vp.m[15];
+    const float clipX = viewProjection.m[0] * sunPoint.x + viewProjection.m[4] * sunPoint.y +
+                        viewProjection.m[8] * sunPoint.z + viewProjection.m[12];
+
+    const float clipY = viewProjection.m[1] * sunPoint.x + viewProjection.m[5] * sunPoint.y +
+                        viewProjection.m[9] * sunPoint.z + viewProjection.m[13];
+
+    const float clipW = viewProjection.m[3] * sunPoint.x + viewProjection.m[7] * sunPoint.y +
+                        viewProjection.m[11] * sunPoint.z + viewProjection.m[15];
 
     if ( clipW <= 0.0001f )
     {

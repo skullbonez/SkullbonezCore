@@ -907,22 +907,20 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host, Runtime
                                              RuntimeRenderer& renderer, ReplayRuntime& replayRuntime,
                                              RunCameraMode replayRestoreCameraMode )
 {
-    DiagnosticsRuntime& m_diagnosticsRuntime = host.diagnosticsRuntime;
+    DiagnosticsRuntime& diagnosticsRuntime = host.diagnosticsRuntime;
     Window* window = &host.window;
-    RunTimerState& m_timers = sceneOwners.timers;
-    SkullbonezCore::UI::InGameUI& m_UI = interactionOwners.operatorUi;
-    RuntimeRenderBackendView& m_renderBackendView = renderBackendView;
-    SceneController& m_sceneController = sceneOwners.sceneController;
-    CameraControlState& m_camera = interactionOwners.camera;
-    SkullbonezCore::Core::EngineConfig& m_config = sceneOwners.config;
-    SimulationSystem& m_simulation = sceneOwners.simulation;
-    RuntimeTools& m_runtimeTools = interactionOwners.runtimeTools;
-    const RunLaunchOptions& m_launchOptions = sceneOwners.launchOptions;
-    ReplayRuntime& m_replayRuntime = replayRuntime;
-    InputRouter& m_inputRouter = interactionOwners.inputRouter;
-    RuntimeInteractionController& m_interaction = interactionOwners.interaction;
-    AttachedCameraController& m_attachedCamera = interactionOwners.attachedCamera;
-    UIStressState& stress = m_diagnosticsRuntime.UIStress();
+    RunTimerState& timers = sceneOwners.timers;
+    SkullbonezCore::UI::InGameUI& ui = interactionOwners.operatorUi;
+    SceneController& sceneController = sceneOwners.sceneController;
+    CameraControlState& camera = interactionOwners.camera;
+    SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
+    SimulationSystem& simulation = sceneOwners.simulation;
+    RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
+    const RunLaunchOptions& launchOptions = sceneOwners.launchOptions;
+    InputRouter& inputRouter = interactionOwners.inputRouter;
+    RuntimeInteractionController& interaction = interactionOwners.interaction;
+    AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
+    UIStressState& stress = diagnosticsRuntime.UIStress();
 
     if ( !stress.enabled || !window )
     {
@@ -930,19 +928,19 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host, Runtime
     }
 
     ++stress.framesRun;
-    const double UINow = m_timers.simulationTimer.GetTotalTime();
+    const double UINow = timers.simulationTimer.GetTotalTime();
     const int screenW = (std::max)( 1, window->ClientWidth() );
     const int screenH = (std::max)( 1, window->ClientHeight() );
 
-    m_UI.SetVisible( true, UINow );
-    m_UI.SetMinimized( false, UINow );
+    ui.SetVisible( true, UINow );
+    ui.SetMinimized( false, UINow );
 
-    m_UI.SetMouseOverride( true, StressHarness::NextInt( stress, screenW ), StressHarness::NextInt( stress, screenH ) );
+    ui.SetMouseOverride( true, StressHarness::NextInt( stress, screenW ), StressHarness::NextInt( stress, screenH ) );
 
     // This gate is a UI control-state crash sweep. Runtime rebuilds and world
     // debug toggles belong to render/physics validation, so they stay frozen here.
     const bool allowRuntimeChurn = StressHarness::AllowsRuntimeChurn();
-    const int generatedObjectCapacity = SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config );
+    const int generatedObjectCapacity = SkullbonezCore::Core::ActiveSceneObjectCapacity( config );
 
     const auto executeSceneGeneratedControlAction = [&]( const SceneRuntimeGeneratedControlAction& action ) -> SkullbonezCore::Core::SbResult
     {
@@ -958,14 +956,14 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host, Runtime
         if ( action.resetReplayTimeline )
         {
             const ReplaySceneTimelineResetInput
-                reset = DescribeReplaySceneTimeline( m_sceneController, m_UI.SceneNavigation().overrides,
-                                                     m_sceneController.State(),
-                                                     SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ),
-                                                     static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
+                reset = DescribeReplaySceneTimeline( sceneController, ui.SceneNavigation().overrides,
+                                                     sceneController.State(),
+                                                     SkullbonezCore::Core::ActiveSceneObjectCapacity( config ),
+                                                     static_cast<uint32_t>( launchOptions.generatedObjectTypeOverride ) );
 
-            m_replayRuntime.ResetSceneTimeline( reset, m_inputRouter, m_interaction, &m_sceneController.Scene().Cameras(),
-                                                m_sceneController.Scene().Terrain().Get(), m_camera, replayRestoreCameraMode,
-                                                m_attachedCamera.State().activeFollow, m_camera.director.grabbed );
+            replayRuntime.ResetSceneTimeline( reset, inputRouter, interaction, &sceneController.Scene().Cameras(),
+                                              sceneController.Scene().Terrain().Get(), camera, replayRestoreCameraMode,
+                                              attachedCamera.State().activeFollow, camera.director.grabbed );
         }
 
         if ( action.scheduleProfileReset )
@@ -984,12 +982,12 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host, Runtime
         {
             SceneGeneratedControlTransaction
                 transaction = SceneGeneratedControlTransaction::ModelCount( modelCount,
-                                                                            m_launchOptions.generatedObjectTypeOverride,
+                                                                            launchOptions.generatedObjectTypeOverride,
                                                                             generatedObjectCapacity );
 
             const SkullbonezCore::Core::SbResult actionResult = executeSceneGeneratedControlAction( transaction
-                                                                                                        .Execute( m_config, m_sceneController, m_UI.SceneNavigation().overrides, m_camera, m_simulation,
-                                                                                                                  m_runtimeTools, m_renderBackendView.renderFrame )
+                                                                                                        .Execute( config, sceneController, ui.SceneNavigation().overrides, camera, simulation, runtimeTools,
+                                                                                                                  renderBackendView.renderFrame )
                                                                                                         .action );
 
             if ( !actionResult.ok )
@@ -1008,12 +1006,12 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host, Runtime
         {
             SceneGeneratedControlTransaction
                 transaction = SceneGeneratedControlTransaction::SolverCounts( balls, boxes,
-                                                                              m_launchOptions.generatedObjectTypeOverride,
+                                                                              launchOptions.generatedObjectTypeOverride,
                                                                               generatedObjectCapacity );
 
             const SkullbonezCore::Core::SbResult actionResult = executeSceneGeneratedControlAction( transaction
-                                                                                                        .Execute( m_config, m_sceneController, m_UI.SceneNavigation().overrides, m_camera, m_simulation,
-                                                                                                                  m_runtimeTools, m_renderBackendView.renderFrame )
+                                                                                                        .Execute( config, sceneController, ui.SceneNavigation().overrides, camera, simulation, runtimeTools,
+                                                                                                                  renderBackendView.renderFrame )
                                                                                                         .action );
 
             if ( !actionResult.ok )
@@ -1027,7 +1025,7 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host, Runtime
 
     for ( int i = 0; i < actionCount; ++i )
     {
-        ApplyUIStressAction( m_UI, sceneOwners, m_renderBackendView, renderer, m_replayRuntime, stress, allowRuntimeChurn );
+        ApplyUIStressAction( ui, sceneOwners, renderBackendView, renderer, replayRuntime, stress, allowRuntimeChurn );
     }
 
     return SkullbonezCore::Core::SbResult::Success();

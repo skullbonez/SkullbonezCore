@@ -678,6 +678,13 @@ The denominator then fell 59 → 53 on 2026-07-27 when
 inventory under rule 4. Permanent closure evidence is
 `../Reports/2026-07-27/governance-shape-to-judgment-conversion-closure.md`.
 
+The denominator then fell 53 → 50 on 2026-07-27 when
+`extraction-scar-remediation` closed ES0-ES2 and left the live inventory under
+rule 4. All 88 repair findings are gone, the sole WorkerPool retain is
+unchanged, and byte-exact Physics plus independent ownership review are clear.
+Permanent closure evidence is
+`../Reports/2026-07-27/extraction-scar-remediation-closure.md`.
+
 ### Binding Owner Rulings — 2026-07-27: Round 5 Open Decisions Closed
 
 The owner ruled all three blocking Round 5 decisions on 2026-07-27 so the campaign
@@ -718,15 +725,15 @@ owner code style, and the space-scene velocity-drag preview are closed, and the
 completed TODO was deleted under inventory rule 4. Permanent evidence is
 `../Reports/2026-07-26/nightrunner-26-july-closure.md`.
 
-NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 4/53 (8%).
-`governance-shape-to-judgment-conversion` closed G0-G4 on 2026-07-27 and left
-the live inventory under rule 4. Plan 2 `scene-sized-store-capacity` closed
-SC0-SC3; plan 7 `extraction-scar-remediation` ES0 is binding before plan 2
-reaches SC4/SC5.
+NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 4/50 (8%).
+`governance-shape-to-judgment-conversion` and
+`extraction-scar-remediation` closed on 2026-07-27 and left the live inventory
+under rule 4. Plan 2 `scene-sized-store-capacity` closed SC0-SC3; SC4 is the
+binding next task.
 
 G0 recorded five rule gaps with the admitting `AGENTS.md` text for each; evidence
 is `../Reports/2026-07-26/governance-shape-to-judgment-g0-census.md`. The measured
-figures corrected the originating review twice: 89 extraction scars across 12
+figures corrected the originating review twice: 89 extraction scars across 15
 files rather than the hand-counted 33 across 4, and **zero of 94 aggregate
 candidates state a per-type `Invariant:` block**. The two largest scar sites are
 the two frame-view consumers, which destructure the views straight back into
@@ -739,8 +746,10 @@ an unruled-fails/ruled-passes contract with no frozen count anywhere. G4 then
 hardened both inventories against the review's structural and lexical evasion
 cases, reconciled every signalled row to a named implementation plan, passed
 independent review with zero blockers, and passed both mandatory validation
-umbrellas. `extraction-scar-remediation` was corrected to the measured scope in
-the same change.
+umbrellas. `extraction-scar-remediation` then removed all 88 repair findings
+across 14 edited files while preserving the fifteenth file's language-required
+WorkerPool binding. Permanent evidence is
+`../Reports/2026-07-27/extraction-scar-remediation-closure.md`.
 
 The 2026-07-25 round-4 campaign has no live plans. Concrete Parameter-Bag
 Elimination closed PB0-PB7 and left the live ledger under rule 4. Invariant
@@ -2019,12 +2028,12 @@ requires owner divergence authority and the campaign is byte-exact throughout.
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
 | 1 | [governance-shape-to-judgment-conversion](../Reports/2026-07-27/governance-shape-to-judgment-conversion-closure.md) | Complete | 6/6 | Closed 2026-07-27 and removed from the live ledger under rule 4 |
-| 2 | [scene-sized-store-capacity](TODO/scene-sized-store-capacity.md) | In progress | 4/8 | SC3 commits exact body, shape-kind, joint, and remaining vector capacity before mutation; evidence is [`SC3 binding`](../Reports/2026-07-27/scene-sized-store-capacity-sc3-binding.md). SC4 waits for plan 7 to close |
+| 2 | [scene-sized-store-capacity](TODO/scene-sized-store-capacity.md) | In progress | 4/8 | SC3 commits exact body, shape-kind, joint, and remaining vector capacity before mutation; evidence is [`SC3 binding`](../Reports/2026-07-27/scene-sized-store-capacity-sc3-binding.md). **Binding next task: SC4** |
 | 3 | [store-capacity-memory-reporting](TODO/store-capacity-memory-reporting.md) | Not started | 0/4 | Hard dependency on plan 2 — registering before SC1-SC6 would report the 8,192 constants |
 | 4 | [ceremonial-aggregate-elimination](TODO/ceremonial-aggregate-elimination.md) | Not started | 0/5 | After plan 1. Small aggregates only; frame views and backend view are plans 5 and 6 |
 | 5 | [runtime-frame-view-retirement](TODO/runtime-frame-view-retirement.md) | Not started | 0/4 | After plan 6, so FV2 need not preserve `renderBackendView`. Endpoint ratified 2026-07-27: concrete operands, no frame transaction |
 | 6 | [render-backend-service-bag-removal](TODO/render-backend-service-bag-removal.md) | Not started | 0/4 | After plan 1. Completes the removal PB3's review started |
-| 7 | [extraction-scar-remediation](TODO/extraction-scar-remediation.md) | Not started | 0/3 | **Binding next task: ES0.** Before plan 2's SC4/SC5 touch the same solver and sleep files. Scope corrected by G0 tooling to 89 findings; ES1's tooling dependency is already satisfied |
+| 7 | [extraction-scar-remediation](../Reports/2026-07-27/extraction-scar-remediation-closure.md) | Complete | 3/3 | Closed 2026-07-27 and removed from the live ledger under rule 4; 88 repairs removed and the sole WorkerPool retain preserved |
 | 8 | [scene-runtime-verb-partition-consolidation](TODO/scene-runtime-verb-partition-consolidation.md) | Not started | 0/4 | After plan 4 deletes the three `SceneRuntime*Context` types |
 | 9 | [operator-command-invariant-ownership](TODO/operator-command-invariant-ownership.md) | Not started | 0/4 | After plan 4's CA1 hands over any operation left wide |
 | 10 | [coverage-gate-test-reorganization](TODO/coverage-gate-test-reorganization.md) | Not started | 0/3 | After plans 2 and 7 change the physics source these tests cover |
