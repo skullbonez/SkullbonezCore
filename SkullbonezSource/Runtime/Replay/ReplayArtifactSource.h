@@ -6,6 +6,7 @@ Purpose:
 Summary:
   Replay recorders own compact live rings. ReplayArtifactSource is the only
   cold boundary allowed to reconstruct those rings into chronological vectors
+
   for file serialization.
 
 Invariants:
@@ -34,10 +35,8 @@ struct ReplayEventSample;
 class ReplayArtifactSource
 {
   public:
-    static void MaterializePresentation( const ReplayRecorder& recorder,
-                                         std::vector<ReplayPresentationSample>& outSamples );
-    static void MaterializeSolver( const ReplaySolverRecorder& recorder,
-                                   std::vector<ReplaySolverFrameSample>& outSamples );
+    static void MaterializePresentation( const ReplayRecorder& recorder, std::vector<ReplayPresentationSample>& outSamples );
+    static void MaterializeSolver( const ReplaySolverRecorder& recorder, std::vector<ReplaySolverFrameSample>& outSamples );
     static void MaterializeEvents( const ReplayEventRecorder& recorder, std::vector<ReplayEventSample>& outEvents );
 };
 } // namespace SkullbonezCore::Runtime

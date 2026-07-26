@@ -72,13 +72,11 @@ class BuoyancySystem
     std::span<const BuoyancyBodyFacts> Facts() const;
     std::span<BuoyancyBodyFacts> MutableFacts();
 
-    static bool RefreshUnderwaterSubmersionForBall( const PhysicsWorldForces& worldForces,
-                                                    const PhysicsBodyStore& bodyStore,
-                                                    const ColliderStore& colliderStore,
-                                                    BuoyancyBodyFacts& facts,
+    static bool RefreshUnderwaterSubmersionForBall( const PhysicsWorldForces& worldForces, const PhysicsBodyStore& bodyStore,
+                                                    const ColliderStore& colliderStore, BuoyancyBodyFacts& facts,
                                                     int index );
-    static bool
-    IsFullySubmergedBall( const BuoyancyBodyFacts& facts, bool fixed, const ColliderStore& colliderStore, int index );
+    static bool IsFullySubmergedBall( const BuoyancyBodyFacts& facts, bool fixed, const ColliderStore& colliderStore,
+                                      int index );
 };
 } // namespace Physics
 } // namespace SkullbonezCore

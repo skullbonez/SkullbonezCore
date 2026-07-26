@@ -46,6 +46,7 @@ namespace Math
 {
 namespace Transformation
 {
+
 /* -- Matrix4
 -----------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -63,54 +64,35 @@ class Matrix4
   public:
     float m[16];
 
-    Matrix4();                                             // Identity matrix by default.
-    Matrix4( const float* values );                        // Copies a 16-float column-major array.
+    Matrix4();                                                                          // Identity matrix by default.
+    Matrix4( const float* values );                                                     // Copies a 16-float column-major array.
 
-    static Matrix4 Perspective( float fovDegrees,
-                                float aspect,
-                                float nearPlane,
-                                float farPlane );          // Perspective projection matrix with legacy [-1,1] depth
-    static Matrix4 PerspectiveZeroToOne( float fovDegrees,
-                                         float aspect,
-                                         float nearPlane,
-                                         float farPlane ); // Perspective projection matrix (DX12 depth [0,1])
-    static Matrix4 Ortho( float left,
-                          float right,
-                          float bottom,
-                          float top,
-                          float nearPlane,
-                          float farPlane );                // Orthographic projection with legacy depth convention.
-    static Matrix4 OrthoZeroToOne( float left,
-                                   float right,
-                                   float bottom,
-                                   float top,
-                                   float nearPlane,
-                                   float farPlane );       // Orthographic projection matrix (DX12 depth [0,1])
-    static Matrix4 LookAt( const Vector::Vector3& eye,
-                           const Vector::Vector3& center,
-                           const Vector::Vector3& up );    // Camera view matrix from eye/target/up vectors.
-    static Matrix4 Translate( const Vector::Vector3& v );  // Translation by vector components.
-    static Matrix4 Translate( float x, float y, float z ); // Translation by explicit components.
-    static Matrix4 Scale( const Vector::Vector3& v );      // Non-uniform scale by vector components.
-    static Matrix4 Scale( float x, float y, float z );     // Non-uniform scale by explicit components.
-    static Matrix4 Scale( float uniform );                 // Uniform scale for all axes.
-    static Matrix4 RotateAxis( float angleDeg,
-                               float axisX,
-                               float axisY,
-                               float axisZ );              // Axis-angle rotation using degrees.
+    static Matrix4 Perspective( float fovDegrees, float aspect, float nearPlane,
+                                float farPlane );                                       // Perspective projection matrix with legacy [-1,1] depth
+    static Matrix4 PerspectiveZeroToOne( float fovDegrees, float aspect, float nearPlane,
+                                         float farPlane );                              // Perspective projection matrix (DX12 depth [0,1])
+    static Matrix4 Ortho( float left, float right, float bottom, float top, float nearPlane,
+                          float farPlane );                                             // Orthographic projection with legacy depth convention.
+    static Matrix4 OrthoZeroToOne( float left, float right, float bottom, float top, float nearPlane,
+                                   float farPlane );                                    // Orthographic projection matrix (DX12 depth [0,1])
+    static Matrix4 LookAt( const Vector::Vector3& eye, const Vector::Vector3& center,
+                           const Vector::Vector3& up );                                 // Camera view matrix from eye/target/up vectors.
+    static Matrix4 Translate( const Vector::Vector3& v );                               // Translation by vector components.
+    static Matrix4 Translate( float x, float y, float z );                              // Translation by explicit components.
+    static Matrix4 Scale( const Vector::Vector3& v );                                   // Non-uniform scale by vector components.
+    static Matrix4 Scale( float x, float y, float z );                                  // Non-uniform scale by explicit components.
+    static Matrix4 Scale( float uniform );                                              // Uniform scale for all axes.
+    static Matrix4 RotateAxis( float angleDeg, float axisX, float axisY, float axisZ ); // Axis-angle rotation using degrees.
     static Matrix4
-    FromQuaternion( const Orientation::Quaternion& q );    // Quaternion orientation converted for transform composition.
-    static Matrix4 ShadowFromNormal(
-        float tx,
-        float ty,
-        float tz,
-        const Vector::Vector3& N,
-        float scale );                                     // Fused T(tx,ty,tz)*RotFromUpToN*Scale(s); zero acosf/cosf/sinf, zero Matrix4 products
+    FromQuaternion( const Orientation::Quaternion& q );                                 // Quaternion orientation converted for transform composition.
+    static Matrix4
+    ShadowFromNormal( float tx, float ty, float tz, const Vector::Vector3& N,
+                      float scale );                                                    // Fused T(tx,ty,tz)*RotFromUpToN*Scale(s); zero acosf/cosf/sinf, zero Matrix4 products
 
-    Matrix4 operator*( const Matrix4& rhs ) const;         // Transform composition in engine matrix order.
-    Matrix4& operator*=( const Matrix4& rhs );             // In-place transform composition in engine matrix order.
+    Matrix4 operator*( const Matrix4& rhs ) const;                                      // Transform composition in engine matrix order.
+    Matrix4& operator*=( const Matrix4& rhs );                                          // In-place transform composition in engine matrix order.
     Matrix4 Inverse() const;
-    const float* Data() const;                             // Column-major memory pointer for shader constant uploads.
+    const float* Data() const;                                                          // Column-major memory pointer for shader constant uploads.
 };
 } // namespace Transformation
 } // namespace Math

@@ -6,6 +6,7 @@ Purpose:
 Summary:
   The owner translates startup options and committed physics stores into UI,
   render-policy, and visualizer state. This keeps Run responsible for ordering
+
   while the presentation domain owns its state transitions.
 
 Glossary:
@@ -47,20 +48,22 @@ namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 std::unique_ptr<RuntimeOverlayDiagnostics> RuntimeOverlayDiagnostics::CreateForStartup( Core::Profiler* profiler )
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Startup );
+
     // Allocation policy: Run keeps this heavyweight cohesive owner out of its
     // public header. The one process-lifetime allocation is bounded to startup.
     return std::make_unique<RuntimeOverlayDiagnostics>( profiler );
 }
 
 
-void RuntimeOverlayDiagnostics::ApplyStartupPolicy( const RunStartupOverrides& overrides,
-                                                    RunLaunchOptions& launchOptions,
+void RuntimeOverlayDiagnostics::ApplyStartupPolicy( const RunStartupOverrides& overrides, RunLaunchOptions& launchOptions,
                                                     UI::InGameUI& operatorUi )
 {
     const RunLaunchOptions& launch = overrides.launch;
+
     if ( overrides.hasInitialOverlayMode )
     {
         m_presentationState.overlayMode = overrides.initialOverlayMode;
+
         if ( overrides.initialOverlayMode != OverlayMode::None )
         {
             operatorUi.SetVisible( true );
@@ -114,29 +117,26 @@ void RuntimeOverlayDiagnostics::ApplyStartupPolicy( const RunStartupOverrides& o
     if ( launch.hasPhysicsDebugAlphaOverride )
     {
         launchOptions.hasPhysicsDebugAlphaOverride = true;
-        launchOptions.physicsDebugAlphaOverride = (std::max)( 0.05f,
-                                                              (std::min)( launch.physicsDebugAlphaOverride, 1.0f ) );
+        launchOptions.physicsDebugAlphaOverride = (std::max)( 0.05f, (std::min)( launch.physicsDebugAlphaOverride, 1.0f ) );
     }
 
     if ( launch.hasPhysicsDebugContactLingerOverride )
     {
         launchOptions.hasPhysicsDebugContactLingerOverride = true;
-        launchOptions
-            .physicsDebugContactLingerOverride = (std::max)( 0.0f,
-                                                             (std::min)( launch.physicsDebugContactLingerOverride,
-                                                                         5.0f ) );
+        launchOptions.physicsDebugContactLingerOverride = (std::max)( 0.0f,
+                                                                      (std::min)( launch.physicsDebugContactLingerOverride,
+                                                                                  5.0f ) );
     }
 }
 
 
-void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneWorld& scene,
-                                                   RuntimeValidationHarness& validationHarness,
-                                                   float contactEpsilon,
-                                                   double secondsPerFrame )
+void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneWorld& scene, RuntimeValidationHarness& validationHarness,
+                                                   float contactEpsilon, double secondsPerFrame )
 {
     PROFILE_BEGIN( m_profiler, "Frame/PostPhysics" );
 
     PROFILE_BEGIN( m_profiler, "Frame/PostPhysics/BroadphaseVisualizer" );
+
     // Why: hidden broadphase state still advances so cell fades and validation
     // gates remain coherent when the operator toggles the overlay.
     m_renderResources.m_broadphaseOverlay.SetEnabled( m_presentationState.isBroadphaseOverlay );
@@ -147,15 +147,11 @@ void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneWorld& scene,
     const int activeCellCount = grid.GetActiveCellCount();
     grid.GetActiveCells( activeCells, SpatialGrid::MAX_BUCKETS );
     const std::vector<int64_t>& collisionKeys = PhysicsEngine::ReadCollisionCellKeys( physics );
-    m_renderResources.m_broadphaseOverlay.Update( static_cast<float>( secondsPerFrame ),
-                                                  activeCells,
-                                                  activeCellCount,
-                                                  collisionKeys.data(),
-                                                  static_cast<int>( collisionKeys.size() ) );
+    m_renderResources.m_broadphaseOverlay.Update( static_cast<float>( secondsPerFrame ), activeCells, activeCellCount,
+                                                  collisionKeys.data(), static_cast<int>( collisionKeys.size() ) );
 
-    validationHarness.SceneGates().UpdateRequiredBroadphaseXCells(
-        activeCells,
-        (std::min)( activeCellCount, SpatialGrid::MAX_BUCKETS ) );
+    validationHarness.SceneGates().UpdateRequiredBroadphaseXCells( activeCells,
+                                                                   (std::min)( activeCellCount, SpatialGrid::MAX_BUCKETS ) );
 
     PROFILE_END( m_profiler, "Frame/PostPhysics/BroadphaseVisualizer" );
 
@@ -187,9 +183,10 @@ void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneWorld& scene,
 
     m_renderResources.m_physicsDebugOverlay.Update( static_cast<float>( secondsPerFrame ), physicsDebugView );
     const std::vector<PhysicsDebugContact>& debugContacts = PhysicsEngine::ReadDebugContacts( physics );
-    validationHarness.SceneGates().UpdateRequiredContacts(
-        SceneAutomationGatePhysicsView { scene.BodyStore(), scene.Colliders(), debugContacts },
-        contactEpsilon );
+    validationHarness.SceneGates().UpdateRequiredContacts( SceneAutomationGatePhysicsView { scene.BodyStore(),
+                                                                                            scene.Colliders(),
+                                                                                            debugContacts },
+                                                           contactEpsilon );
 
     PROFILE_END( m_profiler, "Frame/PostPhysics/PhysicsDebugVisualizer" );
 
@@ -228,9 +225,11 @@ RuntimeRenderFramePolicy RuntimeOverlayDiagnostics::BuildFramePolicy( double sim
 void RuntimeOverlayDiagnostics::ObserveSceneLifecycle( const SceneLifecyclePacket& packet,
                                                        const OverlayDebugState& scenePresentation )
 {
+
     // Invariant: scene loading is synchronous. This boundary observes the final
     // phase reached by the attempt, so the detached value already contains all
     // authored overrides applied before success or recoverable failure.
+
     if ( !m_scenePresentationObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
     {
         return;
@@ -292,6 +291,7 @@ RuntimeOverlayRenderResources& RuntimeOverlayDiagnostics::RenderResources()
 void RuntimeOverlayDiagnostics::CommitPresentation( const OverlayDebugState& state )
 {
     m_presentationState = state;
+
     // Invariant: cold scene/reset edits become visible before a no-physics
     // scene's next render, rather than waiting for post-physics refresh.
     m_renderResources.m_physicsDebugOverlay.SetFlags( state.physicsDebugFlags );

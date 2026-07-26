@@ -42,12 +42,10 @@ namespace
 constexpr const char* OWNER = "UI/OperatorEditorExchange";
 
 template <typename Command, uint32_t Capacity, typename SameIdentity, typename SamePayload>
-SkullbonezCore::Core::SbResult SubmitBounded( OperatorEditorCommandQueue<Command, Capacity>& queue,
-                                              const Command& command,
-                                              SameIdentity sameIdentity,
-                                              SamePayload samePayload,
-                                              bool* duplicate )
+SkullbonezCore::Core::SbResult SubmitBounded( OperatorEditorCommandQueue<Command, Capacity>& queue, const Command& command,
+                                              SameIdentity sameIdentity, SamePayload samePayload, bool* duplicate )
 {
+
     if ( duplicate )
     {
         *duplicate = false;
@@ -55,6 +53,7 @@ SkullbonezCore::Core::SbResult SubmitBounded( OperatorEditorCommandQueue<Command
 
     for ( uint32_t index = 0u; index < queue.count; ++index )
     {
+
         if ( !sameIdentity( queue.commands[index], command ) )
         {
             continue;
@@ -62,9 +61,8 @@ SkullbonezCore::Core::SbResult SubmitBounded( OperatorEditorCommandQueue<Command
 
         if ( !samePayload( queue.commands[index], command ) )
         {
-            return SkullbonezCore::Core::SbResult::Failure(
-                OWNER,
-                "Conflicting payloads targeted the same operator-editor action in one frame" );
+            return SkullbonezCore::Core::SbResult::
+                Failure( OWNER, "Conflicting payloads targeted the same operator-editor action in one frame" );
         }
 
         if ( duplicate )
@@ -107,8 +105,10 @@ bool SamePropertyPayload( const OperatorEditorPropertyCommand& left, const Opera
 
 bool IsPhysicsDebugOverlayValue( uint32_t value )
 {
+
     // Invariant: shared editor queues carry only the UI command vocabulary.
     // Runtime performs the later UI-overlay-to-Physics-flag translation.
+
     switch ( static_cast<UIPhysicsDebugOverlay>( value ) )
     {
     case UIPhysicsDebugOverlay::Axes:
@@ -133,14 +133,12 @@ bool SameRenderingPayload( const OperatorEditorRenderingCommand& left, const Ope
     return left.parameter == right.parameter && left.value == right.value && left.phase == right.phase;
 }
 
-bool SameDiagnosticsIdentity( const OperatorEditorDiagnosticsCommand& left,
-                              const OperatorEditorDiagnosticsCommand& right )
+bool SameDiagnosticsIdentity( const OperatorEditorDiagnosticsCommand& left, const OperatorEditorDiagnosticsCommand& right )
 {
     return left.type == right.type;
 }
 
-bool SameDiagnosticsPayload( const OperatorEditorDiagnosticsCommand& left,
-                             const OperatorEditorDiagnosticsCommand& right )
+bool SameDiagnosticsPayload( const OperatorEditorDiagnosticsCommand& left, const OperatorEditorDiagnosticsCommand& right )
 {
     return left.flag == right.flag && left.integerValue == right.integerValue && left.value == right.value &&
            left.phase == right.phase;
@@ -160,6 +158,7 @@ bool SameReplayPayload( const OperatorEditorReplayCommand& left, const OperatorE
 
 bool SameToolIdentity( const OperatorEditorToolCommand& left, const OperatorEditorToolCommand& right )
 {
+
     if ( left.type != right.type )
     {
         return false;
@@ -179,19 +178,20 @@ bool SameToolPayload( const OperatorEditorToolCommand& left, const OperatorEdito
 }
 
 template <typename Queue, typename Submit>
-SkullbonezCore::Core::SbResult
-MergeQueue( Queue& target, const Queue& source, Submit submit, uint32_t& accepted, uint32_t& duplicates )
+SkullbonezCore::Core::SbResult MergeQueue( Queue& target, const Queue& source, Submit submit, uint32_t& accepted,
+                                           uint32_t& duplicates )
 {
+
     if ( source.count > Queue::capacity )
     {
-        return SkullbonezCore::Core::SbResult::Failure( OWNER,
-                                                        "Operator-editor command count exceeded queue capacity" );
+        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Operator-editor command count exceeded queue capacity" );
     }
 
     for ( uint32_t index = 0u; index < source.count; ++index )
     {
         bool duplicate = false;
         const SkullbonezCore::Core::SbResult result = submit( target, source.commands[index], &duplicate );
+
         if ( !result.ok )
         {
             return result;
@@ -213,6 +213,7 @@ MergeQueue( Queue& target, const Queue& source, Submit submit, uint32_t& accepte
 void HashBytes( uint64_t& hash, const void* bytes, size_t count ) noexcept
 {
     const auto* data = static_cast<const uint8_t*>( bytes );
+
     for ( size_t index = 0u; index < count; ++index )
     {
         hash ^= data[index];
@@ -227,9 +228,9 @@ template <typename Value> void HashValue( uint64_t& hash, const Value& value ) n
 } // namespace
 
 SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorSceneCommandQueue& queue,
-                                                            const OperatorEditorSceneCommand& command,
-                                                            bool* duplicate )
+                                                            const OperatorEditorSceneCommand& command, bool* duplicate )
 {
+
     if ( command.type != OperatorEditorSceneCommandType::ResetCurrentScene &&
          command.type != OperatorEditorSceneCommandType::ResetSceneDefaults &&
          command.type != OperatorEditorSceneCommandType::RequestDemoScene &&
@@ -246,20 +247,18 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorSceneC
     }
 
     if ( command.type == OperatorEditorSceneCommandType::CreateScene &&
-         ( command.sceneName[0] == '\0' ||
-           std::memchr( command.sceneName, '\0', sizeof( command.sceneName ) ) == nullptr ) )
+         ( command.sceneName[0] == '\0' || std::memchr( command.sceneName, '\0', sizeof( command.sceneName ) ) == nullptr ) )
     {
-        return SkullbonezCore::Core::SbResult::Failure( OWNER,
-                                                        "Create-scene command requires a bounded non-empty name" );
+        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Create-scene command requires a bounded non-empty name" );
     }
 
     return SubmitBounded( queue, command, SameSceneIdentity, SameScenePayload, duplicate );
 }
 
 SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorPropertyCommandQueue& queue,
-                                                            const OperatorEditorPropertyCommand& command,
-                                                            bool* duplicate )
+                                                            const OperatorEditorPropertyCommand& command, bool* duplicate )
 {
+
     switch ( command.type )
     {
     case OperatorEditorPropertyCommandType::SetTimeScale:
@@ -318,9 +317,9 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorProper
 }
 
 SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorRenderingCommandQueue& queue,
-                                                            const OperatorEditorRenderingCommand& command,
-                                                            bool* duplicate )
+                                                            const OperatorEditorRenderingCommand& command, bool* duplicate )
 {
+
     switch ( command.type )
     {
     case OperatorEditorRenderingCommandType::ToggleVsync:
@@ -335,6 +334,7 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorRender
     case OperatorEditorRenderingCommandType::SaveSkyDefaults:
         break;
     case OperatorEditorRenderingCommandType::ToggleCinematicFeature:
+
         if ( command.parameter < 0 || command.parameter >= static_cast<int>( UICinematicFeature::Count ) )
         {
             return SkullbonezCore::Core::SbResult::Failure( OWNER, "Rendering feature index is out of range" );
@@ -342,6 +342,7 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorRender
 
         break;
     case OperatorEditorRenderingCommandType::SetOrdinaryParameter:
+
         if ( command.parameter < 0 || command.parameter >= static_cast<int>( UIRenderParam::Count ) )
         {
             return SkullbonezCore::Core::SbResult::Failure( OWNER, "Ordinary render parameter is out of range" );
@@ -349,6 +350,7 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorRender
 
         break;
     case OperatorEditorRenderingCommandType::SetCinematicParameter:
+
         if ( command.parameter < 0 || command.parameter >= static_cast<int>( UICinematicParam::Count ) )
         {
             return SkullbonezCore::Core::SbResult::Failure( OWNER, "Cinematic render parameter is out of range" );
@@ -376,6 +378,7 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorDiagno
                                                             const OperatorEditorDiagnosticsCommand& command,
                                                             bool* duplicate )
 {
+
     switch ( command.type )
     {
     case OperatorEditorDiagnosticsCommandType::ToggleCollisionVisualizer:
@@ -389,11 +392,11 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorDiagno
     case OperatorEditorDiagnosticsCommandType::StepPhysicsPipelineNext:
         break;
     case OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag:
+
         if ( !IsPhysicsDebugOverlayValue( command.flag ) )
         {
-            return SkullbonezCore::Core::SbResult::Failure(
-                OWNER,
-                "Physics debug overlay command requires one recognized UI overlay value" );
+            return SkullbonezCore::Core::SbResult::
+                Failure( OWNER, "Physics debug overlay command requires one recognized UI overlay value" );
         }
 
         break;
@@ -401,6 +404,7 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorDiagno
     case OperatorEditorDiagnosticsCommandType::SetPhysicsContactLinger:
     case OperatorEditorDiagnosticsCommandType::SetRayCastImpulseStrength:
     case OperatorEditorDiagnosticsCommandType::SetLauncherProjectileSpeed:
+
         if ( !std::isfinite( command.value ) )
         {
             return SkullbonezCore::Core::SbResult::Failure( OWNER, "Diagnostics value must be finite" );
@@ -408,6 +412,7 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorDiagno
 
         break;
     case OperatorEditorDiagnosticsCommandType::SetWorkerThreads:
+
         if ( command.integerValue < -1 )
         {
             return SkullbonezCore::Core::SbResult::Failure( OWNER, "Worker count must be auto, disabled, or positive" );
@@ -427,9 +432,9 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorDiagno
 }
 
 SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorReplayCommandQueue& queue,
-                                                            const OperatorEditorReplayCommand& command,
-                                                            bool* duplicate )
+                                                            const OperatorEditorReplayCommand& command, bool* duplicate )
 {
+
     switch ( command.type )
     {
     case OperatorEditorReplayCommandType::SetMemoryPolicy:
@@ -438,16 +443,17 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorReplay
         const bool retentionValid = command.retentionSeconds == -1 || command.retentionSeconds > 0;
         const bool budgetValid = command.budgetMiB == -1 || command.budgetMiB > 0;
         const bool requestsValue = command.presetIndex >= 0 || command.retentionSeconds > 0 || command.budgetMiB > 0;
+
         if ( !presetValid || !retentionValid || !budgetValid || !requestsValue )
         {
-            return SkullbonezCore::Core::SbResult::Failure(
-                OWNER,
-                "Replay memory command requires at least one valid preset, retention, or budget value" );
+            return SkullbonezCore::Core::SbResult::
+                Failure( OWNER, "Replay memory command requires at least one valid preset, retention, or budget value" );
         }
 
         break;
     }
     case OperatorEditorReplayCommandType::SetRevealSpeed:
+
         if ( !std::isfinite( command.value ) || command.value < 0.25f || command.value > 4.0f )
         {
             return SkullbonezCore::Core::SbResult::Failure( OWNER, "Replay reveal speed must be within 0.25x..4x" );
@@ -455,6 +461,7 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorReplay
 
         break;
     case OperatorEditorReplayCommandType::Scrub:
+
         if ( !std::isfinite( command.value ) || command.value < 0.0f || command.value > 1.0f )
         {
             return SkullbonezCore::Core::SbResult::Failure( OWNER, "Replay scrub position must be normalized" );
@@ -462,6 +469,7 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorReplay
 
         break;
     case OperatorEditorReplayCommandType::SetPredictionHorizon:
+
         if ( !std::isfinite( command.value ) || command.value < 1.0f || command.value > 20.0f )
         {
             return SkullbonezCore::Core::SbResult::Failure( OWNER, "Replay prediction horizon must be 1..20 seconds" );
@@ -469,6 +477,7 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorReplay
 
         break;
     case OperatorEditorReplayCommandType::SelectCauseRow:
+
         if ( command.rowIndex < 0 )
         {
             return SkullbonezCore::Core::SbResult::Failure( OWNER, "Replay cause row must be non-negative" );
@@ -495,9 +504,9 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorReplay
 }
 
 SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorToolCommandQueue& queue,
-                                                            const OperatorEditorToolCommand& command,
-                                                            bool* duplicate )
+                                                            const OperatorEditorToolCommand& command, bool* duplicate )
 {
+
     switch ( command.type )
     {
     case OperatorEditorToolCommandType::ToggleEditorMode:
@@ -512,14 +521,15 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorToolCo
     case OperatorEditorToolCommandType::SelectSceneObject:
     case OperatorEditorToolCommandType::SetEntityVisible:
     case OperatorEditorToolCommandType::SetEntityLocked:
+
         if ( command.sceneObjectId == 0u )
         {
-            return SkullbonezCore::Core::SbResult::Failure( OWNER,
-                                                            "Hierarchy command requires a stable scene object id" );
+            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Hierarchy command requires a stable scene object id" );
         }
 
         return SubmitBounded( queue, command, SameToolIdentity, SameToolPayload, duplicate );
     case OperatorEditorToolCommandType::SetPlacementObjectType:
+
         if ( command.value < 0 || command.value >= EditorTab::OBJECT_TYPE_COUNT )
         {
             return SkullbonezCore::Core::SbResult::Failure( OWNER, "Placement command has an invalid object type" );
@@ -536,36 +546,38 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorToolCo
 
 SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICommands& commands )
 {
+
     // Invariant: normalization drains legacy one-frame fields exactly once.
     // Typed queues then become the only arbitration input for either surface.
     OperatorEditorCommandQueues normalized = commands.operatorEditor;
     SkullbonezCore::Core::SbResult result = SkullbonezCore::Core::SbResult::Success();
+
     if ( commands.scene.resetScene )
     {
-        result = SubmitOperatorEditorCommand(
-            normalized.scene,
-            OperatorEditorSceneCommand { OperatorEditorSceneCommandType::ResetCurrentScene, -1 } );
+        result = SubmitOperatorEditorCommand( normalized.scene,
+                                              OperatorEditorSceneCommand { OperatorEditorSceneCommandType::ResetCurrentScene,
+                                                                           -1 } );
     }
 
     if ( result.ok && commands.scene.resetSceneDefaults )
     {
-        result = SubmitOperatorEditorCommand(
-            normalized.scene,
-            OperatorEditorSceneCommand { OperatorEditorSceneCommandType::ResetSceneDefaults, -1 } );
+        result = SubmitOperatorEditorCommand( normalized.scene, OperatorEditorSceneCommand { OperatorEditorSceneCommandType::
+                                                                                                 ResetSceneDefaults,
+                                                                                             -1 } );
     }
 
     if ( result.ok && commands.scene.requestDemoScene )
     {
-        result = SubmitOperatorEditorCommand(
-            normalized.scene,
-            OperatorEditorSceneCommand { OperatorEditorSceneCommandType::RequestDemoScene, -1 } );
+        result = SubmitOperatorEditorCommand( normalized.scene,
+                                              OperatorEditorSceneCommand { OperatorEditorSceneCommandType::RequestDemoScene,
+                                                                           -1 } );
     }
 
     if ( result.ok && commands.scene.saveSceneDefaults )
     {
-        result = SubmitOperatorEditorCommand(
-            normalized.scene,
-            OperatorEditorSceneCommand { OperatorEditorSceneCommandType::SaveCurrentScene, -1 } );
+        result = SubmitOperatorEditorCommand( normalized.scene,
+                                              OperatorEditorSceneCommand { OperatorEditorSceneCommandType::SaveCurrentScene,
+                                                                           -1 } );
     }
 
     if ( result.ok && commands.scene.createScene )
@@ -578,131 +590,107 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICo
 
     if ( result.ok && commands.scene.requestedSceneIndex >= 0 )
     {
-        result = SubmitOperatorEditorCommand(
-            normalized.scene,
-            OperatorEditorSceneCommand { OperatorEditorSceneCommandType::SetCurrentSceneIndex,
-                                         commands.scene.requestedSceneIndex } );
+        result = SubmitOperatorEditorCommand( normalized.scene,
+                                              OperatorEditorSceneCommand { OperatorEditorSceneCommandType::
+                                                                               SetCurrentSceneIndex,
+                                                                           commands.scene.requestedSceneIndex } );
     }
 
     const auto normalizeProperty = [&]( bool requested,
                                        OperatorEditorPropertyCommandType type, float value = 0.0f, int integerValue = 0 )
     {
+
         if ( result.ok && requested )
         {
-            result = SubmitOperatorEditorCommand(
-                normalized.property,
-                OperatorEditorPropertyCommand { type, value, integerValue, OperatorEditorEditPhase::Commit } );
+            result = SubmitOperatorEditorCommand( normalized.property,
+                                                  OperatorEditorPropertyCommand { type, value, integerValue,
+                                                                                  OperatorEditorEditPhase::Commit } );
         }
     };
 
-    normalizeProperty( commands.sceneOptions.requestedTimeScale > 0.0f,
-                       OperatorEditorPropertyCommandType::SetTimeScale,
+    normalizeProperty( commands.sceneOptions.requestedTimeScale > 0.0f, OperatorEditorPropertyCommandType::SetTimeScale,
                        commands.sceneOptions.requestedTimeScale );
 
     normalizeProperty( commands.sceneOptions.toggleFixedStep, OperatorEditorPropertyCommandType::ToggleFixedStep );
-    normalizeProperty( commands.sceneOptions.requestedModelCount >= 0,
-                       OperatorEditorPropertyCommandType::SetModelCount,
-                       0.0f,
-                       commands.sceneOptions.requestedModelCount );
+    normalizeProperty( commands.sceneOptions.requestedModelCount >= 0, OperatorEditorPropertyCommandType::SetModelCount,
+                       0.0f, commands.sceneOptions.requestedModelCount );
 
-    normalizeProperty( commands.run.requestedSeed > 0,
-                       OperatorEditorPropertyCommandType::SetSeed,
-                       0.0f,
+    normalizeProperty( commands.run.requestedSeed > 0, OperatorEditorPropertyCommandType::SetSeed, 0.0f,
                        commands.run.requestedSeed );
 
-    normalizeProperty( commands.run.requestedSolverBallCount >= 0,
-                       OperatorEditorPropertyCommandType::SetSolverBallCount,
-                       0.0f,
-                       commands.run.requestedSolverBallCount );
+    normalizeProperty( commands.run.requestedSolverBallCount >= 0, OperatorEditorPropertyCommandType::SetSolverBallCount,
+                       0.0f, commands.run.requestedSolverBallCount );
 
-    normalizeProperty( commands.run.requestedSolverBoxCount >= 0,
-                       OperatorEditorPropertyCommandType::SetSolverBoxCount,
-                       0.0f,
+    normalizeProperty( commands.run.requestedSolverBoxCount >= 0, OperatorEditorPropertyCommandType::SetSolverBoxCount, 0.0f,
                        commands.run.requestedSolverBoxCount );
 
-    normalizeProperty( commands.water.requestWorldGravity,
-                       OperatorEditorPropertyCommandType::SetWorldGravity,
+    normalizeProperty( commands.water.requestWorldGravity, OperatorEditorPropertyCommandType::SetWorldGravity,
                        commands.water.requestedWorldGravity );
 
-    normalizeProperty( commands.water.requestWorldFluidHeight,
-                       OperatorEditorPropertyCommandType::SetWorldFluidHeight,
+    normalizeProperty( commands.water.requestWorldFluidHeight, OperatorEditorPropertyCommandType::SetWorldFluidHeight,
                        commands.water.requestedWorldFluidHeight );
 
-    normalizeProperty( commands.water.requestWorldFluidDensity,
-                       OperatorEditorPropertyCommandType::SetWorldFluidDensity,
+    normalizeProperty( commands.water.requestWorldFluidDensity, OperatorEditorPropertyCommandType::SetWorldFluidDensity,
                        commands.water.requestedWorldFluidDensity );
 
     normalizeProperty( commands.physics.togglePhysicsSleepPolicy,
                        OperatorEditorPropertyCommandType::TogglePhysicsSleepPolicy );
 
-    normalizeProperty( commands.physics.requestTerrainFrictionCoeff,
-                       OperatorEditorPropertyCommandType::SetTerrainFriction,
+    normalizeProperty( commands.physics.requestTerrainFrictionCoeff, OperatorEditorPropertyCommandType::SetTerrainFriction,
                        commands.physics.requestedTerrainFrictionCoeff );
 
-    normalizeProperty( commands.physics.requestObjectFrictionCoeff,
-                       OperatorEditorPropertyCommandType::SetObjectFriction,
+    normalizeProperty( commands.physics.requestObjectFrictionCoeff, OperatorEditorPropertyCommandType::SetObjectFriction,
                        commands.physics.requestedObjectFrictionCoeff );
 
-    normalizeProperty( commands.physics.requestRollingFrictionCoeff,
-                       OperatorEditorPropertyCommandType::SetRollingFriction,
+    normalizeProperty( commands.physics.requestRollingFrictionCoeff, OperatorEditorPropertyCommandType::SetRollingFriction,
                        commands.physics.requestedRollingFrictionCoeff );
 
     normalizeProperty( commands.physics.toggleTornado, OperatorEditorPropertyCommandType::ToggleTornado );
-    normalizeProperty( commands.physics.requestTornadoRadius,
-                       OperatorEditorPropertyCommandType::SetTornadoRadius,
+    normalizeProperty( commands.physics.requestTornadoRadius, OperatorEditorPropertyCommandType::SetTornadoRadius,
                        commands.physics.requestedTornadoRadius );
 
-    normalizeProperty( commands.physics.requestTornadoHeight,
-                       OperatorEditorPropertyCommandType::SetTornadoHeight,
+    normalizeProperty( commands.physics.requestTornadoHeight, OperatorEditorPropertyCommandType::SetTornadoHeight,
                        commands.physics.requestedTornadoHeight );
 
-    normalizeProperty( commands.physics.requestTornadoInward,
-                       OperatorEditorPropertyCommandType::SetTornadoInward,
+    normalizeProperty( commands.physics.requestTornadoInward, OperatorEditorPropertyCommandType::SetTornadoInward,
                        commands.physics.requestedTornadoInward );
 
-    normalizeProperty( commands.physics.requestTornadoSwirl,
-                       OperatorEditorPropertyCommandType::SetTornadoSwirl,
+    normalizeProperty( commands.physics.requestTornadoSwirl, OperatorEditorPropertyCommandType::SetTornadoSwirl,
                        commands.physics.requestedTornadoSwirl );
 
-    normalizeProperty( commands.physics.requestTornadoLift,
-                       OperatorEditorPropertyCommandType::SetTornadoLift,
+    normalizeProperty( commands.physics.requestTornadoLift, OperatorEditorPropertyCommandType::SetTornadoLift,
                        commands.physics.requestedTornadoLift );
 
     if ( result.ok && commands.renderer.toggleVsync )
     {
-        result = SubmitOperatorEditorCommand(
-            normalized.rendering,
-            OperatorEditorRenderingCommand { OperatorEditorRenderingCommandType::ToggleVsync } );
+        result = SubmitOperatorEditorCommand( normalized.rendering, OperatorEditorRenderingCommand {
+                                                                        OperatorEditorRenderingCommandType::ToggleVsync } );
     }
 
     const auto normalizeRendering = [&]( bool requested,
                                         OperatorEditorRenderingCommandType type, int parameter = -1, float value = 0.0f )
     {
+
         if ( result.ok && requested )
         {
-            result = SubmitOperatorEditorCommand(
-                normalized.rendering,
-                OperatorEditorRenderingCommand { type, parameter, value, OperatorEditorEditPhase::Commit } );
+            result = SubmitOperatorEditorCommand( normalized.rendering,
+                                                  OperatorEditorRenderingCommand { type, parameter, value,
+                                                                                   OperatorEditorEditPhase::Commit } );
         }
     };
 
     normalizeRendering( commands.sceneOptions.toggleShadows, OperatorEditorRenderingCommandType::ToggleShadows );
     normalizeRendering( commands.renderTuning.toggleShadows, OperatorEditorRenderingCommandType::ToggleShadows );
-    normalizeRendering( commands.sceneOptions.toggleTerrainHidden,
-                        OperatorEditorRenderingCommandType::ToggleTerrainHidden );
+    normalizeRendering( commands.sceneOptions.toggleTerrainHidden, OperatorEditorRenderingCommandType::ToggleTerrainHidden );
 
-    normalizeRendering( commands.sceneOptions.toggleWaterHidden,
-                        OperatorEditorRenderingCommandType::ToggleWaterHidden );
+    normalizeRendering( commands.sceneOptions.toggleWaterHidden, OperatorEditorRenderingCommandType::ToggleWaterHidden );
 
-    normalizeRendering( commands.sceneOptions.toggleWaterFreeze,
-                        OperatorEditorRenderingCommandType::ToggleWaterFreeze );
+    normalizeRendering( commands.sceneOptions.toggleWaterFreeze, OperatorEditorRenderingCommandType::ToggleWaterFreeze );
 
     normalizeRendering( commands.sceneOptions.toggleWaterFlat, OperatorEditorRenderingCommandType::ToggleWaterFlat );
-    normalizeRendering( commands.water.toggleWaterReflection,
-                        OperatorEditorRenderingCommandType::CycleWaterReflection );
+    normalizeRendering( commands.water.toggleWaterReflection, OperatorEditorRenderingCommandType::CycleWaterReflection );
 
-    normalizeRendering( commands.cinematic.toggleRendering,
-                        OperatorEditorRenderingCommandType::ToggleCinematicRendering );
+    normalizeRendering( commands.cinematic.toggleRendering, OperatorEditorRenderingCommandType::ToggleCinematicRendering );
 
     normalizeRendering( commands.renderTuning.saveDefaults, OperatorEditorRenderingCommandType::SaveOrdinaryDefaults );
     normalizeRendering( commands.cinematic.saveSkyDefaults, OperatorEditorRenderingCommandType::SaveSkyDefaults );
@@ -712,25 +700,21 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICo
 
     normalizeRendering( commands.renderTuning.requestedParam != UIRenderParam::None,
                         OperatorEditorRenderingCommandType::SetOrdinaryParameter,
-                        static_cast<int>( commands.renderTuning.requestedParam ),
-                        commands.renderTuning.requestedValue );
+                        static_cast<int>( commands.renderTuning.requestedParam ), commands.renderTuning.requestedValue );
 
     normalizeRendering( commands.cinematic.requestedParam != UICinematicParam::None,
                         OperatorEditorRenderingCommandType::SetCinematicParameter,
-                        static_cast<int>( commands.cinematic.requestedParam ),
-                        commands.cinematic.requestedValue );
+                        static_cast<int>( commands.cinematic.requestedParam ), commands.cinematic.requestedValue );
 
-    const auto normalizeDiagnostics = [&]( bool requested,
-                                           OperatorEditorDiagnosticsCommandType type,
-                                           uint32_t flag = 0u,
-                                           int integerValue = 0,
-                                           float value = 0.0f )
+    const auto normalizeDiagnostics = [&]( bool requested, OperatorEditorDiagnosticsCommandType type, uint32_t flag = 0u,
+                                           int integerValue = 0, float value = 0.0f )
     {
+
         if ( result.ok && requested )
         {
-            result = SubmitOperatorEditorCommand(
-                normalized.diagnostics,
-                OperatorEditorDiagnosticsCommand { type, flag, integerValue, value, OperatorEditorEditPhase::Commit } );
+            result = SubmitOperatorEditorCommand( normalized.diagnostics,
+                                                  OperatorEditorDiagnosticsCommand { type, flag, integerValue, value,
+                                                                                     OperatorEditorEditPhase::Commit } );
         }
     };
 
@@ -766,46 +750,37 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICo
                           OperatorEditorDiagnosticsCommandType::StepPhysicsPipelineNext );
 
     normalizeDiagnostics( commands.physics.requestedPhysicsDebugAlpha >= 0.0f,
-                          OperatorEditorDiagnosticsCommandType::SetPhysicsDebugAlpha,
-                          0u,
-                          0,
+                          OperatorEditorDiagnosticsCommandType::SetPhysicsDebugAlpha, 0u, 0,
                           commands.physics.requestedPhysicsDebugAlpha );
 
     normalizeDiagnostics( commands.physics.requestedPhysicsDebugContactLinger >= 0.0f,
-                          OperatorEditorDiagnosticsCommandType::SetPhysicsContactLinger,
-                          0u,
-                          0,
+                          OperatorEditorDiagnosticsCommandType::SetPhysicsContactLinger, 0u, 0,
                           commands.physics.requestedPhysicsDebugContactLinger );
 
     normalizeDiagnostics( commands.physics.requestRayCastImpulseStrength,
-                          OperatorEditorDiagnosticsCommandType::SetRayCastImpulseStrength,
-                          0u,
-                          0,
+                          OperatorEditorDiagnosticsCommandType::SetRayCastImpulseStrength, 0u, 0,
                           commands.physics.requestedRayCastImpulseStrength );
 
     normalizeDiagnostics( commands.physics.requestLauncherProjectileSpeed,
-                          OperatorEditorDiagnosticsCommandType::SetLauncherProjectileSpeed,
-                          0u,
-                          0,
+                          OperatorEditorDiagnosticsCommandType::SetLauncherProjectileSpeed, 0u, 0,
                           commands.physics.requestedLauncherProjectileSpeed );
 
     normalizeDiagnostics( commands.profiler.requestedWorkerThreads >= -1,
-                          OperatorEditorDiagnosticsCommandType::SetWorkerThreads,
-                          0u,
+                          OperatorEditorDiagnosticsCommandType::SetWorkerThreads, 0u,
                           commands.profiler.requestedWorkerThreads );
 
     if ( result.ok && commands.replayMemory.requestPolicy )
     {
-        result = SubmitOperatorEditorCommand(
-            normalized.replay,
-            OperatorEditorReplayCommand { OperatorEditorReplayCommandType::SetMemoryPolicy,
-                                          commands.replayMemory.requestedPresetIndex,
-                                          commands.replayMemory.requestedRetentionSeconds,
-                                          commands.replayMemory.requestedBudgetMiB } );
+        result = SubmitOperatorEditorCommand( normalized.replay,
+                                              OperatorEditorReplayCommand { OperatorEditorReplayCommandType::SetMemoryPolicy,
+                                                                            commands.replayMemory.requestedPresetIndex,
+                                                                            commands.replayMemory.requestedRetentionSeconds,
+                                                                            commands.replayMemory.requestedBudgetMiB } );
     }
 
     const auto normalizeTool = [&]( bool requested, OperatorEditorToolCommandType type )
     {
+
         if ( result.ok && requested )
         {
             result = SubmitOperatorEditorCommand( normalized.tools, OperatorEditorToolCommand { type } );
@@ -818,22 +793,20 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICo
     normalizeTool( commands.editor.requestRedo, OperatorEditorToolCommandType::Redo );
     normalizeTool( commands.scene.toggleCrossScenePause, OperatorEditorToolCommandType::ToggleCrossScenePause );
     normalizeTool( commands.scene.requestSingleStep, OperatorEditorToolCommandType::StepPausedScene );
+
     if ( result.ok && commands.editor.requestedObjectType >= 0 )
     {
-        result = SubmitOperatorEditorCommand(
-            normalized.tools,
-            OperatorEditorToolCommand { OperatorEditorToolCommandType::SetPlacementObjectType,
-                                        0u,
-                                        commands.editor.requestedObjectType } );
+        result = SubmitOperatorEditorCommand( normalized.tools,
+                                              OperatorEditorToolCommand { OperatorEditorToolCommandType::
+                                                                              SetPlacementObjectType,
+                                                                          0u, commands.editor.requestedObjectType } );
     }
 
     if ( result.ok && commands.editor.requestPlaceStatic )
     {
         result = SubmitOperatorEditorCommand( normalized.tools,
-                                              OperatorEditorToolCommand { OperatorEditorToolCommandType::SetPlaceStatic,
-                                                                          0u,
-                                                                          0,
-                                                                          commands.editor.requestedPlaceStatic } );
+                                              OperatorEditorToolCommand { OperatorEditorToolCommandType::SetPlaceStatic, 0u,
+                                                                          0, commands.editor.requestedPlaceStatic } );
     }
 
     if ( !result.ok )
@@ -915,77 +888,56 @@ OperatorEditorArbitrationResult ArbitrateOperatorEditorCommands( const OperatorE
     OperatorEditorArbitrationResult result;
     auto mergeAll = [&]( const OperatorEditorCommandQueues& source, uint32_t& accepted )
     {
-        SkullbonezCore::Core::SbResult status = MergeQueue(
-            result.commands.scene,
-            source.scene,
-            []( OperatorEditorSceneCommandQueue& queue, const OperatorEditorSceneCommand& command, bool* duplicate )
-            { return SubmitOperatorEditorCommand( queue, command, duplicate ); },
-            accepted,
-            result.coalescedDuplicateCommands );
+        SkullbonezCore::Core::SbResult status = MergeQueue( result.commands.scene, source.scene,
+                                                            []( OperatorEditorSceneCommandQueue& queue, const OperatorEditorSceneCommand& command, bool* duplicate )
+                                                            { return SubmitOperatorEditorCommand( queue, command, duplicate ); }, accepted,
+                                                            result.coalescedDuplicateCommands );
 
         if ( status.ok )
         {
-            status = MergeQueue(
-                result.commands.property,
-                source.property,
-                []( OperatorEditorPropertyCommandQueue& queue,
-                    const OperatorEditorPropertyCommand& command,
-                    bool* duplicate ) { return SubmitOperatorEditorCommand( queue, command, duplicate ); },
-                accepted,
-                result.coalescedDuplicateCommands );
+            status = MergeQueue( result.commands.property, source.property,
+                                 []( OperatorEditorPropertyCommandQueue& queue, const OperatorEditorPropertyCommand& command,
+                                     bool* duplicate ) { return SubmitOperatorEditorCommand( queue, command, duplicate ); },
+                                 accepted, result.coalescedDuplicateCommands );
         }
 
         if ( status.ok )
         {
-            status = MergeQueue(
-                result.commands.rendering,
-                source.rendering,
-                []( OperatorEditorRenderingCommandQueue& queue,
-                    const OperatorEditorRenderingCommand& command,
-                    bool* duplicate ) { return SubmitOperatorEditorCommand( queue, command, duplicate ); },
-                accepted,
-                result.coalescedDuplicateCommands );
+            status = MergeQueue( result.commands.rendering, source.rendering,
+                                 []( OperatorEditorRenderingCommandQueue& queue, const OperatorEditorRenderingCommand& command,
+                                     bool* duplicate ) { return SubmitOperatorEditorCommand( queue, command, duplicate ); },
+                                 accepted, result.coalescedDuplicateCommands );
         }
 
         if ( status.ok )
         {
-            status = MergeQueue(
-                result.commands.diagnostics,
-                source.diagnostics,
-                []( OperatorEditorDiagnosticsCommandQueue& queue,
-                    const OperatorEditorDiagnosticsCommand& command,
-                    bool* duplicate ) { return SubmitOperatorEditorCommand( queue, command, duplicate ); },
-                accepted,
-                result.coalescedDuplicateCommands );
+            status = MergeQueue( result.commands.diagnostics, source.diagnostics,
+                                 []( OperatorEditorDiagnosticsCommandQueue& queue, const OperatorEditorDiagnosticsCommand& command,
+                                     bool* duplicate ) { return SubmitOperatorEditorCommand( queue, command, duplicate ); },
+                                 accepted, result.coalescedDuplicateCommands );
         }
 
         if ( status.ok )
         {
-            status = MergeQueue(
-                result.commands.replay,
-                source.replay,
-                []( OperatorEditorReplayCommandQueue& queue,
-                    const OperatorEditorReplayCommand& command,
-                    bool* duplicate ) { return SubmitOperatorEditorCommand( queue, command, duplicate ); },
-                accepted,
-                result.coalescedDuplicateCommands );
+            status = MergeQueue( result.commands.replay, source.replay,
+                                 []( OperatorEditorReplayCommandQueue& queue, const OperatorEditorReplayCommand& command, bool* duplicate )
+                                 { return SubmitOperatorEditorCommand( queue, command, duplicate ); }, accepted,
+                                 result.coalescedDuplicateCommands );
         }
 
         if ( status.ok )
         {
-            status = MergeQueue(
-                result.commands.tools,
-                source.tools,
-                []( OperatorEditorToolCommandQueue& queue, const OperatorEditorToolCommand& command, bool* duplicate )
-                { return SubmitOperatorEditorCommand( queue, command, duplicate ); },
-                accepted,
-                result.coalescedDuplicateCommands );
+            status = MergeQueue( result.commands.tools, source.tools,
+                                 []( OperatorEditorToolCommandQueue& queue, const OperatorEditorToolCommand& command, bool* duplicate )
+                                 { return SubmitOperatorEditorCommand( queue, command, duplicate ); }, accepted,
+                                 result.coalescedDuplicateCommands );
         }
 
         return status;
     };
 
     result.status = mergeAll( legacy, result.acceptedLegacyCommands );
+
     if ( result.status.ok )
     {
         result.status = mergeAll( secondary, result.acceptedSecondaryCommands );
@@ -997,11 +949,13 @@ OperatorEditorArbitrationResult ArbitrateOperatorEditorCommands( const OperatorE
 SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( const OperatorEditorCommandQueues& exchange,
                                                               InGameUICommands& commands )
 {
+
     // Invariant: preview commands never escape presentation. Projection emits
     // only committed intent into the established narrow owner packets.
     // Lane R: surfaces are untrusted presentation inputs. Re-run bounded
     // validation before modifying the established owner command packet.
     const OperatorEditorArbitrationResult validated = ArbitrateOperatorEditorCommands( exchange, {} );
+
     if ( !validated.status.ok )
     {
         return validated.status;
@@ -1083,6 +1037,7 @@ SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( const OperatorEdit
     for ( uint32_t index = 0u; index < canonical.scene.count; ++index )
     {
         const OperatorEditorSceneCommand& command = canonical.scene.commands[index];
+
         if ( command.type == OperatorEditorSceneCommandType::ResetCurrentScene )
         {
             commands.scene.resetScene = true;
@@ -1113,8 +1068,10 @@ SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( const OperatorEdit
     for ( uint32_t index = 0u; index < canonical.property.count; ++index )
     {
         const OperatorEditorPropertyCommand& command = canonical.property.commands[index];
+
         // Invariant: preview values are presentation-local. Only the single
         // release/enter commit reaches mutation, replay, reset, or history owners.
+
         if ( command.phase == OperatorEditorEditPhase::Preview )
         {
             continue;
@@ -1198,6 +1155,7 @@ SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( const OperatorEdit
     for ( uint32_t index = 0u; index < canonical.rendering.count; ++index )
     {
         const OperatorEditorRenderingCommand& command = canonical.rendering.commands[index];
+
         if ( command.phase == OperatorEditorEditPhase::Preview )
         {
             continue;
@@ -1254,6 +1212,7 @@ SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( const OperatorEdit
     for ( uint32_t index = 0u; index < canonical.diagnostics.count; ++index )
     {
         const OperatorEditorDiagnosticsCommand& command = canonical.diagnostics.commands[index];
+
         if ( command.phase == OperatorEditorEditPhase::Preview )
         {
             continue;
@@ -1316,6 +1275,7 @@ SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( const OperatorEdit
     for ( uint32_t index = 0u; index < canonical.replay.count; ++index )
     {
         const OperatorEditorReplayCommand& command = canonical.replay.commands[index];
+
         if ( command.type == OperatorEditorReplayCommandType::SetMemoryPolicy )
         {
             commands.replayMemory.requestPolicy = true;
@@ -1328,6 +1288,7 @@ SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( const OperatorEdit
     for ( uint32_t index = 0u; index < canonical.tools.count; ++index )
     {
         const OperatorEditorToolCommand& command = canonical.tools.commands[index];
+
         switch ( command.type )
         {
         case OperatorEditorToolCommandType::ToggleEditorMode:
@@ -1399,6 +1360,7 @@ uint64_t FingerprintOperatorEditorFrameView( const OperatorEditorFrameView& view
     HashValue( hash, view.scene.timeScale );
     HashValue( hash, view.scene.canSaveCurrentScene );
     HashValue( hash, view.scene.dirty );
+
     for ( int index = 0; index < view.scene.sceneCount && view.scene.sceneOptions; ++index )
     {
         const char* option = view.scene.sceneOptions[index] ? view.scene.sceneOptions[index] : "";
@@ -1420,6 +1382,7 @@ uint64_t FingerprintOperatorEditorFrameView( const OperatorEditorFrameView& view
     HashValue( hash, view.rendering.waterFrozen );
     HashValue( hash, view.rendering.waterFlat );
     HashValue( hash, view.rendering.waterReflectionMode );
+
     for ( float value : view.rendering.ordinaryParameters )
     {
         HashValue( hash, value );
@@ -1465,6 +1428,7 @@ uint64_t FingerprintOperatorEditorFrameView( const OperatorEditorFrameView& view
     HashValue( hash, view.hierarchy.totalRowCount );
     HashValue( hash, view.hierarchy.selectedSceneObjectId );
     HashValue( hash, view.hierarchy.truncated );
+
     for ( uint32_t index = 0u; index < hierarchyCount; ++index )
     {
         const OperatorEditorHierarchyRow& row = view.hierarchy.rows[index];
@@ -1502,6 +1466,7 @@ uint64_t FingerprintOperatorEditorFrameView( const OperatorEditorFrameView& view
     HashValue( hash, view.inspector.colliderShapeKind );
     HashValue( hash, view.inspector.behaviorGroupKind );
     HashValue( hash, view.inspector.behaviorPartIndex );
+
     for ( float value : view.inspector.position )
     {
         HashValue( hash, value );

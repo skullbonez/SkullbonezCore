@@ -51,6 +51,7 @@ void UICacheState::Reset()
 uint32_t UICacheState::BeginFrame( const UICacheFrameKey& key )
 {
     uint32_t flags = UI_DIRTY_NONE;
+
     if ( !m_hasFrame )
     {
         flags = UI_DIRTY_CONTENT | UI_DIRTY_LAYOUT | UI_DIRTY_STYLE | UI_DIRTY_INTERACTION | UI_DIRTY_VIEWPORT |
@@ -58,6 +59,7 @@ uint32_t UICacheState::BeginFrame( const UICacheFrameKey& key )
     }
     else
     {
+
         if ( key.screenW != m_lastKey.screenW || key.screenH != m_lastKey.screenH )
         {
             flags |= UI_DIRTY_VIEWPORT;
@@ -71,6 +73,7 @@ uint32_t UICacheState::BeginFrame( const UICacheFrameKey& key )
         if ( !SamePosition( key.windowBounds, m_lastKey.windowBounds ) )
         {
             flags |= UI_DIRTY_POSITION;
+
             if ( key.blurEnabled )
             {
                 flags |= UI_DIRTY_BLUR_SOURCE;
@@ -106,12 +109,11 @@ uint32_t UICacheState::BeginFrame( const UICacheFrameKey& key )
 
 bool UICacheState::CanReplayPositionOnly( const UICacheFrameKey& key ) const
 {
-    return m_hasFrame && !m_drawList->Empty() && m_dirtyFlags == UI_DIRTY_POSITION &&
-           key.screenW == m_lastKey.screenW && key.screenH == m_lastKey.screenH &&
-           SameSize( key.windowBounds, m_lastKey.windowBounds ) && key.activeTab == m_lastKey.activeTab &&
-           SameFloat( key.scrollY, m_lastKey.scrollY ) && key.blurEnabled == m_lastKey.blurEnabled &&
-           key.contentSignature == m_lastKey.contentSignature && key.styleSignature == m_lastKey.styleSignature &&
-           key.interactionSignature == m_lastKey.interactionSignature;
+    return m_hasFrame && !m_drawList->Empty() && m_dirtyFlags == UI_DIRTY_POSITION && key.screenW == m_lastKey.screenW &&
+           key.screenH == m_lastKey.screenH && SameSize( key.windowBounds, m_lastKey.windowBounds ) &&
+           key.activeTab == m_lastKey.activeTab && SameFloat( key.scrollY, m_lastKey.scrollY ) &&
+           key.blurEnabled == m_lastKey.blurEnabled && key.contentSignature == m_lastKey.contentSignature &&
+           key.styleSignature == m_lastKey.styleSignature && key.interactionSignature == m_lastKey.interactionSignature;
 }
 
 

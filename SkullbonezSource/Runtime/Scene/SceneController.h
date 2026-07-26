@@ -119,9 +119,11 @@ struct SceneFrameAdvanceResult
     bool holdInteractive = false;
     bool quitIfLoadFails = false;
     bool restartSimulationTimerAfterLoad = false;
+
     // Value request only; validation retains diagnostic rows and printing.
     bool reportMissingRequirements = false;
 };
+
 // Value policy sampled once after input. Every late-frame consumer observes
 // the same step edge and cross-scene lock decision for the entire frame turn.
 struct SceneFrameProceedPolicy
@@ -132,11 +134,13 @@ struct SceneFrameProceedPolicy
 };
 inline SceneFrameProceedPolicy ResolveSceneFrameProceedPolicy( bool crossScenePauseLocked, bool stepRequested )
 {
+
     // Invariant: only the sampled step edge releases a locked scene turn.
     return SceneFrameProceedPolicy { stepRequested, crossScenePauseLocked, !crossScenePauseLocked || stepRequested };
 }
 struct SceneDefaultsSaveView
 {
+
     // Lifetime: every owner is borrowed only for one synchronous cold save.
     // The writer retains no pointers across a scene reload.
     const OverlayDebugState& debug;
@@ -163,6 +167,7 @@ class SceneController
 
     SceneSessionState& State();
     const SceneSessionState& State() const;
+
     // Borrow the concrete active-scene owner. SceneController deliberately has
     // no duplicate entity/physics/camera/terrain/render forwarding surface.
     SceneWorld& Scene();
@@ -173,11 +178,8 @@ class SceneController
     void ToggleCrossScenePause();
     bool CrossScenePauseLocked() const;
     SceneFrameProceedPolicy BuildFrameProceedPolicy( bool stepRequested ) const;
-    SceneFrameAdvanceResult AdvanceFrame( const SceneAutomationGateStatus& automationGates,
-                                          bool proceedAllowed,
-                                          bool perfTestActive,
-                                          bool screenshotSaved,
-                                          bool manualCameraActive,
+    SceneFrameAdvanceResult AdvanceFrame( const SceneAutomationGateStatus& automationGates, bool proceedAllowed,
+                                          bool perfTestActive, bool screenshotSaved, bool manualCameraActive,
                                           double elapsedSeconds );
 
     bool HasEntry( int index ) const;
@@ -202,28 +204,23 @@ class SceneController
     SceneLoadRequest ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState );
     SceneLoadRequest AdvanceScene( bool perfTestActive, bool preserveInteractiveUI );
     int PerfPass() const;
+
     // Executes the fixed pending batch inside the scene owner. Replay records
     // only requests whose operation completes successfully. The transaction
     // owns outputs and enforces the later reaction/presentation phases.
-    bool ExecutePending( SceneLoadTransaction& transaction,
-                         SkullbonezCore::Core::EngineConfig& config,
+    bool ExecutePending( SceneLoadTransaction& transaction, SkullbonezCore::Core::EngineConfig& config,
                          RunLaunchOptions& launchOptions,
                          const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender,
-                         const RunStartupState& startup,
-                         Assets::AssetSystem& assets,
-                         Threading::WorkerPool& workerPool,
-                         DiagnosticsRuntime& diagnosticsRuntime,
-                         Rendering::Dx12FrameOwner* renderFrame,
-                         Rendering::Dx12ResourceBuilder* renderResources,
-                         RuntimeRenderer& renderer );
+                         const RunStartupState& startup, Assets::AssetSystem& assets, Threading::WorkerPool& workerPool,
+                         DiagnosticsRuntime& diagnosticsRuntime, Rendering::Dx12FrameOwner* renderFrame,
+                         Rendering::Dx12ResourceBuilder* renderResources, RuntimeRenderer& renderer );
     SkullbonezCore::Core::SbResult SaveCurrentDefaults( const SceneDefaultsSaveView& view ) const;
 
     // Scene request submission and ordered batch execution stay owner-specific;
     // SceneRequestExecution.cpp consumes the fixed pending batch.
     void SubmitLoadBrowserIndex( int index );
     void SubmitLoadDemoScene();
-    void SubmitResetCurrentScene( bool preserveUIState = true,
-                                  bool suppressExitOnComplete = true,
+    void SubmitResetCurrentScene( bool preserveUIState = true, bool suppressExitOnComplete = true,
                                   bool preserveRuntimeState = true );
     SkullbonezCore::Core::SbResult SubmitCreateScene( const char* requestedName );
     void SubmitSaveCurrentDefaults();
@@ -240,18 +237,12 @@ class SceneController
     // backpointer or complete mutable context.
     // Hazard: renderFrame proves old GPU use complete before scene mutation;
     // renderResources is borrowed only afterward for cold terrain construction.
-    SkullbonezCore::Core::SbResult Load( const SceneLoadRequest& request,
-                                         SkullbonezCore::Core::EngineConfig& config,
-                                         RunLaunchOptions& launchOptions,
-                                         const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender,
-                                         const RunStartupState& startup,
-                                         Assets::AssetSystem& assets,
-                                         Threading::WorkerPool& workerPool,
-                                         DiagnosticsRuntime& diagnosticsRuntime,
-                                         Rendering::Dx12FrameOwner* renderFrame,
-                                         Rendering::Dx12ResourceBuilder* renderResources,
-                                         RuntimeRenderer& renderer,
-                                         SceneLoadTransaction& transaction );
+    SkullbonezCore::Core::SbResult
+    Load( const SceneLoadRequest& request, SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions,
+          const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender, const RunStartupState& startup,
+          Assets::AssetSystem& assets, Threading::WorkerPool& workerPool, DiagnosticsRuntime& diagnosticsRuntime,
+          Rendering::Dx12FrameOwner* renderFrame, Rendering::Dx12ResourceBuilder* renderResources, RuntimeRenderer& renderer,
+          SceneLoadTransaction& transaction );
 
     SceneRuntime m_runtime;               // Scene queue and active scene-run state
     SceneRequestQueue m_requests;         // Fixed scene-only deferred intent ring.

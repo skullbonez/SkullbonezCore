@@ -38,6 +38,7 @@ namespace SkullbonezCore
 {
 namespace Math
 {
+
 /* -- Geometric Math
 ---------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -60,6 +61,7 @@ namespace Math
 class GeometricMath
 {
   private:
+
     // The possible outcomes for testing a point against a plane
     enum class PointPlaneClassification
     {
@@ -83,8 +85,7 @@ class GeometricMath
     // Projects to the most numerically stable 2D axis (largest normal component) to
     // avoid near-degenerate area computations on steep or sliver triangles.
     // Reference: 3D Math Primer for Games and Graphics Development, Dunn & Parberry, p.260
-    static Vector::Vector3 ComputeBarycentricCoordinates( const Geometry::Triangle& triangle,
-                                                          const Vector::Vector3& point );
+    static Vector::Vector3 ComputeBarycentricCoordinates( const Geometry::Triangle& triangle, const Vector::Vector3& point );
 
     // CCW-winding outward unit normal of the triangle:
     //   n = normalise( (v2 - v1) × (v3 - v2) )
@@ -95,6 +96,7 @@ class GeometricMath
     static float DeterminePointDistFromPlane( const Geometry::Plane& plane, const Vector::Vector3& point );
 
   public:
+
     // Build a plane from three non-collinear points.  plane.normal = triangle normal,
     // plane.distance = dot( normal, v1 )  (satisfies the plane equation for any point on it).
     static Geometry::Plane ComputePlane( const Geometry::Triangle& triangle );

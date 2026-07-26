@@ -32,6 +32,5 @@ Related:
 
 constexpr std::uint32_t HashStr( const char* value, std::uint32_t hash = 2166136261u )
 {
-    return ( *value == '\0' ) ? hash
-                              : HashStr( value + 1, ( hash ^ static_cast<std::uint32_t>( *value ) ) * 16777619u );
+    return ( *value == '\0' ) ? hash : HashStr( value + 1, ( hash ^ static_cast<std::uint32_t>( *value ) ) * 16777619u );
 }

@@ -5,6 +5,7 @@ Purpose:
 
 Summary:
   PhysicsContactSolverStage owns and executes the complete persistent-row solve
+
   for one fixed step. It borrows dense body, collider, sleep, terrain, and
   diagnostics rows synchronously and publishes a typed consequence batch for
   the PhysicsWorld sequencer to commit.
@@ -63,6 +64,7 @@ class PhysicsStepDiagnostics;
 
 struct PersistentContact
 {
+
     // One solver row for one contact point. bodyB == -1 means static terrain.
     // Accumulated impulses are cache-sensitive and validation-sensitive.
     int bodyA = -1;
@@ -92,6 +94,7 @@ struct PersistentContact
     uint8_t manifoldPointCount = 1;
     Math::Vector::Vector3 terrainNormal = Math::Vector::ZERO_VECTOR;
     float terrainWarmStart = 0.0f;
+
     // Captured before impulses so diagnostics can reject force-transfer
     // rows that had no actual relative impact motion.
     float preSolveNormalSpeed = 0.0f;
@@ -114,6 +117,7 @@ struct PersistentContactSolverStats
 
 struct PersistentContactSolverSideEffects
 {
+
     // These are values, not callbacks: the sequencer applies them in the same
     // deterministic order after Solve returns.
     std::vector<PhysicsPipelineRecord> pipelineRecords;
@@ -129,6 +133,7 @@ class PhysicsContactCacheWakeAccess
     std::vector<PersistentContactCacheEntry>& m_cache;
 
   public:
+
     // Lifetime: this narrow capability borrows the contact owner's cache only
     // for the synchronous wake operation that requested it.
     explicit PhysicsContactCacheWakeAccess( std::vector<PersistentContactCacheEntry>& cache ) : m_cache( cache )
@@ -154,22 +159,17 @@ class PhysicsContactSolverStage
     PhysicsContactSolverStage();
 
     void Clear();
+
     // Returns the single per-solve normalization of raw stamped settings and
     // live world-force policy. Tests use this seam to pin bounds without
     // recreating solver math.
     static PersistentContactSolverStepPolicy ResolveStepPolicy( const PhysicsRuntimeSettings& settings,
                                                                 const PhysicsWorldForces& worldForces ) noexcept;
-    void Solve( PhysicsBodyStore& bodyStore,
-                const ColliderStore& colliderStore,
-                const PersistentContactSolverStepPolicy& stepPolicy,
-                std::span<const std::pair<int, int>> candidatePairs,
-                std::span<const uint8_t> sleepState,
-                std::vector<std::pair<int, int>>& sleepSupportEdges,
-                std::vector<TerrainContactManifold>& terrainContactManifolds,
-                std::span<uint8_t> terrainRestApplied,
-                std::span<uint8_t> sleepSupportedThisFrame,
-                PhysicsStepDiagnostics& stepDiagnostics,
-                float dt,
+    void Solve( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
+                const PersistentContactSolverStepPolicy& stepPolicy, std::span<const std::pair<int, int>> candidatePairs,
+                std::span<const uint8_t> sleepState, std::vector<std::pair<int, int>>& sleepSupportEdges,
+                std::vector<TerrainContactManifold>& terrainContactManifolds, std::span<uint8_t> terrainRestApplied,
+                std::span<uint8_t> sleepSupportedThisFrame, PhysicsStepDiagnostics& stepDiagnostics, float dt,
                 Core::Profiler* profiler );
     PhysicsContactCacheWakeAccess CreateWakeAccess();
 

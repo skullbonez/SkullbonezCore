@@ -80,34 +80,39 @@ struct Dx12UploadReservationResolution
 inline Dx12UploadOverflowAction
 SelectDx12UploadOverflowAction( bool fits, SkullbonezCore::Core::Allocation::RuntimeAllocationPhase phase )
 {
+
     if ( fits )
     {
         return Dx12UploadOverflowAction::Allocate;
     }
+
     if ( SkullbonezCore::Core::Allocation::IsRuntimeAllocationGuardedSteadyPhase( phase ) )
     {
         return Dx12UploadOverflowAction::DropCaller;
     }
+
     return Dx12UploadOverflowAction::FlushAndRetry;
 }
 
 // Executes the same branch production uses while allowing CPU tests to supply
 // a counted cold-retry callback. Steady phases never invoke that callback.
 template <typename ColdRetry>
-Dx12UploadReservationResolution
-ResolveDx12UploadReservation( bool fits,
-                              SkullbonezCore::Core::Allocation::RuntimeAllocationPhase phase,
-                              ColdRetry coldRetry )
+Dx12UploadReservationResolution ResolveDx12UploadReservation( bool fits,
+                                                              SkullbonezCore::Core::Allocation::RuntimeAllocationPhase phase,
+                                                              ColdRetry coldRetry )
 {
     const Dx12UploadOverflowAction action = SelectDx12UploadOverflowAction( fits, phase );
+
     if ( action == Dx12UploadOverflowAction::Allocate )
     {
         return { true, false, false };
     }
+
     if ( action == Dx12UploadOverflowAction::DropCaller )
     {
         return { false, true, false };
     }
+
     return { coldRetry(), false, true };
 }
 
@@ -115,10 +120,12 @@ ResolveDx12UploadReservation( bool fits,
 // aligned offset prevents wraparound from turning overflow into a false fit.
 inline UINT64 AlignDx12UploadOffset( UINT64 offset, UINT64 alignment )
 {
+
     if ( alignment <= 1 )
     {
         return offset;
     }
+
     const UINT64 remainder = offset % alignment;
     const UINT64 padding = remainder == 0 ? 0 : alignment - remainder;
     return offset <= ( std::numeric_limits<UINT64>::max )() - padding ? offset + padding
@@ -361,10 +368,12 @@ struct Dx12TextureHandleCodec
     {
         const uint32_t encodedSlot = handle & SLOT_MASK;
         generation = static_cast<uint8_t>( handle >> SLOT_BITS );
+
         if ( encodedSlot == 0 || generation == 0 )
         {
             return false;
         }
+
         slot = static_cast<size_t>( encodedSlot - 1u );
         return true;
     }
@@ -414,6 +423,7 @@ struct Dx12TextureHandleCodec
     - CPU handles and GPU handles are calculated in one place. Keeping this
       pointer arithmetic out of pass code is an important step toward the
       planned Dx12RenderDevice and later render graph, where passes should ask
+
       for resources by engine concepts instead of manually walking descriptor
       heaps.
 
@@ -458,15 +468,12 @@ class Dx12DescriptorAllocator
 {
   public:
     static constexpr UINT MAX_TRACKED_STATIC_DESCRIPTORS = 4096;
+
     // Bind the allocator to the two descriptor heaps it manages. The allocator
     // does not own the COM objects; the backend/device owns and releases them.
     // The allocator owns the slot accounting policy for those heaps.
-    void Init( ID3D12DescriptorHeap* shaderVisibleHeap,
-               ID3D12DescriptorHeap* stagingHeap,
-               UINT descriptorSize,
-               UINT staticCapacity,
-               UINT transientCapacityPerFrame,
-               UINT frameCount );
+    void Init( ID3D12DescriptorHeap* shaderVisibleHeap, ID3D12DescriptorHeap* stagingHeap, UINT descriptorSize,
+               UINT staticCapacity, UINT transientCapacityPerFrame, UINT frameCount );
 
     // Drop all heap pointers and counters during shutdown. After Reset(), any
     // allocation or handle lookup is invalid until Init() runs again.
@@ -628,6 +635,7 @@ struct Dx12UploadArenaStats
 class Dx12UploadArena
 {
   public:
+
     // Attach this arena to one persistently mapped upload buffer. The arena does
     // not own the resource; the backend/device owns release and Unmap.
     void Init( ID3D12Resource* resource, uint8_t* mappedPtr, UINT64 capacityBytes );
@@ -702,10 +710,7 @@ class Dx12FrameUploadSystem
     Dx12FrameUploadSystem( const Dx12FrameUploadSystem& ) = delete;
     Dx12FrameUploadSystem& operator=( const Dx12FrameUploadSystem& ) = delete;
 
-    bool Init( ID3D12Device* device,
-               UINT frameCount,
-               UINT64 capacityBytes,
-               UINT64 persistentTailBytes,
+    bool Init( ID3D12Device* device, UINT frameCount, UINT64 capacityBytes, UINT64 persistentTailBytes,
                const wchar_t* debugNamePrefix );
     void Shutdown();
 
@@ -716,6 +721,7 @@ class Dx12FrameUploadSystem
     uint8_t* GetMappedPtr( UINT frameIndex, D3D12_GPU_VIRTUAL_ADDRESS address ) const;
     UINT64 OffsetFromAddress( UINT frameIndex, D3D12_GPU_VIRTUAL_ADDRESS address ) const;
     ID3D12Resource* Resource( UINT frameIndex ) const;
+
     // Returns the fixed tail excluded from ordinary frame allocations. Owners
     // may retain bytes there until the upload system is shut down.
     D3D12_GPU_VIRTUAL_ADDRESS PersistentTailAddress( UINT frameIndex ) const;
@@ -782,6 +788,7 @@ class Dx12ReadbackBuffer
 
     const uint8_t* MapRead( UINT64 sizeBytes ) const;
     void UnmapNoWrite() const;
+
     // Transfers the COM reference without releasing it. Use only when a failed
     // fence wait cannot prove that the GPU has stopped using the resource.
     ID3D12Resource* DetachAfterUncertainSubmission();
@@ -934,8 +941,7 @@ class Dx12RenderDevice
     void PublishInitialExtent( int width, int height );
     uint64_t PublishResizedExtent( int width, int height );
 
-    SkullbonezCore::Core::SbResult
-    CreateDepthStencilResource( int width, int height, ID3D12Resource*& outResource ) const;
+    SkullbonezCore::Core::SbResult CreateDepthStencilResource( int width, int height, ID3D12Resource*& outResource ) const;
     ID3D12Resource* ReplaceDepthStencil( ID3D12Resource* replacement );
     ID3D12Resource* DepthStencil() const
     {

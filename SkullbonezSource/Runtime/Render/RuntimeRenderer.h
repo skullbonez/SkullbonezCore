@@ -71,6 +71,7 @@ namespace Runtime
 {
 struct RenderDiagnosticsReadout
 {
+
     // Detached UI-facing diagnostics. The renderer name is copied into bounded
     // storage so no backend-owned character pointer escapes RuntimeRenderer.
     std::array<char, 64> rendererName = {};
@@ -241,6 +242,7 @@ class RuntimeRenderer
     {
         return m_presentationSettings;
     }
+
     // Replaces the complete renderer-owned presentation policy during an
     // explicit scene-reset transaction; ordinary callers use the named commands.
     void RestorePresentationSettings( const RenderPresentationSettings& settings );
@@ -261,6 +263,7 @@ class RuntimeRenderer
     {
         return m_resources;
     }
+
     // Opens the one frame-owned graph before Run chooses world or text-only
     // rendering. The caller must close it exactly once through a finalizer below.
     void BeginFrameGraph( Rendering::Dx12GraphTransientPool& renderGraph );
@@ -268,24 +271,23 @@ class RuntimeRenderer
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     SkullbonezCore::Core::SbResult RenderDevelopmentUi( DevelopmentTools::ImGuiEditorOwner& editor );
 #endif
+
     // Adds the sole declaration-only Present edge and validates the submitted
     // frame contract before the swap-chain owner presents.
     void FinalizeFrameGraph();
+
     // Validates a restart frame with no Present edge, then releases every
     // callback/resource borrow before capture automation can replace the scene.
     void FinalizeCaptureOnlyFrameGraph();
+
     // Runs CPU frame preparation, then registers operation-specific callback
     // ABI records in one graph compile/execute cycle.
-    int RenderUiText( RunTimerState& timers,
-                      const RuntimeRenderModelFrameView& models,
-                      double secondsPerFrame,
-                      UiChromeGraphInvocation& chrome,
-                      UiOperatorDiagnosticsGraphInvocation& operatorDiagnostics,
+    int RenderUiText( RunTimerState& timers, const RuntimeRenderModelFrameView& models, double secondsPerFrame,
+                      UiChromeGraphInvocation& chrome, UiOperatorDiagnosticsGraphInvocation& operatorDiagnostics,
                       UiOperatorSettingsGraphInvocation& operatorSettings,
                       UiOperatorInteractionGraphInvocation& operatorInteraction,
                       UiOperatorPresentationGraphInvocation& operatorPresentation,
-                      UiOperatorSubmissionGraphInvocation& operatorSubmission,
-                      UiReplayGraphInvocation& replay );
+                      UiOperatorSubmissionGraphInvocation& operatorSubmission, UiReplayGraphInvocation& replay );
     RenderDiagnosticsReadout BuildDiagnosticsReadout() const;
     const Rendering::RenderSceneSnapshot& FrameGraphSnapshot() const
     {
@@ -295,12 +297,13 @@ class RuntimeRenderer
   private:
     struct CinematicPostFrameOutput
     {
-        bool volumetricPassExecuted = false;              // Volumetric callback was scheduled for this post chain.
-        bool volumetricReady = false;                     // Volumetric target was produced and can be sampled by tonemap.
-        uint32_t volumetricTextureHandle = 0;             // Renderer texture handle resolved from the graph-managed transient
-                                              // Shader Resource View (SRV).
-        uint32_t volumetricWidth = 0;                     // Materialized graph transient width for diagnostics.
-        uint32_t volumetricHeight = 0;                    // Materialized graph transient height for diagnostics.
+        bool volumetricPassExecuted = false;                                                                                      // Volumetric callback was scheduled for this post chain.
+        bool volumetricReady = false;                                                                                             // Volumetric target was produced and can be sampled by tonemap.
+        uint32_t volumetricTextureHandle = 0;                                                                                     // Renderer texture handle resolved from the graph-managed transient
+
+        // Shader Resource View (SRV).
+        uint32_t volumetricWidth = 0;                                                                                             // Materialized graph transient width for diagnostics.
+        uint32_t volumetricHeight = 0;                                                                                            // Materialized graph transient height for diagnostics.
     };
     struct CinematicPostGraphInputs
     {
@@ -329,6 +332,7 @@ class RuntimeRenderer
     {
         const ReflectionPassInputs& pass;
     };
+
     // Concept: each world-pass graph wrapper receives one named record so
     // visibility and target-selection flags cannot be swapped positionally.
     // Lifetime: references and pointers below are borrowed only for the
@@ -375,28 +379,21 @@ class RuntimeRenderer
         bool useCinematicTarget = false;
     };
     bool RenderPreparedFrame( const FrameEntryContext& context,
-                              const SkullbonezCore::Core::CinematicRenderConfig& renderConfig,
-                              bool cinematicRender );
+                              const SkullbonezCore::Core::CinematicRenderConfig& renderConfig, bool cinematicRender );
     RenderResourceContext BuildRenderResourceContext( bool cinematicRender );
     Rendering::RenderGraph& BeginRenderPassGraph();
     const Rendering::RenderGraphCompileResult& CompileRenderPassGraph( Rendering::RenderGraph& graph );
-    void
-    FinalizeFrameGraphInternal( const char* declarationOnlyPassName, bool appendPresent, bool releaseGraphStorage );
+    void FinalizeFrameGraphInternal( const char* declarationOnlyPassName, bool appendPresent, bool releaseGraphStorage );
     void ExecuteBackbufferAcquireThroughRenderGraph( const BackbufferAcquireGraphInputs& inputs );
     ShadowPassOutput ExecuteShadowThroughRenderGraph( const ShadowGraphInputs& inputs );
-    void ExecuteSkyboxThroughRenderGraph( const RenderCameraLighting& camera,
-                                          Rendering::Dx12GeometryOwner& renderGeometry,
+    void ExecuteSkyboxThroughRenderGraph( const RenderCameraLighting& camera, Rendering::Dx12GeometryOwner& renderGeometry,
                                           Rendering::Dx12TextureOwner& renderTextures,
                                           Rendering::Dx12GraphTransientPool& renderGraph );
     ReflectionPassOutput ExecuteReflectionThroughRenderGraph( const ReflectionGraphInputs& inputs );
-    void ExecuteSceneTargetBeginThroughRenderGraph( const RenderCameraLighting& camera,
-                                                    const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                                                    Rendering::Dx12GeometryOwner& renderGeometry,
-                                                    Rendering::Dx12TextureOwner& renderTextures,
-                                                    Rendering::Dx12FrameOwner& renderFrame,
-                                                    Rendering::Dx12GraphTransientPool& renderGraph,
-                                                    Rendering::Dx12Diagnostics& renderDiagnostics,
-                                                    Rendering::RenderGpuTimingOwner& gpuTiming );
+    void ExecuteSceneTargetBeginThroughRenderGraph( const RenderCameraLighting& camera, const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+                                                    Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12TextureOwner& renderTextures,
+                                                    Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12GraphTransientPool& renderGraph,
+                                                    Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::RenderGpuTimingOwner& gpuTiming );
     void ExecuteObjectThroughRenderGraph( const ObjectGraphInputs& inputs );
     void ExecuteTerrainThroughRenderGraph( const TerrainGraphInputs& inputs );
     void ExecuteWaterThroughRenderGraph( const WaterGraphInputs& inputs );
@@ -408,33 +405,36 @@ class RuntimeRenderer
     bool ExecuteDebugOverlayThroughRenderGraph( const DebugOverlayGraphInputs& inputs );
     CinematicPostFrameOutput ExecuteCinematicPostThroughRenderGraph( const CinematicPostGraphInputs& inputs );
     void ReleaseBackendOwnedResources( Rendering::Dx12GeometryOwner* renderGeometry );
+
     // Owner: backend-epoch state and cold setup live behind one resource seam;
     // frame graph and pass scheduling below retain no duplicate backend borrows.
     RenderResourceLifecycle m_resources;
-    Environment::CameraCollection& m_cameras;             // Active render-camera owner.
-    Window& m_window;                                     // Client dimensions sampled for render targets.
+    Environment::CameraCollection& m_cameras;                                                                                     // Active render-camera owner.
+    Window& m_window;                                                                                                             // Client dimensions sampled for render targets.
+
     // Owner: render presentation policy survives backend rebuilds here; physics
     // state remains in its respective owner.
     RenderPresentationSettings m_presentationSettings;
-    Environment::WorldEnvironment& m_world;               // Fluid surface and gravity owner for pass contexts.
+    Environment::WorldEnvironment& m_world;                                                                                       // Fluid surface and gravity owner for pass contexts.
     Physics::CollisionVisualizer& m_collisionVisualizer;
     Physics::BroadphaseVisualizer& m_broadphaseVisualizer;
     Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;
-    SkullbonezCore::Core::Profiler* m_profiler = nullptr; // Startup-bound diagnostics source; null in non-profile builds.
-    std::array<Math::Transformation::Matrix4, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
-        m_dxrReflectionTransforms = {};                   // Scratch matrices for DXR Top-Level Acceleration Structure (TLAS) instance
-                                        // upload.
-    FullscreenQuadPass m_fullscreenQuadPass;              // Shared full-screen vertex buffer pass used by sky/post effects.
-    SkyPass m_skyPass;                                    // Background sky pass, reused by reflection and scene target passes.
-    SceneTargetPass m_sceneTargetPass;                    // Cinematic HDR scene-target begin/release pass.
-    ShadowPass m_shadowPass;                              // Terrain/object shadow-map producer pass.
-    ReflectionPass m_reflectionPass;                      // Water reflection texture producer pass.
-    ObjectPass m_objectPass;                              // Production body and collision-solid pass.
-    TerrainPass m_terrainPass;                            // Terrain material/shadow receiver pass.
-    WaterPass m_waterPass;                                // Calm/ocean water pass.
-    DebugOverlayPass m_debugOverlayPass;                  // Broadphase and physics debug overlay pass.
-    VolumetricPass m_volumetricPass;                      // Half-resolution cinematic light-shaft pass.
-    TonemapPass m_tonemapPass;                            // HDR-to-backbuffer resolve pass.
+    SkullbonezCore::Core::Profiler* m_profiler = nullptr;                                                                         // Startup-bound diagnostics source; null in non-profile builds.
+    std::array<Math::Transformation::Matrix4, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_dxrReflectionTransforms = {}; // Scratch matrices for DXR Top-Level Acceleration Structure (TLAS) instance
+
+    // upload.
+    FullscreenQuadPass m_fullscreenQuadPass;                                                                                      // Shared full-screen vertex buffer pass used by sky/post effects.
+    SkyPass m_skyPass;                                                                                                            // Background sky pass, reused by reflection and scene target passes.
+    SceneTargetPass m_sceneTargetPass;                                                                                            // Cinematic HDR scene-target begin/release pass.
+    ShadowPass m_shadowPass;                                                                                                      // Terrain/object shadow-map producer pass.
+    ReflectionPass m_reflectionPass;                                                                                              // Water reflection texture producer pass.
+    ObjectPass m_objectPass;                                                                                                      // Production body and collision-solid pass.
+    TerrainPass m_terrainPass;                                                                                                    // Terrain material/shadow receiver pass.
+    WaterPass m_waterPass;                                                                                                        // Calm/ocean water pass.
+    DebugOverlayPass m_debugOverlayPass;                                                                                          // Broadphase and physics debug overlay pass.
+    VolumetricPass m_volumetricPass;                                                                                              // Half-resolution cinematic light-shaft pass.
+    TonemapPass m_tonemapPass;                                                                                                    // HDR-to-backbuffer resolve pass.
+
     // Runtime allocation policy: one owner scratch graph accumulates the whole
     // frame. Pass labels are borrowed literals and pass/resource lists are
     // bounded, so steady render frames do not create graph heaps.

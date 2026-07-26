@@ -47,6 +47,7 @@ RenderGpuTimingOwner::RenderGpuTimingOwner( Core::Profiler* profiler, Dx12Diagno
 
 void RenderGpuTimingOwner::BeginFrame()
 {
+
     if ( !m_profiler || !m_diagnostics )
     {
         return;
@@ -60,6 +61,7 @@ void RenderGpuTimingOwner::BeginFrame()
     // Invariant: Core clears marker identities only at FrameBegin. Mirror that
     // epoch before reading query slots so an old index can never populate a new
     // marker row after a profiler reset.
+
     if ( m_markerEpoch != m_profiler->MarkerEpoch() )
     {
         m_diagnostics->GpuTimerInvalidate();
@@ -68,17 +70,21 @@ void RenderGpuTimingOwner::BeginFrame()
 
     int completedCount = 0;
     const Core::Profiler::ProfilerFrameView frame = m_profiler->FrameView();
+
     if ( m_diagnostics->GetCapabilities().supportsGpuTimers )
     {
+
         for ( std::size_t markerIndex = 0; markerIndex < frame.markers.size(); ++markerIndex )
         {
             const Core::Profiler::Marker& marker = frame.markers[markerIndex];
+
             if ( !marker.hasGpu )
             {
                 continue;
             }
 
             float milliseconds = 0.0f;
+
             if ( m_diagnostics->GpuTimerRead( static_cast<int>( markerIndex ), milliseconds ) )
             {
                 m_completedSamples[completedCount++] = { marker.hash, milliseconds };
@@ -86,11 +92,10 @@ void RenderGpuTimingOwner::BeginFrame()
         }
     }
 
-    m_profiler->ApplyGpuTimingSamples(
-        std::span<const Core::Profiler::GpuTimingSample>( m_completedSamples,
-                                                          static_cast<std::size_t>( completedCount ) ) );
+    m_profiler->ApplyGpuTimingSamples( std::span<const Core::Profiler::GpuTimingSample>( m_completedSamples, static_cast<std::size_t>( completedCount ) ) );
 
 #if defined( TRACY_ENABLE )
+
     if ( SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::CopyStatus().viewerConnected )
     {
         const RenderMemoryStats memory = m_diagnostics->GetRenderMemoryStats();
@@ -101,11 +106,9 @@ void RenderGpuTimingOwner::BeginFrame()
         SKORE_TRACY_PLOT_VALUE( "Counter/Render/DSVDescriptorsUsed", memory.dsvDescriptorsUsed );
         SKORE_TRACY_PLOT_VALUE( "Counter/Render/StaticSRVDescriptorsUsed", memory.srvStaticDescriptorsUsed );
         SKORE_TRACY_PLOT_VALUE( "Counter/Render/StaticSRVDescriptorsHighWater", memory.srvStaticDescriptorsHighWater );
-        SKORE_TRACY_PLOT_VALUE( "Counter/Render/TransientSRVDescriptorsUsed",
-                                memory.srvTransientDescriptorsUsedThisFrame );
+        SKORE_TRACY_PLOT_VALUE( "Counter/Render/TransientSRVDescriptorsUsed", memory.srvTransientDescriptorsUsedThisFrame );
 
-        SKORE_TRACY_PLOT_VALUE( "Counter/Render/TransientSRVDescriptorsPeak",
-                                memory.srvTransientDescriptorsPeakThisRun );
+        SKORE_TRACY_PLOT_VALUE( "Counter/Render/TransientSRVDescriptorsPeak", memory.srvTransientDescriptorsPeakThisRun );
 
         SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::PublishDevelopmentAllocationPlots();
     }
@@ -115,6 +118,7 @@ void RenderGpuTimingOwner::BeginFrame()
 
 void RenderGpuTimingOwner::Begin( const char* fullPath, uint32_t hash )
 {
+
     if ( !m_profiler )
     {
         return;
@@ -126,6 +130,7 @@ void RenderGpuTimingOwner::Begin( const char* fullPath, uint32_t hash )
     }
 
     const int markerIndex = m_profiler->BeginRenderRecord( fullPath, hash );
+
     if ( markerIndex < 0 )
     {
         return;
@@ -151,6 +156,7 @@ void RenderGpuTimingOwner::Begin( const char* fullPath, uint32_t hash )
 
 void RenderGpuTimingOwner::End( const char* fullPath, uint32_t hash )
 {
+
     if ( !m_profiler )
     {
         return;
@@ -167,12 +173,11 @@ void RenderGpuTimingOwner::End( const char* fullPath, uint32_t hash )
     }
 
     OpenScope& scope = m_openScopes[m_openDepth - 1];
+
     if ( scope.hash != hash )
     {
-        SB_FATAL( "RenderGpuTimingOwner",
-                  "GPU range mismatch: expected %s, received %s",
-                  scope.fullPath ? scope.fullPath : "<null>",
-                  fullPath ? fullPath : "<null>" );
+        SB_FATAL( "RenderGpuTimingOwner", "GPU range mismatch: expected %s, received %s",
+                  scope.fullPath ? scope.fullPath : "<null>", fullPath ? fullPath : "<null>" );
     }
 
     if ( scope.timerOpen && m_diagnostics )
@@ -193,6 +198,7 @@ void RenderGpuTimingOwner::End( const char* fullPath, uint32_t hash )
 
 void RenderGpuTimingOwner::InvalidateDevice()
 {
+
     if ( m_openDepth != 0 )
     {
         SB_FATAL( "RenderGpuTimingOwner", "device invalidation reached with %d open GPU range(s)", m_openDepth );

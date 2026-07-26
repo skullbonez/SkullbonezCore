@@ -92,8 +92,7 @@ inline constexpr uint32_t ImGuiEditorPanelBit( ImGuiEditorPanelId panel ) noexce
     return 1u << static_cast<uint32_t>( panel );
 }
 
-inline constexpr uint32_t IMGUI_EDITOR_ALL_PANEL_MASK = ( 1u << static_cast<uint32_t>( ImGuiEditorPanelId::Count ) ) -
-                                                        1u;
+inline constexpr uint32_t IMGUI_EDITOR_ALL_PANEL_MASK = ( 1u << static_cast<uint32_t>( ImGuiEditorPanelId::Count ) ) - 1u;
 inline constexpr uint32_t IMGUI_EDITOR_DEFAULT_PANEL_MASK = IMGUI_EDITOR_ALL_PANEL_MASK &
                                                             ~ImGuiEditorPanelBit( ImGuiEditorPanelId::CausalityDetail );
 
@@ -148,23 +147,15 @@ struct ImGuiGameViewportRect
 };
 
 ImGuiEditorLayoutEnvelope ResolveImGuiEditorLayoutEnvelope( int contentWidth, int contentHeight ) noexcept;
-ImGuiGameViewportRect ResolveImGuiGameViewportRect( float availableMinX,
-                                                    float availableMinY,
-                                                    float availableWidth,
-                                                    float availableHeight,
-                                                    int sourceWidth,
-                                                    int sourceHeight,
+ImGuiGameViewportRect ResolveImGuiGameViewportRect( float availableMinX, float availableMinY, float availableWidth,
+                                                    float availableHeight, int sourceWidth, int sourceHeight,
                                                     float dpiScale ) noexcept;
-bool MapImGuiGameViewportPoint( const ImGuiGameViewportRect& viewport,
-                                float clientX,
-                                float clientY,
-                                int& outSourceX,
+bool MapImGuiGameViewportPoint( const ImGuiGameViewportRect& viewport, float clientX, float clientY, int& outSourceX,
                                 int& outSourceY ) noexcept;
 const char* ImGuiEditorPanelName( ImGuiEditorPanelId panel ) noexcept;
 bool TryParseImGuiEditorPanel( const char* name, ImGuiEditorPanelId& outPanel ) noexcept;
 ImGuiEditorPreferenceParseResult ParseImGuiEditorPreferences( const char* text, std::size_t textBytes ) noexcept;
-std::size_t SerializeImGuiEditorPreferences( const ImGuiEditorPreferences& preferences,
-                                             char* output,
+std::size_t SerializeImGuiEditorPreferences( const ImGuiEditorPreferences& preferences, char* output,
                                              std::size_t outputCapacity ) noexcept;
 uint64_t FingerprintImGuiEditorDefaultTopology() noexcept;
 } // namespace SkullbonezCore::Runtime::DevelopmentTools

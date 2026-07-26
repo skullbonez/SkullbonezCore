@@ -42,7 +42,8 @@ struct RunSceneBrowserState
     std::vector<std::string> names;
     std::vector<const char*> namePtrs;
     int selectedCineModeSceneIndex = -1; // -1=Demo/default look, otherwise scene-browser index of live cine/concept
-                                         // look
+
+    // look
 };
 
 struct RunSceneUIOverrideState
@@ -55,6 +56,7 @@ struct RunSceneUIOverrideState
 
 struct SceneNavigationModel
 {
+
     // Invariant: browser pointer views and live override sentinels share the
     // UI owner's lifetime; Runtime consumers may borrow but never retain them.
     RunSceneBrowserState browser;

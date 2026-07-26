@@ -37,11 +37,8 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-void PrepareSceneUiOptions( SceneRuntimeUiOptionsContext context,
-                            const SceneUIOptions& options,
-                            double nowSeconds,
-                            bool preserveUIState,
-                            bool automationScene )
+void PrepareSceneUiOptions( SceneRuntimeUiOptionsContext context, const SceneUIOptions& options, double nowSeconds,
+                            bool preserveUIState, bool automationScene )
 {
     context.activation.authoredOptions = options;
     context.activation.nowSeconds = nowSeconds;
@@ -51,6 +48,7 @@ void PrepareSceneUiOptions( SceneRuntimeUiOptionsContext context,
 
     // Why: diagnostics and debug values already have genuine load-phase owners;
     // only window presentation crosses the returned activation value.
+
     if ( !preserveUIState && options.hasTestPattern )
     {
         context.debug.isUITestPattern = options.testPatternEnabled;
@@ -75,17 +73,21 @@ void PrepareSceneUiOptions( SceneRuntimeUiOptionsContext context,
 
 void ApplySceneUiActivation( UI::InGameUI& ui, const SceneUiActivation& activation )
 {
+
     if ( activation.hasAuthoredOptions && !activation.preserveUIState )
     {
         const SceneUIOptions& options = activation.authoredOptions;
+
         if ( !options.hasVisible )
         {
+
             if ( activation.automationScene && !options.hasSettings )
             {
                 ui.SetVisible( false, activation.nowSeconds );
             }
             else if ( !options.hasSettings )
             {
+
                 if ( !ui.IsVisible() )
                 {
                     ui.SetVisible( true, activation.nowSeconds );
@@ -102,6 +104,7 @@ void ApplySceneUiActivation( UI::InGameUI& ui, const SceneUiActivation& activati
         if ( options.hasWindowRect )
         {
             ui.SetWindowBounds( options.windowX, options.windowY, options.windowW, options.windowH );
+
             if ( !options.hasMinimized )
             {
                 ui.SetMinimized( false, activation.nowSeconds );
@@ -164,6 +167,7 @@ void ApplySceneUiActivation( UI::InGameUI& ui, const SceneUiActivation& activati
         }
 
         ui.SetMouseOverride( options.hasMouseOverride, options.mouseX, options.mouseY );
+
         if ( options.hasVisible )
         {
             ui.SetVisible( options.isVisible, activation.nowSeconds );

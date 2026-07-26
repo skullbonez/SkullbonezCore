@@ -194,6 +194,7 @@ struct PredictionTrajectoryFingerprint
 
 struct InteractionAutomationReportInputs
 {
+
     // Lifetime: the writer consumes this projection synchronously. SceneWorld,
     // lifecycle state, and path text remain separate so report code cannot
     // submit scene requests or recover the lifecycle controller.
@@ -215,11 +216,7 @@ class InteractionAutomationReportWriter
   public:
     void Configure( const char* reportPath );
     void ReserveForActions( std::size_t actionCount );
-    void AppendAction( int frame,
-                       const char* type,
-                       const char* target,
-                       const POINT* mouse,
-                       bool consumed,
+    void AppendAction( int frame, const char* type, const char* target, const POINT* mouse, bool consumed,
                        const char* detail );
     void AppendAssertion( const RunInteractionAutomationReportAssertion& assertion );
     void AddScreenshot( const char* path );
@@ -228,19 +225,12 @@ class InteractionAutomationReportWriter
     // returns only the frame intent the sequencer must publish; Finish borrows
     // runtime owners synchronously for the CPU-only offline proof.
     void BeginReplayVisualCapture( std::size_t tickCapacity );
-    bool UpdateReplayVisualReveal( int sceneFrame,
-                                   int fixedStartFrame,
-                                   bool liveAdvanceHeld,
-                                   bool revealReady,
-                                   InteractionAutomationRunStatus& status,
-                                   ReplayFrameIndex& outRevealFrame,
+    bool UpdateReplayVisualReveal( int sceneFrame, int fixedStartFrame, bool liveAdvanceHeld, bool revealReady,
+                                   InteractionAutomationRunStatus& status, ReplayFrameIndex& outRevealFrame,
                                    bool& outResetReveal ) noexcept;
-    bool CaptureReplayVisualFrame( int sceneFrame,
-                                   const ReplayAutomationView& replay,
+    bool CaptureReplayVisualFrame( int sceneFrame, const ReplayAutomationView& replay,
                                    InteractionAutomationRunStatus& status );
-    bool FinishReplayVisualCapture( InteractionAutomationRunStatus& status,
-                                    RuntimeTools& runtimeTools,
-                                    SceneWorld& world,
+    bool FinishReplayVisualCapture( InteractionAutomationRunStatus& status, RuntimeTools& runtimeTools, SceneWorld& world,
                                     const ReplayAutomationView& replay );
     bool ReplayVisualCaptureEnabled() const noexcept;
 
@@ -255,24 +245,21 @@ class InteractionAutomationReportWriter
     // one implementation of every validation-sensitive calculation.
     static std::string FormatPredictionHash( uint64_t hash );
     static PredictionTrajectoryFingerprint BuildPredictionTrajectoryFingerprint( const ReplayAutomationView& replay );
-    static bool TryPredictionTargetDisplacement( const ReplayAutomationView& replay,
-                                                 float& outDisplacement,
+    static bool TryPredictionTargetDisplacement( const ReplayAutomationView& replay, float& outDisplacement,
                                                  Math::Vector::Vector3* outFirst = nullptr,
                                                  Math::Vector::Vector3* outLast = nullptr );
     static std::size_t VisiblePredictionFrameCount( const ReplayAutomationView& replay );
     static bool ReplayPredictionPathVisible( const ReplayAutomationView& replay );
     static std::size_t ReplayPastTrajectoryPublishedPointCount( const ReplayAutomationView& replay );
     static bool ReplayPredictionContactsIncomplete( const ReplayAutomationView& replay );
-    static bool LiveSolverHashStableAcrossPrediction( const ReplayAutomationView& replay,
-                                                      uint64_t* outSourceHash = nullptr,
+    static bool LiveSolverHashStableAcrossPrediction( const ReplayAutomationView& replay, uint64_t* outSourceHash = nullptr,
                                                       uint64_t* outLiveHash = nullptr );
     static const char* CameraModeName( RunCameraMode mode );
     static const char* WorkspaceName( RuntimeWorkspace workspace );
     static const char* OwnerName( WorldInteractionOwner owner );
     static const char* ReplayTrackName( RunReplayTrack track );
     static const char* ReplayPredictionBuildModeName( ReplayPredictionBuildMode mode );
-    static uint32_t CanonicalReplayArtifactTopologyVersion( uint32_t liveVersion,
-                                                            std::vector<uint32_t>& publishedVersions );
+    static uint32_t CanonicalReplayArtifactTopologyVersion( uint32_t liveVersion, std::vector<uint32_t>& publishedVersions );
     static ReplayVisualArchiveSample BuildReplayVisualArchiveSample( const ReplayVisualFidelityReportTick& tick,
                                                                      uint32_t canonicalTopologyVersion );
 
@@ -286,16 +273,15 @@ class InteractionAutomationReportWriter
     }
 
   private:
-    bool VerifyReplayVisualOfflineProjection( InteractionAutomationRunStatus& status,
-                                              RuntimeTools& runtimeTools,
-                                              SceneWorld& world,
-                                              const ReplaySolverFrameSample* latestSolverSample );
+    bool VerifyReplayVisualOfflineProjection( InteractionAutomationRunStatus& status, RuntimeTools& runtimeTools,
+                                              SceneWorld& world, const ReplaySolverFrameSample* latestSolverSample );
 
     bool m_written = false;
     char m_path[260] = {};
     std::vector<RunInteractionAutomationReportAction> m_actionReports;
     std::vector<RunInteractionAutomationReportAssertion> m_assertionReports;
     std::vector<std::string> m_screenshots;
+
     // Lifetime: these rows are bounded Automation evidence. They never escape
     // this writer as mutable state or survive the process that records them.
     std::vector<ReplayVisualFidelityReportTick> m_replayVisualFidelityTicks;
@@ -303,6 +289,7 @@ class InteractionAutomationReportWriter
     std::vector<ReplayCausalTopologyNodeReport> m_replayCausalTopology;
     std::vector<ReplayVisualTrajectoryDigestState> m_replayVisualTrajectoryDigests;
     std::vector<uint8_t> m_replayVisualPredictionArchive;
+
     // Lifetime: the offline verifier owns the same retained CPU command-list
     // shape as ReplayRuntime. Keeping its large fixed reserves on this
     // startup-allocated Automation owner avoids function-stack construction.

@@ -14,6 +14,7 @@ Glossary:
   Cold metadata: Names, render materials, and behavior grouping that identify
     objects but do not drive physics integration.
   Collider authoring row: Cold material text paired with the live collider row
+
     for exact scene round trips.
   Asset affiliation: Library, asset, instance, root, and ordered-part identity
     retained by SceneEntityStore after the original parse data is gone.
@@ -139,6 +140,7 @@ Json RenderMaterialJson( const char* target, const SkullbonezCore::Rendering::Re
 {
     Json materialJson = {
         { "target", target ? target : "" },
+
         // Empty is meaningful: omitting the field lets the parser replace it
         // with the material-kind spelling and mutates the live material.
         { "name", material.name },
@@ -162,8 +164,7 @@ Json RenderMaterialJson( const char* target, const SkullbonezCore::Rendering::Re
 
     if ( material.kind == SkullbonezCore::Rendering::RenderMaterialKind::Emissive || material.emissiveStrength > 0.0f )
     {
-        materialJson["emissive"] = Vec3Json( material.emissiveColor[0],
-                                             material.emissiveColor[1],
+        materialJson["emissive"] = Vec3Json( material.emissiveColor[0], material.emissiveColor[1],
                                              material.emissiveColor[2] );
 
         materialJson["strength"] = material.emissiveStrength;
@@ -185,19 +186,18 @@ const SceneBehaviorGroup& BehaviorGroupAt( const SceneWorldSaveState& scene, int
 void AddSceneObjectGroupJson( Json& object, const SceneWorldSaveState& scene, int entityIndex )
 {
     const SceneBehaviorGroup& group = BehaviorGroupAt( scene, entityIndex );
+
     if ( group.kind != SceneBehaviorGroupKind::ReleasableTree )
     {
         return;
     }
 
     const int rootIndex = scene.entities.FindBySceneObjectId( group.rootObjectId );
+
     if ( rootIndex < 0 || group.partIndex < 0 )
     {
-        SB_FATAL( "Scene/SceneSnapshotWriter",
-                  "Invalid releasable-tree group at save. row=%d root_id=%u part=%d",
-                  entityIndex,
-                  group.rootObjectId.value,
-                  group.partIndex );
+        SB_FATAL( "Scene/SceneSnapshotWriter", "Invalid releasable-tree group at save. row=%d root_id=%u part=%d",
+                  entityIndex, group.rootObjectId.value, group.partIndex );
     }
 
     object["objectGroup"] = {
@@ -213,6 +213,7 @@ struct LiveSceneRow
     const PhysicsBodyRecord& body;
     PhysicsBodyHotState hotState;
     const ColliderRecord& collider;
+
     // Lifetime: the cold row is borrowed from the same store snapshot and must
     // stay index/handle aligned with collider until this save call returns.
     const ColliderAuthoringRecord& colliderAuthoring;
@@ -228,21 +229,18 @@ LiveSceneRow ResolveLiveSceneRow( const SceneWorldSaveState& scene, int entityIn
 
     const ColliderRecord* collider = scene.colliders.RecordForHandle( colliderHandle );
     const ColliderAuthoringRecord* colliderAuthoring = scene.colliders.AuthoringRecordForHandle( colliderHandle );
+
     if ( !body || bodyIndex < 0 || !collider || !colliderAuthoring || collider->body != body->handle ||
          body->sceneObjectId.value != entity.sceneObjectId.value ||
          collider->sceneObjectId.value != entity.sceneObjectId.value )
     {
         SB_FATAL( "Scene/SceneSnapshotWriter",
-                  "Entity/body/collider identity topology diverged at save. row=%d entity_id=%u",
-                  entityIndex,
+                  "Entity/body/collider identity topology diverged at save. row=%d entity_id=%u", entityIndex,
                   entity.sceneObjectId.value );
     }
 
-    return { entity,
-             *body,
-             LoadPhysicsBodyHotState( scene.bodies.HotFields(), static_cast<std::size_t>( bodyIndex ) ),
-             *collider,
-             *colliderAuthoring };
+    return { entity, *body, LoadPhysicsBodyHotState( scene.bodies.HotFields(), static_cast<std::size_t>( bodyIndex ) ),
+             *collider, *colliderAuthoring };
 }
 
 Json BuildLiveStateJson( const SceneWorldSaveState& scene, int entityIndex )
@@ -272,6 +270,7 @@ Json BuildLiveStateJson( const SceneWorldSaveState& scene, int entityIndex )
     state["sleeping"] = !row.hotState.awake;
 
     const auto& shape = row.collider.shape;
+
     if ( std::holds_alternative<BoundingSphere>( shape ) )
     {
         state["type"] = "ballState";
@@ -313,17 +312,16 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveRequest
     const SceneWorldSaveState& sceneView = request.world;
     const SceneSessionSaveState& session = request.session;
     const PresentationSaveState& presentation = request.presentation;
+
     // Invariant: Editable scene saves emit state-form objects whose positions,
     // velocities, sleeping flags, and materials can round-trip through
     // AuthoredSceneParser without reinterpreting authored placement offsets.
+
     if ( sceneView.entities.Count() != sceneView.bodies.Count() ||
          sceneView.entities.Count() != sceneView.colliders.Count() )
     {
-        SB_FATAL( "Scene/SceneSnapshotWriter",
-                  "Save owner counts diverged. entities=%d bodies=%d colliders=%d",
-                  sceneView.entities.Count(),
-                  sceneView.bodies.Count(),
-                  sceneView.colliders.Count() );
+        SB_FATAL( "Scene/SceneSnapshotWriter", "Save owner counts diverged. entities=%d bodies=%d colliders=%d",
+                  sceneView.entities.Count(), sceneView.bodies.Count(), sceneView.colliders.Count() );
     }
 
     Json scene;
@@ -339,6 +337,7 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveRequest
     };
 
     const auto& mutualGravity = sceneView.mutualGravity;
+
     if ( mutualGravity.enabled )
     {
         scene["simulation"]["world"]["mutualGravity"] = {
@@ -352,6 +351,7 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveRequest
     scene["playback"] = Json::object();
     scene["playback"]["frames"] = "unlimited";
     scene["playback"]["fixedStep"] = session.fixedStep;
+
     if ( session.editableScene )
     {
         scene["editor"] = {
@@ -362,6 +362,7 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveRequest
     scene["debug"] = Json::object();
     scene["debug"]["waterHidden"] = presentation.waterHidden;
     scene["debug"]["terrainHidden"] = presentation.terrainHidden;
+
     if ( session.hasFlatSlope )
     {
         scene["terrain"] = {
@@ -391,11 +392,11 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveRequest
     for ( int i = 0; i < sceneView.entities.Count(); ++i )
     {
         const SceneEntityRecord& entity = sceneView.entities.At( i );
+
         if ( !entity.sceneObjectId.IsValid() || entity.displayName[0] == '\0' )
         {
             SB_FATAL( "Scene/SceneSnapshotWriter",
-                      "Scene entity lacks durable identity or display name at save. row=%d id=%u",
-                      i,
+                      "Scene entity lacks durable identity or display name at save. row=%d id=%u", i,
                       entity.sceneObjectId.value );
         }
 
@@ -404,43 +405,41 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveRequest
 
         if ( entity.asset.isAssetBacked && entity.asset.partIndex == 0 )
         {
-            if ( entity.asset.rootObjectId.value != entity.sceneObjectId.value ||
-                 entity.asset.libraryToken[0] == '\0' || entity.asset.assetName[0] == '\0' ||
-                 entity.asset.instanceName[0] == '\0' || entity.asset.partName[0] == '\0' )
+
+            if ( entity.asset.rootObjectId.value != entity.sceneObjectId.value || entity.asset.libraryToken[0] == '\0' ||
+                 entity.asset.assetName[0] == '\0' || entity.asset.instanceName[0] == '\0' ||
+                 entity.asset.partName[0] == '\0' )
             {
                 SB_FATAL( "Scene/SceneSnapshotWriter", "Invalid asset-root affiliation at save. row=%d", i );
             }
 
             std::vector<int> partRows;
+
             for ( int candidate = 0; candidate < sceneView.entities.Count(); ++candidate )
             {
                 const SceneEntityRecord& partEntity = sceneView.entities.At( candidate );
+
                 if ( partEntity.asset.isAssetBacked &&
                      partEntity.asset.rootObjectId.value == entity.asset.rootObjectId.value )
                 {
+
                     if ( !SameAssetInstance( entity.asset, partEntity.asset ) )
                     {
                         SB_FATAL( "Scene/SceneSnapshotWriter",
                                   "Asset instance affiliation disagrees across parts. root_id=%u row=%d",
-                                  entity.asset.rootObjectId.value,
-                                  candidate );
+                                  entity.asset.rootObjectId.value, candidate );
                     }
 
                     partRows.push_back( candidate );
                 }
             }
 
-            std::sort(
-                partRows.begin(),
-                partRows.end(),
-                [&]( int a, int b )
-                { return sceneView.entities.At( a ).asset.partIndex < sceneView.entities.At( b ).asset.partIndex; } );
+            std::sort( partRows.begin(), partRows.end(), [&]( int a, int b )
+                       { return sceneView.entities.At( a ).asset.partIndex < sceneView.entities.At( b ).asset.partIndex; } );
 
             if ( partRows.empty() )
             {
-                SB_FATAL( "Scene/SceneSnapshotWriter",
-                          "Asset root has no parts. root_id=%u",
-                          entity.sceneObjectId.value );
+                SB_FATAL( "Scene/SceneSnapshotWriter", "Asset root has no parts. root_id=%u", entity.sceneObjectId.value );
             }
 
             Json instance = {
@@ -454,23 +453,23 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveRequest
             {
                 const int partRow = partRows[partOrdinal];
                 const SceneEntityRecord& partEntity = sceneView.entities.At( partRow );
-                if ( partEntity.asset.partIndex != partOrdinal ||
-                     emittedAssetRows[static_cast<std::size_t>( partRow )] )
+
+                if ( partEntity.asset.partIndex != partOrdinal || emittedAssetRows[static_cast<std::size_t>( partRow )] )
                 {
                     SB_FATAL( "Scene/SceneSnapshotWriter",
                               "Asset part order is not unique and contiguous. root_id=%u expected=%zu actual=%u",
-                              entity.sceneObjectId.value,
-                              partOrdinal,
-                              partEntity.asset.partIndex );
+                              entity.sceneObjectId.value, partOrdinal, partEntity.asset.partIndex );
                 }
 
                 Json partState = BuildLiveStateJson( sceneView, partRow );
                 partState["name"] = partEntity.asset.partName;
                 partState["objectName"] = partEntity.displayName;
+
                 // Why: ConvexHullShape retains the baked hull's diagnostic
                 // name, not the authored library token/path. Asset affiliation
                 // proves this row still belongs to the recipe, so the recipe's
                 // exact hull field remains authoritative on reparse.
+
                 if ( partState["type"] == "convexHullState" )
                 {
                     partState.erase( "hull" );
@@ -482,11 +481,12 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveRequest
 
             scene["assetInstances"].push_back( std::move( instance ) );
 
-            const bool libraryAlreadyEmitted = std::any_of(
-                scene["assetLibraries"].begin(),
-                scene["assetLibraries"].end(),
-                [&]( const Json& value )
-                { return value.is_string() && value.get<std::string>() == entity.asset.libraryToken; } );
+            const bool libraryAlreadyEmitted = std::any_of( scene["assetLibraries"].begin(), scene["assetLibraries"].end(),
+                                                            [&]( const Json& value )
+                                                            {
+                                                                return value.is_string() &&
+                                                                       value.get<std::string>() == entity.asset.libraryToken;
+                                                            } );
 
             if ( !libraryAlreadyEmitted )
             {
@@ -499,6 +499,7 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveRequest
         }
 
         const auto& material = entity.renderMaterial;
+
         if ( behaviorGroup.kind != SceneBehaviorGroupKind::SimpleRagdoll &&
              ( entity.asset.isAssetBacked || ShouldSaveRenderMaterial( material ) ) )
         {
@@ -508,6 +509,7 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveRequest
 
     for ( int i = 0; i < sceneView.entities.Count(); ++i )
     {
+
         if ( sceneView.entities.At( i ).asset.isAssetBacked && !emittedAssetRows[static_cast<std::size_t>( i )] )
         {
             SB_FATAL( "Scene/SceneSnapshotWriter", "Asset-backed entity was not emitted. row=%d", i );
@@ -533,17 +535,17 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveRequest
     if ( sceneView.pointJointCount > 0 )
     {
         scene["ragdollJoints"] = Json::array();
+
         for ( int jointIndex = 0; jointIndex < sceneView.pointJointCount; ++jointIndex )
         {
             const auto& joint = sceneView.pointJoints[jointIndex];
             const int bodyAIndex = joint.BodyAIndex( sceneView.bodies );
             const int bodyBIndex = joint.BodyBIndex( sceneView.bodies );
+
             if ( bodyAIndex < 0 || bodyBIndex < 0 || bodyAIndex >= sceneView.entities.Count() ||
                  bodyBIndex >= sceneView.entities.Count() )
             {
-                SB_FATAL( "Scene/SceneSnapshotWriter",
-                          "Point joint references a missing scene body. joint=%d",
-                          jointIndex );
+                SB_FATAL( "Scene/SceneSnapshotWriter", "Point joint references a missing scene body. joint=%d", jointIndex );
             }
 
             Json jointJson = {
@@ -570,6 +572,7 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveRequest
     // a fatal topology finding cannot truncate the previous editable scene.
     const std::string serializedScene = scene.dump( 2 );
     std::ofstream output;
+
     if ( !request.path || request.path[0] == '\0' || !RuntimeFileWriter::OpenTextFile( request.path, output ) )
     {
         return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneSnapshotWriter",
@@ -578,11 +581,11 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveRequest
     }
 
     output << serializedScene << '\n';
+
     if ( !output.good() )
     {
         return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneSnapshotWriter",
-                                                        "Failed while writing scene snapshot '%s'.",
-                                                        request.path );
+                                                        "Failed while writing scene snapshot '%s'.", request.path );
     }
 
     return SkullbonezCore::Core::SbResult::Success();

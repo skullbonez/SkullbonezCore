@@ -47,6 +47,7 @@ namespace Math
 {
 namespace Vector
 {
+
 /* -- Vector3
 ------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -61,6 +62,7 @@ class Vector3
     Vector3()
     {
 #ifdef _DEBUG
+
         // Hazard: poison default-constructed components so use-before-init
         // propagates visibly through Debug math instead of mimicking a valid zero.
         x = std::numeric_limits<float>::quiet_NaN();
@@ -82,6 +84,7 @@ class Vector3
     void Normalise()                                          // Debug-asserts on zero; Release propagates IEEE inf/NaN.
     {
         float magSq = x * x + y * y + z * z;
+
         // Why: a zero direction is a caller-reachable numeric edge, not a
         // lane-F engine invariant. TryNormalise reports it; the plain hot API
         // keeps only a Debug misuse tripwire and Release IEEE propagation.
@@ -95,10 +98,12 @@ class Vector3
     bool TryNormalise()
     {
         const float magSq = x * x + y * y + z * z;
+
         if ( magSq == 0.0f )
         {
             return false;
         }
+
         const float oneOverMag = 1.0f / sqrtf( magSq );
         x *= oneOverMag;
         y *= oneOverMag;
@@ -109,10 +114,12 @@ class Vector3
     bool TryNormalised( Vector3& out ) const
     {
         Vector3 candidate = *this;
+
         if ( !candidate.TryNormalise() )
         {
             return false;
         }
+
         out = candidate;
         return true;
     }
@@ -132,14 +139,17 @@ class Vector3
 
     void Simplify()                                           // Components within the engine epsilon snap to 0.0f.
     {
+
         if ( x < TOLERANCE && x > ZERO_TAKE_TOLERANCE )
         {
             x = 0.0f;
         }
+
         if ( y < TOLERANCE && y > ZERO_TAKE_TOLERANCE )
         {
             y = 0.0f;
         }
+
         if ( z < TOLERANCE && z > ZERO_TAKE_TOLERANCE )
         {
             z = 0.0f;
@@ -191,8 +201,7 @@ class Vector3
 
     Vector3& operator/=( const Vector3& v )
     {
-        assert( v.x != 0.0f && v.y != 0.0f && v.z != 0.0f &&
-                "Vector3 component divide-assign requires non-zero divisors" );
+        assert( v.x != 0.0f && v.y != 0.0f && v.z != 0.0f && "Vector3 component divide-assign requires non-zero divisors" );
         x /= v.x;
         y /= v.y;
         z /= v.z;
@@ -201,10 +210,12 @@ class Vector3
 
     bool TryDivide( float f )
     {
+
         if ( f == 0.0f )
         {
             return false;
         }
+
         const float oneOverA = 1.0f / f;
         x *= oneOverA;
         y *= oneOverA;
@@ -214,10 +225,12 @@ class Vector3
 
     bool TryDivide( const Vector3& v )
     {
+
         if ( v.x == 0.0f || v.y == 0.0f || v.z == 0.0f )
         {
             return false;
         }
+
         x /= v.x;
         y /= v.y;
         z /= v.z;
@@ -259,10 +272,12 @@ class Vector3
 
     bool TryDivided( float f, Vector3& out ) const
     {
+
         if ( f == 0.0f )
         {
             return false;
         }
+
         const float oneOverA = 1.0f / f;
         out = Vector3( x * oneOverA, y * oneOverA, z * oneOverA );
         return true;
@@ -270,10 +285,12 @@ class Vector3
 
     bool TryDivided( const Vector3& v, Vector3& out ) const
     {
+
         if ( v.x == 0.0f || v.y == 0.0f || v.z == 0.0f )
         {
             return false;
         }
+
         out = Vector3( x / v.x, y / v.y, z / v.z );
         return true;
     }

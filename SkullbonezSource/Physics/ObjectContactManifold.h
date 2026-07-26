@@ -52,6 +52,7 @@ namespace Physics
 {
 struct ObjectContactBodyView
 {
+
     // Narrowphase contact geometry needs pose plus shape. PhysicsBodyRecord
     // callers fill this view directly while ColliderRecord owns the exact
     // shape snapshot.
@@ -101,28 +102,18 @@ struct ObjectContactSweepResult
 // only a time candidate; exact contact rows still come from BuildObjectContactManifold.
 ObjectContactSweepResult SweepObjectContact( const ObjectContactBodyView& a,
                                              const Math::CollisionDetection::CollisionShape& shapeA,
-                                             const Math::Vector::Vector3& linearVelocityA,
-                                             const ObjectContactBodyView& b,
+                                             const Math::Vector::Vector3& linearVelocityA, const ObjectContactBodyView& b,
                                              const Math::CollisionDetection::CollisionShape& shapeB,
-                                             const Math::Vector::Vector3& linearVelocityB,
-                                             float changeInTime );
-bool BuildObjectContactManifold( Core::Profiler* profiler,
-                                 const ObjectContactBodyView& a,
-                                 const Math::CollisionDetection::CollisionShape& shapeA,
-                                 const ObjectContactBodyView& b,
-                                 const Math::CollisionDetection::CollisionShape& shapeB,
-                                 int bodyA,
-                                 int bodyB,
-                                 float contactSkin,
-                                 ObjectContactManifold& out );
+                                             const Math::Vector::Vector3& linearVelocityB, float changeInTime );
+bool BuildObjectContactManifold( Core::Profiler* profiler, const ObjectContactBodyView& a,
+                                 const Math::CollisionDetection::CollisionShape& shapeA, const ObjectContactBodyView& b,
+                                 const Math::CollisionDetection::CollisionShape& shapeB, int bodyA, int bodyB,
+                                 float contactSkin, ObjectContactManifold& out );
 inline bool BuildObjectContactManifold( const ObjectContactBodyView& a,
                                         const Math::CollisionDetection::CollisionShape& shapeA,
                                         const ObjectContactBodyView& b,
-                                        const Math::CollisionDetection::CollisionShape& shapeB,
-                                        int bodyA,
-                                        int bodyB,
-                                        float contactSkin,
-                                        ObjectContactManifold& out )
+                                        const Math::CollisionDetection::CollisionShape& shapeB, int bodyA, int bodyB,
+                                        float contactSkin, ObjectContactManifold& out )
 {
     return BuildObjectContactManifold( nullptr, a, shapeA, b, shapeB, bodyA, bodyB, contactSkin, out );
 }

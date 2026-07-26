@@ -78,6 +78,7 @@ struct SceneRuntimeStyleContext;
 
 struct SceneAutomationGatePhysicsView
 {
+
     // Lifetime: post-physics diagnostics constructs this immutable view for one
     // synchronous observation; the tracker stores no scene or store pointer.
     const Physics::PhysicsBodyStore& bodyStore;
@@ -87,6 +88,7 @@ struct SceneAutomationGatePhysicsView
 
 struct SceneAutomationGateStatus
 {
+
     // Value-only completion facts consumed by scene advancement. Diagnostic
     // row ownership and missing-requirement reporting remain in validation.
     bool hasRequirements = false;
@@ -129,12 +131,10 @@ class RuntimeValidationHarness
 
     void ObserveSceneLifecycle( const SceneLifecyclePacket& packet, const RunLaunchOptions& launchOptions );
     void PrintGraphicsStressExitSummary( int currentSceneFrame ) const;
-    void ExecuteGraphicsStressFrame( RuntimeFrameHostView& host,
-                                     RuntimeFrameInteractionView& interactionOwners,
-                                     RuntimeFrameSceneView& sceneOwners,
-                                     RuntimeFramePresentationView& presentationOwners,
-                                     ReplayRuntime& replayRuntime,
-                                     const Rendering::Dx12Diagnostics& renderDiagnostics,
+    void ExecuteGraphicsStressFrame( RuntimeFrameHostView& host, RuntimeFrameInteractionView& interactionOwners,
+                                     RuntimeFrameSceneView& sceneOwners, RuntimeFramePresentationView& presentationOwners,
+                                     ReplayRuntime& replayRuntime, const Rendering::Dx12Diagnostics& renderDiagnostics,
+
                                      // Prevents scene churn from reactivating the
                                      // dormant Legacy surface during ImGui stress.
                                      bool legacyDevelopmentUiActive );

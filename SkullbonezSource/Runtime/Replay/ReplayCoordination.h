@@ -72,6 +72,7 @@ struct SceneSessionState;
 
 namespace ReplayInteractionOperations
 {
+
 // Ends replay-owned tool capture without borrowing the replay composition root.
 // Gesture and native-capture authority remain with their concrete input owners.
 void CancelToolGesture( RuntimeInteractionController& interaction );
@@ -85,6 +86,7 @@ struct ReplayWorkspaceFrameInput
 {
     HWND window = nullptr;
     bool uiBlocksMouse = false;
+
     // Invariant: Legacy pointer tools must not sample or reset replay state
     // while the mutually exclusive ImGui development surface owns input.
     bool legacyPointerSurfaceActive = true;
@@ -108,6 +110,7 @@ struct ReplayWorkspaceOutput
     ReplayLiveRestoreRequest restoreRequest;
     bool consumesMouse = false;
     bool enterInteractive = false;
+
     // Cold native-file selection remains at TickWorkspace, after the scrubber
     // has completed its pointer and visibility phase.
     bool loadPresentationRequested = false;
@@ -268,8 +271,7 @@ inline bool SceneTimelineRecordsGeneratedConfig( const ReplaySceneTimelineResetI
 inline uint32_t SceneTimelineGeneratedConfigFlags( const ReplaySceneTimelineResetInput& input ) noexcept
 {
     uint32_t flags = 0;
-    flags |= ( input.solverBallCount > 0 || input.solverBoxCount > 0 ) ? REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS
-                                                                       : 0u;
+    flags |= ( input.solverBallCount > 0 || input.solverBoxCount > 0 ) ? REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS : 0u;
     flags |= input.hasUiModelCountOverride ? REPLAY_GENERATED_SCENE_UI_MODEL_COUNT : 0u;
     flags |= input.hasUiSolverCountOverride ? REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS : 0u;
     flags |= ( input.generatedObjectTypeOverride << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT ) &
@@ -277,12 +279,10 @@ inline uint32_t SceneTimelineGeneratedConfigFlags( const ReplaySceneTimelineRese
     return flags;
 }
 
-ReplaySceneTimelineResetInput
-DescribeReplaySceneTimeline( const SceneController& sceneController,
-                             const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                             const SceneSessionState& scene,
-                             int sceneObjectCapacity,
-                             uint32_t generatedObjectTypeOverride );
+ReplaySceneTimelineResetInput DescribeReplaySceneTimeline( const SceneController& sceneController,
+                                                           const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+                                                           const SceneSessionState& scene, int sceneObjectCapacity,
+                                                           uint32_t generatedObjectTypeOverride );
 } // namespace ReplayTimelineOperations
 
 struct ReplaySceneTimelineResetResult
@@ -320,6 +320,7 @@ struct ReplayProbeTickResult
 {
     SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
     bool enterInteractive = false;
+
     // Value boundary: Run owns lifecycle submission after the probe succeeds.
     bool resetCurrentScene = false;
 };

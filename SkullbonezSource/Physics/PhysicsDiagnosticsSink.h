@@ -58,6 +58,7 @@ inline constexpr int PHYSICS_COLLISION_TIME_EVENT_CAPACITY = SkullbonezCore::Sce
 // or file-I/O dependency enters collision detection or solver loops.
 struct PhysicsDiagnosticsCsvWriter
 {
+
     // Cold concrete writer: no callback or retained user pointer can enter the
     // solver. Calls occur only after bounded physics events are committed.
     void Writef( const char* fileName, const char* fmt, ... ) const;
@@ -73,6 +74,7 @@ struct PhysicsCollisionTimeEvent
 };
 
 #ifdef _DEBUG
+
 // Immutable inputs for one diagnostics emission pass. Body/collider/world facts
 // are already owned by physics; only names remain a presentation overlay.
 struct PhysicsDiagnosticsFrameInput
@@ -89,6 +91,7 @@ struct PhysicsDiagnosticsFrameInput
 class PhysicsDiagnosticsSink
 {
   public:
+
     // One object event per bounded candidate pair plus one terrain event per
     // body. PhysicsWorld reserves four candidate pairs per model, so five rows
     // per model is the exact upstream maximum for one fixed step.
@@ -96,6 +99,7 @@ class PhysicsDiagnosticsSink
     {
         return PHYSICS_COLLISION_TIME_EVENT_CAPACITY;
     }
+
     // Cold topology command. The sink copies the pointer table into fixed
     // storage; pointed-to names must remain stable until the next registration.
     void SetDiagnosticNames( std::span<const char* const> diagnosticNames );

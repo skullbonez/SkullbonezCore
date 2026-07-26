@@ -51,6 +51,7 @@ namespace GameObjects
 {
 struct SceneWorldSaveState
 {
+
     // Lifetime: store and joint members borrow one SceneWorld for one
     // synchronous Save call. The owning world keeps their storage stable.
     const Runtime::SceneEntityStore& entities;
@@ -96,6 +97,7 @@ struct SceneSaveRequest
 class SceneSnapshotWriter
 {
   public:
+
     // Saves one schema-v2 snapshot. External path/write failures return Lane R;
     // mismatched owner topology fails through the engine fatal-invariant lane.
     static SkullbonezCore::Core::SbResult Save( const SceneSaveRequest& request );

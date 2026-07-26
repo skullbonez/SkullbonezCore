@@ -52,6 +52,7 @@ RuntimeViewModel RuntimeViewModelBuilder::Build( const RuntimeViewModelContext& 
     view.sceneCount = context.sceneCount;
     view.frame = scene.currentFrame;
     view.targetFrameCount = scene.targetFrameCount;
+
     // Why: the UI displays a runtime count, but physics body rows are the
     // simulation snapshot authority. Do not ask SceneController to report a
     // model-order compatibility count for this presentation value.

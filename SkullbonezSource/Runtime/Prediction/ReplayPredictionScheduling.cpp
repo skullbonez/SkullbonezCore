@@ -53,15 +53,16 @@ bool ReplayPredictionBudgetExpired( const std::chrono::steady_clock::time_point&
 // units from changing either time units or accounting order.
 bool ReplayPredictionBudgetExpiredForPass( ReplayPredictionUpdateResult& result,
                                            SkullbonezCore::Core::MainMemoryReplayBudgetPass pass,
-                                           const std::chrono::steady_clock::time_point& start,
-                                           double budgetMilliseconds )
+                                           const std::chrono::steady_clock::time_point& start, double budgetMilliseconds )
 {
+
     if ( !ReplayPredictionBudgetExpired( start, budgetMilliseconds ) )
     {
         return false;
     }
 
     const std::size_t passIndex = static_cast<std::size_t>( pass );
+
     if ( passIndex < result.budgetExpiries.size() )
     {
         ++result.budgetExpiries[passIndex];
@@ -70,9 +71,9 @@ bool ReplayPredictionBudgetExpiredForPass( ReplayPredictionUpdateResult& result,
     return true;
 }
 
-double ReplayPredictionRemainingMilliseconds( const std::chrono::steady_clock::time_point& start,
-                                              double budgetMilliseconds )
+double ReplayPredictionRemainingMilliseconds( const std::chrono::steady_clock::time_point& start, double budgetMilliseconds )
 {
+
     if ( budgetMilliseconds <= 0.0 )
     {
         return 0.0;
@@ -83,6 +84,7 @@ double ReplayPredictionRemainingMilliseconds( const std::chrono::steady_clock::t
 
 double ReplayPredictionRevealSecondsPerSecond( const RunReplayPredictionState& prediction )
 {
+
     // Why: authored shot-list data is allowed to be imperfect. Non-positive
     // rates fall back to real-time pacing instead of freezing the reveal cursor
     // or dividing by zero while the prediction build catches up.
@@ -101,16 +103,17 @@ double ReplayPredictionRevealSecondsPerSecond( const RunReplayPredictionState& p
 ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& prediction,
                                                    ReplayFrameIndex lastAvailableFrame )
 {
+
     if ( prediction.revealClock.deterministicFrameEnabled )
     {
-        prediction.revealClock.presentedFrame = (std::min)( lastAvailableFrame,
-                                                            prediction.revealClock.deterministicFrame );
+        prediction.revealClock.presentedFrame = (std::min)( lastAvailableFrame, prediction.revealClock.deterministicFrame );
 
         return prediction.revealClock.presentedFrame;
     }
 
     if ( prediction.build.buildMode == ReplayPredictionBuildMode::Instant )
     {
+
         // Why: instant mode presents the completed future at once. The causal
         // unfold clock remains an amortized-mode presentation affordance.
         prediction.revealClock.presentedFrame = lastAvailableFrame;
@@ -118,6 +121,7 @@ ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& pre
     }
 
     const auto now = std::chrono::steady_clock::now();
+
     if ( !prediction.revealClock.anchorValid )
     {
         prediction.revealClock.anchor = now;
@@ -128,22 +132,20 @@ ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& pre
 
     const double availableSeconds = static_cast<double>( lastAvailableFrame ) * ::PHYSICS_FIXED_DT;
     const double elapsedSeconds = (std::max)( 0.0,
-                                              std::chrono::duration<double>( now - prediction.revealClock.anchor )
-                                                  .count() );
+                                              std::chrono::duration<double>( now - prediction.revealClock.anchor ).count() );
 
     const double revealSecondsPerSecond = ReplayPredictionRevealSecondsPerSecond( prediction );
     double revealSeconds = elapsedSeconds * revealSecondsPerSecond;
+
     if ( prediction.build.building && revealSeconds > availableSeconds )
     {
         revealSeconds = availableSeconds;
-        prediction.revealClock.anchor = now - std::chrono::duration_cast<std::chrono::steady_clock::duration>(
-                                                  std::chrono::duration<double>( availableSeconds /
-                                                                                 revealSecondsPerSecond ) );
+        prediction.revealClock.anchor = now -
+                                        std::chrono::duration_cast<std::chrono::steady_clock::duration>( std::chrono::duration<double>( availableSeconds / revealSecondsPerSecond ) );
     }
 
     const double revealFrame = revealSeconds / static_cast<double>( ::PHYSICS_FIXED_DT );
-    prediction.revealClock.presentedFrame = (std::min)( lastAvailableFrame,
-                                                        static_cast<ReplayFrameIndex>( revealFrame ) );
+    prediction.revealClock.presentedFrame = (std::min)( lastAvailableFrame, static_cast<ReplayFrameIndex>( revealFrame ) );
 
     return prediction.revealClock.presentedFrame;
 }
@@ -151,6 +153,7 @@ ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& pre
 std::size_t ReplayPredictionBuildPresentationFrameCountForRefresh( RunReplayPredictionState& prediction,
                                                                    Physics::PhysicsSceneObjectId requestedTargetId )
 {
+
     if ( requestedTargetId.value == 0 || prediction.simulation.targetId.value != requestedTargetId.value ||
          prediction.simulation.frames.size() < 2u )
     {
@@ -167,8 +170,10 @@ std::size_t ReplayPredictionBuildPresentationFrameCountForRefresh( RunReplayPred
 
 void ReplayPredictionSimulationSlice::operator()( int beginTickIndex, int endTickIndex ) const
 {
+
     // Lifetime: CancelPredictionJob waits for the enclosing AmortizedTask before
     // any of these prediction-owned borrows can be cleared or replaced.
+
     if ( prediction && config && workerPool )
     {
         prediction->RunWorkerRange( *config, *workerPool, modelCount, beginTickIndex, endTickIndex );
@@ -177,6 +182,7 @@ void ReplayPredictionSimulationSlice::operator()( int beginTickIndex, int endTic
 
 RunReplayPredictionState::~RunReplayPredictionState()
 {
+
     // Hazard: WorkerPool tasks capture this replay state by reference. Destruct
     // only after the in-flight slice has dropped ownership of build scratch.
     build.schedule.WaitForIdle();
@@ -190,6 +196,7 @@ void ReplayPrediction::WaitForJobIdle()
 
 bool ReplayPrediction::PromoteBuildPrefixToCommitted()
 {
+
     if ( !m_state.BuildPrefixShouldBePresented() )
     {
         return false;
@@ -197,6 +204,7 @@ bool ReplayPrediction::PromoteBuildPrefixToCommitted()
 
     WaitForJobIdle();
     const std::size_t promotedFrameCount = m_state.PublishedBuildFrameCount();
+
     if ( promotedFrameCount < 2u || promotedFrameCount > m_state.build.buildFrames.size() )
     {
         return false;
@@ -210,6 +218,7 @@ bool ReplayPrediction::PromoteBuildPrefixToCommitted()
     m_state.simulation.frames.swap( m_state.build.buildFrames );
     m_state.simulation.frames.resize( promotedFrameCount );
     m_state.ResetBuildFramePublication();
+
     if ( !RebuildReplayPredictionCommittedRootTrajectory( m_state ) )
     {
         return false;
@@ -238,10 +247,12 @@ void ReplayPrediction::CancelJob( bool clearSamples )
     m_state.simulation.predictionBodies.clear();
     m_state.simulation.predictionTornadoGameplay.Clear();
     m_state.simulation.predictionWorld.ClearPreservingCapacity();
+
     // Runtime allocation policy: cancellation invalidates publication but keeps
     // the double-buffered frame payloads warm for the next replay rebuild.
     m_state.ResetBuildFramePublication();
     m_state.trajectoryBuild = RunReplayPredictionTrajectoryBuildState {};
+
     if ( clearSamples )
     {
         m_state.build.supersededRestartCount = 0;

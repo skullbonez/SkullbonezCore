@@ -82,14 +82,13 @@ const char* const kEditorObjectOptions[] = {
     "Triple decker high",
     "Brick wall 200",
 };
+
 // Invariant: This label table is the UI-facing form of the editor object enum.
 // Runtime placement uses the integer id, so table order is part of the contract.
 static_assert( sizeof( kEditorObjectOptions ) / sizeof( kEditorObjectOptions[0] ) ==
                SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT );
 
-void SetContentBounds( SkullbonezCore::UI::EditorTab::UIEditorTabState& state,
-                       float contentX,
-                       float rowBase,
+void SetContentBounds( SkullbonezCore::UI::EditorTab::UIEditorTabState& state, float contentX, float rowBase,
                        float contentW )
 {
     const float contentBaseY = rowBase - EDITOR_MODE_TOGGLE_Y;
@@ -97,9 +96,7 @@ void SetContentBounds( SkullbonezCore::UI::EditorTab::UIEditorTabState& state,
     state.editorModeToggle.SetBounds( contentX, contentBaseY + EDITOR_MODE_TOGGLE_Y, colW, 24.0f );
     state.placementModeToggle.SetBounds( contentX, contentBaseY + EDITOR_PLACE_TOGGLE_Y, colW, 24.0f );
     state.staticObjectToggle.SetBounds( contentX, contentBaseY + EDITOR_STATIC_TOGGLE_Y, colW, 24.0f );
-    state.objectCombo.SetBounds( contentX,
-                                 contentBaseY + EDITOR_OBJECT_COMBO_Y,
-                                 (std::max)( 190.0f, contentW * 0.55f ),
+    state.objectCombo.SetBounds( contentX, contentBaseY + EDITOR_OBJECT_COMBO_Y, (std::max)( 190.0f, contentW * 0.55f ),
                                  24.0f );
 }
 
@@ -125,19 +122,15 @@ const char* ObjectLabel( int objectType )
 }
 
 
-bool HandleContentClick( UIEditorTabState& state,
-                         InGameUIInputResult& result,
-                         int mouseX,
-                         int mouseY,
-                         float contentX,
-                         float rowBase,
-                         float contentW )
+bool HandleContentClick( UIEditorTabState& state, InGameUIInputResult& result, int mouseX, int mouseY, float contentX,
+                         float rowBase, float contentW )
 {
     SetContentBounds( state, contentX, rowBase, contentW );
 
     if ( state.objectCombo.IsOpen() )
     {
         const int option = state.objectCombo.HitOption( mouseX, mouseY, OBJECT_TYPE_COUNT );
+
         if ( option >= 0 && option < OBJECT_TYPE_COUNT )
         {
             state.selectedObjectType = option;
@@ -185,97 +178,51 @@ bool HandleContentClick( UIEditorTabState& state,
 }
 
 
-void Draw( UIEditorTabState& state,
-           const UIDrawContext& draw,
-           const InGameUIFrameData& data,
-           float contentX,
-           float contentY,
-           float contentW,
-           float contentH,
-           float scrolledY,
-           int mouseX,
-           int mouseY )
+void Draw( UIEditorTabState& state, const UIDrawContext& draw, const InGameUIFrameData& data, float contentX, float contentY,
+           float contentW, float contentH, float scrolledY, int mouseX, int mouseY )
 {
     const Style::UIPalette& palette = Style::Palette();
     const float colW = (std::max)( 148.0f, contentW * 0.46f );
 
     DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY, 16.0f, "Editor" );
-    DrawContentToggle( draw,
-                       contentY,
-                       contentH,
-                       state.editorModeToggle,
-                       contentX,
-                       scrolledY + EDITOR_MODE_TOGGLE_Y,
-                       colW,
-                       "Editor mode",
-                       data.editorModeEnabled );
+    DrawContentToggle( draw, contentY, contentH, state.editorModeToggle, contentX, scrolledY + EDITOR_MODE_TOGGLE_Y, colW,
+                       "Editor mode", data.editorModeEnabled );
 
-    DrawContentToggle( draw,
-                       contentY,
-                       contentH,
-                       state.placementModeToggle,
-                       contentX,
-                       scrolledY + EDITOR_PLACE_TOGGLE_Y,
-                       colW,
-                       "Place mode",
-                       data.editorPlacementMode );
+    DrawContentToggle( draw, contentY, contentH, state.placementModeToggle, contentX, scrolledY + EDITOR_PLACE_TOGGLE_Y,
+                       colW, "Place mode", data.editorPlacementMode );
 
-    DrawContentToggle( draw,
-                       contentY,
-                       contentH,
-                       state.staticObjectToggle,
-                       contentX,
-                       scrolledY + EDITOR_STATIC_TOGGLE_Y,
-                       colW,
-                       "Static object",
-                       data.editorPlaceStatic );
+    DrawContentToggle( draw, contentY, contentH, state.staticObjectToggle, contentX, scrolledY + EDITOR_STATIC_TOGGLE_Y,
+                       colW, "Static object", data.editorPlaceStatic );
 
-    state.objectCombo.SetBounds( contentX,
-                                 scrolledY + EDITOR_OBJECT_COMBO_Y,
-                                 (std::max)( 190.0f, contentW * 0.55f ),
+    state.objectCombo.SetBounds( contentX, scrolledY + EDITOR_OBJECT_COMBO_Y, (std::max)( 190.0f, contentW * 0.55f ),
                                  24.0f );
 
     state.selectedObjectType = std::clamp( data.editorObjectType, 0, OBJECT_TYPE_COUNT - 1 );
+
     if ( IsRowVisible( contentY, contentH, scrolledY + EDITOR_OBJECT_COMBO_Y, 24.0f ) || state.objectCombo.IsOpen() )
     {
-        state.objectCombo
-            .Draw( draw, "Object", kEditorObjectOptions, OBJECT_TYPE_COUNT, state.selectedObjectType, mouseX, mouseY );
+        state.objectCombo.Draw( draw, "Object", kEditorObjectOptions, OBJECT_TYPE_COUNT, state.selectedObjectType, mouseX,
+                                mouseY );
     }
 
     const char* viewportState = "Cursor";
+
     if ( data.editorViewportLookActive )
     {
         viewportState = "Look";
     }
     else if ( data.editorModeEnabled )
     {
-        viewportState = data.editorPlacementMode ? ( data.editorPlaceStatic ? "Place static" : "Place dynamic" )
-                                                 : "Gizmo";
+        viewportState = data.editorPlacementMode ? ( data.editorPlaceStatic ? "Place static" : "Place dynamic" ) : "Gizmo";
     }
 
-    DrawLabelValueAt( draw,
-                      contentY,
-                      contentH,
-                      contentX,
-                      scrolledY + EDITOR_STATUS_Y,
-                      "Viewport",
-                      viewportState,
-                      palette.accentStrong.r,
-                      palette.accentStrong.g,
-                      palette.accentStrong.b );
+    DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + EDITOR_STATUS_Y, "Viewport", viewportState,
+                      palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b );
 
     char historyText[64];
     snprintf( historyText, sizeof( historyText ), "%d undo / %d redo", data.editorUndoDepth, data.editorRedoDepth );
-    DrawLabelValueAt( draw,
-                      contentY,
-                      contentH,
-                      contentX,
-                      scrolledY + EDITOR_HISTORY_STATUS_Y,
-                      "History",
-                      historyText,
-                      palette.textMuted.r,
-                      palette.textMuted.g,
-                      palette.textMuted.b );
+    DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + EDITOR_HISTORY_STATUS_Y, "History", historyText,
+                      palette.textMuted.r, palette.textMuted.g, palette.textMuted.b );
 }
 
 } // namespace EditorTab

@@ -54,6 +54,7 @@ constexpr size_t DEBUG_LOG_BUFFER_BYTES = 8u * 1024u * 1024u;
 
 void EnsureParentDirectory( const char* fileName )
 {
+
     if ( !fileName )
     {
         return;
@@ -65,6 +66,7 @@ void EnsureParentDirectory( const char* fileName )
     char* slash = strrchr( directory, '/' );
     char* backslash = strrchr( directory, '\\' );
     char* separator = slash;
+
     if ( backslash && ( !separator || backslash > separator ) )
     {
         separator = backslash;
@@ -73,6 +75,7 @@ void EnsureParentDirectory( const char* fileName )
     if ( separator )
     {
         *separator = '\0';
+
         if ( directory[0] != '\0' )
         {
             CreateDirectoryA( directory, nullptr );
@@ -92,16 +95,20 @@ FILE* EngineLog::OpenLog( const char* fileName )
 {
     FILE* f = nullptr;
     auto it = m_logs.find( fileName );
+
     if ( it == m_logs.end() )
     {
+
         // Open debug logs in binary mode so '\n' is written exactly as LF on
         // Windows. Physics regression CSVs are intended to be byte-exact
         // validation artifacts; text mode silently expands '\n' to CRLF and can
         // make data-identical files differ at the byte level.
         EnsureParentDirectory( fileName );
         fopen_s( &f, fileName, "wb" );
+
         if ( f )
         {
+
             // SkullScope and physics CSV logging can emit thousands of small
             // rows per run. Give the CRT a large user-space buffer so those rows
             // batch in memory instead of forcing tiny disk writes from the hot
@@ -130,6 +137,7 @@ void EngineLog::Writef( const char* fileName, const char* fmt, ... )
 
 void EngineLog::WriteVf( const char* fileName, const char* fmt, va_list args )
 {
+
     // Why: the lock covers both lazy handle lookup and the CRT write. FILE
     // streams do not become safe merely because their owning map is guarded.
     std::lock_guard<std::mutex> lock( m_logMutex );
@@ -137,6 +145,7 @@ void EngineLog::WriteVf( const char* fileName, const char* fmt, va_list args )
 
     if ( f )
     {
+
         // Intentionally no fflush here. Hot diagnostic paths call Writef many
         // times per frame; flushing each row makes SkullScope trace generation
         // dominated by I/O. Callers that need durable output at a boundary use
@@ -158,22 +167,14 @@ void EngineLog::WriteEventf( const char* fmt, ... )
     GetLocalTime( &now );
 
     char line[2304] = {};
-    snprintf( line,
-              sizeof( line ),
-              "%04u-%02u-%02u %02u:%02u:%02u.%03u %s\n",
-              now.wYear,
-              now.wMonth,
-              now.wDay,
-              now.wHour,
-              now.wMinute,
-              now.wSecond,
-              now.wMilliseconds,
-              message );
+    snprintf( line, sizeof( line ), "%04u-%02u-%02u %02u:%02u:%02u.%03u %s\n", now.wYear, now.wMonth, now.wDay, now.wHour,
+              now.wMinute, now.wSecond, now.wMilliseconds, message );
 
     OutputDebugStringA( line );
 
     std::lock_guard<std::mutex> lock( m_logMutex );
     FILE* f = OpenLog( EventLogPath() );
+
     if ( f )
     {
         fputs( line, f );
@@ -185,8 +186,10 @@ void EngineLog::WriteEventf( const char* fmt, ... )
 void EngineLog::FlushAll()
 {
     std::lock_guard<std::mutex> lock( m_logMutex );
+
     for ( auto& [name, file] : m_logs )
     {
+
         if ( file )
         {
             fflush( file );
@@ -198,8 +201,10 @@ void EngineLog::FlushAll()
 void EngineLog::CloseAllForTests()
 {
     std::lock_guard<std::mutex> lock( m_logMutex );
+
     for ( auto& [name, file] : m_logs )
     {
+
         if ( file )
         {
             fclose( file );
@@ -214,8 +219,10 @@ void EngineLog::CloseAllForTests()
 EngineLog::~EngineLog()
 {
     std::lock_guard<std::mutex> lock( m_logMutex );
+
     for ( auto& [name, file] : m_logs )
     {
+
         if ( file )
         {
             fclose( file );

@@ -66,6 +66,7 @@ void PhysicsStepDiagnostics::SetDiagnosticNames( std::span<const char* const> di
 
 void PhysicsStepDiagnostics::BeginStep( int modelCount )
 {
+
     if ( static_cast<int>( m_collisionVisualContacts.size() ) != modelCount )
     {
         m_collisionVisualContacts.assign( modelCount, 0 );
@@ -94,6 +95,7 @@ void PhysicsStepDiagnostics::EndCollisionVisualFrame()
 
 void PhysicsStepDiagnostics::MarkCollisionVisualContact( int index )
 {
+
     if ( index >= 0 && index < static_cast<int>( m_collisionVisualContacts.size() ) )
     {
         m_collisionVisualContacts[index] = 1;
@@ -102,6 +104,7 @@ void PhysicsStepDiagnostics::MarkCollisionVisualContact( int index )
 
 void PhysicsStepDiagnostics::RecordPipelineStage( const PhysicsPipelineRecord& record )
 {
+
     if ( m_physicsPipelineTrace.size() < MAX_PIPELINE_TRACE_RECORDS )
     {
         m_physicsPipelineTrace.push_back( record );
@@ -116,18 +119,14 @@ bool PhysicsStepDiagnostics::CanRecordPipelineStage() const
 int PhysicsStepDiagnostics::RemainingPipelineRecordCapacity() const
 {
     return (std::max)( 0,
-                       static_cast<int>( MAX_PIPELINE_TRACE_RECORDS ) -
-                           static_cast<int>( m_physicsPipelineTrace.size() ) );
+                       static_cast<int>( MAX_PIPELINE_TRACE_RECORDS ) - static_cast<int>( m_physicsPipelineTrace.size() ) );
 }
 
-void PhysicsStepDiagnostics::EmitCollisionTime( bool diagnosticsSuppressed,
-                                                const char* type,
-                                                int bodyA,
-                                                int bodyB,
-                                                float collisionTime,
-                                                float availableTime )
+void PhysicsStepDiagnostics::EmitCollisionTime( bool diagnosticsSuppressed, const char* type, int bodyA, int bodyB,
+                                                float collisionTime, float availableTime )
 {
 #ifdef _DEBUG
+
     if ( diagnosticsSuppressed )
     {
         return;
@@ -158,27 +157,23 @@ bool PhysicsStepDiagnostics::ShouldEmitCollisionTimeDiagnostics( bool diagnostic
 #endif
 }
 
-void PhysicsStepDiagnostics::EmitStepDiagnostics( bool diagnosticsSuppressed,
-                                                  const PhysicsDiagnosticsView& diagnosticsView,
-                                                  const PhysicsBodyStore& bodyStore,
-                                                  const ColliderStore& colliderStore,
+void PhysicsStepDiagnostics::EmitStepDiagnostics( bool diagnosticsSuppressed, const PhysicsDiagnosticsView& diagnosticsView,
+                                                  const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                                                   float deltaSeconds,
                                                   const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
 {
 #ifdef _DEBUG
+
     if ( !diagnosticsSuppressed )
     {
         const bool regressionLogEnabled = m_sink.IsRegressionLogEnabled();
         const bool frameLogEnabled = m_sink.IsFrameLogEnabled();
+
         if ( regressionLogEnabled || frameLogEnabled )
         {
             const PhysicsDiagnosticsNameView names = m_sink.RegisteredNames();
-            const PhysicsDiagnosticsFrameInput frame { diagnosticsView,
-                                                       bodyStore,
-                                                       colliderStore,
-                                                       names,
-                                                       diagnosticsCsvWriter,
-                                                       deltaSeconds };
+            const PhysicsDiagnosticsFrameInput frame { diagnosticsView,      bodyStore,   colliderStore, names,
+                                                       diagnosticsCsvWriter, deltaSeconds };
 
             if ( regressionLogEnabled )
             {

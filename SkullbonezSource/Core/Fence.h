@@ -46,6 +46,7 @@ class Fence
     {
         std::lock_guard<std::mutex> lock( m_mutex );
         m_remaining.store( taskCount, std::memory_order_release );
+
         if ( taskCount == 0 )
         {
             m_complete.notify_all();
@@ -54,9 +55,11 @@ class Fence
 
     void Signal()
     {
+
         // Why: the atomic decrement publishes completion even when the final
         // signal arrives before the waiter reaches condition_variable::wait.
         const int previous = m_remaining.fetch_sub( 1, std::memory_order_acq_rel );
+
         if ( previous <= 1 )
         {
             std::lock_guard<std::mutex> lock( m_mutex );

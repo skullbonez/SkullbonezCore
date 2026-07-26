@@ -38,6 +38,7 @@ namespace SkullbonezCore
 {
 namespace Gameplay
 {
+
 // Invariant: authored content is rejected before mutation when it exceeds this
 // fixed gameplay budget; steady gameplay never truncates or grows the field set.
 inline constexpr std::size_t MAX_TORNADO_ACTIVE_FORCE_FIELDS = 64u;
@@ -46,6 +47,7 @@ struct TornadoFieldConfig
 {
     bool enabled = false;
     bool visualizeVelocityField = false;
+
     // Units: center/radius/height use metres; acceleration terms use m/s^2;
     // exposure/cooldown use seconds; maxDeltaVelocity uses m/s per fixed step.
     Math::Vector::Vector3 center = Math::Vector::Vector3( 620.0f, 25.0f, 615.0f );
@@ -65,6 +67,7 @@ struct TornadoFieldConfig
 struct TornadoVortexConfig
 {
     TornadoFieldConfig field;
+
     // Units: lifecycle values use seconds, drift phase uses radians, drift
     // speed uses radians/second, radii use metres, and repulsion is a scalar.
     float spawnSeconds = 0.0f;
@@ -82,6 +85,7 @@ struct TornadoSystemConfig
 {
     bool enabled = false;
     bool visualizeVelocityField = false;
+
     // Lifetime: this authored vector is populated during cold scene/replay
     // setup and is reserved before steady gameplay begins.
     std::vector<TornadoVortexConfig> vortices;
@@ -144,8 +148,7 @@ class TornadoSystem
     Math::Vector::Vector3 SampleAcceleration( const Math::Vector::Vector3& position ) const;
     std::size_t DynamicMemoryBytes() const;
 
-    static void BuildActiveVortices( const TornadoSystemConfig& config,
-                                     float elapsedSeconds,
+    static void BuildActiveVortices( const TornadoSystemConfig& config, float elapsedSeconds,
                                      std::vector<TornadoActiveVortex>& outVortices );
 
   private:

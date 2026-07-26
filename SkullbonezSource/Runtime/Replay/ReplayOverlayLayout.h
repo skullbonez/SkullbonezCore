@@ -39,8 +39,7 @@ Related:
 
 namespace SkullbonezCore::Runtime::ReplayOverlay
 {
-inline constexpr float
-    REPLAY_SCRUBBER_HOT_ZONE_HEIGHT = 78.0f; // Bottom-screen hover strip that reveals replay controls.
+inline constexpr float REPLAY_SCRUBBER_HOT_ZONE_HEIGHT = 78.0f; // Bottom-screen hover strip that reveals replay controls.
 inline constexpr float REPLAY_SCRUBBER_PANEL_HEIGHT = 50.0f;
 inline constexpr float REPLAY_SCRUBBER_PANEL_MAX_WIDTH = 1080.0f;
 inline constexpr float REPLAY_SCRUBBER_PANEL_MARGIN = 18.0f;
@@ -131,12 +130,10 @@ using ReplayCauseWindowSurface = RuntimeUiSurface<4>;
 // one-frame screen, gesture, and pointer-blocking facts before surface layout.
 ReplayScrubberSurfaceInput DescribeReplayScrubberAvailability( const ReplayScrubberView& scrubber,
                                                                const ReplayRecorderStats& solverStats,
-                                                               bool loadedPresentation,
-                                                               bool pathTargetAvailable,
+                                                               bool loadedPresentation, bool pathTargetAvailable,
                                                                bool predictionTimelineAvailable,
                                                                bool currentPresentationAvailable,
-                                                               bool currentSolverAvailable,
-                                                               bool scenePhysicsEnabled );
+                                                               bool currentSolverAvailable, bool scenePhysicsEnabled );
 void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, ReplayScrubberSurface& outSurface );
 void BuildReplayCauseWindowSurface( const RunReplayCauseTreeState& state, ReplayCauseWindowSurface& outSurface );
 

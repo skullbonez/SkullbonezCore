@@ -98,8 +98,8 @@ namespace
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_TRANSLATE = 1u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_ROTATE = 2u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SCALE = 4u;
-constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SUPPORTED = REPLAY_EDITOR_TRANSFORM_TRANSLATE |
-                                                       REPLAY_EDITOR_TRANSFORM_ROTATE | REPLAY_EDITOR_TRANSFORM_SCALE;
+constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SUPPORTED = REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE |
+                                                       REPLAY_EDITOR_TRANSFORM_SCALE;
 constexpr float EDITOR_PLACEMENT_YAW_STEP_RADIANS = _PI / 12.0f;
 
 // Concept: Clip-space mouse coordinates become editor rays by unprojecting two
@@ -107,17 +107,17 @@ constexpr float EDITOR_PLACEMENT_YAW_STEP_RADIANS = _PI / 12.0f;
 // world-space segment between them.
 bool TransformClipPointToWorld( const Matrix4& inverseViewProjection, float x, float y, float z, Vector3& outWorld )
 {
-    const float worldX = inverseViewProjection.m[0] * x + inverseViewProjection.m[4] * y +
-                         inverseViewProjection.m[8] * z + inverseViewProjection.m[12];
+    const float worldX = inverseViewProjection.m[0] * x + inverseViewProjection.m[4] * y + inverseViewProjection.m[8] * z +
+                         inverseViewProjection.m[12];
 
-    const float worldY = inverseViewProjection.m[1] * x + inverseViewProjection.m[5] * y +
-                         inverseViewProjection.m[9] * z + inverseViewProjection.m[13];
+    const float worldY = inverseViewProjection.m[1] * x + inverseViewProjection.m[5] * y + inverseViewProjection.m[9] * z +
+                         inverseViewProjection.m[13];
 
-    const float worldZ = inverseViewProjection.m[2] * x + inverseViewProjection.m[6] * y +
-                         inverseViewProjection.m[10] * z + inverseViewProjection.m[14];
+    const float worldZ = inverseViewProjection.m[2] * x + inverseViewProjection.m[6] * y + inverseViewProjection.m[10] * z +
+                         inverseViewProjection.m[14];
 
-    const float worldW = inverseViewProjection.m[3] * x + inverseViewProjection.m[7] * y +
-                         inverseViewProjection.m[11] * z + inverseViewProjection.m[15];
+    const float worldW = inverseViewProjection.m[3] * x + inverseViewProjection.m[7] * y + inverseViewProjection.m[11] * z +
+                         inverseViewProjection.m[15];
 
     if ( fabsf( worldW ) < 1e-6f )
     {
@@ -131,17 +131,16 @@ bool TransformClipPointToWorld( const Matrix4& inverseViewProjection, float x, f
 
 
 bool RecordEditorTransformEventFromBodyStore( ReplayEventCommandBatch& replayEvents,
-                                              SkullbonezCore::Runtime::SceneWorld& world,
-                                              int modelIndex,
-                                              uint32_t changedFlags,
-                                              int scaleAxis,
-                                              float scaleFactor )
+                                              SkullbonezCore::Runtime::SceneWorld& world, int modelIndex,
+                                              uint32_t changedFlags, int scaleAxis, float scaleFactor )
 {
+
     // Why: editor gizmos mutate the SceneWorld-owned authoring edge, then
     // commit into PhysicsBodyStore. Replay event bytes must come from that
     // authoritative body row so legacy model-side writeback is not required
     // before recording.
     changedFlags &= REPLAY_EDITOR_TRANSFORM_SUPPORTED;
+
     if ( changedFlags == 0 )
     {
         return false;
@@ -149,6 +148,7 @@ bool RecordEditorTransformEventFromBodyStore( ReplayEventCommandBatch& replayEve
 
     const PhysicsBodyStore& bodyStore = world.BodyStore();
     const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex );
+
     if ( !body || !body->sceneObjectId.IsValid() )
     {
         return false;
@@ -156,15 +156,11 @@ bool RecordEditorTransformEventFromBodyStore( ReplayEventCommandBatch& replayEve
 
     const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
     const auto hotFields = bodyStore.HotFields();
-    if ( !replayEvents.Append(
-             ReplayEventCommandOperations::BuildEditorTransform( modelIndex,
-                                                                 changedFlags,
-                                                                 body->sceneObjectId,
-                                                                 PhysicsBodyPosition( hotFields, bodyIndex ),
-                                                                 PhysicsBodyOrientation( hotFields, bodyIndex ),
-                                                                 world.SceneEntityCount(),
-                                                                 scaleAxis,
-                                                                 scaleFactor ) ) )
+
+    if ( !replayEvents.Append( ReplayEventCommandOperations::BuildEditorTransform( modelIndex, changedFlags, body->sceneObjectId,
+                                                                                   PhysicsBodyPosition( hotFields, bodyIndex ),
+                                                                                   PhysicsBodyOrientation( hotFields, bodyIndex ),
+                                                                                   world.SceneEntityCount(), scaleAxis, scaleFactor ) ) )
     {
         SB_FATAL( "Runtime/EditorTools", "Replay editor-event batch capacity exhausted." );
     }
@@ -210,6 +206,7 @@ float HullVerticalSize( const ConvexHullShape& hull )
 {
     float minY = FLT_MAX;
     float maxY = -FLT_MAX;
+
     for ( uint16_t i = 0; i < hull.GetVertexCount(); ++i )
     {
         const float y = hull.GetVertex( i ).y;
@@ -221,12 +218,12 @@ float HullVerticalSize( const ConvexHullShape& hull )
 }
 
 
-float EditorPlacementAltitudeStepSize( int objectType,
-                                       const Vector3& placementScale,
+float EditorPlacementAltitudeStepSize( int objectType, const Vector3& placementScale,
                                        const SkullbonezCore::Assets::AssetSystem& assets )
 {
     const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
     const Vector3 scale = EditorClampPlacementScale( type, placementScale );
+
     switch ( type )
     {
     case SkullbonezCore::UI::EditorTab::OBJECT_BOX:
@@ -239,6 +236,7 @@ float EditorPlacementAltitudeStepSize( int objectType,
         return scale.x * 18.5f;
     default:
     {
+
         if ( EditorTreeDefinitionForType( type ) )
         {
             return EditorTreeVerticalSize( type );
@@ -271,6 +269,7 @@ namespace RunInternal
 {
 Vector3 EditorAxisVector( int axis )
 {
+
     switch ( axis )
     {
     case 0:
@@ -287,14 +286,14 @@ Vector3 EditorAxisVector( int axis )
 
 float EditorColliderRadius( const ColliderRecord& collider )
 {
-    return (std::max)( collider.boundingRadius > 0.0f ? collider.boundingRadius
-                                                      : GetShapeBoundingRadius( collider.shape ),
+    return (std::max)( collider.boundingRadius > 0.0f ? collider.boundingRadius : GetShapeBoundingRadius( collider.shape ),
                        1.0f );
 }
 
 
 float EditorShapeAxisExtent( const CollisionShape& shape, int axis )
 {
+
     if ( axis < 0 || axis > 2 )
     {
         return 1.0f;
@@ -308,6 +307,7 @@ float EditorShapeAxisExtent( const CollisionShape& shape, int axis )
     if ( const BoundingBox* box = std::get_if<BoundingBox>( &shape ) )
     {
         const Vector3& halfExtents = box->GetHalfExtents();
+
         if ( axis == 0 )
         {
             return (std::max)( halfExtents.x, 0.25f );
@@ -324,6 +324,7 @@ float EditorShapeAxisExtent( const CollisionShape& shape, int axis )
     if ( const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &shape ) )
     {
         const Vector3& halfExtents = hull->GetInertiaHalfExtents();
+
         if ( axis == 0 )
         {
             return (std::max)( halfExtents.x, 0.25f );
@@ -341,12 +342,11 @@ float EditorShapeAxisExtent( const CollisionShape& shape, int axis )
 }
 
 
-bool TryEditorScaleFactorFromShapes( const CollisionShape& startShape,
-                                     const CollisionShape& currentShape,
-                                     int axis,
+bool TryEditorScaleFactorFromShapes( const CollisionShape& startShape, const CollisionShape& currentShape, int axis,
                                      float& outFactor )
 {
     const float startExtent = EditorShapeAxisExtent( startShape, axis );
+
     if ( startExtent <= 0.0f )
     {
         return false;
@@ -375,24 +375,23 @@ using EditorGizmoGroupIndices = std::array<int, RunEditorPlacementState::GIZMO_D
 // Why: editor transform grouping is scene-object metadata, not physics state.
 // SceneWorld owns a dense grouping row beside model order, so gizmo grouping
 // does not parse display names or read legacy physics metadata from legacy object record.
-int GatherSelectedEditorTransformGroup( const SceneWorld& world,
-                                        int selectedIndex,
-                                        EditorGizmoGroupIndices& outIndices )
+int GatherSelectedEditorTransformGroup( const SceneWorld& world, int selectedIndex, EditorGizmoGroupIndices& outIndices )
 {
     outIndices.fill( -1 );
-    return world.Entities().GatherGroupMemberIndices( selectedIndex,
-                                                      outIndices.data(),
+    return world.Entities().GatherGroupMemberIndices( selectedIndex, outIndices.data(),
                                                       static_cast<int>( outIndices.size() ) );
 }
 
 
-const PhysicsBodyRecord*
-TryResolveEditorBodyRecord( const PhysicsBodyStore& bodyStore, PhysicsBodyHandle bodyHandle, int modelIndex )
+const PhysicsBodyRecord* TryResolveEditorBodyRecord( const PhysicsBodyStore& bodyStore, PhysicsBodyHandle bodyHandle,
+                                                     int modelIndex )
 {
+
     // Invariant: editor selection carries the handle as live physics identity.
     // The model index is a UI/grouping hint and must agree before callers read
     // the dense store row.
     const PhysicsBodyRecord* body = bodyStore.RecordForHandle( bodyHandle );
+
     if ( !body || bodyStore.ModelIndexForHandle( bodyHandle ) != modelIndex )
     {
         return nullptr;
@@ -408,16 +407,13 @@ const PhysicsBodyRecord* TryResolveEditorBodyRecord( const PhysicsBodyStore& bod
 }
 
 
-bool TryResolveEditorBodyCollider( const PhysicsBodyStore& bodyStore,
-                                   const ColliderStore& colliderStore,
-                                   PhysicsBodyHandle bodyHandle,
-                                   PhysicsColliderHandle colliderHandle,
-                                   int modelIndex,
-                                   const PhysicsBodyRecord*& outBody,
-                                   const ColliderRecord*& outCollider )
+bool TryResolveEditorBodyCollider( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
+                                   PhysicsBodyHandle bodyHandle, PhysicsColliderHandle colliderHandle, int modelIndex,
+                                   const PhysicsBodyRecord*& outBody, const ColliderRecord*& outCollider )
 {
     const PhysicsBodyRecord* body = bodyStore.RecordForHandle( bodyHandle );
     const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
+
     if ( !body || !collider || bodyStore.ModelIndexForHandle( bodyHandle ) != modelIndex ||
          colliderStore.ModelIndexForHandle( colliderHandle ) != modelIndex || collider->body != bodyHandle )
     {
@@ -432,28 +428,17 @@ bool TryResolveEditorBodyCollider( const PhysicsBodyStore& bodyStore,
 }
 
 
-bool TryResolveEditorBodyCollider( const PhysicsBodyStore& bodyStore,
-                                   const ColliderStore& colliderStore,
-                                   int modelIndex,
-                                   const PhysicsBodyRecord*& outBody,
-                                   const ColliderRecord*& outCollider )
+bool TryResolveEditorBodyCollider( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, int modelIndex,
+                                   const PhysicsBodyRecord*& outBody, const ColliderRecord*& outCollider )
 {
     const PhysicsBodyHandle bodyHandle = bodyStore.HandleForModelIndex( modelIndex );
-    return TryResolveEditorBodyCollider( bodyStore,
-                                         colliderStore,
-                                         bodyHandle,
-                                         colliderStore.HandleForBodyHandle( bodyHandle ),
-                                         modelIndex,
-                                         outBody,
-                                         outCollider );
+    return TryResolveEditorBodyCollider( bodyStore, colliderStore, bodyHandle,
+                                         colliderStore.HandleForBodyHandle( bodyHandle ), modelIndex, outBody, outCollider );
 }
 
 
-bool TryGetEditorSelectionFrame( const SceneWorld& world,
-                                 PhysicsBodyHandle selectedBodyHandle,
-                                 PhysicsColliderHandle selectedColliderHandle,
-                                 int selectedIndex,
-                                 Vector3& outOrigin,
+bool TryGetEditorSelectionFrame( const SceneWorld& world, PhysicsBodyHandle selectedBodyHandle,
+                                 PhysicsColliderHandle selectedColliderHandle, int selectedIndex, Vector3& outOrigin,
                                  float& outRadius )
 {
     const PhysicsBodyStore& bodyStore = world.BodyStore();
@@ -461,6 +446,7 @@ bool TryGetEditorSelectionFrame( const SceneWorld& world,
     EditorGizmoGroupIndices indices = {};
 
     const int count = GatherSelectedEditorTransformGroup( world, selectedIndex, indices );
+
     if ( count <= 0 )
     {
         return false;
@@ -472,6 +458,7 @@ bool TryGetEditorSelectionFrame( const SceneWorld& world,
     std::array<const ColliderRecord*, RunEditorPlacementState::GIZMO_DRAG_GROUP_CAPACITY> colliders = {};
     const auto hotFields = bodyStore.HotFields();
     Vector3 origin = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+
     for ( int i = 0; i < count; ++i )
     {
         const int modelIndex = indices[static_cast<std::size_t>( i )];
@@ -484,12 +471,7 @@ bool TryGetEditorSelectionFrame( const SceneWorld& world,
         const PhysicsColliderHandle colliderHandle = selectedMember ? selectedColliderHandle
                                                                     : colliderStore.HandleForBodyHandle( bodyHandle );
 
-        if ( !TryResolveEditorBodyCollider( bodyStore,
-                                            colliderStore,
-                                            bodyHandle,
-                                            colliderHandle,
-                                            modelIndex,
-                                            body,
+        if ( !TryResolveEditorBodyCollider( bodyStore, colliderStore, bodyHandle, colliderHandle, modelIndex, body,
                                             collider ) )
         {
             return false;
@@ -502,13 +484,13 @@ bool TryGetEditorSelectionFrame( const SceneWorld& world,
     origin /= static_cast<float>( count );
 
     float radius = 1.0f;
+
     for ( int i = 0; i < count; ++i )
     {
         const ColliderRecord& collider = *colliders[static_cast<std::size_t>( i )];
         const std::size_t bodyIndex = static_cast<std::size_t>( indices[static_cast<std::size_t>( i )] );
-        radius = (std::max)( radius,
-                             Distance( PhysicsBodyPosition( hotFields, bodyIndex ), origin ) +
-                                 EditorColliderRadius( collider ) );
+        radius = (std::max)( radius, Distance( PhysicsBodyPosition( hotFields, bodyIndex ), origin ) +
+                                         EditorColliderRadius( collider ) );
     }
 
     outOrigin = origin;
@@ -517,19 +499,16 @@ bool TryGetEditorSelectionFrame( const SceneWorld& world,
 }
 
 
-bool TryTraceEditorSelectionOverlayFromStores( const SceneWorld& world,
-                                               PhysicsBodyHandle selectedBodyHandle,
-                                               PhysicsColliderHandle selectedColliderHandle,
-                                               int selectedIndex,
-                                               EditorTracer& tracer,
-                                               Vector3& outOrigin,
-                                               float& outRadius )
+bool TryTraceEditorSelectionOverlayFromStores( const SceneWorld& world, PhysicsBodyHandle selectedBodyHandle,
+                                               PhysicsColliderHandle selectedColliderHandle, int selectedIndex,
+                                               EditorTracer& tracer, Vector3& outOrigin, float& outRadius )
 {
     const PhysicsBodyStore& bodyStore = world.BodyStore();
     const ColliderStore& colliderStore = world.Colliders();
     EditorGizmoGroupIndices indices = {};
 
     const int count = GatherSelectedEditorTransformGroup( world, selectedIndex, indices );
+
     if ( count <= 0 )
     {
         return false;
@@ -540,6 +519,7 @@ bool TryTraceEditorSelectionOverlayFromStores( const SceneWorld& world,
     std::array<const ColliderRecord*, RunEditorPlacementState::GIZMO_DRAG_GROUP_CAPACITY> colliders = {};
     const auto hotFields = bodyStore.HotFields();
     Vector3 origin = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+
     for ( int i = 0; i < count; ++i )
     {
         const int modelIndex = indices[static_cast<std::size_t>( i )];
@@ -552,12 +532,7 @@ bool TryTraceEditorSelectionOverlayFromStores( const SceneWorld& world,
         const PhysicsColliderHandle colliderHandle = selectedMember ? selectedColliderHandle
                                                                     : colliderStore.HandleForBodyHandle( bodyHandle );
 
-        if ( !TryResolveEditorBodyCollider( bodyStore,
-                                            colliderStore,
-                                            bodyHandle,
-                                            colliderHandle,
-                                            modelIndex,
-                                            body,
+        if ( !TryResolveEditorBodyCollider( bodyStore, colliderStore, bodyHandle, colliderHandle, modelIndex, body,
                                             collider ) )
         {
             return false;
@@ -573,6 +548,7 @@ bool TryTraceEditorSelectionOverlayFromStores( const SceneWorld& world,
     // visible overlay follows the live body/collider rows so legacy object-record
     // pose/shape caches are not required for presentation.
     float radius = 1.0f;
+
     for ( int i = 0; i < count; ++i )
     {
         const ColliderRecord& collider = *colliders[static_cast<std::size_t>( i )];
@@ -588,17 +564,17 @@ bool TryTraceEditorSelectionOverlayFromStores( const SceneWorld& world,
 }
 
 
-void CaptureEditorGizmoDragGroupState( RunEditorPlacementState& editor,
-                                       const SceneWorld& world,
-                                       bool allowRagdollGroup )
+void CaptureEditorGizmoDragGroupState( RunEditorPlacementState& editor, const SceneWorld& world, bool allowRagdollGroup )
 {
     const PhysicsBodyStore& bodyStore = world.BodyStore();
+
     // Lifetime: Drag state stores model indices plus store-sourced starting
     // transforms for the current gesture only. A changed model/body topology
     // invalidates the group before movement, scale, or rotation applies.
     editor.gizmoDragGroupCount = 0;
     editor.gizmoDragGroupIndices.fill( -1 );
     const int selectedModelIndex = ResolveSelectedEditorModelIndex( editor, bodyStore );
+
     if ( selectedModelIndex < 0 || selectedModelIndex >= world.SceneEntityCount() )
     {
         return;
@@ -607,13 +583,13 @@ void CaptureEditorGizmoDragGroupState( RunEditorPlacementState& editor,
     EditorGizmoGroupIndices indices = {};
     int count = 1;
     indices[0] = selectedModelIndex;
+
     if ( allowRagdollGroup )
     {
         count = GatherSelectedEditorTransformGroup( world, selectedModelIndex, indices );
     }
 
-    editor.gizmoDragGroupCount = std::clamp( count,
-                                             0,
+    editor.gizmoDragGroupCount = std::clamp( count, 0,
                                              static_cast<int>( RunEditorPlacementState::GIZMO_DRAG_GROUP_CAPACITY ) );
 
     for ( int i = 0; i < editor.gizmoDragGroupCount; ++i )
@@ -624,6 +600,7 @@ void CaptureEditorGizmoDragGroupState( RunEditorPlacementState& editor,
                                                                          : bodyStore.HandleForModelIndex( index );
 
         const PhysicsBodyRecord* body = TryResolveEditorBodyRecord( bodyStore, bodyHandle, index );
+
         if ( !body )
         {
             editor.gizmoDragGroupCount = 0;
@@ -633,8 +610,7 @@ void CaptureEditorGizmoDragGroupState( RunEditorPlacementState& editor,
 
         const std::size_t bodyIndex = static_cast<std::size_t>( index );
         const auto hotFields = bodyStore.HotFields();
-        editor.gizmoDragGroupStartPositions[static_cast<std::size_t>( i )] = PhysicsBodyPosition( hotFields,
-                                                                                                  bodyIndex );
+        editor.gizmoDragGroupStartPositions[static_cast<std::size_t>( i )] = PhysicsBodyPosition( hotFields, bodyIndex );
 
         editor.gizmoDragGroupStartOrientations[static_cast<std::size_t>( i )] = PhysicsBodyOrientation( hotFields,
                                                                                                         bodyIndex );
@@ -645,6 +621,7 @@ void CaptureEditorGizmoDragGroupState( RunEditorPlacementState& editor,
 int ValidCapturedEditorGizmoGroupCount( const RunEditorPlacementState& editor, int modelCount )
 {
     const int count = editor.gizmoDragGroupCount;
+
     if ( count <= 0 || count > static_cast<int>( RunEditorPlacementState::GIZMO_DRAG_GROUP_CAPACITY ) )
     {
         return 0;
@@ -653,6 +630,7 @@ int ValidCapturedEditorGizmoGroupCount( const RunEditorPlacementState& editor, i
     for ( int i = 0; i < count; ++i )
     {
         const int index = editor.gizmoDragGroupIndices[static_cast<std::size_t>( i )];
+
         if ( index < 0 || index >= modelCount )
         {
             return 0;
@@ -670,6 +648,7 @@ void WakeEditorPhysicsBody( SceneWorld& world, int modelIndex )
 {
     PhysicsEngine& physics = world.Physics();
     const int modelCount = world.SceneEntityCount();
+
     if ( modelIndex < 0 || modelIndex >= modelCount )
     {
         return;
@@ -695,6 +674,7 @@ void SeedEditorPhysicsBodyAsleep( SceneWorld& world, int modelIndex )
 {
     PhysicsEngine& physics = world.Physics();
     const int modelCount = world.SceneEntityCount();
+
     if ( modelIndex < 0 || modelIndex >= modelCount )
     {
         return;
@@ -719,6 +699,7 @@ void SeedEditorPhysicsBodyAsleep( SceneWorld& world, int modelIndex )
 bool ResetEditorModelMotionAndWake( SceneWorld& world, int index, PhysicsBodyUpdateDesc update )
 {
     PhysicsEngine& physics = world.Physics();
+
     // Why: Direct editor transforms teleport the body. Clearing velocities and
     // waking dynamic bodies prevents stale solver momentum from immediately
     // dragging the authored pose away.
@@ -727,6 +708,7 @@ bool ResetEditorModelMotionAndWake( SceneWorld& world, int index, PhysicsBodyUpd
     update.updateMask |= PHYSICS_BODY_UPDATE_VELOCITY;
     update.linearVelocity = SkullbonezCore::Math::Vector::ZERO_VECTOR;
     update.angularVelocity = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+
     if ( !physics.UpdateAuthoredBody( update ) )
     {
         return false;
@@ -734,8 +716,10 @@ bool ResetEditorModelMotionAndWake( SceneWorld& world, int index, PhysicsBodyUpd
 
     const PhysicsBodyStore& bodyStore = world.BodyStore();
     const PhysicsBodyRecord* body = bodyStore.RecordForHandle( bodyHandle );
+
     // Why: the explicit edit just refreshed the physics row; wake eligibility
     // should now follow PhysicsBodyStore, not legacy model-side body state.
+
     if ( body && bodyStore.HotFields().fixed[static_cast<std::size_t>( index )] == 0u )
     {
         WakeEditorPhysicsBody( world, index );
@@ -745,12 +729,11 @@ bool ResetEditorModelMotionAndWake( SceneWorld& world, int index, PhysicsBodyUpd
 }
 
 
-bool ResetEditorModelMotionAndWake( SceneWorld& world,
-                                    int index,
-                                    PhysicsBodyUpdateDesc update,
+bool ResetEditorModelMotionAndWake( SceneWorld& world, int index, PhysicsBodyUpdateDesc update,
                                     PhysicsColliderCreateDesc colliderDesc )
 {
     PhysicsEngine& physics = world.Physics();
+
     // Why: scale edits change the authored descriptor sidecar and the physics
     // collider row. Commit them together so wake decisions, picks, and replay
     // recording all see one coherent body/collider state.
@@ -759,6 +742,7 @@ bool ResetEditorModelMotionAndWake( SceneWorld& world,
     update.updateMask |= PHYSICS_BODY_UPDATE_VELOCITY;
     update.linearVelocity = SkullbonezCore::Math::Vector::ZERO_VECTOR;
     update.angularVelocity = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+
     if ( !physics.UpdateAuthoredBodyAndCollider( update, std::move( colliderDesc ) ) )
     {
         return false;
@@ -766,6 +750,7 @@ bool ResetEditorModelMotionAndWake( SceneWorld& world,
 
     const PhysicsBodyStore& bodyStore = world.BodyStore();
     const PhysicsBodyRecord* body = bodyStore.RecordForHandle( bodyHandle );
+
     if ( body && bodyStore.HotFields().fixed[static_cast<std::size_t>( index )] == 0u )
     {
         WakeEditorPhysicsBody( world, index );
@@ -810,6 +795,7 @@ float ReplayVelocityAngularVisualRadius( float modelRadius, float angularCompone
 
 float ReplayVelocityAxisComponent( const Vector3& value, int axis )
 {
+
     if ( axis == 0 )
     {
         return value.x;
@@ -826,6 +812,7 @@ float ReplayVelocityAxisComponent( const Vector3& value, int axis )
 
 void ReplayVelocitySetAxisComponent( Vector3& value, int axis, float component )
 {
+
     if ( axis == 0 )
     {
         value.x = component;
@@ -849,6 +836,7 @@ void ReplayVelocityAxisColor( int axis, float heat, bool hot, bool active, float
     r = std::clamp( r + heat * 0.46f, 0.0f, 1.0f );
     g = std::clamp( g + heat * 0.22f, 0.0f, 1.0f );
     b = std::clamp( b - heat * 0.34f, 0.05f, 1.0f );
+
     if ( hot || active )
     {
         r = (std::min)( 1.0f, r + 0.34f );
@@ -867,6 +855,7 @@ void ReplayVelocityAxisColor( int axis, float heat, bool hot, bool active, float
 
 Vector3 EditorRotationRingBasisA( int axis )
 {
+
     switch ( axis )
     {
     case 0:
@@ -883,6 +872,7 @@ Vector3 EditorRotationRingBasisA( int axis )
 
 Vector3 EditorRotationRingBasisB( int axis )
 {
+
     switch ( axis )
     {
     case 0:
@@ -899,6 +889,7 @@ Vector3 EditorRotationRingBasisB( int axis )
 
 float WrapEditorAngleDelta( float delta )
 {
+
     while ( delta > _PI )
     {
         delta -= 2.0f * _PI;
@@ -913,13 +904,12 @@ float WrapEditorAngleDelta( float delta )
 }
 
 
-float DistanceRayToSegmentSquared( const Vector3& rayOrigin,
-                                   const Vector3& rayDirection,
-                                   const Vector3& segmentA,
+float DistanceRayToSegmentSquared( const Vector3& rayOrigin, const Vector3& rayDirection, const Vector3& segmentA,
                                    const Vector3& segmentB )
 {
     const Vector3 segment = segmentB - segmentA;
     const float segmentLenSq = segment * segment;
+
     if ( segmentLenSq <= TOLERANCE * TOLERANCE )
     {
         const Vector3 toPoint = segmentA - rayOrigin;
@@ -937,6 +927,7 @@ float DistanceRayToSegmentSquared( const Vector3& rayOrigin,
 
     float rayT = 0.0f;
     float segmentT = 0.0f;
+
     if ( fabsf( denom ) > 1e-5f )
     {
         rayT = ( b * e - c * d ) / denom;
@@ -984,13 +975,10 @@ namespace Runtime
 {
 namespace RunInternal
 {
-bool BeginEditorGizmoDragGesture( EditorGizmoContext context,
-                                  int modelIndex,
-                                  int axis,
-                                  RuntimeGizmoDragKind gizmoKind,
-                                  int clientX,
-                                  int clientY )
+bool BeginEditorGizmoDragGesture( EditorGizmoContext context, int modelIndex, int axis, RuntimeGizmoDragKind gizmoKind,
+                                  int clientX, int clientY )
 {
+
     if ( context.interaction.PointerCapture() != RuntimePointerCaptureOwner::None ||
          context.interaction.Gesture().kind != RuntimeInteractionGestureKind::None )
     {
@@ -1016,6 +1004,7 @@ bool BeginEditorGizmoDragGesture( EditorGizmoContext context,
 
 void EndEditorGizmoDragGesture( EditorGizmoContext context )
 {
+
     if ( context.interaction.Gesture().kind == RuntimeInteractionGestureKind::GizmoDrag )
     {
         RuntimeGestureCommand command;
@@ -1030,6 +1019,7 @@ void EndEditorGizmoDragGesture( EditorGizmoContext context )
 
 void EndEditorPlacementScaleGesture( EditorGizmoContext context )
 {
+
     if ( context.interaction.Gesture().kind == RuntimeInteractionGestureKind::EditorPlacementScaleDrag )
     {
         RuntimeGestureCommand command;
@@ -1052,9 +1042,11 @@ void CancelEditorGizmoDragState( EditorGizmoContext context )
 
 int ResolveSelectedEditorModelIndex( RunEditorPlacementState& editor, const PhysicsBodyStore& bodyStore )
 {
+
     // Concept: editor selection identity is the body/collider handle pair.
     // The row cache is only a UI/editor grouping hint and is repaired from the
     // live body store before any caller treats it as a model row.
+
     if ( !editor.selectedBody.IsValid() )
     {
         editor.selectedModelRow.value = -1;
@@ -1080,32 +1072,32 @@ EditorViewportPlacementResult RuntimeTools::RouteEditorViewportPlacement( const 
     EditorViewportPlacementResult result;
     const bool placementScaleActive = input.gesture == RuntimeInteractionGestureKind::EditorPlacementScaleDrag;
     const bool editorViewportLookNow = m_editor.editorModeEnabled && input.rightDown && !input.blocksCameraMouse;
+
     if ( editorViewportLookNow != m_editor.viewportLookActive )
     {
         result.resetMouseLook = true;
     }
 
     m_editor.viewportLookActive = editorViewportLookNow;
+
     if ( editorViewportLookNow != input.inputModeIsViewportLook )
     {
         result.modeAction = editorViewportLookNow ? EditorViewportModeAction::Begin : EditorViewportModeAction::End;
     }
 
     const int placementWheelSteps = EditorMouseWheelSteps( input.unhandledWheelDelta );
-    const bool placementYawWheel = placementWheelSteps != 0 && m_editor.editorModeEnabled &&
-                                   m_editor.placementModeEnabled && input.controlDown && !m_editor.viewportLookActive &&
-                                   !input.blocksCameraMouse;
+    const bool placementYawWheel = placementWheelSteps != 0 && m_editor.editorModeEnabled && m_editor.placementModeEnabled &&
+                                   input.controlDown && !m_editor.viewportLookActive && !input.blocksCameraMouse;
 
     if ( placementYawWheel )
     {
         result.enteredInteractiveScene = true;
-        m_editor.placementYawRadians = WrapEditorAngleDelta( m_editor.placementYawRadians +
-                                                             static_cast<float>( placementWheelSteps ) *
-                                                                 EDITOR_PLACEMENT_YAW_STEP_RADIANS );
+        m_editor.placementYawRadians = WrapEditorAngleDelta( m_editor.placementYawRadians + static_cast<float>( placementWheelSteps ) * EDITOR_PLACEMENT_YAW_STEP_RADIANS );
     }
 
     if ( placementScaleActive && input.leftDown && !m_editor.viewportLookActive && !input.blocksCameraMouse )
     {
+
         if ( placementWheelSteps != 0 && !placementYawWheel )
         {
             result.enteredInteractiveScene = true;
@@ -1116,10 +1108,8 @@ EditorViewportPlacementResult RuntimeTools::RouteEditorViewportPlacement( const 
         {
             const float dragPixelsX = static_cast<float>( input.clientX - m_editor.placementScaleStartClient.x );
             const float dragPixelsY = static_cast<float>( input.clientY - m_editor.placementScaleStartClient.y );
-            m_editor.placementScale = EditorPlacementScaleFromGesture( m_editor.objectType,
-                                                                       m_editor.placementScaleStart,
-                                                                       dragPixelsX,
-                                                                       dragPixelsY,
+            m_editor.placementScale = EditorPlacementScaleFromGesture( m_editor.objectType, m_editor.placementScaleStart,
+                                                                       dragPixelsX, dragPixelsY,
                                                                        m_editor.placementScaleWheelSteps );
         }
     }
@@ -1127,6 +1117,7 @@ EditorViewportPlacementResult RuntimeTools::RouteEditorViewportPlacement( const 
               !placementYawWheel && !m_editor.viewportLookActive && !input.blocksCameraMouse )
     {
         const int nextAltitudeSteps = (std::max)( 0, m_editor.placementAltitudeSteps + placementWheelSteps );
+
         if ( nextAltitudeSteps != m_editor.placementAltitudeSteps )
         {
             result.enteredInteractiveScene = true;
@@ -1138,21 +1129,16 @@ EditorViewportPlacementResult RuntimeTools::RouteEditorViewportPlacement( const 
 }
 
 
-int RuntimeTools::RefreshEditorPointerPreview( const EditorPointerPreviewInput& input,
-                                               SceneWorld& world,
-                                               RuntimeInteractionController& interaction,
-                                               const Assets::AssetSystem& assets )
+int RuntimeTools::RefreshEditorPointerPreview( const EditorPointerPreviewInput& input, SceneWorld& world,
+                                               RuntimeInteractionController& interaction, const Assets::AssetSystem& assets )
 {
     const PhysicsBodyStore& bodyStore = world.BodyStore();
     const int selectedModelIndex = ResolveSelectedEditorModelIndex( m_editor, bodyStore );
-    const EditorInteractionPreviewResult previewResult = UpdateEditorInteractionPreview(
-        { m_editor, world, interaction, assets },
-        { input.blocksCameraMouse,
-          input.inspectGizmoActive,
-          input.hasWorldRay,
-          input.rayOrigin,
-          input.rayDirection,
-          input.controlDown } );
+    const EditorInteractionPreviewResult
+        previewResult = UpdateEditorInteractionPreview( { m_editor, world, interaction, assets },
+                                                        { input.blocksCameraMouse, input.inspectGizmoActive,
+                                                          input.hasWorldRay, input.rayOrigin, input.rayDirection,
+                                                          input.controlDown } );
 
     if ( previewResult.clearInvalidSelection )
     {
@@ -1170,13 +1156,12 @@ int RuntimeTools::RefreshEditorPointerPreview( const EditorPointerPreviewInput& 
 }
 
 
-bool RuntimeTools::PrepareEditorPointerSelection( const EditorPointerSelectionInput& input,
-                                                  const SceneWorld& world,
-                                                  RuntimeInteractionSelectionPlan& outPlan,
-                                                  WorldInteractionOwner& outOwner,
+bool RuntimeTools::PrepareEditorPointerSelection( const EditorPointerSelectionInput& input, const SceneWorld& world,
+                                                  RuntimeInteractionSelectionPlan& outPlan, WorldInteractionOwner& outOwner,
                                                   InteractionExitReason& outReason )
 {
     RuntimePickResult result;
+
     if ( input.hasWorldRay )
     {
         RuntimePickRequest request;
@@ -1200,9 +1185,9 @@ bool RuntimeTools::PrepareEditorPointerSelection( const EditorPointerSelectionIn
         return false;
     }
 
-    outOwner = result.modelRow.IsValid() ? ( input.inspectGizmoActive ? WorldInteractionOwner::InspectGizmo
-                                                                      : WorldInteractionOwner::EditorGizmo )
-                                         : WorldInteractionOwner::None;
+    outOwner = result.modelRow.IsValid()
+                   ? ( input.inspectGizmoActive ? WorldInteractionOwner::InspectGizmo : WorldInteractionOwner::EditorGizmo )
+                   : WorldInteractionOwner::None;
 
     outReason = input.inspectGizmoActive ? InteractionExitReason::EnterInspect : InteractionExitReason::EnterEdit;
     return true;
@@ -1210,21 +1195,19 @@ bool RuntimeTools::PrepareEditorPointerSelection( const EditorPointerSelectionIn
 
 
 EditorPlacementScalePointerResult
-RuntimeTools::RouteEditorPlacementScalePointer( bool leftReleased,
-                                                bool suppressWorldAction,
-                                                SceneWorld& world,
-                                                SceneSessionState& scene,
-                                                Assets::AssetSystem& assets,
-                                                int activeModelCapacity,
-                                                RuntimeInteractionController& interaction )
+RuntimeTools::RouteEditorPlacementScalePointer( bool leftReleased, bool suppressWorldAction, SceneWorld& world,
+                                                SceneSessionState& scene, Assets::AssetSystem& assets,
+                                                int activeModelCapacity, RuntimeInteractionController& interaction )
 {
     EditorPlacementScalePointerResult result;
+
     if ( interaction.Gesture().kind != RuntimeInteractionGestureKind::EditorPlacementScaleDrag )
     {
         return result;
     }
 
     result.consumed = true;
+
     if ( !leftReleased && !suppressWorldAction )
     {
         return result;
@@ -1233,29 +1216,27 @@ RuntimeTools::RouteEditorPlacementScalePointer( bool leftReleased,
     if ( leftReleased && !suppressWorldAction && m_editor.placementPreviewVisible )
     {
         EditorObjectPlacementContext placementContext { m_editor, world, scene, assets, activeModelCapacity };
-        EditorObjectPlacementRequest placementRequest { m_editor.objectType,
-                                                        m_editor.placeStaticObject,
+        EditorObjectPlacementRequest placementRequest { m_editor.objectType, m_editor.placeStaticObject,
                                                         m_editor.placementTerrainPoint };
 
         EditorObjectPlacementResult placementResult;
+
         if ( CanPlaceEditorObjectAtTerrainPoint( placementContext, placementRequest ) )
         {
             result.enteredInteractiveScene = true;
             PlaceEditorObjectAtTerrainPoint( placementContext, placementRequest, placementResult );
+
             if ( placementResult.placed )
             {
-                RecordEditorPlacementHistory( world,
-                                              placementResult.modelCountBefore,
-                                              placementResult.modelCountAfter );
+                RecordEditorPlacementHistory( world, placementResult.modelCountBefore, placementResult.modelCountAfter );
 
-                result.replayEvent = ReplayEventCommandOperations::BuildEditorPlace(
-                    placementResult.objectType,
-                    placementResult.fixedObject,
-                    placementResult.autoTerrainAlign,
-                    placementResult.modelCountBefore,
-                    placementResult.terrainPoint,
-                    placementResult.placementScale,
-                    placementResult.placementYawRadians );
+                result.replayEvent = ReplayEventCommandOperations::BuildEditorPlace( placementResult.objectType,
+                                                                                     placementResult.fixedObject,
+                                                                                     placementResult.autoTerrainAlign,
+                                                                                     placementResult.modelCountBefore,
+                                                                                     placementResult.terrainPoint,
+                                                                                     placementResult.placementScale,
+                                                                                     placementResult.placementYawRadians );
 
                 result.recordReplayEvent = true;
 
@@ -1287,15 +1268,18 @@ EditorGizmoDragPointerResult RuntimeTools::RouteEditorGizmoDragPointer( const Ed
 {
     EditorGizmoDragPointerResult result;
     const RuntimeInteractionGesture gesture = interaction.Gesture();
+
     if ( gesture.kind != RuntimeInteractionGestureKind::GizmoDrag )
     {
         return result;
     }
 
     result.consumed = true;
+
     if ( input.leftDown && !input.suppressWorldAction && input.hasWorldRay )
     {
         EditorGizmoContext gizmoContext { m_editor, world, interaction };
+
         if ( gesture.gizmoKind == RuntimeGizmoDragKind::Scale )
         {
             ScaleSelectedEditorObjectAlongAxis( gizmoContext, input.rayOrigin, input.rayDirection );
@@ -1317,47 +1301,43 @@ EditorGizmoDragPointerResult RuntimeTools::RouteEditorGizmoDragPointer( const Ed
 
     const PhysicsBodyStore& bodyStore = world.BodyStore();
     const ColliderStore& colliderStore = world.Colliders();
+
     if ( input.leftReleased && !input.suppressWorldAction && input.selectedModelIndex >= 0 &&
          input.selectedModelIndex < world.SceneEntityCount() )
     {
+
         if ( gesture.gizmoKind == RuntimeGizmoDragKind::Scale )
         {
             const int scaleAxis = gesture.axis;
             float scaleFactor = 1.0f;
             const PhysicsBodyRecord* selectedBody = nullptr;
             const ColliderRecord* selectedCollider = nullptr;
-            if ( TryResolveEditorBodyCollider( bodyStore,
-                                               colliderStore,
-                                               m_editor.selectedBody,
-                                               m_editor.selectedCollider,
-                                               input.selectedModelIndex,
-                                               selectedBody,
-                                               selectedCollider ) )
+
+            if ( TryResolveEditorBodyCollider( bodyStore, colliderStore, m_editor.selectedBody, m_editor.selectedCollider,
+                                               input.selectedModelIndex, selectedBody, selectedCollider ) )
             {
                 const uint32_t changedFlags = TryEditorScaleFactorFromShapes( m_editor.gizmoDragStartShape,
-                                                                              selectedCollider->shape,
-                                                                              scaleAxis,
+                                                                              selectedCollider->shape, scaleAxis,
                                                                               scaleFactor )
                                                   ? REPLAY_EDITOR_TRANSFORM_SCALE
                                                   : 0u;
 
-                RecordEditorTransformEventFromBodyStore( result.replayEvents,
-                                                         world,
-                                                         input.selectedModelIndex,
-                                                         changedFlags,
-                                                         scaleAxis,
-                                                         scaleFactor );
+                RecordEditorTransformEventFromBodyStore( result.replayEvents, world, input.selectedModelIndex, changedFlags,
+                                                         scaleAxis, scaleFactor );
             }
         }
         else
         {
             const int groupCount = ValidCapturedEditorGizmoGroupCount( m_editor, world.SceneEntityCount() );
+
             if ( groupCount > 0 )
             {
+
                 for ( int groupIndex = 0; groupIndex < groupCount; ++groupIndex )
                 {
                     const int modelIndex = m_editor.gizmoDragGroupIndices[static_cast<std::size_t>( groupIndex )];
                     const PhysicsBodyRecord* groupBody = TryResolveEditorBodyRecord( bodyStore, modelIndex );
+
                     if ( !groupBody )
                     {
                         continue;
@@ -1366,31 +1346,24 @@ EditorGizmoDragPointerResult RuntimeTools::RouteEditorGizmoDragPointer( const Ed
                     const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
                     const auto hotFields = bodyStore.HotFields();
                     uint32_t changedFlags = 0;
-                    changedFlags |= EditorPositionsDiffer(
-                                        PhysicsBodyPosition( hotFields, bodyIndex ),
-                                        m_editor.gizmoDragGroupStartPositions[static_cast<std::size_t>( groupIndex )] )
+                    changedFlags |= EditorPositionsDiffer( PhysicsBodyPosition( hotFields, bodyIndex ),
+                                                           m_editor.gizmoDragGroupStartPositions[static_cast<std::size_t>( groupIndex )] )
                                         ? REPLAY_EDITOR_TRANSFORM_TRANSLATE
                                         : 0u;
 
-                    changedFlags |= EditorOrientationsDiffer(
-                                        PhysicsBodyOrientation( hotFields, bodyIndex ),
-                                        m_editor
-                                            .gizmoDragGroupStartOrientations[static_cast<std::size_t>( groupIndex )] )
+                    changedFlags |= EditorOrientationsDiffer( PhysicsBodyOrientation( hotFields, bodyIndex ),
+                                                              m_editor
+                                                                  .gizmoDragGroupStartOrientations[static_cast<std::size_t>( groupIndex )] )
                                         ? REPLAY_EDITOR_TRANSFORM_ROTATE
                                         : 0u;
 
-                    RecordEditorTransformEventFromBodyStore( result.replayEvents,
-                                                             world,
-                                                             modelIndex,
-                                                             changedFlags,
-                                                             -1,
+                    RecordEditorTransformEventFromBodyStore( result.replayEvents, world, modelIndex, changedFlags, -1,
                                                              1.0f );
                 }
             }
             else
             {
-                const PhysicsBodyRecord* selectedBody = TryResolveEditorBodyRecord( bodyStore,
-                                                                                    m_editor.selectedBody,
+                const PhysicsBodyRecord* selectedBody = TryResolveEditorBodyRecord( bodyStore, m_editor.selectedBody,
                                                                                     input.selectedModelIndex );
 
                 if ( selectedBody )
@@ -1406,12 +1379,8 @@ EditorGizmoDragPointerResult RuntimeTools::RouteEditorGizmoDragPointer( const Ed
                                                               m_editor.gizmoDragStartOrientation )
                                         ? REPLAY_EDITOR_TRANSFORM_ROTATE
                                         : 0u;
-                    RecordEditorTransformEventFromBodyStore( result.replayEvents,
-                                                             world,
-                                                             input.selectedModelIndex,
-                                                             changedFlags,
-                                                             -1,
-                                                             1.0f );
+                    RecordEditorTransformEventFromBodyStore( result.replayEvents, world, input.selectedModelIndex,
+                                                             changedFlags, -1, 1.0f );
                 }
             }
         }
@@ -1428,17 +1397,10 @@ EditorGizmoDragPointerResult RuntimeTools::RouteEditorGizmoDragPointer( const Ed
 }
 
 
-bool RuntimeTools::PrepareEditorGizmoGesture( bool inspectGizmoActive,
-                                              bool scaleMode,
-                                              int selectedModelIndex,
-                                              bool hasWorldRay,
-                                              const Vector3& rayOrigin,
-                                              const Vector3& rayDirection,
-                                              int clientX,
-                                              int clientY,
-                                              SceneWorld& world,
-                                              RuntimeInteractionController& interaction,
-                                              EditorGizmoGesturePlan& outPlan )
+bool RuntimeTools::PrepareEditorGizmoGesture( bool inspectGizmoActive, bool scaleMode, int selectedModelIndex,
+                                              bool hasWorldRay, const Vector3& rayOrigin, const Vector3& rayDirection,
+                                              int clientX, int clientY, SceneWorld& world,
+                                              RuntimeInteractionController& interaction, EditorGizmoGesturePlan& outPlan )
 {
     outPlan = EditorGizmoGesturePlan {};
     const bool transformActive = ( m_editor.editorModeEnabled || inspectGizmoActive ) && !m_editor.placementModeEnabled;
@@ -1462,6 +1424,7 @@ bool RuntimeTools::PrepareEditorGizmoGesture( bool inspectGizmoActive,
 
     if ( scaleMode )
     {
+
         if ( selectedModelIndex >= world.SceneEntityCount() || m_editor.hotGizmoAxis < 0 )
         {
             return false;
@@ -1470,18 +1433,10 @@ bool RuntimeTools::PrepareEditorGizmoGesture( bool inspectGizmoActive,
         const PhysicsBodyRecord* selectedBody = nullptr;
         const ColliderRecord* selectedCollider = nullptr;
         float axisParameter = 0.0f;
-        if ( !TryEditorAxisRayParameter( gizmoContext,
-                                         m_editor.hotGizmoAxis,
-                                         rayOrigin,
-                                         rayDirection,
-                                         axisParameter ) ||
-             !TryResolveEditorBodyCollider( bodyStore,
-                                            colliderStore,
-                                            m_editor.selectedBody,
-                                            m_editor.selectedCollider,
-                                            selectedModelIndex,
-                                            selectedBody,
-                                            selectedCollider ) )
+
+        if ( !TryEditorAxisRayParameter( gizmoContext, m_editor.hotGizmoAxis, rayOrigin, rayDirection, axisParameter ) ||
+             !TryResolveEditorBodyCollider( bodyStore, colliderStore, m_editor.selectedBody, m_editor.selectedCollider,
+                                            selectedModelIndex, selectedBody, selectedCollider ) )
         {
             return false;
         }
@@ -1500,20 +1455,16 @@ bool RuntimeTools::PrepareEditorGizmoGesture( bool inspectGizmoActive,
     if ( m_editor.hotRotationAxis >= 0 )
     {
         float startAngle = 0.0f;
-        const PhysicsBodyRecord* selectedBody = TryResolveEditorBodyRecord( bodyStore,
-                                                                            m_editor.selectedBody,
+        const PhysicsBodyRecord* selectedBody = TryResolveEditorBodyRecord( bodyStore, m_editor.selectedBody,
                                                                             selectedModelIndex );
 
         Vector3 selectionOrigin;
         float selectionRadius = 1.0f;
+
         if ( TryEditorRotationRayAngle( gizmoContext, m_editor.hotRotationAxis, rayOrigin, rayDirection, startAngle ) &&
              selectedBody &&
-             TryGetEditorSelectionFrame( world,
-                                         m_editor.selectedBody,
-                                         m_editor.selectedCollider,
-                                         selectedModelIndex,
-                                         selectionOrigin,
-                                         selectionRadius ) )
+             TryGetEditorSelectionFrame( world, m_editor.selectedBody, m_editor.selectedCollider, selectedModelIndex,
+                                         selectionOrigin, selectionRadius ) )
         {
             outPlan.kind = EditorGizmoGestureKind::Rotate;
             outPlan.axis = m_editor.hotRotationAxis;
@@ -1531,29 +1482,22 @@ bool RuntimeTools::PrepareEditorGizmoGesture( bool inspectGizmoActive,
         return false;
     }
 
-    const PhysicsBodyRecord* selectedBody = TryResolveEditorBodyRecord( bodyStore,
-                                                                        m_editor.selectedBody,
+    const PhysicsBodyRecord* selectedBody = TryResolveEditorBodyRecord( bodyStore, m_editor.selectedBody,
                                                                         selectedModelIndex );
 
     Vector3 selectionOrigin;
     float selectionRadius = 1.0f;
-    if ( !selectedBody || !TryGetEditorSelectionFrame( world,
-                                                       m_editor.selectedBody,
-                                                       m_editor.selectedCollider,
-                                                       selectedModelIndex,
-                                                       selectionOrigin,
-                                                       selectionRadius ) )
+
+    if ( !selectedBody || !TryGetEditorSelectionFrame( world, m_editor.selectedBody, m_editor.selectedCollider,
+                                                       selectedModelIndex, selectionOrigin, selectionRadius ) )
     {
         return false;
     }
 
     const Vector3 planeNormal = EditorAxisDragPlaneNormal( m_editor.hotGizmoAxis, rayDirection );
     float axisParameter = 0.0f;
-    if ( !TryEditorAxisPlaneRayParameter( m_editor.hotGizmoAxis,
-                                          selectionOrigin,
-                                          planeNormal,
-                                          rayOrigin,
-                                          rayDirection,
+
+    if ( !TryEditorAxisPlaneRayParameter( m_editor.hotGizmoAxis, selectionOrigin, planeNormal, rayOrigin, rayDirection,
                                           axisParameter ) )
     {
         return false;
@@ -1571,11 +1515,11 @@ bool RuntimeTools::PrepareEditorGizmoGesture( bool inspectGizmoActive,
 }
 
 
-EditorGizmoGestureResult RuntimeTools::CommitEditorGizmoGesture( const EditorGizmoGesturePlan& plan,
-                                                                 SceneWorld& world,
+EditorGizmoGestureResult RuntimeTools::CommitEditorGizmoGesture( const EditorGizmoGesturePlan& plan, SceneWorld& world,
                                                                  RuntimeInteractionController& interaction )
 {
     EditorGizmoGestureResult result;
+
     if ( plan.kind == EditorGizmoGestureKind::None )
     {
         return result;
@@ -1583,29 +1527,25 @@ EditorGizmoGestureResult RuntimeTools::CommitEditorGizmoGesture( const EditorGiz
 
     EditorGizmoContext gizmoContext { m_editor, world, interaction };
     result.attempted = true;
-    const RuntimeGizmoDragKind gizmoKind = plan.kind == EditorGizmoGestureKind::Rotate ? RuntimeGizmoDragKind::Rotate
-                                           : plan.kind == EditorGizmoGestureKind::Scale
-                                               ? RuntimeGizmoDragKind::Scale
-                                               : RuntimeGizmoDragKind::Translate;
+    const RuntimeGizmoDragKind gizmoKind = plan.kind == EditorGizmoGestureKind::Rotate  ? RuntimeGizmoDragKind::Rotate
+                                           : plan.kind == EditorGizmoGestureKind::Scale ? RuntimeGizmoDragKind::Scale
+                                                                                        : RuntimeGizmoDragKind::Translate;
 
     const int selectedModelIndex = world.BodyStore().ModelIndexForHandle( plan.selectedBody );
+
     if ( selectedModelIndex < 0 )
     {
         return result;
     }
 
-    if ( !BeginEditorGizmoDragGesture( gizmoContext,
-                                       selectedModelIndex,
-                                       plan.axis,
-                                       gizmoKind,
-                                       plan.clientX,
-                                       plan.clientY ) )
+    if ( !BeginEditorGizmoDragGesture( gizmoContext, selectedModelIndex, plan.axis, gizmoKind, plan.clientX, plan.clientY ) )
     {
         return result;
     }
 
     m_editor.gizmoDragStartPosition = plan.startPosition;
     m_editor.gizmoDragStartOrientation = plan.startOrientation;
+
     if ( gizmoKind == RuntimeGizmoDragKind::Rotate )
     {
         m_editor.gizmoDragStartRotationAngle = plan.axisParameter;
@@ -1631,20 +1571,20 @@ EditorGizmoGestureResult RuntimeTools::CommitEditorGizmoGesture( const EditorGiz
 }
 
 
-EditorPlacementScaleStartResult
-RuntimeTools::BeginEditorPlacementScalePointer( bool inspectGizmoActive,
-                                                bool hasClientPosition,
-                                                int clientX,
-                                                int clientY,
-                                                RuntimeInteractionController& interaction )
+EditorPlacementScaleStartResult RuntimeTools::BeginEditorPlacementScalePointer( bool inspectGizmoActive,
+                                                                                bool hasClientPosition, int clientX,
+                                                                                int clientY,
+                                                                                RuntimeInteractionController& interaction )
 {
     EditorPlacementScaleStartResult result;
+
     if ( !( m_editor.editorModeEnabled || inspectGizmoActive ) || !m_editor.placementModeEnabled )
     {
         return result;
     }
 
     result.consumed = true;
+
     if ( !m_editor.placementPreviewVisible || !hasClientPosition )
     {
         return result;
@@ -1658,6 +1598,7 @@ RuntimeTools::BeginEditorPlacementScalePointer( bool inspectGizmoActive,
     RuntimeGestureCommand command;
     command.gesture = gesture;
     RuntimeGestureEvent event;
+
     if ( !interaction.ApplyGestureCommand( command, event ) )
     {
         return result;
@@ -1674,23 +1615,18 @@ RuntimeTools::BeginEditorPlacementScalePointer( bool inspectGizmoActive,
 }
 
 
-EditorPointerRouteResult InputRouter::RouteEditorPointer( const RuntimePointerEvent& pointer,
-                                                          bool hasWorldRay,
-                                                          const Vector3& rayOrigin,
-                                                          const Vector3& rayDirection,
-                                                          RunCameraMode cameraMode,
-                                                          bool replayInspectionActive,
-                                                          int activeModelCapacity,
-                                                          Assets::AssetSystem& assets,
-                                                          RuntimeTools& runtimeTools,
-                                                          RuntimeInteractionController& interaction,
-                                                          SceneController& models )
+EditorPointerRouteResult
+InputRouter::RouteEditorPointer( const RuntimePointerEvent& pointer, bool hasWorldRay, const Vector3& rayOrigin,
+                                 const Vector3& rayDirection, RunCameraMode cameraMode, bool replayInspectionActive,
+                                 int activeModelCapacity, Assets::AssetSystem& assets, RuntimeTools& runtimeTools,
+                                 RuntimeInteractionController& interaction, SceneController& models )
 {
     SceneWorld& sceneWorld = models.Scene();
     SceneSessionState& scene = models.State();
     EditorPointerRouteResult routeResult;
     auto appendModeAction = [&routeResult]( RuntimeInputAction action )
     {
+
         if ( routeResult.modeActionCount >= routeResult.modeActions.size() )
         {
             SB_FATAL( "Runtime/InputRouter", "Editor pointer mode-action capacity exhausted." );
@@ -1701,8 +1637,10 @@ EditorPointerRouteResult InputRouter::RouteEditorPointer( const RuntimePointerEv
 
     const auto publishInteractionTransition = [&routeResult]( const RuntimeInteractionTransition& transition )
     {
+
         // Invariant: one pointer route can begin at most one editor claim. The
         // composition shell must clean it before routing another world owner.
+
         if ( routeResult.hasInteractionTransition )
         {
             SB_FATAL( "Runtime/InputRouter", "Editor pointer emitted multiple interaction transitions." );
@@ -1713,11 +1651,11 @@ EditorPointerRouteResult InputRouter::RouteEditorPointer( const RuntimePointerEv
     };
 
     const PhysicsBodyStore& editorBodyStore = sceneWorld.BodyStore();
+
     // Invariant: preview refresh precedes active placement/gizmo teardown;
     // only an unconsumed press may begin a gizmo or scale gesture, and
     // selection is the final editor fallback.
-    const bool previewInspectGizmoActive = runtimeTools.InspectGizmoInteractionActive( cameraMode,
-                                                                                       replayInspectionActive );
+    const bool previewInspectGizmoActive = runtimeTools.InspectGizmoInteractionActive( cameraMode, replayInspectionActive );
 
     const bool previewCanUseMouseRay = !pointer.uiBlocksCameraMouse && !runtimeTools.Editor().viewportLookActive &&
                                        ( runtimeTools.Editor().editorModeEnabled || previewInspectGizmoActive );
@@ -1727,38 +1665,28 @@ EditorPointerRouteResult InputRouter::RouteEditorPointer( const RuntimePointerEv
                                           runtimeTools.Editor().placementModeEnabled &&
                                           interaction.Gesture().kind !=
                                               RuntimeInteractionGestureKind::EditorPlacementScaleDrag ) ||
-                                        ( ResolveSelectedEditorModelIndex( runtimeTools.Editor(), editorBodyStore ) >=
-                                              0 &&
+                                        ( ResolveSelectedEditorModelIndex( runtimeTools.Editor(), editorBodyStore ) >= 0 &&
                                           interaction.Gesture().kind != RuntimeInteractionGestureKind::GizmoDrag &&
                                           !runtimeTools.Editor().placementModeEnabled ) );
 
     const bool hasPreviewMouseRay = previewNeedsMouseRay && hasWorldRay;
     const int selectedModelIndex = runtimeTools.RefreshEditorPointerPreview( { pointer.uiBlocksCameraMouse,
-                                                                               previewInspectGizmoActive,
-                                                                               hasPreviewMouseRay,
-                                                                               pointer.controlDown,
-                                                                               rayOrigin,
+                                                                               previewInspectGizmoActive, hasPreviewMouseRay,
+                                                                               pointer.controlDown, rayOrigin,
                                                                                rayDirection },
-                                                                             sceneWorld,
-                                                                             interaction,
-                                                                             assets );
+                                                                             sceneWorld, interaction, assets );
 
     const bool leftMouseNow = pointer.leftDown;
     const bool leftPressed = pointer.leftPressed;
     const bool leftReleased = pointer.leftReleased;
     bool consumedWorldClick = false;
 
-    const EditorPlacementScalePointerResult placementScaleResult = runtimeTools.RouteEditorPlacementScalePointer(
-        leftReleased,
-        pointer.suppressWorldAction,
-        sceneWorld,
-        scene,
-        assets,
-        activeModelCapacity,
-        interaction );
+    const EditorPlacementScalePointerResult
+        placementScaleResult = runtimeTools.RouteEditorPlacementScalePointer( leftReleased, pointer.suppressWorldAction,
+                                                                              sceneWorld, scene, assets, activeModelCapacity,
+                                                                              interaction );
 
-    if ( placementScaleResult.recordReplayEvent &&
-         !routeResult.replayEvents.Append( placementScaleResult.replayEvent ) )
+    if ( placementScaleResult.recordReplayEvent && !routeResult.replayEvents.Append( placementScaleResult.replayEvent ) )
     {
         SB_FATAL( "Runtime/InputRouter", "Replay editor-event batch capacity exhausted." );
     }
@@ -1778,24 +1706,20 @@ EditorPointerRouteResult InputRouter::RouteEditorPointer( const RuntimePointerEv
 
     Vector3 dragRayOrigin = SkullbonezCore::Math::Vector::ZERO_VECTOR;
     Vector3 dragRayDirection = SkullbonezCore::Math::Vector::ZERO_VECTOR;
-    const bool hasDragWorldRay = interaction.Gesture().kind == RuntimeInteractionGestureKind::GizmoDrag &&
-                                 leftMouseNow && !pointer.suppressWorldAction && hasWorldRay;
+    const bool hasDragWorldRay = interaction.Gesture().kind == RuntimeInteractionGestureKind::GizmoDrag && leftMouseNow &&
+                                 !pointer.suppressWorldAction && hasWorldRay;
 
     dragRayOrigin = rayOrigin;
     dragRayDirection = rayDirection;
-    const EditorGizmoDragPointerResult gizmoDragResult = runtimeTools.RouteEditorGizmoDragPointer(
-        { leftMouseNow,
-          leftReleased,
-          pointer.suppressWorldAction,
-          hasDragWorldRay,
-          selectedModelIndex,
-          dragRayOrigin,
-          dragRayDirection },
-        sceneWorld,
-        interaction );
+    const EditorGizmoDragPointerResult
+        gizmoDragResult = runtimeTools.RouteEditorGizmoDragPointer( { leftMouseNow, leftReleased,
+                                                                      pointer.suppressWorldAction, hasDragWorldRay,
+                                                                      selectedModelIndex, dragRayOrigin, dragRayDirection },
+                                                                    sceneWorld, interaction );
 
     for ( std::size_t replayEventIndex = 0; replayEventIndex < gizmoDragResult.replayEvents.count; ++replayEventIndex )
     {
+
         if ( !routeResult.replayEvents.Append( gizmoDragResult.replayEvents.commands[replayEventIndex] ) )
         {
             SB_FATAL( "Runtime/InputRouter", "Replay editor-event batch capacity exhausted." );
@@ -1812,30 +1736,19 @@ EditorPointerRouteResult InputRouter::RouteEditorPointer( const RuntimePointerEv
 
     if ( !consumedWorldClick && leftPressed && !pointer.suppressWorldAction )
     {
-        const bool inspectGizmoActive = runtimeTools.InspectGizmoInteractionActive( cameraMode,
-                                                                                    replayInspectionActive );
+        const bool inspectGizmoActive = runtimeTools.InspectGizmoInteractionActive( cameraMode, replayInspectionActive );
 
         EditorGizmoGesturePlan gesturePlan;
-        if ( runtimeTools.PrepareEditorGizmoGesture( inspectGizmoActive,
-                                                     pointer.controlDown,
-                                                     selectedModelIndex,
-                                                     hasWorldRay,
-                                                     rayOrigin,
-                                                     rayDirection,
-                                                     pointer.clientX,
-                                                     pointer.clientY,
-                                                     sceneWorld,
-                                                     interaction,
-                                                     gesturePlan ) )
+
+        if ( runtimeTools.PrepareEditorGizmoGesture( inspectGizmoActive, pointer.controlDown, selectedModelIndex,
+                                                     hasWorldRay, rayOrigin, rayDirection, pointer.clientX, pointer.clientY,
+                                                     sceneWorld, interaction, gesturePlan ) )
         {
             routeResult.enteredInteractiveScene = true;
-            publishInteractionTransition(
-                interaction.SetWorldInteractionOwnerInWorkspace( interaction.WorkspaceForOwner( gesturePlan.owner ),
-                                                                 gesturePlan.owner,
-                                                                 gesturePlan.reason ) );
+            publishInteractionTransition( interaction.SetWorldInteractionOwnerInWorkspace( interaction.WorkspaceForOwner( gesturePlan.owner ),
+                                                                                           gesturePlan.owner, gesturePlan.reason ) );
 
-            const EditorGizmoGestureResult gestureResult = runtimeTools.CommitEditorGizmoGesture( gesturePlan,
-                                                                                                  sceneWorld,
+            const EditorGizmoGestureResult gestureResult = runtimeTools.CommitEditorGizmoGesture( gesturePlan, sceneWorld,
                                                                                                   interaction );
 
             if ( gestureResult.attempted && !gestureResult.consumed )
@@ -1845,6 +1758,7 @@ EditorPointerRouteResult InputRouter::RouteEditorPointer( const RuntimePointerEv
             }
 
             consumedWorldClick = gestureResult.consumed;
+
             if ( gestureResult.consumed )
             {
                 RequestNativeCapture();
@@ -1866,14 +1780,13 @@ EditorPointerRouteResult InputRouter::RouteEditorPointer( const RuntimePointerEv
 
         if ( !consumedWorldClick && ( runtimeTools.Editor().editorModeEnabled || inspectGizmoActive ) )
         {
-            const EditorPlacementScaleStartResult placementStart = runtimeTools.BeginEditorPlacementScalePointer(
-                inspectGizmoActive,
-                pointer.hasClientPosition,
-                pointer.clientX,
-                pointer.clientY,
-                interaction );
+            const EditorPlacementScaleStartResult
+                placementStart = runtimeTools.BeginEditorPlacementScalePointer( inspectGizmoActive,
+                                                                                pointer.hasClientPosition, pointer.clientX,
+                                                                                pointer.clientY, interaction );
 
             consumedWorldClick = placementStart.consumed;
+
             if ( placementStart.beganGesture )
             {
                 RequestNativeCapture();
@@ -1885,17 +1798,13 @@ EditorPointerRouteResult InputRouter::RouteEditorPointer( const RuntimePointerEv
                 RuntimeInteractionSelectionPlan plan;
                 WorldInteractionOwner selectionOwner = WorldInteractionOwner::None;
                 InteractionExitReason selectionReason = InteractionExitReason::EnterEdit;
-                if ( runtimeTools.PrepareEditorPointerSelection(
-                         { inspectGizmoActive, hasWorldRay, rayOrigin, rayDirection },
-                         sceneWorld,
-                         plan,
-                         selectionOwner,
-                         selectionReason ) )
+
+                if ( runtimeTools.PrepareEditorPointerSelection( { inspectGizmoActive, hasWorldRay, rayOrigin,
+                                                                   rayDirection },
+                                                                 sceneWorld, plan, selectionOwner, selectionReason ) )
                 {
-                    publishInteractionTransition( interaction.SetWorldInteractionOwnerInWorkspace(
-                        interaction.WorkspaceForOwner( selectionOwner ),
-                        selectionOwner,
-                        selectionReason ) );
+                    publishInteractionTransition( interaction.SetWorldInteractionOwnerInWorkspace( interaction.WorkspaceForOwner( selectionOwner ),
+                                                                                                   selectionOwner, selectionReason ) );
 
                     RuntimeInteractionEvent event;
                     consumedWorldClick = runtimeTools.CommitSelectionCommand( plan, event );
@@ -1909,38 +1818,30 @@ EditorPointerRouteResult InputRouter::RouteEditorPointer( const RuntimePointerEv
 }
 
 
-bool InputRouter::TryBuildWorldRay( const Environment::CameraCollection& cameras,
-                                    const Window& window,
-                                    Vector3& outOrigin,
-                                    Vector3& outDirection,
-                                    bool clampToViewport ) const
+bool InputRouter::TryBuildWorldRay( const Environment::CameraCollection& cameras, const Window& window, Vector3& outOrigin,
+                                    Vector3& outDirection, bool clampToViewport ) const
 {
     const DeviceInputFrame& deviceFrame = DeviceFrame();
+
     if ( !deviceFrame.hasClientPosition )
     {
         return false;
     }
 
-    return TryBuildWorldRayAt( POINT { deviceFrame.clientX, deviceFrame.clientY },
-                               cameras,
-                               window,
-                               outOrigin,
-                               outDirection,
+    return TryBuildWorldRayAt( POINT { deviceFrame.clientX, deviceFrame.clientY }, cameras, window, outOrigin, outDirection,
                                clampToViewport );
 }
 
 
-bool InputRouter::TryBuildWorldRayAt( POINT mouse,
-                                      const Environment::CameraCollection& cameras,
-                                      const Window& window,
-                                      Vector3& outOrigin,
-                                      Vector3& outDirection,
-                                      bool clampToViewport ) const
+bool InputRouter::TryBuildWorldRayAt( POINT mouse, const Environment::CameraCollection& cameras, const Window& window,
+                                      Vector3& outOrigin, Vector3& outDirection, bool clampToViewport ) const
 {
     const int screenW = (std::max)( 1, window.ClientWidth() );
     const int screenH = (std::max)( 1, window.ClientHeight() );
+
     if ( clampToViewport )
     {
+
         // Invariant: Captured tool drags keep receiving mouse positions after
         // the cursor leaves the client area. Clamp those positions to the
         // nearest viewport edge so drag math remains continuous instead of
@@ -1965,6 +1866,7 @@ bool InputRouter::TryBuildWorldRayAt( POINT mouse,
 
     Vector3 rayNear;
     Vector3 rayFar;
+
     if ( !TransformClipPointToWorld( inverseViewProjection, ndcX, ndcY, 0.0f, rayNear ) ||
          !TransformClipPointToWorld( inverseViewProjection, ndcX, ndcY, 1.0f, rayFar ) )
     {
@@ -1973,6 +1875,7 @@ bool InputRouter::TryBuildWorldRayAt( POINT mouse,
 
     Vector3 rayDirection = rayFar - rayNear;
     const float dirLenSq = VectorMagSquared( rayDirection );
+
     if ( dirLenSq <= TOLERANCE * TOLERANCE )
     {
         return false;
@@ -1990,11 +1893,10 @@ namespace Runtime
 {
 namespace RunInternal
 {
-bool TryGetEditorTerrainPlacement( Geometry::Terrain* terrain,
-                                   const Vector3& rayOrigin,
-                                   const Vector3& rayDirection,
+bool TryGetEditorTerrainPlacement( Geometry::Terrain* terrain, const Vector3& rayOrigin, const Vector3& rayDirection,
                                    EditorTerrainPlacement& outPlacement )
 {
+
     if ( !terrain )
     {
         return false;
@@ -2002,6 +1904,7 @@ bool TryGetEditorTerrainPlacement( Geometry::Terrain* terrain,
 
     outPlacement.rayOrigin = rayOrigin;
     outPlacement.rayDirection = rayDirection;
+
     // Concept: Terrain picking samples along the ray until it crosses from
     // above terrain to below terrain, then bisects the last interval for a
     // stable placement point without depending on renderer picking.
@@ -2015,6 +1918,7 @@ bool TryGetEditorTerrainPlacement( Geometry::Terrain* terrain,
     {
         const float t = MAX_RAY_DISTANCE * static_cast<float>( step ) / static_cast<float>( RAY_STEPS );
         const Vector3 sample = rayOrigin + rayDirection * t;
+
         if ( !terrain->IsInBounds( sample.x, sample.z ) )
         {
             continue;
@@ -2022,6 +1926,7 @@ bool TryGetEditorTerrainPlacement( Geometry::Terrain* terrain,
 
         const float terrainY = terrain->GetTerrainHeightAt( sample.x, sample.z );
         const float diff = sample.y - terrainY;
+
         if ( fabsf( diff ) <= 0.01f )
         {
             outPlacement.position = Vector3( sample.x, terrainY, sample.z );
@@ -2034,10 +1939,12 @@ bool TryGetEditorTerrainPlacement( Geometry::Terrain* terrain,
             float highT = t;
             Vector3 hit = sample;
             float hitY = terrainY;
+
             for ( int refine = 0; refine < 12; ++refine )
             {
                 const float midT = ( lowT + highT ) * 0.5f;
                 const Vector3 mid = rayOrigin + rayDirection * midT;
+
                 if ( !terrain->IsInBounds( mid.x, mid.z ) )
                 {
                     lowT = midT;
@@ -2048,6 +1955,7 @@ bool TryGetEditorTerrainPlacement( Geometry::Terrain* terrain,
                 const float midDiff = mid.y - midTerrainY;
                 hit = mid;
                 hitY = midTerrainY;
+
                 if ( midDiff > 0.0f )
                 {
                     lowT = midT;
@@ -2071,17 +1979,14 @@ bool TryGetEditorTerrainPlacement( Geometry::Terrain* terrain,
 }
 
 
-bool TryComputeEditorObjectCenter( int objectType,
-                                   const Vector3& terrainPoint,
-                                   const Vector3& placementScale,
-                                   const Quaternion& orientation,
-                                   const Assets::AssetSystem& assets,
-                                   Vector3& outCenter )
+bool TryComputeEditorObjectCenter( int objectType, const Vector3& terrainPoint, const Vector3& placementScale,
+                                   const Quaternion& orientation, const Assets::AssetSystem& assets, Vector3& outCenter )
 {
     const int type = std::clamp( objectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
     const Vector3 scale = EditorClampPlacementScale( type, placementScale );
     Quaternion orientationCopy = orientation;
     const RotationMatrix rotation = orientationCopy.GetOrientationMatrix();
+
     switch ( type )
     {
     case UI::EditorTab::OBJECT_BOX:
@@ -2089,9 +1994,7 @@ bool TryComputeEditorObjectCenter( int objectType,
         return true;
     case UI::EditorTab::OBJECT_BALL:
     case UI::EditorTab::OBJECT_SPHERE:
-        outCenter = Vector3( terrainPoint.x,
-                             terrainPoint.y + scale.x + EDITOR_PLACEMENT_SURFACE_EPSILON,
-                             terrainPoint.z );
+        outCenter = Vector3( terrainPoint.x, terrainPoint.y + scale.x + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
 
         return true;
     case UI::EditorTab::OBJECT_RAGDOLL:
@@ -2115,6 +2018,7 @@ bool TryComputeEditorObjectCenter( int objectType,
         const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type );
         Vector3 minV;
         Vector3 maxV;
+
         if ( !tree || !TryComputeEditorTreeWorldBounds( *tree, terrainPoint, rotation, minV, maxV ) )
         {
             return false;
@@ -2133,6 +2037,7 @@ bool TryComputeEditorObjectCenter( int objectType,
     {
         Vector3 minV;
         Vector3 maxV;
+
         if ( !TryComputeEditorBuildingWorldBounds( type, terrainPoint, orientation, assets, minV, maxV ) )
         {
             return false;
@@ -2144,6 +2049,7 @@ bool TryComputeEditorObjectCenter( int objectType,
     default:
     {
         ConvexHullShape hull;
+
         if ( !TryBuildScaledEditorHullForType( type, scale, hull ) )
         {
             return false;
@@ -2161,13 +2067,13 @@ bool TryComputeEditorObjectCenter( int objectType,
 }
 
 
-bool TryUpdateEditorPlacementPreview( EditorPlacementPreviewContext context,
-                                      int objectType,
+bool TryUpdateEditorPlacementPreview( EditorPlacementPreviewContext context, int objectType,
                                       const EditorTerrainPlacement* mousePlacement )
 {
     Vector3 terrainPoint;
     Vector3 rayOrigin;
     bool terrainAlreadyIncludesAltitude = false;
+
     if ( context.scaleGestureActive )
     {
         terrainPoint = context.editor.placementScaleTerrainPoint;
@@ -2176,6 +2082,7 @@ bool TryUpdateEditorPlacementPreview( EditorPlacementPreviewContext context,
     }
     else
     {
+
         if ( !mousePlacement )
         {
             return false;
@@ -2188,6 +2095,7 @@ bool TryUpdateEditorPlacementPreview( EditorPlacementPreviewContext context,
         {
             const float snappedX = roundf( terrainPoint.x / EDITOR_PLACEMENT_SNAP ) * EDITOR_PLACEMENT_SNAP;
             const float snappedZ = roundf( terrainPoint.z / EDITOR_PLACEMENT_SNAP ) * EDITOR_PLACEMENT_SNAP;
+
             if ( context.terrain->IsInBounds( snappedX, snappedZ ) )
             {
                 terrainPoint.x = snappedX;
@@ -2199,6 +2107,7 @@ bool TryUpdateEditorPlacementPreview( EditorPlacementPreviewContext context,
 
     if ( !terrainAlreadyIncludesAltitude )
     {
+
         // Invariant: Placement altitude is applied before normal/orientation
         // lookup so preview and commit agree about the authored terrain point.
         terrainPoint.y += static_cast<float>( context.editor.placementAltitudeSteps ) *
@@ -2206,24 +2115,21 @@ bool TryUpdateEditorPlacementPreview( EditorPlacementPreviewContext context,
     }
 
     Vector3 terrainNormal( 0.0f, 1.0f, 0.0f );
+
     if ( context.terrain && context.terrain->IsInBounds( terrainPoint.x, terrainPoint.z ) )
     {
         float ignoredHeight = 0.0f;
         context.terrain->GetTerrainHeightAndNormalAt( terrainPoint.x, terrainPoint.z, ignoredHeight, terrainNormal );
     }
 
-    const Quaternion placementOrientation = EditorPlacementOrientation( objectType,
-                                                                        terrainNormal,
+    const Quaternion placementOrientation = EditorPlacementOrientation( objectType, terrainNormal,
                                                                         context.editor.autoTerrainAlign,
                                                                         context.editor.placementYawRadians );
 
     Vector3 center;
-    if ( !TryComputeEditorObjectCenter( objectType,
-                                        terrainPoint,
-                                        context.editor.placementScale,
-                                        placementOrientation,
-                                        context.assets,
-                                        center ) )
+
+    if ( !TryComputeEditorObjectCenter( objectType, terrainPoint, context.editor.placementScale, placementOrientation,
+                                        context.assets, center ) )
     {
         return false;
     }

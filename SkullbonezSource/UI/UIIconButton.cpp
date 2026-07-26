@@ -50,25 +50,13 @@ void UIIconButton::DrawExpander( const UIDrawContext& draw, bool expanded ) cons
 
     const float cx = m_bounds.x + m_bounds.w * 0.5f;
     const float cy = m_bounds.y + m_bounds.h * 0.5f;
-    draw.Rect( cx - 4.0f,
-               cy - 1.0f,
-               8.0f,
-               2.0f,
-               palette.textSecondary.r,
-               palette.textSecondary.g,
-               palette.textSecondary.b,
+    draw.Rect( cx - 4.0f, cy - 1.0f, 8.0f, 2.0f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
                0.96f );
 
     if ( !expanded )
     {
-        draw.Rect( cx - 1.0f,
-                   cy - 4.0f,
-                   2.0f,
-                   8.0f,
-                   palette.textSecondary.r,
-                   palette.textSecondary.g,
-                   palette.textSecondary.b,
-                   0.96f );
+        draw.Rect( cx - 1.0f, cy - 4.0f, 2.0f, 8.0f, palette.textSecondary.r, palette.textSecondary.g,
+                   palette.textSecondary.b, 0.96f );
     }
 }
 

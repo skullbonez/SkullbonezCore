@@ -37,9 +37,11 @@ class RenderGraph;
 class RenderPipeline
 {
   public:
+
     // Formats the supplied live schedule and value-only callback outcomes; it
     // never creates or mutates graph declarations.
     static std::string BuildExecutedFrameGraphText( const RenderGraph& graph, const RenderSceneSnapshot& snapshot );
+
     // Writes diagnostics only when either schedule shape or outcomes change.
     // The graph borrow is consumed synchronously during this call.
     static void DumpExecutedFrameGraphIfChanged( const RenderGraph& graph, const RenderSceneSnapshot& snapshot );

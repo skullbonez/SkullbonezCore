@@ -43,6 +43,7 @@ using namespace SkullbonezCore::Physics;
 void SleepIslandSystem::PropagateSupport( SleepSupportPropagationContext& context,
                                           const PhysicsBodyHotFieldsConstView& hotFields )
 {
+
     // Concept: support propagates upward through a stack.
     //
     // If object B is resting on object A, and A is fixed/asleep/supported, then
@@ -54,6 +55,7 @@ void SleepIslandSystem::PropagateSupport( SleepSupportPropagationContext& contex
     auto& m_sleepSupportedThisFrame = context.sleepSupportedThisFrame;
 
     const int modelCount = static_cast<int>( hotFields.fixed.size() );
+
     if ( modelCount <= 0 || m_sleepSupportEdges.empty() )
     {
         return;
@@ -61,21 +63,25 @@ void SleepIslandSystem::PropagateSupport( SleepSupportPropagationContext& contex
 
     for ( int pass = 0; pass < modelCount; ++pass )
     {
+
         // This is a bounded fixed-point solve over support edges. At most
         // modelCount passes are needed because each successful pass marks at
         // least one additional body supported; early exit keeps the normal case
         // cheap.
         bool changed = false;
+
         for ( const auto& edge : m_sleepSupportEdges )
         {
             const int supporter = edge.first;
             const int supported = edge.second;
+
             if ( supporter < 0 || supporter >= modelCount || supported < 0 || supported >= modelCount )
             {
                 continue;
             }
 
             bool supporterHasSupport = m_sleepSupportedThisFrame[supporter] != 0;
+
             if ( !supporterHasSupport && hotFields.fixed[static_cast<std::size_t>( supporter )] != 0u )
             {
                 supporterHasSupport = true;

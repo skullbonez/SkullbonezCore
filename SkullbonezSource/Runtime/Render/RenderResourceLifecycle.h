@@ -47,8 +47,7 @@ namespace Runtime
 class RenderResourceLifecycle
 {
   public:
-    RenderResourceLifecycle( RuntimeRenderBackendView backend,
-                             const RenderWorldView& world,
+    RenderResourceLifecycle( RuntimeRenderBackendView backend, const RenderWorldView& world,
                              const SceneSessionState& scene );
     ~RenderResourceLifecycle();
 
@@ -58,12 +57,8 @@ class RenderResourceLifecycle
     RuntimeRenderTargetPreviewSnapshot BuildRenderTargetPreviewSnapshot( bool shadowsAvailable,
                                                                          bool cinematicTargetsAvailable,
                                                                          bool volumetricAvailable ) const;
-    bool ShouldRenderUiText( const OverlayDebugState& debug,
-                             const SceneSessionState& scene,
-                             bool crossScenePauseLocked,
-                             const CameraControlState& camera,
-                             const UI::InGameUI& ui,
-                             bool replayScrubberVisible,
+    bool ShouldRenderUiText( const OverlayDebugState& debug, const SceneSessionState& scene, bool crossScenePauseLocked,
+                             const CameraControlState& camera, const UI::InGameUI& ui, bool replayScrubberVisible,
                              bool replayPathVisualizerHasTarget ) const;
     void SetUiTextRayTracingCapability( Rendering::Dx12RaytracingOwner* rayTracing );
 

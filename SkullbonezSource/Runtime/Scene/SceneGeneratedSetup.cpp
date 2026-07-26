@@ -63,6 +63,7 @@ using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 
 int NextSceneRand( unsigned int& state )
 {
+
     // Invariant: Match the MSVC CRT sequence so seeded scene layouts stay
     // stable while avoiding global RNG state.
     state = state * 214013u + 2531011u;
@@ -71,6 +72,7 @@ int NextSceneRand( unsigned int& state )
 
 PhysicsColliderCreateDesc MakeGeneratedColliderDesc( CollisionShape shape, float restitution )
 {
+
     // Why: generated setup already owns the exact shape parameters at spawn
     // time. Passing this value into physics avoids cold model-side collider
     // recapture and keeps store rows descriptor-owned.
@@ -87,23 +89,13 @@ PhysicsColliderCreateDesc MakeGeneratedBoxColliderDesc( const Vector3& halfExten
     return MakeGeneratedColliderDesc( BoundingBox( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) ), restitution );
 }
 
-PhysicsBodyCreateDesc MakeGeneratedBodyDesc( Physics::PhysicsSceneObjectId sceneObjectId,
-                                             const CollisionShape& shape,
-                                             const Vector3& position,
-                                             const Vector3& rotationalInertia,
-                                             float mass,
+PhysicsBodyCreateDesc MakeGeneratedBodyDesc( Physics::PhysicsSceneObjectId sceneObjectId, const CollisionShape& shape,
+                                             const Vector3& position, const Vector3& rotationalInertia, float mass,
                                              float restitution )
 {
-    return MakePhysicsBodyCreateDesc( sceneObjectId,
-                                      shape,
-                                      position,
-                                      Math::Orientation::IDENTITY_QUATERNION,
-                                      Vector3( 0.0f, 0.0f, 0.0f ),
-                                      Vector3( 0.0f, 0.0f, 0.0f ),
-                                      rotationalInertia,
-                                      mass,
-                                      restitution,
-                                      PhysicsBodyMotionKind::Dynamic );
+    return MakePhysicsBodyCreateDesc( sceneObjectId, shape, position, Math::Orientation::IDENTITY_QUATERNION,
+                                      Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), rotationalInertia, mass,
+                                      restitution, PhysicsBodyMotionKind::Dynamic );
 }
 } // namespace
 
@@ -133,6 +125,7 @@ void SceneGeneratedSetup::SetUpCameras( SceneGeneratedCameraContext context )
 
 SkullbonezCore::Core::SbResult SceneGeneratedSetup::SetUpSceneEntities( SceneGeneratedModelContext context, int count )
 {
+
     // Concept: Generated demos consume one deterministic RNG stream. Keep object
     // family decisions and per-object random draws in the same order unless
     // every generated-scene baseline is intentionally refreshed.
@@ -165,13 +158,13 @@ SkullbonezCore::Core::SbResult SceneGeneratedSetup::SetUpSceneEntities( SceneGen
                                                 cfg.generatedScene.ballRestitutionRange ) /
                                 10.0f;
 
-        Vector3 force( randSigned( cfg.generatedScene.ballForceRange ),
-                       randSigned( cfg.generatedScene.ballForceRange ),
+        Vector3 force( randSigned( cfg.generatedScene.ballForceRange ), randSigned( cfg.generatedScene.ballForceRange ),
                        randSigned( cfg.generatedScene.ballForceRange ) );
 
         Vector3 forcePos( randSign(), randSign(), randSign() );
 
         bool makeBox = false;
+
         if ( context.objectTypeOverride == GeneratedObjectTypeOverride::AllBoxes )
         {
             makeBox = true;
@@ -182,6 +175,7 @@ SkullbonezCore::Core::SbResult SceneGeneratedSetup::SetUpSceneEntities( SceneGen
         }
         else
         {
+
             // ~30% of generated objects are boxes, giving the default demo a
             // mixed collision workload without requiring explicit scene bodies.
             makeBox = ( NextSceneRand( context.scene.rngState ) % 10 ) < 3;
@@ -206,10 +200,12 @@ SkullbonezCore::Core::SbResult SceneGeneratedSetup::SetUpSceneEntities( SceneGen
             const Physics::PhysicsSceneObjectId sceneObjectId = context.scene.AllocateSceneObjectId();
             gameModel.sceneObjectId = sceneObjectId;
             const BoundingBox shape( Vector3( hx, hy, hz ), Vector3( 0.0f, 0.0f, 0.0f ) );
-            const auto appendResult = context.sceneWorld.TryCreateSceneEntity(
-                std::move( gameModel ),
-                MakeGeneratedBodyDesc( sceneObjectId, shape, Vector3( posX, posY, posZ ), inertia, mass, restitution ),
-                MakeGeneratedColliderDesc( shape, restitution ) );
+            const auto appendResult = context.sceneWorld
+                                          .TryCreateSceneEntity( std::move( gameModel ),
+                                                                 MakeGeneratedBodyDesc( sceneObjectId, shape,
+                                                                                        Vector3( posX, posY, posZ ), inertia,
+                                                                                        mass, restitution ),
+                                                                 MakeGeneratedColliderDesc( shape, restitution ) );
 
             if ( !appendResult.status.ok )
             {
@@ -231,15 +227,13 @@ SkullbonezCore::Core::SbResult SceneGeneratedSetup::SetUpSceneEntities( SceneGen
             const Physics::PhysicsSceneObjectId sceneObjectId = context.scene.AllocateSceneObjectId();
             gameModel.sceneObjectId = sceneObjectId;
             const BoundingSphere shape( radius, Vector3( 0.0f, 0.0f, 0.0f ) );
-            const auto appendResult = context.sceneWorld.TryCreateSceneEntity(
-                std::move( gameModel ),
-                MakeGeneratedBodyDesc( sceneObjectId,
-                                       shape,
-                                       Vector3( posX, posY, posZ ),
-                                       Vector3( moment, moment, moment ),
-                                       mass,
-                                       restitution ),
-                MakeGeneratedColliderDesc( shape, restitution ) );
+            const auto appendResult = context.sceneWorld
+                                          .TryCreateSceneEntity( std::move( gameModel ),
+                                                                 MakeGeneratedBodyDesc( sceneObjectId, shape,
+                                                                                        Vector3( posX, posY, posZ ),
+                                                                                        Vector3( moment, moment, moment ),
+                                                                                        mass, restitution ),
+                                                                 MakeGeneratedColliderDesc( shape, restitution ) );
 
             if ( !appendResult.status.ok )
             {
@@ -255,12 +249,13 @@ SkullbonezCore::Core::SbResult SceneGeneratedSetup::SetUpSceneEntities( SceneGen
 }
 
 
-SkullbonezCore::Core::SbResult
-SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context, int balls, int boxes )
+SkullbonezCore::Core::SbResult SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context, int balls,
+                                                                        int boxes )
 {
     balls = (std::max)( 0, balls );
     boxes = (std::max)( 0, boxes );
     const int totalObjects = balls + boxes;
+
     if ( context.objectTypeOverride == GeneratedObjectTypeOverride::AllBalls )
     {
         balls = totalObjects;
@@ -291,6 +286,7 @@ SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context, int
     auto randSign = [&]() -> float { return ( NextSceneRand( context.scene.rngState ) % 2 == 0 ) ? 1.0f : -1.0f; };
 
     // --- Sphere pass ---
+
     for ( int i = 0; i < balls; ++i )
     {
         float posX = randFloat( cfg.generatedScene.spawnXBase, cfg.generatedScene.spawnXRange );
@@ -307,8 +303,7 @@ SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context, int
                                                     cfg.generatedScene.ballRadiusRange ) ) *
                        0.5f;
 
-        Vector3 force( randSigned( cfg.generatedScene.ballForceRange ),
-                       randSigned( cfg.generatedScene.ballForceRange ),
+        Vector3 force( randSigned( cfg.generatedScene.ballForceRange ), randSigned( cfg.generatedScene.ballForceRange ),
                        randSigned( cfg.generatedScene.ballForceRange ) );
 
         Vector3 forcePos( randSign(), randSign(), randSign() );
@@ -317,15 +312,13 @@ SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context, int
         const Physics::PhysicsSceneObjectId sceneObjectId = context.scene.AllocateSceneObjectId();
         gameModel.sceneObjectId = sceneObjectId;
         const BoundingSphere shape( radius, Vector3( 0.0f, 0.0f, 0.0f ) );
-        const auto appendResult = context.sceneWorld.TryCreateSceneEntity(
-            std::move( gameModel ),
-            MakeGeneratedBodyDesc( sceneObjectId,
-                                   shape,
-                                   Vector3( posX, posY, posZ ),
-                                   Vector3( moment, moment, moment ),
-                                   mass,
-                                   restitution ),
-            MakeGeneratedColliderDesc( shape, restitution ) );
+        const auto appendResult = context.sceneWorld
+                                      .TryCreateSceneEntity( std::move( gameModel ),
+                                                             MakeGeneratedBodyDesc( sceneObjectId, shape,
+                                                                                    Vector3( posX, posY, posZ ),
+                                                                                    Vector3( moment, moment, moment ), mass,
+                                                                                    restitution ),
+                                                             MakeGeneratedColliderDesc( shape, restitution ) );
 
         if ( !appendResult.status.ok )
         {
@@ -341,6 +334,7 @@ SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context, int
     //   Ix = m/12 * (hy^2 + hz^2),  Iy = m/12 * (hx^2 + hz^2),  Iz = m/12 * (hx^2 + hy^2)
     // where hx, hy, hz are the full extents (2 * half-extents).
     // The spawn code uses half-extents internally, so the factor is m/3 (= m/12 * 4).
+
     for ( int i = 0; i < boxes; ++i )
     {
         float posX = randFloat( cfg.generatedScene.spawnXBase, cfg.generatedScene.spawnXRange );
@@ -352,8 +346,7 @@ SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context, int
                                                 cfg.generatedScene.ballRestitutionRange ) /
                                 10.0f;
 
-        Vector3 force( randSigned( cfg.generatedScene.ballForceRange ),
-                       randSigned( cfg.generatedScene.ballForceRange ),
+        Vector3 force( randSigned( cfg.generatedScene.ballForceRange ), randSigned( cfg.generatedScene.ballForceRange ),
                        randSigned( cfg.generatedScene.ballForceRange ) );
 
         Vector3 forcePos( randSign(), randSign(), randSign() );
@@ -371,10 +364,13 @@ SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context, int
         const Physics::PhysicsSceneObjectId sceneObjectId = context.scene.AllocateSceneObjectId();
         gameModel.sceneObjectId = sceneObjectId;
         const BoundingBox shape( Vector3( hx, hy, hz ), Vector3( 0.0f, 0.0f, 0.0f ) );
-        const auto appendResult = context.sceneWorld.TryCreateSceneEntity(
-            std::move( gameModel ),
-            MakeGeneratedBodyDesc( sceneObjectId, shape, Vector3( posX, posY, posZ ), inertia, mass, restitution ),
-            MakeGeneratedColliderDesc( shape, restitution ) );
+        const auto appendResult = context.sceneWorld.TryCreateSceneEntity( std::move( gameModel ),
+                                                                           MakeGeneratedBodyDesc( sceneObjectId, shape,
+                                                                                                  Vector3( posX, posY,
+                                                                                                           posZ ),
+                                                                                                  inertia, mass,
+                                                                                                  restitution ),
+                                                                           MakeGeneratedColliderDesc( shape, restitution ) );
 
         if ( !appendResult.status.ok )
         {
@@ -394,13 +390,14 @@ SceneGeneratedSetupResult SceneGeneratedSetup::TrySetUpRequestedModels( SceneGen
                                                                         const SceneGeneratedPopulationRequest& request,
                                                                         bool useDefaultWhenNoRequest )
 {
+
     // Concept: Generated population policy belongs beside the deterministic
     // spawn algorithms. Run supplies state; this helper decides which generated
     // mode is authoritative for this load.
+
     if ( request.uiSolverBallCountOverride >= 0 || request.uiSolverBoxCountOverride >= 0 )
     {
-        return { SetUpSolverObjects( context,
-                                     (std::max)( 0, request.uiSolverBallCountOverride ),
+        return { SetUpSolverObjects( context, (std::max)( 0, request.uiSolverBallCountOverride ),
                                      (std::max)( 0, request.uiSolverBoxCountOverride ) ),
                  true };
     }

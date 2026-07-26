@@ -74,11 +74,8 @@ struct Dx12ImGuiRenderStats
 class Dx12ImGuiRendererOwner
 {
   public:
-    Dx12ImGuiRendererOwner( Dx12RenderDevice& device,
-                            Dx12DescriptorHeaps& descriptors,
-                            Dx12FrameOwner& frame,
-                            Dx12PipelineOwner& pipeline,
-                            Dx12TextureOwner& textures ) noexcept;
+    Dx12ImGuiRendererOwner( Dx12RenderDevice& device, Dx12DescriptorHeaps& descriptors, Dx12FrameOwner& frame,
+                            Dx12PipelineOwner& pipeline, Dx12TextureOwner& textures ) noexcept;
 
     SkullbonezCore::Core::SbResult BindContext( ImGuiContext& context );
     SkullbonezCore::Core::SbResult CaptureGameViewport();

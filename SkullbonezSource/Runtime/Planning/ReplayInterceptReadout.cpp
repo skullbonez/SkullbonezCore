@@ -33,8 +33,10 @@ namespace
 const RunReplayPredictionBodySample* FindPredictionBody( const RunReplayPredictionFrame& frame,
                                                          Physics::PhysicsSceneObjectId id ) noexcept
 {
+
     for ( const RunReplayPredictionBodySample& body : frame.bodies )
     {
+
         if ( body.id.value == id.value )
         {
             return &body;
@@ -53,6 +55,7 @@ float MagnitudeSquared( const Math::Vector::Vector3& value ) noexcept
 
 void ReplayInterceptReadout::SetTarget( Physics::PhysicsSceneObjectId id, Physics::ModelRowHint modelRow ) noexcept
 {
+
     if ( id.value == m_targetId.value && modelRow.value == m_targetModelRow.value )
     {
         return;
@@ -113,6 +116,7 @@ void ReplayInterceptReadout::ResetScan() noexcept
 
 void ReplayInterceptReadout::Update( const ReplayInterceptUpdateInput& input ) noexcept
 {
+
     if ( !input.enabled || input.shipId.value == 0 || input.targetId.value == 0 ||
          input.shipId.value == input.targetId.value || input.frames.empty() || input.shipRadius <= 0.0f ||
          input.targetRadius <= 0.0f )
@@ -141,11 +145,13 @@ void ReplayInterceptReadout::Update( const ReplayInterceptUpdateInput& input ) n
     }
 
     float bestDistanceSquared = m_view.valid ? m_view.missDistance * m_view.missDistance : 0.0f;
+
     for ( std::size_t frameSlot = m_scannedFrameCount; frameSlot < input.frames.size(); ++frameSlot )
     {
         const RunReplayPredictionFrame& frame = input.frames[frameSlot];
         const RunReplayPredictionBodySample* ship = FindPredictionBody( frame, input.shipId );
         const RunReplayPredictionBodySample* target = FindPredictionBody( frame, input.targetId );
+
         if ( !ship || !target )
         {
             continue;
@@ -153,8 +159,10 @@ void ReplayInterceptReadout::Update( const ReplayInterceptUpdateInput& input ) n
 
         const Math::Vector::Vector3 separation = ship->position - target->position;
         const float distanceSquared = MagnitudeSquared( separation );
+
         // Invariant: strict comparison preserves the first frame when two
         // samples have exactly the same miss distance.
+
         if ( m_view.valid && distanceSquared >= bestDistanceSquared )
         {
             continue;

@@ -51,6 +51,7 @@ namespace
 {
 WaterMode WaterModeFromConfigValue( int value )
 {
+
     switch ( value )
     {
     case 0:
@@ -105,9 +106,9 @@ void WorldEnvironment::BindRuntimeConfig( const SkullbonezCore::Core::EngineConf
 
 
 void WorldEnvironment::BindRenderContexts( const SkullbonezCore::Core::EngineConfig& config,
-                                           SkullbonezCore::Assets::AssetSystem& assets,
-                                           Dx12ResourceBuilder& resources )
+                                           SkullbonezCore::Assets::AssetSystem& assets, Dx12ResourceBuilder& resources )
 {
+
     // Lifetime: water keeps rebuild-only borrows owned by Run and refreshed by
     // WaterPass before lazy resource recreation.
     ApplyWaterAndFluidSettings( config );
@@ -221,10 +222,8 @@ WorldEnvironment::BuildOceanWaterStyle( bool cinematic,
 }
 
 
-void WorldEnvironment::BindCommonWaterStyle( Rendering::ShaderDX12& shader,
-                                             const WaterStyleParams& style,
-                                             const Vector3& cameraWorld,
-                                             const WaterReflectionInput& reflection ) const
+void WorldEnvironment::BindCommonWaterStyle( Rendering::ShaderDX12& shader, const WaterStyleParams& style,
+                                             const Vector3& cameraWorld, const WaterReflectionInput& reflection ) const
 {
     shader.SetMat4( "uModel", Matrix4::Translate( 0.0f, m_fluidSurfaceHeight, 0.0f ) );
     shader.SetMat4( "uReflectVP", reflection.sampleViewProjection );
@@ -247,9 +246,7 @@ void WorldEnvironment::BindCalmWaterStyle( Rendering::ShaderDX12& shader, const 
 }
 
 
-void WorldEnvironment::BindOceanWaterStyle( Rendering::ShaderDX12& shader,
-                                            const WaterStyleParams& style,
-                                            float time,
+void WorldEnvironment::BindOceanWaterStyle( Rendering::ShaderDX12& shader, const WaterStyleParams& style, float time,
                                             bool flatWater ) const
 {
     shader.SetFloat( "uTime", time );
@@ -259,17 +256,12 @@ void WorldEnvironment::BindOceanWaterStyle( Rendering::ShaderDX12& shader,
 }
 
 
-void WorldEnvironment::RenderFluid( const Matrix4& view,
-                                    const Matrix4& proj,
-                                    const Vector3& cameraWorld,
-                                    Dx12TextureOwner& textures,
-                                    const WaterReflectionInput& reflection,
-                                    const PassRasterStateBucket& rasterState,
-                                    float time,
-                                    bool flatWater,
-                                    bool cinematic,
+void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, const Vector3& cameraWorld,
+                                    Dx12TextureOwner& textures, const WaterReflectionInput& reflection,
+                                    const PassRasterStateBucket& rasterState, float time, bool flatWater, bool cinematic,
                                     const SkullbonezCore::Core::CinematicRenderConfig* cinematicConfig )
 {
+
     if ( !m_calmMesh || !m_oceanMesh || !m_calmShader || !m_oceanShader )
     {
         ResetRenderResources();
@@ -280,11 +272,11 @@ void WorldEnvironment::RenderFluid( const Matrix4& view,
         return;
     }
 
-    const SkullbonezCore::Core::CinematicRenderConfig& cinematicStyle = cinematicConfig
-                                                                            ? *cinematicConfig
-                                                                            : m_waterStyle.cinematicFallback;
+    const SkullbonezCore::Core::CinematicRenderConfig& cinematicStyle = cinematicConfig ? *cinematicConfig
+                                                                                        : m_waterStyle.cinematicFallback;
 
     const WaterMode waterMode = cinematic ? WaterModeFromConfigValue( cinematicStyle.waterMode ) : WaterMode::Ocean;
+
     if ( cinematic && waterMode == WaterMode::Off )
     {
         return;
@@ -305,6 +297,7 @@ void WorldEnvironment::RenderFluid( const Matrix4& view,
 
     if ( cinematic && !WaterModeIncludesOuterOcean( waterMode ) )
     {
+
         // Cinematic preview stops after the calm basin pool. Skipping the outer
         // ocean avoids a giant water sheet behind the shot and keeps attention on
         // the terrain bowl, balls, sunset, and fog.
@@ -348,8 +341,10 @@ void WorldEnvironment::BuildFluidMesh()
 
     const float calmStepX = ( calmXMax - calmXMin ) / static_cast<float>( CALM_N );
     const float calmStepZ = ( calmZMax - calmZMin ) / static_cast<float>( CALM_N );
+
     for ( int row = 0; row < CALM_N; ++row )
     {
+
         for ( int col = 0; col < CALM_N; ++col )
         {
             float x0 = calmXMin + static_cast<float>( col ) * calmStepX;
@@ -381,6 +376,7 @@ void WorldEnvironment::BuildFluidMesh()
 
     for ( int row = 0; row < N; ++row )
     {
+
         for ( int col = 0; col < N; ++col )
         {
             float x0 = -f + static_cast<float>( col ) * step;
@@ -390,6 +386,7 @@ void WorldEnvironment::BuildFluidMesh()
 
             // A quad belongs to the calm mesh only if it lies fully inside the calm region
             bool isCalm = ( x0 >= calmXMin && x1 <= calmXMax && z0 >= calmZMin && z1 <= calmZMax );
+
             if ( isCalm )
             {
                 continue;
@@ -426,6 +423,7 @@ void WorldEnvironment::BuildFluidMesh()
     m_oceanMesh = m_resources->CreateMesh( oceanVerts.data(), oceanCount, false, false );
 
     m_calmShader = m_assets->CreateShader( *m_resources, "shader.water_calm" );
+
     if ( !m_calmShader )
     {
         return;
@@ -440,9 +438,7 @@ void WorldEnvironment::BuildFluidMesh()
     m_calmShader->SetInt( "uReflectionTex", 1 );
     m_calmShader->SetFloat( "uCinematicMode", 0.0f );
     m_calmShader->SetInt( "uWaterMode", WaterModeUniformValue( WaterMode::Ocean ) );
-    m_calmShader->SetVec3( "uSunColor",
-                           m_waterStyle.cinematicFallback.sunColorR,
-                           m_waterStyle.cinematicFallback.sunColorG,
+    m_calmShader->SetVec3( "uSunColor", m_waterStyle.cinematicFallback.sunColorR, m_waterStyle.cinematicFallback.sunColorG,
                            m_waterStyle.cinematicFallback.sunColorB );
 
     m_calmShader->SetFloat( "uSunGlintStrength", 0.0f );
@@ -450,6 +446,7 @@ void WorldEnvironment::BuildFluidMesh()
     m_calmShader->SetFloat( "uBasinMaskFeather", 1.0f );
 
     m_oceanShader = m_assets->CreateShader( *m_resources, "shader.water_ocean" );
+
     if ( !m_oceanShader )
     {
         return;
@@ -465,9 +462,7 @@ void WorldEnvironment::BuildFluidMesh()
     m_oceanShader->SetVec3( "uCameraWorld", 0.0f, 0.0f, 0.0f );
     m_oceanShader->SetInt( "uReflectionTex", 1 );
     m_oceanShader->SetFloat( "uCinematicMode", 0.0f );
-    m_oceanShader->SetVec3( "uSunColor",
-                            m_waterStyle.cinematicFallback.sunColorR,
-                            m_waterStyle.cinematicFallback.sunColorG,
+    m_oceanShader->SetVec3( "uSunColor", m_waterStyle.cinematicFallback.sunColorR, m_waterStyle.cinematicFallback.sunColorG,
                             m_waterStyle.cinematicFallback.sunColorB );
 
     m_oceanShader->SetFloat( "uSunGlintStrength", 0.0f );
@@ -482,10 +477,10 @@ void WorldEnvironment::ResetRenderResources()
 
 
 void WorldEnvironment::EnsureRenderResources( const SkullbonezCore::Core::EngineConfig& config,
-                                              SkullbonezCore::Assets::AssetSystem& assets,
-                                              Dx12ResourceBuilder& resources )
+                                              SkullbonezCore::Assets::AssetSystem& assets, Dx12ResourceBuilder& resources )
 {
     BindRenderContexts( config, assets, resources );
+
     if ( !m_calmMesh || !m_oceanMesh || !m_calmShader || !m_oceanShader )
     {
         ResetRenderResources();
@@ -529,6 +524,7 @@ void WorldEnvironment::SetFluidSurfaceHeight( float height )
 
 void WorldEnvironment::ApplyFluidSurfaceAdjustment( const FluidSurfaceAdjustment& adjustment, float deltaSeconds )
 {
+
     // Invariant: input has already resolved device semantics. This world owner
     // consumes only signed meters-per-second over the simulation interval.
     m_fluidSurfaceHeight += adjustment.DeltaMeters( deltaSeconds );

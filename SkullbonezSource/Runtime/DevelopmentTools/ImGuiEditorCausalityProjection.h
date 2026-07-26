@@ -77,6 +77,7 @@ struct ImGuiEditorCausalityContext
 
 inline const char* ImGuiEditorCausalityStateName( ImGuiEditorCausalityState state ) noexcept
 {
+
     switch ( state )
     {
     case ImGuiEditorCausalityState::Ready:
@@ -96,6 +97,7 @@ inline const char* ImGuiEditorCausalityStateName( ImGuiEditorCausalityState stat
 
 inline const char* ImGuiEditorPredictionStateName( ImGuiEditorPredictionState state ) noexcept
 {
+
     switch ( state )
     {
     case ImGuiEditorPredictionState::Disabled:
@@ -113,6 +115,7 @@ inline const char* ImGuiEditorPredictionStateName( ImGuiEditorPredictionState st
 
 inline const char* ImGuiEditorCauseRowKindName( RunReplayCauseTreeRowKind kind ) noexcept
 {
+
     switch ( kind )
     {
     case RunReplayCauseTreeRowKind::Body:
@@ -140,20 +143,24 @@ BuildImGuiEditorCausalityContext( const ReplayOverlay::ReplayOverlayStateView& r
 
     const auto setTick = [&]( const auto* sample ) -> bool
     {
+
         if ( !sample )
         {
             return false;
         }
+
         context.replayTick = sample->frameIndex;
         context.hasReplayTick = true;
         return true;
     };
+
     if ( !setTick( replay.selectedPrediction ) && !setTick( selection.selectedSolver ) &&
          !setTick( selection.selectedPresentation ) && !setTick( selection.currentSolver ) &&
          !setTick( selection.currentPresentation ) && !setTick( selection.latestSolver ) )
     {
         (void)setTick( selection.latestPresentation );
     }
+
     if ( !context.hasReplayTick && replay.prediction.sourceFrame != 0 )
     {
         context.replayTick = replay.prediction.sourceFrame;
@@ -189,15 +196,16 @@ BuildImGuiEditorCausalityContext( const ReplayOverlay::ReplayOverlayStateView& r
     const std::size_t estimatedRows = 1u + ( usePredictionNodes ? nodeCount * 2u : nodeCount ) + contactCount * 3u;
     const bool capacityLimited = replay.pathVisualizer.hasTarget && tree.rows.empty() &&
                                  estimatedRows > tree.rows.capacity();
+
     if ( capacityLimited )
     {
         context.state = ImGuiEditorCausalityState::CapacityLimited;
         return context;
     }
+
     if ( tree.rows.empty() )
     {
-        context.state = tree.focusedId.value != 0u ? ImGuiEditorCausalityState::Stale
-                                                   : ImGuiEditorCausalityState::Empty;
+        context.state = tree.focusedId.value != 0u ? ImGuiEditorCausalityState::Stale : ImGuiEditorCausalityState::Empty;
         return context;
     }
 
@@ -210,22 +218,27 @@ BuildImGuiEditorCausalityContext( const ReplayOverlay::ReplayOverlayStateView& r
                                 ? static_cast<std::size_t>( context.selectedRowIndex ) - halfWindow
                                 : 0u;
     const std::size_t scanEnd = (std::min)( tree.rows.size(), scanBegin + IMGUI_CAUSALITY_COMPACT_SCAN_CAPACITY );
+
     if ( scanEnd - scanBegin < IMGUI_CAUSALITY_COMPACT_SCAN_CAPACITY && scanEnd == tree.rows.size() &&
          scanEnd > IMGUI_CAUSALITY_COMPACT_SCAN_CAPACITY )
     {
         scanBegin = scanEnd - IMGUI_CAUSALITY_COMPACT_SCAN_CAPACITY;
     }
+
     context.compactScanTruncated = scanBegin != 0u || scanEnd != tree.rows.size();
 
     const auto appendRelevant = [&]( const RunReplayCauseTreeRow& row )
     {
+
         for ( std::size_t index = 0u; index < context.relevantLinkCount; ++index )
         {
+
             if ( context.relevantLinks[index] == &row )
             {
                 return;
             }
         }
+
         if ( context.relevantLinkCount < IMGUI_CAUSALITY_RELEVANT_LINK_CAPACITY )
         {
             context.relevantLinks[context.relevantLinkCount++] = &row;
@@ -237,37 +250,45 @@ BuildImGuiEditorCausalityContext( const ReplayOverlay::ReplayOverlayStateView& r
     };
 
     appendRelevant( *context.selectedRow );
+
     for ( std::size_t index = scanBegin; index < scanEnd; ++index )
     {
         const RunReplayCauseTreeRow& row = tree.rows[index];
+
         if ( !context.selectedObjectRow && row.kind == RunReplayCauseTreeRowKind::Body &&
              row.id.value == context.selectedRow->id.value )
         {
             context.selectedObjectRow = &row;
         }
+
         if ( !context.immediateCauseRow && context.selectedRow->parentId.value != 0u &&
              row.kind == RunReplayCauseTreeRowKind::Body && row.id.value == context.selectedRow->parentId.value )
         {
             context.immediateCauseRow = &row;
         }
+
         const bool isParent = context.selectedRow->parentId.value != 0u &&
                               row.id.value == context.selectedRow->parentId.value;
         const bool isChild = row.parentId.value != 0u && row.parentId.value == context.selectedRow->id.value;
         const bool isSameBodyDetail = row.id.value == context.selectedRow->id.value &&
                                       row.kind != RunReplayCauseTreeRowKind::Body;
+
         if ( isParent || isChild || isSameBodyDetail )
         {
             appendRelevant( row );
         }
     }
+
     if ( !context.selectedObjectRow && context.selectedRow->kind == RunReplayCauseTreeRowKind::Body )
     {
         context.selectedObjectRow = context.selectedRow;
     }
+
     if ( !context.selectedObjectRow )
     {
         context.selectedObjectRow = context.selectedRow;
     }
+
     const bool staleFocus = tree.focusedId.value != 0u && tree.selectedRow < 0;
     context.state = staleFocus ? ImGuiEditorCausalityState::Stale
                                : ( context.compactScanTruncated ? ImGuiEditorCausalityState::Truncated

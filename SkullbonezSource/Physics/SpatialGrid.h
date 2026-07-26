@@ -69,6 +69,7 @@ namespace Math
 {
 namespace CollisionDetection
 {
+
 /* -- Spatial Grid
 ------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -100,6 +101,7 @@ class SpatialGrid
     };
 
   private:
+
     // --- Capacity derivation ---
     // Static objects of radius R in a grid of cell size C span at most
     // ceil(2R/C + 1) cells per axis. PhysicsWorld chooses C from the largest
@@ -202,6 +204,7 @@ class SpatialGrid
     SweptOverlayEntry overlayEntries[MAX_SWEPT_CELL_ENTRIES];
     BodyMembership bodyMemberships[SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS];
     uint64_t pairSeen[PAIR_WORDS];
+
     // Canonical pair staging is fixed storage owned by the grid. Cell traversal
     // may discover pairs in any bucket/list order, but emission is always sorted
     // by normalized body identity before narrowphase sees it.
@@ -226,36 +229,31 @@ class SpatialGrid
     void RemoveRangeDifference( int index, const CellRange& range, const CellRange* retainedRange );
     void InsertOverlayCell( int index, int ix, int iy, int iz );
     void InsertOverlayBounds( int index, const Vector::Vector3& minBounds, const Vector::Vector3& maxBounds );
-    CellRange
-    RangeForBounds( int index, const Vector::Vector3& minBounds, const Vector::Vector3& maxBounds, int capacity ) const;
+    CellRange RangeForBounds( int index, const Vector::Vector3& minBounds, const Vector::Vector3& maxBounds,
+                              int capacity ) const;
     void MaintainBounds( int index, const Vector::Vector3& minBounds, const Vector::Vector3& maxBounds );
     void ResetSweptOverlay();
     int CollectBucketObjects( const Bucket& bucket, int* outIndices, int capacity );
     void ResetCandidatePairDedup();
     bool MarkCandidatePairFirstSeen( int a, int b );
-    bool MarkFilteredCandidatePairFirstSeen( int a,
-                                             int b,
-                                             const Physics::PhysicsBodyStore& bodyStore,
+    bool MarkFilteredCandidatePairFirstSeen( int a, int b, const Physics::PhysicsBodyStore& bodyStore,
                                              const Physics::ColliderStore& colliderStore,
-                                             std::span<const uint8_t> sleepState,
-                                             float dt,
-                                             float contactSkin,
+                                             std::span<const uint8_t> sleepState, float dt, float contactSkin,
                                              std::vector<std::pair<int, int>>* sleepPrunedPairs );
     void GetFilteredCandidatePairsImpl( std::vector<std::pair<int, int>>& outPairs,
                                         const Physics::PhysicsBodyStore& bodyStore,
-                                        const Physics::ColliderStore& colliderStore,
-                                        std::span<const uint8_t> sleepState,
-                                        float dt,
-                                        float contactSkin,
-                                        std::vector<std::pair<int, int>>* sleepPrunedPairs,
+                                        const Physics::ColliderStore& colliderStore, std::span<const uint8_t> sleepState,
+                                        float dt, float contactSkin, std::vector<std::pair<int, int>>* sleepPrunedPairs,
                                         bool restrictToPairSourceCells );
 
   public:
     static constexpr int MAX_BUCKETS = TABLE_SIZE;
+
     // PhysicsWorld already clamps authored settings to this lower bound. Keep
     // the grid's own constructor/setter equally strict so direct users cannot
     // create cell coordinates outside the integer representation envelope.
     static constexpr float MIN_CELL_SIZE = 0.5f;
+
     // Broadphase owner limit: authored/runtime physics state outside this cube
     // is corrupt. The generous bound also keeps ordinary cell conversion far
     // from integer limits for supported broadphase cell sizes.
@@ -268,52 +266,49 @@ class SpatialGrid
     };
 
     SpatialGrid( float fCellSize );
+
     // Cold reset for scene load, replay restore, and cell-size changes.
     void Clear();
+
     // Begins one fixed-step maintenance pass. Persistent memberships remain;
     // removed dense rows and the prior tick's velocity-dependent overlay do not.
     void BeginFrame( int currentObjectCount );
+
     // A changed cell size invalidates every cached integer range and performs a
     // cold clear. Reapplying the same value is intentionally maintenance-free.
     void SetCellSize( float fCellSize );
     void Insert( int index, const Vector::Vector3& position, float radius );
+
     // Maintains the body's ordinary current-position cells, then adds only the
     // velocity-dependent sweep to the current frame's stamped overlay.
     void InsertSwept( int index, const Vector::Vector3& position, const Vector::Vector3& displacement, float radius );
+
     // Marks every persistent cell currently reachable from one awake body as a
     // candidate source for this frame. Swept insertions stamp overlay cells as
     // they are created.
     void MarkPairSourceCells( int index );
+
     // Emits deduplicated cell-sharing pairs in ascending normalized body-index
     // order. The unfiltered overload exposes pure membership to focused tools;
     // filtered overloads require concrete stores and step scalars. Debug may
     // additionally retain sleep-only geometric admissions as bounded evidence.
     void GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs, bool restrictToPairSourceCells = false );
-    void GetFilteredCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
-                                    const Physics::PhysicsBodyStore& bodyStore,
-                                    const Physics::ColliderStore& colliderStore,
-                                    std::span<const uint8_t> sleepState,
-                                    float dt,
-                                    float contactSkin,
-                                    std::vector<std::pair<int, int>>& sleepPrunedPairs,
+    void GetFilteredCandidatePairs( std::vector<std::pair<int, int>>& outPairs, const Physics::PhysicsBodyStore& bodyStore,
+                                    const Physics::ColliderStore& colliderStore, std::span<const uint8_t> sleepState,
+                                    float dt, float contactSkin, std::vector<std::pair<int, int>>& sleepPrunedPairs,
                                     bool restrictToPairSourceCells );
-    void GetFilteredCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
-                                    const Physics::PhysicsBodyStore& bodyStore,
-                                    const Physics::ColliderStore& colliderStore,
-                                    std::span<const uint8_t> sleepState,
-                                    float dt,
-                                    float contactSkin,
-                                    bool restrictToPairSourceCells );
+    void GetFilteredCandidatePairs( std::vector<std::pair<int, int>>& outPairs, const Physics::PhysicsBodyStore& bodyStore,
+                                    const Physics::ColliderStore& colliderStore, std::span<const uint8_t> sleepState,
+                                    float dt, float contactSkin, bool restrictToPairSourceCells );
 #if defined( _DEBUG )
+
     // P1 transition oracle only: emits the pre-transition bucket-history order
     // from the same grid state so Debug runs can compare work membership without
     // evolving a second simulation.
     void GetFilteredCandidatePairsLegacyForOracle( std::vector<std::pair<int, int>>& outPairs,
                                                    const Physics::PhysicsBodyStore& bodyStore,
                                                    const Physics::ColliderStore& colliderStore,
-                                                   std::span<const uint8_t> sleepState,
-                                                   float dt,
-                                                   float contactSkin );
+                                                   std::span<const uint8_t> sleepState, float dt, float contactSkin );
 #endif
     float GetCellSize() const
     {

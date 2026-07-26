@@ -24,6 +24,7 @@ Invariants:
   - The helper borrows scratch buffers from PhysicsWorld; it owns no storage and
     depends on those buffers being pre-reserved before fixed-step gameplay.
   - Callers finish sizing parent/rank buffers before constructing the helper and
+
     do not resize those buffers while the helper is alive.
 
 Related:
@@ -54,16 +55,19 @@ class DisjointSet
         const std::size_t rowCount = static_cast<std::size_t>( m_count );
         m_parent.assign( rowCount, 0 );
         m_rank.assign( rowCount, 0 );
+
         for ( int row = 0; row < m_count; ++row )
         {
             m_parent[static_cast<std::size_t>( row )] = row;
         }
+
         RebindRows();
     }
 
     int Find( int row )
     {
         int root = row;
+
         while ( m_parentRows[root] != root )
         {
             root = m_parentRows[root];
@@ -83,6 +87,7 @@ class DisjointSet
     {
         int rootA = Find( a );
         int rootB = Find( b );
+
         if ( rootA == rootB )
         {
             return;
@@ -94,6 +99,7 @@ class DisjointSet
         }
 
         m_parentRows[rootB] = rootA;
+
         if ( m_rankRows[rootA] == m_rankRows[rootB] )
         {
             ++m_rankRows[rootA];

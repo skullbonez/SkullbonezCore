@@ -40,11 +40,10 @@ namespace Runtime
 {
 namespace
 {
-Core::SbResult SaveCompletePublication( const char* path,
-                                        const SceneWorldSaveState& world,
-                                        const SceneSessionSaveState& session,
-                                        const PresentationSaveState& presentation )
+Core::SbResult SaveCompletePublication( const char* path, const SceneWorldSaveState& world,
+                                        const SceneSessionSaveState& session, const PresentationSaveState& presentation )
 {
+
     // Why: these callers are production entry policies, not test adapters.
     // Centralizing only request composition makes a partial publication
     // impossible while each public operation retains its own path policy.
@@ -53,20 +52,12 @@ Core::SbResult SaveCompletePublication( const char* path,
 } // namespace
 
 
-bool TrySaveNextEditorSceneSnapshot( int& sequence,
-                                     const SceneWorldSaveState& world,
-                                     const SceneSessionSaveState& session,
-                                     const PresentationSaveState& presentation,
-                                     Core::SbResult& outSaveResult )
+bool TrySaveNextEditorSceneSnapshot( int& sequence, const SceneWorldSaveState& world, const SceneSessionSaveState& session,
+                                     const PresentationSaveState& presentation, Core::SbResult& outSaveResult )
 {
     char path[256] = {};
-    if ( !RuntimeFileWriter::NextNumberedPath( path,
-                                               sizeof( path ),
-                                               "Scenes",
-                                               "snapshot_",
-                                               ".scene.json",
-                                               sequence,
-                                               100 ) )
+
+    if ( !RuntimeFileWriter::NextNumberedPath( path, sizeof( path ), "Scenes", "snapshot_", ".scene.json", sequence, 100 ) )
     {
         return false;
     }
@@ -76,11 +67,10 @@ bool TrySaveNextEditorSceneSnapshot( int& sequence,
 }
 
 
-Core::SbResult SaveSceneLoadOnlySnapshot( const char* path,
-                                          const SceneWorldSaveState& world,
-                                          const SceneSessionSaveState& session,
-                                          const PresentationSaveState& presentation )
+Core::SbResult SaveSceneLoadOnlySnapshot( const char* path, const SceneWorldSaveState& world,
+                                          const SceneSessionSaveState& session, const PresentationSaveState& presentation )
 {
+
     if ( !path || path[0] == '\0' )
     {
         return Core::SbResult::Failure( "Runtime/SceneLoadOnly", "Scene snapshot output path is empty." );
@@ -90,15 +80,14 @@ Core::SbResult SaveSceneLoadOnlySnapshot( const char* path,
 }
 
 
-Core::SbResult SaveEditableSceneBeforeReplacement( const char* activeScenePath,
-                                                   const SceneWorldSaveState& world,
+Core::SbResult SaveEditableSceneBeforeReplacement( const char* activeScenePath, const SceneWorldSaveState& world,
                                                    const SceneSessionSaveState& session,
                                                    const PresentationSaveState& presentation )
 {
+
     if ( !activeScenePath || activeScenePath[0] == '\0' )
     {
-        return Core::SbResult::Failure( "Runtime/SceneController",
-                                        "Editable scene has no active authored path to save." );
+        return Core::SbResult::Failure( "Runtime/SceneController", "Editable scene has no active authored path to save." );
     }
 
     return SaveCompletePublication( activeScenePath, world, session, presentation );

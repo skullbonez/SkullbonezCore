@@ -110,6 +110,7 @@ using Json = nlohmann::ordered_json;
 
 void CopyText( char* destination, std::size_t destinationSize, const std::string& value )
 {
+
     if ( destination && destinationSize > 0 )
     {
         strcpy_s( destination, destinationSize, value.c_str() );
@@ -123,6 +124,7 @@ Json Vec3Json( const Vector3& value )
 
 constexpr uint64_t INTERACTION_PREDICTION_FINGERPRINT_OFFSET = 1469598103934665603ull;
 constexpr uint64_t INTERACTION_PREDICTION_FINGERPRINT_PRIME = 1099511628211ull;
+
 // Invariant: the mega probe holds the reveal at zero through prediction build
 // and begins presentation at one fixed scene frame. Worker completion speed
 // must never decide when the operator sees the causal unfold begin.
@@ -136,6 +138,7 @@ void HashPredictionByte( uint64_t& hash, uint8_t value )
 
 template <typename T> void HashPredictionScalar( uint64_t& hash, T value )
 {
+
     for ( uint8_t byte : SkullbonezCore::Core::ObjectBytes( value ) )
     {
         HashPredictionByte( hash, byte );
@@ -158,6 +161,7 @@ void HashPredictionVector( uint64_t& hash, const Vector3& value )
 
 void HashInteractionText( uint64_t& hash, const char* text, std::size_t capacity )
 {
+
     for ( std::size_t index = 0; index < capacity && text[index] != '\0'; ++index )
     {
         HashPredictionByte( hash, static_cast<uint8_t>( text[index] ) );
@@ -177,6 +181,7 @@ EditorSelectionFingerprint BuildEditorSelectionFingerprint( RuntimeTools& runtim
 {
     EditorSelectionFingerprint fingerprint;
     const int modelIndex = PeekSelectedEditorModelIndex( runtimeTools.Editor(), world.BodyStore() );
+
     if ( modelIndex < 0 || modelIndex >= world.SceneEntityCount() )
     {
         return fingerprint;
@@ -184,14 +189,14 @@ EditorSelectionFingerprint BuildEditorSelectionFingerprint( RuntimeTools& runtim
 
     const SceneEntityRecord& entity = world.Entities().At( modelIndex );
     const Physics::PhysicsBodyRecord* body = world.BodyStore().RecordForModelIndex( modelIndex );
-    const std::span<const Physics::BuoyancyBodyFacts> buoyancyFacts = Physics::PhysicsEngine::ReadBuoyancyFacts(
-        world.Physics() );
+    const std::span<const Physics::BuoyancyBodyFacts> buoyancyFacts = Physics::PhysicsEngine::ReadBuoyancyFacts( world.Physics() );
 
     const Physics::PhysicsColliderHandle colliderHandle = world.Colliders().HandleForModelIndex( modelIndex );
     const Physics::ColliderRecord* collider = world.Colliders().RecordForHandle( colliderHandle );
     const Physics::ColliderAuthoringRecord* colliderAuthoring = world.Colliders().AuthoringRecordForHandle( colliderHandle );
 
     EditorPrimitiveShapeSnapshot shape;
+
     if ( !body || !collider || !colliderAuthoring || modelIndex >= static_cast<int>( buoyancyFacts.size() ) ||
          body->sceneObjectId.value != entity.sceneObjectId.value ||
          !TryCaptureEditorPrimitiveShape( collider->shape, shape ) )
@@ -199,15 +204,15 @@ EditorSelectionFingerprint BuildEditorSelectionFingerprint( RuntimeTools& runtim
         return fingerprint;
     }
 
-    const Physics::PhysicsBodyHotState hotState = Physics::LoadPhysicsBodyHotState(
-        world.BodyStore().HotFields(),
-        static_cast<std::size_t>( modelIndex ) );
+    const Physics::PhysicsBodyHotState hotState = Physics::LoadPhysicsBodyHotState( world.BodyStore().HotFields(),
+                                                                                    static_cast<std::size_t>( modelIndex ) );
 
     uint64_t& hash = fingerprint.hash;
     HashPredictionScalar( hash, entity.sceneObjectId.value );
     HashInteractionText( hash, entity.displayName, sizeof( entity.displayName ) );
     HashInteractionText( hash, entity.renderMaterial.name, sizeof( entity.renderMaterial.name ) );
     HashPredictionScalar( hash, static_cast<uint8_t>( entity.renderMaterial.kind ) );
+
     for ( float value : entity.renderMaterial.baseColor )
     {
         HashPredictionFloat( hash, value );
@@ -254,6 +259,7 @@ EditorSelectionFingerprint BuildEditorSelectionFingerprint( RuntimeTools& runtim
     HashPredictionScalar( hash, static_cast<uint8_t>( !hotState.awake ) );
     HashPredictionScalar( hash, static_cast<uint8_t>( body->releasesFromFixedOnContact ) );
     HashPredictionScalar( hash, static_cast<uint8_t>( body->usesWorldInertia ) );
+
     // Terrain availability is one SceneWorld lifetime fact, not duplicated in
     // every Physics body row. The fingerprint retains the same boolean signal.
     fingerprint.hasTerrain = world.Terrain().Get() != nullptr;
@@ -266,9 +272,7 @@ EditorSelectionFingerprint BuildEditorSelectionFingerprint( RuntimeTools& runtim
     HashPredictionFloat( hash, collider->restitution );
     HashPredictionFloat( hash, collider->friction );
     HashPredictionScalar( hash, collider->contactMaterialId );
-    HashInteractionText( hash,
-                         colliderAuthoring->contactMaterialName,
-                         sizeof( colliderAuthoring->contactMaterialName ) );
+    HashInteractionText( hash, colliderAuthoring->contactMaterialName, sizeof( colliderAuthoring->contactMaterialName ) );
 
     fingerprint.valid = true;
     return fingerprint;
@@ -277,10 +281,12 @@ EditorSelectionFingerprint BuildEditorSelectionFingerprint( RuntimeTools& runtim
 
 const DemoPhase* ActiveDirectorPhase( const CameraControlState& camera )
 {
+
     // Concept: phase assertions observe the same active phase that playback
     // uses. They are report-only probes and must not advance or repair director
     // state just to make a scripted screenshot line up.
     const DemoDirectorPlaybackState& director = camera.director;
+
     if ( !director.hasActiveShotList || director.currentPhaseIndex < 0 ||
          director.currentPhaseIndex >= director.activeShotList.phaseCount )
     {
@@ -293,6 +299,7 @@ const DemoPhase* ActiveDirectorPhase( const CameraControlState& camera )
 
 bool TryParseCameraMode( const std::string& value, RunCameraMode& outMode )
 {
+
     if ( value == "Demo" )
     {
         outMode = RunCameraMode::Demo;
@@ -341,6 +348,7 @@ bool TryParseCameraMode( const std::string& value, RunCameraMode& outMode )
 
 bool TryParseOwner( const std::string& value, WorldInteractionOwner& outOwner )
 {
+
     if ( value == "None" )
     {
         outOwner = WorldInteractionOwner::None;
@@ -413,11 +421,14 @@ bool TryParseOwner( const std::string& value, WorldInteractionOwner& outOwner )
 
 bool TryParseVirtualKey( const std::string& value, int& outVirtualKey )
 {
+
     if ( value.size() == 1 )
     {
         const char key = value[0];
+
         // Why: Interaction scripts use human key labels; Win32 virtual-key
         // values for alphanumeric keys intentionally match ASCII.
+
         if ( key >= 'A' && key <= 'Z' )
         {
             outVirtualKey = key;
@@ -475,6 +486,7 @@ bool TryParseVirtualKey( const std::string& value, int& outVirtualKey )
 
     if ( value == "Comma" )
     {
+
         // Why: visual acceptance drives the same comma-owned presentation
         // command as a physical key, so mode order and UI reflection are tested
         // through the production input route.
@@ -499,8 +511,8 @@ bool TryParseVirtualKey( const std::string& value, int& outVirtualKey )
 
 bool ReadAutomationVec3( const Json& value, Vector3& out )
 {
-    if ( !value.is_array() || value.size() != 3u || !value[0].is_number() || !value[1].is_number() ||
-         !value[2].is_number() )
+
+    if ( !value.is_array() || value.size() != 3u || !value[0].is_number() || !value[1].is_number() || !value[2].is_number() )
     {
         return false;
     }
@@ -513,6 +525,7 @@ bool ReadAutomationVec3( const Json& value, Vector3& out )
 
 bool ReadAutomationCameraPose( const Json& value, DemoCameraPose& out, std::string& outError )
 {
+
     if ( !value.is_object() )
     {
         outError = "setCameraPose must be an object";
@@ -542,6 +555,7 @@ bool ReadAutomationCameraPose( const Json& value, DemoCameraPose& out, std::stri
 
 const char* ActionTypeName( RunInteractionAutomationActionType type )
 {
+
     switch ( type )
     {
     case RunInteractionAutomationActionType::LoadShotList:
@@ -619,6 +633,7 @@ const char* ActionTypeName( RunInteractionAutomationActionType type )
 
 const char* AssertName( RunInteractionAutomationAssertKind kind )
 {
+
     switch ( kind )
     {
     case RunInteractionAutomationAssertKind::SelectedObject:
@@ -780,6 +795,7 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
 
 bool ReadBool( const Json& value )
 {
+
     if ( value.is_boolean() )
     {
         return value.get<bool>();
@@ -806,6 +822,7 @@ bool IsBoolValue( const Json& value )
 
 bool TryReadFrame( const Json& entry, int& outFrame )
 {
+
     if ( !entry.contains( "frame" ) || !entry["frame"].is_number_integer() )
     {
         return false;
@@ -815,21 +832,14 @@ bool TryReadFrame( const Json& entry, int& outFrame )
     return true;
 }
 
-void AppendReportAction( InteractionAutomationController& state,
-                         int frame,
-                         RunInteractionAutomationActionType type,
-                         const char* target,
-                         const POINT* mouse,
-                         bool consumed,
-                         const char* detail )
+void AppendReportAction( InteractionAutomationController& state, int frame, RunInteractionAutomationActionType type,
+                         const char* target, const POINT* mouse, bool consumed, const char* detail )
 {
     state.reportWriter.AppendAction( frame, ActionTypeName( type ), target, mouse, consumed, detail );
 }
 
-void InjectAutomationLeftMousePress( InteractionAutomationController& state,
-                                     RunInteractionAutomationAction& action,
-                                     int frame,
-                                     const SkullbonezCore::UI::UIRect& rect )
+void InjectAutomationLeftMousePress( InteractionAutomationController& state, RunInteractionAutomationAction& action,
+                                     int frame, const SkullbonezCore::UI::UIRect& rect )
 {
     POINT mouse = {};
     mouse.x = static_cast<LONG>( rect.x + rect.w * 0.5f );
@@ -847,29 +857,26 @@ void FailAutomation( InteractionAutomationController& state, const char* message
 
 void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationController& state,
                                                      SkullbonezCore::Environment::CameraCollection& cameras,
-                                                     CameraControlState& camera,
-                                                     RunInteractionAutomationAction& action,
+                                                     CameraControlState& camera, RunInteractionAutomationAction& action,
                                                      int frame )
 {
+
     // Concept: director/camera automation seeds the same camera and director
     // owners used by live authoring. Camera-mode transitions are routed by the
     // caller through InputRouter before this helper handles director-local work.
+
     switch ( action.type )
     {
     case RunInteractionAutomationActionType::LoadShotList:
     {
         const bool loaded = DemoDirectorPlayback::LoadShotList( camera, cameras, action.path );
+
         if ( !loaded )
         {
             FailAutomation( state, "failed to load director shot list" );
         }
 
-        AppendReportAction( state,
-                            frame,
-                            action.type,
-                            action.path,
-                            nullptr,
-                            loaded,
+        AppendReportAction( state, frame, action.type, action.path, nullptr, loaded,
                             loaded ? "shot list loaded" : "shot list unavailable" );
 
         break;
@@ -877,17 +884,13 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationContro
     case RunInteractionAutomationActionType::DirectorAdvance:
     {
         const bool advanced = DemoDirectorPlayback::AdvancePhase( camera, cameras );
+
         if ( !advanced )
         {
             FailAutomation( state, "failed to advance director phase" );
         }
 
-        AppendReportAction( state,
-                            frame,
-                            action.type,
-                            "",
-                            nullptr,
-                            advanced,
+        AppendReportAction( state, frame, action.type, "", nullptr, advanced,
                             advanced ? "director phase advanced" : "director phase unavailable" );
 
         break;
@@ -895,17 +898,13 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationContro
     case RunInteractionAutomationActionType::DirectorGrab:
     {
         const bool grabbed = DemoDirectorPlayback::BeginGrab( camera, cameras );
+
         if ( !grabbed )
         {
             FailAutomation( state, "failed to grab director camera" );
         }
 
-        AppendReportAction( state,
-                            frame,
-                            action.type,
-                            "",
-                            nullptr,
-                            grabbed,
+        AppendReportAction( state, frame, action.type, "", nullptr, grabbed,
                             grabbed ? "director camera grabbed" : "director grab unavailable" );
 
         break;
@@ -913,17 +912,13 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationContro
     case RunInteractionAutomationActionType::DirectorRelease:
     {
         const bool released = DemoDirectorPlayback::EndGrab( camera, cameras );
+
         if ( !released )
         {
             FailAutomation( state, "failed to release director camera" );
         }
 
-        AppendReportAction( state,
-                            frame,
-                            action.type,
-                            "",
-                            nullptr,
-                            released,
+        AppendReportAction( state, frame, action.type, "", nullptr, released,
                             released ? "director camera released" : "director release unavailable" );
 
         break;
@@ -931,17 +926,13 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationContro
     case RunInteractionAutomationActionType::SetPhaseStyle:
     {
         const bool applied = DemoDirectorPlayback::SetCurrentPhaseStyle( camera, action.path );
+
         if ( !applied )
         {
             FailAutomation( state, "failed to set director phase style" );
         }
 
-        AppendReportAction( state,
-                            frame,
-                            action.type,
-                            action.path,
-                            nullptr,
-                            applied,
+        AppendReportAction( state, frame, action.type, action.path, nullptr, applied,
                             applied ? "director phase style set" : "director phase unavailable" );
 
         break;
@@ -949,15 +940,11 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationContro
     case RunInteractionAutomationActionType::SetCameraPose:
     {
         const bool applied = true;
+
         // Why: pose-authoring proofs seed the current camera, then use normal
         // J/L key handling to write and save the shot list.
         cameras.SetPrimaryPose( action.cameraPose.eye, action.cameraPose.view, action.cameraPose.up );
-        AppendReportAction( state,
-                            frame,
-                            action.type,
-                            "",
-                            nullptr,
-                            applied,
+        AppendReportAction( state, frame, action.type, "", nullptr, applied,
                             applied ? "camera pose applied" : "camera unavailable" );
 
         break;
@@ -1021,23 +1008,20 @@ void PublishReplayDeterministicReveal( ReplayFrameIntent& intent, ReplayFrameInd
 }
 
 
-template <typename TrySetReplayPathTarget,
-          typename TrySetReplayInterceptTarget,
+template <typename TrySetReplayPathTarget, typename TrySetReplayInterceptTarget,
           typename SetWorldInteractionOwnerAfterTransition>
-void ApplyInteractionAutomationReplayStateAction( InteractionAutomationController& state,
-                                                  RunTimerState& timers,
-                                                  ReplayFrameIntent& replayIntent,
-                                                  const ReplayAutomationView& replay,
-                                                  Physics::PhysicsEngine& physics,
-                                                  RunInteractionAutomationAction& action,
-                                                  int frame,
-                                                  TrySetReplayPathTarget trySetReplayPathTarget,
+void ApplyInteractionAutomationReplayStateAction( InteractionAutomationController& state, RunTimerState& timers,
+                                                  ReplayFrameIntent& replayIntent, const ReplayAutomationView& replay,
+                                                  Physics::PhysicsEngine& physics, RunInteractionAutomationAction& action,
+                                                  int frame, TrySetReplayPathTarget trySetReplayPathTarget,
                                                   TrySetReplayInterceptTarget trySetReplayInterceptTarget,
                                                   SetWorldInteractionOwnerAfterTransition setWorldInteractionOwner )
 {
+
     // Concept: replay state automation changes only harness-visible replay
     // controls. Direct physics mutation is limited to the velocity-edit proof
     // path and still marks prediction dirty so replay owners rebuild outputs.
+
     switch ( action.type )
     {
     case RunInteractionAutomationActionType::ShowReplayScrubber:
@@ -1046,33 +1030,23 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
         break;
     case RunInteractionAutomationActionType::SetReplayPredictionEnabled:
         PublishReplayPredictionEnabled( replayIntent, action.boolValue );
-        setWorldInteractionOwner(
-            action.boolValue ? WorldInteractionOwner::ReplayPrediction : WorldInteractionOwner::None,
-            InteractionExitReason::EnterReplay );
+        setWorldInteractionOwner( action.boolValue ? WorldInteractionOwner::ReplayPrediction : WorldInteractionOwner::None,
+                                  InteractionExitReason::EnterReplay );
 
-        AppendReportAction( state,
-                            frame,
-                            action.type,
-                            "",
-                            nullptr,
-                            true,
+        AppendReportAction( state, frame, action.type, "", nullptr, true,
                             action.boolValue ? "prediction enabled" : "prediction disabled" );
 
         break;
     case RunInteractionAutomationActionType::SetReplayPathTarget:
     {
         const bool targetSet = trySetReplayPathTarget( action.text );
+
         if ( !targetSet )
         {
             FailAutomation( state, "failed to set replay path target" );
         }
 
-        AppendReportAction( state,
-                            frame,
-                            action.type,
-                            action.text,
-                            nullptr,
-                            targetSet,
+        AppendReportAction( state, frame, action.type, action.text, nullptr, targetSet,
                             targetSet ? "replay path target set" : "replay path target unavailable" );
 
         break;
@@ -1080,17 +1054,13 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
     case RunInteractionAutomationActionType::SetReplayInterceptTarget:
     {
         const bool targetSet = trySetReplayInterceptTarget( action.text );
+
         if ( !targetSet )
         {
             FailAutomation( state, "failed to set replay intercept target" );
         }
 
-        AppendReportAction( state,
-                            frame,
-                            action.type,
-                            action.text,
-                            nullptr,
-                            targetSet,
+        AppendReportAction( state, frame, action.type, action.text, nullptr, targetSet,
                             targetSet ? "replay intercept target set" : "replay intercept target unavailable" );
 
         break;
@@ -1103,14 +1073,14 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
         break;
     case RunInteractionAutomationActionType::SetReplayPredictionHorizonSeconds:
     {
-        const float horizonSeconds = std::clamp( action.numberValue,
-                                                 REPLAY_PREDICTION_MIN_SECONDS,
+        const float horizonSeconds = std::clamp( action.numberValue, REPLAY_PREDICTION_MIN_SECONDS,
                                                  REPLAY_PREDICTION_MAX_SECONDS );
 
         // Why: automation should use the same bounded horizon value the replay UI
         // exposes, while still forcing a rebuild when a script changes it before
         // a proof.
         PublishReplayPredictionHorizon( replayIntent, horizonSeconds );
+
         // Why: this text exists only in the machine-readable automation report.
         // Keep stream/string formatting in Diagnostics even though the scripted
         // action executes inside the steady-gameplay input phase.
@@ -1131,29 +1101,30 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
         const int bodyIndex = bodyStore.ModelIndexForHandle( body );
         const bool hasTarget = replay.path.hasTarget && replay.path.targetId.value != 0;
         bool applied = false;
+
         if ( hasTarget && record && bodyIndex >= 0 )
         {
+
             if ( !PrepareReplayVelocityMutationBaseline( replay, replayIntent ) )
             {
                 FailAutomation( state, "replay path target velocity nudge requires a completed prediction baseline" );
             }
             else
             {
+
                 // Why: automation needs the same old-vs-new future proof as a
                 // mouse drag, but without depending on pixel-perfect axis hit
                 // testing. Capture is still deferred to the visualizer.
-                const Physics::PhysicsBodyHotState hotState = Physics::LoadPhysicsBodyHotState(
-                    bodyStore.HotFields(),
-                    static_cast<std::size_t>( bodyIndex ) );
+                const Physics::PhysicsBodyHotState hotState = Physics::LoadPhysicsBodyHotState( bodyStore.HotFields(),
+                                                                                                static_cast<std::size_t>( bodyIndex ) );
 
                 const Vector3 nextLinearVelocity = hotState.linearVelocity + action.vectorValue;
                 applied = physics.SetBodyVelocity( body, nextLinearVelocity, hotState.angularVelocity, true );
+
                 if ( applied )
                 {
                     CommitReplayVelocityMutation( replayIntent );
-                    PublishReplayScrubberVisibility( replayIntent,
-                                                     true,
-                                                     timers.simulationTimer.GetTotalTime(),
+                    PublishReplayScrubberVisibility( replayIntent, true, timers.simulationTimer.GetTotalTime(),
                                                      REPLAY_SCRUBBER_VISIBLE_SECONDS );
 
                     setWorldInteractionOwner( WorldInteractionOwner::ReplayVelocityEdit,
@@ -1171,12 +1142,7 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
             FailAutomation( state, "failed to apply replay path target velocity nudge" );
         }
 
-        AppendReportAction( state,
-                            frame,
-                            action.type,
-                            action.text,
-                            nullptr,
-                            applied,
+        AppendReportAction( state, frame, action.type, action.text, nullptr, applied,
                             applied ? "path target velocity nudged" : "path target velocity nudge failed" );
 
         break;
@@ -1188,73 +1154,58 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
 
 void ShowInteractionAutomationReplayScrubber( RunTimerState& timers, ReplayFrameIntent& replayIntent )
 {
-    PublishReplayScrubberVisibility( replayIntent,
-                                     true,
-                                     timers.simulationTimer.GetTotalTime(),
+    PublishReplayScrubberVisibility( replayIntent, true, timers.simulationTimer.GetTotalTime(),
                                      REPLAY_SCRUBBER_VISIBLE_SECONDS );
 }
 
-void AppendInteractionAutomationReplayControlFailure( InteractionAutomationController& state,
-                                                      int frame,
-                                                      const RunInteractionAutomationAction& action,
-                                                      const char* failure,
+void AppendInteractionAutomationReplayControlFailure( InteractionAutomationController& state, int frame,
+                                                      const RunInteractionAutomationAction& action, const char* failure,
                                                       const char* detail )
 {
     FailAutomation( state, failure );
     AppendReportAction( state, frame, action.type, action.text, nullptr, false, detail );
 }
 
-void InjectInteractionAutomationReplayControlClick( InteractionAutomationController& state,
-                                                    RunTimerState& timers,
-                                                    ReplayFrameIntent& replayIntent,
-                                                    RunInteractionAutomationAction& action,
-                                                    int frame,
-                                                    const SkullbonezCore::UI::UIRect& rect,
-                                                    const char* detail )
+void InjectInteractionAutomationReplayControlClick( InteractionAutomationController& state, RunTimerState& timers,
+                                                    ReplayFrameIntent& replayIntent, RunInteractionAutomationAction& action,
+                                                    int frame, const SkullbonezCore::UI::UIRect& rect, const char* detail )
 {
     InjectAutomationLeftMousePress( state, action, frame, rect );
     ShowInteractionAutomationReplayScrubber( timers, replayIntent );
     AppendReportAction( state, frame, action.type, action.text, &action.mouse, true, detail );
 }
 
-void ApplyInteractionAutomationReplayControlClick( InteractionAutomationController& state,
-                                                   Window* window,
+void ApplyInteractionAutomationReplayControlClick( InteractionAutomationController& state, Window* window,
                                                    const SkullbonezCore::Core::EngineConfig& config,
-                                                   const SceneSessionState& scene,
-                                                   RunTimerState& timers,
-                                                   ReplayFrameIntent& replayIntent,
-                                                   const ReplayAutomationView& replay,
-                                                   RunInteractionAutomationAction& action,
-                                                   int frame )
+                                                   const SceneSessionState& scene, RunTimerState& timers,
+                                                   ReplayFrameIntent& replayIntent, const ReplayAutomationView& replay,
+                                                   RunInteractionAutomationAction& action, int frame )
 {
+
     // Concept: replay-control automation clicks the visible scrubber widgets
     // instead of mutating replay state directly. Normal replay input remains the
     // owner of prediction, pause/play, velocity-edit, and branch transitions.
+
     if ( strcmp( action.text, "predict" ) == 0 )
     {
         const int screenW = window ? window->ClientWidth() : config.window.screenX;
         const int screenH = window ? window->ClientHeight() : config.window.screenY;
         const ReplayRecorderStats solverReplayStats = replay.solverStats;
+
         // Why: interaction scripts should match the real UI: Predict can branch
         // from the current live solver state even before a paused scene has
         // accumulated two retained solver samples.
         const bool predictionToolsEnabled = solverReplayStats.enabled && scene.isScenePhysics;
+
         if ( screenW > 0 && screenH > 0 && predictionToolsEnabled )
         {
-            InjectInteractionAutomationReplayControlClick( state,
-                                                           timers,
-                                                           replayIntent,
-                                                           action,
-                                                           frame,
+            InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
                                                            ReplayScrubberPredictToggleRect( screenW, screenH ),
                                                            "mouse press injected at predict toggle" );
         }
         else
         {
-            AppendInteractionAutomationReplayControlFailure( state,
-                                                             frame,
-                                                             action,
-                                                             "replay predict control unavailable",
+            AppendInteractionAutomationReplayControlFailure( state, frame, action, "replay predict control unavailable",
                                                              "replay predict control unavailable" );
         }
 
@@ -1271,20 +1222,13 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
 
         if ( screenW > 0 && screenH > 0 && pastPathControlEnabled )
         {
-            InjectInteractionAutomationReplayControlClick( state,
-                                                           timers,
-                                                           replayIntent,
-                                                           action,
-                                                           frame,
+            InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
                                                            ReplayScrubberPastPathToggleRect( screenW, screenH ),
                                                            "mouse press injected at past-path toggle" );
         }
         else
         {
-            AppendInteractionAutomationReplayControlFailure( state,
-                                                             frame,
-                                                             action,
-                                                             "replay past-path control unavailable",
+            AppendInteractionAutomationReplayControlFailure( state, frame, action, "replay past-path control unavailable",
                                                              "replay past-path control unavailable" );
         }
 
@@ -1297,26 +1241,21 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
         const int screenH = window ? window->ClientHeight() : config.window.screenY;
         const ReplayRecorderStats solverReplayStats = replay.solverStats;
         const bool solverToolsEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
+
         if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
         {
+
             // Concept: the scrubber exposes one physical button whose label
             // flips between pause and play. Automation clicks the real rectangle
             // so replay input ownership does the state transition and
             // prediction-freeze work.
-            InjectInteractionAutomationReplayControlClick( state,
-                                                           timers,
-                                                           replayIntent,
-                                                           action,
-                                                           frame,
+            InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
                                                            ReplayScrubberPauseButtonRect( screenW, screenH ),
                                                            "mouse press injected at pause/play toggle" );
         }
         else
         {
-            AppendInteractionAutomationReplayControlFailure( state,
-                                                             frame,
-                                                             action,
-                                                             "replay pause/play control unavailable",
+            AppendInteractionAutomationReplayControlFailure( state, frame, action, "replay pause/play control unavailable",
                                                              "replay pause/play control unavailable" );
         }
 
@@ -1329,25 +1268,20 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
         const int screenH = window ? window->ClientHeight() : config.window.screenY;
         const ReplayRecorderStats solverReplayStats = replay.solverStats;
         const bool solverToolsEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
+
         if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
         {
+
             // Concept: velocity automation toggles the visible scrubber control,
             // then lets the next scripted world click exercise replay velocity
             // targeting through normal input ownership.
-            InjectInteractionAutomationReplayControlClick( state,
-                                                           timers,
-                                                           replayIntent,
-                                                           action,
-                                                           frame,
+            InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
                                                            ReplayScrubberVelocityEditToggleRect( screenW, screenH ),
                                                            "mouse press injected at velocity toggle" );
         }
         else
         {
-            AppendInteractionAutomationReplayControlFailure( state,
-                                                             frame,
-                                                             action,
-                                                             "replay velocity control unavailable",
+            AppendInteractionAutomationReplayControlFailure( state, frame, action, "replay velocity control unavailable",
                                                              "replay velocity control unavailable" );
         }
 
@@ -1366,51 +1300,41 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
 
         if ( screenW > 0 && screenH > 0 && branchTargetAvailable )
         {
+
             // Why: branch-restore proof clicks the visible Branch rectangle
             // after a scripted scrub, so TickReplayScrubberInput remains the
             // owner of the restore.
-            InjectInteractionAutomationReplayControlClick( state,
-                                                           timers,
-                                                           replayIntent,
-                                                           action,
-                                                           frame,
+            InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame,
                                                            ReplayScrubberBranchButtonRect( screenW, screenH ),
                                                            "mouse press injected at branch restore button" );
         }
         else
         {
-            AppendInteractionAutomationReplayControlFailure( state,
-                                                             frame,
-                                                             action,
-                                                             "replay branch control unavailable",
+            AppendInteractionAutomationReplayControlFailure( state, frame, action, "replay branch control unavailable",
                                                              "replay branch control unavailable" );
         }
 
         return;
     }
 
-    AppendInteractionAutomationReplayControlFailure( state,
-                                                     frame,
-                                                     action,
+    AppendInteractionAutomationReplayControlFailure( state, frame, action,
                                                      "unsupported replay control in interaction script",
                                                      "unsupported replay control" );
 }
 
-void ApplyInteractionAutomationSolverTrackScrub( InteractionAutomationController& state,
-                                                 Window* window,
-                                                 const SkullbonezCore::Core::EngineConfig& config,
-                                                 RunTimerState& timers,
-                                                 ReplayFrameIntent& replayIntent,
-                                                 const ReplayAutomationView& replay,
-                                                 RunInteractionAutomationAction& action,
-                                                 int frame )
+void ApplyInteractionAutomationSolverTrackScrub( InteractionAutomationController& state, Window* window,
+                                                 const SkullbonezCore::Core::EngineConfig& config, RunTimerState& timers,
+                                                 ReplayFrameIntent& replayIntent, const ReplayAutomationView& replay,
+                                                 RunInteractionAutomationAction& action, int frame )
 {
     const int screenW = window ? window->ClientWidth() : config.window.screenX;
     const int screenH = window ? window->ClientHeight() : config.window.screenY;
     const ReplayRecorderStats solverReplayStats = replay.solverStats;
     const bool solverToolsEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
+
     if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
     {
+
         // Why: replay branch tests need a historical solver selection, but the
         // selection still comes from the scrubber track hitbox and normal
         // drag/release handling.
@@ -1418,26 +1342,19 @@ void ApplyInteractionAutomationSolverTrackScrub( InteractionAutomationController
         SkullbonezCore::UI::UIRect target = track;
         target.x = track.x + track.w * std::clamp( action.numberValue, 0.0f, 1.0f );
         target.w = 1.0f;
-        InjectInteractionAutomationReplayControlClick( state,
-                                                       timers,
-                                                       replayIntent,
-                                                       action,
-                                                       frame,
-                                                       target,
+        InjectInteractionAutomationReplayControlClick( state, timers, replayIntent, action, frame, target,
                                                        "mouse press injected at solver replay track" );
     }
     else
     {
-        AppendInteractionAutomationReplayControlFailure( state,
-                                                         frame,
-                                                         action,
-                                                         "replay solver scrub track unavailable",
+        AppendInteractionAutomationReplayControlFailure( state, frame, action, "replay solver scrub track unavailable",
                                                          "replay solver scrub track unavailable" );
     }
 }
 
 bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
 {
+
     if ( !entry.is_object() || !TryReadFrame( entry, outAction.frame ) )
     {
         outError = "each action must be an object with an integer frame";
@@ -1446,6 +1363,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "setCameraMode" ) )
     {
+
         if ( !entry["setCameraMode"].is_string() )
         {
             outError = "setCameraMode must be a string";
@@ -1454,6 +1372,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
         outAction.type = RunInteractionAutomationActionType::SetCameraMode;
         const std::string modeName = entry["setCameraMode"].get<std::string>();
+
         if ( !TryParseCameraMode( modeName, outAction.cameraMode ) )
         {
             outError = "unknown setCameraMode value: " + modeName;
@@ -1466,6 +1385,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "loadShotList" ) )
     {
+
         if ( !entry["loadShotList"].is_string() )
         {
             outError = "loadShotList must be a string";
@@ -1479,6 +1399,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "directorPlay" ) )
     {
+
         if ( !IsBoolValue( entry["directorPlay"] ) )
         {
             outError = "directorPlay must be a boolean value";
@@ -1511,6 +1432,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "setPhaseStyle" ) )
     {
+
         if ( !entry["setPhaseStyle"].is_string() )
         {
             outError = "setPhaseStyle must be a string";
@@ -1530,6 +1452,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "clickObject" ) )
     {
+
         if ( !entry["clickObject"].is_string() || ( entry.contains( "button" ) && !entry["button"].is_string() ) ||
              ( entry.contains( "holdFrames" ) && !entry["holdFrames"].is_number_integer() ) )
         {
@@ -1539,6 +1462,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
         outAction.type = RunInteractionAutomationActionType::ClickObject;
         CopyText( outAction.text, sizeof( outAction.text ), entry["clickObject"].get<std::string>() );
+
         if ( entry.contains( "button" ) )
         {
             const std::string button = entry["button"].get<std::string>();
@@ -1557,6 +1481,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
     if ( entry.contains( "clickPoint" ) )
     {
         const Json& point = entry["clickPoint"];
+
         if ( !point.is_array() || point.size() != 2 || !point[0].is_number_integer() || !point[1].is_number_integer() ||
              ( entry.contains( "button" ) && !entry["button"].is_string() ) ||
              ( entry.contains( "holdFrames" ) && !entry["holdFrames"].is_number_integer() ) )
@@ -1569,6 +1494,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         outAction.mouse = { point[0].get<long>(), point[1].get<long>() };
 
         outAction.hasMouse = true;
+
         if ( entry.contains( "button" ) )
         {
             const std::string button = entry["button"].get<std::string>();
@@ -1586,6 +1512,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "loseFocus" ) )
     {
+
         if ( !entry["loseFocus"].is_number_integer() )
         {
             outError = "loseFocus must be an integer frame count";
@@ -1600,6 +1527,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
     if ( entry.contains( "moveMouse" ) )
     {
         const Json& point = entry["moveMouse"];
+
         if ( !point.is_array() || point.size() != 2 || !point[0].is_number_integer() || !point[1].is_number_integer() )
         {
             outError = "moveMouse must be a 2-integer array";
@@ -1615,6 +1543,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "clickReplayControl" ) )
     {
+
         if ( !entry["clickReplayControl"].is_string() )
         {
             outError = "clickReplayControl must be a string";
@@ -1628,6 +1557,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "scrubReplaySolverTrack" ) )
     {
+
         if ( !entry["scrubReplaySolverTrack"].is_number() )
         {
             outError = "scrubReplaySolverTrack must be a number";
@@ -1642,6 +1572,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "scrubEditorReplayTrack" ) )
     {
+
         if ( !entry["scrubEditorReplayTrack"].is_number() )
         {
             outError = "scrubEditorReplayTrack must be a normalized number";
@@ -1655,6 +1586,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "setReplayPredictionEnabled" ) )
     {
+
         if ( !IsBoolValue( entry["setReplayPredictionEnabled"] ) )
         {
             outError = "setReplayPredictionEnabled must be a boolean value";
@@ -1668,6 +1600,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "setReplayPredictionHorizonSeconds" ) )
     {
+
         if ( !entry["setReplayPredictionHorizonSeconds"].is_number() )
         {
             outError = "setReplayPredictionHorizonSeconds must be a number";
@@ -1681,6 +1614,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "beginReplayVisualFidelityCapture" ) )
     {
+
         if ( !IsBoolValue( entry["beginReplayVisualFidelityCapture"] ) ||
              !ReadBool( entry["beginReplayVisualFidelityCapture"] ) )
         {
@@ -1695,6 +1629,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "setReplayPathTarget" ) )
     {
+
         if ( !entry["setReplayPathTarget"].is_string() )
         {
             outError = "setReplayPathTarget must be a string";
@@ -1708,6 +1643,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "setReplayInterceptTarget" ) )
     {
+
         if ( !entry["setReplayInterceptTarget"].is_string() )
         {
             outError = "setReplayInterceptTarget must be a string";
@@ -1721,6 +1657,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "setReplayTripPlannerCommand" ) )
     {
+
         if ( !entry["setReplayTripPlannerCommand"].is_string() )
         {
             outError = "setReplayTripPlannerCommand must be a string";
@@ -1746,6 +1683,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
         if ( outAction.tripPlannerCommand == ReplayTripPlannerCommandKind::SetTimeOfFlight )
         {
+
             if ( !entry.contains( "timeOfFlightSeconds" ) || !entry["timeOfFlightSeconds"].is_number() )
             {
                 outError = "trip planner tof command requires numeric timeOfFlightSeconds";
@@ -1762,6 +1700,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
     if ( entry.contains( "nudgeReplayPathTargetVelocity" ) )
     {
         outAction.type = RunInteractionAutomationActionType::NudgeReplayPathTargetVelocity;
+
         if ( !ReadAutomationVec3( entry["nudgeReplayPathTargetVelocity"], outAction.vectorValue ) )
         {
             outError = "nudgeReplayPathTargetVelocity must be a 3-number array";
@@ -1774,6 +1713,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "showReplayScrubber" ) )
     {
+
         if ( !IsBoolValue( entry["showReplayScrubber"] ) )
         {
             outError = "showReplayScrubber must be a boolean value";
@@ -1787,6 +1727,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "pressKey" ) )
     {
+
         if ( !entry["pressKey"].is_string() || ( entry.contains( "control" ) && !entry["control"].is_boolean() ) )
         {
             outError = "pressKey requires a string key and optional boolean control";
@@ -1795,6 +1736,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
         outAction.type = RunInteractionAutomationActionType::PressKey;
         const std::string keyName = entry["pressKey"].get<std::string>();
+
         if ( !TryParseVirtualKey( keyName, outAction.keyVirtualKey ) )
         {
             outError = "unknown pressKey value: " + keyName;
@@ -1808,6 +1750,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "captureEditorSelectionState" ) )
     {
+
         if ( !entry["captureEditorSelectionState"].is_number_integer() )
         {
             outError = "captureEditorSelectionState must be an integer slot";
@@ -1815,6 +1758,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         }
 
         const int slot = entry["captureEditorSelectionState"].get<int>();
+
         if ( slot < 0 || slot >= 2 )
         {
             outError = "captureEditorSelectionState slot must be 0 or 1";
@@ -1828,6 +1772,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "loadScene" ) )
     {
+
         if ( !entry["loadScene"].is_string() )
         {
             outError = "loadScene must be a scene-browser path";
@@ -1841,6 +1786,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "setDevelopmentUiSurface" ) )
     {
+
         if ( !entry["setDevelopmentUiSurface"].is_string() )
         {
             outError = "setDevelopmentUiSurface must be legacy or imgui";
@@ -1848,6 +1794,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         }
 
         const std::string surface = entry["setDevelopmentUiSurface"].get<std::string>();
+
         if ( surface != "legacy" && surface != "imgui" )
         {
             outError = "setDevelopmentUiSurface must be legacy or imgui";
@@ -1862,6 +1809,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
     if ( entry.contains( "setImGuiPanelVisible" ) )
     {
         const Json& panel = entry["setImGuiPanelVisible"];
+
         if ( !panel.is_object() || !panel.contains( "panel" ) || !panel["panel"].is_string() ||
              !panel.contains( "visible" ) || !IsBoolValue( panel["visible"] ) )
         {
@@ -1877,6 +1825,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "resetImGuiLayout" ) )
     {
+
         if ( !IsBoolValue( entry["resetImGuiLayout"] ) || !ReadBool( entry["resetImGuiLayout"] ) )
         {
             outError = "resetImGuiLayout must be true";
@@ -1889,6 +1838,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "focusImGuiPanel" ) )
     {
+
         if ( !entry["focusImGuiPanel"].is_string() )
         {
             outError = "focusImGuiPanel must be a string panel name";
@@ -1902,6 +1852,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "setImGuiDpiScale" ) )
     {
+
         if ( !entry["setImGuiDpiScale"].is_number() )
         {
             outError = "setImGuiDpiScale must be a number";
@@ -1909,6 +1860,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         }
 
         const float dpiScale = entry["setImGuiDpiScale"].get<float>();
+
         if ( !std::isfinite( dpiScale ) || dpiScale < 0.75f || dpiScale > 4.0f )
         {
             outError = "setImGuiDpiScale must be within 0.75..4.0";
@@ -1923,6 +1875,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
     if ( entry.contains( "resizeWindow" ) )
     {
         const Json& size = entry["resizeWindow"];
+
         if ( !size.is_array() || size.size() != 2 || !size[0].is_number_integer() || !size[1].is_number_integer() )
         {
             outError = "resizeWindow must be a 2-integer client-size array";
@@ -1931,6 +1884,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
         const int width = size[0].get<int>();
         const int height = size[1].get<int>();
+
         if ( width < 1024 || width > 7680 || height < 640 || height > 4320 )
         {
             outError = "resizeWindow client size must be within 1024x640..7680x4320";
@@ -1945,6 +1899,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "screenshot" ) )
     {
+
         if ( !entry["screenshot"].is_string() )
         {
             outError = "screenshot must be a string path";
@@ -1959,6 +1914,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
     if ( entry.contains( "assert" ) )
     {
         const Json& assertion = entry["assert"];
+
         if ( !assertion.is_object() || assertion.empty() )
         {
             outError = "assert action must contain one assertion field";
@@ -1969,6 +1925,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         const auto member = assertion.begin();
         const std::string name = member.key();
         const Json& expected = member.value();
+
         // Invariant: JSON_NOEXCEPTION turns a mismatched get<T>() into an
         // abort, so the assertion vocabulary is classified before dispatch.
         const bool expectsString = name == "selectedObject" || name == "owner" || name == "cameraMode" ||
@@ -1977,9 +1934,8 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
                                    name == "predictionBuildMode" || name == "pointerCapture" ||
                                    name == "replayActiveTrack" || name == "developmentUiSurface";
 
-        const bool expectsInteger = name == "directorPhaseIndex" || name == "editorUndoDepth" ||
-                                    name == "editorRedoDepth" || name == "editorSelectionMatchesCapture" ||
-                                    name == "imguiPanelMask";
+        const bool expectsInteger = name == "directorPhaseIndex" || name == "editorUndoDepth" || name == "editorRedoDepth" ||
+                                    name == "editorSelectionMatchesCapture" || name == "imguiPanelMask";
 
         const bool expectsNumber = name == "replayPastTrajectoryFullRebuildCountMax" ||
                                    name == "replayPastTrajectoryIncrementalTrimCountMin" ||
@@ -1996,8 +1952,8 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
                                    name == "predictionSupersededRestartCountMin" ||
                                    name == "predictionSupersededRestartCountMax" ||
                                    name == "predictionPresentedGenerationMin" ||
-                                   name == "predictionPresentedRootVelocityDeltaMin" ||
-                                   name == "predictionDivergenceMin" || name == "predictionTargetDisplacementMin" ||
+                                   name == "predictionPresentedRootVelocityDeltaMin" || name == "predictionDivergenceMin" ||
+                                   name == "predictionTargetDisplacementMin" ||
                                    name == "predictionAppearanceInvalidationCountMin" ||
                                    name == "imguiLayoutResetCountMin" || name == "imguiFocusCountMin" ||
                                    name == "imguiDpiScale" || name == "imguiDescriptorHighWaterMax" ||
@@ -2008,24 +1964,22 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
                                  name == "predictionBaselineVisible" || name == "replayInterceptContact" ||
                                  name == "replayTripPlannerMissesImprove" || name == "replayPorkchopComplete" ||
                                  name == "replayPorkchopSelected" || name == "replaySolverTrackAtPresent" ||
-                                 name == "predictionScrubFrameActive" ||
-                                 name == "liveSolverHashStableAcrossPrediction" ||
+                                 name == "predictionScrubFrameActive" || name == "liveSolverHashStableAcrossPrediction" ||
                                  name == "predictionTrajectoryFingerprintReady" || name == "shadowPassExecuted" ||
                                  name == "terrainShadowValid" || name == "objectShadowValid" ||
-                                 name == "reflectionPassExecuted" || name == "gizmoVisible" ||
-                                 name == "mousePickupActive" || name == "nativeCaptureRequested" ||
-                                 name == "cursorVisibleRequested" || name == "uiBlocksMouse" ||
-                                 name == "launcherRayActive" || name == "replayHistoricalSamplePaused" ||
-                                 name == "memoryOverlayEnabled" || name == "editorSelectionExists" ||
-                                 name == "editorSelectionHasTerrain" || name == "imguiVisible" ||
-                                 name == "legacyReplayPresentationActive" || name == "imguiPreferencesRecovered";
+                                 name == "reflectionPassExecuted" || name == "gizmoVisible" || name == "mousePickupActive" ||
+                                 name == "nativeCaptureRequested" || name == "cursorVisibleRequested" ||
+                                 name == "uiBlocksMouse" || name == "launcherRayActive" ||
+                                 name == "replayHistoricalSamplePaused" || name == "memoryOverlayEnabled" ||
+                                 name == "editorSelectionExists" || name == "editorSelectionHasTerrain" ||
+                                 name == "imguiVisible" || name == "legacyReplayPresentationActive" ||
+                                 name == "imguiPreferencesRecovered";
 
         const bool expectsPositionTolerance = name == "predictionTargetLastNear";
         const bool positionToleranceValid = !expectsPositionTolerance ||
                                             ( expected.is_object() && expected.contains( "position" ) &&
                                               expected["position"].is_array() && expected["position"].size() == 3u &&
-                                              expected["position"][0].is_number() &&
-                                              expected["position"][1].is_number() &&
+                                              expected["position"][0].is_number() && expected["position"][1].is_number() &&
                                               expected["position"][2].is_number() && expected.contains( "tolerance" ) &&
                                               expected["tolerance"].is_number() &&
                                               expected["tolerance"].get<float>() > 0.0f );
@@ -2047,6 +2001,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         {
             WorldInteractionOwner owner = WorldInteractionOwner::None;
             const std::string ownerName = member.value().get<std::string>();
+
             if ( !TryParseOwner( ownerName, owner ) )
             {
                 outError = "unknown owner assertion value: " + ownerName;
@@ -2060,6 +2015,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         {
             RunCameraMode mode = RunCameraMode::Inspect;
             const std::string modeName = member.value().get<std::string>();
+
             if ( !TryParseCameraMode( modeName, mode ) )
             {
                 outError = "unknown cameraMode assertion value: " + modeName;
@@ -2273,8 +2229,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         else if ( name == "predictionTargetLastNear" )
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::PredictionTargetLastNear;
-            outAction.vectorValue = Vector3( expected["position"][0].get<float>(),
-                                             expected["position"][1].get<float>(),
+            outAction.vectorValue = Vector3( expected["position"][0].get<float>(), expected["position"][1].get<float>(),
                                              expected["position"][2].get<float>() );
 
             outAction.numberValue = expected["tolerance"].get<float>();
@@ -2387,6 +2342,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         else if ( name == "editorSelectionMatchesCapture" )
         {
             const int slot = member.value().get<int>();
+
             if ( slot < 0 || slot >= 2 )
             {
                 outError = "editorSelectionMatchesCapture slot must be 0 or 1";
@@ -2399,6 +2355,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         else if ( name == "developmentUiSurface" )
         {
             const std::string surface = member.value().get<std::string>();
+
             if ( surface != "legacy" && surface != "imgui" )
             {
                 outError = "developmentUiSurface must be legacy or imgui";
@@ -2421,6 +2378,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         else if ( name == "imguiPanelMask" )
         {
             const int mask = member.value().get<int>();
+
             if ( mask < 0 || mask > 4095 )
             {
                 outError = "imguiPanelMask must be within 0..4095";
@@ -2480,6 +2438,7 @@ std::string BoolString( bool value )
 
 const char* TripPlannerStateName( ReplayTripPlannerState state )
 {
+
     switch ( state )
     {
     case ReplayTripPlannerState::Idle:
@@ -2507,30 +2466,25 @@ struct InteractionAutomationAssertionEvaluation
 };
 
 template <typename InspectGizmoInteractionActive>
-InteractionAutomationAssertionEvaluation
-EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
-                                        const InteractionAutomationController& automation,
-                                        const ReplayAutomationView& replay,
-                                        RuntimeInteractionController& interaction,
-                                        const InputRouter& inputRouter,
-                                        CameraControlState& camera,
-                                        const SceneWorld& world,
-                                        SkullbonezCore::UI::InGameUI& ui,
-                                        const InteractionAutomationDevelopmentUiView& developmentUi,
-                                        const Rendering::RenderSceneSnapshot& renderSnapshot,
-                                        const RunInteractionAutomationAction& action,
-                                        InspectGizmoInteractionActive inspectGizmoInteractionActive )
+InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools, const InteractionAutomationController& automation, const ReplayAutomationView& replay,
+                                                                                 RuntimeInteractionController& interaction, const InputRouter& inputRouter, CameraControlState& camera,
+                                                                                 const SceneWorld& world, SkullbonezCore::UI::InGameUI& ui, const InteractionAutomationDevelopmentUiView& developmentUi,
+                                                                                 const Rendering::RenderSceneSnapshot& renderSnapshot, const RunInteractionAutomationAction& action,
+                                                                                 InspectGizmoInteractionActive inspectGizmoInteractionActive )
 {
+
     // Concept: after-render assertions are read-only probes over owner state.
     // The context keeps that state explicit so the Run tick only schedules,
     // reports, and fails automation work instead of owning assertion policy.
     InteractionAutomationAssertionEvaluation evaluation;
+
     switch ( action.assertKind )
     {
     case RunInteractionAutomationAssertKind::SelectedObject:
     {
         evaluation.expected = action.text;
         const int selectedIndex = PeekSelectedEditorModelIndex( runtimeTools.Editor(), world.BodyStore() );
+
         if ( selectedIndex >= 0 && selectedIndex < world.SceneEntityCount() )
         {
             evaluation.actual = world.Entities().At( selectedIndex ).displayName;
@@ -2627,16 +2581,20 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     {
         bool improves = replay.tripPlanner.iterationMissCount > 0;
         std::ostringstream misses;
+
         // Why: the assertion's actual field carries the bounded sequence, not
         // merely "true", so a passing lane-P report is also convergence evidence.
+
         for ( std::size_t index = 0; index < replay.tripPlanner.iterationMissCount; ++index )
         {
+
             if ( index != 0 )
             {
                 misses << ',';
             }
 
             misses << replay.tripPlanner.iterationMissDistances[index];
+
             if ( index > 0 && replay.tripPlanner.iterationMissDistances[index] >=
                                   replay.tripPlanner.iterationMissDistances[index - 1] - 0.001f )
             {
@@ -2657,8 +2615,7 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     case RunInteractionAutomationAssertKind::ReplayPorkchopMinimumDeltaVMax:
         evaluation.expected = "<=" + std::to_string( action.numberValue );
         evaluation.actual = std::to_string( replay.porkchop.minimumDeltaV );
-        evaluation.passed = replay.porkchop.minimumDeltaV >= 0.0f &&
-                            replay.porkchop.minimumDeltaV <= action.numberValue;
+        evaluation.passed = replay.porkchop.minimumDeltaV >= 0.0f && replay.porkchop.minimumDeltaV <= action.numberValue;
 
         break;
     case RunInteractionAutomationAssertKind::ReplayPorkchopMinimumDepartureDelayMax:
@@ -2674,24 +2631,20 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     case RunInteractionAutomationAssertKind::ReplayPorkchopMinimumTimeOfFlightMin:
     case RunInteractionAutomationAssertKind::ReplayPorkchopMinimumTimeOfFlightMax:
     {
-        const float tof = ReplayPorkchopPanel::TimeOfFlightSeconds( replay.porkchop.minimumCell /
-                                                                    REPLAY_PORKCHOP_COLUMNS );
+        const float tof = ReplayPorkchopPanel::TimeOfFlightSeconds( replay.porkchop.minimumCell / REPLAY_PORKCHOP_COLUMNS );
 
-        const bool minimum = action.assertKind ==
-                             RunInteractionAutomationAssertKind::ReplayPorkchopMinimumTimeOfFlightMin;
+        const bool minimum = action.assertKind == RunInteractionAutomationAssertKind::ReplayPorkchopMinimumTimeOfFlightMin;
 
         evaluation.expected = std::string( minimum ? ">=" : "<=" ) + std::to_string( action.numberValue );
         evaluation.actual = std::to_string( tof );
-        evaluation.passed = replay.porkchop.complete &&
-                            ( minimum ? tof >= action.numberValue : tof <= action.numberValue );
+        evaluation.passed = replay.porkchop.complete && ( minimum ? tof >= action.numberValue : tof <= action.numberValue );
 
         break;
     }
     case RunInteractionAutomationAssertKind::ReplayPorkchopRefreshMillisecondsMax:
         evaluation.expected = "<=" + std::to_string( action.numberValue );
         evaluation.actual = std::to_string( replay.porkchop.refreshComputeMilliseconds );
-        evaluation.passed = replay.porkchop.complete &&
-                            replay.porkchop.refreshComputeMilliseconds <= action.numberValue;
+        evaluation.passed = replay.porkchop.complete && replay.porkchop.refreshComputeMilliseconds <= action.numberValue;
 
         break;
     case RunInteractionAutomationAssertKind::ReplayPorkchopMaximumFrameMillisecondsMax:
@@ -2770,15 +2723,17 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     case RunInteractionAutomationAssertKind::PredictionPresentedRootVelocityDeltaMin:
     {
         float velocityDelta = 0.0f;
-        bool comparable = replay.prediction.BuildPrefixHasBeenPresented() &&
-                          !replay.prediction.simulation.frames.empty() && !replay.prediction.build.buildFrames.empty();
+        bool comparable = replay.prediction.BuildPrefixHasBeenPresented() && !replay.prediction.simulation.frames.empty() &&
+                          !replay.prediction.build.buildFrames.empty();
 
         if ( comparable )
         {
             const auto findTargetVelocity = [&]( const RunReplayPredictionFrame& frame, Vector3& outVelocity )
             {
+
                 for ( const RunReplayPredictionBodySample& body : frame.bodies )
                 {
+
                     if ( body.id.value == replay.prediction.simulation.targetId.value )
                     {
                         outVelocity = body.linearVelocity;
@@ -2809,8 +2764,7 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     case RunInteractionAutomationAssertKind::PredictionFullHorizonComplete:
     {
         const RunReplayPredictionState& prediction = replay.prediction;
-        const std::size_t expectedFrameCount = static_cast<std::size_t>( std::ceil(
-                                                   prediction.simulation.horizonSeconds / PHYSICS_FIXED_DT ) ) +
+        const std::size_t expectedFrameCount = static_cast<std::size_t>( std::ceil( prediction.simulation.horizonSeconds / PHYSICS_FIXED_DT ) ) +
                                                1u;
 
         const bool complete = prediction.build.complete && !prediction.build.building &&
@@ -2910,16 +2864,14 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     {
         float displacement = 0.0f;
         Vector3 last = ZERO_VECTOR;
-        const bool valid = InteractionAutomationReportWriter::TryPredictionTargetDisplacement( replay,
-                                                                                               displacement,
-                                                                                               nullptr,
+        const bool valid = InteractionAutomationReportWriter::TryPredictionTargetDisplacement( replay, displacement, nullptr,
                                                                                                &last );
 
         const float error = valid ? sqrtf( VectorMagSquared( last - action.vectorValue ) ) : 0.0f;
         {
             std::ostringstream stream;
-            stream << "[" << action.vectorValue.x << "," << action.vectorValue.y << "," << action.vectorValue.z
-                   << "] +/- " << action.numberValue;
+            stream << "[" << action.vectorValue.x << "," << action.vectorValue.y << "," << action.vectorValue.z << "] +/- "
+                   << action.numberValue;
             evaluation.expected = stream.str();
         }
         {
@@ -2967,6 +2919,7 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     case RunInteractionAutomationAssertKind::ReflectionPassExecuted:
     {
         bool actual = false;
+
         if ( action.assertKind == RunInteractionAutomationAssertKind::ShadowPassExecuted )
         {
             actual = renderSnapshot.shadowPassExecuted;
@@ -3011,6 +2964,7 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     {
         const auto captureName = []( RuntimePointerCaptureOwner owner ) -> const char*
         {
+
             switch ( owner )
             {
             case RuntimePointerCaptureOwner::None:
@@ -3108,21 +3062,18 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
         const EditorSelectionFingerprint fingerprint = BuildEditorSelectionFingerprint( runtimeTools, world );
         uint64_t capturedFingerprint = 0;
         const bool captureValid = automation.reportWriter.TryEditorSelectionCapture( slot, capturedFingerprint );
-        evaluation.expected = captureValid
-                                  ? InteractionAutomationReportWriter::FormatPredictionHash( capturedFingerprint )
-                                  : "valid capture";
+        evaluation.expected = captureValid ? InteractionAutomationReportWriter::FormatPredictionHash( capturedFingerprint )
+                                           : "valid capture";
 
-        evaluation.actual = fingerprint.valid
-                                ? InteractionAutomationReportWriter::FormatPredictionHash( fingerprint.hash )
-                                : "no selection";
+        evaluation.actual = fingerprint.valid ? InteractionAutomationReportWriter::FormatPredictionHash( fingerprint.hash )
+                                              : "no selection";
 
         evaluation.passed = captureValid && fingerprint.valid && fingerprint.hash == capturedFingerprint;
         break;
     }
     case RunInteractionAutomationAssertKind::DevelopmentUiSurface:
         evaluation.expected = action.text;
-        evaluation.actual = developmentUi.available ? ( developmentUi.selectedImGui ? "imgui" : "legacy" )
-                                                    : "unavailable";
+        evaluation.actual = developmentUi.available ? ( developmentUi.selectedImGui ? "imgui" : "legacy" ) : "unavailable";
 
         evaluation.passed = developmentUi.available && evaluation.actual == evaluation.expected &&
                             !( developmentUi.legacyVisible && developmentUi.imguiVisible );
@@ -3206,6 +3157,7 @@ bool LoadScript( InteractionAutomationController& state )
     CoreAllocation::RuntimeAllocationScope diagnosticsScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
     state.scriptLoaded = true;
     std::ifstream input( state.scriptPath );
+
     if ( !input.is_open() )
     {
         FailAutomation( state, "failed to open interaction script" );
@@ -3213,6 +3165,7 @@ bool LoadScript( InteractionAutomationController& state )
     }
 
     Json root = Json::parse( input, nullptr, false );
+
     if ( root.is_discarded() )
     {
         FailAutomation( state, "failed to parse interaction script: invalid JSON" );
@@ -3233,6 +3186,7 @@ bool LoadScript( InteractionAutomationController& state )
     {
         RunInteractionAutomationAction action;
         std::string error;
+
         if ( !ParseAction( entry, action, error ) )
         {
             FailAutomation( state, error.c_str() );
@@ -3242,8 +3196,7 @@ bool LoadScript( InteractionAutomationController& state )
         state.actions.push_back( action );
     }
 
-    std::sort( state.actions.begin(),
-               state.actions.end(),
+    std::sort( state.actions.begin(), state.actions.end(),
                []( const RunInteractionAutomationAction& lhs, const RunInteractionAutomationAction& rhs )
                { return lhs.frame < rhs.frame; } );
 
@@ -3253,18 +3206,20 @@ bool LoadScript( InteractionAutomationController& state )
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 InteractionAutomationDevelopmentUiApplyResult
-InteractionAutomationController::ApplyDevelopmentUiCommands( const InteractionAutomationFrameResult& frame,
-                                                             Window& window,
+InteractionAutomationController::ApplyDevelopmentUiCommands( const InteractionAutomationFrameResult& frame, Window& window,
                                                              DevelopmentTools::ImGuiEditorOwner& editor ) const
 {
     InteractionAutomationDevelopmentUiApplyResult result;
+
     for ( std::size_t commandIndex = 0u; commandIndex < frame.developmentUiCommandCount; ++commandIndex )
     {
         const InteractionAutomationDevelopmentUiCommand& command = frame.developmentUiCommands[commandIndex];
         SkullbonezCore::Core::SbResult commandStatus = SkullbonezCore::Core::SbResult::Success();
+
         switch ( command.type )
         {
         case InteractionAutomationDevelopmentUiCommandType::SelectSurface:
+
             // Process selection remains Run-owned; publish the typed request
             // after interpreting the script command alongside its peers.
             result.selectSurface = true;
@@ -3276,12 +3231,12 @@ InteractionAutomationController::ApplyDevelopmentUiCommands( const InteractionAu
         case InteractionAutomationDevelopmentUiCommandType::FocusPanel:
         {
             DevelopmentTools::ImGuiEditorPanelId panel = DevelopmentTools::ImGuiEditorPanelId::Count;
+
             if ( !DevelopmentTools::TryParseImGuiEditorPanel( command.target, panel ) )
             {
-                commandStatus = SkullbonezCore::Core::SbResult::Failure(
-                    "DevelopmentTools/ImGuiAutomation",
-                    "Interaction script names an unknown ImGui panel: %s",
-                    command.target );
+                commandStatus = SkullbonezCore::Core::SbResult::
+                    Failure( "DevelopmentTools/ImGuiAutomation", "Interaction script names an unknown ImGui panel: %s",
+                             command.target );
 
                 break;
             }
@@ -3313,6 +3268,7 @@ InteractionAutomationController::ApplyDevelopmentUiCommands( const InteractionAu
         }
         case InteractionAutomationDevelopmentUiCommandType::ResizeWindow:
         {
+
             // Why: scripts describe client pixels because those are the
             // editor's layout coordinates. Win32 resizes the outer frame, so
             // include the current style and monitor DPI exactly once.
@@ -3322,20 +3278,14 @@ InteractionAutomationController::ApplyDevelopmentUiCommands( const InteractionAu
             const DWORD style = static_cast<DWORD>( GetWindowLongPtr( nativeWindow, GWL_STYLE ) );
             const DWORD extendedStyle = static_cast<DWORD>( GetWindowLongPtr( nativeWindow, GWL_EXSTYLE ) );
             const UINT dpi = GetDpiForWindow( nativeWindow );
+
             if ( !AdjustWindowRectExForDpi( &outer, style, FALSE, extendedStyle, dpi ) ||
-                 !SetWindowPos( nativeWindow,
-                                nullptr,
-                                0,
-                                0,
-                                outer.right - outer.left,
-                                outer.bottom - outer.top,
+                 !SetWindowPos( nativeWindow, nullptr, 0, 0, outer.right - outer.left, outer.bottom - outer.top,
                                 SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE ) )
             {
-                commandStatus = SkullbonezCore::Core::SbResult::Failure(
-                    "DevelopmentTools/ImGuiAutomation",
-                    "Failed to resize the automation client area to %dx%d",
-                    command.width,
-                    command.height );
+                commandStatus = SkullbonezCore::Core::SbResult::
+                    Failure( "DevelopmentTools/ImGuiAutomation", "Failed to resize the automation client area to %dx%d",
+                             command.width, command.height );
             }
 
             break;
@@ -3356,6 +3306,7 @@ SkullbonezCore::Core::SbResult
 InteractionAutomationController::SubmitOperatorEditorReplayCommand( const InteractionAutomationFrameResult& frame,
                                                                     UI::OperatorEditorCommandQueues& commands ) const
 {
+
     if ( !frame.hasOperatorEditorReplayCommand )
     {
         return SkullbonezCore::Core::SbResult::Success();
@@ -3366,8 +3317,7 @@ InteractionAutomationController::SubmitOperatorEditorReplayCommand( const Intera
 
 InteractionAutomationDevelopmentUiView
 InteractionAutomationController::BuildDevelopmentUiView( const DevelopmentTools::ImGuiEditorStatus& editor,
-                                                         bool legacyVisible,
-                                                         bool legacyReplayPresentationActive ) const
+                                                         bool legacyVisible, bool legacyReplayPresentationActive ) const
 {
     InteractionAutomationDevelopmentUiView view;
     view.available = editor.initialized;
@@ -3389,6 +3339,7 @@ InteractionAutomationController::BuildDevelopmentUiView( const DevelopmentTools:
 bool TryFindInteractionAutomationModel( const SceneWorld& world, const char* name, int& outIndex )
 {
     outIndex = -1;
+
     if ( !name || name[0] == '\0' )
     {
         return false;
@@ -3398,13 +3349,11 @@ bool TryFindInteractionAutomationModel( const SceneWorld& world, const char* nam
     return outIndex >= 0;
 }
 
-bool TryProjectInteractionAutomationModel( const SceneWorld& world,
-                                           InputRouter& inputRouter,
-                                           Window* window,
-                                           const char* name,
-                                           POINT& outMouse )
+bool TryProjectInteractionAutomationModel( const SceneWorld& world, InputRouter& inputRouter, Window* window,
+                                           const char* name, POINT& outMouse )
 {
     int modelIndex = -1;
+
     if ( !TryFindInteractionAutomationModel( world, name, modelIndex ) || !window )
     {
         return false;
@@ -3416,14 +3365,17 @@ bool TryProjectInteractionAutomationModel( const SceneWorld& world,
 
     for ( const int step : steps )
     {
+
         for ( int y = step / 2; y < height; y += step )
         {
+
             for ( int x = step / 2; x < width; x += step )
             {
                 const POINT candidate { static_cast<LONG>( x ), static_cast<LONG>( y ) };
 
                 Vector3 rayOrigin;
                 Vector3 rayDirection;
+
                 if ( inputRouter.TryBuildWorldRayAt( candidate, world.Cameras(), *window, rayOrigin, rayDirection ) )
                 {
                     RuntimePickRequest request;
@@ -3434,6 +3386,7 @@ bool TryProjectInteractionAutomationModel( const SceneWorld& world,
                     request.rayDirection = rayDirection;
 
                     RuntimePickResult result;
+
                     if ( RuntimePickService::TryPickModel( request, result ) && result.modelRow.value == modelIndex )
                     {
                         outMouse = candidate;
@@ -3455,12 +3408,12 @@ void SkullbonezCore::Runtime::ClearInteractionAutomationInput( InteractionAutoma
 
 
 SkullbonezCore::Core::SbResult
-SkullbonezCore::Runtime::ConfigureInteractionAutomation( InteractionAutomationController& state,
-                                                         const char* scriptPath,
+SkullbonezCore::Runtime::ConfigureInteractionAutomation( InteractionAutomationController& state, const char* scriptPath,
                                                          const char* reportPath )
 {
     state = InteractionAutomationController {};
     state.reportWriter.Configure( reportPath );
+
     if ( !scriptPath || scriptPath[0] == '\0' )
     {
         state.finished = true;
@@ -3482,13 +3435,9 @@ SkullbonezCore::Runtime::InteractionAutomationResult( const InteractionAutomatio
     return state.status.Result();
 }
 
-InteractionAutomationFrameResult
-SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutomationController& state,
-                                                               Window& windowOwner,
-                                                               RuntimeFrameInteractionView& interactionOwners,
-                                                               RuntimeFrameSceneView& sceneOwners,
-                                                               const ReplayAutomationView& replayView,
-                                                               const Rendering::RenderSceneSnapshot& renderSnapshot )
+InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutomationController& state, Window& windowOwner, RuntimeFrameInteractionView& interactionOwners,
+                                                                                                RuntimeFrameSceneView& sceneOwners, const ReplayAutomationView& replayView,
+                                                                                                const Rendering::RenderSceneSnapshot& renderSnapshot )
 {
     Window* window = &windowOwner;
     const SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
@@ -3500,32 +3449,26 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     UI::InGameUI& ui = interactionOwners.operatorUi;
     InteractionAutomationFrameResult result;
+
     if ( !state.enabled || state.finished )
     {
         return result;
     }
 
     const ReplayInputView replayInput = replayView.input;
+
     if ( !state.scriptLoaded && !LoadScript( state ) )
     {
         state.finished = true;
         ClearInteractionAutomationInput( state );
+
         // Why: latch the automation-owned diagnostic before WM_QUIT. The
         // report writer is another Lane R boundary, so it also cannot replace
         // the earlier script failure if both operations fail.
         result.status = InteractionAutomationResult( state );
-        const SkullbonezCore::Core::SbResult reportResult = state.reportWriter.Write(
-            InteractionAutomationReportInputs { state.status,
-                                                state.scriptPath,
-                                                scene.Scene(),
-                                                scene.State(),
-                                                scene.CurrentPath() ? scene.CurrentPath()->c_str() : nullptr,
-                                                runtimeTools,
-                                                replayView,
-                                                interaction,
-                                                camera,
-                                                ui,
-                                                renderSnapshot } );
+        const SkullbonezCore::Core::SbResult reportResult = state.reportWriter.Write( InteractionAutomationReportInputs { state.status, state.scriptPath, scene.Scene(), scene.State(),
+                                                                                                                          scene.CurrentPath() ? scene.CurrentPath()->c_str() : nullptr, runtimeTools,
+                                                                                                                          replayView, interaction, camera, ui, renderSnapshot } );
 
         if ( result.status.ok )
         {
@@ -3537,20 +3480,20 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
     }
 
     const int frame = scene.State().currentFrame;
+
     if ( state.reportWriter.ReplayVisualCaptureEnabled() )
     {
+
         // Invariant: the mega probe is one presented cascade. Advancing the
         // authoritative scene after the reveal would show a second, unrelated
         // wall fall and make a visually broken run appear to be test coverage.
         ReplayFrameIndex revealFrame = 0;
         bool resetReveal = false;
-        if ( state.reportWriter.UpdateReplayVisualReveal( frame,
-                                                          REPLAY_VISUAL_FIDELITY_START_FRAME,
+
+        if ( state.reportWriter.UpdateReplayVisualReveal( frame, REPLAY_VISUAL_FIDELITY_START_FRAME,
                                                           replayInput.liveAdvanceHeld,
-                                                          ReplayDeterministicRevealReady( replayView ),
-                                                          state.status,
-                                                          revealFrame,
-                                                          resetReveal ) )
+                                                          ReplayDeterministicRevealReady( replayView ), state.status,
+                                                          revealFrame, resetReveal ) )
         {
             PublishReplayDeterministicReveal( result.replayIntent, revealFrame, resetReveal );
         }
@@ -3560,6 +3503,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
 
     for ( RunInteractionAutomationAction& action : state.actions )
     {
+
         if ( action.processed || action.frame != frame )
         {
             continue;
@@ -3571,24 +3515,19 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
         case RunInteractionAutomationActionType::SetCameraMode:
         {
             const RunCameraMode targetMode = action.type == RunInteractionAutomationActionType::DirectorPlay
-                                                 ? ( action.boolValue ? RunCameraMode::Director
-                                                                      : RunCameraMode::Inspect )
+                                                 ? ( action.boolValue ? RunCameraMode::Director : RunCameraMode::Inspect )
                                                  : action.cameraMode;
 
             result.applyCameraMode = true;
             result.cameraMode = targetMode;
             const bool applied = true;
+
             if ( !applied )
             {
                 FailAutomation( state, "failed to apply automated camera mode" );
             }
 
-            AppendReportAction( state,
-                                frame,
-                                action.type,
-                                action.text,
-                                nullptr,
-                                applied,
+            AppendReportAction( state, frame, action.type, action.text, nullptr, applied,
                                 applied ? "camera mode applied" : "camera mode failed" );
 
             action.processed = true;
@@ -3610,89 +3549,77 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
         case RunInteractionAutomationActionType::SetReplayTripPlannerCommand:
         case RunInteractionAutomationActionType::SetReplayPredictionHorizonSeconds:
         case RunInteractionAutomationActionType::NudgeReplayPathTargetVelocity:
-            ApplyInteractionAutomationReplayStateAction(
-                state,
-                timers,
-                result.replayIntent,
-                replayView,
-                scene.Scene().Physics(),
-                action,
-                frame,
-                [&]( const char* name )
-                {
-                    int modelIndex = -1;
+            ApplyInteractionAutomationReplayStateAction( state, timers, result.replayIntent, replayView, scene.Scene().Physics(), action, frame,
+                                                         [&]( const char* name )
+                                                         {
+                                                             int modelIndex = -1;
 
-                    if ( !TryFindInteractionAutomationModel( scene.Scene(), name, modelIndex ) )
-                    {
-                        return false;
-                    }
+                                                             if ( !TryFindInteractionAutomationModel( scene.Scene(), name, modelIndex ) )
+                                                             {
+                                                                 return false;
+                                                             }
 
-                    const Physics::PhysicsBodyRecord* body = scene.Scene().BodyStore().RecordForModelIndex( modelIndex );
+                                                             const Physics::PhysicsBodyRecord* body = scene.Scene().BodyStore().RecordForModelIndex( modelIndex );
 
-                    if ( !body || !body->sceneObjectId.IsValid() )
-                    {
-                        return false;
-                    }
+                                                             if ( !body || !body->sceneObjectId.IsValid() )
+                                                             {
+                                                                 return false;
+                                                             }
 
-                    result.replayIntent.setPathTarget = true;
-                    result.replayIntent.pathTargetId = body->sceneObjectId;
-                    result.replayIntent.pathTargetModelRow.value = modelIndex;
-                    strncpy_s( result.replayIntent.pathTargetName,
-                               sizeof( result.replayIntent.pathTargetName ),
-                               name,
-                               _TRUNCATE );
+                                                             result.replayIntent.setPathTarget = true;
+                                                             result.replayIntent.pathTargetId = body->sceneObjectId;
+                                                             result.replayIntent.pathTargetModelRow.value = modelIndex;
+                                                             strncpy_s( result.replayIntent.pathTargetName, sizeof( result.replayIntent.pathTargetName ), name,
+                                                                        _TRUNCATE );
 
-                    return true;
-                },
-                [&]( const char* name )
-                {
-                    int modelIndex = -1;
-                    if ( !TryFindInteractionAutomationModel( scene.Scene(), name, modelIndex ) )
-                    {
-                        return false;
-                    }
+                                                             return true;
+                                                         },
+                                                         [&]( const char* name )
+                                                         {
+                                                             int modelIndex = -1;
 
-                    const Physics::PhysicsBodyRecord* body = scene.Scene().BodyStore().RecordForModelIndex( modelIndex );
+                                                             if ( !TryFindInteractionAutomationModel( scene.Scene(), name, modelIndex ) )
+                                                             {
+                                                                 return false;
+                                                             }
 
-                    if ( !body || !body->sceneObjectId.IsValid() )
-                    {
-                        return false;
-                    }
+                                                             const Physics::PhysicsBodyRecord* body = scene.Scene().BodyStore().RecordForModelIndex( modelIndex );
 
-                    result.replayIntent.setInterceptTarget = true;
-                    result.replayIntent.interceptTargetId = body->sceneObjectId;
-                    result.replayIntent.interceptTargetModelRow.value = modelIndex;
-                    return true;
-                },
-                [&]( WorldInteractionOwner owner, InteractionExitReason reason )
-                {
-                    result.setWorldInteractionOwner = true;
-                    result.worldInteractionOwner = owner;
-                    result.worldInteractionReason = reason;
-                } );
+                                                             if ( !body || !body->sceneObjectId.IsValid() )
+                                                             {
+                                                                 return false;
+                                                             }
+
+                                                             result.replayIntent.setInterceptTarget = true;
+                                                             result.replayIntent.interceptTargetId = body->sceneObjectId;
+                                                             result.replayIntent.interceptTargetModelRow.value = modelIndex;
+                                                             return true;
+                                                         },
+                                                         [&]( WorldInteractionOwner owner, InteractionExitReason reason )
+                                                         {
+                                                             result.setWorldInteractionOwner = true;
+                                                             result.worldInteractionOwner = owner;
+                                                             result.worldInteractionReason = reason;
+                                                         } );
             action.processed = true;
             break;
         case RunInteractionAutomationActionType::BeginReplayVisualFidelityCapture:
         {
-            state.reportWriter.BeginReplayVisualCapture(
-                static_cast<std::size_t>( REPLAY_FUTURE_DEFAULT_SECONDS / PHYSICS_FIXED_DT ) + 2u );
+            state.reportWriter.BeginReplayVisualCapture( static_cast<std::size_t>( REPLAY_FUTURE_DEFAULT_SECONDS / PHYSICS_FIXED_DT ) + 2u );
+
             // Invariant: the script arms this hold before target/horizon setup
             // and the sole Predict click. Letting wall-clock reveal run first
             // would retain markers, then rewinding to zero would create a
             // broken second presentation pass.
             PublishReplayDeterministicReveal( result.replayIntent, 0, true );
-            AppendReportAction( state,
-                                frame,
-                                action.type,
-                                "prediction",
-                                nullptr,
-                                true,
+            AppendReportAction( state, frame, action.type, "prediction", nullptr, true,
                                 "reveal held at zero; frame-exact capture starts after prediction publication" );
 
             action.processed = true;
             break;
         }
         case RunInteractionAutomationActionType::PressKey:
+
             // Why: key automation should still enter through Input and
             // RuntimeInputContext edge detection. This only supplies the
             // virtual-key state that a real keyboard would have provided.
@@ -3703,10 +3630,10 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
         case RunInteractionAutomationActionType::CaptureEditorSelectionState:
         {
             const int slot = static_cast<int>( action.numberValue );
-            const EditorSelectionFingerprint fingerprint = BuildEditorSelectionFingerprint( runtimeTools,
-                                                                                            scene.Scene() );
+            const EditorSelectionFingerprint fingerprint = BuildEditorSelectionFingerprint( runtimeTools, scene.Scene() );
 
             state.reportWriter.CaptureEditorSelection( slot, fingerprint.hash, fingerprint.valid );
+
             if ( !fingerprint.valid )
             {
                 FailAutomation( state, "failed to capture editor selection state" );
@@ -3714,10 +3641,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
 
             char detail[128] = {};
 
-            sprintf_s( detail,
-                       sizeof( detail ),
-                       "slot=%d fingerprint=%s terrain=%d",
-                       slot,
+            sprintf_s( detail, sizeof( detail ), "slot=%d fingerprint=%s terrain=%d", slot,
                        InteractionAutomationReportWriter::FormatPredictionHash( fingerprint.hash ).c_str(),
                        fingerprint.hasTerrain ? 1 : 0 );
 
@@ -3729,8 +3653,10 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
         {
             const std::vector<std::string>& browserPaths = ui.SceneNavigation().browser.paths;
             int browserIndex = -1;
+
             for ( int index = 0; index < static_cast<int>( browserPaths.size() ); ++index )
             {
+
                 if ( browserPaths[static_cast<std::size_t>( index )] == action.path )
                 {
                     browserIndex = index;
@@ -3739,8 +3665,10 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
             }
 
             const bool found = browserIndex >= 0;
+
             if ( found )
             {
+
                 // Why: automation submits the same fixed scene-owner request as
                 // the browser. The load executes at the normal post-input
                 // checkpoint and cannot retain this cold script action.
@@ -3751,12 +3679,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
                 FailAutomation( state, "automated scene path was not found in the scene browser" );
             }
 
-            AppendReportAction( state,
-                                frame,
-                                action.type,
-                                action.path,
-                                nullptr,
-                                found,
+            AppendReportAction( state, frame, action.type, action.path, nullptr, found,
                                 found ? "scene load submitted" : "scene path not found" );
 
             action.processed = true;
@@ -3771,8 +3694,10 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
         {
             const bool hasCapacity = result.developmentUiCommandCount < result.developmentUiCommands.size();
             bool duplicateSurfaceSelection = false;
+
             if ( action.type == RunInteractionAutomationActionType::SetDevelopmentUiSurface )
             {
+
                 for ( std::size_t commandIndex = 0u; commandIndex < result.developmentUiCommandCount; ++commandIndex )
                 {
                     duplicateSurfaceSelection = result.developmentUiCommands[commandIndex].type ==
@@ -3786,6 +3711,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
             }
 
             const bool published = hasCapacity && !duplicateSurfaceSelection;
+
             if ( published )
             {
                 InteractionAutomationDevelopmentUiCommand&
@@ -3794,6 +3720,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
                 command.boolValue = action.boolValue;
                 command.numberValue = action.numberValue;
                 strcpy_s( command.target, action.text );
+
                 switch ( action.type )
                 {
                 case RunInteractionAutomationActionType::SetDevelopmentUiSurface:
@@ -3822,6 +3749,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
             }
             else if ( duplicateSurfaceSelection )
             {
+
                 // Invariant: Run receives at most one process-surface request
                 // per frame, so selection is never silently collapsed or reordered.
                 FailAutomation( state, "multiple development UI surface selections share one frame" );
@@ -3831,12 +3759,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
                 FailAutomation( state, "development UI automation command capacity exceeded" );
             }
 
-            AppendReportAction( state,
-                                frame,
-                                action.type,
-                                action.text,
-                                nullptr,
-                                published,
+            AppendReportAction( state, frame, action.type, action.text, nullptr, published,
                                 published ? "development UI command published"
                                           : ( duplicateSurfaceSelection ? "duplicate frame surface selection"
                                                                         : "command capacity exceeded" ) );
@@ -3850,33 +3773,21 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
             action.processed = true;
             break;
         case RunInteractionAutomationActionType::ClickReplayControl:
-            ApplyInteractionAutomationReplayControlClick( state,
-                                                          window,
-                                                          config,
-                                                          scene.State(),
-                                                          timers,
-                                                          result.replayIntent,
-                                                          replayView,
-                                                          action,
-                                                          frame );
+            ApplyInteractionAutomationReplayControlClick( state, window, config, scene.State(), timers, result.replayIntent,
+                                                          replayView, action, frame );
 
             action.processed = true;
             break;
         case RunInteractionAutomationActionType::ScrubReplaySolverTrack:
-            ApplyInteractionAutomationSolverTrackScrub( state,
-                                                        window,
-                                                        config,
-                                                        timers,
-                                                        result.replayIntent,
-                                                        replayView,
-                                                        action,
-                                                        frame );
+            ApplyInteractionAutomationSolverTrackScrub( state, window, config, timers, result.replayIntent, replayView,
+                                                        action, frame );
 
             action.processed = true;
             break;
         case RunInteractionAutomationActionType::ScrubEditorReplayTrack:
         {
             const bool available = replayView.solverStats.enabled && replayView.solverStats.sampleCount >= 2;
+
             if ( available && !result.hasOperatorEditorReplayCommand )
             {
                 result.hasOperatorEditorReplayCommand = true;
@@ -3885,16 +3796,11 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
             }
             else
             {
-                FailAutomation( state,
-                                available ? "editor replay automation command capacity exceeded"
-                                          : "editor replay scrub track unavailable" );
+                FailAutomation( state, available ? "editor replay automation command capacity exceeded"
+                                                 : "editor replay scrub track unavailable" );
             }
 
-            AppendReportAction( state,
-                                frame,
-                                action.type,
-                                "shared replay queue",
-                                nullptr,
+            AppendReportAction( state, frame, action.type, "shared replay queue", nullptr,
                                 available && result.hasOperatorEditorReplayCommand,
                                 available ? "typed editor replay scrub published" : "editor replay track unavailable" );
 
@@ -3905,10 +3811,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
         {
             POINT mouse = {};
 
-            const bool projected = TryProjectInteractionAutomationModel( scene.Scene(),
-                                                                         inputRouter,
-                                                                         window,
-                                                                         action.text,
+            const bool projected = TryProjectInteractionAutomationModel( scene.Scene(), inputRouter, window, action.text,
                                                                          mouse );
 
             if ( projected )
@@ -3916,8 +3819,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
                 state.inputDriver.MoveMouse( mouse );
                 action.mouse = mouse;
                 action.hasMouse = true;
-                state.inputDriver.PressMouse( action.button == RunInteractionAutomationButton::Right,
-                                              frame,
+                state.inputDriver.PressMouse( action.button == RunInteractionAutomationButton::Right, frame,
                                               action.holdFrames );
             }
             else
@@ -3925,12 +3827,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
                 FailAutomation( state, "failed to project interaction target" );
             }
 
-            AppendReportAction( state,
-                                frame,
-                                action.type,
-                                action.text,
-                                projected ? &mouse : nullptr,
-                                projected,
+            AppendReportAction( state, frame, action.type, action.text, projected ? &mouse : nullptr, projected,
                                 projected ? "mouse press injected" : "target projection failed" );
 
             action.processed = true;
@@ -3938,9 +3835,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
         }
         case RunInteractionAutomationActionType::ClickPoint:
             state.inputDriver.MoveMouse( action.mouse );
-            state.inputDriver.PressMouse( action.button == RunInteractionAutomationButton::Right,
-                                          frame,
-                                          action.holdFrames );
+            state.inputDriver.PressMouse( action.button == RunInteractionAutomationButton::Right, frame, action.holdFrames );
 
             AppendReportAction( state, frame, action.type, nullptr, &action.mouse, true, "mouse press injected" );
             action.processed = true;
@@ -3960,15 +3855,10 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
     return result;
 }
 
-InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationAfterRender(
-    InteractionAutomationController& state,
-    RuntimeFrameInteractionView& interactionOwners,
-    SceneController& scene,
-    const ReplayAutomationView& replayView,
-    const InteractionAutomationDevelopmentUiView& developmentUiView,
-    const Rendering::RenderSceneSnapshot& renderSnapshot,
-    CaptureController& capture,
-    Rendering::Dx12BackbufferCapture& backbufferCapture )
+InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutomationController& state, RuntimeFrameInteractionView& interactionOwners, SceneController& scene,
+                                                                                                const ReplayAutomationView& replayView, const InteractionAutomationDevelopmentUiView& developmentUiView,
+                                                                                                const Rendering::RenderSceneSnapshot& renderSnapshot, CaptureController& capture,
+                                                                                                Rendering::Dx12BackbufferCapture& backbufferCapture )
 {
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     RuntimeInteractionController& interaction = interactionOwners.interaction;
@@ -3976,6 +3866,7 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
     CameraControlState& camera = interactionOwners.camera;
     UI::InGameUI& ui = interactionOwners.operatorUi;
     InteractionAutomationFrameResult result;
+
     if ( !state.enabled || state.finished )
     {
         return result;
@@ -3983,8 +3874,10 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
 
     CoreAllocation::RuntimeAllocationScope diagnosticsAllocationScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
     const int frame = scene.State().currentFrame;
+
     for ( RunInteractionAutomationAction& action : state.actions )
     {
+
         if ( action.processed || action.frame != frame )
         {
             continue;
@@ -3992,6 +3885,7 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
 
         if ( action.type == RunInteractionAutomationActionType::Screenshot )
         {
+
             if ( RuntimeFileWriter::EnsureParentDirectory( action.path ) )
             {
                 const SkullbonezCore::Core::SbResult captureResult = capture.SaveScreenshot( backbufferCapture,
@@ -4030,34 +3924,20 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
         assertion.frame = frame;
         strcpy_s( assertion.name, sizeof( assertion.name ), AssertName( action.assertKind ) );
 
-        const InteractionAutomationAssertionEvaluation evaluation = EvaluateInteractionAutomationAssertion(
-            runtimeTools,
-            state,
-            replayView,
-            interaction,
-            inputRouter,
-            camera,
-            scene.Scene(),
-            ui,
-            developmentUiView,
-            renderSnapshot,
-            action,
-            [&]()
-            { return runtimeTools.InspectGizmoInteractionActive( camera.mode, replayView.input.inspectionActive ); } );
+        const InteractionAutomationAssertionEvaluation evaluation = EvaluateInteractionAutomationAssertion( runtimeTools, state, replayView, interaction, inputRouter, camera, scene.Scene(), ui, developmentUiView,
+                                                                                                            renderSnapshot, action,
+                                                                                                            [&]() { return runtimeTools.InspectGizmoInteractionActive( camera.mode, replayView.input.inspectionActive ); } );
 
         strcpy_s( assertion.expected, sizeof( assertion.expected ), evaluation.expected.c_str() );
         strcpy_s( assertion.actual, sizeof( assertion.actual ), evaluation.actual.c_str() );
         assertion.passed = evaluation.passed;
         state.reportWriter.AppendAssertion( assertion );
+
         if ( !evaluation.passed )
         {
             char message[256] = {};
-            sprintf_s( message,
-                       sizeof( message ),
-                       "interaction assertion failed: %s expected=%s actual=%s",
-                       assertion.name,
-                       assertion.expected,
-                       assertion.actual );
+            sprintf_s( message, sizeof( message ), "interaction assertion failed: %s expected=%s actual=%s", assertion.name,
+                       assertion.expected, assertion.actual );
 
             FailAutomation( state, message );
         }
@@ -4072,6 +3952,7 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
 
     bool allProcessed = true;
     int lastFrame = frame;
+
     for ( const RunInteractionAutomationAction& action : state.actions )
     {
         allProcessed = allProcessed && action.processed;
@@ -4080,9 +3961,11 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
 
     if ( allProcessed && frame >= lastFrame )
     {
+
         // This command runs after the final reveal screenshot while live
         // physics still holds the seed pose used by root markers. The writer
         // owns the CPU-only proof and cannot initiate a second presented pass.
+
         if ( !state.status.failed &&
              !state.reportWriter.FinishReplayVisualCapture( state.status, runtimeTools, scene.Scene(), replayView ) )
         {
@@ -4092,6 +3975,7 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
 
         if ( !state.status.failed && replayView.prediction.build.building )
         {
+
             // Why: prediction reports read committed topology, frame counts,
             // and trajectory hashes. Let the normal render-frame replay path
             // finish its worker swap/rebuild instead of draining physics under
@@ -4102,20 +3986,12 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
 
         state.finished = true;
         ClearInteractionAutomationInput( state );
+
         // Invariant: assertion failure retains precedence over report IO.
         result.status = InteractionAutomationResult( state );
-        const SkullbonezCore::Core::SbResult reportResult = state.reportWriter.Write(
-            InteractionAutomationReportInputs { state.status,
-                                                state.scriptPath,
-                                                scene.Scene(),
-                                                scene.State(),
-                                                scene.CurrentPath() ? scene.CurrentPath()->c_str() : nullptr,
-                                                runtimeTools,
-                                                replayView,
-                                                interaction,
-                                                camera,
-                                                ui,
-                                                renderSnapshot } );
+        const SkullbonezCore::Core::SbResult reportResult = state.reportWriter.Write( InteractionAutomationReportInputs { state.status, state.scriptPath, scene.Scene(), scene.State(),
+                                                                                                                          scene.CurrentPath() ? scene.CurrentPath()->c_str() : nullptr, runtimeTools,
+                                                                                                                          replayView, interaction, camera, ui, renderSnapshot } );
 
         if ( result.status.ok )
         {
@@ -4132,6 +4008,7 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
 bool SkullbonezCore::Runtime::InteractionAutomationWillCaptureAfterRender( const InteractionAutomationController& state,
                                                                            int frame )
 {
+
     if ( !state.enabled || state.finished )
     {
         return false;
@@ -4139,8 +4016,8 @@ bool SkullbonezCore::Runtime::InteractionAutomationWillCaptureAfterRender( const
 
     for ( const RunInteractionAutomationAction& action : state.actions )
     {
-        if ( !action.processed && action.frame == frame &&
-             action.type == RunInteractionAutomationActionType::Screenshot )
+
+        if ( !action.processed && action.frame == frame && action.type == RunInteractionAutomationActionType::Screenshot )
         {
             return true;
         }

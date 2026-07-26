@@ -42,6 +42,7 @@ class DiagnosticsRuntime;
 struct OverlayDebugState;
 struct SceneUiActivation
 {
+
     // Value-only copy of authored UI intent. The scene owner retains neither
     // the parsed AuthoredScene nor the complete UI owner across the load boundary.
     SceneUIOptions authoredOptions;
@@ -60,11 +61,8 @@ struct SceneRuntimeUiOptionsContext
     SceneUiActivation& activation;
 };
 
-void PrepareSceneUiOptions( SceneRuntimeUiOptionsContext context,
-                            const SceneUIOptions& options,
-                            double nowSeconds,
-                            bool preserveUIState,
-                            bool automationScene );
+void PrepareSceneUiOptions( SceneRuntimeUiOptionsContext context, const SceneUIOptions& options, double nowSeconds,
+                            bool preserveUIState, bool automationScene );
 void ApplySceneUiActivation( UI::InGameUI& ui, const SceneUiActivation& activation );
 
 } // namespace Runtime

@@ -42,9 +42,7 @@ struct RuntimePickShapeTransform
 };
 
 bool TryIntersectRuntimePickShape( const Math::CollisionDetection::CollisionShape& shape,
-                                   const RuntimePickShapeTransform& transform,
-                                   const Math::Vector::Vector3& rayOrigin,
-                                   const Math::Vector::Vector3& rayDirection,
-                                   float& outT );
+                                   const RuntimePickShapeTransform& transform, const Math::Vector::Vector3& rayOrigin,
+                                   const Math::Vector::Vector3& rayDirection, float& outT );
 } // namespace Runtime
 } // namespace SkullbonezCore

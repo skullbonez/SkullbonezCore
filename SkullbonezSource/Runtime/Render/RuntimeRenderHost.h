@@ -165,6 +165,7 @@ struct RuntimeRenderBackendView
 
     // Returns the startup-required capture owner or terminates through Lane F.
     Rendering::Dx12BackbufferCapture& RequireBackbufferCapture() const;
+
     // Samples stable renderer vocabulary at the composition boundary so cold
     // scene transactions never receive the complete backend capability view.
     const char* RendererName() const;

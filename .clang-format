@@ -35,10 +35,11 @@ SpaceBeforeParens: ControlStatements
 # Line endings — LF
 LineEnding: LF
 
-# Keep signatures and calls readable without forcing one-line declarations.
-ColumnLimit: 120
-BinPackParameters: false
-BinPackArguments: false
+# Keep one-to-three short parameters together; wrap only near the readable
+# width or for genuinely wide parameter lists.
+ColumnLimit: 125
+BinPackParameters: true
+BinPackArguments: true
 BinPackLongBracedList: false
 AllowAllParametersOfDeclarationOnNextLine: false
 AllowAllArgumentsOnNextLine: false
@@ -46,7 +47,9 @@ AllowAllArgumentsOnNextLine: false
 # parenthesis. This keeps parameter ownership visible at the call site.
 AlignAfterOpenBracket: Align
 BracedInitializerIndentWidth: 4
-PenaltyBreakBeforeFirstCallParameter: 0
+# Never leave an opening parenthesis stranded at the end of a function/call
+# line. The source post-pass also enforces this for simple wrapped expressions.
+PenaltyBreakBeforeFirstCallParameter: 1000000
 # Keep the first expression token beside `=`. Wrapped calls continue from their
 # opening parenthesis instead of leaving an assignment operator stranded.
 PenaltyBreakAssignment: 1000000

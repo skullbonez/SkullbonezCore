@@ -37,6 +37,7 @@ namespace Math
 {
 namespace Transformation
 {
+
 /* -- Rotation Matrix
 ----------------------------------------------------------------------------------------------------------------------------------------
 
@@ -47,21 +48,13 @@ class RotationMatrix
 
   public:
     RotationMatrix();                                                                         // Initializes to identity rotation.
-    RotationMatrix( float f11,
-                    float f12,
-                    float f13,
-                    float f21,
-                    float f22,
-                    float f23,
-                    float f31,
-                    float f32,
+    RotationMatrix( float f11, float f12, float f13, float f21, float f22, float f23, float f31, float f32,
                     float f33 );                                                              // Explicit row-major component construction.
     ~RotationMatrix() = default;
     void Identity();                                                                          // Resets to no-rotation matrix.
     Vector::Vector3 operator*( const Vector::Vector3& v ) const;                              // Applies this rotation to v.
     Vector::Vector3 operator*=( const Vector::Vector3& v ) const;                             // Legacy spelling for applying this rotation to v.
-    Vector::Vector3
-    TransposeMultiply( const Vector::Vector3& v ) const;                                      // R^T * v (inverse rotation for orthogonal matrices)
+    Vector::Vector3 TransposeMultiply( const Vector::Vector3& v ) const;                      // R^T * v (inverse rotation for orthogonal matrices)
 
     // dot(abs(row_Y), v) is the maximum downward extent of an OBB with half-extents v.
     // Used for closed-form terrain bottom offset: avoids iterating all 8 vertices.
@@ -90,12 +83,14 @@ class RotationMatrix
 };
 
 const RotationMatrix IDENTITY_MATRIX( 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f ); // Shared no-rotation
-                                                                                              // matrix.
+
+// matrix.
 
 // Rotate vPoint around normalized arbitrary axis vAxis by fRadians.
-inline Vector::Vector3
-RotatePointAboutArbitrary( float fRadians, const Vector::Vector3& vAxis, const Vector::Vector3& vPoint )
+inline Vector::Vector3 RotatePointAboutArbitrary( float fRadians, const Vector::Vector3& vAxis,
+                                                  const Vector::Vector3& vPoint )
 {
+
     // Keep the intermediate named so the derivation below maps back to the old
     // formula comments and debugger watches.
     Vector::Vector3 vResult;

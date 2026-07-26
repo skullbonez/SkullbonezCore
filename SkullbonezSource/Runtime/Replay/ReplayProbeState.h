@@ -106,13 +106,13 @@ struct ReplayProbeState
 {
     void RecordFailure( const SkullbonezCore::Core::SbResult& result )
     {
+
         if ( result.ok || failure.failed )
         {
             return;
         }
 
-        const char* failureOwner = result.error.owner && result.error.owner[0] != '\0' ? result.error.owner
-                                                                                       : "ReplayProbe";
+        const char* failureOwner = result.error.owner && result.error.owner[0] != '\0' ? result.error.owner : "ReplayProbe";
         const char* failureMessage = result.error.message[0] != '\0' ? result.error.message
                                                                      : "replay probe failed without a failure message";
         failure.failed = true;

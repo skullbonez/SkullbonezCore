@@ -75,6 +75,9 @@ bypass it.
    enough: dense or risky code also needs nearby `Concept:`, `Why:`,
    `Invariant:`, `Lifetime:`, or `Hazard:` comments where the guide calls for
    them.
+6. Apply `Agentic/Reference/code-style-guide.md`. Formatting tools own
+   mechanical layout; reviewers own assertion placement and semantic parameter
+   ordering.
 
 ## Dependency Direction Rule
 

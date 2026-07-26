@@ -79,21 +79,17 @@ bool IsSolverBodyFixed( const Physics::PhysicsBodyHotFieldsConstView& hotFields,
     return hotFields.fixed[static_cast<size_t>( bodyIndex )] != 0u;
 }
 
-void ApplyForcesForSolverBody( Physics::PhysicsBodyStore& bodyStore,
-                               const Physics::ColliderStore& colliderStore,
-                               const Physics::PhysicsTerrainView& terrain,
-                               const Physics::PhysicsWorldForces& worldForces,
+void ApplyForcesForSolverBody( Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore,
+                               const Physics::PhysicsTerrainView& terrain, const Physics::PhysicsWorldForces& worldForces,
                                std::span<const Physics::BuoyancyBodyFacts> buoyancyFacts,
-                               const Physics::PhysicsBodyHotFieldsConstView& hotFields,
-                               std::span<const uint8_t> sleepState,
-                               std::span<float> timeRemaining,
-                               const Vector3* mutualGravityForces,
-                               int bodyIndex,
-                               float dt )
+                               const Physics::PhysicsBodyHotFieldsConstView& hotFields, std::span<const uint8_t> sleepState,
+                               std::span<float> timeRemaining, const Vector3* mutualGravityForces, int bodyIndex, float dt )
 {
+
     // Invariant: this is the extracted body of the former applyForcesAt lambda.
     // Sleeping rows must keep their cached pose and consume no remaining time;
     // awake dynamic rows still receive the same force application call.
+
     if ( IsSolverBodyFixed( hotFields, bodyIndex ) )
     {
         return;
@@ -106,25 +102,17 @@ void ApplyForcesForSolverBody( Physics::PhysicsBodyStore& bodyStore,
     }
 
     const Vector3* mutualGravityForce = mutualGravityForces ? &mutualGravityForces[bodyIndex] : nullptr;
-    (void)bodyStore.ApplyForces( worldForces,
-                                 colliderStore,
-                                 terrain,
-                                 buoyancyFacts[static_cast<std::size_t>( bodyIndex )],
-                                 bodyIndex,
-                                 dt,
-                                 mutualGravityForce );
+    (void)bodyStore.ApplyForces( worldForces, colliderStore, terrain, buoyancyFacts[static_cast<std::size_t>( bodyIndex )],
+                                 bodyIndex, dt, mutualGravityForce );
 }
 
-void IntegrateRemainingSolverBody( Physics::PhysicsBodyStore& bodyStore,
-                                   SkullbonezCore::Core::Profiler* profiler,
-                                   const Physics::ColliderStore& colliderStore,
-                                   const Physics::PhysicsTerrainView& terrain,
+void IntegrateRemainingSolverBody( Physics::PhysicsBodyStore& bodyStore, SkullbonezCore::Core::Profiler* profiler,
+                                   const Physics::ColliderStore& colliderStore, const Physics::PhysicsTerrainView& terrain,
                                    std::span<Physics::BuoyancyBodyFacts> buoyancyFacts,
                                    const Physics::PhysicsBodyHotFieldsConstView& hotFields,
-                                   std::span<const uint8_t> sleepState,
-                                   std::span<const float> timeRemaining,
-                                   int bodyIndex )
+                                   std::span<const uint8_t> sleepState, std::span<const float> timeRemaining, int bodyIndex )
 {
+
     if ( IsSolverBodyFixed( hotFields, bodyIndex ) || sleepState[bodyIndex] )
     {
         return;
@@ -132,11 +120,8 @@ void IntegrateRemainingSolverBody( Physics::PhysicsBodyStore& bodyStore,
 
     if ( timeRemaining[bodyIndex] > 0.0f )
     {
-        (void)bodyStore.IntegrateBodyPose( profiler,
-                                           colliderStore,
-                                           terrain,
-                                           buoyancyFacts[static_cast<std::size_t>( bodyIndex )],
-                                           bodyIndex,
+        (void)bodyStore.IntegrateBodyPose( profiler, colliderStore, terrain,
+                                           buoyancyFacts[static_cast<std::size_t>( bodyIndex )], bodyIndex,
                                            timeRemaining[bodyIndex] );
     }
 }
@@ -165,29 +150,25 @@ void PhysicsForceStage::ReserveBodyScratchCapacity( std::size_t capacity )
     m_mutualGravityPairForces.reserve( MutualGravityPairCount( pairBodyCapacity ) );
 }
 
-const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* profiler,
-                                                              std::span<const PhysicsBodyRecord> bodyRecords,
-                                                              const PhysicsBodyHotFieldsConstView& hotFields,
-                                                              std::span<const uint8_t> sleepState,
-                                                              int modelCount,
-                                                              const PhysicsWorldForces& worldForces,
-                                                              const PhysicsExecutionSettings& execution,
-                                                              Threading::WorkerPool& workerPool )
+const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* profiler, std::span<const PhysicsBodyRecord> bodyRecords, const PhysicsBodyHotFieldsConstView& hotFields,
+                                                              std::span<const uint8_t> sleepState, int modelCount, const PhysicsWorldForces& worldForces,
+                                                              const PhysicsExecutionSettings& execution, Threading::WorkerPool& workerPool )
 {
     const MutualGravitySettings& settings = worldForces.mutualGravity;
+
     if ( !settings.enabled || settings.gravitationalConstant <= 0.0f || modelCount <= 0 )
     {
         return nullptr;
     }
 
     const std::size_t requiredBodyCapacity = static_cast<std::size_t>( modelCount );
+
     if ( m_mutualGravityForces.capacity() < requiredBodyCapacity )
     {
         SB_FATAL( "Physics/MutualGravity",
                   "Mutual gravity body scratch capacity exhausted: owner=Physics/MutualGravity "
                   "phase=steady_gameplay body_capacity=%zu required_bodies=%zu.",
-                  m_mutualGravityForces.capacity(),
-                  requiredBodyCapacity );
+                  m_mutualGravityForces.capacity(), requiredBodyCapacity );
     }
 
     m_mutualGravityForces.assign( requiredBodyCapacity, ZERO_VECTOR );
@@ -197,14 +178,17 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* pr
 
     if ( modelCount > MUTUAL_GRAVITY_MAX_BODIES )
     {
+
         // Why: mutual-gravity-large-scene-fallback keeps the triangular pair
         // table capped at 512 bodies (about 1.5 MiB) without shrinking the
         // engine's 8,192-body capability. Larger fields use the original exact
         // serial order and only the body-count scratch reserved at scene load;
         // no approximation or baseline change is permitted.
+
         for ( int i = 0; i < modelCount; ++i )
         {
             const PhysicsBodyRecord& bodyA = bodyRecords[static_cast<std::size_t>( i )];
+
             if ( bodyA.mass <= TOLERANCE )
             {
                 continue;
@@ -217,14 +201,14 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* pr
             for ( int j = i + 1; j < modelCount; ++j )
             {
                 const PhysicsBodyRecord& bodyB = bodyRecords[static_cast<std::size_t>( j )];
+
                 if ( bodyB.mass <= TOLERANCE )
                 {
                     continue;
                 }
 
                 const std::size_t bodyBIndex = static_cast<std::size_t>( j );
-                const bool bodyBReceives = hotFields.fixed[bodyBIndex] == 0u &&
-                                           hotFields.inverseMass[bodyBIndex] > 0.0f &&
+                const bool bodyBReceives = hotFields.fixed[bodyBIndex] == 0u && hotFields.inverseMass[bodyBIndex] > 0.0f &&
                                            ( j >= static_cast<int>( sleepState.size() ) || sleepState[j] == 0 );
 
                 if ( !bodyAReceives && !bodyBReceives )
@@ -232,18 +216,15 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* pr
                     continue;
                 }
 
-                const Vector3 positionA( hotFields.positionX[bodyAIndex],
-                                         hotFields.positionY[bodyAIndex],
+                const Vector3 positionA( hotFields.positionX[bodyAIndex], hotFields.positionY[bodyAIndex],
                                          hotFields.positionZ[bodyAIndex] );
-                const Vector3 positionB( hotFields.positionX[bodyBIndex],
-                                         hotFields.positionY[bodyBIndex],
+                const Vector3 positionB( hotFields.positionX[bodyBIndex], hotFields.positionY[bodyBIndex],
                                          hotFields.positionZ[bodyBIndex] );
                 const Vector3 displacement = positionB - positionA;
                 const float distanceSq = Vector::VectorMagSquared( displacement ) + softenedDistanceSq;
                 const float invDistance = 1.0f / sqrtf( distanceSq );
                 const float invDistanceCubed = invDistance * invDistance * invDistance;
-                const Vector3 force = displacement *
-                                      ( gravitationalConstant * bodyA.mass * bodyB.mass * invDistanceCubed );
+                const Vector3 force = displacement * ( gravitationalConstant * bodyA.mass * bodyB.mass * invDistanceCubed );
 
                 if ( bodyAReceives )
                 {
@@ -261,15 +242,14 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* pr
     }
 
     const std::size_t requiredPairCapacity = MutualGravityPairCount( requiredBodyCapacity );
+
     if ( m_mutualGravityPairForces.capacity() < requiredPairCapacity )
     {
         SB_FATAL( "Physics/MutualGravity",
                   "Mutual gravity pair scratch capacity exhausted: owner=Physics/MutualGravity "
                   "phase=steady_gameplay pair_capacity=%zu required_pairs=%zu max_parallel_bodies=%d "
                   "pair_high_water=%zu.",
-                  m_mutualGravityPairForces.capacity(),
-                  requiredPairCapacity,
-                  MUTUAL_GRAVITY_MAX_BODIES,
+                  m_mutualGravityPairForces.capacity(), requiredPairCapacity, MUTUAL_GRAVITY_MAX_BODIES,
                   m_mutualGravityPairHighWater );
     }
 
@@ -278,6 +258,7 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* pr
 
     Threading::WorkerChunkRange chunks[MUTUAL_GRAVITY_MAX_CHUNKS] = {};
     int chunkCount = 0;
+
     for ( int rowBegin = 0; rowBegin < modelCount; rowBegin += MUTUAL_GRAVITY_ROWS_PER_CHUNK )
     {
         const int rowEnd = (std::min)( modelCount, rowBegin + MUTUAL_GRAVITY_ROWS_PER_CHUNK );
@@ -296,6 +277,7 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* pr
         for ( int i = rowBegin; i < rowEnd; ++i )
         {
             const PhysicsBodyRecord& bodyA = bodyRecords[static_cast<std::size_t>( i )];
+
             if ( bodyA.mass <= TOLERANCE )
             {
                 continue;
@@ -306,17 +288,18 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* pr
                                        ( i >= static_cast<int>( sleepState.size() ) || sleepState[i] == 0 );
 
             const std::size_t rowOffset = MutualGravityRowOffset( i, modelCount );
+
             for ( int j = i + 1; j < modelCount; ++j )
             {
                 const PhysicsBodyRecord& bodyB = bodyRecords[static_cast<std::size_t>( j )];
+
                 if ( bodyB.mass <= TOLERANCE )
                 {
                     continue;
                 }
 
                 const std::size_t bodyBIndex = static_cast<std::size_t>( j );
-                const bool bodyBReceives = hotFields.fixed[bodyBIndex] == 0u &&
-                                           hotFields.inverseMass[bodyBIndex] > 0.0f &&
+                const bool bodyBReceives = hotFields.fixed[bodyBIndex] == 0u && hotFields.inverseMass[bodyBIndex] > 0.0f &&
                                            ( j >= static_cast<int>( sleepState.size() ) || sleepState[j] == 0 );
 
                 if ( !bodyAReceives && !bodyBReceives )
@@ -324,11 +307,9 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* pr
                     continue;
                 }
 
-                const Vector3 positionA( hotFields.positionX[bodyAIndex],
-                                         hotFields.positionY[bodyAIndex],
+                const Vector3 positionA( hotFields.positionX[bodyAIndex], hotFields.positionY[bodyAIndex],
                                          hotFields.positionZ[bodyAIndex] );
-                const Vector3 positionB( hotFields.positionX[bodyBIndex],
-                                         hotFields.positionY[bodyBIndex],
+                const Vector3 positionB( hotFields.positionX[bodyBIndex], hotFields.positionY[bodyBIndex],
                                          hotFields.positionZ[bodyBIndex] );
                 const Vector3 displacement = positionB - positionA;
                 const float distanceSq = Vector::VectorMagSquared( displacement ) + softenedDistanceSq;
@@ -336,8 +317,7 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* pr
                 const float invDistanceCubed = invDistance * invDistance * invDistance;
                 m_mutualGravityPairForces[rowOffset + static_cast<std::size_t>( j - i - 1 )] = displacement *
                                                                                                ( gravitationalConstant *
-                                                                                                 bodyA.mass *
-                                                                                                 bodyB.mass *
+                                                                                                 bodyA.mass * bodyB.mass *
                                                                                                  invDistanceCubed );
             }
         }
@@ -347,12 +327,14 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* pr
                              modelCount >= MUTUAL_GRAVITY_PARALLEL_MIN_BODIES && workerPool.GetThreadCount() > 0;
 
     PROFILE_BEGIN( profiler, "Frame/Physics/MutualGravity/PairBuild" );
+
     if ( runParallel )
     {
         workerPool.ParallelForChunksNoAlloc( chunks, chunkCount, buildPairForces );
     }
     else
     {
+
         for ( int chunkIndex = 0; chunkIndex < chunkCount; ++chunkIndex )
         {
             const Threading::WorkerChunkRange& chunk = chunks[chunkIndex];
@@ -365,9 +347,11 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* pr
     // Invariant: replay the original triangular pair order exactly. Chunk
     // partial-body reduction would regroup additions and change float bits;
     // storing pair forces makes scheduling invisible to accumulation order.
+
     for ( int i = 0; i < modelCount; ++i )
     {
         const PhysicsBodyRecord& bodyA = bodyRecords[static_cast<std::size_t>( i )];
+
         if ( bodyA.mass <= TOLERANCE )
         {
             continue;
@@ -378,9 +362,11 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* pr
                                    ( i >= static_cast<int>( sleepState.size() ) || sleepState[i] == 0 );
 
         const std::size_t rowOffset = MutualGravityRowOffset( i, modelCount );
+
         for ( int j = i + 1; j < modelCount; ++j )
         {
             const PhysicsBodyRecord& bodyB = bodyRecords[static_cast<std::size_t>( j )];
+
             if ( bodyB.mass <= TOLERANCE )
             {
                 continue;
@@ -412,47 +398,31 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* pr
     return m_mutualGravityForces.data();
 }
 
-void PhysicsForceStage::ApplyForces( PhysicsBodyStore& bodyStore,
-                                     const ColliderStore& colliderStore,
-                                     PhysicsTerrainView terrain,
-                                     const PhysicsWorldForces& worldForces,
-                                     std::span<const BuoyancyBodyFacts> buoyancyFacts,
-                                     std::span<const uint8_t> sleepState,
-                                     std::span<float> timeRemaining,
-                                     const Vector3* mutualGravityForces,
-                                     float dt,
-                                     std::span<const int> awakeBodyIndices,
-                                     Threading::WorkerPool& workerPool,
+void PhysicsForceStage::ApplyForces( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
+                                     PhysicsTerrainView terrain, const PhysicsWorldForces& worldForces,
+                                     std::span<const BuoyancyBodyFacts> buoyancyFacts, std::span<const uint8_t> sleepState,
+                                     std::span<float> timeRemaining, const Vector3* mutualGravityForces, float dt,
+                                     std::span<const int> awakeBodyIndices, Threading::WorkerPool& workerPool,
                                      const PhysicsExecutionSettings& execution ) const
 {
     const PhysicsBodyHotFieldsConstView hotFields = bodyStore.HotFields();
     const auto applyAwakeBody = [&]( int awakeSlot )
     {
-        ApplyForcesForSolverBody( bodyStore,
-                                  colliderStore,
-                                  terrain,
-                                  worldForces,
-                                  buoyancyFacts,
-                                  hotFields,
-                                  sleepState,
-                                  timeRemaining,
-                                  mutualGravityForces,
-                                  awakeBodyIndices[static_cast<std::size_t>( awakeSlot )],
-                                  dt );
+        ApplyForcesForSolverBody( bodyStore, colliderStore, terrain, worldForces, buoyancyFacts, hotFields, sleepState,
+                                  timeRemaining, mutualGravityForces,
+                                  awakeBodyIndices[static_cast<std::size_t>( awakeSlot )], dt );
     };
 
     const int awakeBodyCount = static_cast<int>( awakeBodyIndices.size() );
+
     if ( execution.parallel && execution.parallelApplyForces )
     {
-        workerPool.ParallelForNoAlloc( 0,
-                                       awakeBodyCount,
-                                       applyAwakeBody,
-                                       PHYSICS_PARALLEL_MIN_BODIES,
-                                       "Frame/Physics/ApplyForces/WorkerBodies",
-                                       PHYSICS_APPLY_FORCES_WORKER_HASH );
+        workerPool.ParallelForNoAlloc( 0, awakeBodyCount, applyAwakeBody, PHYSICS_PARALLEL_MIN_BODIES,
+                                       "Frame/Physics/ApplyForces/WorkerBodies", PHYSICS_APPLY_FORCES_WORKER_HASH );
     }
     else
     {
+
         for ( int awakeSlot = 0; awakeSlot < awakeBodyCount; ++awakeSlot )
         {
             applyAwakeBody( awakeSlot );
@@ -460,43 +430,30 @@ void PhysicsForceStage::ApplyForces( PhysicsBodyStore& bodyStore,
     }
 }
 
-void PhysicsForceStage::IntegrateRemaining( PhysicsBodyStore& bodyStore,
-                                            Core::Profiler* profiler,
-                                            const ColliderStore& colliderStore,
-                                            PhysicsTerrainView terrain,
-                                            std::span<BuoyancyBodyFacts> buoyancyFacts,
-                                            std::span<const uint8_t> sleepState,
-                                            std::span<const float> timeRemaining,
-                                            std::span<const int> awakeBodyIndices,
+void PhysicsForceStage::IntegrateRemaining( PhysicsBodyStore& bodyStore, Core::Profiler* profiler,
+                                            const ColliderStore& colliderStore, PhysicsTerrainView terrain,
+                                            std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<const uint8_t> sleepState,
+                                            std::span<const float> timeRemaining, std::span<const int> awakeBodyIndices,
                                             Threading::WorkerPool& workerPool,
                                             const PhysicsExecutionSettings& execution ) const
 {
     const PhysicsBodyHotFieldsConstView hotFields = bodyStore.HotFields();
     const auto integrateAwakeBody = [&]( int awakeSlot )
     {
-        IntegrateRemainingSolverBody( bodyStore,
-                                      profiler,
-                                      colliderStore,
-                                      terrain,
-                                      buoyancyFacts,
-                                      hotFields,
-                                      sleepState,
-                                      timeRemaining,
-                                      awakeBodyIndices[static_cast<std::size_t>( awakeSlot )] );
+        IntegrateRemainingSolverBody( bodyStore, profiler, colliderStore, terrain, buoyancyFacts, hotFields, sleepState,
+                                      timeRemaining, awakeBodyIndices[static_cast<std::size_t>( awakeSlot )] );
     };
 
     const int awakeBodyCount = static_cast<int>( awakeBodyIndices.size() );
+
     if ( execution.parallel && execution.parallelIntegrate )
     {
-        workerPool.ParallelForNoAlloc( 0,
-                                       awakeBodyCount,
-                                       integrateAwakeBody,
-                                       PHYSICS_PARALLEL_MIN_BODIES,
-                                       "Frame/Physics/Integrate/WorkerBodies",
-                                       PHYSICS_INTEGRATE_WORKER_HASH );
+        workerPool.ParallelForNoAlloc( 0, awakeBodyCount, integrateAwakeBody, PHYSICS_PARALLEL_MIN_BODIES,
+                                       "Frame/Physics/Integrate/WorkerBodies", PHYSICS_INTEGRATE_WORKER_HASH );
     }
     else
     {
+
         for ( int awakeSlot = 0; awakeSlot < awakeBodyCount; ++awakeSlot )
         {
             integrateAwakeBody( awakeSlot );

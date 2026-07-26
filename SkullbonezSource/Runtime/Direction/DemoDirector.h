@@ -14,6 +14,7 @@ Glossary:
   Shot list: Ordered `.shot.json` file that choreographs a deterministic demo.
   Phase: One authored shot: camera pose, style path, and advance rule.
   Playback state: Runtime cursor, timers, and applied-style/reveal-rate memory
+
     for the active shot list.
   Camera pose: Eye, view target, and up vector stored in CameraCollection terms.
   Reveal threshold: Normalized prediction reveal progress that can advance a
@@ -92,7 +93,8 @@ struct DemoDirectorPlaybackState
     int currentPhaseIndex = -1;                              // -1 until a shot list chooses its first phase.
     int appliedStylePhaseIndex = -1;                         // Phase index whose stylePath last updated the live scene look.
     char appliedStylePath[DemoPhase::STYLE_PATH_BYTES] = {}; // Exact applied path; same-phase author edits can request
-                                                             // a new look.
+
+    // a new look.
     int appliedStyleCount = 0;                               // Successful phase-entry style applications for automation proof.
     int appliedRevealRatePhaseIndex = -1;                    // Phase index whose revealRate last updated replay presentation pacing.
     float appliedRevealRate = 1.0f;                          // Normalized runtime rate applied from the active phase.
@@ -109,6 +111,7 @@ bool TryParsePhaseAdvance( const char* text, PhaseAdvance& outAdvance );
 
 // Loads into outShotList only after the full document is valid.
 bool LoadDemoShotList( const char* path, DemoShotList& outShotList );
+
 // Writes the stable `.shot.json` schema and creates the parent folder if needed.
 bool SaveDemoShotList( const char* path, const DemoShotList& shotList );
 

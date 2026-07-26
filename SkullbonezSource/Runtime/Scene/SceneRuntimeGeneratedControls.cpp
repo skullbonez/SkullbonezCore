@@ -46,6 +46,7 @@ namespace
 {
 void LogGeneratedControlFailure( const SkullbonezCore::Core::SbResult& result )
 {
+
     // Why: The transaction has already cleared mutable scene/model state.
     // Report the recoverable owner and let the caller reset replay/profiler
     // state around the now-current partial topology.
@@ -65,6 +66,7 @@ SkullbonezCore::Core::SbResult SceneGeneratedControlTransaction::DrainAndReset( 
                                                                                 Rendering::Dx12FrameOwner* renderFrame )
 {
     AdvanceOrFatal( SceneGeneratedControlPhaseCursor::Phase::DrainAndReset, "DrainAndReset" );
+
     if ( !m_rebuildActiveScene )
     {
         const SkullbonezCore::Core::SbResult success = SkullbonezCore::Core::SbResult::Success();
@@ -74,11 +76,14 @@ SkullbonezCore::Core::SbResult SceneGeneratedControlTransaction::DrainAndReset( 
 
     // Hazard: generated rebuilds destroy model/render state. A failed GPU drain
     // must return before overrides, topology, simulation, or tools mutate.
+
     if ( renderFrame )
     {
         const SkullbonezCore::Core::SbResult flushResult = renderFrame->FlushGPU();
+
         if ( !RecordDrainResult( flushResult ) )
         {
+
             // Lane R: the input/stress boundary reports the device failure and
             // this transaction never enters Repopulate.
             return flushResult;
@@ -91,6 +96,7 @@ SkullbonezCore::Core::SbResult SceneGeneratedControlTransaction::DrainAndReset( 
 
     // Invariant: RecordDrainResult is the single gate between the device
     // result and owner mutation. Failure returns above with this predicate false.
+
     if ( !MutationAllowedAfterDrain() )
     {
         SB_FATAL( "Runtime/SceneGeneratedControlTransaction",
@@ -105,8 +111,7 @@ SkullbonezCore::Core::SbResult SceneGeneratedControlTransaction::DrainAndReset( 
     return SkullbonezCore::Core::SbResult::Success();
 }
 
-void SceneGeneratedControlTransaction::Repopulate( const SkullbonezCore::Core::EngineConfig& config,
-                                                   SceneController& scene,
+void SceneGeneratedControlTransaction::Repopulate( const SkullbonezCore::Core::EngineConfig& config, SceneController& scene,
                                                    SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
                                                    CameraControlState& camera )
 {
@@ -142,10 +147,8 @@ void SceneGeneratedControlTransaction::Repopulate( const SkullbonezCore::Core::E
     const SceneGeneratedModelContext context { scene.State(), config, scene.Scene(), m_objectTypeOverride };
 
     const SkullbonezCore::Core::SbResult setupResult = m_kind == RequestKind::ModelCount
-                                                           ? SceneGeneratedSetup::SetUpSceneEntities( context,
-                                                                                                      m_modelCount )
-                                                           : SceneGeneratedSetup::SetUpSolverObjects( context,
-                                                                                                      m_solverBalls,
+                                                           ? SceneGeneratedSetup::SetUpSceneEntities( context, m_modelCount )
+                                                           : SceneGeneratedSetup::SetUpSolverObjects( context, m_solverBalls,
                                                                                                       m_solverBoxes );
 
     if ( !setupResult.ok )
@@ -157,6 +160,7 @@ void SceneGeneratedControlTransaction::Repopulate( const SkullbonezCore::Core::E
     }
 
     const int cameraModelCount = m_kind == RequestKind::ModelCount ? m_modelCount : scene.State().modelCount;
+
     if ( cameraModelCount <= 0 )
     {
         camera.trackBallRow.value = -1;
@@ -173,33 +177,30 @@ void SceneGeneratedControlTransaction::PublishFollowUps()
     RecordFollowUps();
 }
 
-void SceneGeneratedControlTransaction::AdvanceOrFatal( SceneGeneratedControlPhaseCursor::Phase next,
-                                                       const char* operation )
+void SceneGeneratedControlTransaction::AdvanceOrFatal( SceneGeneratedControlPhaseCursor::Phase next, const char* operation )
 {
     const SceneGeneratedControlPhaseCursor::Phase current = m_phase.Current();
+
     if ( !m_phase.TryAdvance( next ) )
     {
+
         // Lane F: accepting an out-of-order phase could mutate topology before
         // the GPU drain or publish replay state before repopulation.
-        SB_FATAL( "Runtime/SceneGeneratedControlTransaction",
-                  "Illegal phase transition. operation=%s current=%u next=%u",
-                  operation,
-                  static_cast<unsigned int>( current ),
-                  static_cast<unsigned int>( next ) );
+        SB_FATAL( "Runtime/SceneGeneratedControlTransaction", "Illegal phase transition. operation=%s current=%u next=%u",
+                  operation, static_cast<unsigned int>( current ), static_cast<unsigned int>( next ) );
     }
 }
 
 SceneGeneratedUICommandResult
-SceneGeneratedControlTransaction::Execute( const SkullbonezCore::Core::EngineConfig& config,
-                                           SceneController& scene,
+SceneGeneratedControlTransaction::Execute( const SkullbonezCore::Core::EngineConfig& config, SceneController& scene,
                                            SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                                           CameraControlState& camera,
-                                           SimulationSystem& simulation,
-                                           RuntimeTools& tools,
+                                           CameraControlState& camera, SimulationSystem& simulation, RuntimeTools& tools,
                                            Rendering::Dx12FrameOwner* renderFrame )
 {
+
     // Invalid UI sentinel values do not represent a transaction and therefore
     // do not enter the phase machine.
+
     if ( !ResolveRequest( uiOverrides, scene.State() ) )
     {
         return m_result;
@@ -207,6 +208,7 @@ SceneGeneratedControlTransaction::Execute( const SkullbonezCore::Core::EngineCon
 
     m_rebuildActiveScene = scene.HasCurrentEntry();
     m_result.action.status = DrainAndReset( scene, simulation, tools, renderFrame );
+
     if ( !m_result.action.status.ok )
     {
         return m_result;

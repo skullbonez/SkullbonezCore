@@ -56,8 +56,10 @@ void ReplayPorkchopPanel::Toggle() noexcept
 {
     m_view.visible = !m_view.visible;
     m_view.hoveredCell = -1;
+
     if ( m_view.visible )
     {
+
         // Why: reopening is the explicit on-demand refresh affordance. Hidden
         // frames retain pixels but perform neither body reads nor sweep work.
         m_refreshRequested = true;
@@ -73,8 +75,7 @@ void ReplayPorkchopPanel::Reset() noexcept
     ClearSweep();
 }
 
-bool ReplayPorkchopPanel::NeedsRefresh( Physics::PhysicsSceneObjectId targetId,
-                                        bool mutualGravityEnabled ) const noexcept
+bool ReplayPorkchopPanel::NeedsRefresh( Physics::PhysicsSceneObjectId targetId, bool mutualGravityEnabled ) const noexcept
 {
     return m_view.visible &&
            ( m_refreshRequested || targetId != m_view.targetId || mutualGravityEnabled != m_lastMutualGravityEnabled );
@@ -87,6 +88,7 @@ void ReplayPorkchopPanel::BeginSweep( const ReplayPorkchopSweepInput& input ) no
     m_view.targetId = input.target.id;
     m_lastMutualGravityEnabled = input.mutualGravityEnabled;
     m_sweepEpochSeconds = input.epochSeconds;
+
     if ( !m_view.visible || !input.mutualGravityEnabled || !ValidBody( input.sun ) || !ValidBody( input.departure ) ||
          !ValidBody( input.target ) || input.sun.id == input.departure.id || input.sun.id == input.target.id ||
          input.departure.id == input.target.id || input.gravitationalConstant <= 0.0f ||
@@ -100,6 +102,7 @@ void ReplayPorkchopPanel::BeginSweep( const ReplayPorkchopSweepInput& input ) no
     const Vector3 departureVelocity = input.departure.linearVelocity - input.sun.linearVelocity;
     const Vector3 targetPosition = input.target.position - input.sun.position;
     const Vector3 targetVelocity = input.target.linearVelocity - input.sun.linearVelocity;
+
     if ( Math::Orbital::ElementsFromState( departurePosition, departureVelocity, m_mu, m_departureOrbit ) !=
              OrbitalStatus::Ok ||
          Math::Orbital::ElementsFromState( targetPosition, targetVelocity, m_mu, m_targetOrbit ) != OrbitalStatus::Ok )
@@ -113,6 +116,7 @@ void ReplayPorkchopPanel::BeginSweep( const ReplayPorkchopSweepInput& input ) no
 
 void ReplayPorkchopPanel::AdvanceSweep( double nowSeconds ) noexcept
 {
+
     if ( !m_view.visible )
     {
         return;
@@ -123,10 +127,10 @@ void ReplayPorkchopPanel::AdvanceSweep( double nowSeconds ) noexcept
                                   : 0.0;
 
     m_view.sweepAgeSeconds = static_cast<float>( (std::min)( ageSeconds, 48.0 ) );
+
     if ( m_view.selectedCell >= 0 )
     {
-        m_view.selectedDepartureDelaySeconds = (std::max)( 0.0f,
-                                                           m_selectedDepartureOffsetSeconds - m_view.sweepAgeSeconds );
+        m_view.selectedDepartureDelaySeconds = (std::max)( 0.0f, m_selectedDepartureOffsetSeconds - m_view.sweepAgeSeconds );
     }
 
     if ( !m_view.building )
@@ -141,9 +145,11 @@ void ReplayPorkchopPanel::AdvanceSweep( double nowSeconds ) noexcept
     while ( m_view.completedCells < end )
     {
         float deltaV = REPLAY_PORKCHOP_FAILED_DELTA_V;
+
         if ( ComputeCell( m_view.completedCells, deltaV ) )
         {
             m_deltaV[m_view.completedCells] = deltaV;
+
             if ( m_view.minimumDeltaV < 0.0f || deltaV < m_view.minimumDeltaV )
             {
                 m_view.minimumDeltaV = deltaV;
@@ -159,8 +165,7 @@ void ReplayPorkchopPanel::AdvanceSweep( double nowSeconds ) noexcept
     const auto finished = std::chrono::steady_clock::now();
     const double frameComputeMilliseconds = std::chrono::duration<double, std::milli>( finished - started ).count();
     m_view.refreshComputeMilliseconds += frameComputeMilliseconds;
-    m_view.maximumFrameComputeMilliseconds = (std::max)( m_view.maximumFrameComputeMilliseconds,
-                                                         frameComputeMilliseconds );
+    m_view.maximumFrameComputeMilliseconds = (std::max)( m_view.maximumFrameComputeMilliseconds, frameComputeMilliseconds );
 
     if ( m_view.completedCells == REPLAY_PORKCHOP_CELL_COUNT )
     {
@@ -181,17 +186,17 @@ bool ReplayPorkchopPanel::ComputeCell( std::size_t cellIndex, float& outDeltaV )
     Vector3 departureVelocity;
     Vector3 targetPosition;
     Vector3 targetVelocity;
+
     if ( Math::Orbital::PropagateToTime( m_departureOrbit, departureDelay, departurePosition, departureVelocity ) !=
              OrbitalStatus::Ok ||
-         Math::Orbital::PropagateToTime( m_targetOrbit,
-                                         departureDelay + timeOfFlight,
-                                         targetPosition,
-                                         targetVelocity ) != OrbitalStatus::Ok )
+         Math::Orbital::PropagateToTime( m_targetOrbit, departureDelay + timeOfFlight, targetPosition, targetVelocity ) !=
+             OrbitalStatus::Ok )
     {
         return false;
     }
 
     LambertSolution transfer;
+
     if ( Math::Orbital::SolveLambert( departurePosition, targetPosition, timeOfFlight, m_mu, true, transfer ) !=
          OrbitalStatus::Ok )
     {
@@ -199,6 +204,7 @@ bool ReplayPorkchopPanel::ComputeCell( std::size_t cellIndex, float& outDeltaV )
     }
 
     const float deltaV = Magnitude( transfer.v1 - departureVelocity ) + Magnitude( targetVelocity - transfer.v2 );
+
     if ( !std::isfinite( deltaV ) )
     {
         return false;
@@ -210,12 +216,12 @@ bool ReplayPorkchopPanel::ComputeCell( std::size_t cellIndex, float& outDeltaV )
 
 void ReplayPorkchopPanel::SetHoveredCell( int cellIndex ) noexcept
 {
-    m_view.hoveredCell = cellIndex >= 0 && static_cast<std::size_t>( cellIndex ) < m_view.completedCells ? cellIndex
-                                                                                                         : -1;
+    m_view.hoveredCell = cellIndex >= 0 && static_cast<std::size_t>( cellIndex ) < m_view.completedCells ? cellIndex : -1;
 }
 
 bool ReplayPorkchopPanel::SelectCell( std::size_t cellIndex ) noexcept
 {
+
     if ( !m_view.complete || cellIndex >= m_deltaV.size() || m_deltaV[cellIndex] < 0.0f )
     {
         return false;
@@ -223,8 +229,7 @@ bool ReplayPorkchopPanel::SelectCell( std::size_t cellIndex ) noexcept
 
     m_view.selectedCell = static_cast<int>( cellIndex );
     m_selectedDepartureOffsetSeconds = DepartureDelaySeconds( cellIndex % REPLAY_PORKCHOP_COLUMNS );
-    m_view.selectedDepartureDelaySeconds = (std::max)( 0.0f,
-                                                       m_selectedDepartureOffsetSeconds - m_view.sweepAgeSeconds );
+    m_view.selectedDepartureDelaySeconds = (std::max)( 0.0f, m_selectedDepartureOffsetSeconds - m_view.sweepAgeSeconds );
 
     m_view.selectedTimeOfFlightSeconds = TimeOfFlightSeconds( cellIndex / REPLAY_PORKCHOP_COLUMNS );
     m_view.selectedDeltaV = m_deltaV[cellIndex];

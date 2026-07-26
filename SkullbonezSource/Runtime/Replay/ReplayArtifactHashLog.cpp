@@ -30,6 +30,7 @@ namespace
 {
 std::string SolverHashLogPath( const std::string& presentationPath )
 {
+
     if ( presentationPath.empty() )
     {
         return {};
@@ -37,6 +38,7 @@ std::string SolverHashLogPath( const std::string& presentationPath )
 
     const std::size_t slash = presentationPath.find_last_of( "/\\" );
     const std::size_t dot = presentationPath.find_last_of( '.' );
+
     if ( dot != std::string::npos && ( slash == std::string::npos || dot > slash ) )
     {
         return presentationPath.substr( 0, dot ) + ".solver" + presentationPath.substr( dot );
@@ -51,10 +53,8 @@ int SaturatingFrameCount( std::size_t count )
 }
 } // namespace
 
-void ReplayArtifactHashLog::Configure( const char* requestedPath,
-                                       ReplayRecorderConfig& presentationConfig,
-                                       ReplayRecorderConfig& solverConfig,
-                                       const ReplayRecorderStats& presentationStats,
+void ReplayArtifactHashLog::Configure( const char* requestedPath, ReplayRecorderConfig& presentationConfig,
+                                       ReplayRecorderConfig& solverConfig, const ReplayRecorderStats& presentationStats,
                                        const ReplayRecorderStats& solverStats )
 {
     m_presentation.close();
@@ -72,6 +72,7 @@ void ReplayArtifactHashLog::Configure( const char* requestedPath,
     if ( !presentationConfig.hashLogPath.empty() )
     {
         m_presentation.open( presentationConfig.hashLogPath, std::ios::out | std::ios::trunc );
+
         if ( !m_presentation.is_open() )
         {
             fprintf( stderr, "[replay] Failed to open hash log: %s\n", presentationConfig.hashLogPath.c_str() );
@@ -82,6 +83,7 @@ void ReplayArtifactHashLog::Configure( const char* requestedPath,
     if ( !solverConfig.hashLogPath.empty() )
     {
         m_solver.open( solverConfig.hashLogPath, std::ios::out | std::ios::trunc );
+
         if ( !m_solver.is_open() )
         {
             fprintf( stderr, "[replay] Failed to open hash log: %s\n", solverConfig.hashLogPath.c_str() );
@@ -93,10 +95,10 @@ void ReplayArtifactHashLog::Configure( const char* requestedPath,
 void ReplayArtifactHashLog::ResetTimeline( const char* sceneLabel )
 {
     const char* label = sceneLabel && sceneLabel[0] != '\0' ? sceneLabel : "generated";
+
     if ( m_presentation.is_open() )
     {
-        m_presentation << "# replay_scene scene=\"" << label
-                       << "\" retention_seconds=" << m_presentationRetentionSeconds
+        m_presentation << "# replay_scene scene=\"" << label << "\" retention_seconds=" << m_presentationRetentionSeconds
                        << " retention_frames=" << m_presentationRetentionFrames
                        << " checkpoint_interval_frames=" << m_presentationCheckpointInterval << "\n";
         m_presentation
@@ -116,22 +118,17 @@ void ReplayArtifactHashLog::ResetTimeline( const char* sceneLabel )
 
 void ReplayArtifactHashLog::AppendPresentation( const ReplayPresentationSample& sample )
 {
+
     if ( !m_presentation.is_open() )
     {
         return;
     }
 
     char line[256] = {};
-    sprintf_s( line,
-               sizeof( line ),
-               "%llu,%d,%.6f,%llu,%u,%u,%u,0x%016llX\n",
-               static_cast<unsigned long long>( sample.frameIndex ),
-               sample.sceneFrame,
-               sample.simulationSeconds,
-               static_cast<unsigned long long>( sample.bodies.size() ),
-               static_cast<unsigned>( sample.contactCount ),
-               static_cast<unsigned>( sample.pipelineRecordCount ),
-               sample.checkpointBoundary ? 1u : 0u,
+    sprintf_s( line, sizeof( line ), "%llu,%d,%.6f,%llu,%u,%u,%u,0x%016llX\n",
+               static_cast<unsigned long long>( sample.frameIndex ), sample.sceneFrame, sample.simulationSeconds,
+               static_cast<unsigned long long>( sample.bodies.size() ), static_cast<unsigned>( sample.contactCount ),
+               static_cast<unsigned>( sample.pipelineRecordCount ), sample.checkpointBoundary ? 1u : 0u,
                static_cast<unsigned long long>( sample.stateHash ) );
 
     m_presentation << line;
@@ -139,22 +136,17 @@ void ReplayArtifactHashLog::AppendPresentation( const ReplayPresentationSample& 
 
 void ReplayArtifactHashLog::AppendSolver( const ReplaySolverFrameSample& sample )
 {
+
     if ( !m_solver.is_open() )
     {
         return;
     }
 
     char line[288] = {};
-    sprintf_s( line,
-               sizeof( line ),
-               "%llu,%d,%.6f,%llu,%u,%u,%u,0x%016llX,0x%016llX\n",
-               static_cast<unsigned long long>( sample.frameIndex ),
-               sample.sceneFrame,
-               sample.simulationSeconds,
-               static_cast<unsigned long long>( sample.bodies.size() ),
-               static_cast<unsigned>( sample.contactCount ),
-               static_cast<unsigned>( sample.pipelineRecordCount ),
-               sample.checkpointBoundary ? 1u : 0u,
+    sprintf_s( line, sizeof( line ), "%llu,%d,%.6f,%llu,%u,%u,%u,0x%016llX,0x%016llX\n",
+               static_cast<unsigned long long>( sample.frameIndex ), sample.sceneFrame, sample.simulationSeconds,
+               static_cast<unsigned long long>( sample.bodies.size() ), static_cast<unsigned>( sample.contactCount ),
+               static_cast<unsigned>( sample.pipelineRecordCount ), sample.checkpointBoundary ? 1u : 0u,
                static_cast<unsigned long long>( sample.presentationHash ),
                static_cast<unsigned long long>( sample.solverHash ) );
 
@@ -163,6 +155,7 @@ void ReplayArtifactHashLog::AppendSolver( const ReplaySolverFrameSample& sample 
 
 void ReplayArtifactHashLog::Flush()
 {
+
     if ( m_presentation.is_open() )
     {
         m_presentation.flush();

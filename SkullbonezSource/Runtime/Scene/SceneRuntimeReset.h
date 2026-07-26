@@ -60,7 +60,8 @@ struct SceneRuntimeResetSnapshot
     OverlayDebugState
         debug;                                     // Debug overlays/visualizers, including the C-key physics debug mode and associated alpha/linger knobs
     bool isScenePhysics = true;                    // Live scene simulation toggle; reset should rebuild the run, not silently re-enable
-                                   // physics
+
+    // physics
     bool isSceneText = true;                       // Live text/HUD toggle from the scene controls
     bool isFixedStep = false;                      // Live stepping mode; resetting the simulation should not change how it advances
     bool isExitOnComplete = false;                 // Interactive reset preserves the user's automation/hold choice
@@ -80,7 +81,8 @@ struct SceneRuntimeResetSnapshot
     uint64_t uiCinematicOverrideMask = 0;
     SkullbonezCore::Core::CinematicRenderConfig cinematicRender;
     float uiTimeScaleOverride = 0.0f;              // UI overrides feed object setup during reload, so they must survive before the
-                                      // scene rebuilds
+
+    // scene rebuilds
     int uiModelCountOverride = -1;
     int uiSolverBallCountOverride = -1;
     int uiSolverBoxCountOverride = -1;
@@ -91,19 +93,13 @@ struct SceneRuntimeResetSnapshot
     int autoCycleShotsTaken = 0;
 };
 
-SceneRuntimeResetSnapshot
-CaptureSceneRuntimeResetSnapshot( const SceneController& controller,
-                                  const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                                  const RuntimeRenderer& renderer,
-                                  const OverlayDebugState& debug,
-                                  const CameraControlState& camera );
-void RestoreSceneRuntimeResetSnapshot( SceneController& controller,
-                                       SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                                       RuntimeRenderer& renderer,
-                                       OverlayDebugState& debug,
-                                       CameraControlState& camera,
-                                       const SceneRuntimeResetSnapshot& snapshot,
-                                       bool suppressExitOnComplete );
+SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot( const SceneController& controller,
+                                                            const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+                                                            const RuntimeRenderer& renderer, const OverlayDebugState& debug,
+                                                            const CameraControlState& camera );
+void RestoreSceneRuntimeResetSnapshot( SceneController& controller, SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+                                       RuntimeRenderer& renderer, OverlayDebugState& debug, CameraControlState& camera,
+                                       const SceneRuntimeResetSnapshot& snapshot, bool suppressExitOnComplete );
 void ClearSceneRuntimeUIOverrides( SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides );
 
 } // namespace Runtime

@@ -21,6 +21,7 @@ Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
     must stay explicit.
   - Device, pipeline, shader-development, and upload-owner references are stable
+
     for the shader's lifetime; the shader never retains the aggregate backend.
 
 Related:
@@ -130,11 +131,8 @@ class ShaderDX12
 #endif
 
   public:
-    ShaderDX12( Dx12RenderDevice& device,
-                Dx12PipelineOwner& pipeline,
-                Dx12ShaderDevelopment& shaderDevelopment,
-                Dx12UploadReservations& uploadReservations,
-                bool registerForDevelopment = true );
+    ShaderDX12( Dx12RenderDevice& device, Dx12PipelineOwner& pipeline, Dx12ShaderDevelopment& shaderDevelopment,
+                Dx12UploadReservations& uploadReservations, bool registerForDevelopment = true );
     ~ShaderDX12();
 
     bool Compile( const char* hlslPath, const char* contractBaseName = nullptr );

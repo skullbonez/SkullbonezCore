@@ -150,19 +150,15 @@ class AssetSystem
     const SourceAssetRecord* FindSourceAsset( const char* logicalName ) const;
     const SourceAssetRecord* FindSourceAssetById( AssetId id ) const;
 
-    const TextureSourceAsset& RegisterTextureSourceAsset( const char* logicalName,
-                                                          const char* relativePath,
-                                                          uint32_t legacyHash,
-                                                          bool generateMips = true,
-                                                          bool linearFilter = true,
-                                                          int channelsHint = 3 );
+    const TextureSourceAsset& RegisterTextureSourceAsset( const char* logicalName, const char* relativePath,
+                                                          uint32_t legacyHash, bool generateMips = true,
+                                                          bool linearFilter = true, int channelsHint = 3 );
     const TextureSourceAsset* FindTextureSourceAsset( const char* logicalName ) const;
     const TextureSourceAsset* FindTextureSourceAssetByLegacyHash( uint32_t legacyHash ) const;
     const TextureSourceAsset* FindTextureSourceAssetById( AssetId id ) const;
     const std::vector<TextureSourceAsset>& GetTextureSourceAssets() const;
 
-    const ShaderSourceAsset& RegisterShaderSourceAsset( const char* logicalName,
-                                                        const char* baseName,
+    const ShaderSourceAsset& RegisterShaderSourceAsset( const char* logicalName, const char* baseName,
                                                         ShaderProgramKind kind = ShaderProgramKind::Unknown,
                                                         ShaderProgramContract contract = {} );
     const ShaderSourceAsset* FindShaderSourceAsset( const char* logicalNameOrBaseName ) const;
@@ -193,6 +189,7 @@ class AssetSystem
 
 struct AssetContext
 {
+
     // Lifetime: callers borrow the registry for one parse, setup, or tool
     // operation. Null keeps standalone utilities on their historical path
     // fallback without reaching for process-global asset state.

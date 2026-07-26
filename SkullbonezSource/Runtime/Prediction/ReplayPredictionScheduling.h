@@ -91,8 +91,10 @@ class ReplayPredictionWorkerSchedule
 
     void WaitForIdle() const noexcept
     {
+
         // Hazard: cancellation is a scene/branch mutation edge. Build scratch
         // remains worker-owned until the submitted slice drops its in-flight bit.
+
         while ( m_task && m_task->IsInFlight() )
         {
             std::this_thread::yield();
@@ -112,6 +114,7 @@ class ReplayPredictionWorkerSchedule
 
     void SetBudget( int tickBudget )
     {
+
         if ( m_task )
         {
             m_task->SetBudget( tickBudget );
@@ -120,6 +123,7 @@ class ReplayPredictionWorkerSchedule
 
     void SubmitTick( Threading::WorkerPool& workerPool )
     {
+
         if ( m_task )
         {
             m_task->SubmitTick( workerPool );
@@ -127,6 +131,7 @@ class ReplayPredictionWorkerSchedule
     }
 
   private:
+
     // Lifetime: the optional owns one in-place task. Reset first waits for its
     // in-flight slice and releases no heap allocation.
     std::optional<ReplayPredictionAmortizedTask> m_task;
@@ -146,8 +151,7 @@ double ReplayPredictionElapsedMilliseconds( const std::chrono::steady_clock::tim
 bool ReplayPredictionBudgetExpired( const std::chrono::steady_clock::time_point& start, double budgetMilliseconds );
 bool ReplayPredictionBudgetExpiredForPass( ReplayPredictionUpdateResult& result,
                                            SkullbonezCore::Core::MainMemoryReplayBudgetPass pass,
-                                           const std::chrono::steady_clock::time_point& start,
-                                           double budgetMilliseconds );
+                                           const std::chrono::steady_clock::time_point& start, double budgetMilliseconds );
 double ReplayPredictionRemainingMilliseconds( const std::chrono::steady_clock::time_point& start,
                                               double budgetMilliseconds );
 double ReplayPredictionRevealSecondsPerSecond( const RunReplayPredictionState& prediction );
@@ -156,18 +160,20 @@ ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& pre
 std::size_t ReplayPredictionBuildPresentationFrameCountForRefresh( RunReplayPredictionState& prediction,
                                                                    Physics::PhysicsSceneObjectId requestedTargetId );
 
-inline ReplayPredictionBuildMode ChooseReplayPredictionBuildMode( double measuredTicksPerMs,
-                                                                  int remainingTicks,
-                                                                  double instantBudgetMs,
-                                                                  std::size_t bodyCount ) noexcept
+inline ReplayPredictionBuildMode ChooseReplayPredictionBuildMode( double measuredTicksPerMs, int remainingTicks,
+                                                                  double instantBudgetMs, std::size_t bodyCount ) noexcept
 {
+
     if ( measuredTicksPerMs <= 0.0 || remainingTicks < 0 )
     {
         return ReplayPredictionBuildMode::Undecided;
     }
+
     constexpr std::size_t REPLAY_PREDICTION_INSTANT_MAX_BODY_COUNT = 64u;
+
     if ( instantBudgetMs <= 0.0 || bodyCount > REPLAY_PREDICTION_INSTANT_MAX_BODY_COUNT )
     {
+
         // Why: the probe samples the cheap beginning of a prediction. In a
         // large contact scene such as the 200-box wall, that prefix cannot
         // predict the later solver fan-out; allowing it to select Instant made
@@ -180,28 +186,32 @@ inline ReplayPredictionBuildMode ChooseReplayPredictionBuildMode( double measure
                                                     : ReplayPredictionBuildMode::Amortized;
 }
 
-inline ReplayPredictionCoalescerAction ChooseReplayPredictionCoalescerAction( bool dirty,
-                                                                              bool building,
+inline ReplayPredictionCoalescerAction ChooseReplayPredictionCoalescerAction( bool dirty, bool building,
                                                                               ReplayPredictionBuildMode mode,
                                                                               bool pendingLatestRestart,
                                                                               bool replacementPrefixPresented ) noexcept
 {
     const bool restartRequested = dirty || pendingLatestRestart;
+
     if ( !restartRequested )
     {
         return ReplayPredictionCoalescerAction::Nothing;
     }
+
     if ( !building )
     {
         return ReplayPredictionCoalescerAction::Begin;
     }
+
     if ( mode == ReplayPredictionBuildMode::Instant || !replacementPrefixPresented )
     {
+
         // Invariant: held edits cannot cancel a replacement generation before
         // the frame thread presents one coherent changed prefix. The pending
         // bit keeps only the newest follow-up request.
         return ReplayPredictionCoalescerAction::Supersede;
     }
+
     return ReplayPredictionCoalescerAction::PromoteAndBegin;
 }
 } // namespace ReplayPredictionSchedulingOperations

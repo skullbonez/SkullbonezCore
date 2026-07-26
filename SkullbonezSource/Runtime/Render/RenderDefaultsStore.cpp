@@ -55,14 +55,15 @@ void RenderDefaultsStore::SubmitCinematicSave()
 
 void RenderDefaultsStore::Submit( RenderDefaultsRequestType type )
 {
+
     if ( m_count >= RENDER_DEFAULTS_REQUEST_CAPACITY )
     {
+
         // Lane F: a UI frame cannot legally exceed the fixed persistence owner
         // budget. A growth fallback would violate steady-runtime allocation policy.
         SB_FATAL( "Runtime/RenderDefaultsStore",
                   "Render-default request capacity exhausted. capacity=%d high_water=%d phase=input",
-                  RENDER_DEFAULTS_REQUEST_CAPACITY,
-                  m_count );
+                  RENDER_DEFAULTS_REQUEST_CAPACITY, m_count );
     }
 
     const int tail = ( m_head + m_count ) % RENDER_DEFAULTS_REQUEST_CAPACITY;
@@ -76,6 +77,7 @@ RenderDefaultsStore::DrainAtFrameCheckpoint( const SkullbonezCore::Core::Ordinar
                                              const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
 {
     RenderDefaultsSaveBatchResult result;
+
     while ( m_count > 0 )
     {
         const RenderDefaultsRequestType request = m_requests[m_head];
@@ -92,6 +94,7 @@ RenderDefaultsStore::DrainAtFrameCheckpoint( const SkullbonezCore::Core::Ordinar
         }
         else
         {
+
             if ( result.status.ok )
             {
                 result.status = saveResult;
@@ -114,13 +117,12 @@ std::size_t RenderDefaultsStore::PendingCount() const
 
 RenderDefaultsRequestType RenderDefaultsStore::PendingTypeAt( std::size_t index ) const
 {
+
     if ( index >= static_cast<std::size_t>( m_count ) )
     {
+
         // Lane F: this accessor is diagnostics/test evidence over occupied slots.
-        SB_FATAL( "Runtime/RenderDefaultsStore",
-                  "Pending request index out of range. index=%zu count=%d",
-                  index,
-                  m_count );
+        SB_FATAL( "Runtime/RenderDefaultsStore", "Pending request index out of range. index=%zu count=%d", index, m_count );
     }
 
     return m_requests[( m_head + static_cast<int>( index ) ) % RENDER_DEFAULTS_REQUEST_CAPACITY];

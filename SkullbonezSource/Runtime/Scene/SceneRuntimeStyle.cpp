@@ -56,15 +56,12 @@ ActiveSceneCinematicConfig( const SceneSessionState& scene, const SkullbonezCore
 }
 
 
-bool IsSceneCinematicRenderingEnabled( const SceneSessionState& scene,
-                                       const SkullbonezCore::Core::EngineConfig& config,
-                                       const RunLaunchOptions& launchOptions,
-                                       const OverlayDebugState& debug,
+bool IsSceneCinematicRenderingEnabled( const SceneSessionState& scene, const SkullbonezCore::Core::EngineConfig& config,
+                                       const RunLaunchOptions& launchOptions, const OverlayDebugState& debug,
                                        bool graphicsReady )
 {
-    const bool enabled = launchOptions.hasCinematicRenderingOverride
-                             ? launchOptions.cinematicRendering
-                             : ActiveSceneCinematicConfig( scene, config ).enabled;
+    const bool enabled = launchOptions.hasCinematicRenderingOverride ? launchOptions.cinematicRendering
+                                                                     : ActiveSceneCinematicConfig( scene, config ).enabled;
 
     return enabled && graphicsReady && !debug.isTextOnly;
 }
@@ -77,6 +74,7 @@ using SkullbonezCore::Runtime::SceneController;
 
 const char* FileNameFromPath( const char* path )
 {
+
     if ( !path )
     {
         return "";
@@ -85,6 +83,7 @@ const char* FileNameFromPath( const char* path )
     const char* slash = strrchr( path, '/' );
     const char* backslash = strrchr( path, '\\' );
     const char* separator = slash;
+
     if ( backslash && ( !separator || backslash > separator ) )
     {
         separator = backslash;
@@ -115,14 +114,14 @@ bool IsBroadMaterialTarget( const char* target )
            strcmp( target, "hulls" ) == 0 || strcmp( target, "convex_hulls" ) == 0;
 }
 
-bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material,
-                                 const char* displayName,
-                                 bool simpleRagdollPart,
-                                 ColliderShapeKind shapeKind )
+bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material, const char* displayName,
+                                 bool simpleRagdollPart, ColliderShapeKind shapeKind )
 {
+
     // Invariant: Simple ragdoll parts keep their authored body materials; broad
     // style targets apply to ordinary scene bodies only. Exact and prefix
     // targets still opt a named ragdoll into scene-local showcase material.
+
     if ( simpleRagdollPart && IsBroadMaterialTarget( material.target ) )
     {
         return false;
@@ -160,13 +159,13 @@ bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material,
 void ResetObjectMaterials( SceneWorld& world )
 {
     SceneEntityStore& entities = world.Entities();
+
     for ( int modelIndex = 0; modelIndex < world.SceneEntityCount(); ++modelIndex )
     {
+
         if ( !entities.IsSimpleRagdollPart( modelIndex ) )
         {
-            entities.MutableAt( modelIndex ).renderMaterial = Rendering::MakeRenderMaterialFromLegacyTint( 1.0f,
-                                                                                                           1.0f,
-                                                                                                           1.0f,
+            entities.MutableAt( modelIndex ).renderMaterial = Rendering::MakeRenderMaterialFromLegacyTint( 1.0f, 1.0f, 1.0f,
                                                                                                            0.0f );
         }
     }
@@ -177,19 +176,19 @@ void ApplyObjectMaterials( SceneWorld& world, const AuthoredScene& styleScene )
     SceneEntityStore& entities = world.Entities();
     ResetObjectMaterials( world );
     const auto colliders = world.Colliders().Records();
+
     for ( int materialIndex = 0; materialIndex < styleScene.GetObjectMaterialOverrideCount(); ++materialIndex )
     {
         const SceneObjectMaterialOverride& material = styleScene.GetObjectMaterialOverride( materialIndex );
+
         for ( int modelIndex = 0; modelIndex < world.SceneEntityCount(); ++modelIndex )
         {
             const ColliderShapeKind shapeKind = modelIndex < static_cast<int>( colliders.size() )
                                                     ? colliders[static_cast<std::size_t>( modelIndex )].shapeKind
                                                     : ColliderShapeKind::Sphere;
 
-            if ( SceneMaterialTargetMatches( material,
-                                             entities.At( modelIndex ).displayName,
-                                             entities.IsSimpleRagdollPart( modelIndex ),
-                                             shapeKind ) )
+            if ( SceneMaterialTargetMatches( material, entities.At( modelIndex ).displayName,
+                                             entities.IsSimpleRagdollPart( modelIndex ), shapeKind ) )
             {
                 entities.MutableAt( modelIndex ).renderMaterial = material.material;
             }
@@ -199,16 +198,16 @@ void ApplyObjectMaterials( SceneWorld& world, const AuthoredScene& styleScene )
 } // namespace
 
 
-void ApplyCinematicSceneOverrides( SkullbonezCore::Core::CinematicRenderConfig& target,
-                                   uint64_t mask,
+void ApplyCinematicSceneOverrides( SkullbonezCore::Core::CinematicRenderConfig& target, uint64_t mask,
                                    const SkullbonezCore::Core::CinematicRenderConfig& source )
 {
+
     // Concept: The mask is the compatibility boundary for authored cinematic
     // scenes; unset fields continue to inherit engine/default UI state.
-#define APPLY_CINEMATIC_OVERRIDE( bit, field )                                                                         \
-    if ( ( mask & ( bit ) ) != 0 )                                                                                     \
-    {                                                                                                                  \
-        target.field = source.field;                                                                                   \
+#define APPLY_CINEMATIC_OVERRIDE( bit, field )                                                                              \
+    if ( ( mask & ( bit ) ) != 0 )                                                                                          \
+    {                                                                                                                       \
+        target.field = source.field;                                                                                        \
     }
 
     APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_RENDERING, enabled )
@@ -303,6 +302,7 @@ bool ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext context, int i
     if ( index < 0 )
     {
         context.activeCinematic = context.defaultCinematic;
+
         if ( context.scene.isSceneMode )
         {
             context.scene.hasCinematicRenderingOverride = false;
@@ -327,10 +327,8 @@ bool ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext context, int i
     }
 
     AuthoredScene lookScene;
-    const SkullbonezCore::Core::SbResult loadResult = AuthoredScene::TryLoadFromFile(
-        context.sceneBrowser.paths[index].c_str(),
-        context.assets,
-        lookScene );
+    const SkullbonezCore::Core::SbResult
+        loadResult = AuthoredScene::TryLoadFromFile( context.sceneBrowser.paths[index].c_str(), context.assets, lookScene );
 
     if ( !loadResult.ok )
     {
@@ -339,8 +337,7 @@ bool ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext context, int i
     }
 
     context.activeCinematic = context.defaultCinematic;
-    ApplyCinematicSceneOverrides( context.activeCinematic,
-                                  lookScene.GetCinematicOverrideMask(),
+    ApplyCinematicSceneOverrides( context.activeCinematic, lookScene.GetCinematicOverrideMask(),
                                   lookScene.GetCinematicRenderConfig() );
 
     if ( context.scene.isSceneMode )
@@ -367,8 +364,7 @@ void ApplyLiveStyleScene( SceneRuntimeStyleContext context, const AuthoredScene&
     ApplyObjectMaterials( context.world, styleScene );
 
     context.activeCinematic = context.defaultCinematic;
-    ApplyCinematicSceneOverrides( context.activeCinematic,
-                                  styleScene.GetCinematicOverrideMask(),
+    ApplyCinematicSceneOverrides( context.activeCinematic, styleScene.GetCinematicOverrideMask(),
                                   styleScene.GetCinematicRenderConfig() );
 
     if ( context.scene.isSceneMode )
@@ -389,6 +385,7 @@ void ApplyLiveStyleScene( SceneRuntimeStyleContext context, const AuthoredScene&
 
 bool ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext context )
 {
+
     if ( !context.launchOptions.demoHeroStyle || context.scene.isSceneMode )
     {
         return false;
@@ -396,8 +393,7 @@ bool ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext context )
 
     const std::string stylePath = std::string( DATA_ROOT ) + "styles/low_poly_art_style.style.json";
     AuthoredScene styleScene;
-    const SkullbonezCore::Core::SbResult loadResult = AuthoredScene::TryLoadStyleFromFile( stylePath.c_str(),
-                                                                                           context.assets,
+    const SkullbonezCore::Core::SbResult loadResult = AuthoredScene::TryLoadStyleFromFile( stylePath.c_str(), context.assets,
                                                                                            styleScene );
 
     if ( !loadResult.ok )

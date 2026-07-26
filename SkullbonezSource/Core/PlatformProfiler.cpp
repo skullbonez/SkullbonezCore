@@ -68,9 +68,11 @@ enum class MarkerContext
 
 uint32_t HashRuntimeName( const char* name )
 {
+
     // Concept: runtime-generated marker names use the same FNV-1a family as
     // compile-time profiler markers so colors remain stable across captures.
     uint32_t hash = 2166136261u;
+
     if ( !name )
     {
         return hash;
@@ -78,6 +80,7 @@ uint32_t HashRuntimeName( const char* name )
 
     // Why: FNV hashes the unsigned character representation so bytes above
     // ASCII cannot sign-extend differently across compiler char defaults.
+
     for ( const unsigned char* p = reinterpret_cast<const unsigned char*>( name ); *p; ++p )
     {
         hash = ( hash ^ static_cast<uint32_t>( *p ) ) * 16777619u;
@@ -88,18 +91,19 @@ uint32_t HashRuntimeName( const char* name )
 
 bool HasPathPrefix( const char* name, const char* prefix )
 {
+
     if ( !name || !prefix )
     {
         return false;
     }
 
     const std::size_t prefixLength = std::strlen( prefix );
-    return std::strncmp( name, prefix, prefixLength ) == 0 &&
-           ( name[prefixLength] == '\0' || name[prefixLength] == '/' );
+    return std::strncmp( name, prefix, prefixLength ) == 0 && ( name[prefixLength] == '\0' || name[prefixLength] == '/' );
 }
 
 bool EndsWith( const char* name, const char* suffix )
 {
+
     if ( !name || !suffix )
     {
         return false;
@@ -112,6 +116,7 @@ bool EndsWith( const char* name, const char* suffix )
 
 MarkerDomain ClassifyDomain( const char* name )
 {
+
     if ( !name )
     {
         return MarkerDomain::Fallback;
@@ -167,6 +172,7 @@ MarkerDomain ClassifyDomain( const char* name )
 
 MarkerContext ClassifyContext( const char* name )
 {
+
     if ( EndsWith( name, "_Worker" ) )
     {
         return MarkerContext::Worker;
@@ -192,6 +198,7 @@ MarkerContext ClassifyContext( const char* name )
 
 uint32_t BaseColorForDomain( MarkerDomain domain )
 {
+
     switch ( domain )
     {
     case MarkerDomain::Frame:
@@ -257,6 +264,7 @@ bool IsAvailable()
 void SetEnabled( bool enabled )
 {
     g_enabled.store( enabled && IsAvailable(), std::memory_order_relaxed );
+
     if ( !g_enabled.load( std::memory_order_relaxed ) )
     {
         g_detailedRangesEnabled.store( false, std::memory_order_relaxed );
@@ -281,6 +289,7 @@ bool AreDetailedRangesEnabled()
 uint64_t ColorForMarker( const char* name, uint32_t hash )
 {
     const uint32_t h = hash != 0 ? hash : HashRuntimeName( name );
+
     if ( !AreDetailedRangesEnabled() )
     {
         const uint8_t r = static_cast<uint8_t>( 72u + ( h & 0x7Fu ) );
@@ -326,6 +335,7 @@ uint64_t ColorForMarker( const char* name, uint32_t hash )
 const char* DecorateMarkerName( const char* name, const char* suffix, char* buffer, std::size_t bufferSize )
 {
     const char* markerName = name ? name : "(null)";
+
     if ( !buffer || bufferSize == 0 )
     {
         return markerName;
@@ -338,6 +348,7 @@ const char* DecorateMarkerName( const char* name, const char* suffix, char* buff
 
 void CpuBegin( const char* name, uint32_t hash )
 {
+
     if ( !IsEnabled() )
     {
         return;
@@ -356,8 +367,10 @@ void CpuBegin( const char* name, uint32_t hash )
 void CpuEnd()
 {
 #if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
+
     if ( g_cpuDepth <= 0 )
     {
+
         if ( IsEnabled() )
         {
             Log().WriteEventf( "platform_profiler_cpu_end_without_begin" );
@@ -373,6 +386,7 @@ void CpuEnd()
 
 void CpuMarker( const char* name, uint32_t hash )
 {
+
     if ( !IsEnabled() )
     {
         return;

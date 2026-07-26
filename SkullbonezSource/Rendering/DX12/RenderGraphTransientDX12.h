@@ -61,6 +61,7 @@ struct GraphTransientResourceDX12
 
 inline bool ReleaseGraphTransientPoolSlotResourceDX12( GraphTransientResourceDX12& slot )
 {
+
     if ( !slot.resource )
     {
         return false;
@@ -101,8 +102,7 @@ inline bool GraphTransientDescEqualDX12( const RenderGraphTransientResourceDesc&
            lhs.descriptors.unorderedAccess == rhs.descriptors.unorderedAccess;
 }
 
-inline bool GraphTransientPoolSlotCanSatisfyDX12( const GraphTransientResourceDX12& candidate,
-                                                  uint32_t poolSlot,
+inline bool GraphTransientPoolSlotCanSatisfyDX12( const GraphTransientResourceDX12& candidate, uint32_t poolSlot,
                                                   const RenderGraphTransientResourceDesc& desc )
 {
     return candidate.resource && candidate.poolSlot == poolSlot && GraphTransientDescEqualDX12( candidate.desc, desc );

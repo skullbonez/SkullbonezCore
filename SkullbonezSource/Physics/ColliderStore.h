@@ -62,6 +62,7 @@ struct ColliderRecord
 {
     PhysicsColliderHandle handle;                                                                    // Stable collider handle resolved through store maps.
     PhysicsBodyHandle body;                                                                          // Body handle resolved by PhysicsBodyStore for the same model slot.
+
     // Stable cross-system identity paired with this collider.
     PhysicsSceneObjectId sceneObjectId;
     Math::CollisionDetection::CollisionShape shape;                                                  // Exact shape variant used by narrowphase.
@@ -99,19 +100,22 @@ class ColliderStore
     void Clear();
     bool RefreshBodyBindings( const PhysicsBodyStore& bodyStore );
     PhysicsColliderHandle CreateColliderRecord( const ColliderRecord& initialRecord );
+
     // Creates hot and cold rows in one topology transaction. Callers that own
     // authored material text must use this overload so row indices cannot drift.
     PhysicsColliderHandle CreateColliderRecord( const ColliderRecord& initialRecord,
                                                 const ColliderAuthoringRecord& initialAuthoringRecord );
+
     // Authoring edits replace row contents through the stable collider handle,
     // so callers do not need to expose model-order slots at the PhysicsEngine
     // owner boundary.
     bool UpdateRecordForHandle( PhysicsColliderHandle handle, const ColliderRecord& record );
+
     // Replaces hot and cold authored facts together while retaining handle identity.
-    bool UpdateRecordForHandle( PhysicsColliderHandle handle,
-                                const ColliderRecord& record,
+    bool UpdateRecordForHandle( PhysicsColliderHandle handle, const ColliderRecord& record,
                                 const ColliderAuthoringRecord& authoringRecord );
     bool UpdateRecordForModelIndex( int modelIndex, const ColliderRecord& record );
+
     // Runtime config updates material scalars in-place instead of rebuilding
     // shape records from scene authoring payloads.
     void ApplyPhysicsMaterial( const PhysicsMaterial& material );
@@ -122,16 +126,19 @@ class ColliderStore
     int Count() const;
     bool Empty() const;
     PhysicsColliderHandle HandleForModelIndex( int modelIndex ) const;
+
     // Resolves collider identity through physics-owned body identity. The scan is
     // for cold tools, replay overlays, and save paths that already hold a body
     // handle and should not promote the model-index hint back to authority.
     PhysicsColliderHandle HandleForBodyHandle( PhysicsBodyHandle body ) const;
+
     // Scene/replay restore can know only the stable scene object id. Keep that
     // lookup explicit so callers do not invent a model slot just to reach the
     // collider row.
     PhysicsColliderHandle HandleForSceneObjectId( PhysicsSceneObjectId sceneObjectId ) const;
     int ModelIndexForHandle( PhysicsColliderHandle handle ) const;
     bool Contains( PhysicsColliderHandle handle ) const;
+
     // Lifetime: these spans borrow the store's live dense prefix and expire on
     // scene mutation, compaction, or store destruction.
     std::span<const ColliderRecord> Records() const;
@@ -140,28 +147,29 @@ class ColliderStore
     std::size_t AuthoringRecordCapacity() const;
     ColliderRecord* MutableRecordForHandle( PhysicsColliderHandle handle );
     const ColliderRecord* RecordForHandle( PhysicsColliderHandle handle ) const;
+
     // Lifetime: returned cold rows expire on store mutation or compaction, just
     // like the hot row returned by RecordForHandle.
     const ColliderAuthoringRecord* AuthoringRecordForHandle( PhysicsColliderHandle handle ) const;
     const ColliderAuthoringRecord* AuthoringRecordForModelIndex( int modelIndex ) const;
 
   private:
-    PhysicsColliderHandle ResolveHandleForModelIndex( int modelIndex,
-                                                      PhysicsSceneObjectId sceneObjectId,
+    PhysicsColliderHandle ResolveHandleForModelIndex( int modelIndex, PhysicsSceneObjectId sceneObjectId,
                                                       ColliderHandleAssignmentMask& assignedHandleSlots );
     void RetireUnassignedHandles( const ColliderHandleAssignmentMask& assignedHandleSlots );
 
     ColliderRecordList m_colliders { "ColliderStore.colliders" };                                    // Dense live collider records.
+
     // Cold scene text remains index-aligned with m_colliders but outside the
     // rows scanned by broadphase, narrowphase, contact solving, and fluid force.
     ColliderAuthoringRecordList m_authoringRecords { "ColliderStore.authoringRecords" };
-    ColliderHandleList m_modelColliderHandles {
-        "ColliderStore.modelColliderHandles" };                                                      // Model slot to collider handle map.
+    ColliderHandleList m_modelColliderHandles { "ColliderStore.modelColliderHandles" };              // Model slot to collider handle map.
     ColliderHandleGenerationList m_handleGenerations { "ColliderStore.handleGenerations" };          // Handle-slot generations.
     ColliderHandleFlagList m_handleAlive { "ColliderStore.handleAlive" };                            // Live handle slot flags.
     ColliderHandleModelIndexList m_handleModelIndices { "ColliderStore.handleModelIndices" };        // Slot to model index.
     ColliderHandleSceneObjectIdList m_handleSceneObjectIds { "ColliderStore.handleSceneObjectIds" }; // Slot scene ids.
     ColliderHandleSlotList m_freeHandleSlots { "ColliderStore.freeHandleSlots" };                    // Retired reusable slots.
+
     // Runtime allocation policy: refresh reuses this handle-slot mask rather
     // than allocating a heap-backed standard-library container in topology repair.
     ColliderHandleAssignmentMask m_assignedHandleScratch { "ColliderStore.assignedHandleScratch" };

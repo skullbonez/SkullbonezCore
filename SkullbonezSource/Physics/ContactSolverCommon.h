@@ -42,10 +42,10 @@ namespace ContactSolver
 // A "row" is one tiny rule such as "do not move into the wall along this normal"
 // or "slow sideways sliding along this tangent." Keeping the math here helps the
 // terrain and object paths agree about directions, effective mass, and friction.
-inline void BuildContactTangents( const Math::Vector::Vector3& normal,
-                                  Math::Vector::Vector3& tangent1,
+inline void BuildContactTangents( const Math::Vector::Vector3& normal, Math::Vector::Vector3& tangent1,
                                   Math::Vector::Vector3& tangent2 )
 {
+
     // Catto-style 3D contact solving treats friction as two scalar tangent rows
     // attached to the same contact point as the normal row. The tangent frame
     // must be deterministic: if two identical runs pick different tangent axes,
@@ -57,6 +57,7 @@ inline void BuildContactTangents( const Math::Vector::Vector3& normal,
     // tangent1 is normalized and tangent2 is the cross product that completes the
     // orthonormal basis. This is intentionally simple and branch-stable because
     // it runs in hot contact setup paths.
+
     if ( fabsf( normal.x ) > 0.9f )
     {
         tangent1 = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
@@ -68,15 +69,18 @@ inline void BuildContactTangents( const Math::Vector::Vector3& normal,
 
     tangent1 -= normal * ( tangent1 * normal );
     float tangentMag = Math::Vector::VectorMag( tangent1 );
+
     if ( tangentMag > TOLERANCE )
     {
         tangent1 /= tangentMag;
     }
+
     tangent2 = Math::Vector::CrossProduct( normal, tangent1 );
 }
 
 inline void ClampFrictionVector( float& accT1, float& accT2, float limit )
 {
+
     // Catto 2005 presents two independent tangent bounds for the 2D examples.
     // Skullbonez solves 3D contacts, so two tangent rows form one friction vector
     // in the contact plane. Clamping the vector length, rather than each axis
@@ -86,6 +90,7 @@ inline void ClampFrictionVector( float& accT1, float& accT2, float limit )
     // into the Catto row kernel.
     float limitSq = limit * limit;
     float magSq = accT1 * accT1 + accT2 * accT2;
+
     if ( magSq > limitSq && magSq > TOLERANCE * TOLERANCE )
     {
         float scale = limit / sqrtf( magSq );
@@ -95,11 +100,10 @@ inline void ClampFrictionVector( float& accT1, float& accT2, float limit )
 }
 
 template <typename ApplyInvInertia>
-inline float ComputeStaticBodyEffectiveMass( float invMass,
-                                             const Math::Vector::Vector3& axis,
-                                             const Math::Vector::Vector3& r,
-                                             ApplyInvInertia applyInvInertia )
+inline float ComputeStaticBodyEffectiveMass( float invMass, const Math::Vector::Vector3& axis,
+                                             const Math::Vector::Vector3& r, ApplyInvInertia applyInvInertia )
 {
+
     // Effective mass is the scalar denominator in Catto's row solve:
     //
     //     lambda = velocity_error / (J * M^-1 * J^T)
@@ -115,14 +119,11 @@ inline float ComputeStaticBodyEffectiveMass( float invMass,
 }
 
 template <typename ApplyInvInertiaA, typename ApplyInvInertiaB>
-inline float ComputeTwoBodyEffectiveMass( float invMassA,
-                                          float invMassB,
-                                          const Math::Vector::Vector3& axis,
-                                          const Math::Vector::Vector3& rA,
-                                          const Math::Vector::Vector3& rB,
-                                          ApplyInvInertiaA applyInvInertiaA,
-                                          ApplyInvInertiaB applyInvInertiaB )
+inline float ComputeTwoBodyEffectiveMass( float invMassA, float invMassB, const Math::Vector::Vector3& axis,
+                                          const Math::Vector::Vector3& rA, const Math::Vector::Vector3& rB,
+                                          ApplyInvInertiaA applyInvInertiaA, ApplyInvInertiaB applyInvInertiaB )
 {
+
     // Same row denominator as ComputeStaticBodyEffectiveMass, but with both
     // dynamic bodies contributing linear and angular terms. Keeping the formula
     // here avoids subtle drift between terrain/object contact paths: any later

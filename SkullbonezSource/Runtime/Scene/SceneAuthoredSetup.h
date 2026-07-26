@@ -82,11 +82,13 @@ struct SceneSimpleRagdollAppendContext
 class SceneAuthoredSetup
 {
   public:
+
     // Returns a recoverable result because scene data and editor placement can
     // fail capacity or identity constraints before the runtime loop owns them.
     static SkullbonezCore::Core::SbResult AppendSimpleRagdoll( SceneSimpleRagdollAppendContext context,
                                                                const Physics::RagdollBuildOptions& options );
     static void SetUpCameras( SceneAuthoredCameraContext context, const AuthoredScene& scene );
+
     // Returns failure before required gates are resolved when model population
     // cannot append a requested scene object.
     static SkullbonezCore::Core::SbResult SetUpSceneEntities( SceneAuthoredModelContext context,

@@ -654,8 +654,8 @@ space-scene velocity-drag preview.
 
 The Nightrunner 26 July campaign is the active owner-directed sequence. Execute
 N26-1 replay scrub performance, N26-2 owner code style, then N26-3
-space-scene velocity-drag preview. N26-1 is complete; the active/future ledger
-is 1/3 (33%).
+space-scene velocity-drag preview. N26-1 and N26-2 are complete; the
+active/future ledger is 2/3 (67%).
 
 The 2026-07-25 round-4 campaign has no live plans. Concrete Parameter-Bag
 Elimination closed PB0-PB7 and left the live ledger under rule 4. Invariant
@@ -1965,7 +1965,7 @@ Open and blocking:
 
 | Plan | State | Verified phase count | Next action |
 |---|---|---:|---|
-| [nightrunner-26-july](TODO/nightrunner-26-july.md) | Active | 1/3 | N26-2: ratify and apply the owner code style |
+| [nightrunner-26-july](TODO/nightrunner-26-july.md) | Active | 2/3 | N26-3: publish a stable selected-body velocity-drag preview |
 
 ## Engine Cleanup Campaign Closure Gate
 

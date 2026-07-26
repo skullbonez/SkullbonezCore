@@ -68,6 +68,7 @@ class FramebufferDX12
 {
 
   private:
+
     // Lifetime: these named owners are stable members of the active renderer.
     // No field points back to the aggregate backend.
     Dx12RenderDevice& m_device;
@@ -82,6 +83,7 @@ class FramebufferDX12
     D3D12_CPU_DESCRIPTOR_HANDLE m_dsvHandle;
     UINT m_rtvIndex;
     UINT m_dsvIndex;
+
     // Static descriptor rows that expose the color/depth resources to shaders
     // after the framebuffer is unbound.
     UINT m_srvIndex;
@@ -91,17 +93,14 @@ class FramebufferDX12
     FramebufferColorFormat m_colorFormat;
     int m_width;
     int m_height;
+
     // Saved main targets for restore on Unbind
     mutable D3D12_CPU_DESCRIPTOR_HANDLE m_savedRTV;
     mutable D3D12_CPU_DESCRIPTOR_HANDLE m_savedDSV;
 
   public:
-    FramebufferDX12( Dx12RenderDevice& device,
-                     Dx12PipelineOwner& pipeline,
-                     Dx12TextureOwner& textures,
-                     Dx12DescriptorHeaps& descriptors,
-                     Dx12DrawGate& drawGate,
-                     Dx12ResourceRelease& resourceRelease,
+    FramebufferDX12( Dx12RenderDevice& device, Dx12PipelineOwner& pipeline, Dx12TextureOwner& textures,
+                     Dx12DescriptorHeaps& descriptors, Dx12DrawGate& drawGate, Dx12ResourceRelease& resourceRelease,
                      FramebufferColorFormat colorFormat = FramebufferColorFormat::RGBA8 );
     ~FramebufferDX12();
 

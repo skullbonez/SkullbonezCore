@@ -53,26 +53,19 @@ using Math::Vector::VectorMagSquared;
 using Physics::PhysicsBodyRecord;
 using Physics::PhysicsBodyStore;
 
-MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const RuntimePointerEvent& pointer,
-                                                                bool hasWorldRay,
-                                                                const Vector3& rayOrigin,
-                                                                const Vector3& rayDirection,
-                                                                bool hasClampedWorldRay,
-                                                                const Vector3& clampedRayOrigin,
-                                                                const Vector3& clampedRayDirection,
-                                                                const Vector3& cameraEye,
-                                                                const Vector3& cameraView,
-                                                                const SceneWorld& world,
-                                                                InputRouter& inputRouter,
-                                                                RuntimeInteractionController& interaction )
+MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const RuntimePointerEvent& pointer, bool hasWorldRay, const Vector3& rayOrigin, const Vector3& rayDirection,
+                                                                bool hasClampedWorldRay, const Vector3& clampedRayOrigin, const Vector3& clampedRayDirection, const Vector3& cameraEye,
+                                                                const Vector3& cameraView, const SceneWorld& world, InputRouter& inputRouter, RuntimeInteractionController& interaction )
 {
     MousePickupPointerResult routeResult;
     const auto updatePickupTarget = [&]() -> bool
     {
+
         // Concept: Manipulator drag follows a camera-facing plane at the
         // captured grab depth. Rebuilding that plane from the current camera
         // lets forward/back camera movement change object depth without
         // introducing a mouse-driven depth jump.
+
         if ( !hasClampedWorldRay )
         {
             return false;
@@ -80,6 +73,7 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const RuntimePoi
 
         Vector3 cameraNormal = cameraView - cameraEye;
         const float normalLenSq = VectorMagSquared( cameraNormal );
+
         if ( normalLenSq <= TOLERANCE * TOLERANCE )
         {
             return false;
@@ -91,12 +85,14 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const RuntimePoi
         m_mousePickup.planePoint = cameraEye + cameraNormal * m_mousePickup.cameraPlaneDistance;
 
         const float denom = clampedRayDirection * cameraNormal;
+
         if ( fabsf( denom ) <= 1.0e-5f )
         {
             return false;
         }
 
         const float planeT = ( ( m_mousePickup.planePoint - clampedRayOrigin ) * cameraNormal ) / denom;
+
         if ( planeT < 0.0f )
         {
             return false;
@@ -109,6 +105,7 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const RuntimePoi
     if ( interaction.Gesture().kind == RuntimeInteractionGestureKind::MousePickupDrag )
     {
         routeResult.consumed = true;
+
         if ( pointer.leftReleased || !pointer.leftDown )
         {
             CancelMousePickup( inputRouter, interaction );
@@ -144,6 +141,7 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const RuntimePoi
     request.rayDirection = rayDirection;
 
     RuntimePickResult result;
+
     if ( !RuntimePickService::TryPickModel( request, result ) )
     {
         return routeResult;
@@ -152,6 +150,7 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const RuntimePoi
     const PhysicsBodyStore& bodyStore = world.BodyStore();
     const PhysicsBodyRecord* pickedBody = bodyStore.RecordForHandle( result.body );
     const int pickedBodyIndex = bodyStore.ModelIndexForHandle( result.body );
+
     if ( !pickedBody || pickedBodyIndex < 0 )
     {
         return routeResult;
@@ -159,6 +158,7 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const RuntimePoi
 
     Vector3 cameraNormal = cameraView - cameraEye;
     const float normalLenSq = VectorMagSquared( cameraNormal );
+
     if ( normalLenSq <= TOLERANCE * TOLERANCE )
     {
         return routeResult;
@@ -168,6 +168,7 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const RuntimePoi
 
     const Vector3 grabPoint = rayOrigin + rayDirection * result.rayT;
     const float cameraPlaneDistance = ( grabPoint - cameraEye ) * cameraNormal;
+
     if ( cameraPlaneDistance <= TOLERANCE )
     {
         return routeResult;
@@ -189,6 +190,7 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const RuntimePoi
     command.gesture = gesture;
     command.reason = InteractionExitReason::EnterManipulator;
     RuntimeGestureEvent event;
+
     if ( !interaction.ApplyGestureCommand( command, event ) )
     {
         return routeResult;
@@ -211,10 +213,10 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const RuntimePoi
 }
 
 
-void RuntimeTools::ApplyMousePickupPhysicsStep( SceneWorld& world,
-                                                InputRouter& inputRouter,
+void RuntimeTools::ApplyMousePickupPhysicsStep( SceneWorld& world, InputRouter& inputRouter,
                                                 RuntimeInteractionController& interaction )
 {
+
     if ( interaction.Gesture().kind != RuntimeInteractionGestureKind::MousePickupDrag )
     {
         return;
@@ -228,6 +230,7 @@ void RuntimeTools::ApplyMousePickupPhysicsStep( SceneWorld& world,
     const PhysicsBodyStore& bodyStore = world.BodyStore();
     const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( pickup.body );
     const int bodyIndex = bodyStore.ModelIndexForHandle( pickup.body );
+
     if ( !bodyRecord || bodyIndex < 0 )
     {
         CancelMousePickup( inputRouter, interaction );
@@ -236,6 +239,7 @@ void RuntimeTools::ApplyMousePickupPhysicsStep( SceneWorld& world,
 
     const std::size_t hotIndex = static_cast<std::size_t>( bodyIndex );
     const auto hotFields = bodyStore.HotFields();
+
     if ( hotFields.fixed[hotIndex] != 0u )
     {
         CancelMousePickup( inputRouter, interaction );
@@ -244,6 +248,7 @@ void RuntimeTools::ApplyMousePickupPhysicsStep( SceneWorld& world,
 
     const Vector3 bodyPosition = PhysicsBodyPosition( hotFields, hotIndex );
     const Vector3 linearVelocity = PhysicsBodyLinearVelocity( hotFields, hotIndex );
+
     if ( !physics.SetBodyVelocity( pickup.body, linearVelocity, pickup.preservedAngularVelocity, false ) )
     {
         CancelMousePickup( inputRouter, interaction );
@@ -253,6 +258,7 @@ void RuntimeTools::ApplyMousePickupPhysicsStep( SceneWorld& world,
     const Vector3 grabPoint = bodyPosition + pickup.grabOffset;
     const Vector3 pull = pickup.targetPoint - grabPoint;
     const float pullLenSq = VectorMagSquared( pull );
+
     if ( pullLenSq <= MOUSE_PICKUP_DEAD_ZONE * MOUSE_PICKUP_DEAD_ZONE )
     {
         pickup.lastImpulse = SkullbonezCore::Math::Vector::ZERO_VECTOR;
@@ -261,6 +267,7 @@ void RuntimeTools::ApplyMousePickupPhysicsStep( SceneWorld& world,
 
     Vector3 impulse = pull * MOUSE_PICKUP_STIFFNESS - linearVelocity * MOUSE_PICKUP_DAMPING;
     const float impulseLenSq = VectorMagSquared( impulse );
+
     if ( impulseLenSq > MOUSE_PICKUP_MAX_IMPULSE * MOUSE_PICKUP_MAX_IMPULSE )
     {
         impulse *= MOUSE_PICKUP_MAX_IMPULSE / sqrtf( impulseLenSq );
@@ -271,10 +278,10 @@ void RuntimeTools::ApplyMousePickupPhysicsStep( SceneWorld& world,
 }
 
 
-void RuntimeTools::RestoreMousePickupAngularVelocity( SceneWorld& world,
-                                                      InputRouter& inputRouter,
+void RuntimeTools::RestoreMousePickupAngularVelocity( SceneWorld& world, InputRouter& inputRouter,
                                                       RuntimeInteractionController& interaction )
 {
+
     if ( interaction.Gesture().kind != RuntimeInteractionGestureKind::MousePickupDrag )
     {
         return;
@@ -285,6 +292,7 @@ void RuntimeTools::RestoreMousePickupAngularVelocity( SceneWorld& world,
     const PhysicsBodyStore& bodyStore = world.BodyStore();
     const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( pickup.body );
     const int bodyIndex = bodyStore.ModelIndexForHandle( pickup.body );
+
     if ( !bodyRecord || bodyIndex < 0 )
     {
         CancelMousePickup( inputRouter, interaction );
@@ -293,16 +301,15 @@ void RuntimeTools::RestoreMousePickupAngularVelocity( SceneWorld& world,
 
     const std::size_t hotIndex = static_cast<std::size_t>( bodyIndex );
     const auto hotFields = bodyStore.HotFields();
+
     if ( hotFields.fixed[hotIndex] != 0u )
     {
         CancelMousePickup( inputRouter, interaction );
         return;
     }
 
-    if ( !physics.SetBodyVelocity( pickup.body,
-                                   PhysicsBodyLinearVelocity( hotFields, hotIndex ),
-                                   pickup.preservedAngularVelocity,
-                                   false ) )
+    if ( !physics.SetBodyVelocity( pickup.body, PhysicsBodyLinearVelocity( hotFields, hotIndex ),
+                                   pickup.preservedAngularVelocity, false ) )
     {
         CancelMousePickup( inputRouter, interaction );
     }

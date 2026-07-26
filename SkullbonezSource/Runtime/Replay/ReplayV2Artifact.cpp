@@ -101,6 +101,7 @@ enum ReplayV2WorldFlags : uint8_t
 struct BodyDictionaryEntry
 {
     uint32_t id = 0;
+
     // Wire compatibility: v2 allocated these four bytes to a model index. V3
     // preserves the captured row only as a same-scene resolver hint;
     // Physics::PhysicsSceneObjectId remains the sole durable identity.
@@ -157,6 +158,7 @@ struct ByteCursor
 
 template <typename T> void AppendPod( std::vector<uint8_t>& out, const T& value )
 {
+
     // Hazard: v2 chunks intentionally write POD bytes directly. Only use this
     // for fixed-layout file records whose fields are mirrored by the reader.
     static_assert( std::is_trivially_copyable<T>::value, "Replay v2 payload values must be POD" );
@@ -167,6 +169,7 @@ template <typename T> void AppendPod( std::vector<uint8_t>& out, const T& value 
 template <typename T> bool ReadPod( ByteCursor& cursor, T& out )
 {
     static_assert( std::is_trivially_copyable<T>::value, "Replay v2 payload values must be POD" );
+
     if ( cursor.offset > cursor.size || sizeof( T ) > cursor.size - cursor.offset )
     {
         return false;
@@ -192,6 +195,7 @@ template <typename T> bool ReadBytes( ByteCursor& cursor, T& out )
 {
     static_assert( std::is_trivially_copyable_v<T>, "Replay byte fields must be trivially copyable." );
     constexpr std::size_t size = sizeof( T );
+
     if ( cursor.offset > cursor.size || size > cursor.size - cursor.offset )
     {
         return false;
@@ -204,6 +208,7 @@ template <typename T> bool ReadBytes( ByteCursor& cursor, T& out )
 
 bool SkipBytes( ByteCursor& cursor, std::size_t size )
 {
+
     if ( cursor.offset > cursor.size || size > cursor.size - cursor.offset )
     {
         return false;
@@ -215,6 +220,7 @@ bool SkipBytes( ByteCursor& cursor, std::size_t size )
 
 void AppendChunkId( std::vector<uint8_t>& out, const char ( &id )[4] )
 {
+
     // Invariant: preserving the array extent writes the four-character chunk
     // id itself; accepting a decayed pointer would serialize an address.
     AppendBytes( out, id );
@@ -245,6 +251,7 @@ uint32_t CheckedU32( std::size_t value )
 uint8_t WorldFlags( const ReplayWorldPresentationSample& world )
 {
     uint8_t flags = 0;
+
     if ( world.waterHidden )
     {
         flags |= REPLAY_V2_WORLD_WATER_HIDDEN;
@@ -275,6 +282,7 @@ uint8_t WorldFlags( const ReplayWorldPresentationSample& world )
 
 const char* ShapeKindName( ReplayBodyShapeKind kind )
 {
+
     switch ( kind )
     {
     case ReplayBodyShapeKind::Sphere:
@@ -301,9 +309,7 @@ bool SameDictionaryBody( const BodyDictionaryEntry& entry, const ReplaySolverBod
 
 uint32_t FindOrAddBody( std::vector<BodyDictionaryEntry>& dictionary, const ReplayBodyPresentationSample& body )
 {
-    const auto found = std::find_if( dictionary.begin(),
-                                     dictionary.end(),
-                                     [&body]( const BodyDictionaryEntry& entry )
+    const auto found = std::find_if( dictionary.begin(), dictionary.end(), [&body]( const BodyDictionaryEntry& entry )
                                      { return SameDictionaryBody( entry, body ); } );
 
     if ( found != dictionary.end() )
@@ -322,13 +328,10 @@ uint32_t FindOrAddBody( std::vector<BodyDictionaryEntry>& dictionary, const Repl
     return static_cast<uint32_t>( dictionary.size() - 1u );
 }
 
-bool FindBodyDictionaryIndex( const std::vector<BodyDictionaryEntry>& dictionary,
-                              const ReplaySolverBodySample& body,
+bool FindBodyDictionaryIndex( const std::vector<BodyDictionaryEntry>& dictionary, const ReplaySolverBodySample& body,
                               uint32_t& outIndex )
 {
-    const auto found = std::find_if( dictionary.begin(),
-                                     dictionary.end(),
-                                     [&body]( const BodyDictionaryEntry& entry )
+    const auto found = std::find_if( dictionary.begin(), dictionary.end(), [&body]( const BodyDictionaryEntry& entry )
                                      { return SameDictionaryBody( entry, body ); } );
 
     if ( found == dictionary.end() )
@@ -344,6 +347,7 @@ void AppendBodyDictionary( std::vector<uint8_t>& out, const std::vector<BodyDict
 {
     const uint32_t bodyCount = CheckedU32( dictionary.size() );
     AppendPod( out, bodyCount );
+
     for ( const BodyDictionaryEntry& entry : dictionary )
     {
         const uint8_t shapeKind = static_cast<uint8_t>( entry.shapeKind );
@@ -386,11 +390,11 @@ void AppendFrameHeader( std::vector<uint8_t>& out, const ReplayPresentationSampl
     AppendPod( out, bodyCount );
 }
 
-void AppendPresentationFrame( std::vector<uint8_t>& out,
-                              std::vector<BodyDictionaryEntry>& dictionary,
+void AppendPresentationFrame( std::vector<uint8_t>& out, std::vector<BodyDictionaryEntry>& dictionary,
                               const ReplayPresentationSample& sample )
 {
     AppendFrameHeader( out, sample );
+
     for ( const ReplayBodyPresentationSample& body : sample.bodies )
     {
         const uint8_t flags = static_cast<uint8_t>( ( body.sleeping ? 1u : 0u ) | ( body.sleepSupported ? 2u : 0u ) |
@@ -419,6 +423,7 @@ void AppendPresentationFrame( std::vector<uint8_t>& out,
 template <typename T> void AppendCountedPodVector( std::vector<uint8_t>& out, const std::vector<T>& values )
 {
     AppendPod( out, CheckedU32( values.size() ) );
+
     for ( const T& value : values )
     {
         AppendPod( out, value );
@@ -428,6 +433,7 @@ template <typename T> void AppendCountedPodVector( std::vector<uint8_t>& out, co
 void AppendCountedIntVector( std::vector<uint8_t>& out, const std::vector<int>& values )
 {
     AppendPod( out, CheckedU32( values.size() ) );
+
     for ( int value : values )
     {
         AppendPod( out, static_cast<int32_t>( value ) );
@@ -437,6 +443,7 @@ void AppendCountedIntVector( std::vector<uint8_t>& out, const std::vector<int>& 
 void AppendCountedPairVector( std::vector<uint8_t>& out, const std::vector<std::pair<int, int>>& values )
 {
     AppendPod( out, CheckedU32( values.size() ) );
+
     for ( const std::pair<int, int>& value : values )
     {
         AppendPod( out, static_cast<int32_t>( value.first ) );
@@ -478,6 +485,7 @@ void AppendTornadoSystemConfig( std::vector<uint8_t>& out, const SkullbonezCore:
     AppendPod( out, visualizeVelocityField );
     AppendBytes( out, reserved );
     AppendPod( out, CheckedU32( config.vortices.size() ) );
+
     for ( const SkullbonezCore::Gameplay::TornadoVortexConfig& vortex : config.vortices )
     {
         AppendTornadoConfig( out, vortex.field );
@@ -529,12 +537,9 @@ void AppendPersistentContact( std::vector<uint8_t>& out,
     AppendPod( out, contact.accT1 );
     AppendPod( out, contact.accT2 );
     const uint8_t flags[6] = {
-        contact.warmStarted ? 1u : 0u,
-        contact.isTerrain ? 1u : 0u,
-        contact.supportsRestingPolicy ? 1u : 0u,
-        contact.allowsTangentFriction ? 1u : 0u,
-        contact.normalCoupledFriction ? 1u : 0u,
-        contact.inhibitsSleep ? 1u : 0u,
+        contact.warmStarted ? 1u : 0u,           contact.isTerrain ? 1u : 0u,
+        contact.supportsRestingPolicy ? 1u : 0u, contact.allowsTangentFriction ? 1u : 0u,
+        contact.normalCoupledFriction ? 1u : 0u, contact.inhibitsSleep ? 1u : 0u,
     };
 
     const uint8_t reserved = 0;
@@ -545,8 +550,7 @@ void AppendPersistentContact( std::vector<uint8_t>& out,
     AppendPod( out, contact.terrainWarmStart );
 }
 
-void AppendContactCache( std::vector<uint8_t>& out,
-                         const SkullbonezCore::Physics::PhysicsSolverContactCacheSample& cache )
+void AppendContactCache( std::vector<uint8_t>& out, const SkullbonezCore::Physics::PhysicsSolverContactCacheSample& cache )
 {
     AppendPod( out, cache.key );
     AppendPod( out, cache.accN );
@@ -581,8 +585,7 @@ void AppendPipelineRecord( std::vector<uint8_t>& out, const SkullbonezCore::Phys
     AppendPod( out, record.scalarC );
 }
 
-void AppendSolverSnapshot( std::vector<uint8_t>& out,
-                           const SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& snapshot )
+void AppendSolverSnapshot( std::vector<uint8_t>& out, const SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& snapshot )
 {
     const SkullbonezCore::Physics::PhysicsSolverSnapshot& physics = snapshot.physics;
     const uint8_t sleepEnabled = physics.sleepEnabled ? 1u : 0u;
@@ -596,6 +599,7 @@ void AppendSolverSnapshot( std::vector<uint8_t>& out,
     AppendPod( out, collisionVisualFrameActive );
     AppendBytes( out, reserved );
     AppendTornadoConfig( out, snapshot.tornadoConfig );
+
     if ( physics.version >= 2 )
     {
         AppendTornadoSystemConfig( out, snapshot.tornadoSystemConfig );
@@ -622,12 +626,14 @@ void AppendSolverSnapshot( std::vector<uint8_t>& out,
     AppendCountedPodVector( out, physics.sleepIslandCanSleep );
 
     AppendPod( out, CheckedU32( physics.persistentContacts.size() ) );
+
     for ( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact : physics.persistentContacts )
     {
         AppendPersistentContact( out, contact );
     }
 
     AppendPod( out, CheckedU32( physics.persistentContactCache.size() ) );
+
     for ( const SkullbonezCore::Physics::PhysicsSolverContactCacheSample& cache : physics.persistentContactCache )
     {
         AppendContactCache( out, cache );
@@ -638,12 +644,14 @@ void AppendSolverSnapshot( std::vector<uint8_t>& out,
     AppendCountedPodVector( out, physics.persistentRestingContactCounts );
 
     AppendPod( out, CheckedU32( physics.debugContacts.size() ) );
+
     for ( const SkullbonezCore::Physics::PhysicsDebugContact& contact : physics.debugContacts )
     {
         AppendPhysicsDebugContact( out, contact );
     }
 
     AppendPod( out, CheckedU32( physics.pipelineTrace.size() ) );
+
     for ( const SkullbonezCore::Physics::PhysicsPipelineRecord& record : physics.pipelineTrace )
     {
         AppendPipelineRecord( out, record );
@@ -652,22 +660,19 @@ void AppendSolverSnapshot( std::vector<uint8_t>& out,
     AppendCountedPodVector( out, physics.collisionCellKeys );
 }
 
-bool AppendSolverBodyRecord( std::vector<uint8_t>& out,
-                             const std::vector<BodyDictionaryEntry>& dictionary,
+bool AppendSolverBodyRecord( std::vector<uint8_t>& out, const std::vector<BodyDictionaryEntry>& dictionary,
                              const ReplaySolverBodySample& body )
 {
     uint32_t dictionaryIndex = 0;
+
     if ( !FindBodyDictionaryIndex( dictionary, body, dictionaryIndex ) )
     {
         return false;
     }
 
     const uint8_t flags[5] = {
-        body.fixed ? 1u : 0u,
-        body.sleeping ? 1u : 0u,
-        body.sleepSupported ? 1u : 0u,
-        body.sleepInhibited ? 1u : 0u,
-        body.collisionContact ? 1u : 0u,
+        body.fixed ? 1u : 0u,          body.sleeping ? 1u : 0u,         body.sleepSupported ? 1u : 0u,
+        body.sleepInhibited ? 1u : 0u, body.collisionContact ? 1u : 0u,
     };
 
     const uint8_t reserved[3] = {};
@@ -707,6 +712,7 @@ void AppendLauncherVisual( std::vector<uint8_t>& out, const ReplayLauncherVisual
     AppendPod( out, launcher.projectileSpeed );
 
     AppendPod( out, CheckedU32( launcher.rayLines.size() ) );
+
     for ( const ReplayRayCastLineSample& line : launcher.rayLines )
     {
         const uint8_t active = line.active ? 1u : 0u;
@@ -722,6 +728,7 @@ void AppendLauncherVisual( std::vector<uint8_t>& out, const ReplayLauncherVisual
     }
 
     AppendPod( out, CheckedU32( launcher.laserShots.size() ) );
+
     for ( const LauncherLaserShotSnapshot& shot : launcher.laserShots )
     {
         const uint8_t active = shot.active ? 1u : 0u;
@@ -742,6 +749,7 @@ void AppendLauncherVisual( std::vector<uint8_t>& out, const ReplayLauncherVisual
 
 bool RangeFits( std::size_t totalSize, uint64_t offset, uint64_t size )
 {
+
     if ( offset > static_cast<uint64_t>( ( std::numeric_limits<std::size_t>::max )() ) ||
          size > static_cast<uint64_t>( ( std::numeric_limits<std::size_t>::max )() ) )
     {
@@ -755,6 +763,7 @@ bool RangeFits( std::size_t totalSize, uint64_t offset, uint64_t size )
 
 bool MakeCursor( const std::vector<uint8_t>& bytes, uint64_t offset, uint64_t size, ByteCursor& out )
 {
+
     if ( !RangeFits( bytes.size(), offset, size ) )
     {
         return false;
@@ -769,24 +778,28 @@ bool MakeCursor( const std::vector<uint8_t>& bytes, uint64_t offset, uint64_t si
 bool LoadBinaryFile( const char* path, std::vector<uint8_t>& outBytes )
 {
     outBytes.clear();
+
     if ( !path || path[0] == '\0' )
     {
         return false;
     }
 
     std::ifstream input( path, std::ios::in | std::ios::binary | std::ios::ate );
+
     if ( !input.is_open() )
     {
         return false;
     }
 
     const std::streamoff fileSize = input.tellg();
+
     if ( fileSize <= 0 )
     {
         return false;
     }
 
     const uint64_t fileSizeBytes = static_cast<uint64_t>( fileSize );
+
     if ( fileSizeBytes > static_cast<uint64_t>( ( std::numeric_limits<std::size_t>::max )() ) ||
          fileSizeBytes > static_cast<uint64_t>( ( std::numeric_limits<std::streamsize>::max )() ) )
     {
@@ -795,15 +808,14 @@ bool LoadBinaryFile( const char* path, std::vector<uint8_t>& outBytes )
 
     outBytes.resize( static_cast<std::size_t>( fileSizeBytes ) );
     input.seekg( 0, std::ios::beg );
+
     // Why: std::istream exposes binary storage through its char-based ABI;
     // ownership and all subsequent parsing remain in the typed byte vector.
     input.read( reinterpret_cast<char*>( outBytes.data() ), static_cast<std::streamsize>( outBytes.size() ) );
     return static_cast<std::size_t>( input.gcount() ) == outBytes.size();
 }
 
-bool ReadChunkTable( const std::vector<uint8_t>& fileBytes,
-                     std::vector<ChunkTableEntry>& outChunks,
-                     uint32_t& outVersion )
+bool ReadChunkTable( const std::vector<uint8_t>& fileBytes, std::vector<ChunkTableEntry>& outChunks, uint32_t& outVersion )
 {
     outChunks.clear();
     outVersion = 0;
@@ -812,6 +824,7 @@ bool ReadChunkTable( const std::vector<uint8_t>& fileBytes,
     // the global header first, then validate each chunk range before any parser
     // receives a cursor into payload bytes.
     ByteCursor header;
+
     if ( !MakeCursor( fileBytes, 0, fileBytes.size(), header ) )
     {
         return false;
@@ -824,6 +837,7 @@ bool ReadChunkTable( const std::vector<uint8_t>& fileBytes,
     uint32_t flags = 0;
     uint64_t chunkTableOffset = 0;
     uint64_t fileSize = 0;
+
     if ( !ReadBytes( header, magic ) || !ReadPod( header, version ) || !ReadPod( header, headerBytes ) ||
          !ReadPod( header, chunkCount ) || !ReadPod( header, flags ) || !ReadPod( header, chunkTableOffset ) ||
          !ReadPod( header, fileSize ) )
@@ -834,8 +848,8 @@ bool ReadChunkTable( const std::vector<uint8_t>& fileBytes,
     (void)flags;
 
     if ( std::memcmp( magic, REPLAY_V2_MAGIC, sizeof( magic ) ) != 0 ||
-         ( version < REPLAY_MINIMUM_VERSION || version > REPLAY_CURRENT_VERSION ) ||
-         headerBytes != REPLAY_V2_HEADER_BYTES || fileSize != static_cast<uint64_t>( fileBytes.size() ) )
+         ( version < REPLAY_MINIMUM_VERSION || version > REPLAY_CURRENT_VERSION ) || headerBytes != REPLAY_V2_HEADER_BYTES ||
+         fileSize != static_cast<uint64_t>( fileBytes.size() ) )
     {
         return false;
     }
@@ -844,16 +858,19 @@ bool ReadChunkTable( const std::vector<uint8_t>& fileBytes,
 
     const uint64_t tableBytes = static_cast<uint64_t>( chunkCount ) * REPLAY_V2_CHUNK_ENTRY_BYTES;
     ByteCursor table;
+
     if ( !MakeCursor( fileBytes, chunkTableOffset, tableBytes, table ) )
     {
         return false;
     }
 
     outChunks.reserve( chunkCount );
+
     for ( uint32_t i = 0; i < chunkCount; ++i )
     {
         ChunkTableEntry entry;
         uint32_t reserved = 0;
+
         if ( !ReadBytes( table, entry.id ) || !ReadPod( table, entry.offset ) || !ReadPod( table, entry.size ) ||
              !ReadPod( table, entry.recordCount ) || !ReadPod( table, reserved ) )
         {
@@ -875,8 +892,10 @@ bool ReadChunkTable( const std::vector<uint8_t>& fileBytes,
 
 const ChunkTableEntry* FindChunk( const std::vector<ChunkTableEntry>& chunks, const char id[4] )
 {
+
     for ( const ChunkTableEntry& chunk : chunks )
     {
+
         if ( std::memcmp( chunk.id, id, 4 ) == 0 )
         {
             return &chunk;
@@ -886,30 +905,32 @@ const ChunkTableEntry* FindChunk( const std::vector<ChunkTableEntry>& chunks, co
     return nullptr;
 }
 
-bool ParseBodyDictionary( const std::vector<uint8_t>& fileBytes,
-                          const ChunkTableEntry& chunk,
-                          uint32_t version,
+bool ParseBodyDictionary( const std::vector<uint8_t>& fileBytes, const ChunkTableEntry& chunk, uint32_t version,
                           std::vector<BodyDictionaryEntry>& outDictionary )
 {
     outDictionary.clear();
 
     ByteCursor cursor;
+
     if ( !MakeCursor( fileBytes, chunk.offset, chunk.size, cursor ) )
     {
         return false;
     }
 
     uint32_t bodyCount = 0;
+
     if ( !ReadPod( cursor, bodyCount ) || bodyCount != chunk.recordCount )
     {
         return false;
     }
 
     outDictionary.reserve( bodyCount );
+
     for ( uint32_t i = 0; i < bodyCount; ++i )
     {
         BodyDictionaryEntry entry;
         uint8_t shapeKind = 0;
+
         if ( !ReadPod( cursor, entry.id ) || !ReadPod( cursor, entry.bodyOrder ) || !ReadPod( cursor, shapeKind ) )
         {
             return false;
@@ -918,6 +939,7 @@ bool ParseBodyDictionary( const std::vector<uint8_t>& fileBytes,
         if ( version >= REPLAY_PRESENTATION_VISUAL_VERSION )
         {
             uint8_t fixed = 0;
+
             if ( !ReadPod( cursor, fixed ) || !SkipBytes( cursor, 2 ) || !ReadPod( cursor, entry.mass ) )
             {
                 return false;
@@ -954,29 +976,31 @@ bool ParseBodyDictionary( const std::vector<uint8_t>& fileBytes,
            cursor.size == sizeof( uint32_t ) + static_cast<std::size_t>( bodyCount ) * entryBytes;
 }
 
-bool ParseIndex( const std::vector<uint8_t>& fileBytes,
-                 const ChunkTableEntry& chunk,
-                 std::vector<IndexedFrame>& outFrames )
+bool ParseIndex( const std::vector<uint8_t>& fileBytes, const ChunkTableEntry& chunk, std::vector<IndexedFrame>& outFrames )
 {
     outFrames.clear();
 
     ByteCursor cursor;
+
     if ( !MakeCursor( fileBytes, chunk.offset, chunk.size, cursor ) )
     {
         return false;
     }
 
     uint32_t frameCount = 0;
+
     if ( !ReadPod( cursor, frameCount ) || frameCount != chunk.recordCount )
     {
         return false;
     }
 
     outFrames.reserve( frameCount );
+
     for ( uint32_t i = 0; i < frameCount; ++i )
     {
         IndexedFrame frame;
         uint32_t reserved = 0;
+
         if ( !ReadPod( cursor, frame.frameIndex ) || !ReadPod( cursor, frame.presentationChunkOffset ) ||
              !ReadPod( cursor, frame.bodyCount ) || !ReadPod( cursor, reserved ) )
         {
@@ -991,30 +1015,33 @@ bool ParseIndex( const std::vector<uint8_t>& fileBytes,
            cursor.size == sizeof( uint32_t ) + static_cast<std::size_t>( frameCount ) * REPLAY_V2_INDEX_ENTRY_BYTES;
 }
 
-bool ParseBranchRecords( const std::vector<uint8_t>& fileBytes,
-                         const ChunkTableEntry& chunk,
+bool ParseBranchRecords( const std::vector<uint8_t>& fileBytes, const ChunkTableEntry& chunk,
                          std::vector<BranchRecord>& outBranches )
 {
     outBranches.clear();
 
     ByteCursor cursor;
+
     if ( !MakeCursor( fileBytes, chunk.offset, chunk.size, cursor ) )
     {
         return false;
     }
 
     uint32_t branchCount = 0;
+
     if ( !ReadPod( cursor, branchCount ) || branchCount != chunk.recordCount )
     {
         return false;
     }
 
     outBranches.reserve( branchCount );
+
     for ( uint32_t i = 0; i < branchCount; ++i )
     {
         BranchRecord record;
         uint32_t reserved = 0;
         uint64_t reserved64 = 0;
+
         if ( !ReadPod( cursor, record.branch.branchId ) || !ReadPod( cursor, record.branch.parentBranchId ) ||
              !ReadPod( cursor, record.branch.startFrame ) || !ReadPod( cursor, record.firstRetainedFrame ) ||
              !ReadPod( cursor, record.lastRetainedFrame ) || !ReadPod( cursor, record.branch.sourceFrame ) ||
@@ -1038,28 +1065,31 @@ bool ParseBranchRecords( const std::vector<uint8_t>& fileBytes,
            cursor.size == sizeof( uint32_t ) + static_cast<std::size_t>( branchCount ) * REPLAY_V2_BRANCH_ENTRY_BYTES;
 }
 
-bool ParseEventCursorRecords( const std::vector<uint8_t>& fileBytes,
-                              const ChunkTableEntry& chunk,
+bool ParseEventCursorRecords( const std::vector<uint8_t>& fileBytes, const ChunkTableEntry& chunk,
                               std::vector<EventCursorRecord>& outRecords )
 {
     outRecords.clear();
 
     ByteCursor cursor;
+
     if ( !MakeCursor( fileBytes, chunk.offset, chunk.size, cursor ) )
     {
         return false;
     }
 
     uint32_t cursorCount = 0;
+
     if ( !ReadPod( cursor, cursorCount ) || cursorCount != chunk.recordCount )
     {
         return false;
     }
 
     outRecords.reserve( cursorCount );
+
     for ( uint32_t i = 0; i < cursorCount; ++i )
     {
         EventCursorRecord record;
+
         if ( !ReadPod( cursor, record.frameIndex ) || !ReadPod( cursor, record.eventCursor ) ||
              !ReadPod( cursor, record.flags ) || !ReadPod( cursor, record.solverHash ) )
         {
@@ -1069,34 +1099,37 @@ bool ParseEventCursorRecords( const std::vector<uint8_t>& fileBytes,
         outRecords.push_back( record );
     }
 
-    return cursor.offset == cursor.size && cursor.size == sizeof( uint32_t ) + static_cast<std::size_t>( cursorCount ) *
-                                                                                   REPLAY_V2_EVENT_CURSOR_ENTRY_BYTES;
+    return cursor.offset == cursor.size &&
+           cursor.size == sizeof( uint32_t ) + static_cast<std::size_t>( cursorCount ) * REPLAY_V2_EVENT_CURSOR_ENTRY_BYTES;
 }
 
-bool ParseEventRecords( const std::vector<uint8_t>& fileBytes,
-                        const ChunkTableEntry& chunk,
+bool ParseEventRecords( const std::vector<uint8_t>& fileBytes, const ChunkTableEntry& chunk,
                         std::vector<ReplayEventSample>& outEvents )
 {
     outEvents.clear();
 
     ByteCursor cursor;
+
     if ( !MakeCursor( fileBytes, chunk.offset, chunk.size, cursor ) )
     {
         return false;
     }
 
     uint32_t eventCount = 0;
+
     if ( !ReadPod( cursor, eventCount ) || eventCount != chunk.recordCount )
     {
         return false;
     }
 
     outEvents.reserve( eventCount );
+
     for ( uint32_t i = 0; i < eventCount; ++i )
     {
         ReplayEventSample event;
         uint16_t kind = 0;
         uint32_t reserved = 0;
+
         if ( !ReadPod( cursor, event.frameIndex ) || !ReadPod( cursor, event.sequence ) ||
              !ReadPod( cursor, event.branch.branchId ) || !ReadPod( cursor, event.branch.parentBranchId ) ||
              !ReadPod( cursor, kind ) || !ReadPod( cursor, event.payloadVersion ) || !ReadPod( cursor, event.flags ) ||
@@ -1120,8 +1153,10 @@ bool ParseEventRecords( const std::vector<uint8_t>& fileBytes,
 
 ReplayBranchInfo BranchForFrame( const std::vector<BranchRecord>& branches, ReplayFrameIndex frameIndex )
 {
+
     for ( const BranchRecord& record : branches )
     {
+
         if ( frameIndex >= record.firstRetainedFrame && frameIndex <= record.lastRetainedFrame )
         {
             return record.branch;
@@ -1133,6 +1168,7 @@ ReplayBranchInfo BranchForFrame( const std::vector<BranchRecord>& branches, Repl
 
 template <typename T> void ApplyBranchMetadata( const std::vector<BranchRecord>& branches, std::vector<T>& samples )
 {
+
     if ( branches.empty() )
     {
         return;
@@ -1144,9 +1180,9 @@ template <typename T> void ApplyBranchMetadata( const std::vector<BranchRecord>&
     }
 }
 
-void ApplyEventCursorMetadata( const std::vector<EventCursorRecord>& records,
-                               std::vector<ReplaySolverFrameSample>& samples )
+void ApplyEventCursorMetadata( const std::vector<EventCursorRecord>& records, std::vector<ReplaySolverFrameSample>& samples )
 {
+
     if ( records.empty() )
     {
         return;
@@ -1154,8 +1190,10 @@ void ApplyEventCursorMetadata( const std::vector<EventCursorRecord>& records,
 
     for ( ReplaySolverFrameSample& sample : samples )
     {
+
         for ( const EventCursorRecord& record : records )
         {
+
             if ( record.frameIndex == sample.frameIndex &&
                  ( record.solverHash == 0 || record.solverHash == sample.solverHash ) )
             {
@@ -1173,8 +1211,7 @@ bool ReadVec3( ByteCursor& cursor, Vector3& out )
 
 bool ReadOrientation( ByteCursor& cursor, float ( &out )[4] )
 {
-    return ReadPod( cursor, out[0] ) && ReadPod( cursor, out[1] ) && ReadPod( cursor, out[2] ) &&
-           ReadPod( cursor, out[3] );
+    return ReadPod( cursor, out[0] ) && ReadPod( cursor, out[1] ) && ReadPod( cursor, out[2] ) && ReadPod( cursor, out[3] );
 }
 
 void ApplyWorldFlags( uint8_t flags, ReplayWorldPresentationSample& out )
@@ -1186,9 +1223,7 @@ void ApplyWorldFlags( uint8_t flags, ReplayWorldPresentationSample& out )
     out.sceneTextEnabled = ( flags & REPLAY_V2_WORLD_SCENE_TEXT_ENABLED ) != 0;
 }
 
-bool ParsePresentationSamples( const std::vector<uint8_t>& fileBytes,
-                               const ChunkTableEntry& chunk,
-                               uint32_t version,
+bool ParsePresentationSamples( const std::vector<uint8_t>& fileBytes, const ChunkTableEntry& chunk, uint32_t version,
                                const std::vector<BodyDictionaryEntry>& dictionary,
                                const std::vector<IndexedFrame>& indexedFrames,
                                std::vector<ReplayPresentationSample>& outSamples )
@@ -1196,12 +1231,14 @@ bool ParsePresentationSamples( const std::vector<uint8_t>& fileBytes,
     outSamples.clear();
 
     ByteCursor presentation;
+
     if ( !MakeCursor( fileBytes, chunk.offset, chunk.size, presentation ) )
     {
         return false;
     }
 
     uint32_t frameCount = 0;
+
     if ( !ReadPod( presentation, frameCount ) || frameCount != chunk.recordCount ||
          frameCount != static_cast<uint32_t>( indexedFrames.size() ) )
     {
@@ -1209,23 +1246,28 @@ bool ParsePresentationSamples( const std::vector<uint8_t>& fileBytes,
     }
 
     outSamples.reserve( frameCount );
+
     for ( const IndexedFrame& indexed : indexedFrames )
     {
+
         // Invariant: INDX offsets are relative to the PRES payload, not the
         // whole file. Add the chunk offset only after proving the relative seek
         // stays inside the presentation chunk.
+
         if ( indexed.presentationChunkOffset > chunk.size )
         {
             return false;
         }
 
         const uint64_t absoluteFrameOffset = chunk.offset + indexed.presentationChunkOffset;
+
         if ( absoluteFrameOffset < chunk.offset )
         {
             return false;
         }
 
         ByteCursor frameCursor;
+
         if ( !MakeCursor( fileBytes, absoluteFrameOffset, chunk.size - indexed.presentationChunkOffset, frameCursor ) )
         {
             return false;
@@ -1236,6 +1278,7 @@ bool ParsePresentationSamples( const std::vector<uint8_t>& fileBytes,
         uint8_t worldFlags = 0;
         uint16_t reserved = 0;
         uint32_t bodyCount = 0;
+
         if ( !ReadPod( frameCursor, sample.frameIndex ) || !ReadPod( frameCursor, sample.sceneFrame ) ||
              !ReadPod( frameCursor, sample.simulationSeconds ) || !ReadPod( frameCursor, sample.physicsDt ) ||
              !ReadPod( frameCursor, sample.stateHash ) || !ReadPod( frameCursor, sample.contactCount ) ||
@@ -1259,10 +1302,12 @@ bool ParsePresentationSamples( const std::vector<uint8_t>& fileBytes,
         sample.checkpointBoundary = checkpointBoundary != 0;
         ApplyWorldFlags( worldFlags, sample.world );
         sample.bodies.reserve( bodyCount );
+
         for ( uint32_t i = 0; i < bodyCount; ++i )
         {
             uint32_t dictionaryIndex = 0;
             ReplayBodyPresentationSample body;
+
             if ( !ReadPod( frameCursor, dictionaryIndex ) || dictionaryIndex >= dictionary.size() ||
                  !ReadVec3( frameCursor, body.position ) || !ReadOrientation( frameCursor, body.orientation ) )
             {
@@ -1274,6 +1319,7 @@ bool ParsePresentationSamples( const std::vector<uint8_t>& fileBytes,
                 uint8_t flags = 0;
                 int32_t sleepIslandVisualId = 0;
                 uint16_t reservedContact = 0;
+
                 if ( !ReadVec3( frameCursor, body.linearVelocity ) || !ReadVec3( frameCursor, body.angularVelocity ) ||
                      !ReadPod( frameCursor, flags ) || !SkipBytes( frameCursor, 3 ) ||
                      !ReadPod( frameCursor, sleepIslandVisualId ) || !ReadPod( frameCursor, body.contactCount ) ||
@@ -1315,6 +1361,7 @@ bool ParsePresentationSamples( const std::vector<uint8_t>& fileBytes,
         if ( version >= REPLAY_PRESENTATION_VISUAL_VERSION &&
              ReplayRecorderOperations::ComputePresentationStateHash( sample ) != sample.stateHash )
         {
+
             // Invariant: v3 is not merely parseable. Every loaded body field
             // must reproduce the writer's presentation hash before scrub can
             // expose the sample to rendering.
@@ -1331,14 +1378,17 @@ template <typename T> bool ReadCountedPodVector( ByteCursor& cursor, std::vector
 {
     outValues.clear();
     uint32_t count = 0;
+
     if ( !ReadPod( cursor, count ) )
     {
         return false;
     }
 
     outValues.resize( count );
+
     for ( T& value : outValues )
     {
+
         if ( !ReadPod( cursor, value ) )
         {
             return false;
@@ -1352,15 +1402,18 @@ bool ReadCountedIntVector( ByteCursor& cursor, std::vector<int>& outValues )
 {
     outValues.clear();
     uint32_t count = 0;
+
     if ( !ReadPod( cursor, count ) )
     {
         return false;
     }
 
     outValues.resize( count );
+
     for ( int& value : outValues )
     {
         int32_t stored = 0;
+
         if ( !ReadPod( cursor, stored ) )
         {
             return false;
@@ -1376,16 +1429,19 @@ bool ReadCountedPairVector( ByteCursor& cursor, std::vector<std::pair<int, int>>
 {
     outValues.clear();
     uint32_t count = 0;
+
     if ( !ReadPod( cursor, count ) )
     {
         return false;
     }
 
     outValues.resize( count );
+
     for ( std::pair<int, int>& value : outValues )
     {
         int32_t first = 0;
         int32_t second = 0;
+
         if ( !ReadPod( cursor, first ) || !ReadPod( cursor, second ) )
         {
             return false;
@@ -1403,14 +1459,17 @@ bool ReadCountedStructVector( ByteCursor& cursor, std::vector<T>& outValues, Rea
 {
     outValues.clear();
     uint32_t count = 0;
+
     if ( !ReadPod( cursor, count ) )
     {
         return false;
     }
 
     outValues.resize( count );
+
     for ( T& value : outValues )
     {
+
         if ( !readFunc( cursor, value ) )
         {
             return false;
@@ -1424,6 +1483,7 @@ bool ReadTornadoConfig( ByteCursor& cursor, SkullbonezCore::Gameplay::TornadoFie
 {
     uint8_t enabled = 0;
     uint8_t visualizeVelocityField = 0;
+
     if ( !ReadPod( cursor, enabled ) || !ReadPod( cursor, visualizeVelocityField ) || !SkipBytes( cursor, 2 ) ||
          !ReadVec3( cursor, outConfig.center ) || !ReadPod( cursor, outConfig.radius ) ||
          !ReadPod( cursor, outConfig.height ) || !ReadPod( cursor, outConfig.inwardAcceleration ) ||
@@ -1443,6 +1503,7 @@ bool ReadTornadoConfig( ByteCursor& cursor, SkullbonezCore::Gameplay::TornadoFie
 
 bool ReadTornadoVortexConfig( ByteCursor& cursor, SkullbonezCore::Gameplay::TornadoVortexConfig& outConfig )
 {
+
     if ( !ReadTornadoConfig( cursor, outConfig.field ) || !ReadPod( cursor, outConfig.spawnSeconds ) ||
          !ReadPod( cursor, outConfig.timeToLiveSeconds ) || !ReadPod( cursor, outConfig.growSeconds ) ||
          !ReadPod( cursor, outConfig.shrinkSeconds ) || !ReadPod( cursor, outConfig.driftRadius ) ||
@@ -1461,6 +1522,7 @@ bool ReadTornadoSystemConfig( ByteCursor& cursor, SkullbonezCore::Gameplay::Torn
     uint8_t enabled = 0;
     uint8_t visualizeVelocityField = 0;
     uint32_t count = 0;
+
     if ( !ReadPod( cursor, enabled ) || !ReadPod( cursor, visualizeVelocityField ) || !SkipBytes( cursor, 2 ) ||
          !ReadPod( cursor, count ) )
     {
@@ -1469,6 +1531,7 @@ bool ReadTornadoSystemConfig( ByteCursor& cursor, SkullbonezCore::Gameplay::Torn
 
     // Lane R: artifact input must fail before restore reaches Gameplay's fatal
     // fixed-capacity invariant; replay files never receive a truncation path.
+
     if ( count > SkullbonezCore::Gameplay::MAX_TORNADO_ACTIVE_FORCE_FIELDS )
     {
         return false;
@@ -1478,8 +1541,10 @@ bool ReadTornadoSystemConfig( ByteCursor& cursor, SkullbonezCore::Gameplay::Torn
     outConfig.enabled = enabled != 0;
     outConfig.visualizeVelocityField = visualizeVelocityField != 0;
     outConfig.vortices.resize( count );
+
     for ( SkullbonezCore::Gameplay::TornadoVortexConfig& vortex : outConfig.vortices )
     {
+
         if ( !ReadTornadoVortexConfig( cursor, vortex ) )
         {
             return false;
@@ -1499,6 +1564,7 @@ bool ReadSolverStats( ByteCursor& cursor, SkullbonezCore::Physics::PhysicsSolver
     int32_t warmStartedRows = 0;
     int32_t positionCorrectionRows = 0;
     int32_t solverIterations = 0;
+
     if ( !ReadPod( cursor, rowCount ) || !ReadPod( cursor, cachePreviousRows ) || !ReadPod( cursor, cacheHits ) ||
          !ReadPod( cursor, cacheMisses ) || !ReadPod( cursor, warmStartedRows ) ||
          !ReadPod( cursor, positionCorrectionRows ) || !ReadPod( cursor, solverIterations ) ||
@@ -1517,8 +1583,7 @@ bool ReadSolverStats( ByteCursor& cursor, SkullbonezCore::Physics::PhysicsSolver
     return true;
 }
 
-bool ReadPersistentContact( ByteCursor& cursor,
-                            SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& outContact )
+bool ReadPersistentContact( ByteCursor& cursor, SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& outContact )
 {
     int32_t bodyA = 0;
     int32_t bodyB = 0;
@@ -1529,6 +1594,7 @@ bool ReadPersistentContact( ByteCursor& cursor,
     uint8_t normalCoupledFriction = 0;
     uint8_t inhibitsSleep = 0;
     uint8_t reserved = 0;
+
     if ( !ReadPod( cursor, bodyA ) || !ReadPod( cursor, bodyB ) || !ReadPod( cursor, outContact.featureId ) ||
          !ReadPod( cursor, outContact.key ) || !ReadVec3( cursor, outContact.normal ) ||
          !ReadVec3( cursor, outContact.tangent1 ) || !ReadVec3( cursor, outContact.tangent2 ) ||
@@ -1568,6 +1634,7 @@ bool ReadPhysicsDebugContact( ByteCursor& cursor, SkullbonezCore::Physics::Physi
 {
     int32_t bodyA = 0;
     int32_t bodyB = 0;
+
     if ( !ReadPod( cursor, bodyA ) || !ReadPod( cursor, bodyB ) || !ReadPod( cursor, outContact.featureId ) ||
          !ReadVec3( cursor, outContact.point ) || !ReadVec3( cursor, outContact.normal ) ||
          !ReadVec3( cursor, outContact.tangent1 ) || !ReadVec3( cursor, outContact.tangent2 ) ||
@@ -1587,11 +1654,11 @@ bool ReadPipelineRecord( ByteCursor& cursor, SkullbonezCore::Physics::PhysicsPip
     int32_t bodyA = 0;
     int32_t bodyB = 0;
     int32_t iteration = 0;
+
     if ( !ReadPod( cursor, stage ) || !ReadPod( cursor, bodyA ) || !ReadPod( cursor, bodyB ) ||
-         !ReadPod( cursor, iteration ) || !ReadPod( cursor, outRecord.featureId ) ||
-         !ReadVec3( cursor, outRecord.point ) || !ReadVec3( cursor, outRecord.normal ) ||
-         !ReadPod( cursor, outRecord.scalarA ) || !ReadPod( cursor, outRecord.scalarB ) ||
-         !ReadPod( cursor, outRecord.scalarC ) )
+         !ReadPod( cursor, iteration ) || !ReadPod( cursor, outRecord.featureId ) || !ReadVec3( cursor, outRecord.point ) ||
+         !ReadVec3( cursor, outRecord.normal ) || !ReadPod( cursor, outRecord.scalarA ) ||
+         !ReadPod( cursor, outRecord.scalarB ) || !ReadPod( cursor, outRecord.scalarC ) )
     {
         return false;
     }
@@ -1611,6 +1678,7 @@ bool ReadSolverSnapshot( ByteCursor& cursor, SkullbonezCore::Runtime::ReplaySolv
     int32_t nextSleepIslandVisualId = 0;
     uint8_t sleepEnabled = 0;
     uint8_t collisionVisualFrameActive = 0;
+
     if ( !ReadPod( cursor, physics.version ) || !ReadPod( cursor, modelCount ) ||
          !ReadPod( cursor, nextSleepIslandVisualId ) || !ReadPod( cursor, sleepEnabled ) ||
          !ReadPod( cursor, collisionVisualFrameActive ) || !SkipBytes( cursor, 2 ) ||
@@ -1626,6 +1694,7 @@ bool ReadSolverSnapshot( ByteCursor& cursor, SkullbonezCore::Runtime::ReplaySolv
 
     if ( physics.version >= 2 )
     {
+
         if ( !ReadTornadoSystemConfig( cursor, outSnapshot.tornadoSystemConfig ) ||
              !ReadPod( cursor, outSnapshot.tornadoSystemElapsedSeconds ) )
         {
@@ -1676,9 +1745,10 @@ bool ReadLauncherVisual( ByteCursor& cursor, ReplayLauncherVisualSample& outLaun
     int32_t nextLaserShot = 0;
     uint8_t fireMode = 0;
     uint8_t visualizeRays = 0;
+
     if ( !ReadPod( cursor, nextRayLine ) || !ReadPod( cursor, nextLaserShot ) || !ReadPod( cursor, fireMode ) ||
-         !ReadPod( cursor, visualizeRays ) || !SkipBytes( cursor, 2 ) ||
-         !ReadPod( cursor, outLauncher.impulseStrength ) || !ReadPod( cursor, outLauncher.projectileSpeed ) )
+         !ReadPod( cursor, visualizeRays ) || !SkipBytes( cursor, 2 ) || !ReadPod( cursor, outLauncher.impulseStrength ) ||
+         !ReadPod( cursor, outLauncher.projectileSpeed ) )
     {
         return false;
     }
@@ -1692,16 +1762,19 @@ bool ReadLauncherVisual( ByteCursor& cursor, ReplayLauncherVisualSample& outLaun
     outLauncher.visualizeRays = visualizeRays != 0;
 
     uint32_t rayLineCount = 0;
+
     if ( !ReadPod( cursor, rayLineCount ) )
     {
         return false;
     }
 
     outLauncher.rayLines.resize( rayLineCount );
+
     for ( ReplayRayCastLineSample& line : outLauncher.rayLines )
     {
         uint8_t active = 0;
         uint8_t hit = 0;
+
         if ( !ReadVec3( cursor, line.start ) || !ReadVec3( cursor, line.end ) || !ReadPod( cursor, line.ageSeconds ) ||
              !ReadPod( cursor, active ) || !ReadPod( cursor, hit ) || !SkipBytes( cursor, 2 ) )
         {
@@ -1713,20 +1786,23 @@ bool ReadLauncherVisual( ByteCursor& cursor, ReplayLauncherVisualSample& outLaun
     }
 
     uint32_t laserShotCount = 0;
+
     if ( !ReadPod( cursor, laserShotCount ) )
     {
         return false;
     }
 
     outLauncher.laserShots.resize( laserShotCount );
+
     for ( LauncherLaserShotSnapshot& shot : outLauncher.laserShots )
     {
         uint8_t active = 0;
         uint8_t hit = 0;
-        if ( !ReadVec3( cursor, shot.start ) || !ReadVec3( cursor, shot.end ) ||
-             !ReadVec3( cursor, shot.cameraRight ) || !ReadVec3( cursor, shot.cameraUp ) ||
-             !ReadPod( cursor, shot.ageSeconds ) || !ReadPod( cursor, shot.lifetimeSeconds ) ||
-             !ReadPod( cursor, active ) || !ReadPod( cursor, hit ) || !SkipBytes( cursor, 2 ) )
+
+        if ( !ReadVec3( cursor, shot.start ) || !ReadVec3( cursor, shot.end ) || !ReadVec3( cursor, shot.cameraRight ) ||
+             !ReadVec3( cursor, shot.cameraUp ) || !ReadPod( cursor, shot.ageSeconds ) ||
+             !ReadPod( cursor, shot.lifetimeSeconds ) || !ReadPod( cursor, active ) || !ReadPod( cursor, hit ) ||
+             !SkipBytes( cursor, 2 ) )
         {
             return false;
         }
@@ -1738,8 +1814,7 @@ bool ReadLauncherVisual( ByteCursor& cursor, ReplayLauncherVisualSample& outLaun
     return true;
 }
 
-bool ReadSolverBody( ByteCursor& cursor,
-                     const std::vector<BodyDictionaryEntry>& dictionary,
+bool ReadSolverBody( ByteCursor& cursor, const std::vector<BodyDictionaryEntry>& dictionary,
                      ReplaySolverBodySample& outBody )
 {
     outBody = ReplaySolverBodySample();
@@ -1751,6 +1826,7 @@ bool ReadSolverBody( ByteCursor& cursor,
     uint8_t collisionContact = 0;
     int32_t sleepIslandVisualId = 0;
     uint16_t reserved16 = 0;
+
     if ( !ReadPod( cursor, dictionaryIndex ) || dictionaryIndex >= dictionary.size() ||
          !ReadVec3( cursor, outBody.position ) || !ReadVec3( cursor, outBody.linearVelocity ) ||
          !ReadVec3( cursor, outBody.angularVelocity ) || !ReadOrientation( cursor, outBody.orientation ) ||
@@ -1780,26 +1856,28 @@ bool ReadSolverBody( ByteCursor& cursor,
     return true;
 }
 
-bool ParseSolverCheckpoints( const std::vector<uint8_t>& fileBytes,
-                             const ChunkTableEntry& chunk,
+bool ParseSolverCheckpoints( const std::vector<uint8_t>& fileBytes, const ChunkTableEntry& chunk,
                              const std::vector<BodyDictionaryEntry>& dictionary,
                              std::vector<ReplaySolverFrameSample>& outCheckpoints )
 {
     outCheckpoints.clear();
 
     ByteCursor cursor;
+
     if ( !MakeCursor( fileBytes, chunk.offset, chunk.size, cursor ) )
     {
         return false;
     }
 
     uint32_t checkpointCount = 0;
+
     if ( !ReadPod( cursor, checkpointCount ) || checkpointCount != chunk.recordCount )
     {
         return false;
     }
 
     outCheckpoints.reserve( checkpointCount );
+
     for ( uint32_t i = 0; i < checkpointCount; ++i )
     {
         ReplaySolverFrameSample sample;
@@ -1808,6 +1886,7 @@ bool ParseSolverCheckpoints( const std::vector<uint8_t>& fileBytes,
         uint8_t worldFlags = 0;
         uint16_t reserved = 0;
         uint32_t bodyCount = 0;
+
         if ( !ReadPod( cursor, sample.frameIndex ) || !ReadPod( cursor, sceneFrame ) ||
              !ReadPod( cursor, sample.simulationSeconds ) || !ReadPod( cursor, sample.physicsDt ) ||
              !ReadPod( cursor, sample.presentationHash ) || !ReadPod( cursor, sample.solverHash ) ||
@@ -1816,8 +1895,8 @@ bool ParseSolverCheckpoints( const std::vector<uint8_t>& fileBytes,
              !ReadPod( cursor, sample.world.gravity ) || !ReadPod( cursor, sample.world.fluidHeight ) ||
              !ReadPod( cursor, sample.world.fluidDensity ) || !ReadVec3( cursor, sample.camera.eye ) ||
              !ReadVec3( cursor, sample.camera.view ) || !ReadVec3( cursor, sample.camera.up ) ||
-             !ReadLauncherVisual( cursor, sample.launcherVisual ) ||
-             !ReadSolverSnapshot( cursor, sample.worldSnapshot ) || !ReadPod( cursor, bodyCount ) )
+             !ReadLauncherVisual( cursor, sample.launcherVisual ) || !ReadSolverSnapshot( cursor, sample.worldSnapshot ) ||
+             !ReadPod( cursor, bodyCount ) )
         {
             return false;
         }
@@ -1827,8 +1906,10 @@ bool ParseSolverCheckpoints( const std::vector<uint8_t>& fileBytes,
         sample.checkpointBoundary = checkpointBoundary != 0;
         ApplyWorldFlags( worldFlags, sample.world );
         sample.bodies.resize( bodyCount );
+
         for ( ReplaySolverBodySample& body : sample.bodies )
         {
+
             if ( !ReadSolverBody( cursor, dictionary, body ) )
             {
                 return false;
@@ -1841,25 +1922,27 @@ bool ParseSolverCheckpoints( const std::vector<uint8_t>& fileBytes,
     return cursor.offset == cursor.size;
 }
 
-bool ParseSolverHashRecords( const std::vector<uint8_t>& fileBytes,
-                             const ChunkTableEntry& chunk,
+bool ParseSolverHashRecords( const std::vector<uint8_t>& fileBytes, const ChunkTableEntry& chunk,
                              std::vector<ReplayV2SolverHashSample>& outHashes )
 {
     outHashes.clear();
 
     ByteCursor cursor;
+
     if ( !MakeCursor( fileBytes, chunk.offset, chunk.size, cursor ) )
     {
         return false;
     }
 
     uint32_t hashCount = 0;
+
     if ( !ReadPod( cursor, hashCount ) || hashCount != chunk.recordCount )
     {
         return false;
     }
 
     outHashes.reserve( hashCount );
+
     for ( uint32_t i = 0; i < hashCount; ++i )
     {
         ReplayV2SolverHashSample sample;
@@ -1897,17 +1980,17 @@ Chunk MakeChunk( const char id[4], std::vector<uint8_t>&& bytes, uint32_t record
 std::vector<BranchRecord> BuildBranchRecords( const std::vector<ReplayPresentationSample>& samples )
 {
     std::vector<BranchRecord> records;
+
     for ( const ReplayPresentationSample& sample : samples )
     {
         ReplayBranchInfo branch = sample.branch;
+
         if ( branch.branchId == 0 )
         {
             branch.branchId = 1;
         }
 
-        auto existing = std::find_if( records.begin(),
-                                      records.end(),
-                                      [branch]( const BranchRecord& record )
+        auto existing = std::find_if( records.begin(), records.end(), [branch]( const BranchRecord& record )
                                       { return record.branch.branchId == branch.branchId; } );
 
         if ( existing != records.end() )
@@ -1931,6 +2014,7 @@ std::vector<uint8_t> BuildBranchChunk( const std::vector<BranchRecord>& records 
 {
     std::vector<uint8_t> bytes;
     AppendPod( bytes, CheckedU32( records.size() ) );
+
     for ( const BranchRecord& record : records )
     {
         const uint32_t restoredBranchFlag = record.branch.parentBranchId != 0 ? 1u : 0u;
@@ -1957,6 +2041,7 @@ std::vector<uint8_t> BuildEventChunk( const std::vector<ReplayEventSample>& even
 {
     std::vector<uint8_t> bytes;
     AppendPod( bytes, CheckedU32( events.size() ) );
+
     for ( const ReplayEventSample& event : events )
     {
         const uint16_t kind = static_cast<uint16_t>( event.kind );
@@ -1985,6 +2070,7 @@ std::vector<uint8_t> BuildEventChunk( const std::vector<ReplayEventSample>& even
 std::vector<EventCursorRecord> BuildEventCursorRecords( const std::vector<ReplaySolverFrameSample>* solverSamples )
 {
     std::vector<EventCursorRecord> records;
+
     if ( !solverSamples )
     {
         return records;
@@ -1992,6 +2078,7 @@ std::vector<EventCursorRecord> BuildEventCursorRecords( const std::vector<Replay
 
     for ( const ReplaySolverFrameSample& sample : *solverSamples )
     {
+
         if ( !sample.checkpointBoundary )
         {
             continue;
@@ -2011,6 +2098,7 @@ std::vector<uint8_t> BuildEventCursorChunk( const std::vector<EventCursorRecord>
 {
     std::vector<uint8_t> bytes;
     AppendPod( bytes, CheckedU32( records.size() ) );
+
     for ( const EventCursorRecord& record : records )
     {
         AppendPod( bytes, record.frameIndex );
@@ -2028,13 +2116,14 @@ std::vector<uint8_t> BuildVisualPacketChunk( std::span<const ReplayVisualArchive
     AppendPod( bytes, CheckedU32( samples.size() ) );
     std::vector<uint32_t> publishedTopologyVersions;
     publishedTopologyVersions.reserve( samples.size() );
+
     for ( const ReplayVisualArchiveSample& sample : samples )
     {
         uint32_t canonicalTopologyVersion = 0u;
+
         if ( sample.topologyVersion != 0u )
         {
-            const auto found = std::find( publishedTopologyVersions.begin(),
-                                          publishedTopologyVersions.end(),
+            const auto found = std::find( publishedTopologyVersions.begin(), publishedTopologyVersions.end(),
                                           sample.topologyVersion );
 
             if ( found == publishedTopologyVersions.end() )
@@ -2044,21 +2133,18 @@ std::vector<uint8_t> BuildVisualPacketChunk( std::span<const ReplayVisualArchive
             }
             else
             {
-                canonicalTopologyVersion = CheckedU32(
-                    static_cast<std::size_t>( std::distance( publishedTopologyVersions.begin(), found ) ) + 1u );
+                canonicalTopologyVersion = CheckedU32( static_cast<std::size_t>( std::distance( publishedTopologyVersions.begin(), found ) ) + 1u );
             }
         }
 
         constexpr uint64_t canonicalReplayReserveGrowthEvents = 0u;
+
         // Concept: live semantic telemetry contains raw schedule counters. RVIS
         // instead hashes the unchanged visual/exact content with the same
         // canonical topology and reserve values written into this row.
-        const uint64_t
-            canonicalSemanticHash = ReplayVisualPacketOperations::BuildCanonicalReplayVisualArchiveSemanticHash(
-                sample.visualStateHash,
-                sample.exactPacketHash,
-                canonicalTopologyVersion,
-                canonicalReplayReserveGrowthEvents );
+        const uint64_t canonicalSemanticHash = ReplayVisualPacketOperations::
+            BuildCanonicalReplayVisualArchiveSemanticHash( sample.visualStateHash, sample.exactPacketHash,
+                                                           canonicalTopologyVersion, canonicalReplayReserveGrowthEvents );
 
 #define SB_APPEND_REPLAY_VISUAL_FIELD( member ) AppendPod( bytes, sample.member )
         SB_APPEND_REPLAY_VISUAL_FIELD( sourceFrame );
@@ -2118,30 +2204,32 @@ std::vector<uint8_t> BuildVisualPacketChunk( std::span<const ReplayVisualArchive
     return bytes;
 }
 
-bool ParseVisualPacketChunk( const std::vector<uint8_t>& fileBytes,
-                             const ChunkTableEntry& chunk,
+bool ParseVisualPacketChunk( const std::vector<uint8_t>& fileBytes, const ChunkTableEntry& chunk,
                              std::vector<ReplayVisualArchiveSample>& outSamples )
 {
     ByteCursor cursor;
+
     if ( !MakeCursor( fileBytes, chunk.offset, chunk.size, cursor ) )
     {
         return false;
     }
 
     uint32_t sampleCount = 0;
+
     if ( !ReadPod( cursor, sampleCount ) || sampleCount != chunk.recordCount ||
-         chunk.size !=
-             sizeof( sampleCount ) + static_cast<uint64_t>( sampleCount ) * REPLAY_V4_VISUAL_PACKET_ENTRY_BYTES )
+         chunk.size != sizeof( sampleCount ) + static_cast<uint64_t>( sampleCount ) * REPLAY_V4_VISUAL_PACKET_ENTRY_BYTES )
     {
         return false;
     }
 
     outSamples.clear();
     outSamples.reserve( sampleCount );
+
     for ( uint32_t index = 0; index < sampleCount; ++index )
     {
         ReplayVisualArchiveSample sample;
 #define SB_READ_REPLAY_VISUAL_FIELD( member ) ReadPod( cursor, sample.member )
+
         if ( !SB_READ_REPLAY_VISUAL_FIELD( sourceFrame ) || !SB_READ_REPLAY_VISUAL_FIELD( revealFrame ) ||
              !SB_READ_REPLAY_VISUAL_FIELD( semanticHash ) || !SB_READ_REPLAY_VISUAL_FIELD( visualStateHash ) ||
              !SB_READ_REPLAY_VISUAL_FIELD( exactPacketHash ) || !SB_READ_REPLAY_VISUAL_FIELD( schemaVersion ) ||
@@ -2153,8 +2241,7 @@ bool ParseVisualPacketChunk( const std::vector<uint8_t>& fileBytes,
              !SB_READ_REPLAY_VISUAL_FIELD( cameraEye.z ) || !SB_READ_REPLAY_VISUAL_FIELD( cameraUp.x ) ||
              !SB_READ_REPLAY_VISUAL_FIELD( cameraUp.y ) || !SB_READ_REPLAY_VISUAL_FIELD( cameraUp.z ) ||
              !SB_READ_REPLAY_VISUAL_FIELD( combinedLineHash ) || !SB_READ_REPLAY_VISUAL_FIELD( ordinaryLineHash ) ||
-             !SB_READ_REPLAY_VISUAL_FIELD( priorityLineHash ) ||
-             !SB_READ_REPLAY_VISUAL_FIELD( priorityLineCanonicalHash ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( priorityLineHash ) || !SB_READ_REPLAY_VISUAL_FIELD( priorityLineCanonicalHash ) ||
              !SB_READ_REPLAY_VISUAL_FIELD( ordinaryRibbonHash ) || !SB_READ_REPLAY_VISUAL_FIELD( priorityRibbonHash ) ||
              !SB_READ_REPLAY_VISUAL_FIELD( priorityRibbonCanonicalHash ) ||
              !SB_READ_REPLAY_VISUAL_FIELD( expandedVertexHash ) ||
@@ -2163,25 +2250,23 @@ bool ParseVisualPacketChunk( const std::vector<uint8_t>& fileBytes,
              !SB_READ_REPLAY_VISUAL_FIELD( replayReserveGrowthEvents ) ||
              !SB_READ_REPLAY_VISUAL_FIELD( combinedLineBytes ) || !SB_READ_REPLAY_VISUAL_FIELD( ordinaryLineBytes ) ||
              !SB_READ_REPLAY_VISUAL_FIELD( priorityLineBytes ) || !SB_READ_REPLAY_VISUAL_FIELD( ordinaryRibbonBytes ) ||
-             !SB_READ_REPLAY_VISUAL_FIELD( priorityRibbonBytes ) ||
-             !SB_READ_REPLAY_VISUAL_FIELD( expandedVertexBytes ) ||
-             !SB_READ_REPLAY_VISUAL_FIELD( ordinaryExpandedVertexBytes ) ||
-             !SB_READ_REPLAY_VISUAL_FIELD( hasGeometry ) || !SB_READ_REPLAY_VISUAL_FIELD( trajectoryRecordCount ) ||
-             !SB_READ_REPLAY_VISUAL_FIELD( futureNodeCount ) || !SB_READ_REPLAY_VISUAL_FIELD( retainedMarkerCount ) ||
-             !SB_READ_REPLAY_VISUAL_FIELD( ghostRequestCount ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( priorityRibbonBytes ) || !SB_READ_REPLAY_VISUAL_FIELD( expandedVertexBytes ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( ordinaryExpandedVertexBytes ) || !SB_READ_REPLAY_VISUAL_FIELD( hasGeometry ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( trajectoryRecordCount ) || !SB_READ_REPLAY_VISUAL_FIELD( futureNodeCount ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( retainedMarkerCount ) || !SB_READ_REPLAY_VISUAL_FIELD( ghostRequestCount ) ||
              !SB_READ_REPLAY_VISUAL_FIELD( combinedLineVertexCount ) ||
              !SB_READ_REPLAY_VISUAL_FIELD( ordinaryLineVertexCount ) ||
              !SB_READ_REPLAY_VISUAL_FIELD( priorityLineVertexCount ) ||
              !SB_READ_REPLAY_VISUAL_FIELD( ordinaryRibbonSegmentCount ) ||
              !SB_READ_REPLAY_VISUAL_FIELD( priorityRibbonSegmentCount ) ||
              !SB_READ_REPLAY_VISUAL_FIELD( expandedVertexCount ) ||
-             !SB_READ_REPLAY_VISUAL_FIELD( ordinaryExpandedVertexCount ) ||
-             !SB_READ_REPLAY_VISUAL_FIELD( segmentCount ) )
+             !SB_READ_REPLAY_VISUAL_FIELD( ordinaryExpandedVertexCount ) || !SB_READ_REPLAY_VISUAL_FIELD( segmentCount ) )
         {
             return false;
         }
 
 #undef SB_READ_REPLAY_VISUAL_FIELD
+
         if ( sample.semanticHash == 0 || sample.visualStateHash == 0 || sample.exactPacketHash == 0 ||
              sample.schemaVersion != REPLAY_VISUAL_PACKET_SCHEMA_VERSION || sample.targetId == 0 ||
              sample.predictionEnabled > 1u || sample.predictionBuilding > 1u || sample.predictionComplete > 1u ||
@@ -2199,6 +2284,7 @@ bool ParseVisualPacketChunk( const std::vector<uint8_t>& fileBytes,
 uint64_t HashVisualPredictionState( std::span<const uint8_t> bytes )
 {
     uint64_t hash = REPLAY_VISUAL_BUFFER_FNV_OFFSET;
+
     for ( const uint8_t byte : bytes )
     {
         hash ^= static_cast<uint64_t>( byte );
@@ -2209,21 +2295,17 @@ uint64_t HashVisualPredictionState( std::span<const uint8_t> bytes )
 }
 
 std::vector<uint8_t> BuildManifest( const std::vector<ReplayPresentationSample>& samples,
-                                    const std::vector<BodyDictionaryEntry>& dictionary,
-                                    std::size_t branchCount,
-                                    std::size_t eventCount,
-                                    std::size_t eventCursorCount,
-                                    std::size_t solverHashCount,
-                                    std::size_t solverCheckpointCount,
-                                    std::size_t visualPacketCount,
-                                    std::size_t visualPredictionBytes,
-                                    uint64_t visualPredictionHash )
+                                    const std::vector<BodyDictionaryEntry>& dictionary, std::size_t branchCount,
+                                    std::size_t eventCount, std::size_t eventCursorCount, std::size_t solverHashCount,
+                                    std::size_t solverCheckpointCount, std::size_t visualPacketCount,
+                                    std::size_t visualPredictionBytes, uint64_t visualPredictionHash )
 {
     const ReplayPresentationSample& first = samples.front();
     const ReplayPresentationSample& last = samples.back();
     Json chunks = Json::array( { "MANI", "BODY", "PRES", "BRAN" } );
     Json tracks = Json::array( { "presentation", "branchProvenance" } );
     std::string schema = "presentation-v4-visual-state+branch-provenance";
+
     if ( eventCount > 0 )
     {
         chunks.push_back( "EVNT" );
@@ -2311,6 +2393,7 @@ std::vector<uint8_t> BuildIndex( const std::vector<IndexedFrame>& frames )
 {
     std::vector<uint8_t> bytes;
     AppendPod( bytes, CheckedU32( frames.size() ) );
+
     for ( const IndexedFrame& frame : frames )
     {
         const uint32_t reserved = 0;
@@ -2327,6 +2410,7 @@ std::vector<uint8_t> BuildHashChunk( const std::vector<ReplaySolverFrameSample>&
 {
     std::vector<uint8_t> bytes;
     AppendPod( bytes, CheckedU32( solverSamples.size() ) );
+
     for ( const ReplaySolverFrameSample& sample : solverSamples )
     {
         const uint8_t checkpointBoundary = sample.checkpointBoundary ? 1u : 0u;
@@ -2349,22 +2433,22 @@ std::vector<uint8_t> BuildHashChunk( const std::vector<ReplaySolverFrameSample>&
 
 std::size_t CountSolverCheckpoints( const std::vector<ReplaySolverFrameSample>& solverSamples )
 {
-    return static_cast<std::size_t>( std::count_if( solverSamples.begin(),
-                                                    solverSamples.end(),
+    return static_cast<std::size_t>( std::count_if( solverSamples.begin(), solverSamples.end(),
                                                     []( const ReplaySolverFrameSample& sample )
                                                     { return sample.checkpointBoundary; } ) );
 }
 
 bool BuildSolverCheckpointChunk( const std::vector<ReplaySolverFrameSample>& solverSamples,
-                                 const std::vector<BodyDictionaryEntry>& dictionary,
-                                 std::vector<uint8_t>& outBytes,
+                                 const std::vector<BodyDictionaryEntry>& dictionary, std::vector<uint8_t>& outBytes,
                                  std::size_t& outCheckpointCount )
 {
     outBytes.clear();
     outCheckpointCount = CountSolverCheckpoints( solverSamples );
     AppendPod( outBytes, CheckedU32( outCheckpointCount ) );
+
     for ( const ReplaySolverFrameSample& sample : solverSamples )
     {
+
         if ( !sample.checkpointBoundary )
         {
             continue;
@@ -2393,8 +2477,10 @@ bool BuildSolverCheckpointChunk( const std::vector<ReplaySolverFrameSample>& sol
         AppendLauncherVisual( outBytes, sample.launcherVisual );
         AppendSolverSnapshot( outBytes, sample.worldSnapshot );
         AppendPod( outBytes, CheckedU32( sample.bodies.size() ) );
+
         for ( const ReplaySolverBodySample& body : sample.bodies )
         {
+
             if ( !AppendSolverBodyRecord( outBytes, dictionary, body ) )
             {
                 return false;
@@ -2408,10 +2494,10 @@ bool BuildSolverCheckpointChunk( const std::vector<ReplaySolverFrameSample>& sol
 bool BuildChunks( const std::vector<ReplayPresentationSample>& samples,
                   const std::vector<ReplaySolverFrameSample>* solverSamples,
                   const std::vector<ReplayEventSample>* eventSamples,
-                  std::span<const ReplayVisualArchiveSample> visualPackets,
-                  std::span<const uint8_t> visualPredictionState,
+                  std::span<const ReplayVisualArchiveSample> visualPackets, std::span<const uint8_t> visualPredictionState,
                   std::vector<Chunk>& outChunks )
 {
+
     if ( samples.size() > static_cast<std::size_t>( ( std::numeric_limits<uint32_t>::max )() ) )
     {
         return false;
@@ -2444,6 +2530,7 @@ bool BuildChunks( const std::vector<ReplayPresentationSample>& samples,
     // Concept: BODY deduplicates body identity, PRES stores dense render poses,
     // and optional solver/event chunks attach restore data to the same frame
     // ids. Keep this relationship stable for replay_query and old artifacts.
+
     for ( const ReplayPresentationSample& sample : samples )
     {
         IndexedFrame frame;
@@ -2459,6 +2546,7 @@ bool BuildChunks( const std::vector<ReplayPresentationSample>& samples,
 
     std::vector<uint8_t> checkpointBytes;
     std::size_t solverCheckpointCount = 0u;
+
     if ( solverSamples && !solverSamples->empty() &&
          !BuildSolverCheckpointChunk( *solverSamples, dictionary, checkpointBytes, solverCheckpointCount ) )
     {
@@ -2473,37 +2561,28 @@ bool BuildChunks( const std::vector<ReplayPresentationSample>& samples,
     const std::size_t eventCursorCount = eventCursorRecords.size();
     const uint64_t visualPredictionHash = HashVisualPredictionState( visualPredictionState );
     outChunks.push_back( MakeChunk( "MANI",
-                                    BuildManifest( samples,
-                                                   dictionary,
-                                                   branchRecords.size(),
-                                                   eventCount,
-                                                   eventCursorCount,
-                                                   solverHashCount,
-                                                   solverCheckpointCount,
-                                                   visualPackets.size(),
-                                                   visualPredictionState.size(),
-                                                   visualPredictionHash ),
+                                    BuildManifest( samples, dictionary, branchRecords.size(), eventCount, eventCursorCount,
+                                                   solverHashCount, solverCheckpointCount, visualPackets.size(),
+                                                   visualPredictionState.size(), visualPredictionHash ),
                                     1u ) );
 
     outChunks.push_back( MakeChunk( "BODY", std::move( bodyBytes ), CheckedU32( dictionary.size() ) ) );
     outChunks.push_back( MakeChunk( "PRES", std::move( presentationBytes ), CheckedU32( samples.size() ) ) );
     outChunks.push_back( MakeChunk( "BRAN", BuildBranchChunk( branchRecords ), CheckedU32( branchRecords.size() ) ) );
+
     if ( eventSamples && !eventSamples->empty() )
     {
-        outChunks.push_back(
-            MakeChunk( "EVNT", BuildEventChunk( *eventSamples ), CheckedU32( eventSamples->size() ) ) );
+        outChunks.push_back( MakeChunk( "EVNT", BuildEventChunk( *eventSamples ), CheckedU32( eventSamples->size() ) ) );
     }
 
     if ( !eventCursorRecords.empty() )
     {
-        outChunks.push_back(
-            MakeChunk( "ECUR", BuildEventCursorChunk( eventCursorRecords ), CheckedU32( eventCursorRecords.size() ) ) );
+        outChunks.push_back( MakeChunk( "ECUR", BuildEventCursorChunk( eventCursorRecords ), CheckedU32( eventCursorRecords.size() ) ) );
     }
 
     if ( solverSamples && !solverSamples->empty() )
     {
-        outChunks.push_back(
-            MakeChunk( "HASH", BuildHashChunk( *solverSamples ), CheckedU32( solverSamples->size() ) ) );
+        outChunks.push_back( MakeChunk( "HASH", BuildHashChunk( *solverSamples ), CheckedU32( solverSamples->size() ) ) );
     }
 
     if ( solverCheckpointCount > 0u )
@@ -2513,16 +2592,12 @@ bool BuildChunks( const std::vector<ReplayPresentationSample>& samples,
 
     if ( !visualPackets.empty() )
     {
-        outChunks.push_back(
-            MakeChunk( "RVIS", BuildVisualPacketChunk( visualPackets ), CheckedU32( visualPackets.size() ) ) );
+        outChunks.push_back( MakeChunk( "RVIS", BuildVisualPacketChunk( visualPackets ), CheckedU32( visualPackets.size() ) ) );
     }
 
     if ( !visualPredictionState.empty() )
     {
-        outChunks.push_back(
-            MakeChunk( "RVPD",
-                       std::vector<uint8_t>( visualPredictionState.begin(), visualPredictionState.end() ),
-                       1u ) );
+        outChunks.push_back( MakeChunk( "RVPD", std::vector<uint8_t>( visualPredictionState.begin(), visualPredictionState.end() ), 1u ) );
     }
 
     outChunks.push_back( MakeChunk( "INDX", BuildIndex( index ), CheckedU32( index.size() ) ) );
@@ -2531,6 +2606,7 @@ bool BuildChunks( const std::vector<ReplayPresentationSample>& samples,
 
 bool BuildFileBytes( const std::vector<Chunk>& chunks, std::vector<uint8_t>& outBytes )
 {
+
     if ( chunks.size() > static_cast<std::size_t>( ( std::numeric_limits<uint32_t>::max )() ) )
     {
         return false;
@@ -2542,8 +2618,10 @@ bool BuildFileBytes( const std::vector<Chunk>& chunks, std::vector<uint8_t>& out
 
     std::vector<uint64_t> chunkOffsets;
     chunkOffsets.reserve( chunks.size() );
+
     // Why: payload offsets are computed before writing bytes so the chunk table
     // can be emitted once at the front without seeking or patching the file.
+
     for ( const Chunk& chunk : chunks )
     {
         chunkOffsets.push_back( nextChunkOffset );
@@ -2551,6 +2629,7 @@ bool BuildFileBytes( const std::vector<Chunk>& chunks, std::vector<uint8_t>& out
     }
 
     const uint64_t fileSize = nextChunkOffset;
+
     if ( fileSize > static_cast<uint64_t>( ( std::numeric_limits<std::size_t>::max )() ) )
     {
         return false;
@@ -2590,6 +2669,7 @@ void ReplayArtifactSource::MaterializePresentation( const ReplayRecorder& record
 {
     outSamples.clear();
     outSamples.reserve( recorder.m_sampleCount );
+
     if ( recorder.m_sampleCount == 0 || recorder.m_samples.empty() )
     {
         return;
@@ -2598,6 +2678,7 @@ void ReplayArtifactSource::MaterializePresentation( const ReplayRecorder& record
     for ( std::size_t i = 0; i < recorder.m_sampleCount; ++i )
     {
         ReplayPresentationSample sample;
+
         if ( recorder.ResolveSampleAtOffset( i, sample ) )
         {
             outSamples.push_back( std::move( sample ) );
@@ -2610,6 +2691,7 @@ void ReplayArtifactSource::MaterializeSolver( const ReplaySolverRecorder& record
 {
     outSamples.clear();
     outSamples.reserve( recorder.m_sampleCount );
+
     if ( recorder.m_sampleCount == 0 || recorder.m_samples.empty() )
     {
         return;
@@ -2618,6 +2700,7 @@ void ReplayArtifactSource::MaterializeSolver( const ReplaySolverRecorder& record
     for ( std::size_t i = 0; i < recorder.m_sampleCount; ++i )
     {
         ReplaySolverFrameSample sample;
+
         if ( recorder.ResolveSolverSampleAtOffset( i, sample ) )
         {
             outSamples.push_back( std::move( sample ) );
@@ -2630,6 +2713,7 @@ void ReplayArtifactSource::MaterializeEvents( const ReplayEventRecorder& recorde
 {
     outEvents.clear();
     outEvents.reserve( recorder.m_eventCount );
+
     if ( recorder.m_eventCount == 0 || recorder.m_events.empty() )
     {
         return;
@@ -2646,18 +2730,21 @@ bool ReplayV2Artifact::SavePresentation( const ReplayRecorder& recorder, const c
 {
     std::vector<ReplayPresentationSample> samples;
     ReplayArtifactSource::MaterializePresentation( recorder, samples );
+
     if ( samples.empty() )
     {
         return false;
     }
 
     std::vector<Chunk> chunks;
+
     if ( !BuildChunks( samples, nullptr, nullptr, {}, {}, chunks ) )
     {
         return false;
     }
 
     std::vector<uint8_t> fileBytes;
+
     if ( !BuildFileBytes( chunks, fileBytes ) )
     {
         return false;
@@ -2669,6 +2756,7 @@ bool ReplayV2Artifact::SavePresentation( const ReplayRecorder& recorder, const c
     }
 
     std::ofstream output( path, std::ios::out | std::ios::binary | std::ios::trunc );
+
     if ( !output.is_open() )
     {
         return false;
@@ -2682,12 +2770,14 @@ bool ReplayV2Artifact::SavePresentation( const ReplayRecorder& recorder, const c
     // Why: std::ostream's binary write ABI is char-based; fileBytes remains the
     // typed owner and the stream borrows it only for this synchronous call.
     output.write( reinterpret_cast<const char*>( fileBytes.data() ), static_cast<std::streamsize>( fileBytes.size() ) );
+
     if ( !output.good() )
     {
         return false;
     }
 
     output.close();
+
     if ( output.fail() )
     {
         return false;
@@ -2712,16 +2802,15 @@ bool ReplayV2Artifact::SavePresentation( const ReplayRecorder& recorder, const c
 
 namespace
 {
-bool SavePresentationWithTracks( const ReplayRecorder& recorder,
-                                 const ReplaySolverRecorder& solverRecorder,
+bool SavePresentationWithTracks( const ReplayRecorder& recorder, const ReplaySolverRecorder& solverRecorder,
                                  const ReplayEventRecorder* eventRecorder,
                                  std::span<const ReplayVisualArchiveSample> visualPackets,
-                                 std::span<const uint8_t> visualPredictionState,
-                                 const char* path,
+                                 std::span<const uint8_t> visualPredictionState, const char* path,
                                  ReplayV2SaveResult* result )
 {
     std::vector<ReplayPresentationSample> samples;
     ReplayArtifactSource::MaterializePresentation( recorder, samples );
+
     if ( samples.empty() )
     {
         return false;
@@ -2731,18 +2820,21 @@ bool SavePresentationWithTracks( const ReplayRecorder& recorder,
     ReplayArtifactSource::MaterializeSolver( solverRecorder, solverSamples );
 
     std::vector<ReplayEventSample> eventSamples;
+
     if ( eventRecorder )
     {
         ReplayArtifactSource::MaterializeEvents( *eventRecorder, eventSamples );
     }
 
     std::vector<Chunk> chunks;
+
     if ( !BuildChunks( samples, &solverSamples, &eventSamples, visualPackets, visualPredictionState, chunks ) )
     {
         return false;
     }
 
     std::vector<uint8_t> fileBytes;
+
     if ( !BuildFileBytes( chunks, fileBytes ) )
     {
         return false;
@@ -2754,6 +2846,7 @@ bool SavePresentationWithTracks( const ReplayRecorder& recorder,
     }
 
     std::ofstream output( path, std::ios::out | std::ios::binary | std::ios::trunc );
+
     if ( !output.is_open() )
     {
         return false;
@@ -2767,12 +2860,14 @@ bool SavePresentationWithTracks( const ReplayRecorder& recorder,
     // Why: std::ostream's binary write ABI is char-based; fileBytes remains the
     // typed owner and the stream borrows it only for this synchronous call.
     output.write( reinterpret_cast<const char*>( fileBytes.data() ), static_cast<std::streamsize>( fileBytes.size() ) );
+
     if ( !output.good() )
     {
         return false;
     }
 
     output.close();
+
     if ( output.fail() )
     {
         return false;
@@ -2797,8 +2892,7 @@ bool SavePresentationWithTracks( const ReplayRecorder& recorder,
 } // namespace
 
 bool ReplayV2Artifact::SavePresentationWithSolverHashes( const ReplayRecorder& recorder,
-                                                         const ReplaySolverRecorder& solverRecorder,
-                                                         const char* path,
+                                                         const ReplaySolverRecorder& solverRecorder, const char* path,
                                                          ReplayV2SaveResult* result )
 {
     return SavePresentationWithTracks( recorder, solverRecorder, nullptr, {}, {}, path, result );
@@ -2806,8 +2900,7 @@ bool ReplayV2Artifact::SavePresentationWithSolverHashes( const ReplayRecorder& r
 
 bool ReplayV2Artifact::SavePresentationWithSolverHashes( const ReplayRecorder& recorder,
                                                          const ReplaySolverRecorder& solverRecorder,
-                                                         const ReplayEventRecorder& eventRecorder,
-                                                         const char* path,
+                                                         const ReplayEventRecorder& eventRecorder, const char* path,
                                                          ReplayV2SaveResult* result )
 {
     return SavePresentationWithTracks( recorder, solverRecorder, &eventRecorder, {}, {}, path, result );
@@ -2817,26 +2910,20 @@ bool ReplayV2Artifact::SavePresentationWithSolverHashes( const ReplayRecorder& r
                                                          const ReplaySolverRecorder& solverRecorder,
                                                          const ReplayEventRecorder& eventRecorder,
                                                          std::span<const ReplayVisualArchiveSample> visualPackets,
-                                                         std::span<const uint8_t> visualPredictionState,
-                                                         const char* path,
+                                                         std::span<const uint8_t> visualPredictionState, const char* path,
                                                          ReplayV2SaveResult* result )
 {
-    return SavePresentationWithTracks( recorder,
-                                       solverRecorder,
-                                       &eventRecorder,
-                                       visualPackets,
-                                       visualPredictionState,
-                                       path,
+    return SavePresentationWithTracks( recorder, solverRecorder, &eventRecorder, visualPackets, visualPredictionState, path,
                                        result );
 }
 
-bool ReplayV2Artifact::LoadPresentation( const char* path,
-                                         std::vector<ReplayPresentationSample>& outSamples,
+bool ReplayV2Artifact::LoadPresentation( const char* path, std::vector<ReplayPresentationSample>& outSamples,
                                          ReplayV2LoadResult* result )
 {
     outSamples.clear();
 
     std::vector<uint8_t> fileBytes;
+
     if ( !LoadBinaryFile( path, fileBytes ) )
     {
         return false;
@@ -2844,6 +2931,7 @@ bool ReplayV2Artifact::LoadPresentation( const char* path,
 
     std::vector<ChunkTableEntry> chunkTable;
     uint32_t version = 0;
+
     if ( !ReadChunkTable( fileBytes, chunkTable, version ) )
     {
         return false;
@@ -2853,8 +2941,10 @@ bool ReplayV2Artifact::LoadPresentation( const char* path,
     const ChunkTableEntry* presentationChunk = FindChunk( chunkTable, "PRES" );
     const ChunkTableEntry* indexChunk = FindChunk( chunkTable, "INDX" );
     const ChunkTableEntry* branchChunk = FindChunk( chunkTable, "BRAN" );
+
     // Invariant: BODY, PRES, and INDX form the minimum render-preview artifact.
     // Branch data is optional so old or partial files remain readable.
+
     if ( !bodyChunk || !presentationChunk || !indexChunk )
     {
         return false;
@@ -2863,6 +2953,7 @@ bool ReplayV2Artifact::LoadPresentation( const char* path,
     std::vector<BodyDictionaryEntry> dictionary;
     std::vector<IndexedFrame> index;
     std::vector<BranchRecord> branches;
+
     if ( !ParseBodyDictionary( fileBytes, *bodyChunk, version, dictionary ) )
     {
         outSamples.clear();
@@ -2894,6 +2985,7 @@ bool ReplayV2Artifact::LoadPresentation( const char* path,
         result->sampleCount = outSamples.size();
         result->bodyDictionaryCount = dictionary.size();
         result->fileBytes = fileBytes.size();
+
         if ( !outSamples.empty() )
         {
             result->firstFrame = outSamples.front().frameIndex;
@@ -2904,13 +2996,13 @@ bool ReplayV2Artifact::LoadPresentation( const char* path,
     return !outSamples.empty();
 }
 
-bool ReplayV2Artifact::LoadSolverCheckpoints( const char* path,
-                                              std::vector<ReplaySolverFrameSample>& outCheckpoints,
+bool ReplayV2Artifact::LoadSolverCheckpoints( const char* path, std::vector<ReplaySolverFrameSample>& outCheckpoints,
                                               ReplayV2SolverCheckpointLoadResult* result )
 {
     outCheckpoints.clear();
 
     std::vector<uint8_t> fileBytes;
+
     if ( !LoadBinaryFile( path, fileBytes ) )
     {
         return false;
@@ -2918,6 +3010,7 @@ bool ReplayV2Artifact::LoadSolverCheckpoints( const char* path,
 
     std::vector<ChunkTableEntry> chunkTable;
     uint32_t version = 0;
+
     if ( !ReadChunkTable( fileBytes, chunkTable, version ) )
     {
         return false;
@@ -2927,9 +3020,11 @@ bool ReplayV2Artifact::LoadSolverCheckpoints( const char* path,
     const ChunkTableEntry* checkpointChunk = FindChunk( chunkTable, "SCHK" );
     const ChunkTableEntry* branchChunk = FindChunk( chunkTable, "BRAN" );
     const ChunkTableEntry* eventCursorChunk = FindChunk( chunkTable, "ECUR" );
+
     // Invariant: solver restore requires a body dictionary and checkpoint
     // payloads. Branch/event cursors improve rollback provenance but are not
     // required for basic checkpoint loading.
+
     if ( !bodyChunk || !checkpointChunk )
     {
         return false;
@@ -2938,6 +3033,7 @@ bool ReplayV2Artifact::LoadSolverCheckpoints( const char* path,
     std::vector<BodyDictionaryEntry> dictionary;
     std::vector<BranchRecord> branches;
     std::vector<EventCursorRecord> eventCursors;
+
     if ( !ParseBodyDictionary( fileBytes, *bodyChunk, version, dictionary ) )
     {
         return false;
@@ -2967,6 +3063,7 @@ bool ReplayV2Artifact::LoadSolverCheckpoints( const char* path,
         result->checkpointCount = outCheckpoints.size();
         result->bodyDictionaryCount = dictionary.size();
         result->fileBytes = fileBytes.size();
+
         if ( !outCheckpoints.empty() )
         {
             result->firstFrame = outCheckpoints.front().frameIndex;
@@ -2977,13 +3074,13 @@ bool ReplayV2Artifact::LoadSolverCheckpoints( const char* path,
     return !outCheckpoints.empty();
 }
 
-bool ReplayV2Artifact::LoadEvents( const char* path,
-                                   std::vector<ReplayEventSample>& outEvents,
+bool ReplayV2Artifact::LoadEvents( const char* path, std::vector<ReplayEventSample>& outEvents,
                                    ReplayV2EventLoadResult* result )
 {
     outEvents.clear();
 
     std::vector<uint8_t> fileBytes;
+
     if ( !LoadBinaryFile( path, fileBytes ) )
     {
         return false;
@@ -2991,6 +3088,7 @@ bool ReplayV2Artifact::LoadEvents( const char* path,
 
     std::vector<ChunkTableEntry> chunkTable;
     uint32_t version = 0;
+
     if ( !ReadChunkTable( fileBytes, chunkTable, version ) )
     {
         return false;
@@ -2998,6 +3096,7 @@ bool ReplayV2Artifact::LoadEvents( const char* path,
 
     const ChunkTableEntry* eventChunk = FindChunk( chunkTable, "EVNT" );
     (void)version;
+
     if ( !eventChunk )
     {
         return false;
@@ -3013,6 +3112,7 @@ bool ReplayV2Artifact::LoadEvents( const char* path,
     {
         result->eventCount = outEvents.size();
         result->fileBytes = fileBytes.size();
+
         if ( !outEvents.empty() )
         {
             result->firstFrame = outEvents.front().frameIndex;
@@ -3023,13 +3123,13 @@ bool ReplayV2Artifact::LoadEvents( const char* path,
     return !outEvents.empty();
 }
 
-bool ReplayV2Artifact::LoadSolverHashes( const char* path,
-                                         std::vector<ReplayV2SolverHashSample>& outHashes,
+bool ReplayV2Artifact::LoadSolverHashes( const char* path, std::vector<ReplayV2SolverHashSample>& outHashes,
                                          ReplayV2SolverHashLoadResult* result )
 {
     outHashes.clear();
 
     std::vector<uint8_t> fileBytes;
+
     if ( !LoadBinaryFile( path, fileBytes ) )
     {
         return false;
@@ -3037,6 +3137,7 @@ bool ReplayV2Artifact::LoadSolverHashes( const char* path,
 
     std::vector<ChunkTableEntry> chunkTable;
     uint32_t version = 0;
+
     if ( !ReadChunkTable( fileBytes, chunkTable, version ) )
     {
         return false;
@@ -3044,6 +3145,7 @@ bool ReplayV2Artifact::LoadSolverHashes( const char* path,
 
     const ChunkTableEntry* hashChunk = FindChunk( chunkTable, "HASH" );
     (void)version;
+
     if ( !hashChunk )
     {
         return false;
@@ -3059,6 +3161,7 @@ bool ReplayV2Artifact::LoadSolverHashes( const char* path,
     {
         result->hashCount = outHashes.size();
         result->fileBytes = fileBytes.size();
+
         if ( !outHashes.empty() )
         {
             result->firstFrame = outHashes.front().frameIndex;
@@ -3073,6 +3176,7 @@ bool ReplayV2Artifact::LoadVisualPackets( const char* path, std::vector<ReplayVi
 {
     outPackets.clear();
     std::vector<uint8_t> fileBytes;
+
     if ( !LoadBinaryFile( path, fileBytes ) )
     {
         return false;
@@ -3080,12 +3184,14 @@ bool ReplayV2Artifact::LoadVisualPackets( const char* path, std::vector<ReplayVi
 
     std::vector<ChunkTableEntry> chunkTable;
     uint32_t version = 0;
+
     if ( !ReadChunkTable( fileBytes, chunkTable, version ) || version < 4u )
     {
         return false;
     }
 
     const ChunkTableEntry* visualChunk = FindChunk( chunkTable, "RVIS" );
+
     if ( !visualChunk || !ParseVisualPacketChunk( fileBytes, *visualChunk, outPackets ) )
     {
         outPackets.clear();
@@ -3099,6 +3205,7 @@ bool ReplayV2Artifact::LoadVisualPredictionState( const char* path, std::vector<
 {
     outBytes.clear();
     std::vector<uint8_t> fileBytes;
+
     if ( !LoadBinaryFile( path, fileBytes ) )
     {
         return false;
@@ -3106,12 +3213,14 @@ bool ReplayV2Artifact::LoadVisualPredictionState( const char* path, std::vector<
 
     std::vector<ChunkTableEntry> chunkTable;
     uint32_t version = 0;
+
     if ( !ReadChunkTable( fileBytes, chunkTable, version ) || version < 4u )
     {
         return false;
     }
 
     const ChunkTableEntry* predictionChunk = FindChunk( chunkTable, "RVPD" );
+
     if ( !predictionChunk || predictionChunk->recordCount != 1u || predictionChunk->offset > fileBytes.size() ||
          predictionChunk->size > fileBytes.size() - static_cast<std::size_t>( predictionChunk->offset ) )
     {

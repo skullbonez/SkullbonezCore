@@ -6,6 +6,7 @@ Purpose:
 Summary:
   Runtime code owns screenshot trigger state, while renderer code owns pixel
   readback. Pure trigger and result-folding rules remain value seams so tests
+
   do not need to impersonate a renderer.
 
 Glossary:
@@ -94,20 +95,12 @@ class CaptureSystem
     static bool IsScreenshotDue( const RunScreenshotState& screenshot, const RuntimeCaptureSceneContext& context );
     static bool RequiresDeterministicPresentation( const RunScreenshotState& screenshot,
                                                    const RuntimeCaptureSceneContext& context );
-    static SkullbonezCore::Core::SbResult SaveBackbufferBmp( Rendering::Dx12BackbufferCapture& backend,
-                                                             const char* path );
-    static RuntimeCaptureResult TickScreenshots( RunScreenshotState& screenshot,
-                                                 const RuntimeCaptureSceneContext& context,
-                                                 CaptureController& capture,
-                                                 Rendering::Dx12BackbufferCapture& backend );
-    static RuntimeCaptureResult TickAutoCycle( bool isSceneMode,
-                                               bool isInteractiveRun,
-                                               int ballCount,
-                                               float& autoCycleInterval,
-                                               float& autoCycleAccum,
-                                               int& autoCycleShotsTaken,
-                                               int& trackBallIndex,
-                                               CaptureController& capture,
+    static SkullbonezCore::Core::SbResult SaveBackbufferBmp( Rendering::Dx12BackbufferCapture& backend, const char* path );
+    static RuntimeCaptureResult TickScreenshots( RunScreenshotState& screenshot, const RuntimeCaptureSceneContext& context,
+                                                 CaptureController& capture, Rendering::Dx12BackbufferCapture& backend );
+    static RuntimeCaptureResult TickAutoCycle( bool isSceneMode, bool isInteractiveRun, int ballCount,
+                                               float& autoCycleInterval, float& autoCycleAccum, int& autoCycleShotsTaken,
+                                               int& trackBallIndex, CaptureController& capture,
                                                Rendering::Dx12BackbufferCapture& backend );
 };
 } // namespace Runtime

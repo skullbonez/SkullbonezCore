@@ -39,6 +39,7 @@ struct ReplayTrajectoryStore
 {
     std::vector<ReplayTrajectoryRecord> records;
     uint32_t nextVersion = 1;
+
     // Invariant: this token changes only when a reader-visible record identity
     // or published prefix changes. Retained draw lists use it as the O(1)
     // invalidation check that keeps stable prediction frames off the CPU.
@@ -47,14 +48,12 @@ struct ReplayTrajectoryStore
     void Clear() noexcept;
     ReplayTrajectoryRecord* FindRecord( const ReplayTrajectoryRecordKey& key ) noexcept;
     const ReplayTrajectoryRecord* FindRecord( const ReplayTrajectoryRecordKey& key ) const noexcept;
-    ReplayTrajectoryRecord* BeginReplaceRecord( const ReplayTrajectoryRecordKey& key,
-                                                uint16_t styleId,
-                                                Physics::PhysicsSceneObjectId parentId,
-                                                int depth,
-                                                ReplayFrameIndex firstFrame,
-                                                bool contactDerived );
+    ReplayTrajectoryRecord* BeginReplaceRecord( const ReplayTrajectoryRecordKey& key, uint16_t styleId,
+                                                Physics::PhysicsSceneObjectId parentId, int depth,
+                                                ReplayFrameIndex firstFrame, bool contactDerived );
     bool TryAppendPoint( ReplayTrajectoryRecord& record, const ReplayTrajectoryPoint& point );
     void PublishPrefix( ReplayTrajectoryRecord& record, std::size_t pointCount ) noexcept;
+
     // Removes expired published points without replacing the record/version, so
     // the renderer always sees one continuous retained-path publication.
     std::size_t TrimPublishedPointsBeforeFrame( ReplayTrajectoryRecord& record,

@@ -53,17 +53,13 @@ struct SceneLoadNavigationState
 
 // Runtime owns navigation policy because these decisions borrow the concrete
 // scene queue. The UI model remains a passive presentation value.
-SceneLoadRequest
-LoadSceneFromBrowserIndex( const SkullbonezCore::UI::SceneNavigationModel& navigation, int index, SceneRuntime& scene );
+SceneLoadRequest LoadSceneFromBrowserIndex( const SkullbonezCore::UI::SceneNavigationModel& navigation, int index,
+                                            SceneRuntime& scene );
 SceneLoadRequest LoadDemoScene( SceneRuntime& scene );
-int AdjacentCinematicModeBrowserIndex( const SkullbonezCore::UI::SceneNavigationModel& navigation,
-                                       int direction,
-                                       int currentSceneBrowserIndex,
-                                       bool isCinematicTabActive );
-SceneLoadRequest LoadAdjacentScene( const SkullbonezCore::UI::SceneNavigationModel& navigation,
-                                    int direction,
-                                    int currentSceneBrowserIndex,
-                                    SceneRuntime& scene );
+int AdjacentCinematicModeBrowserIndex( const SkullbonezCore::UI::SceneNavigationModel& navigation, int direction,
+                                       int currentSceneBrowserIndex, bool isCinematicTabActive );
+SceneLoadRequest LoadAdjacentScene( const SkullbonezCore::UI::SceneNavigationModel& navigation, int direction,
+                                    int currentSceneBrowserIndex, SceneRuntime& scene );
 SceneLoadNavigationState CaptureSceneLoadNavigationState( const SkullbonezCore::UI::SceneNavigationModel& navigation );
 void ApplySceneLoadNavigationState( SkullbonezCore::UI::SceneNavigationModel& navigation,
                                     const SceneLoadNavigationState& state );

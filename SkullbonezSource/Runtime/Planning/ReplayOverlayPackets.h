@@ -61,6 +61,7 @@ namespace SkullbonezCore::Runtime::ReplayOverlay
 {
 struct ReplayOverlayViewport
 {
+
     // One presentation value keeps width and height coupled at every overlay
     // call site; neither dimension has meaning without the other.
     int width = 1;
@@ -78,6 +79,7 @@ struct ReplayOverlayStateView
     const RunReplayVelocityEditState& velocityEdit;
     const RunReplayCauseTreeState& causeTree;
     ReplayRecorderStats solverStats;
+
     // Concept: overlay consumers receive the lower Presentation selection plus
     // the sibling Prediction row selected by App. Planning retains neither.
     ReplayPresentationSelection selection;

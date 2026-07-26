@@ -117,8 +117,7 @@ class ReplayAuthoring
     {
         ReplayAuthoringMemoryStats stats;
         stats.ownerBytes = sizeof( m_causeTree );
-        stats.causeRowCapacityBytes = static_cast<uint64_t>( m_causeTree.rows.capacity() ) *
-                                      sizeof( RunReplayCauseTreeRow );
+        stats.causeRowCapacityBytes = static_cast<uint64_t>( m_causeTree.rows.capacity() ) * sizeof( RunReplayCauseTreeRow );
         stats.causeRowCount = m_causeTree.rows.size();
         return stats;
     }
@@ -155,10 +154,12 @@ class ReplayAuthoring
     }
     bool AppendCauseTreeRow( const RunReplayCauseTreeRow& row )
     {
+
         if ( m_causeTree.rows.size() >= m_causeTree.rows.capacity() )
         {
             return false;
         }
+
         m_causeTree.rows.push_back( row );
         return true;
     }
@@ -184,48 +185,25 @@ class ReplayAuthoring
     void BeginCauseTreeMove( int mouseX, int mouseY ) noexcept;
     bool TryGetCauseTreeRow( int rowIndex, RunReplayCauseTreeRow& outRow ) const noexcept;
     void SetCauseTreeFocus( int rowIndex, Physics::PhysicsSceneObjectId focusedId ) noexcept;
-    bool TickCauseTreeInput( ReplayPresentation& presentationOwner,
-                             ReplayScrubber& scrubberOwner,
-                             InputRouter& inputRouter,
-                             RuntimeInteractionController& interaction,
-                             bool rowsReady,
-                             bool uiBlocksMouse,
-                             int wheelDelta,
-                             bool editorModeEnabled,
-                             int screenWidth,
-                             int screenHeight,
-                             int& outFocusRow,
+    bool TickCauseTreeInput( ReplayPresentation& presentationOwner, ReplayScrubber& scrubberOwner, InputRouter& inputRouter,
+                             RuntimeInteractionController& interaction, bool rowsReady, bool uiBlocksMouse, int wheelDelta,
+                             bool editorModeEnabled, int screenWidth, int screenHeight, int& outFocusRow,
                              bool& outExitInspectionCamera );
+
     // Unwinds a stale drag when velocity editing cannot run this frame. The
     // following gizmo and target-pick phases are invoked only when this succeeds.
-    bool PrepareVelocityEditInput( bool editorModeEnabled,
-                                   bool scenePhysicsEnabled,
-                                   int screenWidth,
-                                   int screenHeight,
-                                   InputRouter& inputRouter,
-                                   RuntimeInteractionController& interaction );
-    bool TickVelocityEditInput( ReplayPresentation& presentationOwner,
-                                ReplayScrubber& scrubberOwner,
-                                const ReplayPathPickInput& pointerRay,
-                                bool uiBlocksMouse,
-                                double now,
-                                InputRouter& inputRouter,
-                                RuntimeInteractionController& interaction,
-                                Physics::PhysicsEngine& physics,
-                                std::size_t entityCount,
-                                bool& outEnterInteractive,
-                                bool& outPathPickRequested,
-                                ReplayInspectionCameraAction& outInspectionCameraAction );
-    bool TryPickVelocityEditTarget( ReplayPresentation& presentationOwner,
-                                    ReplayScrubber& scrubberOwner,
-                                    const ReplaySolverFrameSample* currentSolverSample,
-                                    const SceneEntityStore& entities,
+    bool PrepareVelocityEditInput( bool editorModeEnabled, bool scenePhysicsEnabled, int screenWidth, int screenHeight,
+                                   InputRouter& inputRouter, RuntimeInteractionController& interaction );
+    bool TickVelocityEditInput( ReplayPresentation& presentationOwner, ReplayScrubber& scrubberOwner,
+                                const ReplayPathPickInput& pointerRay, bool uiBlocksMouse, double now,
+                                InputRouter& inputRouter, RuntimeInteractionController& interaction,
+                                Physics::PhysicsEngine& physics, std::size_t entityCount, bool& outEnterInteractive,
+                                bool& outPathPickRequested, ReplayInspectionCameraAction& outInspectionCameraAction );
+    bool TryPickVelocityEditTarget( ReplayPresentation& presentationOwner, ReplayScrubber& scrubberOwner,
+                                    const ReplaySolverFrameSample* currentSolverSample, const SceneEntityStore& entities,
                                     std::span<const Rendering::RenderInstancePresentationRecord> presentation,
-                                    Physics::PhysicsEngine& physics,
-                                    const ReplayPathPickInput& pointerRay,
-                                    RuntimeInteractionController& interaction,
-                                    double now,
-                                    bool& outEnterInteractive,
+                                    Physics::PhysicsEngine& physics, const ReplayPathPickInput& pointerRay,
+                                    RuntimeInteractionController& interaction, double now, bool& outEnterInteractive,
                                     ReplayInspectionCameraAction& outInspectionCameraAction );
     ReplayKeyboardVelocityEditResult ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input,
                                                                 ReplayScrubber& scrubberOwner,
@@ -242,8 +220,7 @@ class ReplayAuthoring
     // Starts a new live lineage after restoring a retained solver sample. The
     // returned parent id is the value that the timeline records in its branch
     // event; callers never receive mutable provenance state.
-    uint32_t BeginRestoredBranch( const ReplayBranchInfo& sourceBranch,
-                                  ReplayFrameIndex sourceFrame,
+    uint32_t BeginRestoredBranch( const ReplayBranchInfo& sourceBranch, ReplayFrameIndex sourceFrame,
                                   uint64_t sourceSolverHash ) noexcept
     {
         const uint32_t currentBranchId = m_branch.branchId;
@@ -267,17 +244,21 @@ class ReplayAuthoring
 
     bool SetVelocityEditEnabled( bool enabled ) noexcept
     {
+
         if ( m_velocityEdit.enabled == enabled )
         {
             return false;
         }
+
         m_velocityEdit.enabled = enabled;
         m_velocityEdit.hotLinearAxis = -1;
         m_velocityEdit.hotAngularAxis = -1;
+
         if ( enabled )
         {
             QueuePredictionRefresh( true );
         }
+
         return true;
     }
 
@@ -323,12 +304,9 @@ class ReplayAuthoring
 
     // Appends the authoring-owned velocity gizmo from value-selected replay
     // identity. Presentation supplies the target but cannot mutate edit state.
-    void AppendVelocityEditOverlay( Physics::PhysicsSceneObjectId targetId,
-                                    Physics::ModelRowHint targetModelRow,
-                                    Physics::PhysicsEngine& physics,
-                                    bool editorModeEnabled,
-                                    const RuntimeInteractionGesture& gesture,
-                                    EditorTracer& tracer ) const;
+    void AppendVelocityEditOverlay( Physics::PhysicsSceneObjectId targetId, Physics::ModelRowHint targetModelRow,
+                                    Physics::PhysicsEngine& physics, bool editorModeEnabled,
+                                    const RuntimeInteractionGesture& gesture, EditorTracer& tracer ) const;
 
     // Concept: authoring publishes a value command instead of holding a
     // prediction pointer or callback. Multiple edits before consumption fold
@@ -358,6 +336,7 @@ class ReplayAuthoring
     }
 
   private:
+
     // Lifetime: startup-bound diagnostics borrow; null when profiling is disabled.
     Core::Profiler* m_profiler;
     RunReplayCauseTreeState m_causeTree;

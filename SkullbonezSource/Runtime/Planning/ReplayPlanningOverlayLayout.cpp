@@ -31,37 +31,29 @@ namespace SkullbonezCore::Runtime::ReplayOverlay
 UI::UIRect ReplayInterceptReadoutRect( int screenW )
 {
     const float width = (std::min)( REPLAY_INTERCEPT_READOUT_WIDTH, static_cast<float>( screenW ) );
-    return { ( static_cast<float>( screenW ) - width ) * 0.5f,
-             REPLAY_INTERCEPT_READOUT_TOP,
-             width,
+    return { ( static_cast<float>( screenW ) - width ) * 0.5f, REPLAY_INTERCEPT_READOUT_TOP, width,
              REPLAY_INTERCEPT_READOUT_HEIGHT };
 }
 
 UI::UIRect ReplayTripPlannerPanelRect( int screenW )
 {
     const float width = (std::min)( REPLAY_TRIP_PLANNER_PANEL_WIDTH, static_cast<float>( screenW ) );
-    return { ( static_cast<float>( screenW ) - width ) * 0.5f,
-             REPLAY_TRIP_PLANNER_PANEL_TOP,
-             width,
+    return { ( static_cast<float>( screenW ) - width ) * 0.5f, REPLAY_TRIP_PLANNER_PANEL_TOP, width,
              REPLAY_TRIP_PLANNER_PANEL_HEIGHT };
 }
 
 UI::UIRect ReplayPorkchopPanelRect( int screenW )
 {
     const float width = (std::min)( REPLAY_PORKCHOP_PANEL_WIDTH, static_cast<float>( screenW ) );
-    return { ( static_cast<float>( screenW ) - width ) * 0.5f,
-             REPLAY_PORKCHOP_PANEL_TOP,
-             width,
+    return { ( static_cast<float>( screenW ) - width ) * 0.5f, REPLAY_PORKCHOP_PANEL_TOP, width,
              REPLAY_PORKCHOP_PANEL_HEIGHT };
 }
 
 UI::UIRect ReplayPorkchopGridRect( int screenW )
 {
     const UI::UIRect panel = ReplayPorkchopPanelRect( screenW );
-    return { panel.x + REPLAY_PORKCHOP_GRID_MARGIN_X,
-             panel.y + REPLAY_PORKCHOP_GRID_TOP,
-             (std::max)( 1.0f, panel.w - 2.0f * REPLAY_PORKCHOP_GRID_MARGIN_X ),
-             REPLAY_PORKCHOP_GRID_HEIGHT };
+    return { panel.x + REPLAY_PORKCHOP_GRID_MARGIN_X, panel.y + REPLAY_PORKCHOP_GRID_TOP,
+             (std::max)( 1.0f, panel.w - 2.0f * REPLAY_PORKCHOP_GRID_MARGIN_X ), REPLAY_PORKCHOP_GRID_HEIGHT };
 }
 
 UI::UIRect ReplayPorkchopCellRect( int screenW, std::size_t cellIndex )
@@ -72,9 +64,7 @@ UI::UIRect ReplayPorkchopCellRect( int screenW, std::size_t cellIndex )
     const std::size_t row = bounded / REPLAY_PORKCHOP_COLUMNS;
     const float cellWidth = grid.w / static_cast<float>( REPLAY_PORKCHOP_COLUMNS );
     const float cellHeight = grid.h / static_cast<float>( REPLAY_PORKCHOP_ROWS );
-    return { grid.x + static_cast<float>( column ) * cellWidth,
-             grid.y + static_cast<float>( row ) * cellHeight,
-             cellWidth,
+    return { grid.x + static_cast<float>( column ) * cellWidth, grid.y + static_cast<float>( row ) * cellHeight, cellWidth,
              cellHeight };
 }
 
@@ -83,6 +73,7 @@ bool ReplayPorkchopCellAtPointer( int screenW, int pointerX, int pointerY, std::
     const UI::UIRect grid = ReplayPorkchopGridRect( screenW );
     const float x = static_cast<float>( pointerX );
     const float y = static_cast<float>( pointerY );
+
     if ( x < grid.x || y < grid.y || x >= grid.x + grid.w || y >= grid.y + grid.h )
     {
         return false;
@@ -102,9 +93,7 @@ bool ReplayPorkchopCellAtPointer( int screenW, int pointerX, int pointerY, std::
     return true;
 }
 
-void BuildReplayTripPlannerSurface( const ReplayTripPlannerView& planner,
-                                    int screenW,
-                                    ReplayTripPlannerSurface& outSurface )
+void BuildReplayTripPlannerSurface( const ReplayTripPlannerView& planner, int screenW, ReplayTripPlannerSurface& outSurface )
 {
     outSurface.Reset();
     const UI::UIRect panel = ReplayTripPlannerPanelRect( screenW );
@@ -123,11 +112,8 @@ void BuildReplayTripPlannerSurface( const ReplayTripPlannerView& planner,
     const bool canCancel = awaiting || planner.state == ReplayTripPlannerState::Converged ||
                            planner.state == ReplayTripPlannerState::Failed;
 
-    const auto add = [&]( ReplayTripPlannerControl id,
-                          ReplayTripPlannerCommandKind action,
-                          RuntimeUiControlKind kind,
-                          const UI::UIRect& rect,
-                          bool enabled )
+    const auto add = [&]( ReplayTripPlannerControl id, ReplayTripPlannerCommandKind action, RuntimeUiControlKind kind,
+                          const UI::UIRect& rect, bool enabled )
     {
         RuntimeUiControl control;
 
@@ -138,48 +124,29 @@ void BuildReplayTripPlannerSurface( const ReplayTripPlannerView& planner,
         control.hitRect = rect;
         control.visible = true;
         control.enabled = enabled;
+
         if ( !outSurface.TryAdd( control ) )
         {
-            SB_FATAL( "ReplayTripPlannerSurface",
-                      "Cannot publish trip-planner control id=%u.",
+            SB_FATAL( "ReplayTripPlannerSurface", "Cannot publish trip-planner control id=%u.",
                       static_cast<uint32_t>( id ) );
         }
     };
 
-    add( ReplayTripPlannerControl::TimeOfFlightDecrease,
-         ReplayTripPlannerCommandKind::DecreaseTimeOfFlight,
-         RuntimeUiControlKind::Button,
-         decrease,
-         idle );
+    add( ReplayTripPlannerControl::TimeOfFlightDecrease, ReplayTripPlannerCommandKind::DecreaseTimeOfFlight,
+         RuntimeUiControlKind::Button, decrease, idle );
 
-    add( ReplayTripPlannerControl::TimeOfFlightIncrease,
-         ReplayTripPlannerCommandKind::IncreaseTimeOfFlight,
-         RuntimeUiControlKind::Button,
-         increase,
-         idle );
+    add( ReplayTripPlannerControl::TimeOfFlightIncrease, ReplayTripPlannerCommandKind::IncreaseTimeOfFlight,
+         RuntimeUiControlKind::Button, increase, idle );
 
-    add( ReplayTripPlannerControl::Plan,
-         ReplayTripPlannerCommandKind::Plan,
-         RuntimeUiControlKind::Button,
-         plan,
+    add( ReplayTripPlannerControl::Plan, ReplayTripPlannerCommandKind::Plan, RuntimeUiControlKind::Button, plan,
          planner.available && idle );
 
-    add( ReplayTripPlannerControl::Commit,
-         ReplayTripPlannerCommandKind::Commit,
-         RuntimeUiControlKind::Button,
-         commit,
+    add( ReplayTripPlannerControl::Commit, ReplayTripPlannerCommandKind::Commit, RuntimeUiControlKind::Button, commit,
          planner.state == ReplayTripPlannerState::Converged );
 
-    add( ReplayTripPlannerControl::Cancel,
-         ReplayTripPlannerCommandKind::Cancel,
-         RuntimeUiControlKind::Button,
-         cancel,
+    add( ReplayTripPlannerControl::Cancel, ReplayTripPlannerCommandKind::Cancel, RuntimeUiControlKind::Button, cancel,
          canCancel );
 
-    add( ReplayTripPlannerControl::Panel,
-         ReplayTripPlannerCommandKind::None,
-         RuntimeUiControlKind::Panel,
-         panel,
-         true );
+    add( ReplayTripPlannerControl::Panel, ReplayTripPlannerCommandKind::None, RuntimeUiControlKind::Panel, panel, true );
 }
 } // namespace SkullbonezCore::Runtime::ReplayOverlay

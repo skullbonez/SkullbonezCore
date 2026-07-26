@@ -36,6 +36,7 @@ namespace Rendering
 {
 namespace PrimitiveMeshes
 {
+
 /* -- Primitive Mesh Builder
 --------------------------------------------------------------------------------------------------------------------------------------
 
@@ -81,11 +82,11 @@ inline constexpr int PineTriangleVertexCount()
 
 template <typename EmitVertex> inline void EmitUnitSphere( int slices, int stacks, EmitVertex emitVertex )
 {
+
     // The sphere is generated as triangle-expanded UV-sphere quads. Its local frame matches the
     // existing Skullbonez visual/physics convention: theta=0 points down negative Z, which is the
     // same orientation both the normal renderer and collision visualizer already used.
-    auto emit = [&]( float x, float y, float z, float u, float v )
-    { emitVertex( VertexPNUV { x, y, z, x, y, z, u, v } ); };
+    auto emit = [&]( float x, float y, float z, float u, float v ) { emitVertex( VertexPNUV { x, y, z, x, y, z, u, v } ); };
 
     for ( int i = 0; i < stacks; ++i )
     {
@@ -121,6 +122,7 @@ template <typename EmitVertex> inline void EmitUnitSphere( int slices, int stack
 
 template <typename EmitVertex> inline void EmitUnitSphereFlat( int slices, int stacks, EmitVertex emitVertex )
 {
+
     // Faceted low-poly sphere variant. Positions and UVs match EmitUnitSphere,
     // but each emitted triangle receives one face normal so lighting exposes the
     // actual polygon structure instead of smoothing it away.
@@ -130,8 +132,7 @@ template <typename EmitVertex> inline void EmitUnitSphereFlat( int slices, int s
         float u, v;
     };
 
-    auto normalFor = []( const LocalVertex& a,
-                        const LocalVertex& b, const LocalVertex& c, float& nx, float& ny, float& nz )
+    auto normalFor = []( const LocalVertex& a, const LocalVertex& b, const LocalVertex& c, float& nx, float& ny, float& nz )
     {
         const float abx = b.x - a.x;
         const float aby = b.y - a.y;
@@ -143,6 +144,7 @@ template <typename EmitVertex> inline void EmitUnitSphereFlat( int slices, int s
         ny = abz * acx - abx * acz;
         nz = abx * acy - aby * acx;
         const float len = sqrtf( nx * nx + ny * ny + nz * nz );
+
         if ( len > 0.00001f )
         {
             const float invLen = 1.0f / len;
@@ -179,24 +181,16 @@ template <typename EmitVertex> inline void EmitUnitSphereFlat( int slices, int s
             const float theta0 = _2PI * static_cast<float>( j ) / static_cast<float>( slices );
             const float theta1 = _2PI * static_cast<float>( j + 1 ) / static_cast<float>( slices );
 
-            const LocalVertex v00 { sinf( phi0 ) * sinf( theta0 ),
-                                    cosf( phi0 ),
-                                    -sinf( phi0 ) * cosf( theta0 ),
+            const LocalVertex v00 { sinf( phi0 ) * sinf( theta0 ), cosf( phi0 ), -sinf( phi0 ) * cosf( theta0 ),
                                     static_cast<float>( j ) / static_cast<float>( slices ),
                                     static_cast<float>( i ) / static_cast<float>( stacks ) };
-            const LocalVertex v01 { sinf( phi0 ) * sinf( theta1 ),
-                                    cosf( phi0 ),
-                                    -sinf( phi0 ) * cosf( theta1 ),
+            const LocalVertex v01 { sinf( phi0 ) * sinf( theta1 ), cosf( phi0 ), -sinf( phi0 ) * cosf( theta1 ),
                                     static_cast<float>( j + 1 ) / static_cast<float>( slices ),
                                     static_cast<float>( i ) / static_cast<float>( stacks ) };
-            const LocalVertex v10 { sinf( phi1 ) * sinf( theta0 ),
-                                    cosf( phi1 ),
-                                    -sinf( phi1 ) * cosf( theta0 ),
+            const LocalVertex v10 { sinf( phi1 ) * sinf( theta0 ), cosf( phi1 ), -sinf( phi1 ) * cosf( theta0 ),
                                     static_cast<float>( j ) / static_cast<float>( slices ),
                                     static_cast<float>( i + 1 ) / static_cast<float>( stacks ) };
-            const LocalVertex v11 { sinf( phi1 ) * sinf( theta1 ),
-                                    cosf( phi1 ),
-                                    -sinf( phi1 ) * cosf( theta1 ),
+            const LocalVertex v11 { sinf( phi1 ) * sinf( theta1 ), cosf( phi1 ), -sinf( phi1 ) * cosf( theta1 ),
                                     static_cast<float>( j + 1 ) / static_cast<float>( slices ),
                                     static_cast<float>( i + 1 ) / static_cast<float>( stacks ) };
 
@@ -226,6 +220,7 @@ template <typename EmitVertex> inline void EmitUnitBox( EmitVertex emitVertex )
         { 0, 0, 1, {-1,-1, 1}, { 1,-1, 1}, { 1, 1, 1}, {-1, 1, 1} },
         { 0, 0,-1, { 1,-1,-1}, {-1,-1,-1}, {-1, 1,-1}, { 1, 1,-1} }
     };
+
     // clang-format on
 
     const float uv[4][2] = { { 0.0f, 0.0f }, { 0.0f, 1.0f }, { 1.0f, 1.0f }, { 1.0f, 0.0f } };
@@ -269,6 +264,7 @@ template <typename EmitVertex> inline void EmitUnitPinePyramid( EmitVertex emitV
         float ny = abz * acx - abx * acz;
         float nz = abx * acy - aby * acx;
         const float len = sqrtf( nx * nx + ny * ny + nz * nz );
+
         if ( len > 0.00001f )
         {
             const float invLen = 1.0f / len;

@@ -34,34 +34,32 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-RuntimeRenderModelFrameView
-PublishRenderModelFrame( SceneWorld& scene, Threading::WorkerPool& workerPool, const Core::EngineConfig& config )
+RuntimeRenderModelFrameView PublishRenderModelFrame( SceneWorld& scene, Threading::WorkerPool& workerPool,
+                                                     const Core::EngineConfig& config )
 {
     Physics::PhysicsEngine& physics = scene.Physics();
-    return RuntimeRenderModelFrameView {
-        scene.MutableRenderInstances(),
-        Physics::PhysicsEngine::ReadColliders( physics ),
-        Physics::PhysicsEngine::ReadBodies( physics ),
-        physics,
-        scene.BuildWorldExtensionDebugLines(),
-        scene.RenderPresentationRecords(),
-        Physics::PhysicsEngine::ReadCollisionVisualContacts( physics ),
-        Physics::PhysicsEngine::ReadSleepStates( physics ),
-        Physics::PhysicsEngine::ReadSleepIslandVisualIds( physics ),
-        Physics::PhysicsEngine::ReadSleepSupportedStates( physics ),
-        Physics::PhysicsEngine::ReadSleepInhibitedStates( physics ),
-        Physics::PhysicsEngine::ReadDebugContacts( physics ),
-        Physics::PhysicsEngine::ReadPipelineTrace( physics ),
-        &workerPool,
-        scene.SceneEntityCount(),
-        config.runtimeRender.renderCollisionVolumes,
-        config.runtimeRender.shadowParallelPrep,
-        scene.GetSceneKineticEnergy(),
-        CollectSceneMemoryStats( SceneMemoryDiagnosticsView { scene.Entities(),
-                                                              scene.CollectGameplayMemoryBytes(),
-                                                              scene.CollectGameplayDebugMemoryBytes(),
-                                                              physics,
-                                                              scene.RenderInstances() } ) };
+    return RuntimeRenderModelFrameView { scene.MutableRenderInstances(),
+                                         Physics::PhysicsEngine::ReadColliders( physics ),
+                                         Physics::PhysicsEngine::ReadBodies( physics ),
+                                         physics,
+                                         scene.BuildWorldExtensionDebugLines(),
+                                         scene.RenderPresentationRecords(),
+                                         Physics::PhysicsEngine::ReadCollisionVisualContacts( physics ),
+                                         Physics::PhysicsEngine::ReadSleepStates( physics ),
+                                         Physics::PhysicsEngine::ReadSleepIslandVisualIds( physics ),
+                                         Physics::PhysicsEngine::ReadSleepSupportedStates( physics ),
+                                         Physics::PhysicsEngine::ReadSleepInhibitedStates( physics ),
+                                         Physics::PhysicsEngine::ReadDebugContacts( physics ),
+                                         Physics::PhysicsEngine::ReadPipelineTrace( physics ),
+                                         &workerPool,
+                                         scene.SceneEntityCount(),
+                                         config.runtimeRender.renderCollisionVolumes,
+                                         config.runtimeRender.shadowParallelPrep,
+                                         scene.GetSceneKineticEnergy(),
+                                         CollectSceneMemoryStats( SceneMemoryDiagnosticsView { scene.Entities(),
+                                                                                               scene.CollectGameplayMemoryBytes(),
+                                                                                               scene.CollectGameplayDebugMemoryBytes(), physics,
+                                                                                               scene.RenderInstances() } ) };
 }
 } // namespace Runtime
 } // namespace SkullbonezCore

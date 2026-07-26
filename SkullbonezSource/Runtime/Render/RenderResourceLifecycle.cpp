@@ -41,16 +41,10 @@ using namespace SkullbonezCore::Runtime;
 namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 namespace Rendering = SkullbonezCore::Rendering;
 
-RenderResourceLifecycle::RenderResourceLifecycle( RuntimeRenderBackendView backend,
-                                                  const RenderWorldView& world,
+RenderResourceLifecycle::RenderResourceLifecycle( RuntimeRenderBackendView backend, const RenderWorldView& world,
                                                   const SceneSessionState& scene )
-    : m_backend { backend.renderFrame,
-                  backend.renderGraph,
-                  backend.renderResources,
-                  backend.renderTextures,
-                  backend.renderGeometry,
-                  backend.renderDiagnostics,
-                  backend.raytracing },
+    : m_backend { backend.renderFrame,    backend.renderGraph,       backend.renderResources, backend.renderTextures,
+                  backend.renderGeometry, backend.renderDiagnostics, backend.raytracing },
       m_lifecycleLog( backend.renderDevice, scene ), m_assets( world.assets ), m_terrain( world.terrain ),
       m_config( world.config ),
       m_primitiveBatches( std::in_place, backend.renderResources, backend.renderTextures, backend.renderGeometry ),
@@ -90,6 +84,7 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseProcessResourc
     for ( const RebuildPhase& phase : rebuildSteps )
     {
         m_lifecycleLog.Write( "backend_rebuild", phase.name );
+
         switch ( phase.step )
         {
         case RebuildStep::RecreateHelperOwner:
@@ -101,6 +96,7 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseProcessResourc
         case RebuildStep::RebuildTextures:
         {
             const SkullbonezCore::Core::SbResult textureResult = m_textures.RebuildTexturesFromSourceAssets();
+
             if ( !textureResult.ok )
             {
                 return textureResult;
@@ -126,12 +122,8 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseProcessResourc
 SkullbonezCore::Core::SbResult RenderResourceLifecycle::EnsureUiTextResources( int screenW, int screenH )
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
-    return m_uiTextPass.EnsureGpuResources( *m_backend.renderResources,
-                                            *m_backend.renderTextures,
-                                            *m_backend.renderGeometry,
-                                            m_assets,
-                                            screenW,
-                                            screenH );
+    return m_uiTextPass.EnsureGpuResources( *m_backend.renderResources, *m_backend.renderTextures, *m_backend.renderGeometry,
+                                            m_assets, screenW, screenH );
 }
 
 
@@ -139,8 +131,7 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseSceneRayTracin
 {
     Rendering::Dx12RaytracingOwner* rayTracing = m_backend.raytracing;
     Rendering::Dx12Diagnostics* renderDiagnostics = m_backend.renderDiagnostics;
-    const bool supported = renderDiagnostics && renderDiagnostics->GetCapabilities().supportsDxrReflection &&
-                           rayTracing;
+    const bool supported = renderDiagnostics && renderDiagnostics->GetCapabilities().supportsDxrReflection && rayTracing;
 
     if ( !supported )
     {
@@ -148,16 +139,18 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseSceneRayTracin
     }
 
     Rendering::PrimitiveMeshGeometryView sphereGeometry = PrimitiveBatches().SphereGeometry();
+
     if ( sphereGeometry.instancedMeshHandle == 0 )
     {
+
         if ( !m_backend.renderResources || !m_backend.renderTextures || !m_backend.renderGeometry )
         {
+
             // Lane F: capability publication without the resource facets needed
             // to build the renderer-owned primitive mesh is invalid wiring.
             SB_FATAL( "RenderResourceLifecycle",
                       "DXR reflection initialization requires concrete resource owners. resources=%d geometry=%d",
-                      m_backend.renderResources ? 1 : 0,
-                      m_backend.renderGeometry ? 1 : 0 );
+                      m_backend.renderResources ? 1 : 0, m_backend.renderGeometry ? 1 : 0 );
         }
 
         const Rendering::PrimitiveRenderContext primitiveContext { *m_backend.renderResources,
@@ -181,6 +174,7 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseSceneRayTracin
     const uint64_t terrainVBVA = terrainMesh->GetVertexBufferGPUVA();
     const uint32_t sphereHandle = sphereGeometry.instancedMeshHandle;
     const uint64_t sphereVBVA = rayTracing->GetInstancedMeshStaticVBVA( sphereHandle );
+
     if ( terrainVBVA == 0 || sphereVBVA == 0 )
     {
         return SkullbonezCore::Core::SbResult::Success();
@@ -199,8 +193,7 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseSceneRayTracin
 
 
 RuntimeRenderTargetPreviewSnapshot
-RenderResourceLifecycle::BuildRenderTargetPreviewSnapshot( bool shadowsAvailable,
-                                                           bool cinematicTargetsAvailable,
+RenderResourceLifecycle::BuildRenderTargetPreviewSnapshot( bool shadowsAvailable, bool cinematicTargetsAvailable,
                                                            bool volumetricAvailable ) const
 {
     RuntimeRenderTargetPreviewSnapshot snapshot;
@@ -210,8 +203,7 @@ RenderResourceLifecycle::BuildRenderTargetPreviewSnapshot( bool shadowsAvailable
 
         RuntimeRenderTargetPreview& preview = snapshot.targets[static_cast<size_t>( snapshot.count++ )];
         preview.label = label;
-        preview.textureHandle = target ? ( depth ? target->GetDepthTextureHandle() : target->GetColorTextureHandle() )
-                                       : 0;
+        preview.textureHandle = target ? ( depth ? target->GetDepthTextureHandle() : target->GetColorTextureHandle() ) : 0;
 
         preview.width = target ? target->GetWidth() : 0;
         preview.height = target ? target->GetHeight() : 0;
@@ -234,20 +226,12 @@ RenderResourceLifecycle::BuildRenderTargetPreviewSnapshot( bool shadowsAvailable
 }
 
 
-bool RenderResourceLifecycle::ShouldRenderUiText( const OverlayDebugState& debug,
-                                                  const SceneSessionState& scene,
-                                                  bool crossScenePauseLocked,
-                                                  const CameraControlState& camera,
-                                                  const UI::InGameUI& ui,
-                                                  bool replayScrubberVisible,
+bool RenderResourceLifecycle::ShouldRenderUiText( const OverlayDebugState& debug, const SceneSessionState& scene,
+                                                  bool crossScenePauseLocked, const CameraControlState& camera,
+                                                  const UI::InGameUI& ui, bool replayScrubberVisible,
                                                   bool replayPathVisualizerHasTarget ) const
 {
-    return m_uiTextPass.ShouldRender( debug,
-                                      scene,
-                                      crossScenePauseLocked,
-                                      camera,
-                                      ui,
-                                      replayScrubberVisible,
+    return m_uiTextPass.ShouldRender( debug, scene, crossScenePauseLocked, camera, ui, replayScrubberVisible,
                                       replayPathVisualizerHasTarget );
 }
 
@@ -273,6 +257,7 @@ void RenderResourceLifecycle::ReleaseUiTextResources()
 void RenderResourceLifecycle::InvalidateProfilerResources()
 {
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
+
     // Lifetime: invalidate backend queries while the diagnostics facet is live,
     // then clear Core's value history through the concrete timing owner.
     m_gpuTiming.InvalidateDevice();
@@ -290,6 +275,7 @@ void RenderResourceLifecycle::ReleaseTextureResources()
 
 void RenderResourceLifecycle::ReleaseSkyResources()
 {
+
     if ( m_skyBox )
     {
         m_skyBox->ReleaseRenderResources();

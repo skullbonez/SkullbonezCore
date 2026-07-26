@@ -78,53 +78,27 @@ class UiDrawSubmission;
 
 namespace SkullbonezCore::Runtime::ReplayOverlay
 {
-void RenderReplayScrubberOverlay( UiDrawSubmission& submission,
-                                  Text::TextBatch& textBatch,
-                                  UI::UIDrawList& drawList,
-                                  const ReplayOverlayStateView& replay,
-                                  Rendering::Dx12TextureOwner& renderTextures,
+void RenderReplayScrubberOverlay( UiDrawSubmission& submission, Text::TextBatch& textBatch, UI::UIDrawList& drawList,
+                                  const ReplayOverlayStateView& replay, Rendering::Dx12TextureOwner& renderTextures,
                                   Rendering::Dx12GeometryOwner& renderCommands,
-                                  Rendering::Dx12Diagnostics& renderDiagnostics,
-                                  Core::Profiler* profiler,
-                                  bool scenePhysicsEnabled,
-                                  RuntimeInteractionGestureKind gesture,
-                                  ReplayOverlayViewport viewport,
-                                  double nowSeconds );
-void RenderReplayInterceptOverlay( UiDrawSubmission& submission,
-                                   Text::TextBatch& textBatch,
-                                   UI::UIDrawList& drawList,
-                                   const ReplayOverlayStateView& replay,
-                                   Rendering::Dx12TextureOwner& renderTextures,
+                                  Rendering::Dx12Diagnostics& renderDiagnostics, Core::Profiler* profiler,
+                                  bool scenePhysicsEnabled, RuntimeInteractionGestureKind gesture,
+                                  ReplayOverlayViewport viewport, double nowSeconds );
+void RenderReplayInterceptOverlay( UiDrawSubmission& submission, Text::TextBatch& textBatch, UI::UIDrawList& drawList,
+                                   const ReplayOverlayStateView& replay, Rendering::Dx12TextureOwner& renderTextures,
                                    Rendering::Dx12GeometryOwner& renderCommands,
-                                   Rendering::Dx12Diagnostics& renderDiagnostics,
-                                   int screenW,
-                                   int screenH );
-void RenderReplayTripPlannerOverlay( UiDrawSubmission& submission,
-                                     Text::TextBatch& textBatch,
-                                     UI::UIDrawList& drawList,
-                                     const ReplayOverlayStateView& replay,
-                                     Rendering::Dx12TextureOwner& renderTextures,
+                                   Rendering::Dx12Diagnostics& renderDiagnostics, int screenW, int screenH );
+void RenderReplayTripPlannerOverlay( UiDrawSubmission& submission, Text::TextBatch& textBatch, UI::UIDrawList& drawList,
+                                     const ReplayOverlayStateView& replay, Rendering::Dx12TextureOwner& renderTextures,
                                      Rendering::Dx12GeometryOwner& renderCommands,
-                                     Rendering::Dx12Diagnostics& renderDiagnostics,
-                                     int screenW,
-                                     int screenH );
-void RenderReplayPorkchopOverlay( UiDrawSubmission& submission,
-                                  Text::TextBatch& textBatch,
-                                  UI::UIDrawList& drawList,
-                                  const ReplayOverlayStateView& replay,
-                                  Rendering::Dx12TextureOwner& renderTextures,
+                                     Rendering::Dx12Diagnostics& renderDiagnostics, int screenW, int screenH );
+void RenderReplayPorkchopOverlay( UiDrawSubmission& submission, Text::TextBatch& textBatch, UI::UIDrawList& drawList,
+                                  const ReplayOverlayStateView& replay, Rendering::Dx12TextureOwner& renderTextures,
                                   Rendering::Dx12GeometryOwner& renderCommands,
-                                  Rendering::Dx12Diagnostics& renderDiagnostics,
-                                  int screenW,
-                                  int screenH );
-void RenderReplayCauseTreeOverlay( UiDrawSubmission& submission,
-                                   Text::TextBatch& textBatch,
-                                   UI::UIDrawList& drawList,
-                                   const ReplayOverlayStateView& replay,
-                                   Rendering::Dx12TextureOwner& renderTextures,
+                                  Rendering::Dx12Diagnostics& renderDiagnostics, int screenW, int screenH );
+void RenderReplayCauseTreeOverlay( UiDrawSubmission& submission, Text::TextBatch& textBatch, UI::UIDrawList& drawList,
+                                   const ReplayOverlayStateView& replay, Rendering::Dx12TextureOwner& renderTextures,
                                    Rendering::Dx12GeometryOwner& renderCommands,
-                                   Rendering::Dx12Diagnostics& renderDiagnostics,
-                                   Core::Profiler* profiler,
-                                   int screenW,
+                                   Rendering::Dx12Diagnostics& renderDiagnostics, Core::Profiler* profiler, int screenW,
                                    int screenH );
 } // namespace SkullbonezCore::Runtime::ReplayOverlay

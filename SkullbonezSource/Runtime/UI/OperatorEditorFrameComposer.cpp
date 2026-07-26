@@ -80,6 +80,7 @@ static void FillOperatorRenderingParameters( SkullbonezCore::UI::OperatorEditorR
     using SkullbonezCore::UI::UICinematicFeature;
     using SkullbonezCore::UI::UICinematicParam;
     using SkullbonezCore::UI::UIRenderParam;
+
     // Invariant: every enum slot crosses the runtime/presentation boundary
     // explicitly. The count assertions make a newly authored parameter fail
     // the build until this bounded projection is updated.
@@ -205,8 +206,7 @@ static void FillOperatorRenderingParameters( SkullbonezCore::UI::OperatorEditorR
     view.cinematicFeatures[static_cast<int>( UICinematicFeature::Sky )] = cinematic.skyAtmosphereEnabled;
     view.cinematicFeatures[static_cast<int>( UICinematicFeature::Clouds )] = cinematic.cloudsEnabled;
     view.cinematicFeatures[static_cast<int>( UICinematicFeature::GodRays )] = cinematic.godRaysEnabled;
-    view.cinematicFeatures[static_cast<int>( UICinematicFeature::VolumetricLight )] = cinematic
-                                                                                          .volumetricLightingEnabled;
+    view.cinematicFeatures[static_cast<int>( UICinematicFeature::VolumetricLight )] = cinematic.volumetricLightingEnabled;
 
     view.cinematicFeatures[static_cast<int>( UICinematicFeature::Bloom )] = cinematic.bloomEnabled;
     view.cinematicFeatures[static_cast<int>( UICinematicFeature::Fog )] = cinematic.fogEnabled;
@@ -214,15 +214,10 @@ static void FillOperatorRenderingParameters( SkullbonezCore::UI::OperatorEditorR
     view.cinematicFeatures[static_cast<int>( UICinematicFeature::Shadows )] = cinematic.shadow.enabled;
 }
 
-void Render( RuntimeFrameHostView& host,
-             RuntimeFrameInteractionView& interactionOwners,
-             RuntimeFrameSceneView& sceneOwners,
-             RuntimeRenderer& renderer,
-             ReplayRuntime& replayRuntime,
-             const RuntimeUiTextFrameFacts& facts,
+void Render( RuntimeFrameHostView& host, RuntimeFrameInteractionView& interactionOwners, RuntimeFrameSceneView& sceneOwners,
+             RuntimeRenderer& renderer, ReplayRuntime& replayRuntime, const RuntimeUiTextFrameFacts& facts,
              SkullbonezCore::UI::OperatorEditorFrameView& operatorEditorView,
-             const ReplayOverlay::ReplayOverlayStateView& replayOverlay,
-             const RuntimeRenderModelFrameView& renderModels )
+             const ReplayOverlay::ReplayOverlayStateView& replayOverlay, const RuntimeRenderModelFrameView& renderModels )
 {
     DiagnosticsRuntime& diagnosticsRuntime = host.diagnosticsRuntime;
     RunTimerState& timers = sceneOwners.timers;
@@ -238,6 +233,7 @@ void Render( RuntimeFrameHostView& host,
     SkullbonezCore::Threading::WorkerPool& workerPool = host.workerPool;
     Window& window = host.window;
     RunLaunchOptions& launchOptions = sceneOwners.launchOptions;
+
     // Lifetime: the two owner views and value-only facts exist only for this
     // late UI call; no render or UI owner retains them.
     const SkullbonezCore::UI::RunSceneBrowserState& uiSceneBrowser = ui.SceneNavigation().browser;
@@ -277,8 +273,10 @@ void Render( RuntimeFrameHostView& host,
     sharedRendering.waterReflectionMode = debug.isWaterNoReflect ? 2 : ( debug.isWaterRTReflect ? 1 : 0 );
     FillOperatorRenderingParameters( sharedRendering, config.ordinaryRender, sharedCinematic );
     const char* sharedGizmoMode = "translate";
+
     if ( facts.interactionGestureKind == RuntimeInteractionGestureKind::GizmoDrag )
     {
+
         switch ( facts.interactionGizmoKind )
         {
         case RuntimeGizmoDragKind::Rotate:
@@ -296,12 +294,9 @@ void Render( RuntimeFrameHostView& host,
 
     operatorEditorView.viewport = { facts.cameraModeLabel, sharedGizmoMode, facts.presentationPinned };
 
-    operatorEditorView.replay = { sharedReplayHud.memoryPreset,
-                                  sharedReplayHud.requestedRetentionSeconds,
-                                  sharedReplayHud.requestedBudgetMiB,
-                                  sharedReplayHud.presentationRetentionSeconds,
-                                  sharedReplayHud.solverRetentionSeconds,
-                                  sharedReplayHud.memoryBudgetClamped,
+    operatorEditorView.replay = { sharedReplayHud.memoryPreset,           sharedReplayHud.requestedRetentionSeconds,
+                                  sharedReplayHud.requestedBudgetMiB,     sharedReplayHud.presentationRetentionSeconds,
+                                  sharedReplayHud.solverRetentionSeconds, sharedReplayHud.memoryBudgetClamped,
                                   sharedReplayHud.solverWindowReduced };
 
     operatorEditorView.surfaces = { ui.IsVisible(), operatorEditorView.surfaces.secondaryVisible };
@@ -327,6 +322,7 @@ void Render( RuntimeFrameHostView& host,
 
     operatorEditorView.hierarchy.rowCount = hierarchyRowCount;
     operatorEditorView.hierarchy.truncated = operatorEditorView.hierarchy.totalRowCount > hierarchyRowCount;
+
     for ( uint32_t index = 0u; index < hierarchyRowCount; ++index )
     {
         const SceneEntityRecord& entity = hierarchyEntities.At( static_cast<int>( index ) );
@@ -339,25 +335,29 @@ void Render( RuntimeFrameHostView& host,
         row.visible = entity.editorVisible;
         row.locked = entity.editorLocked;
         row.selected = static_cast<int>( index ) == selectedHierarchyRow;
+
         if ( row.selected )
         {
             operatorEditorView.hierarchy.selectedSceneObjectId = row.sceneObjectId;
         }
     }
 
-    operatorEditorView.assets = { sharedEditor.objectType,
-                                  SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT,
+    operatorEditorView.assets = { sharedEditor.objectType, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT,
                                   host.assets.FindAssetLibrarySourceAsset( "assetlib.buildings" ) != nullptr };
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+
     // Why: the legacy surface does not consume E12 contextual detail. Sampling
     // cold body/collider/buoyancy/material rows only while the secondary editor is
     // visible keeps ordinary Profile and shipping frames on their prior path.
+
     if ( operatorEditorView.surfaces.secondaryVisible )
     {
         SkullbonezCore::UI::OperatorEditorInspectorView& inspector = operatorEditorView.inspector;
+
         if ( sharedEditor.selectedBody.IsValid() && selectedHierarchyRow < 0 )
         {
+
             // Hazard: a scene transition can invalidate the body handle before the
             // presentation frame observes the cleared editor selection. Report the
             // stale state; never repair identity from a dense-row guess in the UI.
@@ -368,8 +368,7 @@ void Render( RuntimeFrameHostView& host,
             const SceneEntityRecord* entity = hierarchyEntities.TryGet( selectedHierarchyRow );
             const PhysicsBodyStore& bodyStore = sceneController.Scene().BodyStore();
             const ColliderStore& colliderStore = sceneController.Scene().Colliders();
-            const std::span<const BuoyancyBodyFacts> buoyancyFacts = PhysicsEngine::ReadBuoyancyFacts(
-                sceneController.Scene().Physics() );
+            const std::span<const BuoyancyBodyFacts> buoyancyFacts = PhysicsEngine::ReadBuoyancyFacts( sceneController.Scene().Physics() );
 
             const PhysicsBodyRecord* body = entity ? bodyStore.RecordForHandle( entity->body ) : nullptr;
             const PhysicsColliderHandle colliderHandle = entity ? colliderStore.HandleForBodyHandle( entity->body )
@@ -377,6 +376,7 @@ void Render( RuntimeFrameHostView& host,
 
             const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
             const ColliderAuthoringRecord* colliderAuthoring = colliderStore.AuthoringRecordForHandle( colliderHandle );
+
             if ( !entity || !body || !collider || !colliderAuthoring ||
                  selectedHierarchyRow >= static_cast<int>( buoyancyFacts.size() ) )
             {
@@ -409,9 +409,7 @@ void Render( RuntimeFrameHostView& host,
                 inspector.position[0] = position.x;
                 inspector.position[1] = position.y;
                 inspector.position[2] = position.z;
-                orientation.GetComponents( inspector.orientation[0],
-                                           inspector.orientation[1],
-                                           inspector.orientation[2],
+                orientation.GetComponents( inspector.orientation[0], inspector.orientation[1], inspector.orientation[2],
                                            inspector.orientation[3] );
 
                 inspector.linearVelocity[0] = linearVelocity.x;
@@ -420,6 +418,7 @@ void Render( RuntimeFrameHostView& host,
                 inspector.angularVelocity[0] = angularVelocity.x;
                 inspector.angularVelocity[1] = angularVelocity.y;
                 inspector.angularVelocity[2] = angularVelocity.z;
+
                 for ( int channel = 0; channel < 4; ++channel )
                 {
                     inspector.baseColor[channel] = entity->renderMaterial.baseColor[channel];
@@ -467,29 +466,28 @@ void Render( RuntimeFrameHostView& host,
 #endif
     RuntimeViewModel runtimeViewModel;
     RuntimeRenderTargetPreviewSnapshot renderTargetPreviews;
+
     // Lifetime: the diagnostics view borrows this detached buffer until both
     // operator surfaces finish consuming the frame view below.
     RenderDiagnosticsReadout renderDiagnosticsReadout;
+
     if ( operatorEditorView.surfaces.secondaryVisible )
     {
+
         // Why: the secondary surface can be visible while the legacy UI is
         // hidden. Sample its bounded authoring/diagnostic values here instead
         // of making ImGui depend on whether the legacy text pass happens to run.
-        runtimeViewModel = RuntimeViewModelBuilder::Build(
-            RuntimeViewModelContext { sceneController.State(),
-                                      sceneController.Scene(),
-                                      sceneController.QueueSize(),
-                                      diagnosticsRuntime.Capture(),
-                                      config.runtimeRender.presentationInterpolation,
-                                      facts.presentationPinned,
-                                      facts.presentationAlpha } );
+        runtimeViewModel = RuntimeViewModelBuilder::Build( RuntimeViewModelContext { sceneController.State(), sceneController.Scene(), sceneController.QueueSize(),
+                                                                                     diagnosticsRuntime.Capture(), config.runtimeRender.presentationInterpolation,
+                                                                                     facts.presentationPinned, facts.presentationAlpha } );
 
-        renderTargetPreviews = renderer.ResourceLifecycle().BuildRenderTargetPreviewSnapshot(
-            sharedShadows,
-            sharedCinematicRendering,
-            sharedCinematicRendering && sharedCinematic.volumetricLightingEnabled );
+        renderTargetPreviews = renderer.ResourceLifecycle()
+                                   .BuildRenderTargetPreviewSnapshot( sharedShadows, sharedCinematicRendering,
+                                                                      sharedCinematicRendering &&
+                                                                          sharedCinematic.volumetricLightingEnabled );
 
         SkullbonezCore::UI::OperatorEditorDiagnosticsView& diagnostics = operatorEditorView.diagnostics;
+
         // Invariant: the right rail reads fixed snapshots and cached counters;
         // opening Diagnostics must not trigger an allocation scan or grow data.
         const SkullbonezCore::Core::MainMemoryStats& mainMemory = diagnosticsRuntime.MainMemoryStatsSnapshot();
@@ -500,8 +498,7 @@ void Render( RuntimeFrameHostView& host,
         diagnostics.workerThreadCount = workerPool.GetThreadCount();
         diagnostics.maxWorkerThreadCount = SkullbonezCore::Threading::WorkerPool::MaxThreadCount();
         diagnostics.fps = facts.secondsPerFrame > 0.0 ? static_cast<float>( 1.0 / facts.secondsPerFrame ) : 0.0f;
-        diagnostics.renderMs = ( timers.rollingRenderTime > 0.0f ? timers.rollingRenderTime : timers.renderTime ) *
-                               1000.0f;
+        diagnostics.renderMs = ( timers.rollingRenderTime > 0.0f ? timers.rollingRenderTime : timers.renderTime ) * 1000.0f;
 
         diagnostics.physicsMs = ( timers.rollingPhysicsTime > 0.0f ? timers.rollingPhysicsTime : timers.physicsTime ) *
                                 1000.0f;
@@ -511,6 +508,7 @@ void Render( RuntimeFrameHostView& host,
         diagnostics.physicsDebugFlags = debug.physicsDebugFlags;
         const int stageCount = static_cast<int>( PhysicsPipelineStage::Count );
         int stageIndex = stageCount > 0 ? debug.physicsDebugPipelineStageCursor % stageCount : 0;
+
         if ( stageIndex < 0 )
         {
             stageIndex += stageCount;
@@ -518,8 +516,7 @@ void Render( RuntimeFrameHostView& host,
 
         diagnostics.physicsPipelineStageIndex = stageIndex;
         diagnostics.physicsPipelineStageCount = stageCount;
-        diagnostics.physicsPipelineStageName = PhysicsPipelineStageName(
-            static_cast<PhysicsPipelineStage>( stageIndex ) );
+        diagnostics.physicsPipelineStageName = PhysicsPipelineStageName( static_cast<PhysicsPipelineStage>( stageIndex ) );
 
         diagnostics.physicsDebugAlpha = debug.physicsDebugAlpha;
         diagnostics.physicsDebugContactLinger = debug.physicsDebugContactLinger;
@@ -543,12 +540,9 @@ void Render( RuntimeFrameHostView& host,
         for ( int index = 0; index < diagnostics.renderTargetCount; ++index )
         {
             const RuntimeRenderTargetPreview& source = renderTargetPreviews.targets[static_cast<size_t>( index )];
-            diagnostics.renderTargets[index] = { source.label,
-                                                 source.width,
-                                                 source.height,
-                                                 source.available && source.textureHandle != 0u,
-                                                 source.depth,
-                                                 source.hdr };
+            diagnostics.renderTargets[index] = { source.label,  source.width,
+                                                 source.height, source.available && source.textureHandle != 0u,
+                                                 source.depth,  source.hdr };
         }
     }
 
@@ -556,32 +550,23 @@ void Render( RuntimeFrameHostView& host,
 
     renderer.PrepareUiFrameTarget();
 
-    if ( renderer.ResourceLifecycle().ShouldRenderUiText( debug,
-                                                          scene,
-                                                          sceneController.CrossScenePauseLocked(),
-                                                          camera,
-                                                          ui,
+    if ( renderer.ResourceLifecycle().ShouldRenderUiText( debug, scene, sceneController.CrossScenePauseLocked(), camera, ui,
                                                           replayOverlay.shouldRenderScrubber,
                                                           replayPathVisualizerHasTarget ) )
     {
-        runtimeViewModel = RuntimeViewModelBuilder::Build(
-            RuntimeViewModelContext { sceneController.State(),
-                                      sceneController.Scene(),
-                                      sceneController.QueueSize(),
-                                      diagnosticsRuntime.Capture(),
-                                      config.runtimeRender.presentationInterpolation,
-                                      facts.presentationPinned,
-                                      facts.presentationAlpha } );
+        runtimeViewModel = RuntimeViewModelBuilder::Build( RuntimeViewModelContext { sceneController.State(), sceneController.Scene(), sceneController.QueueSize(),
+                                                                                     diagnosticsRuntime.Capture(), config.runtimeRender.presentationInterpolation,
+                                                                                     facts.presentationPinned, facts.presentationAlpha } );
 
         const SkullbonezCore::Core::CinematicRenderConfig& uiCinematic = ActiveSceneCinematicConfig( scene, config );
         const bool uiCinematicRendering = IsSceneCinematicRenderingEnabled( scene, config, launchOptions, debug, true );
         const bool shadowsAvailable = uiCinematicRendering ? uiCinematic.shadow.enabled
                                                            : config.ordinaryRender.shadow.enabled;
 
-        renderTargetPreviews = renderer.ResourceLifecycle().BuildRenderTargetPreviewSnapshot(
-            shadowsAvailable,
-            uiCinematicRendering,
-            uiCinematicRendering && uiCinematic.volumetricLightingEnabled );
+        renderTargetPreviews = renderer.ResourceLifecycle()
+                                   .BuildRenderTargetPreviewSnapshot( shadowsAvailable, uiCinematicRendering,
+                                                                      uiCinematicRendering &&
+                                                                          uiCinematic.volumetricLightingEnabled );
 
         const bool replayMemoryStatsRequested = ui.IsVisible() && !ui.IsMinimized() &&
                                                 ui.GetActiveTab() == SkullbonezCore::UI::InGameUITab::Memory;
@@ -648,18 +633,12 @@ void Render( RuntimeFrameHostView& host,
         PROFILE_BEGIN( host.profiler, "Frame/UI" );
         {
             CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Render );
+
             // Lifetime: caller-owned ABI records and every direct borrow remain
             // valid until the synchronous UI-text graph completes below.
-            timers.lastUIDrawCalls = renderer.RenderUiText( timers,
-                                                            renderModels,
-                                                            facts.secondsPerFrame,
-                                                            uiChrome,
-                                                            uiOperatorDiagnostics,
-                                                            uiOperatorSettings,
-                                                            uiOperatorInteraction,
-                                                            uiOperatorPresentation,
-                                                            uiOperatorSubmission,
-                                                            uiReplay );
+            timers.lastUIDrawCalls = renderer.RenderUiText( timers, renderModels, facts.secondsPerFrame, uiChrome,
+                                                            uiOperatorDiagnostics, uiOperatorSettings, uiOperatorInteraction,
+                                                            uiOperatorPresentation, uiOperatorSubmission, uiReplay );
         }
         PROFILE_END( host.profiler, "Frame/UI" );
     }

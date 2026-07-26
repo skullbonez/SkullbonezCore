@@ -91,6 +91,7 @@ bool SceneController::CrossScenePauseLocked() const
 
 SceneFrameProceedPolicy SceneController::BuildFrameProceedPolicy( bool stepRequested ) const
 {
+
     // Invariant: the lock can be bypassed only by the step edge sampled for
     // this frame. Callers consume proceedAllowed instead of re-deriving it.
     return ResolveSceneFrameProceedPolicy( m_crossScenePauseLocked, stepRequested );
@@ -200,15 +201,13 @@ void SceneController::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, Sc
     // Invariant: lifecycle publication is the commit edge observed by later
     // owners. Never publish a cleared or populated phase while scene metadata,
     // bodies, and colliders disagree about the live topology.
+
     if ( ( requiresEmptyTopology && ( entityCount != 0 || bodyCount != 0 || colliderCount != 0 ) ) ||
          ( requiresMatchedTopology && ( entityCount != bodyCount || entityCount != colliderCount ) ) )
     {
         SB_FATAL( "Runtime/SceneController",
                   "Scene lifecycle topology mismatch. phase=%s entities=%d bodies=%d colliders=%d",
-                  SceneRuntimeLifecycleEventName( event ),
-                  entityCount,
-                  bodyCount,
-                  colliderCount );
+                  SceneRuntimeLifecycleEventName( event ), entityCount, bodyCount, colliderCount );
     }
 
     m_runtime.RecordLifecycleEvent( event, consumers );
@@ -263,6 +262,7 @@ void SceneController::SubmitLoadBrowserIndex( int index )
     request.type = SceneRequestType::LoadBrowserIndex;
     request.index = index;
     const SkullbonezCore::Core::SbResult result = m_requests.Submit( request );
+
     if ( !result.ok )
     {
         SB_FATAL( result.error.owner, "%s", result.error.message );
@@ -275,6 +275,7 @@ void SceneController::SubmitLoadDemoScene()
     SceneRequest request;
     request.type = SceneRequestType::LoadDemoScene;
     const SkullbonezCore::Core::SbResult result = m_requests.Submit( request );
+
     if ( !result.ok )
     {
         SB_FATAL( result.error.owner, "%s", result.error.message );
@@ -282,9 +283,7 @@ void SceneController::SubmitLoadDemoScene()
 }
 
 
-void SceneController::SubmitResetCurrentScene( bool preserveUIState,
-                                               bool suppressExitOnComplete,
-                                               bool preserveRuntimeState )
+void SceneController::SubmitResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
 {
     SceneRequest request;
     request.type = SceneRequestType::ResetCurrentScene;
@@ -292,6 +291,7 @@ void SceneController::SubmitResetCurrentScene( bool preserveUIState,
     request.suppressExitOnComplete = suppressExitOnComplete;
     request.preserveRuntimeState = preserveRuntimeState;
     const SkullbonezCore::Core::SbResult result = m_requests.Submit( request );
+
     if ( !result.ok )
     {
         SB_FATAL( result.error.owner, "%s", result.error.message );
@@ -302,6 +302,7 @@ void SceneController::SubmitResetCurrentScene( bool preserveUIState,
 SkullbonezCore::Core::SbResult SceneController::SubmitCreateScene( const char* requestedName )
 {
     const std::size_t nameLength = requestedName ? strnlen_s( requestedName, SCENE_REQUEST_TEXT_CAPACITY ) : 0;
+
     if ( requestedName && nameLength >= SCENE_REQUEST_TEXT_CAPACITY )
     {
         return SkullbonezCore::Core::SbResult::Failure( "Runtime/SceneController",
@@ -311,6 +312,7 @@ SkullbonezCore::Core::SbResult SceneController::SubmitCreateScene( const char* r
 
     SceneRequest request;
     request.type = SceneRequestType::CreateScene;
+
     if ( requestedName )
     {
         strcpy_s( request.text, requestedName );
@@ -325,6 +327,7 @@ void SceneController::SubmitSaveCurrentDefaults()
     SceneRequest request;
     request.type = SceneRequestType::SaveCurrentDefaults;
     const SkullbonezCore::Core::SbResult result = m_requests.Submit( request );
+
     if ( !result.ok )
     {
         SB_FATAL( result.error.owner, "%s", result.error.message );
@@ -344,14 +347,12 @@ std::size_t SceneController::PendingRequestCount() const
 }
 
 
-SceneFrameAdvanceResult SceneController::AdvanceFrame( const SceneAutomationGateStatus& automationGates,
-                                                       bool proceedAllowed,
-                                                       bool perfTestActive,
-                                                       bool screenshotSaved,
-                                                       bool manualCameraActive,
+SceneFrameAdvanceResult SceneController::AdvanceFrame( const SceneAutomationGateStatus& automationGates, bool proceedAllowed,
+                                                       bool perfTestActive, bool screenshotSaved, bool manualCameraActive,
                                                        double elapsedSeconds )
 {
     SceneFrameAdvanceResult result;
+
     if ( !proceedAllowed )
     {
         return result;
@@ -388,6 +389,7 @@ SceneFrameAdvanceResult SceneController::AdvanceFrame( const SceneAutomationGate
     if ( hasRequiredSceneGate && requiredSceneComplete && !m_runtime.State().isTestComplete )
     {
         finishInteractiveOrQueueNext( "required_scene_gates" );
+
         if ( result.restartFrame )
         {
             return result;
@@ -398,6 +400,7 @@ SceneFrameAdvanceResult SceneController::AdvanceFrame( const SceneAutomationGate
          m_runtime.State().currentFrame >= m_runtime.State().targetFrameCount )
     {
         const bool frameCountCompletesScene = !hasRequiredSceneGate || requiredSceneComplete;
+
         if ( !m_runtime.State().isTestComplete )
         {
             result.finishReason = frameCountCompletesScene ? "frame_count" : "required_scene_gates_missing";
@@ -410,6 +413,7 @@ SceneFrameAdvanceResult SceneController::AdvanceFrame( const SceneAutomationGate
         }
 
         finishInteractiveOrQueueNext( result.finishReason ? result.finishReason : "frame_count" );
+
         if ( result.restartFrame )
         {
             return result;
@@ -418,8 +422,7 @@ SceneFrameAdvanceResult SceneController::AdvanceFrame( const SceneAutomationGate
 
     if ( !m_runtime.State().isSceneMode && !manualCameraActive && elapsedSeconds > 20.0 )
     {
-        result.loadRequest = SceneLoadRequest::Load( m_runtime.State().currentSceneIndex,
-                                                     m_runtime.State().isInteractiveRun,
+        result.loadRequest = SceneLoadRequest::Load( m_runtime.State().currentSceneIndex, m_runtime.State().isInteractiveRun,
                                                      m_runtime.State().isInteractiveRun,
                                                      m_runtime.State().isInteractiveRun );
 
@@ -433,8 +436,10 @@ SceneFrameAdvanceResult SceneController::AdvanceFrame( const SceneAutomationGate
         result.finishReason = "perf_duration";
         result.loadRequest = AdvanceScene( true, m_runtime.State().isInteractiveRun );
         result.restartFrame = true;
+
         if ( !result.loadRequest.HasLoad() )
         {
+
             if ( CanAutomationQuit() )
             {
                 result.requestQuit = true;

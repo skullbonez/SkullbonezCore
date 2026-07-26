@@ -113,6 +113,7 @@ class CollisionVisualizer
 
     static constexpr float FADE_DURATION = 0.5f;
     static constexpr int INSTANCE_FLOATS = 20;                                                                 // mat4 + rgba
+
     // Invariant: mirrors ConvexHullShape::MAX_FACES/MAX_FACE_VERTICES without
     // including the hull definition in this debug visualizer header.
     static constexpr int HULL_MAX_TRIANGLE_VERTICES = 96 * ( 16 - 2 ) * 3;
@@ -137,22 +138,16 @@ class CollisionVisualizer
 
     void BuildSphereMesh( Rendering::Dx12GeometryOwner& renderGeometry );
     void BuildBoxMesh( Rendering::Dx12GeometryOwner& renderGeometry );
-    void EnsureResources( Assets::AssetSystem& assets,
-                          Rendering::Dx12ResourceBuilder& renderResources,
+    void EnsureResources( Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources,
                           Rendering::Dx12GeometryOwner& renderGeometry );
     void AppendInstance( std::vector<float>& out, const Math::Transformation::Matrix4& model, const Color& color );
     Color ComputeModelColor( int modelIndex, const CollisionVisualizerFrameView& view ) const;
     void BuildSleepGroupSizes( const CollisionVisualizerFrameView& view );
-    void DrawInstances( Rendering::Dx12GeometryOwner& renderCommands,
-                        uint32_t mesh,
-                        int vertexCount,
-                        const std::vector<float>& instanceData,
-                        const Rendering::PassRasterStateBucket& rasterState );
+    void DrawInstances( Rendering::Dx12GeometryOwner& renderCommands, uint32_t mesh, int vertexCount,
+                        const std::vector<float>& instanceData, const Rendering::PassRasterStateBucket& rasterState );
     void DrawHullInstance( Rendering::Dx12GeometryOwner& renderCommands,
-                           const Math::CollisionDetection::ConvexHullShape& hull,
-                           const Math::Transformation::Matrix4& model,
-                           const Color& color,
-                           const Rendering::PassRasterStateBucket& rasterState );
+                           const Math::CollisionDetection::ConvexHullShape& hull, const Math::Transformation::Matrix4& model,
+                           const Color& color, const Rendering::PassRasterStateBucket& rasterState );
 
   public:
     CollisionVisualizer();
@@ -174,14 +169,10 @@ class CollisionVisualizer
     void SetAlphaOverride( float alpha );
     void ResetResources( Rendering::Dx12GeometryOwner* renderGeometry );
     void Update( float dt, const CollisionVisualizerFrameView& view );
-    void Render( Assets::AssetSystem& assets,
-                 Rendering::Dx12ResourceBuilder& renderResources,
-                 Rendering::Dx12GeometryOwner& renderGeometry,
-                 Rendering::Dx12Diagnostics& renderDiagnostics,
-                 const CollisionVisualizerFrameView& view,
-                 const Math::Transformation::Matrix4& cameraView,
-                 const Math::Transformation::Matrix4& proj,
-                 const float lightPos[4] );
+    void Render( Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources,
+                 Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12Diagnostics& renderDiagnostics,
+                 const CollisionVisualizerFrameView& view, const Math::Transformation::Matrix4& cameraView,
+                 const Math::Transformation::Matrix4& proj, const float lightPos[4] );
 };
 } // namespace Physics
 } // namespace SkullbonezCore

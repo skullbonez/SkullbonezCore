@@ -52,8 +52,10 @@ template <typename WorkFunctionT> class AmortizedTask
 
     ~AmortizedTask()
     {
+
         if ( IsInFlight() )
         {
+
             // Hazard: SubmitNoAlloc stores this object's address in the fixed
             // worker ring. Returning from destruction would turn the queued
             // callback into a use-after-free.
@@ -63,14 +65,17 @@ template <typename WorkFunctionT> class AmortizedTask
 
     void SubmitTick( WorkerPool& pool )
     {
+
         if ( IsComplete() )
         {
             return;
         }
 
         bool expected = false;
+
         if ( !m_inFlight.compare_exchange_strong( expected, true, std::memory_order_acq_rel ) )
         {
+
             // Invariant: callers may tick this every frame, but the worker owns
             // the current range until it clears m_inFlight.
             return;
@@ -91,10 +96,12 @@ template <typename WorkFunctionT> class AmortizedTask
 
     bool Reset()
     {
+
         if ( IsInFlight() )
         {
             return false;
         }
+
         m_cursor.store( 0, std::memory_order_release );
         m_complete.store( m_totalItems <= 0, std::memory_order_release );
         return true;
@@ -102,6 +109,7 @@ template <typename WorkFunctionT> class AmortizedTask
 
     float GetProgress() const
     {
+
         if ( m_totalItems <= 0 )
         {
             return 1.0f;
@@ -123,6 +131,7 @@ template <typename WorkFunctionT> class AmortizedTask
     {
         const int budget = (std::max)( 1, m_itemsPerTick.load( std::memory_order_acquire ) );
         const int begin = m_cursor.fetch_add( budget, std::memory_order_acq_rel );
+
         if ( begin >= m_totalItems )
         {
             m_complete.store( true, std::memory_order_release );
@@ -137,6 +146,7 @@ template <typename WorkFunctionT> class AmortizedTask
         {
             m_complete.store( true, std::memory_order_release );
         }
+
         m_inFlight.store( false, std::memory_order_release );
     }
 

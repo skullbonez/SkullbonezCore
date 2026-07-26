@@ -70,9 +70,11 @@ Window::Window()
 Window::~Window()
 {
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+
     // Lifetime: Run must remove the native-message borrow before its ImGui
     // context disappears. A surviving pointer would let late messages enter
     // freed vendor state during native teardown.
+
     if ( m_developmentUiInput )
     {
         SB_FATAL( "Runtime/Window", "Development UI input owner remained bound during Window destruction." );
@@ -84,6 +86,7 @@ Window::~Window()
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 void Window::BindDevelopmentUiInput( DevelopmentTools::ImGuiEditorOwner& owner )
 {
+
     if ( m_developmentUiInput && m_developmentUiInput != &owner )
     {
         SB_FATAL( "Runtime/Window", "A different development UI input owner is already bound." );
@@ -95,8 +98,10 @@ void Window::BindDevelopmentUiInput( DevelopmentTools::ImGuiEditorOwner& owner )
 
 void Window::UnbindDevelopmentUiInput( DevelopmentTools::ImGuiEditorOwner& owner )
 {
+
     if ( !m_developmentUiInput )
     {
+
         // Start may fail before the Window borrow is installed. Shutdown still
         // calls this one balanced cleanup path and has nothing to remove.
         return;
@@ -111,8 +116,8 @@ void Window::UnbindDevelopmentUiInput( DevelopmentTools::ImGuiEditorOwner& owner
 }
 
 
-DevelopmentTools::ImGuiEditorNativeMessageRoute
-Window::RouteDevelopmentUiMessage( HWND window, UINT message, WPARAM wParam, LPARAM lParam )
+DevelopmentTools::ImGuiEditorNativeMessageRoute Window::RouteDevelopmentUiMessage( HWND window, UINT message, WPARAM wParam,
+                                                                                   LPARAM lParam )
 {
     return m_developmentUiInput ? m_developmentUiInput->HandleNativeMessage( window, message, wParam, lParam )
                                 : DevelopmentTools::ImGuiEditorNativeMessageRoute {};
@@ -163,6 +168,7 @@ HDC Window::AcquireDeviceContext()
 
 void Window::ReleaseDeviceContext()
 {
+
     if ( !m_sDevice )
     {
         return;
@@ -182,12 +188,14 @@ SkullbonezCore::Core::SbResult Window::HandleScreenResize()
 
     // Hazard: minimized windows report zero client area; resizing the backend
     // to zero dimensions would invalidate swap-chain and projection state.
+
     if ( w <= 0 || h <= 0 || !m_resizeRenderFrame )
     {
         return SkullbonezCore::Core::SbResult::Success();
     }
 
     const SkullbonezCore::Core::SbResult resizeResult = m_resizeRenderFrame->Resize( w, h );
+
     if ( !resizeResult.ok )
     {
         return resizeResult;
@@ -198,9 +206,7 @@ SkullbonezCore::Core::SbResult Window::HandleScreenResize()
     // Invariant: Window owns the projection depth range after startup; resize
     // must not reopen global config while handling OS messages.
     float aspect = static_cast<float>( w ) / static_cast<float>( h );
-    projectionMatrix = Math::Transformation::Matrix4::PerspectiveZeroToOne( 45.0f,
-                                                                            aspect,
-                                                                            m_projectionNearPlane,
+    projectionMatrix = Math::Transformation::Matrix4::PerspectiveZeroToOne( 45.0f, aspect, m_projectionNearPlane,
                                                                             m_projectionFarPlane );
 
     return SkullbonezCore::Core::SbResult::Success();
@@ -214,6 +220,7 @@ void Window::ChangeToFullScreen( int xResolution, int yResolution )
     if ( !EnumDisplaySettings( nullptr, ENUM_CURRENT_SETTINGS, &dmSettings ) )
     {
         MsgBox( "Could Not Enumerate Display Settings", "Error", MB_OK );
+
         // Lane R: this boundary has no Run-owned result carrier, so publish a
         // nonzero platform code for ApplicationExitState to translate.
         PostQuitMessage( 1 );
@@ -229,9 +236,11 @@ void Window::ChangeToFullScreen( int xResolution, int yResolution )
     int result = ChangeDisplaySettings( &dmSettings, CDS_FULLSCREEN );
 
     // If we failed, quit
+
     if ( result != DISP_CHANGE_SUCCESSFUL )
     {
         MsgBox( "Display Mode Not Compatible", "Error", MB_OK );
+
         // Lane R: preserve failure at the process boundary even though Win32
         // supplies only the display-change status here.
         PostQuitMessage( 1 );
@@ -243,16 +252,19 @@ void Window::ChangeToFullScreen( int xResolution, int yResolution )
 LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
 {
     PAINTSTRUCT ps = { 0 }; // Assists with repainting the client area
+
     // Why: Win32 stores the non-owning Window address in LONG_PTR user data and
     // returns WM_CREATE payloads through LPARAM. Recover the typed owner only at
     // this WndProc ABI seam; the window object retains lifetime authority.
     Window* m_cWindow = reinterpret_cast<Window*>( GetWindowLongPtr( hWnd, GWLP_USERDATA ) );
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+
     // Concept: Dear ImGui observes the native stream first, then this value
     // decides whether the established engine input path also receives the
     // event. Window/OS lifecycle messages are never captured by editor policy.
     DevelopmentTools::ImGuiEditorNativeMessageRoute developmentUiRoute;
+
     if ( m_cWindow )
     {
         developmentUiRoute = m_cWindow->RouteDevelopmentUiMessage( hWnd, iMsg, wParam, lParam );
@@ -261,8 +273,10 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
 
     // Window callbacks cannot propagate failures through Win32. Engine-owned
     // operations invoked here use explicit result/fatal lanes.
+
     switch ( iMsg )
     {
+
     // Which message do we have to deal with today...?
     // WM_CREATE fired on window creation
     case WM_CREATE:
@@ -275,19 +289,21 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
 
     // WM_SIZE fired on a resize
     case WM_SIZE:
+
         // LoWord = m_width, HiWord = m_height
+
         if ( m_cWindow )
         {
             m_cWindow->SetWindowDimensions( LOWORD( lParam ), HIWORD( lParam ) );
             const SkullbonezCore::Core::SbResult resizeResult = m_cWindow->HandleScreenResize();
+
             if ( !resizeResult.ok )
             {
                 const char* owner = resizeResult.error.owner[0] != '\0' ? resizeResult.error.owner : "Runtime/Window";
                 const char* message = resizeResult.error.message[0] != '\0' ? resizeResult.error.message
                                                                             : "window resize failed";
 
-                SkullbonezCore::Core::Log().WriteEventf( "window_resize_failed owner=\"%s\" message=\"%s\"",
-                                                         owner,
+                SkullbonezCore::Core::Log().WriteEventf( "window_resize_failed owner=\"%s\" message=\"%s\"", owner,
                                                          message );
 
                 std::fprintf( stderr, "[window] Resize failed owner=%s reason=\"%s\"\n", owner, message );
@@ -307,11 +323,13 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
 
     case WM_MOUSEWHEEL:
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+
         if ( !developmentUiRoute.decision.engineConsumes )
         {
             break;
         }
 #endif
+
         if ( GetForegroundWindow() == hWnd )
         {
             Input::AccumulateMouseWheelDelta( hWnd, GET_WHEEL_DELTA_WPARAM( wParam ) );
@@ -321,17 +339,20 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
 
     case WM_INPUT:
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+
         if ( !developmentUiRoute.decision.engineConsumes )
         {
             break;
         }
 #endif
+
         // Why: WM_INPUT carries an HRAWINPUT token in LPARAM by Win32 contract.
         Input::AccumulateRawMouseDelta( hWnd, reinterpret_cast<HRAWINPUT>( lParam ) );
         break;
 
     case WM_SYSKEYDOWN:
     case WM_SYSKEYUP:
+
         if ( wParam == VK_MENU )
         {
             return 0;
@@ -343,6 +364,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
         return 0;
 
     case WM_SYSCOMMAND:
+
         if ( ( wParam & 0xfff0u ) == SC_KEYMENU )
         {
             return 0;
@@ -360,13 +382,16 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
 
     case WM_SETCURSOR:
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+
         if ( !developmentUiRoute.decision.engineConsumes )
         {
             return developmentUiRoute.backendResult;
         }
 #endif
+
         if ( LOWORD( lParam ) == HTCLIENT )
         {
+
             if ( GetForegroundWindow() == hWnd )
             {
                 Input::SetSystemCursorVisible( Input::IsSystemCursorVisibleRequested() );
@@ -389,6 +414,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
     }
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+
     if ( !developmentUiRoute.decision.engineConsumes )
     {
         return developmentUiRoute.backendResult;
@@ -445,8 +471,10 @@ SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE hInstance, boo
     int windowY = 0;
     const int windowW = m_startupWindowWidth;
     const int windowH = m_startupWindowHeight;
+
     if ( !m_fIsFullScreenMode )
     {
+
         // Default the window to the bottom-left of the usable desktop work area.
         // The work area excludes the taskbar, so a tall 1800x1000 window does not
         // open with its title bar hidden behind shell chrome.
@@ -464,8 +492,7 @@ SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE hInstance, boo
                          dwStyle,
                          windowX, // Window xPos
                          windowY, // Window yPos
-                         windowW,
-                         windowH,
+                         windowW, windowH,
                          nullptr,   // Parent window handle
                          nullptr,   // Window menu handle
                          hInstance, // Application instance
@@ -473,6 +500,7 @@ SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE hInstance, boo
 
     if ( !hWnd )
     {
+
         // Lane R: native window creation can fail because of the host desktop
         // environment, so startup reports the result instead of unwinding.
         return SkullbonezCore::Core::SbResult::Failure( "Runtime/Window", "Window creation failed." );
@@ -480,13 +508,16 @@ SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE hInstance, boo
 
     m_sWindow = hWnd;
     Input::BindWindow( *this );
+
     // Lifetime: bind callback-fed input queues as soon as the HWND exists so
     // later window messages cannot enqueue input against an unknown window.
     Input::BindCallbackBridge( hWnd );
+
     // Why: long-running automation still creates a real HWND and DX12 swap
     // chain so screenshots and presentation buffers follow production. The
     // hidden lane only suppresses repeated desktop demonstrations; it does not
     // switch validation to a headless or alternate renderer.
+
     if ( showOnCreate )
     {
         ShowWindow( hWnd, SW_SHOWNORMAL );
@@ -496,6 +527,7 @@ SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE hInstance, boo
     else
     {
         RECT clientDimensions = {};
+
         if ( !GetClientRect( hWnd, &clientDimensions ) || clientDimensions.right <= 0 || clientDimensions.bottom <= 0 )
         {
             return SkullbonezCore::Core::SbResult::Failure( "Runtime/Window",

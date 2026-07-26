@@ -67,7 +67,7 @@ flicker.
   same-offset queries perform one reconstruction and mutations invalidate the
   cache.
 
-- [ ] **N26-2 — Ratify and apply the owner code style.**
+- [x] **N26-2 — Ratify and apply the owner code style.**
   Add an authoritative code-style reference, wire it into contributor
   instructions, update `.clang-format` and the repository post-pass for the
   125-column/compact-parameter/comment/control-flow rules that are mechanical,
@@ -136,3 +136,10 @@ formatting, and validation finding, then create permanent closure evidence under
   gate, and performance gate passed on 2026-07-26. The authoritative scrub
   alias is deferred to the final N26-3 source state so the expensive immutable
   visual oracle runs once against the complete campaign.
+- N26-2: `Agentic/Reference/code-style-guide.md` records the owner rules;
+  `.clang-format` and the two repository post-passes enforce the 125-column,
+  compact one-to-three argument, first-argument-on-opening-line, control-flow,
+  and comment spacing rules. Continued macros and conditional signatures have
+  dedicated regression fixtures. Repository formatting is migrated, zero
+  function/call lines end with an empty `(`, and both `validate_format.bat` and
+  `validate_fast.bat` pass.

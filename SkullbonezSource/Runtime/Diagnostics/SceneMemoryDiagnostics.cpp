@@ -48,14 +48,11 @@ SkullbonezCore::Core::MainMemoryGameObjectStats CollectSceneMemoryStats( const S
     stats.colliderStoreCapacity = colliderStore.RecordCapacity();
     stats.renderStoreCapacity = view.renderInstances.RecordCapacity();
     stats.modelVectorBytes = view.renderInstances.PresentationCapacityBytes() + view.entities.CapacityBytes();
-    stats.physicsStoreBytes = static_cast<uint64_t>( bodyStore.RecordCapacity() ) *
-                                  sizeof( Physics::PhysicsBodyRecord ) +
-                              static_cast<uint64_t>(
-                                  Physics::PhysicsEngine::ReadBuoyancyFactCapacity( view.physics ) ) *
+    stats.physicsStoreBytes = static_cast<uint64_t>( bodyStore.RecordCapacity() ) * sizeof( Physics::PhysicsBodyRecord ) +
+                              static_cast<uint64_t>( Physics::PhysicsEngine::ReadBuoyancyFactCapacity( view.physics ) ) *
                                   sizeof( Physics::BuoyancyBodyFacts );
 
-    stats.colliderStoreBytes = static_cast<uint64_t>( colliderStore.RecordCapacity() ) *
-                                   sizeof( Physics::ColliderRecord ) +
+    stats.colliderStoreBytes = static_cast<uint64_t>( colliderStore.RecordCapacity() ) * sizeof( Physics::ColliderRecord ) +
                                static_cast<uint64_t>( colliderStore.AuthoringRecordCapacity() ) *
                                    sizeof( Physics::ColliderAuthoringRecord );
 
@@ -64,11 +61,12 @@ SkullbonezCore::Core::MainMemoryGameObjectStats CollectSceneMemoryStats( const S
 
     stats.physicsWorldBytes = view.physics.CollectPhysicsWorldMemoryBytes();
     stats.gameplayWorldBytes = view.gameplayWorldBytes;
+
     // Historical category semantics: debug capacity is an informational
     // subset of its owning world totals, never an extra contribution to total.
     stats.debugAndBroadphaseBytes = view.physics.CollectDebugAndBroadphaseMemoryBytes() + view.gameplayDebugBytes;
-    stats.totalBytes = stats.modelVectorBytes + stats.physicsStoreBytes + stats.colliderStoreBytes +
-                       stats.renderStoreBytes + stats.physicsWorldBytes + stats.gameplayWorldBytes;
+    stats.totalBytes = stats.modelVectorBytes + stats.physicsStoreBytes + stats.colliderStoreBytes + stats.renderStoreBytes +
+                       stats.physicsWorldBytes + stats.gameplayWorldBytes;
 
     return stats;
 }

@@ -78,54 +78,33 @@ class PhysicsForceStage
 
     void Clear();
     void ReserveBodyScratchCapacity( std::size_t capacity );
-    const Math::Vector::Vector3* PrepareMutualGravityForces( Core::Profiler* profiler,
-                                                             std::span<const PhysicsBodyRecord> bodyRecords,
-                                                             const PhysicsBodyHotFieldsConstView& hotFields,
-                                                             std::span<const uint8_t> sleepState,
-                                                             int modelCount,
-                                                             const PhysicsWorldForces& worldForces,
-                                                             const PhysicsExecutionSettings& execution,
-                                                             Threading::WorkerPool& workerPool );
+    const Math::Vector::Vector3*
+    PrepareMutualGravityForces( Core::Profiler* profiler, std::span<const PhysicsBodyRecord> bodyRecords,
+                                const PhysicsBodyHotFieldsConstView& hotFields, std::span<const uint8_t> sleepState,
+                                int modelCount, const PhysicsWorldForces& worldForces,
+                                const PhysicsExecutionSettings& execution, Threading::WorkerPool& workerPool );
     const Math::Vector::Vector3* PrepareMutualGravityForces( std::span<const PhysicsBodyRecord> bodyRecords,
                                                              const PhysicsBodyHotFieldsConstView& hotFields,
-                                                             std::span<const uint8_t> sleepState,
-                                                             int modelCount,
+                                                             std::span<const uint8_t> sleepState, int modelCount,
                                                              const PhysicsWorldForces& worldForces,
                                                              const PhysicsExecutionSettings& execution,
                                                              Threading::WorkerPool& workerPool )
     {
-        return PrepareMutualGravityForces( nullptr,
-                                           bodyRecords,
-                                           hotFields,
-                                           sleepState,
-                                           modelCount,
-                                           worldForces,
-                                           execution,
+        return PrepareMutualGravityForces( nullptr, bodyRecords, hotFields, sleepState, modelCount, worldForces, execution,
                                            workerPool );
     }
+
     // Invariant: these direct operations derive store views once, then map the
     // sleep owner's ascending awake slots without retaining any frame borrow.
-    void ApplyForces( PhysicsBodyStore& bodyStore,
-                      const ColliderStore& colliderStore,
-                      PhysicsTerrainView terrain,
-                      const PhysicsWorldForces& worldForces,
-                      std::span<const BuoyancyBodyFacts> buoyancyFacts,
-                      std::span<const uint8_t> sleepState,
-                      std::span<float> timeRemaining,
-                      const Math::Vector::Vector3* mutualGravityForces,
-                      float dt,
-                      std::span<const int> awakeBodyIndices,
-                      Threading::WorkerPool& workerPool,
-                      const PhysicsExecutionSettings& execution ) const;
-    void IntegrateRemaining( PhysicsBodyStore& bodyStore,
-                             Core::Profiler* profiler,
-                             const ColliderStore& colliderStore,
-                             PhysicsTerrainView terrain,
-                             std::span<BuoyancyBodyFacts> buoyancyFacts,
-                             std::span<const uint8_t> sleepState,
-                             std::span<const float> timeRemaining,
-                             std::span<const int> awakeBodyIndices,
-                             Threading::WorkerPool& workerPool,
+    void ApplyForces( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, PhysicsTerrainView terrain,
+                      const PhysicsWorldForces& worldForces, std::span<const BuoyancyBodyFacts> buoyancyFacts,
+                      std::span<const uint8_t> sleepState, std::span<float> timeRemaining,
+                      const Math::Vector::Vector3* mutualGravityForces, float dt, std::span<const int> awakeBodyIndices,
+                      Threading::WorkerPool& workerPool, const PhysicsExecutionSettings& execution ) const;
+    void IntegrateRemaining( PhysicsBodyStore& bodyStore, Core::Profiler* profiler, const ColliderStore& colliderStore,
+                             PhysicsTerrainView terrain, std::span<BuoyancyBodyFacts> buoyancyFacts,
+                             std::span<const uint8_t> sleepState, std::span<const float> timeRemaining,
+                             std::span<const int> awakeBodyIndices, Threading::WorkerPool& workerPool,
                              const PhysicsExecutionSettings& execution ) const;
 
     uint64_t CollectDynamicMemoryBytes() const;

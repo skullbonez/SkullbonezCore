@@ -48,6 +48,7 @@ using namespace SkullbonezCore::Geometry;
 // that the result points outward from the surface.
 Vector3 GeometricMath::ComputeTriangleNormal( const Triangle& triangle )
 {
+
     // Counter-clockwise edge order preserves the outward-facing normal.
     Vector3 edge1 = triangle.v2 - triangle.v1;
     Vector3 edge2 = triangle.v3 - triangle.v2;
@@ -56,6 +57,7 @@ Vector3 GeometricMath::ComputeTriangleNormal( const Triangle& triangle )
 
     if ( !m_normal.TryNormalise() )
     {
+
         // Fallback: a degenerate triangle has no direction-bearing plane; a
         // zero normal lets missable queries report NO_COLLISION deterministically.
         return ZERO_VECTOR;
@@ -94,24 +96,27 @@ Plane GeometricMath::ComputePlane( const Triangle& triangle )
 // Zero             → point lies on the plane
 float GeometricMath::DeterminePointDistFromPlane( const Plane& plane, const Vector3& point )
 {
+
     // Signed distance: dot(n, point) - d
     return ( plane.m_normal * point - plane.m_distance );
 }
 
 
-GeometricMath::PointPlaneClassification GeometricMath::ClassifyPointAgainstPlane( const Plane& plane,
-                                                                                  const Vector3& point )
+GeometricMath::PointPlaneClassification GeometricMath::ClassifyPointAgainstPlane( const Plane& plane, const Vector3& point )
 {
+
     // determine the m_distance the point is to the plane
     float result = GeometricMath::DeterminePointDistFromPlane( plane, point );
 
     // if the m_distance is positive the point is on the front side of the plane
+
     if ( result > 0.0f )
     {
         return PointPlaneClassification::FrontSideOfPlane;
     }
 
     // if the m_distance is negative the point is on the back side of the plane
+
     if ( result < 0.0f )
     {
         return PointPlaneClassification::BackSideOfPlane;
@@ -156,6 +161,7 @@ GeometricMath::PointPlaneClassification GeometricMath::ClassifyPointAgainstPlane
 //   means we must move *down* to reach the surface.
 float GeometricMath::GetHeightFromPlane( const Triangle& triangle, float xCoord, float zCoord )
 {
+
     // probe the XZ plane (Y = 0) to find vertical offset to terrain surface
     Vector3 point = Vector3( xCoord, 0.0f, zCoord );
 
@@ -194,12 +200,14 @@ float GeometricMath::GetHeightFromPlane( const Triangle& triangle, float xCoord,
 // dot(n, direction) = 0 → ray is parallel to plane → no intersection
 float GeometricMath::CalculateIntersectionTime( const Plane& plane, const Ray& ray )
 {
+
     // Why: malformed query geometry is caller-reachable input, not lane F.
     // Debug diagnoses misuse; Release falls through to the ordinary parallel
     // denominator path and reports NO_COLLISION.
     assert( plane.m_normal != ZERO_VECTOR && "CalculateIntersectionTime requires a non-zero plane normal" );
 
     // if the ray doesnt go anywhere then no collision will occur
+
     if ( ray.vector3.IsCloseToZero() )
     {
         return NO_COLLISION;
@@ -207,6 +215,7 @@ float GeometricMath::CalculateIntersectionTime( const Plane& plane, const Ray& r
 
     // check the m_normal and ray aren't perpendicular to each other
     float denominator = plane.m_normal * ray.vector3;
+
     if ( !denominator )
     {
         return NO_COLLISION;
@@ -347,6 +356,7 @@ Vector3 GeometricMath::ComputeBarycentricCoordinates( const Triangle& triangle, 
 
     if ( m_normal.x >= m_normal.y && m_normal.x >= m_normal.z )
     {
+
         // discard 'x' component, project onto yz plane
         v2_v0_axis1 = triangle.v1.y - triangle.v3.y; // edge 1
         v2_v0_axis2 = triangle.v1.z - triangle.v3.z; // edge 1
@@ -365,6 +375,7 @@ Vector3 GeometricMath::ComputeBarycentricCoordinates( const Triangle& triangle, 
     }
     else if ( m_normal.y >= m_normal.z )
     {
+
         // discard 'y' component, project onto xz plane
         v2_v0_axis1 = triangle.v1.z - triangle.v3.z; // edge 1
 
@@ -384,6 +395,7 @@ Vector3 GeometricMath::ComputeBarycentricCoordinates( const Triangle& triangle, 
     }
     else
     {
+
         // discard 'z' component, project onto xy plane
         v2_v0_axis1 = triangle.v1.x - triangle.v3.x; // edge 1
 
@@ -430,8 +442,7 @@ Vector3 GeometricMath::ComputeBarycentricCoordinates( const Triangle& triangle, 
     assert( denominator != 0.0f && "ComputeBarycentricCoordinates requires a non-collinear triangle" );
 
     Vector3 barycentricResult = Vector3( ( v2_p_axis2 * v2_v1_axis1 - v2_v1_axis2 * v2_p_axis1 ) / denominator,
-                                         ( v0_p_axis2 * v2_v0_axis1 - v2_v0_axis2 * v0_p_axis1 ) / -denominator,
-                                         0.0f );
+                                         ( v0_p_axis2 * v2_v0_axis1 - v2_v0_axis2 * v0_p_axis1 ) / -denominator, 0.0f );
 
     // derrive the Z component
     barycentricResult.z = 1.0f - barycentricResult.x - barycentricResult.y;

@@ -56,6 +56,7 @@ class SceneController;
 }
 namespace Runtime
 {
+
 // Returns the final scene path component without allocating. The returned
 // pointer aliases the caller-owned path string.
 const char* SceneFileNameFromPath( const char* path );
@@ -90,7 +91,8 @@ struct SceneSessionState
     bool isTestComplete = false;                // True after targetFrameCount without --exit; appends "- TEST COMPLETE" to HUD.
     bool isFinishLogged = false;                // Debug event log guard for scene completion
     bool isInteractiveRun = false;              // User/UI controlled scene flow: completion automation may hold/advance but never
-                                    // quit
+
+    // quit
     bool isEditableScene = false;               // Scene-tab-created file that should save live object state back to its scene file
     bool hasFlatSlope = false;                  // Active terrain was authored as flat_slope and can be preserved by live scene saves
     float flatBaseY = 0.0f;

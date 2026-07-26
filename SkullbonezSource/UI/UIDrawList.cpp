@@ -42,6 +42,7 @@ void UIDrawList::Clear()
     m_clipDepth = 0;
     m_suppressedClipDepth = 0;
     m_maxClipDepth = 0;
+
     if ( MAX_TEXT_BYTES > 0 )
     {
         m_text[0] = '\0';
@@ -52,6 +53,7 @@ void UIDrawList::Clear()
 void UIDrawList::AddRect( float x, float y, float w, float h, float r, float g, float b, float a )
 {
     Command* cmd = PushCommand();
+
     if ( !cmd )
     {
         return;
@@ -72,6 +74,7 @@ void UIDrawList::AddRect( float x, float y, float w, float h, float r, float g, 
 void UIDrawList::AddRoundedRect( float x, float y, float w, float h, float radius, float r, float g, float b, float a )
 {
     Command* cmd = PushCommand();
+
     if ( !cmd )
     {
         return;
@@ -90,18 +93,11 @@ void UIDrawList::AddRoundedRect( float x, float y, float w, float h, float radiu
 }
 
 
-void UIDrawList::AddTriangle( float x0,
-                              float y0,
-                              float x1,
-                              float y1,
-                              float x2,
-                              float y2,
-                              float r,
-                              float g,
-                              float b,
+void UIDrawList::AddTriangle( float x0, float y0, float x1, float y1, float x2, float y2, float r, float g, float b,
                               float a )
 {
     Command* cmd = PushCommand();
+
     if ( !cmd )
     {
         return;
@@ -124,6 +120,7 @@ void UIDrawList::AddTriangle( float x0,
 void UIDrawList::AddText( float x, float y, float pxSize, float r, float g, float b, const char* value )
 {
     Command* cmd = PushCommand();
+
     if ( !cmd )
     {
         return;
@@ -143,8 +140,10 @@ void UIDrawList::AddText( float x, float y, float pxSize, float r, float g, floa
 
 void UIDrawList::PushClip( float x, float y, float w, float h )
 {
+
     if ( m_clipDepth >= MAX_CLIP_DEPTH )
     {
+
         // Invariant: every rejected push still owns its matching pop. Tracking
         // that logical depth prevents an overflow pair from un-clipping the
         // deepest retained outer rectangle.
@@ -154,6 +153,7 @@ void UIDrawList::PushClip( float x, float y, float w, float h )
     }
 
     Command* command = PushCommand();
+
     if ( !command )
     {
         return;
@@ -171,6 +171,7 @@ void UIDrawList::PushClip( float x, float y, float w, float h )
 
 void UIDrawList::PopClip()
 {
+
     if ( m_suppressedClipDepth > 0 )
     {
         --m_suppressedClipDepth;
@@ -184,6 +185,7 @@ void UIDrawList::PopClip()
     }
 
     Command* command = PushCommand();
+
     if ( !command )
     {
         return;
@@ -194,18 +196,11 @@ void UIDrawList::PopClip()
 }
 
 
-void UIDrawList::AddPreviewImage( PreviewTargetId target,
-                                  float x,
-                                  float y,
-                                  float w,
-                                  float h,
-                                  float fallbackR,
-                                  float fallbackG,
-                                  float fallbackB,
-                                  float fallbackA,
-                                  const char* fallbackLabel )
+void UIDrawList::AddPreviewImage( PreviewTargetId target, float x, float y, float w, float h, float fallbackR,
+                                  float fallbackG, float fallbackB, float fallbackA, const char* fallbackLabel )
 {
     Command* command = PushCommand();
+
     if ( !command )
     {
         return;
@@ -227,53 +222,29 @@ void UIDrawList::AddPreviewImage( PreviewTargetId target,
 
 void UIDrawList::Append( const UIDrawList& source, float offsetX, float offsetY )
 {
+
     for ( const Command& command : source.Commands() )
     {
+
         switch ( command.type )
         {
         case CommandType::Rect:
-            AddRect( command.x0 + offsetX,
-                     command.y0 + offsetY,
-                     command.w,
-                     command.h,
-                     command.r,
-                     command.g,
-                     command.b,
+            AddRect( command.x0 + offsetX, command.y0 + offsetY, command.w, command.h, command.r, command.g, command.b,
                      command.a );
 
             break;
         case CommandType::RoundedRect:
-            AddRoundedRect( command.x0 + offsetX,
-                            command.y0 + offsetY,
-                            command.w,
-                            command.h,
-                            command.radius,
-                            command.r,
-                            command.g,
-                            command.b,
-                            command.a );
+            AddRoundedRect( command.x0 + offsetX, command.y0 + offsetY, command.w, command.h, command.radius, command.r,
+                            command.g, command.b, command.a );
 
             break;
         case CommandType::Triangle:
-            AddTriangle( command.x0 + offsetX,
-                         command.y0 + offsetY,
-                         command.x1 + offsetX,
-                         command.y1 + offsetY,
-                         command.x2 + offsetX,
-                         command.y2 + offsetY,
-                         command.r,
-                         command.g,
-                         command.b,
-                         command.a );
+            AddTriangle( command.x0 + offsetX, command.y0 + offsetY, command.x1 + offsetX, command.y1 + offsetY,
+                         command.x2 + offsetX, command.y2 + offsetY, command.r, command.g, command.b, command.a );
 
             break;
         case CommandType::Text:
-            AddText( command.x0 + offsetX,
-                     command.y0 + offsetY,
-                     command.pxSize,
-                     command.r,
-                     command.g,
-                     command.b,
+            AddText( command.x0 + offsetX, command.y0 + offsetY, command.pxSize, command.r, command.g, command.b,
                      source.TextAt( command.textOffset ) );
 
             break;
@@ -284,16 +255,8 @@ void UIDrawList::Append( const UIDrawList& source, float offsetX, float offsetY 
             PopClip();
             break;
         case CommandType::PreviewImage:
-            AddPreviewImage( command.preview,
-                             command.x0 + offsetX,
-                             command.y0 + offsetY,
-                             command.w,
-                             command.h,
-                             command.r,
-                             command.g,
-                             command.b,
-                             command.a,
-                             source.TextAt( command.textOffset ) );
+            AddPreviewImage( command.preview, command.x0 + offsetX, command.y0 + offsetY, command.w, command.h, command.r,
+                             command.g, command.b, command.a, source.TextAt( command.textOffset ) );
 
             break;
         }
@@ -362,6 +325,7 @@ uint64_t UIDrawList::Fingerprint() const
 
     auto addText = [&]( const char* value )
     {
+
         for ( const unsigned char* cursor = reinterpret_cast<const unsigned char*>( value ); *cursor; ++cursor )
         {
             addByte( *cursor );
@@ -371,6 +335,7 @@ uint64_t UIDrawList::Fingerprint() const
     };
 
     addUint32( static_cast<uint32_t>( m_commandCount ) );
+
     for ( const Command& command : Commands() )
     {
         addByte( static_cast<uint8_t>( command.type ) );
@@ -390,6 +355,7 @@ uint64_t UIDrawList::Fingerprint() const
         addFloat( command.a );
         addUint32( command.preview.catalogIndex );
         addByte( command.preview.valid ? 1u : 0u );
+
         if ( command.type == CommandType::Text || command.type == CommandType::PreviewImage )
         {
             addText( TextAt( command.textOffset ) );
@@ -402,6 +368,7 @@ uint64_t UIDrawList::Fingerprint() const
 
 UIDrawList::Command* UIDrawList::PushCommand()
 {
+
     if ( m_commandCount >= MAX_COMMANDS )
     {
         m_commandOverflow = true;
@@ -417,6 +384,7 @@ UIDrawList::Command* UIDrawList::PushCommand()
 
 int UIDrawList::StoreText( const char* value )
 {
+
     if ( !value )
     {
         value = "";
@@ -424,9 +392,11 @@ int UIDrawList::StoreText( const char* value )
 
     const int offset = m_textBytes;
     int remaining = MAX_TEXT_BYTES - m_textBytes;
+
     if ( remaining <= 1 )
     {
         m_textOverflow = true;
+
         if ( MAX_TEXT_BYTES > 0 )
         {
             m_text[MAX_TEXT_BYTES - 1] = '\0';
@@ -437,6 +407,7 @@ int UIDrawList::StoreText( const char* value )
     }
 
     int copied = 0;
+
     while ( copied < remaining - 1 && value[copied] != '\0' )
     {
         m_text[offset + copied] = value[copied];

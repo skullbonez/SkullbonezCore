@@ -74,6 +74,7 @@ struct ReplayTrajectorySubmissionProbeStats
     uint32_t segmentCount = 0;
     uint64_t reserveGrowthEventsAtStart = 0;
     uint64_t reserveGrowthEventsAtEnd = 0;
+
     // Invariant: readiness may become true during a publication but cannot
     // regress while the target/source publication key remains unchanged.
     uint64_t presentationTargetId = 0;
@@ -109,55 +110,39 @@ class ReplayPredictionPresentation
     }
 
     void ReserveRecordingBuffers();
-    bool BuildFocusModelMask( const RunReplayPathVisualizerState& path,
-                              const Physics::PhysicsBodyStore& bodyStore,
-                              int modelCount,
-                              std::span<const RunReplayPathTraceNode> futureNodes );
-    bool ApplyFrameForRender( Rendering::RenderInstanceStore& renderInstances,
-                              const Physics::PhysicsBodyStore& bodyStore,
-                              const Physics::ColliderStore& colliderStore,
-                              const RunReplayPredictionFrame& frame );
+    bool BuildFocusModelMask( const RunReplayPathVisualizerState& path, const Physics::PhysicsBodyStore& bodyStore,
+                              int modelCount, std::span<const RunReplayPathTraceNode> futureNodes );
+    bool ApplyFrameForRender( Rendering::RenderInstanceStore& renderInstances, const Physics::PhysicsBodyStore& bodyStore,
+                              const Physics::ColliderStore& colliderStore, const RunReplayPredictionFrame& frame );
     bool BuildGhostDrawRequests( const ReplayPredictionPresentationView& prediction,
                                  std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
                                  const Physics::PhysicsBodyStore& bodyStore );
+
     // Owns the retained append-only trajectory list and its publication cursor.
     // The frame tracer receives provisional tails only; no draw-list state
     // escapes back to Runtime/App.
     bool PrepareRetainedGeometryDrawList( const ReplayPredictionPresentationView& prediction,
-                                          const RunReplayPathVisualizerState& path,
-                                          const SceneEntityStore& entities,
-                                          const Physics::ColliderStore& colliderStore,
-                                          EditorTracer& frameTracer,
+                                          const RunReplayPathVisualizerState& path, const SceneEntityStore& entities,
+                                          const Physics::ColliderStore& colliderStore, EditorTracer& frameTracer,
                                           const Core::ReplayTrajectoryAppearanceConfig& trajectoryAppearance );
-    void AttachRetainedPredictionGeometry( ReplayVisualPacket& packet,
-                                           const Math::Vector::Vector3& cameraEye,
+    void AttachRetainedPredictionGeometry( ReplayVisualPacket& packet, const Math::Vector::Vector3& cameraEye,
                                            const Math::Vector::Vector3& cameraUp );
-    void PublishVisualPacket( ReplayVisualPacket packet,
-                              const ReplayPredictionPresentationView& prediction,
-                              Physics::PhysicsSceneObjectId pathTargetId,
-                              const ReplaySolverFrameSample* latestSolver,
+    void PublishVisualPacket( ReplayVisualPacket packet, const ReplayPredictionPresentationView& prediction,
+                              Physics::PhysicsSceneObjectId pathTargetId, const ReplaySolverFrameSample* latestSolver,
                               uint64_t replayReserveGrowthEvents );
-    void RenderPathVisualizer( const ReplayPredictionPresentationView& prediction,
-                               const RunReplayPathVisualizerState& path,
-                               const ReplaySolverFrameSample* presentSample,
-                               Physics::PhysicsEngine& physics,
-                               const SceneEntityStore& entities,
-                               EditorTracer& tracer,
-                               bool drawPredictionOverlay = true );
-    void RenderCauseFocusOverlay( const RunReplayCameraState& camera,
-                                  const RunReplayCauseTreeState& causeTree,
+    void RenderPathVisualizer( const ReplayPredictionPresentationView& prediction, const RunReplayPathVisualizerState& path,
+                               const ReplaySolverFrameSample* presentSample, Physics::PhysicsEngine& physics,
+                               const SceneEntityStore& entities, EditorTracer& tracer, bool drawPredictionOverlay = true );
+    void RenderCauseFocusOverlay( const RunReplayCameraState& camera, const RunReplayCauseTreeState& causeTree,
                                   const ReplayPredictionPresentationView& prediction,
                                   const ReplaySolverFrameSample* currentSolverSample,
-                                  const Physics::PhysicsBodyStore& bodyStore,
-                                  const Physics::ColliderStore& colliderStore,
-                                  const SceneEntityStore& entities,
-                                  EditorTracer& tracer );
+                                  const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore,
+                                  const SceneEntityStore& entities, EditorTracer& tracer );
     void ResetTrajectoryVisualStats() noexcept;
     void RecordTrajectoryFrameStats( const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& frameStats );
-    void RecordTrajectorySubmissionFrame(
-        const SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats& submissionStats,
-        int frameNumber,
-        uint64_t reserveGrowthEventCount );
+    void
+    RecordTrajectorySubmissionFrame( const SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats& submissionStats,
+                                     int frameNumber, uint64_t reserveGrowthEventCount );
     void RecordTrajectoryBudgetExpiry( SkullbonezCore::Core::MainMemoryReplayBudgetPass pass );
     void RecordTrajectoryRebuildCause( SkullbonezCore::Core::MainMemoryReplayRebuildCause cause );
 
@@ -177,6 +162,7 @@ class ReplayPredictionPresentation
     std::vector<ReplayPredictionGhostDrawRequest> m_ghostDrawRequests;
     std::vector<uint8_t> m_focusModelMask;
     std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_renderPoseBodyMatched = {};
+
     // Invariant: these fields are the sole retained Prediction trajectory
     // presentation state. App may sequence commands but cannot mutate cursors.
     ReplayOverlay::ReplayPredictionRetainedGeometry m_retainedGeometry;

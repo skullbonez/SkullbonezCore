@@ -27,31 +27,33 @@ Related:
 
 namespace SkullbonezCore::Runtime
 {
-inline constexpr std::array<ReplayGrowthOwnerPolicy, 3> REPLAY_GROWTH_OWNER_POLICIES = {
-    REPLAY_CORE_GROWTH_OWNER_POLICIES[0],
-    REPLAY_CORE_GROWTH_OWNER_POLICIES[1],
-    REPLAY_PREDICTION_GROWTH_OWNER_POLICY };
+inline constexpr std::array<ReplayGrowthOwnerPolicy, 3> REPLAY_GROWTH_OWNER_POLICIES = { REPLAY_CORE_GROWTH_OWNER_POLICIES[0], REPLAY_CORE_GROWTH_OWNER_POLICIES[1], REPLAY_PREDICTION_GROWTH_OWNER_POLICY };
 
 inline const ReplayGrowthOwnerPolicy* FindReplayGrowthOwnerPolicy( const char* ownerName ) noexcept
 {
+
     if ( !ownerName )
     {
         return nullptr;
     }
+
     for ( const ReplayGrowthOwnerPolicy& policy : REPLAY_GROWTH_OWNER_POLICIES )
     {
         const char* lhs = policy.ownerName;
         const char* rhs = ownerName;
+
         while ( *lhs != '\0' && *lhs == *rhs )
         {
             ++lhs;
             ++rhs;
         }
+
         if ( *lhs == '\0' && *rhs == '\0' )
         {
             return &policy;
         }
     }
+
     return nullptr;
 }
 } // namespace SkullbonezCore::Runtime

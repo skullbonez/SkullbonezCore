@@ -5,6 +5,7 @@ Purpose:
 
 Summary:
   PhysicsBroadphaseStage incrementally maintains persistent spatial membership
+
   for one fixed tick, overlays conservative fast sweeps, visits only cells
   reached by awake bodies in production, and exposes its retained candidate span
   to later stages. Collision-cell keys share this owner because they use the
@@ -79,8 +80,10 @@ class PhysicsBroadphaseStage
     float m_largestBroadphaseRadius = 0.0f;
     bool m_largestBroadphaseRadiusValid = false;
 #if defined( _DEBUG )
+
     // Debug-only bounded evidence for pairs now suppressed at grid emission.
     std::vector<std::pair<int, int>> m_sleepPrunedPairs;
+
     // P1 same-state transition oracle. These buffers are construction-reserved,
     // included in Debug memory accounting, and absent from Release's canonical
     // production path.
@@ -98,25 +101,22 @@ class PhysicsBroadphaseStage
     void Clear();
     void InvalidateBodyTopology();
     void ResetTransientAfterReplayRestore();
+
     // Lifetime: every argument is borrowed for this synchronous fixed-step
     // call; only the stage-owned grid and bounded result buffers are retained.
-    std::span<const std::pair<int, int>> Run( const PhysicsBodyStore& bodyStore,
-                                              const ColliderStore& colliderStore,
+    std::span<const std::pair<int, int>> Run( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                                               const BroadphaseSettings& broadphaseSettings,
                                               const std::vector<PointJointConstraint>& pointJointConstraints,
-                                              std::span<const uint8_t> sleepState,
-                                              std::span<const int> awakeBodyIndices,
-                                              PhysicsStepDiagnostics& stepDiagnostics,
-                                              float dt,
-                                              float contactSkin,
-                                              float contactEpsilon,
-                                              Core::Profiler* profiler );
+                                              std::span<const uint8_t> sleepState, std::span<const int> awakeBodyIndices,
+                                              PhysicsStepDiagnostics& stepDiagnostics, float dt, float contactSkin,
+                                              float contactEpsilon, Core::Profiler* profiler );
 
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const;
     float GetCellSize() const;
     std::span<const std::pair<int, int>> GetCandidatePairs() const;
     const std::vector<int64_t>& GetCollisionCellKeys() const;
     const std::vector<int64_t>& CollisionCellKeysForReplay() const;
+
     // Lifetime: replay restore mutates this construction-reserved buffer only
     // during the synchronous owner restore sequence; the reference is not retained.
     std::vector<int64_t>& CollisionCellKeysForReplay();

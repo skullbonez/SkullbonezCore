@@ -45,15 +45,19 @@ using AuthoredSceneParserDetail::RequireObject;
 
 void AuthoredSceneParser::ApplyPlayback( const Json& playback, const std::string& path )
 {
+
     // Concept: playback fields are deterministic-run policy, not presentation
     // hints. Fixed-step and completion settings therefore remain authored scene
     // state and are validated before the runtime sees them.
     RequireObject( playback, path, "playback" );
+
     if ( const Json* frames = FindMember( playback, "frames" ) )
     {
+
         if ( frames->is_string() )
         {
             const std::string value = Lowercase( frames->get<std::string>() );
+
             if ( value != "unlimited" )
             {
                 Fail( path, "playback.frames string value must be 'unlimited'" );
@@ -75,9 +79,7 @@ void AuthoredSceneParser::ApplyPlayback( const Json& playback, const std::string
 
     if ( const Json* pauseSnapshotState = FindMember( playback, "pauseSnapshotState" ) )
     {
-        m_scene.m_sceneOptions.pauseSnapshotState = ReadBool( *pauseSnapshotState,
-                                                              path,
-                                                              "playback.pauseSnapshotState" );
+        m_scene.m_sceneOptions.pauseSnapshotState = ReadBool( *pauseSnapshotState, path, "playback.pauseSnapshotState" );
     }
 
     if ( const Json* exitOnComplete = FindMember( playback, "exitOnComplete" ) )
@@ -88,6 +90,7 @@ void AuthoredSceneParser::ApplyPlayback( const Json& playback, const std::string
     if ( const Json* trackHeight = FindMember( playback, "trackHeight" ) )
     {
         const float value = ReadFloat( *trackHeight, path, "playback.trackHeight" );
+
         if ( value <= 0.0f )
         {
             Fail( path, "playback.trackHeight must be > 0" );
@@ -99,6 +102,7 @@ void AuthoredSceneParser::ApplyPlayback( const Json& playback, const std::string
     if ( const Json* autoCycle = FindMember( playback, "autoCycleInterval" ) )
     {
         const float value = ReadFloat( *autoCycle, path, "playback.autoCycleInterval" );
+
         if ( value <= 0.0f )
         {
             Fail( path, "playback.autoCycleInterval must be > 0" );
@@ -111,20 +115,22 @@ void AuthoredSceneParser::ApplyPlayback( const Json& playback, const std::string
 Physics::MutualGravitySettings AuthoredSceneParser::ReadMutualGravitySettings( const Json& mutualGravity,
                                                                                const std::string& path )
 {
+
     // Invariant: an enabled gravity model must arrive complete and physically
     // bounded; accepting partial values would make defaults machine-dependent.
     RequireObject( mutualGravity, path, "simulation.world.mutualGravity" );
     Physics::MutualGravitySettings settings;
+
     if ( const Json* enabled = FindMember( mutualGravity, "enabled" ) )
     {
         settings.enabled = ReadBool( *enabled, path, "simulation.world.mutualGravity.enabled" );
     }
 
     const Json* gravitationalConstant = FindMember( mutualGravity, "gravitationalConstant" );
+
     if ( gravitationalConstant )
     {
-        settings.gravitationalConstant = ReadFloat( *gravitationalConstant,
-                                                    path,
+        settings.gravitationalConstant = ReadFloat( *gravitationalConstant, path,
                                                     "simulation.world.mutualGravity.gravitationalConstant" );
     }
     else if ( settings.enabled )
@@ -133,11 +139,10 @@ Physics::MutualGravitySettings AuthoredSceneParser::ReadMutualGravitySettings( c
     }
 
     const Json* softeningLength = FindMember( mutualGravity, "softeningLength" );
+
     if ( softeningLength )
     {
-        settings.softeningLength = ReadFloat( *softeningLength,
-                                              path,
-                                              "simulation.world.mutualGravity.softeningLength" );
+        settings.softeningLength = ReadFloat( *softeningLength, path, "simulation.world.mutualGravity.softeningLength" );
     }
     else if ( settings.enabled )
     {
@@ -146,8 +151,7 @@ Physics::MutualGravitySettings AuthoredSceneParser::ReadMutualGravitySettings( c
 
     if ( const Json* elasticCollisions = FindMember( mutualGravity, "elasticCollisions" ) )
     {
-        settings.elasticCollisions = ReadBool( *elasticCollisions,
-                                               path,
+        settings.elasticCollisions = ReadBool( *elasticCollisions, path,
                                                "simulation.world.mutualGravity.elasticCollisions" );
     }
 
@@ -167,6 +171,7 @@ Physics::MutualGravitySettings AuthoredSceneParser::ReadMutualGravitySettings( c
 void AuthoredSceneParser::ApplySimulation( const Json& simulation, const std::string& path )
 {
     RequireObject( simulation, path, "simulation" );
+
     if ( const Json* physics = FindMember( simulation, "physics" ) )
     {
         m_scene.m_sceneOptions.isPhysicsEnabled = ReadBool( *physics, path, "simulation.physics" );
@@ -190,6 +195,7 @@ void AuthoredSceneParser::ApplySimulation( const Json& simulation, const std::st
     if ( const Json* timeScale = FindMember( simulation, "timeScale" ) )
     {
         const float value = ReadFloat( *timeScale, path, "simulation.timeScale" );
+
         if ( value <= 0.0f )
         {
             Fail( path, "simulation.timeScale must be > 0" );
@@ -201,6 +207,7 @@ void AuthoredSceneParser::ApplySimulation( const Json& simulation, const std::st
     if ( const Json* solverBalls = FindMember( simulation, "solverBalls" ) )
     {
         const int value = ReadInt( *solverBalls, path, "simulation.solverBalls" );
+
         if ( value < 0 )
         {
             Fail( path, "simulation.solverBalls must be >= 0" );
@@ -212,6 +219,7 @@ void AuthoredSceneParser::ApplySimulation( const Json& simulation, const std::st
     if ( const Json* solverBoxes = FindMember( simulation, "solverBoxes" ) )
     {
         const int value = ReadInt( *solverBoxes, path, "simulation.solverBoxes" );
+
         if ( value < 0 )
         {
             Fail( path, "simulation.solverBoxes must be >= 0" );
@@ -223,6 +231,7 @@ void AuthoredSceneParser::ApplySimulation( const Json& simulation, const std::st
     if ( const Json* modelCapacity = FindMember( simulation, "modelCapacity" ) )
     {
         const int value = ReadInt( *modelCapacity, path, "simulation.modelCapacity" );
+
         if ( value <= 0 || value > SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS )
         {
             Fail( path, "simulation.modelCapacity is out of range" );
@@ -234,6 +243,7 @@ void AuthoredSceneParser::ApplySimulation( const Json& simulation, const std::st
     if ( const Json* workerThreads = FindMember( simulation, "workerThreads" ) )
     {
         const int value = ReadInt( *workerThreads, path, "simulation.workerThreads" );
+
         if ( value < -1 || value > MaxConfigurableWorkerThreadCount() )
         {
             Fail( path, "simulation.workerThreads is out of range" );
@@ -246,19 +256,16 @@ void AuthoredSceneParser::ApplySimulation( const Json& simulation, const std::st
     {
         RequireObject( *world, path, "simulation.world" );
         m_scene.m_worldOverride.hasWorldOverride = true;
-        m_scene.m_worldOverride.worldGravity = ReadFloat( RequireMember( *world, path, "simulation.world", "gravity" ),
-                                                          path,
+        m_scene.m_worldOverride.worldGravity = ReadFloat( RequireMember( *world, path, "simulation.world", "gravity" ), path,
                                                           "simulation.world.gravity" );
 
-        m_scene.m_worldOverride.worldFluidHeight = ReadFloat(
-            RequireMember( *world, path, "simulation.world", "fluidHeight" ),
-            path,
-            "simulation.world.fluidHeight" );
+        m_scene.m_worldOverride.worldFluidHeight = ReadFloat( RequireMember( *world, path, "simulation.world",
+                                                                             "fluidHeight" ),
+                                                              path, "simulation.world.fluidHeight" );
 
-        m_scene.m_worldOverride.worldFluidDensity = ReadFloat(
-            RequireMember( *world, path, "simulation.world", "fluidDensity" ),
-            path,
-            "simulation.world.fluidDensity" );
+        m_scene.m_worldOverride.worldFluidDensity = ReadFloat( RequireMember( *world, path, "simulation.world",
+                                                                              "fluidDensity" ),
+                                                               path, "simulation.world.fluidDensity" );
 
         if ( const Json* mutualGravity = FindMember( *world, "mutualGravity" ) )
         {
@@ -267,12 +274,10 @@ void AuthoredSceneParser::ApplySimulation( const Json& simulation, const std::st
     }
 }
 
-void AuthoredSceneParser::ApplyTornadoFloat( const Json& source,
-                                             const std::string& path,
-                                             const char* memberName,
-                                             float& target,
-                                             float minimum )
+void AuthoredSceneParser::ApplyTornadoFloat( const Json& source, const std::string& path, const char* memberName,
+                                             float& target, float minimum )
 {
+
     if ( const Json* value = FindMember( source, memberName ) )
     {
         const std::string context = std::string( "tornadoSystem." ) + memberName;
@@ -280,30 +285,22 @@ void AuthoredSceneParser::ApplyTornadoFloat( const Json& source,
     }
 }
 
-void AuthoredSceneParser::ApplyTornadoVortex( const Json& object,
-                                              const std::string& path,
+void AuthoredSceneParser::ApplyTornadoVortex( const Json& object, const std::string& path,
                                               AuthoredTornadoSystemConfig& system )
 {
     RequireObject( object, path, "tornadoSystem.vortices[]" );
     AuthoredTornadoVortexConfig vortex;
     vortex.field.enabled = true;
+
     if ( const Json* center = FindMember( object, "center" ) )
     {
-        ReadVec3( *center,
-                  path,
-                  "tornadoSystem.vortices[].center",
-                  vortex.field.center.x,
-                  vortex.field.center.y,
+        ReadVec3( *center, path, "tornadoSystem.vortices[].center", vortex.field.center.x, vortex.field.center.y,
                   vortex.field.center.z );
     }
     else
     {
-        ReadVec3( RequireMember( object, path, "tornadoSystem.vortices[]", "position" ),
-                  path,
-                  "tornadoSystem.vortices[].position",
-                  vortex.field.center.x,
-                  vortex.field.center.y,
-                  vortex.field.center.z );
+        ReadVec3( RequireMember( object, path, "tornadoSystem.vortices[]", "position" ), path,
+                  "tornadoSystem.vortices[].position", vortex.field.center.x, vortex.field.center.y, vortex.field.center.z );
     }
 
     if ( const Json* enabled = FindMember( object, "enabled" ) )
@@ -318,8 +315,7 @@ void AuthoredSceneParser::ApplyTornadoVortex( const Json& object,
 
     if ( const Json* spawnSeconds = FindMember( object, "spawnSeconds" ) )
     {
-        vortex.spawnSeconds = (std::max)( 0.0f,
-                                          ReadFloat( *spawnSeconds, path, "tornadoSystem.vortices[].spawnSeconds" ) );
+        vortex.spawnSeconds = (std::max)( 0.0f, ReadFloat( *spawnSeconds, path, "tornadoSystem.vortices[].spawnSeconds" ) );
     }
 
     if ( const Json* ttl = FindMember( object, "ttl" ) )
@@ -329,16 +325,13 @@ void AuthoredSceneParser::ApplyTornadoVortex( const Json& object,
 
     if ( const Json* timeToLive = FindMember( object, "timeToLive" ) )
     {
-        vortex.timeToLiveSeconds = (std::max)( 0.0f,
-                                               ReadFloat( *timeToLive, path, "tornadoSystem.vortices[].timeToLive" ) );
+        vortex.timeToLiveSeconds = (std::max)( 0.0f, ReadFloat( *timeToLive, path, "tornadoSystem.vortices[].timeToLive" ) );
     }
 
     if ( const Json* timeToLiveSeconds = FindMember( object, "timeToLiveSeconds" ) )
     {
-        vortex.timeToLiveSeconds = (std::max)( 0.0f,
-                                               ReadFloat( *timeToLiveSeconds,
-                                                          path,
-                                                          "tornadoSystem.vortices[].timeToLiveSeconds" ) );
+        vortex.timeToLiveSeconds = (std::max)( 0.0f, ReadFloat( *timeToLiveSeconds, path,
+                                                                "tornadoSystem.vortices[].timeToLiveSeconds" ) );
     }
 
     ApplyTornadoFloat( object, path, "growSeconds", vortex.growSeconds, 0.0f );
@@ -359,11 +352,10 @@ void AuthoredSceneParser::ApplyTornadoVortex( const Json& object,
     ApplyTornadoFloat( object, path, "minCaptureSeconds", vortex.field.minCaptureSeconds, 0.0f );
     ApplyTornadoFloat( object, path, "ejectCooldownSeconds", vortex.field.ejectCooldownSeconds, 0.0f );
     ApplyTornadoFloat( object, path, "maxDeltaVelocity", vortex.field.maxDeltaVelocity, 1.0f );
+
     if ( const Json* vectors = FindMember( object, "visualizeVelocityField" ) )
     {
-        vortex.field.visualizeVelocityField = ReadBool( *vectors,
-                                                        path,
-                                                        "tornadoSystem.vortices[].visualizeVelocityField" );
+        vortex.field.visualizeVelocityField = ReadBool( *vectors, path, "tornadoSystem.vortices[].visualizeVelocityField" );
     }
 
     system.vortices.push_back( vortex );
@@ -374,6 +366,7 @@ void AuthoredSceneParser::ApplyTornadoSystem( const Json& tornadoSystem, const s
     RequireObject( tornadoSystem, path, "tornadoSystem" );
     AuthoredTornadoSystemConfig system;
     system.enabled = true;
+
     if ( const Json* enabled = FindMember( tornadoSystem, "enabled" ) )
     {
         system.enabled = ReadBool( *enabled, path, "tornadoSystem.enabled" );
@@ -386,13 +379,14 @@ void AuthoredSceneParser::ApplyTornadoSystem( const Json& tornadoSystem, const s
 
     const Json& vortices = RequireMember( tornadoSystem, path, "tornadoSystem", "vortices" );
     RequireArray( vortices, path, "tornadoSystem.vortices" );
+
     if ( vortices.size() > MAX_AUTHORED_TORNADO_VORTICES )
     {
+
         // Lane R: authored input must fail before TornadoGameplay sees a value
         // that would exhaust its fixed steady-gameplay force-field storage.
-        Fail( path,
-              "Gameplay.TornadoGameplay tornadoSystem.vortices requested " + std::to_string( vortices.size() ) +
-                  ", capacity is " + std::to_string( MAX_AUTHORED_TORNADO_VORTICES ) );
+        Fail( path, "Gameplay.TornadoGameplay tornadoSystem.vortices requested " + std::to_string( vortices.size() ) +
+                        ", capacity is " + std::to_string( MAX_AUTHORED_TORNADO_VORTICES ) );
     }
 
     for ( const Json& vortex : vortices )
@@ -412,6 +406,7 @@ void AuthoredSceneParser::ApplyTornadoSystem( const Json& tornadoSystem, const s
 void AuthoredSceneParser::ApplyRuntime( const Json& runtime, const std::string& path )
 {
     RequireObject( runtime, path, "runtime" );
+
     if ( const Json* vsync = FindMember( runtime, "vsync" ) )
     {
         m_scene.m_runtimeOverrides.hasVsyncOverride = true;
@@ -428,12 +423,12 @@ void AuthoredSceneParser::ApplyRuntime( const Json& runtime, const std::string& 
 void AuthoredSceneParser::ApplyCapture( const Json& capture, const std::string& path )
 {
     RequireObject( capture, path, "capture" );
+
     if ( const Json* screenshot = FindMember( capture, "screenshot" ) )
     {
         RequireObject( *screenshot, path, "capture.screenshot" );
         CopyStringField( m_scene.m_captureOptions.screenshotPath,
-                         ReadString( RequireMember( *screenshot, path, "capture.screenshot", "path" ),
-                                     path,
+                         ReadString( RequireMember( *screenshot, path, "capture.screenshot", "path" ), path,
                                      "capture.screenshot.path" ) );
 
         if ( const Json* frame = FindMember( *screenshot, "frame" ) )
@@ -457,12 +452,11 @@ void AuthoredSceneParser::ApplyCapture( const Json& capture, const std::string& 
     if ( const Json* interval = FindMember( capture, "interval" ) )
     {
         RequireObject( *interval, path, "capture.interval" );
-        CopyStringField(
-            m_scene.m_captureOptions.screenshotDir,
-            ReadString( RequireMember( *interval, path, "capture.interval", "dir" ), path, "capture.interval.dir" ) );
+        CopyStringField( m_scene.m_captureOptions.screenshotDir,
+                         ReadString( RequireMember( *interval, path, "capture.interval", "dir" ), path,
+                                     "capture.interval.dir" ) );
 
-        const int frames = ReadInt( RequireMember( *interval, path, "capture.interval", "frames" ),
-                                    path,
+        const int frames = ReadInt( RequireMember( *interval, path, "capture.interval", "frames" ), path,
                                     "capture.interval.frames" );
 
         if ( frames <= 0 )
@@ -477,6 +471,7 @@ void AuthoredSceneParser::ApplyCapture( const Json& capture, const std::string& 
 void AuthoredSceneParser::ApplyLogging( const Json& logging, const std::string& path )
 {
     RequireObject( logging, path, "logging" );
+
     if ( const Json* perfLog = FindMember( logging, "perfLog" ) )
     {
         CopyStringField( m_scene.m_loggingOptions.perfLogPath, ReadString( *perfLog, path, "logging.perfLog" ) );

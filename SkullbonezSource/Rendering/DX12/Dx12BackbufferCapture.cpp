@@ -42,14 +42,15 @@ Dx12BackbufferCapture::Dx12BackbufferCapture( Dx12CaptureFrame& frame, const Dx1
 }
 
 
-SkullbonezCore::Core::SbResult
-Dx12BackbufferCapture::CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& outWidth, int& outHeight )
+SkullbonezCore::Core::SbResult Dx12BackbufferCapture::CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& outWidth,
+                                                                         int& outHeight )
 {
     Dx12CaptureFrame& frame = m_frame;
     const int width = m_device.Width();
     const int height = m_device.Height();
     outPixels.clear();
     const SkullbonezCore::Core::SbResult openResult = frame.EnsureOpen();
+
     if ( !openResult.ok )
     {
         return openResult;
@@ -61,8 +62,10 @@ Dx12BackbufferCapture::CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& 
     ID3D12Device* device = frame.Device();
     ID3D12GraphicsCommandList* commandList = frame.CommandList();
     ID3D12Resource* backbuffer = frame.BackBuffer();
+
     if ( !device || !commandList || !backbuffer || width <= 0 || height <= 0 )
     {
+
         // Lane R: capture dimensions and device resources are external frame
         // readiness, so report the unavailable operation to automation.
         outWidth = 0;
@@ -70,17 +73,14 @@ Dx12BackbufferCapture::CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& 
         return SkullbonezCore::Core::SbResult::Failure( "Dx12BackbufferCapture",
                                                         "Backbuffer capture is unavailable. device=%p list=%p "
                                                         "backbuffer=%p extent=%dx%d",
-                                                        device,
-                                                        commandList,
-                                                        backbuffer,
-                                                        width,
-                                                        height );
+                                                        device, commandList, backbuffer, width, height );
     }
 
     // F3 captures normally begin in Present, while scene-suite captures may
     // begin after rendering. Preserve the exact tracked state for both paths.
     const RenderGraphResourceAccess accessBeforeCopy = frame.BackBufferAccess();
     frame.TransitionBackbuffer( "BackbufferReadbackBegin", RenderGraphResourceAccess::CopySource );
+
     if ( frame.HasFailure() )
     {
         return frame.CurrentResult();
@@ -95,8 +95,10 @@ Dx12BackbufferCapture::CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& 
     device->GetCopyableFootprints( &backbufferDesc, 0, 1, 0, &footprint, &rowCount, &rowSizeBytes, &totalBytes );
 
     Dx12ReadbackBuffer readback;
+
     if ( !readback.InitBuffer( device, totalBytes, L"Skullbonez DX12 Screenshot Readback Buffer" ) )
     {
+
         // Why: restore the command stream before returning a recoverable
         // allocation failure; leaving CopySource active would poison Present.
         frame.TransitionBackbuffer( "BackbufferReadbackRestoreAfterFailure", accessBeforeCopy );
@@ -117,14 +119,17 @@ Dx12BackbufferCapture::CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& 
     commandList->CopyTextureRegion( &destination, 0, 0, 0, &source, nullptr );
 
     frame.TransitionBackbuffer( "BackbufferReadbackRestore", accessBeforeCopy );
+
     if ( frame.HasFailure() )
     {
         return frame.CurrentResult();
     }
 
     const Dx12CaptureSubmitOutcome submit = frame.SubmitAndWait();
+
     if ( !submit.result.ok )
     {
+
         if ( submit.readbackUseUncertain )
         {
             Quarantine( readback.DetachAfterUncertainSubmission(), submit.failedOperation );
@@ -134,6 +139,7 @@ Dx12BackbufferCapture::CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& 
     }
 
     const uint8_t* mappedData = readback.MapRead( totalBytes );
+
     if ( !mappedData )
     {
         return SkullbonezCore::Core::SbResult::Failure( "Dx12BackbufferCapture", "Map readback buffer failed" );
@@ -144,11 +150,13 @@ Dx12BackbufferCapture::CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& 
     const int rowStride = ( width * 3 + 3 ) & ~3;
     std::vector<uint8_t> result( static_cast<size_t>( rowStride ) * static_cast<size_t>( height ) );
     const uint8_t* sourcePixels = mappedData;
+
     for ( int y = 0; y < height; ++y )
     {
         const int flippedY = height - 1 - y;
         const uint8_t* sourceRow = sourcePixels + static_cast<size_t>( y ) * footprint.Footprint.RowPitch;
         uint8_t* destinationRow = result.data() + static_cast<size_t>( flippedY ) * rowStride;
+
         for ( int x = 0; x < width; ++x )
         {
             destinationRow[x * 3 + 0] = sourceRow[x * 4 + 2];
@@ -164,10 +172,13 @@ Dx12BackbufferCapture::CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& 
 
 void Dx12BackbufferCapture::ReleaseAfterTerminalDrain()
 {
+
     // Lifetime: the caller's terminal drain is the proof that makes every
     // detached readback reference safe to release.
+
     for ( size_t index = 0; index < m_quarantinedCount; ++index )
     {
+
         if ( m_quarantined[index] )
         {
             m_quarantined[index]->Release();
@@ -180,6 +191,7 @@ void Dx12BackbufferCapture::ReleaseAfterTerminalDrain()
 
 void Dx12BackbufferCapture::Quarantine( ID3D12Resource* resource, const char* failedOperation )
 {
+
     if ( !resource )
     {
         SB_FATAL( "Dx12BackbufferCapture", "Uncertain capture did not transfer a readback resource." );
@@ -189,9 +201,7 @@ void Dx12BackbufferCapture::Quarantine( ID3D12Resource* resource, const char* fa
     {
         SB_FATAL( "Dx12BackbufferCapture",
                   "Uncertain readback quarantine exhausted. operation=%s capacity=%zu high_water=%zu",
-                  failedOperation ? failedOperation : "unknown",
-                  m_quarantined.size(),
-                  m_quarantinedCount );
+                  failedOperation ? failedOperation : "unknown", m_quarantined.size(), m_quarantinedCount );
     }
 
     m_quarantined[m_quarantinedCount++] = resource;

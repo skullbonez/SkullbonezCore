@@ -77,6 +77,7 @@ class ShaderDX12;
 
 namespace Geometry
 {
+
 /* -- Terrain
 ----------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -99,72 +100,47 @@ class Terrain
     };
 
     static SkullbonezCore::Core::SbResult
-    TryCreateFromHeightMap( const char* sFileName,
-                            int iMapSize,
-                            int iStepSize,
-                            int iTextureWrap,
-                            const SkullbonezCore::Core::EngineConfig& config,
-                            Assets::AssetSystem& assets,
+    TryCreateFromHeightMap( const char* sFileName, int iMapSize, int iStepSize, int iTextureWrap,
+                            const SkullbonezCore::Core::EngineConfig& config, Assets::AssetSystem& assets,
                             Rendering::Dx12ResourceBuilder& resources,
                             std::unique_ptr<Terrain>& outTerrain );                                   // Lane R factory for external RAW height-map input.
-    static SkullbonezCore::Core::SbResult TryCreatePhysicsFromHeightMap(
-        const char* sFileName,
-        int iMapSize,
-        int iStepSize,
-        int iTextureWrap,
-        const SkullbonezCore::Core::EngineConfig& config,
-        std::unique_ptr<Terrain>& outTerrain );                                                       // CPU-domain load path with no renderer double.
-    Terrain( int iMapSize,
-             int iStepSize,
-             int iTextureWrap,
-             const SkullbonezCore::Core::EngineConfig& config,
+    static SkullbonezCore::Core::SbResult
+    TryCreatePhysicsFromHeightMap( const char* sFileName, int iMapSize, int iStepSize, int iTextureWrap,
+                                   const SkullbonezCore::Core::EngineConfig& config,
+                                   std::unique_ptr<Terrain>& outTerrain );                            // CPU-domain load path with no renderer double.
+    Terrain( int iMapSize, int iStepSize, int iTextureWrap, const SkullbonezCore::Core::EngineConfig& config,
              Assets::AssetSystem& assets,
              Rendering::Dx12ResourceBuilder& resources );                                             // Construction shell used by TryCreateFromHeightMap; step
-                                                          // size feeds both pixels and physics posts.
-    Terrain(
-        PhysicsOnlyHeightMapTag,
-        int iMapSize,
-        int iStepSize,
-        int iTextureWrap,
-        const SkullbonezCore::Core::EngineConfig& config );                                           // CPU-only shell used by the value-producing load path.
-    Terrain( float slopeBaseY,
-             float slopeX,
-             float slopeZ,
-             const SkullbonezCore::Core::EngineConfig& config,
+
+    // size feeds both pixels and physics posts.
+    Terrain( PhysicsOnlyHeightMapTag, int iMapSize, int iStepSize, int iTextureWrap,
+             const SkullbonezCore::Core::EngineConfig& config );                                      // CPU-only shell used by the value-producing load path.
+    Terrain( float slopeBaseY, float slopeX, float slopeZ, const SkullbonezCore::Core::EngineConfig& config,
              Assets::AssetSystem& assets,
-             Rendering::Dx12ResourceBuilder&
-                 resources );                                                                         // Flat analytic slope constructor: y = slopeBaseY + slopeX*x + slopeZ*z
-    Terrain( float slopeBaseY,
-             float slopeX,
-             float slopeZ,
+             Rendering::Dx12ResourceBuilder& resources );                                             // Flat analytic slope constructor: y = slopeBaseY + slopeX*x + slopeZ*z
+    Terrain( float slopeBaseY, float slopeX, float slopeZ,
              const SkullbonezCore::Core::EngineConfig& config );                                      // Physics-only analytic slope; owns no GPU resources.
     ~Terrain();
 
-    void Render( const Math::Transformation::Matrix4& view,
-                 const Math::Transformation::Matrix4& projection,
-                 Rendering::Dx12TextureOwner& textures,
-                 const float* lightPosition,
-                 const float* clipPlane,
+    void Render( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& projection,
+                 Rendering::Dx12TextureOwner& textures, const float* lightPosition, const float* clipPlane,
                  const Rendering::PassRasterStateBucket& rasterState,
                  const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
                  const Rendering::ShadowFrameData* shadow = nullptr,
                  const Rendering::ShadowFrameData* detailShadow = nullptr );                          // Terrain color pass with optional broad and tight shadow inputs.
-    void RenderShadowDepth( Core::Profiler* profiler,
-                            const Math::Transformation::Matrix4& lightView,
+    void RenderShadowDepth( Core::Profiler* profiler, const Math::Transformation::Matrix4& lightView,
                             const Math::Transformation::Matrix4& lightProjection,
                             const Rendering::PassRasterStateBucket& rasterState,
                             const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr ); // Depth-only terrain caster pass for directional shadows.
-    void BindRenderContexts(
-        const SkullbonezCore::Core::EngineConfig& config,
-        Assets::AssetSystem& assets,
-        Rendering::Dx12ResourceBuilder& resources );                                                  // Borrow rebuild-only services for terrain resources.
     void
-    EnsureRenderResources( const SkullbonezCore::Core::EngineConfig& config,
-                           Assets::AssetSystem& assets,
-                           Rendering::Dx12ResourceBuilder& resources );                               // Lazily rebuilds missing backend resources.
+    BindRenderContexts( const SkullbonezCore::Core::EngineConfig& config, Assets::AssetSystem& assets,
+                        Rendering::Dx12ResourceBuilder& resources );                                  // Borrow rebuild-only services for terrain resources.
+    void EnsureRenderResources( const SkullbonezCore::Core::EngineConfig& config, Assets::AssetSystem& assets,
+                                Rendering::Dx12ResourceBuilder& resources );                          // Lazily rebuilds missing backend resources.
     void EnsureShadowDepthResources();                                                                // Prewarms the terrain shadow caster shader.
     void ResetRenderResources();                                                                      // Rebuild backend-specific mesh/shader resources after a device reset or resize
     void ReleaseRenderResources();                                                                    // Releases backend-specific mesh/shader resources without rebuilding.
+
     // Borrowed mesh pointer for DXR BLAS construction; Terrain retains ownership.
     Rendering::MeshDX12* GetMesh() const
     {
@@ -175,11 +151,13 @@ class Terrain
 #endif
     }
     std::vector<float> BuildRenderVertexData() const;                                                 // CPU value projection shared by DX12 upload and geometry tests.
+
     // Cached maximum Y height supports cheap airborne early-outs.
     float GetMaxHeight() const
     {
         return m_maxTerrainHeight;
     }
+
     // Cached minimum Y height supports cheap below-terrain checks.
     float GetMinHeight() const
     {
@@ -187,29 +165,22 @@ class Terrain
     }
     XZBounds GetXZBounds();
     Triangle LocatePolygon( float xPosition, float zPosition );                                       // Orthographic X/Z lookup; see
-                                               // http://www.simoneschbach.com/images/FindingArbitraryPolygon.gif
+
+    // http://www.simoneschbach.com/images/FindingArbitraryPolygon.gif
     bool IsInBounds( float xPosition, float zPosition );                                              // World X/Z coordinates inside the terrain collision domain.
-    float GetTerrainHeightAt(
-        float xPosition,
-        float zPosition,
-        bool isFluidMin = false );                                                                    // Height sample; isFluidMin asks water tests for the lowest terrain support.
-    Math::Vector::Vector3
-    GetTerrainNormalAt( float xPosition,
-                        float zPosition );                                                            // Surface normal used by contact rows and slope alignment.
-    void GetTerrainHeightAndNormalAt(
-        float xPosition,
-        float zPosition,
-        float& outHeight,
-        Math::Vector::Vector3& outNormal );                                                           // Combined lookup: one cached-cell query instead of two.
-    void GetTerrainHeightAndPlaneAt( float xPosition,
-                                     float zPosition,
-                                     float& outHeight,
+    float GetTerrainHeightAt( float xPosition, float zPosition,
+                              bool isFluidMin = false );                                              // Height sample; isFluidMin asks water tests for the lowest terrain support.
+    Math::Vector::Vector3 GetTerrainNormalAt( float xPosition,
+                                              float zPosition );                                      // Surface normal used by contact rows and slope alignment.
+    void GetTerrainHeightAndNormalAt( float xPosition, float zPosition, float& outHeight,
+                                      Math::Vector::Vector3& outNormal );                             // Combined lookup: one cached-cell query instead of two.
+    void GetTerrainHeightAndPlaneAt( float xPosition, float zPosition, float& outHeight,
                                      Plane& outPlane );                                               // Physics fast path: direct cached plane plus height lookup.
-    Physics::PhysicsTerrainView
-    PhysicsView() const noexcept;                                                                     // Detached scene-lifetime collision view registered with Physics.
+    Physics::PhysicsTerrainView PhysicsView() const noexcept;                                         // Detached scene-lifetime collision view registered with Physics.
 
   private:
     std::uint32_t displayListReference;                                                               // Legacy display-list token retained for serialized state.
+
     // Why: the standalone CPU test executable validates the authoritative
     // height/collision values without linking native renderer object code.
 #if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
@@ -240,35 +211,22 @@ class Terrain
     Plane m_flatSlopePlane;
     Math::Vector::Vector3 m_flatSlopeNormal;
 
-    Terrain( int iMapSize,
-             int iStepSize,
-             int iTextureWrap,
-             const SkullbonezCore::Core::EngineConfig& config,
+    Terrain( int iMapSize, int iStepSize, int iTextureWrap, const SkullbonezCore::Core::EngineConfig& config,
              Assets::AssetSystem* assets,
              Rendering::Dx12ResourceBuilder* resources );                                             // Shared CPU/GPU height-map construction shell.
-    Terrain( float slopeBaseY,
-             float slopeX,
-             float slopeZ,
-             const SkullbonezCore::Core::EngineConfig& config,
+    Terrain( float slopeBaseY, float slopeX, float slopeZ, const SkullbonezCore::Core::EngineConfig& config,
              Assets::AssetSystem* assets,
              Rendering::Dx12ResourceBuilder* resources );                                             // Shared analytic-slope construction shell.
 
     SkullbonezCore::Core::SbResult
     LoadTerrainData( const char* sFileName );                                                         // Cold RAW byte load used to construct authoritative posts.
-    const SkullbonezCore::Core::EngineConfig&
-    Config() const;                                                                                   // Runtime config must be bound before terrain queries or rebuilds.
+    const SkullbonezCore::Core::EngineConfig& Config() const;                                         // Runtime config must be bound before terrain queries or rebuilds.
     void InitialiseTerrainShader();                                                                   // Lit terrain shader setup for the active backend.
     void BuildTerrain();                                                                              // Physics-authoritative terrain posts are rebuilt from raw height data.
     void BuildCollisionCache();                                                                       // Precomputes per-quad triangle planes + normals for physics queries
-    void QueryCollisionData( float xPosition,
-                             float zPosition,
-                             float& outHeight,
-                             Math::Vector::Vector3* outNormal,
+    void QueryCollisionData( float xPosition, float zPosition, float& outHeight, Math::Vector::Vector3* outNormal,
                              Plane* outPlane );
-    void QueryCollisionDataUnchecked( float xPosition,
-                                      float zPosition,
-                                      float& outHeight,
-                                      Math::Vector::Vector3* outNormal,
+    void QueryCollisionDataUnchecked( float xPosition, float zPosition, float& outHeight, Math::Vector::Vector3* outNormal,
                                       Plane* outPlane );
     void TranslatePostings();                                                                         // Centers authored posts into world space.
     void GenerateNormals();                                                                           // Post normals are shared by lighting and terrain contacts.

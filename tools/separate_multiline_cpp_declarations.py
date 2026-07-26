@@ -4,8 +4,10 @@ Purpose:
   Adds paragraph breaks after wrapped local statements and completed
   condition/loop blocks once clang-format has made their boundaries clear.
   It also rejects assignment lines that strand `=` without the expression.
-  Short one-argument and two-argument parenthesized expressions remain on one
-  line instead of wrapping immediately after their opening parenthesis.
+  One-to-three short parenthesized arguments remain on one line. Wider
+  expressions keep the first argument beside the opening parenthesis and align
+  continuations beneath it. Standalone comments and control-flow blocks receive
+  the owner-requested paragraph space above them.
 
 Summary:
   clang-format owns token layout but intentionally does not create semantic
@@ -18,8 +20,8 @@ Glossary:
   Paragraph break: One empty line between adjacent local statements.
   Brace-line initializer: Aggregate layout whose first value follows `{` and
     whose continuation values align beneath that first value.
-  Compact call: A parenthesized expression with one simple argument, or two
-    simple arguments whose complete line stays within the repository limit.
+  Compact call: A parenthesized expression with one to three simple arguments
+    whose complete line stays within the repository limit.
   Control-flow chain: One if/else-if/else or do/while unit whose internal
     clauses must stay adjacent.
 
@@ -33,8 +35,12 @@ Invariants:
     the same line.
   - A simple single argument stays beside its opening parenthesis even when the
     complete declaration exceeds the ordinary column preference.
-  - Two simple arguments stay together when the complete line is at most 120
-    columns.
+  - One to three simple arguments stay together when the complete line is at
+    most 125 columns.
+  - A wrapped expression never leaves its opening parenthesis on an otherwise
+    parameter-free line.
+  - Standalone comment groups and condition/loop blocks have one blank line
+    above them.
   - Running the pass repeatedly produces byte-identical output.
 
 Related:
@@ -76,7 +82,8 @@ FOLLOWING_CLOSERS = ("}", "else", "catch", ")", "]", ",", "#else", "#elif", "#en
 CONTROL_FLOW_HEADER = re.compile(r"^(?P<kind>if|else(?:\s+if)?|for|while|switch|do)\b")
 STRANDED_ASSIGNMENT = re.compile(r"(?<![=!<>])=(?!=)\s*(?://.*)?$")
 MAX_REPORTED_FILES = 40
-COMPACT_TWO_ARGUMENT_COLUMN_LIMIT = 120
+COMPACT_ARGUMENT_COLUMN_LIMIT = 125
+MAX_COMPACT_ARGUMENTS = 3
 
 
 @dataclass(frozen=True)
@@ -217,7 +224,7 @@ def _simple_argument_with_comma(line: str) -> str | None:
 
 
 def normalize_compact_parenthesized_expressions(text: str) -> tuple[str, int]:
-    """Keep simple one-argument and short two-argument expressions together."""
+    """Keep up to three short arguments together and never strand an opening parenthesis."""
     trailing_newline = text.endswith("\n")
     lines = text.splitlines()
     output: list[str] = []
@@ -229,7 +236,7 @@ def normalize_compact_parenthesized_expressions(text: str) -> tuple[str, int]:
         stripped = line.strip()
         if (
             not line.rstrip().endswith("(")
-            or stripped.startswith(("if (", "for (", "while (", "switch (", "catch ("))
+            or re.fullmatch(r"(?:if|for|while|switch|catch)\s*\(", stripped) is not None
             or index + 1 >= len(lines)
             or not lines[index + 1].strip()
         ):
@@ -237,24 +244,52 @@ def normalize_compact_parenthesized_expressions(text: str) -> tuple[str, int]:
             index += 1
             continue
 
-        single_argument = _simple_argument_with_close(lines[index + 1])
-        if single_argument is not None:
-            output.append(f"{line.rstrip()} {single_argument}")
-            joined_compact_calls += 1
-            index += 2
-            continue
+        arguments: list[str] = []
+        argument_index = index + 1
+        expression_closed = False
+        while argument_index < len(lines) and len(arguments) < MAX_COMPACT_ARGUMENTS:
+            closing_argument = _simple_argument_with_close(lines[argument_index])
+            if closing_argument is not None:
+                arguments.append(closing_argument)
+                expression_closed = True
+                break
 
-        first_argument = _simple_argument_with_comma(lines[index + 1])
-        second_argument = (
-            _simple_argument_with_close(lines[index + 2]) if index + 2 < len(lines) else None
-        )
-        if first_argument is not None and second_argument is not None:
-            joined = f"{line.rstrip()} {first_argument} {second_argument}"
-            if len(joined) <= COMPACT_TWO_ARGUMENT_COLUMN_LIMIT:
+            comma_argument = _simple_argument_with_comma(lines[argument_index])
+            if comma_argument is None:
+                arguments.clear()
+                break
+
+            arguments.append(comma_argument)
+            argument_index += 1
+
+        if arguments and expression_closed:
+            joined = f"{line.rstrip()} {' '.join(arguments)}"
+            if len(arguments) == 1 or len(joined) <= COMPACT_ARGUMENT_COLUMN_LIMIT:
                 output.append(joined)
                 joined_compact_calls += 1
-                index += 3
+                index = argument_index + 1
                 continue
+
+        first_argument = _simple_argument_with_comma(lines[index + 1])
+        if first_argument is not None:
+            opening_column = len(line.rstrip())
+            output.append(f"{line.rstrip()} {first_argument}")
+            index += 2
+            while index < len(lines):
+                continuation = lines[index]
+                if not continuation.strip():
+                    output.append(continuation)
+                    index += 1
+                    continue
+
+                output.append(" " * (opening_column + 1) + continuation.lstrip())
+                if _simple_argument_with_close(continuation) is not None:
+                    break
+                index += 1
+
+            joined_compact_calls += 1
+            index += 1
+            continue
 
         output.append(line)
         index += 1
@@ -263,6 +298,118 @@ def normalize_compact_parenthesized_expressions(text: str) -> tuple[str, int]:
     if trailing_newline:
         formatted += "\n"
     return formatted, joined_compact_calls
+
+
+def normalize_first_argument_heads(text: str) -> tuple[str, int]:
+    """Move the first argument token line beside any otherwise empty call parenthesis."""
+    trailing_newline = text.endswith("\n")
+    lines = text.splitlines()
+    output: list[str] = []
+    joined_heads = 0
+    index = 0
+
+    while index < len(lines):
+        line = lines[index]
+        stripped = line.strip()
+        if (
+            not line.rstrip().endswith("(")
+            or re.fullmatch(r"(?:if|for|while|switch|catch)\s*\(", stripped) is not None
+            or index + 1 >= len(lines)
+            or not lines[index + 1].strip()
+            or standalone_comment_start(lines[index + 1])
+            or lines[index + 1].lstrip().startswith("#")
+        ):
+            output.append(line)
+            index += 1
+            continue
+
+        opening_column = len(line.rstrip()) - 1
+        first_line = lines[index + 1]
+        first_indent = len(indentation(first_line))
+        indentation_delta = opening_column + 2 - first_indent
+        output.append(f"{line.rstrip()} {first_line.lstrip()}")
+        parenthesis_depth = 1
+        first_masked = mask_cpp_non_code(first_line)
+        parenthesis_depth += first_masked.count("(") - first_masked.count(")")
+        index += 2
+
+        while index < len(lines) and parenthesis_depth > 0:
+            continuation = lines[index]
+            if re.fullmatch(r"\s*\)\s*(?:[,;{]|\b(?:const|noexcept|override|final)\b.*)?", continuation):
+                if output[-1].lstrip().startswith("#"):
+                    output.append(" " * (opening_column + 2) + continuation.strip())
+                else:
+                    output[-1] = f"{output[-1].rstrip()} {continuation.strip()}"
+                masked = mask_cpp_non_code(continuation)
+                parenthesis_depth += masked.count("(") - masked.count(")")
+                index += 1
+                continue
+
+            if continuation.strip():
+                continuation_indent = len(indentation(continuation))
+                shifted_indent = " " * max(0, continuation_indent + indentation_delta)
+                output.append(shifted_indent + continuation.lstrip())
+                masked = mask_cpp_non_code(continuation)
+                parenthesis_depth += masked.count("(") - masked.count(")")
+            else:
+                output.append(continuation)
+            index += 1
+
+        joined_heads += 1
+
+    formatted = "\n".join(output)
+    if trailing_newline:
+        formatted += "\n"
+    return formatted, joined_heads
+
+
+def standalone_comment_start(line: str) -> bool:
+    stripped = line.lstrip()
+    return stripped.startswith("//") or stripped.startswith("/*")
+
+
+def ensure_comment_spacing(text: str) -> tuple[str, int]:
+    """Insert one blank line above each standalone comment group."""
+    trailing_newline = text.endswith("\n")
+    lines = text.splitlines()
+    output: list[str] = []
+    inserted_breaks = 0
+
+    for line in lines:
+        if (
+            standalone_comment_start(line)
+            and output
+            and output[-1].strip()
+            and not standalone_comment_start(output[-1])
+            and not output[-1].rstrip().endswith("\\")
+            and not line.rstrip().endswith("\\")
+        ):
+            output.append("")
+            inserted_breaks += 1
+
+        output.append(line)
+
+    formatted = "\n".join(output)
+    if trailing_newline:
+        formatted += "\n"
+    return formatted, inserted_breaks
+
+
+def remove_macro_continuation_breaks(text: str) -> str:
+    """Never let a paragraph break terminate a continued preprocessor line."""
+    trailing_newline = text.endswith("\n")
+    output: list[str] = []
+
+    for line in text.splitlines():
+        if not line.strip() and output and output[-1].rstrip().endswith("\\"):
+            continue
+
+        output.append(line)
+
+    formatted = "\n".join(output)
+    if trailing_newline:
+        formatted += "\n"
+    return formatted
 
 
 def _blank_non_newlines(chars: list[str], start: int, end: int) -> None:
@@ -456,9 +603,8 @@ def should_separate_after(lines: list[str], end_index: int) -> bool:
     )
 
 
-def separate_multiline_statements(text: str) -> SpacingResult:
-    text, joined_assignments = normalize_assignment_heads(text)
-    text, joined_compact_calls = normalize_compact_parenthesized_expressions(text)
+def ensure_control_flow_spacing(text: str) -> tuple[str, int]:
+    """Insert paragraph space above and below condition/loop blocks."""
     trailing_newline = text.endswith("\n")
     lines = text.splitlines()
     control_ends = control_flow_end_lines(text, lines)
@@ -466,10 +612,47 @@ def separate_multiline_statements(text: str) -> SpacingResult:
     inserted_breaks = 0
 
     for index, line in enumerate(lines):
+        stripped = line.strip()
+        previous_nonempty = next(
+            (candidate for candidate in reversed(output) if candidate.strip()),
+            "",
+        )
+        starts_condition_or_loop = (
+            CONTROL_FLOW_HEADER.match(stripped) is not None
+            and not stripped.startswith(("else", "catch"))
+            and not (stripped.startswith("while") and previous_nonempty.strip() == "}")
+        )
+        if starts_condition_or_loop and output and output[-1].strip():
+            output.append("")
+            inserted_breaks += 1
+
+        output.append(line)
+        if index in control_ends and following_line_allows_break(lines, index):
+            output.append("")
+            inserted_breaks += 1
+
+    formatted = "\n".join(output)
+    if trailing_newline:
+        formatted += "\n"
+    return remove_macro_continuation_breaks(formatted), inserted_breaks
+
+
+def separate_multiline_statements(text: str) -> SpacingResult:
+    text, joined_assignments = normalize_assignment_heads(text)
+    text, joined_compact_calls = normalize_compact_parenthesized_expressions(text)
+    text, joined_first_argument_heads = normalize_first_argument_heads(text)
+    joined_compact_calls += joined_first_argument_heads
+    text, comment_breaks = ensure_comment_spacing(text)
+    text, control_breaks = ensure_control_flow_spacing(text)
+    trailing_newline = text.endswith("\n")
+    lines = text.splitlines()
+    output: list[str] = []
+    inserted_breaks = 0
+
+    for index, line in enumerate(lines):
         output.append(line)
         separates_multiline_statement = should_separate_after(lines, index)
-        separates_control_flow = index in control_ends and following_line_allows_break(lines, index)
-        if separates_multiline_statement or separates_control_flow:
+        if separates_multiline_statement:
             output.append("")
             inserted_breaks += 1
 
@@ -477,7 +660,12 @@ def separate_multiline_statements(text: str) -> SpacingResult:
     if trailing_newline:
         formatted += "\n"
 
-    return SpacingResult(formatted, inserted_breaks, joined_assignments, joined_compact_calls)
+    return SpacingResult(
+        formatted,
+        inserted_breaks + comment_breaks + control_breaks,
+        joined_assignments,
+        joined_compact_calls,
+    )
 
 
 def iter_implementation_files(paths: Iterable[Path]) -> list[Path]:
@@ -583,10 +771,7 @@ def run_self_test() -> int:
 """
     expected = """void Example()
 {
-    const Result first = Build(
-        input
-    );
-
+    const Result first = Build( input );
     Owners owners{
         first
     };
@@ -618,7 +803,7 @@ def run_self_test() -> int:
 """
     first = separate_multiline_statements(compact)
     second = separate_multiline_statements(first.text)
-    if first.text != expected or first.inserted_breaks != 7:
+    if first.text != expected or first.inserted_breaks != 6:
         print("SELF_TEST_FAIL: multiline statements were not separated as expected.", file=sys.stderr)
         return 1
     if second.text != expected or second.inserted_breaks != 0:
@@ -644,7 +829,7 @@ def run_self_test() -> int:
         print("SELF_TEST_FAIL: brace-line initializer was not separated.", file=sys.stderr)
         return 1
 
-    untouched = """void Example()
+    compact_control = """void Example()
 {
     const Result value = Build();
     const Owners owners { value, value };
@@ -654,8 +839,19 @@ def run_self_test() -> int:
     }
 }
 """
-    if separate_multiline_statements(untouched).text != untouched:
-        print("SELF_TEST_FAIL: single-line declarations or control flow changed.", file=sys.stderr)
+    compact_control_expected = """void Example()
+{
+    const Result value = Build();
+    const Owners owners { value, value };
+
+    if ( value )
+    {
+        Use( value );
+    }
+}
+"""
+    if separate_multiline_statements(compact_control).text != compact_control_expected:
+        print("SELF_TEST_FAIL: compact control flow did not receive space above it.", file=sys.stderr)
         return 1
 
     macro_body = """void Example()
@@ -670,6 +866,35 @@ def run_self_test() -> int:
 """
     if separate_multiline_statements(macro_body).text != macro_body:
         print("SELF_TEST_FAIL: a macro body was split from its expansion.", file=sys.stderr)
+        return 1
+
+    continued_macro = """#define APPLY_WHEN_READY( value ) \\
+    do                              \\
+    {                               \\
+        if ( value )                \\
+        {                           \\
+            Apply( value );         \\
+        }                           \\
+    } while ( false )
+"""
+    if "\n\n" in separate_multiline_statements(continued_macro).text:
+        print("SELF_TEST_FAIL: paragraph spacing terminated a continued macro.", file=sys.stderr)
+        return 1
+
+    conditional_signature = """Result Build(
+    const Input& input
+#ifdef _DEBUG
+    ,
+    DebugOwner& debug
+#endif
+)
+{
+    return {};
+}
+"""
+    normalized_conditional_signature = separate_multiline_statements(conditional_signature).text
+    if "#endif )" in normalized_conditional_signature or re.search(r"\n\s*#endif\n", normalized_conditional_signature) is None:
+        print("SELF_TEST_FAIL: a conditional signature lost its closing parenthesis.", file=sys.stderr)
         return 1
 
     control_flow = """void Example()
@@ -715,6 +940,7 @@ def run_self_test() -> int:
 """
     control_flow_expected = """void Example()
 {
+
     if ( ready )
     {
         Use();
@@ -751,6 +977,7 @@ def run_self_test() -> int:
 
     if ( outer )
     {
+
         if ( inner )
         {
             Nested();
@@ -762,7 +989,7 @@ def run_self_test() -> int:
 """
     control_first = separate_multiline_statements(control_flow)
     control_second = separate_multiline_statements(control_first.text)
-    if control_first.text != control_flow_expected or control_first.inserted_breaks != 6:
+    if control_first.text != control_flow_expected or control_first.inserted_breaks != 8:
         print("SELF_TEST_FAIL: control-flow blocks were not separated as expected.", file=sys.stderr)
         return 1
     if control_second.text != control_flow_expected or control_second.inserted_breaks != 0:
@@ -847,6 +1074,10 @@ def run_self_test() -> int:
     const Result pair = BuildPair(
         first,
         second );
+    const Result triple = BuildTriple(
+        first,
+        second,
+        third );
     const Result longPair = BuildPairWithAnIntentionallyLongOwnerSpecificName(
         firstOwnerSpecificArgument,
         secondOwnerSpecificArgument );
@@ -856,15 +1087,15 @@ def run_self_test() -> int:
 {
     inline constexpr std::size_t MAIN_MEMORY_REPLAY_BUDGET_PASS_COUNT = static_cast<std::size_t>( MainMemoryReplayBudgetPass::Count );
     const Result pair = BuildPair( first, second );
-    const Result longPair = BuildPairWithAnIntentionallyLongOwnerSpecificName(
-        firstOwnerSpecificArgument,
-        secondOwnerSpecificArgument );
+    const Result triple = BuildTriple( first, second, third );
+    const Result longPair = BuildPairWithAnIntentionallyLongOwnerSpecificName( firstOwnerSpecificArgument,
+                                                                               secondOwnerSpecificArgument );
 }
 """
     compact_first = separate_multiline_statements(compact_calls)
     compact_second = separate_multiline_statements(compact_first.text)
-    if compact_first.text != compact_calls_expected or compact_first.joined_compact_calls != 2:
-        print("SELF_TEST_FAIL: compact one/two-argument expressions were not joined.", file=sys.stderr)
+    if compact_first.text != compact_calls_expected or compact_first.joined_compact_calls != 4:
+        print("SELF_TEST_FAIL: compact one-to-three-argument expressions were not joined.", file=sys.stderr)
         return 1
     if compact_second.text != compact_calls_expected or compact_second.joined_compact_calls != 0:
         print("SELF_TEST_FAIL: compact-call joining is not idempotent.", file=sys.stderr)
@@ -887,6 +1118,32 @@ def run_self_test() -> int:
         or any(line and not line.strip() for line in normalized_lambda.splitlines())
     ):
         print("SELF_TEST_FAIL: a stranded lambda assignment was not joined and aligned.", file=sys.stderr)
+        return 1
+
+    comment_spacing = """void Example()
+{
+    Prepare();
+    // Why: this comment introduces the next operation.
+    Apply();
+    // First line.
+    // Second line.
+    Finish();
+}
+"""
+    comment_spacing_expected = """void Example()
+{
+    Prepare();
+
+    // Why: this comment introduces the next operation.
+    Apply();
+
+    // First line.
+    // Second line.
+    Finish();
+}
+"""
+    if separate_multiline_statements(comment_spacing).text != comment_spacing_expected:
+        print("SELF_TEST_FAIL: standalone comment groups did not receive space above them.", file=sys.stderr)
         return 1
 
     print(
@@ -948,8 +1205,13 @@ def main() -> int:
         else:
             normalized, joined_assignments = normalize_assignment_heads(candidate)
             normalized, joined_compact_calls = normalize_compact_parenthesized_expressions(normalized)
+            normalized, joined_first_argument_heads = normalize_first_argument_heads(normalized)
+            joined_compact_calls += joined_first_argument_heads
+            normalized, comment_breaks = ensure_comment_spacing(normalized)
+            normalized, control_breaks = ensure_control_flow_spacing(normalized)
             result = SpacingResult(
                 normalized,
+                inserted_breaks=comment_breaks + control_breaks,
                 joined_assignments=joined_assignments,
                 joined_compact_calls=joined_compact_calls,
             )

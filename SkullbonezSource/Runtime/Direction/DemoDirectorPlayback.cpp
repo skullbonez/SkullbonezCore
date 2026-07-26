@@ -75,6 +75,7 @@ DemoCameraPose LerpPose( const DemoCameraPose& from, const DemoCameraPose& to, f
 
 float PhaseBlendAlpha( const DemoPhase& phase, float blendElapsedSeconds )
 {
+
     if ( phase.blendInSeconds <= 0.0f )
     {
         return 1.0f;
@@ -122,6 +123,7 @@ DemoPhase& CurrentPhase( DemoDirectorPlaybackState& director )
 void CopyShotListPath( DemoDirectorPlaybackState& director, const char* path )
 {
     director.activeShotListPath[0] = '\0';
+
     if ( path && path[0] )
     {
         std::snprintf( director.activeShotListPath, sizeof( director.activeShotListPath ), "%s", path );
@@ -148,8 +150,7 @@ float NormalizedRevealRate( float revealRate )
 bool PhaseRevealRateApplied( const DemoDirectorPlaybackState& director, const DemoPhase& phase )
 {
     const float revealRate = NormalizedRevealRate( phase.revealRate );
-    return director.appliedRevealRatePhaseIndex == director.currentPhaseIndex &&
-           director.appliedRevealRate == revealRate;
+    return director.appliedRevealRatePhaseIndex == director.currentPhaseIndex && director.appliedRevealRate == revealRate;
 }
 
 void ResetPhaseStyleApplication( DemoDirectorPlaybackState& director )
@@ -166,12 +167,14 @@ void ResetPhaseEntryApplications( DemoDirectorPlaybackState& director )
 
 bool CurrentPhaseRequestsAdvance( const DemoDirectorPlaybackState& director, DemoDirectorPredictionView prediction )
 {
+
     if ( !IsCurrentPhaseValid( director ) )
     {
         return false;
     }
 
     const DemoPhase& phase = CurrentPhase( director );
+
     switch ( phase.advance )
     {
     case PhaseAdvance::Manual:
@@ -179,10 +182,10 @@ bool CurrentPhaseRequestsAdvance( const DemoDirectorPlaybackState& director, Dem
     case PhaseAdvance::Timer:
         return director.phaseElapsedSeconds >= (std::max)( 0.0f, phase.timerSeconds );
     case PhaseAdvance::RevealAtLeast:
+
         // Concept: RevealAtLeast consumes a value sampled from the prediction
         // owner. Director never borrows or mutates the reveal clock itself.
-        return prediction.revealAvailable &&
-               prediction.revealProgress >= std::clamp( phase.revealThreshold, 0.0f, 1.0f );
+        return prediction.revealAvailable && prediction.revealProgress >= std::clamp( phase.revealThreshold, 0.0f, 1.0f );
     }
 
     return false;
@@ -190,18 +193,21 @@ bool CurrentPhaseRequestsAdvance( const DemoDirectorPlaybackState& director, Dem
 
 void ApplyPhaseRevealRateIfNeeded( DemoDirectorPlaybackState& director, DemoDirectorTickResult& result )
 {
+
     if ( !IsCurrentPhaseValid( director ) )
     {
         return;
     }
 
     const DemoPhase& phase = CurrentPhase( director );
+
     if ( PhaseRevealRateApplied( director, phase ) )
     {
         return;
     }
 
     const float revealRate = NormalizedRevealRate( phase.revealRate );
+
     // Why: changing rate mid-prediction should alter only future pacing.
     // Re-anchoring preserves already revealed prediction seconds so the causal
     // tree never snaps backward when a director phase slows the unfold.
@@ -210,26 +216,27 @@ void ApplyPhaseRevealRateIfNeeded( DemoDirectorPlaybackState& director, DemoDire
     director.appliedRevealRatePhaseIndex = director.currentPhaseIndex;
     director.appliedRevealRate = revealRate;
     ++director.appliedRevealRateCount;
-    std::printf( "[demo-director] applied reveal rate %.3f for phase %d (%s)\n",
-                 static_cast<double>( revealRate ),
-                 director.currentPhaseIndex,
-                 phase.name[0] ? phase.name : "<unnamed>" );
+    std::printf( "[demo-director] applied reveal rate %.3f for phase %d (%s)\n", static_cast<double>( revealRate ),
+                 director.currentPhaseIndex, phase.name[0] ? phase.name : "<unnamed>" );
 }
 
 void ApplyPhaseStyleIfNeeded( DemoDirectorPlaybackState& director, SceneRuntimeStyleContext styleContext )
 {
+
     if ( !IsCurrentPhaseValid( director ) )
     {
         return;
     }
 
     const DemoPhase& phase = CurrentPhase( director );
+
     if ( PhaseStyleAttempted( director, phase ) )
     {
         return;
     }
 
     RememberPhaseStyleAttempt( director, phase );
+
     if ( phase.stylePath[0] == '\0' )
     {
         return;
@@ -237,16 +244,13 @@ void ApplyPhaseStyleIfNeeded( DemoDirectorPlaybackState& director, SceneRuntimeS
 
     AuthoredScene styleScene;
     const SkullbonezCore::Core::SbResult loadResult = AuthoredScene::TryLoadStyleFromFile( phase.stylePath,
-                                                                                           styleContext.assets,
-                                                                                           styleScene );
+                                                                                           styleContext.assets, styleScene );
 
     if ( loadResult.ok )
     {
         ApplyLiveStyleScene( styleContext, styleScene );
         ++director.appliedStyleCount;
-        std::printf( "[demo-director] applied style %s for phase %d (%s)\n",
-                     phase.stylePath,
-                     director.currentPhaseIndex,
+        std::printf( "[demo-director] applied style %s for phase %d (%s)\n", phase.stylePath, director.currentPhaseIndex,
                      phase.name[0] ? phase.name : "<unnamed>" );
     }
     else
@@ -262,6 +266,7 @@ namespace DemoDirectorPlayback
 bool LoadShotList( CameraControlState& camera, Environment::CameraCollection& cameras, const char* path )
 {
     DemoShotList loadedShotList;
+
     if ( !LoadDemoShotList( path, loadedShotList ) || loadedShotList.phaseCount <= 0 )
     {
         std::printf( "[demo-director] %s: no playable phases loaded\n", path && path[0] ? path : "<null-path>" );
@@ -277,8 +282,7 @@ bool LoadShotList( CameraControlState& camera, Environment::CameraCollection& ca
     CopyShotListPath( nextState, path );
     camera.director = nextState;
 
-    std::printf( "[demo-director] loaded %d phase(s) from %s\n",
-                 loadedShotList.phaseCount,
+    std::printf( "[demo-director] loaded %d phase(s) from %s\n", loadedShotList.phaseCount,
                  path && path[0] ? path : "<null-path>" );
 
     return true;
@@ -287,14 +291,17 @@ bool LoadShotList( CameraControlState& camera, Environment::CameraCollection& ca
 bool AdvancePhase( CameraControlState& camera, Environment::CameraCollection& cameras )
 {
     DemoDirectorPlaybackState& director = camera.director;
+
     if ( !HasPlayableShotList( director ) )
     {
         return false;
     }
 
     int nextPhase = director.currentPhaseIndex + 1;
+
     if ( nextPhase >= director.activeShotList.phaseCount )
     {
+
         if ( !director.activeShotList.loop )
         {
             return false;
@@ -317,6 +324,7 @@ void EnterMode( CameraControlState& camera, Environment::CameraCollection& camer
     director.phaseElapsedSeconds = 0.0f;
     ResetPhaseEntryApplications( director );
     ResetBlendFromCurrentPose( director, cameras );
+
     if ( director.hasActiveShotList &&
          ( director.currentPhaseIndex < 0 || director.currentPhaseIndex >= director.activeShotList.phaseCount ) )
     {
@@ -327,6 +335,7 @@ void EnterMode( CameraControlState& camera, Environment::CameraCollection& camer
 bool BeginGrab( CameraControlState& camera, Environment::CameraCollection& cameras )
 {
     DemoDirectorPlaybackState& director = camera.director;
+
     if ( camera.mode != RunCameraMode::Director || director.grabbed || !HasPlayableShotList( director ) )
     {
         return false;
@@ -344,6 +353,7 @@ bool BeginGrab( CameraControlState& camera, Environment::CameraCollection& camer
 bool EndGrab( CameraControlState& camera, Environment::CameraCollection& cameras )
 {
     DemoDirectorPlaybackState& director = camera.director;
+
     if ( camera.mode != RunCameraMode::Director || !director.grabbed || !HasPlayableShotList( director ) )
     {
         return false;
@@ -359,6 +369,7 @@ bool EndGrab( CameraControlState& camera, Environment::CameraCollection& cameras
 bool SetCurrentPhasePose( CameraControlState& camera, Environment::CameraCollection& cameras )
 {
     DemoDirectorPlaybackState& director = camera.director;
+
     if ( !IsCurrentPhaseValid( director ) )
     {
         return false;
@@ -370,8 +381,7 @@ bool SetCurrentPhasePose( CameraControlState& camera, Environment::CameraCollect
     director.poseCapturedAtGrab = pose;
     director.blendStartPose = pose;
     director.blendElapsedSeconds = 0.0f;
-    std::printf( "[demo-director] captured pose for phase %d (%s)\n",
-                 director.currentPhaseIndex,
+    std::printf( "[demo-director] captured pose for phase %d (%s)\n", director.currentPhaseIndex,
                  phase.name[0] ? phase.name : "<unnamed>" );
 
     return true;
@@ -380,6 +390,7 @@ bool SetCurrentPhasePose( CameraControlState& camera, Environment::CameraCollect
 bool SetCurrentPhaseStyle( CameraControlState& camera, const char* stylePath )
 {
     DemoDirectorPlaybackState& director = camera.director;
+
     if ( !IsCurrentPhaseValid( director ) )
     {
         return false;
@@ -387,14 +398,13 @@ bool SetCurrentPhaseStyle( CameraControlState& camera, const char* stylePath )
 
     DemoPhase& phase = CurrentPhase( director );
     std::snprintf( phase.stylePath, sizeof( phase.stylePath ), "%s", stylePath ? stylePath : "" );
+
     // Why: automation may retarget a phase's look while Director mode is already
     // active. Clearing only the style attempt lets the next tick apply the new
     // style without recounting reveal-rate application for the same phase.
     ResetPhaseStyleApplication( director );
-    std::printf( "[demo-director] set style for phase %d (%s) to %s\n",
-                 director.currentPhaseIndex,
-                 phase.name[0] ? phase.name : "<unnamed>",
-                 phase.stylePath[0] ? phase.stylePath : "<empty>" );
+    std::printf( "[demo-director] set style for phase %d (%s) to %s\n", director.currentPhaseIndex,
+                 phase.name[0] ? phase.name : "<unnamed>", phase.stylePath[0] ? phase.stylePath : "<empty>" );
 
     return true;
 }
@@ -402,12 +412,14 @@ bool SetCurrentPhaseStyle( CameraControlState& camera, const char* stylePath )
 bool SelectNextPhaseForAuthoring( CameraControlState& camera, Environment::CameraCollection& cameras )
 {
     DemoDirectorPlaybackState& director = camera.director;
+
     if ( !HasPlayableShotList( director ) )
     {
         return false;
     }
 
     int nextPhase = director.currentPhaseIndex + 1;
+
     if ( nextPhase < 0 || nextPhase >= director.activeShotList.phaseCount )
     {
         nextPhase = 0;
@@ -418,8 +430,7 @@ bool SelectNextPhaseForAuthoring( CameraControlState& camera, Environment::Camer
     ResetPhaseEntryApplications( director );
     ResetBlendFromCurrentPose( director, cameras );
     const DemoPhase& phase = CurrentPhase( director );
-    std::printf( "[demo-director] selected phase %d (%s)\n",
-                 director.currentPhaseIndex,
+    std::printf( "[demo-director] selected phase %d (%s)\n", director.currentPhaseIndex,
                  phase.name[0] ? phase.name : "<unnamed>" );
 
     return true;
@@ -428,29 +439,28 @@ bool SelectNextPhaseForAuthoring( CameraControlState& camera, Environment::Camer
 bool SaveShotList( const CameraControlState& camera )
 {
     const DemoDirectorPlaybackState& director = camera.director;
+
     if ( !HasPlayableShotList( director ) || !director.activeShotListPath[0] )
     {
         return false;
     }
 
     const bool saved = SaveDemoShotList( director.activeShotListPath, director.activeShotList );
-    std::printf( "[demo-director] %s shot list to %s\n",
-                 saved ? "saved" : "failed to save",
-                 director.activeShotListPath );
+    std::printf( "[demo-director] %s shot list to %s\n", saved ? "saved" : "failed to save", director.activeShotListPath );
 
     return saved;
 }
 
-DemoDirectorTickResult Tick( CameraControlState& camera,
-                             DemoDirectorPredictionView prediction,
-                             SceneRuntimeStyleContext styleContext,
-                             float cameraDt )
+DemoDirectorTickResult Tick( CameraControlState& camera, DemoDirectorPredictionView prediction,
+                             SceneRuntimeStyleContext styleContext, float cameraDt )
 {
     DemoDirectorTickResult result;
     DemoDirectorPlaybackState& director = camera.director;
+
     // Lifetime: the director's pose and style mutations derive from one world
     // borrow, so phase playback cannot split authority across two scenes.
     Environment::CameraCollection& cameras = styleContext.world.Cameras();
+
     if ( camera.mode != RunCameraMode::Director || !HasPlayableShotList( director ) )
     {
         return result;
@@ -469,6 +479,7 @@ DemoDirectorTickResult Tick( CameraControlState& camera,
     // authored style path actually changes.
     ApplyPhaseStyleIfNeeded( director, styleContext );
     ApplyPhaseRevealRateIfNeeded( director, result );
+
     if ( director.grabbed )
     {
         return result;
@@ -481,6 +492,7 @@ DemoDirectorTickResult Tick( CameraControlState& camera,
     const float blendAlpha = PhaseBlendAlpha( phase, director.blendElapsedSeconds );
     const DemoCameraPose pose = LerpPose( director.blendStartPose, phase.camera, blendAlpha );
     cameras.SetPrimaryPose( pose.eye, pose.view, pose.up );
+
     if ( CurrentPhaseRequestsAdvance( director, prediction ) )
     {
         AdvancePhase( camera, cameras );

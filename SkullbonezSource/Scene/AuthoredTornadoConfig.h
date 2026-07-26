@@ -42,6 +42,7 @@ struct AuthoredTornadoFieldConfig
 {
     bool enabled = false;
     bool visualizeVelocityField = false;
+
     // Units mirror the authored schema: distances are metres, acceleration is
     // m/s^2, timing is seconds, and maxDeltaVelocity is m/s per fixed step.
     Math::Vector::Vector3 center = Math::Vector::Vector3( 620.0f, 25.0f, 615.0f );
@@ -61,6 +62,7 @@ struct AuthoredTornadoFieldConfig
 struct AuthoredTornadoVortexConfig
 {
     AuthoredTornadoFieldConfig field;
+
     // Units: lifecycle values use seconds, drift phase uses radians, drift
     // speed uses radians/second, radii use metres, and repulsion is a scalar.
     float spawnSeconds = 0.0f;
@@ -78,6 +80,7 @@ struct AuthoredTornadoSystemConfig
 {
     bool enabled = false;
     bool visualizeVelocityField = false;
+
     // Lifetime: this vector grows only during cold authored-file parsing and is
     // projected into Gameplay before steady simulation begins.
     std::vector<AuthoredTornadoVortexConfig> vortices;

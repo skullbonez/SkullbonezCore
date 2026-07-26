@@ -102,6 +102,7 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
 
     PhysicsFixedList( const PhysicsFixedList& other ) : m_ownerName( other.m_ownerName )
     {
+
         for ( const T& value : other )
         {
             push_back( value );
@@ -110,39 +111,49 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
 
     PhysicsFixedList& operator=( const PhysicsFixedList& other )
     {
+
         if ( this == &other )
         {
             return *this;
         }
+
         clear();
+
         for ( const T& value : other )
         {
             push_back( value );
         }
+
         return *this;
     }
 
     PhysicsFixedList( PhysicsFixedList&& other ) noexcept( std::is_nothrow_move_constructible<T>::value )
         : m_ownerName( other.m_ownerName )
     {
+
         for ( T& value : other )
         {
             push_back( std::move( value ) );
         }
+
         other.clear();
     }
 
     PhysicsFixedList& operator=( PhysicsFixedList&& other ) noexcept( std::is_nothrow_move_constructible<T>::value )
     {
+
         if ( this == &other )
         {
             return *this;
         }
+
         clear();
+
         for ( T& value : other )
         {
             push_back( std::move( value ) );
         }
+
         other.clear();
         return *this;
     }
@@ -221,6 +232,7 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
 
     void reserve( std::size_t requested ) const
     {
+
         if ( requested > Capacity )
         {
             FailCapacityExceeded( requested );
@@ -235,30 +247,36 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
     void resize( std::size_t count )
     {
         CheckCapacity( count );
+
         while ( m_count > count )
         {
             pop_back();
         }
+
         while ( m_count < count )
         {
             new ( RawSlot( m_count ) ) T();
             ++m_count;
         }
+
         TrackHighWater();
     }
 
     void resize( std::size_t count, const T& value )
     {
         CheckCapacity( count );
+
         while ( m_count > count )
         {
             pop_back();
         }
+
         while ( m_count < count )
         {
             new ( RawSlot( m_count ) ) T( value );
             ++m_count;
         }
+
         TrackHighWater();
     }
 
@@ -266,19 +284,23 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
     {
         CheckCapacity( count );
         const std::size_t common = ( count < m_count ) ? count : m_count;
+
         for ( std::size_t index = 0; index < common; ++index )
         {
             *ValueAt( index ) = value;
         }
+
         while ( m_count > count )
         {
             pop_back();
         }
+
         while ( m_count < count )
         {
             new ( RawSlot( m_count ) ) T( value );
             ++m_count;
         }
+
         TrackHighWater();
     }
 
@@ -301,10 +323,12 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
     void pop_back()
     {
         assert( m_count > 0u );
+
         if ( m_count == 0u )
         {
             FailPopFromEmpty();
         }
+
         --m_count;
         ValueAt( m_count )->~T();
     }
@@ -336,6 +360,7 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
 
     void CheckCapacity( std::size_t requested ) const
     {
+
         if ( requested > Capacity )
         {
             FailCapacityExceeded( requested );
@@ -344,6 +369,7 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
 
     void TrackHighWater()
     {
+
         if ( m_count > m_highWater )
         {
             m_highWater = m_count;
@@ -355,19 +381,11 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
         std::fprintf( stderr,
                       "FATAL: PhysicsFixedList capacity exceeded owner=%s requested=%zu capacity=%zu count=%zu "
                       "high_water=%zu.\n",
-                      m_ownerName,
-                      requested,
-                      Capacity,
-                      m_count,
-                      m_highWater );
+                      m_ownerName, requested, Capacity, m_count, m_highWater );
         std::fprintf( stdout,
                       "FATAL: PhysicsFixedList capacity exceeded owner=%s requested=%zu capacity=%zu count=%zu "
                       "high_water=%zu.\n",
-                      m_ownerName,
-                      requested,
-                      Capacity,
-                      m_count,
-                      m_highWater );
+                      m_ownerName, requested, Capacity, m_count, m_highWater );
         std::fflush( stderr );
         std::fflush( stdout );
         assert( false && "PhysicsFixedList capacity exceeded" );

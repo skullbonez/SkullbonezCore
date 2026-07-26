@@ -70,9 +70,7 @@ static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIn
     fprintf( stdout, "FATAL: DX12 %s heap exhausted (next=%u capacity=%u)\n", name, nextIndex, capacity );
     fflush( stderr );
     fflush( stdout );
-    SkullbonezCore::Core::Log().WriteEventf( "dx12_descriptor_heap_exhausted heap=%s next=%u capacity=%u",
-                                             name,
-                                             nextIndex,
+    SkullbonezCore::Core::Log().WriteEventf( "dx12_descriptor_heap_exhausted heap=%s next=%u capacity=%u", name, nextIndex,
                                              capacity );
 
     SkullbonezCore::Core::Log().FlushAll();
@@ -82,6 +80,7 @@ namespace
 {
 std::size_t TransientTriangleStyleIndex( TransientTriangleStyle style )
 {
+
     switch ( style )
     {
     case TransientTriangleStyle::InstancedRibbonDepthHint:
@@ -98,6 +97,7 @@ std::size_t TransientTriangleStyleIndex( TransientTriangleStyle style )
 
 const char* TransientTriangleShaderBaseName( TransientTriangleStyle style )
 {
+
     switch ( style )
     {
     case TransientTriangleStyle::InstancedRibbonDepthHint:
@@ -113,6 +113,7 @@ const char* TransientTriangleShaderBaseName( TransientTriangleStyle style )
 
 const char* TransientTriangleTraceLabel( TransientTriangleStyle style )
 {
+
     switch ( style )
     {
     case TransientTriangleStyle::InstancedRibbonDepthHint:
@@ -129,8 +130,7 @@ const char* TransientTriangleTraceLabel( TransientTriangleStyle style )
 
 bool IsInstancedRibbonStyle( TransientTriangleStyle style )
 {
-    return style == TransientTriangleStyle::InstancedRibbon ||
-           style == TransientTriangleStyle::InstancedRibbonDepthHint;
+    return style == TransientTriangleStyle::InstancedRibbon || style == TransientTriangleStyle::InstancedRibbonDepthHint;
 }
 
 bool IsRetainedGeometryCapacitySupported( const RetainedGeometryCapacity& capacity )
@@ -159,13 +159,13 @@ void Dx12GeometryOwner::AdoptGridLineShader( std::unique_ptr<ShaderDX12> shader 
 }
 
 
-bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device,
-                                                Dx12PipelineOwner& pipeline,
-                                                DXGI_FORMAT rtvFormat )
+bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device, Dx12PipelineOwner& pipeline, DXGI_FORMAT rtvFormat )
 {
+
     // Runtime allocation policy: PSO cache misses are legal only during
     // backend/resource warm-up. DrawLinesColored calls this too so an unexpected
     // future RTV format fails visibly under the allocation guard.
+
     if ( !m_gridLineShader )
     {
         return false;
@@ -173,6 +173,7 @@ bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device,
 
     for ( size_t i = 0; i < m_gridLinePSOCount; ++i )
     {
+
         if ( m_gridLinePSOs[i].format == rtvFormat )
         {
             return true;
@@ -191,11 +192,11 @@ bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device,
     elements[1].AlignedByteOffset = 12;
 
     const char* inputContractError = nullptr;
+
     if ( !shader->ValidateInputLayout( elements, 2, inputContractError ) )
     {
-        SkullbonezCore::Core::Log().WriteEventf(
-            "dx12_shader_input_contract_rejected owner=Dx12GeometryOwner reason=%s",
-            inputContractError );
+        SkullbonezCore::Core::Log().WriteEventf( "dx12_shader_input_contract_rejected owner=Dx12GeometryOwner reason=%s",
+                                                 inputContractError );
 
         SkullbonezCore::Core::Log().FlushAll();
         return false;
@@ -224,8 +225,10 @@ bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device,
 
     ID3D12PipelineState* gridLinePSO = nullptr;
     HRESULT hr = device->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &gridLinePSO ) );
+
     if ( FAILED( hr ) || !gridLinePSO )
     {
+
         // Lane R: debug-line rendering is diagnostic overlay work. A failed
         // line PSO should drop this overlay draw and report the device result,
         // not unwind the frame; cache capacity failures below remain fatal.
@@ -234,6 +237,7 @@ bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device,
                                                  static_cast<unsigned int>( rtvFormat ) );
 
         SkullbonezCore::Core::Log().FlushAll();
+
         if ( gridLinePSO )
         {
             gridLinePSO->Release();
@@ -243,14 +247,14 @@ bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device,
     }
 
     NameDx12Object( gridLinePSO, L"Skullbonez DX12 Debug Line PSO" );
+
     // Invariant: grid-line PSO variants are bounded by the fixed cache in the
     // backend. A new RTV format should be added deliberately with cache budget,
     // not by growing during draw-line submission.
+
     if ( m_gridLinePSOCount >= m_gridLinePSOs.size() )
     {
-        SB_FATAL( "RenderBackendDX12",
-                  "DX12 grid-line PSO cache exhausted. capacity=%zu format=%u",
-                  m_gridLinePSOs.size(),
+        SB_FATAL( "RenderBackendDX12", "DX12 grid-line PSO cache exhausted. capacity=%zu format=%u", m_gridLinePSOs.size(),
                   static_cast<unsigned int>( rtvFormat ) );
     }
 
@@ -263,6 +267,7 @@ bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device,
 
 Dx12GeometryOwner::Dx12GeometryOwner()
 {
+
     // Runtime allocation policy: text, overlays, primitive batches, and tools
     // acquire stable one-based handles from this bounded registry. Reserve the
     // complete handle budget before any first-use render path can request one.
@@ -272,18 +277,19 @@ Dx12GeometryOwner::Dx12GeometryOwner()
 
 uint32_t Dx12GeometryOwner::CreateDynamicVB( const int* attribComponents, int numAttribs, int maxVertices )
 {
+
     if ( m_dynamicVBs.size() >= MAX_DYNAMIC_VERTEX_BUFFERS )
     {
         SB_FATAL( "Rendering/Dx12GeometryOwner",
                   "Dynamic vertex-buffer handle capacity exceeded. requested=%zu hard_capacity=%zu",
-                  m_dynamicVBs.size() + 1u,
-                  MAX_DYNAMIC_VERTEX_BUFFERS );
+                  m_dynamicVBs.size() + 1u, MAX_DYNAMIC_VERTEX_BUFFERS );
     }
 
     DynamicVBDX12 dvb = {};
     dvb.numAttribs = numAttribs;
     dvb.maxVertices = maxVertices;
     int totalFloats = 0;
+
     for ( int i = 0; i < numAttribs && i < 12; ++i )
     {
         dvb.attribComponents[i] = attribComponents[i];
@@ -297,21 +303,19 @@ uint32_t Dx12GeometryOwner::CreateDynamicVB( const int* attribComponents, int nu
 }
 
 
-void Dx12GeometryOwner::UploadAndDrawDynamicVB( uint32_t handle,
-                                                std::span<const float> packedVertices,
-                                                D3D12_GPU_VIRTUAL_ADDRESS vbAddr,
-                                                uint8_t* uploadPointer,
-                                                ID3D12GraphicsCommandList* commandList,
-                                                Dx12DrawGate& drawGate,
-                                                Dx12Diagnostics& diagnostics,
-                                                const RasterStateDesc& rasterState )
+void Dx12GeometryOwner::UploadAndDrawDynamicVB( uint32_t handle, std::span<const float> packedVertices,
+                                                D3D12_GPU_VIRTUAL_ADDRESS vbAddr, uint8_t* uploadPointer,
+                                                ID3D12GraphicsCommandList* commandList, Dx12DrawGate& drawGate,
+                                                Dx12Diagnostics& diagnostics, const RasterStateDesc& rasterState )
 {
+
     if ( handle == 0 || handle > (uint32_t)m_dynamicVBs.size() || packedVertices.empty() )
     {
         return;
     }
 
     DynamicVBDX12& dvb = m_dynamicVBs[handle - 1];
+
     if ( dvb.floatsPerVertex <= 0 || packedVertices.size() % static_cast<size_t>( dvb.floatsPerVertex ) != 0 )
     {
         return;
@@ -323,6 +327,7 @@ void Dx12GeometryOwner::UploadAndDrawDynamicVB( uint32_t handle,
     // allocation. A steady UI/debug burst rejects this draw without submitting
     // and waiting in the middle of the frame.
     const UINT64 dataSize = static_cast<UINT64>( packedVertices.size_bytes() );
+
     if ( vbAddr == 0 || !uploadPointer )
     {
         return;
@@ -332,6 +337,7 @@ void Dx12GeometryOwner::UploadAndDrawDynamicVB( uint32_t handle,
 
     // Determine vertex format
     VertexFormat12 fmt = VertexFormat12::Pos2_Tex2;
+
     if ( dvb.numAttribs == 2 && dvb.attribComponents[0] == 2 && dvb.attribComponents[1] == 2 )
     {
         fmt = VertexFormat12::Pos2_Tex2;
@@ -346,54 +352,53 @@ void Dx12GeometryOwner::UploadAndDrawDynamicVB( uint32_t handle,
     vbv.BufferLocation = vbAddr;
     vbv.SizeInBytes = (UINT)dataSize;
     vbv.StrideInBytes = (UINT)dvb.stride;
+
     // Dynamic vertex buffers, such as text quads, change every frame and are
     // drawn from upload memory without copying to a default-heap buffer. That
     // is simpler but slightly slower for large batches.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-iasetvertexbuffers
     commandList->IASetVertexBuffers( 0, 1, &vbv );
+
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-drawinstanced
     diagnostics.RecordDrawCall( { DrawCallKind::DynamicVertexBuffer, "DynamicVB", vertexCount, 1 } );
     commandList->DrawInstanced( (UINT)vertexCount, 1, 0, 0 );
 }
 
 
-bool Dx12GeometryOwner::PrecompileDynamicVBRasterState( uint32_t handle,
-                                                        Dx12DrawGate& drawGate,
+bool Dx12GeometryOwner::PrecompileDynamicVBRasterState( uint32_t handle, Dx12DrawGate& drawGate,
                                                         const RasterStateDesc& declaredRasterState )
 {
+
     if ( handle == 0 || handle > static_cast<uint32_t>( m_dynamicVBs.size() ) )
     {
         return false;
     }
 
     const DynamicVBDX12& dynamicVertexBuffer = m_dynamicVBs[handle - 1];
-    return drawGate.PrecompilePipelineDraw( VertexFormat12::Pos2_Tex2,
-                                            false,
-                                            nullptr,
-                                            &dynamicVertexBuffer,
+    return drawGate.PrecompilePipelineDraw( VertexFormat12::Pos2_Tex2, false, nullptr, &dynamicVertexBuffer,
                                             declaredRasterState );
 }
 
 
 void Dx12GeometryOwner::DestroyDynamicVB( uint32_t /*handle*/ )
 {
+
     // No GPU resources to release; upload memory is shared by the frame arena.
 }
 
 
 void Dx12GeometryOwner::DrawLinesColored( std::span<const float> packedVertices,
                                           const Math::Transformation::Matrix4& viewProjection,
-                                          D3D12_GPU_VIRTUAL_ADDRESS vbAddress,
-                                          uint8_t* uploadPointer,
-                                          ID3D12GraphicsCommandList* commandList,
-                                          Dx12PipelineOwner& pipeline,
-                                          Dx12DrawGate& drawGate,
-                                          Dx12Diagnostics& diagnostics,
+                                          D3D12_GPU_VIRTUAL_ADDRESS vbAddress, uint8_t* uploadPointer,
+                                          ID3D12GraphicsCommandList* commandList, Dx12PipelineOwner& pipeline,
+                                          Dx12DrawGate& drawGate, Dx12Diagnostics& diagnostics,
                                           const RasterStateDesc& rasterState )
 {
+
     // Invariant: the specialized line-topology PSO is immutable. Declared
     // callers must select its depth-disabled, unblended, two-sided recipe.
+
     if ( packedVertices.empty() || packedVertices.size() % 6 != 0 || !IsGridLineRasterState( rasterState ) )
     {
         return;
@@ -405,26 +410,19 @@ void Dx12GeometryOwner::DrawLinesColored( std::span<const float> packedVertices,
     }
 
     memcpy( uploadPointer, packedVertices.data(), packedVertices.size_bytes() );
-    DrawLinesColoredFromBuffer( packedVertices.size(),
-                                viewProjection,
-                                vbAddress,
-                                commandList,
-                                pipeline,
-                                drawGate,
-                                diagnostics,
-                                rasterState );
+    DrawLinesColoredFromBuffer( packedVertices.size(), viewProjection, vbAddress, commandList, pipeline, drawGate,
+                                diagnostics, rasterState );
 }
 
 
 void Dx12GeometryOwner::DrawLinesColoredFromBuffer( std::size_t packedFloatCount,
                                                     const Math::Transformation::Matrix4& viewProjection,
                                                     D3D12_GPU_VIRTUAL_ADDRESS vertexAddress,
-                                                    ID3D12GraphicsCommandList* commandList,
-                                                    Dx12PipelineOwner& pipeline,
-                                                    Dx12DrawGate& drawGate,
-                                                    Dx12Diagnostics& diagnostics,
+                                                    ID3D12GraphicsCommandList* commandList, Dx12PipelineOwner& pipeline,
+                                                    Dx12DrawGate& drawGate, Dx12Diagnostics& diagnostics,
                                                     const RasterStateDesc& rasterState )
 {
+
     if ( packedFloatCount == 0u || packedFloatCount % 6u != 0u || vertexAddress == 0 ||
          !IsGridLineRasterState( rasterState ) )
     {
@@ -432,8 +430,10 @@ void Dx12GeometryOwner::DrawLinesColoredFromBuffer( std::size_t packedFloatCount
     }
 
     ID3D12PipelineState* gridLinePSO = nullptr;
+
     for ( size_t i = 0; i < m_gridLinePSOCount; ++i )
     {
+
         if ( m_gridLinePSOs[i].format == pipeline.RenderTargetFormat() )
         {
             gridLinePSO = m_gridLinePSOs[i].pso;
@@ -464,6 +464,7 @@ void Dx12GeometryOwner::DrawLinesColoredFromBuffer( std::size_t packedFloatCount
 
     shader->SetMat4( "uViewProj", viewProjection );
     D3D12_GPU_VIRTUAL_ADDRESS cbAddr = shader->FlushCB();
+
     if ( !drawGate.CanRecord() )
     {
         return;
@@ -476,8 +477,7 @@ void Dx12GeometryOwner::DrawLinesColoredFromBuffer( std::size_t packedFloatCount
 
     if ( cbAddr )
     {
-        commandList->SetGraphicsRootConstantBufferView( UnifiedRasterRootSignature::ROOT_PARAMETER_DRAW_CONSTANTS,
-                                                        cbAddr );
+        commandList->SetGraphicsRootConstantBufferView( UnifiedRasterRootSignature::ROOT_PARAMETER_DRAW_CONSTANTS, cbAddr );
     }
 
     D3D12_VERTEX_BUFFER_VIEW vbView = {};
@@ -496,56 +496,39 @@ void Dx12GeometryOwner::DrawLinesColoredFromBuffer( std::size_t packedFloatCount
 
 void Dx12GeometryOwner::DrawTransientColoredTriangles( std::span<const float> packedVertices,
                                                        const Math::Transformation::Matrix4& viewProjection,
-                                                       TransientTriangleStyle style,
-                                                       int viewportWidth,
-                                                       int viewportHeight,
-                                                       D3D12_GPU_VIRTUAL_ADDRESS vbAddress,
-                                                       uint8_t* uploadPointer,
-                                                       ID3D12GraphicsCommandList* commandList,
-                                                       Dx12DrawGate& drawGate,
-                                                       Dx12Diagnostics& diagnostics,
-                                                       const RasterStateDesc& rasterState )
+                                                       TransientTriangleStyle style, int viewportWidth, int viewportHeight,
+                                                       D3D12_GPU_VIRTUAL_ADDRESS vbAddress, uint8_t* uploadPointer,
+                                                       ID3D12GraphicsCommandList* commandList, Dx12DrawGate& drawGate,
+                                                       Dx12Diagnostics& diagnostics, const RasterStateDesc& rasterState )
 {
+
     if ( packedVertices.empty() || vbAddress == 0 || !uploadPointer )
     {
         return;
     }
 
     memcpy( uploadPointer, packedVertices.data(), packedVertices.size_bytes() );
-    DrawColoredTrianglesFromBuffer( packedVertices.size(),
-                                    viewProjection,
-                                    style,
-                                    viewportWidth,
-                                    viewportHeight,
-                                    false,
-                                    0u,
-                                    vbAddress,
-                                    commandList,
-                                    drawGate,
-                                    diagnostics,
-                                    rasterState );
+    DrawColoredTrianglesFromBuffer( packedVertices.size(), viewProjection, style, viewportWidth, viewportHeight, false, 0u,
+                                    vbAddress, commandList, drawGate, diagnostics, rasterState );
 }
 
 
 void Dx12GeometryOwner::DrawColoredTrianglesFromBuffer( std::size_t packedFloatCount,
                                                         const Math::Transformation::Matrix4& viewProjection,
-                                                        TransientTriangleStyle style,
-                                                        int viewportWidth,
-                                                        int viewportHeight,
-                                                        bool compactRibbonInstances,
-                                                        UINT startInstance,
+                                                        TransientTriangleStyle style, int viewportWidth, int viewportHeight,
+                                                        bool compactRibbonInstances, UINT startInstance,
                                                         D3D12_GPU_VIRTUAL_ADDRESS vbAddress,
-                                                        ID3D12GraphicsCommandList* commandList,
-                                                        Dx12DrawGate& drawGate,
-                                                        Dx12Diagnostics& diagnostics,
-                                                        const RasterStateDesc& rasterState )
+                                                        ID3D12GraphicsCommandList* commandList, Dx12DrawGate& drawGate,
+                                                        Dx12Diagnostics& diagnostics, const RasterStateDesc& rasterState )
 {
+
     if ( packedFloatCount == 0u || vbAddress == 0 )
     {
         return;
     }
 
     ShaderDX12* transientShader = m_transientTriangleShaders[TransientTriangleStyleIndex( style )].get();
+
     if ( !transientShader )
     {
         return;
@@ -554,16 +537,15 @@ void Dx12GeometryOwner::DrawColoredTrianglesFromBuffer( std::size_t packedFloatC
     ShaderDX12* shader = static_cast<ShaderDX12*>( transientShader );
     shader->Use();
     shader->SetMat4( "uViewProj", viewProjection );
+
     if ( IsInstancedRibbonStyle( style ) )
     {
+
         // Concept: the retained-ribbon shader expands each compact segment into a
         // screen-space vector spline. The viewport converts the authored full
         // width and analytic anti-aliasing overhang from pixels to
         // normalized-device-coordinate offsets.
-        shader->SetVec4( "uViewportPixels",
-                         static_cast<float>( viewportWidth ),
-                         static_cast<float>( viewportHeight ),
-                         0.0f,
+        shader->SetVec4( "uViewportPixels", static_cast<float>( viewportWidth ), static_cast<float>( viewportHeight ), 0.0f,
                          0.0f );
 
         const bool depthHint = style == TransientTriangleStyle::InstancedRibbonDepthHint;
@@ -575,6 +557,7 @@ void Dx12GeometryOwner::DrawColoredTrianglesFromBuffer( std::size_t packedFloatC
     vertexLayout.attribComponents[0] = 3;
     vertexLayout.attribComponents[1] = 4;
     vertexLayout.attribComponents[2] = 4;
+
     if ( IsInstancedRibbonStyle( style ) )
     {
         vertexLayout.attribComponents[3] = 2;
@@ -589,6 +572,7 @@ void Dx12GeometryOwner::DrawColoredTrianglesFromBuffer( std::size_t packedFloatC
 
     vertexLayout.stride = vertexLayout.floatsPerVertex * static_cast<int>( sizeof( float ) );
     vertexLayout.perInstance = compactRibbonInstances;
+
     if ( packedFloatCount % static_cast<size_t>( vertexLayout.floatsPerVertex ) != 0 )
     {
         return;
@@ -610,12 +594,8 @@ void Dx12GeometryOwner::DrawColoredTrianglesFromBuffer( std::size_t packedFloatC
     vbView.StrideInBytes = static_cast<UINT>( vertexLayout.stride );
     commandList->IASetVertexBuffers( 0, 1, &vbView );
 
-    diagnostics.RecordDrawCall(
-        { DrawCallKind::DynamicVertexBuffer, TransientTriangleTraceLabel( style ), vertexCount, instanceCount } );
-    commandList->DrawInstanced( static_cast<UINT>( vertexCount ),
-                                static_cast<UINT>( instanceCount ),
-                                0,
-                                startInstance );
+    diagnostics.RecordDrawCall( { DrawCallKind::DynamicVertexBuffer, TransientTriangleTraceLabel( style ), vertexCount, instanceCount } );
+    commandList->DrawInstanced( static_cast<UINT>( vertexCount ), static_cast<UINT>( instanceCount ), 0, startInstance );
 }
 
 
@@ -641,8 +621,7 @@ UINT Dx12GeometryOwner::GridLineConstantBytes() const
 
 UINT Dx12GeometryOwner::TransientConstantBytes( TransientTriangleStyle style ) const
 {
-    const ShaderDX12* shader = static_cast<const ShaderDX12*>(
-        m_transientTriangleShaders[TransientTriangleStyleIndex( style )].get() );
+    const ShaderDX12* shader = static_cast<const ShaderDX12*>( m_transientTriangleShaders[TransientTriangleStyleIndex( style )].get() );
 
     return shader ? shader->ConstantBufferUploadSize() : 0;
 }
@@ -654,19 +633,14 @@ const char* Dx12GeometryOwner::TransientShaderBaseName( TransientTriangleStyle s
 }
 
 
-uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticVertices,
-                                                 int staticVertexCount,
-                                                 int staticFloatsPerVertex,
-                                                 int instanceFloats,
-                                                 int instanceStartAttribute,
+uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticVertices, int staticVertexCount,
+                                                 int staticFloatsPerVertex, int instanceFloats, int instanceStartAttribute,
                                                  std::span<const int> instanceAttributeSizes,
-                                                 std::span<const int> staticAttributeSizes,
-                                                 ID3D12Device* device,
-                                                 ID3D12GraphicsCommandList* commandList,
-                                                 ID3D12Resource* uploadResource,
-                                                 D3D12_GPU_VIRTUAL_ADDRESS uploadAddress,
-                                                 uint8_t* uploadPointer )
+                                                 std::span<const int> staticAttributeSizes, ID3D12Device* device,
+                                                 ID3D12GraphicsCommandList* commandList, ID3D12Resource* uploadResource,
+                                                 D3D12_GPU_VIRTUAL_ADDRESS uploadAddress, uint8_t* uploadPointer )
 {
+
     if ( !device || !commandList || !uploadResource || uploadAddress == 0 || !uploadPointer )
     {
         return 0;
@@ -680,6 +654,7 @@ uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticVertices,
     im.instanceStartAttrib = instanceStartAttribute;
     im.numInstanceAttribs = static_cast<int>( instanceAttributeSizes.size() );
     im.numStaticAttribs = static_cast<int>( staticAttributeSizes.size() );
+
     for ( int i = 0; i < im.numInstanceAttribs && i < 8; ++i )
     {
         im.instanceAttribSizes[i] = instanceAttributeSizes[static_cast<std::size_t>( i )];
@@ -713,25 +688,23 @@ uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticVertices,
     // explicitly, then rely on implicit promotion to COPY_DEST when CopyBufferRegion executes.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/direct3d12/using-resource-barriers-to-synchronize-resource-states-in-direct3d-12#implicit-state-transitions
-    const HRESULT staticBufferResult = device->CreateCommittedResource( &defaultHeap,
-                                                                        D3D12_HEAP_FLAG_NONE,
-                                                                        &bufDesc,
-                                                                        D3D12_RESOURCE_STATE_COMMON,
-                                                                        nullptr,
+    const HRESULT staticBufferResult = device->CreateCommittedResource( &defaultHeap, D3D12_HEAP_FLAG_NONE, &bufDesc,
+                                                                        D3D12_RESOURCE_STATE_COMMON, nullptr,
                                                                         IID_PPV_ARGS( &im.staticVB ) );
 
     if ( FAILED( staticBufferResult ) || !im.staticVB )
     {
+
         // Lane R: instanced mesh handles already use 0 as "no backend mesh".
         // Callers route uploads and draws through that handle, so creation can
         // fail as a logged result without leaving a partially registered mesh.
-        SkullbonezCore::Core::Log().WriteEventf(
-            "dx12_instanced_static_vertex_buffer_create_failed hresult=0x%08X vertices=%d stride=%d",
-            static_cast<unsigned int>( FAILED( staticBufferResult ) ? staticBufferResult : E_FAIL ),
-            staticVertexCount,
-            im.staticStride );
+        SkullbonezCore::Core::Log()
+            .WriteEventf( "dx12_instanced_static_vertex_buffer_create_failed hresult=0x%08X vertices=%d stride=%d",
+                          static_cast<unsigned int>( FAILED( staticBufferResult ) ? staticBufferResult : E_FAIL ),
+                          staticVertexCount, im.staticStride );
 
         SkullbonezCore::Core::Log().FlushAll();
+
         if ( im.staticVB )
         {
             im.staticVB->Release();
@@ -741,18 +714,14 @@ uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticVertices,
         return 0;
     }
 
-    NameDx12ObjectIndexed( im.staticVB,
-                           L"Skullbonez DX12 Instanced Static Vertex Buffer",
+    NameDx12ObjectIndexed( im.staticVB, L"Skullbonez DX12 Instanced Static Vertex Buffer",
                            static_cast<UINT>( m_instancedMeshes.size() + 1 ) );
 
     // Upload static vertex data from CPU to GPU via the upload buffer, then transition to VB state.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-copybufferregion
     memcpy( uploadPointer, staticVertices, (size_t)dataSize );
-    commandList->CopyBufferRegion( im.staticVB,
-                                   0,
-                                   uploadResource,
-                                   uploadAddress - uploadResource->GetGPUVirtualAddress(),
+    commandList->CopyBufferRegion( im.staticVB, 0, uploadResource, uploadAddress - uploadResource->GetGPUVirtualAddress(),
                                    dataSize );
 
     // Transition from COPY_DEST (implicit promotion after CopyBufferRegion) to the
@@ -776,23 +745,24 @@ uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticVertices,
 }
 
 
-void Dx12GeometryOwner::UploadInstanceData( uint32_t handle,
-                                            std::span<const float> packedInstances,
-                                            D3D12_GPU_VIRTUAL_ADDRESS addr,
-                                            uint8_t* uploadPointer )
+void Dx12GeometryOwner::UploadInstanceData( uint32_t handle, std::span<const float> packedInstances,
+                                            D3D12_GPU_VIRTUAL_ADDRESS addr, uint8_t* uploadPointer )
 {
+
     if ( handle == 0 || handle > (uint32_t)m_instancedMeshes.size() || packedInstances.empty() )
     {
         return;
     }
 
     InstancedMeshDX12& im = m_instancedMeshes[handle - 1];
+
     // Hazard: a rejected steady-frame reservation must invalidate the prior
     // frame's upload address before DrawInstancedMesh can observe it.
     im.instanceDataAddr = 0;
     im.instanceDataSize = 0;
 
     const UINT64 dataSize = static_cast<UINT64>( packedInstances.size_bytes() );
+
     if ( addr == 0 || !uploadPointer )
     {
         return;
@@ -805,11 +775,10 @@ void Dx12GeometryOwner::UploadInstanceData( uint32_t handle,
 }
 
 
-void Dx12GeometryOwner::DrawInstancedMesh( const InstancedMeshDrawDesc& draw,
-                                           ID3D12GraphicsCommandList* commandList,
-                                           Dx12DrawGate& drawGate,
-                                           Dx12Diagnostics& diagnostics )
+void Dx12GeometryOwner::DrawInstancedMesh( const InstancedMeshDrawDesc& draw, ID3D12GraphicsCommandList* commandList,
+                                           Dx12DrawGate& drawGate, Dx12Diagnostics& diagnostics )
 {
+
     if ( draw.handle == 0 || draw.handle > (uint32_t)m_instancedMeshes.size() || draw.instanceCount <= 0 )
     {
         return;
@@ -845,20 +814,21 @@ void Dx12GeometryOwner::DrawInstancedMesh( const InstancedMeshDrawDesc& draw,
     // multiplied by instanceCount copies.
     // This is the key optimization: 300 balls drawn in a single GPU dispatch.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-drawinstanced
-    diagnostics.RecordDrawCall(
-        { DrawCallKind::InstancedMesh, "InstancedMesh", draw.staticVertexCount, draw.instanceCount } );
+    diagnostics.RecordDrawCall( { DrawCallKind::InstancedMesh, "InstancedMesh", draw.staticVertexCount, draw.instanceCount } );
     commandList->DrawInstanced( (UINT)draw.staticVertexCount, (UINT)draw.instanceCount, 0, 0 );
 }
 
 
 void Dx12GeometryOwner::DestroyInstancedMesh( uint32_t handle )
 {
+
     if ( handle == 0 || handle > (uint32_t)m_instancedMeshes.size() )
     {
         return;
     }
 
     auto& im = m_instancedMeshes[handle - 1];
+
     if ( im.staticVB )
     {
         im.staticVB->Release();
@@ -891,6 +861,7 @@ size_t Dx12GeometryOwner::DynamicCapacity() const
 }
 UINT64 Dx12GeometryOwner::DynamicUploadBytes( uint32_t handle, std::span<const float> packedVertices ) const
 {
+
     if ( handle == 0 || handle > m_dynamicVBs.size() || packedVertices.empty() )
     {
         return 0;
@@ -913,11 +884,14 @@ size_t Dx12GeometryOwner::InstancedCapacity() const
 
 void Dx12GeometryOwner::InvalidateGridLinePipelinesForShaderReload()
 {
+
     // Lifetime: the caller has drained the GPU. Grid-line PSOs bypass the main
     // raster cache, so they must be released explicitly before the registered
     // grid-line ShaderDX12 adopts new bytecode.
+
     for ( GridLinePSODX12& entry : m_gridLinePSOs )
     {
+
         if ( entry.pso )
         {
             entry.pso->Release();
@@ -934,6 +908,7 @@ void Dx12GeometryOwner::Shutdown()
 {
     InvalidateGridLinePipelinesForShaderReload();
     m_gridLineShader.reset();
+
     for ( std::unique_ptr<ShaderDX12>& shader : m_transientTriangleShaders )
     {
         shader.reset();
@@ -941,6 +916,7 @@ void Dx12GeometryOwner::Shutdown()
 
     for ( InstancedMeshDX12& mesh : m_instancedMeshes )
     {
+
         if ( mesh.staticVB )
         {
             mesh.staticVB->Release();
@@ -965,12 +941,12 @@ bool Dx12GeometryOwner::PrecompileDynamicVBRasterState( uint32_t handle, const P
 }
 
 
-void Dx12GeometryOwner::UploadAndDrawDynamicVB( uint32_t handle,
-                                                std::span<const float> packedVertices,
+void Dx12GeometryOwner::UploadAndDrawDynamicVB( uint32_t handle, std::span<const float> packedVertices,
                                                 const PassRasterStateBucket& bucket )
 {
     assert( m_resourceDevice && m_resourceFrame && m_submissionPipeline && m_submissionDiagnostics );
     m_resourceFrame->UploadReservations().CancelPendingConstantUpload();
+
     if ( packedVertices.empty() || !m_resourceFrame->DrawGate().PrepareDraw() )
     {
         return;
@@ -979,19 +955,14 @@ void Dx12GeometryOwner::UploadAndDrawDynamicVB( uint32_t handle,
     const UINT64 bytes = DynamicUploadBytes( handle, packedVertices );
     const ShaderDX12* shader = m_submissionPipeline->ActiveShader();
     const UINT64 constantBytes = shader ? shader->ConstantBufferUploadSize() : 0;
-    const D3D12_GPU_VIRTUAL_ADDRESS address = bytes > 0 ? m_resourceFrame->UploadReservations().ReserveGeometryUpload(
-                                                              bytes,
-                                                              constantBytes,
-                                                              RenderUploadCategory::DynamicVertex )
+    const D3D12_GPU_VIRTUAL_ADDRESS address = bytes > 0 ? m_resourceFrame->UploadReservations()
+                                                              .ReserveGeometryUpload( bytes, constantBytes,
+                                                                                      RenderUploadCategory::DynamicVertex )
                                                         : 0;
 
-    UploadAndDrawDynamicVB( handle,
-                            packedVertices,
-                            address,
+    UploadAndDrawDynamicVB( handle, packedVertices, address,
                             address ? m_resourceFrame->UploadReservations().UploadPointer( address ) : nullptr,
-                            m_resourceDevice->CommandList(),
-                            m_resourceFrame->DrawGate(),
-                            *m_submissionDiagnostics,
+                            m_resourceDevice->CommandList(), m_resourceFrame->DrawGate(), *m_submissionDiagnostics,
                             bucket.raster );
 
     m_resourceFrame->UploadReservations().CancelPendingConstantUpload();
@@ -1004,26 +975,21 @@ void Dx12GeometryOwner::DrawLinesColored( std::span<const float> packedVertices,
 {
     assert( m_resourceDevice && m_resourceFrame && m_submissionPipeline && m_submissionDiagnostics );
     m_resourceFrame->UploadReservations().CancelPendingConstantUpload();
+
     if ( packedVertices.empty() || packedVertices.size() % 6 != 0 || !m_resourceFrame->DrawGate().PrepareDraw() )
     {
         return;
     }
 
     const UINT64 bytes = static_cast<UINT64>( packedVertices.size_bytes() );
-    const D3D12_GPU_VIRTUAL_ADDRESS address = m_resourceFrame->UploadReservations().ReserveGeometryUpload(
-        bytes,
-        GridLineConstantBytes(),
-        RenderUploadCategory::RetainedGeometry );
+    const D3D12_GPU_VIRTUAL_ADDRESS address = m_resourceFrame->UploadReservations()
+                                                  .ReserveGeometryUpload( bytes, GridLineConstantBytes(),
+                                                                          RenderUploadCategory::RetainedGeometry );
 
-    DrawLinesColored( packedVertices,
-                      viewProjection,
-                      address,
+    DrawLinesColored( packedVertices, viewProjection, address,
                       address ? m_resourceFrame->UploadReservations().UploadPointer( address ) : nullptr,
-                      m_resourceDevice->CommandList(),
-                      *m_submissionPipeline,
-                      m_resourceFrame->DrawGate(),
-                      *m_submissionDiagnostics,
-                      bucket.raster );
+                      m_resourceDevice->CommandList(), *m_submissionPipeline, m_resourceFrame->DrawGate(),
+                      *m_submissionDiagnostics, bucket.raster );
 
     m_resourceFrame->UploadReservations().CancelPendingConstantUpload();
 }
@@ -1031,12 +997,12 @@ void Dx12GeometryOwner::DrawLinesColored( std::span<const float> packedVertices,
 
 void Dx12GeometryOwner::DrawTransientColoredTriangles( std::span<const float> packedVertices,
                                                        const Math::Transformation::Matrix4& viewProjection,
-                                                       TransientTriangleStyle style,
-                                                       const PassRasterStateBucket& bucket )
+                                                       TransientTriangleStyle style, const PassRasterStateBucket& bucket )
 {
     assert( m_resourceDevice && m_resourceFrame && m_submissionDiagnostics );
     m_resourceFrame->UploadReservations().CancelPendingConstantUpload();
     const UINT64 floatsPerVertex = IsInstancedRibbonStyle( style ) ? 19u : 11u;
+
     if ( packedVertices.empty() || packedVertices.size() % floatsPerVertex != 0 ||
          !m_resourceFrame->DrawGate().PrepareDraw() )
     {
@@ -1047,21 +1013,13 @@ void Dx12GeometryOwner::DrawTransientColoredTriangles( std::span<const float> pa
     const RenderUploadCategory category = IsInstancedRibbonStyle( style ) ? RenderUploadCategory::RetainedGeometry
                                                                           : RenderUploadCategory::DynamicVertex;
 
-    const D3D12_GPU_VIRTUAL_ADDRESS address = m_resourceFrame->UploadReservations().ReserveGeometryUpload(
-        bytes,
-        TransientConstantBytes( style ),
-        category );
+    const D3D12_GPU_VIRTUAL_ADDRESS address = m_resourceFrame->UploadReservations()
+                                                  .ReserveGeometryUpload( bytes, TransientConstantBytes( style ), category );
 
-    DrawTransientColoredTriangles( packedVertices,
-                                   viewProjection,
-                                   style,
-                                   m_resourceDevice->Width(),
-                                   m_resourceDevice->Height(),
-                                   address,
+    DrawTransientColoredTriangles( packedVertices, viewProjection, style, m_resourceDevice->Width(),
+                                   m_resourceDevice->Height(), address,
                                    address ? m_resourceFrame->UploadReservations().UploadPointer( address ) : nullptr,
-                                   m_resourceDevice->CommandList(),
-                                   m_resourceFrame->DrawGate(),
-                                   *m_submissionDiagnostics,
+                                   m_resourceDevice->CommandList(), m_resourceFrame->DrawGate(), *m_submissionDiagnostics,
                                    bucket.raster );
 
     m_resourceFrame->UploadReservations().CancelPendingConstantUpload();
@@ -1069,14 +1027,13 @@ void Dx12GeometryOwner::DrawTransientColoredTriangles( std::span<const float> pa
 
 
 void Dx12GeometryOwner::DrawRetainedGeometryRibbon( std::span<const float> packedVertices,
-                                                    RetainedGeometryStreamToken stream,
-                                                    bool priorityLane,
+                                                    RetainedGeometryStreamToken stream, bool priorityLane,
                                                     const Math::Transformation::Matrix4& viewProjection,
-                                                    TransientTriangleStyle style,
-                                                    const PassRasterStateBucket& bucket )
+                                                    TransientTriangleStyle style, const PassRasterStateBucket& bucket )
 {
     assert( m_resourceDevice && m_resourceFrame && m_submissionDiagnostics );
     const RetainedGeometryCapacity capacity = m_retainedGeometryCapacity;
+
     if ( !IsRetainedGeometryCapacitySupported( capacity ) )
     {
         return;
@@ -1085,11 +1042,11 @@ void Dx12GeometryOwner::DrawRetainedGeometryRibbon( std::span<const float> packe
     const std::size_t laneIndex = priorityLane ? 1u : 0u;
     constexpr std::size_t verticesPerSegment = 6u;
     const std::size_t floatsPerExpandedSegment = verticesPerSegment * capacity.floatsPerRecord;
-    const std::size_t laneRecordCapacity = priorityLane ? capacity.priorityRecordCapacity
-                                                        : capacity.ordinaryRecordCapacity;
+    const std::size_t laneRecordCapacity = priorityLane ? capacity.priorityRecordCapacity : capacity.ordinaryRecordCapacity;
 
     const std::size_t laneOffset = priorityLane ? RETAINED_GEOMETRY_ORDINARY_FLOATS : 0u;
     const std::size_t segmentCount = packedVertices.size() / floatsPerExpandedSegment;
+
     if ( packedVertices.empty() || packedVertices.size() % floatsPerExpandedSegment != 0u ||
          segmentCount > laneRecordCapacity || !IsInstancedRibbonStyle( style ) ||
          !m_resourceFrame->DrawGate().PrepareDraw() )
@@ -1103,39 +1060,30 @@ void Dx12GeometryOwner::DrawRetainedGeometryRibbon( std::span<const float> packe
     const D3D12_GPU_VIRTUAL_ADDRESS retainedAddress = m_resourceFrame->Uploads().PersistentTailAddress( frameIndex );
     const RetainedGeometryUploadPlan uploadPlan = BuildRetainedGeometryUploadPlan( buffer.streams[laneIndex],
                                                                                    buffer.uploadedUnitCounts[laneIndex],
-                                                                                   stream,
-                                                                                   segmentCount,
-                                                                                   true );
+                                                                                   stream, segmentCount, true );
 
     if ( uploadPlan.uploadRequired )
     {
+
         // The expanded CPU cache repeats each segment payload six times only
         // for the transient submission contract. Retained GPU storage keeps one
         // per-instance record and patches only the formerly open adjacency tail
         // plus the appended suffix.
+
         for ( std::size_t segment = uploadPlan.firstChangedUnit; segment < segmentCount; ++segment )
         {
             memcpy( retainedBytes + ( laneOffset + segment * capacity.floatsPerRecord ) * sizeof( float ),
-                    packedVertices.data() + segment * floatsPerExpandedSegment,
-                    capacity.floatsPerRecord * sizeof( float ) );
+                    packedVertices.data() + segment * floatsPerExpandedSegment, capacity.floatsPerRecord * sizeof( float ) );
         }
 
         buffer.streams[laneIndex] = stream;
         buffer.uploadedUnitCounts[laneIndex] = segmentCount;
     }
 
-    DrawColoredTrianglesFromBuffer( segmentCount * capacity.floatsPerRecord,
-                                    viewProjection,
-                                    style,
-                                    m_resourceDevice->Width(),
-                                    m_resourceDevice->Height(),
-                                    true,
-                                    0u,
-                                    retainedAddress + laneOffset * sizeof( float ),
-                                    m_resourceDevice->CommandList(),
-                                    m_resourceFrame->DrawGate(),
-                                    *m_submissionDiagnostics,
-                                    bucket.raster );
+    DrawColoredTrianglesFromBuffer( segmentCount * capacity.floatsPerRecord, viewProjection, style,
+                                    m_resourceDevice->Width(), m_resourceDevice->Height(), true, 0u,
+                                    retainedAddress + laneOffset * sizeof( float ), m_resourceDevice->CommandList(),
+                                    m_resourceFrame->DrawGate(), *m_submissionDiagnostics, bucket.raster );
 }
 
 
@@ -1143,8 +1091,7 @@ void Dx12GeometryOwner::DrawRetainedGeometryRanges( std::span<const float> compa
                                                     std::span<const RetainedGeometryRangeToken> ranges,
                                                     RetainedGeometryStreamToken stream,
                                                     const Math::Transformation::Matrix4& viewProjection,
-                                                    TransientTriangleStyle style,
-                                                    const PassRasterStateBucket& bucket )
+                                                    TransientTriangleStyle style, const PassRasterStateBucket& bucket )
 {
     assert( m_resourceDevice && m_resourceFrame && m_submissionDiagnostics );
     const RetainedGeometryCapacity capacity = m_retainedGeometryCapacity;
@@ -1163,14 +1110,14 @@ void Dx12GeometryOwner::DrawRetainedGeometryRanges( std::span<const float> compa
     uint8_t* retainedBytes = m_resourceFrame->Uploads().PersistentTailPointer( frameIndex );
     const D3D12_GPU_VIRTUAL_ADDRESS retainedAddress = m_resourceFrame->Uploads().PersistentTailAddress( frameIndex );
     constexpr std::size_t compactFloatOffset = RETAINED_GEOMETRY_EXPANDED_FLOATS;
-    constexpr std::size_t indirectByteOffset = ( RETAINED_GEOMETRY_EXPANDED_FLOATS +
-                                                 RETAINED_GEOMETRY_COMPACT_FLOATS ) *
+    constexpr std::size_t indirectByteOffset = ( RETAINED_GEOMETRY_EXPANDED_FLOATS + RETAINED_GEOMETRY_COMPACT_FLOATS ) *
                                                sizeof( float );
 
     auto* indirectArguments = reinterpret_cast<D3D12_DRAW_ARGUMENTS*>( retainedBytes + indirectByteOffset );
     const D3D12_GPU_VIRTUAL_ADDRESS indirectAddress = retainedAddress + indirectByteOffset;
     const bool streamChanged = buffer.rangeStream.identity != stream.identity;
     const bool revisionChanged = streamChanged || buffer.rangeStream.revision != stream.revision;
+
     if ( streamChanged )
     {
         buffer.rangeTokens = {};
@@ -1179,6 +1126,7 @@ void Dx12GeometryOwner::DrawRetainedGeometryRanges( std::span<const float> compa
     if ( revisionChanged )
     {
         uint32_t totalRecordCount = 0;
+
         for ( std::size_t rangeIndex = 0; rangeIndex < ranges.size(); ++rangeIndex )
         {
             const RetainedGeometryRangeToken& range = ranges[rangeIndex];
@@ -1190,35 +1138,30 @@ void Dx12GeometryOwner::DrawRetainedGeometryRanges( std::span<const float> compa
             const std::size_t laneBegin = priorityLane ? capacity.ordinaryRecordCapacity : 0u;
             const std::size_t laneEnd = priorityLane ? recordCapacity : capacity.ordinaryRecordCapacity;
 
-            if ( cacheIndex >= capacity.rangeCapacity || rangeRecordCount > rangeRecordCapacity ||
-                 firstRecord < laneBegin || firstRecord + rangeRecordCapacity > laneEnd )
+            if ( cacheIndex >= capacity.rangeCapacity || rangeRecordCount > rangeRecordCapacity || firstRecord < laneBegin ||
+                 firstRecord + rangeRecordCapacity > laneEnd )
             {
                 indirectArguments[rangeIndex] = {};
 
                 continue;
             }
 
-            const RetainedGeometryUploadPlan uploadPlan = BuildRetainedGeometryRangeUploadPlan(
-                buffer.rangeTokens[cacheIndex],
-                range );
+            const RetainedGeometryUploadPlan
+                uploadPlan = BuildRetainedGeometryRangeUploadPlan( buffer.rangeTokens[cacheIndex], range );
 
             if ( uploadPlan.uploadRequired && uploadPlan.firstChangedUnit < rangeRecordCount )
             {
-                const std::size_t sourceFloat = ( firstRecord + uploadPlan.firstChangedUnit ) *
-                                                capacity.floatsPerRecord;
+                const std::size_t sourceFloat = ( firstRecord + uploadPlan.firstChangedUnit ) * capacity.floatsPerRecord;
 
                 const std::size_t changedFloatCount = ( rangeRecordCount - uploadPlan.firstChangedUnit ) *
                                                       capacity.floatsPerRecord;
 
                 memcpy( retainedBytes + ( compactFloatOffset + sourceFloat ) * sizeof( float ),
-                        compactRecords.data() + sourceFloat,
-                        changedFloatCount * sizeof( float ) );
+                        compactRecords.data() + sourceFloat, changedFloatCount * sizeof( float ) );
             }
 
             buffer.rangeTokens[cacheIndex] = range;
-            indirectArguments[rangeIndex] = { 6u,
-                                              static_cast<UINT>( rangeRecordCount ),
-                                              0u,
+            indirectArguments[rangeIndex] = { 6u, static_cast<UINT>( rangeRecordCount ), 0u,
                                               static_cast<UINT>( firstRecord ) };
 
             totalRecordCount += static_cast<uint32_t>( rangeRecordCount );
@@ -1229,6 +1172,7 @@ void Dx12GeometryOwner::DrawRetainedGeometryRanges( std::span<const float> compa
     }
 
     ShaderDX12* transientShader = m_transientTriangleShaders[TransientTriangleStyleIndex( style )].get();
+
     if ( !transientShader || !m_retainedGeometryCommandSignature )
     {
         return;
@@ -1236,11 +1180,8 @@ void Dx12GeometryOwner::DrawRetainedGeometryRanges( std::span<const float> compa
 
     transientShader->Use();
     transientShader->SetMat4( "uViewProj", viewProjection );
-    transientShader->SetVec4( "uViewportPixels",
-                              static_cast<float>( m_resourceDevice->Width() ),
-                              static_cast<float>( m_resourceDevice->Height() ),
-                              0.0f,
-                              0.0f );
+    transientShader->SetVec4( "uViewportPixels", static_cast<float>( m_resourceDevice->Width() ),
+                              static_cast<float>( m_resourceDevice->Height() ), 0.0f, 0.0f );
 
     const bool depthHint = style == TransientTriangleStyle::InstancedRibbonDepthHint;
     transientShader->SetVec4( "uRibbonStyle", depthHint ? 0.16f : 1.0f, depthHint ? 0.70f : 1.0f, 1.0f, 0.0f );
@@ -1256,56 +1197,47 @@ void Dx12GeometryOwner::DrawRetainedGeometryRanges( std::span<const float> compa
     vertexLayout.floatsPerVertex = static_cast<int>( capacity.floatsPerRecord );
     vertexLayout.stride = vertexLayout.floatsPerVertex * static_cast<int>( sizeof( float ) );
     vertexLayout.perInstance = true;
-    if ( !m_resourceFrame->DrawGate()
-              .PreparePipelineDraw( VertexFormat12::Pos3, false, nullptr, &vertexLayout, bucket.raster ) )
+
+    if ( !m_resourceFrame->DrawGate().PreparePipelineDraw( VertexFormat12::Pos3, false, nullptr, &vertexLayout,
+                                                           bucket.raster ) )
     {
         return;
     }
 
     D3D12_VERTEX_BUFFER_VIEW vbView = {};
     vbView.BufferLocation = retainedAddress + compactFloatOffset * sizeof( float );
-    vbView.SizeInBytes = static_cast<UINT>(
-        ( MAX_RETAINED_GEOMETRY_ORDINARY_RECORDS + MAX_RETAINED_GEOMETRY_PRIORITY_RECORDS ) *
-        INSTANCED_RIBBON_FLOATS_PER_RECORD * sizeof( float ) );
+    vbView.SizeInBytes = static_cast<UINT>( ( MAX_RETAINED_GEOMETRY_ORDINARY_RECORDS + MAX_RETAINED_GEOMETRY_PRIORITY_RECORDS ) *
+                                            INSTANCED_RIBBON_FLOATS_PER_RECORD * sizeof( float ) );
 
     vbView.StrideInBytes = static_cast<UINT>( vertexLayout.stride );
     m_resourceDevice->CommandList()->IASetVertexBuffers( 0, 1, &vbView );
-    m_submissionDiagnostics->RecordDrawCall( { DrawCallKind::DynamicVertexBuffer,
-                                               TransientTriangleTraceLabel( style ),
-                                               6,
+    m_submissionDiagnostics->RecordDrawCall( { DrawCallKind::DynamicVertexBuffer, TransientTriangleTraceLabel( style ), 6,
                                                static_cast<int>( buffer.rangeTotalRecordCount ) } );
 
     // Stable frames reach this call without visiting a range or copying a byte.
     // The GPU consumes the retained command table in canonical range order.
-    m_resourceDevice->CommandList()->ExecuteIndirect(
-        m_retainedGeometryCommandSignature.Get(),
-        static_cast<UINT>( ranges.size() ),
-        m_resourceFrame->Uploads().Resource( frameIndex ),
-        indirectAddress - m_resourceFrame->Uploads().Resource( frameIndex )->GetGPUVirtualAddress(),
-        nullptr,
-        0u );
+    m_resourceDevice->CommandList()
+        ->ExecuteIndirect( m_retainedGeometryCommandSignature.Get(), static_cast<UINT>( ranges.size() ),
+                           m_resourceFrame->Uploads().Resource( frameIndex ),
+                           indirectAddress - m_resourceFrame->Uploads().Resource( frameIndex )->GetGPUVirtualAddress(),
+                           nullptr, 0u );
 }
 
 
-void Dx12GeometryOwner::DrawRetainedLinesColored( std::span<const float> packedVertices,
-                                                  RetainedGeometryStreamToken stream,
-                                                  bool priorityLane,
-                                                  const Math::Transformation::Matrix4& viewProjection,
+void Dx12GeometryOwner::DrawRetainedLinesColored( std::span<const float> packedVertices, RetainedGeometryStreamToken stream,
+                                                  bool priorityLane, const Math::Transformation::Matrix4& viewProjection,
                                                   const PassRasterStateBucket& bucket )
 {
     assert( m_resourceDevice && m_resourceFrame && m_submissionPipeline && m_submissionDiagnostics );
     const RetainedGeometryCapacity capacity = m_retainedGeometryCapacity;
     const std::size_t channelIndex = priorityLane ? 3u : 2u;
     const std::size_t ribbonFloatCapacity = RETAINED_GEOMETRY_ORDINARY_FLOATS + RETAINED_GEOMETRY_PRIORITY_FLOATS;
-    const std::size_t laneCapacity = priorityLane ? capacity.priorityLineFloatCapacity
-                                                  : capacity.ordinaryLineFloatCapacity;
+    const std::size_t laneCapacity = priorityLane ? capacity.priorityLineFloatCapacity : capacity.ordinaryLineFloatCapacity;
 
-    const std::size_t laneOffset = ribbonFloatCapacity +
-                                   ( priorityLane ? MAX_RETAINED_GEOMETRY_ORDINARY_LINE_FLOATS : 0u );
+    const std::size_t laneOffset = ribbonFloatCapacity + ( priorityLane ? MAX_RETAINED_GEOMETRY_ORDINARY_LINE_FLOATS : 0u );
 
-    if ( !IsRetainedGeometryCapacitySupported( capacity ) || packedVertices.empty() ||
-         packedVertices.size() % 6u != 0u || packedVertices.size() > laneCapacity ||
-         !m_resourceFrame->DrawGate().PrepareDraw() )
+    if ( !IsRetainedGeometryCapacitySupported( capacity ) || packedVertices.empty() || packedVertices.size() % 6u != 0u ||
+         packedVertices.size() > laneCapacity || !m_resourceFrame->DrawGate().PrepareDraw() )
     {
         return;
     }
@@ -1314,12 +1246,9 @@ void Dx12GeometryOwner::DrawRetainedLinesColored( std::span<const float> packedV
     RetainedGeometryBufferDX12& buffer = m_retainedGeometryBuffers[frameIndex];
     uint8_t* retainedBytes = m_resourceFrame->Uploads().PersistentTailPointer( frameIndex );
     const D3D12_GPU_VIRTUAL_ADDRESS retainedAddress = m_resourceFrame->Uploads().PersistentTailAddress( frameIndex );
-    const RetainedGeometryUploadPlan uploadPlan = BuildRetainedGeometryUploadPlan(
-        buffer.streams[channelIndex],
-        buffer.uploadedUnitCounts[channelIndex],
-        stream,
-        packedVertices.size(),
-        false );
+    const RetainedGeometryUploadPlan uploadPlan = BuildRetainedGeometryUploadPlan( buffer.streams[channelIndex],
+                                                                                   buffer.uploadedUnitCounts[channelIndex],
+                                                                                   stream, packedVertices.size(), false );
 
     if ( uploadPlan.uploadRequired )
     {
@@ -1331,20 +1260,13 @@ void Dx12GeometryOwner::DrawRetainedLinesColored( std::span<const float> packedV
         buffer.uploadedUnitCounts[channelIndex] = packedVertices.size();
     }
 
-    DrawLinesColoredFromBuffer( packedVertices.size(),
-                                viewProjection,
-                                retainedAddress + laneOffset * sizeof( float ),
-                                m_resourceDevice->CommandList(),
-                                *m_submissionPipeline,
-                                m_resourceFrame->DrawGate(),
-                                *m_submissionDiagnostics,
-                                bucket.raster );
+    DrawLinesColoredFromBuffer( packedVertices.size(), viewProjection, retainedAddress + laneOffset * sizeof( float ),
+                                m_resourceDevice->CommandList(), *m_submissionPipeline, m_resourceFrame->DrawGate(),
+                                *m_submissionDiagnostics, bucket.raster );
 }
 
 
-void Dx12GeometryOwner::BindResourceOwners( Dx12RenderDevice& device,
-                                            Dx12FrameOwner& frame,
-                                            Dx12PipelineOwner& pipeline,
+void Dx12GeometryOwner::BindResourceOwners( Dx12RenderDevice& device, Dx12FrameOwner& frame, Dx12PipelineOwner& pipeline,
                                             Dx12Diagnostics& diagnostics )
 {
     m_resourceDevice = &device;
@@ -1355,6 +1277,7 @@ void Dx12GeometryOwner::BindResourceOwners( Dx12RenderDevice& device,
 
 bool Dx12GeometryOwner::ConfigureRetainedGeometryCapacity( RetainedGeometryCapacity capacity ) noexcept
 {
+
     if ( !IsRetainedGeometryCapacitySupported( capacity ) )
     {
         return false;
@@ -1363,6 +1286,7 @@ bool Dx12GeometryOwner::ConfigureRetainedGeometryCapacity( RetainedGeometryCapac
     // Invariant: the composition root configures one immutable logical layout
     // before publishing this owner. A second, different layout could reinterpret
     // persistent bytes that are still referenced by frame-fenced command lists.
+
     if ( m_retainedGeometryCapacity.floatsPerRecord != 0u )
     {
         return m_retainedGeometryCapacity.floatsPerRecord == capacity.floatsPerRecord &&
@@ -1381,6 +1305,7 @@ bool Dx12GeometryOwner::ConfigureRetainedGeometryCapacity( RetainedGeometryCapac
 bool Dx12GeometryOwner::InitializeRetainedGeometryCommands( ID3D12Device* device )
 {
     m_retainedGeometryCommandSignature.Reset();
+
     if ( !device )
     {
         return false;
@@ -1393,42 +1318,30 @@ bool Dx12GeometryOwner::InitializeRetainedGeometryCommands( ID3D12Device* device
     signature.ByteStride = sizeof( D3D12_DRAW_ARGUMENTS );
     signature.NumArgumentDescs = 1;
     signature.pArgumentDescs = &argument;
-    return SUCCEEDED(
-        device->CreateCommandSignature( &signature, nullptr, IID_PPV_ARGS( &m_retainedGeometryCommandSignature ) ) );
+    return SUCCEEDED( device->CreateCommandSignature( &signature, nullptr, IID_PPV_ARGS( &m_retainedGeometryCommandSignature ) ) );
 }
 
 
-uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticVertices,
-                                                 int staticVertexCount,
-                                                 int staticFloatsPerVertex,
-                                                 int instanceFloats,
-                                                 int instanceStartAttribute,
+uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticVertices, int staticVertexCount,
+                                                 int staticFloatsPerVertex, int instanceFloats, int instanceStartAttribute,
                                                  std::span<const int> instanceAttributeSizes,
                                                  std::span<const int> staticAttributeSizes )
 {
     assert( m_resourceDevice && m_resourceFrame );
+
     if ( !m_resourceFrame->EnsureOpen().ok )
     {
         return 0;
     }
 
     const UINT64 bytes = static_cast<UINT64>( staticVertexCount ) * staticFloatsPerVertex * sizeof( float );
-    const D3D12_GPU_VIRTUAL_ADDRESS address = m_resourceFrame->UploadReservations().ReserveUpload(
-        bytes,
-        4,
-        RenderUploadCategory::DynamicVertex );
+    const D3D12_GPU_VIRTUAL_ADDRESS address = m_resourceFrame->UploadReservations()
+                                                  .ReserveUpload( bytes, 4, RenderUploadCategory::DynamicVertex );
 
-    return CreateInstancedMesh( staticVertices,
-                                staticVertexCount,
-                                staticFloatsPerVertex,
-                                instanceFloats,
-                                instanceStartAttribute,
-                                instanceAttributeSizes,
-                                staticAttributeSizes,
-                                m_resourceDevice->Device(),
-                                m_resourceDevice->CommandList(),
-                                m_resourceFrame->Uploads().Resource( m_resourceFrame->AllocatorIndex() ),
-                                address,
+    return CreateInstancedMesh( staticVertices, staticVertexCount, staticFloatsPerVertex, instanceFloats,
+                                instanceStartAttribute, instanceAttributeSizes, staticAttributeSizes,
+                                m_resourceDevice->Device(), m_resourceDevice->CommandList(),
+                                m_resourceFrame->Uploads().Resource( m_resourceFrame->AllocatorIndex() ), address,
                                 address ? m_resourceFrame->UploadReservations().UploadPointer( address ) : nullptr );
 }
 
@@ -1437,26 +1350,25 @@ void Dx12GeometryOwner::UploadInstanceData( uint32_t handle, std::span<const flo
 {
     assert( m_resourceFrame && m_submissionPipeline );
     m_resourceFrame->UploadReservations().CancelPendingConstantUpload();
+
     if ( packedInstances.empty() || StaticVertexStride( handle ) <= 0 || !m_resourceFrame->DrawGate().PrepareDraw() )
     {
         return;
     }
 
     const UINT64 bytes = static_cast<UINT64>( packedInstances.size_bytes() );
+
     // Invariant: the engine command contract pairs UploadInstanceData with the
     // immediately following DrawInstancedMesh under the same active shader. The
     // coordinator reserves that shader's CB plus instance bytes atomically, so
     // the draw cannot flush between the two published addresses.
     const ShaderDX12* shader = m_submissionPipeline->ActiveShader();
     const UINT64 constantBytes = shader ? shader->ConstantBufferUploadSize() : 0;
-    const D3D12_GPU_VIRTUAL_ADDRESS address = m_resourceFrame->UploadReservations().ReserveGeometryUpload(
-        bytes,
-        constantBytes,
-        RenderUploadCategory::InstanceData );
+    const D3D12_GPU_VIRTUAL_ADDRESS address = m_resourceFrame->UploadReservations()
+                                                  .ReserveGeometryUpload( bytes, constantBytes,
+                                                                          RenderUploadCategory::InstanceData );
 
-    UploadInstanceData( handle,
-                        packedInstances,
-                        address,
+    UploadInstanceData( handle, packedInstances, address,
                         address ? m_resourceFrame->UploadReservations().UploadPointer( address ) : nullptr );
 }
 
@@ -1464,6 +1376,7 @@ void Dx12GeometryOwner::UploadInstanceData( uint32_t handle, std::span<const flo
 void Dx12GeometryOwner::DrawInstancedMesh( const InstancedMeshDrawDesc& draw )
 {
     assert( m_resourceDevice && m_resourceFrame && m_submissionDiagnostics );
+
     if ( !m_resourceFrame->DrawGate().PrepareDraw() )
     {
         m_resourceFrame->UploadReservations().CancelPendingConstantUpload();

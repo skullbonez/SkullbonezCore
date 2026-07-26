@@ -41,13 +41,14 @@ bool PhysicsTerrainView::IsValid() const noexcept
                                                                  static_cast<std::size_t>( quadsPerSide )
                                                            : 0u;
 
-    return flatSlope ? flatSlopeExtent > 0.0f
-                     : requiredCellCount > 0u && scaledStepSize > 0.0f && worldExtent > 0.0f &&
-                           cells.size() >= requiredCellCount;
+    return flatSlope
+               ? flatSlopeExtent > 0.0f
+               : requiredCellCount > 0u && scaledStepSize > 0.0f && worldExtent > 0.0f && cells.size() >= requiredCellCount;
 }
 
 bool PhysicsTerrainView::IsInBounds( float x, float z ) const noexcept
 {
+
     if ( !IsValid() )
     {
         return false;
@@ -67,17 +68,16 @@ float PhysicsTerrainView::HeightAt( float x, float z ) const
 
 void PhysicsTerrainView::HeightAndPlaneAt( float x, float z, float& outHeight, Plane& outPlane ) const
 {
+
     if ( !IsInBounds( x, z ) )
     {
-        SB_FATAL( "Physics/PhysicsTerrainView",
-                  "Coordinates out of terrain bounds: x=%.3f z=%.3f valid=%d.",
-                  x,
-                  z,
+        SB_FATAL( "Physics/PhysicsTerrainView", "Coordinates out of terrain bounds: x=%.3f z=%.3f valid=%d.", x, z,
                   IsValid() ? 1 : 0 );
     }
 
     if ( flatSlope )
     {
+
         // Invariant: preserve base + slopeX*x + slopeZ*z exactly; regrouping
         // these terms changes the byte-exact physics oracle.
         outHeight = slopeBaseY + slopeX * x + slopeZ * z;
@@ -89,15 +89,12 @@ void PhysicsTerrainView::HeightAndPlaneAt( float x, float z, float& outHeight, P
     // zPosting. The names look crossed, but changing them rotates the surface.
     const int xPosting = static_cast<int>( floorf( z / scaledStepSize ) );
     const int zPosting = static_cast<int>( floorf( x / scaledStepSize ) );
+
     if ( xPosting < 0 || zPosting < 0 || xPosting >= quadsPerSide || zPosting >= quadsPerSide )
     {
         SB_FATAL( "Physics/PhysicsTerrainView",
-                  "Terrain cache index out of range: x=%.3f z=%.3f xPosting=%d zPosting=%d quadsPerSide=%d.",
-                  x,
-                  z,
-                  xPosting,
-                  zPosting,
-                  quadsPerSide );
+                  "Terrain cache index out of range: x=%.3f z=%.3f xPosting=%d zPosting=%d quadsPerSide=%d.", x, z, xPosting,
+                  zPosting, quadsPerSide );
     }
 
     const float localZ = z - ( xPosting * scaledStepSize );

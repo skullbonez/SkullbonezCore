@@ -133,8 +133,7 @@ struct RenderInstanceRecord
     bool editorVisible = true;                                           // Session-only hierarchy visibility; false suppresses raster/shadow submission.
     bool isFixed = false;                                                // Fixed bodies can receive contact-highlight tinting.
     float fixedContactAlpha = 0.0f;                                      // Render-only red contact feedback strength.
-    Math::Vector::Vector3
-        previousPosition = Math::Vector::ZERO_VECTOR;                    // Solver pose before the latest completed fixed tick.
+    Math::Vector::Vector3 previousPosition = Math::Vector::ZERO_VECTOR;  // Solver pose before the latest completed fixed tick.
     Math::Vector::Vector3 currentPosition = Math::Vector::ZERO_VECTOR;   // Solver pose after the latest completed fixed tick.
     Math::Orientation::Quaternion
         previousOrientation = Math::Orientation::IDENTITY_QUATERNION;    // Orientation paired with previousPosition.
@@ -161,11 +160,10 @@ class RenderInstanceStore
 
     void ReservePresentationCapacity( std::size_t capacity );
     bool CanAppendCreationRow( int expectedCount ) const;
-    void CommitCreationRow( const RenderInstancePresentationRecord& presentation,
-                            const Physics::PhysicsBodyRecord& body,
-                            const Physics::PhysicsBodyHotState& hotState,
-                            const Physics::ColliderRecord& collider,
+    void CommitCreationRow( const RenderInstancePresentationRecord& presentation, const Physics::PhysicsBodyRecord& body,
+                            const Physics::PhysicsBodyHotState& hotState, const Physics::ColliderRecord& collider,
                             int expectedIndex );
+
     // Scene deletion compacts presentation, instance, and handle rows together.
     bool DestroyCreationRowAtSwapLast( int modelIndex );
     bool ResizePresentationRecords( int presentationCount );
@@ -175,6 +173,7 @@ class RenderInstanceStore
     std::size_t PresentationCapacity() const;
     uint64_t PresentationCapacityBytes() const;
     void NotifyFixedContact( int modelIndex, float highlightSeconds );
+
     // Updates both paired presentation rows immediately; false means the dense
     // model row is stale or outside the active scene topology.
     bool SetEditorVisible( int modelIndex, bool visible );
@@ -182,28 +181,20 @@ class RenderInstanceStore
     void Clear();
     void BeginPhysicsStepPoseCapture( const Physics::PhysicsBodyStore& bodyStore );
     void CompletePhysicsStepPoseCapture( const Physics::PhysicsBodyStore& bodyStore );
-    void Refresh( const Physics::PhysicsBodyStore& bodyStore,
-                  const Physics::ColliderStore& colliderStore,
+    void Refresh( const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore,
                   float presentationAlpha = 1.0f );
     void Refresh( const std::vector<RenderInstancePresentationRecord>& presentation,
-                  const Physics::PhysicsBodyStore& bodyStore,
-                  const Physics::ColliderStore& colliderStore,
+                  const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore,
                   float presentationAlpha = 1.0f );
-    void Refresh( const RenderInstancePresentationRecord* presentation,
-                  int presentationCount,
-                  const Physics::PhysicsBodyStore& bodyStore,
-                  const Physics::ColliderStore& colliderStore,
+    void Refresh( const RenderInstancePresentationRecord* presentation, int presentationCount,
+                  const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore,
                   float presentationAlpha = 1.0f );
+
     // Applies a one-frame presentation pose, such as a scrub or simulation preview,
     // without writing that pose into PhysicsBodyStore or authoring storage.
-    bool OverridePose( int modelIndex,
-                       Physics::PhysicsSceneObjectId sceneObjectId,
-                       const Math::Vector::Vector3& position,
-                       const Math::Orientation::Quaternion& orientation,
-                       const Physics::ColliderStore& colliderStore );
-    bool TryGetPresentationPose( int modelIndex,
-                                 float presentationAlpha,
-                                 Math::Vector::Vector3& outPosition,
+    bool OverridePose( int modelIndex, Physics::PhysicsSceneObjectId sceneObjectId, const Math::Vector::Vector3& position,
+                       const Math::Orientation::Quaternion& orientation, const Physics::ColliderStore& colliderStore );
+    bool TryGetPresentationPose( int modelIndex, float presentationAlpha, Math::Vector::Vector3& outPosition,
                                  Math::Orientation::Quaternion& outOrientation ) const;
 
     const RenderInstanceRecord* Data() const;
@@ -212,6 +203,7 @@ class RenderInstanceStore
     RenderInstanceHandle HandleForModelIndex( int modelIndex ) const;
     int ModelIndexForHandle( RenderInstanceHandle handle ) const;
     bool Contains( RenderInstanceHandle handle ) const;
+
     // Lifetime: read spans borrow scene-order rows and expire on scene mutation
     // or store destruction; callers must not retain them across frames.
     std::span<const RenderInstanceRecord> Records() const;

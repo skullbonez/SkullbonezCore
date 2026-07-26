@@ -77,6 +77,7 @@ uint64_t CinematicOverrideMaskForUIFeature( UICinematicFeature feature );
 Math::Vector::Vector3 CinematicSkySunDirection( const SkullbonezCore::Core::CinematicRenderConfig& cinematic );
 struct TornadoUICommandContext
 {
+
     // Lifetime: borrowed only while one Physics-tab tornado command packet is applied.
     // The helper applies bounded edits through the SceneWorld-owned Gameplay
     // module; it copies no authored vector and borrows no renderer authority.
@@ -85,6 +86,7 @@ struct TornadoUICommandContext
 
 struct PhysicsSleepPolicyUICommandContext
 {
+
     // Lifetime: borrowed only while one Physics-tab sleep-policy toggle is applied.
     // The helper toggles the policy directly on the scene-world physics owner.
     SceneWorld& world;
@@ -92,6 +94,7 @@ struct PhysicsSleepPolicyUICommandContext
 
 struct PhysicsFrictionUICommandContext
 {
+
     // Lifetime: borrowed only while one Physics-tab friction packet is applied.
     // The helper writes live config and immediately reapplies physics runtime policy.
     SkullbonezCore::Core::EngineConfig& config;
@@ -100,6 +103,7 @@ struct PhysicsFrictionUICommandContext
 
 struct RuntimePresentationUICommandContext
 {
+
     // Lifetime: borrowed only while one scene/render/water UI packet is applied.
     // ApplySceneFixedStepUICommand owns fixed-step reset; this helper owns
     // presentation and render-config mutation plus queued save intent.
@@ -114,6 +118,7 @@ struct RuntimePresentationUICommandContext
 
 struct CinematicUICommandContext
 {
+
     // Lifetime: borrowed only while one Cinematic-tab command packet is applied.
     // The caller still owns entering interactive scene flow before mode selection.
     RunLaunchOptions& launchOptions;
@@ -132,6 +137,7 @@ struct TornadoUICommandResult
 
 struct PhysicsFrictionUICommandResult
 {
+
     // Invariant: count accepted requests, not changed values, so input action
     // reporting in InputFrame mirrors the accepted UI packet.
     int applySettingsActionCount = 0;
@@ -139,6 +145,7 @@ struct PhysicsFrictionUICommandResult
 
 struct RuntimePresentationUICommandResult
 {
+
     // Invariant: flags report accepted UI commands for InputFrame transition
     // recording; they are not change-detection flags for render/debug state.
     bool toggledTerrainHidden = false;
@@ -155,6 +162,7 @@ struct RuntimePresentationUICommandResult
 
 struct CinematicTuningUICommandResult
 {
+
     // Invariant: flags report accepted UI commands for InputFrame transition
     // recording; feature/param setters may clamp or no-op invalid enum values.
     bool toggledFeature = false;
@@ -163,6 +171,7 @@ struct CinematicTuningUICommandResult
 
 struct RunSimulationUICommandContext
 {
+
     // Lifetime: borrowed only while one UI command packet is applied. Time-scale
     // edits persist through scene UI overrides, seed edits mutate scene RNG, and
     // worker edits delegate immediately to WorkerPool.
@@ -193,6 +202,7 @@ struct WorldOverrideChange
 
 struct RunCameraModeUICommandResult
 {
+
     // Invariant: accepted means mode is a real enum value. InputRouter applies
     // normalization/pointer transitions; InputController records the action.
     bool accepted = false;
@@ -201,6 +211,7 @@ struct RunCameraModeUICommandResult
 
 struct RenderDeviceUICommandContext
 {
+
     // Lifetime: borrowed only while one renderer command packet is applied. The
     // device pointer may be null while backend resources are not active.
     RuntimeRenderer& renderer;
@@ -209,6 +220,7 @@ struct RenderDeviceUICommandContext
 
 struct SceneFixedStepUICommandContext
 {
+
     // Lifetime: borrowed only while one Scene-tab fixed-step command is applied.
     // The simulation reset is immediate so the next frame cannot retain old
     // accumulator state under the new tick policy.
@@ -216,8 +228,7 @@ struct SceneFixedStepUICommandContext
     SimulationSystem& simulation;
 };
 
-void ApplyWorkerThreadCountOverride( SkullbonezCore::Core::EngineConfig& config,
-                                     Threading::WorkerPool& workerPool,
+void ApplyWorkerThreadCountOverride( SkullbonezCore::Core::EngineConfig& config, Threading::WorkerPool& workerPool,
                                      int requestedWorkerThreads );
 bool ApplyRenderVsyncUICommand( RenderDeviceUICommandContext context, const UI::UIRendererCommands& commands );
 bool ApplySceneFixedStepUICommand( SceneFixedStepUICommandContext context, const UI::UISceneOptionCommands& commands );
@@ -226,40 +237,30 @@ RunSimulationUICommandResult ApplyRunSimulationUICommands( RunSimulationUIComman
                                                            const UI::UISceneOptionCommands& sceneOptions,
                                                            const UI::UIRunCommands& run,
                                                            const UI::UIProfilerCommands& profiler );
-WorldOverrideChange
-ApplyUIWorldOverride( WorldEnvironment& world, float gravity, float fluidHeight, float fluidDensity );
-bool ApplyWorldWaterUICommands( WorldEnvironment& world,
-                                const UI::UIWaterCommands& commands,
+WorldOverrideChange ApplyUIWorldOverride( WorldEnvironment& world, float gravity, float fluidHeight, float fluidDensity );
+bool ApplyWorldWaterUICommands( WorldEnvironment& world, const UI::UIWaterCommands& commands,
                                 WorldOverrideChange& outChange );
-void ApplyCinematicUIParam( SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                            SceneSessionState& scene,
-                            UICinematicParam param,
-                            float rawValue );
-void SetCinematicShadowsEnabledFromUI( SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                                       SceneSessionState& scene,
+void ApplyCinematicUIParam( SkullbonezCore::Core::CinematicRenderConfig& cinematic, SceneSessionState& scene,
+                            UICinematicParam param, float rawValue );
+void SetCinematicShadowsEnabledFromUI( SkullbonezCore::Core::CinematicRenderConfig& cinematic, SceneSessionState& scene,
                                        bool enabled );
-void ApplyOrdinaryRenderUIParam( SkullbonezCore::Core::OrdinaryRenderConfig& ordinary,
-                                 UIRenderParam param,
-                                 float rawValue );
+void ApplyOrdinaryRenderUIParam( SkullbonezCore::Core::OrdinaryRenderConfig& ordinary, UIRenderParam param, float rawValue );
 bool ApplyRuntimeTextOnlyUICommand( OverlayDebugState& debug, const UI::UISceneOptionCommands& commands );
 RuntimePresentationUICommandResult ApplyRuntimePresentationUICommands( RuntimePresentationUICommandContext context,
                                                                        const UI::UISceneOptionCommands& sceneOptions,
                                                                        const UI::UIRenderCommands& renderTuning,
                                                                        const UI::UIWaterCommands& water );
-bool ApplyCinematicRenderingToggleUICommand( CinematicUICommandContext context,
-                                             const UI::UICinematicCommands& commands );
+bool ApplyCinematicRenderingToggleUICommand( CinematicUICommandContext context, const UI::UICinematicCommands& commands );
 bool QueueCinematicSkyDefaultsUICommand( CinematicUICommandContext context, const UI::UICinematicCommands& commands );
 bool HasCinematicModeUICommand( const UI::UICinematicCommands& commands );
 bool ApplyCinematicModeUICommand( SceneRuntimeStyleContext context, const UI::UICinematicCommands& commands );
 CinematicTuningUICommandResult ApplyCinematicTuningUICommands( CinematicUICommandContext context,
                                                                const UI::UICinematicCommands& commands );
-bool ApplyPhysicsSleepPolicyUICommand( PhysicsSleepPolicyUICommandContext context,
-                                       const UI::UIPhysicsCommands& commands );
+bool ApplyPhysicsSleepPolicyUICommand( PhysicsSleepPolicyUICommandContext context, const UI::UIPhysicsCommands& commands );
 PhysicsFrictionUICommandResult ApplyPhysicsFrictionUICommands( PhysicsFrictionUICommandContext context,
                                                                const UI::UIPhysicsCommands& commands );
 TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, const UI::UIPhysicsCommands& commands );
-void ToggleCinematicUIFeature( SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                               SceneSessionState& scene,
+void ToggleCinematicUIFeature( SkullbonezCore::Core::CinematicRenderConfig& cinematic, SceneSessionState& scene,
                                UICinematicFeature feature );
 } // namespace RunInternal
 } // namespace Runtime

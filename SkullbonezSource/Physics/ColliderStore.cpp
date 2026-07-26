@@ -70,12 +70,12 @@ ColliderStore::ColliderStore() = default;
 // Refresh still walks scene/model order, but callers receive handles
 // from this slot table. Same-slot reuse keeps ids stable across refreshes;
 // retiring a slot bumps its generation so stale collider handles stop resolving.
-PhysicsColliderHandle ColliderStore::ResolveHandleForModelIndex( int modelIndex,
-                                                                 PhysicsSceneObjectId sceneObjectId,
+PhysicsColliderHandle ColliderStore::ResolveHandleForModelIndex( int modelIndex, PhysicsSceneObjectId sceneObjectId,
                                                                  ColliderHandleAssignmentMask& assignedHandleSlots )
 {
     auto assignSlot = [&]( uint32_t slot ) -> PhysicsColliderHandle
     {
+
         if ( slot >= assignedHandleSlots.size() )
         {
             assignedHandleSlots.resize( static_cast<std::size_t>( slot ) + 1u, 0 );
@@ -95,6 +95,7 @@ PhysicsColliderHandle ColliderStore::ResolveHandleForModelIndex( int modelIndex,
     if ( modelIndex >= 0 && modelIndex < static_cast<int>( m_modelColliderHandles.size() ) )
     {
         const PhysicsColliderHandle previous = m_modelColliderHandles[static_cast<std::size_t>( modelIndex )];
+
         if ( previous.IsValid() && previous.index < m_handleGenerations.size() &&
              previous.generation == m_handleGenerations[static_cast<std::size_t>( previous.index )] &&
              m_handleAlive[static_cast<std::size_t>( previous.index )] != 0 &&
@@ -108,8 +109,10 @@ PhysicsColliderHandle ColliderStore::ResolveHandleForModelIndex( int modelIndex,
 
     if ( sceneObjectId.IsValid() )
     {
+
         for ( uint32_t slot = 0; slot < static_cast<uint32_t>( m_handleSceneObjectIds.size() ); ++slot )
         {
+
             if ( m_handleAlive[slot] != 0 && m_handleSceneObjectIds[slot] == sceneObjectId &&
                  slot < m_handleGenerations.size() &&
                  ( slot >= assignedHandleSlots.size() || assignedHandleSlots[slot] == 0 ) )
@@ -120,6 +123,7 @@ PhysicsColliderHandle ColliderStore::ResolveHandleForModelIndex( int modelIndex,
     }
 
     uint32_t slot = 0;
+
     if ( !m_freeHandleSlots.empty() )
     {
         slot = m_freeHandleSlots.back();
@@ -140,8 +144,10 @@ PhysicsColliderHandle ColliderStore::ResolveHandleForModelIndex( int modelIndex,
 
 void ColliderStore::RetireUnassignedHandles( const ColliderHandleAssignmentMask& assignedHandleSlots )
 {
+
     for ( uint32_t slot = 0; slot < static_cast<uint32_t>( m_handleAlive.size() ); ++slot )
     {
+
         if ( m_handleAlive[slot] == 0 )
         {
             continue;
@@ -166,8 +172,10 @@ void ColliderStore::Clear()
     m_colliders.clear();
     m_authoringRecords.clear();
     m_modelColliderHandles.clear();
+
     for ( uint32_t slot = 0; slot < static_cast<uint32_t>( m_handleAlive.size() ); ++slot )
     {
+
         if ( m_handleAlive[slot] != 0 )
         {
             m_handleGenerations[slot] = NextHandleGeneration( m_handleGenerations[slot] );
@@ -179,9 +187,11 @@ void ColliderStore::Clear()
     }
 
     m_freeHandleSlots.clear();
+
     // Invariant: CreateColliderRecord pops from the back of the free list.
     // Push in reverse so a full Clear() reuses low handle indices first while
     // still advancing generations for stale-handle rejection.
+
     for ( uint32_t remaining = static_cast<uint32_t>( m_handleGenerations.size() ); remaining > 0; --remaining )
     {
         m_freeHandleSlots.push_back( remaining - 1u );
@@ -192,6 +202,7 @@ void ColliderStore::Clear()
 bool ColliderStore::RefreshBodyBindings( const PhysicsBodyStore& bodyStore )
 {
     const int bodyCount = bodyStore.Count();
+
     if ( Count() != bodyCount || static_cast<int>( m_modelColliderHandles.size() ) != bodyCount )
     {
         assert( false && "ColliderStore body-binding refresh requires existing collider rows." );
@@ -200,15 +211,18 @@ bool ColliderStore::RefreshBodyBindings( const PhysicsBodyStore& bodyStore )
 
     m_assignedHandleScratch.assign( m_handleGenerations.size(), 0 );
     ColliderHandleAssignmentMask& assignedHandleSlots = m_assignedHandleScratch;
+
     for ( int i = 0; i < bodyCount; ++i )
     {
         ColliderRecord& record = m_colliders[static_cast<std::size_t>( i )];
         const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( i );
         assert( body != nullptr );
+
         // Invariant: topology repair updates identity only. Shape, material,
         // and broadphase fields stay in this dense row until an explicit
         // authoring/config command replaces the row. Missing body rows mean the
         // owner must repair PhysicsBodyStore before asking ColliderStore to bind.
+
         if ( !body )
         {
             return false;
@@ -236,6 +250,7 @@ PhysicsColliderHandle ColliderStore::CreateColliderRecord( const ColliderRecord&
                                                            const ColliderAuthoringRecord& initialAuthoringRecord )
 {
     uint32_t slot = 0;
+
     if ( !m_freeHandleSlots.empty() )
     {
         slot = m_freeHandleSlots.back();
@@ -257,6 +272,7 @@ PhysicsColliderHandle ColliderStore::CreateColliderRecord( const ColliderRecord&
 
     ColliderRecord record = initialRecord;
     record.handle = handle;
+
     if ( !record.sceneObjectId.IsValid() )
     {
         record.sceneObjectId = PhysicsSceneObjectId { handle.index + 1u };
@@ -265,6 +281,7 @@ PhysicsColliderHandle ColliderStore::CreateColliderRecord( const ColliderRecord&
     m_handleAlive[static_cast<std::size_t>( slot )] = 1;
     m_handleModelIndices[static_cast<std::size_t>( slot )] = recordIndex;
     m_handleSceneObjectIds[static_cast<std::size_t>( slot )] = record.sceneObjectId;
+
     // Invariant: hot and cold pushes are one fixed-capacity transaction. Both
     // lists share the same hard scene limit, so neither can grow independently.
     m_colliders.push_back( record );
@@ -276,6 +293,7 @@ PhysicsColliderHandle ColliderStore::CreateColliderRecord( const ColliderRecord&
 
 bool ColliderStore::UpdateRecordForHandle( PhysicsColliderHandle handle, const ColliderRecord& record )
 {
+
     if ( !Contains( handle ) )
     {
         return false;
@@ -286,10 +304,10 @@ bool ColliderStore::UpdateRecordForHandle( PhysicsColliderHandle handle, const C
 }
 
 
-bool ColliderStore::UpdateRecordForHandle( PhysicsColliderHandle handle,
-                                           const ColliderRecord& record,
+bool ColliderStore::UpdateRecordForHandle( PhysicsColliderHandle handle, const ColliderRecord& record,
                                            const ColliderAuthoringRecord& authoringRecord )
 {
+
     if ( !Contains( handle ) )
     {
         return false;
@@ -298,10 +316,12 @@ bool ColliderStore::UpdateRecordForHandle( PhysicsColliderHandle handle,
     const int recordIndex = m_handleModelIndices[static_cast<std::size_t>( handle.index )];
 
     ColliderRecord updated = record;
+
     // Invariant: authoring edits replace collider contents, not identity. The
     // handle slot stays stable so picks, render snapshots, and stale-handle
     // rejection keep their existing contracts.
     updated.handle = handle;
+
     if ( !updated.sceneObjectId.IsValid() )
     {
         updated.sceneObjectId = PhysicsSceneObjectId { handle.index + 1u };
@@ -317,12 +337,15 @@ bool ColliderStore::UpdateRecordForHandle( PhysicsColliderHandle handle,
 
 void ColliderStore::ApplyPhysicsMaterial( const PhysicsMaterial& material )
 {
+
     // Concept: runtime material config is scalar policy, not shape authoring.
     // Keep the existing exact shape variants in place and touch only the fields
     // consumed by contact response and fluid drag.
+
     for ( ColliderRecord& record : m_colliders )
     {
         record.friction = material.frictionCoefficient;
+
         if ( BoundingSphere* sphere = std::get_if<BoundingSphere>( &record.shape ) )
         {
             sphere->SetDragCoefficient( material.sphereDragCoefficient );
@@ -334,6 +357,7 @@ void ColliderStore::ApplyPhysicsMaterial( const PhysicsMaterial& material )
 
 bool ColliderStore::UpdateRecordForModelIndex( int modelIndex, const ColliderRecord& record )
 {
+
     if ( modelIndex < 0 || modelIndex >= Count() || modelIndex >= static_cast<int>( m_modelColliderHandles.size() ) )
     {
         return false;
@@ -345,6 +369,7 @@ bool ColliderStore::UpdateRecordForModelIndex( int modelIndex, const ColliderRec
 
 bool ColliderStore::DestroyColliderRecord( PhysicsColliderHandle handle )
 {
+
     if ( !Contains( handle ) )
     {
         return false;
@@ -353,6 +378,7 @@ bool ColliderStore::DestroyColliderRecord( PhysicsColliderHandle handle )
     const std::size_t handleSlot = static_cast<std::size_t>( handle.index );
     const int recordIndex = m_handleModelIndices[handleSlot];
     const int lastRecordIndex = Count() - 1;
+
     if ( recordIndex < 0 || recordIndex > lastRecordIndex )
     {
         return false;
@@ -362,15 +388,16 @@ bool ColliderStore::DestroyColliderRecord( PhysicsColliderHandle handle )
     // identities. Moving the final hot row also moves its cold authoring row
     // before updating the handle map; callers never infer storage position from
     // a handle index.
+
     if ( recordIndex != lastRecordIndex )
     {
         ColliderRecord& destination = m_colliders[static_cast<std::size_t>( recordIndex )];
         ColliderRecord& moved = m_colliders[static_cast<std::size_t>( lastRecordIndex )];
         destination = moved;
-        m_authoringRecords[static_cast<std::size_t>( recordIndex )] = m_authoringRecords[static_cast<std::size_t>(
-            lastRecordIndex )];
+        m_authoringRecords[static_cast<std::size_t>( recordIndex )] = m_authoringRecords[static_cast<std::size_t>( lastRecordIndex )];
 
         m_modelColliderHandles[static_cast<std::size_t>( recordIndex )] = destination.handle;
+
         if ( destination.handle.IsValid() && destination.handle.index < m_handleModelIndices.size() )
         {
             m_handleModelIndices[static_cast<std::size_t>( destination.handle.index )] = recordIndex;
@@ -391,6 +418,7 @@ bool ColliderStore::DestroyColliderRecord( PhysicsColliderHandle handle )
 
 bool ColliderStore::TrimToCount( int colliderCount )
 {
+
     if ( colliderCount < 0 || colliderCount > Count() )
     {
         return false;
@@ -398,6 +426,7 @@ bool ColliderStore::TrimToCount( int colliderCount )
 
     while ( Count() > colliderCount )
     {
+
         if ( m_modelColliderHandles.empty() || !DestroyColliderRecord( m_modelColliderHandles.back() ) )
         {
             return false;
@@ -428,6 +457,7 @@ bool ColliderStore::Empty() const
 
 PhysicsColliderHandle ColliderStore::HandleForModelIndex( int modelIndex ) const
 {
+
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_modelColliderHandles.size() ) )
     {
         return PhysicsColliderHandle {};
@@ -439,6 +469,7 @@ PhysicsColliderHandle ColliderStore::HandleForModelIndex( int modelIndex ) const
 
 PhysicsColliderHandle ColliderStore::HandleForBodyHandle( PhysicsBodyHandle body ) const
 {
+
     if ( !body.IsValid() )
     {
         return PhysicsColliderHandle {};
@@ -446,6 +477,7 @@ PhysicsColliderHandle ColliderStore::HandleForBodyHandle( PhysicsBodyHandle body
 
     for ( const ColliderRecord& collider : m_colliders )
     {
+
         if ( collider.body == body )
         {
             return collider.handle;
@@ -458,6 +490,7 @@ PhysicsColliderHandle ColliderStore::HandleForBodyHandle( PhysicsBodyHandle body
 
 PhysicsColliderHandle ColliderStore::HandleForSceneObjectId( PhysicsSceneObjectId sceneObjectId ) const
 {
+
     if ( !sceneObjectId.IsValid() )
     {
         return PhysicsColliderHandle {};
@@ -465,6 +498,7 @@ PhysicsColliderHandle ColliderStore::HandleForSceneObjectId( PhysicsSceneObjectI
 
     for ( const ColliderRecord& collider : m_colliders )
     {
+
         if ( collider.sceneObjectId == sceneObjectId )
         {
             return collider.handle;
@@ -477,6 +511,7 @@ PhysicsColliderHandle ColliderStore::HandleForSceneObjectId( PhysicsSceneObjectI
 
 int ColliderStore::ModelIndexForHandle( PhysicsColliderHandle handle ) const
 {
+
     if ( !Contains( handle ) )
     {
         return -1;
@@ -488,12 +523,14 @@ int ColliderStore::ModelIndexForHandle( PhysicsColliderHandle handle ) const
 
 bool ColliderStore::Contains( PhysicsColliderHandle handle ) const
 {
+
     if ( !handle.IsValid() || handle.index >= m_handleGenerations.size() )
     {
         return false;
     }
 
     const std::size_t slot = static_cast<std::size_t>( handle.index );
+
     if ( m_handleAlive[slot] == 0 || m_handleGenerations[slot] != handle.generation )
     {
         return false;
@@ -531,6 +568,7 @@ std::size_t ColliderStore::AuthoringRecordCapacity() const
 
 ColliderRecord* ColliderStore::MutableRecordForHandle( PhysicsColliderHandle handle )
 {
+
     if ( !Contains( handle ) )
     {
         return nullptr;
@@ -542,6 +580,7 @@ ColliderRecord* ColliderStore::MutableRecordForHandle( PhysicsColliderHandle han
 
 const ColliderRecord* ColliderStore::RecordForHandle( PhysicsColliderHandle handle ) const
 {
+
     if ( !Contains( handle ) )
     {
         return nullptr;
@@ -553,13 +592,13 @@ const ColliderRecord* ColliderStore::RecordForHandle( PhysicsColliderHandle hand
 
 const ColliderAuthoringRecord* ColliderStore::AuthoringRecordForHandle( PhysicsColliderHandle handle ) const
 {
+
     if ( !Contains( handle ) )
     {
         return nullptr;
     }
 
-    return &m_authoringRecords[static_cast<std::size_t>(
-        m_handleModelIndices[static_cast<std::size_t>( handle.index )] )];
+    return &m_authoringRecords[static_cast<std::size_t>( m_handleModelIndices[static_cast<std::size_t>( handle.index )] )];
 }
 
 

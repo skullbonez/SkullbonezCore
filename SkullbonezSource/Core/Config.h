@@ -57,6 +57,7 @@ inline constexpr unsigned int ENGINE_CONFIG_FORMAT_VERSION = 6;
     the original hard-coded values; the config file is optional -- if absent,
     defaults apply.
 */
+
 // Window/Init owns startup display creation; runtime code reads this value but
 // does not mutate it into a second display-policy store.
 struct WindowConfig
@@ -432,6 +433,7 @@ inline constexpr int StylizedBasin = 4;
 // values to the sky, volumetric, bloom, fog, shadow, and style passes.
 struct CinematicRenderConfig
 {
+
     // Master switch. The UI can toggle this at runtime; command-line overrides
     // can also force it on/off for quick visual checks.
     bool enabled = false;
@@ -559,6 +561,7 @@ class EngineConfig
 {
   public:
     EngineConfig() = default;
+
     // Lane R: authored configuration is preflighted before any destination is
     // mutated, so an unsupported format cannot leave a partially loaded config.
     SbResult Load( const char* path );
@@ -592,9 +595,7 @@ class EngineConfig
 
 inline int ActiveSceneObjectCapacity( const EngineConfig& config )
 {
-    return std::clamp( config.runtimeCapacity.sceneObjectCapacity,
-                       1,
-                       SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    return std::clamp( config.runtimeCapacity.sceneObjectCapacity, 1, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
 }
 
 } // namespace Core

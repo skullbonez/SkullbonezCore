@@ -34,7 +34,7 @@ Related:
 #include <cstddef>
 #include <cstdint>
 
-#if defined( SKULLBONEZ_PROFILE_ENABLED ) && defined( _WIN32 ) && defined( SKULLBONEZ_PLATFORM_PROFILER_PIX ) &&       \
+#if defined( SKULLBONEZ_PROFILE_ENABLED ) && defined( _WIN32 ) && defined( SKULLBONEZ_PLATFORM_PROFILER_PIX ) &&            \
     defined( __has_include )
 #if __has_include( <pix3.h> )
 #define SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3 1

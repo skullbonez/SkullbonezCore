@@ -43,18 +43,12 @@ using namespace SkullbonezCore::Physics;
 
 SkullbonezCore::GameObjects::SceneSessionSaveState SceneSessionState::GetSaveState() const
 {
-    return { isScenePhysics,
-             isSceneText,
-             isEditableScene,
-             isFixedStep,
-             hasFlatSlope,
-             flatBaseY,
-             flatSlopeX,
-             flatSlopeZ };
+    return { isScenePhysics, isSceneText, isEditableScene, isFixedStep, hasFlatSlope, flatBaseY, flatSlopeX, flatSlopeZ };
 }
 
 const char* SkullbonezCore::Runtime::SceneFileNameFromPath( const char* path )
 {
+
     if ( !path )
     {
         return "";
@@ -63,6 +57,7 @@ const char* SkullbonezCore::Runtime::SceneFileNameFromPath( const char* path )
     const char* slash = strrchr( path, '/' );
     const char* backslash = strrchr( path, '\\' );
     const char* separator = slash;
+
     if ( backslash && ( !separator || backslash > separator ) )
     {
         separator = backslash;
@@ -93,6 +88,7 @@ bool IsCineScenePath( const std::string& path )
 
 const char* SkullbonezCore::Runtime::SceneRuntimeLifecycleEventName( SceneRuntimeLifecycleEvent event )
 {
+
     switch ( event )
     {
     case SceneRuntimeLifecycleEvent::BeforeSceneUnload:
@@ -114,6 +110,7 @@ const char* SkullbonezCore::Runtime::SceneRuntimeLifecycleEventName( SceneRuntim
 
 void SceneSessionState::ResetForLoad( const SkullbonezCore::Core::CinematicRenderConfig& cinematicDefaults )
 {
+
     // Lifetime: This clears per-load runtime state only. Queue position, scene
     // paths, and manual reset counts stay with SceneRuntime/SceneController.
     isScenePhysics = true;
@@ -154,9 +151,11 @@ SkullbonezCore::Physics::PhysicsSceneObjectId SceneSessionState::AllocateSceneOb
 
 SkullbonezCore::Physics::PhysicsSceneObjectId SceneSessionState::AllocateSceneObjectIdRange( int count )
 {
+
     // Invariant: scene object id 0 means "not assigned." Compound creators
     // reserve one contiguous range before appending any child bodies so partial
     // failure cannot interleave another object's replay-facing identity.
+
     if ( count <= 0 )
     {
         return SkullbonezCore::Physics::PhysicsSceneObjectId {};
@@ -164,14 +163,12 @@ SkullbonezCore::Physics::PhysicsSceneObjectId SceneSessionState::AllocateSceneOb
 
     const uint32_t countValue = static_cast<uint32_t>( count );
     const uint32_t maxSceneObjectId = ( std::numeric_limits<uint32_t>::max )();
+
     if ( nextSceneObjectId == 0 || nextSceneObjectId == maxSceneObjectId ||
          countValue > maxSceneObjectId - nextSceneObjectId )
     {
-        SB_FATAL( "SceneRuntime",
-                  "Scene object id range exhausted. next=%u requested=%u max=%u",
-                  nextSceneObjectId,
-                  countValue,
-                  maxSceneObjectId );
+        SB_FATAL( "SceneRuntime", "Scene object id range exhausted. next=%u requested=%u max=%u", nextSceneObjectId,
+                  countValue, maxSceneObjectId );
     }
 
     SkullbonezCore::Physics::PhysicsSceneObjectId first;
@@ -183,14 +180,17 @@ SkullbonezCore::Physics::PhysicsSceneObjectId SceneSessionState::AllocateSceneOb
 
 void SceneSessionState::ResetSceneObjectIdCursor( const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore )
 {
+
     // Why: replay restore can trim runtime-spawned bodies, then replay their
     // creation events. Rebase the scene-owned cursor from live body rows so the
     // next spawn receives the same id it had in the original timeline.
     uint32_t nextId = 1;
     const uint32_t maxSceneObjectId = ( std::numeric_limits<uint32_t>::max )();
+
     for ( const SkullbonezCore::Physics::PhysicsBodyRecord& body : bodyStore.Records() )
     {
         const uint32_t id = body.sceneObjectId.value;
+
         if ( id == maxSceneObjectId )
         {
             nextId = maxSceneObjectId;
@@ -274,8 +274,10 @@ const std::vector<std::string>& SceneRuntime::Queue() const
 
 void SceneRuntime::BeginLoadAttempt( int index, const SceneLifecycleBeginPolicy& lifecyclePolicy )
 {
+
     // Hazard: generation zero is the observer sentinel. Wrapping would make a
     // real load invisible and could suppress every once-per-generation reset.
+
     if ( m_lifecyclePacket.generation == UINT64_MAX )
     {
         SB_FATAL( "Runtime/SceneRuntime", "Scene lifecycle generation exhausted." );
@@ -299,25 +301,23 @@ void SceneRuntime::BeginLoad( int index )
 
 void SceneRuntime::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, SceneLifecycleConsumerMask consumers )
 {
+
     // Hazard: accepting a skipped or repeated phase would publish plausible
     // but false progress to every generation observer. A retry must begin a new
     // generation before it can emit BeforeSceneUnload again.
+
     if ( !SceneRuntimeLifecycleTransitionValid( m_lastLifecycleEvent, event ) )
     {
-        SB_FATAL( "Runtime/SceneRuntime",
-                  "Invalid scene lifecycle transition. previous=%s next=%s",
-                  SceneRuntimeLifecycleEventName( m_lastLifecycleEvent ),
-                  SceneRuntimeLifecycleEventName( event ) );
+        SB_FATAL( "Runtime/SceneRuntime", "Invalid scene lifecycle transition. previous=%s next=%s",
+                  SceneRuntimeLifecycleEventName( m_lastLifecycleEvent ), SceneRuntimeLifecycleEventName( event ) );
     }
 
     const SceneLifecycleConsumerMask requiredConsumers = SceneLifecycleRequiredConsumers( event );
+
     if ( consumers != requiredConsumers )
     {
-        SB_FATAL( "Runtime/SceneRuntime",
-                  "Scene lifecycle consumer mismatch. phase=%s expected=0x%X actual=0x%X",
-                  SceneRuntimeLifecycleEventName( event ),
-                  requiredConsumers,
-                  consumers );
+        SB_FATAL( "Runtime/SceneRuntime", "Scene lifecycle consumer mismatch. phase=%s expected=0x%X actual=0x%X",
+                  SceneRuntimeLifecycleEventName( event ), requiredConsumers, consumers );
     }
 
     m_lastLifecycleEvent = event;
@@ -340,8 +340,10 @@ void SceneRuntime::MarkManualReset()
 
 int SceneRuntime::FindNormalizedPath( const std::string& normalizedPath ) const
 {
+
     for ( int i = 0; i < QueueSize(); ++i )
     {
+
         if ( NormalizeSceneQueuePath( m_queue[i] ) == normalizedPath )
         {
             return i;
@@ -354,8 +356,10 @@ int SceneRuntime::FindNormalizedPath( const std::string& normalizedPath ) const
 
 int SceneRuntime::FindGeneratedDemo() const
 {
+
     for ( int i = 0; i < QueueSize(); ++i )
     {
+
         if ( m_queue[i].empty() )
         {
             return i;
@@ -375,6 +379,7 @@ int SceneRuntime::Append( std::string path )
 
 bool SceneRuntime::CurrentQueueIsCinematicDeck() const
 {
+
     if ( !HasCurrentEntry() || m_queue.size() <= 1 )
     {
         return false;
@@ -382,6 +387,7 @@ bool SceneRuntime::CurrentQueueIsCinematicDeck() const
 
     for ( const std::string& queuedPath : m_queue )
     {
+
         if ( queuedPath.empty() || !IsCineScenePath( queuedPath ) )
         {
             return false;
@@ -395,6 +401,7 @@ bool SceneRuntime::CurrentQueueIsCinematicDeck() const
 int SceneRuntime::AdjacentQueueIndex( int direction ) const
 {
     const int queueCount = QueueSize();
+
     if ( queueCount <= 0 )
     {
         return -1;

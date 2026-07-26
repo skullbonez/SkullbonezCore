@@ -66,6 +66,7 @@ struct ExternalCylindricalForceField
 
 struct ExternalForceFrameInput
 {
+
     // Lifetime: Gameplay owns all three spans; Physics borrows them for one
     // Step call and writes only the two model-row timer spans.
     std::span<const ExternalCylindricalForceField> fields;
@@ -86,19 +87,16 @@ class ExternalForceStage
     ExternalForceStage();
     void Clear();
     std::span<const int> ReleaseFixedBodies( const ExternalForceFrameInput& input, PhysicsBodyStore& bodyStore );
+
     // Lifetime: the concrete wake capability and worker owner are borrowed only
     // until this synchronous body partition completes.
-    void ApplyBodyForces( const ExternalForceFrameInput& input,
-                          PhysicsBodyStore& bodyStore,
-                          const ColliderStore& colliderStore,
-                          PhysicsNarrowphaseWakeAccess wakeAccess,
-                          const PhysicsExecutionSettings& execution,
-                          Threading::WorkerPool& workerPool );
+    void ApplyBodyForces( const ExternalForceFrameInput& input, PhysicsBodyStore& bodyStore,
+                          const ColliderStore& colliderStore, PhysicsNarrowphaseWakeAccess wakeAccess,
+                          const PhysicsExecutionSettings& execution, Threading::WorkerPool& workerPool );
     uint64_t CollectMemoryBytes() const;
 
   private:
-    Math::Vector::Vector3 SampleAcceleration( const ExternalForceFrameInput& input,
-                                              const Math::Vector::Vector3& position,
+    Math::Vector::Vector3 SampleAcceleration( const ExternalForceFrameInput& input, const Math::Vector::Vector3& position,
                                               ExternalCylindricalForceField& outBestField,
                                               float& outBestAccelerationSq ) const;
 

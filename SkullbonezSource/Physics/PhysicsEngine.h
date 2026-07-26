@@ -82,15 +82,18 @@ class PhysicsEngine
     void BindProfiler( SkullbonezCore::Core::Profiler* profiler ) noexcept;
 
     void ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config );
+
     // Cold conversion seam used by config stamping and field-faithfulness tests.
     // Fixed-step code receives only the returned Physics-owned value snapshot.
     static PhysicsRuntimeSettings RuntimeSettingsFromConfig( const SkullbonezCore::Core::EngineConfig& config );
+
     // Stamps the PhysicsEngine-owned runtime policy onto cold authoring
     // descriptors before they become store rows.
     void ApplyAuthoredBodyPolicy( PhysicsBodyCreateDesc& desc ) const;
     void ApplyAuthoredColliderPolicy( PhysicsColliderCreateDesc& desc ) const;
     void ReserveAuthoredBodyCapacity( std::size_t capacity );
     PhysicsAuthoredBodyCount AuthoredBodyDescriptorCount() const;
+
     // Scene creation uses this before its first owner mutation; false is a
     // topology/reservation invariant, not recoverable authored input.
     bool CanRegisterAuthoredBody( PhysicsAuthoredBodyCount expectedBodyCount ) const;
@@ -99,81 +102,87 @@ class PhysicsEngine
     void ClearTerrainView() noexcept;
     void Clear();
     bool RefreshBodyStoreFromAuthoredDescriptors( const PhysicsAuthoredBodyRefreshView& refreshView );
+
     // One physics-owned registration command publishes the authored descriptor,
     // live body, paired collider, and buoyancy row or rolls the transaction back.
     PhysicsAuthoredBodyRegistration RegisterAuthoredBody( const PhysicsBodyCreateDesc& body,
                                                           PhysicsColliderCreateDesc collider );
+
     // Deterministically removes the paired collider, buoyancy, descriptor, and
     // body rows and invalidates the retired body handle before returning.
     bool DestroyAuthoredBody( PhysicsBodyHandle body );
+
     // Cold editor/replay authoring edits enter by stable handle; no caller can
     // mutate a descriptor row independently from its live body record.
     bool UpdateAuthoredBody( const PhysicsBodyUpdateDesc& update );
     bool UpdateAuthoredBodyAndCollider( const PhysicsBodyUpdateDesc& update, PhysicsColliderCreateDesc collider );
     void ClearPendingBodyImpulses();
+
     // Replay restore trims authoritative physics bodies directly; callers must
     // not force a model-to-store refresh after this succeeds.
     bool TrimBodiesToCount( PhysicsBodyCount bodyCount );
     bool TrimCollidersToCount( PhysicsColliderCount colliderCount );
+
     // Store-owned replay restore command. Callers resolve a body handle at the
     // owner edge so physics does not accept transient model slots as authority.
     bool RestoreReplayBodyState( const PhysicsBodyRestoreState& restore );
+
     // Rebinds existing collider rows from physics body identity. Missing collider
     // rows are a topology bug, not a cue to rebuild shape facts from authoring
     // storage.
     bool RefreshColliderSnapshot();
+
     // Steps the owned stores. Model-order descriptor import and diagnostic-name
     // registration are cold commands; the per-tick call carries only simulation
     // inputs plus concrete Debug CSV output authority.
-    void Step( float deltaSeconds,
-               const PhysicsWorldForces& worldForces,
-               Threading::WorkerPool& workerPool,
+    void Step( float deltaSeconds, const PhysicsWorldForces& worldForces, Threading::WorkerPool& workerPool,
                const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
-    void Step( float deltaSeconds,
-               const PhysicsWorldForces& worldForces,
-               const ExternalForceFrameInput& externalForces,
-               Threading::WorkerPool& workerPool,
-               const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
+    void Step( float deltaSeconds, const PhysicsWorldForces& worldForces, const ExternalForceFrameInput& externalForces,
+               Threading::WorkerPool& workerPool, const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
+
     // Runtime fixed-tree commands enter physics by handle; release, wake, and
     // sleep propagation stay inside the owned stores.
-    bool ReleaseFixedBodyAndAttachedTreeParts( PhysicsBodyHandle sourceBody,
-                                               float releaseImpulseStrength,
+    bool ReleaseFixedBodyAndAttachedTreeParts( PhysicsBodyHandle sourceBody, float releaseImpulseStrength,
                                                const Math::Vector::Vector3& seedLinearVelocity,
                                                const Math::Vector::Vector3& seedAngularVelocity );
+
     // Wakes solver sleep/island state by handle. Model-index callers
     // must refresh topology before entering this command.
     void WakeBody( PhysicsBodyHandle body );
+
     // Live tool commands edit body velocity by handle; model-index
     // callers refresh topology before entering this store-owned command.
-    bool SetBodyVelocity( PhysicsBodyHandle body,
-                          const Math::Vector::Vector3& linearVelocity,
-                          const Math::Vector::Vector3& angularVelocity,
-                          bool wakeIfMoving );
+    bool SetBodyVelocity( PhysicsBodyHandle body, const Math::Vector::Vector3& linearVelocity,
+                          const Math::Vector::Vector3& angularVelocity, bool wakeIfMoving );
+
     // Scene/editor construction commands seed solver sleep state by handle
     // without a per-command presentation projection.
     void SeedBodyAsleep( PhysicsBodyHandle body );
+
     // Queues one-shot solver input by body handle. Callers that only need a
     // pending impulse must not rebuild descriptor rows for presentation wake.
-    void SetPendingBodyImpulse( PhysicsBodyHandle body,
-                                const Math::Vector::Vector3& impulse,
+    void SetPendingBodyImpulse( PhysicsBodyHandle body, const Math::Vector::Vector3& impulse,
                                 const Math::Vector::Vector3& localApplicationPoint );
+
     // Queues a one-shot impulse and wakes by body handle without borrowing the
     // model owner.
-    void ApplyBodyImpulse( PhysicsBodyHandle body,
-                           const Math::Vector::Vector3& impulse,
+    void ApplyBodyImpulse( PhysicsBodyHandle body, const Math::Vector::Vector3& impulse,
                            const Math::Vector::Vector3& localApplicationPoint );
     void SetSleepEnabled( bool enabled );
     bool IsSleepEnabled() const;
     void BeginCollisionVisualFrame( PhysicsBodyCount bodyCount );
     void EndCollisionVisualFrame();
     void ClearPointJointConstraints();
+
     // Creates a point joint from physics body handles and rejects stale or
     // same-body endpoints before the solver stores its internal row.
     PhysicsConstraintHandle CreatePointJoint( const PhysicsPointJointCreateDesc& desc );
+
     // Updates or retires one exact stable constraint handle. Dense solver-row
     // compaction never changes the identity of surviving point joints.
     bool UpdatePointJoint( const PhysicsPointJointUpdateDesc& desc );
     bool DestroyConstraint( PhysicsConstraintHandle constraint );
+
     // Conservative store queries return stable typed identities without
     // exposing mutable body/collider or broadphase-owner state.
     PhysicsRayCastHit RayCast( const PhysicsRayCastDesc& desc ) const;
@@ -185,6 +194,7 @@ class PhysicsEngine
     uint64_t CollectDebugAndBroadphaseMemoryBytes() const;
     bool ShouldEmitStepDiagnostics() const;
     bool ShouldEmitCollisionTimeDiagnostics() const;
+
     // Registers scene-lifetime presentation names at a cold topology boundary.
     // The diagnostics sink copies only the pointer table into fixed storage.
     void SetDiagnosticNames( std::span<const char* const> diagnosticNames );

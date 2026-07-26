@@ -26,6 +26,7 @@ Related:
   - SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.h
   - Agentic/Reference/comment-style-guide.md
 */
+
 // =============================================================================
 // BROADPHASE VISUALIZER (BroadphaseVisualizer.cpp)
 // =============================================================================
@@ -60,15 +61,16 @@ using SkullbonezCore::Math::Transformation::Matrix4;
 
 namespace
 {
-constexpr PassRasterStateBucket BROADPHASE_LINE_RASTER = MakePassRasterStateBucket(
-    0,
-    { false, false, false, BlendFactor::One, BlendFactor::Zero, CullMode::None } );
+constexpr PassRasterStateBucket BROADPHASE_LINE_RASTER = MakePassRasterStateBucket( 0,
+                                                                                    { false, false, false, BlendFactor::One,
+                                                                                      BlendFactor::Zero, CullMode::None } );
 }
 
 
 BroadphaseVisualizer::BroadphaseVisualizer()
 {
     memset( m_cells, 0, sizeof( m_cells ) );
+
     // Reserve reasonable capacity for line data (200 cells × 144 floats each)
     m_lineData.reserve( 200 * 144 );
 }
@@ -76,6 +78,7 @@ BroadphaseVisualizer::BroadphaseVisualizer()
 
 int64_t BroadphaseVisualizer::PackKey( int16_t ix, int16_t iy, int16_t iz )
 {
+
     // Pack three int16_t into a single int64_t for use as a cell map key.
     return ( int64_t( ix ) * 73856093 ) ^ ( int64_t( iy ) * 19349663 ) ^ ( int64_t( iz ) * 83492791 );
 }
@@ -83,8 +86,10 @@ int64_t BroadphaseVisualizer::PackKey( int16_t ix, int16_t iy, int16_t iz )
 
 int BroadphaseVisualizer::FindCell( int64_t key ) const
 {
+
     for ( int i = 0; i < m_cellCount; ++i )
     {
+
         if ( m_cells[i].key == key )
         {
             return i;
@@ -98,6 +103,7 @@ int BroadphaseVisualizer::FindCell( int64_t key ) const
 int BroadphaseVisualizer::FindOrAddCell( int64_t key, int16_t ix, int16_t iy, int16_t iz )
 {
     int idx = FindCell( key );
+
     if ( idx >= 0 )
     {
         return idx;
@@ -105,6 +111,7 @@ int BroadphaseVisualizer::FindOrAddCell( int64_t key, int16_t ix, int16_t iy, in
 
     if ( m_cellCount >= MAX_TRACKED_CELLS )
     {
+
         // Hazard: this is a debug renderer. Dropping excess visualization cells
         // is preferable to unbounded allocation while physics is stepping.
         return -1; // Silently drop if at capacity
@@ -125,6 +132,7 @@ int BroadphaseVisualizer::FindOrAddCell( int64_t key, int16_t ix, int16_t iy, in
 
 void BroadphaseVisualizer::RemoveCell( int index )
 {
+
     if ( index < 0 || index >= m_cellCount )
     {
         return;
@@ -139,6 +147,7 @@ void BroadphaseVisualizer::RemoveCell( int index )
 void BroadphaseVisualizer::ComputeCellColor( const TrackedCell& cell, float& r, float& g, float& b ) const
 {
     float t = cell.timer / FADE_DURATION;
+
     if ( t > 1.0f )
     {
         t = 1.0f;
@@ -147,6 +156,7 @@ void BroadphaseVisualizer::ComputeCellColor( const TrackedCell& cell, float& r, 
     switch ( cell.state )
     {
     case CellState::Empty:
+
         // White
         r = 1.0f;
         g = 1.0f;
@@ -154,6 +164,7 @@ void BroadphaseVisualizer::ComputeCellColor( const TrackedCell& cell, float& r, 
         break;
 
     case CellState::Entering:
+
         // Yellow (1,1,0) → Blue (0,0,1) over FADE_DURATION
         r = 1.0f - t;
         g = 1.0f - t;
@@ -161,6 +172,7 @@ void BroadphaseVisualizer::ComputeCellColor( const TrackedCell& cell, float& r, 
         break;
 
     case CellState::Occupied:
+
         // Blue (steady)
         r = 0.0f;
         g = 0.0f;
@@ -169,8 +181,10 @@ void BroadphaseVisualizer::ComputeCellColor( const TrackedCell& cell, float& r, 
 
     case CellState::Colliding:
     {
+
         // Red (1,0,0) → Black (0,0,0) based on collision heat
         float intensity = 1.0f - ( (float)cell.collisionHeat / (float)MAX_COLLISION_HEAT );
+
         if ( intensity < 0.0f )
         {
             intensity = 0.0f;
@@ -184,8 +198,10 @@ void BroadphaseVisualizer::ComputeCellColor( const TrackedCell& cell, float& r, 
 
     case CellState::Fading:
     {
+
         // Current collision color → Blue (0,0,1) over FADE_DURATION
         float intensity = 1.0f - ( (float)cell.collisionHeat / (float)MAX_COLLISION_HEAT );
+
         if ( intensity < 0.0f )
         {
             intensity = 0.0f;
@@ -203,6 +219,7 @@ void BroadphaseVisualizer::ComputeCellColor( const TrackedCell& cell, float& r, 
 
 void BroadphaseVisualizer::EmitCubeWireframe( int16_t ix, int16_t iy, int16_t iz, float r, float g, float b )
 {
+
     // Grid indices become world-space cube corners for the debug wireframe.
     float x0 = (float)ix * m_cellSize;
     float y0 = (float)iy * m_cellSize;
@@ -250,12 +267,10 @@ void BroadphaseVisualizer::EmitCubeWireframe( int16_t ix, int16_t iy, int16_t iz
 }
 
 
-void BroadphaseVisualizer::Update( float dt,
-                                   const SpatialGrid::ActiveCell* activeCells,
-                                   int activeCellCount,
-                                   const int64_t* collisionKeys,
-                                   int collisionKeyCount )
+void BroadphaseVisualizer::Update( float dt, const SpatialGrid::ActiveCell* activeCells, int activeCellCount,
+                                   const int64_t* collisionKeys, int collisionKeyCount )
 {
+
     if ( !m_enabled )
     {
         return;
@@ -265,6 +280,7 @@ void BroadphaseVisualizer::Update( float dt,
     // hard to see. This visual tracker gives cells enter/collide/fade lifetimes
     // purely for display, without changing pair generation.
     // Mark all existing cells as inactive for this frame
+
     for ( int i = 0; i < m_cellCount; ++i )
     {
         m_cells[i].activeThisFrame = false;
@@ -272,10 +288,12 @@ void BroadphaseVisualizer::Update( float dt,
     }
 
     // Process active cells from the spatial grid
+
     for ( int i = 0; i < activeCellCount; ++i )
     {
         int64_t key = PackKey( activeCells[i].ix, activeCells[i].iy, activeCells[i].iz );
         int idx = FindOrAddCell( key, activeCells[i].ix, activeCells[i].iy, activeCells[i].iz );
+
         if ( idx < 0 )
         {
             continue;
@@ -285,8 +303,10 @@ void BroadphaseVisualizer::Update( float dt,
         cell.activeThisFrame = true;
 
         // Transition logic for newly occupied cells
+
         if ( cell.state == CellState::Empty )
         {
+
             // Cell just gained objects — start entry animation
             cell.state = CellState::Entering;
             cell.timer = 0.0f;
@@ -294,15 +314,18 @@ void BroadphaseVisualizer::Update( float dt,
     }
 
     // Process collision cells — mark them as colliding with increased heat
+
     for ( int i = 0; i < collisionKeyCount; ++i )
     {
         int idx = FindCell( collisionKeys[i] );
+
         if ( idx < 0 )
         {
             continue;
         }
 
         TrackedCell& cell = m_cells[idx];
+
         // Red collision overrides yellow entry transition
         cell.state = CellState::Colliding;
         cell.timer = 0.0f;
@@ -311,6 +334,7 @@ void BroadphaseVisualizer::Update( float dt,
     }
 
     // Timers age out cells after their hit/visited highlight fades.
+
     for ( int i = 0; i < m_cellCount; )
     {
         TrackedCell& cell = m_cells[i];
@@ -319,7 +343,9 @@ void BroadphaseVisualizer::Update( float dt,
         switch ( cell.state )
         {
         case CellState::Empty:
+
             // If cell is no longer active, remove it after a brief hold
+
             if ( !cell.activeThisFrame && cell.timer > FADE_DURATION )
             {
                 RemoveCell( i );
@@ -329,8 +355,10 @@ void BroadphaseVisualizer::Update( float dt,
             break;
 
         case CellState::Entering:
+
             if ( cell.timer >= FADE_DURATION )
             {
+
                 // Transition complete — now steadily occupied
                 cell.state = CellState::Occupied;
                 cell.timer = 0.0f;
@@ -339,8 +367,10 @@ void BroadphaseVisualizer::Update( float dt,
             break;
 
         case CellState::Occupied:
+
             if ( !cell.activeThisFrame )
             {
+
                 // Lost all objects — transition to empty
                 cell.state = CellState::Empty;
                 cell.timer = 0.0f;
@@ -349,8 +379,10 @@ void BroadphaseVisualizer::Update( float dt,
             break;
 
         case CellState::Colliding:
+
             // Stay in colliding state only while collisions arrive each frame.
             // If no collision this frame, start fading back to blue.
+
             if ( !cell.collidedThisFrame )
             {
                 cell.state = CellState::Fading;
@@ -360,9 +392,12 @@ void BroadphaseVisualizer::Update( float dt,
             break;
 
         case CellState::Fading:
+
             if ( cell.timer >= FADE_DURATION )
             {
+
                 // Fade complete — return to occupied or empty
+
                 if ( cell.activeThisFrame )
                 {
                     cell.state = CellState::Occupied;
@@ -386,6 +421,7 @@ void BroadphaseVisualizer::Update( float dt,
 
 void BroadphaseVisualizer::Render( const Matrix4& viewProj, Dx12GeometryOwner& renderCommands, bool supportsDebugLines )
 {
+
     if ( !m_enabled || m_cellCount == 0 || !supportsDebugLines )
     {
         return;

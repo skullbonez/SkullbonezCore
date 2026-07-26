@@ -71,44 +71,26 @@ class UiDrawSubmission
     UiDrawSubmission( const UiDrawSubmission& ) = delete;
     UiDrawSubmission& operator=( const UiDrawSubmission& ) = delete;
 
-    void Submit( const UI::UIDrawList& drawList,
-                 Text::TextBatch& textBatch,
-                 Rendering::RenderGpuTimingOwner* gpuTiming,
-                 Rendering::Dx12TextureOwner& renderTextures,
-                 Rendering::Dx12GeometryOwner& renderGeometry,
-                 Rendering::Dx12Diagnostics& renderDiagnostics,
-                 int screenW,
-                 int screenH );
+    void Submit( const UI::UIDrawList& drawList, Text::TextBatch& textBatch, Rendering::RenderGpuTimingOwner* gpuTiming,
+                 Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
+                 Rendering::Dx12Diagnostics& renderDiagnostics, int screenW, int screenH );
 
-    void SubmitWithPreviews( const UI::UIDrawList& drawList,
-                             const RuntimeRenderTargetPreviewSnapshot& previewData,
-                             Text::TextBatch& textBatch,
-                             Rendering::RenderGpuTimingOwner* gpuTiming,
-                             Assets::AssetSystem& assets,
-                             Rendering::Dx12ResourceBuilder& renderResources,
-                             Rendering::Dx12TextureOwner& renderTextures,
-                             Rendering::Dx12GeometryOwner& renderGeometry,
-                             Rendering::Dx12Diagnostics& renderDiagnostics,
-                             int screenW,
-                             int screenH );
+    void SubmitWithPreviews( const UI::UIDrawList& drawList, const RuntimeRenderTargetPreviewSnapshot& previewData,
+                             Text::TextBatch& textBatch, Rendering::RenderGpuTimingOwner* gpuTiming,
+                             Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources,
+                             Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
+                             Rendering::Dx12Diagnostics& renderDiagnostics, int screenW, int screenH );
 
     void ReleaseGpuResources( Rendering::Dx12GeometryOwner* renderGeometry );
 
   private:
-    void SubmitCommands( const UI::UIDrawList& drawList,
-                         const RuntimeRenderTargetPreviewSnapshot* previewData,
-                         Text::TextBatch& textBatch,
-                         Rendering::RenderGpuTimingOwner* gpuTiming,
-                         Assets::AssetSystem* assets,
-                         Rendering::Dx12ResourceBuilder* renderResources,
-                         Rendering::Dx12TextureOwner& renderTextures,
-                         Rendering::Dx12GeometryOwner& renderGeometry,
-                         Rendering::Dx12Diagnostics& renderDiagnostics,
-                         int screenW,
-                         int screenH );
+    void SubmitCommands( const UI::UIDrawList& drawList, const RuntimeRenderTargetPreviewSnapshot* previewData,
+                         Text::TextBatch& textBatch, Rendering::RenderGpuTimingOwner* gpuTiming, Assets::AssetSystem* assets,
+                         Rendering::Dx12ResourceBuilder* renderResources, Rendering::Dx12TextureOwner& renderTextures,
+                         Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12Diagnostics& renderDiagnostics,
+                         int screenW, int screenH );
 
-    void EnsurePreviewResources( Assets::AssetSystem& assets,
-                                 Rendering::Dx12ResourceBuilder& renderResources,
+    void EnsurePreviewResources( Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources,
                                  Rendering::Dx12GeometryOwner& renderGeometry );
 
     std::unique_ptr<Rendering::ShaderDX12> m_previewShader;

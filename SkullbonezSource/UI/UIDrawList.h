@@ -37,6 +37,7 @@ namespace UI
 class UIDrawList
 {
   public:
+
     // Concept: widgets record drawing intent; Runtime/Render later consumes a
     // bounded read-only view. The list never calls back into a backend owner.
     //
@@ -81,6 +82,7 @@ class UIDrawList
 
     struct Command
     {
+
         // Why: PushCommand value-initializes each committed row. Keeping unused
         // fixed-capacity rows trivial avoids touching every reserved page when
         // retained UI scratch owners are constructed.
@@ -111,18 +113,12 @@ class UIDrawList
     void AddText( float x, float y, float pxSize, float r, float g, float b, const char* value );
     void PushClip( float x, float y, float w, float h );
     void PopClip();
+
     // Fallback fill and label are part of the recorded value so a missing
     // frame-local renderer target cannot silently produce a blank panel.
-    void AddPreviewImage( PreviewTargetId target,
-                          float x,
-                          float y,
-                          float w,
-                          float h,
-                          float fallbackR,
-                          float fallbackG,
-                          float fallbackB,
-                          float fallbackA,
-                          const char* fallbackLabel );
+    void AddPreviewImage( PreviewTargetId target, float x, float y, float w, float h, float fallbackR, float fallbackG,
+                          float fallbackB, float fallbackA, const char* fallbackLabel );
+
     // Appends another list in order and applies a screen-space translation to
     // its geometry. Text is copied into this list's bounded storage so neither
     // the source list nor its cache must outlive the composed frame.
@@ -132,6 +128,7 @@ class UIDrawList
     Stats GetStats() const;
     std::span<const Command> Commands() const;
     const char* TextAt( int offset ) const;
+
     // Returns a semantic fingerprint of command values and referenced text.
     // Object padding and unused buffer capacity never affect the result.
     uint64_t Fingerprint() const;

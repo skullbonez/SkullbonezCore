@@ -67,8 +67,10 @@ namespace
 Matrix4 BuildRenderModelMatrix( const Vector3& position, const Quaternion& orientation, const ColliderRecord& collider )
 {
     const Matrix4 rotation = Matrix4::FromQuaternion( orientation );
+
     if ( collider.shapeKind == ColliderShapeKind::ConvexHull )
     {
+
         // Why: convex hull draw code transforms authored hull vertices directly.
         // Keep the legacy T * R body matrix here so moving renderers to this
         // snapshot does not add the collision-shape scale/offset a second time.
@@ -80,6 +82,7 @@ Matrix4 BuildRenderModelMatrix( const Vector3& position, const Quaternion& orien
 
 RenderInstanceShapeKind ShapeKindFromCollider( ColliderShapeKind shapeKind )
 {
+
     switch ( shapeKind )
     {
     case ColliderShapeKind::Sphere:
@@ -98,10 +101,9 @@ float ContactAlpha( float seconds, float fadeSeconds )
     return fadeSeconds > 0.0f ? std::clamp( seconds / fadeSeconds, 0.0f, 1.0f ) : 0.0f;
 }
 
-bool PoseMatchesCurrentEndpoint( const RenderInstanceRecord& record,
-                                 const Vector3& position,
-                                 const Quaternion& orientation )
+bool PoseMatchesCurrentEndpoint( const RenderInstanceRecord& record, const Vector3& position, const Quaternion& orientation )
 {
+
     if ( record.currentPosition.x != position.x || record.currentPosition.y != position.y ||
          record.currentPosition.z != position.z )
     {
@@ -138,6 +140,7 @@ Vector3 InterpolatePosition( const RenderInstanceRecord& record, float alpha )
 
 void TickContactSeconds( float& seconds, float deltaSeconds )
 {
+
     if ( seconds > 0.0f && deltaSeconds > 0.0f )
     {
         seconds = (std::max)( 0.0f, seconds - deltaSeconds );
@@ -161,6 +164,7 @@ void RenderInstanceStore::ReservePresentationCapacity( std::size_t capacity )
 
 bool RenderInstanceStore::CanAppendCreationRow( int expectedCount ) const
 {
+
     if ( expectedCount < 0 )
     {
         return false;
@@ -168,31 +172,23 @@ bool RenderInstanceStore::CanAppendCreationRow( int expectedCount ) const
 
     const std::size_t expected = static_cast<std::size_t>( expectedCount );
     return m_presentationRecords.size() == expected && m_instances.size() == expected &&
-           m_modelInstanceHandles.size() == expected &&
-           m_presentationRecords.size() < m_presentationRecords.capacity() &&
-           m_instances.size() < m_instances.capacity() &&
-           m_modelInstanceHandles.size() < m_modelInstanceHandles.capacity();
+           m_modelInstanceHandles.size() == expected && m_presentationRecords.size() < m_presentationRecords.capacity() &&
+           m_instances.size() < m_instances.capacity() && m_modelInstanceHandles.size() < m_modelInstanceHandles.capacity();
 }
 
 void RenderInstanceStore::CommitCreationRow( const RenderInstancePresentationRecord& presentation,
-                                             const PhysicsBodyRecord& body,
-                                             const PhysicsBodyHotState& hotState,
-                                             const ColliderRecord& collider,
-                                             int expectedIndex )
+                                             const PhysicsBodyRecord& body, const PhysicsBodyHotState& hotState,
+                                             const ColliderRecord& collider, int expectedIndex )
 {
+
     if ( !CanAppendCreationRow( expectedIndex ) || !body.handle.IsValid() || !collider.handle.IsValid() ||
          collider.body != body.handle || collider.sceneObjectId != body.sceneObjectId )
     {
         SB_FATAL( "Rendering/RenderInstanceStore",
                   "Invalid preflighted creation commit. expected=%d presentation=%zu instances=%zu handles=%zu "
                   "body_valid=%d collider_valid=%d body_id=%u collider_id=%u",
-                  expectedIndex,
-                  m_presentationRecords.size(),
-                  m_instances.size(),
-                  m_modelInstanceHandles.size(),
-                  body.handle.IsValid() ? 1 : 0,
-                  collider.handle.IsValid() ? 1 : 0,
-                  body.sceneObjectId.value,
+                  expectedIndex, m_presentationRecords.size(), m_instances.size(), m_modelInstanceHandles.size(),
+                  body.handle.IsValid() ? 1 : 0, collider.handle.IsValid() ? 1 : 0, body.sceneObjectId.value,
                   collider.sceneObjectId.value );
     }
 
@@ -220,6 +216,7 @@ void RenderInstanceStore::CommitCreationRow( const RenderInstancePresentationRec
 
 bool RenderInstanceStore::DestroyCreationRowAtSwapLast( int modelIndex )
 {
+
     if ( modelIndex < 0 || modelIndex >= Count() || modelIndex >= PresentationCount() )
     {
         return false;
@@ -227,8 +224,10 @@ bool RenderInstanceStore::DestroyCreationRowAtSwapLast( int modelIndex )
 
     const std::size_t row = static_cast<std::size_t>( modelIndex );
     const std::size_t last = m_instances.size() - 1u;
+
     // Invariant: the moved row receives its dense render handle immediately;
     // retaining the old row-derived handle would redirect later draw lookups.
+
     if ( row != last )
     {
         m_presentationRecords[row] = std::move( m_presentationRecords[last] );
@@ -247,6 +246,7 @@ bool RenderInstanceStore::DestroyCreationRowAtSwapLast( int modelIndex )
 
 bool RenderInstanceStore::ResizePresentationRecords( int presentationCount )
 {
+
     if ( presentationCount < 0 )
     {
         return false;
@@ -259,6 +259,7 @@ bool RenderInstanceStore::ResizePresentationRecords( int presentationCount )
 
 RenderInstancePresentationRecord* RenderInstanceStore::MutablePresentationRecordForModelIndex( int modelIndex )
 {
+
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_presentationRecords.size() ) )
     {
         return nullptr;
@@ -291,6 +292,7 @@ uint64_t RenderInstanceStore::PresentationCapacityBytes() const
 void RenderInstanceStore::NotifyFixedContact( int modelIndex, float highlightSeconds )
 {
     RenderInstancePresentationRecord* record = MutablePresentationRecordForModelIndex( modelIndex );
+
     if ( record && highlightSeconds > record->fixedContactSeconds )
     {
         record->fixedContactSeconds = highlightSeconds;
@@ -301,6 +303,7 @@ void RenderInstanceStore::NotifyFixedContact( int modelIndex, float highlightSec
 bool RenderInstanceStore::SetEditorVisible( int modelIndex, bool visible )
 {
     RenderInstancePresentationRecord* presentation = MutablePresentationRecordForModelIndex( modelIndex );
+
     if ( !presentation || modelIndex < 0 || modelIndex >= Count() )
     {
         return false;
@@ -313,9 +316,11 @@ bool RenderInstanceStore::SetEditorVisible( int modelIndex, bool visible )
 
 void RenderInstanceStore::TickContactFeedback( int modelCount, float deltaSeconds )
 {
+
     // Invariant: feedback follows the same dense rows as render presentation;
     // swap-last deletion moves both timers with the affected scene object.
     const int tickCount = (std::min)( (std::max)( modelCount, 0 ), PresentationCount() );
+
     for ( int index = 0; index < tickCount; ++index )
     {
         RenderInstancePresentationRecord& record = m_presentationRecords[static_cast<std::size_t>( index )];
@@ -335,25 +340,27 @@ void RenderInstanceStore::Clear()
 
 void RenderInstanceStore::BeginPhysicsStepPoseCapture( const PhysicsBodyStore& bodyStore )
 {
+
     if ( bodyStore.Count() != Count() )
     {
-        SB_FATAL( "Rendering/RenderInstanceStore",
-                  "Physics-step pose preflight requires matching rows. bodies=%d render=%d",
-                  bodyStore.Count(),
-                  Count() );
+        SB_FATAL( "Rendering/RenderInstanceStore", "Physics-step pose preflight requires matching rows. bodies=%d render=%d",
+                  bodyStore.Count(), Count() );
     }
 
     const auto bodies = bodyStore.Records();
     const auto hotFields = bodyStore.HotFields();
+
     for ( int index = 0; index < bodyStore.Count(); ++index )
     {
         RenderInstanceRecord& record = m_instances[static_cast<std::size_t>( index )];
         const PhysicsBodyRecord& body = bodies[static_cast<std::size_t>( index )];
+
         // Hazard: upper-layer commands can teleport a body between
         // fixed ticks. Collapse both endpoints before stepping so presentation
         // never blends across that discontinuity.
         const Vector3 position = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( index ) );
         const Quaternion orientation = PhysicsBodyOrientation( hotFields, static_cast<std::size_t>( index ) );
+
         if ( !record.poseHistoryValid || record.sceneObjectId != body.sceneObjectId ||
              !PoseMatchesCurrentEndpoint( record, position, orientation ) )
         {
@@ -365,24 +372,24 @@ void RenderInstanceStore::BeginPhysicsStepPoseCapture( const PhysicsBodyStore& b
 
 void RenderInstanceStore::CompletePhysicsStepPoseCapture( const PhysicsBodyStore& bodyStore )
 {
+
     if ( bodyStore.Count() != Count() )
     {
-        SB_FATAL( "Rendering/RenderInstanceStore",
-                  "Physics-step pose commit requires matching rows. bodies=%d render=%d",
-                  bodyStore.Count(),
-                  Count() );
+        SB_FATAL( "Rendering/RenderInstanceStore", "Physics-step pose commit requires matching rows. bodies=%d render=%d",
+                  bodyStore.Count(), Count() );
     }
 
     const auto bodies = bodyStore.Records();
     const auto hotFields = bodyStore.HotFields();
+
     for ( int index = 0; index < bodyStore.Count(); ++index )
     {
         RenderInstanceRecord& record = m_instances[static_cast<std::size_t>( index )];
         const PhysicsBodyRecord& body = bodies[static_cast<std::size_t>( index )];
+
         if ( !record.poseHistoryValid || record.sceneObjectId != body.sceneObjectId )
         {
-            ResetPoseHistory( record,
-                              PhysicsBodyPosition( hotFields, static_cast<std::size_t>( index ) ),
+            ResetPoseHistory( record, PhysicsBodyPosition( hotFields, static_cast<std::size_t>( index ) ),
                               PhysicsBodyOrientation( hotFields, static_cast<std::size_t>( index ) ) );
 
             continue;
@@ -396,8 +403,7 @@ void RenderInstanceStore::CompletePhysicsStepPoseCapture( const PhysicsBodyStore
 }
 
 
-void RenderInstanceStore::Refresh( const PhysicsBodyStore& bodyStore,
-                                   const ColliderStore& colliderStore,
+void RenderInstanceStore::Refresh( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                                    float presentationAlpha )
 {
     Refresh( m_presentationRecords, bodyStore, colliderStore, presentationAlpha );
@@ -405,28 +411,24 @@ void RenderInstanceStore::Refresh( const PhysicsBodyStore& bodyStore,
 
 
 void RenderInstanceStore::Refresh( const std::vector<RenderInstancePresentationRecord>& presentation,
-                                   const PhysicsBodyStore& bodyStore,
-                                   const ColliderStore& colliderStore,
+                                   const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                                    float presentationAlpha )
 {
-    Refresh( presentation.empty() ? nullptr : presentation.data(),
-             static_cast<int>( presentation.size() ),
-             bodyStore,
-             colliderStore,
-             presentationAlpha );
+    Refresh( presentation.empty() ? nullptr : presentation.data(), static_cast<int>( presentation.size() ), bodyStore,
+             colliderStore, presentationAlpha );
 }
 
 
-void RenderInstanceStore::Refresh( const RenderInstancePresentationRecord* presentation,
-                                   int presentationCount,
-                                   const PhysicsBodyStore& bodyStore,
-                                   const ColliderStore& colliderStore,
+void RenderInstanceStore::Refresh( const RenderInstancePresentationRecord* presentation, int presentationCount,
+                                   const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                                    float presentationAlpha )
 {
+
     if ( bodyStore.Count() != presentationCount || colliderStore.Count() != presentationCount )
     {
         assert( bodyStore.Count() == presentationCount );
         assert( colliderStore.Count() == presentationCount );
+
         // Hazard: rebuilding presentation state here would hide a broken owner
         // refresh. Fail closed so Debug catches the topology bug and release
         // builds do not draw stale model-owned poses.
@@ -444,6 +446,7 @@ void RenderInstanceStore::Refresh( const RenderInstancePresentationRecord* prese
     // a future renderer-facing allocation owner replaces them with render ids.
     m_instances.resize( static_cast<std::size_t>( presentationCount ) );
     m_modelInstanceHandles.resize( static_cast<std::size_t>( presentationCount ) );
+
     for ( int i = 0; i < presentationCount; ++i )
     {
         const std::size_t index = static_cast<std::size_t>( i );
@@ -455,11 +458,13 @@ void RenderInstanceStore::Refresh( const RenderInstancePresentationRecord* prese
         const bool bodyIdentityChanged = record.sceneObjectId != body.sceneObjectId;
         record.handle = MakeRenderInstanceHandleForModelIndex( modelIndex );
         record.sceneObjectId = body.sceneObjectId;
+
         // A mismatch here did not pass through the fixed-step capture boundary:
         // scene load, spawn, teleport, state restore, or scrub changed the pose.
         // Collapse history so the discontinuity is visible immediately.
         const Vector3 bodyPosition = PhysicsBodyPosition( hotFields, index );
         const Quaternion bodyOrientation = PhysicsBodyOrientation( hotFields, index );
+
         if ( !record.poseHistoryValid || bodyIdentityChanged ||
              !PoseMatchesCurrentEndpoint( record, bodyPosition, bodyOrientation ) )
         {
@@ -492,17 +497,17 @@ void RenderInstanceStore::Refresh( const RenderInstancePresentationRecord* prese
 }
 
 
-bool RenderInstanceStore::TryGetPresentationPose( int modelIndex,
-                                                  float presentationAlpha,
-                                                  Vector3& outPosition,
+bool RenderInstanceStore::TryGetPresentationPose( int modelIndex, float presentationAlpha, Vector3& outPosition,
                                                   Quaternion& outOrientation ) const
 {
+
     if ( modelIndex < 0 || modelIndex >= Count() )
     {
         return false;
     }
 
     const RenderInstanceRecord& record = m_instances[static_cast<std::size_t>( modelIndex )];
+
     if ( !record.poseHistoryValid )
     {
         return false;
@@ -516,8 +521,7 @@ bool RenderInstanceStore::TryGetPresentationPose( int modelIndex,
     else
     {
         outPosition = InterpolatePosition( record, presentationAlpha );
-        outOrientation = Math::Orientation::NlerpShortest( record.previousOrientation,
-                                                           record.currentOrientation,
+        outOrientation = Math::Orientation::NlerpShortest( record.previousOrientation, record.currentOrientation,
                                                            presentationAlpha );
     }
 
@@ -525,24 +529,24 @@ bool RenderInstanceStore::TryGetPresentationPose( int modelIndex,
 }
 
 
-bool RenderInstanceStore::OverridePose( int modelIndex,
-                                        Physics::PhysicsSceneObjectId sceneObjectId,
-                                        const Vector3& position,
-                                        const Quaternion& orientation,
-                                        const ColliderStore& colliderStore )
+bool RenderInstanceStore::OverridePose( int modelIndex, Physics::PhysicsSceneObjectId sceneObjectId, const Vector3& position,
+                                        const Quaternion& orientation, const ColliderStore& colliderStore )
 {
+
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_instances.size() ) )
     {
         return false;
     }
 
     const auto colliders = colliderStore.Records();
+
     if ( modelIndex >= static_cast<int>( colliders.size() ) )
     {
         return false;
     }
 
     RenderInstanceRecord& record = m_instances[static_cast<std::size_t>( modelIndex )];
+
     if ( record.sceneObjectId != sceneObjectId )
     {
         return false;
@@ -576,6 +580,7 @@ bool RenderInstanceStore::Empty() const
 
 RenderInstanceHandle RenderInstanceStore::HandleForModelIndex( int modelIndex ) const
 {
+
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_modelInstanceHandles.size() ) )
     {
         return RenderInstanceHandle {};
@@ -587,6 +592,7 @@ RenderInstanceHandle RenderInstanceStore::HandleForModelIndex( int modelIndex ) 
 
 int RenderInstanceStore::ModelIndexForHandle( RenderInstanceHandle handle ) const
 {
+
     if ( !Contains( handle ) )
     {
         return -1;
@@ -598,6 +604,7 @@ int RenderInstanceStore::ModelIndexForHandle( RenderInstanceHandle handle ) cons
 
 bool RenderInstanceStore::Contains( RenderInstanceHandle handle ) const
 {
+
     if ( !handle.IsValid() || handle.generation != RENDER_INSTANCE_INITIAL_HANDLE_GENERATION )
     {
         return false;

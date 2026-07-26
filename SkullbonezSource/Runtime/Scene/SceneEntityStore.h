@@ -84,12 +84,8 @@ struct SceneEntityCreateDesc
     void SetRenderTint( float tintR, float tintG, float tintB, float colorOverride );
     void SetRenderMaterial( const Rendering::RenderMaterial& material );
     const Rendering::RenderMaterial& GetRenderMaterial() const;
-    void SetAssetAffiliation( Physics::PhysicsSceneObjectId rootObjectId,
-                              const char* libraryToken,
-                              const char* assetName,
-                              const char* instanceName,
-                              const char* partName,
-                              uint32_t partIndex );
+    void SetAssetAffiliation( Physics::PhysicsSceneObjectId rootObjectId, const char* libraryToken, const char* assetName,
+                              const char* instanceName, const char* partName, uint32_t partIndex );
     void SetBehaviorGroup( SceneBehaviorGroupKind kind, Physics::PhysicsSceneObjectId rootObjectId, int partIndex );
 };
 
@@ -101,6 +97,7 @@ struct SceneEntityRecord
     SceneAssetAffiliation asset;
     SceneBehaviorGroup behaviorGroup;
     char displayName[64] = {};
+
     // Editor-only session metadata follows stable scene identity through
     // swap-last compaction but is deliberately absent from authored schema.
     bool editorVisible = true;
@@ -115,6 +112,7 @@ class SceneEntityStore
     void Clear();
     SkullbonezCore::Core::SbResult PreflightAppend( const SceneEntityCreateDesc& entity ) const;
     void CommitAppend( const SceneEntityCreateDesc& entity, Physics::PhysicsBodyHandle body );
+
     // Called only inside the collection's coordinated cross-store deletion.
     bool DestroyAtSwapLast( int index );
     void UpdateBodyHandleAt( int index, Physics::PhysicsBodyHandle body, Physics::PhysicsSceneObjectId sceneObjectId );
@@ -143,11 +141,13 @@ class SceneEntityStore
     bool IsSimpleRagdollTorso( int modelIndex ) const;
     int RagdollRootModelIndexForPart( int modelIndex ) const;
     bool TryFindSimpleRagdollPart( int selectedModelIndex, int partIndex, int& outModelIndex ) const;
+
     // Writes at most maxIndices dense rows and returns the number written. A
     // non-group selection yields itself; invalid output storage yields zero.
     int GatherGroupMemberIndices( int selectedModelIndex, int* outIndices, int maxIndices ) const;
 
   private:
+
     // Why: reserving cold scene metadata avoids touching SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS worth
     // of provenance pages in ordinary scenes while retaining a strict logical
     // ceiling. ConfigureCapacity is a scene-load preallocation boundary; all

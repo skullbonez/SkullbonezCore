@@ -65,6 +65,7 @@ constexpr bool SceneRequestIsTransition( SceneRequestType type )
 {
     return type != SceneRequestType::SaveCurrentDefaults;
 }
+
 // A failed transition may have committed teardown before reporting a
 // recoverable population error. Later requests must not observe or persist
 // that partial replacement scene.

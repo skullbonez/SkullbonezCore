@@ -37,6 +37,7 @@ namespace Runtime
 class DiagnosticsController
 {
   public:
+
     // Binds the startup-resolved profiler diagnostics source. Null is valid
     // when profiling is compiled out; profile builds should bind before runs.
     void BindProfiler( SkullbonezCore::Core::Profiler* profiler );
@@ -52,6 +53,7 @@ class DiagnosticsController
     void OpenScenePerfLog( const char* path, int pass );
     bool PerfTestActive() const;
     void TickPerfLog( const RuntimePerfTickContext& context );
+
     // Samples the startup-bound profiler without reopening a process-global
     // profiler locator
     // singleton from frame or diagnostics code.

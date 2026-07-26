@@ -115,40 +115,30 @@ enum class ReplayInspectionCameraAction : uint8_t
 
 namespace ReplayPresentationOperations
 {
+
 // Stateless host-camera transitions shared by scrubber and authoring tools.
 // Every owner reference is a synchronous borrow; neither operation stores host
 // or replay authority after returning.
-void EnterInspectionCamera( ReplayPresentation& presentation,
-                            Environment::CameraCollection* cameras,
-                            CameraControlState& camera,
-                            RunCameraMode normalizedCurrentMode,
-                            RuntimeInteractionController& interaction,
-                            InputRouter& inputRouter,
+void EnterInspectionCamera( ReplayPresentation& presentation, Environment::CameraCollection* cameras,
+                            CameraControlState& camera, RunCameraMode normalizedCurrentMode,
+                            RuntimeInteractionController& interaction, InputRouter& inputRouter,
                             RunMousePickupState& mousePickup );
-void ExitInspectionCamera( ReplayPresentation& presentation,
-                           const ReplayAuthoring& authoring,
-                           Environment::CameraCollection* cameras,
-                           Geometry::Terrain* terrain,
-                           CameraControlState& camera,
-                           RunCameraMode normalizedRestoreMode,
-                           bool attachedFollow,
-                           bool directorGrabbed,
-                           RuntimeInteractionController& interaction,
-                           InputRouter& inputRouter );
+void ExitInspectionCamera( ReplayPresentation& presentation, const ReplayAuthoring& authoring,
+                           Environment::CameraCollection* cameras, Geometry::Terrain* terrain, CameraControlState& camera,
+                           RunCameraMode normalizedRestoreMode, bool attachedFollow, bool directorGrabbed,
+                           RuntimeInteractionController& interaction, InputRouter& inputRouter );
 
 // A committed load first releases gesture/camera ownership, then the caller
 // exits the host camera before arming the new scrub position. Keeping these
 // phases explicit prevents the load transaction from becoming a parameter bag.
-bool BeginLoadedPresentationActivation( bool hasLoadedPresentation,
-                                        ReplayScrubber& scrubber,
-                                        ReplayPresentation& presentation,
-                                        ReplayAuthoring& authoring,
-                                        RuntimeInteractionController& interaction,
-                                        InputRouter& inputRouter );
+bool BeginLoadedPresentationActivation( bool hasLoadedPresentation, ReplayScrubber& scrubber,
+                                        ReplayPresentation& presentation, ReplayAuthoring& authoring,
+                                        RuntimeInteractionController& interaction, InputRouter& inputRouter );
 } // namespace ReplayPresentationOperations
 
 struct ReplayWorldPointerInput
 {
+
     // Value-only facts for one routed pointer gesture. Mutable and store owners
     // are explicit operands on ReplayRuntime::RouteWorldPointer. UI hit
     // suppression is authoritative; merely requesting a visible native cursor
@@ -225,56 +215,48 @@ class ReplayPresentation
     ReplayPresentationMemoryStats CollectMemoryStats() const noexcept;
     bool HasLauncherVisualBackup() const noexcept;
     void ReserveLauncherVisualCaptureBuffers();
+
     // Lifetime: the returned capture scratch remains valid until this owner
     // builds the next launcher sample; ReplayRuntime consumes it synchronously.
     const ReplayLauncherVisualSample& CaptureLauncherVisual( RuntimeTools& runtimeTools );
     void StoreLauncherVisualBackupFrom( RuntimeTools& runtimeTools );
     void RestoreAndClearLauncherVisualBackup( RuntimeTools& runtimeTools );
-    void BeginCameraInspection( RunCameraMode restoreMode,
-                                uint32_t restoreCameraHash,
-                                const Math::Vector::Vector3& restoreEye,
-                                const Math::Vector::Vector3& restoreView,
+    void BeginCameraInspection( RunCameraMode restoreMode, uint32_t restoreCameraHash,
+                                const Math::Vector::Vector3& restoreEye, const Math::Vector::Vector3& restoreView,
                                 const Math::Vector::Vector3& restoreUp ) noexcept;
     void EndCameraInspection() noexcept;
     void SetCameraPauseOwnership( bool ownsPause ) noexcept;
+
     // Applies the selected cause-tree values without exposing restore-camera
     // state, which remains private to the presentation owner.
-    void ApplyCameraFocus( const RunReplayCauseTreeRow& row,
-                           int rowIndex,
-                           RunReplayCameraFocusKind focusKind,
-                           const Math::Vector::Vector3& resolvedPoint,
-                           const Math::Vector::Vector3& resolvedNormal,
+    void ApplyCameraFocus( const RunReplayCauseTreeRow& row, int rowIndex, RunReplayCameraFocusKind focusKind,
+                           const Math::Vector::Vector3& resolvedPoint, const Math::Vector::Vector3& resolvedNormal,
                            float resolvedRadius ) noexcept;
     void SetCameraFocusedRow( int row ) noexcept;
     bool ClearCameraFocus() noexcept;
     void ClearPathState();
+
     // Publishes the selected-target rows needed by read-only path drawing.
     // Model rows are repairable hints; stable Physics::PhysicsSceneObjectId remains authority.
     void PreparePathDrawing( const Physics::PhysicsBodyStore& bodyStore );
     void SetPathTargetModelRow( Physics::ModelRowHint modelRow ) noexcept;
     void ApplyArchivePathState( const RunReplayPathVisualizerState& archiveState );
-    void ApplyPastTrajectoryUpdate( Physics::PhysicsSceneObjectId targetId,
-                                    ReplayFrameIndex firstFrame,
-                                    ReplayFrameIndex builtThroughFrame,
-                                    uint64_t totalFramesEvicted,
-                                    uint64_t fullRebuildCount,
-                                    uint64_t incrementalTrimCount,
-                                    bool valid,
-                                    Physics::ModelRowHint targetModelRow,
-                                    bool targetModelRowRepaired );
+    void ApplyPastTrajectoryUpdate( Physics::PhysicsSceneObjectId targetId, ReplayFrameIndex firstFrame,
+                                    ReplayFrameIndex builtThroughFrame, uint64_t totalFramesEvicted,
+                                    uint64_t fullRebuildCount, uint64_t incrementalTrimCount, bool valid,
+                                    Physics::ModelRowHint targetModelRow, bool targetModelRowRepaired );
     void TogglePastPathVisible();
+
     // Advances the value-only path palette in its stable UI order. Existing
     // trajectory records remain unchanged and are recolored on the next draw.
     ReplayPathColorMode CyclePathColorMode() noexcept;
     bool SetPathTarget( const char* name, int modelIndex, const Physics::PhysicsBodyStore& bodyStore );
     bool SetPathTarget( Physics::PhysicsSceneObjectId id, Physics::ModelRowHint modelRow, const char* name );
-    ReplayPathPickResult
-    TryPickPathTarget( const ReplayPathPickInput& input,
-                       const SceneEntityStore& entities,
-                       const Physics::PhysicsBodyStore& bodyStore,
-                       const Physics::ColliderStore& colliderStore,
-                       std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
-                       const ReplaySolverFrameSample* currentSolverSample );
+    ReplayPathPickResult TryPickPathTarget( const ReplayPathPickInput& input, const SceneEntityStore& entities,
+                                            const Physics::PhysicsBodyStore& bodyStore,
+                                            const Physics::ColliderStore& colliderStore,
+                                            std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
+                                            const ReplaySolverFrameSample* currentSolverSample );
     bool PrepareRenderPoseBodyMatch( int modelCount ) noexcept;
     void ClearLauncherVisualBackup();
     bool ApplyPresentationSampleForRender( Rendering::RenderInstanceStore& renderInstances,
@@ -282,8 +264,7 @@ class ReplayPresentation
                                            const Physics::ColliderStore& colliderStore,
                                            const ReplayPresentationSample& sample );
     bool ApplySolverSampleForRender( Rendering::RenderInstanceStore& renderInstances,
-                                     const Physics::PhysicsBodyStore& bodyStore,
-                                     const Physics::ColliderStore& colliderStore,
+                                     const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore,
                                      const ReplaySolverFrameSample& sample );
 
   private:
@@ -291,6 +272,7 @@ class ReplayPresentation
     RunReplayPathVisualizerState m_pathVisualizer;
     ReplayLauncherVisualSample m_launcherVisualBackup;
     ReplayLauncherVisualSample m_launcherVisualCaptureScratch;
+
     // Invariant: replay render pose matching is a per-frame mark table capped
     // by the live model budget, so scrub/prediction rendering never allocates.
     std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_renderPoseBodyMatched = {};

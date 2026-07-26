@@ -59,9 +59,11 @@ namespace
 {
 size_t HashShaderBytecode( ID3DBlob* blob )
 {
+
     // Why: PSO cache keys must survive scene reloads. Shader blobs can be
     // reallocated at new addresses even when their compiled bytecode is
     // identical, so pointer identity is too volatile for long stress runs.
+
     if ( !blob )
     {
         return 0;
@@ -71,6 +73,7 @@ size_t HashShaderBytecode( ID3DBlob* blob )
     const SIZE_T size = blob->GetBufferSize();
     size_t hash = sizeof( size_t ) >= 8 ? static_cast<size_t>( 1469598103934665603ull ) : 2166136261u;
     const size_t prime = sizeof( size_t ) >= 8 ? static_cast<size_t>( 1099511628211ull ) : 16777619u;
+
     for ( SIZE_T i = 0; i < size; ++i )
     {
         hash ^= static_cast<size_t>( bytes[i] );
@@ -84,15 +87,13 @@ size_t HashShaderBytecode( ID3DBlob* blob )
 } // namespace
 
 
-ShaderDX12::ShaderDX12( Dx12RenderDevice& device,
-                        Dx12PipelineOwner& pipeline,
-                        Dx12ShaderDevelopment& shaderDevelopment,
-                        Dx12UploadReservations& uploadReservations,
-                        bool registerForDevelopment )
+ShaderDX12::ShaderDX12( Dx12RenderDevice& device, Dx12PipelineOwner& pipeline, Dx12ShaderDevelopment& shaderDevelopment,
+                        Dx12UploadReservations& uploadReservations, bool registerForDevelopment )
     : m_device( device ), m_pipeline( pipeline ), m_shaderDevelopment( shaderDevelopment ),
       m_uploadReservations( uploadReservations ), m_cbReflectedSize( 0 ), m_cbSize( 0 ), m_cbDirty( false ),
       m_vsBytecodeHash( 0 ), m_psBytecodeHash( 0 ), m_contract( nullptr )
 {
+
     if ( registerForDevelopment )
     {
         m_shaderDevelopment.RegisterShader( this );
@@ -104,6 +105,7 @@ ShaderDX12::ShaderDX12( Dx12RenderDevice& device,
 
 ShaderDX12::~ShaderDX12()
 {
+
     if ( m_registeredForDevelopment )
     {
         m_shaderDevelopment.UnregisterShader( this );
@@ -129,11 +131,11 @@ bool ShaderDX12::Compile( const char* hlslPath, const char* contractBaseName )
 
     if ( !loadedBaked )
     {
+
         // Lane R: runtime accepts only the pinned offline-DXC artifact. Manual
         // hot reload reruns that same bake before asking this loader to try again.
         SkullbonezCore::Core::Log().WriteEventf( "dx12_shader_bytecode_rejected path=%s reason=%s",
-                                                 hlslPath ? hlslPath : "<null>",
-                                                 loadError.c_str() );
+                                                 hlslPath ? hlslPath : "<null>", loadError.c_str() );
 
         SkullbonezCore::Core::Log().FlushAll();
         return false;
@@ -152,41 +154,45 @@ bool ShaderDX12::Compile( const char* hlslPath, const char* contractBaseName )
     }
 
     std::string contractError;
+
     if ( !ValidateGeneratedShaderProgramContract( hlslPath, *m_contract, contractError ) )
     {
+
         // Lane R: authored shader assets are external startup inputs. Reject
         // a stale CPU/DXIL ABI with the owning shader and exact mismatch.
-        SkullbonezCore::Core::Log().WriteEventf(
-            "dx12_shader_reflection_contract_rejected owner=ShaderDX12 path=%s reason=%s",
-            hlslPath ? hlslPath : "<null>",
-            contractError.c_str() );
+        SkullbonezCore::Core::Log()
+            .WriteEventf( "dx12_shader_reflection_contract_rejected owner=ShaderDX12 path=%s reason=%s",
+                          hlslPath ? hlslPath : "<null>", contractError.c_str() );
 
         SkullbonezCore::Core::Log().FlushAll();
         return false;
     }
 
     // Reflect both stages so PS-only post/sky uniforms are visible to SetFloat/SetVec*.
+
     if ( !ReflectCB( m_vsBlob.Get(), hlslPath, "vs" ) || !ReflectCB( m_psBlob.Get(), hlslPath, "ps" ) )
     {
         return false;
     }
 
     std::string reflectedContractError;
+
     if ( !ValidateReflectedContract( reflectedContractError ) )
     {
+
         // Hazard: hot reload changes the baked files without recompiling this
         // executable's generated metadata. Validate the candidate DXIL itself
         // before it can enter the transaction, including optional-present rows.
-        SkullbonezCore::Core::Log().WriteEventf(
-            "dx12_shader_live_reflection_contract_rejected owner=ShaderDX12 path=%s reason=%s",
-            hlslPath ? hlslPath : "<null>",
-            reflectedContractError.c_str() );
+        SkullbonezCore::Core::Log()
+            .WriteEventf( "dx12_shader_live_reflection_contract_rejected owner=ShaderDX12 path=%s reason=%s",
+                          hlslPath ? hlslPath : "<null>", reflectedContractError.c_str() );
 
         SkullbonezCore::Core::Log().FlushAll();
         return false;
     }
 
 #ifdef _DEBUG
+
     if ( m_contract )
     {
         m_contractUniformsSet.assign( m_contract->uniformCount, static_cast<uint8_t>( 0 ) );
@@ -201,6 +207,7 @@ bool ShaderDX12::Compile( const char* hlslPath, const char* contractBaseName )
 
 bool ShaderDX12::CanAdoptReload( const ShaderDX12& candidate ) const
 {
+
     if ( m_sourcePath != candidate.m_sourcePath || m_contract != candidate.m_contract ||
          m_cbReflectedSize != candidate.m_cbReflectedSize || m_cbSize != candidate.m_cbSize ||
          m_uniformMap.size() != candidate.m_uniformMap.size() )
@@ -211,6 +218,7 @@ bool ShaderDX12::CanAdoptReload( const ShaderDX12& candidate ) const
     for ( const auto& current : m_uniformMap )
     {
         const auto replacement = candidate.m_uniformMap.find( current.first );
+
         if ( replacement == candidate.m_uniformMap.end() || replacement->second.offset != current.second.offset ||
              replacement->second.size != current.second.size )
         {
@@ -225,6 +233,7 @@ bool ShaderDX12::CanAdoptReload( const ShaderDX12& candidate ) const
 bool ShaderDX12::PrepareReload( ShaderDX12ReloadPayload& payload ) const
 {
     ShaderDX12 candidate( m_device, m_pipeline, m_shaderDevelopment, m_uploadReservations, false );
+
     if ( !candidate.Compile( m_sourcePath.c_str(), m_contract ? m_contract->baseName : nullptr ) ||
          !CanAdoptReload( candidate ) )
     {
@@ -241,6 +250,7 @@ bool ShaderDX12::PrepareReload( ShaderDX12ReloadPayload& payload ) const
 
 void ShaderDX12::AdoptReload( ShaderDX12ReloadPayload& payload )
 {
+
     // Invariant: CanAdoptReload proved the constant layout is unchanged. Keep
     // the live CPU values and only replace bytecode/reflection identity so a
     // reload cannot erase uniforms that owners set once during construction.
@@ -260,26 +270,29 @@ const char* ShaderDX12::SourcePath() const
 
 bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* stageName )
 {
+
     // Use D3DReflect to inspect the compiled shader bytecode and discover constant buffer layouts.
     // Reflection tells us the name, offset, and size of each variable in the shader's cbuffer,
     // so we can write data at the correct byte offsets when setting uniforms from C++.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3dcompiler/nf-d3dcompiler-d3dreflect
     ComPtr<ID3D12ShaderReflection> reflect;
+
     if ( !blob )
     {
-        SkullbonezCore::Core::Log().WriteEventf(
-            "dx12_shader_reflect_failed stage=%s hresult=0x%08X path=%s reason=missing_bytecode",
-            stageName ? stageName : "unknown",
-            static_cast<unsigned int>( E_POINTER ),
-            hlslPath ? hlslPath : "<null>" );
+        SkullbonezCore::Core::Log()
+            .WriteEventf( "dx12_shader_reflect_failed stage=%s hresult=0x%08X path=%s reason=missing_bytecode",
+                          stageName ? stageName : "unknown", static_cast<unsigned int>( E_POINTER ),
+                          hlslPath ? hlslPath : "<null>" );
 
         SkullbonezCore::Core::Log().FlushAll();
         return false;
     }
 
     HRESULT hr = E_FAIL;
+
     if ( !ReflectShaderBytecode( blob, reflect, hr ) )
     {
+
         // Lane R: reflection depends on compiler output and device tooling. A
         // failed reflection pass means this shader cannot expose a safe uniform
         // contract, so report failure to Compile() instead of throwing.
@@ -297,12 +310,9 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
     // or resource slots from zero-initialized placeholder data.
     auto reflectionFailure = [&]( const char* operation, HRESULT result )
     {
-        SkullbonezCore::Core::Log().WriteEventf(
-            "dx12_shader_reflect_failed stage=%s operation=%s hresult=0x%08X path=%s",
-            stageName ? stageName : "unknown",
-            operation ? operation : "unknown",
-            static_cast<unsigned int>( result ),
-            hlslPath ? hlslPath : "<null>" );
+        SkullbonezCore::Core::Log().WriteEventf( "dx12_shader_reflect_failed stage=%s operation=%s hresult=0x%08X path=%s",
+                                                 stageName ? stageName : "unknown", operation ? operation : "unknown",
+                                                 static_cast<unsigned int>( result ), hlslPath ? hlslPath : "<null>" );
 
         SkullbonezCore::Core::Log().FlushAll();
         return false;
@@ -310,12 +320,14 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
 
     D3D12_SHADER_DESC shaderDesc = {};
     hr = reflect->GetDesc( &shaderDesc );
+
     if ( FAILED( hr ) )
     {
         return reflectionFailure( "shader GetDesc", hr );
     }
 
     const GeneratedShaderReflection::Stage* bakedStage = FindGeneratedShaderStage( hlslPath, stageName );
+
     if ( !bakedStage )
     {
         return reflectionFailure( "generated metadata lookup", E_INVALIDARG );
@@ -325,6 +337,7 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
     {
         D3D12_SHADER_INPUT_BIND_DESC bindDesc = {};
         hr = reflect->GetResourceBindingDesc( i, &bindDesc );
+
         if ( FAILED( hr ) )
         {
             return reflectionFailure( "GetResourceBindingDesc", hr );
@@ -339,6 +352,7 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
     for ( UINT i = 0; i < shaderDesc.ConstantBuffers; ++i )
     {
         ID3D12ShaderReflectionConstantBuffer* cb = reflect->GetConstantBufferByIndex( i );
+
         if ( !cb )
         {
             return reflectionFailure( "GetConstantBufferByIndex", E_POINTER );
@@ -347,6 +361,7 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
         D3D12_SHADER_BUFFER_DESC bufDesc = {};
 
         hr = cb->GetDesc( &bufDesc );
+
         if ( FAILED( hr ) )
         {
             return reflectionFailure( "constant buffer GetDesc", hr );
@@ -363,6 +378,7 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
         for ( UINT v = 0; v < bufDesc.Variables; ++v )
         {
             ID3D12ShaderReflectionVariable* var = cb->GetVariableByIndex( v );
+
             if ( !var )
             {
                 return reflectionFailure( "GetVariableByIndex", E_POINTER );
@@ -371,6 +387,7 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
             D3D12_SHADER_VARIABLE_DESC varDesc = {};
 
             hr = var->GetDesc( &varDesc );
+
             if ( FAILED( hr ) )
             {
                 return reflectionFailure( "variable GetDesc", hr );
@@ -379,6 +396,7 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
             // Invariant: only b0 draw constants belong to the CPU uniform
             // image. The b1 bindless indices are root constants published by
             // the pipeline owner immediately before each draw.
+
             if ( isDrawConstants )
             {
                 m_uniformMap[varDesc.Name] = { varDesc.StartOffset, varDesc.Size };
@@ -389,9 +407,11 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
     // Invariant: startup reflects the loaded bytes again and compares every
     // field against the checked-in POD table. This catches stale generated
     // metadata, offsets, or cbuffer sizes even if an asset was copied by hand.
+
     if ( bakedStage->cbufferSize != 0 )
     {
         bool sizeMatched = false;
+
         for ( UINT i = 0; i < shaderDesc.ConstantBuffers; ++i )
         {
             ID3D12ShaderReflectionConstantBuffer* cb = reflect->GetConstantBufferByIndex( i );
@@ -414,6 +434,7 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
     {
         const auto& expected = GeneratedShaderReflection::Fields[bakedStage->fieldStart + expectedIndex];
         bool matched = false;
+
         for ( UINT i = 0; i < shaderDesc.ConstantBuffers && !matched; ++i )
         {
             ID3D12ShaderReflectionConstantBuffer* cb = reflect->GetConstantBufferByIndex( i );
@@ -430,6 +451,7 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
                 D3D12_SHADER_VARIABLE_DESC variable = {};
 
                 ID3D12ShaderReflectionVariable* reflectedVariable = cb->GetVariableByIndex( variableIndex );
+
                 if ( reflectedVariable && SUCCEEDED( reflectedVariable->GetDesc( &variable ) ) && variable.Name &&
                      std::strcmp( variable.Name, expected.name ) == 0 && variable.StartOffset == expected.offset &&
                      variable.Size == expected.size )
@@ -455,6 +477,7 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
 
 bool ShaderDX12::ValidateReflectedContract( std::string& outError ) const
 {
+
     if ( !m_contract )
     {
         outError = "missing CPU shader contract";
@@ -465,6 +488,7 @@ bool ShaderDX12::ValidateReflectedContract( std::string& outError ) const
     {
         const ShaderUniformDecl& expected = m_contract->uniforms[i];
         const auto found = m_uniformMap.find( expected.name );
+
         if ( ( expected.required && found == m_uniformMap.end() ) ||
              ( found != m_uniformMap.end() && found->second.size != ShaderValueByteSize( expected.type ) ) )
         {
@@ -477,8 +501,7 @@ bool ShaderDX12::ValidateReflectedContract( std::string& outError ) const
     {
         const ShaderResourceDecl& expected = m_contract->resources[i];
         const auto found = m_resourceMap.find( expected.name );
-        const bool matches = found != m_resourceMap.end() &&
-                             found->second.bindPoint == static_cast<UINT>( expected.slot ) &&
+        const bool matches = found != m_resourceMap.end() && found->second.bindPoint == static_cast<UINT>( expected.slot ) &&
                              found->second.space == 0 && found->second.type == D3D_SIT_TEXTURE &&
                              found->second.dimension == D3D_SRV_DIMENSION_TEXTURE2D;
 
@@ -491,6 +514,7 @@ bool ShaderDX12::ValidateReflectedContract( std::string& outError ) const
 
     for ( const auto& reflected : m_uniformMap )
     {
+
         if ( !reflected.first.empty() && reflected.first[0] != '_' &&
              !FindShaderUniformDecl( *m_contract, reflected.first.c_str() ) )
         {
@@ -501,8 +525,8 @@ bool ShaderDX12::ValidateReflectedContract( std::string& outError ) const
 
     for ( const auto& reflected : m_resourceMap )
     {
-        if ( reflected.second.type == D3D_SIT_TEXTURE &&
-             !FindShaderResourceDecl( *m_contract, reflected.first.c_str() ) )
+
+        if ( reflected.second.type == D3D_SIT_TEXTURE && !FindShaderResourceDecl( *m_contract, reflected.first.c_str() ) )
         {
             outError = std::string( "undeclared texture resource: " ) + reflected.first;
             return false;
@@ -515,6 +539,7 @@ bool ShaderDX12::ValidateReflectedContract( std::string& outError ) const
 
 void ShaderDX12::Use() const
 {
+
     if ( m_device.Device() )
     {
         m_pipeline.SetActiveShader( this );
@@ -531,8 +556,10 @@ namespace
 {
 bool ContainsWarningKey( const std::vector<std::string>& warnings, const std::string& key )
 {
+
     for ( const std::string& warning : warnings )
     {
+
         if ( warning == key )
         {
             return true;
@@ -544,6 +571,7 @@ bool ContainsWarningKey( const std::vector<std::string>& warnings, const std::st
 
 ShaderValueType ShaderValueTypeForSetter( const char* setterName )
 {
+
     if ( std::strcmp( setterName, "SetInt" ) == 0 )
     {
         return ShaderValueType::Int;
@@ -569,6 +597,7 @@ ShaderValueType ShaderValueTypeForSetter( const char* setterName )
 
 const char* ShaderInputTypeName( D3D_SHADER_INPUT_TYPE type )
 {
+
     switch ( type )
     {
     case D3D_SIT_CBUFFER:
@@ -592,6 +621,7 @@ const char* ShaderInputTypeName( D3D_SHADER_INPUT_TYPE type )
 
 const char* ShaderInputDimensionName( D3D_SRV_DIMENSION dimension )
 {
+
     switch ( dimension )
     {
     case D3D_SRV_DIMENSION_UNKNOWN:
@@ -621,10 +651,10 @@ const char* ShaderInputDimensionName( D3D_SRV_DIMENSION dimension )
     }
 }
 
-bool ShaderResourceKindMatches( ShaderResourceKind kind,
-                                D3D_SHADER_INPUT_TYPE reflectedType,
+bool ShaderResourceKindMatches( ShaderResourceKind kind, D3D_SHADER_INPUT_TYPE reflectedType,
                                 D3D_SRV_DIMENSION reflectedDimension )
 {
+
     switch ( kind )
     {
     case ShaderResourceKind::Texture2D:
@@ -638,6 +668,7 @@ bool ShaderResourceKindMatches( ShaderResourceKind kind,
 
 void ShaderDX12::ResetContractActivation() const
 {
+
     if ( !m_contract )
     {
         return;
@@ -656,6 +687,7 @@ void ShaderDX12::ResetContractActivation() const
 
 void ShaderDX12::MarkContractUniformSet( const char* name, const char* setterName ) const
 {
+
     if ( !m_contract || !name )
     {
         return;
@@ -663,23 +695,24 @@ void ShaderDX12::MarkContractUniformSet( const char* name, const char* setterNam
 
     size_t uniformIndex = static_cast<size_t>( -1 );
     const ShaderUniformDecl* uniform = FindShaderUniformDecl( *m_contract, name, &uniformIndex );
+
     if ( !uniform )
     {
+
         for ( size_t i = 0; i < m_contract->resourceCount; ++i )
         {
             const ShaderResourceDecl& resource = m_contract->resources[i];
+
             if ( ShaderContractNameEquals( resource.name, name ) )
             {
                 const std::string key = std::string( name ) + ":" + setterName + ":resource_via_uniform_api";
+
                 if ( !ContainsWarningKey( m_missingUniformWarnings, key ) )
                 {
                     m_missingUniformWarnings.push_back( key );
                     SkullbonezCore::Core::Log().WriteEventf( "shader_contract_resource_set_with_uniform_api shader=%s "
                                                              "resource=%s slot=%d setter=%s",
-                                                             m_contract->baseName,
-                                                             name,
-                                                             resource.slot,
-                                                             setterName );
+                                                             m_contract->baseName, name, resource.slot, setterName );
                 }
 
                 return;
@@ -687,32 +720,30 @@ void ShaderDX12::MarkContractUniformSet( const char* name, const char* setterNam
         }
 
         const std::string key = std::string( name ) + ":" + setterName + ":not_in_contract";
+
         if ( !ContainsWarningKey( m_missingUniformWarnings, key ) )
         {
             m_missingUniformWarnings.push_back( key );
-            SkullbonezCore::Core::Log().WriteEventf(
-                "shader_contract_stale_uniform shader=%s uniform=%s setter=%s reason=not_in_contract",
-                m_contract->baseName,
-                name,
-                setterName );
+            SkullbonezCore::Core::Log()
+                .WriteEventf( "shader_contract_stale_uniform shader=%s uniform=%s setter=%s reason=not_in_contract",
+                              m_contract->baseName, name, setterName );
         }
 
         return;
     }
 
     const ShaderValueType setterType = ShaderValueTypeForSetter( setterName );
+
     if ( uniform->type != setterType )
     {
         const std::string key = std::string( name ) + ":" + setterName + ":type_mismatch";
+
         if ( !ContainsWarningKey( m_typeMismatchWarnings, key ) )
         {
             m_typeMismatchWarnings.push_back( key );
-            SkullbonezCore::Core::Log().WriteEventf(
-                "shader_contract_uniform_type_mismatch shader=%s uniform=%s setter=%s expected=%s",
-                m_contract->baseName,
-                name,
-                setterName,
-                ShaderValueTypeName( uniform->type ) );
+            SkullbonezCore::Core::Log()
+                .WriteEventf( "shader_contract_uniform_type_mismatch shader=%s uniform=%s setter=%s expected=%s",
+                              m_contract->baseName, name, setterName, ShaderValueTypeName( uniform->type ) );
         }
     }
 
@@ -725,6 +756,7 @@ void ShaderDX12::MarkContractUniformSet( const char* name, const char* setterNam
 
 void ShaderDX12::ReportMissingRequiredContractUniforms() const
 {
+
     if ( !m_contract || m_contractUniformsSet.size() != m_contract->uniformCount )
     {
         return;
@@ -738,15 +770,14 @@ void ShaderDX12::ReportMissingRequiredContractUniforms() const
     for ( size_t i = 0; i < m_contract->uniformCount; ++i )
     {
         const ShaderUniformDecl& uniform = m_contract->uniforms[i];
+
         if ( uniform.required && m_contractUniformsSet[i] == static_cast<uint8_t>( 0 ) &&
              m_contractMissingRequiredLogged[i] == static_cast<uint8_t>( 0 ) )
         {
             m_contractMissingRequiredLogged[i] = static_cast<uint8_t>( 1 );
-            SkullbonezCore::Core::Log().WriteEventf(
-                "shader_contract_required_uniform_not_set shader=%s uniform=%s pass=%s",
-                m_contract->baseName,
-                uniform.name,
-                m_contract->passCategory ? m_contract->passCategory : "unknown" );
+            SkullbonezCore::Core::Log().WriteEventf( "shader_contract_required_uniform_not_set shader=%s uniform=%s pass=%s",
+                                                     m_contract->baseName, uniform.name,
+                                                     m_contract->passCategory ? m_contract->passCategory : "unknown" );
         }
     }
 }
@@ -754,6 +785,7 @@ void ShaderDX12::ReportMissingRequiredContractUniforms() const
 
 void ShaderDX12::ReportContractReflectionMismatch() const
 {
+
     if ( !m_contract )
     {
         return;
@@ -762,13 +794,12 @@ void ShaderDX12::ReportContractReflectionMismatch() const
     for ( size_t i = 0; i < m_contract->uniformCount; ++i )
     {
         const ShaderUniformDecl& uniform = m_contract->uniforms[i];
+
         if ( uniform.required && m_uniformMap.find( uniform.name ) == m_uniformMap.end() )
         {
-            SkullbonezCore::Core::Log().WriteEventf(
-                "shader_contract_required_uniform_not_reflected shader=%s uniform=%s expected=%s",
-                m_contract->baseName,
-                uniform.name,
-                ShaderValueTypeName( uniform.type ) );
+            SkullbonezCore::Core::Log()
+                .WriteEventf( "shader_contract_required_uniform_not_reflected shader=%s uniform=%s expected=%s",
+                              m_contract->baseName, uniform.name, ShaderValueTypeName( uniform.type ) );
         }
     }
 
@@ -776,15 +807,15 @@ void ShaderDX12::ReportContractReflectionMismatch() const
     {
         const ShaderResourceDecl& resource = m_contract->resources[i];
         const auto reflected = m_resourceMap.find( resource.name );
+
         if ( reflected == m_resourceMap.end() )
         {
+
             if ( resource.required )
             {
                 SkullbonezCore::Core::Log().WriteEventf( "shader_contract_required_resource_not_reflected shader=%s "
                                                          "resource=%s slot=t%d expected_kind=%s",
-                                                         m_contract->baseName,
-                                                         resource.name,
-                                                         resource.slot,
+                                                         m_contract->baseName, resource.name, resource.slot,
                                                          ShaderResourceKindName( resource.kind ) );
             }
 
@@ -793,24 +824,19 @@ void ShaderDX12::ReportContractReflectionMismatch() const
 
         if ( !ShaderResourceKindMatches( resource.kind, reflected->second.type, reflected->second.dimension ) )
         {
-            SkullbonezCore::Core::Log().WriteEventf(
-                "shader_contract_resource_kind_mismatch shader=%s resource=%s expected_kind=%s "
-                "reflected_type=%s reflected_dimension=%s",
-                m_contract->baseName,
-                resource.name,
-                ShaderResourceKindName( resource.kind ),
-                ShaderInputTypeName( reflected->second.type ),
-                ShaderInputDimensionName( reflected->second.dimension ) );
+            SkullbonezCore::Core::Log()
+                .WriteEventf( "shader_contract_resource_kind_mismatch shader=%s resource=%s expected_kind=%s "
+                              "reflected_type=%s reflected_dimension=%s",
+                              m_contract->baseName, resource.name, ShaderResourceKindName( resource.kind ),
+                              ShaderInputTypeName( reflected->second.type ),
+                              ShaderInputDimensionName( reflected->second.dimension ) );
         }
 
         if ( reflected->second.bindPoint != static_cast<UINT>( resource.slot ) )
         {
-            SkullbonezCore::Core::Log().WriteEventf(
-                "shader_contract_resource_slot_mismatch shader=%s resource=%s expected=t%d reflected=t%u",
-                m_contract->baseName,
-                resource.name,
-                resource.slot,
-                reflected->second.bindPoint );
+            SkullbonezCore::Core::Log()
+                .WriteEventf( "shader_contract_resource_slot_mismatch shader=%s resource=%s expected=t%d reflected=t%u",
+                              m_contract->baseName, resource.name, resource.slot, reflected->second.bindPoint );
         }
     }
 }
@@ -818,6 +844,7 @@ void ShaderDX12::ReportContractReflectionMismatch() const
 
 void ShaderDX12::ReportUniformNotReflected( const char* name, const char* setterName ) const
 {
+
     if ( !m_contract )
     {
         return;
@@ -829,8 +856,7 @@ void ShaderDX12::ReportUniformNotReflected( const char* name, const char* setter
     }
 
     const char* shaderName = m_contract ? m_contract->baseName : "<unmanifested>";
-    const std::string key = std::string( shaderName ) + ":" + ( name ? name : "" ) + ":" + setterName +
-                            ":not_reflected";
+    const std::string key = std::string( shaderName ) + ":" + ( name ? name : "" ) + ":" + setterName + ":not_reflected";
 
     if ( ContainsWarningKey( m_missingUniformWarnings, key ) )
     {
@@ -838,15 +864,14 @@ void ShaderDX12::ReportUniformNotReflected( const char* name, const char* setter
     }
 
     m_missingUniformWarnings.push_back( key );
-    SkullbonezCore::Core::Log().WriteEventf( "shader_uniform_not_reflected shader=%s uniform=%s setter=%s",
-                                             shaderName,
-                                             name ? name : "<null>",
-                                             setterName );
+    SkullbonezCore::Core::Log().WriteEventf( "shader_uniform_not_reflected shader=%s uniform=%s setter=%s", shaderName,
+                                             name ? name : "<null>", setterName );
 }
 #endif
 
 const ShaderDX12::UniformInfo* ShaderDX12::FindUniformInfo( const char* name ) const
 {
+
     if ( !name )
     {
         return nullptr;
@@ -856,8 +881,10 @@ const ShaderDX12::UniformInfo* ShaderDX12::FindUniformInfo( const char* name ) c
     // temporary std::string in C++17. Uniform tables are small and populated at
     // shader compile time, so a direct compare keeps per-draw setters allocation
     // free while preserving the reflected-name contract.
+
     for ( const auto& entry : m_uniformMap )
     {
+
         if ( std::strcmp( entry.first.c_str(), name ) == 0 )
         {
             return &entry.second;
@@ -874,6 +901,7 @@ void ShaderDX12::SetInt( const char* name, int value ) const
     MarkContractUniformSet( name, "SetInt" );
 #endif
     const UniformInfo* uniform = FindUniformInfo( name );
+
     if ( !uniform )
     {
 #ifdef _DEBUG
@@ -893,6 +921,7 @@ void ShaderDX12::SetFloat( const char* name, float value ) const
     MarkContractUniformSet( name, "SetFloat" );
 #endif
     const UniformInfo* uniform = FindUniformInfo( name );
+
     if ( !uniform )
     {
 #ifdef _DEBUG
@@ -912,6 +941,7 @@ void ShaderDX12::SetVec3( const char* name, float x, float y, float z ) const
     MarkContractUniformSet( name, "SetVec3" );
 #endif
     const UniformInfo* uniform = FindUniformInfo( name );
+
     if ( !uniform )
     {
 #ifdef _DEBUG
@@ -939,6 +969,7 @@ void ShaderDX12::SetVec4( const char* name, float x, float y, float z, float w )
     MarkContractUniformSet( name, "SetVec4" );
 #endif
     const UniformInfo* uniform = FindUniformInfo( name );
+
     if ( !uniform )
     {
 #ifdef _DEBUG
@@ -960,6 +991,7 @@ void ShaderDX12::SetMat4( const char* name, const Matrix4& m ) const
     MarkContractUniformSet( name, "SetMat4" );
 #endif
     const UniformInfo* uniform = FindUniformInfo( name );
+
     if ( !uniform )
     {
 #ifdef _DEBUG
@@ -977,6 +1009,7 @@ void ShaderDX12::SetMat4( const char* name, const Matrix4& m ) const
 bool ShaderDX12::SetConstantBufferBytes( SkullbonezCore::Core::ByteView bytes, const char* debugName ) const
 {
     (void)debugName;
+
     if ( bytes.empty() || m_cbSize == 0 )
     {
         return false;
@@ -986,6 +1019,7 @@ bool ShaderDX12::SetConstantBufferBytes( SkullbonezCore::Core::ByteView bytes, c
     // not a partial update API. Require the reflected byte size exactly so field
     // order, padding, and matrix packing cannot silently drift between C++ and
     // shader code.
+
     if ( bytes.size() != m_cbReflectedSize )
     {
 #ifdef _DEBUG
@@ -993,8 +1027,7 @@ bool ShaderDX12::SetConstantBufferBytes( SkullbonezCore::Core::ByteView bytes, c
                                                  "reflected_bytes=%u aligned_bytes=%u",
                                                  m_contract ? m_contract->baseName : "<unmanifested>",
                                                  debugName ? debugName : "<unnamed>",
-                                                 static_cast<unsigned long long>( bytes.size() ),
-                                                 m_cbReflectedSize,
+                                                 static_cast<unsigned long long>( bytes.size() ), m_cbReflectedSize,
                                                  m_cbSize );
 #endif
         return false;
@@ -1005,11 +1038,14 @@ bool ShaderDX12::SetConstantBufferBytes( SkullbonezCore::Core::ByteView bytes, c
     m_cbDirty = true;
 
 #ifdef _DEBUG
+
     if ( m_contract )
     {
+
         // Typed blocks replace per-uniform setters for this activation. Mark
         // all contract uniforms as set so Debug diagnostics still catch stale
         // reflected layouts without falsely reporting every field in the block.
+
         if ( m_contractUniformsSet.size() != m_contract->uniformCount )
         {
             m_contractUniformsSet.assign( m_contract->uniformCount, static_cast<uint8_t>( 1 ) );
@@ -1027,6 +1063,7 @@ bool ShaderDX12::SetConstantBufferBytes( SkullbonezCore::Core::ByteView bytes, c
 
 D3D12_GPU_VIRTUAL_ADDRESS ShaderDX12::FlushCB() const
 {
+
     if ( m_cbSize == 0 )
     {
         return 0;
@@ -1045,6 +1082,7 @@ D3D12_GPU_VIRTUAL_ADDRESS ShaderDX12::FlushCB() const
     // A steady-frame denial returns zero and the pipeline skips that draw;
     // cold lifecycle/capture work retains the legacy flush-and-retry path.
     D3D12_GPU_VIRTUAL_ADDRESS addr = m_uploadReservations.ReserveConstantUpload( m_cbSize );
+
     if ( addr == 0 )
     {
         return 0;
@@ -1058,6 +1096,7 @@ D3D12_GPU_VIRTUAL_ADDRESS ShaderDX12::FlushCB() const
 
 const uint8_t* ShaderDX12::GetVSBytecode() const
 {
+
     // Why: ID3DBlob exposes immutable bytecode through its COM void-pointer
     // ABI. ShaderDX12 narrows it before publishing the borrowed bytes.
     return m_vsBlob ? static_cast<const uint8_t*>( m_vsBlob->GetBufferPointer() ) : nullptr;
@@ -1078,6 +1117,7 @@ size_t ShaderDX12::GetVSBytecodeHash() const
 
 const uint8_t* ShaderDX12::GetPSBytecode() const
 {
+
     // Why: ID3DBlob exposes immutable bytecode through its COM void-pointer
     // ABI. ShaderDX12 narrows it before publishing the borrowed bytes.
     return m_psBlob ? static_cast<const uint8_t*>( m_psBlob->GetBufferPointer() ) : nullptr;
@@ -1096,11 +1136,10 @@ size_t ShaderDX12::GetPSBytecodeHash() const
 }
 
 
-bool ShaderDX12::ValidateInputLayout( const D3D12_INPUT_ELEMENT_DESC* elements,
-                                      UINT count,
-                                      const char*& outError ) const
+bool ShaderDX12::ValidateInputLayout( const D3D12_INPUT_ELEMENT_DESC* elements, UINT count, const char*& outError ) const
 {
     constexpr UINT MAX_INPUT_ELEMENTS = 16;
+
     if ( count > MAX_INPUT_ELEMENTS )
     {
         outError = "input layout exceeds fixed validation capacity";
@@ -1109,6 +1148,7 @@ bool ShaderDX12::ValidateInputLayout( const D3D12_INPUT_ELEMENT_DESC* elements,
 
     auto componentCount = []( DXGI_FORMAT format ) -> size_t
     {
+
         switch ( format )
         {
         case DXGI_FORMAT_R32_FLOAT:
@@ -1129,8 +1169,7 @@ bool ShaderDX12::ValidateInputLayout( const D3D12_INPUT_ELEMENT_DESC* elements,
 
     for ( UINT index = 0; index < count; ++index )
     {
-        contractElements[index] = { elements[index].SemanticName,
-                                    elements[index].SemanticIndex,
+        contractElements[index] = { elements[index].SemanticName, elements[index].SemanticIndex,
                                     componentCount( elements[index].Format ) };
     }
 

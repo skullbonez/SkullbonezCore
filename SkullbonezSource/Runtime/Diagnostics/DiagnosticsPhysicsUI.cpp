@@ -37,6 +37,7 @@ namespace Runtime
 void StepDiagnosticsPhysicsPipelineStage( OverlayDebugState& debug, int direction )
 {
     const int stageCount = static_cast<int>( Physics::PhysicsPipelineStage::Count );
+
     if ( stageCount <= 0 || direction == 0 )
     {
         return;
@@ -44,6 +45,7 @@ void StepDiagnosticsPhysicsPipelineStage( OverlayDebugState& debug, int directio
 
     debug.physicsDebugFlags |= Physics::PHYSICS_DEBUG_PIPELINE;
     int nextStage = ( debug.physicsDebugPipelineStageCursor + direction ) % stageCount;
+
     if ( nextStage < 0 )
     {
         nextStage += stageCount;
@@ -53,12 +55,14 @@ void StepDiagnosticsPhysicsPipelineStage( OverlayDebugState& debug, int directio
 }
 
 
-DiagnosticsPhysicsOverlayUICommandResult
-ApplyDiagnosticsPhysicsOverlayUICommands( OverlayDebugState& debug, const UI::UIPhysicsCommands& commands )
+DiagnosticsPhysicsOverlayUICommandResult ApplyDiagnosticsPhysicsOverlayUICommands( OverlayDebugState& debug,
+                                                                                   const UI::UIPhysicsCommands& commands )
 {
+
     // Why: UI names presentation layers, while Runtime owns the only mapping to
     // Physics flags and the overlay state consumed by the concrete visualizer.
     DiagnosticsPhysicsOverlayUICommandResult result;
+
     if ( commands.toggleCollisionVisualizer )
     {
         debug.isCollisionVisualizer = !debug.isCollisionVisualizer;
@@ -66,6 +70,7 @@ ApplyDiagnosticsPhysicsOverlayUICommands( OverlayDebugState& debug, const UI::UI
     }
 
     uint32_t physicsDebugFlag = Physics::PHYSICS_DEBUG_NONE;
+
     switch ( commands.physicsDebugOverlayToToggle )
     {
     case UI::UIPhysicsDebugOverlay::Axes:
@@ -120,6 +125,7 @@ ApplyDiagnosticsPhysicsOverlayUICommands( OverlayDebugState& debug, const UI::UI
 
 bool ApplyDiagnosticsTerrainContactProbeUICommand( OverlayDebugState& debug, const UI::UIPhysicsCommands& commands )
 {
+
     if ( !commands.toggleTerrainContactProbe )
     {
         return false;
@@ -134,6 +140,7 @@ DiagnosticsPhysicsDebugValueUICommandResult
 ApplyDiagnosticsPhysicsDebugValueUICommands( OverlayDebugState& debug, const UI::UIPhysicsCommands& commands )
 {
     DiagnosticsPhysicsDebugValueUICommandResult result;
+
     if ( commands.requestedPhysicsDebugAlpha >= 0.0f )
     {
         debug.physicsDebugAlpha = std::clamp( commands.requestedPhysicsDebugAlpha, 0.05f, 1.0f );
@@ -162,13 +169,13 @@ UI::UIPhysicsDebugStatus BuildDiagnosticsPhysicsUIStatus( const OverlayDebugStat
 
     const int stageCount = static_cast<int>( Physics::PhysicsPipelineStage::Count );
     int stageIndex = stageCount > 0 ? debug.physicsDebugPipelineStageCursor % stageCount : 0;
+
     if ( stageIndex < 0 )
     {
         stageIndex += stageCount;
     }
 
-    status.pipelineStageName = Physics::PhysicsPipelineStageName(
-        static_cast<Physics::PhysicsPipelineStage>( stageIndex ) );
+    status.pipelineStageName = Physics::PhysicsPipelineStageName( static_cast<Physics::PhysicsPipelineStage>( stageIndex ) );
 
     status.pipelineStageIndex = stageIndex;
     status.pipelineStageCount = stageCount;

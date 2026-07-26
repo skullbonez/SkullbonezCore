@@ -53,6 +53,7 @@ void SimulationSystem::Reset()
 
 void SimulationSystem::ObserveSceneLifecycle( const SceneLifecyclePacket& packet )
 {
+
     if ( m_sceneResetObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
     {
         Reset();
@@ -62,6 +63,7 @@ void SimulationSystem::ObserveSceneLifecycle( const SceneLifecyclePacket& packet
 SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
 {
     SimulationTickResult result;
+
     if ( input.isSceneMode && !input.isScenePhysicsEnabled )
     {
         m_physicsAccumulator = 0.0f;
@@ -77,8 +79,10 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
                                      input.isStepRequested );
 
     const bool canStepPhysics = shouldStepPhysics && input.canStepPhysics;
+
     if ( input.isFixedStep )
     {
+
         if ( !canStepPhysics )
         {
             m_physicsAccumulator = 0.0f;
@@ -93,10 +97,12 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
         const int requestedWholeTicks = static_cast<int>( std::floor( m_fixedStepTickAccumulator ) );
         const int ticksThisFrame = (std::min)( requestedWholeTicks, FIXED_STEP_TIME_SCALE_MAX_TICKS_PER_FRAME );
         const int droppedTicks = requestedWholeTicks - ticksThisFrame;
+
         // Hazard: carrying excess whole ticks would turn one hitch into repeated
         // five-step stalls. Remove all requested whole ticks, but retain the
         // fractional remainder so ordinary time-scale cadence stays exact.
         m_fixedStepTickAccumulator -= static_cast<float>( requestedWholeTicks );
+
         if ( droppedTicks > 0 )
         {
             m_droppedPhysicsTickCount += static_cast<uint64_t>( droppedTicks );
@@ -112,14 +118,17 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
     }
 
     const float scaledDt = static_cast<float>( input.secondsPerFrame ) * input.timeScale;
+
     if ( canStepPhysics )
     {
+
         // The impulse solver uses discrete overlap tests and needs small fixed
         // steps for stability. The runtime owner executes the returned count;
         // camera and miscellaneous UI updates use one frame-level dt.
         m_physicsAccumulator += scaledDt;
 
         int steps = 0;
+
         while ( m_physicsAccumulator >= PHYSICS_FIXED_DT && steps < PHYSICS_MAX_STEPS_PER_FRAME )
         {
             m_physicsAccumulator -= PHYSICS_FIXED_DT;
@@ -140,6 +149,7 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
     }
 
     result.simulationDt = scaledDt;
+
     if ( canStepPhysics )
     {
         result.presentationAlpha = std::clamp( m_physicsAccumulator / PHYSICS_FIXED_DT, 0.0f, 1.0f );

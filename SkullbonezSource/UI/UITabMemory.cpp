@@ -77,6 +77,7 @@ bool IsMemoryRowVisible( float contentY, float contentH, float rowY, float rowH 
 void FormatMemoryMiB( uint64_t bytes, char* out, std::size_t outSize )
 {
     const double mib = static_cast<double>( bytes ) / ( 1024.0 * 1024.0 );
+
     if ( mib >= 1024.0 )
     {
         snprintf( out, outSize, "%.2f GiB", mib / 1024.0 );
@@ -93,6 +94,7 @@ void FormatMemoryMiB( uint64_t bytes, char* out, std::size_t outSize )
 
 void FormatAllocationBytes( uint64_t bytes, char* out, std::size_t outSize )
 {
+
     if ( bytes >= 1024u * 1024u )
     {
         FormatMemoryMiB( bytes, out, outSize );
@@ -109,6 +111,7 @@ void FormatAllocationBytes( uint64_t bytes, char* out, std::size_t outSize )
 
 const char* ReplayMemoryPresetLabel( int preset )
 {
+
     switch ( preset )
     {
     case 1:
@@ -135,9 +138,7 @@ int ReplayMemoryDisplayBudgetMiB( const SkullbonezCore::UI::MemoryTab::UIMemoryO
     return std::clamp( value, MEMORY_REPLAY_BUDGET_MIN_MIB, MEMORY_REPLAY_BUDGET_MAX_MIB );
 }
 
-void SetReplayMemoryPolicyCommand( SkullbonezCore::UI::InGameUIInputResult& result,
-                                   int presetIndex,
-                                   int retentionSeconds,
+void SetReplayMemoryPolicyCommand( SkullbonezCore::UI::InGameUIInputResult& result, int presetIndex, int retentionSeconds,
                                    int budgetMiB )
 {
     result.commands.replayMemory.requestPolicy = true;
@@ -146,9 +147,7 @@ void SetReplayMemoryPolicyCommand( SkullbonezCore::UI::InGameUIInputResult& resu
     result.commands.replayMemory.requestedBudgetMiB = budgetMiB;
 }
 
-void SetReplayPolicyControlBounds( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& state,
-                                   float contentX,
-                                   float panelY,
+void SetReplayPolicyControlBounds( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& state, float contentX, float panelY,
                                    float contentW )
 {
     const float buttonGap = 6.0f;
@@ -158,12 +157,11 @@ void SetReplayPolicyControlBounds( SkullbonezCore::UI::MemoryTab::UIMemoryOverla
                           static_cast<float>( SkullbonezCore::UI::MemoryTab::MEMORY_REPLAY_PRESET_COUNT );
 
     const float buttonY = panelY + 35.0f;
+
     for ( int i = 0; i < SkullbonezCore::UI::MemoryTab::MEMORY_REPLAY_PRESET_COUNT; ++i )
     {
         state.replayPresetButtons[i].SetBounds( contentX + 14.0f + static_cast<float>( i ) * ( buttonW + buttonGap ),
-                                                buttonY,
-                                                buttonW,
-                                                24.0f );
+                                                buttonY, buttonW, 24.0f );
     }
 
     state.replayRetentionSlider.SetBounds( contentX + 14.0f, panelY + 70.0f, contentW - 28.0f, 34.0f );
@@ -173,8 +171,7 @@ void SetReplayPolicyControlBounds( SkullbonezCore::UI::MemoryTab::UIMemoryOverla
 void RefreshReplayPolicySnapshot( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& state,
                                   const SkullbonezCore::UI::InGameUIFrameData& data )
 {
-    state.lastReplayPreset = std::clamp( data.replayMemoryPreset,
-                                         0,
+    state.lastReplayPreset = std::clamp( data.replayMemoryPreset, 0,
                                          SkullbonezCore::UI::MemoryTab::MEMORY_REPLAY_PRESET_COUNT - 1 );
 
     state.lastRequestedRetentionSeconds = data.replayMemoryRequestedRetentionSeconds > 0
@@ -188,9 +185,8 @@ void RefreshReplayPolicySnapshot( SkullbonezCore::UI::MemoryTab::UIMemoryOverlay
                                                  ? data.replayMemoryPresentationRetentionSeconds
                                                  : state.lastRequestedRetentionSeconds;
 
-    state.lastSolverRetentionSeconds = data.replayMemorySolverRetentionSeconds > 0
-                                           ? data.replayMemorySolverRetentionSeconds
-                                           : state.lastRequestedRetentionSeconds;
+    state.lastSolverRetentionSeconds = data.replayMemorySolverRetentionSeconds > 0 ? data.replayMemorySolverRetentionSeconds
+                                                                                   : state.lastRequestedRetentionSeconds;
 
     state.lastBudgetClamped = data.replayMemoryBudgetClamped;
     state.lastSolverWindowReduced = data.replayMemorySolverWindowReduced;
@@ -198,6 +194,7 @@ void RefreshReplayPolicySnapshot( SkullbonezCore::UI::MemoryTab::UIMemoryOverlay
 
 void CopyShortLabel( const char* source, char* out, std::size_t outSize )
 {
+
     if ( !out || outSize == 0 )
     {
         return;
@@ -205,6 +202,7 @@ void CopyShortLabel( const char* source, char* out, std::size_t outSize )
 
     const char* text = source ? source : "";
     const char* tail = std::strstr( text, "::" );
+
     while ( tail )
     {
         text = tail + 2;
@@ -216,6 +214,7 @@ void CopyShortLabel( const char* source, char* out, std::size_t outSize )
 
 uint64_t CurrentTotalMemoryBytes( const SkullbonezCore::Core::MainMemoryStats& memory )
 {
+
     if ( memory.process.available && memory.process.taskManagerBytes > 0u )
     {
         return memory.process.taskManagerBytes;
@@ -231,6 +230,7 @@ uint64_t CurrentTotalMemoryBytes( const SkullbonezCore::Core::MainMemoryStats& m
 
 uint64_t OverlayMinimumAxisSpan( uint64_t totalBytes )
 {
+
     if ( totalBytes >= 4ull * 1024ull * MEMORY_BYTES_PER_MIB )
     {
         return 256ull * MEMORY_BYTES_PER_MIB;
@@ -245,8 +245,7 @@ uint64_t OverlayMinimumAxisSpan( uint64_t totalBytes )
 }
 
 float MemoryOverlayYForBytes( const SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& state,
-                              const SkullbonezCore::UI::UIRect& plot,
-                              uint64_t bytes )
+                              const SkullbonezCore::UI::UIRect& plot, uint64_t bytes )
 {
     const uint64_t axisSpan = state.axisMaxBytes > state.axisMinBytes ? state.axisMaxBytes - state.axisMinBytes : 1u;
     const double normalized = ( static_cast<double>( bytes ) - static_cast<double>( state.axisMinBytes ) ) /
@@ -255,20 +254,13 @@ float MemoryOverlayYForBytes( const SkullbonezCore::UI::MemoryTab::UIMemoryOverl
     return plot.y + plot.h - std::clamp( static_cast<float>( normalized ), 0.0f, 1.0f ) * plot.h;
 }
 
-void DrawMemoryOverlayLineSegment( const SkullbonezCore::UI::UIDrawContext& draw,
-                                   float x0,
-                                   float y0,
-                                   float x1,
-                                   float y1,
-                                   float thickness,
-                                   float r,
-                                   float g,
-                                   float b,
-                                   float a )
+void DrawMemoryOverlayLineSegment( const SkullbonezCore::UI::UIDrawContext& draw, float x0, float y0, float x1, float y1,
+                                   float thickness, float r, float g, float b, float a )
 {
     const float dx = x1 - x0;
     const float dy = y1 - y0;
     const float len = std::sqrt( dx * dx + dy * dy );
+
     if ( len <= 0.001f )
     {
         const float half = thickness * 0.5f;
@@ -285,6 +277,7 @@ void DrawMemoryOverlayLineSegment( const SkullbonezCore::UI::UIDrawContext& draw
 
 int FindPinnedEventBySequence( const SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& state, uint64_t sequence )
 {
+
     if ( sequence == 0u )
     {
         return -1;
@@ -292,6 +285,7 @@ int FindPinnedEventBySequence( const SkullbonezCore::UI::MemoryTab::UIMemoryOver
 
     for ( int i = 0; i < state.pinnedEventCount; ++i )
     {
+
         if ( state.pinnedEvents[i].isFilled && state.pinnedEvents[i].event.sequence == sequence )
         {
             return i;
@@ -305,9 +299,11 @@ int OldestPinnedEventIndex( const SkullbonezCore::UI::MemoryTab::UIMemoryOverlay
 {
     int result = -1;
     uint64_t oldestSequence = UINT64_MAX;
+
     for ( int i = 0; i < state.pinnedEventCount; ++i )
     {
         const SkullbonezCore::UI::MemoryTab::MemoryOverlayPinnedEvent& pinned = state.pinnedEvents[i];
+
         if ( !pinned.isFilled || ( grantedOnly && !pinned.event.granted ) )
         {
             continue;
@@ -325,6 +321,7 @@ int OldestPinnedEventIndex( const SkullbonezCore::UI::MemoryTab::UIMemoryOverlay
 
 int AllocatePinnedEventSlot( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& state, bool newEventGranted )
 {
+
     if ( state.pinnedEventCount < SkullbonezCore::UI::MemoryTab::MEMORY_OVERLAY_PINNED_EVENT_MAX )
     {
         return state.pinnedEventCount++;
@@ -333,6 +330,7 @@ int AllocatePinnedEventSlot( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState
     // Invariant: denied/policy events are more diagnostic than ordinary replay
     // growth. Preserve denied pins first when the fixed event rail is full.
     int replacement = OldestPinnedEventIndex( state, true );
+
     if ( replacement >= 0 )
     {
         return replacement;
@@ -347,16 +345,17 @@ int AllocatePinnedEventSlot( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState
 }
 
 void RetainOverlayEvent( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& state,
-                         const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView& event,
-                         uint64_t levelBytes,
+                         const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView& event, uint64_t levelBytes,
                          double now )
 {
+
     if ( event.sequence == 0u || FindPinnedEventBySequence( state, event.sequence ) >= 0 )
     {
         return;
     }
 
     const int slot = AllocatePinnedEventSlot( state, event.granted );
+
     if ( slot < 0 )
     {
         ++state.retainedOverflowEventCount;
@@ -372,6 +371,7 @@ void RetainOverlayEvent( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& st
 
 void ClearOverlayPinnedEvents( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& state )
 {
+
     for ( int i = 0; i < SkullbonezCore::UI::MemoryTab::MEMORY_OVERLAY_PINNED_EVENT_MAX; ++i )
     {
         state.pinnedEvents[i] = {};
@@ -382,9 +382,9 @@ void ClearOverlayPinnedEvents( SkullbonezCore::UI::MemoryTab::UIMemoryOverlaySta
 }
 
 void RefreshOverlayEvents( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& state,
-                           const SkullbonezCore::UI::InGameUIFrameData& data,
-                           uint64_t levelBytes )
+                           const SkullbonezCore::UI::InGameUIFrameData& data, uint64_t levelBytes )
 {
+
     if ( data.reserveGrowthEventTotalCount < state.lastObservedEventTotal )
     {
         ClearOverlayPinnedEvents( state );
@@ -392,8 +392,7 @@ void RefreshOverlayEvents( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& 
 
     state.lastObservedEventTotal = data.reserveGrowthEventTotalCount;
 
-    const int eventCount = std::clamp( data.reserveGrowthEventCount,
-                                       0,
+    const int eventCount = std::clamp( data.reserveGrowthEventCount, 0,
                                        SkullbonezCore::UI::UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX );
 
     for ( int i = eventCount - 1; i >= 0; --i )
@@ -410,6 +409,7 @@ void PushOverlaySample( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& sta
     sample.trackedBytes = data.mainMemory.trackedEngineBytes;
     sample.isFilled = true;
     state.sampleHead = ( state.sampleHead + 1 ) % SkullbonezCore::UI::MemoryTab::MEMORY_OVERLAY_SAMPLE_COUNT;
+
     if ( state.sampleCount < SkullbonezCore::UI::MemoryTab::MEMORY_OVERLAY_SAMPLE_COUNT )
     {
         ++state.sampleCount;
@@ -421,6 +421,7 @@ void RefreshOverlayAxis( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& st
 {
     uint64_t minBytes = CurrentTotalMemoryBytes( data.mainMemory );
     uint64_t maxBytes = minBytes;
+
     for ( int i = 0; i < state.sampleCount; ++i )
     {
         const int sampleIndex = ( state.sampleHead - state.sampleCount + i +
@@ -428,6 +429,7 @@ void RefreshOverlayAxis( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& st
                                 SkullbonezCore::UI::MemoryTab::MEMORY_OVERLAY_SAMPLE_COUNT;
 
         const SkullbonezCore::UI::MemoryTab::MemoryOverlaySample& sample = state.samples[sampleIndex];
+
         if ( !sample.isFilled )
         {
             continue;
@@ -440,6 +442,7 @@ void RefreshOverlayAxis( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& st
     for ( int i = 0; i < state.pinnedEventCount; ++i )
     {
         const SkullbonezCore::UI::MemoryTab::MemoryOverlayPinnedEvent& pinned = state.pinnedEvents[i];
+
         if ( !pinned.isFilled )
         {
             continue;
@@ -459,11 +462,10 @@ void RefreshOverlayAxis( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& st
     state.axisMaxBytes = state.axisMinBytes + paddedSpan;
 }
 
-void MemoryEventColor( const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView& event,
-                       float& r,
-                       float& g,
+void MemoryEventColor( const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView& event, float& r, float& g,
                        float& b )
 {
+
     if ( !event.granted )
     {
         r = 0.96f;
@@ -473,6 +475,7 @@ void MemoryEventColor( const SkullbonezCore::Core::Allocation::RuntimeReserveGro
     }
 
     const char* subsystem = event.subsystemName ? event.subsystemName : "";
+
     if ( std::strcmp( subsystem, "Replay" ) == 0 )
     {
         r = 0.38f;
@@ -507,6 +510,7 @@ void MemoryEventColor( const SkullbonezCore::Core::Allocation::RuntimeReserveGro
 
 float MemoryEventLength( uint64_t bytes, float maxLength )
 {
+
     if ( bytes == 0u )
     {
         return 14.0f;
@@ -521,9 +525,11 @@ const SkullbonezCore::UI::MemoryTab::MemoryOverlayPinnedEvent*
 NewestPinnedEvent( const SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& state )
 {
     const SkullbonezCore::UI::MemoryTab::MemoryOverlayPinnedEvent* newest = nullptr;
+
     for ( int i = 0; i < state.pinnedEventCount; ++i )
     {
         const SkullbonezCore::UI::MemoryTab::MemoryOverlayPinnedEvent& pinned = state.pinnedEvents[i];
+
         if ( !pinned.isFilled )
         {
             continue;
@@ -538,28 +544,19 @@ NewestPinnedEvent( const SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& st
     return newest;
 }
 
-void DrawMemoryStackSegment( const SkullbonezCore::UI::UIDrawContext& draw,
-                             float& x,
-                             float y,
-                             float h,
-                             float stackW,
-                             float stackEndX,
-                             uint64_t bytes,
-                             uint64_t totalBytes,
-                             float r,
-                             float g,
-                             float b )
+void DrawMemoryStackSegment( const SkullbonezCore::UI::UIDrawContext& draw, float& x, float y, float h, float stackW,
+                             float stackEndX, uint64_t bytes, uint64_t totalBytes, float r, float g, float b )
 {
+
     if ( bytes == 0u || totalBytes == 0u || x >= stackEndX )
     {
         return;
     }
 
     const float remainingW = stackEndX - x;
-    const float w = std::clamp(
-        static_cast<float>( static_cast<double>( bytes ) / static_cast<double>( totalBytes ) ) * stackW,
-        1.0f,
-        remainingW );
+    const float w = std::clamp( static_cast<float>( static_cast<double>( bytes ) / static_cast<double>( totalBytes ) ) *
+                                    stackW,
+                                1.0f, remainingW );
 
     draw.Rect( x, y, w, h, r, g, b, 0.82f );
     x += w;
@@ -572,53 +569,17 @@ void DrawOverlaySubsystemStack( const SkullbonezCore::UI::UIDrawContext& draw,
     const uint64_t totalBytes = (std::max)( CurrentTotalMemoryBytes( memory ), 1ull );
     float x = stackRect.x;
     const float stackEndX = stackRect.x + stackRect.w;
-    DrawMemoryStackSegment( draw,
-                            x,
-                            stackRect.y,
-                            stackRect.h,
-                            stackRect.w,
-                            stackEndX,
-                            memory.gameObjects.totalBytes,
-                            totalBytes,
-                            0.70f,
-                            0.90f,
-                            0.54f );
+    DrawMemoryStackSegment( draw, x, stackRect.y, stackRect.h, stackRect.w, stackEndX, memory.gameObjects.totalBytes,
+                            totalBytes, 0.70f, 0.90f, 0.54f );
 
-    DrawMemoryStackSegment( draw,
-                            x,
-                            stackRect.y,
-                            stackRect.h,
-                            stackRect.w,
-                            stackEndX,
-                            memory.replay.totalBytes,
-                            totalBytes,
-                            0.42f,
-                            0.86f,
-                            0.94f );
+    DrawMemoryStackSegment( draw, x, stackRect.y, stackRect.h, stackRect.w, stackEndX, memory.replay.totalBytes, totalBytes,
+                            0.42f, 0.86f, 0.94f );
 
-    DrawMemoryStackSegment( draw,
-                            x,
-                            stackRect.y,
-                            stackRect.h,
-                            stackRect.w,
-                            stackEndX,
-                            memory.otherTrackedBytes,
-                            totalBytes,
-                            0.95f,
-                            0.76f,
-                            0.34f );
+    DrawMemoryStackSegment( draw, x, stackRect.y, stackRect.h, stackRect.w, stackEndX, memory.otherTrackedBytes, totalBytes,
+                            0.95f, 0.76f, 0.34f );
 
-    DrawMemoryStackSegment( draw,
-                            x,
-                            stackRect.y,
-                            stackRect.h,
-                            stackRect.w,
-                            stackEndX,
-                            memory.unattributedProcessBytes,
-                            totalBytes,
-                            0.62f,
-                            0.70f,
-                            0.78f );
+    DrawMemoryStackSegment( draw, x, stackRect.y, stackRect.h, stackRect.w, stackEndX, memory.unattributedProcessBytes,
+                            totalBytes, 0.62f, 0.70f, 0.78f );
 
     if ( x < stackRect.x + stackRect.w )
     {
@@ -626,15 +587,8 @@ void DrawOverlaySubsystemStack( const SkullbonezCore::UI::UIDrawContext& draw,
     }
 }
 
-void DrawMemoryRow( const SkullbonezCore::UI::UIDrawContext& draw,
-                    float x,
-                    float y,
-                    float labelW,
-                    const char* label,
-                    uint64_t bytes,
-                    float r,
-                    float g,
-                    float b )
+void DrawMemoryRow( const SkullbonezCore::UI::UIDrawContext& draw, float x, float y, float labelW, const char* label,
+                    uint64_t bytes, float r, float g, float b )
 {
     char value[32] = {};
     FormatMemoryMiB( bytes, value, sizeof( value ) );
@@ -642,8 +596,7 @@ void DrawMemoryRow( const SkullbonezCore::UI::UIDrawContext& draw,
     draw.Text( x + labelW, y, 9.6f, r, g, b, value );
 }
 
-uint64_t ReplayTrajectoryLaneCounter( const uint64_t* counters,
-                                      SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane )
+uint64_t ReplayTrajectoryLaneCounter( const uint64_t* counters, SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane )
 {
     const std::size_t laneIndex = static_cast<std::size_t>( lane );
     return laneIndex < SkullbonezCore::Core::MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT ? counters[laneIndex] : 0;
@@ -657,25 +610,17 @@ uint64_t ReplayMemoryCategoryCounter( const SkullbonezCore::Core::MainMemoryRepl
 
 // Concept: the memory tab prints emitted/dropped trajectory pairs compactly so
 // a manual flicker repro can watch which lane starts dropping segments.
-void FormatReplayTrajectoryPair( char* out,
-                                 std::size_t outSize,
-                                 const char* label,
+void FormatReplayTrajectoryPair( char* out, std::size_t outSize, const char* label,
                                  const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& trajectory,
                                  SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane )
 {
-    snprintf( out,
-              outSize,
-              "%s %llu/%llu",
-              label,
+    snprintf( out, outSize, "%s %llu/%llu", label,
               static_cast<unsigned long long>( ReplayTrajectoryLaneCounter( trajectory.emittedSegments, lane ) ),
               static_cast<unsigned long long>( ReplayTrajectoryLaneCounter( trajectory.droppedSegments, lane ) ) );
 }
 
-void DrawReplayPresetButton( const SkullbonezCore::UI::UIDrawContext& draw,
-                             const SkullbonezCore::UI::UIButton& button,
-                             const char* label,
-                             bool active,
-                             bool hovered )
+void DrawReplayPresetButton( const SkullbonezCore::UI::UIDrawContext& draw, const SkullbonezCore::UI::UIButton& button,
+                             const char* label, bool active, bool hovered )
 {
     const SkullbonezCore::UI::UIRect bounds = button.Bounds();
     const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
@@ -683,46 +628,22 @@ void DrawReplayPresetButton( const SkullbonezCore::UI::UIDrawContext& draw,
     const float r = active ? palette.accentStrong.r : palette.window.r;
     const float g = active ? palette.accentStrong.g : palette.window.g;
     const float b = active ? palette.accentStrong.b : palette.window.b;
-    draw.RoundedRect( bounds.x,
-                      bounds.y,
-                      bounds.w,
-                      bounds.h,
-                      SkullbonezCore::UI::Style::Radii().control,
-                      r,
-                      g,
-                      b,
-                      fillA );
+    draw.RoundedRect( bounds.x, bounds.y, bounds.w, bounds.h, SkullbonezCore::UI::Style::Radii().control, r, g, b, fillA );
 
-    draw.Outline( bounds.x,
-                  bounds.y,
-                  bounds.w,
-                  bounds.h,
-                  active ? palette.accentStrong.r : palette.innerBorder.r,
+    draw.Outline( bounds.x, bounds.y, bounds.w, bounds.h, active ? palette.accentStrong.r : palette.innerBorder.r,
                   active ? palette.accentStrong.g : palette.innerBorder.g,
-                  active ? palette.accentStrong.b : palette.innerBorder.b,
-                  active ? 0.78f : 0.54f );
+                  active ? palette.accentStrong.b : palette.innerBorder.b, active ? 0.78f : 0.54f );
 
-    draw.Text( bounds.x + 9.0f,
-               bounds.y + 6.0f,
-               8.8f,
-               active ? 0.02f : palette.textSecondary.r,
-               active ? 0.04f : palette.textSecondary.g,
-               active ? 0.05f : palette.textSecondary.b,
-               label );
+    draw.Text( bounds.x + 9.0f, bounds.y + 6.0f, 8.8f, active ? 0.02f : palette.textSecondary.r,
+               active ? 0.04f : palette.textSecondary.g, active ? 0.05f : palette.textSecondary.b, label );
 }
 
 void DrawReplayMemoryPolicyPanel( const SkullbonezCore::UI::UIDrawContext& draw,
                                   SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& state,
-                                  const SkullbonezCore::UI::InGameUIFrameData& data,
-                                  float contentX,
-                                  float contentY,
-                                  float contentW,
-                                  float contentH,
-                                  float panelY,
-                                  int activeSlider,
-                                  int mouseX,
-                                  int mouseY )
+                                  const SkullbonezCore::UI::InGameUIFrameData& data, float contentX, float contentY,
+                                  float contentW, float contentH, float panelY, int activeSlider, int mouseX, int mouseY )
 {
+
     if ( !IsMemoryRowVisible( contentY, contentH, panelY, MEMORY_REPLAY_POLICY_BLOCK_H ) )
     {
         return;
@@ -735,53 +656,37 @@ void DrawReplayMemoryPolicyPanel( const SkullbonezCore::UI::UIDrawContext& draw,
     draw.Rect( contentX, panelY, contentW, MEMORY_REPLAY_POLICY_BLOCK_H, 0.018f, 0.030f, 0.038f, 0.58f );
     draw.Outline( contentX, panelY, contentW, MEMORY_REPLAY_POLICY_BLOCK_H, 0.18f, 0.30f, 0.34f, 0.62f );
     draw.Rect( contentX, panelY + 27.0f, contentW, 1.0f, 0.26f, 0.44f, 0.50f, 0.45f );
-    draw.Text( contentX + 14.0f,
-               panelY + 9.0f,
-               10.4f,
-               palette.textSecondary.r,
-               palette.textSecondary.g,
-               palette.textSecondary.b,
-               "Replay Policy" );
+    draw.Text( contentX + 14.0f, panelY + 9.0f, 10.4f, palette.textSecondary.r, palette.textSecondary.g,
+               palette.textSecondary.b, "Replay Policy" );
 
     char text[160] = {};
-    snprintf( text,
-              sizeof( text ),
-              "visual %ds  solver %ds%s",
-              state.lastPresentationRetentionSeconds,
-              state.lastSolverRetentionSeconds,
-              state.lastSolverWindowReduced ? "  solver trimmed" : "" );
+    snprintf( text, sizeof( text ), "visual %ds  solver %ds%s", state.lastPresentationRetentionSeconds,
+              state.lastSolverRetentionSeconds, state.lastSolverWindowReduced ? "  solver trimmed" : "" );
 
     draw.Text( contentX + contentW - 226.0f, panelY + 10.0f, 8.4f, 0.54f, 0.66f, 0.70f, text );
 
     for ( int i = 0; i < SkullbonezCore::UI::MemoryTab::MEMORY_REPLAY_PRESET_COUNT; ++i )
     {
-        DrawReplayPresetButton( draw,
-                                state.replayPresetButtons[i],
-                                ReplayMemoryPresetLabel( i ),
-                                state.lastReplayPreset == i,
-                                state.replayPresetButtons[i].HitTest( mouseX, mouseY ) );
+        DrawReplayPresetButton( draw, state.replayPresetButtons[i], ReplayMemoryPresetLabel( i ),
+                                state.lastReplayPreset == i, state.replayPresetButtons[i].HitTest( mouseX, mouseY ) );
     }
 
     const int displayRetention = ReplayMemoryDisplayRetention( state );
     const int displayBudget = ReplayMemoryDisplayBudgetMiB( state );
     snprintf( text, sizeof( text ), "%ds", displayRetention );
+
     if ( IsMemoryRowVisible( contentY, contentH, panelY + 70.0f, 34.0f ) )
     {
-        state.replayRetentionSlider.Draw( draw,
-                                          "Retention",
-                                          text,
-                                          static_cast<float>( displayRetention ),
+        state.replayRetentionSlider.Draw( draw, "Retention", text, static_cast<float>( displayRetention ),
                                           static_cast<float>( MEMORY_REPLAY_RETENTION_MIN ),
                                           static_cast<float>( MEMORY_REPLAY_RETENTION_MAX ) );
     }
 
     snprintf( text, sizeof( text ), "%d MiB", displayBudget );
+
     if ( IsMemoryRowVisible( contentY, contentH, panelY + 108.0f, 34.0f ) )
     {
-        state.replayBudgetSlider.Draw( draw,
-                                       "Budget",
-                                       text,
-                                       static_cast<float>( displayBudget ),
+        state.replayBudgetSlider.Draw( draw, "Budget", text, static_cast<float>( displayBudget ),
                                        static_cast<float>( MEMORY_REPLAY_BUDGET_MIN_MIB ),
                                        static_cast<float>( MEMORY_REPLAY_BUDGET_MAX_MIB ) );
     }
@@ -792,19 +697,15 @@ void DrawReplayMemoryPolicyPanel( const SkullbonezCore::UI::UIDrawContext& draw,
     }
 }
 
-void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
-                          const SkullbonezCore::UI::InGameUIFrameData& data,
-                          float contentX,
-                          float contentY,
-                          float contentW,
-                          float contentH,
-                          float scrolledY )
+void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw, const SkullbonezCore::UI::InGameUIFrameData& data,
+                          float contentX, float contentY, float contentW, float contentH, float scrolledY )
 {
     const SkullbonezCore::Core::MainMemoryStats& memory = data.mainMemory;
     const float panelX = contentX;
     const float panelY = scrolledY;
     const float panelW = contentW;
     const float panelH = MEMORY_SUMMARY_BLOCK_H;
+
     if ( !IsMemoryRowVisible( contentY, contentH, panelY, panelH ) )
     {
         return;
@@ -828,18 +729,14 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
     draw.Rect( panelX, panelY, panelW, panelH, 0.018f, 0.030f, 0.038f, 0.58f );
     draw.Outline( panelX, panelY, panelW, panelH, 0.18f, 0.30f, 0.34f, 0.62f );
     draw.Rect( panelX, panelY + 27.0f, panelW, 1.0f, 0.26f, 0.44f, 0.50f, 0.45f );
-    draw.Text( x,
-               panelY + 9.0f,
-               10.4f,
-               palette.textSecondary.r,
-               palette.textSecondary.g,
-               palette.textSecondary.b,
+    draw.Text( x, panelY + 9.0f, 10.4f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b,
                "Main Memory" );
 
     snprintf( text, sizeof( text ), "%s", memory.process.taskManagerMetricName );
     draw.Text( panelX + panelW - 118.0f, panelY + 9.0f, 9.2f, 0.54f, 0.66f, 0.70f, text );
 
     const float row0 = panelY + 36.0f;
+
     if ( memory.process.available )
     {
         DrawMemoryRow( draw, x, row0, labelW, "TaskMgr", memory.process.taskManagerBytes, 0.90f, 0.96f, 0.98f );
@@ -887,9 +784,7 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
     }
     else
     {
-        snprintf( text,
-                  sizeof( text ),
-                  "models %llu/%llu  replay %llu/%llu samples",
+        snprintf( text, sizeof( text ), "models %llu/%llu  replay %llu/%llu samples",
                   static_cast<unsigned long long>( memory.gameObjects.modelCount ),
                   static_cast<unsigned long long>( memory.gameObjects.modelCapacity ),
                   static_cast<unsigned long long>( memory.replay.presentationSamples ),
@@ -905,28 +800,16 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
 
     char childOutPair[40] = {};
 
-    FormatReplayTrajectoryPair( pastPair,
-                                sizeof( pastPair ),
-                                "past",
-                                memory.replay.trajectory,
+    FormatReplayTrajectoryPair( pastPair, sizeof( pastPair ), "past", memory.replay.trajectory,
                                 SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::PastRoot );
 
-    FormatReplayTrajectoryPair( futurePair,
-                                sizeof( futurePair ),
-                                "future",
-                                memory.replay.trajectory,
+    FormatReplayTrajectoryPair( futurePair, sizeof( futurePair ), "future", memory.replay.trajectory,
                                 SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureRoot );
 
-    FormatReplayTrajectoryPair( childInPair,
-                                sizeof( childInPair ),
-                                "child-in",
-                                memory.replay.trajectory,
+    FormatReplayTrajectoryPair( childInPair, sizeof( childInPair ), "child-in", memory.replay.trajectory,
                                 SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureChildIncoming );
 
-    FormatReplayTrajectoryPair( childOutPair,
-                                sizeof( childOutPair ),
-                                "child-out",
-                                memory.replay.trajectory,
+    FormatReplayTrajectoryPair( childOutPair, sizeof( childOutPair ), "child-out", memory.replay.trajectory,
                                 SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureChildOutgoing );
 
     snprintf( text, sizeof( text ), "traj seg e/d  %s  %s  %s  %s", pastPair, futurePair, childInPair, childOutPair );
@@ -939,36 +822,22 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
 
     char auxiliaryPair[40] = {};
 
-    FormatReplayTrajectoryPair( retainedPair,
-                                sizeof( retainedPair ),
-                                "retained",
-                                memory.replay.trajectory,
+    FormatReplayTrajectoryPair( retainedPair, sizeof( retainedPair ), "retained", memory.replay.trajectory,
                                 SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::RetainedTrail );
 
-    FormatReplayTrajectoryPair( baselinePair,
-                                sizeof( baselinePair ),
-                                "base",
-                                memory.replay.trajectory,
+    FormatReplayTrajectoryPair( baselinePair, sizeof( baselinePair ), "base", memory.replay.trajectory,
                                 SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::BaselineRoot );
 
-    FormatReplayTrajectoryPair( markerPair,
-                                sizeof( markerPair ),
-                                "mark",
-                                memory.replay.trajectory,
+    FormatReplayTrajectoryPair( markerPair, sizeof( markerPair ), "mark", memory.replay.trajectory,
                                 SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::CausalMarker );
 
-    FormatReplayTrajectoryPair( auxiliaryPair,
-                                sizeof( auxiliaryPair ),
-                                "aux",
-                                memory.replay.trajectory,
+    FormatReplayTrajectoryPair( auxiliaryPair, sizeof( auxiliaryPair ), "aux", memory.replay.trajectory,
                                 SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::AuxiliaryTrail );
 
     snprintf( text, sizeof( text ), "%s  %s  %s  %s", retainedPair, baselinePair, markerPair, auxiliaryPair );
     draw.Text( x, row0 + 126.0f, 8.0f, 0.48f, 0.66f, 0.68f, text );
 
-    snprintf( text,
-              sizeof( text ),
-              "traj store rec %llu  pts %llu/%llu  ver max %u churn %llu",
+    snprintf( text, sizeof( text ), "traj store rec %llu  pts %llu/%llu  ver max %u churn %llu",
               static_cast<unsigned long long>( memory.replay.trajectory.recordCount ),
               static_cast<unsigned long long>( memory.replay.trajectory.publishedPointCount ),
               static_cast<unsigned long long>( memory.replay.trajectory.pointCount ),
@@ -977,142 +846,113 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
 
     draw.Text( x, row0 + 140.0f, 8.0f, 0.48f, 0.66f, 0.68f, text );
 
-    snprintf( text,
-              sizeof( text ),
-              "budget begin %llu step %llu tree %llu retained %llu rebuild d/a %llu/%llu",
-              static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>(
-                  SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionBegin )] ),
-              static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>(
-                  SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionStep )] ),
-              static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>(
-                  SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionBuildTree )] ),
-              static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>(
-                  SkullbonezCore::Core::MainMemoryReplayBudgetPass::RetainedRefresh )] ),
-              static_cast<unsigned long long>( memory.replay.trajectory.rebuildCauses[static_cast<std::size_t>(
-                  SkullbonezCore::Core::MainMemoryReplayRebuildCause::Dirty )] ),
-              static_cast<unsigned long long>( memory.replay.trajectory.rebuildCauses[static_cast<std::size_t>(
-                  SkullbonezCore::Core::MainMemoryReplayRebuildCause::AutomaticRefresh )] ) );
+    snprintf( text, sizeof( text ), "budget begin %llu step %llu tree %llu retained %llu rebuild d/a %llu/%llu",
+              static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>( SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionBegin )] ),
+              static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>( SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionStep )] ),
+              static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>( SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionBuildTree )] ),
+              static_cast<unsigned long long>( memory.replay.trajectory.budgetExpiries[static_cast<std::size_t>( SkullbonezCore::Core::MainMemoryReplayBudgetPass::RetainedRefresh )] ),
+              static_cast<unsigned long long>( memory.replay.trajectory.rebuildCauses[static_cast<std::size_t>( SkullbonezCore::Core::MainMemoryReplayRebuildCause::Dirty )] ),
+              static_cast<unsigned long long>( memory.replay.trajectory.rebuildCauses[static_cast<std::size_t>( SkullbonezCore::Core::MainMemoryReplayRebuildCause::AutomaticRefresh )] ) );
 
     draw.Text( x, row0 + 154.0f, 8.0f, 0.48f, 0.66f, 0.68f, text );
 
     // Why: the category rows make memory-model tradeoffs visible during manual
     // replay repros without opening the full JSON dump.
-    FormatMemoryMiB(
-        ReplayMemoryCategoryCounter( memory.replay,
-                                     SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationBodies ),
-        a,
-        sizeof( a ) );
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay,
+                                                  SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationBodies ),
+                     a, sizeof( a ) );
 
-    FormatMemoryMiB(
-        ReplayMemoryCategoryCounter( memory.replay, SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverBodies ),
-        b,
-        sizeof( b ) );
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay,
+                                                  SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverBodies ),
+                     b, sizeof( b ) );
 
-    FormatMemoryMiB(
-        ReplayMemoryCategoryCounter( memory.replay,
-                                     SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionFrameBodies ),
-        c,
-        sizeof( c ) );
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay, SkullbonezCore::Core::MainMemoryReplayByteCategory::
+                                                                     PredictionFrameBodies ),
+                     c, sizeof( c ) );
 
-    FormatMemoryMiB(
-        ReplayMemoryCategoryCounter( memory.replay, SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedBodies ),
-        d,
-        sizeof( d ) );
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay,
+                                                  SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedBodies ),
+                     d, sizeof( d ) );
 
     snprintf( text, sizeof( text ), "cat bodies p %s  s %s  pred %s  load %s", a, b, c, d );
     draw.Text( x, row0 + 168.0f, 8.0f, 0.50f, 0.64f, 0.66f, text );
 
-    FormatMemoryMiB(
-        ReplayMemoryCategoryCounter( memory.replay,
-                                     SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverWorldState ),
-        a,
-        sizeof( a ) );
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay,
+                                                  SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverWorldState ),
+                     a, sizeof( a ) );
 
-    FormatMemoryMiB(
-        ReplayMemoryCategoryCounter( memory.replay,
-                                     SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionWorldState ),
-        b,
-        sizeof( b ) );
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay,
+                                                  SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionWorldState ),
+                     b, sizeof( b ) );
 
-    FormatMemoryMiB(
-        ReplayMemoryCategoryCounter( memory.replay,
-                                     SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionEngine ),
-        c,
-        sizeof( c ) );
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay,
+                                                  SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionEngine ),
+                     c, sizeof( c ) );
 
-    FormatMemoryMiB(
-        ReplayMemoryCategoryCounter( memory.replay,
-                                     SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionFutureTree ),
-        d,
-        sizeof( d ) );
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay,
+                                                  SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionFutureTree ),
+                     d, sizeof( d ) );
 
     snprintf( text, sizeof( text ), "cat state sw %s  pw %s  eng %s  tree %s", a, b, c, d );
     draw.Text( x, row0 + 182.0f, 8.0f, 0.50f, 0.64f, 0.66f, text );
 
-    const uint64_t recordBytes = ReplayMemoryCategoryCounter(
-                                     memory.replay,
-                                     SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationSampleRecords ) +
-                                 ReplayMemoryCategoryCounter(
-                                     memory.replay,
-                                     SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverSampleRecords ) +
-                                 ReplayMemoryCategoryCounter(
-                                     memory.replay,
-                                     SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedSampleRecords ) +
-                                 ReplayMemoryCategoryCounter(
-                                     memory.replay,
-                                     SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionFrameRecords );
+    const uint64_t recordBytes = ReplayMemoryCategoryCounter( memory.replay,
+                                                              SkullbonezCore::Core::MainMemoryReplayByteCategory::
+                                                                  PresentationSampleRecords ) +
+                                 ReplayMemoryCategoryCounter( memory.replay,
+                                                              SkullbonezCore::Core::MainMemoryReplayByteCategory::
+                                                                  SolverSampleRecords ) +
+                                 ReplayMemoryCategoryCounter( memory.replay,
+                                                              SkullbonezCore::Core::MainMemoryReplayByteCategory::
+                                                                  LoadedSampleRecords ) +
+                                 ReplayMemoryCategoryCounter( memory.replay,
+                                                              SkullbonezCore::Core::MainMemoryReplayByteCategory::
+                                                                  PredictionFrameRecords );
 
-    const uint64_t checkpointBytes = ReplayMemoryCategoryCounter(
-                                         memory.replay,
-                                         SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationCheckpoints ) +
-                                     ReplayMemoryCategoryCounter(
-                                         memory.replay,
-                                         SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverCheckpoints );
+    const uint64_t checkpointBytes = ReplayMemoryCategoryCounter( memory.replay,
+                                                                  SkullbonezCore::Core::MainMemoryReplayByteCategory::
+                                                                      PresentationCheckpoints ) +
+                                     ReplayMemoryCategoryCounter( memory.replay,
+                                                                  SkullbonezCore::Core::MainMemoryReplayByteCategory::
+                                                                      SolverCheckpoints );
 
-    const uint64_t scratchBytes = ReplayMemoryCategoryCounter(
-                                      memory.replay,
-                                      SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationScratch ) +
-                                  ReplayMemoryCategoryCounter(
-                                      memory.replay,
-                                      SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverScratch );
+    const uint64_t
+        scratchBytes = ReplayMemoryCategoryCounter( memory.replay, SkullbonezCore::Core::MainMemoryReplayByteCategory::
+                                                                       PresentationScratch ) +
+                       ReplayMemoryCategoryCounter( memory.replay,
+                                                    SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverScratch );
 
     FormatMemoryMiB( recordBytes, a, sizeof( a ) );
     FormatMemoryMiB( checkpointBytes, b, sizeof( b ) );
     FormatMemoryMiB( scratchBytes, c, sizeof( c ) );
-    FormatMemoryMiB(
-        ReplayMemoryCategoryCounter( memory.replay, SkullbonezCore::Core::MainMemoryReplayByteCategory::Events ),
-        d,
-        sizeof( d ) );
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay,
+                                                  SkullbonezCore::Core::MainMemoryReplayByteCategory::Events ),
+                     d, sizeof( d ) );
 
     snprintf( text, sizeof( text ), "cat records %s  check %s  scratch %s  events %s", a, b, c, d );
     draw.Text( x, row0 + 196.0f, 8.0f, 0.50f, 0.64f, 0.66f, text );
 
-    const uint64_t visualPathBytes = ReplayMemoryCategoryCounter(
-                                         memory.replay,
-                                         SkullbonezCore::Core::MainMemoryReplayByteCategory::PathTargets ) +
-                                     ReplayMemoryCategoryCounter(
-                                         memory.replay,
-                                         SkullbonezCore::Core::MainMemoryReplayByteCategory::PathFutureNodes );
-
     const uint64_t
-        launcherVisualBytes = ReplayMemoryCategoryCounter(
-                                  memory.replay,
-                                  SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverLauncherVisuals ) +
-                              ReplayMemoryCategoryCounter(
-                                  memory.replay,
-                                  SkullbonezCore::Core::MainMemoryReplayByteCategory::RenderLauncherBackup );
+        visualPathBytes = ReplayMemoryCategoryCounter( memory.replay,
+                                                       SkullbonezCore::Core::MainMemoryReplayByteCategory::PathTargets ) +
+                          ReplayMemoryCategoryCounter( memory.replay,
+                                                       SkullbonezCore::Core::MainMemoryReplayByteCategory::PathFutureNodes );
+
+    const uint64_t launcherVisualBytes = ReplayMemoryCategoryCounter( memory.replay,
+                                                                      SkullbonezCore::Core::MainMemoryReplayByteCategory::
+                                                                          SolverLauncherVisuals ) +
+                                         ReplayMemoryCategoryCounter( memory.replay,
+                                                                      SkullbonezCore::Core::MainMemoryReplayByteCategory::
+                                                                          RenderLauncherBackup );
 
     FormatMemoryMiB( visualPathBytes, a, sizeof( a ) );
-    FormatMemoryMiB(
-        ReplayMemoryCategoryCounter( memory.replay, SkullbonezCore::Core::MainMemoryReplayByteCategory::PathCauseRows ),
-        b,
-        sizeof( b ) );
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay,
+                                                  SkullbonezCore::Core::MainMemoryReplayByteCategory::PathCauseRows ),
+                     b, sizeof( b ) );
 
-    FormatMemoryMiB(
-        ReplayMemoryCategoryCounter( memory.replay,
-                                     SkullbonezCore::Core::MainMemoryReplayByteCategory::RenderGhostRequests ),
-        c,
-        sizeof( c ) );
+    FormatMemoryMiB( ReplayMemoryCategoryCounter( memory.replay,
+                                                  SkullbonezCore::Core::MainMemoryReplayByteCategory::RenderGhostRequests ),
+                     c, sizeof( c ) );
 
     FormatMemoryMiB( launcherVisualBytes, d, sizeof( d ) );
     snprintf( text, sizeof( text ), "cat visual path %s  cause %s  ghost %s  launch %s", a, b, c, d );
@@ -1125,67 +965,47 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
     FormatMemoryMiB( render.uploadUsedBytes, a, sizeof( a ) );
     FormatMemoryMiB( render.uploadPeakBytes, b, sizeof( b ) );
     FormatMemoryMiB( render.uploadCapacityBytes, c, sizeof( c ) );
-    snprintf( text,
-              sizeof( text ),
-              "upload used %s  peak %s  cap %s  flush/drop %llu/%llu",
-              a,
-              b,
-              c,
+    snprintf( text, sizeof( text ), "upload used %s  peak %s  cap %s  flush/drop %llu/%llu", a, b, c,
               static_cast<unsigned long long>( render.uploadFlushCount ),
               static_cast<unsigned long long>( render.uploadDropCount ) );
 
     draw.Text( x, row0 + 228.0f, 8.0f, 0.54f, 0.72f, 0.74f, text );
 
-    FormatMemoryMiB(
-        render
-            .uploadCategoryPeakBytes[static_cast<std::size_t>( SkullbonezCore::UI::UIRenderUploadCategory::Constants )],
-        a,
-        sizeof( a ) );
+    FormatMemoryMiB( render.uploadCategoryPeakBytes[static_cast<std::size_t>( SkullbonezCore::UI::UIRenderUploadCategory::Constants )],
+                     a, sizeof( a ) );
 
-    FormatMemoryMiB( render.uploadCategoryPeakBytes[static_cast<std::size_t>(
-                         SkullbonezCore::UI::UIRenderUploadCategory::DynamicVertex )],
-                     b,
-                     sizeof( b ) );
+    FormatMemoryMiB( render.uploadCategoryPeakBytes[static_cast<std::size_t>( SkullbonezCore::UI::UIRenderUploadCategory::DynamicVertex )],
+                     b, sizeof( b ) );
 
-    FormatMemoryMiB( render.uploadCategoryPeakBytes[static_cast<std::size_t>(
-                         SkullbonezCore::UI::UIRenderUploadCategory::InstanceData )],
-                     c,
-                     sizeof( c ) );
+    FormatMemoryMiB( render.uploadCategoryPeakBytes[static_cast<std::size_t>( SkullbonezCore::UI::UIRenderUploadCategory::InstanceData )],
+                     c, sizeof( c ) );
 
     snprintf( text, sizeof( text ), "upload peak const %s  dynamic %s  instance %s", a, b, c );
     draw.Text( x, row0 + 242.0f, 8.0f, 0.50f, 0.66f, 0.68f, text );
 
-    FormatMemoryMiB( render.uploadCategoryPeakBytes[static_cast<std::size_t>(
-                         SkullbonezCore::UI::UIRenderUploadCategory::TextureRows )],
-                     a,
-                     sizeof( a ) );
+    FormatMemoryMiB( render.uploadCategoryPeakBytes[static_cast<std::size_t>( SkullbonezCore::UI::UIRenderUploadCategory::TextureRows )],
+                     a, sizeof( a ) );
 
-    FormatMemoryMiB( render.uploadCategoryPeakBytes[static_cast<std::size_t>(
-                         SkullbonezCore::UI::UIRenderUploadCategory::RetainedGeometry )],
-                     b,
-                     sizeof( b ) );
+    FormatMemoryMiB( render.uploadCategoryPeakBytes[static_cast<std::size_t>( SkullbonezCore::UI::UIRenderUploadCategory::RetainedGeometry )],
+                     b, sizeof( b ) );
 
     snprintf( text, sizeof( text ), "upload peak texture %s  debug/prediction %s", a, b );
     draw.Text( x, row0 + 256.0f, 8.0f, 0.50f, 0.66f, 0.68f, text );
 }
 
 void DrawReserveGrowthEvents( const SkullbonezCore::UI::UIDrawContext& draw,
-                              const SkullbonezCore::UI::InGameUIFrameData& data,
-                              float contentX,
-                              float contentY,
-                              float contentW,
-                              float contentH,
-                              float scrolledY )
+                              const SkullbonezCore::UI::InGameUIFrameData& data, float contentX, float contentY,
+                              float contentW, float contentH, float scrolledY )
 {
     const float tableX = contentX;
     const float tableY = scrolledY + MEMORY_SUMMARY_BLOCK_H + 18.0f;
     const float tableW = contentW;
     const float headerY = tableY + 34.0f;
-    const int eventCount = std::clamp( data.reserveGrowthEventCount,
-                                       0,
+    const int eventCount = std::clamp( data.reserveGrowthEventCount, 0,
                                        SkullbonezCore::UI::UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX );
 
     const float tableH = MEMORY_EVENT_HEADER_H + static_cast<float>( eventCount ) * MEMORY_EVENT_ROW_H;
+
     if ( !IsMemoryRowVisible( contentY, contentH, tableY, tableH ) )
     {
         return;
@@ -1196,19 +1016,11 @@ void DrawReserveGrowthEvents( const SkullbonezCore::UI::UIDrawContext& draw,
 
     draw.Rect( tableX, tableY, tableW, tableH, 0.018f, 0.030f, 0.038f, 0.58f );
     draw.Outline( tableX, tableY, tableW, tableH, 0.18f, 0.30f, 0.34f, 0.62f );
-    draw.Text( tableX + 14.0f,
-               tableY + 9.0f,
-               10.4f,
-               palette.textSecondary.r,
-               palette.textSecondary.g,
-               palette.textSecondary.b,
-               "Reserve Growth" );
+    draw.Text( tableX + 14.0f, tableY + 9.0f, 10.4f, palette.textSecondary.r, palette.textSecondary.g,
+               palette.textSecondary.b, "Reserve Growth" );
 
-    snprintf( text,
-              sizeof( text ),
-              "total %llu  shown %d  dropped %llu",
-              static_cast<unsigned long long>( data.reserveGrowthEventTotalCount ),
-              eventCount,
+    snprintf( text, sizeof( text ), "total %llu  shown %d  dropped %llu",
+              static_cast<unsigned long long>( data.reserveGrowthEventTotalCount ), eventCount,
               static_cast<unsigned long long>( data.reserveGrowthEventDroppedCount ) );
 
     draw.Text( tableX + tableW - 196.0f, tableY + 10.0f, 8.4f, 0.54f, 0.66f, 0.70f, text );
@@ -1229,6 +1041,7 @@ void DrawReserveGrowthEvents( const SkullbonezCore::UI::UIDrawContext& draw,
     {
         const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView& event = data.reserveGrowthEvents[i];
         const float rowY = tableY + MEMORY_EVENT_HEADER_H + static_cast<float>( i ) * MEMORY_EVENT_ROW_H;
+
         if ( !IsMemoryRowVisible( contentY, contentH, rowY, MEMORY_EVENT_ROW_H ) )
         {
             continue;
@@ -1268,9 +1081,8 @@ namespace MemoryTab
 
 int ContentHeight()
 {
-    return static_cast<int>(
-        MEMORY_REPLAY_POLICY_BLOCK_H + MEMORY_PANEL_GAP + MEMORY_SUMMARY_BLOCK_H + 18.0f + MEMORY_EVENT_HEADER_H +
-        static_cast<float>( UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX ) * MEMORY_EVENT_ROW_H + MEMORY_EVENT_BOTTOM_PAD );
+    return static_cast<int>( MEMORY_REPLAY_POLICY_BLOCK_H + MEMORY_PANEL_GAP + MEMORY_SUMMARY_BLOCK_H + 18.0f + MEMORY_EVENT_HEADER_H +
+                             static_cast<float>( UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX ) * MEMORY_EVENT_ROW_H + MEMORY_EVENT_BOTTOM_PAD );
 }
 
 bool OverlayEnabled( const UIMemoryOverlayState& state )
@@ -1285,6 +1097,7 @@ void SetOverlayEnabled( UIMemoryOverlayState& state, bool enabled )
 
 void PushOverlayFrame( UIMemoryOverlayState& state, const InGameUIFrameData& data )
 {
+
     if ( !state.overlayEnabled )
     {
         return;
@@ -1296,12 +1109,10 @@ void PushOverlayFrame( UIMemoryOverlayState& state, const InGameUIFrameData& dat
     RefreshOverlayAxis( state, data );
 }
 
-void DrawOverlay( UIMemoryOverlayState& state,
-                  const UIDrawContext& draw,
-                  const InGameUIFrameData& data,
-                  float preferredX,
+void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const InGameUIFrameData& data, float preferredX,
                   float preferredY )
 {
+
     if ( !state.overlayEnabled )
     {
         return;
@@ -1309,22 +1120,17 @@ void DrawOverlay( UIMemoryOverlayState& state,
 
     const float screenW = static_cast<float>( (std::max)( 1, data.screenW ) );
     const float screenH = static_cast<float>( (std::max)( 1, data.screenH ) );
-    const float panelX = std::clamp(
-        preferredX,
-        MEMORY_OVERLAY_MARGIN,
-        (std::max)( MEMORY_OVERLAY_MARGIN, screenW - MEMORY_OVERLAY_PANEL_W - MEMORY_OVERLAY_MARGIN ) );
+    const float panelX = std::clamp( preferredX, MEMORY_OVERLAY_MARGIN,
+                                     (std::max)( MEMORY_OVERLAY_MARGIN,
+                                                 screenW - MEMORY_OVERLAY_PANEL_W - MEMORY_OVERLAY_MARGIN ) );
 
-    const float panelY = std::clamp(
-        preferredY,
-        MEMORY_OVERLAY_MARGIN,
-        (std::max)( MEMORY_OVERLAY_MARGIN, screenH - MEMORY_OVERLAY_PANEL_H - MEMORY_OVERLAY_MARGIN ) );
+    const float panelY = std::clamp( preferredY, MEMORY_OVERLAY_MARGIN,
+                                     (std::max)( MEMORY_OVERLAY_MARGIN,
+                                                 screenH - MEMORY_OVERLAY_PANEL_H - MEMORY_OVERLAY_MARGIN ) );
 
     const UIRect panel = { panelX, panelY, MEMORY_OVERLAY_PANEL_W, MEMORY_OVERLAY_PANEL_H };
 
-    const UIRect plot = { panel.x + 52.0f,
-                          panel.y + 38.0f,
-                          panel.w - 52.0f - MEMORY_OVERLAY_EVENT_RAIL_W - 14.0f,
-                          66.0f };
+    const UIRect plot = { panel.x + 52.0f, panel.y + 38.0f, panel.w - 52.0f - MEMORY_OVERLAY_EVENT_RAIL_W - 14.0f, 66.0f };
 
     const UIRect eventRail = { plot.x + plot.w + 9.0f, plot.y, MEMORY_OVERLAY_EVENT_RAIL_W, plot.h };
 
@@ -1333,15 +1139,7 @@ void DrawOverlay( UIMemoryOverlayState& state,
     const Style::UIPalette& palette = Style::Palette();
     Style::UIColor fill = palette.windowSubtle;
     fill.a = 0.92f;
-    draw.RoundedRect( panel.x + 4.0f,
-                      panel.y + 5.0f,
-                      panel.w,
-                      panel.h,
-                      Style::Radii().window,
-                      0.0f,
-                      0.0f,
-                      0.0f,
-                      0.22f );
+    draw.RoundedRect( panel.x + 4.0f, panel.y + 5.0f, panel.w, panel.h, Style::Radii().window, 0.0f, 0.0f, 0.0f, 0.22f );
 
     draw.RoundedPanel( panel, Style::Radii().window, fill, palette.border );
 
@@ -1356,12 +1154,7 @@ void DrawOverlay( UIMemoryOverlayState& state,
     FormatMemoryMiB( totalBytes, totalText, sizeof( totalText ) );
     FormatMemoryMiB( memory.trackedEngineBytes, trackedText, sizeof( trackedText ) );
 
-    draw.Text( panel.x + 10.0f,
-               panel.y + 8.0f,
-               10.5f,
-               palette.textPrimary.r,
-               palette.textPrimary.g,
-               palette.textPrimary.b,
+    draw.Text( panel.x + 10.0f, panel.y + 8.0f, 10.5f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b,
                "Memory" );
 
     draw.Text( panel.x + 70.0f, panel.y + 9.0f, 9.0f, 0.54f, 0.66f, 0.70f, "F6 waterline" );
@@ -1369,13 +1162,7 @@ void DrawOverlay( UIMemoryOverlayState& state,
 
     draw.Rect( plot.x, plot.y, plot.w, plot.h, palette.window.r, palette.window.g, palette.window.b, 0.58f );
     draw.Rect( plot.x, plot.y, plot.w, 1.0f, palette.lineSoft.r, palette.lineSoft.g, palette.lineSoft.b, 0.20f );
-    draw.Rect( plot.x,
-               plot.y + plot.h * 0.5f,
-               plot.w,
-               1.0f,
-               palette.lineSoft.r,
-               palette.lineSoft.g,
-               palette.lineSoft.b,
+    draw.Rect( plot.x, plot.y + plot.h * 0.5f, plot.w, 1.0f, palette.lineSoft.r, palette.lineSoft.g, palette.lineSoft.b,
                0.12f );
 
     draw.Rect( plot.x, plot.y + plot.h, plot.w, 1.0f, palette.accent.r, palette.accent.g, palette.accent.b, 0.32f );
@@ -1391,22 +1178,24 @@ void DrawOverlay( UIMemoryOverlayState& state,
     float previousX = 0.0f;
     float previousY = 0.0f;
     bool previousValid = false;
+
     for ( int i = 0; i < state.sampleCount; ++i )
     {
         const int sampleIndex = ( state.sampleHead - state.sampleCount + i + MEMORY_OVERLAY_SAMPLE_COUNT ) %
                                 MEMORY_OVERLAY_SAMPLE_COUNT;
 
         const MemoryOverlaySample& sample = state.samples[sampleIndex];
+
         if ( !sample.isFilled )
         {
             previousValid = false;
             continue;
         }
 
-        const float x = plot.x +
-                        ( static_cast<float>( MEMORY_OVERLAY_SAMPLE_COUNT - state.sampleCount + i ) + 0.5f ) * step;
+        const float x = plot.x + ( static_cast<float>( MEMORY_OVERLAY_SAMPLE_COUNT - state.sampleCount + i ) + 0.5f ) * step;
 
         const float y = MemoryOverlayYForBytes( state, plot, sample.totalBytes );
+
         if ( previousValid )
         {
             DrawMemoryOverlayLineSegment( draw, previousX, previousY, x, y, 2.0f, 0.42f, 0.88f, 0.84f, 0.88f );
@@ -1418,30 +1207,19 @@ void DrawOverlay( UIMemoryOverlayState& state,
         previousValid = true;
     }
 
-    draw.RoundedRect( eventRail.x,
-                      eventRail.y,
-                      eventRail.w,
-                      eventRail.h,
-                      Style::Radii().control,
-                      0.02f,
-                      0.036f,
-                      0.044f,
+    draw.RoundedRect( eventRail.x, eventRail.y, eventRail.w, eventRail.h, Style::Radii().control, 0.02f, 0.036f, 0.044f,
                       0.70f );
 
-    draw.Outline( eventRail.x,
-                  eventRail.y,
-                  eventRail.w,
-                  eventRail.h,
-                  palette.innerBorder.r,
-                  palette.innerBorder.g,
-                  palette.innerBorder.b,
-                  0.52f );
+    draw.Outline( eventRail.x, eventRail.y, eventRail.w, eventRail.h, palette.innerBorder.r, palette.innerBorder.g,
+                  palette.innerBorder.b, 0.52f );
 
     draw.Text( eventRail.x + 6.0f, eventRail.y + 5.0f, 8.2f, 0.58f, 0.70f, 0.74f, "Events" );
     int retainedCount = 0;
+
     for ( int i = 0; i < state.pinnedEventCount; ++i )
     {
         const MemoryOverlayPinnedEvent& pinned = state.pinnedEvents[i];
+
         if ( !pinned.isFilled )
         {
             continue;
@@ -1463,6 +1241,7 @@ void DrawOverlay( UIMemoryOverlayState& state,
         const float eventX = eventRail.x + eventRail.w - 7.0f - eventLength;
         draw.Rect( eventX, eventY - 1.0f, eventLength, 2.0f, r, g, b, alpha );
         draw.Rect( eventX + eventLength - 2.0f, eventY - 3.0f, 2.0f, 6.0f, r, g, b, alpha );
+
         if ( !pinned.event.granted )
         {
             draw.Rect( eventRail.x + 4.0f, eventY - 3.0f, 4.0f, 6.0f, r, g, b, 0.96f );
@@ -1470,26 +1249,17 @@ void DrawOverlay( UIMemoryOverlayState& state,
     }
 
     DrawOverlaySubsystemStack( draw, memory, stack );
-    draw.Outline( stack.x,
-                  stack.y,
-                  stack.w,
-                  stack.h,
-                  palette.innerBorder.r,
-                  palette.innerBorder.g,
-                  palette.innerBorder.b,
+    draw.Outline( stack.x, stack.y, stack.w, stack.h, palette.innerBorder.r, palette.innerBorder.g, palette.innerBorder.b,
                   0.42f );
 
     char text[160] = {};
-    snprintf( text,
-              sizeof( text ),
-              "tracked %s   pins %d/%llu",
-              trackedText,
-              retainedCount,
+    snprintf( text, sizeof( text ), "tracked %s   pins %d/%llu", trackedText, retainedCount,
               static_cast<unsigned long long>( data.reserveGrowthEventTotalCount ) );
 
     draw.Text( panel.x + 10.0f, panel.y + 124.0f, 8.6f, 0.52f, 0.64f, 0.68f, text );
 
     const MemoryOverlayPinnedEvent* newest = NewestPinnedEvent( state );
+
     if ( newest )
     {
         char target[34] = {};
@@ -1511,37 +1281,17 @@ void DrawOverlay( UIMemoryOverlayState& state,
 
     if ( state.retainedOverflowEventCount > 0u )
     {
-        snprintf( text,
-                  sizeof( text ),
-                  "+%llu coalesced",
+        snprintf( text, sizeof( text ), "+%llu coalesced",
                   static_cast<unsigned long long>( state.retainedOverflowEventCount ) );
 
         draw.Text( panel.x + panel.w - 92.0f, panel.y + 142.0f, 8.2f, 0.90f, 0.62f, 0.38f, text );
     }
 }
 
-void Draw( const UIDrawContext& draw,
-           UIMemoryOverlayState& state,
-           const InGameUIFrameData& data,
-           float contentX,
-           float contentY,
-           float contentW,
-           float contentH,
-           float scrolledY,
-           int activeSlider,
-           int mouseX,
-           int mouseY )
+void Draw( const UIDrawContext& draw, UIMemoryOverlayState& state, const InGameUIFrameData& data, float contentX,
+           float contentY, float contentW, float contentH, float scrolledY, int activeSlider, int mouseX, int mouseY )
 {
-    DrawReplayMemoryPolicyPanel( draw,
-                                 state,
-                                 data,
-                                 contentX,
-                                 contentY,
-                                 contentW,
-                                 contentH,
-                                 scrolledY,
-                                 activeSlider,
-                                 mouseX,
+    DrawReplayMemoryPolicyPanel( draw, state, data, contentX, contentY, contentW, contentH, scrolledY, activeSlider, mouseX,
                                  mouseY );
 
     const float memoryPanelY = scrolledY + MEMORY_REPLAY_POLICY_BLOCK_H + MEMORY_PANEL_GAP;
@@ -1549,18 +1299,14 @@ void Draw( const UIDrawContext& draw,
     DrawReserveGrowthEvents( draw, data, contentX, contentY, contentW, contentH, memoryPanelY );
 }
 
-bool HandleContentClick( UIMemoryOverlayState& state,
-                         InGameUIInputResult& result,
-                         int& activeSlider,
-                         int mouseX,
-                         int mouseY,
-                         float contentX,
-                         float scrolledY,
-                         float contentW )
+bool HandleContentClick( UIMemoryOverlayState& state, InGameUIInputResult& result, int& activeSlider, int mouseX, int mouseY,
+                         float contentX, float scrolledY, float contentW )
 {
     SetReplayPolicyControlBounds( state, contentX, scrolledY, contentW );
+
     for ( int i = 0; i < MEMORY_REPLAY_PRESET_COUNT; ++i )
     {
+
         if ( state.replayPresetButtons[i].HitTest( mouseX, mouseY ) )
         {
             state.previewRetentionSeconds = -1;
@@ -1573,11 +1319,8 @@ bool HandleContentClick( UIMemoryOverlayState& state,
     if ( state.replayRetentionSlider.HitTest( mouseX, mouseY ) )
     {
         activeSlider = MEMORY_REPLAY_SLIDER_RETENTION;
-        state.previewRetentionSeconds = static_cast<int>(
-            state.replayRetentionSlider.ValueFromMouse( mouseX,
-                                                        static_cast<float>( MEMORY_REPLAY_RETENTION_MIN ),
-                                                        static_cast<float>( MEMORY_REPLAY_RETENTION_MAX ),
-                                                        1.0f ) );
+        state.previewRetentionSeconds = static_cast<int>( state.replayRetentionSlider.ValueFromMouse( mouseX, static_cast<float>( MEMORY_REPLAY_RETENTION_MIN ),
+                                                                                                      static_cast<float>( MEMORY_REPLAY_RETENTION_MAX ), 1.0f ) );
 
         return true;
     }
@@ -1585,11 +1328,9 @@ bool HandleContentClick( UIMemoryOverlayState& state,
     if ( state.replayBudgetSlider.HitTest( mouseX, mouseY ) )
     {
         activeSlider = MEMORY_REPLAY_SLIDER_BUDGET;
-        state.previewBudgetMiB = static_cast<int>(
-            state.replayBudgetSlider.ValueFromMouse( mouseX,
-                                                     static_cast<float>( MEMORY_REPLAY_BUDGET_MIN_MIB ),
-                                                     static_cast<float>( MEMORY_REPLAY_BUDGET_MAX_MIB ),
-                                                     static_cast<float>( MEMORY_REPLAY_BUDGET_STEP_MIB ) ) );
+        state.previewBudgetMiB = static_cast<int>( state.replayBudgetSlider.ValueFromMouse( mouseX, static_cast<float>( MEMORY_REPLAY_BUDGET_MIN_MIB ),
+                                                                                            static_cast<float>( MEMORY_REPLAY_BUDGET_MAX_MIB ),
+                                                                                            static_cast<float>( MEMORY_REPLAY_BUDGET_STEP_MIB ) ) );
 
         return true;
     }
@@ -1599,24 +1340,20 @@ bool HandleContentClick( UIMemoryOverlayState& state,
 
 bool UpdateActiveSlider( UIMemoryOverlayState& state, int activeSlider, int mouseX, InGameUIInputResult& )
 {
+
     if ( activeSlider == MEMORY_REPLAY_SLIDER_RETENTION )
     {
-        state.previewRetentionSeconds = static_cast<int>(
-            state.replayRetentionSlider.ValueFromMouse( mouseX,
-                                                        static_cast<float>( MEMORY_REPLAY_RETENTION_MIN ),
-                                                        static_cast<float>( MEMORY_REPLAY_RETENTION_MAX ),
-                                                        1.0f ) );
+        state.previewRetentionSeconds = static_cast<int>( state.replayRetentionSlider.ValueFromMouse( mouseX, static_cast<float>( MEMORY_REPLAY_RETENTION_MIN ),
+                                                                                                      static_cast<float>( MEMORY_REPLAY_RETENTION_MAX ), 1.0f ) );
 
         return true;
     }
 
     if ( activeSlider == MEMORY_REPLAY_SLIDER_BUDGET )
     {
-        state.previewBudgetMiB = static_cast<int>(
-            state.replayBudgetSlider.ValueFromMouse( mouseX,
-                                                     static_cast<float>( MEMORY_REPLAY_BUDGET_MIN_MIB ),
-                                                     static_cast<float>( MEMORY_REPLAY_BUDGET_MAX_MIB ),
-                                                     static_cast<float>( MEMORY_REPLAY_BUDGET_STEP_MIB ) ) );
+        state.previewBudgetMiB = static_cast<int>( state.replayBudgetSlider.ValueFromMouse( mouseX, static_cast<float>( MEMORY_REPLAY_BUDGET_MIN_MIB ),
+                                                                                            static_cast<float>( MEMORY_REPLAY_BUDGET_MAX_MIB ),
+                                                                                            static_cast<float>( MEMORY_REPLAY_BUDGET_STEP_MIB ) ) );
 
         return true;
     }
@@ -1626,6 +1363,7 @@ bool UpdateActiveSlider( UIMemoryOverlayState& state, int activeSlider, int mous
 
 bool CommitActiveSlider( UIMemoryOverlayState& state, int activeSlider, InGameUIInputResult& result )
 {
+
     if ( activeSlider == MEMORY_REPLAY_SLIDER_RETENTION && state.previewRetentionSeconds >= 0 )
     {
         SetReplayMemoryPolicyCommand( result, -1, state.previewRetentionSeconds, -1 );

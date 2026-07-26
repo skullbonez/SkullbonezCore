@@ -126,6 +126,7 @@ class Dx12DescriptorHeaps
     D3D12_CPU_DESCRIPTOR_HANDLE m_mainDsv = {};
     UINT m_frameCount = 0;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+
     // Invariant: vendor texture identities occupy a distinct fixed table, so
     // ImGui never receives the engine bindless heap or its row allocator.
     ID3D12DescriptorHeap* m_developmentUiSrvHeap = nullptr;

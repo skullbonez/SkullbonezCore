@@ -108,9 +108,11 @@ struct RuntimeInputFrameFacts
     bool suppressWorldActionThisFrame = false;
     int sceneObjectCapacity = 0;
     UiInputCaptureIntent externalUiCapture;
+
     // Previous completed secondary-surface frame. This value queue is consumed
     // synchronously and never retained by input orchestration.
     UI::OperatorEditorCommandQueues externalEditorCommands;
+
     // Invariant: only the selected Legacy surface may sample its pointer tools
     // or scene-authored stress actions during this input turn.
     bool legacyDevelopmentUiActive = true;
@@ -118,13 +120,13 @@ struct RuntimeInputFrameFacts
 
 // Copies one sampled Runtime input turn into the passive UI-owned value. The
 // returned snapshot retains no router, device-frame, or UI-owner reference.
-inline UI::InputControl::UIInputSnapshot BuildUIInputSnapshot( const DeviceInputFrame& frame,
-                                                               const RuntimeMouseEdges& mouse,
+inline UI::InputControl::UIInputSnapshot BuildUIInputSnapshot( const DeviceInputFrame& frame, const RuntimeMouseEdges& mouse,
                                                                UI::InputControl::UIPointerOverride pointerOverride )
 {
     UI::InputControl::UIInputSnapshot snapshot;
     snapshot.keyWords = frame.keys.Words();
     snapshot.wheelDelta = frame.wheelDelta;
+
     if ( pointerOverride.enabled )
     {
         snapshot.mouseX = pointerOverride.x;
@@ -135,6 +137,7 @@ inline UI::InputControl::UIInputSnapshot BuildUIInputSnapshot( const DeviceInput
         snapshot.mouseX = frame.clientX;
         snapshot.mouseY = frame.clientY;
     }
+
     snapshot.leftDown = mouse.leftDown;
     snapshot.leftPressed = mouse.leftPressed;
     snapshot.leftReleased = mouse.leftReleased;
@@ -157,54 +160,39 @@ struct KeyboardContextFacts
     bool uiNotInteracted = false;
 };
 
-RuntimeInputModeState BuildRuntimeInputModeState( RunCameraMode mode,
-                                                  const RunEditorPlacementState& editor,
-                                                  const RuntimeInteractionGesture& gesture,
-                                                  bool attachActiveFollow,
+RuntimeInputModeState BuildRuntimeInputModeState( RunCameraMode mode, const RunEditorPlacementState& editor,
+                                                  const RuntimeInteractionGesture& gesture, bool attachActiveFollow,
                                                   bool directorGrabbed );
 PointerPresentationPolicy EvaluateRuntimePointerPresentation( const InputRouter& inputRouter,
                                                               const RunEditorPlacementState& editor,
                                                               const ReplayInputView& replayInput );
 RunCameraMode NormalizeRuntimeCameraMode( RunCameraMode mode, bool authoredScene, uint32_t enabledMask );
+
 // Computes camera capabilities from value facts captured at the frame boundary;
 // input policy cannot traverse scene lifecycle or world ownership.
 uint32_t RuntimeCameraModeEnabledMask( bool authoredScene, int sceneEntityCount );
-void EnterFlyModeCamera( InputRouter& inputRouter,
-                         CameraControlState& camera,
-                         Environment::CameraCollection& cameras,
-                         bool authoredScene,
-                         const RunEditorPlacementState& editor,
-                         const ReplayInputView& replayInput );
-void ExitFlyModeCamera( InputRouter& inputRouter,
-                        CameraControlState& camera,
-                        Environment::CameraCollection& cameras,
-                        Geometry::Terrain& terrain,
-                        bool authoredScene );
+void EnterFlyModeCamera( InputRouter& inputRouter, CameraControlState& camera, Environment::CameraCollection& cameras,
+                         bool authoredScene, const RunEditorPlacementState& editor, const ReplayInputView& replayInput );
+void ExitFlyModeCamera( InputRouter& inputRouter, CameraControlState& camera, Environment::CameraCollection& cameras,
+                        Geometry::Terrain& terrain, bool authoredScene );
 RuntimeInputContextMask BuildKeyboardContextMask( const KeyboardContextFacts& facts );
 bool IsReplayWorldOwner( WorldInteractionOwner owner );
 bool IsEditorWorldOwner( WorldInteractionOwner owner );
 const char* ReplayOwnerEventName( ReplayOwnerEventCode code );
 uint32_t ReplaySceneRequestFlags( const SceneRequest& request );
 void ReportRuntimeInputFailure( const SkullbonezCore::Core::SbResult& result );
-RuntimeUIFrameResult BeginRuntimeUIFrame( Window& window,
-                                          RuntimeFrameInteractionView& interactionOwners,
-                                          RunTimerState& timers,
-                                          SceneController& sceneController,
-                                          ReplayRuntime& replayRuntime,
-                                          const ReplayPathPickInput& replayPointerRay,
+RuntimeUIFrameResult BeginRuntimeUIFrame( Window& window, RuntimeFrameInteractionView& interactionOwners,
+                                          RunTimerState& timers, SceneController& sceneController,
+                                          ReplayRuntime& replayRuntime, const ReplayPathPickInput& replayPointerRay,
                                           const RuntimeInputFrameFacts& facts );
-RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
-                                                  bool keyboardToggleEditorMode,
-                                                  RuntimeFrameHostView& host,
-                                                  RuntimeFrameInteractionView& interactionOwners,
+RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, bool keyboardToggleEditorMode,
+                                                  RuntimeFrameHostView& host, RuntimeFrameInteractionView& interactionOwners,
                                                   RuntimeFrameSceneView& sceneOwners,
                                                   RuntimeFramePresentationView& presentationOwners,
-                                                  ReplayRuntime& replayRuntime,
-                                                  const RuntimeInputFrameFacts& facts );
+                                                  ReplayRuntime& replayRuntime, const RuntimeInputFrameFacts& facts );
 RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result,
                                                   RuntimeFrameInteractionView& interactionOwners,
-                                                  SceneController& sceneController,
-                                                  ReplayRuntime& replayRuntime,
+                                                  SceneController& sceneController, ReplayRuntime& replayRuntime,
                                                   RunCameraMode replayCurrentCameraMode );
 
 struct InputFrameExecutionResult
@@ -214,11 +202,9 @@ struct InputFrameExecutionResult
 
 // Executes one input turn through synchronous concrete-owner borrows. This is
 // composition, not an owner: all durable input state remains in inputRouter.
-InputFrameExecutionResult ProcessInputFrame( RuntimeFrameHostView& host,
-                                             RuntimeFrameInteractionView& interactionOwners,
+InputFrameExecutionResult ProcessInputFrame( RuntimeFrameHostView& host, RuntimeFrameInteractionView& interactionOwners,
                                              RuntimeFrameSceneView& sceneOwners,
-                                             RuntimeFramePresentationView& presentationOwners,
-                                             ReplayRuntime& replayRuntime,
+                                             RuntimeFramePresentationView& presentationOwners, ReplayRuntime& replayRuntime,
                                              UiInputCaptureIntent externalUiCapture,
                                              UI::OperatorEditorCommandQueues externalEditorCommands = {},
                                              bool legacyDevelopmentUiActive = true );

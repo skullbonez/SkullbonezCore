@@ -58,11 +58,14 @@ bool IsSceneNameChar( char value )
 std::string SanitizeSceneFileName( const char* requestedName )
 {
     std::string clean;
+
     if ( requestedName )
     {
+
         for ( const char* cursor = requestedName; *cursor != '\0' && clean.size() < 48; ++cursor )
         {
             const char value = *cursor;
+
             if ( IsSceneNameChar( value ) )
             {
                 clean.push_back( value );
@@ -90,8 +93,10 @@ std::string SanitizeSceneFileName( const char* requestedName )
 std::string NormalizeScenePathForCreate( const std::string& path )
 {
     std::string normalized = path;
+
     for ( char& value : normalized )
     {
+
         if ( value == '\\' )
         {
             value = '/';
@@ -101,12 +106,14 @@ std::string NormalizeScenePathForCreate( const std::string& path )
     return normalized;
 }
 
-std::filesystem::path
-UniqueScenePath( const std::filesystem::path& sceneDir, const std::string& baseName, std::error_code& error )
+std::filesystem::path UniqueScenePath( const std::filesystem::path& sceneDir, const std::string& baseName,
+                                       std::error_code& error )
 {
+
     // Lane R: directory probing is editor-authored IO. Preserve filesystem
     // errors for the caller instead of invoking a throwing overload.
     std::filesystem::path candidate = sceneDir / ( baseName + ".scene.json" );
+
     if ( !std::filesystem::exists( candidate, error ) )
     {
         return error ? std::filesystem::path() : candidate;
@@ -117,6 +124,7 @@ UniqueScenePath( const std::filesystem::path& sceneDir, const std::string& baseN
         char numberedName[80] = {};
         std::snprintf( numberedName, sizeof( numberedName ), "%s_%02d.scene.json", baseName.c_str(), suffix );
         candidate = sceneDir / numberedName;
+
         if ( !std::filesystem::exists( candidate, error ) )
         {
             return error ? std::filesystem::path() : candidate;
@@ -129,6 +137,7 @@ UniqueScenePath( const std::filesystem::path& sceneDir, const std::string& baseN
 bool WriteStarterSceneFile( const std::filesystem::path& path, const std::string& displayName )
 {
     std::ofstream output( path, std::ios::trunc );
+
     if ( !output )
     {
         return false;
@@ -191,9 +200,11 @@ bool WriteStarterSceneFile( const std::filesystem::path& path, const std::string
 
 SceneLoadRequest CreateSceneFromUI( SceneRuntimeCreateContext context, const char* requestedName )
 {
+
     // Concept: Creating a scene queues a load action instead of loading
     // directly, keeping filesystem work separate from Run's scene side effects.
     const std::string cleanName = SanitizeSceneFileName( requestedName );
+
     if ( cleanName.empty() )
     {
         return SceneLoadRequest::None();
@@ -202,20 +213,20 @@ SceneLoadRequest CreateSceneFromUI( SceneRuntimeCreateContext context, const cha
     const std::filesystem::path sceneDir = std::filesystem::path( DATA_ROOT ) / "scenes";
     std::error_code ec;
     std::filesystem::create_directories( sceneDir, ec );
+
     if ( ec )
     {
         SkullbonezCore::Core::Log().WriteEventf( "scene_create_failed name=\"%s\" reason=\"mkdir\" message=\"%s\"",
-                                                 cleanName.c_str(),
-                                                 ec.message().c_str() );
+                                                 cleanName.c_str(), ec.message().c_str() );
 
         return SceneLoadRequest::None();
     }
 
     const std::filesystem::path scenePath = UniqueScenePath( sceneDir, cleanName, ec );
+
     if ( scenePath.empty() || !WriteStarterSceneFile( scenePath, cleanName ) )
     {
-        SkullbonezCore::Core::Log().WriteEventf( "scene_create_failed name=\"%s\" reason=\"write\"",
-                                                 cleanName.c_str() );
+        SkullbonezCore::Core::Log().WriteEventf( "scene_create_failed name=\"%s\" reason=\"write\"", cleanName.c_str() );
 
         return SceneLoadRequest::None();
     }

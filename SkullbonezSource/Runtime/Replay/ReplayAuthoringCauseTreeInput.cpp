@@ -97,6 +97,7 @@ void ReplayAuthoring::BeginCauseTreeMove( int mouseX, int mouseY ) noexcept
 
 bool ReplayAuthoring::TryGetCauseTreeRow( int rowIndex, RunReplayCauseTreeRow& outRow ) const noexcept
 {
+
     if ( rowIndex < 0 || rowIndex >= static_cast<int>( m_causeTree.rows.size() ) )
     {
         return false;
@@ -114,22 +115,16 @@ void ReplayAuthoring::SetCauseTreeFocus( int rowIndex, Physics::PhysicsSceneObje
 }
 
 
-bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
-                                          ReplayScrubber& scrubberOwner,
-                                          InputRouter& inputRouter,
-                                          RuntimeInteractionController& interaction,
-                                          bool rowsReady,
-                                          bool uiBlocksMouse,
-                                          int wheelDelta,
-                                          bool editorModeEnabled,
-                                          int screenWidth,
-                                          int screenHeight,
-                                          int& outFocusRow,
+bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner, ReplayScrubber& scrubberOwner,
+                                          InputRouter& inputRouter, RuntimeInteractionController& interaction,
+                                          bool rowsReady, bool uiBlocksMouse, int wheelDelta, bool editorModeEnabled,
+                                          int screenWidth, int screenHeight, int& outFocusRow,
                                           bool& outExitInspectionCamera )
 {
     outFocusRow = -1;
     outExitInspectionCamera = false;
     PROFILE_SCOPED( m_profiler, "Frame/Replay/CauseTree/Input" );
+
     // Concept: this phase owns only the explanatory window and reports row or
     // exit actions. ReplayRuntime resolves a selected row from current stores
     // before performing any host-camera transition.
@@ -148,6 +143,7 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
 
     const auto endCauseTreeDragIfReleased = [&]()
     {
+
         if ( leftReleased && causeTreeDragMode() >= 0 )
         {
             inputRouter.ReleaseNativeCapture();
@@ -170,6 +166,7 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
 
     EnsureCauseTreeWindowPlacement( screenW, screenH );
     const RuntimePointerEvent& runtimePointer = inputRouter.RuntimeSnapshot().pointer;
+
     if ( !runtimePointer.hasClientPosition )
     {
         endCauseTreeDragIfReleased();
@@ -185,8 +182,7 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
     const auto isHotControl = [&]( ReplayOverlay::ReplayCauseWindowControl control )
     { return surface.hasHotControl && surface.hotControl == ReplayOverlay::ReplayCauseWindowControlId( control ); };
 
-    const RuntimeUiControl* contentControl = surface.Find(
-        ReplayOverlay::ReplayCauseWindowControlId( ReplayOverlay::ReplayCauseWindowControl::Content ) );
+    const RuntimeUiControl* contentControl = surface.Find( ReplayOverlay::ReplayCauseWindowControlId( ReplayOverlay::ReplayCauseWindowControl::Content ) );
 
     if ( !contentControl )
     {
@@ -198,6 +194,7 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
     if ( causeTreeDragMode() == 0 )
     {
         MoveCauseTreeWindow( mouse.x, mouse.y, screenW, screenH );
+
         if ( leftReleased )
         {
             inputRouter.ReleaseNativeCapture();
@@ -210,6 +207,7 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
     if ( causeTreeDragMode() == 1 )
     {
         ResizeCauseTreeWindow( mouse.x, mouse.y, screenW, screenH );
+
         if ( leftReleased )
         {
             inputRouter.ReleaseNativeCapture();
@@ -226,8 +224,7 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
 
     if ( wheelDelta != 0 )
     {
-        interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
-                                                         WorldInteractionOwner::ReplayCauseTree,
+        interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay, WorldInteractionOwner::ReplayCauseTree,
                                                          InteractionExitReason::EnterReplay );
 
         const float wheelRows = static_cast<float>( wheelDelta ) / 120.0f;
@@ -243,8 +240,8 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
         gesture.startX = mouse.x;
         gesture.startY = mouse.y;
         gesture.axis = 1;
-        if ( !interaction.BeginOwnedToolGesture( RuntimeWorkspace::Replay,
-                                                 WorldInteractionOwner::ReplayCauseTree,
+
+        if ( !interaction.BeginOwnedToolGesture( RuntimeWorkspace::Replay, WorldInteractionOwner::ReplayCauseTree,
                                                  gesture ) )
         {
             return false;
@@ -263,8 +260,8 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
         gesture.startX = mouse.x;
         gesture.startY = mouse.y;
         gesture.axis = 0;
-        if ( !interaction.BeginOwnedToolGesture( RuntimeWorkspace::Replay,
-                                                 WorldInteractionOwner::ReplayCauseTree,
+
+        if ( !interaction.BeginOwnedToolGesture( RuntimeWorkspace::Replay, WorldInteractionOwner::ReplayCauseTree,
                                                  gesture ) )
         {
             return false;
@@ -280,8 +277,10 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
         const float localY = static_cast<float>( mouse.y ) - content.y + CauseTree().scrollY;
         const int rowIndex = static_cast<int>( floorf( localY / ReplayOverlay::REPLAY_CAUSE_WINDOW_ROW_HEIGHT ) );
         RunReplayCauseTreeRow selectedRow;
+
         if ( TryGetCauseTreeRow( rowIndex, selectedRow ) )
         {
+
             if ( leftPressed )
             {
                 interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
@@ -296,6 +295,7 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
             const bool ownedSimulationPause = presentationOwner.ClearCameraFocus();
             ClearCauseTreeFocus();
             const ReplayScrubberView scrubber = scrubberOwner.View();
+
             if ( ownedSimulationPause && scrubber.liveAdvanceHeld && !scrubber.historicalSamplePaused )
             {
                 scrubberOwner.SetLiveAdvanceHeld( false );

@@ -231,6 +231,7 @@ constexpr RuntimeInputContextMask operator|( RuntimeInputContextMask lhs, Runtim
 
 struct RuntimeInputKeyBinding
 {
+
     // Concept: The table vocabulary is shared input metadata. Step 1.1 only
     // names key/action/context records; later slices will move TakeInput's
     // branch dispatch onto this data without changing command behavior here.
@@ -265,6 +266,7 @@ struct RuntimeMouseEdges
 
 struct RuntimeCameraInputFrameContext
 {
+
     // Concept: Run resolves high-level ownership first; InputController only
     // consumes the camera-local facts needed to update mouse-look and WASD
     // movement for this frame.
@@ -336,14 +338,9 @@ class RuntimeInputContext
 class InputController
 {
   public:
-    static void BeginFrame( RuntimeInputContext& context,
-                            const RuntimeInputModeState& modeState,
-                            bool appFocused,
-                            bool uiBlocksKeyboard,
-                            bool uiBlocksMouse );
-    static void ApplyModeAction( RuntimeInputContext& context,
-                                 RuntimeInputMode mode,
-                                 RuntimeInputAction action,
+    static void BeginFrame( RuntimeInputContext& context, const RuntimeInputModeState& modeState, bool appFocused,
+                            bool uiBlocksKeyboard, bool uiBlocksMouse );
+    static void ApplyModeAction( RuntimeInputContext& context, RuntimeInputMode mode, RuntimeInputAction action,
                                  RuntimeInputActionSource source );
     static RuntimeInputMode ResolveMode( const RuntimeInputModeState& state );
     static const char* DescribeMode( RuntimeInputMode mode );
@@ -355,10 +352,8 @@ class InputController
     static void SetMouseLookDelta( CameraControlState& camera, long rawX, long rawY );
     static RuntimeCameraInputFrameResult ApplyCameraInputFrame( CameraControlState& camera,
                                                                 const RuntimeCameraInputFrameContext& context );
-    static void ApplyCameraMovement( CameraControlState& camera,
-                                     Environment::CameraCollection& cameras,
-                                     Geometry::Terrain& terrain,
-                                     const RuntimeCameraMovementInput& input );
+    static void ApplyCameraMovement( CameraControlState& camera, Environment::CameraCollection& cameras,
+                                     Geometry::Terrain& terrain, const RuntimeCameraMovementInput& input );
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

@@ -64,6 +64,7 @@ struct ShadowConvexHullCaster
 
 struct ShadowCasterBatches
 {
+
     // CPU-built caster streams. Worker jobs may fill these payloads, but only
     // the main thread may submit them through the active render command path.
     // Convex hull payloads borrow immutable hull geometry owned by the live
@@ -105,6 +106,7 @@ struct ShadowCasterBatches
 
 struct ShadowFrameData
 {
+
     // Light-space camera used by the shadow pass. The depth pass renders casters
     // with lightView/lightProjection, while receivers use lightViewProjection to
     // transform their world-space fragment position back into the same clip
@@ -147,6 +149,7 @@ struct ShadowReceiverBias
 
 inline ShadowReceiverBias ResolveShadowReceiverBias( const ShadowFrameData& shadow, bool objectReceiver )
 {
+
     if ( !objectReceiver )
     {
         return { shadow.depthBias, shadow.slopeBias };
@@ -164,9 +167,9 @@ inline ShadowReceiverBias ResolveShadowReceiverBias( const ShadowFrameData& shad
 }
 
 inline void SnapShadowProjectionToTexelGrid( Math::Transformation::Matrix4& projection,
-                                             const Math::Transformation::Matrix4& view,
-                                             int mapSize )
+                                             const Math::Transformation::Matrix4& view, int mapSize )
 {
+
     if ( mapSize <= 0 )
     {
         return;
@@ -187,43 +190,34 @@ inline void SnapShadowProjectionToTexelGrid( Math::Transformation::Matrix4& proj
     projection.m[13] += ( snappedTexelY - originTexelY ) / halfMapSize;
 }
 
-inline void ApplyShadowReceiverUniforms( ShaderDX12& shader,
-                                         Dx12TextureOwner& textures,
-                                         const ShadowFrameData* shadow,
-                                         bool receive,
-                                         bool objectReceiver = false )
+inline void ApplyShadowReceiverUniforms( ShaderDX12& shader, Dx12TextureOwner& textures, const ShadowFrameData* shadow,
+                                         bool receive, bool objectReceiver = false )
 {
+
     // Receivers call this unconditionally, even when shadows are disabled. That
     // keeps all lit shaders using the same uniform layout and avoids stale GPU
     // state: disabled receivers get identity matrices, zero strength, and an
     // enabled flag of 0, so their shader returns full visibility.
     const bool enabled = shadow && shadow->valid && receive && shadow->depthTextureHandle != 0;
     Math::Transformation::Matrix4 identity;
-    const ShadowReceiverBias bias = enabled ? ResolveShadowReceiverBias( *shadow, objectReceiver )
-                                            : ShadowReceiverBias();
+    const ShadowReceiverBias bias = enabled ? ResolveShadowReceiverBias( *shadow, objectReceiver ) : ShadowReceiverBias();
     shader.SetMat4( "uShadowViewProj", enabled ? shadow->lightViewProjection : identity );
-    shader.SetVec4( "uShadowParams",
-                    enabled ? shadow->strength : 0.0f,
-                    bias.depth,
-                    bias.slope,
+    shader.SetVec4( "uShadowParams", enabled ? shadow->strength : 0.0f, bias.depth, bias.slope,
                     enabled ? shadow->texelSize * shadow->softness : 0.0f );
-    shader.SetVec4( "uShadowFlags",
-                    enabled ? 1.0f : 0.0f,
-                    receive ? 1.0f : 0.0f,
+    shader.SetVec4( "uShadowFlags", enabled ? 1.0f : 0.0f, receive ? 1.0f : 0.0f,
                     enabled ? static_cast<float>( shadow->pcfRadius ) : 0.0f,
                     enabled && shadow->zeroToOneDepth ? 1.0f : 0.0f );
-    shader.SetVec4( "uShadowLightDir",
-                    enabled ? shadow->lightDirectionWorld.x : 0.0f,
-                    enabled ? shadow->lightDirectionWorld.y : 1.0f,
-                    enabled ? shadow->lightDirectionWorld.z : 0.0f,
-                    0.0f );
+    shader.SetVec4( "uShadowLightDir", enabled ? shadow->lightDirectionWorld.x : 0.0f,
+                    enabled ? shadow->lightDirectionWorld.y : 1.0f, enabled ? shadow->lightDirectionWorld.z : 0.0f, 0.0f );
     shader.SetInt( "uShadowMap", SHADOW_TEXTURE_SLOT );
+
     if ( enabled )
     {
         textures.BindTexture( shadow->depthTextureHandle, SHADOW_TEXTURE_SLOT );
     }
     else
     {
+
         // Pass contract: disabled receivers must not inherit an old shadow map
         // binding. The shader would skip sampling, but clearing the slot keeps
         // descriptor lifetime visible to the backend.
@@ -231,28 +225,23 @@ inline void ApplyShadowReceiverUniforms( ShaderDX12& shader,
     }
 }
 
-inline void ApplyDetailShadowReceiverUniforms( ShaderDX12& shader,
-                                               Dx12TextureOwner& textures,
-                                               const ShadowFrameData* shadow,
+inline void ApplyDetailShadowReceiverUniforms( ShaderDX12& shader, Dx12TextureOwner& textures, const ShadowFrameData* shadow,
                                                bool receive )
 {
+
     // Concept: terrain keeps its broad-map payload at t3 and layers a tighter
     // object projection through t5. This deliberately appends a binding after
     // the t4 material table instead of reinterpreting object material state.
     const bool enabled = shadow && shadow->valid && receive && shadow->depthTextureHandle != 0;
     Math::Transformation::Matrix4 identity;
     shader.SetMat4( "uDetailShadowViewProj", enabled ? shadow->lightViewProjection : identity );
-    shader.SetVec4( "uDetailShadowParams",
-                    enabled ? shadow->strength : 0.0f,
-                    enabled ? shadow->depthBias : 0.0f,
-                    enabled ? shadow->slopeBias : 0.0f,
-                    enabled ? shadow->texelSize * shadow->softness : 0.0f );
-    shader.SetVec4( "uDetailShadowFlags",
-                    enabled ? 1.0f : 0.0f,
-                    receive ? 1.0f : 0.0f,
+    shader.SetVec4( "uDetailShadowParams", enabled ? shadow->strength : 0.0f, enabled ? shadow->depthBias : 0.0f,
+                    enabled ? shadow->slopeBias : 0.0f, enabled ? shadow->texelSize * shadow->softness : 0.0f );
+    shader.SetVec4( "uDetailShadowFlags", enabled ? 1.0f : 0.0f, receive ? 1.0f : 0.0f,
                     enabled ? static_cast<float>( shadow->pcfRadius ) : 0.0f,
                     enabled && shadow->zeroToOneDepth ? 1.0f : 0.0f );
     shader.SetInt( "uDetailShadowMap", DETAIL_SHADOW_TEXTURE_SLOT );
+
     // Lifetime: the frame payload borrows the depth handle. Clearing t5 on the
     // disabled path prevents a descriptor from surviving its producing pass.
     textures.BindTexture( enabled ? shadow->depthTextureHandle : 0, DETAIL_SHADOW_TEXTURE_SLOT );

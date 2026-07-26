@@ -70,11 +70,8 @@ const Rendering::RenderMaterial& SceneEntityCreateDesc::GetRenderMaterial() cons
     return renderMaterial;
 }
 
-void SceneEntityCreateDesc::SetAssetAffiliation( Physics::PhysicsSceneObjectId rootObjectId,
-                                                 const char* libraryToken,
-                                                 const char* assetName,
-                                                 const char* instanceName,
-                                                 const char* partName,
+void SceneEntityCreateDesc::SetAssetAffiliation( Physics::PhysicsSceneObjectId rootObjectId, const char* libraryToken,
+                                                 const char* assetName, const char* instanceName, const char* partName,
                                                  uint32_t partIndex )
 {
     asset.rootObjectId = rootObjectId;
@@ -86,8 +83,7 @@ void SceneEntityCreateDesc::SetAssetAffiliation( Physics::PhysicsSceneObjectId r
     asset.isAssetBacked = true;
 }
 
-void SceneEntityCreateDesc::SetBehaviorGroup( SceneBehaviorGroupKind kind,
-                                              Physics::PhysicsSceneObjectId rootObjectId,
+void SceneEntityCreateDesc::SetBehaviorGroup( SceneBehaviorGroupKind kind, Physics::PhysicsSceneObjectId rootObjectId,
                                               int partIndex )
 {
     behaviorGroup.kind = kind;
@@ -97,6 +93,7 @@ void SceneEntityCreateDesc::SetBehaviorGroup( SceneBehaviorGroupKind kind,
 
 SceneEntityStore::SceneEntityStore()
 {
+
     // Phase: startup preallocation. The default capacity is reserved before
     // scene population so steady gameplay entity commits cannot touch the heap.
     m_records.reserve( static_cast<std::size_t>( m_capacity ) );
@@ -104,18 +101,17 @@ SceneEntityStore::SceneEntityStore()
 
 void SceneEntityStore::ConfigureCapacity( int capacity )
 {
+
     if ( capacity < 1 || capacity > SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS || Count() > capacity )
     {
-        SB_FATAL( "Scene/SceneEntityStore",
-                  "Invalid scene entity capacity. requested=%d count=%d max=%d",
-                  capacity,
-                  Count(),
+        SB_FATAL( "Scene/SceneEntityStore", "Invalid scene entity capacity. requested=%d count=%d max=%d", capacity, Count(),
                   SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     }
 
     // Phase: scene-load preallocation. Growth is allowed only before the first
     // entity of the replacement scene is published; Clear deliberately retains
     // the largest prior reservation for later reloads.
+
     if ( m_records.capacity() < static_cast<std::size_t>( capacity ) )
     {
         m_records.reserve( static_cast<std::size_t>( capacity ) );
@@ -131,11 +127,11 @@ void SceneEntityStore::Clear()
 
 SkullbonezCore::Core::SbResult SceneEntityStore::PreflightAppend( const SceneEntityCreateDesc& entity ) const
 {
+
     if ( Count() >= m_capacity )
     {
         return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneEntityStore",
-                                                        "Scene entity capacity exhausted. count=%d capacity=%d",
-                                                        Count(),
+                                                        "Scene entity capacity exhausted. count=%d capacity=%d", Count(),
                                                         m_capacity );
     }
 
@@ -147,8 +143,7 @@ SkullbonezCore::Core::SbResult SceneEntityStore::PreflightAppend( const SceneEnt
 
     if ( FindBySceneObjectId( entity.sceneObjectId ) >= 0 )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneEntityStore",
-                                                        "Duplicate scene entity id %u.",
+        return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneEntityStore", "Duplicate scene entity id %u.",
                                                         entity.sceneObjectId.value );
     }
 
@@ -156,8 +151,10 @@ SkullbonezCore::Core::SbResult SceneEntityStore::PreflightAppend( const SceneEnt
     // render rows mutate. A root may name this part-zero entity; later members
     // must reference an already committed compatible root.
     const SceneBehaviorGroup& group = entity.behaviorGroup;
+
     if ( group.kind != SceneBehaviorGroupKind::None )
     {
+
         if ( !group.rootObjectId.IsValid() || group.partIndex < 0 )
         {
             return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneEntityStore",
@@ -165,8 +162,10 @@ SkullbonezCore::Core::SbResult SceneEntityStore::PreflightAppend( const SceneEnt
         }
 
         const int rootIndex = FindBySceneObjectId( group.rootObjectId );
+
         if ( group.rootObjectId.value == entity.sceneObjectId.value )
         {
+
             if ( group.partIndex != 0 )
             {
                 return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneEntityStore",
@@ -182,6 +181,7 @@ SkullbonezCore::Core::SbResult SceneEntityStore::PreflightAppend( const SceneEnt
         else
         {
             const SceneBehaviorGroup& rootGroup = At( rootIndex ).behaviorGroup;
+
             if ( rootGroup.kind != group.kind || rootGroup.rootObjectId.value != group.rootObjectId.value ||
                  rootGroup.partIndex != 0 )
             {
@@ -199,6 +199,7 @@ void SceneEntityStore::CommitAppend( const SceneEntityCreateDesc& entity, Physic
 {
     const SkullbonezCore::Core::SbResult preflight = PreflightAppend( entity );
     const bool reservationReady = m_records.size() < m_records.capacity();
+
     if ( !preflight.ok || !body.IsValid() || !reservationReady )
     {
         const char* reason = !preflight.ok     ? preflight.error.message
@@ -208,10 +209,7 @@ void SceneEntityStore::CommitAppend( const SceneEntityCreateDesc& entity, Physic
         SB_FATAL( "Scene/SceneEntityStore",
                   "Commit without successful entity/body/capacity preflight. id=%u body_valid=%d reserved=%zu "
                   "reason=%s",
-                  entity.sceneObjectId.value,
-                  body.IsValid() ? 1 : 0,
-                  m_records.capacity(),
-                  reason );
+                  entity.sceneObjectId.value, body.IsValid() ? 1 : 0, m_records.capacity(), reason );
     }
 
     // Invariant: reservationReady makes this append allocation-free.
@@ -227,19 +225,15 @@ void SceneEntityStore::CommitAppend( const SceneEntityCreateDesc& entity, Physic
     record.editorLocked = entity.editorLocked;
 }
 
-void SceneEntityStore::UpdateBodyHandleAt( int index,
-                                           Physics::PhysicsBodyHandle body,
+void SceneEntityStore::UpdateBodyHandleAt( int index, Physics::PhysicsBodyHandle body,
                                            Physics::PhysicsSceneObjectId sceneObjectId )
 {
     SceneEntityRecord& record = MutableAt( index );
+
     if ( !body.IsValid() || record.sceneObjectId.value != sceneObjectId.value )
     {
-        SB_FATAL( "Scene/SceneEntityStore",
-                  "Body refresh identity mismatch. row=%d entity_id=%u body_id=%u body_valid=%d",
-                  index,
-                  record.sceneObjectId.value,
-                  sceneObjectId.value,
-                  body.IsValid() ? 1 : 0 );
+        SB_FATAL( "Scene/SceneEntityStore", "Body refresh identity mismatch. row=%d entity_id=%u body_id=%u body_valid=%d",
+                  index, record.sceneObjectId.value, sceneObjectId.value, body.IsValid() ? 1 : 0 );
     }
 
     record.body = body;
@@ -248,14 +242,17 @@ void SceneEntityStore::UpdateBodyHandleAt( int index,
 
 bool SceneEntityStore::DestroyAtSwapLast( int index )
 {
+
     if ( index < 0 || index >= Count() )
     {
         return false;
     }
 
     const std::size_t row = static_cast<std::size_t>( index );
+
     // Invariant: scene rows share dense order with physics and render rows. The
     // coordinating collection performs the same swap-last operation everywhere.
+
     if ( row + 1u != m_records.size() )
     {
         m_records[row] = std::move( m_records.back() );
@@ -267,6 +264,7 @@ bool SceneEntityStore::DestroyAtSwapLast( int index )
 
 bool SceneEntityStore::TrimToCount( int count )
 {
+
     if ( count < 0 || count > Count() )
     {
         return false;
@@ -294,6 +292,7 @@ uint64_t SceneEntityStore::CapacityBytes() const
 const SceneEntityRecord& SceneEntityStore::At( int index ) const
 {
     const SceneEntityRecord* record = TryGet( index );
+
     if ( !record )
     {
         SB_FATAL( "Scene/SceneEntityStore", "Scene entity index out of range. index=%d count=%d", index, Count() );
@@ -305,6 +304,7 @@ const SceneEntityRecord& SceneEntityStore::At( int index ) const
 SceneEntityRecord& SceneEntityStore::MutableAt( int index )
 {
     SceneEntityRecord* record = TryGetMutable( index );
+
     if ( !record )
     {
         SB_FATAL( "Scene/SceneEntityStore", "Scene entity index out of range. index=%d count=%d", index, Count() );
@@ -325,6 +325,7 @@ SceneEntityRecord* SceneEntityStore::TryGetMutable( int index )
 
 int SceneEntityStore::FindByDisplayName( const char* name ) const
 {
+
     if ( !name || name[0] == '\0' )
     {
         return -1;
@@ -332,6 +333,7 @@ int SceneEntityStore::FindByDisplayName( const char* name ) const
 
     for ( int index = 0; index < Count(); ++index )
     {
+
         if ( std::strcmp( m_records[static_cast<std::size_t>( index )].displayName, name ) == 0 )
         {
             return index;
@@ -343,6 +345,7 @@ int SceneEntityStore::FindByDisplayName( const char* name ) const
 
 int SceneEntityStore::FindBySceneObjectId( Physics::PhysicsSceneObjectId sceneObjectId ) const
 {
+
     if ( !sceneObjectId.IsValid() )
     {
         return -1;
@@ -350,6 +353,7 @@ int SceneEntityStore::FindBySceneObjectId( Physics::PhysicsSceneObjectId sceneOb
 
     for ( int index = 0; index < Count(); ++index )
     {
+
         if ( m_records[static_cast<std::size_t>( index )].sceneObjectId.value == sceneObjectId.value )
         {
             return index;
@@ -368,6 +372,7 @@ const SceneBehaviorGroup& SceneEntityStore::BehaviorGroupAt( int modelIndex ) co
 
 int SceneEntityStore::ResolveBehaviorGroupRootModelIndex( const SceneBehaviorGroup& group ) const
 {
+
     if ( group.kind == SceneBehaviorGroupKind::None )
     {
         return -1;
@@ -376,11 +381,10 @@ int SceneEntityStore::ResolveBehaviorGroupRootModelIndex( const SceneBehaviorGro
     // Why: stable scene identity owns group membership. Dense roots are derived
     // only for synchronous physics/editor consumers and are never cached.
     const int rootIndex = FindBySceneObjectId( group.rootObjectId );
+
     if ( rootIndex < 0 )
     {
-        SB_FATAL( "Scene/SceneEntityStore",
-                  "Behavior group root is missing. root_id=%u kind=%u",
-                  group.rootObjectId.value,
+        SB_FATAL( "Scene/SceneEntityStore", "Behavior group root is missing. root_id=%u kind=%u", group.rootObjectId.value,
                   static_cast<unsigned int>( group.kind ) );
     }
 
@@ -421,6 +425,7 @@ bool SceneEntityStore::IsSimpleRagdollTorso( int modelIndex ) const
 int SceneEntityStore::RagdollRootModelIndexForPart( int modelIndex ) const
 {
     const SceneBehaviorGroup& group = BehaviorGroupAt( modelIndex );
+
     if ( group.kind != SceneBehaviorGroupKind::SimpleRagdoll )
     {
         return modelIndex;
@@ -434,15 +439,18 @@ int SceneEntityStore::RagdollRootModelIndexForPart( int modelIndex ) const
 bool SceneEntityStore::TryFindSimpleRagdollPart( int selectedModelIndex, int partIndex, int& outModelIndex ) const
 {
     outModelIndex = -1;
+
     if ( !IsSimpleRagdollPart( selectedModelIndex ) )
     {
         return false;
     }
 
     const SkullbonezCore::Physics::PhysicsSceneObjectId rootObjectId = GroupRootObjectIdAt( selectedModelIndex );
+
     for ( int i = 0; i < Count(); ++i )
     {
         const SceneBehaviorGroup& group = BehaviorGroupAt( i );
+
         if ( group.kind == SceneBehaviorGroupKind::SimpleRagdoll && group.rootObjectId.value == rootObjectId.value &&
              group.partIndex == partIndex )
         {
@@ -457,8 +465,10 @@ bool SceneEntityStore::TryFindSimpleRagdollPart( int selectedModelIndex, int par
 
 int SceneEntityStore::GatherGroupMemberIndices( int selectedModelIndex, int* outIndices, int maxIndices ) const
 {
+
     if ( outIndices && maxIndices > 0 )
     {
+
         for ( int i = 0; i < maxIndices; ++i )
         {
             outIndices[i] = -1;
@@ -471,6 +481,7 @@ int SceneEntityStore::GatherGroupMemberIndices( int selectedModelIndex, int* out
     }
 
     const SceneBehaviorGroup& selectedGroup = BehaviorGroupAt( selectedModelIndex );
+
     if ( selectedGroup.kind != SceneBehaviorGroupKind::SimpleRagdoll )
     {
         outIndices[0] = selectedModelIndex;
@@ -479,9 +490,11 @@ int SceneEntityStore::GatherGroupMemberIndices( int selectedModelIndex, int* out
 
     (void)ResolveBehaviorGroupRootModelIndex( selectedGroup );
     int count = 0;
+
     for ( int i = 0; i < Count() && count < maxIndices; ++i )
     {
         const SceneBehaviorGroup& group = BehaviorGroupAt( i );
+
         if ( group.kind == selectedGroup.kind && group.rootObjectId.value == selectedGroup.rootObjectId.value )
         {
             outIndices[count++] = i;

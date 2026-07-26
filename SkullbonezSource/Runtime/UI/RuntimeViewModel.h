@@ -61,6 +61,7 @@ struct RuntimeViewModel
 
 struct RuntimeViewModelContext
 {
+
     // Lifetime: Run builds this from owners that outlive the frame-local view
     // model rebuild. The builder copies values and never stores these borrows.
     const SceneSessionState& scene;

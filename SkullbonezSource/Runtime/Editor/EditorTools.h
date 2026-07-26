@@ -125,6 +125,7 @@ struct EditorObjectPlacementResult
     bool placed = false;
     int modelCountBefore = 0;
     int modelCountAfter = 0;
+
     // Construction identity for the selected model row after placement commits.
     Physics::PhysicsBodyHandle placedBody;
     Physics::PhysicsColliderHandle placedCollider;
@@ -163,6 +164,7 @@ struct EditorObjectTypeRequestResult
 
 struct EditorPlacementPreModeUICommandResult
 {
+
     // Invariant: flags report accepted UI commands for InputFrame transition
     // recording; mode toggles route camera/cursor work through InputRouter.
     bool setPlaceStatic = false;
@@ -185,43 +187,32 @@ bool EditorPlacementUsesHullScaleFactors( int objectType );
 bool EditorPlacementUsesTreeScaleLock( int objectType );
 Math::Vector::Vector3 EditorDefaultPlacementScale( int objectType );
 Math::Vector::Vector3 EditorClampPlacementScale( int objectType, const Math::Vector::Vector3& scale );
-Math::Vector::Vector3 EditorPlacementScaleFromGesture( int objectType,
-                                                       const Math::Vector::Vector3& startScale,
-                                                       float dragPixelsX,
-                                                       float dragPixelsY,
-                                                       int wheelSteps );
-bool TryGetEditorTerrainPlacement( Geometry::Terrain* terrain,
-                                   const Math::Vector::Vector3& rayOrigin,
-                                   const Math::Vector::Vector3& rayDirection,
-                                   EditorTerrainPlacement& outPlacement );
-bool TryComputeEditorObjectCenter( int objectType,
-                                   const Math::Vector::Vector3& terrainPoint,
+Math::Vector::Vector3 EditorPlacementScaleFromGesture( int objectType, const Math::Vector::Vector3& startScale,
+                                                       float dragPixelsX, float dragPixelsY, int wheelSteps );
+bool TryGetEditorTerrainPlacement( Geometry::Terrain* terrain, const Math::Vector::Vector3& rayOrigin,
+                                   const Math::Vector::Vector3& rayDirection, EditorTerrainPlacement& outPlacement );
+bool TryComputeEditorObjectCenter( int objectType, const Math::Vector::Vector3& terrainPoint,
                                    const Math::Vector::Vector3& placementScale,
-                                   const Math::Orientation::Quaternion& orientation,
-                                   const Assets::AssetSystem& assets,
+                                   const Math::Orientation::Quaternion& orientation, const Assets::AssetSystem& assets,
                                    Math::Vector::Vector3& outCenter );
-bool TryUpdateEditorPlacementPreview( EditorPlacementPreviewContext context,
-                                      int objectType,
+bool TryUpdateEditorPlacementPreview( EditorPlacementPreviewContext context, int objectType,
                                       const EditorTerrainPlacement* mousePlacement );
 bool CanPlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context, EditorObjectPlacementRequest request );
-bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
-                                      EditorObjectPlacementRequest request,
+bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context, EditorObjectPlacementRequest request,
                                       EditorObjectPlacementResult& outResult );
-bool BeginEditorGizmoDragGesture( EditorGizmoContext context,
-                                  int modelIndex,
-                                  int axis,
-                                  RuntimeGizmoDragKind gizmoKind,
-                                  int clientX,
-                                  int clientY );
+bool BeginEditorGizmoDragGesture( EditorGizmoContext context, int modelIndex, int axis, RuntimeGizmoDragKind gizmoKind,
+                                  int clientX, int clientY );
 void EndEditorGizmoDragGesture( EditorGizmoContext context );
 void EndEditorPlacementScaleGesture( EditorGizmoContext context );
 void CancelEditorGizmoDragState( EditorGizmoContext context );
 void ResetEditorUnfocusedInputState( EditorGizmoContext context );
 void ClearEditorManipulationState( EditorGizmoContext context );
+
 // Concept: editor selection stores stable handles plus a row hint. Resolve at
 // the tool boundary before UI-only code needs a temporary model row.
 int ResolveSelectedEditorModelIndex( RunEditorPlacementState& editor, const Physics::PhysicsBodyStore& bodyStore );
 int PeekSelectedEditorModelIndex( const RunEditorPlacementState& editor, const Physics::PhysicsBodyStore& bodyStore );
+
 // Concept: split editor tool translation units share this store-backed
 // transform vocabulary. Keep it narrow so gizmo math, overlay tracing, and
 // placement commits do not rediscover pose or shape facts from legacy object record.
@@ -231,46 +222,29 @@ float EditorColliderRadius( const Physics::ColliderRecord& collider );
 float EditorGizmoAxisLength( float modelRadius );
 float EditorGizmoRotationRadius( float modelRadius );
 const Physics::PhysicsBodyRecord* TryResolveEditorBodyRecord( const Physics::PhysicsBodyStore& bodyStore,
-                                                              Physics::PhysicsBodyHandle bodyHandle,
-                                                              int modelIndex );
-const Physics::PhysicsBodyRecord* TryResolveEditorBodyRecord( const Physics::PhysicsBodyStore& bodyStore,
-                                                              int modelIndex );
-bool TryResolveEditorBodyCollider( const Physics::PhysicsBodyStore& bodyStore,
-                                   const Physics::ColliderStore& colliderStore,
-                                   Physics::PhysicsBodyHandle bodyHandle,
-                                   Physics::PhysicsColliderHandle colliderHandle,
-                                   int modelIndex,
-                                   const Physics::PhysicsBodyRecord*& outBody,
+                                                              Physics::PhysicsBodyHandle bodyHandle, int modelIndex );
+const Physics::PhysicsBodyRecord* TryResolveEditorBodyRecord( const Physics::PhysicsBodyStore& bodyStore, int modelIndex );
+bool TryResolveEditorBodyCollider( const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore,
+                                   Physics::PhysicsBodyHandle bodyHandle, Physics::PhysicsColliderHandle colliderHandle,
+                                   int modelIndex, const Physics::PhysicsBodyRecord*& outBody,
                                    const Physics::ColliderRecord*& outCollider );
-bool TryResolveEditorBodyCollider( const Physics::PhysicsBodyStore& bodyStore,
-                                   const Physics::ColliderStore& colliderStore,
-                                   int modelIndex,
-                                   const Physics::PhysicsBodyRecord*& outBody,
+bool TryResolveEditorBodyCollider( const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore,
+                                   int modelIndex, const Physics::PhysicsBodyRecord*& outBody,
                                    const Physics::ColliderRecord*& outCollider );
-bool TryGetEditorSelectionFrame( const SceneWorld& world,
-                                 Physics::PhysicsBodyHandle selectedBodyHandle,
-                                 Physics::PhysicsColliderHandle selectedColliderHandle,
-                                 int selectedIndex,
-                                 Math::Vector::Vector3& outOrigin,
-                                 float& outRadius );
-bool TryTraceEditorSelectionOverlayFromStores( const SceneWorld& world,
-                                               Physics::PhysicsBodyHandle selectedBodyHandle,
-                                               Physics::PhysicsColliderHandle selectedColliderHandle,
-                                               int selectedIndex,
-                                               EditorTracer& tracer,
-                                               Math::Vector::Vector3& outOrigin,
-                                               float& outRadius );
-void CaptureEditorGizmoDragGroupState( RunEditorPlacementState& editor,
-                                       const SceneWorld& world,
-                                       bool allowRagdollGroup );
+bool TryGetEditorSelectionFrame( const SceneWorld& world, Physics::PhysicsBodyHandle selectedBodyHandle,
+                                 Physics::PhysicsColliderHandle selectedColliderHandle, int selectedIndex,
+                                 Math::Vector::Vector3& outOrigin, float& outRadius );
+bool TryTraceEditorSelectionOverlayFromStores( const SceneWorld& world, Physics::PhysicsBodyHandle selectedBodyHandle,
+                                               Physics::PhysicsColliderHandle selectedColliderHandle, int selectedIndex,
+                                               EditorTracer& tracer, Math::Vector::Vector3& outOrigin, float& outRadius );
+void CaptureEditorGizmoDragGroupState( RunEditorPlacementState& editor, const SceneWorld& world, bool allowRagdollGroup );
 int ValidCapturedEditorGizmoGroupCount( const RunEditorPlacementState& editor, int modelCount );
 void WakeEditorPhysicsBody( SceneWorld& world, int modelIndex );
 void SeedEditorPhysicsBodyAsleep( SceneWorld& world, int modelIndex );
 bool ResetEditorModelMotionAndWake( SceneWorld& world, int index, Physics::PhysicsBodyUpdateDesc update );
-bool ResetEditorModelMotionAndWake( SceneWorld& world,
-                                    int index,
-                                    Physics::PhysicsBodyUpdateDesc update,
+bool ResetEditorModelMotionAndWake( SceneWorld& world, int index, Physics::PhysicsBodyUpdateDesc update,
                                     Physics::PhysicsColliderCreateDesc colliderDesc );
+
 // Concept: replay velocity gizmos share the editor axis/ring vocabulary so
 // scrub-time velocity edits and live editor gizmos draw comparable handles.
 float ReplayVelocityLinearBaseLength( float modelRadius );
@@ -284,67 +258,47 @@ void ReplayVelocityAxisColor( int axis, float heat, bool hot, bool active, float
 Math::Vector::Vector3 EditorRotationRingBasisA( int axis );
 Math::Vector::Vector3 EditorRotationRingBasisB( int axis );
 float WrapEditorAngleDelta( float delta );
-float DistanceRayToSegmentSquared( const Math::Vector::Vector3& rayOrigin,
-                                   const Math::Vector::Vector3& rayDirection,
-                                   const Math::Vector::Vector3& segmentA,
-                                   const Math::Vector::Vector3& segmentB );
+float DistanceRayToSegmentSquared( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection,
+                                   const Math::Vector::Vector3& segmentA, const Math::Vector::Vector3& segmentB );
 EditorKeyboardShortcutResult HandleEditorKeyboardShortcut( RuntimeInputAction action, bool isDown, bool wasPressed );
-EditorPlacementModeChangeResult
-SetEditorPlacementMode( EditorGizmoContext context, bool enabled, bool clearManipulation );
+EditorPlacementModeChangeResult SetEditorPlacementMode( EditorGizmoContext context, bool enabled, bool clearManipulation );
 EditorPlacementModeChangeResult ToggleEditorPlacementMode( EditorGizmoContext context );
 void EnterEditorModeState( EditorGizmoContext context, RunCameraMode restoreCameraMode );
 void ExitEditorModeState( EditorGizmoContext context );
 bool SetEditorPlaceStaticObject( RunEditorPlacementState& editor, bool placeStaticObject );
 void ToggleEditorPlaceStaticObject( RunEditorPlacementState& editor );
 void ToggleEditorTerrainAlign( EditorGizmoContext context );
-EditorObjectTypeRequestResult
-SelectEditorObjectType( EditorGizmoContext context, int requestedObjectType, bool enterPlacementMode );
+EditorObjectTypeRequestResult SelectEditorObjectType( EditorGizmoContext context, int requestedObjectType,
+                                                      bool enterPlacementMode );
 EditorPlacementPreModeUICommandResult ApplyEditorPlacementPreModeUICommands( EditorGizmoContext context,
                                                                              const UI::UIEditorCommands& commands );
 EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( EditorGizmoContext context,
                                                                                const UI::UIEditorCommands& commands );
-int HitEditorGizmoAxis( EditorGizmoContext context,
-                        const Math::Vector::Vector3& rayOrigin,
+int HitEditorGizmoAxis( EditorGizmoContext context, const Math::Vector::Vector3& rayOrigin,
                         const Math::Vector::Vector3& rayDirection );
-int HitEditorRotationGizmoAxis( EditorGizmoContext context,
-                                const Math::Vector::Vector3& rayOrigin,
+int HitEditorRotationGizmoAxis( EditorGizmoContext context, const Math::Vector::Vector3& rayOrigin,
                                 const Math::Vector::Vector3& rayDirection );
-bool TryEditorAxisRayParameter( EditorGizmoContext context,
-                                int axis,
-                                const Math::Vector::Vector3& rayOrigin,
-                                const Math::Vector::Vector3& rayDirection,
-                                float& outAxisT );
+bool TryEditorAxisRayParameter( EditorGizmoContext context, int axis, const Math::Vector::Vector3& rayOrigin,
+                                const Math::Vector::Vector3& rayDirection, float& outAxisT );
 Math::Vector::Vector3 EditorAxisDragPlaneNormal( int axis, const Math::Vector::Vector3& rayDirection );
-bool TryEditorAxisPlaneRayParameter( int axis,
-                                     const Math::Vector::Vector3& planeOrigin,
-                                     const Math::Vector::Vector3& planeNormal,
-                                     const Math::Vector::Vector3& rayOrigin,
-                                     const Math::Vector::Vector3& rayDirection,
-                                     float& outAxisT );
-bool TryEditorRotationRayAngle( EditorGizmoContext context,
-                                int axis,
-                                const Math::Vector::Vector3& rayOrigin,
-                                const Math::Vector::Vector3& rayDirection,
-                                float& outAngle );
-void MoveSelectedEditorObjectAlongAxis( EditorGizmoContext context,
-                                        const Math::Vector::Vector3& rayOrigin,
+bool TryEditorAxisPlaneRayParameter( int axis, const Math::Vector::Vector3& planeOrigin,
+                                     const Math::Vector::Vector3& planeNormal, const Math::Vector::Vector3& rayOrigin,
+                                     const Math::Vector::Vector3& rayDirection, float& outAxisT );
+bool TryEditorRotationRayAngle( EditorGizmoContext context, int axis, const Math::Vector::Vector3& rayOrigin,
+                                const Math::Vector::Vector3& rayDirection, float& outAngle );
+void MoveSelectedEditorObjectAlongAxis( EditorGizmoContext context, const Math::Vector::Vector3& rayOrigin,
                                         const Math::Vector::Vector3& rayDirection );
-void RotateSelectedEditorObjectAroundAxis( EditorGizmoContext context,
-                                           const Math::Vector::Vector3& rayOrigin,
+void RotateSelectedEditorObjectAroundAxis( EditorGizmoContext context, const Math::Vector::Vector3& rayOrigin,
                                            const Math::Vector::Vector3& rayDirection );
-void ScaleSelectedEditorObjectAlongAxis( EditorGizmoContext context,
-                                         const Math::Vector::Vector3& rayOrigin,
+void ScaleSelectedEditorObjectAlongAxis( EditorGizmoContext context, const Math::Vector::Vector3& rayOrigin,
                                          const Math::Vector::Vector3& rayDirection );
-void UpdateEditorGizmoHotAxes( EditorGizmoContext context,
-                               const Math::Vector::Vector3& rayOrigin,
-                               const Math::Vector::Vector3& rayDirection,
-                               bool scaleMode );
+void UpdateEditorGizmoHotAxes( EditorGizmoContext context, const Math::Vector::Vector3& rayOrigin,
+                               const Math::Vector::Vector3& rayDirection, bool scaleMode );
+
 // InputController owns keybinding data. Editor tools keep the two unrelated
 // cold side effects separate so scene-save authority never travels with capture.
-void HandleEditorSceneSaveHotkey( SceneWorld& world,
-                                  const SceneSessionState& scene,
-                                  const GameObjects::PresentationSaveState& presentation,
-                                  bool wasPressed );
+void HandleEditorSceneSaveHotkey( SceneWorld& world, const SceneSessionState& scene,
+                                  const GameObjects::PresentationSaveState& presentation, bool wasPressed );
 void HandleEditorScreenshotHotkey( CaptureController& capture, bool wasPressed );
 } // namespace RunInternal
 } // namespace Runtime

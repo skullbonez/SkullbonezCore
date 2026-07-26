@@ -6,6 +6,7 @@ Purpose:
 Summary:
   Keyboard shortcuts are data first and side effects second. This module names
   the key/action/context rows so tests and runtime dispatch read the same table,
+
   while InputFrameExecution dispatches each action to its named domain owner.
 
 Glossary:

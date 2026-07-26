@@ -68,6 +68,7 @@ struct RunRayCastTestState;
 
 namespace RunInternal
 {
+
 // Lifetime: preview and trace passes borrow the scene-lifetime owner once and
 // retain no store pointer after the frame-local call returns.
 struct EditorInteractionPreviewContext

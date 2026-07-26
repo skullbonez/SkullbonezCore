@@ -69,15 +69,18 @@ bool IsFiniteVector( const Vector3& v )
 
 bool TryNormalizeVector( Vector3& v )
 {
+
     // Hazard: attachment and replay camera targets can briefly collapse to a
     // zero-length vector after a reset or stale body recovery. Callers must use
     // a fallback instead of feeding NaNs into camera matrices.
+
     if ( !IsFiniteVector( v ) )
     {
         return false;
     }
 
     const float lengthSq = VectorMagSquared( v );
+
     if ( lengthSq <= TOLERANCE * TOLERANCE )
     {
         return false;
@@ -90,12 +93,14 @@ bool TryNormalizeVector( Vector3& v )
 
 Vector3 NormalizedOr( Vector3 v, const Vector3& fallback )
 {
+
     if ( TryNormalizeVector( v ) )
     {
         return v;
     }
 
     Vector3 safeFallback = fallback;
+
     if ( TryNormalizeVector( safeFallback ) )
     {
         return safeFallback;
@@ -132,6 +137,7 @@ float AttachedCameraTargetRadius( float bodyBoundingRadius, const ColliderRecord
 const char* PresentationNameForModelIndex( const SceneWorld& collection, int modelIndex )
 {
     const auto presentationRecords = collection.RenderPresentationRecords();
+
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( presentationRecords.size() ) )
     {
         return "";
@@ -143,6 +149,7 @@ const char* PresentationNameForModelIndex( const SceneWorld& collection, int mod
 
 bool EndsWith( const char* value, const char* suffix )
 {
+
     if ( !value || !suffix )
     {
         return false;
@@ -156,6 +163,7 @@ bool EndsWith( const char* value, const char* suffix )
 
 float WrapAttachedCameraOrbitYaw( float yaw )
 {
+
     while ( yaw > _PI )
     {
         yaw -= _2PI;
@@ -185,19 +193,20 @@ float AttachedCameraOrbitMaxDistance( float targetRadius )
 
 float ClampAttachedCameraOrbitDistance( float targetRadius, float distance )
 {
+
     if ( !std::isfinite( distance ) )
     {
         distance = targetRadius * 8.0f;
     }
 
-    return std::clamp( distance,
-                       AttachedCameraOrbitMinDistance( targetRadius ),
+    return std::clamp( distance, AttachedCameraOrbitMinDistance( targetRadius ),
                        AttachedCameraOrbitMaxDistance( targetRadius ) );
 }
 
 
 float ClampAttachedCameraOrbitPitch( float pitch )
 {
+
     if ( !std::isfinite( pitch ) )
     {
         return ATTACHED_CAMERA_ORBIT_DEFAULT_PITCH;
@@ -231,6 +240,7 @@ const char* AttachedCameraController::ModeLabel() const
 {
     static thread_local char label[96];
     const char* submode = "Fixed";
+
     if ( m_state.submode == AttachedCameraSubmode::VelocityForward )
     {
         submode = "Velocity";
@@ -246,12 +256,8 @@ const char* AttachedCameraController::ModeLabel() const
     }
     else
     {
-        sprintf_s( label,
-                   sizeof( label ),
-                   "Attach: %s %s%s",
-                   submode,
-                   m_state.target.name[0] ? m_state.target.name : "target",
-                   m_state.activeFollow ? "" : " Pinned" );
+        sprintf_s( label, sizeof( label ), "Attach: %s %s%s", submode,
+                   m_state.target.name[0] ? m_state.target.name : "target", m_state.activeFollow ? "" : " Pinned" );
     }
 
     return label;
@@ -260,6 +266,7 @@ const char* AttachedCameraController::ModeLabel() const
 
 void AttachedCameraController::CaptureReturnState( RunCameraMode previousMode, Environment::CameraCollection& cameras )
 {
+
     if ( previousMode == RunCameraMode::Attach )
     {
         return;
@@ -267,12 +274,14 @@ void AttachedCameraController::CaptureReturnState( RunCameraMode previousMode, E
 
     m_state.returnMode = previousMode;
     m_state.hasReturnCameraPose = false;
+
     // Why: capture the render pose, not only the selected camera slot. Attach
     // may begin while another transition is still visible.
     m_state.returnCameraHash = cameras.GetSelectedCameraName();
     m_state.returnEye = cameras.GetRenderCameraTranslation();
     m_state.returnView = cameras.GetRenderCameraView();
     m_state.returnUp = cameras.GetRenderCameraUp();
+
     if ( VectorMagSquared( m_state.returnView - m_state.returnEye ) <= TOLERANCE * TOLERANCE )
     {
         m_state.returnEye = cameras.GetCameraTranslation();
@@ -286,6 +295,7 @@ void AttachedCameraController::CaptureReturnState( RunCameraMode previousMode, E
 
 void AttachedCameraController::RestoreReturnState( Environment::CameraCollection& cameras )
 {
+
     if ( !m_state.hasReturnCameraPose )
     {
         return;
@@ -303,6 +313,7 @@ void AttachedCameraController::RestoreReturnState( Environment::CameraCollection
 
 bool AttachedCameraController::ResolveTargetIdentity( const Runtime::SceneWorld& collection, int& outModelIndex )
 {
+
     if ( TryResolveTargetIdentity( collection, m_state.target, outModelIndex ) )
     {
         return true;
@@ -313,12 +324,11 @@ bool AttachedCameraController::ResolveTargetIdentity( const Runtime::SceneWorld&
 }
 
 
-bool AttachedCameraController::TickFollow( Runtime::SceneWorld& collection,
-                                           float orbitYawDelta,
-                                           float orbitPitchDelta,
+bool AttachedCameraController::TickFollow( Runtime::SceneWorld& collection, float orbitYawDelta, float orbitPitchDelta,
                                            float presentationAlpha )
 {
     Environment::CameraCollection& cameras = collection.Cameras();
+
     if ( !m_state.activeFollow )
     {
         return false;
@@ -326,12 +336,14 @@ bool AttachedCameraController::TickFollow( Runtime::SceneWorld& collection,
 
     int modelIndex = -1;
     AttachedCameraPhysicsTarget target;
+
     if ( !TryResolvePhysicsTarget( collection, m_state.target, target, &modelIndex ) )
     {
         return false;
     }
 
     Quaternion presentedOrientation;
+
     if ( collection.TryGetPresentationPose( modelIndex, presentationAlpha, target.position, presentedOrientation ) )
     {
         target.rotation = BodyRotation( presentedOrientation );
@@ -342,21 +354,16 @@ bool AttachedCameraController::TickFollow( Runtime::SceneWorld& collection,
     currentPose.view = cameras.GetCameraView();
     currentPose.up = cameras.GetCameraUp();
     AttachedCameraPoseCommand command;
-    if ( !BuildFollowPose( collection,
-                           m_state,
-                           target,
-                           modelIndex,
-                           currentPose,
-                           orbitYawDelta,
-                           orbitPitchDelta,
-                           presentationAlpha,
-                           command ) )
+
+    if ( !BuildFollowPose( collection, m_state, target, modelIndex, currentPose, orbitYawDelta, orbitPitchDelta,
+                           presentationAlpha, command ) )
     {
         return false;
     }
 
     // Why: only the first valid solve starts a tween. Later solves retarget the
     // live destination so a moving body never restarts the transition.
+
     if ( command.startEntryTween )
     {
         cameras.TweenPrimaryToPose( command.pose.eye, command.pose.view, command.pose.up );
@@ -375,6 +382,7 @@ bool AttachedCameraController::CycleMode( Runtime::SceneWorld& collection )
     Environment::CameraCollection& cameras = collection.Cameras();
     AttachedCameraPhysicsTarget target;
     bool shouldCaptureFixedOffset = false;
+
     if ( !CycleSubmode( collection, m_state, target, shouldCaptureFixedOffset ) )
     {
         return false;
@@ -395,9 +403,11 @@ bool AttachedCameraController::TogglePin( Runtime::SceneWorld& collection )
 {
     Environment::CameraCollection& cameras = collection.Cameras();
     m_state.activeFollow = !m_state.activeFollow;
+
     if ( m_state.activeFollow )
     {
         AttachedCameraPhysicsTarget target;
+
         if ( TryResolvePhysicsTarget( collection, m_state.target, target ) )
         {
             AttachedCameraPose pose { cameras.GetCameraTranslation(), cameras.GetCameraView(), cameras.GetCameraUp() };
@@ -412,12 +422,11 @@ bool AttachedCameraController::TogglePin( Runtime::SceneWorld& collection )
 }
 
 
-bool AttachedCameraController::ApplyOrbitInput( Runtime::SceneWorld& collection,
-                                                bool attachModeActive,
-                                                int unhandledWheelDelta,
-                                                bool uiBlocksCameraMouse )
+bool AttachedCameraController::ApplyOrbitInput( Runtime::SceneWorld& collection, bool attachModeActive,
+                                                int unhandledWheelDelta, bool uiBlocksCameraMouse )
 {
     Environment::CameraCollection& cameras = collection.Cameras();
+
     if ( !attachModeActive || !m_state.activeFollow || m_state.submode == AttachedCameraSubmode::RagdollEyes ||
          uiBlocksCameraMouse )
     {
@@ -425,6 +434,7 @@ bool AttachedCameraController::ApplyOrbitInput( Runtime::SceneWorld& collection,
     }
 
     AttachedCameraPhysicsTarget target;
+
     if ( !TryResolvePhysicsTarget( collection, m_state.target, target ) )
     {
         return false;
@@ -441,11 +451,11 @@ bool AttachedCameraController::ApplyOrbitInput( Runtime::SceneWorld& collection,
 }
 
 
-bool AttachedCameraController::SetTarget( Runtime::SceneWorld& collection,
-                                          int modelIndex,
+bool AttachedCameraController::SetTarget( Runtime::SceneWorld& collection, int modelIndex,
                                           AttachedCameraTargetSelection& outSelection )
 {
     Environment::CameraCollection& cameras = collection.Cameras();
+
     if ( !SelectTarget( collection, m_state, modelIndex, outSelection ) )
     {
         return false;
@@ -458,19 +468,17 @@ bool AttachedCameraController::SetTarget( Runtime::SceneWorld& collection,
 }
 
 
-AttachedCameraSeedResult AttachedCameraController::SeedTarget( Runtime::SceneWorld& collection,
-                                                               int seedModelIndex,
+AttachedCameraSeedResult AttachedCameraController::SeedTarget( Runtime::SceneWorld& collection, int seedModelIndex,
                                                                AttachedCameraTargetSelection& outSelection )
 {
     Environment::CameraCollection& cameras = collection.Cameras();
     outSelection = AttachedCameraTargetSelection {};
 
     AttachedCameraPhysicsTarget currentTarget;
+
     if ( TryResolvePhysicsTarget( collection, m_state.target, currentTarget ) )
     {
-        const AttachedCameraPose pose { cameras.GetCameraTranslation(),
-                                        cameras.GetCameraView(),
-                                        cameras.GetCameraUp() };
+        const AttachedCameraPose pose { cameras.GetCameraTranslation(), cameras.GetCameraView(), cameras.GetCameraUp() };
 
         CaptureFixedOffset( m_state, pose, currentTarget );
         m_state.activeFollow = true;
@@ -488,14 +496,12 @@ AttachedCameraSeedResult AttachedCameraController::SeedTarget( Runtime::SceneWor
 }
 
 
-bool AttachedCameraController::PickTarget( Runtime::SceneWorld& collection,
-                                           bool hasWorldRay,
-                                           const Vector3& rayOrigin,
-                                           const Vector3& rayDirection,
-                                           AttachedCameraTargetSelection& outSelection )
+bool AttachedCameraController::PickTarget( Runtime::SceneWorld& collection, bool hasWorldRay, const Vector3& rayOrigin,
+                                           const Vector3& rayDirection, AttachedCameraTargetSelection& outSelection )
 {
     outSelection = AttachedCameraTargetSelection {};
     RuntimePickResult pick;
+
     if ( hasWorldRay )
     {
         RuntimePickRequest request;
@@ -504,6 +510,7 @@ bool AttachedCameraController::PickTarget( Runtime::SceneWorld& collection,
         request.colliderStore = &collection.Colliders();
         request.rayOrigin = rayOrigin;
         request.rayDirection = rayDirection;
+
         if ( RuntimePickService::TryPickModel( request, pick ) )
         {
             return SetTarget( collection, pick.modelRow.value, outSelection );
@@ -530,16 +537,15 @@ void AttachedCameraController::ClearTarget( AttachedCameraState& state )
 }
 
 
-bool AttachedCameraController::TryAttachTargetHandlesFromModelIndex( const SceneWorld& collection,
-                                                                     int modelIndex,
+bool AttachedCameraController::TryAttachTargetHandlesFromModelIndex( const SceneWorld& collection, int modelIndex,
                                                                      AttachedCameraTarget& target )
 {
     const PhysicsBodyStore& bodyStore = collection.BodyStore();
     const ColliderStore& colliderStore = collection.Colliders();
     const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex );
-    const ColliderRecord* collider = body ? colliderStore.RecordForHandle(
-                                                colliderStore.HandleForBodyHandle( body->handle ) )
-                                          : nullptr;
+    const ColliderRecord* collider = body
+                                         ? colliderStore.RecordForHandle( colliderStore.HandleForBodyHandle( body->handle ) )
+                                         : nullptr;
 
     if ( !body || !collider || collider->body != body->handle )
     {
@@ -554,8 +560,7 @@ bool AttachedCameraController::TryAttachTargetHandlesFromModelIndex( const Scene
 }
 
 
-bool AttachedCameraController::TryResolveTargetIdentity( const SceneWorld& collection,
-                                                         AttachedCameraTarget& target,
+bool AttachedCameraController::TryResolveTargetIdentity( const SceneWorld& collection, AttachedCameraTarget& target,
                                                          int& outModelIndex )
 {
     outModelIndex = -1;
@@ -573,6 +578,7 @@ bool AttachedCameraController::TryResolveTargetIdentity( const SceneWorld& colle
         {
             const PhysicsColliderHandle colliderHandle = colliderStore.HandleForBodyHandle( body->handle );
             collider = colliderStore.RecordForHandle( colliderHandle );
+
             if ( collider )
             {
                 target.collider = collider->handle;
@@ -581,6 +587,7 @@ bool AttachedCameraController::TryResolveTargetIdentity( const SceneWorld& colle
 
         if ( body && collider && collider->body == body->handle )
         {
+
             // Concept: the attach camera follows physics identity, not vector
             // order. Model index is kept as a presentation hint after the live
             // handle proves which dense row currently owns the body.
@@ -594,10 +601,12 @@ bool AttachedCameraController::TryResolveTargetIdentity( const SceneWorld& colle
 
     const int modelCount = bodyStore.Count();
     const int cachedIndex = target.modelRow.value;
+
     if ( cachedIndex >= 0 && cachedIndex < modelCount )
     {
         const bool hasSceneObjectId = target.sceneObjectId.IsValid();
         bool cachedIndexMatches = true;
+
         if ( hasSceneObjectId )
         {
             const PhysicsBodyRecord* cachedBody = bodyStore.RecordForModelIndex( cachedIndex );
@@ -615,13 +624,17 @@ bool AttachedCameraController::TryResolveTargetIdentity( const SceneWorld& colle
     {
         int match = -1;
         const auto bodyRecords = bodyStore.Records();
+
         // Invariant: duplicate scene object ids are corruption, not an arbitrary
         // first match. Scan the dense body rows so stale camera targets fail
         // closed without touching authoring/presentation data.
+
         for ( int i = 0; i < static_cast<int>( bodyRecords.size() ); ++i )
         {
+
             if ( bodyRecords[static_cast<std::size_t>( i )].sceneObjectId == target.sceneObjectId )
             {
+
                 if ( match >= 0 )
                 {
                     target = AttachedCameraTarget {};
@@ -645,12 +658,11 @@ bool AttachedCameraController::TryResolveTargetIdentity( const SceneWorld& colle
 }
 
 
-bool AttachedCameraController::TryResolvePhysicsTarget( const SceneWorld& collection,
-                                                        AttachedCameraTarget& target,
-                                                        AttachedCameraPhysicsTarget& outTarget,
-                                                        int* outModelIndex )
+bool AttachedCameraController::TryResolvePhysicsTarget( const SceneWorld& collection, AttachedCameraTarget& target,
+                                                        AttachedCameraPhysicsTarget& outTarget, int* outModelIndex )
 {
     int modelIndex = -1;
+
     if ( !TryResolveTargetIdentity( collection, target, modelIndex ) )
     {
         return false;
@@ -665,6 +677,7 @@ bool AttachedCameraController::TryResolvePhysicsTarget( const SceneWorld& collec
     const ColliderStore& colliderStore = collection.Colliders();
     const PhysicsBodyRecord* body = bodyStore.RecordForHandle( target.body );
     const ColliderRecord* collider = colliderStore.RecordForHandle( target.collider );
+
     if ( !body || !collider || collider->body != body->handle )
     {
         return false;
@@ -680,18 +693,19 @@ bool AttachedCameraController::TryResolvePhysicsTarget( const SceneWorld& collec
 }
 
 
-bool AttachedCameraController::TryResolveRagdollHead( const SceneWorld& collection,
-                                                      int selectedModelIndex,
+bool AttachedCameraController::TryResolveRagdollHead( const SceneWorld& collection, int selectedModelIndex,
                                                       int& outHeadModelIndex )
 {
     outHeadModelIndex = -1;
     const int modelCount = collection.BodyStore().Count();
+
     if ( selectedModelIndex < 0 || selectedModelIndex >= modelCount )
     {
         return false;
     }
 
     const SceneEntityStore& entities = collection.Entities();
+
     if ( !entities.IsSimpleRagdollPart( selectedModelIndex ) )
     {
         return false;
@@ -705,8 +719,10 @@ bool AttachedCameraController::TryResolveRagdollHead( const SceneWorld& collecti
     // Why: the suffix fallback still serves old ragdoll display names, but its
     // membership boundary is the stable group root rather than a cached row.
     const PhysicsSceneObjectId rootObjectId = entities.GroupRootObjectIdAt( selectedModelIndex );
+
     for ( int i = 0; i < modelCount; ++i )
     {
+
         if ( entities.IsSimpleRagdollPart( i ) && entities.GroupRootObjectIdAt( i ).value == rootObjectId.value &&
              EndsWith( PresentationNameForModelIndex( collection, i ), "_head" ) )
         {
@@ -719,13 +735,12 @@ bool AttachedCameraController::TryResolveRagdollHead( const SceneWorld& collecti
 }
 
 
-bool AttachedCameraController::SelectTarget( const SceneWorld& collection,
-                                             AttachedCameraState& state,
-                                             int modelIndex,
+bool AttachedCameraController::SelectTarget( const SceneWorld& collection, AttachedCameraState& state, int modelIndex,
                                              AttachedCameraTargetSelection& outSelection )
 {
     outSelection = AttachedCameraTargetSelection {};
     const int modelCount = collection.BodyStore().Count();
+
     if ( modelIndex < 0 || modelIndex >= modelCount )
     {
         ClearTarget( state );
@@ -733,6 +748,7 @@ bool AttachedCameraController::SelectTarget( const SceneWorld& collection,
     }
 
     AttachedCameraPhysicsTarget targetState;
+
     if ( !TryAttachTargetHandlesFromModelIndex( collection, modelIndex, state.target ) ||
          !TryResolvePhysicsTarget( collection, state.target, targetState ) )
     {
@@ -740,16 +756,16 @@ bool AttachedCameraController::SelectTarget( const SceneWorld& collection,
         return false;
     }
 
-    strncpy_s( state.target.name,
-               sizeof( state.target.name ),
-               PresentationNameForModelIndex( collection, modelIndex ),
+    strncpy_s( state.target.name, sizeof( state.target.name ), PresentationNameForModelIndex( collection, modelIndex ),
                _TRUNCATE );
 
     state.activeFollow = true;
     state.needsEntryTween = true;
+
     if ( state.submode == AttachedCameraSubmode::RagdollEyes )
     {
         int headIndex = -1;
+
         if ( !TryResolveRagdollHead( collection, modelIndex, headIndex ) )
         {
             state.submode = AttachedCameraSubmode::FixedRelative;
@@ -764,13 +780,12 @@ bool AttachedCameraController::SelectTarget( const SceneWorld& collection,
 }
 
 
-bool AttachedCameraController::CycleSubmode( const SceneWorld& collection,
-                                             AttachedCameraState& state,
-                                             AttachedCameraPhysicsTarget& outTarget,
-                                             bool& outShouldCaptureFixedOffset )
+bool AttachedCameraController::CycleSubmode( const SceneWorld& collection, AttachedCameraState& state,
+                                             AttachedCameraPhysicsTarget& outTarget, bool& outShouldCaptureFixedOffset )
 {
     outShouldCaptureFixedOffset = false;
     int modelIndex = -1;
+
     if ( !TryResolvePhysicsTarget( collection, state.target, outTarget, &modelIndex ) )
     {
         return false;
@@ -779,6 +794,7 @@ bool AttachedCameraController::CycleSubmode( const SceneWorld& collection,
     int headIndex = -1;
     const bool hasEyes = TryResolveRagdollHead( collection, modelIndex, headIndex );
     AttachedCameraSubmode next = AttachedCameraSubmode::FixedRelative;
+
     if ( state.submode == AttachedCameraSubmode::FixedRelative )
     {
         next = AttachedCameraSubmode::VelocityForward;
@@ -795,14 +811,14 @@ bool AttachedCameraController::CycleSubmode( const SceneWorld& collection,
 }
 
 
-void AttachedCameraController::CaptureFixedOffset( AttachedCameraState& state,
-                                                   const AttachedCameraPose& currentPose,
+void AttachedCameraController::CaptureFixedOffset( AttachedCameraState& state, const AttachedCameraPose& currentPose,
                                                    const AttachedCameraPhysicsTarget& target )
 {
     state.localEyeOffset = WorldToTargetVector( target.rotation, currentPose.eye - target.position );
     state.localViewOffset = WorldToTargetVector( target.rotation, currentPose.view - target.position );
     state.localUp = NormalizedOr( WorldToTargetVector( target.rotation, currentPose.up ), Vector3( 0.0f, 1.0f, 0.0f ) );
     Vector3 look = currentPose.view - currentPose.eye;
+
     if ( TryNormalizeVector( look ) )
     {
         state.lastLookDirection = look;
@@ -814,15 +830,16 @@ void AttachedCameraController::CaptureFixedOffset( AttachedCameraState& state,
 }
 
 
-void AttachedCameraController::CaptureOrbit( AttachedCameraState& state,
-                                             const AttachedCameraPose& currentPose,
+void AttachedCameraController::CaptureOrbit( AttachedCameraState& state, const AttachedCameraPose& currentPose,
                                              const AttachedCameraPhysicsTarget& target )
 {
     Vector3 offset = currentPose.eye - target.position;
     float distance = sqrtf( VectorMagSquared( offset ) );
+
     if ( !std::isfinite( distance ) || distance < AttachedCameraOrbitMinDistance( target.radius ) )
     {
         Vector3 look = currentPose.view - currentPose.eye;
+
         if ( !TryNormalizeVector( look ) )
         {
             look = Vector3( 0.0f, 0.0f, 1.0f );
@@ -841,11 +858,11 @@ void AttachedCameraController::CaptureOrbit( AttachedCameraState& state,
 }
 
 
-bool AttachedCameraController::ApplyOrbitWheel( AttachedCameraState& state,
-                                                const AttachedCameraPhysicsTarget& target,
+bool AttachedCameraController::ApplyOrbitWheel( AttachedCameraState& state, const AttachedCameraPhysicsTarget& target,
                                                 int unhandledWheelDelta )
 {
     const int wheelSteps = unhandledWheelDelta / ATTACHED_CAMERA_WHEEL_DELTA;
+
     if ( wheelSteps == 0 )
     {
         return false;
@@ -860,23 +877,22 @@ bool AttachedCameraController::ApplyOrbitWheel( AttachedCameraState& state,
 }
 
 
-bool AttachedCameraController::BuildFollowPose( const SceneWorld& collection,
-                                                AttachedCameraState& state,
-                                                const AttachedCameraPhysicsTarget& target,
-                                                int modelIndex,
-                                                const AttachedCameraPose& currentPose,
-                                                float orbitYawDelta,
-                                                float orbitPitchDelta,
-                                                float presentationAlpha,
+bool AttachedCameraController::BuildFollowPose( const SceneWorld& collection, AttachedCameraState& state,
+                                                const AttachedCameraPhysicsTarget& target, int modelIndex,
+                                                const AttachedCameraPose& currentPose, float orbitYawDelta,
+                                                float orbitPitchDelta, float presentationAlpha,
                                                 AttachedCameraPoseCommand& outCommand )
 {
+
     if ( state.submode == AttachedCameraSubmode::RagdollEyes )
     {
         int headIndex = -1;
+
         if ( TryResolveRagdollHead( collection, modelIndex, headIndex ) )
         {
             AttachedCameraPhysicsTarget headState;
             AttachedCameraTarget headTarget;
+
             if ( !TryAttachTargetHandlesFromModelIndex( collection, headIndex, headTarget ) ||
                  !TryResolvePhysicsTarget( collection, headTarget, headState ) )
             {
@@ -884,9 +900,8 @@ bool AttachedCameraController::BuildFollowPose( const SceneWorld& collection,
             }
 
             Quaternion presentedHeadOrientation;
-            if ( collection.TryGetPresentationPose( headIndex,
-                                                    presentationAlpha,
-                                                    headState.position,
+
+            if ( collection.TryGetPresentationPose( headIndex, presentationAlpha, headState.position,
                                                     presentedHeadOrientation ) )
             {
                 headState.rotation = BodyRotation( presentedHeadOrientation );
@@ -894,12 +909,10 @@ bool AttachedCameraController::BuildFollowPose( const SceneWorld& collection,
 
             const float radius = (std::max)( 0.5f, headState.radius );
             const Vector3 eye = headState.position +
-                                TargetToWorldVector( headState.rotation,
-                                                     Vector3( 0.0f, 0.20f * radius, 0.85f * radius ) );
+                                TargetToWorldVector( headState.rotation, Vector3( 0.0f, 0.20f * radius, 0.85f * radius ) );
 
-            const Vector3 forward = NormalizedOr(
-                TargetToWorldVector( headState.rotation, Vector3( 0.0f, 0.0f, 1.0f ) ),
-                Vector3( 0.0f, 0.0f, 1.0f ) );
+            const Vector3 forward = NormalizedOr( TargetToWorldVector( headState.rotation, Vector3( 0.0f, 0.0f, 1.0f ) ),
+                                                  Vector3( 0.0f, 0.0f, 1.0f ) );
 
             const Vector3 up = NormalizedOr( TargetToWorldVector( headState.rotation, Vector3( 0.0f, 1.0f, 0.0f ) ),
                                              Vector3( 0.0f, 1.0f, 0.0f ) );
@@ -931,18 +944,20 @@ bool AttachedCameraController::BuildFollowPose( const SceneWorld& collection,
     state.orbitDistance = ClampAttachedCameraOrbitDistance( target.radius, state.orbitDistance );
 
     const Vector3 targetPosition = target.position;
-    const Vector3 eye = targetPosition + AttachedCameraOrbitOffset( state.orbitYawRadians,
-                                                                    state.orbitPitchRadians,
-                                                                    state.orbitDistance );
+    const Vector3 eye = targetPosition +
+                        AttachedCameraOrbitOffset( state.orbitYawRadians, state.orbitPitchRadians, state.orbitDistance );
 
     Vector3 view = targetPosition;
     Vector3 up = Vector3( 0.0f, 1.0f, 0.0f );
+
     if ( state.submode == AttachedCameraSubmode::VelocityForward )
     {
         Vector3 direction = target.linearVelocity;
+
         if ( !TryNormalizeVector( direction ) )
         {
             direction = state.hasLastLookDirection ? state.lastLookDirection : currentPose.view - currentPose.eye;
+
             if ( !TryNormalizeVector( direction ) )
             {
                 direction = NormalizedOr( view - eye, Vector3( 0.0f, 0.0f, 1.0f ) );

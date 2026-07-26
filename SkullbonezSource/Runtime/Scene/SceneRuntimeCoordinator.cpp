@@ -31,19 +31,17 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-SceneLoadRequest
-SceneController::ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
+SceneLoadRequest SceneController::ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete,
+                                                     bool preserveRuntimeState )
 {
+
     if ( !HasCurrentEntry() )
     {
         return SceneLoadRequest::None();
     }
 
-    SceneLoadRequest request = SceneLoadRequest::Load( CurrentIndex(),
-                                                       preserveUIState,
-                                                       suppressExitOnComplete,
-                                                       preserveRuntimeState,
-                                                       true );
+    SceneLoadRequest request = SceneLoadRequest::Load( CurrentIndex(), preserveUIState, suppressExitOnComplete,
+                                                       preserveRuntimeState, true );
 
     request.markManualReset = true;
     return request;
@@ -52,18 +50,17 @@ SceneController::ResetCurrentScene( bool preserveUIState, bool suppressExitOnCom
 
 SceneLoadRequest SceneController::AdvanceScene( bool perfTestActive, bool preserveInteractiveUI )
 {
+
     if ( perfTestActive && m_perfPass == 0 )
     {
         m_perfPass = 1;
-        return SceneLoadRequest::Load( CurrentIndex(),
-                                       preserveInteractiveUI,
-                                       preserveInteractiveUI,
-                                       preserveInteractiveUI );
+        return SceneLoadRequest::Load( CurrentIndex(), preserveInteractiveUI, preserveInteractiveUI, preserveInteractiveUI );
     }
 
     m_perfPass = 0;
 
     const int nextIndex = NextIndex();
+
     if ( !HasEntry( nextIndex ) )
     {
         return SceneLoadRequest::None();
@@ -78,10 +75,10 @@ int SceneController::PerfPass() const
     return m_perfPass;
 }
 
-SceneRuntimeUICommandResult SubmitSceneUIRequests( SceneController& sceneController,
-                                                   const UI::UISceneCommands& commands )
+SceneRuntimeUICommandResult SubmitSceneUIRequests( SceneController& sceneController, const UI::UISceneCommands& commands )
 {
     SceneRuntimeUICommandResult result;
+
     if ( commands.resetScene )
     {
         sceneController.SubmitResetCurrentScene();
@@ -109,6 +106,7 @@ SceneRuntimeUICommandResult SubmitSceneUIRequests( SceneController& sceneControl
     if ( commands.createScene )
     {
         result.status = sceneController.SubmitCreateScene( commands.requestedSceneName );
+
         if ( !result.status.ok )
         {
             return result;

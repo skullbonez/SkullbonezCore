@@ -69,6 +69,7 @@ static_assert( UI::EditorTab::OBJECT_TYPE_COUNT == 37,
 
 int EditorMouseWheelSteps( int wheelDelta )
 {
+
     if ( wheelDelta == 0 )
     {
         return 0;
@@ -79,6 +80,7 @@ int EditorMouseWheelSteps( int wheelDelta )
 
 Assets::EditorHullAsset EditorHullAssetForType( int objectType )
 {
+
     switch ( ClampEditorObjectType( objectType ) )
     {
     case UI::EditorTab::OBJECT_HULL_WEDGE:
@@ -125,6 +127,7 @@ bool EditorPlacementUsesHullScaleFactors( int objectType )
 bool EditorPlacementUsesTreeScaleLock( int objectType )
 {
     const int type = ClampEditorObjectType( objectType );
+
     switch ( type )
     {
     case UI::EditorTab::OBJECT_TREE_SMALL:
@@ -156,6 +159,7 @@ bool EditorPlacementUsesTreeScaleLock( int objectType )
 Vector3 EditorDefaultPlacementScale( int objectType )
 {
     const int type = ClampEditorObjectType( objectType );
+
     switch ( type )
     {
     case UI::EditorTab::OBJECT_BOX:
@@ -175,9 +179,11 @@ Vector3 EditorDefaultPlacementScale( int objectType )
 Vector3 EditorClampPlacementScale( int objectType, const Vector3& scale )
 {
     const int type = ClampEditorObjectType( objectType );
+
     // Concept: Object families define the shape of the scale value. Trees and
     // buildings ignore user scale, balls use one radius, hulls use hull-local
     // factors, and boxes use world half extents.
+
     if ( EditorPlacementUsesTreeScaleLock( type ) )
     {
         return Vector3( 1.0f, 1.0f, 1.0f );
@@ -191,28 +197,23 @@ Vector3 EditorClampPlacementScale( int objectType, const Vector3& scale )
 
     if ( EditorPlacementUsesHullScaleFactors( type ) )
     {
-        return Vector3( std::clamp( scale.x, 0.05f, 20.0f ),
-                        std::clamp( scale.y, 0.05f, 20.0f ),
+        return Vector3( std::clamp( scale.x, 0.05f, 20.0f ), std::clamp( scale.y, 0.05f, 20.0f ),
                         std::clamp( scale.z, 0.05f, 20.0f ) );
     }
 
-    return Vector3( std::clamp( scale.x, 0.25f, 200.0f ),
-                    std::clamp( scale.y, 0.25f, 200.0f ),
+    return Vector3( std::clamp( scale.x, 0.25f, 200.0f ), std::clamp( scale.y, 0.25f, 200.0f ),
                     std::clamp( scale.z, 0.25f, 200.0f ) );
 }
 
-Vector3 EditorPlacementScaleFromGesture( int objectType,
-                                         const Vector3& startScale,
-                                         float dragPixelsX,
-                                         float dragPixelsY,
+Vector3 EditorPlacementScaleFromGesture( int objectType, const Vector3& startScale, float dragPixelsX, float dragPixelsY,
                                          int wheelSteps )
 {
     const int type = ClampEditorObjectType( objectType );
+
     if ( EditorPlacementUsesUniformScale( type ) )
     {
         const float dragUnits = ( dragPixelsX + dragPixelsY ) / ( EDITOR_PLACEMENT_SCALE_PIXELS_PER_UNIT * 2.0f );
-        const float radius = startScale.x + dragUnits +
-                             static_cast<float>( wheelSteps ) * EDITOR_PLACEMENT_SCALE_WHEEL_UNIT;
+        const float radius = startScale.x + dragUnits + static_cast<float>( wheelSteps ) * EDITOR_PLACEMENT_SCALE_WHEEL_UNIT;
 
         return EditorClampPlacementScale( type, Vector3( radius, radius, radius ) );
     }
@@ -236,6 +237,7 @@ Vector3 EditorPlacementScaleFromGesture( int objectType,
 
 void ResetEditorUnfocusedInputState( EditorGizmoContext context )
 {
+
     // Lifetime: Losing focus cancels gesture-owned state only. Persistent
     // editor choices such as object type and static/dynamic placement survive
     // so toggling focus does not rewrite the authoring mode.
@@ -266,9 +268,11 @@ void ClearEditorManipulationState( EditorGizmoContext context )
 EditorKeyboardShortcutResult HandleEditorKeyboardShortcut( RuntimeInputAction action, bool isDown, bool wasPressed )
 {
     EditorKeyboardShortcutResult result;
+
     switch ( action )
     {
     case RuntimeInputAction::ToggleEditorTool:
+
         // Concept: Alt is both a level input for replay velocity editing and a
         // press edge for editor placement-mode toggling.
         result.altDown = isDown;
@@ -280,11 +284,11 @@ EditorKeyboardShortcutResult HandleEditorKeyboardShortcut( RuntimeInputAction ac
 }
 
 
-EditorPlacementModeChangeResult
-SetEditorPlacementMode( EditorGizmoContext context, bool enabled, bool clearManipulation )
+EditorPlacementModeChangeResult SetEditorPlacementMode( EditorGizmoContext context, bool enabled, bool clearManipulation )
 {
     context.editor.placementModeEnabled = context.editor.editorModeEnabled && enabled;
     context.editor.viewportLookActive = false;
+
     if ( clearManipulation )
     {
         ClearEditorManipulationState( context );
@@ -335,6 +339,7 @@ void ExitEditorModeState( EditorGizmoContext context )
 
 bool SetEditorPlaceStaticObject( RunEditorPlacementState& editor, bool placeStaticObject )
 {
+
     if ( editor.placeStaticObject == placeStaticObject )
     {
         return false;
@@ -361,11 +366,12 @@ void ToggleEditorTerrainAlign( EditorGizmoContext context )
 }
 
 
-EditorObjectTypeRequestResult
-SelectEditorObjectType( EditorGizmoContext context, int requestedObjectType, bool enterPlacementMode )
+EditorObjectTypeRequestResult SelectEditorObjectType( EditorGizmoContext context, int requestedObjectType,
+                                                      bool enterPlacementMode )
 {
     EditorObjectTypeRequestResult result;
     const int objectType = ClampEditorObjectType( requestedObjectType );
+
     if ( objectType != context.editor.objectType )
     {
         context.editor.objectType = objectType;
@@ -388,6 +394,7 @@ EditorPlacementPreModeUICommandResult ApplyEditorPlacementPreModeUICommands( Edi
     EditorPlacementPreModeUICommandResult result;
     result.toggleEditorMode = commands.toggleEditorMode;
     result.togglePlacementMode = commands.togglePlacementMode;
+
     if ( commands.requestPlaceStatic && SetEditorPlaceStaticObject( context.editor, commands.requestedPlaceStatic ) )
     {
         result.setPlaceStatic = true;
@@ -412,6 +419,7 @@ EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( E
 {
     RunEditorPlacementState& editor = context.editor;
     EditorPlacementPostModeUICommandResult result;
+
     if ( commands.togglePlaceStatic )
     {
         ToggleEditorPlaceStaticObject( editor );
@@ -428,11 +436,10 @@ EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( E
 }
 
 
-void HandleEditorSceneSaveHotkey( SceneWorld& world,
-                                  const SceneSessionState& scene,
-                                  const GameObjects::PresentationSaveState& presentation,
-                                  bool wasPressed )
+void HandleEditorSceneSaveHotkey( SceneWorld& world, const SceneSessionState& scene,
+                                  const GameObjects::PresentationSaveState& presentation, bool wasPressed )
 {
+
     if ( !wasPressed )
     {
         return;
@@ -440,10 +447,8 @@ void HandleEditorSceneSaveHotkey( SceneWorld& world,
 
     static int sSnapshotSeq = 0;
     SkullbonezCore::Core::SbResult saveResult = SkullbonezCore::Core::SbResult::Success();
-    if ( TrySaveNextEditorSceneSnapshot( sSnapshotSeq,
-                                         world.GetSaveState(),
-                                         scene.GetSaveState(),
-                                         presentation,
+
+    if ( TrySaveNextEditorSceneSnapshot( sSnapshotSeq, world.GetSaveState(), scene.GetSaveState(), presentation,
                                          saveResult ) &&
          !saveResult.ok )
     {
@@ -454,6 +459,7 @@ void HandleEditorSceneSaveHotkey( SceneWorld& world,
 
 void HandleEditorScreenshotHotkey( CaptureController& capture, bool wasPressed )
 {
+
     if ( !wasPressed )
     {
         return;
@@ -461,15 +467,12 @@ void HandleEditorScreenshotHotkey( CaptureController& capture, bool wasPressed )
 
     static int sScreenshotSeq = 0;
     char path[256] = {};
-    if ( RuntimeFileWriter::NextNumberedPath( path,
-                                              sizeof( path ),
-                                              "Screenshots",
-                                              "screenshot_",
-                                              ".bmp",
-                                              sScreenshotSeq,
+
+    if ( RuntimeFileWriter::NextNumberedPath( path, sizeof( path ), "Screenshots", "screenshot_", ".bmp", sScreenshotSeq,
                                               100 ) )
     {
         const SkullbonezCore::Core::SbResult queueResult = capture.QueueScreenshot( path );
+
         if ( !queueResult.ok )
         {
             std::fprintf( stderr, "%s: %s\n", queueResult.error.owner, queueResult.error.message );

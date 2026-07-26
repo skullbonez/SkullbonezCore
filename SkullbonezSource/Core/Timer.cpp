@@ -36,10 +36,9 @@ namespace
 {
 SkullbonezCore::Core::SbResult NoPerformanceCounterSupport( const char* failedCall )
 {
-    return SkullbonezCore::Core::SbResult::Failure(
-        "Core/Timer",
-        "This system does not support high resolution counters (%s failed).",
-        failedCall && failedCall[0] != '\0' ? failedCall : "counter query" );
+    return SkullbonezCore::Core::SbResult::Failure( "Core/Timer",
+                                                    "This system does not support high resolution counters (%s failed).",
+                                                    failedCall && failedCall[0] != '\0' ? failedCall : "counter query" );
 }
 } // namespace
 
@@ -56,6 +55,7 @@ SkullbonezCore::Core::SbResult Timer::Initialise()
     // The platform SDK allows a successful frequency query to report zero. The
     // runtime treats that as the same startup environment failure as an API
     // failure because all later time conversion would be undefined.
+
     if ( !tmpPerformanceFreq.QuadPart )
     {
         return NoPerformanceCounterSupport( "QueryPerformanceFrequency zero frequency" );
@@ -66,6 +66,7 @@ SkullbonezCore::Core::SbResult Timer::Initialise()
     // Probe a current counter value before declaring the timer ready. After
     // startup succeeds, per-frame timer reads are an engine invariant.
     LARGE_INTEGER currTimeTemp;
+
     if ( !QueryPerformanceCounter( &currTimeTemp ) )
     {
         return NoPerformanceCounterSupport( "QueryPerformanceCounter" );
@@ -115,12 +116,14 @@ double Timer::GetTotalTime()
 
 double Timer::GetCurrentTimeInSeconds()
 {
+
     if ( !m_initialized || m_performanceFrequency <= 0.0 )
     {
         SB_FATAL( "Core/Timer", "Timer sampled before successful Initialise()." );
     }
 
     LARGE_INTEGER currTimeTmp;
+
     if ( !QueryPerformanceCounter( &currTimeTmp ) )
     {
         SB_FATAL( "Core/Timer", "QueryPerformanceCounter failed after timer startup succeeded." );
@@ -132,6 +135,7 @@ double Timer::GetCurrentTimeInSeconds()
 
 bool Timer::IncrementFrameCount()
 {
+
     if ( !m_frameCountCurrentSecond )
     {
         m_frameTimer = GetCurrentTimeInSeconds();

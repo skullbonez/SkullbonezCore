@@ -51,6 +51,7 @@ TornadoVisualPass::TornadoVisualPass()
 
 void TornadoVisualPass::ReserveCapacity()
 {
+
     // Runtime allocation policy: the live SceneWorld pays the complete visual
     // maximum before steady gameplay. Replay-only TornadoGameplay owners do
     // not carry this 32 MiB presentation buffer.
@@ -101,6 +102,7 @@ void TornadoGameplay::Clear()
 void TornadoGameplay::SetFieldConfig( const TornadoFieldConfig& config )
 {
     m_field.SetConfig( config );
+
     if ( !m_field.GetConfig().enabled )
     {
         m_captureSeconds.clear();
@@ -115,18 +117,19 @@ const TornadoFieldConfig& TornadoGameplay::GetFieldConfig() const
 
 void TornadoGameplay::SetSystemConfig( const TornadoSystemConfig& config )
 {
+
     if ( config.vortices.size() > MAX_ACTIVE_FORCE_FIELDS )
     {
+
         // Lane F: authored parsing must reject oversize content before owner
         // mutation. Reaching this typed command with too many rows means that
         // recoverable preflight was bypassed.
-        SB_FATAL( "Gameplay/TornadoGameplay",
-                  "External force field capacity exceeded. requested=%zu capacity=%zu",
-                  config.vortices.size(),
-                  MAX_ACTIVE_FORCE_FIELDS );
+        SB_FATAL( "Gameplay/TornadoGameplay", "External force field capacity exceeded. requested=%zu capacity=%zu",
+                  config.vortices.size(), MAX_ACTIVE_FORCE_FIELDS );
     }
 
     m_system.SetConfig( config );
+
     if ( !m_system.IsEnabled() && !m_field.GetConfig().enabled )
     {
         m_captureSeconds.clear();
@@ -151,6 +154,7 @@ bool TornadoGameplay::ToggleEnabled()
 
 void TornadoGameplay::ToggleFieldVectors()
 {
+
     if ( m_system.HasAuthoredVortices() )
     {
         m_system.ToggleVelocityFieldVisualization();
@@ -188,6 +192,7 @@ void TornadoGameplay::SetFieldLiftAcceleration( float value )
 
 void TornadoGameplay::SetFieldValue( float TornadoFieldConfig::* field, float value )
 {
+
     if ( m_system.HasAuthoredVortices() )
     {
         m_system.SetFieldValue( field, value );
@@ -199,25 +204,22 @@ void TornadoGameplay::SetFieldValue( float TornadoFieldConfig::* field, float va
 }
 
 void TornadoGameplay::SetReplayState( const std::vector<float>& captureSeconds,
-                                      const std::vector<float>& ejectCooldownSeconds,
-                                      const TornadoFieldConfig& fieldConfig,
-                                      const TornadoSystemConfig& systemConfig,
-                                      float systemElapsedSeconds )
+                                      const std::vector<float>& ejectCooldownSeconds, const TornadoFieldConfig& fieldConfig,
+                                      const TornadoSystemConfig& systemConfig, float systemElapsedSeconds )
 {
+
     if ( captureSeconds.size() > m_captureSeconds.capacity() ||
          ejectCooldownSeconds.size() > m_ejectCooldownSeconds.capacity() )
     {
-        SB_FATAL( "Gameplay/TornadoGameplay",
-                  "Replay timer storage exceeded. capture=%zu/%zu cooldown=%zu/%zu",
-                  captureSeconds.size(),
-                  m_captureSeconds.capacity(),
-                  ejectCooldownSeconds.size(),
+        SB_FATAL( "Gameplay/TornadoGameplay", "Replay timer storage exceeded. capture=%zu/%zu cooldown=%zu/%zu",
+                  captureSeconds.size(), m_captureSeconds.capacity(), ejectCooldownSeconds.size(),
                   m_ejectCooldownSeconds.capacity() );
     }
 
     m_field.SetConfig( fieldConfig );
     SetSystemConfig( systemConfig );
     m_system.SetElapsedSeconds( systemElapsedSeconds );
+
     // Invariant: SetSystemConfig clears live timers when every tornado source is
     // disabled. Replay restoration must apply its retained per-body timers after
     // that normalization so the recaptured solver snapshot remains byte-faithful.
@@ -246,10 +248,7 @@ void TornadoGameplay::CaptureReplayState( TornadoGameplayReplayState& outState )
 
 void TornadoGameplay::RestoreReplayState( const TornadoGameplayReplayState& state )
 {
-    SetReplayState( state.captureSeconds,
-                    state.ejectCooldownSeconds,
-                    state.field,
-                    state.system,
+    SetReplayState( state.captureSeconds, state.ejectCooldownSeconds, state.field, state.system,
                     state.systemElapsedSeconds );
 }
 
@@ -258,6 +257,7 @@ std::span<const float> TornadoGameplay::BuildDebugLineVertices()
     m_debugLineVertices.clear();
     m_debugVortices.clear();
     const TornadoSystemConfig& system = m_system.GetConfig();
+
     if ( system.enabled && !system.vortices.empty() )
     {
         TornadoSystem::BuildActiveVortices( system, m_system.GetElapsedSeconds(), m_debugVortices );
@@ -276,9 +276,11 @@ std::span<const float> TornadoGameplay::BuildDebugLineVertices()
     constexpr int RADIUS_STEPS = 4;
     constexpr int HEIGHT_STEPS = 5;
     constexpr float PI = 3.1415926535f;
+
     for ( const TornadoActiveVortex& vortex : m_debugVortices )
     {
         const TornadoFieldConfig& fieldConfig = vortex.field;
+
         if ( !fieldConfig.visualizeVelocityField )
         {
             continue;
@@ -289,8 +291,7 @@ std::span<const float> TornadoGameplay::BuildDebugLineVertices()
                                                        fieldConfig.swirlAcceleration * fieldConfig.swirlAcceleration +
                                                        fieldConfig.liftAcceleration * fieldConfig.liftAcceleration ) );
 
-        const auto emit = [&]( const Math::Vector::Vector3& a,
-                              const Math::Vector::Vector3& b, float r, float g, float blue )
+        const auto emit = [&]( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float blue )
         {
             m_debugLineVertices.insert( m_debugLineVertices.end(),
                                         { a.x, a.y, a.z, r, g, blue, b.x, b.y, b.z, r, g, blue } );
@@ -300,23 +301,24 @@ std::span<const float> TornadoGameplay::BuildDebugLineVertices()
         {
             const float height01 = 0.12f + static_cast<float>( h ) * ( 0.78f / static_cast<float>( HEIGHT_STEPS - 1 ) );
             const float y = fieldConfig.center.y + fieldConfig.height * height01;
+
             for ( int rIndex = 0; rIndex < RADIUS_STEPS; ++rIndex )
             {
-                const float radial01 = 0.22f + static_cast<float>( rIndex ) *
-                                                   ( 0.72f / static_cast<float>( RADIUS_STEPS - 1 ) );
+                const float radial01 = 0.22f +
+                                       static_cast<float>( rIndex ) * ( 0.72f / static_cast<float>( RADIUS_STEPS - 1 ) );
 
                 const float radius = fieldConfig.radius * radial01;
+
                 for ( int aIndex = 0; aIndex < ANGLE_STEPS; ++aIndex )
                 {
-                    const float angle = ( static_cast<float>( aIndex ) / static_cast<float>( ANGLE_STEPS ) ) * PI *
-                                        2.0f;
+                    const float angle = ( static_cast<float>( aIndex ) / static_cast<float>( ANGLE_STEPS ) ) * PI * 2.0f;
 
-                    Math::Vector::Vector3 start( fieldConfig.center.x + cosf( angle ) * radius,
-                                                 y,
+                    Math::Vector::Vector3 start( fieldConfig.center.x + cosf( angle ) * radius, y,
                                                  fieldConfig.center.z + sinf( angle ) * radius );
 
                     Math::Vector::Vector3 field = TornadoField::SampleAccelerationForConfig( fieldConfig, start );
                     const float speed = Math::Vector::VectorMag( field );
+
                     if ( speed <= TOLERANCE )
                     {
                         continue;
@@ -332,6 +334,7 @@ std::span<const float> TornadoGameplay::BuildDebugLineVertices()
 
                     Math::Vector::Vector3 side( -dir.z, 0.0f, dir.x );
                     const float sideMag = Math::Vector::VectorMag( side );
+
                     if ( sideMag > TOLERANCE )
                     {
                         side /= sideMag;
@@ -357,9 +360,11 @@ Physics::ExternalForceFrameInput TornadoGameplay::BuildForceFrame( float dt, int
     EnsureStateBuffers( bodyCount );
     m_forceFieldCount = 0u;
     const float stepSeconds = (std::max)( 0.0f, dt );
+
     if ( m_system.IsEnabled() )
     {
         m_system.Tick( stepSeconds );
+
         for ( const TornadoActiveVortex& vortex : m_system.ActiveVortices() )
         {
             AppendForceField( vortex.field );
@@ -370,21 +375,20 @@ Physics::ExternalForceFrameInput TornadoGameplay::BuildForceFrame( float dt, int
         AppendForceField( m_field.GetConfig() );
     }
 
-    return Physics::ExternalForceFrameInput {
-        std::span<const Physics::ExternalCylindricalForceField>( m_forceFields.data(), m_forceFieldCount ),
-        std::span<float>( m_captureSeconds.data(), m_captureSeconds.size() ),
-        std::span<float>( m_ejectCooldownSeconds.data(), m_ejectCooldownSeconds.size() ),
-        stepSeconds,
-        m_parallelForceEvaluation };
+    return Physics::ExternalForceFrameInput { std::span<const Physics::ExternalCylindricalForceField>( m_forceFields.data(),
+                                                                                                       m_forceFieldCount ),
+                                              std::span<float>( m_captureSeconds.data(), m_captureSeconds.size() ),
+                                              std::span<float>( m_ejectCooldownSeconds.data(),
+                                                                m_ejectCooldownSeconds.size() ),
+                                              stepSeconds, m_parallelForceEvaluation };
 }
 
 uint64_t TornadoGameplay::CollectMemoryBytes() const
 {
     return VectorCapacityBytes( m_captureSeconds ) + VectorCapacityBytes( m_ejectCooldownSeconds ) +
-           static_cast<uint64_t>( m_field.DynamicMemoryBytes() ) +
-           static_cast<uint64_t>( m_system.DynamicMemoryBytes() ) + m_visualPass.DynamicMemoryBytes() +
-           VectorCapacityBytes( m_debugLineVertices ) + VectorCapacityBytes( m_debugVortices ) +
-           sizeof( m_forceFields );
+           static_cast<uint64_t>( m_field.DynamicMemoryBytes() ) + static_cast<uint64_t>( m_system.DynamicMemoryBytes() ) +
+           m_visualPass.DynamicMemoryBytes() + VectorCapacityBytes( m_debugLineVertices ) +
+           VectorCapacityBytes( m_debugVortices ) + sizeof( m_forceFields );
 }
 
 uint64_t TornadoGameplay::CollectDebugMemoryBytes() const
@@ -394,17 +398,17 @@ uint64_t TornadoGameplay::CollectDebugMemoryBytes() const
 
 void TornadoGameplay::EnsureStateBuffers( int modelCount )
 {
+
     if ( modelCount < 0 || static_cast<std::size_t>( modelCount ) > m_captureSeconds.capacity() ||
          static_cast<std::size_t>( modelCount ) > m_ejectCooldownSeconds.capacity() )
     {
+
         // Lane F: SceneWorld must reserve the authored capacity before steady
         // gameplay. Growing either timer vector here would violate the global
         // runtime allocation policy.
         SB_FATAL( "Gameplay/TornadoGameplay",
-                  "Body timer capacity exceeded. requested=%d capture_capacity=%zu cooldown_capacity=%zu",
-                  modelCount,
-                  m_captureSeconds.capacity(),
-                  m_ejectCooldownSeconds.capacity() );
+                  "Body timer capacity exceeded. requested=%d capture_capacity=%zu cooldown_capacity=%zu", modelCount,
+                  m_captureSeconds.capacity(), m_ejectCooldownSeconds.capacity() );
     }
 
     if ( static_cast<int>( m_captureSeconds.size() ) != modelCount )
@@ -420,12 +424,11 @@ void TornadoGameplay::EnsureStateBuffers( int modelCount )
 
 void TornadoGameplay::AppendForceField( const TornadoFieldConfig& config )
 {
+
     if ( m_forceFieldCount >= m_forceFields.size() )
     {
-        SB_FATAL( "Gameplay/TornadoGameplay",
-                  "Active external force field capacity exceeded. requested=%zu capacity=%zu",
-                  m_forceFieldCount + 1u,
-                  m_forceFields.size() );
+        SB_FATAL( "Gameplay/TornadoGameplay", "Active external force field capacity exceeded. requested=%zu capacity=%zu",
+                  m_forceFieldCount + 1u, m_forceFields.size() );
     }
 
     Physics::ExternalCylindricalForceField& field = m_forceFields[m_forceFieldCount++];
@@ -445,6 +448,7 @@ void TornadoGameplay::AppendForceField( const TornadoFieldConfig& config )
 
 uint64_t TornadoVisualPass::DynamicMemoryBytes() const
 {
+
     // Why: the focused CPU test target links Gameplay ownership without the
     // DX12-backed visual implementation, but diagnostics still must account
     // for the visual owner's reserved CPU arena through that stable seam.

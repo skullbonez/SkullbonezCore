@@ -41,6 +41,7 @@ namespace
 {
 template <typename T> bool ParseUnsigned( const char* begin, const char* end, T& outValue ) noexcept
 {
+
     if ( !begin || !end || begin >= end )
     {
         return false;
@@ -52,6 +53,7 @@ template <typename T> bool ParseUnsigned( const char* begin, const char* end, T&
 
 void CopyPreferenceText( char* destination, std::size_t capacity, const char* begin, const char* end ) noexcept
 {
+
     if ( !destination || capacity == 0u )
     {
         return;
@@ -59,6 +61,7 @@ void CopyPreferenceText( char* destination, std::size_t capacity, const char* be
 
     const std::size_t sourceLength = begin && end && end >= begin ? static_cast<std::size_t>( end - begin ) : 0u;
     const std::size_t copyLength = (std::min)( sourceLength, capacity - 1u );
+
     if ( copyLength > 0u )
     {
         std::memcpy( destination, begin, copyLength );
@@ -69,15 +72,18 @@ void CopyPreferenceText( char* destination, std::size_t capacity, const char* be
 
 void CopySanitizedPreferenceText( char* destination, std::size_t capacity, const char* source ) noexcept
 {
+
     if ( !destination || capacity == 0u )
     {
         return;
     }
 
     std::size_t write = 0u;
+
     for ( std::size_t read = 0u; source && source[read] != '\0' && write + 1u < capacity; ++read )
     {
         const char value = source[read];
+
         if ( value != '\r' && value != '\n' )
         {
             destination[write++] = value;
@@ -113,18 +119,15 @@ ImGuiEditorLayoutEnvelope ResolveImGuiEditorLayoutEnvelope( int contentWidth, in
     return result;
 }
 
-ImGuiGameViewportRect ResolveImGuiGameViewportRect( float availableMinX,
-                                                    float availableMinY,
-                                                    float availableWidth,
-                                                    float availableHeight,
-                                                    int sourceWidth,
-                                                    int sourceHeight,
+ImGuiGameViewportRect ResolveImGuiGameViewportRect( float availableMinX, float availableMinY, float availableWidth,
+                                                    float availableHeight, int sourceWidth, int sourceHeight,
                                                     float dpiScale ) noexcept
 {
     ImGuiGameViewportRect result;
     result.dpiScale = std::isfinite( dpiScale ) && dpiScale > 0.0f ? dpiScale : 1.0f;
     result.sourceWidth = sourceWidth;
     result.sourceHeight = sourceHeight;
+
     if ( !std::isfinite( availableMinX ) || !std::isfinite( availableMinY ) || !std::isfinite( availableWidth ) ||
          !std::isfinite( availableHeight ) || availableWidth <= 0.0f || availableHeight <= 0.0f || sourceWidth <= 0 ||
          sourceHeight <= 0 )
@@ -134,6 +137,7 @@ ImGuiGameViewportRect ResolveImGuiGameViewportRect( float availableMinX,
 
     const float sourceAspect = static_cast<float>( sourceWidth ) / static_cast<float>( sourceHeight );
     const float availableAspect = availableWidth / availableHeight;
+
     if ( availableAspect > sourceAspect )
     {
         result.imageHeight = availableHeight;
@@ -154,14 +158,12 @@ ImGuiGameViewportRect ResolveImGuiGameViewportRect( float availableMinX,
     return result;
 }
 
-bool MapImGuiGameViewportPoint( const ImGuiGameViewportRect& viewport,
-                                float clientX,
-                                float clientY,
-                                int& outSourceX,
+bool MapImGuiGameViewportPoint( const ImGuiGameViewportRect& viewport, float clientX, float clientY, int& outSourceX,
                                 int& outSourceY ) noexcept
 {
     outSourceX = 0;
     outSourceY = 0;
+
     if ( !viewport.valid || !std::isfinite( clientX ) || !std::isfinite( clientY ) )
     {
         return false;
@@ -169,6 +171,7 @@ bool MapImGuiGameViewportPoint( const ImGuiGameViewportRect& viewport,
 
     const float maxX = viewport.imageMinX + viewport.imageWidth;
     const float maxY = viewport.imageMinY + viewport.imageHeight;
+
     if ( clientX < viewport.imageMinX || clientY < viewport.imageMinY || clientX >= maxX || clientY >= maxY )
     {
         return false;
@@ -185,6 +188,7 @@ bool MapImGuiGameViewportPoint( const ImGuiGameViewportRect& viewport,
 
 const char* ImGuiEditorPanelName( ImGuiEditorPanelId panel ) noexcept
 {
+
     switch ( panel )
     {
     case ImGuiEditorPanelId::SceneAndModes:
@@ -219,6 +223,7 @@ const char* ImGuiEditorPanelName( ImGuiEditorPanelId panel ) noexcept
 
 bool TryParseImGuiEditorPanel( const char* name, ImGuiEditorPanelId& outPanel ) noexcept
 {
+
     if ( !name )
     {
         return false;
@@ -228,6 +233,7 @@ bool TryParseImGuiEditorPanel( const char* name, ImGuiEditorPanelId& outPanel ) 
     {
         const ImGuiEditorPanelId candidate = static_cast<ImGuiEditorPanelId>( index );
         const char* candidateName = ImGuiEditorPanelName( candidate );
+
         if ( candidateName && _stricmp( candidateName, name ) == 0 )
         {
             outPanel = candidate;
@@ -242,6 +248,7 @@ ImGuiEditorPreferenceParseResult ParseImGuiEditorPreferences( const char* text, 
 {
     ImGuiEditorPreferenceParseResult result;
     result.preferences.topologyFingerprint = FingerprintImGuiEditorDefaultTopology();
+
     if ( !text || textBytes == 0u || textBytes >= IMGUI_EDITOR_PREFERENCES_TEXT_CAPACITY )
     {
         return result;
@@ -254,15 +261,18 @@ ImGuiEditorPreferenceParseResult ParseImGuiEditorPreferences( const char* text, 
     bool malformed = false;
     const char* cursor = text;
     const char* const textEnd = text + textBytes;
+
     while ( cursor < textEnd && !malformed )
     {
         const char* lineEnd = cursor;
+
         while ( lineEnd < textEnd && *lineEnd != '\n' && *lineEnd != '\r' )
         {
             ++lineEnd;
         }
 
         const char* separator = cursor;
+
         while ( separator < lineEnd && *separator != '=' )
         {
             ++separator;
@@ -272,6 +282,7 @@ ImGuiEditorPreferenceParseResult ParseImGuiEditorPreferences( const char* text, 
         {
             const char* value = separator + 1;
             const std::size_t keyLength = static_cast<std::size_t>( separator - cursor );
+
             if ( keyLength == 6u && std::memcmp( cursor, "schema", keyLength ) == 0 )
             {
                 uint32_t parsed = 0u;
@@ -298,23 +309,17 @@ ImGuiEditorPreferenceParseResult ParseImGuiEditorPreferences( const char* text, 
             }
             else if ( keyLength == 12u && std::memcmp( cursor, "scene_filter", keyLength ) == 0 )
             {
-                CopyPreferenceText( result.preferences.sceneFilter,
-                                    sizeof( result.preferences.sceneFilter ),
-                                    value,
+                CopyPreferenceText( result.preferences.sceneFilter, sizeof( result.preferences.sceneFilter ), value,
                                     lineEnd );
             }
             else if ( keyLength == 16u && std::memcmp( cursor, "hierarchy_filter", keyLength ) == 0 )
             {
-                CopyPreferenceText( result.preferences.hierarchyFilter,
-                                    sizeof( result.preferences.hierarchyFilter ),
-                                    value,
+                CopyPreferenceText( result.preferences.hierarchyFilter, sizeof( result.preferences.hierarchyFilter ), value,
                                     lineEnd );
             }
             else if ( keyLength == 12u && std::memcmp( cursor, "asset_filter", keyLength ) == 0 )
             {
-                CopyPreferenceText( result.preferences.assetFilter,
-                                    sizeof( result.preferences.assetFilter ),
-                                    value,
+                CopyPreferenceText( result.preferences.assetFilter, sizeof( result.preferences.assetFilter ), value,
                                     lineEnd );
             }
         }
@@ -330,6 +335,7 @@ ImGuiEditorPreferenceParseResult ParseImGuiEditorPreferences( const char* text, 
     const bool currentSchema = result.preferences.preferencesVersion == IMGUI_EDITOR_PREFERENCES_VERSION;
     const bool validPanelMask = ( result.preferences.panelVisibilityMask & ~IMGUI_EDITOR_ALL_PANEL_MASK ) == 0u;
     result.valid = !malformed && hasSchema && hasLayout && hasTopology && hasPanels && currentSchema && validPanelMask;
+
     if ( !result.valid )
     {
         result.preferences = {};
@@ -342,8 +348,10 @@ ImGuiEditorPreferenceParseResult ParseImGuiEditorPreferences( const char* text, 
                                  result.preferences.topologyFingerprint != FingerprintImGuiEditorDefaultTopology();
 
     result.recoveredDefaults = result.layoutResetRequired;
+
     if ( result.layoutResetRequired )
     {
+
         // Why: migration may keep harmless text filters, but stale panel IDs
         // and docking authority must never enter the current topology.
         result.preferences.layoutVersion = IMGUI_EDITOR_LAYOUT_VERSION;
@@ -354,10 +362,10 @@ ImGuiEditorPreferenceParseResult ParseImGuiEditorPreferences( const char* text, 
     return result;
 }
 
-std::size_t SerializeImGuiEditorPreferences( const ImGuiEditorPreferences& preferences,
-                                             char* output,
+std::size_t SerializeImGuiEditorPreferences( const ImGuiEditorPreferences& preferences, char* output,
                                              std::size_t outputCapacity ) noexcept
 {
+
     if ( !output || outputCapacity == 0u )
     {
         return 0u;
@@ -371,17 +379,13 @@ std::size_t SerializeImGuiEditorPreferences( const ImGuiEditorPreferences& prefe
     CopySanitizedPreferenceText( sceneFilter, sizeof( sceneFilter ), preferences.sceneFilter );
     CopySanitizedPreferenceText( hierarchyFilter, sizeof( hierarchyFilter ), preferences.hierarchyFilter );
     CopySanitizedPreferenceText( assetFilter, sizeof( assetFilter ), preferences.assetFilter );
-    const int written = snprintf( output,
-                                  outputCapacity,
+    const int written = snprintf( output, outputCapacity,
                                   "schema=%d\nlayout=%d\ntopology=%llu\npanels=%u\nscene_filter=%s\n"
                                   "hierarchy_filter=%s\nasset_filter=%s\n",
-                                  IMGUI_EDITOR_PREFERENCES_VERSION,
-                                  IMGUI_EDITOR_LAYOUT_VERSION,
+                                  IMGUI_EDITOR_PREFERENCES_VERSION, IMGUI_EDITOR_LAYOUT_VERSION,
                                   static_cast<unsigned long long>( FingerprintImGuiEditorDefaultTopology() ),
-                                  preferences.panelVisibilityMask & IMGUI_EDITOR_ALL_PANEL_MASK,
-                                  sceneFilter,
-                                  hierarchyFilter,
-                                  assetFilter );
+                                  preferences.panelVisibilityMask & IMGUI_EDITOR_ALL_PANEL_MASK, sceneFilter,
+                                  hierarchyFilter, assetFilter );
 
     if ( written < 0 || static_cast<std::size_t>( written ) >= outputCapacity )
     {
@@ -396,6 +400,7 @@ uint64_t FingerprintImGuiEditorDefaultTopology() noexcept
 {
     uint64_t hash = 1469598103934665603ull;
     const size_t length = std::strlen( IMGUI_EDITOR_TOPOLOGY_DESCRIPTOR );
+
     for ( size_t index = 0u; index < length; ++index )
     {
         hash ^= static_cast<uint8_t>( IMGUI_EDITOR_TOPOLOGY_DESCRIPTOR[index] );

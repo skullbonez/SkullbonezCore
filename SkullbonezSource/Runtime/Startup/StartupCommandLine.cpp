@@ -55,6 +55,7 @@ namespace
 char g_commandLineError[512] = {};
 struct ConfigCliValueDirective
 {
+
     // Why: startup config options mutate the loaded SkullbonezCore::Core::EngineConfig before any
     // subsystem borrows it, so these handlers must not reopen the global config
     // singleton.
@@ -70,6 +71,7 @@ struct GeneratedObjectOverrideDirective
 };
 struct CliFlagDirective
 {
+
     // Table-driven flag parsing keeps aliases beside the canonical spelling.
     // That matters because command-line options are user-facing compatibility
     // surface, not private implementation detail.
@@ -84,6 +86,7 @@ bool HasFlagDirective( const CommandLineView& commandLine, const CliFlagDirectiv
 }
 bool ValidatePhysicsRegressionLog( const CommandLineView& commandLine )
 {
+
     if ( !HasOption( commandLine, "--physics-regression-log" ) )
     {
         return true;
@@ -98,6 +101,7 @@ bool ValidatePhysicsRegressionLog( const CommandLineView& commandLine )
 }
 bool ValidatePhysicsCollisionTimeLog( const CommandLineView& commandLine )
 {
+
     if ( !HasOption( commandLine, "--physics-collision-time-log" ) )
     {
         return true;
@@ -112,6 +116,7 @@ bool ValidatePhysicsCollisionTimeLog( const CommandLineView& commandLine )
 }
 bool ValidatePhysicsDiagnostics( const CommandLineView& commandLine )
 {
+
     if ( !HasOption( commandLine, "--physics-diag" ) && !HasOption( commandLine, "--physics-diagnostics" ) )
     {
         return true;
@@ -126,6 +131,7 @@ bool ValidatePhysicsDiagnostics( const CommandLineView& commandLine )
 }
 bool ValidateReplayScrubProbe( const CommandLineView& commandLine )
 {
+
     if ( !HasOption( commandLine, "--replay-scrub-test" ) && !HasOption( commandLine, "--replay_scrub_test" ) &&
          !HasOption( commandLine, "--replay-scrub-probe" ) && !HasOption( commandLine, "--replay_scrub_probe" ) )
     {
@@ -140,6 +146,7 @@ bool ValidateReplayScrubProbe( const CommandLineView& commandLine )
 }
 bool ValidateReplayRestoreProbe( const CommandLineView& commandLine )
 {
+
     if ( !HasOption( commandLine, "--replay-restore-test" ) && !HasOption( commandLine, "--replay_restore_test" ) &&
          !HasOption( commandLine, "--replay-restore-probe" ) && !HasOption( commandLine, "--replay_restore_probe" ) )
     {
@@ -154,6 +161,7 @@ bool ValidateReplayRestoreProbe( const CommandLineView& commandLine )
 }
 bool ValidateReplaySaveProbe( const CommandLineView& commandLine )
 {
+
     if ( !HasOption( commandLine, "--replay-save-probe" ) && !HasOption( commandLine, "--replay_save_probe" ) )
     {
         return true;
@@ -167,6 +175,7 @@ bool ValidateReplaySaveProbe( const CommandLineView& commandLine )
 }
 bool ValidateReplayLoadProbe( const CommandLineView& commandLine )
 {
+
     if ( !HasOption( commandLine, "--replay-load-probe" ) && !HasOption( commandLine, "--replay_load_probe" ) )
     {
         return true;
@@ -180,6 +189,7 @@ bool ValidateReplayLoadProbe( const CommandLineView& commandLine )
 }
 bool ValidateReplayRestoreFileProbe( const CommandLineView& commandLine )
 {
+
     if ( !HasOption( commandLine, "--replay-restore-file-probe" ) &&
          !HasOption( commandLine, "--replay_restore_file_probe" ) )
     {
@@ -194,6 +204,7 @@ bool ValidateReplayRestoreFileProbe( const CommandLineView& commandLine )
 }
 bool ValidateReplayRestoreTargetFileProbe( const CommandLineView& commandLine )
 {
+
     if ( !HasOption( commandLine, "--replay-restore-target-file-probe" ) &&
          !HasOption( commandLine, "--replay_restore_target_file_probe" ) )
     {
@@ -208,6 +219,7 @@ bool ValidateReplayRestoreTargetFileProbe( const CommandLineView& commandLine )
 }
 bool ValidateReplayRestoreBranchFileProbe( const CommandLineView& commandLine )
 {
+
     if ( !HasOption( commandLine, "--replay-restore-branch-file-probe" ) &&
          !HasOption( commandLine, "--replay_restore_branch_file_probe" ) )
     {
@@ -222,6 +234,7 @@ bool ValidateReplayRestoreBranchFileProbe( const CommandLineView& commandLine )
 }
 bool ValidateReplayRestoreFailureFileProbe( const CommandLineView& commandLine )
 {
+
     if ( !HasOption( commandLine, "--replay-restore-failure-file-probe" ) &&
          !HasOption( commandLine, "--replay_restore_failure_file_probe" ) )
     {
@@ -231,6 +244,7 @@ bool ValidateReplayRestoreFailureFileProbe( const CommandLineView& commandLine )
 #ifndef _DEBUG
     return FailCommandLineParse( "--replay-restore-failure-file-probe is only supported in Debug builds." );
 #else
+
     if ( !HasOption( commandLine, "--physics-diag" ) && !HasOption( commandLine, "--physics-diagnostics" ) )
     {
         return FailCommandLineParse( "--replay-restore-failure-file-probe requires --physics-diag so SkullScope can query the failure row." );
@@ -243,6 +257,7 @@ bool ParsePhysicsRegressionLogOverride( const CommandLineView& commandLine, char
 {
     outPath[0] = '\0';
     const char* physLogArg = FindOptionValue( commandLine, "--physics-regression-log" );
+
     if ( !physLogArg )
     {
         return true;
@@ -260,6 +275,7 @@ bool ParsePhysicsCollisionTimeLogOverride( const CommandLineView& commandLine, c
 {
     outPath[0] = '\0';
     const char* collisionLogArg = FindOptionValue( commandLine, "--physics-collision-time-log" );
+
     if ( !collisionLogArg )
     {
         return true;
@@ -277,6 +293,7 @@ bool ParsePhysicsDiagnosticsPath( const CommandLineView& commandLine, char ( &ou
 {
     outPath[0] = '\0';
     const char* diagArg = FindOptionValue( commandLine, "--physics-diag" );
+
     if ( !diagArg )
     {
         diagArg = FindOptionValue( commandLine, "--physics-diagnostics" );
@@ -292,20 +309,13 @@ bool ParsePhysicsDiagnosticsPath( const CommandLineView& commandLine, char ( &ou
 void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out )
 {
     static const CliFlagDirective kFlags[] = {
-        { "--fixed-step",
-          nullptr,
-          []( ParsedArgs& args ) { args.fixedStep = true; },
+        { "--fixed-step", nullptr, []( ParsedArgs& args ) { args.fixedStep = true; },
           "[fixed-step] Forced via command line." },
-        { "--no-water",
-          nullptr,
-          []( ParsedArgs& args ) { args.noWater = true; },
+        { "--no-water", nullptr, []( ParsedArgs& args ) { args.noWater = true; },
           "[water] Fluid surface starts below terrain." },
-        { "--no-sleep",
-          nullptr,
-          []( ParsedArgs& args ) { args.noSleep = true; },
+        { "--no-sleep", nullptr, []( ParsedArgs& args ) { args.noSleep = true; },
           "[physics] Sleep disabled via command line." },
-        { "--scene-load-only",
-          "--load-scenes-only",
+        { "--scene-load-only", "--load-scenes-only",
           []( ParsedArgs& args )
           {
               args.sceneLoadOnly = true;
@@ -313,58 +323,45 @@ void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out
               args.suppressExitDialog = true;
           },
           "[scene-load-only] Load queued scenes without running frames." },
-        { "--demohero",
-          "--demo-hero",
+        { "--demohero", "--demo-hero",
           []( ParsedArgs& args )
           {
               args.demoHeroStyle = true;
               args.suppressExitDialog = true;
           },
           "[scene] Generated demo scene will use the low-poly hero rendering mode." },
-        { "--profiler",
-          "--show-profiler",
-          []( ParsedArgs& args ) { args.showProfiler = true; },
+        { "--profiler", "--show-profiler", []( ParsedArgs& args ) { args.showProfiler = true; },
           "[overlay] SkullbonezCore::Core::Profiler HUD enabled at startup." },
-        { "--platform-profiler-markers",
-          "--platform-profiler",
+        { "--platform-profiler-markers", "--platform-profiler",
           []( ParsedArgs& args )
           {
               args.platformProfilerMarkers = true;
               args.platformProfilerMarkersExplicit = true;
           },
           "[platform-profiler] Platform profiler marker emission requested." },
-        { "--pix-markers",
-          "--pix",
+        { "--pix-markers", "--pix",
           []( ParsedArgs& args )
           {
               args.platformProfilerMarkers = true;
               args.platformProfilerMarkersExplicit = true;
           },
           "[platform-profiler] PIX marker compatibility alias requested." },
-        { "--hide-top-text",
-          "--no-top-text",
-          []( ParsedArgs& args ) { args.hideTopText = true; },
+        { "--hide-top-text", "--no-top-text", []( ParsedArgs& args ) { args.hideTopText = true; },
           "[overlay] Top HUD text hidden." },
-        { "--automation-hidden-window",
-          nullptr,
+        { "--automation-hidden-window", nullptr,
           []( ParsedArgs& args )
           {
               args.automationWindowHidden = true;
               args.suppressExitDialog = true;
           },
           "[automation] Native window hidden; DX12 rendering and capture remain active." },
-        { "--broadphase-visualizer",
-          "--broadphase-overlay",
-          []( ParsedArgs& args ) { args.showBroadphaseVisualizer = true; },
-          "[overlay] Broadphase visualizer enabled at startup." },
-        { "--guide-arcs",
-          "--replay-guide-arcs",
-          []( ParsedArgs& args ) { args.replayGuideArcsAtStartup = true; },
+        { "--broadphase-visualizer", "--broadphase-overlay", []( ParsedArgs& args )
+          { args.showBroadphaseVisualizer = true; }, "[overlay] Broadphase visualizer enabled at startup." },
+        { "--guide-arcs", "--replay-guide-arcs", []( ParsedArgs& args ) { args.replayGuideArcsAtStartup = true; },
           "[replay] Analytic planet guide rings enabled at startup." },
         { "--dump-config", nullptr, []( ParsedArgs& args ) { args.dumpConfig = true; }, nullptr },
         { "--dump-assets", nullptr, []( ParsedArgs& args ) { args.dumpAssets = true; }, nullptr },
-        { "--replay-scrub-test",
-          "--replay_scrub_test",
+        { "--replay-scrub-test", "--replay_scrub_test",
           []( ParsedArgs& args )
           {
               args.replayScrubProbe = true;
@@ -376,8 +373,7 @@ void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out
               args.suppressExitDialog = true;
           },
           "[replay] Scrub SkullScope probe enabled." },
-        { "--replay-restore-test",
-          "--replay_restore_test",
+        { "--replay-restore-test", "--replay_restore_test",
           []( ParsedArgs& args )
           {
               args.replayRestoreProbe = true;
@@ -389,8 +385,7 @@ void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out
               args.suppressExitDialog = true;
           },
           "[replay] Restore hash SkullScope probe enabled." },
-        { "--worker-self-test",
-          "--workers-self-test",
+        { "--worker-self-test", "--workers-self-test",
           []( ParsedArgs& args )
           {
               args.workerSelfTest = true;
@@ -401,9 +396,11 @@ void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out
 
     for ( const CliFlagDirective& flag : kFlags )
     {
+
         if ( HasFlagDirective( commandLine, flag ) )
         {
             flag.apply( out );
+
             if ( flag.message )
             {
                 fprintf( stdout, "%s\n", flag.message );
@@ -419,6 +416,7 @@ bool FailCommandLineParse( const char* fmt, ... )
     vsprintf_s( g_commandLineError, sizeof( g_commandLineError ), fmt, args );
     va_end( args );
     fprintf( stdout, "ERROR: %s\n", g_commandLineError );
+
     // Invariant: validation harnesses retain stdout as their primary build log.
     // Publish the parser-owned diagnostic before WinMain can show a modal dialog
     // or terminate, otherwise the harness sees only a stalled process.
@@ -439,14 +437,17 @@ bool IsTokenWhitespace( char c )
 CommandLineView TokenizeCommandLine( const char* cmdLine )
 {
     CommandLineView result;
+
     if ( !cmdLine )
     {
         return result;
     }
 
     const char* cursor = cmdLine;
+
     while ( *cursor != '\0' )
     {
+
         while ( IsTokenWhitespace( *cursor ) )
         {
             ++cursor;
@@ -459,9 +460,11 @@ CommandLineView TokenizeCommandLine( const char* cmdLine )
 
         std::string token;
         bool inQuote = false;
+
         while ( *cursor != '\0' )
         {
             const char c = *cursor;
+
             if ( c == '"' )
             {
                 inQuote = !inQuote;
@@ -505,12 +508,14 @@ bool OptionTokenMatches( const std::string& token, const char* optionName )
 }
 bool OptionTokenHasAssignedValue( const std::string& token, const char* optionName, const char*& outValue )
 {
+
     if ( !optionName )
     {
         return false;
     }
 
     const size_t optionLen = strlen( optionName );
+
     if ( token.size() <= optionLen || token.compare( 0, optionLen, optionName ) != 0 || token[optionLen] != '=' )
     {
         return false;
@@ -522,10 +527,12 @@ bool OptionTokenHasAssignedValue( const std::string& token, const char* optionNa
 } // anonymous namespace
 const char* FindOptionValue( const CommandLineView& commandLine, const char* optionName )
 {
+
     for ( size_t i = 0; i < commandLine.tokens.size(); ++i )
     {
         const std::string& token = commandLine.tokens[i];
         const char* assignedValue = nullptr;
+
         if ( OptionTokenHasAssignedValue( token, optionName, assignedValue ) )
         {
             return assignedValue;
@@ -533,6 +540,7 @@ const char* FindOptionValue( const CommandLineView& commandLine, const char* opt
 
         if ( OptionTokenMatches( token, optionName ) )
         {
+
             if ( i + 1 < commandLine.tokens.size() && !IsOptionToken( commandLine.tokens[i + 1] ) )
             {
                 return commandLine.tokens[i + 1].c_str();
@@ -551,11 +559,12 @@ const char* FindOptionValue( const CommandLineView& commandLine, const char* das
 }
 bool HasOption( const CommandLineView& commandLine, const char* optionName )
 {
+
     for ( const std::string& token : commandLine.tokens )
     {
         const char* assignedValue = nullptr;
-        if ( OptionTokenMatches( token, optionName ) ||
-             OptionTokenHasAssignedValue( token, optionName, assignedValue ) )
+
+        if ( OptionTokenMatches( token, optionName ) || OptionTokenHasAssignedValue( token, optionName, assignedValue ) )
         {
             return true;
         }
@@ -567,12 +576,14 @@ namespace
 {
 char* TrimLineInPlace( char* text )
 {
+
     while ( IsTokenWhitespace( *text ) )
     {
         ++text;
     }
 
     size_t len = strlen( text );
+
     while ( len > 0 && ( IsTokenWhitespace( text[len - 1] ) || text[len - 1] == '\r' || text[len - 1] == '\n' ) )
     {
         text[--len] = '\0';
@@ -583,6 +594,7 @@ char* TrimLineInPlace( char* text )
 } // anonymous namespace
 bool ParseFloatToken( const char* value, float& out )
 {
+
     if ( IsOptionValueMissing( value ) )
     {
         return false;
@@ -591,6 +603,7 @@ bool ParseFloatToken( const char* value, float& out )
     errno = 0;
     char* end = nullptr;
     const double parsed = strtod( value, &end );
+
     if ( end == value || *end != '\0' || errno == ERANGE )
     {
         return false;
@@ -603,6 +616,7 @@ namespace
 {
 bool ParseIntToken( const char* value, int& out )
 {
+
     if ( IsOptionValueMissing( value ) )
     {
         return false;
@@ -611,6 +625,7 @@ bool ParseIntToken( const char* value, int& out )
     errno = 0;
     char* end = nullptr;
     const long parsed = strtol( value, &end, 10 );
+
     if ( end == value || *end != '\0' || errno == ERANGE || parsed < INT_MIN || parsed > INT_MAX )
     {
         return false;
@@ -621,6 +636,7 @@ bool ParseIntToken( const char* value, int& out )
 }
 bool ParseUnsignedIntToken( const char* value, unsigned int& out )
 {
+
     if ( IsOptionValueMissing( value ) )
     {
         return false;
@@ -629,6 +645,7 @@ bool ParseUnsignedIntToken( const char* value, unsigned int& out )
     errno = 0;
     char* end = nullptr;
     const unsigned long parsed = strtoul( value, &end, 10 );
+
     if ( end == value || *end != '\0' || errno == ERANGE || parsed > UINT_MAX )
     {
         return false;
@@ -639,6 +656,7 @@ bool ParseUnsignedIntToken( const char* value, unsigned int& out )
 }
 bool CopyOptionPath( const char* value, const char* optionName, char* outPath, size_t outPathSize )
 {
+
     if ( IsOptionValueMissing( value ) )
     {
         return FailCommandLineParse( "%s requires an output path.", optionName );
@@ -655,6 +673,7 @@ bool CopyOptionPath( const char* value, const char* optionName, char* outPath, s
 const char* FindValueDirective( const CommandLineView& commandLine, const ConfigCliValueDirective& directive )
 {
     const char* value = FindOptionValue( commandLine, directive.name );
+
     if ( value || !directive.alias )
     {
         return value;
@@ -663,14 +682,15 @@ const char* FindValueDirective( const CommandLineView& commandLine, const Config
     return FindOptionValue( commandLine, directive.alias );
 }
 template <size_t N>
-bool ApplyConfigCliValueDirectives( const CommandLineView& commandLine,
-                                    ParsedArgs& out,
+bool ApplyConfigCliValueDirectives( const CommandLineView& commandLine, ParsedArgs& out,
                                     SkullbonezCore::Core::EngineConfig& config,
                                     const ConfigCliValueDirective ( &directives )[N] )
 {
+
     for ( const ConfigCliValueDirective& directive : directives )
     {
         const char* value = FindValueDirective( commandLine, directive );
+
         if ( value && !directive.apply( value, out, config ) )
         {
             return false;
@@ -681,6 +701,7 @@ bool ApplyConfigCliValueDirectives( const CommandLineView& commandLine,
 }
 bool ParseOnOffValue( const char* value, bool& out )
 {
+
     if ( IsOptionValueMissing( value ) )
     {
         return false;
@@ -699,6 +720,7 @@ bool ParseOnOffValue( const char* value, bool& out )
     }
 
     int numeric = 0;
+
     if ( ParseIntToken( value, numeric ) )
     {
         out = numeric != 0;
@@ -709,6 +731,7 @@ bool ParseOnOffValue( const char* value, bool& out )
 }
 bool ParseEnvironmentBool( const char* value, bool& out )
 {
+
     if ( !value || *value == '\0' )
     {
         return false;
@@ -733,6 +756,7 @@ bool ParseEnvironmentBool( const char* value, bool& out )
 } // anonymous namespace
 bool ParseOptionalOnOffValue( const char* value, bool& out )
 {
+
     if ( IsOptionValueMissing( value ) )
     {
         out = true;
@@ -745,6 +769,7 @@ namespace
 {
 bool ParseAllocationGuardModeValue( const char* value, CoreAllocation::RuntimeAllocationGuardMode& out )
 {
+
     if ( IsOptionValueMissing( value ) || _stricmp( value, "measure" ) == 0 )
     {
         out = CoreAllocation::RuntimeAllocationGuardMode::Measure;
@@ -768,6 +793,7 @@ bool ParseAllocationGuardModeValue( const char* value, CoreAllocation::RuntimeAl
 bool ParseRendererArg( const CommandLineView& commandLine )
 {
     const char* rendererArg = FindOptionValue( commandLine, "--renderer" );
+
     if ( !rendererArg )
     {
         return true;
@@ -778,9 +804,9 @@ bool ParseRendererArg( const CommandLineView& commandLine )
         return FailCommandLineParse( "--renderer expects dx12. GL and DX11 are retired runtime choices." );
     }
 
-    for ( const SkullbonezCore::Runtime::RuntimeRendererOption& renderer :
-          SkullbonezCore::Runtime::kRuntimeRendererOptions )
+    for ( const SkullbonezCore::Runtime::RuntimeRendererOption& renderer : SkullbonezCore::Runtime::kRuntimeRendererOptions )
     {
+
         if ( _stricmp( rendererArg, renderer.name ) == 0 ||
              ( renderer.alias && _stricmp( rendererArg, renderer.alias ) == 0 ) )
         {
@@ -793,12 +819,14 @@ bool ParseRendererArg( const CommandLineView& commandLine )
 bool ApplyVsyncOverride( const CommandLineView& commandLine, SkullbonezCore::Core::EngineConfig& config )
 {
     const char* vsyncArg = FindOptionValue( commandLine, "--vsync" );
+
     if ( !vsyncArg )
     {
         return true;
     }
 
     bool enabled = false;
+
     if ( !ParseOnOffValue( vsyncArg, enabled ) )
     {
         return FailCommandLineParse( "--vsync expects on|off." );
@@ -812,6 +840,7 @@ bool ApplyCinematicShadowsOverride( const char* value, ParsedArgs& args, Skullbo
 {
     static_cast<void>( config );
     bool enabled = false;
+
     if ( !ParseOptionalOnOffValue( value, enabled ) )
     {
         return FailCommandLineParse( "--shadows expects optional on|off." );
@@ -822,13 +851,11 @@ bool ApplyCinematicShadowsOverride( const char* value, ParsedArgs& args, Skullbo
     fprintf( stdout, "[shadows] Shadow maps %s via command line.\n", enabled ? "enabled" : "disabled" );
     return true;
 }
-bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine,
-                                     ParsedArgs& out,
+bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedArgs& out,
                                      SkullbonezCore::Core::EngineConfig& config )
 {
     static const ConfigCliValueDirective kValues[] = {
-        { "--switch-interval",
-          nullptr,
+        { "--switch-interval", nullptr,
           []( const char* value, ParsedArgs& args, SkullbonezCore::Core::EngineConfig& config ) -> bool
           {
               static_cast<void>( value );
@@ -837,12 +864,12 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine,
               static_cast<void>( config );
               return FailCommandLineParse( "--switch-interval is retired because DX12 is the only runtime renderer." );
           } },
-        { "--time-scale",
-          nullptr,
+        { "--time-scale", nullptr,
           []( const char* value, ParsedArgs& args, SkullbonezCore::Core::EngineConfig& config ) -> bool
           {
               static_cast<void>( config );
               float timeScale = 0.0f;
+
               if ( !ParseFloatToken( value, timeScale ) || timeScale <= 0.0f )
               {
                   return FailCommandLineParse( "--time-scale expects a positive float." );
@@ -852,12 +879,12 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine,
               fprintf( stdout, "[time-scale] Override: %.4f\n", timeScale );
               return true;
           } },
-        { "--tornado",
-          nullptr,
+        { "--tornado", nullptr,
           []( const char* value, ParsedArgs& args, SkullbonezCore::Core::EngineConfig& config ) -> bool
           {
               static_cast<void>( config );
               bool enabled = false;
+
               if ( !ParseOptionalOnOffValue( value, enabled ) )
               {
                   return FailCommandLineParse( "--tornado expects optional on|off." );
@@ -868,30 +895,28 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine,
               fprintf( stdout, "[tornado] Force field %s via command line.\n", enabled ? "enabled" : "disabled" );
               return true;
           } },
-        { "--tornado-vectors",
-          "--tornado-vector-field",
+        { "--tornado-vectors", "--tornado-vector-field",
           []( const char* value, ParsedArgs& args, SkullbonezCore::Core::EngineConfig& config ) -> bool
           {
               static_cast<void>( config );
               bool enabled = false;
+
               if ( !ParseOptionalOnOffValue( value, enabled ) )
               {
                   return FailCommandLineParse( "--tornado-vectors expects optional on|off." );
               }
 
               args.tornadoVectors = enabled;
-              fprintf( stdout,
-                       "[tornado] Velocity-field vectors %s via command line.\n",
-                       enabled ? "enabled" : "disabled" );
+              fprintf( stdout, "[tornado] Velocity-field vectors %s via command line.\n", enabled ? "enabled" : "disabled" );
 
               return true;
           } },
-        { "--cinematic",
-          "--cinematic-rendering",
+        { "--cinematic", "--cinematic-rendering",
           []( const char* value, ParsedArgs& args, SkullbonezCore::Core::EngineConfig& config ) -> bool
           {
               static_cast<void>( config );
               bool enabled = false;
+
               if ( !ParseOptionalOnOffValue( value, enabled ) )
               {
                   return FailCommandLineParse( "--cinematic expects optional on|off." );
@@ -904,13 +929,13 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine,
           } },
         { "--shadows", "--shadow-maps", ApplyCinematicShadowsOverride },
         { "--cinematic-shadows", "--cinematic_shadows", ApplyCinematicShadowsOverride },
-        { "--workers",
-          "--worker-threads",
+        { "--workers", "--worker-threads",
           []( const char* value, ParsedArgs& args, SkullbonezCore::Core::EngineConfig& config ) -> bool
           {
               static_cast<void>( args );
               int workerThreads = 0;
               const int maxWorkerThreads = WorkerPool::MaxThreadCount();
+
               if ( !ParseIntToken( value, workerThreads ) || workerThreads < -1 || workerThreads > maxWorkerThreads )
               {
                   char message[128] = {};
@@ -920,20 +945,17 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine,
               }
 
               config.runtimeCapacity.workerThreads = workerThreads;
-              fprintf( stdout,
-                       "[workers] Override: %d (resolved %d, max %d)\n",
-                       config.runtimeCapacity.workerThreads,
-                       WorkerPool::ResolveThreadCount( config.runtimeCapacity.workerThreads ),
-                       maxWorkerThreads );
+              fprintf( stdout, "[workers] Override: %d (resolved %d, max %d)\n", config.runtimeCapacity.workerThreads,
+                       WorkerPool::ResolveThreadCount( config.runtimeCapacity.workerThreads ), maxWorkerThreads );
 
               return true;
           } },
-        { "--model-capacity",
-          nullptr,
+        { "--model-capacity", nullptr,
           []( const char* value, ParsedArgs& args, SkullbonezCore::Core::EngineConfig& config ) -> bool
           {
               static_cast<void>( args );
               int capacity = 0;
+
               if ( !ParseIntToken( value, capacity ) || capacity < 1 ||
                    capacity > SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS )
               {
@@ -942,19 +964,17 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine,
               }
 
               config.runtimeCapacity.sceneObjectCapacity = capacity;
-              fprintf( stdout,
-                       "[models] Active model capacity: %d (compiled max %d)\n",
-                       config.runtimeCapacity.sceneObjectCapacity,
-                       SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+              fprintf( stdout, "[models] Active model capacity: %d (compiled max %d)\n",
+                       config.runtimeCapacity.sceneObjectCapacity, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
 
               return true;
           } },
-        { "--physics-parallel",
-          "--parallel-physics",
+        { "--physics-parallel", "--parallel-physics",
           []( const char* value, ParsedArgs& args, SkullbonezCore::Core::EngineConfig& config ) -> bool
           {
               static_cast<void>( args );
               bool enabled = false;
+
               if ( !ParseOptionalOnOffValue( value, enabled ) )
               {
                   return FailCommandLineParse( "--physics-parallel expects optional on|off." );
@@ -966,36 +986,32 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine,
               config.physicsExecution.parallelNarrowphase = enabled;
               config.physicsExecution.parallelTerrainDetect = enabled;
               config.physicsExecution.parallelIntegrate = enabled;
-              fprintf( stdout,
-                       "[workers] Physics parallel jobs %s via command line.\n",
-                       enabled ? "enabled" : "disabled" );
+              fprintf( stdout, "[workers] Physics parallel jobs %s via command line.\n", enabled ? "enabled" : "disabled" );
 
               return true;
           } },
-        { "--shadow-parallel-prep",
-          "--parallel-shadow-prep",
+        { "--shadow-parallel-prep", "--parallel-shadow-prep",
           []( const char* value, ParsedArgs& args, SkullbonezCore::Core::EngineConfig& config ) -> bool
           {
               static_cast<void>( args );
               bool enabled = false;
+
               if ( !ParseOptionalOnOffValue( value, enabled ) )
               {
                   return FailCommandLineParse( "--shadow-parallel-prep expects optional on|off." );
               }
 
               config.runtimeRender.shadowParallelPrep = enabled;
-              fprintf( stdout,
-                       "[workers] Shadow parallel prep %s via command line.\n",
-                       enabled ? "enabled" : "disabled" );
+              fprintf( stdout, "[workers] Shadow parallel prep %s via command line.\n", enabled ? "enabled" : "disabled" );
 
               return true;
           } },
-        { "--interactive",
-          "--hold",
+        { "--interactive", "--hold",
           []( const char* value, ParsedArgs& args, SkullbonezCore::Core::EngineConfig& config ) -> bool
           {
               static_cast<void>( config );
               bool enabled = false;
+
               if ( !ParseOptionalOnOffValue( value, enabled ) )
               {
                   return FailCommandLineParse( "--interactive expects optional on|off." );
@@ -1003,6 +1019,7 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine,
 
               args.interactiveRun = enabled;
               args.suppressExitDialog = args.suppressExitDialog || enabled;
+
               if ( enabled )
               {
                   fprintf( stdout, "[scene] Interactive hold enabled; scene automation will not quit the app.\n" );
@@ -1022,8 +1039,10 @@ bool ApplyGeneratedObjectOverride( const CommandLineView& commandLine, ParsedArg
     };
 
     const GeneratedObjectOverrideDirective* selected = nullptr;
+
     for ( const GeneratedObjectOverrideDirective& directive : kOverrides )
     {
+
         if ( !HasOption( commandLine, directive.optionName ) )
         {
             continue;
@@ -1065,6 +1084,7 @@ bool ParseAllocationGuardCommandLineToken( const char* value,
 }
 bool ParseCommandLine( const CommandLineView& commandLine, SkullbonezCore::Core::EngineConfig& config, ParsedArgs& out )
 {
+
     if ( !ParseSceneArgs( commandLine, out.sceneList, out.isSuiteOrSceneMode ) )
     {
         return false;
@@ -1075,8 +1095,7 @@ bool ParseCommandLine( const CommandLineView& commandLine, SkullbonezCore::Core:
         return false;
     }
 
-    const SkullbonezCore::Core::SbResult configLoad = config.Load(
-        ( std::string( DATA_ROOT ) + "engine.cfg" ).c_str() );
+    const SkullbonezCore::Core::SbResult configLoad = config.Load( ( std::string( DATA_ROOT ) + "engine.cfg" ).c_str() );
 
     if ( !configLoad.ok )
     {
@@ -1144,6 +1163,7 @@ bool ParseCommandLine( const CommandLineView& commandLine, SkullbonezCore::Core:
     }
 
 #ifdef _DEBUG
+
     if ( !ParsePhysicsRegressionLogOverride( commandLine, out.physicsRegressionLogOverride ) )
     {
         return false;
@@ -1161,6 +1181,7 @@ bool ParseCommandLine( const CommandLineView& commandLine, SkullbonezCore::Core:
 
     out.physicsDiagnosticsRequested = out.physicsDiagnosticsPath[0] != '\0';
 #endif
+
     if ( !ApplyStartupCliValueDirectives( commandLine, out, config ) )
     {
         return false;
@@ -1170,16 +1191,16 @@ bool ParseCommandLine( const CommandLineView& commandLine, SkullbonezCore::Core:
     bool envPlatformProfilerMarkers = false;
     char* envPlatformProfilerValue = nullptr;
     size_t envPlatformProfilerValueLen = 0;
-    if ( _dupenv_s( &envPlatformProfilerValue, &envPlatformProfilerValueLen, "SKULLBONEZ_PLATFORM_PROFILER_MARKERS" ) ==
-             0 &&
+
+    if ( _dupenv_s( &envPlatformProfilerValue, &envPlatformProfilerValueLen, "SKULLBONEZ_PLATFORM_PROFILER_MARKERS" ) == 0 &&
          ParseEnvironmentBool( envPlatformProfilerValue, envPlatformProfilerMarkers ) )
     {
         out.platformProfilerMarkers = envPlatformProfilerMarkers;
         out.platformProfilerMarkersExplicit = true;
+
         if ( envPlatformProfilerMarkers )
         {
-            fprintf( stdout,
-                     "[platform-profiler] Marker emission requested via SKULLBONEZ_PLATFORM_PROFILER_MARKERS.\n" );
+            fprintf( stdout, "[platform-profiler] Marker emission requested via SKULLBONEZ_PLATFORM_PROFILER_MARKERS.\n" );
         }
     }
 
@@ -1187,23 +1208,26 @@ bool ParseCommandLine( const CommandLineView& commandLine, SkullbonezCore::Core:
     bool envPixMarkers = false;
     char* envPixValue = nullptr;
     size_t envPixValueLen = 0;
+
     if ( _dupenv_s( &envPixValue, &envPixValueLen, "SKULLBONEZ_PIX_MARKERS" ) == 0 &&
          ParseEnvironmentBool( envPixValue, envPixMarkers ) )
     {
         out.platformProfilerMarkers = envPixMarkers;
         out.platformProfilerMarkersExplicit = true;
+
         if ( envPixMarkers )
         {
-            fprintf( stdout,
-                     "[platform-profiler] Marker emission requested via SKULLBONEZ_PIX_MARKERS compatibility "
-                     "alias.\n" );
+            fprintf( stdout, "[platform-profiler] Marker emission requested via SKULLBONEZ_PIX_MARKERS compatibility "
+                             "alias.\n" );
         }
     }
 
     free( envPixValue );
 #ifdef _DEBUG
+
     if ( out.physicsDiagnosticsRequested )
     {
+
         if ( !out.fixedStep )
         {
             out.fixedStep = true;
@@ -1218,14 +1242,17 @@ bool ParseCommandLine( const CommandLineView& commandLine, SkullbonezCore::Core:
         fprintf( stdout, "[physics-diag] Output: %s\n", out.physicsDiagnosticsPath );
     }
 #endif
+
     if ( !ApplyRunCliValueDirectives( commandLine, out ) )
     {
         return false;
     }
 
 #ifdef _DEBUG
+
     if ( out.replayScrubProbe )
     {
+
         if ( !out.replayRecording )
         {
             return FailCommandLineParse( "--replay-scrub-probe requires replay capture; remove --replay off." );
@@ -1242,6 +1269,7 @@ bool ParseCommandLine( const CommandLineView& commandLine, SkullbonezCore::Core:
         return FailCommandLineParse( "--replay-save-probe requires replay capture; remove --replay off." );
     }
 #endif
+
     if ( out.uiStress )
     {
         fprintf( stdout, "[ui-stress] Enabled seed=%u actions=%d.\n", out.uiStressSeed, out.uiStressActions );
@@ -1251,9 +1279,7 @@ bool ParseCommandLine( const CommandLineView& commandLine, SkullbonezCore::Core:
     {
         fprintf( stdout,
                  "[graphics-stress] Enabled seed=%u actions=%d scene_interval_frames=%d memory_interval_frames=%d.\n",
-                 out.graphicsStressSeed,
-                 out.graphicsStressActions,
-                 out.graphicsStressSceneIntervalFrames,
+                 out.graphicsStressSeed, out.graphicsStressActions, out.graphicsStressSceneIntervalFrames,
                  out.graphicsStressMemoryIntervalFrames );
     }
 
@@ -1278,11 +1304,10 @@ bool ParseCommandLine( const CommandLineView& commandLine, SkullbonezCore::Core:
 
     if ( out.platformProfilerMarkers )
     {
-        fprintf( stdout,
-                 SkullbonezCore::Core::PlatformProfiler::IsAvailable()
-                     ? "[platform-profiler] Platform profiler marker emission enabled.\n"
-                     : "[platform-profiler] Platform profiler marker emission unavailable in this build; continuing "
-                       "with in-engine profiler markers only.\n" );
+        fprintf( stdout, SkullbonezCore::Core::PlatformProfiler::IsAvailable()
+                             ? "[platform-profiler] Platform profiler marker emission enabled.\n"
+                             : "[platform-profiler] Platform profiler marker emission unavailable in this build; continuing "
+                               "with in-engine profiler markers only.\n" );
     }
 
     return true;

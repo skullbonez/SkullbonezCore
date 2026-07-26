@@ -31,6 +31,7 @@ Related:
   - Agentic/Reference/skullbonez-core-class-structure.md
   - Agentic/Reference/comment-style-guide.md
 */
+
 // --- DXR Ray Tracing: Bottom-Level Acceleration Structure (BLAS) ---
 //
 //  A BLAS holds the actual triangle geometry for a single mesh. Think of it as a spatial
@@ -67,14 +68,11 @@ BLAS::~BLAS()
 }
 
 
-SkullbonezCore::Core::SbResult BLAS::Build( ID3D12Device5* device,
-                                            ID3D12GraphicsCommandList4* cmdList,
-                                            D3D12_GPU_VIRTUAL_ADDRESS vbVA,
-                                            int vertexCount,
-                                            int vertexStride,
-                                            DXGI_FORMAT vertexPosFormat,
-                                            bool preferFastTrace )
+SkullbonezCore::Core::SbResult BLAS::Build( ID3D12Device5* device, ID3D12GraphicsCommandList4* cmdList,
+                                            D3D12_GPU_VIRTUAL_ADDRESS vbVA, int vertexCount, int vertexStride,
+                                            DXGI_FORMAT vertexPosFormat, bool preferFastTrace )
 {
+
     // Geometry description tells DXR where the triangle vertices live. This
     // engine path uses non-indexed triangles, so each consecutive group of
     // three position vertices is one triangle.
@@ -111,9 +109,8 @@ SkullbonezCore::Core::SbResult BLAS::Build( ID3D12Device5* device,
 
     if ( prebuild.ResultDataMaxSizeInBytes == 0 )
     {
-        return SkullbonezCore::Core::SbResult::Failure(
-            "Rendering/DX12",
-            "BLAS: GetRaytracingAccelerationStructurePrebuildInfo returned zero" );
+        return SkullbonezCore::Core::SbResult::
+            Failure( "Rendering/DX12", "BLAS: GetRaytracingAccelerationStructurePrebuildInfo returned zero" );
     }
 
     // Scratch and result live in the default heap because the GPU builds and
@@ -136,19 +133,15 @@ SkullbonezCore::Core::SbResult BLAS::Build( ID3D12Device5* device,
     // freed afterwards. It must allow unordered access because the GPU reads
     // and writes to it during construction.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    if ( FAILED( device->CreateCommittedResource( &heapProps,
-                                                  D3D12_HEAP_FLAG_NONE,
-                                                  &bufDesc,
-                                                  D3D12_RESOURCE_STATE_COMMON,
-                                                  nullptr,
-                                                  IID_PPV_ARGS( &m_scratch ) ) ) )
+
+    if ( FAILED( device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_COMMON,
+                                                  nullptr, IID_PPV_ARGS( &m_scratch ) ) ) )
     {
         return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12", "BLAS: Failed to create scratch buffer" );
     }
 
-    NameDx12Object( m_scratch,
-                    preferFastTrace ? L"Skullbonez DX12 Terrain BLAS Scratch Buffer"
-                                    : L"Skullbonez DX12 Mesh BLAS Scratch Buffer" );
+    NameDx12Object( m_scratch, preferFastTrace ? L"Skullbonez DX12 Terrain BLAS Scratch Buffer"
+                                               : L"Skullbonez DX12 Mesh BLAS Scratch Buffer" );
 
     // The result buffer is the BLAS itself. Unlike scratch memory, it must stay
     // alive for as long as rays can hit this mesh.
@@ -160,20 +153,17 @@ SkullbonezCore::Core::SbResult BLAS::Build( ID3D12Device5* device,
     // RAYTRACING_ACCELERATION_STRUCTURE because DXR TraceRay hardware reads it
     // directly.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    if ( FAILED( device->CreateCommittedResource( &heapProps,
-                                                  D3D12_HEAP_FLAG_NONE,
-                                                  &bufDesc,
-                                                  D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE,
-                                                  nullptr,
+
+    if ( FAILED( device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &bufDesc,
+                                                  D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, nullptr,
                                                   IID_PPV_ARGS( &m_result ) ) ) )
     {
         ReleaseAfterBuild();
         return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12", "BLAS: Failed to create result buffer" );
     }
 
-    NameDx12Object(
-        m_result,
-        preferFastTrace ? L"Skullbonez DX12 Terrain BLAS Result Buffer" : L"Skullbonez DX12 Mesh BLAS Result Buffer" );
+    NameDx12Object( m_result, preferFastTrace ? L"Skullbonez DX12 Terrain BLAS Result Buffer"
+                                              : L"Skullbonez DX12 Mesh BLAS Result Buffer" );
 
     // Build command: connect the immutable build inputs with the temporary
     // scratch buffer and the persistent result buffer.
@@ -211,6 +201,7 @@ D3D12_GPU_VIRTUAL_ADDRESS BLAS::GetResultVA() const
 
 void BLAS::ReleaseAfterBuild()
 {
+
     if ( m_scratch )
     {
         m_scratch->Release();
@@ -221,6 +212,7 @@ void BLAS::ReleaseAfterBuild()
 
 void BLAS::Reset()
 {
+
     if ( m_scratch )
     {
         m_scratch->Release();

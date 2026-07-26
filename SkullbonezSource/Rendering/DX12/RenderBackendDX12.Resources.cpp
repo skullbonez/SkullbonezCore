@@ -60,9 +60,7 @@ static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIn
     fprintf( stdout, "FATAL: DX12 %s heap exhausted (next=%u capacity=%u)\n", name, nextIndex, capacity );
     fflush( stderr );
     fflush( stdout );
-    SkullbonezCore::Core::Log().WriteEventf( "dx12_descriptor_heap_exhausted heap=%s next=%u capacity=%u",
-                                             name,
-                                             nextIndex,
+    SkullbonezCore::Core::Log().WriteEventf( "dx12_descriptor_heap_exhausted heap=%s next=%u capacity=%u", name, nextIndex,
                                              capacity );
 
     SkullbonezCore::Core::Log().FlushAll();
@@ -74,18 +72,17 @@ static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIn
 std::unique_ptr<ShaderDX12> Dx12ResourceBuilder::CreateShader( const char* baseName, const char* contractBaseName )
 {
     std::string hlslPath = std::string( DATA_ROOT ) + baseName + ".hlsl";
+
     if ( !m_device.Device() )
     {
         return nullptr;
     }
 
-    auto shader = std::make_unique<ShaderDX12>( m_device,
-                                                m_pipeline,
-                                                m_shaderDevelopment,
-                                                m_frame.UploadReservations() );
+    auto shader = std::make_unique<ShaderDX12>( m_device, m_pipeline, m_shaderDevelopment, m_frame.UploadReservations() );
 
     if ( !shader->Compile( hlslPath.c_str(), contractBaseName ) )
     {
+
         // Lane R: shader files and compiler output are external inputs. Return
         // a null shader so setup/render owners can skip the dependent draw while
         // the DX12 validation log names the missing program.
@@ -98,9 +95,10 @@ std::unique_ptr<ShaderDX12> Dx12ResourceBuilder::CreateShader( const char* baseN
 }
 
 
-std::unique_ptr<MeshDX12>
-Dx12ResourceBuilder::CreateMesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords )
+std::unique_ptr<MeshDX12> Dx12ResourceBuilder::CreateMesh( const float* data, int vertexCount, bool hasNormals,
+                                                           bool hasTexCoords )
 {
+
     if ( !m_device.Device() )
     {
         return nullptr;
@@ -108,6 +106,7 @@ Dx12ResourceBuilder::CreateMesh( const float* data, int vertexCount, bool hasNor
 
     VertexFormat12 format;
     int floatsPerVert;
+
     if ( hasNormals && hasTexCoords )
     {
         format = VertexFormat12::Pos3_Norm3_Tex2;
@@ -130,10 +129,8 @@ Dx12ResourceBuilder::CreateMesh( const float* data, int vertexCount, bool hasNor
     }
 
     UINT64 dataSize = (UINT64)vertexCount * floatsPerVert * sizeof( float );
-    D3D12_GPU_VIRTUAL_ADDRESS uploadAddr = m_frame.UploadReservations().ReserveUpload(
-        dataSize,
-        4,
-        RenderUploadCategory::DynamicVertex );
+    D3D12_GPU_VIRTUAL_ADDRESS uploadAddr = m_frame.UploadReservations().ReserveUpload( dataSize, 4,
+                                                                                       RenderUploadCategory::DynamicVertex );
 
     if ( uploadAddr == 0 )
     {
@@ -143,15 +140,9 @@ Dx12ResourceBuilder::CreateMesh( const float* data, int vertexCount, bool hasNor
     uint8_t* uploadPtr = m_frame.UploadReservations().UploadPointer( uploadAddr );
 
     auto mesh = std::make_unique<MeshDX12>( m_device, m_frame.DrawGate(), m_diagnostics );
-    if ( !mesh->Create( m_device.Device(),
-                        m_device.CommandList(),
-                        data,
-                        vertexCount,
-                        floatsPerVert,
-                        format,
-                        uploadAddr,
-                        uploadPtr,
-                        m_frame.Uploads().Resource( m_frame.AllocatorIndex() ) ) )
+
+    if ( !mesh->Create( m_device.Device(), m_device.CommandList(), data, vertexCount, floatsPerVert, format, uploadAddr,
+                        uploadPtr, m_frame.Uploads().Resource( m_frame.AllocatorIndex() ) ) )
     {
         return nullptr;
     }
@@ -160,21 +151,17 @@ Dx12ResourceBuilder::CreateMesh( const float* data, int vertexCount, bool hasNor
 }
 
 
-std::unique_ptr<FramebufferDX12>
-Dx12ResourceBuilder::CreateFramebuffer( int width, int height, FramebufferColorFormat colorFormat )
+std::unique_ptr<FramebufferDX12> Dx12ResourceBuilder::CreateFramebuffer( int width, int height,
+                                                                         FramebufferColorFormat colorFormat )
 {
+
     if ( !m_device.Device() )
     {
         return nullptr;
     }
 
-    auto fbo = std::make_unique<FramebufferDX12>( m_device,
-                                                  m_pipeline,
-                                                  m_textures,
-                                                  m_descriptors,
-                                                  m_frame.DrawGate(),
-                                                  m_frame.ResourceRelease(),
-                                                  colorFormat );
+    auto fbo = std::make_unique<FramebufferDX12>( m_device, m_pipeline, m_textures, m_descriptors, m_frame.DrawGate(),
+                                                  m_frame.ResourceRelease(), colorFormat );
 
     if ( !fbo->Create( width, height ) )
     {

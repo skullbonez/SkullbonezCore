@@ -64,6 +64,7 @@ Related:
 namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 #if defined( LZ4_USER_MEMORY_FUNCTIONS )
+
 // Why: Tracy compiles its private LZ4 implementation into TracyClient.cpp. The
 // vendor's opt-in hooks keep that compression stream inside the same named,
 // capped owner as its rpmalloc maps without modifying the pinned vendor source.
@@ -74,6 +75,7 @@ void* LZ4_malloc( std::size_t size )
 
 void* LZ4_calloc( std::size_t count, std::size_t size )
 {
+
     if ( count != 0u && size > std::numeric_limits<std::size_t>::max() / count )
     {
         return nullptr;
@@ -81,6 +83,7 @@ void* LZ4_calloc( std::size_t count, std::size_t size )
 
     const std::size_t byteCount = count * size;
     void* memory = LZ4_malloc( byteCount );
+
     if ( memory )
     {
         std::memset( memory, 0, byteCount );
@@ -128,9 +131,7 @@ std::mutex g_ownerSourceLocationMutex;
 RequestedCaptureMode ReadRequestedCaptureMode() noexcept
 {
     char value[16] = {};
-    const DWORD copied = GetEnvironmentVariableA( CAPTURE_MODE_ENVIRONMENT,
-                                                  value,
-                                                  static_cast<DWORD>( sizeof( value ) ) );
+    const DWORD copied = GetEnvironmentVariableA( CAPTURE_MODE_ENVIRONMENT, value, static_cast<DWORD>( sizeof( value ) ) );
 
     if ( copied == 0u || copied >= sizeof( value ) )
     {
@@ -157,6 +158,7 @@ bool IsInitialized() noexcept
 
 void* MapTracyBackingMemory( std::size_t size, std::size_t* offset )
 {
+
     if ( offset )
     {
         *offset = 0u;
@@ -166,36 +168,30 @@ void* MapTracyBackingMemory( std::size_t size, std::size_t* offset )
                                                                   size ) )
     {
         CoreAllocation::DevelopmentToolAllocationStats stats;
-        CoreAllocation::CopyDevelopmentToolAllocationStats( CoreAllocation::DevelopmentToolAllocationOwner::Tracy,
-                                                            stats );
+        CoreAllocation::CopyDevelopmentToolAllocationStats( CoreAllocation::DevelopmentToolAllocationOwner::Tracy, stats );
 
         // Lane F: continuing would either exceed the owner-approved cap or
         // tempt the vendor allocator to fall back outside engine accounting.
         SB_FATAL( "DevelopmentTools/Tracy",
                   "rpmalloc backing cap exhausted: request=%llu active=%llu high_water=%llu cap=%d",
-                  static_cast<unsigned long long>( size ),
-                  static_cast<unsigned long long>( stats.activeBytes ),
-                  static_cast<unsigned long long>( stats.highWaterBytes ),
-                  stats.hardCapBytes );
+                  static_cast<unsigned long long>( size ), static_cast<unsigned long long>( stats.activeBytes ),
+                  static_cast<unsigned long long>( stats.highWaterBytes ), stats.hardCapBytes );
     }
 
     void* address = VirtualAlloc( nullptr, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE );
+
     if ( !address )
     {
-        CoreAllocation::ReleaseDevelopmentToolBackingMemory( CoreAllocation::DevelopmentToolAllocationOwner::Tracy,
-                                                             size );
+        CoreAllocation::ReleaseDevelopmentToolBackingMemory( CoreAllocation::DevelopmentToolAllocationOwner::Tracy, size );
 
-        SB_FATAL( "DevelopmentTools/Tracy",
-                  "VirtualAlloc failed for rpmalloc backing: request=%llu error=%lu",
-                  static_cast<unsigned long long>( size ),
-                  static_cast<unsigned long>( GetLastError() ) );
+        SB_FATAL( "DevelopmentTools/Tracy", "VirtualAlloc failed for rpmalloc backing: request=%llu error=%lu",
+                  static_cast<unsigned long long>( size ), static_cast<unsigned long>( GetLastError() ) );
     }
 
     if ( ( reinterpret_cast<std::uintptr_t>( address ) & ( TRACY_BACKING_ALIGNMENT - 1u ) ) != 0u )
     {
         VirtualFree( address, 0u, MEM_RELEASE );
-        CoreAllocation::ReleaseDevelopmentToolBackingMemory( CoreAllocation::DevelopmentToolAllocationOwner::Tracy,
-                                                             size );
+        CoreAllocation::ReleaseDevelopmentToolBackingMemory( CoreAllocation::DevelopmentToolAllocationOwner::Tracy, size );
 
         SB_FATAL( "DevelopmentTools/Tracy", "VirtualAlloc returned a non-64-KiB-aligned rpmalloc range." );
     }
@@ -205,9 +201,11 @@ void* MapTracyBackingMemory( std::size_t size, std::size_t* offset )
 
 void UnmapTracyBackingMemory( void* address, std::size_t size, std::size_t offset, std::size_t release )
 {
+
     // Why: rpmalloc uses release==0 as an optional decommit hint. Retaining the
     // committed pages keeps reuse valid and conservatively charges the complete
     // live backing range until its one matching full release.
+
     if ( release == 0u )
     {
         return;
@@ -216,23 +214,18 @@ void UnmapTracyBackingMemory( void* address, std::size_t size, std::size_t offse
     if ( !address || offset != 0u || release < size )
     {
         SB_FATAL( "DevelopmentTools/Tracy",
-                  "Invalid rpmalloc backing release: address=%p size=%llu offset=%llu release=%llu",
-                  address,
-                  static_cast<unsigned long long>( size ),
-                  static_cast<unsigned long long>( offset ),
+                  "Invalid rpmalloc backing release: address=%p size=%llu offset=%llu release=%llu", address,
+                  static_cast<unsigned long long>( size ), static_cast<unsigned long long>( offset ),
                   static_cast<unsigned long long>( release ) );
     }
 
     if ( !VirtualFree( address, 0u, MEM_RELEASE ) )
     {
-        SB_FATAL( "DevelopmentTools/Tracy",
-                  "VirtualFree failed for rpmalloc backing: release=%llu error=%lu",
-                  static_cast<unsigned long long>( release ),
-                  static_cast<unsigned long>( GetLastError() ) );
+        SB_FATAL( "DevelopmentTools/Tracy", "VirtualFree failed for rpmalloc backing: release=%llu error=%lu",
+                  static_cast<unsigned long long>( release ), static_cast<unsigned long>( GetLastError() ) );
     }
 
-    CoreAllocation::ReleaseDevelopmentToolBackingMemory( CoreAllocation::DevelopmentToolAllocationOwner::Tracy,
-                                                         release );
+    CoreAllocation::ReleaseDevelopmentToolBackingMemory( CoreAllocation::DevelopmentToolAllocationOwner::Tracy, release );
 }
 
 void ConfigureTracyBackingAllocator()
@@ -241,15 +234,18 @@ void ConfigureTracyBackingAllocator()
     config.memory_map = MapTracyBackingMemory;
     config.memory_unmap = UnmapTracyBackingMemory;
     config.span_size = TRACY_BACKING_ALIGNMENT;
+
     if ( tracy::rpmalloc_initialize_config( &config ) != 0 )
     {
         SB_FATAL( "DevelopmentTools/Tracy", "Failed to initialize the engine-accounted rpmalloc configuration." );
     }
 
     const tracy::rpmalloc_config_t* activeConfig = tracy::rpmalloc_config();
+
     if ( !activeConfig || activeConfig->memory_map != MapTracyBackingMemory ||
          activeConfig->memory_unmap != UnmapTracyBackingMemory )
     {
+
         // Hazard: this means Tracy touched rpmalloc before the engine owner and
         // installed its direct OS mapper, recreating the untracked allocation path.
         SB_FATAL( "DevelopmentTools/Tracy", "rpmalloc initialized before the engine backing-map owner." );
@@ -266,19 +262,21 @@ TracyClientOwner::~TracyClientOwner()
 
 void TracyClientOwner::Start()
 {
+
     if ( m_started )
     {
         return;
     }
 
     const RequestedCaptureMode captureMode = ReadRequestedCaptureMode();
+
     if ( captureMode == RequestedCaptureMode::Off )
     {
+
         // Why: Tracy's vendor client owns sizeable transport queues even while
         // no viewer is attached. Requiring an explicit capture mode keeps the
         // named default/perf configuration inside the established memory gate.
-        fprintf( stdout,
-                 "[tracy] Client disabled. Set SKORE_TRACY_MODE=standard or heavy before launch to capture.\n" );
+        fprintf( stdout, "[tracy] Client disabled. Set SKORE_TRACY_MODE=standard or heavy before launch to capture.\n" );
 
         fflush( stdout );
         return;
@@ -292,6 +290,7 @@ void TracyClientOwner::Start()
     g_tracyHeavyMode.store( heavyMode, std::memory_order_release );
     g_tracyInitialized.store( m_started, std::memory_order_release );
     CoreAllocation::SetTracyAllocationTracingEnabled( heavyMode );
+
     if ( !m_started )
     {
         return;
@@ -309,18 +308,16 @@ void TracyClientOwner::Start()
     fprintf( stdout,
              "[tracy] Manual on-demand client started. viewer=waiting capture=%s callstacks=%s allocations=%s "
              "owner_active=%llu owner_high_water=%llu owner_cap=%d\n",
-             heavyMode ? "heavy" : "standard",
-             heavyMode ? "depth-16" : "off",
-             heavyMode ? "global-cpp-heap" : "off",
+             heavyMode ? "heavy" : "standard", heavyMode ? "depth-16" : "off", heavyMode ? "global-cpp-heap" : "off",
              static_cast<unsigned long long>( tracyAllocationStats.activeBytes ),
-             static_cast<unsigned long long>( tracyAllocationStats.highWaterBytes ),
-             tracyAllocationStats.hardCapBytes );
+             static_cast<unsigned long long>( tracyAllocationStats.highWaterBytes ), tracyAllocationStats.hardCapBytes );
 
     fflush( stdout );
 }
 
 bool TracyClientOwner::StartStandardCapture()
 {
+
     if ( m_started )
     {
         return true;
@@ -330,11 +327,10 @@ bool TracyClientOwner::StartStandardCapture()
     // remains a pre-launch choice. Standard capture has no allocation events,
     // so Tracy's manual-lifetime client can start safely at this cold editor
     // boundary without invalidating already-live engine allocations.
+
     if ( !SetEnvironmentVariableA( CAPTURE_MODE_ENVIRONMENT, STANDARD_MODE_VALUE ) )
     {
-        fprintf( stderr,
-                 "[tracy] Standard capture request failed to set %s (error=%lu).\n",
-                 CAPTURE_MODE_ENVIRONMENT,
+        fprintf( stderr, "[tracy] Standard capture request failed to set %s (error=%lu).\n", CAPTURE_MODE_ENVIRONMENT,
                  static_cast<unsigned long>( GetLastError() ) );
 
         fflush( stderr );
@@ -347,12 +343,14 @@ bool TracyClientOwner::StartStandardCapture()
 
 void TracyClientOwner::Shutdown() noexcept
 {
+
     if ( !m_started )
     {
         return;
     }
 
     CoreAllocation::DevelopmentToolAllocationScope allocationScope( CoreAllocation::DevelopmentToolAllocationOwner::Tracy );
+
     // Lifetime: publish the stopped state before freeing Tracy's process data;
     // UI snapshots and marker seams therefore stop reaching the vendor first.
     g_tracyInitialized.store( false, std::memory_order_release );
@@ -368,8 +366,7 @@ void TracyClientOwner::Shutdown() noexcept
              "[tracy] Client stopped after engine worker shutdown. owner_active=%llu owner_high_water=%llu "
              "owner_cap=%d\n",
              static_cast<unsigned long long>( tracyAllocationStats.activeBytes ),
-             static_cast<unsigned long long>( tracyAllocationStats.highWaterBytes ),
-             tracyAllocationStats.hardCapBytes );
+             static_cast<unsigned long long>( tracyAllocationStats.highWaterBytes ), tracyAllocationStats.hardCapBytes );
 
     fflush( stdout );
 }
@@ -377,16 +374,16 @@ void TracyClientOwner::Shutdown() noexcept
 TracyClientStatus TracyClientOwner::CopyStatus() noexcept
 {
     const bool initialized = g_tracyInitialized.load( std::memory_order_acquire );
+
     // Why: IsConnected is an atomic state read owned by the client. The editor
     // never scans processes, opens sockets, or constructs a string per frame.
-    return { true,
-             initialized,
-             initialized && TracyIsConnected,
+    return { true, initialized, initialized && TracyIsConnected,
              initialized && g_tracyHeavyMode.load( std::memory_order_acquire ) };
 }
 
 void TracyClientOwner::MarkSubmittedFrame() noexcept
 {
+
     if ( !g_tracyInitialized.load( std::memory_order_acquire ) )
     {
         return;
@@ -398,6 +395,7 @@ void TracyClientOwner::MarkSubmittedFrame() noexcept
 
 void TracyClientOwner::NameWorkerThread( int workerIndex ) noexcept
 {
+
     if ( !g_tracyInitialized.load( std::memory_order_acquire ) )
     {
         return;
@@ -412,6 +410,7 @@ void TracyClientOwner::NameWorkerThread( int workerIndex ) noexcept
 
 uint32_t TracyClientOwner::RegisterOwnerZone( const char* fullPath, uint32_t hash ) noexcept
 {
+
     if ( !fullPath || !fullPath[0] )
     {
         return 0u;
@@ -430,6 +429,7 @@ uint32_t TracyClientOwner::RegisterOwnerZone( const char* fullPath, uint32_t has
     thread_local ThreadZoneCacheEntry threadCache[16] = {};
 
     ThreadZoneCacheEntry& cached = threadCache[hash % 16u];
+
     if ( cached.handle != 0u && cached.hash == hash && std::strcmp( cached.name, fullPath ) == 0 )
     {
         return cached.handle;
@@ -437,9 +437,11 @@ uint32_t TracyClientOwner::RegisterOwnerZone( const char* fullPath, uint32_t has
 
     std::lock_guard<std::mutex> lock( g_ownerSourceLocationMutex );
     const uint32_t sourceLocationCount = g_ownerSourceLocationCount.load( std::memory_order_acquire );
+
     for ( uint32_t index = 0u; index < sourceLocationCount; ++index )
     {
         const OwnerSourceLocation& source = g_ownerSourceLocations[index];
+
         if ( source.hash == hash && std::strcmp( source.tracy.name, fullPath ) == 0 )
         {
             cached = { fullPath, hash, index + 1u };
@@ -469,6 +471,7 @@ uint32_t TracyClientOwner::RegisterOwnerZone( const char* fullPath, uint32_t has
 TracyZoneToken TracyClientOwner::BeginOwnerZone( uint32_t sourceLocationHandle ) noexcept
 {
     TracyZoneToken token;
+
     if ( !IsInitialized() || sourceLocationHandle == 0u ||
          sourceLocationHandle > g_ownerSourceLocationCount.load( std::memory_order_acquire ) )
     {
@@ -489,6 +492,7 @@ TracyZoneToken TracyClientOwner::BeginOwnerZone( uint32_t sourceLocationHandle )
 
 void TracyClientOwner::EndOwnerZone( TracyZoneToken token ) noexcept
 {
+
     if ( !token.active || !IsInitialized() || !TracyIsConnected ||
          tracy::GetProfiler().ConnectionId() != token.connectionId )
     {
@@ -501,6 +505,7 @@ void TracyClientOwner::EndOwnerZone( TracyZoneToken token ) noexcept
 
 void TracyClientOwner::PublishPlot( const char* name, double value ) noexcept
 {
+
     if ( !IsInitialized() || !name || !TracyIsConnected )
     {
         return;
@@ -514,6 +519,7 @@ void TracyClientOwner::PublishDevelopmentAllocationPlots() noexcept
 {
     CoreAllocation::DevelopmentToolAllocationStats imguiStats;
     CoreAllocation::DevelopmentToolAllocationStats tracyStats;
+
     if ( CoreAllocation::CopyDevelopmentToolAllocationStats( CoreAllocation::DevelopmentToolAllocationOwner::DearImGui,
                                                              imguiStats ) )
     {

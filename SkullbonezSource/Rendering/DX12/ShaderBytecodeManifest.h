@@ -35,12 +35,9 @@ namespace SkullbonezCore::Rendering
 {
 bool DevShaderHotReloadEnabled();
 
-bool LoadManifestCurrentShaderBytecode( const char* hlslPath,
-                                        const char* stage,
-                                        Microsoft::WRL::ComPtr<ID3DBlob>& outBlob,
+bool LoadManifestCurrentShaderBytecode( const char* hlslPath, const char* stage, Microsoft::WRL::ComPtr<ID3DBlob>& outBlob,
                                         std::string& outError );
 
-bool ReflectShaderBytecode( ID3DBlob* blob,
-                            Microsoft::WRL::ComPtr<ID3D12ShaderReflection>& outReflection,
+bool ReflectShaderBytecode( ID3DBlob* blob, Microsoft::WRL::ComPtr<ID3D12ShaderReflection>& outReflection,
                             HRESULT& outResult );
 } // namespace SkullbonezCore::Rendering

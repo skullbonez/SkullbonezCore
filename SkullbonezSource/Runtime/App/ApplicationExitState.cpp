@@ -35,8 +35,7 @@ namespace Runtime
 {
 namespace
 {
-template <std::size_t Capacity>
-void CopyBoundedText( std::array<char, Capacity>& destination, const char* source ) noexcept
+template <std::size_t Capacity> void CopyBoundedText( std::array<char, Capacity>& destination, const char* source ) noexcept
 {
     static_assert( Capacity > 0, "bounded text storage must include a null terminator" );
     std::snprintf( destination.data(), destination.size(), "%s", source ? source : "" );
@@ -47,6 +46,7 @@ void CopyBoundedText( std::array<char, Capacity>& destination, const char* sourc
 
 void ApplicationExitState::RequestNormalExit() noexcept
 {
+
     // Why: normal shutdown is only a stop request. It must not erase an earlier
     // recoverable failure that the process boundary still needs to report.
     m_exitRequested = true;
@@ -55,6 +55,7 @@ void ApplicationExitState::RequestNormalExit() noexcept
 
 void ApplicationExitState::RequestOwnedFailure( const SkullbonezCore::Core::SbResult& failure ) noexcept
 {
+
     if ( failure.ok || m_hasOwnedFailure )
     {
         return;
@@ -83,6 +84,7 @@ bool ApplicationExitState::HasOwnedFailure() const noexcept
 
 SkullbonezCore::Core::SbResult ApplicationExitState::Resolve( int messageExitCode ) const noexcept
 {
+
     if ( m_hasOwnedFailure )
     {
         return SkullbonezCore::Core::SbResult::Failure( m_failureOwner.data(), "%s", m_failureMessage.data() );
@@ -90,6 +92,7 @@ SkullbonezCore::Core::SbResult ApplicationExitState::Resolve( int messageExitCod
 
     if ( messageExitCode != 0 )
     {
+
         // Lane R: a platform/environment boundary asked the process to stop with
         // failure but did not provide richer owner diagnostics.
         return SkullbonezCore::Core::SbResult::Failure( "Runtime/ApplicationExit",

@@ -74,6 +74,7 @@ class RenderGpuTimingScope
     RenderGpuTimingScope( RenderGpuTimingOwner* owner, const char* fullPath, uint32_t hash )
         : m_owner( owner ), m_fullPath( fullPath ), m_hash( hash )
     {
+
         if ( m_owner )
         {
             m_owner->Begin( m_fullPath, m_hash );
@@ -81,6 +82,7 @@ class RenderGpuTimingScope
     }
     ~RenderGpuTimingScope()
     {
+
         if ( m_owner )
         {
             m_owner->End( m_fullPath, m_hash );
@@ -102,29 +104,30 @@ class RenderGpuTimingScope
 
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
 
-#define PROFILE_GPU_BEGIN( owner, name )                                                                               \
-    do                                                                                                                 \
-    {                                                                                                                  \
-        constexpr uint32_t RENDER_PROFILE_PASTE( _gpuH_, __LINE__ ) = ::HashStr( name );                               \
-        auto* RENDER_PROFILE_PASTE( _gpuOwner_, __LINE__ ) = ( owner );                                                \
-        if ( RENDER_PROFILE_PASTE( _gpuOwner_, __LINE__ ) )                                                            \
-            RENDER_PROFILE_PASTE( _gpuOwner_, __LINE__ )->Begin( name, RENDER_PROFILE_PASTE( _gpuH_, __LINE__ ) );     \
+#define PROFILE_GPU_BEGIN( owner, name )                                                                                    \
+    do                                                                                                                      \
+    {                                                                                                                       \
+        constexpr uint32_t RENDER_PROFILE_PASTE( _gpuH_, __LINE__ ) = ::HashStr( name );                                    \
+        auto* RENDER_PROFILE_PASTE( _gpuOwner_, __LINE__ ) = ( owner );                                                     \
+        if ( RENDER_PROFILE_PASTE( _gpuOwner_, __LINE__ ) )                                                                 \
+            RENDER_PROFILE_PASTE( _gpuOwner_, __LINE__ )->Begin( name, RENDER_PROFILE_PASTE( _gpuH_, __LINE__ ) );          \
     } while ( 0 )
 
-#define PROFILE_GPU_END( owner, name )                                                                                 \
-    do                                                                                                                 \
-    {                                                                                                                  \
-        constexpr uint32_t RENDER_PROFILE_PASTE( _gpuH_, __LINE__ ) = ::HashStr( name );                               \
-        auto* RENDER_PROFILE_PASTE( _gpuOwner_, __LINE__ ) = ( owner );                                                \
-        if ( RENDER_PROFILE_PASTE( _gpuOwner_, __LINE__ ) )                                                            \
-            RENDER_PROFILE_PASTE( _gpuOwner_, __LINE__ )->End( name, RENDER_PROFILE_PASTE( _gpuH_, __LINE__ ) );       \
+#define PROFILE_GPU_END( owner, name )                                                                                      \
+    do                                                                                                                      \
+    {                                                                                                                       \
+        constexpr uint32_t RENDER_PROFILE_PASTE( _gpuH_, __LINE__ ) = ::HashStr( name );                                    \
+        auto* RENDER_PROFILE_PASTE( _gpuOwner_, __LINE__ ) = ( owner );                                                     \
+        if ( RENDER_PROFILE_PASTE( _gpuOwner_, __LINE__ ) )                                                                 \
+            RENDER_PROFILE_PASTE( _gpuOwner_, __LINE__ )->End( name, RENDER_PROFILE_PASTE( _gpuH_, __LINE__ ) );            \
     } while ( 0 )
 
-#define PROFILE_GPU_SCOPED( owner, name )                                                                              \
-    constexpr uint32_t RENDER_PROFILE_PASTE( _gpuSH_, __LINE__ ) = ::HashStr( name );                                  \
-    ::SkullbonezCore::Rendering::RenderGpuTimingScope RENDER_PROFILE_PASTE(                                            \
-        _gpuScope_,                                                                                                    \
-        __LINE__ )( owner, name, RENDER_PROFILE_PASTE( _gpuSH_, __LINE__ ) )
+#define PROFILE_GPU_SCOPED( owner, name )                                                                                   \
+    constexpr uint32_t RENDER_PROFILE_PASTE( _gpuSH_, __LINE__ ) = ::HashStr( name );                                       \
+    ::SkullbonezCore::Rendering::RenderGpuTimingScope RENDER_PROFILE_PASTE( _gpuScope_,                                     \
+                                                                            __LINE__ )( owner, name,                        \
+                                                                                        RENDER_PROFILE_PASTE( _gpuSH_,      \
+                                                                                                              __LINE__ ) )
 
 #else
 

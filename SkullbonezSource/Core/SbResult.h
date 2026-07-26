@@ -58,10 +58,8 @@ struct [[nodiscard]] SbResult
 
         va_list args;
         va_start( args, format );
-        std::vsnprintf( result.error.message,
-                        sizeof( result.error.message ),
-                        format ? format : "recoverable operation failed",
-                        args );
+        std::vsnprintf( result.error.message, sizeof( result.error.message ),
+                        format ? format : "recoverable operation failed", args );
         va_end( args );
         return result;
     }

@@ -69,11 +69,11 @@ Related:
 
 namespace SkullbonezCore::Runtime
 {
-bool RuntimeTools::PrepareSelectionCommand( const RuntimeInteractionCommand& command,
-                                            const SceneWorld& world,
+bool RuntimeTools::PrepareSelectionCommand( const RuntimeInteractionCommand& command, const SceneWorld& world,
                                             RuntimeInteractionSelectionPlan& outPlan )
 {
     outPlan = RuntimeInteractionSelectionPlan {};
+
     if ( command.type != RuntimeInteractionCommandType::SetEditorSelection )
     {
         return false;
@@ -84,6 +84,7 @@ bool RuntimeTools::PrepareSelectionCommand( const RuntimeInteractionCommand& com
     Physics::PhysicsBodyHandle selectedBody;
     Physics::PhysicsColliderHandle selectedCollider;
     Physics::ModelRowHint selectedModelRow;
+
     if ( command.body.IsValid() )
     {
         selectedBody = command.body;
@@ -91,6 +92,7 @@ bool RuntimeTools::PrepareSelectionCommand( const RuntimeInteractionCommand& com
         const Physics::PhysicsBodyRecord* body = bodyStore.RecordForHandle( selectedBody );
         const Physics::ColliderRecord* collider = colliderStore.RecordForHandle( selectedCollider );
         const int bodyRow = bodyStore.ModelIndexForHandle( selectedBody );
+
         if ( !body || !collider || colliderStore.ModelIndexForHandle( selectedCollider ) != bodyRow ||
              collider->body != selectedBody )
         {
@@ -125,16 +127,17 @@ bool RuntimeTools::PrepareSelectionCommand( const RuntimeInteractionCommand& com
 }
 
 
-bool RuntimeTools::CommitSelectionCommand( const RuntimeInteractionSelectionPlan& plan,
-                                           RuntimeInteractionEvent& outEvent )
+bool RuntimeTools::CommitSelectionCommand( const RuntimeInteractionSelectionPlan& plan, RuntimeInteractionEvent& outEvent )
 {
     outEvent = RuntimeInteractionEvent {};
+
     // Invariant: preparation and commit are synchronous around the optional
     // owner transition. Transition cleanup may deliberately clear the previous
     // selection; the prepared command still becomes the new authoritative one.
     m_editor.selectedModelRow = plan.modelRow;
     m_editor.selectedBody = plan.body;
     m_editor.selectedCollider = plan.collider;
+
     if ( plan.previousModelRow.value != plan.modelRow.value || plan.previousBody != plan.body ||
          plan.previousCollider != plan.collider )
     {
@@ -146,11 +149,10 @@ bool RuntimeTools::CommitSelectionCommand( const RuntimeInteractionSelectionPlan
         outEvent.previousCollider = plan.previousCollider;
         outEvent.collider = plan.collider;
         outEvent.selectionScope = plan.selectionScope;
-        SkullbonezCore::Core::Log().WriteEventf(
-            "runtime_interaction_command_event type=selection_changed scope=%s previous_model=%d model=%d",
-            outEvent.selectionScope == RuntimeInteractionSelectionScope::Inspect ? "inspect" : "editor",
-            outEvent.previousModelRow.value,
-            outEvent.modelRow.value );
+        SkullbonezCore::Core::Log()
+            .WriteEventf( "runtime_interaction_command_event type=selection_changed scope=%s previous_model=%d model=%d",
+                          outEvent.selectionScope == RuntimeInteractionSelectionScope::Inspect ? "inspect" : "editor",
+                          outEvent.previousModelRow.value, outEvent.modelRow.value );
     }
 
     return true;
@@ -159,9 +161,11 @@ bool RuntimeTools::CommitSelectionCommand( const RuntimeInteractionSelectionPlan
 
 bool RuntimeTools::ApplySelectionCommand( const RuntimeInteractionCommand& command, const SceneWorld& world )
 {
+
     // Why: owner-claiming commands need composition to apply transition cleanup
     // between prepare and commit. The convenience path is intentionally limited
     // to commands whose interaction owner is already established.
+
     if ( command.claimSelectionOwner )
     {
         return false;
@@ -189,8 +193,7 @@ bool RuntimeTools::InspectGizmoInteractionActive( RunCameraMode cameraMode, bool
 }
 
 
-void RuntimeTools::ClearEditorInteractionForTransition( bool clearSelection,
-                                                        SceneWorld& world,
+void RuntimeTools::ClearEditorInteractionForTransition( bool clearSelection, SceneWorld& world,
                                                         RuntimeInteractionController& interaction )
 {
     RunInternal::ClearEditorManipulationState( { m_editor, world, interaction } );
@@ -198,6 +201,7 @@ void RuntimeTools::ClearEditorInteractionForTransition( bool clearSelection,
     m_editor.placementModeEnabled = false;
     m_editor.hotGizmoAxis = -1;
     m_editor.hotRotationAxis = -1;
+
     if ( clearSelection )
     {
         RuntimeInteractionCommand command;
@@ -208,11 +212,10 @@ void RuntimeTools::ClearEditorInteractionForTransition( bool clearSelection,
 }
 
 
-void RuntimeTools::ObserveSceneLifecycle( const SceneLifecyclePacket& packet,
-                                          SceneWorld& world,
-                                          InputRouter& inputRouter,
+void RuntimeTools::ObserveSceneLifecycle( const SceneLifecyclePacket& packet, SceneWorld& world, InputRouter& inputRouter,
                                           RuntimeInteractionController& interaction )
 {
+
     if ( !m_sceneLifecycleObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
     {
         return;
@@ -229,8 +232,10 @@ void RuntimeTools::ObserveSceneLifecycle( const SceneLifecyclePacket& packet,
 
 void RuntimeTools::CancelMousePickup( InputRouter& inputRouter, RuntimeInteractionController& interaction )
 {
+
     // Invariant: the controller gesture is the sole capture fact. Clear native
     // presentation only when this owner actually held the typed pickup gesture.
+
     if ( interaction.Gesture().kind == RuntimeInteractionGestureKind::MousePickupDrag )
     {
         inputRouter.ReleaseNativeCapture();
@@ -268,11 +273,10 @@ bool LauncherPhysicsStoresReady( const Physics::PhysicsEngine& physics, int mode
 
 // Why: launcher ray hits still identify targets by model index, but the physics
 // mutation should run on the already-resolved body handle.
-void ApplyLauncherPhysicsImpulse( Physics::PhysicsEngine& physics,
-                                  Physics::PhysicsBodyHandle body,
-                                  const Math::Vector::Vector3& impulse,
-                                  const Math::Vector::Vector3& localApplicationPoint )
+void ApplyLauncherPhysicsImpulse( Physics::PhysicsEngine& physics, Physics::PhysicsBodyHandle body,
+                                  const Math::Vector::Vector3& impulse, const Math::Vector::Vector3& localApplicationPoint )
 {
+
     if ( !body.IsValid() )
     {
         return;
@@ -282,27 +286,27 @@ void ApplyLauncherPhysicsImpulse( Physics::PhysicsEngine& physics,
 }
 
 
-bool IntersectRaySphere( const Math::Vector::Vector3& rayOrigin,
-                         const Math::Vector::Vector3& rayDirection,
-                         const Math::Vector::Vector3& center,
-                         float radius,
-                         float& outT )
+bool IntersectRaySphere( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection,
+                         const Math::Vector::Vector3& center, float radius, float& outT )
 {
     const Math::Vector::Vector3 m = rayOrigin - center;
     const float b = m * rayDirection;
     const float c = ( m * m ) - radius * radius;
+
     if ( c > 0.0f && b > 0.0f )
     {
         return false;
     }
 
     const float discriminant = b * b - c;
+
     if ( discriminant < 0.0f )
     {
         return false;
     }
 
     outT = -b - sqrtf( discriminant );
+
     if ( outT < 0.0f )
     {
         outT = 0.0f;
@@ -324,6 +328,7 @@ const RunRayCastTestState& RuntimeTools::RayCastTest() const
 
 bool RuntimeTools::ApplyRayCastVisualizationUICommand( const UI::UIPhysicsCommands& commands )
 {
+
     if ( !commands.toggleRayCastVisualization )
     {
         return false;
@@ -337,11 +342,11 @@ RayCastLauncherTuningUICommandResult
 RuntimeTools::ApplyRayCastLauncherTuningUICommands( const UI::UIPhysicsCommands& commands )
 {
     RayCastLauncherTuningUICommandResult result;
+
     if ( commands.requestRayCastImpulseStrength )
     {
         const float previousImpulseStrength = m_rayCastTest.impulseStrength;
-        m_rayCastTest.impulseStrength = std::clamp( commands.requestedRayCastImpulseStrength,
-                                                    UI::Layout::UI_RAY_IMPULSE_MIN,
+        m_rayCastTest.impulseStrength = std::clamp( commands.requestedRayCastImpulseStrength, UI::Layout::UI_RAY_IMPULSE_MIN,
                                                     UI::Layout::UI_RAY_IMPULSE_MAX );
 
         result.setImpulseStrength = true;
@@ -374,6 +379,7 @@ void RuntimeTools::ClearRayCastTestLines()
 
 void RuntimeTools::AddRayCastTestLine( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, bool hit )
 {
+
     if ( !m_rayCastTest.visualizeRays )
     {
         return;
@@ -394,6 +400,7 @@ void RuntimeTools::AddRayCastTestLine( const Math::Vector::Vector3& start, const
 
 void RuntimeTools::TickRayCastTestLines( float dt )
 {
+
     if ( dt <= 0.0f )
     {
         return;
@@ -401,6 +408,7 @@ void RuntimeTools::TickRayCastTestLines( float dt )
 
     for ( RunRayCastTestLine& line : m_rayCastTest.lines )
     {
+
         if ( line.active )
         {
             line.ageSeconds += dt;
@@ -410,6 +418,7 @@ void RuntimeTools::TickRayCastTestLines( float dt )
 
 bool RuntimeTools::HasLingeredRayCastLine( float maxAgeSeconds ) const
 {
+
     if ( maxAgeSeconds <= 0.0f )
     {
         return false;
@@ -417,6 +426,7 @@ bool RuntimeTools::HasLingeredRayCastLine( float maxAgeSeconds ) const
 
     for ( const RunRayCastTestLine& line : m_rayCastTest.lines )
     {
+
         if ( line.active && line.ageSeconds < maxAgeSeconds )
         {
             return true;
@@ -435,11 +445,9 @@ bool RuntimeTools::HasSelectionOverlayWork( int modelCount, RunCameraMode camera
                                   m_editor.placementPreviewVisible;
 
     const bool editorSelection = m_editor.editorModeEnabled && !m_editor.placementModeEnabled && selectedModelValid;
-    const bool inspectSelection = !m_editor.editorModeEnabled && cameraMode == RunCameraMode::Inspect &&
-                                  selectedModelValid;
+    const bool inspectSelection = !m_editor.editorModeEnabled && cameraMode == RunCameraMode::Inspect && selectedModelValid;
 
-    const bool attachSelection = !m_editor.editorModeEnabled && cameraMode == RunCameraMode::Attach &&
-                                 selectedModelValid;
+    const bool attachSelection = !m_editor.editorModeEnabled && cameraMode == RunCameraMode::Attach && selectedModelValid;
 
     return placementPreview || editorSelection || inspectSelection || attachSelection;
 }
@@ -461,6 +469,7 @@ const char* RuntimeTools::LauncherFireModeLabel() const
 
 void RuntimeTools::BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample ) const
 {
+
     // Concept: Replay captures visible launcher/tool feedback separately from
     // physics state so scrubbed frames can redraw rays and laser afterimages
     // without re-firing the tool.
@@ -474,6 +483,7 @@ void RuntimeTools::BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& 
     outSample.impulseStrength = m_rayCastTest.impulseStrength;
     outSample.projectileSpeed = m_rayCastTest.projectileSpeed;
     outSample.rayLines.reserve( RunRayCastTestState::MAX_LINES );
+
     for ( const RunRayCastTestLine& line : m_rayCastTest.lines )
     {
         ReplayRayCastLineSample sample;
@@ -492,6 +502,7 @@ void RuntimeTools::RestoreReplayLauncherVisualSample( const ReplayLauncherVisual
 {
     m_rayCastTest.lines = {};
     const std::size_t lineCount = (std::min)( sample.rayLines.size(), RunRayCastTestState::MAX_LINES );
+
     for ( std::size_t i = 0; i < lineCount; ++i )
     {
         RunRayCastTestLine& line = m_rayCastTest.lines[i];
@@ -505,6 +516,7 @@ void RuntimeTools::RestoreReplayLauncherVisualSample( const ReplayLauncherVisual
     // Invariant: Older or malformed replay samples may carry out-of-range
     // cursors; clamp by modulo instead of trusting serialized state.
     m_rayCastTest.nextLine = sample.nextRayLine % static_cast<int>( RunRayCastTestState::MAX_LINES );
+
     if ( m_rayCastTest.nextLine < 0 )
     {
         m_rayCastTest.nextLine += static_cast<int>( RunRayCastTestState::MAX_LINES );
@@ -520,11 +532,8 @@ void RuntimeTools::RestoreReplayLauncherVisualSample( const ReplayLauncherVisual
 }
 
 bool RuntimeTools::TryRayCastTestHit( const Physics::PhysicsBodyStore& bodyStore,
-                                      const Physics::ColliderStore& colliderStore,
-                                      const Math::Vector::Vector3& rayOrigin,
-                                      const Math::Vector::Vector3& rayDirection,
-                                      float maxDistance,
-                                      int& outIndex,
+                                      const Physics::ColliderStore& colliderStore, const Math::Vector::Vector3& rayOrigin,
+                                      const Math::Vector::Vector3& rayDirection, float maxDistance, int& outIndex,
                                       float& outT ) const
 {
     outIndex = -1;
@@ -536,17 +545,15 @@ bool RuntimeTools::TryRayCastTestHit( const Physics::PhysicsBodyStore& bodyStore
     const int hitCount = (std::min)( bodyStore.Count(), colliderStore.Count() );
     const auto hotFields = bodyStore.HotFields();
     const auto colliders = colliderStore.Records();
+
     for ( int i = 0; i < hitCount; ++i )
     {
         const std::size_t index = static_cast<std::size_t>( i );
         const Physics::ColliderRecord& collider = colliders[index];
         const float radius = (std::max)( collider.boundingRadius, 1.0f );
         float rayT = 0.0f;
-        if ( IntersectRaySphere( rayOrigin,
-                                 rayDirection,
-                                 Physics::PhysicsBodyPosition( hotFields, index ),
-                                 radius,
-                                 rayT ) &&
+
+        if ( IntersectRaySphere( rayOrigin, rayDirection, Physics::PhysicsBodyPosition( hotFields, index ), radius, rayT ) &&
              rayT <= maxDistance && rayT < outT )
         {
             outIndex = i;
@@ -557,13 +564,11 @@ bool RuntimeTools::TryRayCastTestHit( const Physics::PhysicsBodyStore& bodyStore
     return outIndex >= 0;
 }
 
-bool RuntimeTools::TryLauncherTerrainHit( Geometry::Terrain* terrain,
-                                          const Math::Vector::Vector3& rayOrigin,
-                                          const Math::Vector::Vector3& rayDirection,
-                                          float maxDistance,
-                                          float& outT ) const
+bool RuntimeTools::TryLauncherTerrainHit( Geometry::Terrain* terrain, const Math::Vector::Vector3& rayOrigin,
+                                          const Math::Vector::Vector3& rayDirection, float maxDistance, float& outT ) const
 {
     outT = maxDistance;
+
     if ( !terrain )
     {
         return false;
@@ -577,10 +582,12 @@ bool RuntimeTools::TryLauncherTerrainHit( Geometry::Terrain* terrain,
     // Why: Terrain has no dedicated runtime ray query here, so the launcher
     // walks the ray and bisects the first terrain crossing to keep laser and
     // projectile aim consistent.
+
     for ( int step = 0; step <= RAY_STEPS; ++step )
     {
         const float t = maxDistance * static_cast<float>( step ) / static_cast<float>( RAY_STEPS );
         const Math::Vector::Vector3 sample = rayOrigin + rayDirection * t;
+
         if ( !terrain->IsInBounds( sample.x, sample.z ) )
         {
             continue;
@@ -588,6 +595,7 @@ bool RuntimeTools::TryLauncherTerrainHit( Geometry::Terrain* terrain,
 
         const float terrainY = terrain->GetTerrainHeightAt( sample.x, sample.z );
         const float diff = sample.y - terrainY;
+
         if ( fabsf( diff ) <= 0.01f )
         {
             outT = t;
@@ -598,10 +606,12 @@ bool RuntimeTools::TryLauncherTerrainHit( Geometry::Terrain* terrain,
         {
             float lowT = previousT;
             float highT = t;
+
             for ( int refine = 0; refine < 12; ++refine )
             {
                 const float midT = ( lowT + highT ) * 0.5f;
                 const Math::Vector::Vector3 mid = rayOrigin + rayDirection * midT;
+
                 if ( !terrain->IsInBounds( mid.x, mid.z ) )
                 {
                     lowT = midT;
@@ -610,6 +620,7 @@ bool RuntimeTools::TryLauncherTerrainHit( Geometry::Terrain* terrain,
 
                 const float midTerrainY = terrain->GetTerrainHeightAt( mid.x, mid.z );
                 const float midDiff = mid.y - midTerrainY;
+
                 if ( midDiff > 0.0f )
                 {
                     lowT = midT;
@@ -632,11 +643,10 @@ bool RuntimeTools::TryLauncherTerrainHit( Geometry::Terrain* terrain,
     return false;
 }
 
-bool RuntimeTools::TryBuildLauncherCameraRay( Environment::CameraCollection* cameras,
-                                              Math::Vector::Vector3& outOrigin,
-                                              Math::Vector::Vector3& outDirection,
-                                              Math::Vector::Vector3& outCameraUp ) const
+bool RuntimeTools::TryBuildLauncherCameraRay( Environment::CameraCollection* cameras, Math::Vector::Vector3& outOrigin,
+                                              Math::Vector::Vector3& outDirection, Math::Vector::Vector3& outCameraUp ) const
 {
+
     if ( !cameras )
     {
         return false;
@@ -645,6 +655,7 @@ bool RuntimeTools::TryBuildLauncherCameraRay( Environment::CameraCollection* cam
     outOrigin = cameras->GetCameraTranslation();
     outDirection = cameras->GetCameraView() - outOrigin;
     const float dirLenSq = Math::Vector::VectorMagSquared( outDirection );
+
     if ( dirLenSq <= TOLERANCE * TOLERANCE )
     {
         return false;
@@ -655,16 +666,14 @@ bool RuntimeTools::TryBuildLauncherCameraRay( Environment::CameraCollection* cam
     return true;
 }
 
-bool RuntimeTools::FireLauncherRay( SceneWorld& world,
-                                    SceneSessionState& scene,
-                                    int activeModelCapacity,
-                                    const Math::Vector::Vector3& rayOrigin,
-                                    const Math::Vector::Vector3& rayDirection,
+bool RuntimeTools::FireLauncherRay( SceneWorld& world, SceneSessionState& scene, int activeModelCapacity,
+                                    const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection,
                                     const Math::Vector::Vector3& cameraUp )
 {
     Physics::PhysicsEngine& physics = world.Physics();
     Geometry::Terrain* terrain = world.Terrain().Get();
     const int modelCount = world.SceneEntityCount();
+
     if ( !LauncherPhysicsStoresReady( physics, modelCount ) )
     {
         return false;
@@ -672,13 +681,7 @@ bool RuntimeTools::FireLauncherRay( SceneWorld& world,
 
     if ( m_rayCastTest.fireMode == RunLauncherFireMode::Projectile )
     {
-        return FireLauncherProjectile( world,
-                                       scene,
-                                       activeModelCapacity,
-                                       modelCount,
-                                       rayOrigin,
-                                       rayDirection,
-                                       cameraUp );
+        return FireLauncherProjectile( world, scene, activeModelCapacity, modelCount, rayOrigin, rayDirection, cameraUp );
     }
 
     FireLauncherLaser( physics, modelCount, terrain, rayOrigin, rayDirection, cameraUp );
@@ -686,10 +689,11 @@ bool RuntimeTools::FireLauncherRay( SceneWorld& world,
 }
 
 
-LauncherPointerResult
-RuntimeTools::RouteLauncherPointer( const LauncherPointerInput& input, SceneWorld& world, SceneSessionState& scene )
+LauncherPointerResult RuntimeTools::RouteLauncherPointer( const LauncherPointerInput& input, SceneWorld& world,
+                                                          SceneSessionState& scene )
 {
     LauncherPointerResult result;
+
     if ( !input.launcherMode || !input.leftPressed || input.suppressWorldAction || input.uiWantsNativeCursor )
     {
         return result;
@@ -701,24 +705,24 @@ RuntimeTools::RouteLauncherPointer( const LauncherPointerInput& input, SceneWorl
     Math::Vector::Vector3 rayOrigin;
     Math::Vector::Vector3 rayDirection;
     Math::Vector::Vector3 cameraUp;
+
     if ( !TryBuildLauncherCameraRay( &world.Cameras(), rayOrigin, rayDirection, cameraUp ) )
     {
         return result;
     }
 
     const int modelCountBefore = world.SceneEntityCount();
-    result.replayEvent = ReplayEventCommandOperations::BuildLauncherFire(
-        rayOrigin,
-        rayDirection,
-        cameraUp,
-        m_rayCastTest.fireMode == RunLauncherFireMode::Projectile,
-        m_rayCastTest.impulseStrength,
-        m_rayCastTest.projectileSpeed,
-        modelCountBefore );
+    result.replayEvent = ReplayEventCommandOperations::BuildLauncherFire( rayOrigin, rayDirection, cameraUp,
+                                                                          m_rayCastTest.fireMode ==
+                                                                              RunLauncherFireMode::Projectile,
+                                                                          m_rayCastTest.impulseStrength,
+                                                                          m_rayCastTest.projectileSpeed, modelCountBefore );
 
     result.recordReplayEvent = true;
+
     // Why: the launcher is a cold input action, so it repairs any construction-
     // time world/store drift before entering handle-based physics queries.
+
     if ( world.RepairPhysicsBodyAndColliderTopology() &&
          FireLauncherRay( world, scene, input.activeModelCapacity, rayOrigin, rayDirection, cameraUp ) )
     {
@@ -728,34 +732,25 @@ RuntimeTools::RouteLauncherPointer( const LauncherPointerInput& input, SceneWorl
     return result;
 }
 
-void RuntimeTools::FireLauncherLaser( Physics::PhysicsEngine& physics,
-                                      int modelCount,
-                                      Geometry::Terrain* terrain,
-                                      const Math::Vector::Vector3& rayOrigin,
-                                      const Math::Vector::Vector3& rayDirection,
+void RuntimeTools::FireLauncherLaser( Physics::PhysicsEngine& physics, int modelCount, Geometry::Terrain* terrain,
+                                      const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection,
                                       const Math::Vector::Vector3& cameraUp )
 {
     int modelHitIndex = -1;
     float modelHitT = RAY_CAST_TEST_MAX_DISTANCE;
     const bool modelHit = TryRayCastTestHit( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics ),
-                                             SkullbonezCore::Physics::PhysicsEngine::ReadColliders( physics ),
-                                             rayOrigin,
-                                             rayDirection,
-                                             RAY_CAST_TEST_MAX_DISTANCE,
-                                             modelHitIndex,
-                                             modelHitT );
+                                             SkullbonezCore::Physics::PhysicsEngine::ReadColliders( physics ), rayOrigin,
+                                             rayDirection, RAY_CAST_TEST_MAX_DISTANCE, modelHitIndex, modelHitT );
 
     float terrainHitT = RAY_CAST_TEST_MAX_DISTANCE;
-    const bool terrainHit = TryLauncherTerrainHit( terrain,
-                                                   rayOrigin,
-                                                   rayDirection,
-                                                   RAY_CAST_TEST_MAX_DISTANCE,
+    const bool terrainHit = TryLauncherTerrainHit( terrain, rayOrigin, rayDirection, RAY_CAST_TEST_MAX_DISTANCE,
                                                    terrainHitT );
 
     const bool terrainIsClosest = terrainHit && ( !modelHit || terrainHitT < modelHitT );
     const bool hit = modelHit || terrainHit;
     const float hitT = terrainIsClosest ? terrainHitT : ( modelHit ? modelHitT : RAY_CAST_TEST_VISUAL_MISS_DISTANCE );
     const Math::Vector::Vector3 visualEnd = rayOrigin + rayDirection * hitT;
+
     // Concept: The laser always records visual feedback; only a closest model
     // hit below turns into a physics impulse.
     m_laser.Fire( rayOrigin, rayDirection, cameraUp, hitT, hit );
@@ -769,21 +764,20 @@ void RuntimeTools::FireLauncherLaser( Physics::PhysicsEngine& physics,
     const Physics::PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics );
     const Physics::PhysicsBodyHandle body = bodyStore.HandleForModelIndex( modelHitIndex );
     const Physics::PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( body );
+
     if ( !bodyRecord )
     {
         return;
     }
 
     const Math::Vector::Vector3 hitPoint = rayOrigin + rayDirection * hitT;
-    const Math::Vector::Vector3 localApplicationPoint = hitPoint - Physics::PhysicsBodyPosition(
-                                                                       bodyStore.HotFields(),
-                                                                       static_cast<std::size_t>( modelHitIndex ) );
+    const Math::Vector::Vector3 localApplicationPoint = hitPoint - Physics::PhysicsBodyPosition( bodyStore.HotFields(),
+                                                                                                 static_cast<std::size_t>( modelHitIndex ) );
 
     const float mass = (std::max)( 0.001f, bodyRecord->mass );
     const float releaseSpeed = std::clamp( m_rayCastTest.impulseStrength / mass, 1.5f, 36.0f );
-    if ( !physics.ReleaseFixedBodyAndAttachedTreeParts( body,
-                                                        m_rayCastTest.impulseStrength,
-                                                        rayDirection * releaseSpeed,
+
+    if ( !physics.ReleaseFixedBodyAndAttachedTreeParts( body, m_rayCastTest.impulseStrength, rayDirection * releaseSpeed,
                                                         Math::Vector::ZERO_VECTOR ) )
     {
         return;
@@ -792,16 +786,13 @@ void RuntimeTools::FireLauncherLaser( Physics::PhysicsEngine& physics,
     ApplyLauncherPhysicsImpulse( physics, body, rayDirection * m_rayCastTest.impulseStrength, localApplicationPoint );
 }
 
-bool RuntimeTools::FireLauncherProjectile( SceneWorld& world,
-                                           SceneSessionState& scene,
-                                           int activeModelCapacity,
-                                           int modelCount,
-                                           const Math::Vector::Vector3& rayOrigin,
-                                           const Math::Vector::Vector3& rayDirection,
-                                           const Math::Vector::Vector3& cameraUp )
+bool RuntimeTools::FireLauncherProjectile( SceneWorld& world, SceneSessionState& scene, int activeModelCapacity,
+                                           int modelCount, const Math::Vector::Vector3& rayOrigin,
+                                           const Math::Vector::Vector3& rayDirection, const Math::Vector::Vector3& cameraUp )
 {
     Physics::PhysicsEngine& physics = world.Physics();
     Geometry::Terrain* terrain = world.Terrain().Get();
+
     if ( !terrain || modelCount >= activeModelCapacity )
     {
         return false;
@@ -810,18 +801,11 @@ bool RuntimeTools::FireLauncherProjectile( SceneWorld& world,
     int modelHitIndex = -1;
     float modelHitT = RAY_CAST_TEST_MAX_DISTANCE;
     const bool modelHit = TryRayCastTestHit( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics ),
-                                             SkullbonezCore::Physics::PhysicsEngine::ReadColliders( physics ),
-                                             rayOrigin,
-                                             rayDirection,
-                                             RAY_CAST_TEST_MAX_DISTANCE,
-                                             modelHitIndex,
-                                             modelHitT );
+                                             SkullbonezCore::Physics::PhysicsEngine::ReadColliders( physics ), rayOrigin,
+                                             rayDirection, RAY_CAST_TEST_MAX_DISTANCE, modelHitIndex, modelHitT );
 
     float terrainHitT = RAY_CAST_TEST_MAX_DISTANCE;
-    const bool terrainHit = TryLauncherTerrainHit( terrain,
-                                                   rayOrigin,
-                                                   rayDirection,
-                                                   RAY_CAST_TEST_MAX_DISTANCE,
+    const bool terrainHit = TryLauncherTerrainHit( terrain, rayOrigin, rayDirection, RAY_CAST_TEST_MAX_DISTANCE,
                                                    terrainHitT );
 
     const float hitT = terrainHit && ( !modelHit || terrainHitT < modelHitT )
@@ -829,6 +813,7 @@ bool RuntimeTools::FireLauncherProjectile( SceneWorld& world,
                            : ( modelHit ? modelHitT : RAY_CAST_TEST_VISUAL_MISS_DISTANCE );
 
     const Math::Vector::Vector3 aimPoint = rayOrigin + rayDirection * hitT;
+
     // Concept: Projectiles spawn slightly in front of and below the camera,
     // then aim at the same closest model/terrain point that the laser would
     // visualize.
@@ -840,6 +825,7 @@ bool RuntimeTools::FireLauncherProjectile( SceneWorld& world,
 
     Math::Vector::Vector3 velocityDir = aimPoint - spawn;
     const float velocityDirLenSq = Math::Vector::VectorMagSquared( velocityDir );
+
     if ( velocityDirLenSq <= TOLERANCE * TOLERANCE )
     {
         velocityDir = rayDirection;
@@ -858,31 +844,33 @@ bool RuntimeTools::FireLauncherProjectile( SceneWorld& world,
                                                                     Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) );
     const Physics::PhysicsSceneObjectId sceneObjectId = scene.AllocateSceneObjectId();
     projectile.sceneObjectId = sceneObjectId;
-    const auto appendResult = world.TryCreateSceneEntity(
-        std::move( projectile ),
-        Physics::MakePhysicsBodyCreateDesc( sceneObjectId,
-                                            projectileShape,
-                                            spawn,
-                                            Math::Orientation::IDENTITY_QUATERNION,
-                                            velocityDir * m_rayCastTest.projectileSpeed,
-                                            Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ),
-                                            Math::Vector::Vector3( moment, moment, moment ),
-                                            LAUNCHER_PROJECTILE_MASS,
-                                            LAUNCHER_PROJECTILE_RESTITUTION,
-                                            Physics::PhysicsBodyMotionKind::Dynamic,
-                                            "launcher_projectile" ),
-        Physics::MakeColliderCreateDesc( projectileShape, LAUNCHER_PROJECTILE_RESTITUTION, HashStr( "default" ) ) );
+    const auto
+        appendResult = world.TryCreateSceneEntity( std::move( projectile ),
+                                                   Physics::
+                                                       MakePhysicsBodyCreateDesc( sceneObjectId, projectileShape, spawn,
+                                                                                  Math::Orientation::IDENTITY_QUATERNION,
+                                                                                  velocityDir *
+                                                                                      m_rayCastTest.projectileSpeed,
+                                                                                  Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ),
+                                                                                  Math::Vector::Vector3( moment, moment,
+                                                                                                         moment ),
+                                                                                  LAUNCHER_PROJECTILE_MASS,
+                                                                                  LAUNCHER_PROJECTILE_RESTITUTION,
+                                                                                  Physics::PhysicsBodyMotionKind::Dynamic,
+                                                                                  "launcher_projectile" ),
+                                                   Physics::MakeColliderCreateDesc( projectileShape,
+                                                                                    LAUNCHER_PROJECTILE_RESTITUTION,
+                                                                                    HashStr( "default" ) ) );
 
     if ( !appendResult.status.ok )
     {
-        fprintf( stderr,
-                 "[runtime-tools] launcher projectile creation failed: %s\n",
-                 appendResult.status.error.message );
+        fprintf( stderr, "[runtime-tools] launcher projectile creation failed: %s\n", appendResult.status.error.message );
 
         return false;
     }
 
     const Physics::PhysicsBodyHandle projectileBody = appendResult.body;
+
     if ( projectileBody.IsValid() )
     {
         physics.WakeBody( projectileBody );
@@ -932,19 +920,16 @@ const EditorTracer& RuntimeTools::Tracer() const
 }
 
 
-void RuntimeTools::PrepareOverlayTrace( SceneWorld& world,
-                                        const Assets::AssetSystem& assets,
+void RuntimeTools::PrepareOverlayTrace( SceneWorld& world, const Assets::AssetSystem& assets,
                                         const ToolOverlayBuildInput& input )
 {
+
     // Invariant: one owner clears and rebuilds the shared tracer exactly once
     // before replay appends its records for the same frame.
     m_editorTracer.Clear();
     RunInternal::BuildEditorToolOverlayTrace( { m_editor, m_rayCastTest, m_mousePickup, world, assets, m_editorTracer },
-                                              { input.rayLingerSeconds,
-                                                input.inspectGizmoActive,
-                                                input.scaleMode,
-                                                input.gesture,
-                                                input.attachedCameraTargetIndex,
+                                              { input.rayLingerSeconds, input.inspectGizmoActive, input.scaleMode,
+                                                input.gesture, input.attachedCameraTargetIndex,
                                                 input.attachedCameraActiveFollow } );
 }
 } // namespace SkullbonezCore::Runtime

@@ -31,6 +31,7 @@ namespace SkullbonezCore
 {
 namespace Core
 {
+
 // Concept: replay diagnostics use enum-indexed POD arrays so memory dumps and UI
 // frames can copy counters and byte categories without allocating or depending
 // on replay owner types.
@@ -122,10 +123,10 @@ inline uint64_t MainMemoryReplayCategoryByte( const MainMemoryReplayCategoryByte
 }
 
 inline void MainMemoryAddReplayCategoryBytes( MainMemoryReplayCategoryBytes& categories,
-                                              MainMemoryReplayByteCategory category,
-                                              uint64_t bytes )
+                                              MainMemoryReplayByteCategory category, uint64_t bytes )
 {
     const std::size_t categoryIndex = static_cast<std::size_t>( category );
+
     if ( categoryIndex < MAIN_MEMORY_REPLAY_BYTE_CATEGORY_COUNT )
     {
         categories.bytes[categoryIndex] += bytes;
@@ -133,16 +134,17 @@ inline void MainMemoryAddReplayCategoryBytes( MainMemoryReplayCategoryBytes& cat
 }
 
 inline uint64_t MainMemoryReplayCategoryRangeBytes( const MainMemoryReplayCategoryBytes& categories,
-                                                    MainMemoryReplayByteCategory first,
-                                                    MainMemoryReplayByteCategory end )
+                                                    MainMemoryReplayByteCategory first, MainMemoryReplayByteCategory end )
 {
     const std::size_t firstIndex = static_cast<std::size_t>( first );
     const std::size_t endIndex = static_cast<std::size_t>( end );
     uint64_t total = 0;
+
     for ( std::size_t i = firstIndex; i < endIndex && i < MAIN_MEMORY_REPLAY_BYTE_CATEGORY_COUNT; ++i )
     {
         total += categories.bytes[i];
     }
+
     return total;
 }
 
@@ -199,6 +201,7 @@ struct MainMemoryProcessStats
 
 struct MainMemoryReplayStats
 {
+
     // One fixed row per ReplayRetainedMemory growth policy. Measured high-water
     // is the evidence used to set the cap; allocator high-water is this run.
     struct GrowthOwner
@@ -230,6 +233,7 @@ struct MainMemoryReplayStats
     std::size_t pathNodes = 0;
     std::size_t causeRows = 0;
     std::size_t ghostRequests = 0;
+
     // Replay policy fields report the requested knobs and the resolved recorder
     // windows that were actually applied by replay timeline composition.
     int memoryPreset = 0;                                   // 0=lossless look, 1=balanced, 2=compact.

@@ -65,21 +65,14 @@ class PhysicsStepDiagnostics
     void RecordPipelineStage( const PhysicsPipelineRecord& record );
     bool CanRecordPipelineStage() const;
     int RemainingPipelineRecordCapacity() const;
-    void EmitCollisionTime( bool diagnosticsSuppressed,
-                            const char* type,
-                            int bodyA,
-                            int bodyB,
-                            float collisionTime,
+    void EmitCollisionTime( bool diagnosticsSuppressed, const char* type, int bodyA, int bodyB, float collisionTime,
                             float availableTime );
 
     bool ShouldEmitStepDiagnostics( bool diagnosticsSuppressed ) const;
     bool ShouldEmitCollisionTimeDiagnostics( bool diagnosticsSuppressed ) const;
     void SetDiagnosticNames( std::span<const char* const> diagnosticNames );
-    void EmitStepDiagnostics( bool diagnosticsSuppressed,
-                              const PhysicsDiagnosticsView& diagnosticsView,
-                              const PhysicsBodyStore& bodyStore,
-                              const ColliderStore& colliderStore,
-                              float deltaSeconds,
+    void EmitStepDiagnostics( bool diagnosticsSuppressed, const PhysicsDiagnosticsView& diagnosticsView,
+                              const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, float deltaSeconds,
                               const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
 
 #ifdef _DEBUG
@@ -92,6 +85,7 @@ class PhysicsStepDiagnostics
     void CaptureReplayState( PhysicsSolverSnapshot& snapshot ) const;
     void RestoreReplayState( const PhysicsSolverSnapshot& snapshot );
     const std::vector<uint8_t>& GetCollisionVisualContacts() const;
+
     // Lifetime: these mutable buffers are borrowed only by the synchronous
     // producing stage and remain capacity-governed by this diagnostics owner.
     std::vector<PhysicsDebugContact>& MutableDebugContacts();

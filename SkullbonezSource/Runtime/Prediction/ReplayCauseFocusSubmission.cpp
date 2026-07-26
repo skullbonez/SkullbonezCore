@@ -48,12 +48,10 @@ using SkullbonezCore::Math::Vector::Vector3;
 
 namespace
 {
-bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore,
-                                     PhysicsSceneObjectId id,
-                                     int modelIndexHint,
-                                     int modelCount,
-                                     int& outModelIndex )
+bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore, PhysicsSceneObjectId id, int modelIndexHint,
+                                     int modelCount, int& outModelIndex )
 {
+
     if ( id.value == 0 )
     {
         return false;
@@ -61,6 +59,7 @@ bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore,
 
     const PhysicsBodyHandle body = bodyStore.HandleForSceneObjectId( id, modelIndexHint );
     const int modelIndex = bodyStore.ModelIndexForHandle( body );
+
     if ( modelIndex < 0 || modelIndex >= modelCount )
     {
         return false;
@@ -73,12 +72,12 @@ bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore,
 const SkullbonezCore::Runtime::ReplaySolverBodySample*
 FindReplayNonNegativeBodyByModelIndex( const SkullbonezCore::Runtime::ReplaySolverFrameSample& sample, int modelIndex )
 {
+
     // Why: CauseFocus has always rejected the terrain/world negative sentinel,
     // while the shared solver wrapper retains the Prediction domain's legacy
     // negative-row scan. Select that policy explicitly instead of changing it.
     return FindReplayBodyByModelIndexInSample<SkullbonezCore::Runtime::ReplaySolverFrameSample,
-                                              SkullbonezCore::Runtime::ReplaySolverBodySample,
-                                              false>( sample, modelIndex );
+                                              SkullbonezCore::Runtime::ReplaySolverBodySample, false>( sample, modelIndex );
 }
 
 bool ReplayContactHasModelIndex( const PhysicsSolverPersistentContactSample& contact, int modelIndex )
@@ -88,6 +87,7 @@ bool ReplayContactHasModelIndex( const PhysicsSolverPersistentContactSample& con
 
 int ReplayContactOtherModelIndex( const PhysicsSolverPersistentContactSample& contact, int modelIndex )
 {
+
     if ( contact.bodyA == modelIndex )
     {
         return contact.bodyB;
@@ -104,16 +104,15 @@ int ReplayContactOtherModelIndex( const PhysicsSolverPersistentContactSample& co
 Vector3 ReplayContactPoint( const SkullbonezCore::Runtime::ReplaySolverFrameSample& sample,
                             const PhysicsSolverPersistentContactSample& contact )
 {
-    if ( const SkullbonezCore::Runtime::ReplaySolverBodySample* bodyA = FindReplayNonNegativeBodyByModelIndex(
-             sample,
-             contact.bodyA ) )
+
+    if ( const SkullbonezCore::Runtime::ReplaySolverBodySample*
+             bodyA = FindReplayNonNegativeBodyByModelIndex( sample, contact.bodyA ) )
     {
         return bodyA->position + contact.rA;
     }
 
-    if ( const SkullbonezCore::Runtime::ReplaySolverBodySample* bodyB = FindReplayNonNegativeBodyByModelIndex(
-             sample,
-             contact.bodyB ) )
+    if ( const SkullbonezCore::Runtime::ReplaySolverBodySample*
+             bodyB = FindReplayNonNegativeBodyByModelIndex( sample, contact.bodyB ) )
     {
         return bodyB->position + contact.rB;
     }
@@ -124,6 +123,7 @@ Vector3 ReplayContactPoint( const SkullbonezCore::Runtime::ReplaySolverFrameSamp
 Vector3 ReplayContactNormalForModel( const PhysicsSolverPersistentContactSample& contact, int modelIndex )
 {
     Vector3 normal = contact.normal;
+
     if ( contact.isTerrain && VectorMagSquared( contact.terrainNormal ) > TOLERANCE * TOLERANCE )
     {
         normal = contact.terrainNormal;
@@ -140,15 +140,14 @@ Vector3 ReplayContactNormalForModel( const PhysicsSolverPersistentContactSample&
 
 namespace SkullbonezCore::Runtime::ReplayPresentationSubmissionOperations
 {
-bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore,
-                                     PhysicsSceneObjectId id,
-                                     ModelRowHint& hint,
-                                     int modelCount,
-                                     int& outModelIndex )
+bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore, PhysicsSceneObjectId id, ModelRowHint& hint,
+                                     int modelCount, int& outModelIndex )
 {
+
     // Why: retained replay UI state carries a dense row only as an optimization.
     // The stable scene id remains authoritative while this resolver heals or
     // invalidates the frame-local hint.
+
     if ( !::TryResolveReplayBodyModelIndex( bodyStore, id, hint.value, modelCount, outModelIndex ) )
     {
         hint.value = -1;
@@ -159,15 +158,14 @@ bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore,
     return true;
 }
 
-bool TryAddReplayTargetMarkerFromStores( EditorTracer& tracer,
-                                         const PhysicsBodyStore& bodyStore,
-                                         const ColliderStore& colliderStore,
-                                         int modelIndex )
+bool TryAddReplayTargetMarkerFromStores( EditorTracer& tracer, const PhysicsBodyStore& bodyStore,
+                                         const ColliderStore& colliderStore, int modelIndex )
 {
     const PhysicsBodyHandle bodyHandle = bodyStore.HandleForModelIndex( modelIndex );
     const PhysicsColliderHandle colliderHandle = colliderStore.HandleForBodyHandle( bodyHandle );
     const PhysicsBodyRecord* body = bodyStore.RecordForHandle( bodyHandle );
     const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
+
     if ( !body || !collider || bodyStore.ModelIndexForHandle( bodyHandle ) != modelIndex ||
          colliderStore.ModelIndexForHandle( colliderHandle ) != modelIndex || collider->body != bodyHandle )
     {
@@ -178,14 +176,11 @@ bool TryAddReplayTargetMarkerFromStores( EditorTracer& tracer,
     // store rows; a stale dense-row hint never becomes durable identity.
     const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
     const auto hotFields = bodyStore.HotFields();
-    const float radius = (std::max)( 1.0f,
-                                     (std::max)( hotFields.boundingRadius[bodyIndex], collider->boundingRadius ) ) *
+    const float radius = (std::max)( 1.0f, (std::max)( hotFields.boundingRadius[bodyIndex], collider->boundingRadius ) ) *
                          1.18f;
 
     tracer.AddReplayTargetMarker( PhysicsBodyPosition( hotFields, bodyIndex ),
-                                  PhysicsBodyOrientation( hotFields, bodyIndex ),
-                                  collider->shape,
-                                  radius );
+                                  PhysicsBodyOrientation( hotFields, bodyIndex ), collider->shape, radius );
 
     return true;
 }
@@ -199,8 +194,7 @@ void ReplayPredictionPresentation::RenderCauseFocusOverlay( const RunReplayCamer
                                                             const ReplaySolverFrameSample* currentSolverSample,
                                                             const PhysicsBodyStore& bodyStore,
                                                             const ColliderStore& colliderStore,
-                                                            const SceneEntityStore& entities,
-                                                            EditorTracer& tracer )
+                                                            const SceneEntityStore& entities, EditorTracer& tracer )
 {
     using namespace ReplayPresentationSubmissionOperations;
 
@@ -214,11 +208,8 @@ void ReplayPredictionPresentation::RenderCauseFocusOverlay( const RunReplayCamer
         ModelRowHint focusHint;
         focusHint.value = camera.focusModelRow.value;
         int focusedModelIndex = -1;
-        if ( TryResolveReplayBodyModelIndex( bodyStore,
-                                             camera.focusedId,
-                                             focusHint,
-                                             bodyStore.Count(),
-                                             focusedModelIndex ) )
+
+        if ( TryResolveReplayBodyModelIndex( bodyStore, camera.focusedId, focusHint, bodyStore.Count(), focusedModelIndex ) )
         {
             TryAddReplayTargetMarkerFromStores( tracer, bodyStore, colliderStore, focusedModelIndex );
             return;
@@ -229,6 +220,7 @@ void ReplayPredictionPresentation::RenderCauseFocusOverlay( const RunReplayCamer
          camera.focusKind == RunReplayCameraFocusKind::PredictionContact ||
          camera.focusKind == RunReplayCameraFocusKind::PredictionMotion )
     {
+
         if ( camera.focusKind == RunReplayCameraFocusKind::Manifold )
         {
             const ReplaySolverFrameSample* sample = currentSolverSample;
@@ -237,21 +229,24 @@ void ReplayPredictionPresentation::RenderCauseFocusOverlay( const RunReplayCamer
             {
                 const ReplaySolverBodySample* focusedBody = FindReplayBodyById( *sample, camera.focusedId );
                 const ReplaySolverBodySample* counterpartBody = FindReplayBodyById( *sample, camera.counterpartId );
+
                 if ( focusedBody )
                 {
                     bool drewContact = false;
+
                     for ( const PhysicsSolverPersistentContactSample& contact :
                           sample->worldSnapshot.physics.persistentContacts )
                     {
+
                         if ( !ReplayContactHasModelIndex( contact, focusedBody->modelRow.value ) )
                         {
                             continue;
                         }
 
-                        const int otherModelIndex = ReplayContactOtherModelIndex( contact,
-                                                                                  focusedBody->modelRow.value );
+                        const int otherModelIndex = ReplayContactOtherModelIndex( contact, focusedBody->modelRow.value );
 
                         const bool terrain = contact.isTerrain || otherModelIndex < 0;
+
                         if ( camera.focusTerrain != terrain )
                         {
                             continue;
@@ -262,12 +257,9 @@ void ReplayPredictionPresentation::RenderCauseFocusOverlay( const RunReplayCamer
                             continue;
                         }
 
-                        tracer.AddReplayContactMarker(
-                            ReplayContactPoint( *sample, contact ),
-                            ReplayContactNormalForModel( contact, focusedBody->modelRow.value ),
-                            0.1f,
-                            0.95f,
-                            1.0f );
+                        tracer.AddReplayContactMarker( ReplayContactPoint( *sample, contact ),
+                                                       ReplayContactNormalForModel( contact, focusedBody->modelRow.value ),
+                                                       0.1f, 0.95f, 1.0f );
 
                         drewContact = true;
                     }
@@ -288,8 +280,8 @@ void ReplayPredictionPresentation::RenderCauseFocusOverlay( const RunReplayCamer
             if ( causeTree.selectedRow >= 0 && causeTree.selectedRow < static_cast<int>( causeTree.rows.size() ) )
             {
                 const RunReplayCauseTreeRow& row = causeTree.rows[static_cast<std::size_t>( causeTree.selectedRow )];
-                if ( row.kind == RunReplayCauseTreeRowKind::PredictionContact &&
-                     row.id.value == camera.focusedId.value )
+
+                if ( row.kind == RunReplayCauseTreeRowKind::PredictionContact && row.id.value == camera.focusedId.value )
                 {
                     focusFrame = row.firstFrame;
                     focusedModelIndex = row.modelRow.value;
@@ -299,8 +291,8 @@ void ReplayPredictionPresentation::RenderCauseFocusOverlay( const RunReplayCamer
             else if ( camera.focusContactIndex >= 0 &&
                       camera.focusContactIndex < static_cast<int>( prediction.futureNodes.size() ) )
             {
-                const RunReplayPathTraceNode&
-                    node = prediction.futureNodes[static_cast<std::size_t>( camera.focusContactIndex )];
+                const RunReplayPathTraceNode& node = prediction
+                                                         .futureNodes[static_cast<std::size_t>( camera.focusContactIndex )];
 
                 if ( node.id.value == camera.focusedId.value && node.contactDerived )
                 {
@@ -311,8 +303,10 @@ void ReplayPredictionPresentation::RenderCauseFocusOverlay( const RunReplayCamer
             }
 
             bool drewPredictionManifold = false;
+
             for ( const RunReplayPredictionFrame& frame : prediction.frames )
             {
+
                 if ( frame.frameIndex != focusFrame )
                 {
                     continue;
@@ -320,6 +314,7 @@ void ReplayPredictionPresentation::RenderCauseFocusOverlay( const RunReplayCamer
 
                 // Why: the selected future-tree contact names a body pair, but
                 // the complete manifold remains in the immutable frame debug values.
+
                 for ( const PhysicsDebugContact& contact : frame.debugContacts )
                 {
                     const int contactModelA = ReplayRagdollTorsoModelIndexForPart( entities, contact.bodyA );
@@ -339,16 +334,14 @@ void ReplayPredictionPresentation::RenderCauseFocusOverlay( const RunReplayCamer
                     }
 
                     Vector3 normal = contact.normal;
+
                     if ( selectedPairBA && contactModelB >= 0 )
                     {
                         normal = normal * -1.0f;
                     }
 
-                    tracer.AddReplayContactMarker( contact.point,
-                                                   ReplayNormalizeOr( normal, Vector3( 0.0f, 1.0f, 0.0f ) ),
-                                                   0.1f,
-                                                   0.95f,
-                                                   1.0f );
+                    tracer.AddReplayContactMarker( contact.point, ReplayNormalizeOr( normal, Vector3( 0.0f, 1.0f, 0.0f ) ),
+                                                   0.1f, 0.95f, 1.0f );
 
                     drewPredictionManifold = true;
                 }

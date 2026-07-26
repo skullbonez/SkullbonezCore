@@ -66,21 +66,13 @@ struct LambertSolution
     Vector::Vector3 v2 = Vector::Vector3( 0.0f, 0.0f, 0.0f );
 };
 
-OrbitalStatus ElementsFromState( const Vector::Vector3& relativePosition,
-                                 const Vector::Vector3& relativeVelocity,
-                                 float mu,
+OrbitalStatus ElementsFromState( const Vector::Vector3& relativePosition, const Vector::Vector3& relativeVelocity, float mu,
                                  OrbitalElements& out );
-OrbitalStatus PropagateToTime( const OrbitalElements& elements,
-                               float deltaSeconds,
-                               Vector::Vector3& outRelativePosition,
+OrbitalStatus PropagateToTime( const OrbitalElements& elements, float deltaSeconds, Vector::Vector3& outRelativePosition,
                                Vector::Vector3& outRelativeVelocity );
 std::size_t SampleOrbitPolyline( const OrbitalElements& elements, std::span<Vector::Vector3> outPoints );
-OrbitalStatus SolveLambert( const Vector::Vector3& r1,
-                            const Vector::Vector3& r2,
-                            float timeOfFlight,
-                            float mu,
-                            bool prograde,
-                            LambertSolution& out );
+OrbitalStatus SolveLambert( const Vector::Vector3& r1, const Vector::Vector3& r2, float timeOfFlight, float mu,
+                            bool prograde, LambertSolution& out );
 float HohmannTransferSeconds( float r1, float r2, float mu );
 float HohmannDepartureDeltaV( float r1, float r2, float mu );
 } // namespace Orbital

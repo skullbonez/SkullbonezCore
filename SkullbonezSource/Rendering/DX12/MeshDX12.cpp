@@ -51,6 +51,7 @@ MeshDX12::MeshDX12( Dx12RenderDevice& device, Dx12DrawGate& drawGate, Dx12Diagno
 
 MeshDX12::~MeshDX12()
 {
+
     if ( m_vertexBuffer )
     {
         m_vertexBuffer->Release();
@@ -58,16 +59,11 @@ MeshDX12::~MeshDX12()
 }
 
 
-bool MeshDX12::Create( ID3D12Device* device,
-                       ID3D12GraphicsCommandList* cmdList,
-                       const float* data,
-                       int vertexCount,
-                       int floatsPerVert,
-                       VertexFormat12 format,
-                       D3D12_GPU_VIRTUAL_ADDRESS uploadAddr,
-                       uint8_t* uploadPtr,
+bool MeshDX12::Create( ID3D12Device* device, ID3D12GraphicsCommandList* cmdList, const float* data, int vertexCount,
+                       int floatsPerVert, VertexFormat12 format, D3D12_GPU_VIRTUAL_ADDRESS uploadAddr, uint8_t* uploadPtr,
                        ID3D12Resource* uploadBuffer )
 {
+
     if ( uploadAddr == 0 || !uploadPtr )
     {
         return false;
@@ -97,24 +93,19 @@ bool MeshDX12::Create( ID3D12Device* device,
     // specifying COPY_DEST fires warning #1328 (CREATERESOURCE_STATE_IGNORED). Use COMMON explicitly;
     // CopyBufferRegion promotes the buffer to COPY_DEST implicitly within the command list.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    HRESULT hr = device->CreateCommittedResource( &defaultHeap,
-                                                  D3D12_HEAP_FLAG_NONE,
-                                                  &bufDesc,
-                                                  D3D12_RESOURCE_STATE_COMMON,
-                                                  nullptr,
-                                                  IID_PPV_ARGS( &m_vertexBuffer ) );
+    HRESULT hr = device->CreateCommittedResource( &defaultHeap, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_COMMON,
+                                                  nullptr, IID_PPV_ARGS( &m_vertexBuffer ) );
 
     if ( FAILED( hr ) )
     {
+
         // Lane R: mesh buffers are backend resources. Factory callers receive
         // a null mesh and skip the dependent draw path while the DX12 gate keeps
         // the HRESULT visible.
-        SkullbonezCore::Core::Log().WriteEventf(
-            "dx12_mesh_vertex_buffer_create_failed hresult=0x%08X vertices=%d stride=%d bytes=%llu",
-            static_cast<unsigned int>( hr ),
-            vertexCount,
-            m_stride,
-            static_cast<unsigned long long>( dataSize ) );
+        SkullbonezCore::Core::Log()
+            .WriteEventf( "dx12_mesh_vertex_buffer_create_failed hresult=0x%08X vertices=%d stride=%d bytes=%llu",
+                          static_cast<unsigned int>( hr ), vertexCount, m_stride,
+                          static_cast<unsigned long long>( dataSize ) );
 
         SkullbonezCore::Core::Log().FlushAll();
         return false;
@@ -126,12 +117,14 @@ bool MeshDX12::Create( ID3D12Device* device,
 
     // Invariant: ReserveUpload and GetUploadPtr above are only valid when the
     // frame upload system owns a backing resource for the current frame.
+
     if ( !uploadBuffer )
     {
         SB_FATAL( "MeshDX12", "Create requires a DX12 upload buffer." );
     }
 
     UINT64 uploadOffset = uploadAddr - uploadBuffer->GetGPUVirtualAddress();
+
     // Record a GPU-side copy command: transfer vertex data from the upload buffer (CPU-visible staging
     // memory) to the vertex buffer (fast GPU-only memory). This happens asynchronously on the GPU —
     // the CPU just records the command, the actual copy happens when the command list is executed.
@@ -152,6 +145,7 @@ bool MeshDX12::Create( ID3D12Device* device,
                                     D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
 
     barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+
     if ( !m_drawGate.CanRecord() )
     {
         return false;
@@ -175,6 +169,7 @@ bool MeshDX12::PrecompileRasterState( const PassRasterStateBucket& bucket ) cons
 void MeshDX12::Draw( const PassRasterStateBucket& bucket ) const
 {
     ID3D12GraphicsCommandList* commandList = m_device.CommandList();
+
     if ( !commandList )
     {
         return;
@@ -182,6 +177,7 @@ void MeshDX12::Draw( const PassRasterStateBucket& bucket ) const
 
     // Invariant: the pass bucket reaches PSO selection on the same call that
     // submits the mesh. No ambient setter state participates in this draw.
+
     if ( !m_drawGate.PreparePipelineDraw( m_format, false, nullptr, nullptr, bucket.raster ) )
     {
         return;
@@ -195,6 +191,7 @@ void MeshDX12::Draw( const PassRasterStateBucket& bucket ) const
 
 void MeshDX12::ResetResources()
 {
+
     if ( m_vertexBuffer )
     {
         m_vertexBuffer->Release();

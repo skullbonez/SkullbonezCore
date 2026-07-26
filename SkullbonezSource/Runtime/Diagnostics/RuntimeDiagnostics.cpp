@@ -55,6 +55,7 @@ namespace
 {
 void FlushPerfLogIfNeeded( RunPerfLogState& perfLog )
 {
+
     if ( perfLog.isPerfLogFlushEnabled ||
          ( perfLog.perfLogFlushInterval > 0 && perfLog.perfLogWritesSinceFlush >= perfLog.perfLogFlushInterval ) )
     {
@@ -65,6 +66,7 @@ void FlushPerfLogIfNeeded( RunPerfLogState& perfLog )
 
 void FlushPendingPerfLogWrites( RunPerfLogState& perfLog )
 {
+
     if ( perfLog.perfLogFile && perfLog.perfLogWritesSinceFlush > 0 )
     {
         fflush( perfLog.perfLogFile );
@@ -72,14 +74,13 @@ void FlushPendingPerfLogWrites( RunPerfLogState& perfLog )
     }
 }
 
-bool FlushWorkingSetQueryBatch( HANDLE process,
-                                PSAPI_WORKING_SET_EX_INFORMATION* pages,
-                                std::size_t pageCount,
-                                uint64_t& privateWorkingSetBytes,
-                                uint64_t pageSize )
+bool FlushWorkingSetQueryBatch( HANDLE process, PSAPI_WORKING_SET_EX_INFORMATION* pages, std::size_t pageCount,
+                                uint64_t& privateWorkingSetBytes, uint64_t pageSize )
 {
+
     // Hazard: QueryWorkingSetEx can fail for a region without invalidating the
     // whole sample. The caller tracks success separately from the byte count.
+
     if ( !pages || pageCount == 0 )
     {
         return true;
@@ -87,11 +88,14 @@ bool FlushWorkingSetQueryBatch( HANDLE process,
 
     const SIZE_T byteCount = pageCount * sizeof( PSAPI_WORKING_SET_EX_INFORMATION );
     const bool queried = QueryWorkingSetEx( process, pages, static_cast<DWORD>( byteCount ) ) != FALSE;
+
     if ( queried )
     {
+
         for ( std::size_t pageIndex = 0; pageIndex < pageCount; ++pageIndex )
         {
             const PSAPI_WORKING_SET_EX_INFORMATION& page = pages[pageIndex];
+
             if ( page.VirtualAttributes.Valid && !page.VirtualAttributes.Shared )
             {
                 privateWorkingSetBytes += pageSize;
@@ -107,6 +111,7 @@ bool TrySamplePrivateWorkingSetBytes( HANDLE process, uint64_t& outBytes )
     SYSTEM_INFO systemInfo;
     GetNativeSystemInfo( &systemInfo );
     const uint64_t pageSize = static_cast<uint64_t>( systemInfo.dwPageSize );
+
     if ( pageSize == 0 )
     {
         return false;
@@ -129,8 +134,7 @@ bool TrySamplePrivateWorkingSetBytes( HANDLE process, uint64_t& outBytes )
     {
         MEMORY_BASIC_INFORMATION memoryInfo;
         std::memset( &memoryInfo, 0, sizeof( memoryInfo ) );
-        const SIZE_T queryBytes = VirtualQuery( reinterpret_cast<const void*>( address ),
-                                                &memoryInfo,
+        const SIZE_T queryBytes = VirtualQuery( reinterpret_cast<const void*>( address ), &memoryInfo,
                                                 sizeof( memoryInfo ) );
 
         if ( queryBytes == 0 )
@@ -142,6 +146,7 @@ bool TrySamplePrivateWorkingSetBytes( HANDLE process, uint64_t& outBytes )
         const uintptr_t regionBase = reinterpret_cast<uintptr_t>( memoryInfo.BaseAddress );
         const uintptr_t regionSize = static_cast<uintptr_t>( memoryInfo.RegionSize );
         const uintptr_t regionEnd = regionBase + regionSize;
+
         if ( regionEnd <= address || regionEnd < regionBase )
         {
             break;
@@ -154,6 +159,7 @@ bool TrySamplePrivateWorkingSetBytes( HANDLE process, uint64_t& outBytes )
         {
             uintptr_t pageAddress = regionBase;
             const uintptr_t pageMask = static_cast<uintptr_t>( pageSize - 1 );
+
             if ( ( pageAddress & pageMask ) != 0 )
             {
                 pageAddress = ( pageAddress + pageMask ) & ~pageMask;
@@ -165,13 +171,11 @@ bool TrySamplePrivateWorkingSetBytes( HANDLE process, uint64_t& outBytes )
 
                 page.VirtualAddress = reinterpret_cast<void*>( pageAddress );
                 pages[pageCount++] = page;
+
                 if ( pageCount >= QUERY_BATCH_PAGES )
                 {
-                    allQueriesSucceeded = FlushWorkingSetQueryBatch( process,
-                                                                     pages.data(),
-                                                                     pageCount,
-                                                                     privateWorkingSetBytes,
-                                                                     pageSize ) &&
+                    allQueriesSucceeded = FlushWorkingSetQueryBatch( process, pages.data(), pageCount,
+                                                                     privateWorkingSetBytes, pageSize ) &&
                                           allQueriesSucceeded;
 
                     pageCount = 0;
@@ -182,11 +186,7 @@ bool TrySamplePrivateWorkingSetBytes( HANDLE process, uint64_t& outBytes )
         address = regionEnd;
     }
 
-    allQueriesSucceeded = FlushWorkingSetQueryBatch( process,
-                                                     pages.data(),
-                                                     pageCount,
-                                                     privateWorkingSetBytes,
-                                                     pageSize ) &&
+    allQueriesSucceeded = FlushWorkingSetQueryBatch( process, pages.data(), pageCount, privateWorkingSetBytes, pageSize ) &&
                           allQueriesSucceeded;
 
     outBytes = privateWorkingSetBytes;
@@ -197,6 +197,7 @@ bool TrySamplePrivateWorkingSetBytes( HANDLE process, uint64_t& outBytes )
 std::string JsonEscape( const char* value )
 {
     std::string escaped;
+
     if ( !value )
     {
         return escaped;
@@ -204,6 +205,7 @@ std::string JsonEscape( const char* value )
 
     for ( const char* p = value; *p != '\0'; ++p )
     {
+
         switch ( *p )
         {
         case '\\':
@@ -234,6 +236,7 @@ std::string JsonEscape( const char* value )
 
 void RuntimeDiagnostics::ClosePerfLog( RunPerfLogState& perfLog )
 {
+
     if ( perfLog.perfLogFile )
     {
         FlushPendingPerfLogWrites( perfLog );
@@ -257,14 +260,17 @@ SkullbonezCore::Core::MainMemoryProcessStats RuntimeDiagnostics::SampleProcessMe
     std::memset( &pmc, 0, sizeof( pmc ) );
     pmc.cb = sizeof( pmc );
     HANDLE process = GetCurrentProcess();
+
     // Why: GetProcessMemoryInfo's base-structure ABI accepts the extended
     // structure when cb/size identify PROCESS_MEMORY_COUNTERS_EX.
+
     if ( GetProcessMemoryInfo( process, reinterpret_cast<PROCESS_MEMORY_COUNTERS*>( &pmc ), sizeof( pmc ) ) )
     {
         stats.available = true;
         stats.workingSetBytes = static_cast<uint64_t>( pmc.WorkingSetSize );
         stats.privateCommitBytes = static_cast<uint64_t>( pmc.PrivateUsage );
         stats.pagefileUsageBytes = static_cast<uint64_t>( pmc.PagefileUsage );
+
         if ( includePrivateWorkingSet && TrySamplePrivateWorkingSetBytes( process, stats.privateWorkingSetBytes ) )
         {
             strcpy_s( stats.taskManagerMetricName, sizeof( stats.taskManagerMetricName ), "private_working_set" );
@@ -277,6 +283,7 @@ SkullbonezCore::Core::MainMemoryProcessStats RuntimeDiagnostics::SampleProcessMe
         }
         else
         {
+
             // Why: F6 memory UI runs on the render thread. GetProcessMemoryInfo
             // is a bounded counter query, while private working set requires an
             // address-space walk over committed pages and can stall a frame.
@@ -290,12 +297,14 @@ SkullbonezCore::Core::MainMemoryProcessStats RuntimeDiagnostics::SampleProcessMe
 
 void RuntimeDiagnostics::LogPerfMemory( RunPerfLogState& perfLog, int pass, const char* checkpoint )
 {
+
     if ( !perfLog.perfLogFile )
     {
         return;
     }
 
     const SkullbonezCore::Core::MainMemoryProcessStats stats = SampleProcessMemory( true );
+
     if ( stats.available )
     {
         const double taskManagerMb = static_cast<double>( stats.taskManagerBytes ) / ( 1024.0 * 1024.0 );
@@ -306,14 +315,8 @@ void RuntimeDiagnostics::LogPerfMemory( RunPerfLogState& perfLog, int pass, cons
         fprintf( perfLog.perfLogFile,
                  "# MEM %s pass=%d task_manager_metric=%s task_manager_mb=%.2f working_set_mb=%.2f "
                  "private_working_set_mb=%.2f private_commit_mb=%.2f pagefile_mb=%.2f\n",
-                 checkpoint,
-                 pass,
-                 stats.taskManagerMetricName,
-                 taskManagerMb,
-                 workingSetMb,
-                 privateWorkingSetMb,
-                 privateCommitMb,
-                 pagefileMb );
+                 checkpoint, pass, stats.taskManagerMetricName, taskManagerMb, workingSetMb, privateWorkingSetMb,
+                 privateCommitMb, pagefileMb );
 
         ++perfLog.perfLogWritesSinceFlush;
         FlushPerfLogIfNeeded( perfLog );
@@ -339,11 +342,10 @@ void RuntimeDiagnostics::ConfigurePerfLogFlush( RunPerfLogState& perfLog, bool e
 }
 
 
-void RuntimeDiagnostics::OpenScenePerfLog( RunPerfLogState& perfLog,
-                                           const char* path,
-                                           int pass,
+void RuntimeDiagnostics::OpenScenePerfLog( RunPerfLogState& perfLog, const char* path, int pass,
                                            SkullbonezCore::Core::Profiler* profiler )
 {
+
     if ( !path || path[0] == '\0' )
     {
         return;
@@ -353,13 +355,16 @@ void RuntimeDiagnostics::OpenScenePerfLog( RunPerfLogState& perfLog,
     strcpy_s( perfLog.perfLogPath, sizeof( perfLog.perfLogPath ), path );
     const char* mode = ( pass == 0 ) ? "w" : "a";
     fopen_s( &perfLog.perfLogFile, perfLog.perfLogPath, mode );
+
     if ( perfLog.perfLogFile )
     {
         perfLog.perfLogWritesSinceFlush = 0;
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
+
         // Why: validation appends multiple scene passes in one process. Reset
         // the profiler pass state so the existing warmup skips restart rows
         // before CSV output represents steady-state frame costs.
+
         if ( profiler )
         {
             profiler->ScheduleReset();
@@ -382,6 +387,7 @@ RuntimeProfilerFrameTimes RuntimeDiagnostics::SampleProfilerFrameTimes( const Sk
 {
     RuntimeProfilerFrameTimes times;
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
+
     if ( !profiler )
     {
         return times;
@@ -418,18 +424,20 @@ RuntimeProfilerFrameTimes RuntimeDiagnostics::SampleProfilerFrameTimes( const Sk
 }
 
 
-void RuntimeDiagnostics::TickPerfLog( RunPerfLogState& perfLog,
-                                      const RuntimePerfTickContext& context,
+void RuntimeDiagnostics::TickPerfLog( RunPerfLogState& perfLog, const RuntimePerfTickContext& context,
                                       SkullbonezCore::Core::Profiler* profiler )
 {
+
     if ( !perfLog.isPerfTest || !perfLog.perfLogFile )
     {
         return;
     }
 
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
+
     if ( !perfLog.perfHeaderWritten )
     {
+
         if ( profiler )
         {
             profiler->WritePerfCSVHeader( perfLog.perfLogFile );
@@ -444,11 +452,7 @@ void RuntimeDiagnostics::TickPerfLog( RunPerfLogState& perfLog,
     }
 #else
     (void)profiler;
-    fprintf( perfLog.perfLogFile,
-             "%d,%d,%.4f,%.4f\n",
-             context.pass,
-             context.frame,
-             context.physicsTimeSeconds * 1000.0f,
+    fprintf( perfLog.perfLogFile, "%d,%d,%.4f,%.4f\n", context.pass, context.frame, context.physicsTimeSeconds * 1000.0f,
              context.renderTimeSeconds * 1000.0f );
 #endif
 
@@ -472,10 +476,8 @@ void RuntimeDiagnostics::SetPhysicsCollisionTimeLogOverride( RunPerfLogState& pe
     strcpy_s( perfLog.physicsCollisionTimeLogOverride, sizeof( perfLog.physicsCollisionTimeLogOverride ), path );
 }
 
-void RuntimeDiagnostics::SetPhysicsDiagnosticsPath( RunPhysicsDiagnosticsState& diagnostics,
-                                                    Physics::PhysicsEngine& physics,
-                                                    const char* path,
-                                                    bool fixedStepForcedByDiagnostics )
+void RuntimeDiagnostics::SetPhysicsDiagnosticsPath( RunPhysicsDiagnosticsState& diagnostics, Physics::PhysicsEngine& physics,
+                                                    const char* path, bool fixedStepForcedByDiagnostics )
 {
     strcpy_s( diagnostics.path, sizeof( diagnostics.path ), path );
     diagnostics.isEnabled = diagnostics.path[0] != '\0';
@@ -483,39 +485,32 @@ void RuntimeDiagnostics::SetPhysicsDiagnosticsPath( RunPhysicsDiagnosticsState& 
     physics.SetPhysicsDiagnosticsPath( diagnostics.path );
 }
 
-void RuntimeDiagnostics::LogSceneFinished( SceneSessionState& scene,
-                                           const char* scenePath,
-                                           const char* rendererName,
+void RuntimeDiagnostics::LogSceneFinished( SceneSessionState& scene, const char* scenePath, const char* rendererName,
                                            const char* reason )
 {
+
     if ( scene.isFinishLogged )
     {
         return;
     }
 
-    SkullbonezCore::Core::Log().WriteEventf(
-        "scene_finished index=%d load=%d path=\"%s\" reason=%s frame=%d target_frames=%d "
-        "renderer=\"%s\" models=%d test_complete=%d",
-        scene.currentSceneIndex,
-        scene.loadCount,
-        scenePath && scenePath[0] != '\0' ? scenePath : "generated",
-        reason && reason[0] != '\0' ? reason : "unknown",
-        scene.currentFrame,
-        scene.targetFrameCount,
-        rendererName && rendererName[0] != '\0' ? rendererName : "unknown",
-        scene.modelCount,
-        scene.isTestComplete ? 1 : 0 );
+    SkullbonezCore::Core::Log()
+        .WriteEventf( "scene_finished index=%d load=%d path=\"%s\" reason=%s frame=%d target_frames=%d "
+                      "renderer=\"%s\" models=%d test_complete=%d",
+                      scene.currentSceneIndex, scene.loadCount, scenePath && scenePath[0] != '\0' ? scenePath : "generated",
+                      reason && reason[0] != '\0' ? reason : "unknown", scene.currentFrame, scene.targetFrameCount,
+                      rendererName && rendererName[0] != '\0' ? rendererName : "unknown", scene.modelCount,
+                      scene.isTestComplete ? 1 : 0 );
 
     scene.isFinishLogged = true;
 }
 
 void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,
-                                                     Physics::PhysicsEngine& physics,
-                                                     const SceneSessionState& scene,
-                                                     const SkullbonezCore::Core::EngineConfig& config,
-                                                     const char* scenePath,
+                                                     Physics::PhysicsEngine& physics, const SceneSessionState& scene,
+                                                     const SkullbonezCore::Core::EngineConfig& config, const char* scenePath,
                                                      const char* rendererName )
 {
+
     if ( !diagnostics.isEnabled )
     {
         return;
@@ -531,101 +526,63 @@ void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState&
     std::string escapedRenderer = JsonEscape( rendererName && rendererName[0] != '\0' ? rendererName : "unknown" );
     std::string escapedSolver = JsonEscape( solverName );
 
-    SkullbonezCore::Core::Log().Writef(
-        diagnostics.path,
-        "{\"kind\":\"run\",\"run\":\"%s\",\"scene\":\"%s\",\"scene_index\":%d,\"load_count\":%d,\"manual_"
-        "reset_count\":%d,\"renderer\":\"%s\",\"solver\":\"%s\",\"seed\":%u,\"fixed_step\":%d,\"fixed_step_"
-        "forced_by_diag\":%d,\"target_frames\":%d,\"model_count\":%d,\"config\":{\"gravity\":%.6f,\"contact_"
-        "epsilon\":%.6f,\"contact_restitution_threshold\":%.6f,\"friction_coeff\":%.6f,\"object_friction_"
-        "coeff\":%.6f,\"rolling_friction_coeff\":%.6f,\"spin_friction_coeff\":%.6f,\"broadphase_cell\":%.6f,"
-        "\"persistent_contact_slop\":%.6f,"
-        "\"persistent_contact_baumgarte_beta\":%.6f,\"persistent_contact_position_correction_percent\":%.6f,"
-        "\"persistent_contact_solver_iterations\":%d,\"terrain_contact_threshold\":%.6f,\"terrain_contact_"
-        "slop\":%.6f,\"terrain_contact_baumgarte_beta\":%.6f,\"terrain_max_baumgarte_bias\":%.6f,\"physics_"
-        "sleep_linear_speed\":%.6f,\"physics_sleep_angular_speed\":%.6f,\"physics_sleep_frames\":%d}}\n",
-        diagnostics.currentRunId,
-        escapedScene.c_str(),
-        scene.currentSceneIndex,
-        scene.loadCount,
-        scene.manualResetCount,
-        escapedRenderer.c_str(),
-        escapedSolver.c_str(),
-        scene.rngSeed,
-        scene.isFixedStep ? 1 : 0,
-        diagnostics.fixedStepForcedByDiagnostics ? 1 : 0,
-        scene.targetFrameCount,
-        scene.modelCount,
-        config.worldForces.gravity,
-        config.bodySimulation.contactEpsilon,
-        config.bodySimulation.contactRestitutionThreshold,
-        config.physicsMaterial.frictionCoeff,
-        config.physicsMaterial.objectFrictionCoeff,
-        config.physicsMaterial.rollingFrictionCoeff,
-        config.physicsMaterial.spinFrictionCoeff,
-        config.broadphase.cellSize,
-        config.persistentContactSolver.slop,
-        config.persistentContactSolver.baumgarteBeta,
-        config.persistentContactSolver.positionCorrectionPercent,
-        config.persistentContactSolver.iterations,
-        config.terrainContact.threshold,
-        config.terrainContact.slop,
-        config.terrainContact.baumgarteBeta,
-        config.terrainContact.maxBaumgarteBias,
-        config.physicsSleep.linearSpeed,
-        config.physicsSleep.angularSpeed,
-        config.physicsSleep.frames );
+    SkullbonezCore::Core::Log()
+        .Writef( diagnostics.path,
+                 "{\"kind\":\"run\",\"run\":\"%s\",\"scene\":\"%s\",\"scene_index\":%d,\"load_count\":%d,\"manual_"
+                 "reset_count\":%d,\"renderer\":\"%s\",\"solver\":\"%s\",\"seed\":%u,\"fixed_step\":%d,\"fixed_step_"
+                 "forced_by_diag\":%d,\"target_frames\":%d,\"model_count\":%d,\"config\":{\"gravity\":%.6f,\"contact_"
+                 "epsilon\":%.6f,\"contact_restitution_threshold\":%.6f,\"friction_coeff\":%.6f,\"object_friction_"
+                 "coeff\":%.6f,\"rolling_friction_coeff\":%.6f,\"spin_friction_coeff\":%.6f,\"broadphase_cell\":%.6f,"
+                 "\"persistent_contact_slop\":%.6f,"
+                 "\"persistent_contact_baumgarte_beta\":%.6f,\"persistent_contact_position_correction_percent\":%.6f,"
+                 "\"persistent_contact_solver_iterations\":%d,\"terrain_contact_threshold\":%.6f,\"terrain_contact_"
+                 "slop\":%.6f,\"terrain_contact_baumgarte_beta\":%.6f,\"terrain_max_baumgarte_bias\":%.6f,\"physics_"
+                 "sleep_linear_speed\":%.6f,\"physics_sleep_angular_speed\":%.6f,\"physics_sleep_frames\":%d}}\n",
+                 diagnostics.currentRunId, escapedScene.c_str(), scene.currentSceneIndex, scene.loadCount,
+                 scene.manualResetCount, escapedRenderer.c_str(), escapedSolver.c_str(), scene.rngSeed,
+                 scene.isFixedStep ? 1 : 0, diagnostics.fixedStepForcedByDiagnostics ? 1 : 0, scene.targetFrameCount,
+                 scene.modelCount, config.worldForces.gravity, config.bodySimulation.contactEpsilon,
+                 config.bodySimulation.contactRestitutionThreshold, config.physicsMaterial.frictionCoeff,
+                 config.physicsMaterial.objectFrictionCoeff, config.physicsMaterial.rollingFrictionCoeff,
+                 config.physicsMaterial.spinFrictionCoeff, config.broadphase.cellSize, config.persistentContactSolver.slop,
+                 config.persistentContactSolver.baumgarteBeta, config.persistentContactSolver.positionCorrectionPercent,
+                 config.persistentContactSolver.iterations, config.terrainContact.threshold, config.terrainContact.slop,
+                 config.terrainContact.baumgarteBeta, config.terrainContact.maxBaumgarteBias,
+                 config.physicsSleep.linearSpeed, config.physicsSleep.angularSpeed, config.physicsSleep.frames );
 }
 
-void RuntimeDiagnostics::LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagnostics,
-                                              const SceneSessionState& scene,
+void RuntimeDiagnostics::LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagnostics, const SceneSessionState& scene,
                                               const ReplayScrubProbeDiagnostic& probe )
 {
+
     if ( !diagnostics.isEnabled || !diagnostics.isRunActive )
     {
         return;
     }
 
     std::string escapedName = JsonEscape( probe.bodyName );
-    SkullbonezCore::Core::Log().Writef(
-        diagnostics.path,
-        "{\"kind\":\"replay_scrub\",\"run\":\"%s\",\"frame\":%d,\"normalized\":%.6f,\"selected_replay_"
-        "frame\":%llu,\"live_replay_frame\":%llu,\"selected_scene_frame\":%d,\"live_scene_frame\":%d,"
-        "\"selected_state_hash\":%llu,\"live_state_hash\":%llu,\"body_id\":%u,\"model_index\":%d,\"name\":\"%"
-        "s\",\"selected_pos\":[%.6f,%.6f,%.6f],\"live_pos\":[%.6f,%.6f,%.6f],\"distance_sq\":%.9f,\"selected_"
-        "body_count\":%zu,\"live_body_count\":%zu,\"applied\":%d,\"restored\":%d,\"pre_live_delta_sq\":%.9f,"
-        "\"applied_delta_sq\":%.9f,\"restored_delta_sq\":%.9f}\n",
-        diagnostics.currentRunId,
-        scene.currentFrame,
-        probe.normalized,
-        static_cast<unsigned long long>( probe.selectedReplayFrame ),
-        static_cast<unsigned long long>( probe.liveReplayFrame ),
-        probe.selectedSceneFrame,
-        probe.liveSceneFrame,
-        static_cast<unsigned long long>( probe.selectedStateHash ),
-        static_cast<unsigned long long>( probe.liveStateHash ),
-        probe.bodyId,
-        probe.modelIndex,
-        escapedName.c_str(),
-        probe.selectedPosition[0],
-        probe.selectedPosition[1],
-        probe.selectedPosition[2],
-        probe.livePosition[0],
-        probe.livePosition[1],
-        probe.livePosition[2],
-        probe.distanceSquared,
-        probe.selectedBodyCount,
-        probe.liveBodyCount,
-        probe.applied ? 1 : 0,
-        probe.restored ? 1 : 0,
-        probe.preLiveDeltaSquared,
-        probe.appliedDeltaSquared,
-        probe.restoredDeltaSquared );
+    SkullbonezCore::Core::Log()
+        .Writef( diagnostics.path,
+                 "{\"kind\":\"replay_scrub\",\"run\":\"%s\",\"frame\":%d,\"normalized\":%.6f,\"selected_replay_"
+                 "frame\":%llu,\"live_replay_frame\":%llu,\"selected_scene_frame\":%d,\"live_scene_frame\":%d,"
+                 "\"selected_state_hash\":%llu,\"live_state_hash\":%llu,\"body_id\":%u,\"model_index\":%d,\"name\":\"%"
+                 "s\",\"selected_pos\":[%.6f,%.6f,%.6f],\"live_pos\":[%.6f,%.6f,%.6f],\"distance_sq\":%.9f,\"selected_"
+                 "body_count\":%zu,\"live_body_count\":%zu,\"applied\":%d,\"restored\":%d,\"pre_live_delta_sq\":%.9f,"
+                 "\"applied_delta_sq\":%.9f,\"restored_delta_sq\":%.9f}\n",
+                 diagnostics.currentRunId, scene.currentFrame, probe.normalized,
+                 static_cast<unsigned long long>( probe.selectedReplayFrame ),
+                 static_cast<unsigned long long>( probe.liveReplayFrame ), probe.selectedSceneFrame, probe.liveSceneFrame,
+                 static_cast<unsigned long long>( probe.selectedStateHash ),
+                 static_cast<unsigned long long>( probe.liveStateHash ), probe.bodyId, probe.modelIndex, escapedName.c_str(),
+                 probe.selectedPosition[0], probe.selectedPosition[1], probe.selectedPosition[2], probe.livePosition[0],
+                 probe.livePosition[1], probe.livePosition[2], probe.distanceSquared, probe.selectedBodyCount,
+                 probe.liveBodyCount, probe.applied ? 1 : 0, probe.restored ? 1 : 0, probe.preLiveDeltaSquared,
+                 probe.appliedDeltaSquared, probe.restoredDeltaSquared );
 
     SkullbonezCore::Core::Log().FlushAll();
 }
 
-void RuntimeDiagnostics::LogReplayRestoreProbe( RunPhysicsDiagnosticsState& diagnostics,
-                                                const SceneSessionState& scene,
+void RuntimeDiagnostics::LogReplayRestoreProbe( RunPhysicsDiagnosticsState& diagnostics, const SceneSessionState& scene,
                                                 const ReplayRestoreProbeDiagnostic& probe )
 {
     ReplayRestoreResultDiagnostic result;
@@ -650,56 +607,47 @@ void RuntimeDiagnostics::LogReplayRestoreProbe( RunPhysicsDiagnosticsState& diag
     LogReplayRestoreResult( diagnostics, scene, result );
 }
 
-void RuntimeDiagnostics::LogReplayRestoreResult( RunPhysicsDiagnosticsState& diagnostics,
-                                                 const SceneSessionState& scene,
+void RuntimeDiagnostics::LogReplayRestoreResult( RunPhysicsDiagnosticsState& diagnostics, const SceneSessionState& scene,
                                                  const ReplayRestoreResultDiagnostic& result )
 {
+
     if ( !diagnostics.isEnabled || !diagnostics.isRunActive )
     {
         return;
     }
 
-    std::string escapedSource = JsonEscape( result.restoreSource && result.restoreSource[0] != '\0' ? result.restoreSource : "unknown" );
+    std::string escapedSource = JsonEscape( result.restoreSource && result.restoreSource[0] != '\0' ? result.restoreSource
+                                                                                                    : "unknown" );
 
     std::string escapedReason = JsonEscape( result.failureReason ? result.failureReason : "" );
 
-    SkullbonezCore::Core::Log().Writef(
-        diagnostics.path,
-        "{\"kind\":\"replay_restore\",\"run\":\"%s\",\"frame\":%d,\"target_replay_frame\":%llu,"
-        "\"restore_source\":\"%s\",\"checkpoint_replay_frame\":%llu,"
-        "\"target_scene_frame\":%d,\"target_solver_hash\":%llu,\"target_presentation_hash\":%llu,"
-        "\"restored_solver_hash\":%llu,\"restored_presentation_hash\":%llu,\"target_body_count\":%zu,"
-        "\"restored_body_count\":%zu,\"contact_count\":%u,\"pipeline_record_count\":%u,"
-        "\"checkpoint_boundary\":%d,\"hash_captured\":%d,\"hash_matched\":%d,\"fallback_attempted\":%d,"
-        "\"fallback_restored\":%d,\"failure_reason\":\"%s\"}\n",
-        diagnostics.currentRunId,
-        scene.currentFrame,
-        static_cast<unsigned long long>( result.targetReplayFrame ),
-        escapedSource.c_str(),
-        static_cast<unsigned long long>( result.checkpointReplayFrame ),
-        result.targetSceneFrame,
-        static_cast<unsigned long long>( result.targetSolverHash ),
-        static_cast<unsigned long long>( result.targetPresentationHash ),
-        static_cast<unsigned long long>( result.restoredSolverHash ),
-        static_cast<unsigned long long>( result.restoredPresentationHash ),
-        result.targetBodyCount,
-        result.restoredBodyCount,
-        static_cast<unsigned>( result.contactCount ),
-        static_cast<unsigned>( result.pipelineRecordCount ),
-        result.checkpointBoundary ? 1 : 0,
-        result.hashCaptured ? 1 : 0,
-        result.hashMatched ? 1 : 0,
-        result.fallbackAttempted ? 1 : 0,
-        result.fallbackRestored ? 1 : 0,
-        escapedReason.c_str() );
+    SkullbonezCore::Core::Log()
+        .Writef( diagnostics.path,
+                 "{\"kind\":\"replay_restore\",\"run\":\"%s\",\"frame\":%d,\"target_replay_frame\":%llu,"
+                 "\"restore_source\":\"%s\",\"checkpoint_replay_frame\":%llu,"
+                 "\"target_scene_frame\":%d,\"target_solver_hash\":%llu,\"target_presentation_hash\":%llu,"
+                 "\"restored_solver_hash\":%llu,\"restored_presentation_hash\":%llu,\"target_body_count\":%zu,"
+                 "\"restored_body_count\":%zu,\"contact_count\":%u,\"pipeline_record_count\":%u,"
+                 "\"checkpoint_boundary\":%d,\"hash_captured\":%d,\"hash_matched\":%d,\"fallback_attempted\":%d,"
+                 "\"fallback_restored\":%d,\"failure_reason\":\"%s\"}\n",
+                 diagnostics.currentRunId, scene.currentFrame, static_cast<unsigned long long>( result.targetReplayFrame ),
+                 escapedSource.c_str(), static_cast<unsigned long long>( result.checkpointReplayFrame ),
+                 result.targetSceneFrame, static_cast<unsigned long long>( result.targetSolverHash ),
+                 static_cast<unsigned long long>( result.targetPresentationHash ),
+                 static_cast<unsigned long long>( result.restoredSolverHash ),
+                 static_cast<unsigned long long>( result.restoredPresentationHash ), result.targetBodyCount,
+                 result.restoredBodyCount, static_cast<unsigned>( result.contactCount ),
+                 static_cast<unsigned>( result.pipelineRecordCount ), result.checkpointBoundary ? 1 : 0,
+                 result.hashCaptured ? 1 : 0, result.hashMatched ? 1 : 0, result.fallbackAttempted ? 1 : 0,
+                 result.fallbackRestored ? 1 : 0, escapedReason.c_str() );
 
     SkullbonezCore::Core::Log().FlushAll();
 }
 
-void RuntimeDiagnostics::EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,
-                                                   const SceneSessionState& scene,
+void RuntimeDiagnostics::EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics, const SceneSessionState& scene,
                                                    const char* status )
 {
+
     if ( !diagnostics.isEnabled || !diagnostics.isRunActive )
     {
         return;
@@ -708,9 +656,7 @@ void RuntimeDiagnostics::EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& d
     std::string escapedStatus = JsonEscape( status && status[0] != '\0' ? status : "ended" );
     SkullbonezCore::Core::Log().Writef( diagnostics.path,
                                         "{\"kind\":\"end\",\"run\":\"%s\",\"frame\":%d,\"status\":\"%s\"}\n",
-                                        diagnostics.currentRunId,
-                                        scene.currentFrame,
-                                        escapedStatus.c_str() );
+                                        diagnostics.currentRunId, scene.currentFrame, escapedStatus.c_str() );
 
     SkullbonezCore::Core::Log().FlushAll();
 

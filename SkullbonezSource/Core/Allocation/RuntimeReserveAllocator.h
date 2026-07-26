@@ -7,6 +7,7 @@ Summary:
   Runtime allocation policy is enforced by named owners, not by one anonymous
   heap. Gameplay owners register fixed capacity so diagnostics can report their
   budget and high-water use. Replay owners are the only owners allowed to ask
+
   for hard-cap-bounded runtime reserve bumps, and every bump is counted.
   Development builds additionally admit explicitly scoped, hard-byte-capped
   ImGui and Tracy owners without changing the gameplay phase.
@@ -88,6 +89,7 @@ struct RuntimeReserveOwnerDesc
     bool allowReplayGrowth;
     const char* capacityReason;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+
     // Permanent-development permission. RuntimeAllocationTracker still requires
     // the calling thread to enter this exact registered owner scope.
     bool allowDevelopmentToolAllocations = false;
@@ -154,8 +156,7 @@ struct RuntimeReserveOwnerStatsView
 class RuntimeReserveGrowthScope
 {
   public:
-    RuntimeReserveGrowthScope( RuntimeReserveOwnerHandle owner,
-                               RuntimeReservePhase phase,
+    RuntimeReserveGrowthScope( RuntimeReserveOwnerHandle owner, RuntimeReservePhase phase,
                                const RuntimeReserveGrowthResult& result ) noexcept;
     ~RuntimeReserveGrowthScope() noexcept;
 
@@ -194,17 +195,18 @@ class RuntimeReserveAllocator
     static bool IsApprovedReplayGrowthAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex ) noexcept;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     static bool IsApprovedDevelopmentToolAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex ) noexcept;
+
     // Reserves one vendor-owned backing range before an allocator maps it.
     // Unlike RecordAllocation(), this can reject the request without first
     // crossing the registered live-byte cap.
-    static bool TryRecordDevelopmentToolBackingAllocation( RuntimeReserveOwnerHandle owner,
-                                                           int phaseIndex,
+    static bool TryRecordDevelopmentToolBackingAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex,
                                                            uint64_t bytes ) noexcept;
 #endif
 
     static void RecordAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex, uint64_t bytes ) noexcept;
     static void RecordFree( RuntimeReserveOwnerHandle owner, uint64_t bytes ) noexcept;
     static int CopyRecentGrowthEvents( RuntimeReserveGrowthEventView* outEvents, int maxEvents ) noexcept;
+
     // Copies one fixed-registry owner row without allocating. Name lookup lets
     // domain diagnostics report owners without retaining allocator handles.
     static bool CopyOwnerStats( RuntimeReserveOwnerHandle owner, RuntimeReserveOwnerStatsView& outStats ) noexcept;

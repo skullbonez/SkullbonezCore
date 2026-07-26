@@ -78,10 +78,8 @@ struct RuntimeRenderBackendView;
 SkullbonezCore::Core::SbResult RunUIStressActions( RuntimeFrameHostView& host,
                                                    RuntimeFrameInteractionView& interactionOwners,
                                                    RuntimeFrameSceneView& sceneOwners,
-                                                   RuntimeRenderBackendView& renderBackendView,
-                                                   RuntimeRenderer& renderer,
-                                                   ReplayRuntime& replayRuntime,
-                                                   RunCameraMode replayRestoreCameraMode );
+                                                   RuntimeRenderBackendView& renderBackendView, RuntimeRenderer& renderer,
+                                                   ReplayRuntime& replayRuntime, RunCameraMode replayRestoreCameraMode );
 
 } // namespace Runtime
 } // namespace SkullbonezCore

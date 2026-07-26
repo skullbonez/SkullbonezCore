@@ -70,6 +70,7 @@ class PhysicsDebugVisualizer
   private:
     struct TrackedContact
     {
+
         // Contact visuals linger briefly after the solver row disappears so a
         // human can actually see a one-frame impact. This is display-only state.
         PhysicsDebugContact contact;
@@ -100,6 +101,7 @@ class PhysicsDebugVisualizer
     void SetFlags( uint32_t flags )
     {
         m_flags = flags & PHYSICS_DEBUG_ALL;
+
         if ( ( m_flags & PHYSICS_DEBUG_CONTACTS ) == 0 )
         {
             m_trackedContacts.clear();
@@ -116,11 +118,10 @@ class PhysicsDebugVisualizer
     void SetContactLingerSeconds( float seconds );
     void SetPipelineStageCursor( int cursor );
     void Update( float dt, const PhysicsDebugFrameView& view );
+
     // The caller owns renderer readiness and debug-line capability for the frame.
-    void Render( const PhysicsDebugFrameView& view,
-                 const Math::Transformation::Matrix4& viewProj,
-                 Rendering::Dx12GeometryOwner& renderCommands,
-                 bool supportsDebugLines,
+    void Render( const PhysicsDebugFrameView& view, const Math::Transformation::Matrix4& viewProj,
+                 Rendering::Dx12GeometryOwner& renderCommands, bool supportsDebugLines,
                  Geometry::Terrain* terrain = nullptr );
 };
 } // namespace Physics

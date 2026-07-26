@@ -48,12 +48,10 @@ Math::Transformation::RotationMatrix BuildPickRotation( const Math::Orientation:
 }
 
 
-bool IntersectRaySphereExact( const Math::Vector::Vector3& rayOrigin,
-                              const Math::Vector::Vector3& rayDirection,
-                              const Math::Vector::Vector3& center,
-                              float radius,
-                              float& outT )
+bool IntersectRaySphereExact( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection,
+                              const Math::Vector::Vector3& center, float radius, float& outT )
 {
+
     if ( radius <= 0.0f )
     {
         return false;
@@ -62,18 +60,21 @@ bool IntersectRaySphereExact( const Math::Vector::Vector3& rayOrigin,
     const Math::Vector::Vector3 m = rayOrigin - center;
     const float b = m * rayDirection;
     const float c = ( m * m ) - radius * radius;
+
     if ( c > 0.0f && b > 0.0f )
     {
         return false;
     }
 
     const float discriminant = b * b - c;
+
     if ( discriminant < 0.0f )
     {
         return false;
     }
 
     outT = -b - sqrtf( discriminant );
+
     if ( outT < 0.0f )
     {
         outT = 0.0f;
@@ -85,6 +86,7 @@ bool IntersectRaySphereExact( const Math::Vector::Vector3& rayOrigin,
 
 bool ClipBoxAxis( float origin, float direction, float minValue, float maxValue, float& inOutEnter, float& inOutExit )
 {
+
     if ( fabsf( direction ) <= PICK_AXIS_EPSILON )
     {
         return origin >= minValue - PICK_CLIP_EPSILON && origin <= maxValue + PICK_CLIP_EPSILON;
@@ -93,6 +95,7 @@ bool ClipBoxAxis( float origin, float direction, float minValue, float maxValue,
     const float invDirection = 1.0f / direction;
     float axisEnter = ( minValue - origin ) * invDirection;
     float axisExit = ( maxValue - origin ) * invDirection;
+
     if ( axisEnter > axisExit )
     {
         std::swap( axisEnter, axisExit );
@@ -104,10 +107,8 @@ bool ClipBoxAxis( float origin, float direction, float minValue, float maxValue,
 }
 
 
-bool IntersectRayBoxLocal( const Math::Vector::Vector3& localOrigin,
-                           const Math::Vector::Vector3& localDirection,
-                           const Math::Vector::Vector3& halfExtents,
-                           float& outT )
+bool IntersectRayBoxLocal( const Math::Vector::Vector3& localOrigin, const Math::Vector::Vector3& localDirection,
+                           const Math::Vector::Vector3& halfExtents, float& outT )
 {
     float enter = 0.0f;
     float exit = FLT_MAX;
@@ -129,10 +130,8 @@ bool IntersectRayBoxLocal( const Math::Vector::Vector3& localOrigin,
 }
 
 
-bool IntersectRayConvexHullLocal( const Math::Vector::Vector3& localOrigin,
-                                  const Math::Vector::Vector3& localDirection,
-                                  const Math::CollisionDetection::ConvexHullShape& hull,
-                                  float& outT )
+bool IntersectRayConvexHullLocal( const Math::Vector::Vector3& localOrigin, const Math::Vector::Vector3& localDirection,
+                                  const Math::CollisionDetection::ConvexHullShape& hull, float& outT )
 {
     float enter = 0.0f;
     float exit = FLT_MAX;
@@ -145,6 +144,7 @@ bool IntersectRayConvexHullLocal( const Math::Vector::Vector3& localOrigin,
 
         if ( fabsf( denominator ) <= PICK_AXIS_EPSILON )
         {
+
             if ( numerator < -PICK_CLIP_EPSILON )
             {
                 return false;
@@ -154,6 +154,7 @@ bool IntersectRayConvexHullLocal( const Math::Vector::Vector3& localOrigin,
         }
 
         const float t = numerator / denominator;
+
         if ( denominator < 0.0f )
         {
             enter = (std::max)( enter, t );
@@ -195,6 +196,7 @@ struct PickShapeVisitor
 
     bool operator()( const Math::CollisionDetection::BoundingBox& box ) const
     {
+
         // Invariant: BoundingBox::GetModelMatrix translates by worldPos +
         // box.GetPosition(), then rotates the unit cube. Match that authored
         // offset convention so editor picking agrees with the rendered box.
@@ -217,10 +219,8 @@ struct PickShapeVisitor
 
 
 bool TryIntersectRuntimePickShape( const Math::CollisionDetection::CollisionShape& shape,
-                                   const RuntimePickShapeTransform& transform,
-                                   const Math::Vector::Vector3& rayOrigin,
-                                   const Math::Vector::Vector3& rayDirection,
-                                   float& outT )
+                                   const RuntimePickShapeTransform& transform, const Math::Vector::Vector3& rayOrigin,
+                                   const Math::Vector::Vector3& rayDirection, float& outT )
 {
     outT = 0.0f;
     const Math::Transformation::RotationMatrix rotation = BuildPickRotation( transform.orientation );
