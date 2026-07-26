@@ -664,12 +664,25 @@ owner code style, and the space-scene velocity-drag preview are closed, and the
 completed TODO was deleted under inventory rule 4. Permanent evidence is
 `../Reports/2026-07-26/nightrunner-26-july-closure.md`.
 
-NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 0/56.
-`governance-shape-to-judgment-conversion` G0 is the binding next task: it
-censuses which `AGENTS.md` rule wording admits each current offender, and its
-G1/G1b amendments to `AGENTS.md`, the two independent-review skills, the
-orchestrator skill, and the reference style guides gate every sibling plan's
-closure review. Nothing else in the campaign may close before G4.
+NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 5/56 (9%).
+`governance-shape-to-judgment-conversion` closed G0-G3 on 2026-07-26. G4 is the
+binding next task and nothing else in the campaign may close before it, because
+the amended rules are every sibling plan's closure test.
+
+G0 recorded five rule gaps with the admitting `AGENTS.md` text for each; evidence
+is `../Reports/2026-07-26/governance-shape-to-judgment-g0-census.md`. The measured
+figures corrected the originating review twice: 89 extraction scars across 12
+files rather than the hand-counted 33 across 4, and **zero of 94 aggregate
+candidates state a per-type `Invariant:` block**. The two largest scar sites are
+the two frame-view consumers, which destructure the views straight back into
+`m_`-named locals — mechanical evidence for `runtime-frame-view-retirement`.
+G1/G1b amended `AGENTS.md` plus both independent-review skills, the orchestrator
+skill, and two reference guides; the review skills previously contained no
+aggregate criteria at all, which is why the other four gaps went unenforced. G2/G3
+landed two repeatable inventories and wired them into `validate_fast` step 4/8 on
+an unruled-fails/ruled-passes contract with no frozen count anywhere.
+`extraction-scar-remediation` was corrected to the measured scope in the same
+change.
 
 The 2026-07-25 round-4 campaign has no live plans. Concrete Parameter-Bag
 Elimination closed PB0-PB7 and left the live ledger under rule 4. Invariant
@@ -1947,13 +1960,13 @@ the only phase that can require owner divergence authority and must stop and ask
 
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
-| 1 | [governance-shape-to-judgment-conversion](TODO/governance-shape-to-judgment-conversion.md) | Not started | 0/6 | **Binding next task.** G0 censuses rule gaps; G1/G1b amend `AGENTS.md`, both review skills, the orchestrator skill, and the reference guides; G2/G3 add the two repeatable inventories and gate them |
+| 1 | [governance-shape-to-judgment-conversion](TODO/governance-shape-to-judgment-conversion.md) | In progress | 5/6 | **Binding next task: G4.** G0-G3 closed 2026-07-26; G0 evidence is [`g0-census`](../Reports/2026-07-26/governance-shape-to-judgment-g0-census.md). G4 needs the independent governance review and the final `validate_all_cpu_tests` gate |
 | 2 | [scene-sized-store-capacity](TODO/scene-sized-store-capacity.md) | Not started | 0/8 | After plan 1. SC2 removes the 56.5 MiB collider hull payload; SC3 installs the scene-load capacity commit |
 | 3 | [store-capacity-memory-reporting](TODO/store-capacity-memory-reporting.md) | Not started | 0/4 | Hard dependency on plan 2 — registering before SC1-SC6 would report the 8,192 constants |
 | 4 | [ceremonial-aggregate-elimination](TODO/ceremonial-aggregate-elimination.md) | Not started | 0/5 | After plan 1. Small aggregates only; frame views and backend view are plans 5 and 6 |
 | 5 | [runtime-frame-view-retirement](TODO/runtime-frame-view-retirement.md) | Not started | 0/4 | After plan 6, so FV2 need not preserve `renderBackendView`. FV0 carries an open owner decision between two endpoints |
 | 6 | [render-backend-service-bag-removal](TODO/render-backend-service-bag-removal.md) | Not started | 0/4 | After plan 1. Completes the removal PB3's review started |
-| 7 | [extraction-scar-remediation](TODO/extraction-scar-remediation.md) | Not started | 0/3 | Before plan 2's SC4/SC5 touch the same solver and sleep files |
+| 7 | [extraction-scar-remediation](TODO/extraction-scar-remediation.md) | Not started | 0/3 | Before plan 2's SC4/SC5 touch the same solver and sleep files. Scope corrected by G0 tooling to 89 findings / 12 files; ES1's tooling dependency is already satisfied |
 | 8 | [scene-runtime-verb-partition-consolidation](TODO/scene-runtime-verb-partition-consolidation.md) | Not started | 0/4 | After plan 4 deletes the three `SceneRuntime*Context` types |
 | 9 | [operator-command-invariant-ownership](TODO/operator-command-invariant-ownership.md) | Not started | 0/4 | After plan 4's CA1 hands over any operation left wide |
 | 10 | [coverage-gate-test-reorganization](TODO/coverage-gate-test-reorganization.md) | Not started | 0/3 | After plans 2 and 7 change the physics source these tests cover |

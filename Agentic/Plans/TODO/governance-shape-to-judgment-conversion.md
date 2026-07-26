@@ -1,11 +1,11 @@
 # Governance Shape-To-Judgment Conversion
 
 Date: 2026-07-26
-Status: NOT STARTED — drafted from the 2026-07-26 from-source architecture
+Status: IN PROGRESS — drafted from the 2026-07-26 from-source architecture
 review of `nightrunner-26th-JUL-26` at tip `35f6de4e` (review conducted without
 plan files or git history; this plan carries the dated evidence). Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 1 of the Architecture Follow-Up Campaign
-Round 5. Runs first in the campaign. 0/6 phases complete.
+Round 5. Runs first in the campaign. 5/6 phases complete.
 Impact area: `AGENTS.md`, `MASTER-PLAN.md` inventory rules, `Agentic/Reference/`
 style and structure guides, `Agentic/Skills/` review and audit skills, `tools/`
 checkers
@@ -108,7 +108,7 @@ current measurements with owner rulings, never as frozen budgets.
 
 ## Phases
 
-- [ ] **G0 — Census which rule produced which shape.**
+- [x] **G0 — Census which rule produced which shape.**
   Produce a report that maps every current aggregate-shape offender to the
   `AGENTS.md` rule whose wording admits it. Cover all 99 matched aggregates, the
   four extraction-scar files, the four frame views, `RuntimeRenderBackendView`,
@@ -121,7 +121,18 @@ current measurements with owner rulings, never as frozen budgets.
   a rule gap for every offender, or classifies the offender as a legitimate
   domain value with the reason; no offender is left unattributed.
 
-- [ ] **G1 — Convert the shape rules to ownership questions.**
+  Completed 2026-07-26. Evidence:
+  `../../Reports/2026-07-26/governance-shape-to-judgment-g0-census.md`. Five rule
+  gaps recorded, each with the admitting `AGENTS.md` text and the wording change
+  that closes it. Measured 94 aggregate candidates of which **zero state a
+  per-type `Invariant:` block**, 8 with a gating structural signal, and 89
+  extraction scars across 12 files. The scar figure corrects the originating
+  review's hand count of 33 across 4 files by 2.7x, which is itself evidence the
+  rule needed an instrument rather than attentive reading. Every PB0 retain ruling
+  is carried forward; every `remove`/`repair` row is attributed to exactly one
+  registered sibling plan.
+
+- [x] **G1 — Convert the shape rules to ownership questions.**
   Amend `AGENTS.md`:
   - **Invariant Ownership Rule**: add the *single-member and unpacked-at-entry*
     tests. An aggregate whose member count is one, or whose sole consumer
@@ -144,7 +155,20 @@ current measurements with owner rulings, never as frozen budgets.
   Acceptance: every G0 rule gap is closed by amended text, and each amendment
   states the *question* rather than the banned spelling.
 
-- [ ] **G1b — Propagate the amended rules into the Agentic files that carry
+  Completed 2026-07-26. `AGENTS.md` gains: a "The Test Is Ownership, Not
+  Spelling" subsection under the Invariant Ownership Rule with the single-member,
+  destructured-at-entry, and identical-member-list tests plus the explicit
+  statement that renaming never legitimises a shape; a new **Capability Slice
+  Ownership Rule** judging slice sets as one surface; a new **Extraction Scar
+  Rule**; a God-Object Closure Rule bullet for bodies preserved by parameter
+  rebinding; a Governance Review Model table naming the three inventories and
+  their shared unruled-fails/ruled-passes contract; and five mandatory ownership
+  questions in the Reviews section with `[Blocking]` severity. The
+  "no frozen counts" prohibition is strengthened, not relaxed: the amendments
+  state explicitly that inventory output is a current measurement requiring
+  rulings and never an allowance.
+
+- [x] **G1b — Propagate the amended rules into the Agentic files that carry
   them.** `AGENTS.md` is the contract, but five other files are where an agent
   actually meets it. Amend each so the rule is present at the point of use:
   - `Agentic/Skills/rubber-duck/SKILL.md` — add aggregate ownership and
@@ -168,7 +192,22 @@ current measurements with owner rulings, never as frozen budgets.
   `Related:` pointers in every touched file resolve under
   `tools/check_related_paths.py`.
 
-- [ ] **G2 — Build the two repeatable inventories.**
+  Completed 2026-07-26. `Agentic/Skills/rubber-duck/SKILL.md` gains a required
+  workflow step and an Ownership Questions section with all five questions, the
+  three inventory commands, and `[Blocking]` severity.
+  `Agentic/Skills/carmack-test/SKILL.md` gains six Hard Checks rows and a
+  `3 / 5` encapsulation verdict cap for an unruled aggregate, nominal slice, or
+  scar. `Agentic/Skills/orchestrator/SKILL.md` requires the inventories to be run
+  and their output included in the end-of-plan review prompt, and states that a
+  clean review that skipped the five questions is incomplete.
+  `Agentic/Reference/code-style-guide.md` gains a "Never Introduce A Type To
+  Shorten A Signature" section at the point of authoring, including the explicit
+  note that `Agentic/Skills/collapse_params.py` is a line-layout formatter and
+  never authority to collapse parameters into a type.
+  `Agentic/Reference/skullbonez-core-class-structure.md:80` is aligned with the
+  amended wording so the two documents cannot drift.
+
+- [x] **G2 — Build the two repeatable inventories.**
   Add `tools/inventory_authority_free_aggregates.py`, modelled on
   `tools/inventory_wide_signatures.py`: it reports every aggregate under the
   configured source roots with member count, construction sites, consumer sites,
@@ -183,7 +222,32 @@ current measurements with owner rulings, never as frozen budgets.
   reproduces G0's census exactly; an unruled row is reported as unruled rather
   than as a failure count.
 
-- [ ] **G3 — Wire the inventories into the gates.**
+  Completed 2026-07-26. `tools/inventory_authority_free_aggregates.py` and
+  `tools/inventory_extraction_scars.py` both landed with `--self-test`, sharing
+  `tools/cpp_source_scan.py`, which re-exports `mask_cpp` from
+  `inventory_wide_signatures.py` so the delicate scanner has one implementation.
+  `tools/aggregate_ownership_rulings.json` holds 8 aggregate and 89 scar rows
+  seeded by the one-shot `tools/generate_aggregate_rulings.py`. Both self-tests
+  pass and both repository scans report zero unruled rows.
+
+  Two scanner corrections were required during implementation and are recorded
+  because they are the reason the tool is trustworthy. The first draft reported
+  705 scars: a loose pattern matched `return m_dataRoot;` and `m_assets = assets;`
+  as declarations. Replacing it with a declaration-shape scanner that requires
+  qualifiers, one plausible type expression, and a declarator brought it to 169.
+  Restricting pure aliases to *reference* declarations — a value copy the body
+  then mutates is a real semantic difference, not an alias — brought it to the
+  final 89. The aggregate inventory's first draft flagged all 94 candidates
+  because `no-stated-invariant` fired alone; it is now a conjunction with a
+  structural signal, and a type stating its own invariant is never flagged.
+
+  The "sole consumer destructures at entry" test is deliberately **not** gated:
+  distinguishing a construction from a same-named local is not decidable lexically
+  without a compiler database. Lexical site counts are reported as review context
+  and a self-test fixture pins their exclusion from the gate. Gating on an
+  unreliable proxy would reproduce the frozen-metric failure this plan replaces.
+
+- [x] **G3 — Wire the inventories into the gates.**
   `tools/validate_fast.bat` runs both `--self-test` invocations and both
   repository scans; an *unruled* row fails the gate, a *ruled* row does not.
   Add the mechanical subset that genuinely belongs in
@@ -196,6 +260,22 @@ current measurements with owner rulings, never as frozen budgets.
   `tools/aggregate_ownership_rulings.json`. Acceptance:
   `tools\validate_dependency_graph.bat` and `tools\validate_fast.bat` pass with
   the new fixtures; deleting a fixture's guard makes the matching gate fail.
+
+  Completed 2026-07-26. `tools/validate_fast.bat` gains step `[4/8]`, running both
+  `--self-test` invocations before both repository scans so a scanner regression is
+  distinguishable from a real source finding; all step labels renumbered and the
+  banner updated. `tools/README.md` gains four rows and the `AGENTS.md`
+  File To Validation Mapping gains a row for the two inventories, the shared
+  scanner module, and the ruling file. Guard load-bearing was proved by
+  disabling the reference-only guard in a scratch copy: the self-test then failed
+  with `mutated value copy of a parameter must not be reported`.
+
+  `check_dependency_graph.py` `content_rules` was evaluated and deliberately not
+  used: both checks need masked-source declaration parsing rather than the
+  include/name matching that validator owns, and duplicating the scanner there
+  would fork the one implementation `cpp_source_scan.py` exists to prevent. The
+  two inventories are wired into the same `validate_fast` gate instead, which is
+  where the dependency validator also runs.
 
 - [ ] **G4 — Reconcile, review, and hand off.**
   Rerun both inventories at final source. Confirm every row carries a ruling and

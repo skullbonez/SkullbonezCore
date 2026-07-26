@@ -129,6 +129,26 @@ If a review tool creates a separate worktree, keep it read-only. Keep one active
 implementation plan at a time unless the user explicitly asks for a different
 queue policy.
 
+### Ownership Evidence For The End-Of-Plan Review
+
+Before dispatching the end-of-plan `$rubber-duck` pass on a plan that changed
+C++ source, run the three read-only inventories and include their output in the
+review prompt:
+
+```bash
+python tools/inventory_authority_free_aggregates.py --repo .
+python tools/inventory_extraction_scars.py --repo .
+python tools/inventory_wide_signatures.py --repo .
+```
+
+`AGENTS.md` delegates its aggregate, capability-slice, and extraction-scar rules
+to this review, so the reviewer needs the evidence rather than an impression. A
+review that returns clean without answering the five ownership questions in
+`Agentic/Skills/rubber-duck/SKILL.md` is incomplete: send it back rather than
+closing the plan on it. `validate_fast` already fails on an `UNRULED` row, so a
+green gate means every row has a ruling — not that every ruling is right, which
+is what the review is for.
+
 ## Rubber-Duck Accounting
 
 Default to zero rubber-duck rows while ordinary implementation is in progress.

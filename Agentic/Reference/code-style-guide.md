@@ -35,6 +35,35 @@ placement and parameter-order decisions.
   value parameters. Ownership, ABI compatibility, or a clearer call-flow
   grouping may justify an exception; make that reason evident in the API.
 
+### Never Introduce A Type To Shorten A Signature
+
+A long parameter list is a readable problem. A struct that exists only to hide it
+is a hidden one, and `AGENTS.md` bans it under the Invariant Ownership Rule. Two
+cases are settled and need no debate:
+
+- **One member is never worth a type.** `Foo( Bar& bar )` beats
+  `struct FooContext { Bar& bar; };` plus `Foo( FooContext )` on every axis: fewer
+  names, fewer lines, no by-value copy of a reference wrapper, and no reader
+  wondering what the context owns.
+- **If the callee destructures it immediately, it is a courier.** When the first
+  lines of the body copy members into locals, the type carried nothing. Widen the
+  signature instead, and if that breaches the 12-parameter ceiling, that is the
+  signal the *operation* needs decomposing — not that it needs a bag.
+
+Introduce an aggregate when it owns a rule its absence would let a caller break:
+a phase order, a lifetime, an arbitration policy. Say which in an `Invariant:`
+block and exercise it in a test. `tools/inventory_authority_free_aggregates.py`
+reports the mechanically decidable part and `validate_fast` fails on an unruled
+row.
+
+Do not name a local after a member either. An `m_`-prefixed local claims owner
+state it does not have — see the Extraction Scar Rule in `AGENTS.md`.
+
+`Agentic/Skills/collapse_params.py` is a **line-layout formatter only**: it joins
+a multi-line parameter list onto one line to match the width rules above. Its name
+invites the opposite reading. It is never authority to collapse parameters into a
+type.
+
 ## Width
 
 - Treat 125 characters as a soft limit. A slightly longer indivisible token or

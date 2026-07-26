@@ -318,6 +318,31 @@ focused behavioral tests recorded in
 `Agentic/Reports/behavioral_test_depth_closure_20260711.md`, and
 the targeted validation gates below.
 
+**Repeatable inventories are the instrument, not budgets.** Banning frozen counts
+removed the wrong instrument but left nothing in its place, so shape rules were
+enforced only when a human happened to notice. Three tools now report current
+structure without ratcheting anything:
+
+| Tool | Reports | Owning rule |
+|---|---|---|
+| `tools/inventory_wide_signatures.py` | parameter counts per operation | 12-parameter ceiling |
+| `tools/inventory_authority_free_aggregates.py` | aggregate members, stated invariants, sites | Invariant Ownership Rule |
+| `tools/inventory_extraction_scars.py` | member-prefixed locals, pure parameter aliases | Extraction Scar Rule |
+
+The contract for all three is the same: output is a **current measurement
+requiring rulings**, never an allowance. A finding with no owner ruling fails the
+gate, because the point is that the judgement cannot be skipped. A ruled finding
+passes, because an owner has made it. Never convert one of these into a count
+threshold, a ratio, or a "no more than N" budget, and never add a ruling row to
+make a number look better — a row records a judgement and names the plan that
+owns the repair.
+
+Any review that `AGENTS.md` delegates a rule to must state that rule in the skill
+file the reviewer actually reads. A rule that exists only here, while
+`Agentic/Skills/rubber-duck/SKILL.md` and
+`Agentic/Skills/carmack-test/SKILL.md` say nothing about it, is unenforced in
+practice.
+
 ## God-Object Closure Rule
 
 Ownership cleanup is judged across a logical type or module, not one physical
@@ -342,6 +367,9 @@ compatibility architecture:
   lambdas that let an extracted owner reach back into `Run` state;
 - `Run::*` forwarding wrappers or nominal owner types that merely relay
   business operations while authority remains in `Run`;
+- an extracted function that preserves its pre-extraction body by rebinding
+  parameters to member-prefixed locals, which moves code without moving design
+  and is invisible to include and member checks (see the Extraction Scar Rule);
 - an extracted owner that absorbs unrelated domains and becomes the next god
   object;
 - a completion claim based only on line count, file count, or a mechanical
@@ -375,6 +403,83 @@ shape or their effect on parameter count.
   apply free function and ordering/arbitration comments are an extrusion
   signal: the operation needs an invariant owner. Rearranging parameters is
   not a remediation.
+
+### The Test Is Ownership, Not Spelling
+
+Ask one question of every aggregate: **what rule does this type enforce that its
+absence would let a caller break?** A type that has no answer is authority-free
+and is banned no matter what it is named. Renaming a banned shape has never made
+it legitimate, and the following cases are explicitly not exempt because their
+names avoid the banned nouns.
+
+- **A single-member aggregate is always authority-free.** It cannot shorten a
+  signature, so it exists only to add a name. Take the member directly. Passing
+  such a type by value where a plain reference would do is strictly worse than
+  the parameter it replaced.
+- **An aggregate whose sole consumer destructures every member at entry owns
+  nothing.** If the first thing the consumer does is copy members into locals or
+  forward them onward unchanged, the type is a courier. This is the case the
+  `RenderModelPassInput` example below records.
+- **Two aggregates with identical member lists are one aggregate or none.** If
+  they differ only by name and comment, neither is expressing an invariant.
+- **An aggregate that states no invariant in its own doc comment is a review
+  question, not automatically a defect.** Many types legitimately state their
+  rules in the file header. But a type that both states no invariant *and*
+  carries one of the shapes above is a defect, and the reviewer must say which.
+
+The same question applies to reference-carrying view structs, judged as one
+surface rather than one at a time. See Capability Slice Ownership below.
+
+`tools/inventory_authority_free_aggregates.py` reports the mechanically decidable
+part of this — member counts, stated invariants, and lexical construction and
+consumer sites — with owner verdicts in
+`tools/aggregate_ownership_rulings.json`. An **unruled** signalled aggregate
+fails `validate_fast`; a **ruled** one passes, because an owner has answered for
+it. The inventory deliberately does not gate on the destructuring test, because
+distinguishing a construction from a same-named local is not decidable without a
+compiler database; that half stays a review question and a bad mechanical proxy
+for it would recreate the frozen-metric failure this rule replaced. No count in
+the inventory or the ruling file is a threshold, and adding a ruling row is never
+a way to raise an allowance.
+
+## Capability Slice Ownership Rule
+
+A set of reference-carrying view or slice structs is judged as **one surface**,
+not one struct at a time.
+
+- If any single operation receives every slice, the split is nominal and confers
+  the authority of the whole surface. Decompose the operation or delete the
+  slices; do not add a slice to make the count look smaller.
+- A slice whose members are the borrowed concrete owners of one named subsystem
+  is legitimate. A slice set that is a partition of a composition root's member
+  list is not, whatever the individual slices are called.
+- A slice convention must be the *only* convention on its path. If some
+  operations take slices and others reach the same owners as members, the
+  convention is decorative and the reviewer must report it: there is no rule a
+  reader can apply to predict which form a given operation uses.
+- A view struct may not state an invariant it does not hold. A header claiming
+  "no slice spans the complete surface" while an operation receives every slice
+  is a false claim and is repaired under the Comment Quality Gate, not left as
+  aspiration.
+
+## Extraction Scar Rule
+
+A decomposition is judged by whether the extracted code reads as code written for
+its new owner. Two shapes prove it does not, and both are closure failures:
+
+- **A member-prefixed local.** Rebinding a parameter to an `m_`-named local
+  preserves a pre-extraction spelling so a lifted body needed no internal edits.
+  It also lies to every future reader: `m_candidatePairs` reads as owner state
+  when it is a span whose lifetime ends at the next `return`.
+- **A pure reference alias of a parameter.** A reference declaration that is only
+  a second name for a parameter adds a name and nothing else. A *value* copy the
+  body then mutates is different and legitimate; so is a binding genuinely
+  required by the language, such as materialising a forwarding reference for a
+  lambda capture. Both need a stated reason.
+
+`tools/inventory_extraction_scars.py` reports both shapes with owner verdicts in
+`tools/aggregate_ownership_rulings.json`, on the same unruled-fails/ruled-passes
+contract as the aggregate inventory. It is not a count budget.
 
 **Banned example — authority-free bag:** the rejected
 `RenderModelPassInput` shape from the 2026-07-23 parameter-bag remediation
@@ -582,6 +687,7 @@ render, or tool gate; it does not replace it.
 | `Agentic/Tests/*` or a new standalone CPU test project/script | `validate_all_cpu_tests` |
 | `Core/Allocation/*` | `validate_perf` |
 | `tools/check_allocation_policy.py`, `tools/allocation_policy_allowlist.json` | `validate_fast`, then `python tools\check_allocation_policy.py --self-test` and `python tools\check_allocation_policy.py --repo .`; add `validate_perf` if runtime guard or reserve semantics change |
+| `tools/inventory_authority_free_aggregates.py`, `tools/inventory_extraction_scars.py`, `tools/cpp_source_scan.py`, `tools/aggregate_ownership_rulings.json` | `validate_fast`, which runs both `--self-test` invocations and both repository scans |
 | `tools/check_coverage.py`, `tools/coverage_floors.json`, `tools/validate_coverage.bat`, or coverage exclusions/instrumentation scope | `validate_fast`, then run `tools\validate_coverage.bat` directly |
 | `Run*`, `Runtime/*` | `validate_full` |
 | `Window*` | `validate_full` |
@@ -677,6 +783,30 @@ Reviews must report the extrusion signal—three or more sibling structs, a
 wide apply free function, and ordering/arbitration comments—as a design
 finding with a proposed invariant owner. A parameter reshuffle does not close
 that finding.
+
+An ownership review must answer these five questions explicitly, and a review
+that does not is incomplete rather than clean:
+
+1. **Aggregate ownership.** Does every aggregate the change touches or adds name
+   a rule it enforces? A single-member aggregate, or one whose sole consumer
+   destructures it at entry, is authority-free — say so and name the replacement.
+2. **Capability slices.** Can any single operation reach the whole surface? Do
+   some operations take slices while others reach the same owners as members?
+3. **Extraction scars.** Does any local use the `m_` member convention, or exist
+   only as a second name for a parameter?
+4. **Rename evasion.** Did a shape the change deleted reappear under a different
+   suffix? Deleting `FooContext` and adding `FooOperands` closes nothing.
+5. **False claims.** Does any header state an invariant the post-change source
+   does not hold?
+
+Report a finding against these as `[Blocking]`. None of them may be waived as
+follow-up debt, and none is closed by a rename or a parameter reshuffle. The three
+repeatable inventories named in the Governance Review Model provide the evidence
+for questions 1 and 3; cite their output rather than asserting a conclusion.
+
+A test file is named for the subsystem whose behavior it pins, never for a gate,
+a metric, or a plan. Coverage is raised by testing a subsystem, not by adding a
+file organized around the coverage gate.
 
 For bug fixes in subsystems that already have unit coverage, add or update a
 regression test in the same commit unless the user explicitly scopes the work to

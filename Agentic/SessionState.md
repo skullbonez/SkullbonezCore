@@ -12,11 +12,12 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-26th-JUL-26` |
 | Current baseline | Nightrunner 26 July is complete at N26-1 through N26-3: replay scrub spikes removed, owner code style ratified, and selected-body velocity-drag preview published. |
-| Current objective | Architecture Follow-Up Campaign Round 5: 13 plans / 56 tasks registered 2026-07-26. `governance-shape-to-judgment-conversion` G0 is the binding next task. |
-| Active/future progress | 0/56 (0%). Round 5 is the live queue; execution order 1->13 per the campaign section. |
+| Current objective | Architecture Follow-Up Campaign Round 5. `governance-shape-to-judgment-conversion` closed G0-G3; G4 (independent governance review + final CPU gate) is the binding next task. |
+| Active/future progress | 5/56 (9%). Round 5 is the live queue; execution order 1->13 per the campaign section. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | N26-3 `validate_full.bat` passes: 402 doctests, Automation/Replay, zero-error DX12 with accepted baselines, and byte-exact 44,401-line Physics regression. |
-| Validation for current edits | N26: Replay scrub 17/17 and 75 assertions, focused preview 2/2 and 24 assertions, format, fast, allocation, dependency, performance, full, and 60.83-second graphics stress pass; comment audit is 24/24. |
+| Validation for governance G0-G3 | `toolsalidate_fast.bat` passes with the new step 4/8: both inventory self-tests pass, aggregate scan reports 94 candidates / 8 signalled / 8 ruled / 0 unruled, scar scan reports 89 findings / 89 ruled / 0 unruled, 402 doctests and 2,403,914 assertions pass, zero warnings. `check_related_paths` 568 scanned / 0 findings. |
+| Validation for prior edits | N26: Replay scrub 17/17 and 75 assertions, focused preview 2/2 and 24 assertions, format, fast, allocation, dependency, performance, full, and 60.83-second graphics stress pass; comment audit is 24/24. |
 
 ## Live Queue
 
@@ -24,9 +25,12 @@ NOW. Architecture Follow-Up Campaign Round 5 is live at 0/56, registered
 2026-07-26 from the same-day from-source architecture review of
 `nightrunner-26th-JUL-26` at tip `35f6de4e` (review read only source and tests;
 no plans, reports, or git history). Thirteen plans, one per review finding plus
-the owner's two same-day requests. `governance-shape-to-judgment-conversion` G0
-is the binding next task and nothing else may close before its G4, because its
-amended `AGENTS.md` / review-skill rules are every sibling plan's closure test.
+the owner's two same-day requests. `governance-shape-to-judgment-conversion` closed
+G0-G3 on 2026-07-26; G4 is the binding next task and nothing else may close
+before it, because the amended `AGENTS.md` / review-skill rules are every sibling
+plan's closure test. Two inventories now gate `validate_fast` step 4/8 on an
+unruled-fails/ruled-passes contract with no frozen count. G0 evidence is
+`Agentic/Reports/2026-07-26/governance-shape-to-judgment-g0-census.md`.
 
 Headline finding: `ColliderStore::m_colliders` is 7,228 x 8,192 = 56.5 MiB
 resident in every scene because `CollisionShape` is a variant sized by

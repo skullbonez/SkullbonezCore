@@ -5,19 +5,51 @@ Status: NOT STARTED — drafted from the 2026-07-26 from-source architecture
 review of `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 7 of the Architecture Follow-Up Campaign
 Round 5. 0/3 phases complete.
-Impact area: `Physics/PersistentContactSolver.cpp`,
-`Physics/Diagnostics/SkullScope.cpp`, `Physics/SleepIslandSystem.cpp`,
-`Physics/PhysicsDiagnosticsSink.cpp`
-Owner: physics
+Impact area: 12 files across `Physics/`, `Runtime/App/`, `Runtime/Capture/`,
+`Runtime/Scene/`, `Runtime/Input/`, `Runtime/Render/`,
+`Runtime/Prediction/`, `Maths/`, and `Core/`
+Owner: physics + runtime
 Priority: Medium — no behavior risk and a small diff, but it is the single most
 direct piece of evidence that a past decomposition moved code without moving
 design, and it is invisible to every existing checker.
 
-## Problem And Evidence (measured 2026-07-26)
+## Problem And Evidence (measured 2026-07-26, corrected by tooling)
 
-Four physics translation units open a function by binding its parameters to
-member-prefixed locals, so a body lifted out of a god class needed no internal
-edits:
+**Scope correction.** The originating architecture review found this pattern by
+hand in four physics files and estimated 33 aliases. The
+`governance-shape-to-judgment-conversion` G2 inventory
+(`tools/inventory_extraction_scars.py`) measured the real figure at
+**89 findings across 12 files** — 86 member-prefixed locals and 3 pure parameter
+aliases. Run it for the current list; the table below is the 2026-07-26 seed:
+
+| File | Findings |
+|---|---:|
+| `Runtime/App/InputFrameExecution.cpp` | 25 |
+| `Physics/Diagnostics/SkullScope.cpp` | 16 |
+| `Runtime/Capture/RuntimeStressController.cpp` | 14 |
+| `Physics/PersistentContactSolver.cpp` | 11 |
+| `Runtime/App/InputRouter.Interactions.cpp` | 6 |
+| `Runtime/Scene/SceneController.Load.cpp` | 3 |
+| `Physics/SleepIslandSystem.cpp` | 3 |
+| `Physics/PhysicsDiagnosticsSink.cpp` | 3 |
+| `Maths/GeometricMath.cpp` | 2 |
+| `Runtime/App/Window.cpp`, `Runtime/Input/Input.cpp` | 1 each (`m_cWindow`) |
+| `Runtime/Scene/SceneRequestExecution.cpp` | 1 |
+| `Core/WorkerPool.h`, `Runtime/Render/RuntimeRenderPasses.cpp`, `Runtime/Prediction/ReplayPredictionArchive.cpp` | 1 each (alias) |
+
+**The two largest sites tie this plan to the frame-view finding.**
+`InputFrameExecution.cpp` (25) and `RuntimeStressController.cpp` (14) are exactly
+the two external consumers named by `Runtime/RuntimeFrameViews.h:30-31`. Both
+destructure the four frame views straight back into `m_`-named locals
+(`m_UI`, `m_applicationExit`, `m_assets`, `m_camera`, `m_config`,
+`m_sceneController`, `m_renderer`, `m_renderBackendView`, `m_workerPool`, …) —
+mechanical evidence that the views exist to feed pre-extraction member names, not
+to express a capability boundary. `runtime-frame-view-retirement` FV0 must read
+this list.
+
+The originally reported four physics units open a function by binding its
+parameters to member-prefixed locals, so a body lifted out of a god class needed
+no internal edits:
 
 **`Physics/PersistentContactSolver.cpp:124-134`** — inside
 `PhysicsContactSolverStage::Solve`, eleven aliases:
@@ -64,10 +96,17 @@ Why this matters beyond style:
   `PhysicsDiagnosticsView` (`Physics/PhysicsWorld.h:263`), a 17-member view of
   const references. Renaming the locals will expose whether those functions
   actually need all seventeen.
+- The three pure aliases are not equivalent. `Core/WorkerPool.h:228`
+  (`IndexFunctionT& indexFn = fn;`) binds a forwarding reference to an lvalue
+  reference so the chunk lambda can capture it — a language requirement, already
+  ruled `retain` in `tools/aggregate_ownership_rulings.json`. The other two
+  (`Runtime/Render/RuntimeRenderPasses.cpp:273`,
+  `Runtime/Prediction/ReplayPredictionArchive.cpp:573`) are shorthand and are
+  ruled `repair`.
 
 ## Goal
 
-Every local in these four functions is named for what it is in its current
+Every local across the twelve files is named for what it is in its current
 scope: a borrowed parameter, a span with a call-scoped lifetime, or a derived
 value. No local claims membership it does not have.
 
@@ -84,13 +123,16 @@ value. No local claims membership it does not have.
 - No changes to `PhysicsDiagnosticsView` itself.
 - The mechanical checker that prevents recurrence belongs to
   `governance-shape-to-judgment-conversion` G2/G3
-  (`tools/inventory_extraction_scars.py`), not to this plan. This plan supplies
-  the positive fixtures.
+  (`tools/inventory_extraction_scars.py`), not to this plan. It has already
+  landed with self-test fixtures; this plan removes the `repair` rows it reports.
+- No frame-view or capability-slice restructuring, even though the two largest
+  sites are the frame-view consumers. Renaming a local there does not close
+  `runtime-frame-view-retirement`, and that plan owns the boundary question.
 
 ## Phases
 
 - [ ] **ES0 — Rename the aliases and record what the rename exposes.**
-  In all four files, either delete the alias and use the parameter name directly,
+  In all twelve files, either delete the alias and use the parameter name directly,
   or give the local a scope-honest name (for example `bodyRecords`,
   `hotFields`, `colliderRecords`, `candidatePairs`). Prefer deletion — an alias
   that only renames a parameter should not exist. For each function, record in the
@@ -98,9 +140,12 @@ value. No local claims membership it does not have.
   list is the follow-up finding, explicitly not fixed here. Where a borrowed span's
   lifetime is call-scoped, add the `Lifetime:` comment the comment style guide
   requires — these are exactly the non-obvious ownership facts the guide exists
-  for. Acceptance: no local under `SkullbonezSource/` matches the `m_` member
-  convention; `PhysicsFixedList`/span lifetimes are documented at the borrow site;
-  the physics regression CSV is byte-exact against the committed baseline.
+  for. Acceptance: `python tools\inventory_extraction_scars.py --repo .` reports
+  zero `repair`-verdict rows remaining, with the one `retain` row
+  (`Core/WorkerPool.h:indexFn`) intact and its reason unchanged; span lifetimes are
+  documented at each borrow site; the physics regression CSV is byte-exact against
+  the committed baseline. Because the corrected scope spans Runtime as well as
+  Physics, the gate set is cumulative — see Validation.
 
 - [ ] **ES1 — Supply the checker fixtures.**
   Provide the planted positive and negative fixtures that
@@ -122,9 +167,11 @@ value. No local claims membership it does not have.
 
 ## Dependencies And Decisions
 
-- ES1 depends on `governance-shape-to-judgment-conversion` G2 existing. If this
-  plan runs first, ES1 stays unchecked with the reason recorded and closes when
-  G2 lands — do not silently skip it.
+- ES1's tooling dependency is already satisfied: `governance-shape-to-judgment-conversion`
+  G2 landed `tools/inventory_extraction_scars.py` with self-test fixtures and the
+  seeded ruling file, and G3 wired both into `validate_fast`. ES1 is therefore
+  reduced to removing each `repair` row from the ruling file as its code is fixed,
+  and confirming the planted fixtures still fail when their guards are removed.
 - Sequence this plan before or alongside `scene-sized-store-capacity` SC4/SC5,
   which touch the same solver and sleep files. Doing the rename first keeps the
   capacity plan's byte-exactness proof readable.
@@ -139,6 +186,8 @@ value. No local claims membership it does not have.
 
 ## Validation
 
+- `tools\validate_full.bat` — required, because the corrected scope includes
+  `Runtime/App/*`, `Runtime/Capture/*`, and `Runtime/Scene/*`.
 - `tools\validate_physics.bat` — `PersistentContactSolver` and
   `SleepIslandSystem` changed; byte-exact CSV diff required.
 - `tools\validate_physics_deep.bat` — `Physics/Diagnostics/SkullScope.cpp`

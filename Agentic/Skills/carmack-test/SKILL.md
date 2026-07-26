@@ -127,8 +127,37 @@ contained:
   invariant failure.
 - The code has "manager" objects that own unrelated policy, storage, execution,
   and presentation state.
+- An aggregate carries data for one operation without enforcing a rule. A
+  **single-member** aggregate is authority-free by definition — it cannot shorten
+  a signature, so it exists only to add a name. So is one whose sole consumer
+  destructures every member at entry. Two aggregates with identical member lists
+  are one aggregate or none.
+- Reference-carrying view or slice structs partition an owner's member list, and
+  some operation receives every slice. Judge the slice set as one surface: if one
+  call reaches all of it, the split is nominal. A convention followed by some
+  operations on a path and bypassed by others is decorative.
+- A local uses the `m_` member convention, or exists only as a second name for a
+  parameter. This is how a function body lifted out of a god class avoids being
+  rewritten for its new owner, and it lies about lifetime: `m_x` reads as owner
+  state when it is a borrow that expires at the next `return`.
+- A deleted banned shape reappeared under a different suffix, or a header states
+  an invariant, ownership, or sequencing fact the current source does not hold.
+- A test file is named for a coverage gate, a metric, or a plan rather than the
+  subsystem whose behavior it pins.
 - Plans are ticked without matching source changes, validation evidence, and
   independent review.
+
+Evidence for the aggregate and local findings above comes from read-only
+inventories rather than impression:
+
+```bash
+python tools/inventory_authority_free_aggregates.py --repo .
+python tools/inventory_extraction_scars.py --repo .
+```
+
+Verdicts live in `tools/aggregate_ownership_rulings.json`. `UNRULED` means nobody
+has judged the row yet. None of these is a count budget: report the unowned
+invariant, never the number.
 
 Verdict caps:
 
@@ -141,6 +170,9 @@ Verdict caps:
   `2 / 5`.
 - A serious ownership leak from physics/render into runtime policy caps
   encapsulation at `2 / 5`.
+- An unruled authority-free aggregate, nominal capability slice, or extraction
+  scar caps encapsulation at `3 / 5`. A rename or a parameter reshuffle does not
+  lift the cap; only an owned invariant or a deletion does.
 
 ## Positive Evidence
 
