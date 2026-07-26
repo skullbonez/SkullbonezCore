@@ -383,7 +383,7 @@ bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction, Skullbone
     // fresh private engine never asks a Physics scene-load owner to allocate
     // during Replay. Any larger handle high-water copied below remains inside
     // this already-approved replay byte-growth scope.
-    predictionEngine.ReserveAuthoredBodyCapacity( static_cast<std::size_t>( (std::max)( 0, modelCount ) ) );
+    predictionEngine.ReserveSceneCapacityLike( liveEngine );
     predictionEngine = liveEngine;
     prediction.simulation.predictionEngineReserveBytes = (std::max)( currentBytes, requestedBytes );
     predictionEngine.BindProfiler( profiler );

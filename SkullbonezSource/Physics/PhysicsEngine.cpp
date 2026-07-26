@@ -365,6 +365,14 @@ void PhysicsEngine::ReserveAuthoredBodyCapacity( std::size_t bodyCapacity, std::
 }
 
 
+void PhysicsEngine::ReserveSceneCapacityLike( const PhysicsEngine& source )
+{
+    ReserveAuthoredBodyCapacity( source.m_bodyStore.RecordCapacity(), source.m_colliderStore.SphereShapeCapacity(),
+                                 source.m_colliderStore.BoxShapeCapacity(), source.m_colliderStore.HullShapeCapacity(),
+                                 source.m_world.PointJointCapacity() );
+}
+
+
 void PhysicsEngine::ReserveAdditionalAuthoredBodyCapacity( const CollisionShape& shape )
 {
     std::visit( [&]( const auto& shapeValue )

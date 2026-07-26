@@ -5,8 +5,8 @@ Status: IN PROGRESS — drafted from the 2026-07-26 from-source architecture
 review of `nightrunner-26th-JUL-26` at tip `35f6de4e`, extended by the same-day
 capacity measurement below. Registered in `MASTER-PLAN.md` on 2026-07-26 as
 plan 2 of the Architecture Follow-Up Campaign Round 5. Starts after
-`governance-shape-to-judgment-conversion` closes. SC0-SC5 closed 2026-07-27.
-6/8 phases complete; SC6 is binding.
+`governance-shape-to-judgment-conversion` closes. SC0-SC6 closed 2026-07-27.
+7/8 phases complete; SC7 is binding.
 Impact area: `Core/SceneCapacity.h`, `Physics/PhysicsFixedList.h`,
 `Physics/ColliderStore.*`, `Physics/PhysicsBodyStore.*`, every
 `Physics/Stages/*` store, `Physics/CollisionShape.h`,
@@ -300,7 +300,7 @@ its shape costs.
   budgets pass. Permanent evidence:
   `../../Reports/2026-07-27/scene-sized-store-capacity-sc5-remaining-live-rows.md`.
 
-- [ ] **SC6 — Prediction engine parity.**
+- [x] **SC6 — Prediction engine parity.**
   The isolated prediction engine (`Runtime/Prediction/ReplayPrediction.h:250`)
   receives the same scene-sized commit, so an armed prediction over a 200-body
   scene no longer pays a second 8,192-row footprint. Its existing 256 MB
@@ -309,6 +309,15 @@ its shape costs.
   200-body scene falls by the measured delta; the replay visual-fidelity oracle
   is frame-exact with no golden refresh; `validate_replay_visual_fidelity.bat`
   passes in exactly one engine process and one prediction generation.
+  Closed 2026-07-27. `PhysicsEngine::ReserveSceneCapacityLike` now commits the
+  live engine's exact body, per-shape, and point-joint capacity profile before
+  prediction copy assignment under the existing replay owner. The authoritative
+  200-body prediction-engine reservation fell from 171,278,688 bytes to
+  30,465,820 bytes, a 140,812,868-byte (134.290 MiB, 82.21%) reduction. The
+  256 MiB hard cap is unchanged. The visual-fidelity gate passed frame-exact in
+  one engine process and one prediction generation with no golden refresh.
+  Permanent evidence:
+  `../../Reports/2026-07-27/scene-sized-store-capacity-sc6-prediction-parity.md`.
 
 - [ ] **SC7 — Reconcile, review, and hand off.**
   Rerun the SC0 census at final source and publish before/after resident

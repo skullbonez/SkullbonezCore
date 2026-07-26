@@ -725,10 +725,10 @@ owner code style, and the space-scene velocity-drag preview are closed, and the
 completed TODO was deleted under inventory rule 4. Permanent evidence is
 `../Reports/2026-07-26/nightrunner-26-july-closure.md`.
 
-NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 6/50 (12%).
+NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 7/50 (14%).
 `governance-shape-to-judgment-conversion` and
 `extraction-scar-remediation` closed on 2026-07-27 and left the live inventory
-under rule 4. Plan 2 `scene-sized-store-capacity` closed SC0-SC5; SC6 is the
+under rule 4. Plan 2 `scene-sized-store-capacity` closed SC0-SC6; SC7 is the
 binding next task.
 
 G0 recorded five rule gaps with the admitting `AGENTS.md` text for each; evidence
@@ -2028,7 +2028,7 @@ requires owner divergence authority and the campaign is byte-exact throughout.
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
 | 1 | [governance-shape-to-judgment-conversion](../Reports/2026-07-27/governance-shape-to-judgment-conversion-closure.md) | Complete | 6/6 | Closed 2026-07-27 and removed from the live ledger under rule 4 |
-| 2 | [scene-sized-store-capacity](TODO/scene-sized-store-capacity.md) | In progress | 6/8 | SC5 converts all 26 retained sleep, terrain, diagnostics, world, and engine rows to scene-committed fixed lists while preserving CCD and point-joint semantics; evidence is [`SC5 remaining live rows`](../Reports/2026-07-27/scene-sized-store-capacity-sc5-remaining-live-rows.md). **Binding next task: SC6** |
+| 2 | [scene-sized-store-capacity](TODO/scene-sized-store-capacity.md) | In progress | 7/8 | SC6 binds the isolated prediction engine to the live scene's exact capacity profile, reducing the measured 200-body private-engine reservation by 134.290 MiB while preserving the one-generation visual oracle; evidence is [`SC6 prediction parity`](../Reports/2026-07-27/scene-sized-store-capacity-sc6-prediction-parity.md). **Binding next task: SC7** |
 | 3 | [store-capacity-memory-reporting](TODO/store-capacity-memory-reporting.md) | Not started | 0/4 | Hard dependency on plan 2 — registering before SC1-SC6 would report the 8,192 constants |
 | 4 | [ceremonial-aggregate-elimination](TODO/ceremonial-aggregate-elimination.md) | Not started | 0/5 | After plan 1. Small aggregates only; frame views and backend view are plans 5 and 6 |
 | 5 | [runtime-frame-view-retirement](TODO/runtime-frame-view-retirement.md) | Not started | 0/4 | After plan 6, so FV2 need not preserve `renderBackendView`. Endpoint ratified 2026-07-27: concrete operands, no frame transaction |

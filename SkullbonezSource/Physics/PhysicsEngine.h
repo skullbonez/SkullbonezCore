@@ -100,6 +100,11 @@ class PhysicsEngine
                                       std::size_t boxCapacity = 0u, std::size_t hullCapacity = 0u,
                                       std::size_t pointJointCapacity = 0u );
 
+    // Commits the same scene-sized backing as another engine before a cold
+    // clone/copy. The source remains the sole capacity authority; prediction
+    // uses this under its already-approved Replay reserve owner.
+    void ReserveSceneCapacityLike( const PhysicsEngine& source );
+
     // Cold editor/tool topology can extend a loaded scene one body at a time.
     // A complete load-time commit makes this a no-op during initial population.
     void ReserveAdditionalAuthoredBodyCapacity( const Math::CollisionDetection::CollisionShape& shape );

@@ -793,6 +793,40 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
 }
 
 
+TEST_CASE( "Prediction physics clone commits the live scene-sized capacity profile" )
+{
+    using SkullbonezCore::Core::Allocation::RuntimeAllocationPhase;
+    using SkullbonezCore::Core::Allocation::RuntimeAllocationScope;
+
+    auto liveEngine = std::make_unique<PhysicsEngine>();
+
+    {
+        RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+        liveEngine->ReserveAuthoredBodyCapacity( 200u, 80u, 120u, 0u, 7u );
+    }
+
+    auto predictionEngine = std::make_unique<PhysicsEngine>();
+
+    {
+        RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+        predictionEngine->ReserveSceneCapacityLike( *liveEngine );
+        *predictionEngine = *liveEngine;
+    }
+
+    CHECK( PhysicsEngine::ReadBodies( *predictionEngine ).RecordCapacity() == 200u );
+    CHECK( PhysicsEngine::ReadColliders( *predictionEngine ).RecordCapacity() == 200u );
+    CHECK( PhysicsEngine::ReadColliders( *predictionEngine ).SphereShapeCapacity() == 80u );
+    CHECK( PhysicsEngine::ReadColliders( *predictionEngine ).BoxShapeCapacity() == 120u );
+    CHECK( PhysicsEngine::ReadColliders( *predictionEngine ).HullShapeCapacity() == 0u );
+    CHECK( PhysicsEngine::ReadPointJointConstraints( *predictionEngine ).capacity() == 7u );
+    CHECK( PhysicsEngine::ReadPointJointCapacity( *predictionEngine ) == 7u );
+    CHECK( predictionEngine->CollectPhysicsWorldMemoryBytes() == liveEngine->CollectPhysicsWorldMemoryBytes() );
+    CHECK( predictionEngine->CollectDebugAndBroadphaseMemoryBytes() ==
+           liveEngine->CollectDebugAndBroadphaseMemoryBytes() );
+    CHECK( predictionEngine->CollectSceneSizedStoreMemoryBytes() == liveEngine->CollectSceneSizedStoreMemoryBytes() );
+}
+
+
 TEST_CASE( "Physics impulses: zero mass and inertia absorb immediate and pending components" )
 {
     PhysicsBodyStore& bodies = TestBodyStore();
