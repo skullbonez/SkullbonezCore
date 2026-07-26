@@ -44,9 +44,8 @@
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::BroadphaseCandidateAppendHasCapacity;
 using SkullbonezCore::Physics::BroadphaseCandidateCanTouch;
-using SkullbonezCore::Physics::BroadphaseCandidateFilterContext;
 using SkullbonezCore::Physics::ColliderRecord;
-using SkullbonezCore::Physics::ColliderRecordList;
+using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::PhysicsBodyCreateRecord;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
@@ -58,7 +57,7 @@ using SkullbonezCore::Threading::WorkerPool;
 namespace
 {
 void AddCandidateBody( PhysicsBodyStore& bodyStore,
-                       ColliderRecordList& colliderRecords,
+                       ColliderStore& colliderStore,
                        const Vector3& position,
                        const Vector3& velocity,
                        float radius )
@@ -70,7 +69,7 @@ void AddCandidateBody( PhysicsBodyStore& bodyStore,
 
     ColliderRecord collider;
     collider.boundingRadius = radius;
-    colliderRecords.push_back( collider );
+    (void)colliderStore.CreateColliderRecord( collider );
 }
 
 TEST_CASE( "Broadphase candidate append capacity rejects equality before vector growth" )
@@ -90,13 +89,13 @@ PhysicsBodyStore& TestBodyStore()
     return store;
 }
 
-ColliderRecordList& TestColliderRecords()
+ColliderStore& TestColliderStore()
 {
     // Why: Collider records mirror runtime fixed storage, so the focused unit
     // fixture clears one static list between cases instead of stack-allocating it.
-    static ColliderRecordList records( "TestSolverBroadphaseStage.colliderRecords" );
-    records.clear();
-    return records;
+    static ColliderStore store;
+    store.Clear();
+    return store;
 }
 } // namespace
 
@@ -104,88 +103,69 @@ ColliderRecordList& TestColliderRecords()
 TEST_CASE( "Solver broadphase stage: candidate filter handles static and swept pairs" )
 {
     PhysicsBodyStore& bodyStore = TestBodyStore();
-    ColliderRecordList& colliderRecords = TestColliderRecords();
-    AddCandidateBody( bodyStore, colliderRecords, Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
-    AddCandidateBody( bodyStore, colliderRecords, Vector3( 2.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
-    AddCandidateBody( bodyStore, colliderRecords, Vector3( 8.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
-    AddCandidateBody( bodyStore, colliderRecords, Vector3( 10.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
+    ColliderStore& colliderStore = TestColliderStore();
+    AddCandidateBody( bodyStore, colliderStore, Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
+    AddCandidateBody( bodyStore, colliderStore, Vector3( 2.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
+    AddCandidateBody( bodyStore, colliderStore, Vector3( 8.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
+    AddCandidateBody( bodyStore, colliderStore, Vector3( 10.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
 
-    BroadphaseCandidateFilterContext context{ bodyStore.Records(),
-                                              bodyStore.HotFields(),
-                                              { colliderRecords.data(), colliderRecords.size() },
-                                              {},
-                                              4,
-                                              1.0f,
-                                              0.0f };
-
-    CHECK( BroadphaseCandidateCanTouch( &context, 0, 1 ) );
-    CHECK_FALSE( BroadphaseCandidateCanTouch( &context, 0, 2 ) );
+    CHECK( BroadphaseCandidateCanTouch( bodyStore, colliderStore, {}, 1.0f, 0.0f, 0, 1 ) );
+    CHECK_FALSE( BroadphaseCandidateCanTouch( bodyStore, colliderStore, {}, 1.0f, 0.0f, 0, 2 ) );
 
     bodyStore.MutableHotFields().linearVelocityX[0] = 10.0f;
-    CHECK( BroadphaseCandidateCanTouch( &context, 0, 3 ) );
+    CHECK( BroadphaseCandidateCanTouch( bodyStore, colliderStore, {}, 1.0f, 0.0f, 0, 3 ) );
 }
 
 
 TEST_CASE( "Solver broadphase stage: candidate filter keeps boundary policy conservative" )
 {
     PhysicsBodyStore& bodyStore = TestBodyStore();
-    ColliderRecordList& colliderRecords = TestColliderRecords();
-    AddCandidateBody( bodyStore, colliderRecords, Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
-    AddCandidateBody( bodyStore, colliderRecords, Vector3( 100.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), -1.0f );
+    ColliderStore& colliderStore = TestColliderStore();
+    AddCandidateBody( bodyStore, colliderStore, Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
+    AddCandidateBody( bodyStore, colliderStore, Vector3( 100.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), -1.0f );
 
-    BroadphaseCandidateFilterContext context{ bodyStore.Records(),
-                                              bodyStore.HotFields(),
-                                              { colliderRecords.data(), colliderRecords.size() },
-                                              {},
-                                              2,
-                                              1.0f,
-                                              0.0f };
-
-    CHECK( BroadphaseCandidateCanTouch( nullptr, 0, 1 ) );
-    CHECK_FALSE( BroadphaseCandidateCanTouch( &context, -1, 1 ) );
-    CHECK_FALSE( BroadphaseCandidateCanTouch( &context, 0, 2 ) );
-    CHECK( BroadphaseCandidateCanTouch( &context, 0, 1 ) );
+    CHECK_FALSE( BroadphaseCandidateCanTouch( bodyStore, colliderStore, {}, 1.0f, 0.0f, -1, 1 ) );
+    CHECK_FALSE( BroadphaseCandidateCanTouch( bodyStore, colliderStore, {}, 1.0f, 0.0f, 0, 2 ) );
+    CHECK( BroadphaseCandidateCanTouch( bodyStore, colliderStore, {}, 1.0f, 0.0f, 0, 1 ) );
 }
 
 
 TEST_CASE( "Solver broadphase stage: contact skin includes the exact static boundary" )
 {
     PhysicsBodyStore& bodyStore = TestBodyStore();
-    ColliderRecordList& colliderRecords = TestColliderRecords();
-    AddCandidateBody( bodyStore, colliderRecords, Vector3( 0.0f, 0.0f, 0.0f ), Vector3(), 1.0f );
-    AddCandidateBody( bodyStore, colliderRecords, Vector3( 2.1f, 0.0f, 0.0f ), Vector3(), 1.0f );
-    BroadphaseCandidateFilterContext context{ bodyStore.Records(),
-                                              bodyStore.HotFields(),
-                                              { colliderRecords.data(), colliderRecords.size() },
-                                              {},
-                                              2,
-                                              1.0f,
-                                              0.1f };
+    ColliderStore& colliderStore = TestColliderStore();
+    // Hazard: Debug poisons default-constructed Vector3 values, so zero
+    // velocity is explicit in every geometry-boundary fixture.
+    AddCandidateBody(
+        bodyStore, colliderStore, Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
+    AddCandidateBody(
+        bodyStore, colliderStore, Vector3( 2.1f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
 
-    CHECK( BroadphaseCandidateCanTouch( &context, 0, 1 ) );
+    CHECK( BroadphaseCandidateCanTouch( bodyStore, colliderStore, {}, 1.0f, 0.1f, 0, 1 ) );
     bodyStore.MutableHotFields().positionX[1] = 2.1002f;
-    CHECK_FALSE( BroadphaseCandidateCanTouch( &context, 0, 1 ) );
+    CHECK_FALSE( BroadphaseCandidateCanTouch( bodyStore, colliderStore, {}, 1.0f, 0.1f, 0, 1 ) );
 }
 
 
 TEST_CASE( "Solver broadphase stage: two sleepers never enter candidate work" )
 {
     PhysicsBodyStore& bodyStore = TestBodyStore();
-    ColliderRecordList& colliderRecords = TestColliderRecords();
-    AddCandidateBody( bodyStore, colliderRecords, Vector3( 0.0f, 0.0f, 0.0f ), Vector3(), 1.0f );
-    AddCandidateBody( bodyStore, colliderRecords, Vector3( 1.0f, 0.0f, 0.0f ), Vector3(), 1.0f );
+    ColliderStore& colliderStore = TestColliderStore();
+    AddCandidateBody(
+        bodyStore, colliderStore, Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
+    AddCandidateBody(
+        bodyStore, colliderStore, Vector3( 1.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
     std::array<uint8_t, 2> sleepState = { 1u, 1u };
-    BroadphaseCandidateFilterContext context{ bodyStore.Records(),
-                                              bodyStore.HotFields(),
-                                              { colliderRecords.data(), colliderRecords.size() },
-                                              sleepState,
-                                              2,
-                                              1.0f / 120.0f,
-                                              0.0f };
 
-    CHECK_FALSE( BroadphaseCandidateCanTouch( &context, 0, 1 ) );
+    CHECK_FALSE( BroadphaseCandidateCanTouch( bodyStore,
+                                              colliderStore,
+                                              sleepState,
+                                              1.0f / 120.0f,
+                                              0.0f,
+                                              0,
+                                              1 ) );
     sleepState[0] = 0u;
-    CHECK( BroadphaseCandidateCanTouch( &context, 0, 1 ) );
+    CHECK( BroadphaseCandidateCanTouch( bodyStore, colliderStore, sleepState, 1.0f / 120.0f, 0.0f, 0, 1 ) );
 }
 
 

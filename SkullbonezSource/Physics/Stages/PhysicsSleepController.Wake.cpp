@@ -449,6 +449,20 @@ PhysicsNarrowphaseWakeAccess::PhysicsNarrowphaseWakeAccess( PhysicsSleepControll
 {
 }
 
+bool PhysicsNarrowphaseWakeAccess::IsSleeping( int bodyIndex ) const
+{
+    const std::span<const uint8_t> sleepState = m_sleepController.GetSleepStates();
+    return bodyIndex >= 0 && bodyIndex < m_modelCount && bodyIndex < static_cast<int>( sleepState.size() ) &&
+           sleepState[static_cast<std::size_t>( bodyIndex )] != 0u;
+}
+
+bool PhysicsNarrowphaseWakeAccess::IsUnderwaterSleepLocked( int bodyIndex ) const
+{
+    const std::span<const uint8_t> underwaterLocks = m_sleepController.GetUnderwaterSleepLocks();
+    return bodyIndex >= 0 && bodyIndex < m_modelCount && bodyIndex < static_cast<int>( underwaterLocks.size() ) &&
+           underwaterLocks[static_cast<std::size_t>( bodyIndex )] != 0u;
+}
+
 void PhysicsNarrowphaseWakeAccess::WakeBody( int sleepingIndex ) const
 {
     // Why: narrowphase and external-force wakeups must re-enter the body into this

@@ -5,7 +5,7 @@
 //
 // Summary:
 //   Most tests feed one deterministic terrain manifold directly into
-//   PersistentContactSolver. The box sleep test additionally exercises exact
+//   PhysicsContactSolverStage. The box sleep test additionally exercises exact
 //   object narrowphase so support classification is checked on real manifold
 //   geometry without running a full PhysicsEngine frame.
 //
@@ -51,8 +51,10 @@
 #include "../SkullbonezSource/Physics/ObjectContactManifold.h"
 #include "../SkullbonezSource/Physics/PersistentContactSolver.h"
 #include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
-#include "../SkullbonezSource/Physics/PhysicsWorld.h"
+#include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
 #include "../SkullbonezSource/Physics/SleepIslandSystem.h"
+#include "../SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h"
+#include "../SkullbonezSource/Physics/Stages/PhysicsStepDiagnostics.h"
 #include "../SkullbonezSource/Physics/TerrainContactManifold.h"
 
 #include <array>
@@ -65,22 +67,20 @@ using SkullbonezCore::Math::CollisionDetection::CollisionShape;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::BuildObjectContactManifold;
 using SkullbonezCore::Physics::ColliderRecord;
-using SkullbonezCore::Physics::ColliderRecordList;
+using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ObjectContactBodyView;
 using SkullbonezCore::Physics::ObjectContactManifold;
 using SkullbonezCore::Physics::PersistentContactCacheEntry;
-using SkullbonezCore::Physics::PersistentContactSolver;
-using SkullbonezCore::Physics::PersistentContactSolverContext;
-using SkullbonezCore::Physics::PersistentContactSolverSideEffects;
 using SkullbonezCore::Physics::PhysicsBodyCreateRecord;
 using SkullbonezCore::Physics::PhysicsBodyOrientation;
 using SkullbonezCore::Physics::PhysicsBodyPosition;
 using SkullbonezCore::Physics::PhysicsBodyStore;
-using SkullbonezCore::Physics::PhysicsDebugContact;
-using SkullbonezCore::Physics::PhysicsWorld;
+using SkullbonezCore::Physics::PhysicsContactSolverStage;
+using SkullbonezCore::Physics::PhysicsSolverSnapshot;
+using SkullbonezCore::Physics::PhysicsStepDiagnostics;
+using SkullbonezCore::Physics::PhysicsWorldForces;
 using SkullbonezCore::Physics::MAX_SLEEP_SUPPORT_EDGES;
-using SkullbonezCore::Physics::SolverBodyState;
 using SkullbonezCore::Physics::TerrainContactManifold;
 
 namespace
@@ -96,37 +96,44 @@ PhysicsBodyStore& TestBodyStore()
     return store;
 }
 
-ColliderRecordList& TestColliderRecords()
+ColliderStore& TestColliderStore()
 {
     // Why: collider records mirror runtime fixed storage. Clearing the same
     // static list keeps each case deterministic without stack-heavy fixtures.
-    static ColliderRecordList records( "TestPersistentContactSolver.colliderRecords" );
-    records.clear();
-    return records;
+    static ColliderStore store;
+    store.Clear();
+    return store;
+}
+
+PhysicsStepDiagnostics& TestStepDiagnostics()
+{
+    // Why: Debug diagnostics own a fixed collision-time event table sized from
+    // scene capacity. Static storage mirrors the runtime owner and keeps two
+    // simultaneous warm-start fixtures within the doctest stack budget.
+    static PhysicsStepDiagnostics diagnostics;
+    diagnostics.Clear();
+    return diagnostics;
 }
 
 struct SolverFixture
 {
     PhysicsBodyStore& bodyStore;
-    ColliderRecordList& colliderRecords;
+    ColliderStore& colliderStore;
     std::vector<std::pair<int, int>> candidatePairs;
     std::vector<uint8_t> sleepState;
     std::vector<std::pair<int, int>> sleepSupportEdges;
-    std::vector<PhysicsWorld::PersistentContact> persistentContacts;
-    std::vector<PersistentContactCacheEntry> persistentContactCache;
-    PhysicsWorld::PersistentContactSolverStats stats;
-    std::vector<uint16_t> contactCounts;
-    std::vector<uint16_t> restingContactCounts;
-    std::vector<SolverBodyState> solverBodies;
-    std::vector<PhysicsDebugContact> debugContacts;
     std::vector<TerrainContactManifold> terrainContactManifolds;
     std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> terrainRestApplied = {};
     std::vector<uint8_t> sleepSupportedThisFrame;
-    PersistentContactSolverSideEffects sideEffects;
     SkullbonezCore::Physics::PhysicsRuntimeSettings config;
-    PersistentContactSolver solver;
+    PhysicsWorldForces worldForces;
+    PhysicsContactSolverStage solver;
+    PhysicsStepDiagnostics& diagnostics;
 
-    SolverFixture() : bodyStore( TestBodyStore() ), colliderRecords( TestColliderRecords() )
+    SolverFixture() :
+        bodyStore( TestBodyStore() ),
+        colliderStore( TestColliderStore() ),
+        diagnostics( TestStepDiagnostics() )
     {
         // Runtime support edges are construction-reserved to their fixed cap;
         // mirror that owner precondition so focused solver tests cannot hide a
@@ -142,7 +149,10 @@ struct SolverFixture
         config.solver.iterations = 12;
     }
 
-    void AddDynamicSphere( const Vector3& position, const Vector3& linearVelocity, float restitution = 0.0f )
+    void AddDynamicSphere( const Vector3& position,
+                           const Vector3& linearVelocity,
+                           float restitution = 0.0f,
+                           bool isFixed = false )
     {
         const float radius = 1.0f;
         const float mass = 2.0f;
@@ -152,10 +162,12 @@ struct SolverFixture
         body.hot.position = position;
         body.hot.linearVelocity = linearVelocity;
         body.cold.rotationalInertia = Vector3( inertia, inertia, inertia );
-        body.hot.inverseRotationalInertia = Vector3( 1.0f / inertia, 1.0f / inertia, 1.0f / inertia );
+        body.hot.inverseRotationalInertia =
+            isFixed ? Vector3() : Vector3( 1.0f / inertia, 1.0f / inertia, 1.0f / inertia );
         body.cold.mass = mass;
-        body.hot.inverseMass = 1.0f / mass;
+        body.hot.inverseMass = isFixed ? 0.0f : 1.0f / mass;
         body.hot.boundingRadius = radius;
+        body.hot.fixed = isFixed;
         (void)bodyStore.CreateBodyRecord( body );
 
         ColliderRecord collider;
@@ -164,7 +176,7 @@ struct SolverFixture
         collider.boundingRadius = radius;
         collider.restitution = restitution;
         collider.friction = config.material.terrainFrictionCoefficient;
-        colliderRecords.push_back( collider );
+        (void)colliderStore.CreateColliderRecord( collider );
 
         sleepState.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
         sleepSupportedThisFrame.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
@@ -183,7 +195,7 @@ struct SolverFixture
         body.hot.orientation.RotateAboutAxis( Vector3( 1.0f, 0.0f, 0.0f ), xRotationRadians );
         body.cold.rotationalInertia = Vector3( inertia, inertia, inertia );
         body.hot.inverseRotationalInertia =
-            isFixed ? Vector3() : Vector3( 1.0f / inertia, 1.0f / inertia, 1.0f / inertia );
+            isFixed ? Vector3( 0.0f, 0.0f, 0.0f ) : Vector3( 1.0f / inertia, 1.0f / inertia, 1.0f / inertia );
         body.cold.mass = mass;
         body.hot.inverseMass = isFixed ? 0.0f : 1.0f / mass;
         body.hot.boundingRadius = sqrtf( 3.0f );
@@ -192,11 +204,13 @@ struct SolverFixture
         (void)bodyStore.CreateBodyRecord( body );
 
         ColliderRecord collider;
-        collider.shape = CollisionShape( BoundingBox( halfExtents, Vector3() ) );
+        // Hazard: Debug poisons a default-constructed Vector3. Shape-local
+        // offsets must spell zero explicitly or exact narrowphase receives NaN.
+        collider.shape = CollisionShape( BoundingBox( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) ) );
         collider.shapeKind = ColliderShapeKind::Box;
         collider.boundingRadius = body.hot.boundingRadius;
         collider.friction = config.material.terrainFrictionCoefficient;
-        colliderRecords.push_back( collider );
+        (void)colliderStore.CreateColliderRecord( collider );
 
         sleepState.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
         sleepSupportedThisFrame.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
@@ -222,36 +236,30 @@ struct SolverFixture
         terrainContactManifolds.push_back( manifold );
     }
 
-    PersistentContactSolverContext MakeContext()
+    void CopySolverStateFrom( const SolverFixture& source )
     {
-        return PersistentContactSolverContext{ candidatePairs,
-                                               sleepState,
-                                               sleepSupportEdges,
-                                               persistentContacts,
-                                               persistentContactCache,
-                                               stats,
-                                               contactCounts,
-                                               restingContactCounts,
-                                               solverBodies,
-                                               debugContacts,
-                                               terrainContactManifolds,
-                                               terrainRestApplied,
-                                               sleepSupportedThisFrame,
-                                               sideEffects,
-                                               bodyStore,
-                                               bodyStore.MutableRecords(),
-                                               bodyStore.MutableHotFields(),
-                                               { colliderRecords.data(), colliderRecords.size() },
-                                               bodyStore.Count(),
-                                               0,
-                                               false,
-                                               config };
+        PhysicsSolverSnapshot snapshot;
+        source.solver.CaptureReplayState( snapshot );
+        solver.RestoreReplayState( snapshot );
     }
 
     void Solve()
     {
-        PersistentContactSolverContext context = MakeContext();
-        solver.Solve( context, kSolverDt );
+        worldForces.gravity = config.worldForces.gravity;
+        diagnostics.BeginStep( bodyStore.Count() );
+        const auto policy = PhysicsContactSolverStage::ResolveStepPolicy( config, worldForces );
+        solver.Solve( bodyStore,
+                      colliderStore,
+                      policy,
+                      candidatePairs,
+                      sleepState,
+                      sleepSupportEdges,
+                      terrainContactManifolds,
+                      terrainRestApplied,
+                      sleepSupportedThisFrame,
+                      diagnostics,
+                      kSolverDt,
+                      nullptr );
     }
 };
 
@@ -271,8 +279,14 @@ TEST_CASE( "Persistent contact solver: use-site guards clamp invalid stamped set
     settings.terrain.slop = -0.35f;
     settings.terrain.baumgarteBeta = -0.6f;
     settings.terrain.maxBaumgarteBias = -2.0f;
+    settings.sleep.linearSpeed = -0.7f;
+    settings.sleep.angularSpeed = -0.8f;
+    settings.body.contactRestitutionThreshold = 0.9f;
 
-    auto policy = PersistentContactSolver::ResolveStepPolicy( settings );
+    PhysicsWorldForces worldForces;
+    worldForces.mutualGravity.enabled = true;
+    worldForces.mutualGravity.elasticCollisions = true;
+    auto policy = PhysicsContactSolverStage::ResolveStepPolicy( settings, worldForces );
     CHECK( policy.objectSlop == 0.0f );
     CHECK( policy.objectBaumgarteBeta == 0.0f );
     CHECK( policy.objectPositionCorrectionPercent == 0.0f );
@@ -280,6 +294,12 @@ TEST_CASE( "Persistent contact solver: use-site guards clamp invalid stamped set
     CHECK( policy.terrainBaumgarteBeta == 0.0f );
     CHECK( policy.maxBaumgarteBias == 0.0f );
     CHECK( policy.iterations == 1 );
+    CHECK( policy.sleepLinearSpeed == settings.sleep.linearSpeed );
+    CHECK( policy.sleepAngularSpeed == settings.sleep.angularSpeed );
+    CHECK( policy.nonNegativeSleepLinearSpeed == 0.0f );
+    CHECK( policy.nonNegativeSleepAngularSpeed == 0.0f );
+    CHECK( policy.rawContactRestitutionThreshold == settings.body.contactRestitutionThreshold );
+    CHECK( policy.contactRestitutionThreshold == 0.0f );
 
     settings.solver.slop = 0.15f;
     settings.solver.baumgarteBeta = 0.25f;
@@ -288,7 +308,7 @@ TEST_CASE( "Persistent contact solver: use-site guards clamp invalid stamped set
     settings.terrain.slop = 0.45f;
     settings.terrain.baumgarteBeta = 0.55f;
     settings.terrain.maxBaumgarteBias = 3.0f;
-    policy = PersistentContactSolver::ResolveStepPolicy( settings );
+    policy = PhysicsContactSolverStage::ResolveStepPolicy( settings, worldForces );
     CHECK( policy.objectSlop == settings.solver.slop );
     CHECK( policy.objectBaumgarteBeta == settings.solver.baumgarteBeta );
     CHECK( policy.objectPositionCorrectionPercent == 1.0f );
@@ -306,21 +326,21 @@ TEST_CASE( "Persistent contact solver: warm-start cache is reused on a matching 
     first.AddTerrainContact( 0, 42u, 0.05f );
     first.Solve();
 
-    REQUIRE( first.persistentContactCache.size() == 1u );
-    CHECK( first.stats.cachePreviousRows == 0 );
-    CHECK( first.stats.cacheMisses == 1 );
-    CHECK( first.persistentContactCache[0].accN > 0.0f );
+    REQUIRE( first.solver.GetPersistentContactCache().size() == 1u );
+    CHECK( first.solver.GetStats().cachePreviousRows == 0 );
+    CHECK( first.solver.GetStats().cacheMisses == 1 );
+    CHECK( first.solver.GetPersistentContactCache()[0].accN > 0.0f );
 
     SolverFixture second;
     second.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, -0.1f, 0.0f ) );
     second.AddTerrainContact( 0, 42u, 0.05f );
-    second.persistentContactCache = first.persistentContactCache;
+    second.CopySolverStateFrom( first );
     second.Solve();
 
-    CHECK( second.stats.cachePreviousRows == 1 );
-    CHECK( second.stats.cacheHits == 1 );
-    CHECK( second.stats.warmStartedRows == 1 );
-    CHECK( second.stats.solverIterations <= first.stats.solverIterations );
+    CHECK( second.solver.GetStats().cachePreviousRows == 1 );
+    CHECK( second.solver.GetStats().cacheHits == 1 );
+    CHECK( second.solver.GetStats().warmStartedRows == 1 );
+    CHECK( second.solver.GetStats().solverIterations <= first.solver.GetStats().solverIterations );
 }
 
 
@@ -343,8 +363,8 @@ TEST_CASE( "Persistent contact solver: friction cone clamps diagonal tangent imp
     fixture.AddTerrainContact( 0, 7u, 0.05f );
     fixture.Solve();
 
-    REQUIRE( fixture.persistentContactCache.size() == 1u );
-    const PersistentContactCacheEntry& cached = fixture.persistentContactCache[0];
+    REQUIRE( fixture.solver.GetPersistentContactCache().size() == 1u );
+    const PersistentContactCacheEntry& cached = fixture.solver.GetPersistentContactCache()[0];
     const float tangentMagnitude = sqrtf( cached.accT1 * cached.accT1 + cached.accT2 * cached.accT2 );
     const float terrainWarmStart =
         fixture.bodyStore.Records()[0].mass * fabsf( fixture.config.worldForces.gravity ) * kSolverDt;
@@ -362,9 +382,10 @@ TEST_CASE( "Persistent contact solver: restitution creates separating terrain ve
     fixture.AddTerrainContact( 0, 99u, 0.0f );
     fixture.Solve();
 
-    REQUIRE( fixture.debugContacts.size() == 1u );
-    CHECK( fixture.debugContacts[0].preSolveClosingSpeed > fixture.config.body.contactRestitutionThreshold );
-    CHECK( fixture.debugContacts[0].normalImpulse > 0.0f );
+    REQUIRE( fixture.diagnostics.GetDebugContacts().size() == 1u );
+    CHECK( fixture.diagnostics.GetDebugContacts()[0].preSolveClosingSpeed >
+           fixture.config.body.contactRestitutionThreshold );
+    CHECK( fixture.diagnostics.GetDebugContacts()[0].normalImpulse > 0.0f );
     CHECK( fixture.bodyStore.HotFields().linearVelocityY[0] > 0.0f );
     CHECK( fixture.bodyStore.HotFields().linearVelocityY[0] <= 6.0f * 0.75f + 0.0001f );
 }
@@ -423,9 +444,9 @@ TEST_CASE( "Persistent contact solver: a box gains sleep support only after topp
     upperView.orientation = PhysicsBodyOrientation( edge.bodyStore.HotFields(), 1u );
     ObjectContactManifold edgeManifold;
     REQUIRE( BuildObjectContactManifold( lowerView,
-                                         edge.colliderRecords[0].shape,
+                                         edge.colliderStore.Records()[0].shape,
                                          upperView,
-                                         edge.colliderRecords[1].shape,
+                                         edge.colliderStore.Records()[1].shape,
                                          0,
                                          1,
                                          edge.config.body.contactEpsilon,
@@ -435,9 +456,9 @@ TEST_CASE( "Persistent contact solver: a box gains sleep support only after topp
     edge.candidatePairs.emplace_back( 0, 1 );
     edge.Solve();
 
-    REQUIRE_FALSE( edge.persistentContacts.empty() );
-    CHECK( edge.contactCounts[1] > 0u );
-    CHECK( edge.restingContactCounts[1] == 0u );
+    REQUIRE_FALSE( edge.solver.GetPersistentContacts().empty() );
+    CHECK( edge.solver.GetPersistentContactCounts()[1] > 0u );
+    CHECK( edge.solver.GetPersistentRestingContactCounts()[1] == 0u );
     CHECK( edge.sleepSupportEdges.empty() );
 
     SolverFixture face;
@@ -446,7 +467,7 @@ TEST_CASE( "Persistent contact solver: a box gains sleep support only after topp
     face.candidatePairs.emplace_back( 0, 1 );
     face.Solve();
 
-    REQUIRE_FALSE( face.persistentContacts.empty() );
-    CHECK( face.restingContactCounts[1] > 0u );
+    REQUIRE_FALSE( face.solver.GetPersistentContacts().empty() );
+    CHECK( face.solver.GetPersistentRestingContactCounts()[1] > 0u );
     CHECK( face.sleepSupportEdges.size() == 1u );
 }

@@ -99,6 +99,10 @@ class PhysicsNarrowphaseWakeAccess
     friend class PhysicsSleepController;
 
   public:
+    // Read-only pair queries preserve the sleep controller as sole row owner;
+    // this capability borrow remains scoped to one synchronous narrowphase pass.
+    bool IsSleeping( int bodyIndex ) const;
+    bool IsUnderwaterSleepLocked( int bodyIndex ) const;
     void WakeBody( int sleepingIndex ) const;
 };
 

@@ -4,10 +4,10 @@ Purpose:
   Owns persistent-contact rows, cache, solver scratch, statistics, and outputs.
 
 Summary:
-  PhysicsContactSolverStage wraps PersistentContactSolver with the complete
-  feeding state for one fixed-step contact solve. The stage borrows dense body,
-  collider, sleep, terrain, and diagnostics rows synchronously and publishes a
-  typed consequence batch for the PhysicsWorld sequencer to commit.
+  PhysicsContactSolverStage owns and executes the complete persistent-row solve
+  for one fixed step. It borrows dense body, collider, sleep, terrain, and
+  diagnostics rows synchronously and publishes a typed consequence batch for
+  the PhysicsWorld sequencer to commit.
 
 Glossary:
   Persistent contact: Solver row retained long enough to warm-start a matching
@@ -59,6 +59,7 @@ class PhysicsBodyStore;
 struct ColliderRecord;
 struct PhysicsBodyRecord;
 struct PhysicsWorldForces;
+class PhysicsStepDiagnostics;
 
 struct PersistentContact
 {
@@ -122,58 +123,6 @@ struct PersistentContactSolverSideEffects
     std::vector<PhysicsFixedTreeReleaseEvent> fixedTreeReleases;
 };
 
-struct PersistentContactSolverContext
-{
-    // Lifetime: every span/reference is borrowed for one synchronous call to
-    // PersistentContactSolver::Solve and is never retained.
-    std::span<const std::pair<int, int>> candidatePairs;
-    std::span<const uint8_t> sleepState;
-    std::vector<std::pair<int, int>>& sleepSupportEdges;
-    std::vector<PersistentContact>& persistentContacts;
-    std::vector<PersistentContactCacheEntry>& persistentContactCache;
-    PersistentContactSolverStats& persistentContactSolverStats;
-    std::vector<uint16_t>& persistentContactCounts;
-    std::vector<uint16_t>& persistentRestingContactCounts;
-    std::vector<SolverBodyState>& solverBodies;
-    std::vector<PhysicsDebugContact>& physicsDebugContacts;
-    std::vector<TerrainContactManifold>& terrainContactManifolds;
-    std::span<uint8_t> terrainRestApplied;
-    std::span<uint8_t> sleepSupportedThisFrame;
-    PersistentContactSolverSideEffects& sideEffects;
-    PhysicsBodyStore& bodyStore;
-    std::span<PhysicsBodyRecord> bodyRecords;
-    PhysicsBodyHotFieldsView hotFields;
-    std::span<const ColliderRecord> colliderRecords;
-    int bodyStoreCount = 0;
-    int pipelineRecordCapacity = 0;
-    bool elasticCollisions = false;
-    const PhysicsRuntimeSettings& settings;
-    Core::Profiler* profiler = nullptr;
-};
-
-struct PhysicsContactSolverStageContext
-{
-    // Lifetime: the stage consumes this aggregate synchronously and retains no
-    // borrowed owner state after Solve returns.
-    PhysicsBodyStore& bodyStore;
-    const ColliderStore& colliderStore;
-    const PhysicsRuntimeSettings& settings;
-    const PhysicsWorldForces& worldForces;
-    std::span<const std::pair<int, int>> candidatePairs;
-    std::span<const uint8_t> sleepState;
-    std::vector<std::pair<int, int>>& sleepSupportEdges;
-    std::vector<PhysicsDebugContact>& physicsDebugContacts;
-    std::vector<TerrainContactManifold>& terrainContactManifolds;
-    std::span<uint8_t> terrainRestApplied;
-    std::span<uint8_t> sleepSupportedThisFrame;
-    std::span<PhysicsBodyRecord> bodyRecords;
-    PhysicsBodyHotFieldsView hotFields;
-    std::span<const ColliderRecord> colliderRecords;
-    int bodyStoreCount = 0;
-    int pipelineRecordCapacity = 0;
-    Core::Profiler* profiler = nullptr;
-};
-
 class PhysicsContactCacheWakeAccess
 {
   private:
@@ -198,7 +147,6 @@ class PhysicsContactSolverStage
     std::vector<uint16_t> m_persistentRestingContactCounts;
     std::vector<SolverBodyState> m_solverBodies;
     PersistentContactSolverSideEffects m_sideEffects;
-    PersistentContactSolver m_contactSolver;
 
     void PrepareSideEffects( int modelCount, std::size_t candidatePairCount, int pipelineRecordCapacity );
 
@@ -206,7 +154,23 @@ class PhysicsContactSolverStage
     PhysicsContactSolverStage();
 
     void Clear();
-    void Solve( const PhysicsContactSolverStageContext& context, float dt );
+    // Returns the single per-solve normalization of raw stamped settings and
+    // live world-force policy. Tests use this seam to pin bounds without
+    // recreating solver math.
+    static PersistentContactSolverStepPolicy ResolveStepPolicy( const PhysicsRuntimeSettings& settings,
+                                                                const PhysicsWorldForces& worldForces ) noexcept;
+    void Solve( PhysicsBodyStore& bodyStore,
+                const ColliderStore& colliderStore,
+                const PersistentContactSolverStepPolicy& stepPolicy,
+                std::span<const std::pair<int, int>> candidatePairs,
+                std::span<const uint8_t> sleepState,
+                std::vector<std::pair<int, int>>& sleepSupportEdges,
+                std::vector<TerrainContactManifold>& terrainContactManifolds,
+                std::span<uint8_t> terrainRestApplied,
+                std::span<uint8_t> sleepSupportedThisFrame,
+                PhysicsStepDiagnostics& stepDiagnostics,
+                float dt,
+                Core::Profiler* profiler );
     PhysicsContactCacheWakeAccess CreateWakeAccess();
 
     void CaptureReplayState( PhysicsSolverSnapshot& outSnapshot ) const;

@@ -2,7 +2,7 @@
 
 Date: 2026-07-26
 Owner: skullbonez
-State: IN PROGRESS (PB0-PB4 complete; PB5 next)
+State: IN PROGRESS (PB0-PB5 complete; PB6 next)
 Ledger tasks: 8 (PB0-PB7)
 Branch: `nightrunner-25th-JUL-26`
 
@@ -373,7 +373,7 @@ or type erasure is allowed.
   - permanent report:
     `../../Reports/2026-07-26/concrete-parameter-bag-elimination-pb4-replay.md`.
 
-- [ ] **PB5 - Repair Physics collision and solver stage bags.**
+- [x] **PB5 - Repair Physics collision and solver stage bags.**
 
   Delete `PersistentContactSolverContext`,
   `PhysicsContactSolverStageContext`, `ObjectNarrowphasePairStageContext`, and
@@ -388,6 +388,17 @@ or type erasure is allowed.
     allocation replaces them;
   - focused determinism, collision, solver, and broadphase tests pass;
   - Physics, performance, and broad validation pass with byte-exact CSVs.
+  - all five target symbols are deleted and the threshold-13 inventory is
+    empty;
+  - contact, narrowphase, and broadphase use concrete owner operations plus
+    focused step-policy values without changing serial/parallel pair order;
+  - filtered and unfiltered SpatialGrid entrypoints replace the nullable
+    filter context without callbacks or type erasure;
+  - comment audit: 19/19 touched source files checked, 0 deferred;
+  - focused solver/narrowphase/broadphase/grid tests and Physics, performance,
+    and full gates pass with zero baseline refresh;
+  - permanent report:
+    `../../Reports/2026-07-26/concrete-parameter-bag-elimination-pb5-physics-collision-solver.md`.
 
 - [ ] **PB6 - Repair Physics sleep, force, and terrain stage bags.**
 

@@ -66,25 +66,7 @@ class ColliderStore;
 class PhysicsBodyStore;
 struct ColliderRecord;
 struct PhysicsBodyRecord;
-
-struct PhysicsBroadphaseStageContext
-{
-    // Lifetime: all borrows cover one synchronous Run call. The stage retains
-    // only its owned grid and bounded output buffers.
-    const PhysicsBodyStore& bodyStore;
-    std::span<const PhysicsBodyRecord> bodyRecords;
-    PhysicsBodyHotFieldsConstView hotFields;
-    std::span<const ColliderRecord> colliderRecords;
-    const PhysicsRuntimeSettings& settings;
-    const std::vector<PointJointConstraint>& pointJointConstraints;
-    std::span<const uint8_t> sleepState;
-    std::span<const int> awakeBodyIndices;
-    std::vector<PhysicsPipelineRecord>& physicsPipelineTrace;
-    int modelCount = 0;
-    float dt = 0.0f;
-    float contactSkin = 0.0f;
-    Core::Profiler* profiler = nullptr;
-};
+class PhysicsStepDiagnostics;
 
 class PhysicsBroadphaseStage
 {
@@ -116,7 +98,19 @@ class PhysicsBroadphaseStage
     void Clear();
     void InvalidateBodyTopology();
     void ResetTransientAfterReplayRestore();
-    std::span<const std::pair<int, int>> Run( const PhysicsBroadphaseStageContext& context );
+    // Lifetime: every argument is borrowed for this synchronous fixed-step
+    // call; only the stage-owned grid and bounded result buffers are retained.
+    std::span<const std::pair<int, int>> Run( const PhysicsBodyStore& bodyStore,
+                                              const ColliderStore& colliderStore,
+                                              const BroadphaseSettings& broadphaseSettings,
+                                              const std::vector<PointJointConstraint>& pointJointConstraints,
+                                              std::span<const uint8_t> sleepState,
+                                              std::span<const int> awakeBodyIndices,
+                                              PhysicsStepDiagnostics& stepDiagnostics,
+                                              float dt,
+                                              float contactSkin,
+                                              float contactEpsilon,
+                                              Core::Profiler* profiler );
 
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const;
     float GetCellSize() const;

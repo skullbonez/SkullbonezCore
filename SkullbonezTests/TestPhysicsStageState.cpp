@@ -66,7 +66,7 @@ using SkullbonezCore::Physics::BuoyancyBodyFacts;
 using SkullbonezCore::Physics::MakePhysicsSceneObjectId;
 using SkullbonezCore::Physics::ObjectNarrowphaseEvent;
 using SkullbonezCore::Physics::ObjectNarrowphaseEventKind;
-using SkullbonezCore::Physics::ObjectNarrowphasePairStageContext;
+using SkullbonezCore::Physics::ObjectNarrowphaseStepPolicy;
 using SkullbonezCore::Physics::PhysicsBodyCreateRecord;
 using SkullbonezCore::Physics::PhysicsBodyMotionKind;
 using SkullbonezCore::Physics::PhysicsBodyStore;
@@ -571,38 +571,42 @@ TEST_CASE( "Physics narrowphase islands: repeated parallel evaluation preserves 
                                                                timeRemaining,
                                                                kBodyCount,
                                                                1.0f / 120.0f );
-    const ObjectNarrowphasePairStageContext context{ bodies,
-                                                     colliders,
-                                                     {},
-                                                     worldForces,
-                                                     buoyancyFacts,
-                                                     bodies.MutableRecords(),
-                                                     bodies.HotFields(),
-                                                     colliders.Records(),
-                                                     candidatePairs,
-                                                     wakeAccess,
-                                                     sleep.GetSleepStates(),
-                                                     timeRemaining,
-                                                     sleep.GetUnderwaterSleepLocks(),
-                                                     persistentCache,
-                                                     kBodyCount,
-                                                     0.25f,
-                                                     0.09f,
-                                                     0.01f,
-                                                     0.05f,
-                                                     1.0f / 24.0f,
-                                                     1.0f / 120.0f };
-    SkullbonezCore::Physics::PhysicsExecutionSettings execution;
-    execution.parallel = true;
-    execution.parallelNarrowphase = true;
+    const ObjectNarrowphaseStepPolicy policy { 0.25f,
+                                                0.09f,
+                                                0.01f,
+                                                0.05f,
+                                                1.0f / 24.0f,
+                                                1.0f / 120.0f,
+                                                true,
+                                                true };
     LockOrderValidator lockOrderValidator;
     WorkerPool workerPool( lockOrderValidator );
     workerPool.Initialise( 1 );
     PhysicsNarrowphaseStage stage;
 
-    REQUIRE( stage.TryRunParallel( context, kPairCount, kBodyCount, execution, workerPool ) );
+    REQUIRE( stage.TryRunParallel( bodies,
+                                   colliders,
+                                   {},
+                                   buoyancyFacts,
+                                   candidatePairs,
+                                   wakeAccess,
+                                   timeRemaining,
+                                   persistentCache,
+                                   policy,
+                                   nullptr,
+                                   workerPool ) );
     const std::vector<ObjectNarrowphaseEvent> first( stage.GetEvents().begin(), stage.GetEvents().end() );
-    REQUIRE( stage.TryRunParallel( context, kPairCount, kBodyCount, execution, workerPool ) );
+    REQUIRE( stage.TryRunParallel( bodies,
+                                   colliders,
+                                   {},
+                                   buoyancyFacts,
+                                   candidatePairs,
+                                   wakeAccess,
+                                   timeRemaining,
+                                   persistentCache,
+                                   policy,
+                                   nullptr,
+                                   workerPool ) );
     const auto second = stage.GetEvents();
 
     REQUIRE( first.size() == kPairCount );

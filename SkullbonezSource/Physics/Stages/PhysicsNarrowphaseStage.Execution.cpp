@@ -29,6 +29,7 @@ Related:
 #include "../../Core/Profiler.h"
 #include "../../Core/WorkerPool.h"
 #include "../../Core/SceneCapacity.h"
+#include "../ColliderStore.h"
 #include "../DisjointSet.h"
 
 #include <algorithm>
@@ -53,15 +54,36 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
 }
 } // namespace
 
-void PhysicsNarrowphaseStage::ProcessObjectNarrowphaseIsland( const ObjectNarrowphasePairStageContext& context,
-                                                              int islandIndex )
+void PhysicsNarrowphaseStage::ProcessObjectNarrowphaseIsland(
+    PhysicsBodyStore& bodyStore,
+    const ColliderStore& colliderStore,
+    PhysicsTerrainView terrain,
+    std::span<BuoyancyBodyFacts> buoyancyFacts,
+    std::span<const std::pair<int, int>> candidatePairs,
+    PhysicsNarrowphaseWakeAccess wakeAccess,
+    std::span<float> timeRemaining,
+    const std::vector<PersistentContactCacheEntry>& persistentContactCache,
+    const ObjectNarrowphaseStepPolicy& policy,
+    Core::Profiler* profiler,
+    int islandIndex )
 {
     const ObjectNarrowphaseIsland& island = m_objectNarrowphaseIslands[static_cast<size_t>( islandIndex )];
     const size_t pairEnd = island.firstPairOffset + island.pairCount;
     for ( size_t pairCursor = island.firstPairOffset; pairCursor < pairEnd; ++pairCursor )
     {
         const int pairIndex = m_objectNarrowphaseIslandPairIndices[pairCursor];
-        ProcessObjectNarrowphasePair( context, pairIndex, m_objectNarrowphaseEvents[static_cast<size_t>( pairIndex )] );
+        ProcessObjectNarrowphasePair( bodyStore,
+                                      colliderStore,
+                                      terrain,
+                                      buoyancyFacts,
+                                      candidatePairs,
+                                      wakeAccess,
+                                      timeRemaining,
+                                      persistentContactCache,
+                                      policy,
+                                      profiler,
+                                      pairIndex,
+                                      m_objectNarrowphaseEvents[static_cast<size_t>( pairIndex )] );
     }
 }
 
@@ -212,21 +234,39 @@ void PhysicsNarrowphaseStage::Clear()
 
 void PhysicsNarrowphaseStage::ObjectNarrowphaseIslandStage::operator()( int islandIndex ) const
 {
-    stage.ProcessObjectNarrowphaseIsland( pairContext, islandIndex );
+    stage.ProcessObjectNarrowphaseIsland( bodyStore,
+                                          colliderStore,
+                                          terrain,
+                                          buoyancyFacts,
+                                          candidatePairs,
+                                          wakeAccess,
+                                          timeRemaining,
+                                          persistentContactCache,
+                                          policy,
+                                          profiler,
+                                          islandIndex );
 }
 
-bool PhysicsNarrowphaseStage::TryRunParallel( const ObjectNarrowphasePairStageContext& context,
-                                              int candidatePairCount,
-                                              int modelCount,
-                                              const PhysicsExecutionSettings& execution,
+bool PhysicsNarrowphaseStage::TryRunParallel( PhysicsBodyStore& bodyStore,
+                                              const ColliderStore& colliderStore,
+                                              PhysicsTerrainView terrain,
+                                              std::span<BuoyancyBodyFacts> buoyancyFacts,
+                                              std::span<const std::pair<int, int>> candidatePairs,
+                                              PhysicsNarrowphaseWakeAccess wakeAccess,
+                                              std::span<float> timeRemaining,
+                                              const std::vector<PersistentContactCacheEntry>& persistentContactCache,
+                                              const ObjectNarrowphaseStepPolicy& policy,
+                                              Core::Profiler* profiler,
                                               Threading::WorkerPool& workerPool )
 {
+    const int candidatePairCount = static_cast<int>( candidatePairs.size() );
+    const int modelCount = (std::min)( bodyStore.Count(), colliderStore.Count() );
     m_objectNarrowphaseIslands.clear();
     m_objectNarrowphaseIslandPairIndices.clear();
     m_objectNarrowphaseIslandWriteOffsets.clear();
 
-    const bool mayBenefitFromIslandDispatch = PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED && execution.parallel &&
-                                              execution.parallelNarrowphase &&
+    const bool mayBenefitFromIslandDispatch = PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED && policy.parallel &&
+                                              policy.parallelNarrowphase &&
                                               candidatePairCount >= PHYSICS_NARROWPHASE_PARALLEL_MIN_PAIRS &&
                                               candidatePairCount <=
                                                   modelCount * PHYSICS_NARROWPHASE_PARALLEL_MAX_PAIRS_PER_BODY &&
@@ -237,7 +277,7 @@ bool PhysicsNarrowphaseStage::TryRunParallel( const ObjectNarrowphasePairStageCo
         return false;
     }
 
-    BuildObjectNarrowphaseIslands( context.profiler, context.candidatePairs, candidatePairCount, modelCount );
+    BuildObjectNarrowphaseIslands( profiler, candidatePairs, candidatePairCount, modelCount );
 
     const int islandCount = static_cast<int>( m_objectNarrowphaseIslands.size() );
     const bool hasSpreadOutNarrowphaseIslands = islandCount > 0 &&
@@ -249,10 +289,21 @@ bool PhysicsNarrowphaseStage::TryRunParallel( const ObjectNarrowphasePairStageCo
         return false;
     }
 
-    m_objectNarrowphaseEvents.assign( context.candidatePairs.size(), ObjectNarrowphaseEvent() );
-    ObjectNarrowphaseIslandStage islandStage { *this, context };
+    m_objectNarrowphaseEvents.assign( candidatePairs.size(), ObjectNarrowphaseEvent() );
+    ObjectNarrowphaseIslandStage islandStage { *this,
+                                               bodyStore,
+                                               colliderStore,
+                                               terrain,
+                                               buoyancyFacts,
+                                               candidatePairs,
+                                               wakeAccess,
+                                               timeRemaining,
+                                               persistentContactCache,
+                                               policy,
+                                               profiler };
+
     {
-        PROFILE_SCOPED( context.profiler, "Frame/Physics/Narrowphase/IslandWorkerDispatch" );
+        PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/IslandWorkerDispatch" );
         workerPool.ParallelForNoAlloc( 0,
                                        islandCount,
                                        islandStage,

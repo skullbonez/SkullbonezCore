@@ -1027,10 +1027,7 @@ void SpatialGrid::ResetCandidatePairDedup()
 }
 
 
-bool SpatialGrid::MarkCandidatePairFirstSeen( int a,
-                                              int b,
-                                              const SkullbonezCore::Physics::BroadphaseCandidateFilterContext* filter,
-                                              std::vector<std::pair<int, int>>* sleepPrunedPairs )
+bool SpatialGrid::MarkCandidatePairFirstSeen( int a, int b )
 {
     // Triangular index: b*(b-1)/2 + a (requires the normalized a < b pair).
     assert( a >= 0 && a < b && b < objectCount && "candidate pair identity out of bounds" );
@@ -1054,11 +1051,34 @@ bool SpatialGrid::MarkCandidatePairFirstSeen( int a,
     }
 
     pairSeen[word] |= bit;
-    if ( SkullbonezCore::Physics::BroadphaseCandidateBothSleeping( filter, a, b ) )
+    return true;
+}
+
+
+bool SpatialGrid::MarkFilteredCandidatePairFirstSeen( int a,
+                                                      int b,
+                                                      const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
+                                                      const SkullbonezCore::Physics::ColliderStore& colliderStore,
+                                                      std::span<const uint8_t> sleepState,
+                                                      float dt,
+                                                      float contactSkin,
+                                                      std::vector<std::pair<int, int>>* sleepPrunedPairs )
+{
+    if ( !MarkCandidatePairFirstSeen( a, b ) )
+    {
+        return false;
+    }
+
+    if ( SkullbonezCore::Physics::BroadphaseCandidateBothSleeping( sleepState, a, b ) )
     {
         // Preserve the old diagnostic boundary: SleepPrunedPair described a
         // geometrically admitted candidate, not every dormant co-cell pair.
-        if ( !SkullbonezCore::Physics::BroadphaseCandidateGeometryCanTouch( filter, a, b ) )
+        if ( !SkullbonezCore::Physics::BroadphaseCandidateGeometryCanTouch( bodyStore,
+                                                                            colliderStore,
+                                                                            dt,
+                                                                            contactSkin,
+                                                                            a,
+                                                                            b ) )
         {
             return false;
         }
@@ -1078,7 +1098,12 @@ bool SpatialGrid::MarkCandidatePairFirstSeen( int a,
         return false;
     }
 
-    return SkullbonezCore::Physics::BroadphaseCandidateGeometryCanTouch( filter, a, b );
+    return SkullbonezCore::Physics::BroadphaseCandidateGeometryCanTouch( bodyStore,
+                                                                         colliderStore,
+                                                                         dt,
+                                                                         contactSkin,
+                                                                         a,
+                                                                         b );
 }
 
 
@@ -1089,11 +1114,151 @@ bool SpatialGrid::MarkCandidatePairFirstSeen( int a,
 // under its smaller body index, radix-sorted by its larger index, and only then
 // emitted. The result is the history-free (minIndex,maxIndex) order that P1
 // makes the byte-exact baseline for later broadphase work.
-void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
-                                     const SkullbonezCore::Physics::BroadphaseCandidateFilterContext* filter,
-                                     std::vector<std::pair<int, int>>* sleepPrunedPairs,
-                                     bool restrictToPairSourceCells )
+void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs, bool restrictToPairSourceCells )
 {
+    // Why: unfiltered tooling/tests need pure co-cell membership without a
+    // nullable physics-filter authority. Keep this traversal explicit so the
+    // production overload always receives concrete stores and step values.
+    outPairs.clear();
+    ResetCandidatePairDedup();
+    std::fill_n( candidatePairHeads, objectCount, -1 );
+    int candidatePairNodeCount = 0;
+
+    for ( int activeIndex = 0; activeIndex < activeBucketCount; ++activeIndex )
+    {
+        const int bucketIndex = activeBuckets[activeIndex];
+        assert( bucketIndex >= 0 && bucketIndex < TABLE_SIZE && "active bucket index OOB" );
+        if ( bucketIndex < 0 || bucketIndex >= TABLE_SIZE )
+        {
+            SB_FATAL( "Physics/SpatialGrid", "SpatialGrid active bucket index out of bounds" );
+        }
+
+        Bucket& bucket = buckets[bucketIndex];
+        if ( !bucket.occupied || ( restrictToPairSourceCells && bucket.pairSourceGeneration != pairSourceGeneration ) )
+        {
+            continue;
+        }
+
+        const int currentOverlayCount = bucket.overlayGeneration == overlayGeneration ? bucket.overlayCount : 0;
+        if ( bucket.count + currentOverlayCount < 2 )
+        {
+            continue;
+        }
+
+        int cellIndices[SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS];
+        const int cellCount = CollectBucketObjects( bucket,
+                                                    cellIndices,
+                                                    SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+
+        for ( int i = 0; i < cellCount - 1; ++i )
+        {
+            for ( int j = i + 1; j < cellCount; ++j )
+            {
+                int a = cellIndices[i];
+                int b = cellIndices[j];
+                if ( a == b )
+                {
+                    continue;
+                }
+
+                if ( a > b )
+                {
+                    std::swap( a, b );
+                }
+
+                if ( !MarkCandidatePairFirstSeen( a, b ) )
+                {
+                    continue;
+                }
+
+                const size_t callerCapacity = outPairs.capacity();
+                if ( candidatePairNodeCount >= MAX_CANDIDATE_PAIRS ||
+                     static_cast<size_t>( candidatePairNodeCount ) >= callerCapacity )
+                {
+                    SB_FATAL( "Physics/SpatialGrid",
+                              "Canonical candidate list exhausted: owner=Physics/SpatialGrid "
+                              "capacity=%zu fixed_capacity=%d high_water=%d phase=steady_gameplay.",
+                              callerCapacity,
+                              MAX_CANDIDATE_PAIRS,
+                              candidatePairNodeCount );
+                }
+
+                candidatePairNodes[candidatePairNodeCount] = CandidatePairNode { b, candidatePairHeads[a] };
+                candidatePairHeads[a] = candidatePairNodeCount++;
+            }
+        }
+    }
+
+    for ( int minIndex = 0; minIndex < objectCount; ++minIndex )
+    {
+        int pairCount = 0;
+        for ( int nodeIndex = candidatePairHeads[minIndex]; nodeIndex != -1;
+              nodeIndex = candidatePairNodes[nodeIndex].next )
+        {
+            candidatePairSortKeys[pairCount++] = candidatePairNodes[nodeIndex].maxIndex;
+        }
+
+        if ( pairCount == 0 )
+        {
+            continue;
+        }
+
+        int lowCounts[128] = {};
+        int lowOffsets[128] = {};
+        for ( int pairIndex = 0; pairIndex < pairCount; ++pairIndex )
+        {
+            ++lowCounts[candidatePairSortKeys[pairIndex] & 0x7f];
+        }
+
+        for ( int digit = 1; digit < 128; ++digit )
+        {
+            lowOffsets[digit] = lowOffsets[digit - 1] + lowCounts[digit - 1];
+        }
+
+        for ( int pairIndex = 0; pairIndex < pairCount; ++pairIndex )
+        {
+            const int value = candidatePairSortKeys[pairIndex];
+            candidatePairSortScratch[lowOffsets[value & 0x7f]++] = value;
+        }
+
+        int highCounts[64] = {};
+        int highOffsets[64] = {};
+        for ( int pairIndex = 0; pairIndex < pairCount; ++pairIndex )
+        {
+            ++highCounts[( candidatePairSortScratch[pairIndex] >> 7 ) & 0x3f];
+        }
+
+        for ( int digit = 1; digit < 64; ++digit )
+        {
+            highOffsets[digit] = highOffsets[digit - 1] + highCounts[digit - 1];
+        }
+
+        for ( int pairIndex = 0; pairIndex < pairCount; ++pairIndex )
+        {
+            const int value = candidatePairSortScratch[pairIndex];
+            candidatePairSortKeys[highOffsets[( value >> 7 ) & 0x3f]++] = value;
+        }
+
+        for ( int pairIndex = 0; pairIndex < pairCount; ++pairIndex )
+        {
+            outPairs.emplace_back( minIndex, candidatePairSortKeys[pairIndex] );
+        }
+    }
+}
+
+
+void SpatialGrid::GetFilteredCandidatePairsImpl( std::vector<std::pair<int, int>>& outPairs,
+                                                 const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
+                                                 const SkullbonezCore::Physics::ColliderStore& colliderStore,
+                                                 std::span<const uint8_t> sleepState,
+                                                 float dt,
+                                                 float contactSkin,
+                                                 std::vector<std::pair<int, int>>* sleepPrunedPairs,
+                                                 bool restrictToPairSourceCells )
+{
+    // Lifetime: sleepPrunedPairs is only an optional Debug evidence sink. It
+    // carries no filtering authority; all admission facts are concrete borrows
+    // whose lifetime ends when this synchronous collection returns.
     outPairs.clear();
     if ( sleepPrunedPairs )
     {
@@ -1164,7 +1329,14 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
                     bIdx = tmp;
                 }
 
-                if ( !MarkCandidatePairFirstSeen( a, bIdx, filter, sleepPrunedPairs ) )
+                if ( !MarkFilteredCandidatePairFirstSeen( a,
+                                                          bIdx,
+                                                          bodyStore,
+                                                          colliderStore,
+                                                          sleepState,
+                                                          dt,
+                                                          contactSkin,
+                                                          sleepPrunedPairs ) )
                 {
                     continue;
                 }
@@ -1253,10 +1425,52 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
 }
 
 
+void SpatialGrid::GetFilteredCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
+                                             const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
+                                             const SkullbonezCore::Physics::ColliderStore& colliderStore,
+                                             std::span<const uint8_t> sleepState,
+                                             float dt,
+                                             float contactSkin,
+                                             std::vector<std::pair<int, int>>& sleepPrunedPairs,
+                                             bool restrictToPairSourceCells )
+{
+    GetFilteredCandidatePairsImpl( outPairs,
+                                   bodyStore,
+                                   colliderStore,
+                                   sleepState,
+                                   dt,
+                                   contactSkin,
+                                   &sleepPrunedPairs,
+                                   restrictToPairSourceCells );
+}
+
+
+void SpatialGrid::GetFilteredCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
+                                             const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
+                                             const SkullbonezCore::Physics::ColliderStore& colliderStore,
+                                             std::span<const uint8_t> sleepState,
+                                             float dt,
+                                             float contactSkin,
+                                             bool restrictToPairSourceCells )
+{
+    GetFilteredCandidatePairsImpl( outPairs,
+                                   bodyStore,
+                                   colliderStore,
+                                   sleepState,
+                                   dt,
+                                   contactSkin,
+                                   nullptr,
+                                   restrictToPairSourceCells );
+}
+
+
 #if defined( _DEBUG )
-void SpatialGrid::GetCandidatePairsLegacyForOracle(
-    std::vector<std::pair<int, int>>& outPairs,
-    const SkullbonezCore::Physics::BroadphaseCandidateFilterContext* filter )
+void SpatialGrid::GetFilteredCandidatePairsLegacyForOracle( std::vector<std::pair<int, int>>& outPairs,
+                                                            const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
+                                                            const SkullbonezCore::Physics::ColliderStore& colliderStore,
+                                                            std::span<const uint8_t> sleepState,
+                                                            float dt,
+                                                            float contactSkin )
 {
     outPairs.clear();
     ResetCandidatePairDedup();
@@ -1302,7 +1516,14 @@ void SpatialGrid::GetCandidatePairsLegacyForOracle(
                     std::swap( a, b );
                 }
 
-                if ( !MarkCandidatePairFirstSeen( a, b, filter, nullptr ) )
+                if ( !MarkFilteredCandidatePairFirstSeen( a,
+                                                          b,
+                                                          bodyStore,
+                                                          colliderStore,
+                                                          sleepState,
+                                                          dt,
+                                                          contactSkin,
+                                                          nullptr ) )
                 {
                     continue;
                 }

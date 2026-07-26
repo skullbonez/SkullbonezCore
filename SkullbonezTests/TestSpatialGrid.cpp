@@ -177,7 +177,7 @@ TEST_CASE( "SpatialGrid: pair-source stamps skip retained cells with no awake bo
     std::vector<std::pair<int, int>> pairs;
     pairs.reserve( 4u );
 
-    grid.GetCandidatePairs( pairs, nullptr, nullptr, true );
+    grid.GetCandidatePairs( pairs, true );
     REQUIRE( pairs.size() == 1u );
     CHECK( pairs[0] == std::make_pair( 0, 1 ) );
 
@@ -185,7 +185,7 @@ TEST_CASE( "SpatialGrid: pair-source stamps skip retained cells with no awake bo
     // the other occupied cell without reinsertion.
     grid.BeginFrame( 4 );
     grid.MarkPairSourceCells( 2 );
-    grid.GetCandidatePairs( pairs, nullptr, nullptr, true );
+    grid.GetCandidatePairs( pairs, true );
     REQUIRE( pairs.size() == 1u );
     CHECK( pairs[0] == std::make_pair( 2, 3 ) );
 }

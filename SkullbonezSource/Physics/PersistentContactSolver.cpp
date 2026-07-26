@@ -53,6 +53,8 @@ Related:
 #include "PhysicsBodyStore.h"
 #include "SleepIslandSystem.h"
 #include "Stages/PhysicsContactSolverStage.h"
+#include "Stages/PhysicsStepDiagnostics.h"
+#include "PhysicsWorldForces.h"
 #include "../Core/Profiler.h"
 
 #include <algorithm>
@@ -75,7 +77,8 @@ constexpr int TERRAIN_BODY_INDEX = -1;
 } // namespace
 
 PersistentContactSolverStepPolicy
-PersistentContactSolver::ResolveStepPolicy( const PhysicsRuntimeSettings& settings ) noexcept
+PhysicsContactSolverStage::ResolveStepPolicy( const PhysicsRuntimeSettings& settings,
+                                              const PhysicsWorldForces& worldForces ) noexcept
 {
     // Invariant: these are the historical use-site guards, collected without
     // changing their bounds so every row in the solve shares one interpretation.
@@ -89,34 +92,54 @@ PersistentContactSolver::ResolveStepPolicy( const PhysicsRuntimeSettings& settin
     policy.terrainSlop = (std::max)( 0.0f, settings.terrain.slop );
     policy.terrainBaumgarteBeta = (std::max)( 0.0f, settings.terrain.baumgarteBeta );
     policy.maxBaumgarteBias = (std::max)( 0.0f, settings.terrain.maxBaumgarteBias );
+    policy.elasticCollisions = worldForces.mutualGravity.enabled && worldForces.mutualGravity.elasticCollisions;
+    policy.rawContactRestitutionThreshold = settings.body.contactRestitutionThreshold;
+    policy.contactRestitutionThreshold = policy.elasticCollisions ? 0.0f : policy.rawContactRestitutionThreshold;
+    policy.objectFrictionCoefficient = policy.elasticCollisions ? 0.0f : settings.material.objectFrictionCoefficient;
+    policy.terrainFrictionCoefficient = settings.material.terrainFrictionCoefficient;
+    policy.rollingFrictionCoefficient = (std::max)( 0.0f, settings.material.rollingFrictionCoefficient );
+    policy.sleepLinearSpeed = settings.sleep.linearSpeed;
+    policy.sleepAngularSpeed = settings.sleep.angularSpeed;
+    policy.nonNegativeSleepLinearSpeed = (std::max)( 0.0f, settings.sleep.linearSpeed );
+    policy.nonNegativeSleepAngularSpeed = (std::max)( 0.0f, settings.sleep.angularSpeed );
+    policy.gravityMagnitude = fabsf( settings.worldForces.gravity );
+    policy.contactEpsilon = settings.body.contactEpsilon;
     policy.iterations = (std::max)( 1, settings.solver.iterations );
     return policy;
 }
 
-void PersistentContactSolver::Solve( PersistentContactSolverContext& context, float dt )
+void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore,
+                                       const ColliderStore& colliderStore,
+                                       const PersistentContactSolverStepPolicy& stepPolicy,
+                                       std::span<const std::pair<int, int>> candidatePairs,
+                                       std::span<const uint8_t> sleepState,
+                                       std::vector<std::pair<int, int>>& sleepSupportEdges,
+                                       std::vector<TerrainContactManifold>& terrainContactManifolds,
+                                       std::span<uint8_t> terrainRestApplied,
+                                       std::span<uint8_t> sleepSupportedThisFrame,
+                                       PhysicsStepDiagnostics& stepDiagnostics,
+                                       float dt,
+                                       Core::Profiler* profiler )
 {
-    auto& m_candidatePairs = context.candidatePairs;
-    auto& m_sleepState = context.sleepState;
-    auto& m_sleepSupportEdges = context.sleepSupportEdges;
-    auto& m_persistentContacts = context.persistentContacts;
-    auto& m_persistentContactCache = context.persistentContactCache;
-    auto& m_persistentContactSolverStats = context.persistentContactSolverStats;
-    auto& m_persistentContactCounts = context.persistentContactCounts;
-    auto& m_persistentRestingContactCounts = context.persistentRestingContactCounts;
-    auto& m_solverBodies = context.solverBodies;
-    auto& m_physicsDebugContacts = context.physicsDebugContacts;
-    auto& m_terrainContactManifolds = context.terrainContactManifolds;
-    auto& m_terrainRestApplied = context.terrainRestApplied;
-    auto& m_sleepSupportedThisFrame = context.sleepSupportedThisFrame;
-    auto& m_bodyRecords = context.bodyRecords;
-    auto m_hotFields = context.hotFields;
+    auto& m_candidatePairs = candidatePairs;
+    auto& m_sleepState = sleepState;
+    auto& m_sleepSupportEdges = sleepSupportEdges;
+    auto& m_physicsDebugContacts = stepDiagnostics.MutableDebugContacts();
+    auto& m_terrainContactManifolds = terrainContactManifolds;
+    auto& m_terrainRestApplied = terrainRestApplied;
+    auto& m_sleepSupportedThisFrame = sleepSupportedThisFrame;
+    auto m_bodyRecords = bodyStore.MutableRecords();
+    auto m_hotFields = bodyStore.MutableHotFields();
     const PhysicsBodyHotFieldsConstView m_hotRead = ConstPhysicsBodyHotFields( m_hotFields );
-    const auto& m_colliderRecords = context.colliderRecords;
-    auto& sideEffects = context.sideEffects;
+    const auto m_colliderRecords = colliderStore.Records();
+    auto& sideEffects = m_sideEffects;
+    const int bodyStoreCount = bodyStore.Count();
+    const int pipelineCapacityValue = stepDiagnostics.RemainingPipelineRecordCapacity();
+    PrepareSideEffects( bodyStoreCount, candidatePairs.size(), pipelineCapacityValue );
     // Why: pipeline tracing is capped. Once full, later record calls are no-ops,
     // so the contact hot path should stop building detailed records that would
     // be discarded. Simulation state still follows the same deterministic path.
-    const std::size_t pipelineRecordCapacity = static_cast<std::size_t>( context.pipelineRecordCapacity );
+    const std::size_t pipelineRecordCapacity = static_cast<std::size_t>( pipelineCapacityValue );
     bool pipelineTraceCanRecord = sideEffects.pipelineRecords.size() < pipelineRecordCapacity;
     auto CanRecordPhysicsPipelineStage = [&]() { return pipelineTraceCanRecord; };
 
@@ -139,7 +162,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     auto QueueFixedTreeRelease = [&]( const PhysicsFixedTreeReleaseEvent& event )
     { sideEffects.fixedTreeReleases.push_back( event ); };
 
-    PROFILE_SCOPED( context.profiler, "Frame/Physics/Narrowphase/PersistentContacts" );
+    PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts" );
 
     // Concept: persistent contact rows solve the quiet resting case.
     //
@@ -163,14 +186,12 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     //   Object-object narrowphase uses Skullbonez shape-pair manifold builders
     //   for the row geometry. The cache and PGS row shape are Catto; the exact
     //   sphere/box/OBB feature encodings are local engine policy.
-    const int modelCount = (std::min)( { context.bodyStoreCount,
+    const int modelCount = (std::min)( { bodyStoreCount,
                                          static_cast<int>( m_bodyRecords.size() ),
                                          static_cast<int>( m_colliderRecords.size() ) } );
 
     auto isFixedBody = [&]( int index ) -> bool { return m_hotFields.fixed[static_cast<size_t>( index )] != 0u; };
 
-    const PhysicsRuntimeSettings& settings = context.settings;
-    const PersistentContactSolverStepPolicy stepPolicy = ResolveStepPolicy( settings );
     m_persistentContactSolverStats = PersistentContactSolverStats();
     m_persistentContactSolverStats.cachePreviousRows = static_cast<int>( m_persistentContactCache.size() );
     m_persistentContactCounts.assign( modelCount, 0 );
@@ -223,9 +244,9 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     const float invDt = ( dt > TOLERANCE ) ? ( 1.0f / dt ) : 120.0f;
     // Why: mutual-gravity space has no ambient support surface. Contacts should
     // exchange momentum instead of cooling into friction or cached resting rows.
-    const bool elasticCollisions = context.elasticCollisions;
-    const float restitutionThreshold = elasticCollisions ? 0.0f : settings.body.contactRestitutionThreshold;
-    const float objectFrictionCoeff = elasticCollisions ? 0.0f : settings.material.objectFrictionCoefficient;
+    const bool elasticCollisions = stepPolicy.elasticCollisions;
+    const float restitutionThreshold = stepPolicy.contactRestitutionThreshold;
+    const float objectFrictionCoeff = stepPolicy.objectFrictionCoefficient;
 
     // CATTO REF:
     //   Catto 2005, PDF pp. 18-19, Section 8.1/8.2 and Algorithm 5 store lambda
@@ -279,7 +300,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     };
 
     {
-        PROFILE_SCOPED( context.profiler, "Frame/Physics/Narrowphase/PersistentContacts/BodySetup" );
+        PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/BodySetup" );
         m_solverBodies.assign( modelCount, SolverBodyState() );
 
         // CATTO REF:
@@ -545,8 +566,8 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
             return;
         }
 
-        const float sleepLinear = (std::max)( 0.0f, settings.sleep.linearSpeed );
-        const float sleepAngular = (std::max)( 0.0f, settings.sleep.angularSpeed );
+        const float sleepLinear = stepPolicy.nonNegativeSleepLinearSpeed;
+        const float sleepAngular = stepPolicy.nonNegativeSleepAngularSpeed;
         const float speedSq = body.linearVelocity * body.linearVelocity;
         const float omegaSq = body.angularVelocity * body.angularVelocity;
         if ( speedSq > sleepLinear * sleepLinear || omegaSq > sleepAngular * sleepAngular )
@@ -566,7 +587,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
 
         const float loadFloor = (std::max)( 1.0e-4f,
                                             m_bodyRecords[static_cast<size_t>( supportedIndex )].mass *
-                                                fabsf( settings.worldForces.gravity ) * dt * 0.01f );
+                                                stepPolicy.gravityMagnitude * dt * 0.01f );
 
         if ( c.accN < loadFloor )
         {
@@ -615,8 +636,8 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
         const SolverBodyState& solverA = m_solverBodies[bodyA];
 
         const SolverBodyState& solverB = m_solverBodies[bodyB];
-        const float linearLimit = (std::max)( settings.sleep.linearSpeed * 2.0f,
-                                              settings.body.contactRestitutionThreshold * 0.25f );
+        const float linearLimit = (std::max)( stepPolicy.sleepLinearSpeed * 2.0f,
+                                              stepPolicy.rawContactRestitutionThreshold * 0.25f );
 
         const float linearLimitSq = linearLimit * linearLimit;
         for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
@@ -630,7 +651,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
             }
         }
 
-        const float angularLimit = (std::max)( settings.sleep.angularSpeed * 2.0f, 0.25f );
+        const float angularLimit = (std::max)( stepPolicy.sleepAngularSpeed * 2.0f, 0.25f );
         const float angularLimitSq = angularLimit * angularLimit;
         return Vector::VectorMagSquared( solverA.angularVelocity ) <= angularLimitSq &&
                Vector::VectorMagSquared( solverB.angularVelocity ) <= angularLimitSq;
@@ -753,7 +774,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     // object footprints can use a two-point subset because spread plus cached
     // feature IDs keep the support plane stable while cutting solver work.
     {
-        PROFILE_SCOPED( context.profiler, "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds" );
+        PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds" );
         m_persistentContacts.reserve( m_candidatePairs.size() * 4 );
         for ( const auto& cp : m_candidatePairs )
         {
@@ -780,7 +801,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                                   PhysicsBodyPosition( m_hotRead, static_cast<size_t>( aIndex ) );
 
             float contactDistance = conservativeContactRadius( colliderA ) + conservativeContactRadius( colliderB ) +
-                                    settings.body.contactEpsilon;
+                                    stepPolicy.contactEpsilon;
 
             if ( Vector::VectorMagSquared( centerDelta ) > contactDistance * contactDistance )
             {
@@ -793,23 +814,22 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
             ObjectContactManifold manifold;
             bool manifoldBuilt = false;
             {
-                PROFILE_SCOPED( context.profiler,
+                PROFILE_SCOPED( profiler,
                                 "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds/ExactObjectManifold" );
 
-                manifoldBuilt = BuildObjectContactManifold( context.profiler,
+                manifoldBuilt = BuildObjectContactManifold( profiler,
                                                             bodyA,
                                                             colliderA.shape,
                                                             bodyB,
                                                             colliderB.shape,
                                                             aIndex,
                                                             bIndex,
-                                                            settings.body.contactEpsilon,
+                                                            stepPolicy.contactEpsilon,
                                                             manifold );
             }
             if ( manifoldBuilt )
             {
-                PROFILE_SCOPED( context.profiler,
-                                "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds/AddRows" );
+                PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds/AddRows" );
 
                 contactNormal = manifold.normal;
                 const CollisionShape& shapeA = colliderA.shape;
@@ -863,7 +883,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                     // while halving warm-start, friction, and PGS row work. Mixed
                     // hull/box, fresh-impact, and sphere contacts keep full rows
                     // because their support footprint is less symmetric.
-                    PROFILE_SCOPED( context.profiler,
+                    PROFILE_SCOPED( profiler,
                                     "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds/ContactRowReduction" );
 
                     selectedPointCount = reduceObjectContactRows( aIndex, bIndex, manifold, selectedPointIndices );
@@ -929,8 +949,8 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     }
 
     {
-        PROFILE_SCOPED( context.profiler, "Frame/Physics/Terrain" );
-        PROFILE_SCOPED( context.profiler, "Frame/Physics/Terrain/Rows" );
+        PROFILE_SCOPED( profiler, "Frame/Physics/Terrain" );
+        PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/Rows" );
 
         // Convert terrain manifolds into the same PersistentContact rows used by
         // object/object contacts. Terrain uses TERRAIN_BODY_INDEX for body B, so
@@ -985,7 +1005,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                                                                           : ( manifold.inhibitsSleep ? 0.35f : 0.0f );
 
             const float warmStartTotal = m_bodyRecords[static_cast<size_t>( manifold.bodyA )].mass *
-                                         fabsf( settings.worldForces.gravity ) * fabsf( manifold.normal.y ) * dt *
+                                         stepPolicy.gravityMagnitude * fabsf( manifold.normal.y ) * dt *
                                          supportSeedScale;
 
             const float warmStartPerContact = warmStartTotal / static_cast<float>( manifold.pointCount );
@@ -1054,7 +1074,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     // The setup below builds friction axes, effective masses, bias, friction
     // limits, and pulls the previous frame's accumulated impulses from the cache.
     {
-        PROFILE_SCOPED( context.profiler, "Frame/Physics/Narrowphase/PersistentContacts/Precompute" );
+        PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/Precompute" );
         for ( PersistentContact& c : m_persistentContacts )
         {
             const SolverBodyState& bodyA = m_solverBodies[c.bodyA];
@@ -1199,11 +1219,11 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
             //   solved normal force while keeping static friction usable in games.
             c.frictionLimit = ( elasticCollisions || !c.allowsTangentFriction )
                                   ? 0.0f
-                                  : ( c.isTerrain ? settings.material.terrainFrictionCoefficient * c.terrainWarmStart
-                                                  : ( c.normalCoupledFriction
-                                                          ? 0.0f
-                                                          : objectFrictionCoeff * contactMass *
-                                                                fabsf( settings.worldForces.gravity ) * dt ) );
+                                  : ( c.isTerrain
+                                          ? stepPolicy.terrainFrictionCoefficient * c.terrainWarmStart
+                                          : ( c.normalCoupledFriction ? 0.0f
+                                                                      : objectFrictionCoeff * contactMass *
+                                                                            stepPolicy.gravityMagnitude * dt ) );
 
             // CATTO REF:
             //   Catto 2005, PDF pp. 18-19, Section 8.1 and Algorithm 5. Reason:
@@ -1232,7 +1252,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                 const float cachedFrictionLimit = ( elasticCollisions || !c.allowsTangentFriction )
                                                       ? 0.0f
                                                       : ( c.isTerrain
-                                                              ? settings.material.terrainFrictionCoefficient *
+                                                              ? stepPolicy.terrainFrictionCoefficient *
                                                                     ( ( c.accN > c.terrainWarmStart )
                                                                           ? c.accN
                                                                           : c.terrainWarmStart )
@@ -1317,7 +1337,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     // its current violation, adds that to the accumulated total, clamps the total
     // to valid bounds, then applies only the difference.
     {
-        PROFILE_SCOPED( context.profiler, "Frame/Physics/Narrowphase/PersistentContacts/SolveRows" );
+        PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/SolveRows" );
         for ( int iter = 0; iter < solverIterations; ++iter )
         {
             m_persistentContactSolverStats.solverIterations = iter + 1;
@@ -1365,7 +1385,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                 const float frictionLimit = ( elasticCollisions || !c.allowsTangentFriction )
                                                 ? 0.0f
                                                 : ( c.isTerrain
-                                                        ? settings.material.terrainFrictionCoefficient *
+                                                        ? stepPolicy.terrainFrictionCoefficient *
                                                               ( ( c.accN > c.terrainWarmStart ) ? c.accN
                                                                                                 : c.terrainWarmStart )
                                                         : ( c.normalCoupledFriction ? objectFrictionCoeff * c.accN
@@ -1408,7 +1428,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     }
 
     {
-        PROFILE_SCOPED( context.profiler, "Frame/Physics/Narrowphase/PersistentContacts/PointSupportInstability" );
+        PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/PointSupportInstability" );
         for ( const PersistentContact& c : m_persistentContacts )
         {
             applyPointSupportInstability( c );
@@ -1416,8 +1436,8 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     }
 
     {
-        PROFILE_SCOPED( context.profiler, "Frame/Physics/Terrain" );
-        PROFILE_SCOPED( context.profiler, "Frame/Physics/Terrain/RestPolicy" );
+        PROFILE_SCOPED( profiler, "Frame/Physics/Terrain" );
+        PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/RestPolicy" );
 
         // This is intentionally separate from the row solver. The rows above
         // handle physical contact response; this pass applies engine rest policy
@@ -1438,7 +1458,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
             m_terrainRestApplied[bodyIndex] = 1;
             const PhysicsBodyRecord& record = m_bodyRecords[static_cast<size_t>( bodyIndex )];
             SolverBodyState& body = m_solverBodies[bodyIndex];
-            float normalForce = record.mass * fabsf( settings.worldForces.gravity ) * fabsf( manifold.normal.y );
+            float normalForce = record.mass * stepPolicy.gravityMagnitude * fabsf( manifold.normal.y );
             float omegaMagSq = body.angularVelocity * body.angularVelocity;
             if ( omegaMagSq > TOLERANCE * TOLERANCE )
             {
@@ -1468,7 +1488,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                     },
                     m_colliderRecords[static_cast<size_t>( bodyIndex )].shape );
 
-                const float muRolling = (std::max)( 0.0f, settings.material.rollingFrictionCoefficient );
+                const float muRolling = stepPolicy.rollingFrictionCoefficient;
                 float rollingTorqueMag = muRolling * normalForce * rEff;
                 const Vector3& inertia = record.rotationalInertia;
                 float avgInertia = ( inertia.x + inertia.y + inertia.z ) / 3.0f;
@@ -1503,7 +1523,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     }
 
     {
-        PROFILE_SCOPED( context.profiler, "Frame/Physics/Narrowphase/PersistentContacts/WriteBack" );
+        PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/WriteBack" );
         for ( int i = 0; i < modelCount; ++i )
         {
             if ( m_sleepState[i] || isFixedBody( i ) )
@@ -1533,7 +1553,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     }
 
     {
-        PROFILE_SCOPED( context.profiler, "Frame/Physics/Narrowphase/PersistentContacts/DebugContacts" );
+        PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/DebugContacts" );
         m_physicsDebugContacts.clear();
         m_physicsDebugContacts.reserve( m_persistentContacts.size() );
         for ( const PersistentContact& c : m_persistentContacts )
@@ -1576,7 +1596,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     // most of the work, but this direct correction keeps persistent contacts from
     // sinking deeper into each other over many frames.
     {
-        PROFILE_SCOPED( context.profiler, "Frame/Physics/Narrowphase/PersistentContacts/PositionCorrection" );
+        PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/PositionCorrection" );
         for ( const PersistentContact& c : m_persistentContacts )
         {
             const float rowContactSlop = c.isTerrain ? stepPolicy.terrainSlop : contactSlop;
@@ -1657,7 +1677,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     // why a settled stack can remain settled; it does not have to rediscover from
     // scratch how much support force each contact needs every tick.
     {
-        PROFILE_SCOPED( context.profiler, "Frame/Physics/Narrowphase/PersistentContacts/CacheStore" );
+        PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/CacheStore" );
         m_persistentContactCache.clear();
         for ( const PersistentContact& c : m_persistentContacts )
         {
@@ -1704,7 +1724,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     }
 
     {
-        PROFILE_SCOPED( context.profiler, "Frame/Physics/Narrowphase/PersistentContacts/FixedContactRelease" );
+        PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/FixedContactRelease" );
         auto releaseFixedContactBody = [&]( int fixedIndex,
                                            int otherIndex, const PersistentContact& c, bool fixedIsBodyA )
         {
@@ -1754,7 +1774,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
             }
 
             const Vector3 releasedLinearVelocity = releaseDir * releaseSpeed + tangentVelocity;
-            context.bodyStore.ReleaseFixedBody( fixedIndex, releasedLinearVelocity, angularVelocity );
+            bodyStore.ReleaseFixedBody( fixedIndex, releasedLinearVelocity, angularVelocity );
             QueueReleaseWake( fixedIndex );
             QueueFixedTreeRelease(
                 PhysicsFixedTreeReleaseEvent { fixedIndex, releasedLinearVelocity, angularVelocity } );

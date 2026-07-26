@@ -46,22 +46,10 @@ namespace SkullbonezCore
 {
 namespace Physics
 {
-struct BroadphaseCandidateFilterContext
+inline bool BroadphaseCandidateBothSleeping( std::span<const uint8_t> sleepState, int a, int b )
 {
-    std::span<const PhysicsBodyRecord> bodyRecords;
-    PhysicsBodyHotFieldsConstView hotFields;
-    std::span<const ColliderRecord> colliderRecords;
-    std::span<const uint8_t> sleepState;
-    int modelCount = 0;
-    float dt = 0.0f;
-    float contactSkin = 0.0f;
-};
-
-inline bool BroadphaseCandidateBothSleeping( const BroadphaseCandidateFilterContext* contextValue, int a, int b )
-{
-    return contextValue != nullptr && a >= 0 && b >= 0 && a < static_cast<int>( contextValue->sleepState.size() ) &&
-           b < static_cast<int>( contextValue->sleepState.size() ) && contextValue->sleepState[a] != 0u &&
-           contextValue->sleepState[b] != 0u;
+    return a >= 0 && b >= 0 && a < static_cast<int>( sleepState.size() ) && b < static_cast<int>( sleepState.size() ) &&
+           sleepState[a] != 0u && sleepState[b] != 0u;
 }
 
 // Invariant: fixed-step candidate owners may append only inside construction-
@@ -90,33 +78,35 @@ inline float BroadphaseCandidateBodyRadius( std::span<const ColliderRecord> coll
 // Invariant: this remains a broadphase test. It may keep false positives, but
 // it must not reject a pair whose exact shapes could touch during this fixed
 // tick; the relative-motion segment covers CCD and wakeup cases.
-inline bool BroadphaseCandidateGeometryCanTouch( const BroadphaseCandidateFilterContext* contextValue, int a, int b )
+inline bool BroadphaseCandidateGeometryCanTouch( const PhysicsBodyStore& bodyStore,
+                                                 const ColliderStore& colliderStore,
+                                                 float dt,
+                                                 float contactSkin,
+                                                 int a,
+                                                 int b )
 {
-    if ( contextValue == nullptr )
-    {
-        return true;
-    }
-
-    const BroadphaseCandidateFilterContext& context = *contextValue;
-    if ( a < 0 || b < 0 || a >= context.modelCount || b >= context.modelCount )
+    const int modelCount = (std::min)( bodyStore.Count(), colliderStore.Count() );
+    if ( a < 0 || b < 0 || a >= modelCount || b >= modelCount )
     {
         return false;
     }
-    const float radiusA = BroadphaseCandidateBodyRadius( context.colliderRecords, a );
-    const float radiusB = BroadphaseCandidateBodyRadius( context.colliderRecords, b );
+    const PhysicsBodyHotFieldsConstView hotFields = bodyStore.HotFields();
+    const std::span<const ColliderRecord> colliderRecords = colliderStore.Records();
+    const float radiusA = BroadphaseCandidateBodyRadius( colliderRecords, a );
+    const float radiusB = BroadphaseCandidateBodyRadius( colliderRecords, b );
     if ( !std::isfinite( radiusA ) || !std::isfinite( radiusB ) || radiusA < 0.0f || radiusB < 0.0f )
     {
         return true;
     }
 
-    const Math::Vector::Vector3 relativeStart = BroadphaseCandidateBodyPosition( context.hotFields, a ) -
-                                                BroadphaseCandidateBodyPosition( context.hotFields, b );
-    const Math::Vector::Vector3 relativeDisplacement = ( PhysicsBodyLinearVelocity( context.hotFields,
+    const Math::Vector::Vector3 relativeStart = BroadphaseCandidateBodyPosition( hotFields, a ) -
+                                                BroadphaseCandidateBodyPosition( hotFields, b );
+    const Math::Vector::Vector3 relativeDisplacement = ( PhysicsBodyLinearVelocity( hotFields,
                                                                                     static_cast<std::size_t>( a ) ) -
-                                                         PhysicsBodyLinearVelocity( context.hotFields,
+                                                         PhysicsBodyLinearVelocity( hotFields,
                                                                                     static_cast<std::size_t>( b ) ) ) *
-                                                       context.dt;
-    const float contactRadius = radiusA + radiusB + context.contactSkin;
+                                                       dt;
+    const float contactRadius = radiusA + radiusB + contactSkin;
     const float contactRadiusSq = contactRadius * contactRadius;
     const float relativeLengthSq = Math::Vector::VectorMagSquared( relativeDisplacement );
     if ( relativeLengthSq <= TOLERANCE * TOLERANCE )
@@ -130,10 +120,16 @@ inline bool BroadphaseCandidateGeometryCanTouch( const BroadphaseCandidateFilter
     return Math::Vector::VectorMagSquared( closestRelative ) <= contactRadiusSq;
 }
 
-inline bool BroadphaseCandidateCanTouch( const BroadphaseCandidateFilterContext* contextValue, int a, int b )
+inline bool BroadphaseCandidateCanTouch( const PhysicsBodyStore& bodyStore,
+                                         const ColliderStore& colliderStore,
+                                         std::span<const uint8_t> sleepState,
+                                         float dt,
+                                         float contactSkin,
+                                         int a,
+                                         int b )
 {
-    return !BroadphaseCandidateBothSleeping( contextValue, a, b ) &&
-           BroadphaseCandidateGeometryCanTouch( contextValue, a, b );
+    return !BroadphaseCandidateBothSleeping( sleepState, a, b ) &&
+           BroadphaseCandidateGeometryCanTouch( bodyStore, colliderStore, dt, contactSkin, a, b );
 }
 } // namespace Physics
 } // namespace SkullbonezCore

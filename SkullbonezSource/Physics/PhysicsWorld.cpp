@@ -854,21 +854,17 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     // Broadphase: sleeping membership remains resident, while awake rows update
     // their ranges and source awake-to-sleep wake-detection pairs.
     const float contactSkin = (std::max)( 0.0f, settings.body.contactEpsilon );
-    const PhysicsBroadphaseStageContext broadphaseContext { bodyStore,
-                                                            bodyRecords,
-                                                            hotFields,
-                                                            colliderRecords,
-                                                            settings,
-                                                            m_pointJointConstraints,
-                                                            sleepStates,
-                                                            awakeBodyIndices,
-                                                            m_stepDiagnostics.MutablePipelineTrace(),
-                                                            modelCount,
-                                                            dt,
-                                                            contactSkin,
-                                                            m_profiler };
-
-    const std::span<const std::pair<int, int>> candidatePairs = m_broadphase.Run( broadphaseContext );
+    const std::span<const std::pair<int, int>> candidatePairs = m_broadphase.Run( bodyStore,
+                                                                                  colliderStore,
+                                                                                  settings.broadphase,
+                                                                                  m_pointJointConstraints,
+                                                                                  sleepStates,
+                                                                                  awakeBodyIndices,
+                                                                                  m_stepDiagnostics,
+                                                                                  dt,
+                                                                                  contactSkin,
+                                                                                  settings.body.contactEpsilon,
+                                                                                  m_profiler );
 
     // Object/object CCD front-end: wake sleepers and advance swept hits to a
     // contact candidate, but leave velocity response to the persistent rows.
@@ -876,42 +872,35 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     float invCellSize = 1.0f / m_broadphase.GetCellSize();
     const int candidatePairCount = static_cast<int>( candidatePairs.size() );
 
-    ObjectNarrowphasePairStageContext objectNarrowphasePairContext {
-        bodyStore,
-        colliderStore,
-        m_terrainView,
-        worldForces,
-        buoyancyFacts,
-        bodyRecords,
-        hotFields,
-        colliderRecords,
-        candidatePairs,
-        m_sleepController.CreateNarrowphaseWakeAccess( bodyStore,
-                                                       colliderStore,
-                                                       m_terrainView,
-                                                       worldForces,
-                                                       buoyancyFacts,
-                                                       bodyRecords,
-                                                       m_timeRemaining,
-                                                       modelCount,
-                                                       dt ),
-        sleepStates,
-        m_timeRemaining,
-        m_sleepController.GetUnderwaterSleepLocks(),
-        m_contactSolverStage.GetPersistentContactCache(),
-        modelCount,
-        sleepPolicy.linearSpeedSquared,
-        sleepPolicy.angularSpeedSquared,
-        contactSkin,
-        settings.body.contactEpsilon,
-        invCellSize,
-        dt,
-        m_profiler };
+    const PhysicsNarrowphaseWakeAccess narrowphaseWake = m_sleepController.CreateNarrowphaseWakeAccess( bodyStore,
+                                                                                                        colliderStore,
+                                                                                                        m_terrainView,
+                                                                                                        worldForces,
+                                                                                                        buoyancyFacts,
+                                                                                                        bodyRecords,
+                                                                                                        m_timeRemaining,
+                                                                                                        modelCount,
+                                                                                                        dt );
 
-    const bool ranParallelNarrowphase = m_narrowphase.TryRunParallel( objectNarrowphasePairContext,
-                                                                      candidatePairCount,
-                                                                      modelCount,
-                                                                      settings.execution,
+    const ObjectNarrowphaseStepPolicy narrowphasePolicy { sleepPolicy.linearSpeedSquared,
+                                                          sleepPolicy.angularSpeedSquared,
+                                                          contactSkin,
+                                                          settings.body.contactEpsilon,
+                                                          invCellSize,
+                                                          dt,
+                                                          settings.execution.parallel,
+                                                          settings.execution.parallelNarrowphase };
+
+    const bool ranParallelNarrowphase = m_narrowphase.TryRunParallel( bodyStore,
+                                                                      colliderStore,
+                                                                      m_terrainView,
+                                                                      buoyancyFacts,
+                                                                      candidatePairs,
+                                                                      narrowphaseWake,
+                                                                      m_timeRemaining,
+                                                                      m_contactSolverStage.GetPersistentContactCache(),
+                                                                      narrowphasePolicy,
+                                                                      m_profiler,
                                                                       workerPool );
 
     if ( ranParallelNarrowphase )
@@ -931,7 +920,19 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
         {
             ObjectNarrowphaseEvent event;
-            m_narrowphase.ProcessObjectNarrowphasePair( objectNarrowphasePairContext, pairIndex, event );
+            m_narrowphase.ProcessObjectNarrowphasePair( bodyStore,
+                                                        colliderStore,
+                                                        m_terrainView,
+                                                        buoyancyFacts,
+                                                        candidatePairs,
+                                                        narrowphaseWake,
+                                                        m_timeRemaining,
+                                                        m_contactSolverStage.GetPersistentContactCache(),
+                                                        narrowphasePolicy,
+                                                        m_profiler,
+                                                        pairIndex,
+                                                        event );
+
             CommitObjectNarrowphaseEvent( event );
         }
     }
@@ -1009,26 +1010,22 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     PROFILE_END( m_profiler, "Frame/Physics/Terrain/Detect" );
     PROFILE_END( m_profiler, "Frame/Physics/Terrain" );
 
-    const PhysicsContactSolverStageContext contactSolverContext {
-        bodyStore,
-        colliderStore,
-        settings,
-        worldForces,
-        candidatePairs,
-        sleepStates,
-        m_sleepController.MutableSupportEdgesForContactSolver(),
-        m_stepDiagnostics.MutableDebugContacts(),
-        m_terrain.GetContactManifolds(),
-        m_terrain.GetRestApplied(),
-        m_sleepController.MutableSupportedStatesForTerrain(),
-        bodyRecords,
-        mutableHotFields,
-        colliderRecords,
-        bodyStore.Count(),
-        m_stepDiagnostics.RemainingPipelineRecordCapacity(),
-        m_profiler };
+    const PersistentContactSolverStepPolicy contactPolicy = PhysicsContactSolverStage::ResolveStepPolicy( settings,
+                                                                                                          worldForces );
 
-    m_contactSolverStage.Solve( contactSolverContext, dt );
+    m_contactSolverStage.Solve( bodyStore,
+                                colliderStore,
+                                contactPolicy,
+                                candidatePairs,
+                                sleepStates,
+                                m_sleepController.MutableSupportEdgesForContactSolver(),
+                                m_terrain.GetContactManifolds(),
+                                m_terrain.GetRestApplied(),
+                                m_sleepController.MutableSupportedStatesForTerrain(),
+                                m_stepDiagnostics,
+                                dt,
+                                m_profiler );
+
     CommitContactSolverConsequences( bodyStore, colliderStore, buoyancyFacts, worldForces );
     m_sleepController.WakePointJointConnectedBodies( bodyStore,
                                                      colliderStore,

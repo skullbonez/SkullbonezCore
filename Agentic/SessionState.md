@@ -11,17 +11,17 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-25th-JUL-26` |
-| Current baseline | Concrete Parameter-Bag Elimination PB4 is complete: Replay capture/focus bags and all restore service/context bags are deleted. |
-| Current objective | Execute `concrete-parameter-bag-elimination` PB5: repair Physics collision and solver stage bags without changing hot-loop order. |
-| Active/future progress | Concrete Parameter-Bag Elimination 5/8; active/future ledger 5/8 (63%). |
+| Current baseline | Concrete Parameter-Bag Elimination PB5 is complete: collision, narrowphase, broadphase-filter, and persistent-solver bags are deleted. |
+| Current objective | Execute `concrete-parameter-bag-elimination` PB6: repair Physics sleep, force, and terrain stage bags without changing hot-loop order. |
+| Active/future progress | Concrete Parameter-Bag Elimination 6/8; active/future ledger 6/8 (75%). |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | PB4 `validate_full.bat` passes in 170.1 s: mandatory CPU/coverage, Automation/Replay, DX12 without refresh, and byte-exact 44,401-line physics regression. |
-| Validation for current edits | PB4: focused tests, Replay artifact, allocation-policy, scrub/visual-fidelity, and full gates pass; retired symbols, threshold-13, dependency, allocation, and direction scans are clean. |
+| Last broad local gate | PB5 `validate_full.bat` passes in 337.4 s: mandatory CPU/coverage, Automation/Replay, DX12 without refresh, and byte-exact 44,401-line physics regression. |
+| Validation for current edits | PB5: focused collision/solver/broadphase/grid tests and Physics, performance, and full gates pass; retired symbols, threshold-13, dependency, allocation, and direction scans are clean. |
 
 ## Live Queue
 
 NOW. The 2026-07-25 round-4 architecture campaign has one live plan:
-`concrete-parameter-bag-elimination` (5/8), so the ledger is 5/8 (63%). PB0
+`concrete-parameter-bag-elimination` (6/8), so the ledger is 6/8 (75%). PB0
 ratified all 22 registered rows, added eight repair rows, carried forward three
 13-parameter render/UI operations, and ruled every other reviewed hit. PB1
 then repaired Scene save/load and split editor save/capture authority. PB2
@@ -30,7 +30,9 @@ mouse-pick, camera, Replay, and launcher precedence. PB3 deleted the
 render-frame, UI-text, Replay-overlay, and graph-callback service bags while
 preserving exact render, allocation, and visual behavior. PB4 replaced Replay
 capture/focus bags with concrete values and restore bags with an owner-free,
-phase-checked transaction; PB5 is next.
+phase-checked transaction. PB5 deleted the five Physics collision/solver bags
+through concrete stages and direct values while preserving byte-exact pair
+and solver behavior; PB6 is next.
 
 Header Claim Staleness Remediation is complete at 3/3 and removed from the live
 inventory under rule 4. Permanent evidence is
@@ -66,7 +68,9 @@ PB3 permanent evidence is
 `Agentic/Reports/2026-07-26/concrete-parameter-bag-elimination-pb3-render-ui.md`.
 PB4 permanent evidence is
 `Agentic/Reports/2026-07-26/concrete-parameter-bag-elimination-pb4-replay.md`.
-Implementation continues through the repository orchestrator skill with PB5
+PB5 permanent evidence is
+`Agentic/Reports/2026-07-26/concrete-parameter-bag-elimination-pb5-physics-collision-solver.md`.
+Implementation continues through the repository orchestrator skill with PB6
 next. Live plans are under
 `Agentic/Plans/TODO/`.
 
@@ -479,7 +483,7 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Execute `concrete-parameter-bag-elimination` PB5: delete the collision,
-solver, narrowphase, broadphase, and broadphase-filter context bags through
-concrete stage owners and direct store/settings/step values without changing
-hot-loop order.
+Execute `concrete-parameter-bag-elimination` PB6: delete the sleep, wake,
+external-force, terrain, apply-force, and integrate-stage context bags through
+concrete stage operations while preserving fixed storage, worker partitioning,
+diagnostics, and hot-loop order.

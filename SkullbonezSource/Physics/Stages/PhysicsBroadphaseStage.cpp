@@ -41,6 +41,7 @@ Related:
 #include "../ColliderStore.h"
 #include "../PhysicsBodyStore.h"
 #include "../SolverBroadphaseStage.h"
+#include "PhysicsStepDiagnostics.h"
 
 #include <algorithm>
 #include <cassert>
@@ -81,11 +82,16 @@ float SolverBodyRadius( std::span<const Physics::ColliderRecord> colliderRecords
 // Invariant: conservative augmentation appends only normalized pairs not
 // already emitted by the grid. The linear scan preserves first-seen order.
 void AppendCandidatePairIfMissing( std::vector<std::pair<int, int>>& candidatePairs,
-                                   const Physics::BroadphaseCandidateFilterContext& filterContext,
+                                   const Physics::PhysicsBodyStore& bodyStore,
+                                   const Physics::ColliderStore& colliderStore,
+                                   std::span<const uint8_t> sleepState,
+                                   float dt,
+                                   float contactSkin,
                                    int a,
                                    int b )
 {
-    if ( a == b || a < 0 || b < 0 || a >= filterContext.modelCount || b >= filterContext.modelCount )
+    const int modelCount = (std::min)( bodyStore.Count(), colliderStore.Count() );
+    if ( a == b || a < 0 || b < 0 || a >= modelCount || b >= modelCount )
     {
         return;
     }
@@ -95,7 +101,7 @@ void AppendCandidatePairIfMissing( std::vector<std::pair<int, int>>& candidatePa
         std::swap( a, b );
     }
 
-    if ( !Physics::BroadphaseCandidateCanTouch( &filterContext, a, b ) )
+    if ( !Physics::BroadphaseCandidateCanTouch( bodyStore, colliderStore, sleepState, dt, contactSkin, a, b ) )
     {
         return;
     }
@@ -178,30 +184,42 @@ bool SweptSegmentTouchesExpandedBody( const Physics::PhysicsBodyHotFieldsConstVi
 }
 
 bool AppendFastSmallSweepPairs( std::vector<std::pair<int, int>>& candidatePairs,
-                                const Physics::BroadphaseCandidateFilterContext& filterContext,
+                                const Physics::PhysicsBodyStore& bodyStore,
+                                const Physics::ColliderStore& colliderStore,
+                                std::span<const uint8_t> sleepState,
                                 const Physics::PhysicsBodyHotFieldsConstView& hotFields,
                                 std::span<const Physics::ColliderRecord> colliderRecords,
                                 std::span<const int> awakeBodyIndices,
+                                float dt,
+                                float contactSkin,
                                 float contactEpsilon )
 {
     const size_t pairCountBeforeSweep = candidatePairs.size();
     for ( int movingIndex : awakeBodyIndices )
     {
-        if ( !IsFastSmallSweepBody( hotFields, colliderRecords, movingIndex, filterContext.dt ) )
+        if ( !IsFastSmallSweepBody( hotFields, colliderRecords, movingIndex, dt ) )
         {
             continue;
         }
 
-        for ( int targetIndex = 0; targetIndex < filterContext.modelCount; ++targetIndex )
+        const int modelCount = (std::min)( bodyStore.Count(), colliderStore.Count() );
+        for ( int targetIndex = 0; targetIndex < modelCount; ++targetIndex )
         {
             if ( movingIndex != targetIndex && SweptSegmentTouchesExpandedBody( hotFields,
                                                                                 colliderRecords,
                                                                                 movingIndex,
                                                                                 targetIndex,
-                                                                                filterContext.dt,
+                                                                                dt,
                                                                                 contactEpsilon ) )
             {
-                AppendCandidatePairIfMissing( candidatePairs, filterContext, movingIndex, targetIndex );
+                AppendCandidatePairIfMissing( candidatePairs,
+                                              bodyStore,
+                                              colliderStore,
+                                              sleepState,
+                                              dt,
+                                              contactSkin,
+                                              movingIndex,
+                                              targetIndex );
             }
         }
     }
@@ -502,32 +520,42 @@ void PhysicsBroadphaseStage::ResetTransientAfterReplayRestore()
 }
 
 
-std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsBroadphaseStageContext& context )
+std::span<const std::pair<int, int>>
+PhysicsBroadphaseStage::Run( const PhysicsBodyStore& bodyStore,
+                             const ColliderStore& colliderStore,
+                             const BroadphaseSettings& broadphaseSettings,
+                             const std::vector<PointJointConstraint>& pointJointConstraints,
+                             std::span<const uint8_t> sleepState,
+                             std::span<const int> awakeBodyIndices,
+                             PhysicsStepDiagnostics& stepDiagnostics,
+                             float dt,
+                             float contactSkin,
+                             float contactEpsilon,
+                             Core::Profiler* profiler )
 {
-    PROFILE_BEGIN( context.profiler, "Frame/Physics/Broadphase" );
-    BroadphaseCandidateFilterContext broadphaseCandidateFilterContext {
-        context.bodyRecords,
-        context.hotFields,
-        context.colliderRecords,
-        context.sleepState,
-        context.modelCount,
-        context.dt,
-        context.contactSkin,
-    };
+    PROFILE_BEGIN( profiler, "Frame/Physics/Broadphase" );
+    const std::span<const PhysicsBodyRecord> bodyRecords = bodyStore.Records();
+    const PhysicsBodyHotFieldsConstView hotFields = bodyStore.HotFields();
+    const std::span<const ColliderRecord> colliderRecords = colliderStore.Records();
+    const int modelCount = (std::min)( { bodyStore.Count(),
+                                         static_cast<int>( bodyRecords.size() ),
+                                         static_cast<int>( colliderRecords.size() ) } );
+
+    std::vector<PhysicsPipelineRecord>& physicsPipelineTrace = stepDiagnostics.MutablePipelineTrace();
 
     {
         // Invariant: Broadphase is the inclusive owner marker. Every direct
         // child below is mutually exclusive so reports can sum children once
         // without adding a nested interval a second time.
-        PROFILE_SCOPED( context.profiler, "Frame/Physics/Broadphase/GridSetup" );
+        PROFILE_SCOPED( profiler, "Frame/Physics/Broadphase/GridSetup" );
         if ( !m_largestBroadphaseRadiusValid )
         {
             // Cold topology boundary: collider radii do not change during a
             // fixed step, so the scene-wide maximum is not an all-body hot pass.
             m_largestBroadphaseRadius = 0.0f;
-            for ( int bodyIndex = 0; bodyIndex < context.modelCount; ++bodyIndex )
+            for ( int bodyIndex = 0; bodyIndex < modelCount; ++bodyIndex )
             {
-                const float radius = SolverBodyRadius( context.colliderRecords, bodyIndex );
+                const float radius = SolverBodyRadius( colliderRecords, bodyIndex );
                 if ( std::isfinite( radius ) && radius > m_largestBroadphaseRadius )
                 {
                     m_largestBroadphaseRadius = radius;
@@ -539,9 +567,9 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
 
         // Why: a fixed 24m cell made the 200-brick wall share huge buckets.
         // Deterministic scene inputs choose a cell no larger than the config cap.
-        const float configuredCell = (std::max)( BROADPHASE_MIN_CELL_SIZE, context.settings.broadphase.cellSize );
+        const float configuredCell = (std::max)( BROADPHASE_MIN_CELL_SIZE, broadphaseSettings.cellSize );
         const float sceneCell = (std::max)( BROADPHASE_MIN_CELL_SIZE,
-                                            ( m_largestBroadphaseRadius + context.contactSkin ) * 2.0f );
+                                            ( m_largestBroadphaseRadius + contactSkin ) * 2.0f );
 
         const float selectedCellSize = (std::min)( configuredCell, sceneCell );
         if ( selectedCellSize != m_spatialGrid.GetCellSize() )
@@ -550,31 +578,29 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         }
 
         m_spatialGrid.SetCellSize( selectedCellSize );
-        m_spatialGrid.BeginFrame( context.modelCount );
+        m_spatialGrid.BeginFrame( modelCount );
         m_collisionCellKeys.clear();
     }
     {
-        PROFILE_SCOPED( context.profiler, "Frame/Physics/Broadphase/GridMaintain" );
-        const bool fullSeed = !m_gridMembershipSeeded || m_gridMembershipBodyCount != context.modelCount;
+        PROFILE_SCOPED( profiler, "Frame/Physics/Broadphase/GridMaintain" );
+        const bool fullSeed = !m_gridMembershipSeeded || m_gridMembershipBodyCount != modelCount;
         auto maintainBody = [&]( int bodyIndex, bool isAwakeSource )
         {
-            const float radius = SolverBodyRadius( context.colliderRecords, bodyIndex ) + context.contactSkin;
+            const float radius = SolverBodyRadius( colliderRecords, bodyIndex ) + contactSkin;
 
-            const Vector3 displacement = PhysicsBodyLinearVelocity( context.hotFields,
-                                                                    static_cast<size_t>( bodyIndex ) ) *
-                                         context.dt;
+            const Vector3 displacement = PhysicsBodyLinearVelocity( hotFields, static_cast<size_t>( bodyIndex ) ) * dt;
 
             const float displacementSq = Vector::VectorMagSquared( displacement );
             if ( isAwakeSource && displacementSq > radius * radius )
             {
                 m_spatialGrid.InsertSwept( bodyIndex,
-                                           SolverBodyPosition( context.hotFields, bodyIndex ),
+                                           SolverBodyPosition( hotFields, bodyIndex ),
                                            displacement,
                                            radius );
             }
             else
             {
-                m_spatialGrid.Insert( bodyIndex, SolverBodyPosition( context.hotFields, bodyIndex ), radius );
+                m_spatialGrid.Insert( bodyIndex, SolverBodyPosition( hotFields, bodyIndex ), radius );
             }
 
             if ( isAwakeSource )
@@ -587,50 +613,68 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         {
             // Cold boundary: seed every persistent membership once, but stamp
             // only awake dynamic bodies as this frame's pair-work sources.
-            for ( int bodyIndex = 0; bodyIndex < context.modelCount; ++bodyIndex )
+            for ( int bodyIndex = 0; bodyIndex < modelCount; ++bodyIndex )
             {
-                const bool isAwakeSource = !IsSolverBodyFixed( context.hotFields, bodyIndex ) &&
-                                           context.sleepState[static_cast<size_t>( bodyIndex )] == 0u;
+                const bool isAwakeSource = !IsSolverBodyFixed( hotFields, bodyIndex ) &&
+                                           sleepState[static_cast<size_t>( bodyIndex )] == 0u;
 
                 maintainBody( bodyIndex, isAwakeSource );
             }
 
             m_gridMembershipSeeded = true;
-            m_gridMembershipBodyCount = context.modelCount;
+            m_gridMembershipBodyCount = modelCount;
         }
         else
         {
             // P3 invariant: sleepers keep their last persistent range. Only
             // awake bodies can move, sweep, or source new narrowphase work.
-            for ( int bodyIndex : context.awakeBodyIndices )
+            for ( int bodyIndex : awakeBodyIndices )
             {
                 maintainBody( bodyIndex, true );
             }
         }
     }
     {
-        PROFILE_SCOPED( context.profiler, "Frame/Physics/Broadphase/CandidatePairs" );
+        PROFILE_SCOPED( profiler, "Frame/Physics/Broadphase/CandidatePairs" );
 #if defined( _DEBUG )
         m_sleepPrunedPairs.clear();
         if ( m_pairOracleEnabled )
         {
             if ( m_pairOracleLegacyDrives )
             {
-                m_spatialGrid.GetCandidatePairsLegacyForOracle( m_candidatePairs, &broadphaseCandidateFilterContext );
-                m_spatialGrid.GetCandidatePairs( m_pairOracleShadowPairs,
-                                                 &broadphaseCandidateFilterContext,
-                                                 &m_sleepPrunedPairs,
-                                                 false );
+                m_spatialGrid.GetFilteredCandidatePairsLegacyForOracle( m_candidatePairs,
+                                                                        bodyStore,
+                                                                        colliderStore,
+                                                                        sleepState,
+                                                                        dt,
+                                                                        contactSkin );
+
+                m_spatialGrid.GetFilteredCandidatePairs( m_pairOracleShadowPairs,
+                                                         bodyStore,
+                                                         colliderStore,
+                                                         sleepState,
+                                                         dt,
+                                                         contactSkin,
+                                                         m_sleepPrunedPairs,
+                                                         false );
             }
             else
             {
-                m_spatialGrid.GetCandidatePairs( m_candidatePairs,
-                                                 &broadphaseCandidateFilterContext,
-                                                 &m_sleepPrunedPairs,
-                                                 false );
+                m_spatialGrid.GetFilteredCandidatePairs( m_candidatePairs,
+                                                         bodyStore,
+                                                         colliderStore,
+                                                         sleepState,
+                                                         dt,
+                                                         contactSkin,
+                                                         m_sleepPrunedPairs,
+                                                         false );
 
-                m_spatialGrid.GetCandidatePairsLegacyForOracle( m_pairOracleShadowPairs,
-                                                                &broadphaseCandidateFilterContext );
+                m_spatialGrid.GetFilteredCandidatePairsLegacyForOracle( m_pairOracleShadowPairs,
+                                                                        bodyStore,
+                                                                        colliderStore,
+                                                                        sleepState,
+                                                                        dt,
+                                                                        contactSkin );
             }
 
             RequireSamePairMembership( m_candidatePairs,
@@ -646,37 +690,55 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
 #if defined( _DEBUG )
             // Debug walks the full retained grid to preserve one bounded
             // SleepPrunedPair breadcrumb per old sleep-only pair.
-            m_spatialGrid.GetCandidatePairs( m_candidatePairs,
-                                             &broadphaseCandidateFilterContext,
-                                             &m_sleepPrunedPairs,
-                                             false );
+            m_spatialGrid.GetFilteredCandidatePairs( m_candidatePairs,
+                                                     bodyStore,
+                                                     colliderStore,
+                                                     sleepState,
+                                                     dt,
+                                                     contactSkin,
+                                                     m_sleepPrunedPairs,
+                                                     false );
 #else
             // Production visits only cells reached by an awake body this step;
             // sleep-only cells retain membership but emit no candidate work.
-            m_spatialGrid.GetCandidatePairs( m_candidatePairs, &broadphaseCandidateFilterContext, nullptr, true );
+            m_spatialGrid.GetFilteredCandidatePairs( m_candidatePairs,
+                                                     bodyStore,
+                                                     colliderStore,
+                                                     sleepState,
+                                                     dt,
+                                                     contactSkin,
+                                                     true );
 #endif
         }
     }
 
     bool fastSmallSweepAppendedPairs = false;
     {
-        PROFILE_SCOPED( context.profiler, "Frame/Physics/Broadphase/FastSmallSweepAugment" );
+        PROFILE_SCOPED( profiler, "Frame/Physics/Broadphase/FastSmallSweepAugment" );
         fastSmallSweepAppendedPairs = AppendFastSmallSweepPairs( m_candidatePairs,
-                                                                 broadphaseCandidateFilterContext,
-                                                                 context.hotFields,
-                                                                 context.colliderRecords,
-                                                                 context.awakeBodyIndices,
-                                                                 context.settings.body.contactEpsilon );
+                                                                 bodyStore,
+                                                                 colliderStore,
+                                                                 sleepState,
+                                                                 hotFields,
+                                                                 colliderRecords,
+                                                                 awakeBodyIndices,
+                                                                 dt,
+                                                                 contactSkin,
+                                                                 contactEpsilon );
 
 #if defined( _DEBUG )
         if ( m_pairOracleEnabled )
         {
             AppendFastSmallSweepPairs( m_pairOracleShadowPairs,
-                                       broadphaseCandidateFilterContext,
-                                       context.hotFields,
-                                       context.colliderRecords,
-                                       context.awakeBodyIndices,
-                                       context.settings.body.contactEpsilon );
+                                       bodyStore,
+                                       colliderStore,
+                                       sleepState,
+                                       hotFields,
+                                       colliderRecords,
+                                       awakeBodyIndices,
+                                       dt,
+                                       contactSkin,
+                                       contactEpsilon );
         }
 #endif
     }
@@ -692,39 +754,36 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         }
 
     {
-        PROFILE_SCOPED( context.profiler, "Frame/Physics/Broadphase/PruneFixedPairs" );
-        m_candidatePairs.erase(
-            std::remove_if( m_candidatePairs.begin(),
-                            m_candidatePairs.end(),
-                            FixedSolverCandidatePairPredicate { context.hotFields, context.modelCount } ),
-            m_candidatePairs.end() );
+        PROFILE_SCOPED( profiler, "Frame/Physics/Broadphase/PruneFixedPairs" );
+        m_candidatePairs.erase( std::remove_if( m_candidatePairs.begin(),
+                                                m_candidatePairs.end(),
+                                                FixedSolverCandidatePairPredicate { hotFields, modelCount } ),
+                                m_candidatePairs.end() );
 
 #if defined( _DEBUG )
-        m_sleepPrunedPairs.erase(
-            std::remove_if( m_sleepPrunedPairs.begin(),
-                            m_sleepPrunedPairs.end(),
-                            FixedSolverCandidatePairPredicate { context.hotFields, context.modelCount } ),
-            m_sleepPrunedPairs.end() );
+        m_sleepPrunedPairs.erase( std::remove_if( m_sleepPrunedPairs.begin(),
+                                                  m_sleepPrunedPairs.end(),
+                                                  FixedSolverCandidatePairPredicate { hotFields, modelCount } ),
+                                  m_sleepPrunedPairs.end() );
 
         if ( m_pairOracleEnabled )
         {
             m_pairOracleShadowPairs.erase(
                 std::remove_if( m_pairOracleShadowPairs.begin(),
                                 m_pairOracleShadowPairs.end(),
-                                FixedSolverCandidatePairPredicate { context.hotFields, context.modelCount } ),
+                                FixedSolverCandidatePairPredicate { hotFields, modelCount } ),
                 m_pairOracleShadowPairs.end() );
         }
 #endif
     }
 
-    if ( !context.pointJointConstraints.empty() )
+    if ( !pointJointConstraints.empty() )
     {
-        PROFILE_SCOPED( context.profiler, "Frame/Physics/Broadphase/PruneJointPairs" );
-        m_candidatePairs.erase(
-            std::remove_if( m_candidatePairs.begin(),
-                            m_candidatePairs.end(),
-                            PointJointCandidatePairPredicate { context.bodyStore, context.pointJointConstraints } ),
-            m_candidatePairs.end() );
+        PROFILE_SCOPED( profiler, "Frame/Physics/Broadphase/PruneJointPairs" );
+        m_candidatePairs.erase( std::remove_if( m_candidatePairs.begin(),
+                                                m_candidatePairs.end(),
+                                                PointJointCandidatePairPredicate { bodyStore, pointJointConstraints } ),
+                                m_candidatePairs.end() );
 
 #if defined( _DEBUG )
         if ( m_pairOracleEnabled )
@@ -732,7 +791,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
             m_pairOracleShadowPairs.erase(
                 std::remove_if( m_pairOracleShadowPairs.begin(),
                                 m_pairOracleShadowPairs.end(),
-                                PointJointCandidatePairPredicate { context.bodyStore, context.pointJointConstraints } ),
+                                PointJointCandidatePairPredicate { bodyStore, pointJointConstraints } ),
                 m_pairOracleShadowPairs.end() );
         }
 #endif
@@ -741,7 +800,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         m_sleepPrunedPairs.erase(
             std::remove_if( m_sleepPrunedPairs.begin(),
                             m_sleepPrunedPairs.end(),
-                            PointJointCandidatePairPredicate { context.bodyStore, context.pointJointConstraints } ),
+                            PointJointCandidatePairPredicate { bodyStore, pointJointConstraints } ),
             m_sleepPrunedPairs.end() );
 #endif
     }
@@ -770,7 +829,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
 #endif
 
     {
-        PROFILE_SCOPED( context.profiler, "Frame/Physics/Broadphase/RecordCandidates" );
+        PROFILE_SCOPED( profiler, "Frame/Physics/Broadphase/RecordCandidates" );
 #if defined( _DEBUG )
         // Compatibility invariant: P2 recorded the canonical geometrically
         // admitted stream before removing sleep-only pairs. Reconstruct that
@@ -786,9 +845,9 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
                                     ( pruned != m_sleepPrunedPairs.end() && *pruned < *visible );
 
             const std::pair<int, int>& pair = takePruned ? *pruned++ : *visible++;
-            if ( !TryRecordBroadphaseCandidatePair( context.physicsPipelineTrace,
-                                                    context.hotFields,
-                                                    context.modelCount,
+            if ( !TryRecordBroadphaseCandidatePair( physicsPipelineTrace,
+                                                    hotFields,
+                                                    modelCount,
                                                     pair,
                                                     diagnosticCandidateCount ) )
             {
@@ -798,9 +857,9 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
 #else
         for ( const auto& pair : m_candidatePairs )
         {
-            if ( !TryRecordBroadphaseCandidatePair( context.physicsPipelineTrace,
-                                                    context.hotFields,
-                                                    context.modelCount,
+            if ( !TryRecordBroadphaseCandidatePair( physicsPipelineTrace,
+                                                    hotFields,
+                                                    modelCount,
                                                     pair,
                                                     m_candidatePairs.size() ) )
             {
@@ -811,17 +870,17 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
     }
 #if defined( _DEBUG )
     {
-        PROFILE_SCOPED( context.profiler, "Frame/Physics/Broadphase/RecordSleepPrunedPairs" );
+        PROFILE_SCOPED( profiler, "Frame/Physics/Broadphase/RecordSleepPrunedPairs" );
         // The production path never walks sleep-only cells. Debug retains the
         // old diagnostic evidence at the earlier emission skip instead of
         // paying for a solver-visible list followed by a prune pass.
         for ( const std::pair<int, int>& pair : m_sleepPrunedPairs )
         {
-            TryRecordSleepPrunedCandidatePair( context.physicsPipelineTrace, context.hotFields, pair );
+            TryRecordSleepPrunedCandidatePair( physicsPipelineTrace, hotFields, pair );
         }
     }
 #endif
-    PROFILE_END( context.profiler, "Frame/Physics/Broadphase" );
+    PROFILE_END( profiler, "Frame/Physics/Broadphase" );
     return m_candidatePairs;
 }
 

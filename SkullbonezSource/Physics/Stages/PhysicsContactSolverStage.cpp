@@ -4,8 +4,8 @@ Purpose:
   Implements the persistent-contact stage owner and replay state transfer.
 
 Summary:
-  The stage prepares bounded consequence queues, builds the internal solver
-  context from explicit borrows, and executes the existing solver verbatim.
+  The stage prepares bounded consequence queues and owns the persistent-row
+  solve reached through explicit store, settings-policy, and step-value borrows.
   Replay capture/restore stays with the state owner so PhysicsWorld does not
   regain mutable access to solver internals.
 
@@ -149,39 +149,6 @@ void PhysicsContactSolverStage::PrepareSideEffects( int modelCount,
     {
         SB_FATAL( "Physics/PhysicsContactSolverStage", "Persistent-contact consequence capacity exhausted." );
     }
-}
-
-void PhysicsContactSolverStage::Solve( const PhysicsContactSolverStageContext& context, float dt )
-{
-    PrepareSideEffects( context.bodyStoreCount, context.candidatePairs.size(), context.pipelineRecordCapacity );
-    const bool elasticCollisions = context.worldForces.mutualGravity.enabled &&
-                                   context.worldForces.mutualGravity.elasticCollisions;
-
-    PersistentContactSolverContext solverContext { context.candidatePairs,
-                                                   context.sleepState,
-                                                   context.sleepSupportEdges,
-                                                   m_persistentContacts,
-                                                   m_persistentContactCache,
-                                                   m_persistentContactSolverStats,
-                                                   m_persistentContactCounts,
-                                                   m_persistentRestingContactCounts,
-                                                   m_solverBodies,
-                                                   context.physicsDebugContacts,
-                                                   context.terrainContactManifolds,
-                                                   context.terrainRestApplied,
-                                                   context.sleepSupportedThisFrame,
-                                                   m_sideEffects,
-                                                   context.bodyStore,
-                                                   context.bodyRecords,
-                                                   context.hotFields,
-                                                   context.colliderRecords,
-                                                   context.bodyStoreCount,
-                                                   context.pipelineRecordCapacity,
-                                                   elasticCollisions,
-                                                   context.settings,
-                                                   context.profiler };
-
-    m_contactSolver.Solve( solverContext, dt );
 }
 
 void PhysicsContactCacheWakeAccess::ForgetBody( int bodyIndex ) const
