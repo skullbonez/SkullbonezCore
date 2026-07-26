@@ -657,6 +657,22 @@ campaign section below. `governance-shape-to-judgment-conversion` runs first
 because its amended rules are the acceptance test every sibling plan's closure
 review uses.
 
+The denominator grew 56 → 59 on 2026-07-27 when the owner registered
+`new-aggregate-ruling-gate` (3 tasks) as the campaign's fourteenth plan, after a
+same-day review of what the campaign does and does not close. The G2/G3 gate fires
+only on `single-member` and `empty`, both decidable from a declaration alone; the
+four-to-seven-member context bag that caused every historical problem is
+unguarded, proved by running the shipped tool against a planted seven-reference
+aggregate (`GATING=[]`). Plans 4/5/6 delete the roughly 40 that exist and leave
+number 41 unopposed. The new plan makes the ruling file the permanent baseline so a
+gated aggregate cannot enter the tree without a written reason. It may run
+immediately, ahead of plan 4, because the gate should protect during the campaign
+rather than after it. NA2 depends on plan 4's CA4 and may sit unchecked until then.
+Two limits are recorded rather than overclaimed: the destructured-at-entry test
+stays ungated because it is not lexically decidable, and a name-scoped gate remains
+evadable by renaming, which is why the `AGENTS.md` review question stays the
+backstop.
+
 ### Binding Owner Rulings — 2026-07-27: Round 5 Open Decisions Closed
 
 The owner ruled all three blocking Round 5 decisions on 2026-07-27 so the campaign
@@ -697,7 +713,7 @@ owner code style, and the space-scene velocity-drag preview are closed, and the
 completed TODO was deleted under inventory rule 4. Permanent evidence is
 `../Reports/2026-07-26/nightrunner-26-july-closure.md`.
 
-NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 5/56 (9%).
+NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 5/59 (8%).
 `governance-shape-to-judgment-conversion` closed G0-G3 on 2026-07-26. G4 is the
 binding next task and nothing else in the campaign may close before it, because
 the amended rules are every sibling plan's closure test.
@@ -2006,6 +2022,7 @@ requires owner divergence authority and the campaign is byte-exact throughout.
 | 11 | [allocator-foreign-pointer-safety](TODO/allocator-foreign-pointer-safety.md) | Not started | 0/3 | No dependency; may run at any point. AF1 ratified 2026-07-27: fatal in Debug/Profile, counted in Release |
 | 12 | [sbresult-frame-path-cost](TODO/sbresult-frame-path-cost.md) | Not started | 0/3 | After plan 5 changes the frame-phase signatures. "No change, documented" is a permitted SR0 outcome |
 | 13 | [terrain-legacy-and-contact-seed-remediation](TODO/terrain-legacy-and-contact-seed-remediation.md) | Not started | 0/5 | Runs last. T3 ratified 2026-07-27: ratify the seed. No plan in the campaign now requests divergence authority |
+| 14 | [new-aggregate-ruling-gate](TODO/new-aggregate-ruling-gate.md) | Not started | 0/3 | **May run immediately**, ahead of plan 4. NA0/NA1 arm the gate so it protects during the campaign; NA2 retires the transitional verdict after plan 4's CA4 |
 
 ## Features
 
