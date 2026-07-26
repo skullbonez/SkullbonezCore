@@ -7,7 +7,9 @@ Summary:
   Runtime allocation policy is enforced by named owners, not by one anonymous
   heap. Gameplay owners register fixed capacity so diagnostics can report their
   budget and high-water use. Owners may commit their hard-cap-bounded initial
-  backing during their declared init phase. Replay owners may additionally ask
+  backing during their declared init phase. Scene-sized stores publish live,
+  session-high-water, and resident-byte rows into fixed registry storage.
+  Replay owners may additionally ask
 
   for bounded runtime reserve bumps, and every replay bump is counted.
   Development builds additionally admit explicitly scoped, hard-byte-capped
@@ -21,10 +23,14 @@ Glossary:
     by its registered hard capacity.
   Development tool permission: Compile-time-only owner metadata that lets one
     calling thread allocate for ImGui or Tracy up to a hard active-byte cap.
+  Capacity row: Allocation-free registry view of one fixed store's sizing rule,
+    element size, committed capacity, live count, high-water, and resident bytes.
 
 Invariants:
   - Registry and counter storage is fixed; reporting and hook attribution must
     not allocate.
+  - Capacity-row spans borrow allocator storage and are not retained across
+    store mutation.
   - Handle zero is reserved for unregistered allocations so missing owner scopes
     are visible in validation output.
   - Gameplay owners receive growth approval only during their declared init phase.
@@ -44,6 +50,7 @@ Related:
 
 #include <cstdint>
 #include <cstdio>
+#include <span>
 
 namespace SkullbonezCore
 {
@@ -86,7 +93,7 @@ struct RuntimeReserveOwnerDesc
     RuntimeReservePhase initPhase;
     int initialCapacity;
     int hardCapacity;
-    int replayGrowthLimit;   // Negative means hard-cap-only; every growth is still counted.
+    int replayGrowthLimit;    // Negative means hard-cap-only; every growth is still counted.
     bool allowReplayGrowth;
     const char* capacityReason;
 
@@ -95,6 +102,7 @@ struct RuntimeReserveOwnerDesc
     // ignore the permission; development builds still require the exact owner
     // scope before admitting third-party allocations.
     bool allowDevelopmentToolAllocations = false;
+    int elementSizeBytes = 0; // Nonzero owners appear in the fixed capacity-row readout.
 };
 
 struct RuntimeReserveGrowthRequest
@@ -140,18 +148,30 @@ struct RuntimeReserveOwnerStatsView
     RuntimeReservePhase initPhase;
     const char* capacityReason;
     uint64_t allocations;
-    uint64_t activeBytes;    // Currently live allocation bytes attributed to this owner.
-    uint64_t highWaterBytes; // Largest transient active-byte total since counters reset.
+    uint64_t activeBytes;     // Currently live allocation bytes attributed to this owner.
+    uint64_t highWaterBytes;  // Largest transient active-byte total since counters reset.
     uint64_t replayGrowths;
     uint64_t failedGrowths;
     int currentCapacity;
     int hardCapacity;
-    int highWaterCapacity;   // Owner capacity units; byte-budget owners use bytes.
+    int highWaterCapacity;    // Owner capacity units; byte-budget owners use bytes.
     int lastGrowthFrame;
     bool allowReplayGrowth;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     bool allowDevelopmentToolAllocations;
 #endif
+};
+
+struct RuntimeReserveCapacityView
+{
+    const char* ownerName;
+    RuntimeReserveSubsystem subsystem;
+    const char* capacityReason;
+    int elementSizeBytes;
+    int currentCapacity;
+    int liveCount;
+    int sessionHighWater;
+    uint64_t residentBytes;
 };
 
 class RuntimeReserveGrowthScope
@@ -212,6 +232,9 @@ class RuntimeReserveAllocator
     // domain diagnostics report owners without retaining allocator handles.
     static bool CopyOwnerStats( RuntimeReserveOwnerHandle owner, RuntimeReserveOwnerStatsView& outStats ) noexcept;
     static bool CopyOwnerStatsByName( const char* ownerName, RuntimeReserveOwnerStatsView& outStats ) noexcept;
+    static void PublishCapacityUsage( RuntimeReserveOwnerHandle owner, int currentCapacity, int liveCount,
+                                      int sessionHighWater ) noexcept;
+    static std::span<const RuntimeReserveCapacityView> CapacityRows() noexcept;
     static uint64_t GrowthEventCount() noexcept;
     static uint64_t GrowthEventDroppedCount() noexcept;
     static void ResetCounters() noexcept;

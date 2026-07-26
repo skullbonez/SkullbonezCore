@@ -823,6 +823,56 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
         CHECK( std::strcmp( ownerStats.capacityReason, expected.capacityReason ) == 0 );
     }
 
+    const std::span<const SkullbonezCore::Core::Allocation::RuntimeReserveCapacityView> capacityRows =
+        RuntimeReserveAllocator::CapacityRows();
+    int physicsCapacityRowCount = 0;
+    const char* productionPhysicsOwnerPrefixes[] = {
+        "BuoyancySystem.",        "ColliderStore.",            "ExternalForceStage.",
+        "PhysicsBodyStore.",      "PhysicsBroadphaseStage.",   "PhysicsContactSolverStage.",
+        "PhysicsEngine",          "PhysicsForceStage.",        "PhysicsNarrowphaseStage.",
+        "PhysicsSleepController.", "PhysicsStepDiagnostics.",   "PhysicsTerrainStage.",
+        "PhysicsWorld.",
+    };
+
+    for ( const SkullbonezCore::Core::Allocation::RuntimeReserveCapacityView& row : capacityRows )
+    {
+
+        if ( row.subsystem != RuntimeReserveSubsystem::Physics )
+        {
+            continue;
+        }
+
+        bool isProductionPhysicsOwner = false;
+        for ( const char* prefix : productionPhysicsOwnerPrefixes )
+        {
+            const size_t prefixLength = std::strlen( prefix );
+            if ( std::strncmp( row.ownerName, prefix, prefixLength ) == 0 )
+            {
+                isProductionPhysicsOwner = true;
+                break;
+            }
+        }
+        if ( !isProductionPhysicsOwner )
+        {
+            continue;
+        }
+
+        ++physicsCapacityRowCount;
+        REQUIRE( row.ownerName != nullptr );
+        REQUIRE( row.capacityReason != nullptr );
+        CHECK( row.elementSizeBytes > 0 );
+        CHECK( row.currentCapacity >= row.liveCount );
+        CHECK( row.sessionHighWater >= row.liveCount );
+        CHECK( row.residentBytes == static_cast<uint64_t>( row.currentCapacity ) *
+                                        static_cast<uint64_t>( row.elementSizeBytes ) );
+    }
+
+#if defined( _DEBUG )
+    CHECK( physicsCapacityRowCount == 98 );
+#else
+    CHECK( physicsCapacityRowCount == 95 );
+#endif
+
     CHECK( PhysicsEngine::ReadBodies( *engine ).RecordCapacity() == 2000u );
     CHECK( PhysicsEngine::ReadColliders( *engine ).RecordCapacity() == 2000u );
     CHECK( PhysicsEngine::ReadColliders( *engine ).SphereShapeCapacity() == 1000u );

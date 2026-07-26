@@ -5,8 +5,8 @@ Status: IN PROGRESS — drafted from the 2026-07-26 from-source architecture
 review of `nightrunner-26th-JUL-26` at tip `35f6de4e` and the owner's same-day
 request to track memory more closely. Registered in `MASTER-PLAN.md` on
 2026-07-26 as plan 3 of the Architecture Follow-Up Campaign Round 5. Starts
-after `scene-sized-store-capacity` closes. MR0 closed 2026-07-27. 1/4 phases
-complete; MR1 is binding.
+after `scene-sized-store-capacity` closes. MR0-MR1 closed 2026-07-27. 2/4
+phases complete; MR2 is binding.
 Impact area: `Core/Allocation/RuntimeReserveAllocator.*`, `Physics/` store
 registration, `UI/UITabMemory.cpp`, scene-unload diagnostics
 Owner: core allocation + physics
@@ -93,7 +93,7 @@ without allocating to do it.
   412-test umbrella (2,408,915 assertions), Debug build, performance gate,
   allocation-policy scans, format gate, and 19-file comment audit pass.
 
-- [ ] **MR1 — Publish the capacity readout.**
+- [x] **MR1 — Publish the capacity readout.**
   Add a bounded, allocation-free query that returns one row per registered store:
   owner name, subsystem, element size in bytes, current capacity, live count,
   session high-water, and total resident bytes. Row storage is fixed and owned by
@@ -102,6 +102,18 @@ without allocating to do it.
   count, monotonic high-water, and that a fill-to-capacity-then-clear cycle
   leaves high-water at the peak; the perf gate reports zero allocations
   attributable to the query.
+  Closed 2026-07-27. The allocator owns one fixed
+  `RuntimeReserveCapacityView` row per reportable owner and exposes a borrowed
+  const span without heap work. `PhysicsFixedList` publishes committed
+  capacity, live count, monotonic session high-water, and resident bytes after
+  every scene-owned mutation; Replay clones remain attributed to their outer
+  Replay owner and do not publish duplicate rows. Focused fill/clear coverage
+  proves the peak survives clear and the query records zero gameplay
+  allocation violations. The production-owner census remains 98 rows in Debug
+  and 95 in non-Debug even when unit owners registered earlier in the process.
+  The 412-test umbrella (2,409,499 assertions), performance gate, allocation
+  checker self-test/repository scan, format gate, and clean standalone Debug
+  build pass.
 
 - [ ] **MR2 — Surface it in the memory tab and at scene unload.**
   Add a per-owner capacity section to `UI/UITabMemory.cpp` beside the existing

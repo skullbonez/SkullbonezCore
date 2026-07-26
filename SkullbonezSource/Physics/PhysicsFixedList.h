@@ -27,7 +27,7 @@ Invariants:
   - Only indices below the live count hold constructed T instances.
   - Runtime-reservation and compile-time overflow both fail loudly.
   - Iteration exposes the live prefix as ordinary contiguous pointers, and the
-    list retains its own monotonic live-count high-water.
+    list retains and publishes its own monotonic live-count high-water.
 
 Related:
   - SkullbonezSource/Physics/PhysicsBodyStore.h
@@ -119,6 +119,7 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
         Reserve( other.m_count );
         MoveConstructFrom( other );
         other.clear();
+        PublishUsage();
     }
 
     PhysicsFixedList& operator=( PhysicsFixedList&& other ) noexcept( std::is_nothrow_move_constructible<T>::value )
@@ -133,12 +134,20 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
         clear();
         MoveConstructFrom( other );
         other.clear();
+        PublishUsage();
         return *this;
     }
 
     ~PhysicsFixedList()
     {
         clear();
+
+        if ( m_publishCapacityUsage )
+        {
+            SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::PublishCapacityUsage( m_ownerHandle, 0, 0,
+                                                                                             static_cast<int>( m_highWater ) );
+            m_publishCapacityUsage = false;
+        }
     }
 
     bool empty() const
@@ -286,6 +295,8 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
         RuntimeReserveOwnerScope ownerScope( m_ownerHandle );
         RuntimeReserveGrowthScope growthScope( m_ownerHandle, phase, growth );
         CommitBacking( requested );
+        m_publishCapacityUsage = true;
+        PublishUsage();
     }
 
     void reserve( std::size_t requested )
@@ -304,7 +315,7 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
 
         while ( m_count > count )
         {
-            pop_back();
+            DestroyLast();
         }
 
         while ( m_count < count )
@@ -322,7 +333,7 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
 
         while ( m_count > count )
         {
-            pop_back();
+            DestroyLast();
         }
 
         while ( m_count < count )
@@ -346,7 +357,7 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
 
         while ( m_count > count )
         {
-            pop_back();
+            DestroyLast();
         }
 
         while ( m_count < count )
@@ -413,8 +424,8 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
             FailPopFromEmpty();
         }
 
-        --m_count;
-        ValueAt( m_count )->~T();
+        DestroyLast();
+        TrackHighWater();
     }
 
   private:
@@ -424,7 +435,7 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
         using namespace SkullbonezCore::Core::Allocation;
         return RuntimeReserveAllocator::RegisterOwner( { ownerName, RuntimeReserveSubsystem::Physics,
                                                          RuntimeReservePhase::SceneLoad, 0, static_cast<int>( Capacity ), 0,
-                                                         false, capacityReason } );
+                                                         false, capacityReason, false, static_cast<int>( sizeof( T ) ) } );
     }
 
     struct alignas( alignof( T ) ) Storage
@@ -645,6 +656,26 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
         }
     }
 
+    void DestroyLast()
+    {
+        --m_count;
+        ValueAt( m_count )->~T();
+    }
+
+    void PublishUsage()
+    {
+
+        if ( !m_publishCapacityUsage )
+        {
+            return;
+        }
+
+        SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::PublishCapacityUsage( m_ownerHandle,
+                                                                                         static_cast<int>( m_runtimeCapacity ),
+                                                                                         static_cast<int>( m_count ),
+                                                                                         static_cast<int>( m_highWater ) );
+    }
+
     void TrackHighWater()
     {
 
@@ -652,6 +683,8 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
         {
             m_highWater = m_count;
         }
+
+        PublishUsage();
     }
 
     [[noreturn]] void FailCapacityExceeded( std::size_t requested, const char* ceiling ) const
@@ -718,6 +751,7 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
     const char* m_capacityReason = "Unspecified PhysicsFixedList capacity";
     SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle
         m_ownerHandle = SkullbonezCore::Core::Allocation::INVALID_RUNTIME_RESERVE_OWNER;
+    bool m_publishCapacityUsage = false;
 };
 } // namespace Physics
 } // namespace SkullbonezCore

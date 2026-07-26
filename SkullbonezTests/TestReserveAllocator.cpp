@@ -46,6 +46,7 @@
 #include "../SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h"
 #endif
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <cstddef>
@@ -73,6 +74,7 @@ using SkullbonezCore::Core::Allocation::RuntimeAllocationPhase;
 using SkullbonezCore::Core::Allocation::RuntimeAllocationPhaseName;
 using SkullbonezCore::Core::Allocation::RuntimeAllocationScope;
 using SkullbonezCore::Core::Allocation::RuntimeReserveAllocator;
+using SkullbonezCore::Core::Allocation::RuntimeReserveCapacityView;
 using SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView;
 using SkullbonezCore::Core::Allocation::RuntimeReserveGrowthRequest;
 using SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult;
@@ -581,6 +583,41 @@ TEST_CASE( "PhysicsFixedList: scene-load reserve fills exact runtime capacity th
     CHECK( values.end() - values.begin() == 3 );
     CHECK( values.data()[0] == 11 );
     CHECK( values.data()[2] == 33 );
+
+    const auto findCapacityRow = []( const char* ownerName ) -> const RuntimeReserveCapacityView* {
+        const std::span<const RuntimeReserveCapacityView> rows = RuntimeReserveAllocator::CapacityRows();
+        const auto row = std::find_if( rows.begin(), rows.end(), [ownerName]( const RuntimeReserveCapacityView& candidate ) {
+            return candidate.ownerName && std::strcmp( candidate.ownerName, ownerName ) == 0;
+        } );
+        return row != rows.end() ? &*row : nullptr;
+    };
+
+    ResetRuntimeAllocationCounters();
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Gameplay );
+    const RuntimeReserveCapacityView* filled = nullptr;
+    {
+        RuntimeAllocationScope steadyGameplay( RuntimeAllocationPhase::SteadyGameplay );
+        filled = findCapacityRow( "unit.physics-fixed-list.reserve-fill" );
+    }
+    const uint64_t queryAllocationViolations = RuntimeAllocationGuardViolationCount();
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Off );
+
+    CHECK( queryAllocationViolations == 0u );
+    REQUIRE( filled != nullptr );
+    CHECK( filled->subsystem == RuntimeReserveSubsystem::Physics );
+    CHECK( filled->elementSizeBytes == static_cast<int>( sizeof( int ) ) );
+    CHECK( filled->currentCapacity == 3 );
+    CHECK( filled->liveCount == 3 );
+    CHECK( filled->sessionHighWater == 3 );
+    CHECK( filled->residentBytes == 3u * sizeof( int ) );
+
+    values.clear();
+    const RuntimeReserveCapacityView* cleared = findCapacityRow( "unit.physics-fixed-list.reserve-fill" );
+    REQUIRE( cleared != nullptr );
+    CHECK( cleared->currentCapacity == 3 );
+    CHECK( cleared->liveCount == 0 );
+    CHECK( cleared->sessionHighWater == 3 );
+    CHECK( cleared->residentBytes == 3u * sizeof( int ) );
 }
 
 
