@@ -35,9 +35,9 @@ Related:
   - SkullbonezSource/Physics/PhysicsBodyStore.h
 */
 #include "PhysicsBodyStore.h"
-#include "../Assets/AssetKeys.h"
 #include "ColliderStore.h"
 #include "PhysicsApi.h"
+#include "TerrainSupportClassifier.h"
 #include "PhysicsWorldForces.h"
 
 #include <algorithm>
@@ -53,11 +53,7 @@ Related:
 #include "../Core/Common.h"
 #include "../Core/FatalError.h"
 #include "../Core/Profiler.h"
-#include "../World/Terrain.h"
-#include "../World/TerrainSupportClassifier.h"
-
 using SkullbonezCore::Geometry::Plane;
-using SkullbonezCore::Geometry::Terrain;
 using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
@@ -82,6 +78,7 @@ using SkullbonezCore::Physics::PhysicsBodyMotionKind;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyRecordList;
 using SkullbonezCore::Physics::PhysicsBodyStore;
+using SkullbonezCore::Physics::PhysicsTerrainView;
 using SkullbonezCore::Physics::PhysicsFixedList;
 using SkullbonezCore::Physics::PhysicsHandleAssignmentMask;
 using SkullbonezCore::Physics::PhysicsSceneObjectId;
@@ -144,7 +141,7 @@ const ColliderRecord* ColliderRecordForModelIndex( const ColliderStore& collider
 // penetration. A center-height clamp would make tilted or uneven-terrain bodies
 // visibly float and would change the deterministic physics baseline.
 bool FindClosestBoxTerrainVertex( SkullbonezCore::Core::Profiler* profiler,
-                                  const PhysicsBodyRecord& record,
+                                  const PhysicsTerrainView& terrain,
                                   const PhysicsBodyHotState& hot,
                                   const BoundingBox& box,
                                   Vector3& outVertex,
@@ -154,7 +151,7 @@ bool FindClosestBoxTerrainVertex( SkullbonezCore::Core::Profiler* profiler,
 {
     PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/BoxClosestVertexProbe" );
 
-    if ( !record.terrain )
+    if ( !terrain.IsValid() )
     {
         return false;
     }
@@ -170,14 +167,14 @@ bool FindClosestBoxTerrainVertex( SkullbonezCore::Core::Profiler* profiler,
         const Vector3 local( ( v & 1 ) ? he.x : -he.x, ( v & 2 ) ? he.y : -he.y, ( v & 4 ) ? he.z : -he.z );
         const Vector3 worldVertex = hot.position + ( rotMat * local );
 
-        if ( !record.terrain->IsInBounds( worldVertex.x, worldVertex.z ) )
+        if ( !terrain.IsInBounds( worldVertex.x, worldVertex.z ) )
         {
             continue;
         }
 
         float terrainHeight = 0.0f;
         Plane terrainPlane;
-        record.terrain->GetTerrainHeightAndPlaneAt( worldVertex.x, worldVertex.z, terrainHeight, terrainPlane );
+        terrain.HeightAndPlaneAt( worldVertex.x, worldVertex.z, terrainHeight, terrainPlane );
         const float gap = worldVertex.y - terrainHeight;
         if ( !found || gap < bestGap )
         {
@@ -194,7 +191,7 @@ bool FindClosestBoxTerrainVertex( SkullbonezCore::Core::Profiler* profiler,
 }
 
 bool FindClosestHullTerrainVertex( SkullbonezCore::Core::Profiler* profiler,
-                                   const PhysicsBodyRecord& record,
+                                   const PhysicsTerrainView& terrain,
                                    const PhysicsBodyHotState& hot,
                                    const ConvexHullShape& hull,
                                    Vector3& outVertex,
@@ -204,7 +201,7 @@ bool FindClosestHullTerrainVertex( SkullbonezCore::Core::Profiler* profiler,
 {
     PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/HullClosestVertexProbe" );
 
-    if ( !record.terrain )
+    if ( !terrain.IsValid() )
     {
         return false;
     }
@@ -220,14 +217,14 @@ bool FindClosestHullTerrainVertex( SkullbonezCore::Core::Profiler* profiler,
     {
         const Vector3 worldVertex = hullCenter + ( rotMat * hull.GetVertex( v ) );
 
-        if ( !record.terrain->IsInBounds( worldVertex.x, worldVertex.z ) )
+        if ( !terrain.IsInBounds( worldVertex.x, worldVertex.z ) )
         {
             continue;
         }
 
         float terrainHeight = 0.0f;
         Plane terrainPlane;
-        record.terrain->GetTerrainHeightAndPlaneAt( worldVertex.x, worldVertex.z, terrainHeight, terrainPlane );
+        terrain.HeightAndPlaneAt( worldVertex.x, worldVertex.z, terrainHeight, terrainPlane );
         const float gap = worldVertex.y - terrainHeight;
         if ( !found || gap < bestGap )
         {
@@ -244,16 +241,16 @@ bool FindClosestHullTerrainVertex( SkullbonezCore::Core::Profiler* profiler,
 }
 
 void ClampBodyToTerrainSurface( SkullbonezCore::Core::Profiler* profiler,
-                                const PhysicsBodyRecord& record,
+                                const PhysicsTerrainView& terrain,
                                 PhysicsBodyHotState& hot,
                                 const ColliderRecord& collider )
 {
-    if ( !record.terrain )
+    if ( !terrain.IsValid() )
     {
         return;
     }
 
-    if ( !record.terrain->IsInBounds( hot.position.x, hot.position.z ) )
+    if ( !terrain.IsInBounds( hot.position.x, hot.position.z ) )
     {
         return;
     }
@@ -265,7 +262,7 @@ void ClampBodyToTerrainSurface( SkullbonezCore::Core::Profiler* profiler,
         Plane terrainPlane;
         float gap = 0.0f;
         if ( FindClosestBoxTerrainVertex( profiler,
-                                          record,
+                                          terrain,
                                           hot,
                                           std::get<BoundingBox>( collider.shape ),
                                           closestVertex,
@@ -287,7 +284,7 @@ void ClampBodyToTerrainSurface( SkullbonezCore::Core::Profiler* profiler,
         Plane terrainPlane;
         float gap = 0.0f;
         if ( FindClosestHullTerrainVertex( profiler,
-                                           record,
+                                           terrain,
                                            hot,
                                            std::get<ConvexHullShape>( collider.shape ),
                                            closestVertex,
@@ -303,7 +300,7 @@ void ClampBodyToTerrainSurface( SkullbonezCore::Core::Profiler* profiler,
     }
 
     const float bottomOffset = GetShapeTerrainBottomOffset( collider.shape );
-    const float terrainHeight = record.terrain->GetTerrainHeightAt( hot.position.x, hot.position.z );
+    const float terrainHeight = terrain.HeightAt( hot.position.x, hot.position.z );
     if ( hot.position.y - bottomOffset < terrainHeight )
     {
         hot.position.y = terrainHeight + bottomOffset;
@@ -409,17 +406,17 @@ Vector3 CalculateViscousDrag( const PhysicsWorldForces& worldForces,
            distanceSquared * dragCoefficient * projectedSurfaceArea;
 }
 
-float TerrainWaterScale( Terrain* terrain,
+float TerrainWaterScale( const PhysicsTerrainView& terrain,
                          const PhysicsWorldForces& worldForces,
                          const Vector3& worldPoint,
                          float sampleBand )
 {
-    if ( !terrain || !terrain->IsInBounds( worldPoint.x, worldPoint.z ) )
+    if ( !terrain.IsValid() || !terrain.IsInBounds( worldPoint.x, worldPoint.z ) )
     {
         return 1.0f;
     }
 
-    const float terrainHeight = terrain->GetTerrainHeightAt( worldPoint.x, worldPoint.z );
+    const float terrainHeight = terrain.HeightAt( worldPoint.x, worldPoint.z );
     if ( terrainHeight >= worldForces.fluidSurfaceHeight - TOLERANCE )
     {
         return 0.0f;
@@ -434,9 +431,9 @@ float TerrainWaterScale( Terrain* terrain,
     return (std::clamp)( clearanceAboveTerrain / (std::max)( sampleBand, TOLERANCE ), 0.0f, 1.0f );
 }
 
-PhysicsBuoyancySample CalculateBuoyancySample( const PhysicsBodyRecord& record,
-                                               const PhysicsBodyHotState& hot,
+PhysicsBuoyancySample CalculateBuoyancySample( const PhysicsBodyHotState& hot,
                                                const ColliderRecord& collider,
+                                               const PhysicsTerrainView& terrain,
                                                const PhysicsWorldForces& worldForces )
 {
     const Vector3 bodyPosition = hot.position;
@@ -511,7 +508,7 @@ PhysicsBuoyancySample CalculateBuoyancySample( const PhysicsBodyRecord& record,
                                                    : (std::clamp)( 0.5f + depth / sampleBand, 0.0f, 1.0f );
 
                     const float wetness = waterWetness *
-                                          TerrainWaterScale( record.terrain, worldForces, worldPoint, sampleBand );
+                                          TerrainWaterScale( terrain, worldForces, worldPoint, sampleBand );
 
                     addWetPoint( worldPoint, wetness, weightedSum, wetWeight );
                 }
@@ -568,9 +565,10 @@ PhysicsBuoyancySample CalculateBuoyancySample( const PhysicsBodyRecord& record,
 float CalculateTerrainSupportFactor( const PhysicsBodyRecord& record,
                                      const PhysicsBodyHotState& hot,
                                      const ColliderRecord& collider,
+                                     const PhysicsTerrainView& terrain,
                                      const RotationMatrix& rotMat )
 {
-    if ( !record.terrain )
+    if ( !terrain.IsValid() )
     {
         return 0.0f;
     }
@@ -596,13 +594,13 @@ float CalculateTerrainSupportFactor( const PhysicsBodyRecord& record,
                                           SkullbonezCore::Physics::GetBoxTerrainLocalCorner( halfExtents, corner );
 
                     const Vector3 worldPoint = position + ( rotMat * local );
-                    if ( !record.terrain->IsInBounds( worldPoint.x, worldPoint.z ) )
+                    if ( !terrain.IsInBounds( worldPoint.x, worldPoint.z ) )
                     {
                         continue;
                     }
 
                     ++terrainSamples;
-                    const float terrainHeight = record.terrain->GetTerrainHeightAt( worldPoint.x, worldPoint.z );
+                    const float terrainHeight = terrain.HeightAt( worldPoint.x, worldPoint.z );
                     if ( worldPoint.y - terrainHeight <= supportGap )
                     {
                         ++closeSamples;
@@ -616,13 +614,13 @@ float CalculateTerrainSupportFactor( const PhysicsBodyRecord& record,
                 for ( uint16_t vertex = 0; vertex < vertexCount; ++vertex )
                 {
                     const Vector3 worldPoint = hullCenter + ( rotMat * shape.GetVertex( vertex ) );
-                    if ( !record.terrain->IsInBounds( worldPoint.x, worldPoint.z ) )
+                    if ( !terrain.IsInBounds( worldPoint.x, worldPoint.z ) )
                     {
                         continue;
                     }
 
                     ++terrainSamples;
-                    const float terrainHeight = record.terrain->GetTerrainHeightAt( worldPoint.x, worldPoint.z );
+                    const float terrainHeight = terrain.HeightAt( worldPoint.x, worldPoint.z );
                     if ( worldPoint.y - terrainHeight <= supportGap )
                     {
                         ++closeSamples;
@@ -643,6 +641,7 @@ float CalculateTerrainSupportFactor( const PhysicsBodyRecord& record,
 Vector3 CalculateBuoyancyRightingTorque( const PhysicsBodyRecord& record,
                                          const PhysicsBodyHotState& hot,
                                          const ColliderRecord& collider,
+                                         const PhysicsTerrainView& terrain,
                                          const PhysicsWorldForces& worldForces,
                                          float buoyancyForce,
                                          float submergedVolumePercent )
@@ -775,7 +774,8 @@ Vector3 CalculateBuoyancyRightingTorque( const PhysicsBodyRecord& record,
     const float weight = record.mass * gravityMagnitude;
     const float cappedLift = (std::min)( buoyancyForce, weight * 6.0f );
     const float waterCoupling = sqrtf( (std::clamp)( submergedVolumePercent, 0.0f, 1.0f ) );
-    const float supportBlend = 1.0f - CalculateTerrainSupportFactor( record, hot, collider, rotMat ) * 0.85f;
+    const float supportBlend =
+        1.0f - CalculateTerrainSupportFactor( record, hot, collider, terrain, rotMat ) * 0.85f;
     const float torqueMagnitude = cappedLift * hot.boundingRadius * anisotropy * waterCoupling * supportBlend * error;
     return correctionAxis * torqueMagnitude;
 }
@@ -839,6 +839,7 @@ void ApplyPendingImpulse( PhysicsBodyRecord& record, PhysicsBodyHotState& hot )
 void ApplyWorldForces( PhysicsBodyRecord& record,
                        PhysicsBodyHotState& hot,
                        const ColliderRecord& collider,
+                       const PhysicsTerrainView& terrain,
                        const PhysicsWorldForces& worldForces,
                        float deltaSeconds,
                        const Vector3* precomputedMutualGravityForce )
@@ -846,7 +847,7 @@ void ApplyWorldForces( PhysicsBodyRecord& record,
     Vector3 worldForce = ZERO_VECTOR;
     Vector3 worldTorque = ZERO_VECTOR;
 
-    const PhysicsBuoyancySample buoyancySample = CalculateBuoyancySample( record, hot, collider, worldForces );
+    const PhysicsBuoyancySample buoyancySample = CalculateBuoyancySample( hot, collider, terrain, worldForces );
     const float submergedVolumePercent = buoyancySample.submergedVolumePercent;
 
     worldForce.y += CalculateGravityForce( worldForces, record.mass );
@@ -865,6 +866,7 @@ void ApplyWorldForces( PhysicsBodyRecord& record,
     worldTorque += CalculateBuoyancyRightingTorque( record,
                                                     hot,
                                                     collider,
+                                                    terrain,
                                                     worldForces,
                                                     buoyancyForce,
                                                     submergedVolumePercent );
@@ -1021,7 +1023,6 @@ void ApplyBodyDescriptorState( const PhysicsBodyCreateDesc& desc, PhysicsBodyRec
     cold.contactReleaseImpulseThreshold = desc.contactReleaseImpulseThreshold;
     cold.angularVelocityLimit = desc.angularVelocityLimit;
     cold.contactEpsilon = desc.contactEpsilon;
-    cold.terrain = desc.terrain;
     hot.fixed = desc.motionKind == PhysicsBodyMotionKind::Fixed;
     cold.usesWorldInertia = desc.usesWorldInertia;
     cold.releasesFromFixedOnContact = desc.releasesFromFixedOnContact;
@@ -2056,6 +2057,7 @@ bool PhysicsBodyStore::ConsumePendingBodyImpulse( int modelIndex )
 
 bool PhysicsBodyStore::IntegrateBodyPose( Core::Profiler* profiler,
                                           const ColliderStore& colliderStore,
+                                          const PhysicsTerrainView& terrain,
                                           int modelIndex,
                                           float deltaSeconds )
 {
@@ -2090,7 +2092,7 @@ bool PhysicsBodyStore::IntegrateBodyPose( Core::Profiler* profiler,
     }
 
     IntegrateBodyRecordPose( hot, deltaSeconds );
-    ClampBodyToTerrainSurface( profiler, *record, hot, *collider );
+    ClampBodyToTerrainSurface( profiler, terrain, hot, *collider );
     // Why: this value is a targeted underwater-sleep probe, not general body
     // state. Any pose integration invalidates the previous water sample.
     record->submergedVolumePercent = 0.0f;
@@ -2116,6 +2118,7 @@ bool PhysicsBodyStore::IntegrateBodyPose( Core::Profiler* profiler,
 
 bool PhysicsBodyStore::ApplyForces( const PhysicsWorldForces& worldForces,
                                     const ColliderStore& colliderStore,
+                                    const PhysicsTerrainView& terrain,
                                     int modelIndex,
                                     float deltaSeconds,
                                     const Vector3* precomputedMutualGravityForce )
@@ -2157,7 +2160,7 @@ bool PhysicsBodyStore::ApplyForces( const PhysicsWorldForces& worldForces,
     }
 
     ThrottleAngularVelocity( *record, hot );
-    ApplyWorldForces( *record, hot, *collider, worldForces, deltaSeconds, precomputedMutualGravityForce );
+    ApplyWorldForces( *record, hot, *collider, terrain, worldForces, deltaSeconds, precomputedMutualGravityForce );
     ApplyPendingImpulse( *record, hot );
     // Invariant: force and pending-impulse integration are velocity-only edits.
     // Keeping the writes narrow avoids a 20-field round trip per active body.

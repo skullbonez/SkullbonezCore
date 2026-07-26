@@ -53,11 +53,6 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Geometry
-{
-class Terrain;
-} // namespace Geometry
-
 namespace Physics
 {
 enum class PhysicsBodyMotionKind : uint8_t
@@ -111,7 +106,6 @@ struct PhysicsBodyCreateDesc
     bool releasesFromFixedOnContact = false;
     bool usesWorldInertia = false;
     float contactReleaseImpulseThreshold = 0.0f;
-    Geometry::Terrain* terrain = nullptr;
     const char* diagnosticName = nullptr;
 };
 
@@ -125,7 +119,6 @@ inline PhysicsBodyCreateDesc MakePhysicsBodyCreateDesc( PhysicsSceneObjectId sce
                                                         float mass,
                                                         float restitution,
                                                         PhysicsBodyMotionKind motionKind,
-                                                        Geometry::Terrain* terrain,
                                                         const char* diagnosticName = nullptr )
 {
     PhysicsBodyCreateDesc desc;
@@ -154,7 +147,6 @@ inline PhysicsBodyCreateDesc MakePhysicsBodyCreateDesc( PhysicsSceneObjectId sce
     }
     desc.motionKind = motionKind;
     desc.usesWorldInertia = !std::holds_alternative<Math::CollisionDetection::BoundingSphere>( desc.shape );
-    desc.terrain = terrain;
     desc.diagnosticName = diagnosticName;
     return desc;
 }

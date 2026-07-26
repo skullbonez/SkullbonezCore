@@ -144,7 +144,6 @@ TEST_CASE( "Physics terrain stage: candidate rows preserve model order and eligi
     for ( int bodyIndex = 0; bodyIndex < 3; ++bodyIndex )
     {
         PhysicsBodyCreateRecord body;
-        body.cold.terrain = &terrain;
         body.hot.position = Vector3( static_cast<float>( bodyIndex ), 5.0f, 0.0f );
         body.hot.fixed = bodyIndex == 1;
         const auto handle = bodies.CreateBodyRecord( body );
@@ -159,6 +158,7 @@ TEST_CASE( "Physics terrain stage: candidate rows preserve model order and eligi
     const TerrainDetectionStageContext context{ bodies.Records(),
                                                 bodies.HotFields(),
                                                 colliders.Records(),
+                                                terrain.PhysicsView(),
                                                 physicsSettings,
                                                 sleepState,
                                                 timeRemaining };

@@ -34,8 +34,8 @@ Related:
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <span>
-#include <vector>
 
 namespace SkullbonezCore::Core
 {
@@ -52,6 +52,9 @@ namespace SkullbonezCore::Runtime::ReplayOverlay
 inline constexpr std::size_t PREDICTION_TRAJECTORY_FLOATS_PER_RECORD = 19u;
 inline constexpr std::size_t PREDICTION_TRAJECTORY_ORDINARY_RECORD_CAPACITY = 24000u;
 inline constexpr std::size_t PREDICTION_TRAJECTORY_PRIORITY_RECORD_CAPACITY = 3000u;
+inline constexpr std::size_t PREDICTION_TRAJECTORY_RECORD_FLOAT_CAPACITY =
+    ( PREDICTION_TRAJECTORY_ORDINARY_RECORD_CAPACITY + PREDICTION_TRAJECTORY_PRIORITY_RECORD_CAPACITY ) *
+    PREDICTION_TRAJECTORY_FLOATS_PER_RECORD;
 inline constexpr std::size_t PREDICTION_TRAJECTORY_RANGE_CAPACITY = 4096u;
 inline constexpr std::size_t PREDICTION_TRAJECTORY_ORDINARY_LINE_FLOAT_CAPACITY = 262144u;
 inline constexpr std::size_t PREDICTION_TRAJECTORY_PRIORITY_LINE_FLOAT_CAPACITY = 524288u;
@@ -223,7 +226,11 @@ class ReplayPredictionRetainedGeometry
     RibbonStyle m_baselineStyle = { 1.0f, 1.0f, 1.0f, 0.0f };
     float m_selectedEmphasis = 0.45f;
     bool m_appearanceInitialized = false;
-    std::vector<float> m_records;
+    // Invariant: the compact arena has one construction-time allocation and
+    // no capacity-changing API. Keeping the fixed 513,000-float payload behind
+    // a pointer also prevents the process-lifetime ReplayRuntime owner from
+    // consuming the bounded launcher stack.
+    std::unique_ptr<float[]> m_records;
     std::array<Rendering::RetainedGeometryRangeToken, PREDICTION_TRAJECTORY_RANGE_CAPACITY> m_ranges = {};
     std::array<Rendering::RetainedGeometryRangeToken, PREDICTION_TRAJECTORY_RANGE_CAPACITY> m_drawRanges = {};
     std::size_t m_rangeCount = 0;

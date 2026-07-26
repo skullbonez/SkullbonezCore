@@ -92,8 +92,7 @@ PhysicsBodyCreateDesc MakeGeneratedBodyDesc( Physics::PhysicsSceneObjectId scene
                                              const Vector3& position,
                                              const Vector3& rotationalInertia,
                                              float mass,
-                                             float restitution,
-                                             Geometry::Terrain* terrain )
+                                             float restitution )
 {
     return MakePhysicsBodyCreateDesc( sceneObjectId,
                                       shape,
@@ -104,8 +103,7 @@ PhysicsBodyCreateDesc MakeGeneratedBodyDesc( Physics::PhysicsSceneObjectId scene
                                       rotationalInertia,
                                       mass,
                                       restitution,
-                                      PhysicsBodyMotionKind::Dynamic,
-                                      terrain );
+                                      PhysicsBodyMotionKind::Dynamic );
 }
 } // namespace
 
@@ -215,8 +213,7 @@ SkullbonezCore::Core::SbResult SceneGeneratedSetup::SetUpSceneEntities( SceneGen
                                        Vector3( posX, posY, posZ ),
                                        inertia,
                                        mass,
-                                       restitution,
-                                       context.sceneWorld.Terrain().Get() ),
+                                       restitution ),
                 MakeGeneratedColliderDesc( shape, restitution ) );
 
             if ( !appendResult.status.ok )
@@ -246,8 +243,7 @@ SkullbonezCore::Core::SbResult SceneGeneratedSetup::SetUpSceneEntities( SceneGen
                                        Vector3( posX, posY, posZ ),
                                        Vector3( moment, moment, moment ),
                                        mass,
-                                       restitution,
-                                       context.sceneWorld.Terrain().Get() ),
+                                       restitution ),
                 MakeGeneratedColliderDesc( shape, restitution ) );
 
             if ( !appendResult.status.ok )
@@ -333,8 +329,7 @@ SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context, int
                                    Vector3( posX, posY, posZ ),
                                    Vector3( moment, moment, moment ),
                                    mass,
-                                   restitution,
-                                   context.sceneWorld.Terrain().Get() ),
+                                   restitution ),
             MakeGeneratedColliderDesc( shape, restitution ) );
 
         if ( !appendResult.status.ok )
@@ -388,8 +383,7 @@ SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context, int
                                    Vector3( posX, posY, posZ ),
                                    inertia,
                                    mass,
-                                   restitution,
-                                   context.sceneWorld.Terrain().Get() ),
+                                   restitution ),
             MakeGeneratedColliderDesc( shape, restitution ) );
 
         if ( !appendResult.status.ok )

@@ -31,7 +31,7 @@ Related:
 #include "PhysicsForceStage.h"
 
 #include "PhysicsStageContexts.h"
-#include "../../Assets/AssetKeys.h"
+#include "../../Core/Common.h"
 #include "../../Core/FatalError.h"
 #include "../../Core/Profiler.h"
 #include "../../Core/WorkerPool.h"
@@ -81,6 +81,7 @@ bool IsSolverBodyFixed( const Physics::PhysicsBodyHotFieldsConstView& hotFields,
 
 void ApplyForcesForSolverBody( Physics::PhysicsBodyStore& bodyStore,
                                const Physics::ColliderStore& colliderStore,
+                               const Physics::PhysicsTerrainView& terrain,
                                const Physics::PhysicsWorldForces& worldForces,
                                const Physics::PhysicsBodyHotFieldsConstView& hotFields,
                                std::span<const uint8_t> sleepState,
@@ -104,12 +105,13 @@ void ApplyForcesForSolverBody( Physics::PhysicsBodyStore& bodyStore,
     }
 
     const Vector3* mutualGravityForce = mutualGravityForces ? &mutualGravityForces[bodyIndex] : nullptr;
-    (void)bodyStore.ApplyForces( worldForces, colliderStore, bodyIndex, dt, mutualGravityForce );
+    (void)bodyStore.ApplyForces( worldForces, colliderStore, terrain, bodyIndex, dt, mutualGravityForce );
 }
 
 void IntegrateRemainingSolverBody( Physics::PhysicsBodyStore& bodyStore,
                                    SkullbonezCore::Core::Profiler* profiler,
                                    const Physics::ColliderStore& colliderStore,
+                                   const Physics::PhysicsTerrainView& terrain,
                                    const Physics::PhysicsBodyHotFieldsConstView& hotFields,
                                    std::span<const uint8_t> sleepState,
                                    std::span<const float> timeRemaining,
@@ -122,7 +124,7 @@ void IntegrateRemainingSolverBody( Physics::PhysicsBodyStore& bodyStore,
 
     if ( timeRemaining[bodyIndex] > 0.0f )
     {
-        (void)bodyStore.IntegrateBodyPose( profiler, colliderStore, bodyIndex, timeRemaining[bodyIndex] );
+        (void)bodyStore.IntegrateBodyPose( profiler, colliderStore, terrain, bodyIndex, timeRemaining[bodyIndex] );
     }
 }
 } // namespace
@@ -135,6 +137,7 @@ void ApplyForcesStageContext::operator()( int bodyIndex ) const
 {
     ApplyForcesForSolverBody( bodyStore,
                               colliderStore,
+                              terrain,
                               worldForces,
                               hotFields,
                               sleepState,
@@ -146,7 +149,8 @@ void ApplyForcesStageContext::operator()( int bodyIndex ) const
 
 void IntegrateRemainingStageContext::operator()( int bodyIndex ) const
 {
-    IntegrateRemainingSolverBody( bodyStore, profiler, colliderStore, hotFields, sleepState, timeRemaining, bodyIndex );
+    IntegrateRemainingSolverBody(
+        bodyStore, profiler, colliderStore, terrain, hotFields, sleepState, timeRemaining, bodyIndex );
 }
 
 PhysicsForceStage::PhysicsForceStage()

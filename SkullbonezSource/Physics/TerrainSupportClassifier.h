@@ -1,13 +1,12 @@
 /*
-File: SkullbonezSource/World/TerrainSupportClassifier.h
+File: SkullbonezSource/Physics/TerrainSupportClassifier.h
 Purpose:
   Classifies terrain contacts as stable support, edge support, or sleep-inhibiting contact.
 
 Summary:
-  TerrainSupportClassifier.h classifies terrain contacts as stable support,
-  edge support, or sleep-inhibiting contact. As a public header, keep edits
-  anchored on world-state ownership, terrain/environment data, and
-  physics/render handoff and on the glossary/invariants below.
+  Physics owns support classification because it interprets contact footprint
+  and sleep policy. The classifier consumes the detached Physics terrain view;
+  it never reaches a World terrain owner.
 
 Glossary:
   Broadphase: Cheap collision pass that finds object pairs worth testing more
@@ -18,18 +17,17 @@ Glossary:
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
-  are the validation contract.
+    are the validation contract.
+  - Support probes consume only Physics-owned value contracts.
 
 Related:
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
-#include "../Assets/AssetKeys.h"
-
-#include "../Physics/CollisionShape.h"
+#include "CollisionShape.h"
+#include "PhysicsTerrainView.h"
 #include "../Core/Profiler.h"
-#include "Terrain.h"
 #include <cmath>
 
 namespace SkullbonezCore
@@ -152,7 +150,7 @@ inline BoxTerrainVertexSupportProbe
 ProbeBoxTerrainVerticesImpl( const Math::CollisionDetection::BoundingBox& box,
                              const Math::Vector::Vector3& position,
                              const Math::Transformation::RotationMatrix& orientation,
-                             Geometry::Terrain& terrain,
+                             const PhysicsTerrainView& terrain,
                              float contactEpsilon )
 {
     // Sample visible box corners against the heightfield. The solver may have a
@@ -177,7 +175,7 @@ ProbeBoxTerrainVerticesImpl( const Math::CollisionDetection::BoundingBox& box,
             continue;
         }
 
-        const float terrainHeight = terrain.GetTerrainHeightAt( worldVertex.x, worldVertex.z );
+        const float terrainHeight = terrain.HeightAt( worldVertex.x, worldVertex.z );
         const float gap = worldVertex.y - terrainHeight;
         if ( gap <= supportGap )
         {
@@ -210,7 +208,7 @@ inline BoxTerrainVertexSupportProbe ProbeBoxTerrainVertices( Core::Profiler* pro
                                                              const Math::CollisionDetection::BoundingBox& box,
                                                              const Math::Vector::Vector3& position,
                                                              const Math::Transformation::RotationMatrix& orientation,
-                                                             Geometry::Terrain& terrain,
+                                                             const PhysicsTerrainView& terrain,
                                                              float contactEpsilon,
                                                              bool profile )
 {
@@ -262,7 +260,7 @@ inline BoxTerrainVertexSupportProbe
 ProbeConvexHullTerrainVerticesImpl( const Math::CollisionDetection::ConvexHullShape& hull,
                                     const Math::Vector::Vector3& position,
                                     const Math::Transformation::RotationMatrix& orientation,
-                                    Geometry::Terrain& terrain,
+                                    const PhysicsTerrainView& terrain,
                                     float contactEpsilon )
 {
     BoxTerrainVertexSupportProbe result;
@@ -278,7 +276,7 @@ ProbeConvexHullTerrainVerticesImpl( const Math::CollisionDetection::ConvexHullSh
             continue;
         }
 
-        const float terrainHeight = terrain.GetTerrainHeightAt( worldVertex.x, worldVertex.z );
+        const float terrainHeight = terrain.HeightAt( worldVertex.x, worldVertex.z );
         const float gap = worldVertex.y - terrainHeight;
         if ( gap <= supportGap )
         {
@@ -312,7 +310,7 @@ ProbeConvexHullTerrainVertices( const Math::CollisionDetection::ConvexHullShape&
                                 Core::Profiler* profiler,
                                 const Math::Vector::Vector3& position,
                                 const Math::Transformation::RotationMatrix& orientation,
-                                Geometry::Terrain& terrain,
+                                const PhysicsTerrainView& terrain,
                                 float contactEpsilon,
                                 bool profile )
 {
@@ -331,7 +329,7 @@ ClassifyBoxTerrainSupportImpl( Core::Profiler* profiler,
                                const Math::Vector::Vector3& position,
                                const Math::Transformation::RotationMatrix& orientation,
                                const Math::Vector::Vector3& terrainNormal,
-                               Geometry::Terrain* terrain,
+                               const PhysicsTerrainView& terrain,
                                int contactCount,
                                float contactEpsilon,
                                bool profileChildren )
@@ -375,20 +373,20 @@ ClassifyBoxTerrainSupportImpl( Core::Profiler* profiler,
 
     if ( supportsRestingPolicy )
     {
-        if ( terrain )
+        if ( terrain.IsValid() )
         {
             result.vertices = box ? ProbeBoxTerrainVertices( profiler,
                                                              *box,
                                                              position,
                                                              orientation,
-                                                             *terrain,
+                                                             terrain,
                                                              contactEpsilon,
                                                              profileChildren )
                                   : ProbeConvexHullTerrainVertices( *hull,
                                                                     profiler,
                                                                     position,
                                                                     orientation,
-                                                                    *terrain,
+                                                                    terrain,
                                                                     contactEpsilon,
                                                                     profileChildren );
 
@@ -422,7 +420,7 @@ ClassifyBoxTerrainSupport( Core::Profiler* profiler,
                            const Math::Vector::Vector3& position,
                            const Math::Transformation::RotationMatrix& orientation,
                            const Math::Vector::Vector3& terrainNormal,
-                           Geometry::Terrain* terrain,
+                           const PhysicsTerrainView& terrain,
                            int contactCount,
                            float contactEpsilon,
                            bool profile )

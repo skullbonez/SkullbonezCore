@@ -95,6 +95,7 @@ struct ObjectNarrowphasePairStageContext
     // only for the current synchronous narrowphase pass.
     PhysicsBodyStore& bodyStore;
     const ColliderStore& colliderStore;
+    PhysicsTerrainView terrain;
     const PhysicsWorldForces& worldForces;
     std::span<PhysicsBodyRecord> bodyRecords;
     PhysicsBodyHotFieldsConstView hotFields;

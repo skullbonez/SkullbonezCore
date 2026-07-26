@@ -125,8 +125,8 @@ bool CapturePrimitiveRecipe( const SceneWorld& world, int modelIndex, EditorPrim
     strcpy_s( outRecipe.entity.displayName, entity.displayName );
     outRecipe.entity.editorVisible = entity.editorVisible;
     outRecipe.entity.editorLocked = entity.editorLocked;
-    // Invariant: recreation facts exclude the live handle, transient impulses,
-    // replay id, and borrowed terrain pointer from PhysicsBodyRecord.
+    // Invariant: recreation facts exclude the live handle and transient
+    // pending-impulse/sleep state; stable identity comes from the entity recipe.
     const PhysicsBodyHotState hotState = LoadPhysicsBodyHotState( bodyStore.HotFields(),
                                                                   static_cast<std::size_t>( modelIndex ) );
 
@@ -189,10 +189,6 @@ bool RecreatePrimitive( SceneWorld& world,
     bodyDesc.releasesFromFixedOnContact = recipe.body.releasesFromFixedOnContact;
     bodyDesc.usesWorldInertia = recipe.body.usesWorldInertia;
     bodyDesc.contactReleaseImpulseThreshold = recipe.body.contactReleaseImpulseThreshold;
-    // Lifetime: history stores no terrain pointer. Resolve the current scene
-    // terrain only while recreating the body after undo/redo.
-    bodyDesc.terrain = world.Terrain().Get();
-
     PhysicsColliderCreateDesc colliderDesc = MakeColliderCreateDesc( shape,
                                                                      recipe.restitution,
                                                                      recipe.contactMaterialId,

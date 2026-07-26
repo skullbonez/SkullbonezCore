@@ -76,6 +76,7 @@ struct TerrainDetectionStageContext
     std::span<const PhysicsBodyRecord> bodyRecords;
     PhysicsBodyHotFieldsConstView hotFields;
     std::span<const ColliderRecord> colliderRecords;
+    PhysicsTerrainView terrain;
     const PhysicsRuntimeSettings& settings;
     std::span<const uint8_t> sleepState;
     std::span<const float> timeRemaining;
@@ -88,6 +89,7 @@ struct TerrainCandidateCommitContext
     // current terrain phase. The stage retains none of these references.
     PhysicsBodyStore& bodyStore;
     const ColliderStore& colliderStore;
+    PhysicsTerrainView terrain;
     std::span<const PhysicsBodyRecord> bodyRecords;
     PhysicsBodyHotFieldsConstView hotFields;
     std::span<const ColliderRecord> colliderRecords;

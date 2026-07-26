@@ -173,7 +173,7 @@ tools\physics_query.bat Debug\scene.physicsdiag.ndjson pipeline --frames 0:1000
 |------|-------|
 | Rigid body state | `SkullbonezSource/Physics/RigidBody*` |
 | Shared row solver | `SkullbonezSource/Physics/PhysicsBodyStore*`, `SkullbonezSource/Physics/PersistentContactSolver*` |
-| Terrain support policy | `SkullbonezSource/World/TerrainSupportClassifier.h` |
+| Terrain support policy | `SkullbonezSource/Physics/TerrainSupportClassifier.h` |
 | Shapes | `SkullbonezSource/Physics/BoundingSphere*`, `SkullbonezSource/Physics/BoundingBox*`, `SkullbonezSource/Physics/ConvexHullShape*`, `SkullbonezSource/Physics/CollisionShape.h` |
 | Broadphase | `SkullbonezSource/Physics/SpatialGrid*`, `SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage*` |
 | Fixed-step owners | `SkullbonezSource/Physics/Stages/PhysicsForceStage*`, `PhysicsNarrowphaseStage*`, `PhysicsTerrainStage*`, `PhysicsContactSolverStage*`, `PhysicsSleepController*`, `PhysicsStepDiagnostics*` |

@@ -165,7 +165,8 @@ bool PhysicsSleepController::WakeDynamicBodyState( const PhysicsSleepWakeContext
     if ( applyForces && wasSleeping && dt > TOLERANCE && context.bodyStore && context.worldForces &&
          context.colliderStore )
     {
-        (void)context.bodyStore->ApplyForces( *context.worldForces, *context.colliderStore, index, dt );
+        (void)context.bodyStore->ApplyForces(
+            *context.worldForces, *context.colliderStore, context.terrain, index, dt );
     }
 
     context.contactCache.ForgetBody( index );
@@ -425,6 +426,7 @@ void PhysicsSleepController::WakeModel( const PhysicsSleepWakeContext& context, 
 PhysicsNarrowphaseWakeAccess::PhysicsNarrowphaseWakeAccess( PhysicsSleepController& sleepController,
                                                             PhysicsBodyStore& bodyStore,
                                                             const ColliderStore& colliderStore,
+                                                            PhysicsTerrainView terrain,
                                                             const PhysicsWorldForces& worldForces,
                                                             std::span<PhysicsBodyRecord> bodyRecords,
                                                             const PhysicsBodyHotFieldsView& hotFields,
@@ -432,7 +434,7 @@ PhysicsNarrowphaseWakeAccess::PhysicsNarrowphaseWakeAccess( PhysicsSleepControll
                                                             int modelCount,
                                                             float dt )
     : m_sleepController( sleepController ), m_bodyStore( bodyStore ), m_colliderStore( colliderStore ),
-      m_worldForces( worldForces ), m_bodyRecords( bodyRecords ), m_hotFields( hotFields ),
+      m_terrain( terrain ), m_worldForces( worldForces ), m_bodyRecords( bodyRecords ), m_hotFields( hotFields ),
       m_timeRemaining( timeRemaining ), m_modelCount( modelCount ), m_dt( dt )
 {
 }
@@ -474,12 +476,13 @@ void PhysicsNarrowphaseWakeAccess::WakeBody( int sleepingIndex ) const
     m_sleepController.m_sleepIslandVisualId[sleepingIndex] = 0;
     m_timeRemaining[sleepingIndex] = m_dt;
     m_hotFields.awake[static_cast<std::size_t>( sleepingIndex )] = 1u;
-    (void)m_bodyStore.ApplyForces( m_worldForces, m_colliderStore, sleepingIndex, m_dt );
+    (void)m_bodyStore.ApplyForces( m_worldForces, m_colliderStore, m_terrain, sleepingIndex, m_dt );
 }
 
 PhysicsNarrowphaseWakeAccess
 PhysicsSleepController::CreateNarrowphaseWakeAccess( PhysicsBodyStore& bodyStore,
                                                      const ColliderStore& colliderStore,
+                                                     PhysicsTerrainView terrain,
                                                      const PhysicsWorldForces& worldForces,
                                                      std::span<PhysicsBodyRecord> bodyRecords,
                                                      std::span<float> timeRemaining,
@@ -489,6 +492,7 @@ PhysicsSleepController::CreateNarrowphaseWakeAccess( PhysicsBodyStore& bodyStore
     return PhysicsNarrowphaseWakeAccess( *this,
                                          bodyStore,
                                          colliderStore,
+                                         terrain,
                                          worldForces,
                                          bodyRecords,
                                          bodyStore.MutableHotFields(),

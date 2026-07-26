@@ -361,6 +361,16 @@ bool PhysicsEngine::TrimAuthoredBodyDescriptorsToCount( PhysicsAuthoredBodyCount
     return AuthoredBodyDescriptorCount().value == bodyCount.value;
 }
 
+void PhysicsEngine::SetTerrainView( PhysicsTerrainView terrain ) noexcept
+{
+    m_world.SetTerrainView( terrain );
+}
+
+void PhysicsEngine::ClearTerrainView() noexcept
+{
+    m_world.ClearTerrainView();
+}
+
 
 void PhysicsEngine::Clear()
 {

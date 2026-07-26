@@ -93,6 +93,8 @@ class PhysicsEngine
     // topology/reservation invariant, not recoverable authored input.
     bool CanRegisterAuthoredBody( PhysicsAuthoredBodyCount expectedBodyCount ) const;
     bool TrimAuthoredBodyDescriptorsToCount( PhysicsAuthoredBodyCount bodyCount );
+    void SetTerrainView( PhysicsTerrainView terrain ) noexcept;
+    void ClearTerrainView() noexcept;
     void Clear();
     bool RefreshBodyStoreFromAuthoredDescriptors( const PhysicsAuthoredBodyRefreshView& refreshView );
     // One physics-owned registration command publishes the authored descriptor,

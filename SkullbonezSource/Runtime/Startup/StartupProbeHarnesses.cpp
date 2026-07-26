@@ -131,8 +131,7 @@ PhysicsAuthoredBodyRegistration RegisterPhysicsSmokeBody( PhysicsEngine& engine,
                                                           uint32_t sceneObjectValue,
                                                           const Math::Vector::Vector3& position,
                                                           const Math::Vector::Vector3& velocity,
-                                                          PhysicsBodyMotionKind motionKind,
-                                                          Geometry::Terrain* terrain )
+                                                          PhysicsBodyMotionKind motionKind )
 {
     const PhysicsSceneObjectId sceneObjectId { sceneObjectValue };
     const Math::CollisionDetection::BoundingSphere shape( 1.0f, Math::Vector::ZERO_VECTOR );
@@ -146,7 +145,6 @@ PhysicsAuthoredBodyRegistration RegisterPhysicsSmokeBody( PhysicsEngine& engine,
                                                             2.0f,
                                                             0.0f,
                                                             motionKind,
-                                                            terrain,
                                                             "physics_engine_smoke" );
 
     PhysicsColliderCreateDesc collider = MakeColliderCreateDesc( shape, 0.0f, HashStr( "default" ) );
@@ -165,29 +163,27 @@ PhysicsEngineLifecycleScenarioResult RunPhysicsEngineLifecycleScenario()
     Geometry::Terrain terrain( 0.0f, 0.0f, 0.0f, config );
     engine.ApplyRuntimeConfig( config );
     engine.Clear();
+    engine.SetTerrainView( terrain.PhysicsView() );
     engine.ReserveAuthoredBodyCapacity( 3u );
 
     const PhysicsAuthoredBodyRegistration fixed = RegisterPhysicsSmokeBody( engine,
                                                                             71u,
                                                                             Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ),
                                                                             Math::Vector::ZERO_VECTOR,
-                                                                            PhysicsBodyMotionKind::Fixed,
-                                                                            &terrain );
+                                                                            PhysicsBodyMotionKind::Fixed );
 
     const PhysicsAuthoredBodyRegistration dynamic = RegisterPhysicsSmokeBody( engine,
                                                                               72u,
                                                                               Math::Vector::Vector3( 4.0f, 2.0f, 0.0f ),
                                                                               Math::Vector::Vector3( 1.0f, 0.0f, 0.0f ),
-                                                                              PhysicsBodyMotionKind::Dynamic,
-                                                                              &terrain );
+                                                                              PhysicsBodyMotionKind::Dynamic );
 
     const PhysicsAuthoredBodyRegistration transient = RegisterPhysicsSmokeBody(
         engine,
         73u,
         Math::Vector::Vector3( 12.0f, 0.0f, 0.0f ),
         Math::Vector::ZERO_VECTOR,
-        PhysicsBodyMotionKind::Dynamic,
-        &terrain );
+        PhysicsBodyMotionKind::Dynamic );
 
     const bool created = fixed.IsValid() && dynamic.IsValid() && transient.IsValid();
 
@@ -503,7 +499,6 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
                 2.0f + static_cast<float>( i ),
                 0.0f,
                 PhysicsBodyMotionKind::Dynamic,
-                nullptr,
                 name ),
             MakeColliderCreateDesc( shape, 0.0f, HashStr( "default" ) ) );
 
@@ -541,7 +536,6 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
                                    1.0f,
                                    0.0f,
                                    PhysicsBodyMotionKind::Dynamic,
-                                   nullptr,
                                    "runtime_smoke_duplicate" ),
         MakeColliderCreateDesc( duplicateShape, 0.0f, HashStr( "default" ) ) );
 

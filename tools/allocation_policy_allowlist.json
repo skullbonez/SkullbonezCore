@@ -154,6 +154,17 @@
       "removal_or_wrapper_plan": "Replace with a dedicated replay prediction arena/object factory if runtime allocation policy gains typed owner allocators; do not construct the private engine at startup."
     },
     {
+      "path": "SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp",
+      "patterns": [
+        "std::make_unique<float[]>( PREDICTION_TRAJECTORY_RECORD_FLOAT_CAPACITY )"
+      ],
+      "owner": "ReplayPrediction retained ribbon record arena",
+      "phase": "startup",
+      "reason": "ReplayRuntime constructs one process-lifetime fixed-capacity compact ribbon arena before steady gameplay; pointer ownership keeps the 513,000-float payload off the bounded launcher stack and exposes no capacity-changing API.",
+      "cap": "Exactly 513,000 floats (2,052,000 bytes) allocated once per ReplayPredictionPresentation owner from the compile-time ordinary and priority record capacities.",
+      "removal_or_wrapper_plan": "Move this fixed payload to a typed process-lifetime startup arena when one exists; do not replace it with a growing container or replay-phase reserve privilege."
+    },
+    {
       "path": "SkullbonezSource/Runtime/Prediction/ReplayPredictionScheduling.h",
       "patterns": [
         "m_task.emplace("

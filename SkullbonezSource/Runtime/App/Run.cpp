@@ -572,7 +572,7 @@ void Run::Initialise()
         return;
     }
 
-    m_sceneController.Scene().Terrain().Replace( std::move( startupTerrain ), false );
+    m_sceneController.Scene().ReplaceTerrain( std::move( startupTerrain ), false );
 
     m_sceneController.Scene().Environment() = WorldEnvironment( cfg.worldForces.fluidHeight,
                                                                 cfg.worldForces.fluidDensity,

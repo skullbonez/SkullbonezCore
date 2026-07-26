@@ -49,6 +49,7 @@ Related:
 #include "../Maths/Matrix4.h"
 #include "../Maths/GeometricStructures.h"
 #include "../Maths/GeometricMath.h"
+#include "../Physics/PhysicsTerrainView.h"
 #include "../Rendering/RenderCommandTypes.h"
 #include "../Rendering/Shadow.h"
 #include <memory>
@@ -204,20 +205,9 @@ class Terrain
                                      float zPosition,
                                      float& outHeight,
                                      Plane& outPlane );                                               // Physics fast path: direct cached plane plus height lookup.
+    Physics::PhysicsTerrainView PhysicsView() const noexcept;                                         // Detached scene-lifetime collision view registered with Physics.
 
   private:
-    struct CachedTriangleData
-    {
-        Plane m_plane;                                                                                // Plane equation for one terrain triangle.
-        Math::Vector::Vector3 m_normal;                                                               // Cached upward normal for contact/friction directions.
-    };
-
-    struct CachedQuadData
-    {
-        CachedTriangleData m_triangleA;
-        CachedTriangleData m_triangleB;
-    };
-
     std::uint32_t displayListReference;                                                               // Legacy display-list token retained for serialized state.
     // Why: the standalone CPU test executable validates the authoritative
     // height/collision values without linking native renderer object code.
@@ -229,7 +219,7 @@ class Terrain
 #endif
     std::vector<TerrainPost> m_postData;                                                              // Shared render/collision heightfield posts.
     std::vector<std::uint8_t> m_terrainData;                                                          // Cold RAW bytes released after post construction.
-    std::vector<CachedQuadData> m_cachedCollisionData;
+    std::vector<Physics::PhysicsTerrainCell> m_cachedCollisionData;
     int m_mapSize;                                                                                    // Size of map (pixels length)
     int m_stepSize;                                                                                   // Steps size between posts
     int m_textureWrap;                                                                                // Number of times to wrap texture over m_terrain
@@ -269,9 +259,6 @@ class Terrain
     void InitialiseTerrainShader();                                                                   // Lit terrain shader setup for the active backend.
     void BuildTerrain();                                                                              // Physics-authoritative terrain posts are rebuilt from raw height data.
     void BuildCollisionCache();                                                                       // Precomputes per-quad triangle planes + normals for physics queries
-    int GetQuadCacheIndex( float xPosition,
-                           float zPosition,
-                           bool& isTriangleA );                                                       // Maps world X/Z to cached terrain quad and triangle half.
     void QueryCollisionData( float xPosition,
                              float zPosition,
                              float& outHeight,

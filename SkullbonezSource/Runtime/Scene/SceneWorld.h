@@ -99,6 +99,9 @@ class SceneWorld
                                                   Physics::PhysicsColliderCreateDesc colliderDesc );
     // Cold editor deletion removes the same four rows as one swap-last commit.
     bool DestroySceneEntity( Physics::PhysicsBodyHandle body );
+    // Terrain replacement is a lifetime transaction: revoke Physics' borrowed
+    // cell span before destroying the backing owner, then publish the new view.
+    void ReplaceTerrain( std::unique_ptr<Geometry::Terrain> terrain, bool isFlatSlope );
     void Clear();
     bool TrimForReplayRestore( int bodyCount );
 

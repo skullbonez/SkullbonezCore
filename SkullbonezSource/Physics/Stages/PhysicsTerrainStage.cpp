@@ -28,7 +28,7 @@ Related:
 */
 #include "PhysicsTerrainStage.h"
 
-#include "../../Assets/AssetKeys.h"
+#include "../../Core/Common.h"
 #include "../../Core/Profiler.h"
 #include "../../Core/WorkerPool.h"
 #include "../ColliderStore.h"
@@ -58,6 +58,7 @@ bool IsSolverBodyFixed( const PhysicsBodyHotFieldsConstView& hotFields, int body
 
 TerrainContactBodyView TerrainContactBodyViewForIndex( std::span<const PhysicsBodyRecord> bodyRecords,
                                                        const PhysicsBodyHotFieldsConstView& hotFields,
+                                                       const PhysicsTerrainView& terrain,
                                                        const PhysicsRuntimeSettings& settings,
                                                        int index )
 {
@@ -67,7 +68,7 @@ TerrainContactBodyView TerrainContactBodyViewForIndex( std::span<const PhysicsBo
     body.position = PhysicsBodyPosition( hotFields, bodyIndex );
     body.orientation = PhysicsBodyOrientation( hotFields, bodyIndex );
     body.linearVelocity = PhysicsBodyLinearVelocity( hotFields, bodyIndex );
-    body.terrain = record.terrain;
+    body.terrain = terrain;
     body.boundingRadius = hotFields.boundingRadius[bodyIndex];
     body.contactEpsilon = record.contactEpsilon;
     body.terrainContactThreshold = settings.terrain.threshold;
@@ -116,7 +117,8 @@ void PhysicsTerrainStage::DetectTerrainAt( const TerrainDetectionStageContext& c
     candidate.availableTime = context.timeRemaining[bodyIndex];
     candidate.sweep = SweepTerrainContact(
         context.profiler,
-        TerrainContactBodyViewForIndex( context.bodyRecords, context.hotFields, context.settings, bodyIndex ),
+        TerrainContactBodyViewForIndex(
+            context.bodyRecords, context.hotFields, context.terrain, context.settings, bodyIndex ),
         context.colliderRecords[static_cast<size_t>( bodyIndex )].shape,
         candidate.availableTime );
 
@@ -165,11 +167,13 @@ PhysicsTerrainStage::PrepareCandidateCommit( const TerrainCandidateCommitContext
     if ( sweep.hit )
     {
         const float colTime = sweep.collisionTime;
-        (void)context.bodyStore.IntegrateBodyPose( context.profiler, context.colliderStore, bodyIndex, colTime );
+        (void)context.bodyStore.IntegrateBodyPose(
+            context.profiler, context.colliderStore, context.terrain, bodyIndex, colTime );
         const float remainingTime = (std::max)( 0.0f, availableTime - colTime );
         const bool hasManifold = Physics::BuildTerrainContactManifold(
             context.profiler,
-            TerrainContactBodyViewForIndex( context.bodyRecords, context.hotFields, context.settings, bodyIndex ),
+            TerrainContactBodyViewForIndex(
+                context.bodyRecords, context.hotFields, context.terrain, context.settings, bodyIndex ),
             context.colliderRecords[static_cast<size_t>( bodyIndex )].shape,
             bodyIndex,
             sweep,

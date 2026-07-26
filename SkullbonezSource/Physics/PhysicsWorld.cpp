@@ -52,7 +52,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "PhysicsWorld.h"
-#include "../Assets/AssetKeys.h"
+#include "../Core/Common.h"
 
 #include "../Core/FatalError.h"
 #include "BuoyancySystem.h"
@@ -354,6 +354,16 @@ void PhysicsWorld::BindProfiler( SkullbonezCore::Core::Profiler* profiler ) noex
     m_profiler = profiler;
 }
 
+void PhysicsWorld::SetTerrainView( PhysicsTerrainView terrain ) noexcept
+{
+    m_terrainView = terrain;
+}
+
+void PhysicsWorld::ClearTerrainView() noexcept
+{
+    m_terrainView = {};
+}
+
 
 void PhysicsWorld::ApplyRuntimeSettings( const PhysicsRuntimeSettings& settings )
 {
@@ -605,6 +615,7 @@ void PhysicsWorld::WakeModel( PhysicsBodyStore& bodyStore, int index )
                                       bodyStore.MutableHotFields(),
                                       &bodyStore,
                                       nullptr,
+                                      m_terrainView,
                                       nullptr,
                                       m_timeRemaining,
                                       m_contactSolverStage.CreateWakeAccess(),
@@ -625,6 +636,7 @@ void PhysicsWorld::WakeModel( PhysicsBodyStore& bodyStore,
                                       bodyStore.MutableHotFields(),
                                       &bodyStore,
                                       &colliderStore,
+                                      m_terrainView,
                                       &worldForces,
                                       m_timeRemaining,
                                       m_contactSolverStage.CreateWakeAccess(),
@@ -682,6 +694,7 @@ void PhysicsWorld::ApplyExternalForces( PhysicsBodyStore& bodyStore,
         worldForces,
         m_sleepController.CreateNarrowphaseWakeAccess( bodyStore,
                                                        colliderStore,
+                                                       m_terrainView,
                                                        worldForces,
                                                        bodyStore.MutableRecords(),
                                                        m_timeRemaining,
@@ -790,6 +803,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     ApplyForcesStageContext applyForcesStage {
         bodyStore,
         colliderStore,
+        m_terrainView,
         worldForces,
         bodyRecords,
         hotFields,
@@ -837,6 +851,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     ObjectNarrowphasePairStageContext objectNarrowphasePairContext {
         bodyStore,
         colliderStore,
+        m_terrainView,
         worldForces,
         bodyRecords,
         hotFields,
@@ -844,6 +859,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         candidatePairs,
         m_sleepController.CreateNarrowphaseWakeAccess( bodyStore,
                                                        colliderStore,
+                                                       m_terrainView,
                                                        worldForces,
                                                        bodyRecords,
                                                        m_timeRemaining,
@@ -906,6 +922,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     TerrainDetectionStageContext terrainDetectionContext { bodyRecords,
                                                            hotFields,
                                                            colliderRecords,
+                                                           m_terrainView,
                                                            settings,
                                                            sleepStates,
                                                            m_timeRemaining,
@@ -913,6 +930,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 
     TerrainCandidateCommitContext terrainCandidateCommitContext { bodyStore,
                                                                   colliderStore,
+                                                                  m_terrainView,
                                                                   bodyRecords,
                                                                   hotFields,
                                                                   colliderRecords,
@@ -982,6 +1000,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     CommitContactSolverConsequences( bodyStore, colliderStore, worldForces );
     m_sleepController.WakePointJointConnectedBodies( bodyStore,
                                                      colliderStore,
+                                                     m_terrainView,
                                                      worldForces,
                                                      m_timeRemaining,
                                                      m_contactSolverStage.CreateWakeAccess(),
@@ -1000,6 +1019,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     PROFILE_BEGIN( m_profiler, "Frame/Physics/Integrate" );
     IntegrateRemainingStageContext integrateRemainingStage { bodyStore,
                                                              colliderStore,
+                                                             m_terrainView,
                                                              bodyRecords,
                                                              hotFields,
                                                              m_sleepController.GetSleepStates(),
@@ -1013,6 +1033,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 
     const PhysicsSleepIslandStageContext sleepIslandContext { bodyStore,
                                                               colliderStore,
+                                                              m_terrainView,
                                                               worldForces,
                                                               bodyRecords,
                                                               mutableHotFields,

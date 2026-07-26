@@ -870,7 +870,6 @@ bool RuntimeTools::FireLauncherProjectile( SceneWorld& world,
                                             LAUNCHER_PROJECTILE_MASS,
                                             LAUNCHER_PROJECTILE_RESTITUTION,
                                             Physics::PhysicsBodyMotionKind::Dynamic,
-                                            terrain,
                                             "launcher_projectile" ),
         Physics::MakeColliderCreateDesc( projectileShape, LAUNCHER_PROJECTILE_RESTITUTION, HashStr( "default" ) ) );
 

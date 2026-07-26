@@ -39,7 +39,7 @@ Related:
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsBodyStore.h"
-#include "../../World/TerrainSupportClassifier.h"
+#include "../../Physics/TerrainSupportClassifier.h"
 
 #include <cfloat>
 #include <memory>
@@ -342,7 +342,7 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
                                                                                    box,
                                                                                    pos,
                                                                                    orientMat,
-                                                                                   *terrain,
+                                                                                   terrain->PhysicsView(),
                                                                                    context.contactEpsilon,
                                                                                    false );
 

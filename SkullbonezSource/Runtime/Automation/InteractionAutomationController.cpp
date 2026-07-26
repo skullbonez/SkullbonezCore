@@ -249,7 +249,9 @@ EditorSelectionFingerprint BuildEditorSelectionFingerprint( RuntimeTools& runtim
     HashPredictionScalar( hash, static_cast<uint8_t>( !hotState.awake ) );
     HashPredictionScalar( hash, static_cast<uint8_t>( body->releasesFromFixedOnContact ) );
     HashPredictionScalar( hash, static_cast<uint8_t>( body->usesWorldInertia ) );
-    fingerprint.hasTerrain = body->terrain != nullptr;
+    // Terrain availability is one SceneWorld lifetime fact, not duplicated in
+    // every Physics body row. The fingerprint retains the same boolean signal.
+    fingerprint.hasTerrain = world.Terrain().Get() != nullptr;
     HashPredictionScalar( hash, static_cast<uint8_t>( fingerprint.hasTerrain ) );
 
     HashPredictionScalar( hash, static_cast<uint8_t>( shape.kind ) );

@@ -52,6 +52,7 @@ struct ApplyForcesStageContext
     // pass; all references and spans originate in the enclosing fixed step.
     PhysicsBodyStore& bodyStore;
     const ColliderStore& colliderStore;
+    PhysicsTerrainView terrain;
     const PhysicsWorldForces& worldForces;
     std::span<const PhysicsBodyRecord> bodyRecords;
     PhysicsBodyHotFieldsConstView hotFields;
@@ -70,6 +71,7 @@ struct IntegrateRemainingStageContext
     // and the cross-stage remaining-time array; it retains neither.
     PhysicsBodyStore& bodyStore;
     const ColliderStore& colliderStore;
+    PhysicsTerrainView terrain;
     std::span<const PhysicsBodyRecord> bodyRecords;
     PhysicsBodyHotFieldsConstView hotFields;
     std::span<const uint8_t> sleepState;

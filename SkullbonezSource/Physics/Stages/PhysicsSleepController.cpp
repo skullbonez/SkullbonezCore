@@ -423,6 +423,7 @@ void PhysicsSleepController::AppendPointJointSupportEdges(
 void PhysicsSleepController::WakePointJointConnectedBodies(
     PhysicsBodyStore& bodyStore,
     const ColliderStore& colliderStore,
+    PhysicsTerrainView terrain,
     const PhysicsWorldForces& worldForces,
     std::span<float> timeRemaining,
     PhysicsContactCacheWakeAccess contactCache,
@@ -493,6 +494,7 @@ void PhysicsSleepController::WakePointJointConnectedBodies(
                                                 hotFields,
                                                 &bodyStore,
                                                 &colliderStore,
+                                                terrain,
                                                 &worldForces,
                                                 timeRemaining,
                                                 contactCache,

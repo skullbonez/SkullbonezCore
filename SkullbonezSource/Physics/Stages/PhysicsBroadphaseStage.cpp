@@ -35,7 +35,6 @@ Related:
 */
 #include "PhysicsBroadphaseStage.h"
 
-#include "../../Assets/AssetKeys.h"
 #include "../../Core/FatalError.h"
 #include "../../Core/Profiler.h"
 #include "../../Core/SceneCapacity.h"

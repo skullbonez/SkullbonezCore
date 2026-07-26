@@ -107,8 +107,7 @@ PhysicsBodyCreateDesc MakeEditorBodyDesc( const CollisionShape& shape,
                                           const Vector3& angularVelocity,
                                           const Vector3& rotationalInertia,
                                           float mass,
-                                          float restitution,
-                                          Geometry::Terrain* terrain )
+                                          float restitution )
 {
     return MakePhysicsBodyCreateDesc( PhysicsSceneObjectId {},
                                       shape,
@@ -119,8 +118,7 @@ PhysicsBodyCreateDesc MakeEditorBodyDesc( const CollisionShape& shape,
                                       rotationalInertia,
                                       mass,
                                       restitution,
-                                      PhysicsBodyMotionKind::Dynamic,
-                                      terrain );
+                                      PhysicsBodyMotionKind::Dynamic );
 }
 
 
@@ -300,8 +298,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
                                       Vector3( 0.0f, 0.0f, 0.0f ),
                                       inertia,
                                       mass,
-                                      restitution,
-                                      terrain ),
+                                      restitution ),
                   MakeEditorColliderDesc( shape, restitution ),
                   placementFixed );
     };
@@ -341,8 +338,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
             Vector3( 0.0f, 0.0f, 0.0f ),
             inertia,
             mass,
-            0.25f,
-            terrain );
+            0.25f );
 
         PhysicsColliderCreateDesc colliderDesc = MakeEditorColliderDesc( shape, 0.25f );
         addModel( std::move( model ), std::move( bodyDesc ), std::move( colliderDesc ), placementFixed );
@@ -406,8 +402,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
                                       Vector3( 0.0f, 0.0f, 0.0f ),
                                       scaledHull.ComputeBoxApproxInertia( mass ),
                                       mass,
-                                      0.25f,
-                                      terrain ),
+                                      0.25f ),
                   MakeEditorColliderDesc( scaledHull, 0.25f ),
                   placementFixed );
     };
@@ -471,8 +466,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
                                                                  Vector3( 0.0f, 0.0f, 0.0f ),
                                                                  inertia,
                                                                  mass,
-                                                                 part.restitution,
-                                                                 terrain );
+                                                                 part.restitution );
 
             bodyDesc.releasesFromFixedOnContact = part.contactReleaseOnImpact;
             bodyDesc.contactReleaseImpulseThreshold = part.contactReleaseImpulseThreshold;
@@ -512,8 +506,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
                                                 Vector3( 0.0f, 0.0f, 0.0f ),
                                                 inertia,
                                                 mass,
-                                                part.restitution,
-                                                terrain ),
+                                                part.restitution ),
                             MakeEditorColliderDesc( shape, part.restitution ),
                             placementFixed,
                             houseDefinition.seedAsleep && !placementFixed ) )
@@ -625,8 +618,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
                                                          Vector3( 0.0f, 0.0f, 0.0f ),
                                                          inertia,
                                                          mass,
-                                                         restitution,
-                                                         terrain ),
+                                                         restitution ),
                                      MakeEditorColliderDesc( hull, restitution ) );
 
                     return;
@@ -653,8 +645,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
                                                          Vector3( 0.0f, 0.0f, 0.0f ),
                                                          inertia,
                                                          mass,
-                                                         restitution,
-                                                         terrain ),
+                                                         restitution ),
                                      MakeEditorColliderDesc( shape, restitution ) );
 
                     return;
@@ -681,8 +672,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
                                                          Vector3( 0.0f, 0.0f, 0.0f ),
                                                          inertia,
                                                          mass,
-                                                         restitution,
-                                                         terrain ),
+                                                         restitution ),
                                      MakeEditorColliderDesc( shape, restitution ) );
 
                     return;

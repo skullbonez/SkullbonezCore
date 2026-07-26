@@ -4,7 +4,7 @@ Date: 2026-07-25
 
 Owner: Rendering + Physics + Runtime/Prediction
 
-State: IN PROGRESS (DB0-DB1 complete; DB2 next)
+State: IN PROGRESS (DB0-DB2 complete; DB3 next)
 
 Ledger tasks: 6 (DB0-DB5)
 
@@ -237,7 +237,7 @@ without waiting for it.)
     captured run. No baseline, golden, artifact, shader, scene, config, or
     screenshot reference was refreshed.
 
-- [ ] **DB2 — Move terrain behind a Physics-owned boundary.**
+- [x] **DB2 — Move terrain behind a Physics-owned boundary.**
 
   Introduce the DB0-specified Physics-owned terrain contract (a
   Physics-package value/borrow view over heightfield sampling and support
@@ -260,6 +260,21 @@ without waiting for it.)
     reworks; the danger-zone determinism rule applies in full.
   - Physics unit/store tests exercise terrain contact paths without linking
     World sources, proving the boundary is real.
+
+  Evidence (2026-07-26):
+
+  - `Agentic/Reports/2026-07-26/downward-domain-bleed-remediation-db2-terrain-boundary.md`
+    records the Physics-owned cell/view contract, SceneWorld replacement
+    lifetime transaction, removed per-body terrain authority, exact zero-row
+    dependency proofs, and the 46/46 touched-source comment audit.
+  - `tools\validate_physics.bat` passed on final source. Its 88,802-row output
+    contains two byte-identical 44,401-row runs and matches the committed
+    baseline without refresh.
+  - `tools\validate_tests.bat` passed 392 cases / 2,403,298 assertions;
+    `tools\validate_perf.bat` and `tools\validate_dependency_graph.bat` passed
+    with zero allocation-policy or dependency findings.
+  - No baseline, golden, replay artifact, screenshot, shader, scene, config,
+    or physics CSV reference was refreshed.
 
 - [ ] **DB3 — Move fluid per-body facts to the buoyancy owner.**
 

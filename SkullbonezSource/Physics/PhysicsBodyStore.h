@@ -49,6 +49,7 @@ Related:
 #include <vector>
 
 #include "PhysicsHandles.h"
+#include "PhysicsTerrainView.h"
 #include "../Core/SceneCapacity.h"
 #include "PhysicsFixedList.h"
 #include "../Maths/Quaternion.h"
@@ -61,11 +62,6 @@ namespace Core
 {
 class Profiler;
 }
-namespace Geometry
-{
-class Terrain;
-}
-
 namespace Physics
 {
 class ColliderStore;
@@ -92,7 +88,6 @@ struct PhysicsBodyRecord
     Math::Vector::Vector3 rotationalInertia = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 pendingImpulse = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 pendingImpulseApplicationPoint = Math::Vector::ZERO_VECTOR;
-    Geometry::Terrain* terrain = nullptr;                                                       // Borrowed terrain pointer supplied by the authoring descriptor.
     float mass = 0.0f;                                                                          // Authoring mass; fixed bodies still report mass.
     float volume = 0.0f;                                                                        // Cached body volume used by buoyancy force math.
     float projectedSurfaceArea = 0.0f;                                                          // Cached drag area used by world-force integration.
@@ -421,10 +416,12 @@ class PhysicsBodyStore
     // no positive time to integrate.
     bool IntegrateBodyPose( Core::Profiler* profiler,
                             const ColliderStore& colliderStore,
+                            const PhysicsTerrainView& terrain,
                             int modelIndex,
                             float deltaSeconds );
     bool ApplyForces( const PhysicsWorldForces& worldForces,
                       const ColliderStore& colliderStore,
+                      const PhysicsTerrainView& terrain,
                       int modelIndex,
                       float deltaSeconds,
                       const Math::Vector::Vector3* precomputedMutualGravityForce = nullptr );

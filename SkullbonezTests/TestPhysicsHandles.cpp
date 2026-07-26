@@ -460,7 +460,7 @@ TEST_CASE( "Physics impulses: zero mass and inertia absorb immediate and pending
     colliders.CreateColliderRecord( MakeColliderRecord( handle, 808u, 1.0f ) );
 
     const Vector3 mutualGravityImpulse( 9.0f, 8.0f, 7.0f );
-    REQUIRE( bodies.ApplyForces( PhysicsWorldForces{}, colliders, 0, 1.0f, &mutualGravityImpulse ) );
+    REQUIRE( bodies.ApplyForces( PhysicsWorldForces{}, colliders, {}, 0, 1.0f, &mutualGravityImpulse ) );
     auto hot = bodies.HotFields();
     CHECK( hot.linearVelocityX[0] == doctest::Approx( 1.0f ) );
     CHECK( hot.linearVelocityY[0] == doctest::Approx( 2.0f ) );

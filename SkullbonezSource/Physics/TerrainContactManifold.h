@@ -19,8 +19,9 @@ Glossary:
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines are
     the validation contract.
-  - TerrainContactBodyView is a borrowed, per-call view. Callers must not cache
-    terrain pointers or shape references beyond the current physics operation.
+  - TerrainContactBodyView is a per-call value snapshot. Its terrain-cell span
+    follows the SceneWorld lifetime contract; this manifold layer retains
+    neither the view nor shape references after the operation returns.
 
 Related:
   - SkullbonezSource/Physics/TerrainContactManifold.cpp
@@ -32,6 +33,7 @@ Related:
 #include <cstdint>
 
 #include "CollisionShape.h"
+#include "PhysicsTerrainView.h"
 #include "../Maths/GeometricStructures.h"
 #include "../Maths/Quaternion.h"
 #include "../Maths/Vector3.h"
@@ -42,21 +44,16 @@ namespace Core
 {
 class Profiler;
 }
-namespace Geometry
-{
-class Terrain;
-}
-
 namespace Physics
 {
 struct TerrainContactBodyView
 {
-    // Terrain contact needs pose, velocity, shape policy, and a borrowed
-    // heightfield. It deliberately does not expose the full legacy model.
+    // Terrain contact needs pose, velocity, shape policy, and a detached
+    // Physics heightfield view. It deliberately exposes no World owner.
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
     Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
-    Geometry::Terrain* terrain = nullptr;
+    PhysicsTerrainView terrain;
     float boundingRadius = 0.0f;
     float contactEpsilon = 0.0f;
     float terrainContactThreshold = 0.0f;

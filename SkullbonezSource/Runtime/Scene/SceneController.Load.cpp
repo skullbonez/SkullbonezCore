@@ -432,14 +432,15 @@ void ApplyNoWaterOverride( WorldEnvironment& world, Terrain* terrain, bool noWat
     world.SetFluidSurfaceHeight( terrain->GetMinHeight() - NO_WATER_TERRAIN_CLEARANCE );
 }
 
-SkullbonezCore::Core::SbResult UseDefaultTerrain( SceneTerrain& terrainOwner,
+SkullbonezCore::Core::SbResult UseDefaultTerrain( SceneWorld& sceneWorld,
                                                   SkullbonezCore::Assets::AssetSystem& assets,
-                                                  WorldEnvironment& world,
                                                   const SkullbonezCore::Core::EngineConfig& config,
                                                   const std::string& terrainRawPath,
                                                   SkullbonezCore::Rendering::Dx12FrameOwner* renderFrame,
                                                   SkullbonezCore::Rendering::Dx12ResourceBuilder* renderResources )
 {
+    SceneTerrain& terrainOwner = sceneWorld.Terrain();
+    WorldEnvironment& world = sceneWorld.Environment();
     assert( renderResources );
     if ( !renderResources )
     {
@@ -477,7 +478,7 @@ SkullbonezCore::Core::SbResult UseDefaultTerrain( SceneTerrain& terrainOwner,
             return terrainResult;
         }
 
-        terrainOwner.Replace( std::move( terrain ), false );
+        sceneWorld.ReplaceTerrain( std::move( terrain ), false );
     }
     else
     {
@@ -488,9 +489,8 @@ SkullbonezCore::Core::SbResult UseDefaultTerrain( SceneTerrain& terrainOwner,
     return SkullbonezCore::Core::SbResult::Success();
 }
 
-SkullbonezCore::Core::SbResult UseFlatSlopeTerrain( SceneTerrain& terrainOwner,
+SkullbonezCore::Core::SbResult UseFlatSlopeTerrain( SceneWorld& sceneWorld,
                                                     SkullbonezCore::Assets::AssetSystem& assets,
-                                                    WorldEnvironment& world,
                                                     const SkullbonezCore::Core::EngineConfig& config,
                                                     float baseY,
                                                     float slopeX,
@@ -498,6 +498,8 @@ SkullbonezCore::Core::SbResult UseFlatSlopeTerrain( SceneTerrain& terrainOwner,
                                                     SkullbonezCore::Rendering::Dx12FrameOwner* renderFrame,
                                                     SkullbonezCore::Rendering::Dx12ResourceBuilder* renderResources )
 {
+    SceneTerrain& terrainOwner = sceneWorld.Terrain();
+    WorldEnvironment& world = sceneWorld.Environment();
     assert( renderResources );
     if ( !renderResources )
     {
@@ -517,7 +519,7 @@ SkullbonezCore::Core::SbResult UseFlatSlopeTerrain( SceneTerrain& terrainOwner,
     }
 
     auto terrain = std::make_unique<Terrain>( baseY, slopeX, slopeZ, config, assets, *renderResources );
-    terrainOwner.Replace( std::move( terrain ), true );
+    sceneWorld.ReplaceTerrain( std::move( terrain ), true );
 
     UpdateWorldTerrainBounds( world, terrainOwner.Get() );
     return SkullbonezCore::Core::SbResult::Success();
@@ -958,9 +960,8 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         SceneState().rngSeed = rngSeed;
         SceneState().rngState = rngSeed;
         const SkullbonezCore::Core::SbResult terrainResult = UseDefaultTerrain(
-            m_sceneController.Scene().Terrain(),
+            m_sceneController.Scene(),
             assets,
-            m_sceneController.Scene().Environment(),
             config,
             assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
                                             "terrain.raw",
@@ -1155,9 +1156,8 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         if ( scene.HasFlatSlope() )
         {
             const SkullbonezCore::Core::SbResult terrainResult = UseFlatSlopeTerrain(
-                m_sceneController.Scene().Terrain(),
+                m_sceneController.Scene(),
                 assets,
-                m_sceneController.Scene().Environment(),
                 config,
                 scene.GetFlatBaseY(),
                 scene.GetFlatSlopeX(),
@@ -1180,9 +1180,8 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         else
         {
             const SkullbonezCore::Core::SbResult terrainResult = UseDefaultTerrain(
-                m_sceneController.Scene().Terrain(),
+                m_sceneController.Scene(),
                 assets,
-                m_sceneController.Scene().Environment(),
                 config,
                 assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
                                                 "terrain.raw",

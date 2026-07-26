@@ -75,6 +75,7 @@ class PhysicsNarrowphaseWakeAccess
     PhysicsSleepController& m_sleepController;
     PhysicsBodyStore& m_bodyStore;
     const ColliderStore& m_colliderStore;
+    PhysicsTerrainView m_terrain;
     const PhysicsWorldForces& m_worldForces;
     std::span<PhysicsBodyRecord> m_bodyRecords;
     PhysicsBodyHotFieldsView m_hotFields;
@@ -85,6 +86,7 @@ class PhysicsNarrowphaseWakeAccess
     PhysicsNarrowphaseWakeAccess( PhysicsSleepController& sleepController,
                                   PhysicsBodyStore& bodyStore,
                                   const ColliderStore& colliderStore,
+                                  PhysicsTerrainView terrain,
                                   const PhysicsWorldForces& worldForces,
                                   std::span<PhysicsBodyRecord> bodyRecords,
                                   const PhysicsBodyHotFieldsView& hotFields,
@@ -113,6 +115,7 @@ struct PhysicsSleepWakeContext
     PhysicsBodyHotFieldsView hotFields;
     PhysicsBodyStore* bodyStore = nullptr;
     const ColliderStore* colliderStore = nullptr;
+    PhysicsTerrainView terrain;
     const PhysicsWorldForces* worldForces = nullptr;
     std::span<float> timeRemaining;
     PhysicsContactCacheWakeAccess contactCache;
@@ -124,6 +127,7 @@ struct PhysicsSleepIslandStageContext
 {
     PhysicsBodyStore& bodyStore;
     const ColliderStore& colliderStore;
+    PhysicsTerrainView terrain;
     const PhysicsWorldForces& worldForces;
     std::span<PhysicsBodyRecord> bodyRecords;
     PhysicsBodyHotFieldsView hotFields;
@@ -221,6 +225,7 @@ class PhysicsSleepController
     void WakeModel( const PhysicsSleepWakeContext& context, int index );
     PhysicsNarrowphaseWakeAccess CreateNarrowphaseWakeAccess( PhysicsBodyStore& bodyStore,
                                                               const ColliderStore& colliderStore,
+                                                              PhysicsTerrainView terrain,
                                                               const PhysicsWorldForces& worldForces,
                                                               std::span<PhysicsBodyRecord> bodyRecords,
                                                               std::span<float> timeRemaining,
@@ -240,6 +245,7 @@ class PhysicsSleepController
                                        int modelCount );
     void WakePointJointConnectedBodies( PhysicsBodyStore& bodyStore,
                                         const ColliderStore& colliderStore,
+                                        PhysicsTerrainView terrain,
                                         const PhysicsWorldForces& worldForces,
                                         std::span<float> timeRemaining,
                                         PhysicsContactCacheWakeAccess contactCache,

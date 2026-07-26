@@ -674,7 +674,8 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Tools\RuntimeFileWriter.h" />
     <ClInclude Include="SkullbonezSource\World\SkyBox.h" />
     <ClInclude Include="SkullbonezSource\World\Terrain.h" />
-    <ClInclude Include="SkullbonezSource\World\TerrainSupportClassifier.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsTerrainView.h" />
+    <ClInclude Include="SkullbonezSource\Physics\TerrainSupportClassifier.h" />
     <ClInclude Include="SkullbonezSource\Rendering\Text.h" />
     <ClInclude Include="SkullbonezSource\Assets\TextureCollection.h" />
     <ClInclude Include="SkullbonezSource\Core\Timer.h" />

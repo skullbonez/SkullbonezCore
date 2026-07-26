@@ -46,7 +46,6 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "PersistentContactSolver.h"
-#include "../Assets/AssetKeys.h"
 
 #include "ContactSolverCommon.h"
 #include "ColliderStore.h"

@@ -592,6 +592,13 @@ bool SceneWorld::SetEditorEntityLocked( PhysicsSceneObjectId sceneObjectId, bool
     return true;
 }
 
+void SceneWorld::ReplaceTerrain( std::unique_ptr<Geometry::Terrain> terrain, bool isFlatSlope )
+{
+    m_physics.ClearTerrainView();
+    m_terrain.Replace( std::move( terrain ), isFlatSlope );
+    m_physics.SetTerrainView( m_terrain.Get()->PhysicsView() );
+}
+
 
 void SceneWorld::Clear()
 {

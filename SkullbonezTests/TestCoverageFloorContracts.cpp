@@ -32,7 +32,7 @@
 // Related:
 //   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.cpp
 //   - SkullbonezSource/Physics/ObjectContactManifold.cpp
-//   - Agentic/Plans/TODO/unit-test-coverage-campaign.md
+//   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
@@ -191,7 +191,7 @@ void CheckUnderwaterForcePath( const CollisionShape& shape, uint32_t sceneId )
     forces.gasDensity = 0.05f;
     forces.angularDragMultiplier = 2.0f;
     const Vector3 mutualForce( 1.0f, 0.0f, -0.5f );
-    REQUIRE( bodies.ApplyForces( forces, colliders, 0, 1.0f / 120.0f, &mutualForce ) );
+    REQUIRE( bodies.ApplyForces( forces, colliders, {}, 0, 1.0f / 120.0f, &mutualForce ) );
     const auto hot = bodies.HotFields();
     CHECK( std::isfinite( hot.linearVelocityX[0] ) );
     CHECK( std::isfinite( hot.linearVelocityY[0] ) );
@@ -218,7 +218,6 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
                                                2.0f,
                                                0.25f,
                                                PhysicsBodyMotionKind::Dynamic,
-                                               nullptr,
                                                "coverage-artifact-body" );
     auto colliderDesc = MakeColliderCreateDesc( shape, 0.25f, 4u, "coverage-artifact" );
     colliderDesc.sceneObjectId = bodyDesc.sceneObjectId;
@@ -429,7 +428,7 @@ TEST_CASE( "Coverage floor contract: terrain sweep and manifold support every co
         TerrainContactBodyView body;
         body.position = Vector3( 20.0f, centerHeights[index], 20.0f );
         body.linearVelocity = Vector3( 0.0f, -5.0f, 0.0f );
-        body.terrain = &terrain;
+        body.terrain = terrain.PhysicsView();
         body.boundingRadius = SkullbonezCore::Math::CollisionDetection::GetShapeBoundingRadius( shapes[index] );
         body.contactEpsilon = 0.05f;
         body.terrainContactThreshold = 0.15f;
@@ -452,7 +451,7 @@ TEST_CASE( "Coverage floor contract: terrain sweep and manifold support every co
     // centroid reduction used by the swept cases above.
     TerrainContactBodyView resting;
     resting.position = Vector3( 20.0f, 1.0f, 20.0f );
-    resting.terrain = &terrain;
+    resting.terrain = terrain.PhysicsView();
     resting.terrainContactThreshold = 0.15f;
     resting.contactEpsilon = 0.05f;
     TerrainContactSweepResult restingSweep;

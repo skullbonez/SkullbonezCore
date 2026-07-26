@@ -1591,8 +1591,7 @@ void DrawReplayPredictionVisualizer( const RunReplayPathVisualizerState& pathVis
 namespace SkullbonezCore::Runtime::ReplayOverlay
 {
 ReplayPredictionRetainedGeometry::ReplayPredictionRetainedGeometry()
-    : m_records( ( PREDICTION_TRAJECTORY_ORDINARY_RECORD_CAPACITY + PREDICTION_TRAJECTORY_PRIORITY_RECORD_CAPACITY ) *
-                 PREDICTION_TRAJECTORY_FLOATS_PER_RECORD )
+    : m_records( std::make_unique<float[]>( PREDICTION_TRAJECTORY_RECORD_FLOAT_CAPACITY ) )
 {
 }
 
@@ -1660,7 +1659,8 @@ void ReplayPredictionRetainedGeometry::PublishToPacket( ReplayVisualPacket& pack
                []( const Rendering::RetainedGeometryRangeToken& lhs, const Rendering::RetainedGeometryRangeToken& rhs )
                { return lhs.drawOrder < rhs.drawOrder; } );
 
-    packet.retainedPredictionCompactRibbonRecords = m_records;
+    packet.retainedPredictionCompactRibbonRecords =
+        std::span<const float>( m_records.get(), PREDICTION_TRAJECTORY_RECORD_FLOAT_CAPACITY );
     packet.retainedPredictionRibbonRanges = std::span<const Rendering::RetainedGeometryRangeToken>( m_drawRanges.data(),
                                                                                                     m_rangeCount );
 }
@@ -1780,14 +1780,15 @@ bool ReplayPredictionRetainedGeometry::EmitRecord( std::size_t rangeIndex,
     }
 
     const ReplayPredictionRetainedRecord record = { start, end, style.width, r, g, b, style.alpha, style.edgeFeather, style.emphasis, start, end };
+    std::span<float> records( m_records.get(), PREDICTION_TRAJECTORY_RECORD_FLOAT_CAPACITY );
 
     const bool appended = range.recordCount == 0u && range.continuationRange < m_rangeCount
-                              ? AppendPredictionRetainedContinuation( m_records,
+                              ? AppendPredictionRetainedContinuation( records,
                                                                       m_ranges[range.continuationRange],
                                                                       range,
                                                                       record,
                                                                       TOLERANCE * TOLERANCE )
-                              : AppendPredictionRetainedRecord( m_records, range, record, TOLERANCE * TOLERANCE );
+                              : AppendPredictionRetainedRecord( records, range, record, TOLERANCE * TOLERANCE );
 
     if ( !appended )
     {

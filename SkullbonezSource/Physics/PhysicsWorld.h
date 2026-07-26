@@ -116,6 +116,9 @@ class PhysicsWorld
     // Narrowphase owns bounded pair/island scratch. The sequencer commits typed
     // events in pair order because they target sleep and diagnostics owners.
     PhysicsNarrowphaseStage m_narrowphase;
+    // Lifetime: this detached span borrows SceneTerrain cells. SceneWorld clears
+    // the view before replacing that backing owner and republishes afterward.
+    PhysicsTerrainView m_terrainView;
     // Terrain owns detection candidates, committed manifolds, and solver rest
     // rows. Sleep-support and remaining-time outputs are synchronous borrows.
     PhysicsTerrainStage m_terrain;
@@ -178,6 +181,8 @@ class PhysicsWorld
     void BindProfiler( SkullbonezCore::Core::Profiler* profiler ) noexcept;
 
     void ApplyRuntimeSettings( const PhysicsRuntimeSettings& settings );
+    void SetTerrainView( PhysicsTerrainView terrain ) noexcept;
+    void ClearTerrainView() noexcept;
     void Clear();
     void ReserveBodyScratchCapacity( std::size_t capacity );
     // Runs one fixed world step over the stores. Collision diagnostics append

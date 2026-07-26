@@ -139,7 +139,6 @@ PhysicsBodyCreateDesc MakeSceneBodyDesc( Physics::PhysicsSceneObjectId sceneObje
                                          float mass,
                                          float restitution,
                                          bool fixed,
-                                         Geometry::Terrain* terrain,
                                          const char* name )
 {
     return MakePhysicsBodyCreateDesc( sceneObjectId,
@@ -152,7 +151,6 @@ PhysicsBodyCreateDesc MakeSceneBodyDesc( Physics::PhysicsSceneObjectId sceneObje
                                       mass,
                                       restitution,
                                       fixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic,
-                                      terrain,
                                       name );
 }
 
@@ -241,7 +239,6 @@ SkullbonezCore::Core::SbResult AppendAuthoredSimpleRagdoll( SceneSimpleRagdollAp
                                mass,
                                parts[i].restitution,
                                options.fixed,
-                               context.sceneWorld.Terrain().Get(),
                                name ),
             MakeSceneColliderDesc( shape, parts[i].restitution, "default" ) );
 
@@ -548,7 +545,6 @@ SkullbonezCore::Core::SbResult SceneAuthoredSetup::SetUpSceneEntities( SceneAuth
                 ball.m_mass,
                 ball.restitution,
                 ball.isFixed,
-                context.sceneWorld.Terrain().Get(),
                 ball.name ),
             MakeSceneColliderDesc( shape, ball.restitution, ball.contactMaterial ) );
 
@@ -593,7 +589,6 @@ SkullbonezCore::Core::SbResult SceneAuthoredSetup::SetUpSceneEntities( SceneAuth
                                bs.mass,
                                bs.restitution,
                                bs.isFixed,
-                               context.sceneWorld.Terrain().Get(),
                                bs.name ),
             MakeSceneColliderDesc( shape, bs.restitution, bs.contactMaterial ) );
 
@@ -641,7 +636,6 @@ SkullbonezCore::Core::SbResult SceneAuthoredSetup::SetUpSceneEntities( SceneAuth
                 box.mass,
                 box.restitution,
                 box.isFixed,
-                context.sceneWorld.Terrain().Get(),
                 box.name ),
             MakeSceneColliderDesc( shape, box.restitution, box.contactMaterial ) );
 
@@ -676,7 +670,6 @@ SkullbonezCore::Core::SbResult SceneAuthoredSetup::SetUpSceneEntities( SceneAuth
                                box.mass,
                                box.restitution,
                                box.isFixed,
-                               context.sceneWorld.Terrain().Get(),
                                box.name ),
             MakeSceneColliderDesc( shape, box.restitution, box.contactMaterial ) );
 
@@ -753,7 +746,6 @@ SkullbonezCore::Core::SbResult SceneAuthoredSetup::SetUpSceneEntities( SceneAuth
             hullScene.mass,
             hullScene.restitution,
             hullScene.isFixed,
-            context.sceneWorld.Terrain().Get(),
             hullScene.name );
 
         bodyDesc.releasesFromFixedOnContact = hullScene.contactReleaseOnImpact;
@@ -814,7 +806,6 @@ SkullbonezCore::Core::SbResult SceneAuthoredSetup::SetUpSceneEntities( SceneAuth
             hullScene.mass,
             hullScene.restitution,
             hullScene.isFixed,
-            context.sceneWorld.Terrain().Get(),
             hullScene.name );
 
         bodyDesc.releasesFromFixedOnContact = hullScene.contactReleaseOnImpact;

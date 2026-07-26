@@ -454,56 +454,41 @@ void Terrain::BuildCollisionCache()
             triB.v2 = m_postData[targetQuadric - m_postsPerSide + 1].vPosition;
             triB.v3 = m_postData[targetQuadric + 1].vPosition;
 
-            CachedQuadData& cached = m_cachedCollisionData[zPosting * quadsPerSide + xPosting];
-            cached.m_triangleA.m_plane = GeometricMath::ComputePlane( triA );
-            cached.m_triangleB.m_plane = GeometricMath::ComputePlane( triB );
+            Physics::PhysicsTerrainCell& cached = m_cachedCollisionData[zPosting * quadsPerSide + xPosting];
+            cached.triangleA = GeometricMath::ComputePlane( triA );
+            cached.triangleB = GeometricMath::ComputePlane( triB );
 
-            if ( cached.m_triangleA.m_plane.m_normal.y < 0.0f )
+            if ( cached.triangleA.m_normal.y < 0.0f )
             {
-                cached.m_triangleA.m_plane.m_normal = cached.m_triangleA.m_plane.m_normal * -1.0f;
-                cached.m_triangleA.m_plane.m_distance *= -1.0f;
+                cached.triangleA.m_normal = cached.triangleA.m_normal * -1.0f;
+                cached.triangleA.m_distance *= -1.0f;
             }
 
-            if ( cached.m_triangleB.m_plane.m_normal.y < 0.0f )
+            if ( cached.triangleB.m_normal.y < 0.0f )
             {
-                cached.m_triangleB.m_plane.m_normal = cached.m_triangleB.m_plane.m_normal * -1.0f;
-                cached.m_triangleB.m_plane.m_distance *= -1.0f;
+                cached.triangleB.m_normal = cached.triangleB.m_normal * -1.0f;
+                cached.triangleB.m_distance *= -1.0f;
             }
-
-            cached.m_triangleA.m_normal = cached.m_triangleA.m_plane.m_normal;
-            cached.m_triangleB.m_normal = cached.m_triangleB.m_plane.m_normal;
         }
     }
 }
 
 
-int Terrain::GetQuadCacheIndex( float xPosition, float zPosition, bool& isTriangleA )
+SkullbonezCore::Physics::PhysicsTerrainView Terrain::PhysicsView() const noexcept
 {
-    float scaledStepSize = m_stepSize * Config().terrainGeometry.scale;
-    int xPosting = static_cast<int>( floorf( zPosition / scaledStepSize ) );
-    int zPosting = static_cast<int>( floorf( xPosition / scaledStepSize ) );
-    int quadsPerSide = m_postsPerSide - 1;
-
-    if ( xPosting < 0 || zPosting < 0 || xPosting >= quadsPerSide || zPosting >= quadsPerSide )
-    {
-        SB_FATAL( "Terrain",
-                  "Coordinates out of terrain bounds in GetQuadCacheIndex: x=%.3f z=%.3f xPosting=%d "
-                  "zPosting=%d quadsPerSide=%d.",
-                  xPosition,
-                  zPosition,
-                  xPosting,
-                  zPosting,
-                  quadsPerSide );
-    }
-
-    float localZ = zPosition - ( xPosting * scaledStepSize );
-    float localX = xPosition - ( zPosting * scaledStepSize );
-
-    // Same split as LocatePolygon: triangle A when above the quad diagonal, or
-    // exactly on the axis where the old gradient test was infinite.
-    isTriangleA = ( localX <= TOLERANCE ) || ( ( scaledStepSize - localZ ) > localX );
-
-    return zPosting * quadsPerSide + xPosting;
+    SkullbonezCore::Physics::PhysicsTerrainView view;
+    view.cells = m_cachedCollisionData;
+    view.quadsPerSide = m_postsPerSide - 1;
+    view.scaledStepSize = m_isFlatSlope ? 0.0f : m_stepSize * Config().terrainGeometry.scale;
+    view.worldExtent = m_isFlatSlope ? 0.0f : m_terrainSizeWorldCoords * Config().terrainGeometry.scale;
+    view.maxHeight = m_maxTerrainHeight;
+    view.flatSlope = m_isFlatSlope;
+    view.flatSlopeExtent = FLAT_SLOPE_EXTENT;
+    view.slopeBaseY = m_slopeBaseY;
+    view.slopeX = m_slopeX;
+    view.slopeZ = m_slopeZ;
+    view.flatSlopePlane = m_flatSlopePlane;
+    return view;
 }
 
 
@@ -513,7 +498,7 @@ void Terrain::QueryCollisionData( float xPosition,
                                   Vector3* outNormal,
                                   Plane* outPlane )
 {
-    if ( !IsInBounds( xPosition, zPosition ) )
+    if ( !PhysicsView().IsInBounds( xPosition, zPosition ) )
     {
         SB_FATAL( "Terrain",
                   "Coordinates out of terrain bounds in QueryCollisionData: x=%.3f z=%.3f.",
@@ -534,33 +519,12 @@ void Terrain::QueryCollisionDataUnchecked( float xPosition,
     // This is the main physics terrain lookup. It returns the Y height and, if
     // requested, the contact normal or full plane at a given X/Z point. Callers
     // that already checked bounds use this unchecked version in hot paths.
-    if ( m_isFlatSlope )
-    {
-        outHeight = m_slopeBaseY + m_slopeX * xPosition + m_slopeZ * zPosition;
-        if ( outNormal )
-        {
-            *outNormal = m_flatSlopeNormal;
-        }
-
-        if ( outPlane )
-        {
-            *outPlane = m_flatSlopePlane;
-        }
-
-        return;
-    }
-
-    bool isTriangleA = false;
-    int cacheIndex = GetQuadCacheIndex( xPosition, zPosition, isTriangleA );
-    const CachedTriangleData& cachedTriangle = isTriangleA ? m_cachedCollisionData[cacheIndex].m_triangleA
-                                                           : m_cachedCollisionData[cacheIndex].m_triangleB;
-
-    const Plane& plane = cachedTriangle.m_plane;
-    outHeight = ( plane.m_distance - plane.m_normal.x * xPosition - plane.m_normal.z * zPosition ) / plane.m_normal.y;
+    Plane plane;
+    PhysicsView().HeightAndPlaneAt( xPosition, zPosition, outHeight, plane );
 
     if ( outNormal )
     {
-        *outNormal = cachedTriangle.m_normal;
+        *outNormal = plane.m_normal;
     }
 
     if ( outPlane )
@@ -846,34 +810,7 @@ void Terrain::GetTerrainHeightAndPlaneAt( float xPosition, float zPosition, floa
 
 bool Terrain::IsInBounds( float xPosition, float zPosition )
 {
-    if ( m_isFlatSlope )
-    {
-        return ( xPosition >= 0.0f && xPosition < FLAT_SLOPE_EXTENT && zPosition >= 0.0f &&
-                 zPosition < FLAT_SLOPE_EXTENT );
-    }
-
-    /*
-        Justification for not allowing coordinates to the absolute outer bound:
-        -----------------------------------------------------------------------
-        It is arguable that a point would be in bounds of the m_terrain if it was
-        equal to the scaled terrain extent. This may be true on
-        a physical level, however, this can cause major problems for the
-        Terrain::LocatePolygon method as it uses:
-        floor(xPosition / scaledStepSize) and
-        floor(zPosition / scaledStepSize)
-        to determine which m_terrain quadric the point is in - you can only imagine
-        what happens when the xPosition or the zPosition are equal to the upper
-        bound of the m_terrain - the quadric is set to something that does not exist
-        and all hell breaks loose (i.e. hours of debugging).
-
-        So, who cares if you cant move to the absolute outer bound of the m_terrain,
-        just move to the abolsute outer bound minus the smallest possible fraction
-        of a float possible instead.
-    */
-
-    return ( ( xPosition >= 0.0f ) && ( zPosition >= 0.0f ) &&
-             ( xPosition < m_terrainSizeWorldCoords * Config().terrainGeometry.scale ) &&
-             ( zPosition < m_terrainSizeWorldCoords * Config().terrainGeometry.scale ) );
+    return PhysicsView().IsInBounds( xPosition, zPosition );
 }
 
 

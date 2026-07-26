@@ -25,6 +25,8 @@
 //   - Awake indices remain sorted across sleep, parallel-wake flush, and cold
 //     topology rebuild boundaries.
 //   - Parallel narrowphase scheduling cannot reorder pair-slot results.
+//   - Terrain sampling and swept contact consume Physics-owned value views
+//     without linking a World terrain implementation into the test path.
 //   - Config stamping copies every Physics-owned source field without clamping;
 //     clamp policy remains at the consuming owner boundary.
 //
@@ -43,7 +45,9 @@
 #include "../SkullbonezSource/Physics/ColliderStore.h"
 #include "../SkullbonezSource/Physics/PhysicsApi.h"
 #include "../SkullbonezSource/Physics/PhysicsEngine.h"
+#include "../SkullbonezSource/Physics/PhysicsTerrainView.h"
 #include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
+#include "../SkullbonezSource/Physics/TerrainContactManifold.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsSleepController.h"
 
@@ -69,7 +73,11 @@ using SkullbonezCore::Physics::PhysicsNarrowphaseStage;
 using SkullbonezCore::Physics::PhysicsEngine;
 using SkullbonezCore::Physics::PhysicsRuntimeSettings;
 using SkullbonezCore::Physics::PhysicsSleepController;
+using SkullbonezCore::Physics::PhysicsTerrainCell;
+using SkullbonezCore::Physics::PhysicsTerrainView;
 using SkullbonezCore::Physics::PhysicsWorldForces;
+using SkullbonezCore::Physics::SweepTerrainContact;
+using SkullbonezCore::Physics::TerrainContactBodyView;
 using SkullbonezCore::Threading::LockOrderValidator;
 using SkullbonezCore::Threading::WorkerPool;
 
@@ -130,6 +138,59 @@ void CheckRuntimeSettingsMatchConfig( const PhysicsRuntimeSettings& settings,
     CHECK( settings.worldForces.gravity == config.worldForces.gravity );
 }
 } // namespace
+
+TEST_CASE( "Physics terrain view: analytic and cached-cell sampling stay detached from World" )
+{
+    PhysicsTerrainView slope;
+    slope.flatSlope = true;
+    slope.flatSlopeExtent = 100.0f;
+    slope.slopeBaseY = 2.0f;
+    slope.slopeX = 0.5f;
+    slope.slopeZ = -0.25f;
+    slope.maxHeight = 52.0f;
+    slope.flatSlopePlane.m_normal = Vector3( -0.5f, 1.0f, 0.25f );
+    slope.flatSlopePlane.m_distance = 2.0f;
+
+    CHECK( slope.IsValid() );
+    CHECK( slope.IsInBounds( 10.0f, 4.0f ) );
+    CHECK_FALSE( slope.IsInBounds( 100.0f, 4.0f ) );
+    CHECK( slope.HeightAt( 10.0f, 4.0f ) == doctest::Approx( 6.0f ) );
+    CHECK( slope.MaxHeight() == doctest::Approx( 52.0f ) );
+
+    std::array<PhysicsTerrainCell, 1> cells;
+    cells[0].triangleA.m_normal = Vector3( 0.0f, 1.0f, 0.0f );
+    cells[0].triangleA.m_distance = 1.0f;
+    cells[0].triangleB.m_normal = Vector3( 1.0f, 1.0f, 0.0f );
+    cells[0].triangleB.m_distance = 12.0f;
+
+    PhysicsTerrainView cached;
+    cached.cells = cells;
+    cached.quadsPerSide = 1;
+    cached.scaledStepSize = 10.0f;
+    cached.worldExtent = 10.0f;
+    cached.maxHeight = 4.0f;
+
+    SkullbonezCore::Geometry::Plane sampledPlane;
+    float sampledHeight = 0.0f;
+    cached.HeightAndPlaneAt( 1.0f, 1.0f, sampledHeight, sampledPlane );
+    CHECK( sampledHeight == doctest::Approx( 1.0f ) );
+    CHECK( sampledPlane.m_normal.y == doctest::Approx( 1.0f ) );
+    cached.HeightAndPlaneAt( 9.0f, 9.0f, sampledHeight, sampledPlane );
+    CHECK( sampledHeight == doctest::Approx( 3.0f ) );
+    CHECK( sampledPlane.m_normal.x == doctest::Approx( 1.0f ) );
+
+    TerrainContactBodyView body;
+    body.position = Vector3( 10.0f, 5.0f, 10.0f );
+    body.linearVelocity = Vector3( 0.0f, -2.0f, 0.0f );
+    body.terrain = slope;
+    body.boundingRadius = 1.0f;
+    body.contactEpsilon = 0.05f;
+    body.terrainContactThreshold = 0.15f;
+    const auto sweep = SweepTerrainContact( body, UnitSphere(), 3.0f );
+    CHECK( sweep.hit );
+    CHECK( sweep.collisionTime >= 0.0f );
+    CHECK( sweep.collisionTime <= 3.0f );
+}
 
 TEST_CASE( "Physics runtime settings: default config stamps every owned field exactly" )
 {
@@ -283,6 +344,7 @@ TEST_CASE( "Physics sleep awake list: transitions and queued wakes preserve asce
     std::array<float, 3> timeRemaining = { 1.0f / 120.0f, 1.0f / 120.0f, 1.0f / 120.0f };
     const auto wakeAccess = controller.CreateNarrowphaseWakeAccess( bodies,
                                                                     colliders,
+                                                                    {},
                                                                     worldForces,
                                                                     bodies.MutableRecords(),
                                                                     timeRemaining,
@@ -318,8 +380,7 @@ TEST_CASE( "Physics sleep underwater lock: fully submerged sleeper locks and dis
                                                             Vector3( 1.0f, 1.0f, 1.0f ),
                                                             1.0f,
                                                             0.0f,
-                                                            PhysicsBodyMotionKind::Dynamic,
-                                                            nullptr );
+                                                            PhysicsBodyMotionKind::Dynamic );
     const auto handle = bodies.CreateBodyRecord( desc, true );
     ColliderRecord collider;
     collider.body = handle;
@@ -382,6 +443,7 @@ TEST_CASE( "Physics sleep awake list: one-frame transitions visit every row whil
     PhysicsWorldForces worldForces;
     const SkullbonezCore::Physics::PhysicsSleepIslandStageContext context{ bodies,
                                                                            colliders,
+                                                                           {},
                                                                            worldForces,
                                                                            bodies.MutableRecords(),
                                                                            bodies.MutableHotFields(),
@@ -434,6 +496,7 @@ TEST_CASE( "Physics sleep point-joint island: stretched anchors block relaxation
         controller.MirrorFlagsFrom( bodies, 2 );
         const SkullbonezCore::Physics::PhysicsSleepIslandStageContext context{ bodies,
                                                                                colliders,
+                                                                               {},
                                                                                worldForces,
                                                                                bodies.MutableRecords(),
                                                                                bodies.MutableHotFields(),
@@ -492,6 +555,7 @@ TEST_CASE( "Physics narrowphase islands: repeated parallel evaluation preserves 
     std::vector<SkullbonezCore::Physics::PersistentContactCacheEntry> persistentCache;
     const auto wakeAccess = sleep.CreateNarrowphaseWakeAccess( bodies,
                                                                colliders,
+                                                               {},
                                                                worldForces,
                                                                bodies.MutableRecords(),
                                                                timeRemaining,
@@ -499,6 +563,7 @@ TEST_CASE( "Physics narrowphase islands: repeated parallel evaluation preserves 
                                                                1.0f / 120.0f );
     const ObjectNarrowphasePairStageContext context{ bodies,
                                                      colliders,
+                                                     {},
                                                      worldForces,
                                                      bodies.MutableRecords(),
                                                      bodies.HotFields(),
