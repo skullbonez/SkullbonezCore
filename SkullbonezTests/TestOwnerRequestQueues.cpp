@@ -40,6 +40,8 @@ Invariants:
     panel mask and topology fingerprint.
   - Clear and activation observers advance independently and consume each
     lifecycle generation at most once.
+  - Generated-scene rebuilds accept only the adjacent drain, repopulate,
+    follow-up publication, and completion walk.
 
 Related:
   - SkullbonezSource/Runtime/Capture/CaptureController.h
@@ -61,6 +63,7 @@ Related:
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneController.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneLoadTransaction.h"
+#include "../SkullbonezSource/Runtime/Scene/SceneRuntimeGeneratedControls.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneRequestQueue.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneControllerState.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneRuntime.h"
@@ -372,6 +375,39 @@ TEST_CASE( "Scene load phase cursor accepts only the complete adjacent walk" )
     CHECK_FALSE( cursor.TryAdvance( Phase::Complete ) );
     CHECK( cursor.Current() == Phase::RuntimeReactions );
     CHECK( cursor.TryAdvance( Phase::Presentation ) );
+    CHECK( cursor.TryAdvance( Phase::Complete ) );
+    CHECK_FALSE( cursor.TryAdvance( Phase::Idle ) );
+    CHECK( cursor.Current() == Phase::Complete );
+}
+
+TEST_CASE( "Generated-scene control phase cursor accepts only the complete adjacent walk" )
+{
+    using Phase = SceneGeneratedControlPhaseCursor::Phase;
+    constexpr std::array phases { Phase::Idle,
+                                  Phase::DrainAndReset,
+                                  Phase::Repopulate,
+                                  Phase::PublishFollowUps,
+                                  Phase::Complete,
+                                  Phase::Count };
+
+    for ( std::size_t fromIndex = 0; fromIndex < phases.size(); ++fromIndex )
+    {
+        for ( std::size_t toIndex = 0; toIndex < phases.size(); ++toIndex )
+        {
+            const bool expected = fromIndex < 4 && toIndex == fromIndex + 1;
+            CHECK( SceneGeneratedControlPhaseCursor::IsLegalTransition( phases[fromIndex], phases[toIndex] ) ==
+                   expected );
+        }
+    }
+
+    SceneGeneratedControlPhaseCursor cursor;
+    CHECK_FALSE( cursor.TryAdvance( Phase::Repopulate ) );
+    CHECK( cursor.Current() == Phase::Idle );
+    CHECK( cursor.TryAdvance( Phase::DrainAndReset ) );
+    CHECK_FALSE( cursor.TryAdvance( Phase::Complete ) );
+    CHECK( cursor.Current() == Phase::DrainAndReset );
+    CHECK( cursor.TryAdvance( Phase::Repopulate ) );
+    CHECK( cursor.TryAdvance( Phase::PublishFollowUps ) );
     CHECK( cursor.TryAdvance( Phase::Complete ) );
     CHECK_FALSE( cursor.TryAdvance( Phase::Idle ) );
     CHECK( cursor.Current() == Phase::Complete );

@@ -12,16 +12,16 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-25th-JUL-26` |
 | Current baseline | Downward Domain Bleed Remediation is complete at 6/6 and removed from the live inventory: all three ownership boundaries and the include residue are closed, mechanically enforced, independently reviewed, and fully validated. |
-| Current objective | Execute `invariant-ownership-governance-and-transaction-repair` GV3: repair the generated-scene control rebuild ordering with a concrete phase-checked owner. |
-| Active/future progress | Invariant Ownership Governance And Transaction Repair 3/5; Concrete Parameter-Bag Elimination 0/8; active/future ledger 3/13 (23%). |
+| Current objective | Execute `invariant-ownership-governance-and-transaction-repair` GV4: final sweeps, touched-source audit, one hostile independent review, closure gate, and handoff. |
+| Active/future progress | Invariant Ownership Governance And Transaction Repair 4/5; Concrete Parameter-Bag Elimination 0/8; active/future ledger 4/13 (31%). |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | GV2 `validate_full.bat` passes: mandatory CPU/coverage, Automation, DX12 with zero validation errors, and byte-exact physics regression. |
-| Validation for current edits | GV2 scene-load transaction: `validate_tests`, project-filter validation, and `validate_full` pass; retired-symbol and baseline-motion scans are empty. |
+| Last broad local gate | GV3 `validate_full.bat` passes: mandatory CPU/coverage, Automation/replay, DX12, and byte-exact physics regression. |
+| Validation for current edits | GV3 generated-scene transaction: 395 doctests / 2,403,407 assertions, `validate_full`, and one-minute graphics stress pass; retired-symbol and baseline-motion scans are empty. |
 
 ## Live Queue
 
-NOW. The 2026-07-25 round-4 architecture campaign is active at 3/13 with
-binding order: `invariant-ownership-governance-and-transaction-repair` (3/5),
+NOW. The 2026-07-25 round-4 architecture campaign is active at 4/13 with
+binding order: `invariant-ownership-governance-and-transaction-repair` (4/5),
 then
 `concrete-parameter-bag-elimination` (0/8).
 
@@ -45,7 +45,9 @@ GV1 permanent evidence is
 `Agentic/Reports/2026-07-26/invariant-ownership-governance-gv1-census.md`.
 GV2 permanent evidence is
 `Agentic/Reports/2026-07-26/invariant-ownership-governance-gv2-scene-load-transaction.md`.
-Implementation continues through the repository orchestrator skill with GV3
+GV3 permanent evidence is
+`Agentic/Reports/2026-07-26/invariant-ownership-governance-gv3-generated-scene-transaction.md`.
+Implementation continues through the repository orchestrator skill with GV4
 next. Live plans are under
 `Agentic/Plans/TODO/`.
 

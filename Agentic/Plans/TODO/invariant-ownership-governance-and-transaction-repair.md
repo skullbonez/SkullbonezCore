@@ -4,7 +4,7 @@ Date: 2026-07-25
 
 Owner: Governance (`AGENTS.md`) + Runtime/Scene + Runtime/App
 
-State: IN PROGRESS (GV0-GV2 complete; GV3 is next)
+State: IN PROGRESS (GV0-GV3 complete; GV4 is next)
 
 Ledger tasks: 5 (GV0-GV4)
 
@@ -385,7 +385,7 @@ this transaction needs). So both are banned, and the invariant is homeless.
     `tools\validate_full.bat` pass with no baseline, golden, scene, config,
     replay artifact, or physics CSV refresh.
 
-- [ ] **GV3 — Repair the remaining repair-now census rows.**
+- [x] **GV3 — Repair the remaining repair-now census rows.**
 
   Apply the same treatment to every GV1 repair-now row: name the invariant,
   build or assign its owner under permanent invariants 1-2, delete the
@@ -416,6 +416,24 @@ this transaction needs). So both are banned, and the invariant is homeless.
   - No new aggregate lacking a named invariant was introduced anywhere in
     the diff.
   - All mapped gates for touched areas pass with zero refresh.
+
+  Evidence (2026-07-26):
+
+  - Permanent report:
+    `../../Reports/2026-07-26/invariant-ownership-governance-gv3-generated-scene-transaction.md`.
+  - The sole additional GV1 repair row now has one concrete, non-copyable
+    `SceneGeneratedControlTransaction` with the enforced walk
+    `DrainAndReset -> Repopulate -> PublishFollowUps -> Complete`.
+  - The transaction retains only request/policy/result/cursor values; all
+    seven mutable or policy owners are synchronous `Execute` borrows.
+  - Three authority-free participant bags and five free generated-control
+    operations are deleted with a zero-row source/test scan.
+  - The focused cursor test exhaustively proves all 36 transitions and
+    rejected-jump recovery.
+  - Touched-file comment audit: 5 checked, 0 deferred, 0 unchecked.
+  - `validate_tests`, `validate_full`, and the bounded one-minute graphics
+    stress gate pass with zero baseline, golden, artifact, scene, config, or
+    physics CSV refresh.
 
 - [ ] **GV4 — Close governance adoption, behavior, and documentation.**
 

@@ -1165,16 +1165,6 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         uiCommands.physics );
 
     RecordPhysicsFrictionUIActions( physicsFrictionCommands, recordUIAction );
-    const SceneGeneratedControlPolicy sceneGeneratedPolicy { liveConfig,
-                                                             launchOptions.generatedObjectTypeOverride,
-                                                             facts.sceneObjectCapacity };
-
-    const SceneGeneratedControlPresentation sceneGeneratedPresentation { ui.SceneNavigation().overrides, camera };
-
-    const SceneGeneratedControlResetParticipants sceneGeneratedReset { simulation,
-                                                                       runtimeTools,
-                                                                       renderBackendView.renderFrame };
-
     const auto executeSceneGeneratedControlAction = [&]( const SceneRuntimeGeneratedControlAction& action )
     {
         if ( action.resetReplayTimeline )
@@ -1203,12 +1193,19 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         }
     };
 
-    const SceneGeneratedUICommandResult modelCountCommand = ApplySceneGeneratedModelCountUICommand(
-        sceneGeneratedPolicy,
-        sceneGeneratedPresentation,
-        sceneGeneratedReset,
+    SceneGeneratedControlTransaction modelCountTransaction = SceneGeneratedControlTransaction::ModelCount(
+        uiCommands.sceneOptions.requestedModelCount,
+        launchOptions.generatedObjectTypeOverride,
+        facts.sceneObjectCapacity );
+
+    const SceneGeneratedUICommandResult modelCountCommand = modelCountTransaction.Execute(
+        liveConfig,
         sceneController,
-        uiCommands.sceneOptions.requestedModelCount );
+        ui.SceneNavigation().overrides,
+        camera,
+        simulation,
+        runtimeTools,
+        renderBackendView.renderFrame );
 
     if ( !modelCountCommand.action.status.ok )
     {
@@ -1227,12 +1224,19 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         recordUIAction( RuntimeInputAction::SetWorkerThreads );
     }
 
-    const SceneGeneratedUICommandResult solverBallCountCommand = ApplySceneGeneratedSolverBallCountUICommand(
-        sceneGeneratedPolicy,
-        sceneGeneratedPresentation,
-        sceneGeneratedReset,
+    SceneGeneratedControlTransaction solverBallCountTransaction = SceneGeneratedControlTransaction::SolverBallCount(
+        uiCommands.run.requestedSolverBallCount,
+        launchOptions.generatedObjectTypeOverride,
+        facts.sceneObjectCapacity );
+
+    const SceneGeneratedUICommandResult solverBallCountCommand = solverBallCountTransaction.Execute(
+        liveConfig,
         sceneController,
-        uiCommands.run.requestedSolverBallCount );
+        ui.SceneNavigation().overrides,
+        camera,
+        simulation,
+        runtimeTools,
+        renderBackendView.renderFrame );
 
     if ( !solverBallCountCommand.action.status.ok )
     {
@@ -1246,12 +1250,19 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         recordUIAction( RuntimeInputAction::SetSolverCounts );
     }
 
-    const SceneGeneratedUICommandResult solverBoxCountCommand = ApplySceneGeneratedSolverBoxCountUICommand(
-        sceneGeneratedPolicy,
-        sceneGeneratedPresentation,
-        sceneGeneratedReset,
+    SceneGeneratedControlTransaction solverBoxCountTransaction = SceneGeneratedControlTransaction::SolverBoxCount(
+        uiCommands.run.requestedSolverBoxCount,
+        launchOptions.generatedObjectTypeOverride,
+        facts.sceneObjectCapacity );
+
+    const SceneGeneratedUICommandResult solverBoxCountCommand = solverBoxCountTransaction.Execute(
+        liveConfig,
         sceneController,
-        uiCommands.run.requestedSolverBoxCount );
+        ui.SceneNavigation().overrides,
+        camera,
+        simulation,
+        runtimeTools,
+        renderBackendView.renderFrame );
 
     if ( !solverBoxCountCommand.action.status.ok )
     {

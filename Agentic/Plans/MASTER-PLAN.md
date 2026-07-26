@@ -623,13 +623,21 @@ RuntimeReactions -> Presentation and mid-batch value arbitration. All former
 call sites compile through the transaction, the four free helpers and public
 output bag are deleted, and the full gate passes without baseline motion. The
 live ledger is now 3/13 (23%).
+GV3 then repaired the census's sole additional invariant-shaped row. The
+non-copyable `SceneGeneratedControlTransaction` now owns the generated-scene
+walk DrainAndReset -> Repopulate -> PublishFollowUps -> Complete, while seven
+runtime owners remain synchronous borrows. Three authority-free participant
+bags and five free operations are deleted; the exhaustive cursor test, full
+gate, and bounded graphics stress pass without baseline motion. The live ledger
+is now 4/13 (31%).
 
 ## Current Execution Priority
 
 The 2026-07-25 round-4 campaign is the active queue with binding order:
-1 `invariant-ownership-governance-and-transaction-repair` (3/5; GV0 installed
+1 `invariant-ownership-governance-and-transaction-repair` (4/5; GV0 installed
   the governance amendment, GV1 ratified the census, GV2 installed the
-  scene-load transaction, and GV3 is next). The owner-registered parameter-bag
+  scene-load transaction, GV3 installed the generated-scene transaction, and
+  GV4 is next). The owner-registered parameter-bag
   work follows GV4.
 Header-claim staleness remediation is complete at 3/3 and removed
 from the live ledger; its permanent evidence is
@@ -652,7 +660,9 @@ has permanent evidence in
 `../Reports/2026-07-26/invariant-ownership-governance-gv1-census.md`; GV2 has
 permanent evidence in
 `../Reports/2026-07-26/invariant-ownership-governance-gv2-scene-load-transaction.md`;
-GV3 owns the front of the dependency chain.
+GV3 has permanent evidence in
+`../Reports/2026-07-26/invariant-ownership-governance-gv3-generated-scene-transaction.md`;
+GV4 owns the front of the dependency chain.
 The UI plan preserves the existing UI/Runtime value-command boundary and
 makes Runtime/Render the sole UI-to-renderer composition point, and its UR5
 validator is the shared enforcement vehicle the two follow-up plans extend
@@ -1778,7 +1788,8 @@ UI campaign, and HC0 ran beside the UI tail. HC1-HC2 then closed after UR6 as
 sequenced. HC2 preserved GV0's aggregate-invariant procedure and added claim
 verification as a separate step. Replay and Downward Domain Bleed are complete;
 GV1 ratified the offender census, GV2 installed the scene-load transaction,
-and GV3 is now the binding next task. HC2 and GV0 both amended
+GV3 installed the generated-scene transaction, and GV4 is now the binding next
+task. HC2 and GV0 both amended
 `Agentic/Skills/comment-style-audit/skill.md` in separate sections; HC2 landed
 second and preserved GV0.
 
@@ -1788,7 +1799,7 @@ second and preserved GV0.
 | [header-claim-staleness-remediation](../Reports/2026-07-25/header-claim-staleness-remediation-closure.md) | Complete | 3/3 | Closed and removed from the live ledger under inventory rule 4 |
 | [replay-subsystem-partition](../Reports/2026-07-26/replay-subsystem-partition-closure.md) | Complete | 6/6 | Closed and removed from the live ledger under inventory rule 4 |
 | [downward-domain-bleed-remediation](../Reports/2026-07-26/downward-domain-bleed-remediation-closure.md) | Complete | 6/6 | Closed and removed from the live ledger under inventory rule 4 |
-| [invariant-ownership-governance-and-transaction-repair](TODO/invariant-ownership-governance-and-transaction-repair.md) | In progress | 3/5 | GV2 installed the scene-load transaction; GV3 is next |
+| [invariant-ownership-governance-and-transaction-repair](TODO/invariant-ownership-governance-and-transaction-repair.md) | In progress | 4/5 | GV3 installed the generated-scene transaction; GV4 is next |
 
 ## Features
 

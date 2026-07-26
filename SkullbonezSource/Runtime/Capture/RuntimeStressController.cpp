@@ -949,16 +949,7 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host,
     // This gate is a UI control-state crash sweep. Runtime rebuilds and world
     // debug toggles belong to render/physics validation, so they stay frozen here.
     const bool allowRuntimeChurn = StressHarness::AllowsRuntimeChurn();
-    const SceneGeneratedControlPolicy sceneGeneratedPolicy {
-        m_config,
-        m_launchOptions.generatedObjectTypeOverride,
-        SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ) };
-
-    const SceneGeneratedControlPresentation sceneGeneratedPresentation { m_UI.SceneNavigation().overrides, m_camera };
-
-    const SceneGeneratedControlResetParticipants sceneGeneratedReset { m_simulation,
-                                                                       m_runtimeTools,
-                                                                       m_renderBackendView.renderFrame };
+    const int generatedObjectCapacity = SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config );
 
     const auto executeSceneGeneratedControlAction = [&]( const SceneRuntimeGeneratedControlAction& action ) -> SkullbonezCore::Core::SbResult
     {
@@ -1003,12 +994,21 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host,
         const int modelCount = 96 + StressHarness::NextInt( stress, 160 );
         if ( allowRuntimeChurn )
         {
+            SceneGeneratedControlTransaction transaction = SceneGeneratedControlTransaction::ModelCount(
+                modelCount,
+                m_launchOptions.generatedObjectTypeOverride,
+                generatedObjectCapacity );
+
             const SkullbonezCore::Core::SbResult actionResult = executeSceneGeneratedControlAction(
-                ApplyUIModelCountOverride( sceneGeneratedPolicy,
-                                           sceneGeneratedPresentation,
-                                           sceneGeneratedReset,
-                                           m_sceneController,
-                                           modelCount ) );
+                transaction
+                    .Execute( m_config,
+                              m_sceneController,
+                              m_UI.SceneNavigation().overrides,
+                              m_camera,
+                              m_simulation,
+                              m_runtimeTools,
+                              m_renderBackendView.renderFrame )
+                    .action );
 
             if ( !actionResult.ok )
             {
@@ -1023,13 +1023,22 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host,
         const int boxes = StressHarness::NextInt( stress, 1000 - balls + 1 );
         if ( allowRuntimeChurn )
         {
+            SceneGeneratedControlTransaction transaction = SceneGeneratedControlTransaction::SolverCounts(
+                balls,
+                boxes,
+                m_launchOptions.generatedObjectTypeOverride,
+                generatedObjectCapacity );
+
             const SkullbonezCore::Core::SbResult actionResult = executeSceneGeneratedControlAction(
-                ApplyUISolverObjectCounts( sceneGeneratedPolicy,
-                                           sceneGeneratedPresentation,
-                                           sceneGeneratedReset,
-                                           m_sceneController,
-                                           balls,
-                                           boxes ) );
+                transaction
+                    .Execute( m_config,
+                              m_sceneController,
+                              m_UI.SceneNavigation().overrides,
+                              m_camera,
+                              m_simulation,
+                              m_runtimeTools,
+                              m_renderBackendView.renderFrame )
+                    .action );
 
             if ( !actionResult.ok )
             {

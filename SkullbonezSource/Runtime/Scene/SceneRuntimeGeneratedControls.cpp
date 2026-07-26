@@ -1,23 +1,27 @@
 /*
 File: SkullbonezSource/Runtime/Scene/SceneRuntimeGeneratedControls.cpp
 Purpose:
-  Implements live generated-scene rebuild helpers outside Run.
+  Implements the phase-enforcing generated-scene rebuild transaction.
 
 Summary:
-  Generated-scene UI rebuilds clear the active generated objects, reset fixed
-  step simulation state, reseed the deterministic setup path, and request the
-  caller-owned replay/profiler resets that still sit on Run.
+  One stack-scoped owner resolves a count request, drains and resets the active
+  scene, repopulates deterministic generated objects, and publishes detached
+  replay/profiler follow-ups. It retains no borrowed runtime owner.
 
 Glossary:
   Generated override: UI-selected model count or solver ball/box counts.
+  Request arbitration: Selection of the untouched solver count from the newest
+    accepted UI override before falling back to scene state.
   Follow-up action: Returned flags that tell Run to reset replay and profiler
     state after rebuilding generated objects.
   Model capacity: Maximum active model count that generated rebuilds must obey.
 
 Invariants:
-  - Rebuilds clear generated runtime state before reseeding object setup.
-  - Replay/profiler resets are returned as actions, not performed here.
-  - Camera tracking must be clamped after model-count changes.
+  - Accepted requests follow DrainAndReset, Repopulate, PublishFollowUps, and
+    Complete; the transaction makes every other transition Lane F fatal.
+  - A failed GPU drain returns Lane R before UI overrides or topology mutate.
+  - Replay/profiler resets are detached values published only after repopulation.
+  - Camera tracking is clamped against the post-rebuild model count.
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntimeGeneratedControls.h
@@ -27,8 +31,8 @@ Related:
 #include "SceneRuntimeGeneratedControls.h"
 #include "SceneController.h"
 #include "../Tools/RuntimeTools.h"
-#include "SceneController.h"
 #include "../Simulation/SimulationSystem.h"
+#include "../../Core/FatalError.h"
 #include "../../Rendering/DX12/Dx12FrameOwner.h"
 
 #include <algorithm>
@@ -40,48 +44,11 @@ namespace Runtime
 {
 namespace
 {
-SceneRuntimeGeneratedControlAction RequestReplayAndProfileReset()
-{
-    SceneRuntimeGeneratedControlAction action;
-    action.resetReplayTimeline = true;
-    action.scheduleProfileReset = true;
-    return action;
-}
-
-SkullbonezCore::Core::SbResult ResetGeneratedRuntimeState( SceneController& scene,
-                                                           SceneGeneratedControlResetParticipants reset )
-{
-    // Hazard: Generated rebuilds destroy model/render state. Flush GPU work
-    // first, then clear objects and reset simulation/tool state together.
-    if ( reset.renderFrame )
-    {
-        const SkullbonezCore::Core::SbResult flushResult = reset.renderFrame->FlushGPU();
-        if ( !flushResult.ok )
-        {
-            // Lane R: no owner below this point may mutate after an uncertain
-            // drain. Return the device failure to the input/stress boundary.
-            return flushResult;
-        }
-    }
-
-    scene.Scene().Clear();
-    reset.tools.ClearRayCastTestLines();
-    reset.simulation.Reset();
-    scene.State().currentFrame = 0;
-    scene.State().isTestComplete = false;
-    return SkullbonezCore::Core::SbResult::Success();
-}
-
-SceneGeneratedModelContext BuildGeneratedModelContext( SceneGeneratedControlPolicy policy, SceneController& scene )
-{
-    return SceneGeneratedModelContext { scene.State(), policy.config, scene.Scene(), policy.objectTypeOverride };
-}
-
 void LogGeneratedControlFailure( const SkullbonezCore::Core::SbResult& result )
 {
-    // Why: UI rebuild has already cleared mutable scene/model state. Report the
-    // recoverable owner and let the caller reset replay/profiler state around
-    // the now-current partial topology.
+    // Why: The transaction has already cleared mutable scene/model state.
+    // Report the recoverable owner and let the caller reset replay/profiler
+    // state around the now-current partial topology.
     const char* owner = result.error.owner && result.error.owner[0] != '\0' ? result.error.owner
                                                                             : "Runtime/SceneGeneratedControls";
 
@@ -92,203 +59,265 @@ void LogGeneratedControlFailure( const SkullbonezCore::Core::SbResult& result )
 }
 } // namespace
 
-SceneRuntimeGeneratedControlAction ApplyUIModelCountOverride( SceneGeneratedControlPolicy policy,
-                                                              SceneGeneratedControlPresentation presentation,
-                                                              SceneGeneratedControlResetParticipants reset,
-                                                              SceneController& scene,
-                                                              int count )
+SceneGeneratedControlTransaction::SceneGeneratedControlTransaction( RequestKind kind,
+                                                                    int requestedPrimary,
+                                                                    int requestedSecondary,
+                                                                    GeneratedObjectTypeOverride objectTypeOverride,
+                                                                    int modelCapacity )
+    : m_kind( kind ), m_requestedPrimary( requestedPrimary ), m_requestedSecondary( requestedSecondary ),
+      m_objectTypeOverride( objectTypeOverride ), m_modelCapacity( (std::max)( 0, modelCapacity ) )
 {
-    // Invariant: A model-count override is mutually exclusive with solver exact
-    // ball/box overrides; only one generated setup mode owns the rebuild.
-    const int modelCountOverride = std::clamp( count, 0, policy.modelCapacity );
-    if ( !scene.HasCurrentEntry() )
+}
+
+SceneGeneratedControlTransaction
+SceneGeneratedControlTransaction::ModelCount( int requestedCount,
+                                              GeneratedObjectTypeOverride objectTypeOverride,
+                                              int modelCapacity )
+{
+    return SceneGeneratedControlTransaction( RequestKind::ModelCount,
+                                             requestedCount,
+                                             -1,
+                                             objectTypeOverride,
+                                             modelCapacity );
+}
+
+SceneGeneratedControlTransaction
+SceneGeneratedControlTransaction::SolverBallCount( int requestedCount,
+                                                   GeneratedObjectTypeOverride objectTypeOverride,
+                                                   int modelCapacity )
+{
+    return SceneGeneratedControlTransaction( RequestKind::SolverBallCount,
+                                             requestedCount,
+                                             -1,
+                                             objectTypeOverride,
+                                             modelCapacity );
+}
+
+SceneGeneratedControlTransaction
+SceneGeneratedControlTransaction::SolverBoxCount( int requestedCount,
+                                                  GeneratedObjectTypeOverride objectTypeOverride,
+                                                  int modelCapacity )
+{
+    return SceneGeneratedControlTransaction( RequestKind::SolverBoxCount,
+                                             requestedCount,
+                                             -1,
+                                             objectTypeOverride,
+                                             modelCapacity );
+}
+
+SceneGeneratedControlTransaction
+SceneGeneratedControlTransaction::SolverCounts( int requestedBalls,
+                                                int requestedBoxes,
+                                                GeneratedObjectTypeOverride objectTypeOverride,
+                                                int modelCapacity )
+{
+    return SceneGeneratedControlTransaction( RequestKind::SolverCounts,
+                                             requestedBalls,
+                                             requestedBoxes,
+                                             objectTypeOverride,
+                                             modelCapacity );
+}
+
+bool SceneGeneratedControlTransaction::ResolveRequest( const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+                                                       const SceneSessionState& sceneState )
+{
+    if ( m_kind != RequestKind::SolverCounts && m_requestedPrimary < 0 )
     {
-        presentation.uiOverrides.modelCountOverride = modelCountOverride;
-        presentation.uiOverrides.solverBallCountOverride = -1;
-        presentation.uiOverrides.solverBoxCountOverride = -1;
-        return SceneRuntimeGeneratedControlAction {};
+        return false;
     }
 
-    const SkullbonezCore::Core::SbResult resetResult = ResetGeneratedRuntimeState( scene, reset );
-    if ( !resetResult.ok )
+    if ( m_kind == RequestKind::ModelCount )
     {
-        SceneRuntimeGeneratedControlAction action;
-        action.status = resetResult;
-        return action;
+        // Invariant: model-count and exact solver overrides are mutually
+        // exclusive. Repopulate commits this resolved mode atomically.
+        m_modelCount = std::clamp( m_requestedPrimary, 0, m_modelCapacity );
+        return true;
     }
 
-    presentation.uiOverrides.modelCountOverride = modelCountOverride;
-    presentation.uiOverrides.solverBallCountOverride = -1;
-    presentation.uiOverrides.solverBoxCountOverride = -1;
-    if ( presentation.uiOverrides.modelCountOverride <= 0 )
+    if ( m_kind == RequestKind::SolverBallCount )
+    {
+        // Invariant: a prior accepted box command in the same frame wins over
+        // stale scene state when constraining this partial request.
+        m_solverBoxes = uiOverrides.solverBoxCountOverride >= 0 ? uiOverrides.solverBoxCountOverride
+                                                                : sceneState.solverBoxCount;
+
+        m_solverBalls = std::clamp( m_requestedPrimary, 0, (std::max)( 0, m_modelCapacity - m_solverBoxes ) );
+    }
+    else if ( m_kind == RequestKind::SolverBoxCount )
+    {
+        // Invariant: InputFrame executes ball before box. Read its newest
+        // accepted override so the combined request cannot exceed capacity.
+        m_solverBalls = uiOverrides.solverBallCountOverride >= 0 ? uiOverrides.solverBallCountOverride
+                                                                 : sceneState.solverBallCount;
+
+        m_solverBoxes = std::clamp( m_requestedPrimary, 0, (std::max)( 0, m_modelCapacity - m_solverBalls ) );
+    }
+    else
+    {
+        m_solverBalls = m_requestedPrimary;
+        m_solverBoxes = m_requestedSecondary;
+    }
+
+    // Exact-count stress requests and partial UI requests share one final
+    // normalization rule: preserve balls first and trim boxes second.
+    m_solverBalls = std::clamp( m_solverBalls, 0, m_modelCapacity );
+    m_solverBoxes = std::clamp( m_solverBoxes, 0, m_modelCapacity );
+    if ( m_solverBalls + m_solverBoxes > m_modelCapacity )
+    {
+        m_solverBoxes = (std::max)( 0, m_modelCapacity - m_solverBalls );
+    }
+
+    return true;
+}
+
+SkullbonezCore::Core::SbResult SceneGeneratedControlTransaction::DrainAndReset( SceneController& scene,
+                                                                                SimulationSystem& simulation,
+                                                                                RuntimeTools& tools,
+                                                                                Rendering::Dx12FrameOwner* renderFrame )
+{
+    AdvanceOrFatal( SceneGeneratedControlPhaseCursor::Phase::DrainAndReset, "DrainAndReset" );
+    if ( !m_rebuildActiveScene )
+    {
+        return SkullbonezCore::Core::SbResult::Success();
+    }
+
+    // Hazard: generated rebuilds destroy model/render state. A failed GPU drain
+    // must return before overrides, topology, simulation, or tools mutate.
+    if ( renderFrame )
+    {
+        const SkullbonezCore::Core::SbResult flushResult = renderFrame->FlushGPU();
+        if ( !flushResult.ok )
+        {
+            // Lane R: the input/stress boundary reports the device failure and
+            // this transaction never enters Repopulate.
+            return flushResult;
+        }
+    }
+
+    scene.Scene().Clear();
+    tools.ClearRayCastTestLines();
+    simulation.Reset();
+    scene.State().currentFrame = 0;
+    scene.State().isTestComplete = false;
+    return SkullbonezCore::Core::SbResult::Success();
+}
+
+void SceneGeneratedControlTransaction::Repopulate( const SkullbonezCore::Core::EngineConfig& config,
+                                                   SceneController& scene,
+                                                   SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+                                                   CameraControlState& camera )
+{
+    AdvanceOrFatal( SceneGeneratedControlPhaseCursor::Phase::Repopulate, "Repopulate" );
+
+    if ( m_kind == RequestKind::ModelCount )
+    {
+        uiOverrides.modelCountOverride = m_modelCount;
+        uiOverrides.solverBallCountOverride = -1;
+        uiOverrides.solverBoxCountOverride = -1;
+    }
+    else
+    {
+        uiOverrides.solverBallCountOverride = m_solverBalls;
+        uiOverrides.solverBoxCountOverride = m_solverBoxes;
+        uiOverrides.modelCountOverride = -1;
+    }
+
+    if ( !m_rebuildActiveScene )
+    {
+        return;
+    }
+
+    if ( m_kind == RequestKind::ModelCount && m_modelCount <= 0 )
     {
         scene.State().modelCount = 0;
-        presentation.camera.trackBallRow.value = -1;
-        return RequestReplayAndProfileReset();
+        camera.trackBallRow.value = -1;
+        return;
     }
 
     const unsigned int seed = scene.State().rngSeed > 0 ? scene.State().rngSeed : 1u;
     scene.State().rngState = seed;
-    const SkullbonezCore::Core::SbResult setupResult = SceneGeneratedSetup::SetUpSceneEntities(
-        BuildGeneratedModelContext( policy, scene ),
-        presentation.uiOverrides.modelCountOverride );
+    const SceneGeneratedModelContext context { scene.State(), config, scene.Scene(), m_objectTypeOverride };
+
+    const SkullbonezCore::Core::SbResult setupResult = m_kind == RequestKind::ModelCount
+                                                           ? SceneGeneratedSetup::SetUpSceneEntities( context,
+                                                                                                      m_modelCount )
+                                                           : SceneGeneratedSetup::SetUpSolverObjects( context,
+                                                                                                      m_solverBalls,
+                                                                                                      m_solverBoxes );
 
     if ( !setupResult.ok )
     {
         LogGeneratedControlFailure( setupResult );
         scene.State().modelCount = scene.Scene().SceneEntityCount();
-        presentation.camera.trackBallRow.value = scene.State().modelCount > 0 ? scene.State().modelCount - 1 : -1;
-        return RequestReplayAndProfileReset();
+        camera.trackBallRow.value = scene.State().modelCount > 0 ? scene.State().modelCount - 1 : -1;
+        return;
     }
 
-    if ( presentation.camera.trackBallRow.value >= presentation.uiOverrides.modelCountOverride )
+    const int cameraModelCount = m_kind == RequestKind::ModelCount ? m_modelCount : scene.State().modelCount;
+    if ( cameraModelCount <= 0 )
     {
-        presentation.camera.trackBallRow.value = presentation.uiOverrides.modelCountOverride - 1;
+        camera.trackBallRow.value = -1;
     }
-
-    return RequestReplayAndProfileReset();
+    else if ( camera.trackBallRow.value >= cameraModelCount )
+    {
+        camera.trackBallRow.value = cameraModelCount - 1;
+    }
 }
 
-SceneRuntimeGeneratedControlAction ApplyUISolverObjectCounts( SceneGeneratedControlPolicy policy,
-                                                              SceneGeneratedControlPresentation presentation,
-                                                              SceneGeneratedControlResetParticipants reset,
-                                                              SceneController& scene,
-                                                              int balls,
-                                                              int boxes )
+void SceneGeneratedControlTransaction::PublishFollowUps()
 {
-    // Concept: Solver overrides are exact-count generated scenes used by physics
-    // diagnostics and baseline runs, so model-count UI override is cleared.
-    balls = std::clamp( balls, 0, policy.modelCapacity );
-    boxes = std::clamp( boxes, 0, policy.modelCapacity );
-    if ( balls + boxes > policy.modelCapacity )
+    AdvanceOrFatal( SceneGeneratedControlPhaseCursor::Phase::PublishFollowUps, "PublishFollowUps" );
+    if ( m_rebuildActiveScene )
     {
-        boxes = (std::max)( 0, policy.modelCapacity - balls );
+        m_result.action.resetReplayTimeline = true;
+        m_result.action.scheduleProfileReset = true;
     }
-
-    if ( !scene.HasCurrentEntry() )
-    {
-        presentation.uiOverrides.solverBallCountOverride = balls;
-        presentation.uiOverrides.solverBoxCountOverride = boxes;
-        presentation.uiOverrides.modelCountOverride = -1;
-        return SceneRuntimeGeneratedControlAction {};
-    }
-
-    const SkullbonezCore::Core::SbResult resetResult = ResetGeneratedRuntimeState( scene, reset );
-    if ( !resetResult.ok )
-    {
-        SceneRuntimeGeneratedControlAction action;
-        action.status = resetResult;
-        return action;
-    }
-
-    presentation.uiOverrides.solverBallCountOverride = balls;
-    presentation.uiOverrides.solverBoxCountOverride = boxes;
-    presentation.uiOverrides.modelCountOverride = -1;
-
-    const unsigned int seed = scene.State().rngSeed > 0 ? scene.State().rngSeed : 1u;
-    scene.State().rngState = seed;
-    const SkullbonezCore::Core::SbResult setupResult = SceneGeneratedSetup::SetUpSolverObjects(
-        BuildGeneratedModelContext( policy, scene ),
-        presentation.uiOverrides.solverBallCountOverride,
-        presentation.uiOverrides.solverBoxCountOverride );
-
-    if ( !setupResult.ok )
-    {
-        LogGeneratedControlFailure( setupResult );
-        scene.State().modelCount = scene.Scene().SceneEntityCount();
-        presentation.camera.trackBallRow.value = scene.State().modelCount > 0 ? scene.State().modelCount - 1 : -1;
-        return RequestReplayAndProfileReset();
-    }
-
-    if ( scene.State().modelCount <= 0 )
-    {
-        presentation.camera.trackBallRow.value = -1;
-    }
-    else if ( presentation.camera.trackBallRow.value >= scene.State().modelCount )
-    {
-        presentation.camera.trackBallRow.value = scene.State().modelCount - 1;
-    }
-
-    return RequestReplayAndProfileReset();
 }
 
-SceneGeneratedUICommandResult ApplySceneGeneratedModelCountUICommand( SceneGeneratedControlPolicy policy,
-                                                                      SceneGeneratedControlPresentation presentation,
-                                                                      SceneGeneratedControlResetParticipants reset,
-                                                                      SceneController& scene,
-                                                                      int requestedModelCount )
+void SceneGeneratedControlTransaction::AdvanceOrFatal( SceneGeneratedControlPhaseCursor::Phase next,
+                                                       const char* operation )
 {
-    SceneGeneratedUICommandResult result;
-    if ( requestedModelCount < 0 )
+    const SceneGeneratedControlPhaseCursor::Phase current = m_phase.Current();
+    if ( !m_phase.TryAdvance( next ) )
     {
-        return result;
+        // Lane F: accepting an out-of-order phase could mutate topology before
+        // the GPU drain or publish replay state before repopulation.
+        SB_FATAL( "Runtime/SceneGeneratedControlTransaction",
+                  "Illegal phase transition. operation=%s current=%u next=%u",
+                  operation,
+                  static_cast<unsigned int>( current ),
+                  static_cast<unsigned int>( next ) );
     }
-
-    result.action = ApplyUIModelCountOverride( policy, presentation, reset, scene, requestedModelCount );
-    result.accepted = result.action.status.ok;
-    return result;
 }
 
 SceneGeneratedUICommandResult
-ApplySceneGeneratedSolverBallCountUICommand( SceneGeneratedControlPolicy policy,
-                                             SceneGeneratedControlPresentation presentation,
-                                             SceneGeneratedControlResetParticipants reset,
-                                             SceneController& scene,
-                                             int requestedSolverBallCount )
+SceneGeneratedControlTransaction::Execute( const SkullbonezCore::Core::EngineConfig& config,
+                                           SceneController& scene,
+                                           SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+                                           CameraControlState& camera,
+                                           SimulationSystem& simulation,
+                                           RuntimeTools& tools,
+                                           Rendering::Dx12FrameOwner* renderFrame )
 {
-    SceneGeneratedUICommandResult result;
-    if ( requestedSolverBallCount < 0 )
+    // Invalid UI sentinel values do not represent a transaction and therefore
+    // do not enter the phase machine.
+    if ( !ResolveRequest( uiOverrides, scene.State() ) )
     {
-        return result;
+        return m_result;
     }
 
-    // Invariant: solver count sliders are partial exact-count requests. The
-    // untouched shape count comes from the active override first, then scene state.
-    const int boxes = presentation.uiOverrides.solverBoxCountOverride >= 0
-                          ? presentation.uiOverrides.solverBoxCountOverride
-                          : scene.State().solverBoxCount;
-
-    result.action = ApplyUISolverObjectCounts(
-        policy,
-        presentation,
-        reset,
-        scene,
-        std::clamp( requestedSolverBallCount, 0, (std::max)( 0, policy.modelCapacity - boxes ) ),
-        boxes );
-
-    result.accepted = result.action.status.ok;
-    return result;
-}
-
-SceneGeneratedUICommandResult
-ApplySceneGeneratedSolverBoxCountUICommand( SceneGeneratedControlPolicy policy,
-                                            SceneGeneratedControlPresentation presentation,
-                                            SceneGeneratedControlResetParticipants reset,
-                                            SceneController& scene,
-                                            int requestedSolverBoxCount )
-{
-    SceneGeneratedUICommandResult result;
-    if ( requestedSolverBoxCount < 0 )
+    m_rebuildActiveScene = scene.HasCurrentEntry();
+    m_result.action.status = DrainAndReset( scene, simulation, tools, renderFrame );
+    if ( !m_result.action.status.ok )
     {
-        return result;
+        return m_result;
     }
 
-    // Invariant: if the ball slider was handled earlier this frame, the override
-    // already holds its accepted value and must constrain the box slider max.
-    const int balls = presentation.uiOverrides.solverBallCountOverride >= 0
-                          ? presentation.uiOverrides.solverBallCountOverride
-                          : scene.State().solverBallCount;
-
-    result.action = ApplyUISolverObjectCounts(
-        policy,
-        presentation,
-        reset,
-        scene,
-        balls,
-        std::clamp( requestedSolverBoxCount, 0, (std::max)( 0, policy.modelCapacity - balls ) ) );
-
-    result.accepted = result.action.status.ok;
-    return result;
+    Repopulate( config, scene, uiOverrides, camera );
+    PublishFollowUps();
+    m_result.accepted = true;
+    AdvanceOrFatal( SceneGeneratedControlPhaseCursor::Phase::Complete, "Complete" );
+    return m_result;
 }
 
 } // namespace Runtime
