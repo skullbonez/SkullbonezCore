@@ -17,10 +17,20 @@
     { "frame": 74, "moveMouse": [698, 441] },
     { "frame": 120, "assert": { "pointerCapture": "ToolGesture" } },
     { "frame": 120, "assert": { "predictionBuildMode": "Amortized" } },
-    { "frame": 120, "assert": { "predictionPresentedGenerationMin": 2 } },
-    { "frame": 120, "assert": { "predictionPresentedRootVelocityDeltaMin": 0.1 } },
+    { "frame": 120, "assert": { "predictionSupersededRestartCountMax": 0 } },
+    { "frame": 120, "assert": { "predictionVelocityPreviewActive": true } },
+    { "frame": 120, "assert": { "predictionVelocityPreviewDeltaMin": 0.01 } },
     { "frame": 120, "assert": { "predictionPathVisible": true } },
+    { "frame": 120, "screenshot": "TestOutput/interaction/nbody_velocity_drag_amortized_held.bmp" },
+    { "frame": 121, "clickReplayControl": "velocity" },
+    { "frame": 122, "assert": { "pointerCapture": "None" } },
+    { "frame": 122, "assert": { "nativeCaptureRequested": false } },
+    { "frame": 122, "assert": { "predictionVelocityPreviewActive": true } },
+    { "frame": 122, "assert": { "predictionVelocityPreviewAwaitingReplacement": true } },
+    { "frame": 122, "assert": { "predictionPathVisible": true } },
     { "frame": 158, "assert": { "pointerCapture": "None" } },
+    { "frame": 160, "assert": { "predictionVelocityPreviewActive": true } },
+    { "frame": 160, "assert": { "predictionPathVisible": true } },
     { "frame": 160, "screenshot": "TestOutput/interaction/nbody_velocity_drag_amortized.bmp" }
   ]
 }

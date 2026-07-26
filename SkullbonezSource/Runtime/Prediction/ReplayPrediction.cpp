@@ -17,8 +17,8 @@ Glossary:
     body from live body/collider store rows.
   Prediction slice: Bounded worker chunk that advances the private prediction
     engine and publishes a coherent frame prefix.
-  Live edit replacement: Coalesced held-drag generation that must publish and
-    promote one coherent prefix before a newer velocity can replace it.
+  Velocity drag preview: Cheap selected-path estimate that remains visible
+    until the release-triggered authoritative generation commits.
   Prediction physics tick: Prediction-owned fixed step against the private
     prediction engine.
   Future node: Body discovered by following contacts or predicted movement
@@ -56,6 +56,7 @@ Related:
 #include "ReplayPrediction.h"
 #include "../Scene/SceneEntityStore.h"
 #include "../Editor/EditorHullAssets.h"
+#include "../Replay/ReplayAuthoring.h"
 #include "../Replay/ReplayOverlayLayout.h"
 #include "ReplayPredictionArchive.h"
 #include "ReplayPredictionPublicationOperations.h"
@@ -683,6 +684,11 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayPrediction& predictionOwner
     // before the swap. Rebuild the child cache from the committed full buffer so
     // the final trajectory store and automation fingerprint are scheduler-stable.
     ClearReplayPredictionFutureNodeCache( prediction );
+
+    // Invariant: the approximate selected path remains visible through the
+    // worker swap. Only the generation armed by the release edge may replace
+    // it with authoritative committed trajectory data.
+    (void)prediction.velocityDragPreview.ClearAfterGeneration( prediction.build.generationBeginCount );
     prediction.build.lastBuildTime = simulationTotalSeconds;
     return true;
 }
@@ -731,7 +737,7 @@ ReplayPrediction::BeginFrameSource( PhysicsEngine& physicsEngine, const Skullbon
                                          prediction.simulation.frames.size() >= 2u;
 
     const std::size_t
-        buildPresentationFrameCount = preserveCommittedFuture && !prediction.build.liveVelocityEditRefreshPending
+        buildPresentationFrameCount = preserveCommittedFuture
                                           ? ReplayPredictionBuildPresentationFrameCountForRefresh( prediction,
                                                                                                    requestedTargetId )
                                           : 2u;
@@ -962,7 +968,6 @@ bool ReplayPrediction::BeginFrameSimulation( PhysicsEngine& physicsEngine, const
         prediction.build.schedule.SetBudget( REPLAY_PREDICTION_TICKS_PER_WORKER_SUBMIT );
     }
     prediction.build.building = true;
-    prediction.build.liveVelocityEditRefreshPending = false;
     ++prediction.build.generationBeginCount;
 
     return !prediction.build.buildFrames.empty();
@@ -1090,7 +1095,6 @@ ReplayPredictionFrameSourceAction ReplayPrediction::SelectFrameSource( const Rep
         // reserve, worker, or future-simulation path.
         prediction.build.dirty = false;
         prediction.build.pendingLatestRestart = false;
-        prediction.build.liveVelocityEditRefreshPending = false;
 
         // Invariant: EnterOfflinePredictionVerification already joined and
         // retired the worker. Cancelling here would invalidate the restored
@@ -1124,9 +1128,9 @@ ReplayPredictionFrameSourceAction ReplayPrediction::SelectFrameSource( const Rep
          !predictionOwner.PromoteBuildPrefixToCommitted() )
     {
 
-        // Hazard: retain both newest-state tokens if promotion cannot acquire a
-        // coherent prefix. The next frame retries without discarding the path
-        // that was visible when this edit arrived.
+        // Hazard: retain the dirty and pending-restart tokens if promotion
+        // cannot acquire a coherent prefix. The next frame retries without
+        // discarding the path visible when this request arrived.
         return ReplayPredictionFrameSourceAction::Continue;
     }
 
@@ -1289,7 +1293,6 @@ void ReplayPrediction::EnterOfflineVerification()
     ForbidGeneration();
     m_state.build.dirty = false;
     m_state.build.pendingLatestRestart = false;
-    m_state.build.liveVelocityEditRefreshPending = false;
 }
 
 void ReplayPrediction::ResetVerificationMarkers() noexcept
@@ -1309,20 +1312,39 @@ void ReplayPrediction::SetEnabled( bool enabled ) noexcept
     MarkDirty();
 }
 
-void ReplayPrediction::ApplyAuthoringRequest( bool enablePrediction, bool refreshPrediction, bool liveVelocityEdit,
-                                              float minHorizonSeconds, float maxHorizonSeconds ) noexcept
+void ReplayPrediction::ApplyAuthoringRequest( const ReplayAuthoringPredictionRequest& request, float minHorizonSeconds,
+                                              float maxHorizonSeconds )
 {
 
-    if ( enablePrediction )
+    if ( request.prepareVelocityMutationBaseline )
+    {
+        (void)PrepareVelocityMutationBaseline();
+    }
+
+    if ( request.clearPredictionCache )
+    {
+        ClearCache();
+    }
+
+    if ( request.updateVelocityPreview )
+    {
+        m_state.velocityDragPreview.Update( request.velocityPreviewTargetId, request.velocityPreviewDelta );
+    }
+
+    if ( request.finishVelocityPreview )
+    {
+        (void)m_state.velocityDragPreview.Finish( m_state.build.generationBeginCount + 1u );
+    }
+
+    if ( request.enablePrediction )
     {
         m_state.enabled = true;
         m_state.simulation.horizonSeconds = std::clamp( m_state.simulation.horizonSeconds, minHorizonSeconds,
                                                         maxHorizonSeconds );
     }
 
-    if ( refreshPrediction )
+    if ( request.refreshPrediction )
     {
-        m_state.build.liveVelocityEditRefreshPending = m_state.build.liveVelocityEditRefreshPending || liveVelocityEdit;
         MarkDirty();
     }
 }
@@ -1488,6 +1510,7 @@ void ReplayPrediction::ClearCache()
     m_state.trajectoryBuild = RunReplayPredictionTrajectoryBuildState {};
     m_state.trajectoryStore.Clear();
     m_state.baseline = ReplayPredictionBaselineSnapshot {};
+    m_state.velocityDragPreview.Clear();
 }
 
 ReplayPastTrajectoryUpdate ReplayPrediction::RefreshPastTrajectoryStore( const ReplaySolverRecorder& solver,

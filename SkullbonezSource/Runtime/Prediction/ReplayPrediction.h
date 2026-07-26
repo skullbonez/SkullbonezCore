@@ -14,8 +14,8 @@ Glossary:
     rebuilt together for the current rendered frame.
   All-body trajectory: Mutual-gravity path record retained for every body,
     independent of the contact-derived future tree.
-  Live edit replacement: Short coherent prefix promoted during a held velocity
-    drag before a newer pointer sample may replace it.
+  Velocity drag preview: First-order selected-path estimate retained until the
+    release-triggered authoritative generation commits.
 
 Invariants:
   - Worker publication retains the release/acquire prefix protocol.
@@ -80,6 +80,7 @@ class ReplayPresentation;
 class ReplayScrubber;
 class ReplaySolverRecorder;
 class RuntimeInteractionController;
+struct ReplayAuthoringPredictionRequest;
 struct RunReplayCameraState;
 struct RunReplayPathVisualizerState;
 
@@ -196,15 +197,11 @@ struct RunReplayPredictionBuildState
     bool dirty = true;
     uint32_t generationBeginCount = 0;       // Successful future-simulation generations in this process.
 
-    // Concept: velocity edits do not form a queue. While an instant worker job
-    // is in flight, this bit remembers only that the newest live state needs one
+    // Concept: dirty requests do not form a queue. While a worker job is in
+    // flight, this bit remembers only that the newest source state needs one
     // replacement build after completion.
     bool pendingLatestRestart = false;
 
-    // Newest-state token that gives held velocity edits a short coherent
-    // publication threshold. It survives supersession and clears only after
-    // the requested generation begins successfully.
-    bool liveVelocityEditRefreshPending = false;
     uint32_t supersededRestartCount = 0;
     uint32_t latestRestartBeginCount = 0;
     bool building = false;
@@ -270,6 +267,62 @@ struct ReplayPredictionIsolatedSimulation
     std::vector<RunReplayPredictionFrame> frames;
 };
 
+struct ReplayVelocityDragPreviewState
+{
+
+    // Invariant: pointer samples replace this fixed-size value without
+    // scheduling simulation. The release edge arms exactly one later
+    // generation, and no earlier completion may clear its visible estimate.
+    Physics::PhysicsSceneObjectId targetId;
+    Math::Vector::Vector3 velocityDelta = Math::Vector::ZERO_VECTOR;
+    uint32_t replacementGeneration = 0;
+    bool active = false;
+    bool awaitingAuthoritativeReplacement = false;
+
+    void Update( Physics::PhysicsSceneObjectId id, const Math::Vector::Vector3& delta ) noexcept
+    {
+        targetId = id;
+        velocityDelta = delta;
+        active = id.value != 0;
+        awaitingAuthoritativeReplacement = false;
+        replacementGeneration = 0;
+    }
+
+    bool Finish( uint32_t nextGeneration ) noexcept
+    {
+
+        if ( !active )
+        {
+            return false;
+        }
+
+        awaitingAuthoritativeReplacement = true;
+        replacementGeneration = nextGeneration;
+        return true;
+    }
+
+    bool ClearAfterGeneration( uint32_t completedGeneration ) noexcept
+    {
+
+        if ( !active || !awaitingAuthoritativeReplacement || completedGeneration < replacementGeneration )
+        {
+            return false;
+        }
+
+        Clear();
+        return true;
+    }
+
+    void Clear() noexcept
+    {
+        targetId = {};
+        velocityDelta = Math::Vector::ZERO_VECTOR;
+        replacementGeneration = 0;
+        active = false;
+        awaitingAuthoritativeReplacement = false;
+    }
+};
+
 struct RunReplayPredictionState
 {
     RunReplayPredictionState();
@@ -311,6 +364,7 @@ struct RunReplayPredictionState
     // body, and one divergence number, so the warm current prediction can
     // unfold over it.
     ReplayPredictionBaselineSnapshot baseline;
+    ReplayVelocityDragPreviewState velocityDragPreview;
     RunReplayPredictionRevealClock revealClock;
 };
 
@@ -407,6 +461,9 @@ class ReplayPrediction
         view.retainedMarkers = { m_state.futureNodeCache.retainedMarkers.data(),
                                  m_state.futureNodeCache.retainedMarkerCount };
         view.baselineBodyPoses = m_state.baseline.bodyPoses;
+        view.velocityDragPreview.targetId = m_state.velocityDragPreview.targetId;
+        view.velocityDragPreview.velocityDelta = m_state.velocityDragPreview.velocityDelta;
+        view.velocityDragPreview.active = m_state.velocityDragPreview.active;
         view.targetId = m_state.simulation.targetId;
         view.baselineRootId = m_state.baseline.rootId;
         view.trajectoryBuildRootId = m_state.trajectoryBuild.rootId;
@@ -511,8 +568,8 @@ class ReplayPrediction
     // Owner commands used by validation and UI paths. These keep rebuild and
     // baseline invalidation coupled to the state transition that requires it.
     void SetEnabled( bool enabled ) noexcept;
-    void ApplyAuthoringRequest( bool enablePrediction, bool refreshPrediction, bool liveVelocityEdit,
-                                float minHorizonSeconds, float maxHorizonSeconds ) noexcept;
+    void ApplyAuthoringRequest( const ReplayAuthoringPredictionRequest& request, float minHorizonSeconds,
+                                float maxHorizonSeconds );
     void DisableAndClearCache();
 
     // Play freezes the visible committed prefix and cancels any worker; unlike

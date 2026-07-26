@@ -15,10 +15,13 @@ Glossary:
     trajectory.
   Publication token: Monotonic Prediction value that invalidates retained
     geometry only when a reader-visible trajectory prefix changes.
+  Velocity drag preview: Frame-local first-order bend of only the selected
+    committed path while authoritative prediction remains untouched.
 
 Invariants:
   - Draw cursors and retained command storage belong to Prediction.
   - Stable publication returns before traversing trajectory records.
+  - Preview delta changes never rebuild retained non-selected paths.
   - All references in render contexts are synchronous frame borrows.
 
 Related:
@@ -94,6 +97,7 @@ struct ReplayPredictionDrawListState
     std::size_t ordinaryRibbonCapacityRemaining = 0;
     std::size_t priorityRibbonCapacityRemaining = 0;
     Physics::PhysicsSceneObjectId targetId;
+    Physics::PhysicsSceneObjectId velocityPreviewTargetId;
     ReplayFrameIndex revealFrame = 0;
     uint32_t generation = 0;
     uint32_t topologyVersion = 0;
@@ -103,6 +107,7 @@ struct ReplayPredictionDrawListState
     ReplayPathColorMode colorMode = ReplayPathColorMode::LaneFlat;
     bool usingBuildFrames = false;
     bool showAllFuturePaths = false;
+    bool velocityPreviewActive = false;
     bool saturated = false;
     bool valid = false;
 
@@ -129,6 +134,7 @@ struct ReplayPredictionDrawListState
         ordinaryRibbonCapacityRemaining = 0;
         priorityRibbonCapacityRemaining = 0;
         targetId = {};
+        velocityPreviewTargetId = {};
         revealFrame = 0;
         generation = 0;
         topologyVersion = 0;
@@ -138,6 +144,7 @@ struct ReplayPredictionDrawListState
         colorMode = ReplayPathColorMode::LaneFlat;
         usingBuildFrames = false;
         showAllFuturePaths = false;
+        velocityPreviewActive = false;
         saturated = false;
         valid = false;
     }

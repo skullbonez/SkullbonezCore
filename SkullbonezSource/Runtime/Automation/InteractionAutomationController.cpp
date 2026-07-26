@@ -700,6 +700,12 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "replayPastTrajectoryPublishedPointCountMin";
     case RunInteractionAutomationAssertKind::PredictionPathVisible:
         return "predictionPathVisible";
+    case RunInteractionAutomationAssertKind::PredictionVelocityPreviewActive:
+        return "predictionVelocityPreviewActive";
+    case RunInteractionAutomationAssertKind::PredictionVelocityPreviewAwaitingReplacement:
+        return "predictionVelocityPreviewAwaitingReplacement";
+    case RunInteractionAutomationAssertKind::PredictionVelocityPreviewDeltaMin:
+        return "predictionVelocityPreviewDeltaMin";
     case RunInteractionAutomationAssertKind::PredictionPresentedGenerationMin:
         return "predictionPresentedGenerationMin";
     case RunInteractionAutomationAssertKind::PredictionPresentedRootVelocityDeltaMin:
@@ -1951,6 +1957,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
                                    name == "replayTripPlannerTimeOfFlightMax" ||
                                    name == "predictionSupersededRestartCountMin" ||
                                    name == "predictionSupersededRestartCountMax" ||
+                                   name == "predictionVelocityPreviewDeltaMin" ||
                                    name == "predictionPresentedGenerationMin" ||
                                    name == "predictionPresentedRootVelocityDeltaMin" || name == "predictionDivergenceMin" ||
                                    name == "predictionTargetDisplacementMin" ||
@@ -1961,6 +1968,8 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
         const bool expectsBool = name == "directorGrabbed" || name == "replayPredictionEnabled" ||
                                  name == "predictionPathVisible" || name == "predictionFullHorizonComplete" ||
+                                 name == "predictionVelocityPreviewActive" ||
+                                 name == "predictionVelocityPreviewAwaitingReplacement" ||
                                  name == "predictionBaselineVisible" || name == "replayInterceptContact" ||
                                  name == "replayTripPlannerMissesImprove" || name == "replayPorkchopComplete" ||
                                  name == "replayPorkchopSelected" || name == "replaySolverTrackAtPresent" ||
@@ -2170,6 +2179,21 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::PredictionPathVisible;
             outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "predictionVelocityPreviewActive" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionVelocityPreviewActive;
+            outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "predictionVelocityPreviewAwaitingReplacement" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionVelocityPreviewAwaitingReplacement;
+            outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "predictionVelocityPreviewDeltaMin" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionVelocityPreviewDeltaMin;
+            outAction.numberValue = member.value().get<float>();
         }
         else if ( name == "predictionPresentedGenerationMin" )
         {
@@ -2705,6 +2729,31 @@ InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( visible );
         evaluation.passed = visible == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionVelocityPreviewActive:
+    {
+        const bool active = replay.prediction.velocityDragPreview.active;
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( active );
+        evaluation.passed = active == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionVelocityPreviewAwaitingReplacement:
+    {
+        const bool awaiting = replay.prediction.velocityDragPreview.awaitingAuthoritativeReplacement;
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( awaiting );
+        evaluation.passed = awaiting == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionVelocityPreviewDeltaMin:
+    {
+        const ReplayVelocityDragPreviewState& preview = replay.prediction.velocityDragPreview;
+        const float delta = std::sqrt( VectorMagSquared( preview.velocityDelta ) );
+        evaluation.expected = ">=" + std::to_string( action.numberValue );
+        evaluation.actual = preview.active ? std::to_string( delta ) : "preview inactive";
+        evaluation.passed = preview.active && delta >= action.numberValue;
         break;
     }
     case RunInteractionAutomationAssertKind::PredictionPresentedGenerationMin:

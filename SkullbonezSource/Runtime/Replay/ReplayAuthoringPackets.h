@@ -5,15 +5,19 @@ Purpose:
 
 Summary:
   Presentation and development UI consume bounded cause rows and editor-state
-  values. Mutations still flow through ReplayRuntime commands.
+  values. Velocity drag state retains only its target, starting values, and
+  whether release owes one authoritative refresh.
 
 Glossary:
   Cause row: One body, contact, solver, or prediction explanation in the replay causality tree.
   Dense-row hint: Frame-local model row validated against a stable scene object id before use.
+  Drag changed: Bit recording that at least one accepted velocity mutation
+    requires a release-time prediction refresh.
 
 Invariants:
   - PhysicsSceneObjectId remains durable identity; ModelRowHint is only a cache.
   - Cause rows reserve their bounded capacity before steady runtime.
+  - Velocity drag state is fixed-size and carries no Prediction owner borrow.
 
 Related:
   - ReplayAuthoring.h
@@ -94,8 +98,10 @@ struct RunReplayVelocityEditState
 {
     bool enabled = false;
     bool keyboardAltWasDown = false;
+    bool dragChanged = false;
     int hotLinearAxis = -1;
     int hotAngularAxis = -1;
+    Physics::PhysicsSceneObjectId dragTargetId;
     float dragStartAxisT = 0.0f;
     float dragStartAngle = 0.0f;
     Math::Vector::Vector3 dragStartLinearVelocity = Math::Vector::ZERO_VECTOR;

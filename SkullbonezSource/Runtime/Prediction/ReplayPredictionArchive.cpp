@@ -824,7 +824,7 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
     state.ragdollVisualsEnabled = ragdollVisuals;
     state.build.dirty = false;
     state.build.pendingLatestRestart = false;
-    state.build.liveVelocityEditRefreshPending = false;
+    state.velocityDragPreview.Clear();
     state.build.building = false;
     state.build.complete = true;
     state.ResetBuildFramePublication();

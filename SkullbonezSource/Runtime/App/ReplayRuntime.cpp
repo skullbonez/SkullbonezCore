@@ -823,19 +823,7 @@ ReplayVisualPacket ReplayRuntime::BuildVisualProjectionForValidation( PhysicsEng
 void ReplayRuntime::ApplyAuthoringPredictionRequest()
 {
     const ReplayAuthoringPredictionRequest request = m_authoring.TakePredictionRequest();
-
-    if ( request.prepareVelocityMutationBaseline )
-    {
-        (void)m_predictionOwner.PrepareVelocityMutationBaseline();
-    }
-
-    if ( request.clearPredictionCache )
-    {
-        m_predictionOwner.ClearCache();
-    }
-
-    m_predictionOwner.ApplyAuthoringRequest( request.enablePrediction, request.refreshPrediction, request.liveVelocityEdit,
-                                             ReplayOverlay::REPLAY_PREDICTION_MIN_SECONDS,
+    m_predictionOwner.ApplyAuthoringRequest( request, ReplayOverlay::REPLAY_PREDICTION_MIN_SECONDS,
                                              ReplayOverlay::REPLAY_PREDICTION_MAX_SECONDS );
 }
 

@@ -947,8 +947,7 @@ void HandleReplayVelocityEditPressed( ReplayAuthoring& authoring, ReplayPredicti
         // Why: authoring emits a value command so prediction is refreshed in
         // this composition turn without storing an owner pointer or callback.
         const ReplayAuthoringPredictionRequest request = authoring.TakePredictionRequest();
-        predictionOwner.ApplyAuthoringRequest( request.enablePrediction, request.refreshPrediction, request.liveVelocityEdit,
-                                               REPLAY_PREDICTION_MIN_SECONDS, REPLAY_PREDICTION_MAX_SECONDS );
+        predictionOwner.ApplyAuthoringRequest( request, REPLAY_PREDICTION_MIN_SECONDS, REPLAY_PREDICTION_MAX_SECONDS );
 
         CancelReplayToolDragState( interaction, inputRouter );
 

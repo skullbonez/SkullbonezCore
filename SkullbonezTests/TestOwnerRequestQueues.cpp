@@ -21,8 +21,8 @@ Glossary:
     of authored scenes and resets stale layout/panel identity during migration.
   Lifecycle generation: Monotonic identity for one post-preflight scene-load
     attempt, including attempts that fail before activation.
-  Newest-state refresh: Coalescing bit that asks prediction to replace an
-    in-flight generation from the latest edited velocity.
+  Velocity preview command: Newest target and delta-v used to bend only the
+    selected committed path while a pointer drag is held.
 
 Invariants:
   - Tests stop at the fixed capacity because the next runtime submission is a
@@ -32,8 +32,8 @@ Invariants:
     schema before rewriting any bytes.
   - Shared editor views fingerprint semantic fields rather than object padding.
   - The versioned editor topology is identical at minimum, 16:9, and ultrawide sizes.
-  - Multiple velocity samples in one composition turn publish one refresh;
-    the next turn may publish another newest-state request.
+  - Held velocity samples never request simulation; release publishes exactly
+    one authoritative refresh after the newest preview value.
   - Compact causality reads only a bounded neighborhood of replay-owned rows and
     reports empty, stale, truncated, and capacity-limited states separately.
   - Preference migration may retain bounded filters but restores the current
@@ -65,6 +65,7 @@ Related:
 #include "../SkullbonezSource/Runtime/App/RunTimerState.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorLayoutPolicy.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h"
+#include "../SkullbonezSource/Runtime/Prediction/ReplayPrediction.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayAuthoring.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h"
@@ -174,23 +175,51 @@ struct SceneGeneratedControlTransactionTestAccess
 } // namespace Runtime
 } // namespace SkullbonezCore
 
-TEST_CASE( "Replay velocity drag publishes one coalesced newest-state refresh per frame" )
+TEST_CASE( "Replay velocity drag coalesces preview samples and refreshes only on release" )
 {
     ReplayAuthoring authoring;
     ReplayVelocityEditDragStart start;
+    start.targetId.value = 17;
     authoring.BeginVelocityEditDrag( start );
 
-    authoring.QueueVelocityEditPredictionRefresh();
-    authoring.QueueVelocityEditPredictionRefresh();
+    authoring.QueueVelocityEditPreview( start.targetId, SkullbonezCore::Math::Vector::Vector3( 1.0f, 2.0f, 3.0f ) );
+    authoring.QueueVelocityEditPreview( start.targetId, SkullbonezCore::Math::Vector::Vector3( 4.0f, 5.0f, 6.0f ) );
     ReplayAuthoringPredictionRequest request = authoring.TakePredictionRequest();
-    CHECK( request.refreshPrediction );
+    CHECK( request.updateVelocityPreview );
+    CHECK_FALSE( request.finishVelocityPreview );
+    CHECK_FALSE( request.refreshPrediction );
     CHECK_FALSE( request.enablePrediction );
-    CHECK( request.liveVelocityEdit );
+    CHECK( request.velocityPreviewTargetId.value == 17 );
+    CHECK( request.velocityPreviewDelta.x == doctest::Approx( 4.0f ) );
+    CHECK( request.velocityPreviewDelta.y == doctest::Approx( 5.0f ) );
+    CHECK( request.velocityPreviewDelta.z == doctest::Approx( 6.0f ) );
 
     CHECK_FALSE( authoring.TakePredictionRequest().refreshPrediction );
-    authoring.QueueVelocityEditPredictionRefresh();
+    CHECK( authoring.FinishVelocityEditDrag() );
     request = authoring.TakePredictionRequest();
     CHECK( request.refreshPrediction );
+    CHECK( request.finishVelocityPreview );
+    CHECK_FALSE( request.updateVelocityPreview );
+    CHECK_FALSE( authoring.FinishVelocityEditDrag() );
+    CHECK_FALSE( authoring.TakePredictionRequest().refreshPrediction );
+}
+
+TEST_CASE( "Replay velocity preview survives until its release generation commits" )
+{
+    ReplayVelocityDragPreviewState preview;
+    SkullbonezCore::Physics::PhysicsSceneObjectId targetId;
+    targetId.value = 29;
+    preview.Update( targetId, SkullbonezCore::Math::Vector::Vector3( 2.0f, 0.0f, -1.0f ) );
+
+    CHECK( preview.active );
+    CHECK_FALSE( preview.awaitingAuthoritativeReplacement );
+    CHECK( preview.Finish( 8u ) );
+    CHECK_FALSE( preview.ClearAfterGeneration( 7u ) );
+    CHECK( preview.active );
+    CHECK( preview.awaitingAuthoritativeReplacement );
+    CHECK( preview.ClearAfterGeneration( 8u ) );
+    CHECK_FALSE( preview.active );
+    CHECK_FALSE( preview.awaitingAuthoritativeReplacement );
 }
 
 TEST_CASE( "Physics tab emits one typed request for every toggle row" )

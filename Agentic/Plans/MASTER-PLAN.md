@@ -646,16 +646,13 @@ hit. Permanent PB0 evidence is
 `../Reports/2026-07-26/concrete-parameter-bag-elimination-pb0-census.md`.
 The active/future ledger is now 1/8 (13%).
 
-The denominator grew 0 -> 3 on 2026-07-26 when the owner registered the
-Nightrunner 26 July campaign: replay scrub performance, owner code style, and
-space-scene velocity-drag preview.
-
 ## Current Execution Priority
 
-The Nightrunner 26 July campaign is the active owner-directed sequence. Execute
-N26-1 replay scrub performance, N26-2 owner code style, then N26-3
-space-scene velocity-drag preview. N26-1 and N26-2 are complete; the
-active/future ledger is 2/3 (67%).
+The Nightrunner 26 July campaign is complete at 3/3. Replay scrub performance,
+owner code style, and the space-scene velocity-drag preview are closed, and the
+completed TODO was deleted under inventory rule 4. Permanent evidence is
+`../Reports/2026-07-26/nightrunner-26-july-closure.md`. No live implementation
+plan remains; the active/future ledger denominator is 0.
 
 The 2026-07-25 round-4 campaign has no live plans. Concrete Parameter-Bag
 Elimination closed PB0-PB7 and left the live ledger under rule 4. Invariant
@@ -1965,7 +1962,7 @@ Open and blocking:
 
 | Plan | State | Verified phase count | Next action |
 |---|---|---:|---|
-| [nightrunner-26-july](TODO/nightrunner-26-july.md) | Active | 2/3 | N26-3: publish a stable selected-body velocity-drag preview |
+| [closure report](../Reports/2026-07-26/nightrunner-26-july-closure.md) | Complete | 3/3 | None; completed TODO deleted under inventory rule 4 |
 
 ## Engine Cleanup Campaign Closure Gate
 

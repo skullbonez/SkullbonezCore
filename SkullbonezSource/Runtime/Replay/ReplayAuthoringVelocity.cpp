@@ -5,9 +5,9 @@ Purpose:
 
 Summary:
   Velocity edit is a replay-owned interaction mode. It turns mouse rays into linear or angular
-  velocity edits. Every accepted pointer sample publishes newest-state
-  prediction intent while retained presentation keeps the last complete path
-  visible until a replacement prefix is safe.
+  velocity edits. Held samples publish only a selected-path delta for cheap
+  visual feedback. Release schedules one authoritative prediction while the
+  provisional line remains visible.
 
 Glossary:
   Velocity gizmo: Replay overlay that exposes linear axes and angular rings for one body.
@@ -19,8 +19,8 @@ Glossary:
 Invariants:
   - Pointer capture must end whenever the drag exits or the edited target becomes invalid.
   - Edited velocities are clamped before waking or mutating the physics body.
-  - A held drag mutates the live body and publishes coalescing newest-state
-    prediction intent for every accepted pointer sample.
+  - A held drag mutates the live body but never schedules prediction work.
+  - Release schedules at most one authoritative replacement generation.
   - Hit testing, drag-start values, and gizmo drawing must read store rows, not
     the post-step legacy object record body mirror.
   - Velocity-edit helper functions are file-local to this translation unit.
@@ -559,6 +559,14 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
     const auto velocityDragActive = [&]()
     { return interaction.Gesture().kind == RuntimeInteractionGestureKind::ReplayVelocityDrag; };
 
+    const auto finishVelocityDrag = [&]()
+    {
+        (void)FinishVelocityEditDrag();
+
+        interaction.EndGestureIfKind( RuntimeInteractionGestureKind::ReplayVelocityDrag );
+        inputRouter.ReleaseNativeCapture();
+    };
+
     const auto shouldUseInspectionCamera = [&]()
     {
         const ReplayScrubberView scrubber = scrubberOwner.View();
@@ -575,8 +583,7 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
 
         if ( velocityDragActive() && ( leftReleased || !leftDown ) )
         {
-            interaction.EndGestureIfKind( RuntimeInteractionGestureKind::ReplayVelocityDrag );
-            inputRouter.ReleaseNativeCapture();
+            finishVelocityDrag();
         }
 
         return velocityDragActive();
@@ -611,8 +618,7 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
         if ( !tryResolveVelocityBody( body ) || gesture.kind != RuntimeInteractionGestureKind::ReplayVelocityDrag ||
              gesture.axis < 0 )
         {
-            interaction.EndGestureIfKind( RuntimeInteractionGestureKind::ReplayVelocityDrag );
-            inputRouter.ReleaseNativeCapture();
+            finishVelocityDrag();
             return;
         }
 
@@ -681,10 +687,10 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
         if ( velocityChanged && velocityPhysics.SetBodyVelocity( body.body, linearVelocity, angularVelocity, true ) )
         {
 
-            // Why: prediction's pending-latest bit collapses held samples while
-            // retained publication keeps the last complete trajectory visible.
-            // This gives live feedback without an unbounded job queue.
-            QueueVelocityEditPredictionRefresh();
+            // Why: held samples bend only the selected published path. This
+            // fixed-size command replaces its predecessor without scheduling a
+            // private-world build or disturbing the other retained paths.
+            QueueVelocityEditPreview( VelocityEdit().dragTargetId, linearVelocity - VelocityEdit().dragStartLinearVelocity );
             scrubberOwner.SetVisible( true, now, REPLAY_SCRUBBER_VISIBLE_SECONDS );
         }
     };
@@ -699,11 +705,7 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
 
         if ( leftReleased || !leftDown )
         {
-
-            // The final accepted sample already published newest-state intent.
-            // Ending capture must not enqueue a duplicate generation.
-            interaction.EndGestureIfKind( RuntimeInteractionGestureKind::ReplayVelocityDrag );
-            inputRouter.ReleaseNativeCapture();
+            finishVelocityDrag();
         }
 
         return true;
@@ -781,6 +783,7 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
                     }
 
                     ReplayVelocityEditDragStart dragStart;
+                    dragStart.targetId = path.targetId;
                     dragStart.angle = startAngle;
                     dragStart.linearVelocity = body.linearVelocity;
                     dragStart.angularVelocity = body.angularVelocity;
@@ -831,6 +834,7 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
                     }
 
                     ReplayVelocityEditDragStart dragStart;
+                    dragStart.targetId = path.targetId;
                     dragStart.axisT = axisT;
                     dragStart.linearVelocity = body.linearVelocity;
                     dragStart.angularVelocity = body.angularVelocity;

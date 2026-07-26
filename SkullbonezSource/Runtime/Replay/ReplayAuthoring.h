@@ -4,16 +4,21 @@ Purpose:
   Owns replay velocity-edit, causal-authoring, and branch-provenance state.
 
 Summary:
-  ReplayAuthoring retains operator edits and cause-tree selection, then publishes
-  value requests when those edits require prediction to refresh.
+  ReplayAuthoring retains operator edits and cause-tree selection. Held velocity
+  samples publish a newest preview value; release publishes the single request
+  that refreshes authoritative prediction.
 
 Glossary:
   Cause row: One replay explanation row.
+  Velocity preview request: Fixed-size target and delta-v command that replaces
+    its predecessor without scheduling simulation.
 
 Invariants:
   - Cause rows retain Physics::PhysicsSceneObjectId as identity and dense rows only as hints.
   - Authoring receives prediction only as a read-only frame-local publication;
     the composition root consumes queued mutation requests in frame order.
+  - Held velocity samples never set the prediction-refresh bit; the release
+    edge sets it once after at least one accepted mutation.
 
 Related:
   - ReplayRuntime.h
@@ -74,15 +79,19 @@ enum class ReplayInspectionCameraAction : uint8_t;
 struct RuntimeInteractionGesture;
 struct ReplayAuthoringPredictionRequest
 {
+    Physics::PhysicsSceneObjectId velocityPreviewTargetId;
+    Math::Vector::Vector3 velocityPreviewDelta = Math::Vector::ZERO_VECTOR;
     bool enablePrediction = false;
     bool refreshPrediction = false;
     bool clearPredictionCache = false;
     bool prepareVelocityMutationBaseline = false;
-    bool liveVelocityEdit = false;
+    bool updateVelocityPreview = false;
+    bool finishVelocityPreview = false;
 };
 
 struct ReplayVelocityEditDragStart
 {
+    Physics::PhysicsSceneObjectId targetId;
     float axisT = 0.0f;
     float angle = 0.0f;
     Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
@@ -258,12 +267,17 @@ class ReplayAuthoring
         {
             QueuePredictionRefresh( true );
         }
+        else
+        {
+            (void)FinishVelocityEditDrag();
+        }
 
         return true;
     }
 
     void ClearVelocityEditInputState() noexcept
     {
+        (void)FinishVelocityEditDrag();
         m_velocityEdit.keyboardAltWasDown = false;
         m_velocityEdit.hotLinearAxis = -1;
         m_velocityEdit.hotAngularAxis = -1;
@@ -287,19 +301,38 @@ class ReplayAuthoring
 
     void BeginVelocityEditDrag( const ReplayVelocityEditDragStart& start ) noexcept
     {
+        m_velocityEdit.dragTargetId = start.targetId;
+        m_velocityEdit.dragChanged = false;
         m_velocityEdit.dragStartAxisT = start.axisT;
         m_velocityEdit.dragStartAngle = start.angle;
         m_velocityEdit.dragStartLinearVelocity = start.linearVelocity;
         m_velocityEdit.dragStartAngularVelocity = start.angularVelocity;
     }
 
-    // Each successful pointer sample publishes newest-state intent. The
-    // pending request is a bit, not a queue, so multiple samples in one
-    // composition turn coalesce before prediction observes them.
-    void QueueVelocityEditPredictionRefresh() noexcept
+    // Invariant: held pointer samples update only this newest-state value.
+    // Prediction generation remains untouched until FinishVelocityEditDrag()
+    // observes the release edge.
+    void QueueVelocityEditPreview( Physics::PhysicsSceneObjectId targetId,
+                                   const Math::Vector::Vector3& velocityDelta ) noexcept
     {
-        m_pendingPrediction.liveVelocityEdit = true;
+        m_velocityEdit.dragChanged = true;
+        m_pendingPrediction.velocityPreviewTargetId = targetId;
+        m_pendingPrediction.velocityPreviewDelta = velocityDelta;
+        m_pendingPrediction.updateVelocityPreview = true;
+    }
+
+    bool FinishVelocityEditDrag() noexcept
+    {
+
+        if ( !m_velocityEdit.dragChanged )
+        {
+            return false;
+        }
+
+        m_velocityEdit.dragChanged = false;
+        m_pendingPrediction.finishVelocityPreview = true;
         QueuePredictionRefresh();
+        return true;
     }
 
     // Appends the authoring-owned velocity gizmo from value-selected replay

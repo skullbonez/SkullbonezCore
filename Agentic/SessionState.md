@@ -10,15 +10,26 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-25th-JUL-26` |
-| Current baseline | Concrete Parameter-Bag Elimination is complete at PB0-PB7; all 30 repair rows and three ceiling defects are closed. |
+| Branch | `nightrunner-26th-JUL-26` |
+| Current baseline | Nightrunner 26 July is complete at N26-1 through N26-3: replay scrub spikes removed, owner code style ratified, and selected-body velocity-drag preview published. |
 | Current objective | No live implementation plan; await the next owner direction. |
 | Active/future progress | No live plans; active/future ledger denominator is 0. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | PB7 `validate_full.bat` passes in 230.9 s: mandatory CPU/coverage, Automation/Replay, DX12 without refresh, and byte-exact 44,401-line Physics regression. |
-| Validation for current edits | PB7: 401 doctests, fast, DX12, 61-second stress, performance, Replay artifact/allocation/scrub-visual-fidelity, Physics, and full gates pass; final 91/91 comment audit and static closure proofs are clean. |
+| Last broad local gate | N26-3 `validate_full.bat` passes: 402 doctests, Automation/Replay, zero-error DX12 with accepted baselines, and byte-exact 44,401-line Physics regression. |
+| Validation for current edits | N26: Replay scrub 17/17 and 75 assertions, focused preview 2/2 and 24 assertions, format, fast, allocation, dependency, performance, full, and 60.83-second graphics stress pass; comment audit is 24/24. |
 
 ## Live Queue
+
+NOW. Nightrunner 26 July is complete at 3/3 and removed from the live
+inventory under rule 4. N26-1 caches dense solver scrub resolution and removes
+duplicate availability/copy work. N26-2 ratifies the owner's 125-column,
+compact-parameter, control-flow, assertion, comment, and parameter-order
+style. N26-3 publishes a selected-body-only held-drag path preview, performs
+no full prediction while held, schedules exactly one replacement on release,
+and retains the preview until that generation commits. Independent review's
+direct-consumer request-forwarding blocker was remediated and rechecked.
+Permanent evidence is
+`Agentic/Reports/2026-07-26/nightrunner-26-july-closure.md`.
 
 NOW. The 2026-07-25 round-4 architecture campaign has no live plan.
 `concrete-parameter-bag-elimination` is complete at 8/8 and has left the live
@@ -484,6 +495,14 @@ are not certified. Full evidence:
 | Replay allocation policy (wide-signature W2 Physics) | 4.22 s | PASS; strict two-generation policy clean |
 | Replay v2 artifact (wide-signature W2 Physics) | 33.16 s | PASS |
 | Replay scrub (wide-signature W2 Physics) | 431.04 s | PASS; one-presentation fidelity and all false-pass controls |
+| focused N26-3 owner-request doctests | PASS | 2 cases / 24 assertions; held samples coalesce without refresh, finish emits one refresh, preview clears only for the armed generation |
+| `tools\validate_alt_velocity_visualization.bat` (N26-3 final) | PASS | instant and amortized paths; held preview visible, zero superseded restarts, click-off release retains preview through replacement |
+| `tools\validate_replay_scrub.bat` (N26 final) | PASS | 17 cases / 75 assertions; 2,401-tick 200-body fidelity and every causal, artifact, determinism, and duplicate-generation control |
+| `tools\validate_replay_allocation_policy.bat` (N26 final) | PASS | replay growth policy and registered-owner inventory clean |
+| `tools\validate_dependency_graph.bat` (N26 final) | PASS | Runtime package and Replay-family directions clean |
+| `tools\validate_perf.bat` (N26 final) | 58.55 s | PASS; allocation guard, structural selected-path proof, DX12 and Physics comparisons |
+| `tools\validate_full.bat` (N26 final) | PASS | 402 doctests, required runtime lanes, accepted DX12 baselines, byte-exact 44,401-line Physics regression |
+| `tools\run_graphics_stress.bat 1` (N26 final) | 60.83 s | PASS; PID 34120 bounded stop, crash-free, descriptor churn proof complete, empty stderr |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the

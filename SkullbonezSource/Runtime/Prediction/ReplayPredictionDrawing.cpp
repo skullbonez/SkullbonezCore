@@ -19,6 +19,8 @@ Glossary:
   Frame-local prediction draw: Full visible trajectory submission rebuilt only
     by the deterministic fidelity oracle.
   Authored path colour: Scene material base colour copied to a body's space trajectory.
+  Velocity drag preview: First-order selected path formed by adding delta-v
+    times elapsed time to committed display-stride points.
 
 Invariants:
   - Drawing receives const prediction and presentation values only.
@@ -28,6 +30,8 @@ Invariants:
     unchanged publication exits before scanning trajectory records.
   - Deterministic fidelity bypasses retained state so golden comparison remains
     an independent frame-local oracle.
+  - Held velocity preview traverses only the selected display stride and does
+    not mutate retained non-selected geometry.
 
 Related:
   - ReplayPrediction.h
@@ -1617,6 +1621,88 @@ void ReplayPredictionRetainedGeometry::AddBaselinePathSegment( std::size_t range
                       SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::BaselineRoot );
 }
 
+void AppendReplayVelocityDragPreview( const ReplayPredictionPresentationView& prediction,
+                                      const RunReplayPathVisualizerState& pathVisualizer,
+                                      const ReplayPredictionDrawListState& state, EditorTracer& tracer )
+{
+    const ReplayVelocityDragPreviewView& preview = prediction.velocityDragPreview;
+
+    if ( !preview.active || preview.targetId.value == 0 || preview.targetId.value != pathVisualizer.targetId.value )
+    {
+        return;
+    }
+
+    const ReplayTrajectoryRecord* record = ReplayTrajectoryRecordForDraw( prediction.trajectoryRecords, preview.targetId,
+                                                                          ReplayTrajectoryLane::FutureRoot,
+                                                                          REPLAY_TRAJECTORY_COMMITTED_BRANCH );
+
+    if ( !record )
+    {
+        return;
+    }
+
+    const std::size_t publishedCount = ReplayTrajectoryPublishedPointCount( *record );
+
+    if ( publishedCount < 2u )
+    {
+        return;
+    }
+
+    // Concept: this is a first-order visual estimate, not another simulation.
+    // It bends the selected committed polyline by delta-v times elapsed time,
+    // performs no allocation, and leaves every other retained lane untouched.
+    const ReplayFrameIndex lastFrame = record->points[publishedCount - 1u].frameIndex;
+    const std::size_t sampleStride = (std::max)( state.sampleStride, std::size_t { 1 } );
+    std::size_t segmentBudget = tracer.ReplayPathRibbonSegmentCapacityRemaining();
+    Vector3 previousPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    const ReplayTrajectoryPoint* previousPoint = nullptr;
+
+    std::size_t pointIndex = 0;
+
+    while ( pointIndex < publishedCount )
+    {
+        const ReplayTrajectoryPoint& point = record->points[pointIndex];
+        const bool finalVisiblePoint = pointIndex + 1u == publishedCount;
+
+        const float elapsedSeconds = point.frameIndex > record->firstFrame
+                                         ? static_cast<float>( point.frameIndex - record->firstFrame ) * PHYSICS_FIXED_DT
+                                         : 0.0f;
+
+        const Vector3 previewPosition = point.position + preview.velocityDelta * elapsedSeconds;
+
+        if ( previousPoint && VectorMagSquared( previewPosition - previousPosition ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
+        {
+
+            if ( segmentBudget == 0u )
+            {
+                return;
+            }
+
+            float r = 1.0f;
+            float g = 1.0f;
+            float b = 1.0f;
+            ResolveReplayPathColor( pathVisualizer.colorMode, ReplayTrajectoryLane::FutureRoot, record->key.bodyId,
+                                    record->depth, ReplayPathFrameT( point.frameIndex, record->firstFrame, lastFrame ),
+                                    ReplayTrajectorySegmentSpeed( *previousPoint, point ), r, g, b );
+
+            tracer.AddReplayPathSegment( previousPosition, previewPosition, r, g, b,
+                                         SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureRoot, 1.0f );
+
+            --segmentBudget;
+        }
+
+        previousPoint = &point;
+        previousPosition = previewPosition;
+
+        if ( finalVisiblePoint )
+        {
+            break;
+        }
+
+        pointIndex = (std::min)( pointIndex + sampleStride, publishedCount - 1u );
+    }
+}
+
 
 ReplayPredictionDrawListUpdate
 UpdateReplayPredictionDrawList( const ReplayPredictionPresentationView& prediction,
@@ -1654,6 +1740,8 @@ UpdateReplayPredictionDrawList( const ReplayPredictionPresentationView& predicti
 
     bool reset = !state.valid || state.generation != prediction.generation ||
                  state.targetId.value != pathVisualizer.targetId.value || state.colorMode != pathVisualizer.colorMode ||
+                 state.velocityPreviewActive != prediction.velocityDragPreview.active ||
+                 state.velocityPreviewTargetId.value != prediction.velocityDragPreview.targetId.value ||
                  state.usingBuildFrames != prediction.usingBuildFrames ||
                  state.showAllFuturePaths != prediction.showAllFuturePaths ||
                  state.recordCursorCount > prediction.trajectoryRecords.size() ||
@@ -1719,12 +1807,14 @@ UpdateReplayPredictionDrawList( const ReplayPredictionPresentationView& predicti
         state.Reset();
         state.recordCursorCount = prediction.trajectoryRecords.size();
         state.targetId = pathVisualizer.targetId;
+        state.velocityPreviewTargetId = prediction.velocityDragPreview.targetId;
         state.generation = prediction.generation;
         state.topologyVersion = prediction.topologyVersion;
         state.trajectoryBuildTopologyVersion = prediction.trajectoryBuildTopologyVersion;
         state.colorMode = pathVisualizer.colorMode;
         state.usingBuildFrames = prediction.usingBuildFrames;
         state.showAllFuturePaths = prediction.showAllFuturePaths;
+        state.velocityPreviewActive = prediction.velocityDragPreview.active;
         state.sampleStride = sampleStride;
         state.valid = true;
         update.reset = true;
@@ -1763,7 +1853,10 @@ UpdateReplayPredictionDrawList( const ReplayPredictionPresentationView& predicti
                                                                           cursor.authoredColorG, cursor.authoredColorB );
         }
 
-        const bool rootLane = record.key.lane == ReplayTrajectoryLane::FutureRoot &&
+        const bool previewReplacesRoot = prediction.velocityDragPreview.active &&
+                                         prediction.velocityDragPreview.targetId.value == record.key.bodyId.value;
+
+        const bool rootLane = !previewReplacesRoot && record.key.lane == ReplayTrajectoryLane::FutureRoot &&
                               record.key.branchOrdinal == activeRootBranch &&
                               record.key.bodyId.value == pathVisualizer.targetId.value;
 
@@ -2098,8 +2191,14 @@ void AppendReplayPredictionProvisionalTails( const ReplayPredictionPresentationV
                                              EditorTracer& tracer )
 {
 
-    if ( !state.valid || prediction.frames.empty() ||
-         ( prediction.complete && prediction.revealFrame >= prediction.frames.back().frameIndex ) )
+    if ( !state.valid || prediction.frames.empty() )
+    {
+        return;
+    }
+
+    AppendReplayVelocityDragPreview( prediction, pathVisualizer, state, tracer );
+
+    if ( prediction.complete && prediction.revealFrame >= prediction.frames.back().frameIndex )
     {
         return;
     }
@@ -2129,7 +2228,10 @@ void AppendReplayPredictionProvisionalTails( const ReplayPredictionPresentationV
         }
 
         const ReplayTrajectoryRecord& record = prediction.trajectoryRecords[cursor.sourceRecordIndex];
-        const bool rootLane = record.key.lane == ReplayTrajectoryLane::FutureRoot &&
+        const bool previewReplacesRoot = prediction.velocityDragPreview.active &&
+                                         prediction.velocityDragPreview.targetId.value == record.key.bodyId.value;
+
+        const bool rootLane = !previewReplacesRoot && record.key.lane == ReplayTrajectoryLane::FutureRoot &&
                               record.key.branchOrdinal == activeRootBranch &&
                               record.key.bodyId.value == pathVisualizer.targetId.value;
 
