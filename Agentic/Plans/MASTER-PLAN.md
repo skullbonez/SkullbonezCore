@@ -584,33 +584,41 @@ without refresh. RS2 then moved all eight planning files into
 zero-refresh gate result. RS3 then reconciled sibling composition and the
 three-owner reserve inventory without introducing an upward escape. RS4
 installed the standing table, placement rule, and full dependency-fixture
-matrix. With GV0, the active/future ledger was 6/17. The owner-registered
-eight-task parameter-bag plan grew the denominator to 25. Replay RS5 then
-closed final hidden cross-package contracts, moved retained Prediction
-presentation authority out of App, passed the complete census, comment audit,
-independent review, and mapped gates, and completed Replay Subsystem Partition
-at 6/6. The ledger reached 7/25 before the completed six-task plan left the
-active/future inventory under rule 4. Downward Domain Bleed DB0 then
-ratified the three registered bleed classes, added nine unused
-Physics-to-Assets include rows to DB2, fixed the exact retained-geometry and
-terrain value contracts, and recorded the B2/B3 byte-exact strategy. DB1 then
-moved the retained-record meaning, capacity, and continuation policy into
-Runtime/Prediction while leaving Rendering with a generic value contract; the
-approved shader tree and every visual baseline remained unchanged. The live
-ledger was 3/19. DB2 then replaced per-body World terrain pointers with one
-Physics-owned scene view, moved support classification into Physics, removed
-all Physics-to-World/Scene/Assets includes, and passed the byte-exact
-44,401-row physics oracle plus unit, perf, and dependency gates. DB3 then moved
-all five per-body fluid/support facts from `PhysicsBodyRecord` into a
-fixed-capacity `BuoyancySystem` store aligned with body/collider rows. The final
-source preserves the 44,401-row oracle byte-for-byte and passes unit, perf,
-allocation, and dependency gates. DB4 then extended the data-driven dependency
-validator with the complete Physics upward edge ban and exact retired Rendering
-trajectory-name deletion, including planted negative fixtures. DB5 then
-repeated the complete census and 89-file comment audit, remediated both
-hostile-review findings, and passed the final full gate with the physics oracle
-byte-exact. The ledger reached 7/19 before the completed six-task plan left the
-active/future inventory under rule 4, leaving 1/13 (8%).
+matrix. With GV0, the active/future ledger was 6/17. The denominator then grew
+17 -> 25 on 2026-07-26 when the owner registered
+`concrete-parameter-bag-elimination` (8 tasks) from the complete current-tree
+bag audit. The plan owns 22 repair-required shapes: the original
+`SceneSaveRequest`, 19 established additional shapes, and two Replay-restore
+contexts present after the Replay partition work. It requires concrete
+owner-produced values, focused direct operations, or concrete phase-checked
+transactions and explicitly bans inheritance, interfaces, virtual dispatch,
+callbacks, type erasure, and renamed service/context bags. The active/future
+ledger was 6/25. Replay RS5 then closed final hidden cross-package contracts,
+moved retained Prediction presentation authority out of App, passed the
+complete census, comment audit, independent review, and mapped gates, and
+completed Replay Subsystem Partition at 6/6. The ledger reached 7/25 before
+the completed six-task plan left the active/future inventory under rule 4.
+Downward Domain Bleed DB0 then ratified the three registered bleed classes,
+added nine unused Physics-to-Assets include rows to DB2, fixed the exact
+retained-geometry and terrain value contracts, and recorded the B2/B3
+byte-exact strategy. DB1 then moved the retained-record meaning, capacity, and
+continuation policy into Runtime/Prediction while leaving Rendering with a
+generic value contract; the approved shader tree and every visual baseline
+remained unchanged. The live ledger was 3/19. DB2 then replaced per-body World
+terrain pointers with one Physics-owned scene view, moved support
+classification into Physics, removed all Physics-to-World/Scene/Assets
+includes, and passed the byte-exact 44,401-row physics oracle plus unit, perf,
+and dependency gates. DB3 then moved all five per-body fluid/support facts from
+`PhysicsBodyRecord` into a fixed-capacity `BuoyancySystem` store aligned with
+body/collider rows. The final source preserves the 44,401-row oracle
+byte-for-byte and passes unit, perf, allocation, and dependency gates. DB4 then
+extended the data-driven dependency validator with the complete Physics upward
+edge ban and exact retired Rendering trajectory-name deletion, including
+planted negative fixtures. DB5 then repeated the complete census and 89-file
+comment audit, remediated both hostile-review findings, and passed the final
+full gate with the physics oracle byte-exact. The ledger reached 7/19 before
+the completed six-task plan left the active/future inventory under rule 4,
+leaving 1/13 (8%).
 GV1 then ruled the complete current-tip census: 201 wide operation
 definitions, 22 suffix-family definitions, every ordering/arbitration hit,
 all 22 companion-plan targets, and all four pre-ruled non-offenders. Scene
@@ -637,8 +645,9 @@ The 2026-07-25 round-4 campaign is the active queue with binding order:
 1 `invariant-ownership-governance-and-transaction-repair` (4/5; GV0 installed
   the governance amendment, GV1 ratified the census, GV2 installed the
   scene-load transaction, GV3 installed the generated-scene transaction, and
-  GV4 is next). The owner-registered parameter-bag
-  work follows GV4.
+  GV4 is next),
+2 `concrete-parameter-bag-elimination` (0/8; consumes GV2's concrete
+  scene-load transaction, then closes the complete 22-shape bag census).
 Header-claim staleness remediation is complete at 3/3 and removed
 from the live ledger; its permanent evidence is
 `../Reports/2026-07-25/header-claim-staleness-remediation-closure.md`. Replay
@@ -1755,6 +1764,14 @@ campaign owns plus one amendment set:
    arbitration helpers whose comments carry the mid-batch which-value-wins
    rule. No type owns the sequencing or arbitration invariant, and four call
    sites re-encode the ordering by hand.
+6. **Concrete parameter-bag elimination** (registered 2026-07-26 from the
+   owner-requested current-tree audit) - 22 repair-required aggregate shapes
+   repeatedly flatten concrete owners, repack the same fields between layers,
+   or bundle unrelated services for one operation. The scope includes Scene
+   save/load, pointer routing, render/UI composition, Replay capture/focus/
+   restore, and eight Physics stage contexts. The endpoint is concrete
+   owner-produced values, focused direct operations, or concrete
+   phase-checked transactions. Inheritance and interfaces are forbidden.
 
 Owner decisions ratified at registration: the 2026-07-22 replay ruling stands
 (replay remains the flagship subsystem; the partition is an ownership/naming
@@ -1782,14 +1799,18 @@ headers, context bags, callback packs, or hot-path inheritance artifacts.
 The original binding order was 1 UI/renderer hard boundary, 2 header claim
 staleness remediation, 3 replay subsystem partition, 4 downward domain bleed
 remediation (DB1 additionally requires RS1's `Runtime/Prediction` package to
-exist), 5 invariant-ownership governance and transaction repair. The two
+exist), 5 invariant-ownership governance and transaction repair. The
+2026-07-26 owner direction appends 6 concrete parameter-bag elimination after
+GV4; GV2 supplies its scene-load transaction and the later plan owns closure
+of the complete 22-shape census. The two
 authorized documentation-only exceptions are complete: GV0 landed during the
 UI campaign, and HC0 ran beside the UI tail. HC1-HC2 then closed after UR6 as
 sequenced. HC2 preserved GV0's aggregate-invariant procedure and added claim
 verification as a separate step. Replay and Downward Domain Bleed are complete;
 GV1 ratified the offender census, GV2 installed the scene-load transaction,
 GV3 installed the generated-scene transaction, and GV4 is now the binding next
-task. HC2 and GV0 both amended
+task. HC2 and
+GV0 both amended
 `Agentic/Skills/comment-style-audit/skill.md` in separate sections; HC2 landed
 second and preserved GV0.
 
@@ -1800,6 +1821,7 @@ second and preserved GV0.
 | [replay-subsystem-partition](../Reports/2026-07-26/replay-subsystem-partition-closure.md) | Complete | 6/6 | Closed and removed from the live ledger under inventory rule 4 |
 | [downward-domain-bleed-remediation](../Reports/2026-07-26/downward-domain-bleed-remediation-closure.md) | Complete | 6/6 | Closed and removed from the live ledger under inventory rule 4 |
 | [invariant-ownership-governance-and-transaction-repair](TODO/invariant-ownership-governance-and-transaction-repair.md) | In progress | 4/5 | GV3 installed the generated-scene transaction; GV4 is next |
+| [concrete-parameter-bag-elimination](TODO/concrete-parameter-bag-elimination.md) | Ready | 0/8 | Starts after GV4; PB0 ratifies the 22-shape census and concrete owner designs |
 
 ## Features
 
@@ -1814,6 +1836,15 @@ rule 9 applies — it is not live work and is not tracked here).
 
 Binding:
 
+- 2026-07-26 concrete parameter-bag ruling: the 22 shapes enumerated in
+  `TODO/concrete-parameter-bag-elimination.md` are repair-required. Their
+  replacements use concrete owner-produced values, focused direct operations,
+  or concrete stack-scoped invariant owners. This remediation may introduce no
+  inheritance, abstract or pure-virtual interface, virtual dispatch, CRTP
+  policy base, type erasure, callback interface, service registry, or renamed
+  context bag. `SceneSaveRequest` may retain its name only in the owner-directed
+  four-field form: output path plus Scene, controller-state, and presentation
+  save values.
 - 2026-07-25 invariant-ownership ruling: an aggregate type is legitimate only
   when it names and enforces an invariant (header `Invariant:` block plus a
   focused test); an aggregate that only carries data to shorten a signature

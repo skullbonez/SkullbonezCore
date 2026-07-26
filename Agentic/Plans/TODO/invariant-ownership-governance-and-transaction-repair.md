@@ -385,12 +385,15 @@ this transaction needs). So both are banned, and the invariant is homeless.
     `tools\validate_full.bat` pass with no baseline, golden, scene, config,
     replay artifact, or physics CSV refresh.
 
-- [x] **GV3 — Repair the remaining repair-now census rows.**
+- [x] **GV3 — Repair invariant-shaped rows outside the concrete bag census.**
 
-  Apply the same treatment to every GV1 repair-now row: name the invariant,
-  build or assign its owner under permanent invariants 1-2, delete the
-  extruded helpers/free functions, migrate call sites, add the invariant
-  test, and keep behavior frozen.
+  Apply the same treatment to every GV1 repair-now row not assigned to
+  `concrete-parameter-bag-elimination`: name the invariant, build or assign
+  its owner under permanent invariants 1-2, delete the extruded helpers/free
+  functions, migrate call sites, add the invariant test, and keep behavior
+  frozen. The companion plan owns its explicit 22-shape census; GV2 retains
+  the first implementation of the scene-load transaction and the companion
+  plan consumes that result rather than duplicating it.
 
   Implementation notes:
 
@@ -480,6 +483,11 @@ this transaction needs). So both are banned, and the invariant is homeless.
 - Prior owner rulings (frame phase-results, `ReplayWorkspaceFrameInput`,
   `SceneDefaultsSaveView`, `FrameEntryContext`) stand unless GV1 records new
   evidence; the default is retain.
+- `concrete-parameter-bag-elimination` owns the 22 flat/repacked/service-bag
+  shapes named in its authoritative census. GV1 records those rows as assigned
+  to the companion plan, GV2 supplies the concrete scene-load transaction, and
+  GV3 repairs only additional invariant-shaped offenders outside that census.
+  The companion plan permits no inheritance or interfaces.
 - This plan deliberately performs no validator/regex enforcement for the
   invariant rule: it is qualitative and belongs to review + comment audit.
   Do not add a counting gate.
