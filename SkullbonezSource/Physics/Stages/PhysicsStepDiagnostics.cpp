@@ -28,6 +28,8 @@ Related:
 #include "../ColliderStore.h"
 #include "../PhysicsBodyStore.h"
 #include "../PhysicsDiagnosticsModel.h"
+#include "../PhysicsSceneVectorReserve.h"
+#include "../PhysicsStageCapacity.h"
 #include "../PhysicsWorld.h"
 
 #include <algorithm>
@@ -47,6 +49,13 @@ PhysicsStepDiagnostics::PhysicsStepDiagnostics()
     m_collisionVisualContacts.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     m_physicsDebugContacts.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 4 );
     m_physicsPipelineTrace.reserve( MAX_PIPELINE_TRACE_RECORDS );
+}
+
+void PhysicsStepDiagnostics::ReserveDebugContactCapacity( std::size_t bodyCapacity )
+{
+    ReservePhysicsSceneVector( m_physicsDebugContacts, PhysicsContactRowCapacity( bodyCapacity ), PHYSICS_MAX_CONTACT_ROWS,
+                               "PhysicsStepDiagnostics.physicsDebugContacts",
+                               "Exact scene persistent-contact diagnostic rows" );
 }
 
 void PhysicsStepDiagnostics::Clear()

@@ -154,6 +154,13 @@ struct SolverFixture
         // mirror that owner precondition so focused solver tests cannot hide a
         // growth path behind their smaller fixture vector.
         sleepSupportEdges.reserve( MAX_SLEEP_SUPPORT_EDGES );
+
+        {
+            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+                SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+            solver.ReserveSceneCapacity( 16u );
+        }
+
         config.execution.parallel = false;
         config.worldForces.gravity = -30.0f;
         config.material.terrainFrictionCoefficient = 0.2f;

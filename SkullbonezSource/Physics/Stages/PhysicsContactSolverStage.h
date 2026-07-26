@@ -20,8 +20,8 @@ Glossary:
   Warm start: Reuse of last tick's accumulated contact impulses.
 
 Invariants:
-  - Owned vectors are construction-reserved and never grow past their bounds
-    during steady gameplay.
+  - Owned lists commit scene-derived runtime capacities before play and fail
+    loudly rather than grow during steady gameplay.
   - Solve prepares a fresh consequence batch before invoking the row solver.
   - The stage retains no pointer or reference to PhysicsWorld or borrowed rows.
   - Wake propagation receives only a cache-invalidation capability, never the
@@ -43,6 +43,7 @@ Related:
 #include "../PhysicsBodyStore.h"
 #include "../PhysicsRuntimeSettings.h"
 #include "../PhysicsDebugData.h"
+#include "../PhysicsStageCapacity.h"
 #include "../TerrainContactManifold.h"
 #include "../PhysicsSolverSnapshot.h"
 
@@ -115,28 +116,38 @@ struct PersistentContactSolverStats
     float positionCorrectionMax = 0.0f;
 };
 
+using PersistentContactList = PhysicsFixedList<PersistentContact, PHYSICS_MAX_CONTACT_ROWS>;
+using PersistentContactCacheList = PhysicsFixedList<PersistentContactCacheEntry, PHYSICS_MAX_CONTACT_ROWS>;
+using PersistentContactCountList = PhysicsFixedList<uint16_t, PHYSICS_MAX_BODY_ROWS>;
+using SolverBodyStateList = PhysicsFixedList<SolverBodyState, PHYSICS_MAX_BODY_ROWS>;
+using PhysicsPipelineRecordList = PhysicsFixedList<PhysicsPipelineRecord, PHYSICS_MAX_PIPELINE_TRACE_RECORDS>;
+using PhysicsCollisionVisualBodyList = PhysicsFixedList<int, PHYSICS_MAX_COLLISION_VISUAL_BODY_ROWS>;
+using PhysicsContactBodyList = PhysicsFixedList<int, PHYSICS_MAX_CONTACT_ROWS>;
+using PhysicsReleaseWakeBodyList = PhysicsFixedList<int, PHYSICS_MAX_BODY_ROWS>;
+using PhysicsFixedTreeReleaseList = PhysicsFixedList<PhysicsFixedTreeReleaseEvent, PHYSICS_MAX_BODY_ROWS>;
+
 struct PersistentContactSolverSideEffects
 {
 
     // These are values, not callbacks: the sequencer applies them in the same
     // deterministic order after Solve returns.
-    std::vector<PhysicsPipelineRecord> pipelineRecords;
-    std::vector<int> collisionVisualBodies;
-    std::vector<int> fixedContactBodies;
-    std::vector<int> releaseWakeBodies;
-    std::vector<PhysicsFixedTreeReleaseEvent> fixedTreeReleases;
+    PhysicsPipelineRecordList pipelineRecords { "PhysicsContactSolverStage.pipelineRecords" };
+    PhysicsCollisionVisualBodyList collisionVisualBodies { "PhysicsContactSolverStage.collisionVisualBodies" };
+    PhysicsContactBodyList fixedContactBodies { "PhysicsContactSolverStage.fixedContactBodies" };
+    PhysicsReleaseWakeBodyList releaseWakeBodies { "PhysicsContactSolverStage.releaseWakeBodies" };
+    PhysicsFixedTreeReleaseList fixedTreeReleases { "PhysicsContactSolverStage.fixedTreeReleases" };
 };
 
 class PhysicsContactCacheWakeAccess
 {
   private:
-    std::vector<PersistentContactCacheEntry>& m_cache;
+    PersistentContactCacheList& m_cache;
 
   public:
 
     // Lifetime: this narrow capability borrows the contact owner's cache only
     // for the synchronous wake operation that requested it.
-    explicit PhysicsContactCacheWakeAccess( std::vector<PersistentContactCacheEntry>& cache ) : m_cache( cache )
+    explicit PhysicsContactCacheWakeAccess( PersistentContactCacheList& cache ) : m_cache( cache )
     {
     }
     void ForgetBody( int bodyIndex ) const;
@@ -145,12 +156,13 @@ class PhysicsContactCacheWakeAccess
 class PhysicsContactSolverStage
 {
   private:
-    std::vector<PersistentContact> m_persistentContacts;
-    std::vector<PersistentContactCacheEntry> m_persistentContactCache;
+    PersistentContactList m_persistentContacts { "PhysicsContactSolverStage.persistentContacts" };
+    PersistentContactCacheList m_persistentContactCache { "PhysicsContactSolverStage.persistentContactCache" };
     PersistentContactSolverStats m_persistentContactSolverStats;
-    std::vector<uint16_t> m_persistentContactCounts;
-    std::vector<uint16_t> m_persistentRestingContactCounts;
-    std::vector<SolverBodyState> m_solverBodies;
+    PersistentContactCountList m_persistentContactCounts { "PhysicsContactSolverStage.persistentContactCounts" };
+    PersistentContactCountList m_persistentRestingContactCounts {
+        "PhysicsContactSolverStage.persistentRestingContactCounts" };
+    SolverBodyStateList m_solverBodies { "PhysicsContactSolverStage.solverBodies" };
     PersistentContactSolverSideEffects m_sideEffects;
 
     void PrepareSideEffects( int modelCount, std::size_t candidatePairCount, int pipelineRecordCapacity );
@@ -159,6 +171,7 @@ class PhysicsContactSolverStage
     PhysicsContactSolverStage();
 
     void Clear();
+    void ReserveSceneCapacity( std::size_t bodyCapacity );
 
     // Returns the single per-solve normalization of raw stamped settings and
     // live world-force policy. Tests use this seam to pin bounds without
@@ -176,11 +189,11 @@ class PhysicsContactSolverStage
     void CaptureReplayState( PhysicsSolverSnapshot& outSnapshot ) const;
     void RestoreReplayState( const PhysicsSolverSnapshot& snapshot );
 
-    const std::vector<PersistentContact>& GetPersistentContacts() const;
-    const std::vector<PersistentContactCacheEntry>& GetPersistentContactCache() const;
+    std::span<const PersistentContact> GetPersistentContacts() const;
+    std::span<const PersistentContactCacheEntry> GetPersistentContactCache() const;
     const PersistentContactSolverStats& GetStats() const;
-    const std::vector<uint16_t>& GetPersistentContactCounts() const;
-    const std::vector<uint16_t>& GetPersistentRestingContactCounts() const;
+    std::span<const uint16_t> GetPersistentContactCounts() const;
+    std::span<const uint16_t> GetPersistentRestingContactCounts() const;
     const PersistentContactSolverSideEffects& GetSideEffects() const;
     uint64_t CollectDynamicMemoryBytes() const;
 };

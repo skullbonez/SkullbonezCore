@@ -57,6 +57,7 @@ class PhysicsStepDiagnostics
 
   public:
     PhysicsStepDiagnostics();
+    void ReserveDebugContactCapacity( std::size_t bodyCapacity );
     void Clear();
     void BeginStep( int modelCount );
     void BeginCollisionVisualFrame( int modelCount );

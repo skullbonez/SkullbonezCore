@@ -26,7 +26,7 @@ Invariants:
     solver-visible order.
   - Sleep-only pairs never enter the production candidate vector; Debug records
     the old geometric-admission evidence at the emission skip.
-  - No hot-path vector operation may exceed construction-time capacity.
+  - No hot-path list operation may exceed its scene-load reservation.
 
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.h
@@ -62,8 +62,6 @@ constexpr float PHYSICS_FAST_SWEEP_MIN_DISTANCE = 1.0f;
 constexpr float PHYSICS_FAST_SWEEP_PAIR_SLOP = 1.0f;
 constexpr float BROADPHASE_MIN_CELL_SIZE = 0.5f;
 constexpr float DEFAULT_BROADPHASE_CELL = 24.0f;
-constexpr int PHYSICS_CANDIDATE_PAIR_RESERVE = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 4;
-
 bool IsSolverBodyFixed( const Physics::PhysicsBodyHotFieldsConstView& hotFields, int bodyIndex )
 {
     return hotFields.fixed[static_cast<size_t>( bodyIndex )] != 0u;
@@ -81,7 +79,7 @@ float SolverBodyRadius( std::span<const Physics::ColliderRecord> colliderRecords
 
 // Invariant: conservative augmentation appends only normalized pairs not
 // already emitted by the grid. The linear scan preserves first-seen order.
-void AppendCandidatePairIfMissing( std::vector<std::pair<int, int>>& candidatePairs,
+void AppendCandidatePairIfMissing( Physics::PhysicsCandidatePairList& candidatePairs,
                                    const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore,
                                    std::span<const uint8_t> sleepState, float dt, float contactSkin, int a, int b )
 {
@@ -178,9 +176,9 @@ bool SweptSegmentTouchesExpandedBody( const Physics::PhysicsBodyHotFieldsConstVi
     return Vector::VectorMagSquared( closestRelative ) <= expandedRadius * expandedRadius;
 }
 
-bool AppendFastSmallSweepPairs( std::vector<std::pair<int, int>>& candidatePairs, const Physics::PhysicsBodyStore& bodyStore,
-                                const Physics::ColliderStore& colliderStore, std::span<const uint8_t> sleepState,
-                                const Physics::PhysicsBodyHotFieldsConstView& hotFields,
+bool AppendFastSmallSweepPairs( Physics::PhysicsCandidatePairList& candidatePairs,
+                                const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore,
+                                std::span<const uint8_t> sleepState, const Physics::PhysicsBodyHotFieldsConstView& hotFields,
                                 std::span<const Physics::ColliderRecord> colliderRecords,
                                 std::span<const int> awakeBodyIndices, float dt, float contactSkin, float contactEpsilon )
 {
@@ -211,7 +209,7 @@ bool AppendFastSmallSweepPairs( std::vector<std::pair<int, int>>& candidatePairs
     return candidatePairs.size() != pairCountBeforeSweep;
 }
 
-void CanonicalizeCandidatePairs( std::vector<std::pair<int, int>>& candidatePairs )
+void CanonicalizeCandidatePairs( Physics::PhysicsCandidatePairList& candidatePairs )
 {
 
     // Why: grid output is already canonical, but rare fast-sweep augmentation
@@ -350,7 +348,8 @@ bool TryRecordBroadphaseCandidatePair( std::vector<Physics::PhysicsPipelineRecor
 }
 
 #if defined( _DEBUG )
-void CopyPairsWithoutGrowth( const std::vector<std::pair<int, int>>& source, std::vector<std::pair<int, int>>& destination )
+void CopyPairsWithoutGrowth( const Physics::PhysicsCandidatePairList& source,
+                             Physics::PhysicsCandidatePairList& destination )
 {
     destination.clear();
 
@@ -366,16 +365,17 @@ void CopyPairsWithoutGrowth( const std::vector<std::pair<int, int>>& source, std
     }
 }
 
-void RequireSamePairMembership( const std::vector<std::pair<int, int>>& driverPairs,
-                                std::vector<std::pair<int, int>>& shadowPairs,
-                                std::vector<std::pair<int, int>>& normalizedDriverPairs, const char* boundary,
+void RequireSamePairMembership( const Physics::PhysicsCandidatePairList& driverPairs,
+                                Physics::PhysicsCandidatePairList& shadowPairs,
+                                Physics::PhysicsCandidatePairList& normalizedDriverPairs, const char* boundary,
                                 const char* driverName, uint64_t tick )
 {
     CopyPairsWithoutGrowth( driverPairs, normalizedDriverPairs );
     std::sort( normalizedDriverPairs.begin(), normalizedDriverPairs.end() );
     std::sort( shadowPairs.begin(), shadowPairs.end() );
 
-    if ( normalizedDriverPairs != shadowPairs )
+    if ( normalizedDriverPairs.size() != shadowPairs.size() ||
+         !std::equal( normalizedDriverPairs.begin(), normalizedDriverPairs.end(), shadowPairs.begin() ) )
     {
         SB_FATAL( "Physics/P1PairOracle",
                   "P1 same-state pair membership mismatch: boundary=%s driver=%s tick=%llu "
@@ -386,9 +386,9 @@ void RequireSamePairMembership( const std::vector<std::pair<int, int>>& driverPa
 }
 #endif
 
-template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values )
+template <typename T> uint64_t ListCapacityBytes( const T& values )
 {
-    return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
+    return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( typename T::value_type ) );
 }
 } // namespace
 
@@ -398,15 +398,7 @@ namespace Physics
 {
 PhysicsBroadphaseStage::PhysicsBroadphaseStage() : m_spatialGrid( DEFAULT_BROADPHASE_CELL )
 {
-
-    // Runtime allocation policy: retained outputs are fully reserved before the
-    // fixed-step pass and fail fatally rather than growing during gameplay.
-    m_candidatePairs.reserve( PHYSICS_CANDIDATE_PAIR_RESERVE );
-    m_collisionCellKeys.reserve( PHYSICS_CANDIDATE_PAIR_RESERVE );
 #if defined( _DEBUG )
-    m_sleepPrunedPairs.reserve( PHYSICS_CANDIDATE_PAIR_RESERVE );
-    m_pairOracleShadowPairs.reserve( PHYSICS_CANDIDATE_PAIR_RESERVE );
-    m_pairOracleNormalizedDriverPairs.reserve( PHYSICS_CANDIDATE_PAIR_RESERVE );
     char oracleDriver[16] = {};
     size_t oracleDriverLength = 0;
     getenv_s( &oracleDriverLength, oracleDriver, sizeof( oracleDriver ), "SKORE_P1_PAIR_DRIVER" );
@@ -432,6 +424,18 @@ PhysicsBroadphaseStage::PhysicsBroadphaseStage() : m_spatialGrid( DEFAULT_BROADP
 
         std::fflush( stderr );
     }
+#endif
+}
+
+void PhysicsBroadphaseStage::ReserveSceneCapacity( std::size_t bodyCapacity )
+{
+    const std::size_t pairCapacity = PhysicsCandidatePairCapacity( bodyCapacity );
+    m_candidatePairs.Reserve( pairCapacity );
+    m_collisionCellKeys.Reserve( pairCapacity );
+#if defined( _DEBUG )
+    m_sleepPrunedPairs.Reserve( pairCapacity );
+    m_pairOracleShadowPairs.Reserve( pairCapacity );
+    m_pairOracleNormalizedDriverPairs.Reserve( pairCapacity );
 #endif
 }
 
@@ -833,19 +837,19 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::GetCandidatePairs()
 }
 
 
-const std::vector<int64_t>& PhysicsBroadphaseStage::GetCollisionCellKeys() const
+std::span<const int64_t> PhysicsBroadphaseStage::GetCollisionCellKeys() const
 {
     return m_collisionCellKeys;
 }
 
 
-const std::vector<int64_t>& PhysicsBroadphaseStage::CollisionCellKeysForReplay() const
+std::span<const int64_t> PhysicsBroadphaseStage::CollisionCellKeysForReplay() const
 {
     return m_collisionCellKeys;
 }
 
 
-std::vector<int64_t>& PhysicsBroadphaseStage::CollisionCellKeysForReplay()
+PhysicsCollisionCellKeyList& PhysicsBroadphaseStage::CollisionCellKeysForReplay()
 {
     return m_collisionCellKeys;
 }
@@ -869,10 +873,10 @@ void PhysicsBroadphaseStage::AppendCollisionCellKey( int64_t collisionCellKey )
 
 uint64_t PhysicsBroadphaseStage::CollectDynamicMemoryBytes() const
 {
-    uint64_t bytes = VectorCapacityBytes( m_candidatePairs ) + VectorCapacityBytes( m_collisionCellKeys );
+    uint64_t bytes = ListCapacityBytes( m_candidatePairs ) + ListCapacityBytes( m_collisionCellKeys );
 #if defined( _DEBUG )
-    bytes += VectorCapacityBytes( m_sleepPrunedPairs ) + VectorCapacityBytes( m_pairOracleShadowPairs ) +
-             VectorCapacityBytes( m_pairOracleNormalizedDriverPairs );
+    bytes += ListCapacityBytes( m_sleepPrunedPairs ) + ListCapacityBytes( m_pairOracleShadowPairs ) +
+             ListCapacityBytes( m_pairOracleNormalizedDriverPairs );
 #endif
     return bytes;
 }

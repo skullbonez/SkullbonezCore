@@ -57,6 +57,7 @@ Related:
 #include "../Core/Common.h"
 #include "../Core/SceneCapacity.h"
 #include "../Maths/Vector3.h"
+#include "PhysicsStageCapacity.h"
 
 namespace SkullbonezCore
 {
@@ -239,11 +240,11 @@ class SpatialGrid
     bool MarkFilteredCandidatePairFirstSeen( int a, int b, const Physics::PhysicsBodyStore& bodyStore,
                                              const Physics::ColliderStore& colliderStore,
                                              std::span<const uint8_t> sleepState, float dt, float contactSkin,
-                                             std::vector<std::pair<int, int>>* sleepPrunedPairs );
-    void GetFilteredCandidatePairsImpl( std::vector<std::pair<int, int>>& outPairs,
+                                             Physics::PhysicsCandidatePairList* sleepPrunedPairs );
+    void GetFilteredCandidatePairsImpl( Physics::PhysicsCandidatePairList& outPairs,
                                         const Physics::PhysicsBodyStore& bodyStore,
                                         const Physics::ColliderStore& colliderStore, std::span<const uint8_t> sleepState,
-                                        float dt, float contactSkin, std::vector<std::pair<int, int>>* sleepPrunedPairs,
+                                        float dt, float contactSkin, Physics::PhysicsCandidatePairList* sleepPrunedPairs,
                                         bool restrictToPairSourceCells );
 
   public:
@@ -293,11 +294,11 @@ class SpatialGrid
     // filtered overloads require concrete stores and step scalars. Debug may
     // additionally retain sleep-only geometric admissions as bounded evidence.
     void GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs, bool restrictToPairSourceCells = false );
-    void GetFilteredCandidatePairs( std::vector<std::pair<int, int>>& outPairs, const Physics::PhysicsBodyStore& bodyStore,
+    void GetFilteredCandidatePairs( Physics::PhysicsCandidatePairList& outPairs, const Physics::PhysicsBodyStore& bodyStore,
                                     const Physics::ColliderStore& colliderStore, std::span<const uint8_t> sleepState,
-                                    float dt, float contactSkin, std::vector<std::pair<int, int>>& sleepPrunedPairs,
+                                    float dt, float contactSkin, Physics::PhysicsCandidatePairList& sleepPrunedPairs,
                                     bool restrictToPairSourceCells );
-    void GetFilteredCandidatePairs( std::vector<std::pair<int, int>>& outPairs, const Physics::PhysicsBodyStore& bodyStore,
+    void GetFilteredCandidatePairs( Physics::PhysicsCandidatePairList& outPairs, const Physics::PhysicsBodyStore& bodyStore,
                                     const Physics::ColliderStore& colliderStore, std::span<const uint8_t> sleepState,
                                     float dt, float contactSkin, bool restrictToPairSourceCells );
 #if defined( _DEBUG )
@@ -305,7 +306,7 @@ class SpatialGrid
     // P1 transition oracle only: emits the pre-transition bucket-history order
     // from the same grid state so Debug runs can compare work membership without
     // evolving a second simulation.
-    void GetFilteredCandidatePairsLegacyForOracle( std::vector<std::pair<int, int>>& outPairs,
+    void GetFilteredCandidatePairsLegacyForOracle( Physics::PhysicsCandidatePairList& outPairs,
                                                    const Physics::PhysicsBodyStore& bodyStore,
                                                    const Physics::ColliderStore& colliderStore,
                                                    std::span<const uint8_t> sleepState, float dt, float contactSkin );

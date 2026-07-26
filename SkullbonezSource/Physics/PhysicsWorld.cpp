@@ -298,8 +298,9 @@ void ReserveReplaySolverSnapshotVector( std::vector<T>& values, std::size_t requ
 // Invariant: replay solver state fields live in these X-macro lists so capture
 // clear/reserve/copy and restore copy cannot silently drift apart when solver
 // state grows.
-#define SB_REPLAY_SOLVER_DIRECT_VECTOR_FIELDS( VISIT )                                                                      \
-    VISIT( timeRemaining, m_timeRemaining, "timeRemaining" )                                                                \
+#define SB_REPLAY_SOLVER_DIRECT_VECTOR_FIELDS( VISIT ) VISIT( timeRemaining, m_timeRemaining, "timeRemaining" )
+
+#define SB_REPLAY_SOLVER_FIXED_LIST_FIELDS( VISIT )                                                                         \
     VISIT( collisionCellKeys, m_broadphase.CollisionCellKeysForReplay(), "collisionCellKeys" )
 
 #define SB_REPLAY_SOLVER_DIAGNOSTIC_VECTOR_FIELDS( VISIT )                                                                  \
@@ -333,6 +334,7 @@ void ReserveReplaySolverSnapshotVector( std::vector<T>& values, std::size_t requ
 
 #define SB_REPLAY_SOLVER_VECTOR_FIELDS( VISIT )                                                                             \
     SB_REPLAY_SOLVER_DIRECT_VECTOR_FIELDS( VISIT )                                                                          \
+    SB_REPLAY_SOLVER_FIXED_LIST_FIELDS( VISIT )                                                                             \
     SB_REPLAY_SOLVER_SLEEP_VECTOR_FIELDS( VISIT )                                                                           \
     SB_REPLAY_SOLVER_DIAGNOSTIC_VECTOR_FIELDS( VISIT )                                                                      \
     SB_REPLAY_SOLVER_CONTACT_STAGE_VECTOR_FIELDS( VISIT )
@@ -405,6 +407,10 @@ void PhysicsWorld::ReserveBodyScratchCapacity( std::size_t bodyCapacity, std::si
                                "PhysicsWorld.pointJointConstraints", "Exact current-scene point-joint backing allowance" );
 
     m_forceStage.ReserveBodyScratchCapacity( bodyCapacity );
+    m_broadphase.ReserveSceneCapacity( bodyCapacity );
+    m_narrowphase.ReserveSceneCapacity( bodyCapacity );
+    m_contactSolverStage.ReserveSceneCapacity( bodyCapacity );
+    m_stepDiagnostics.ReserveDebugContactCapacity( bodyCapacity );
     m_sleepController.ReserveBodyCapacity( bodyCapacity, pointJointCapacity );
     m_pointJointCapacity = pointJointCapacity;
 }
@@ -498,6 +504,8 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapsh
 #define CAPTURE_REPLAY_SOLVER_VECTOR_FIELD( snapshotField, worldValues, label ) outSnapshot.snapshotField = worldValues;
     SB_REPLAY_SOLVER_DIRECT_VECTOR_FIELDS( CAPTURE_REPLAY_SOLVER_VECTOR_FIELD )
 #undef CAPTURE_REPLAY_SOLVER_VECTOR_FIELD
+    const std::span<const int64_t> collisionCellKeys = m_broadphase.CollisionCellKeysForReplay();
+    outSnapshot.collisionCellKeys.assign( collisionCellKeys.begin(), collisionCellKeys.end() );
 
     m_sleepController.CaptureReplayState( outSnapshot );
     m_stepDiagnostics.CaptureReplayState( outSnapshot );
@@ -516,6 +524,14 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& sna
 #define RESTORE_REPLAY_SOLVER_VECTOR_FIELD( snapshotField, worldValues, label ) worldValues = snapshot.snapshotField;
     SB_REPLAY_SOLVER_DIRECT_VECTOR_FIELDS( RESTORE_REPLAY_SOLVER_VECTOR_FIELD )
 #undef RESTORE_REPLAY_SOLVER_VECTOR_FIELD
+    PhysicsCollisionCellKeyList& collisionCellKeys = m_broadphase.CollisionCellKeysForReplay();
+    collisionCellKeys.Reserve( snapshot.collisionCellKeys.size() );
+    collisionCellKeys.clear();
+
+    for ( int64_t key : snapshot.collisionCellKeys )
+    {
+        collisionCellKeys.push_back( key );
+    }
 
     m_sleepController.RestoreReplayState( snapshot );
     m_stepDiagnostics.RestoreReplayState( snapshot );
@@ -527,6 +543,7 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& sna
 }
 
 #undef SB_REPLAY_SOLVER_DIRECT_VECTOR_FIELDS
+#undef SB_REPLAY_SOLVER_FIXED_LIST_FIELDS
 #undef SB_REPLAY_SOLVER_SLEEP_VECTOR_FIELDS
 #undef SB_REPLAY_SOLVER_DIAGNOSTIC_VECTOR_FIELDS
 #undef SB_REPLAY_SOLVER_CONTACT_STAGE_VECTOR_FIELDS
@@ -1271,7 +1288,7 @@ const Math::CollisionDetection::SpatialGrid& PhysicsWorld::GetSpatialGrid() cons
 }
 
 
-const std::vector<int64_t>& PhysicsWorld::GetCollisionCellKeys() const
+std::span<const int64_t> PhysicsWorld::GetCollisionCellKeys() const
 {
     return m_broadphase.GetCollisionCellKeys();
 }

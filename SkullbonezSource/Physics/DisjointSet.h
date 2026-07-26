@@ -21,8 +21,8 @@ Invariants:
   - Equal-rank unions keep the first argument's root as the parent. This
     preserves the existing physics island merge tie-break and its byte-exact
     validation behavior.
-  - The helper borrows scratch buffers from PhysicsWorld; it owns no storage and
-    depends on those buffers being pre-reserved before fixed-step gameplay.
+  - The helper borrows scratch buffers from its stage owner; it owns no storage
+    and depends on those buffers being committed before fixed-step gameplay.
   - Callers finish sizing parent/rank buffers before constructing the helper and
 
     do not resize those buffers while the helper is alive.
@@ -35,7 +35,7 @@ Related:
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <vector>
+#include <span>
 
 namespace SkullbonezCore::Physics
 {
@@ -43,18 +43,19 @@ namespace SkullbonezCore::Physics
 class DisjointSet
 {
   public:
-    DisjointSet( std::vector<int>& parent, std::vector<uint8_t>& rank, int count )
+    DisjointSet( std::span<int> parent, std::span<uint8_t> rank, int count )
         : m_parent( parent ), m_rank( rank ), m_parentRows( parent.data() ), m_rankRows( rank.data() ), m_count( count )
     {
     }
 
-    // Invariant: PhysicsWorld reserves these buffers up front. Reset() may
-    // resize within that capacity, but the fixed-step path must not grow them.
+    // Invariant: callers size these buffers before construction. Reset writes
+    // the borrowed rows in place and cannot change owner storage.
     void Reset()
     {
         const std::size_t rowCount = static_cast<std::size_t>( m_count );
-        m_parent.assign( rowCount, 0 );
-        m_rank.assign( rowCount, 0 );
+        assert( rowCount <= m_parent.size() && rowCount <= m_rank.size() );
+        std::fill_n( m_parent.begin(), rowCount, 0 );
+        std::fill_n( m_rank.begin(), rowCount, uint8_t { 0 } );
 
         for ( int row = 0; row < m_count; ++row )
         {
@@ -113,8 +114,8 @@ class DisjointSet
         m_rankRows = m_rank.data();
     }
 
-    std::vector<int>& m_parent;
-    std::vector<uint8_t>& m_rank;
+    std::span<int> m_parent;
+    std::span<uint8_t> m_rank;
     int* m_parentRows;
     uint8_t* m_rankRows;
     int m_count;

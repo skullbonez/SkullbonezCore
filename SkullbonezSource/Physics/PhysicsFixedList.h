@@ -328,6 +328,36 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
         TrackHighWater();
     }
 
+    template <typename... Args> T& emplace_back( Args&&... args )
+    {
+        CheckCapacity( m_count + 1u );
+        new ( RawSlot( m_count ) ) T( std::forward<Args>( args )... );
+        ++m_count;
+        TrackHighWater();
+        return back();
+    }
+
+    iterator erase( iterator first, iterator last )
+    {
+
+        if ( first == last )
+        {
+            return first;
+        }
+
+        assert( data() && first >= begin() && first <= end() && last >= first && last <= end() );
+        const std::size_t firstIndex = static_cast<std::size_t>( first - begin() );
+        const std::size_t removedCount = static_cast<std::size_t>( last - first );
+
+        for ( std::size_t index = firstIndex; index + removedCount < m_count; ++index )
+        {
+            *ValueAt( index ) = std::move( *ValueAt( index + removedCount ) );
+        }
+
+        resize( m_count - removedCount );
+        return begin() + firstIndex;
+    }
+
     void pop_back()
     {
         assert( m_count > 0u );

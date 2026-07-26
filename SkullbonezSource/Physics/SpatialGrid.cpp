@@ -1093,7 +1093,7 @@ bool SpatialGrid::MarkFilteredCandidatePairFirstSeen( int a, int b,
                                                       const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
                                                       const SkullbonezCore::Physics::ColliderStore& colliderStore,
                                                       std::span<const uint8_t> sleepState, float dt, float contactSkin,
-                                                      std::vector<std::pair<int, int>>* sleepPrunedPairs )
+                                                      SkullbonezCore::Physics::PhysicsCandidatePairList* sleepPrunedPairs )
 {
 
     if ( !MarkCandidatePairFirstSeen( a, b ) )
@@ -1278,11 +1278,11 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
 }
 
 
-void SpatialGrid::GetFilteredCandidatePairsImpl( std::vector<std::pair<int, int>>& outPairs,
+void SpatialGrid::GetFilteredCandidatePairsImpl( SkullbonezCore::Physics::PhysicsCandidatePairList& outPairs,
                                                  const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
                                                  const SkullbonezCore::Physics::ColliderStore& colliderStore,
                                                  std::span<const uint8_t> sleepState, float dt, float contactSkin,
-                                                 std::vector<std::pair<int, int>>* sleepPrunedPairs,
+                                                 SkullbonezCore::Physics::PhysicsCandidatePairList* sleepPrunedPairs,
                                                  bool restrictToPairSourceCells )
 {
 
@@ -1454,11 +1454,11 @@ void SpatialGrid::GetFilteredCandidatePairsImpl( std::vector<std::pair<int, int>
 }
 
 
-void SpatialGrid::GetFilteredCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
+void SpatialGrid::GetFilteredCandidatePairs( SkullbonezCore::Physics::PhysicsCandidatePairList& outPairs,
                                              const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
                                              const SkullbonezCore::Physics::ColliderStore& colliderStore,
                                              std::span<const uint8_t> sleepState, float dt, float contactSkin,
-                                             std::vector<std::pair<int, int>>& sleepPrunedPairs,
+                                             SkullbonezCore::Physics::PhysicsCandidatePairList& sleepPrunedPairs,
                                              bool restrictToPairSourceCells )
 {
     GetFilteredCandidatePairsImpl( outPairs, bodyStore, colliderStore, sleepState, dt, contactSkin, &sleepPrunedPairs,
@@ -1466,7 +1466,7 @@ void SpatialGrid::GetFilteredCandidatePairs( std::vector<std::pair<int, int>>& o
 }
 
 
-void SpatialGrid::GetFilteredCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
+void SpatialGrid::GetFilteredCandidatePairs( SkullbonezCore::Physics::PhysicsCandidatePairList& outPairs,
                                              const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
                                              const SkullbonezCore::Physics::ColliderStore& colliderStore,
                                              std::span<const uint8_t> sleepState, float dt, float contactSkin,
@@ -1478,7 +1478,7 @@ void SpatialGrid::GetFilteredCandidatePairs( std::vector<std::pair<int, int>>& o
 
 
 #if defined( _DEBUG )
-void SpatialGrid::GetFilteredCandidatePairsLegacyForOracle( std::vector<std::pair<int, int>>& outPairs,
+void SpatialGrid::GetFilteredCandidatePairsLegacyForOracle( SkullbonezCore::Physics::PhysicsCandidatePairList& outPairs,
                                                             const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
                                                             const SkullbonezCore::Physics::ColliderStore& colliderStore,
                                                             std::span<const uint8_t> sleepState, float dt,

@@ -801,7 +801,6 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
     // feature IDs keep the support plane stable while cutting solver work.
     {
         PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds" );
-        m_persistentContacts.reserve( candidatePairs.size() * 4 );
 
         for ( const auto& cp : candidatePairs )
         {
@@ -981,14 +980,6 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
         // later solver phases treat it as infinite mass, zero velocity, and no
         // writeback. From this point on, terrain response is ordinary shared-row
         // normal/friction solving.
-        size_t terrainRowCount = 0;
-
-        for ( const Physics::TerrainContactManifold& manifold : terrainContactManifolds )
-        {
-            terrainRowCount += manifold.pointCount;
-        }
-
-        m_persistentContacts.reserve( m_persistentContacts.size() + terrainRowCount );
 
         for ( const Physics::TerrainContactManifold& manifold : terrainContactManifolds )
         {
@@ -1587,7 +1578,6 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
     {
         PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/DebugContacts" );
         physicsDebugContacts.clear();
-        physicsDebugContacts.reserve( m_persistentContacts.size() );
 
         for ( const PersistentContact& c : m_persistentContacts )
         {

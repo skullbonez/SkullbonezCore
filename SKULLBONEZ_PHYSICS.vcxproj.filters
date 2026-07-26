@@ -203,6 +203,9 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsFixedList.h">
       <Filter>Header Files\Support</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsStageCapacity.h">
+      <Filter>Header Files\Support</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsSceneVectorReserve.h">
       <Filter>Header Files\Support</Filter>
     </ClInclude>

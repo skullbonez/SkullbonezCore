@@ -592,6 +592,12 @@ TEST_CASE( "Physics narrowphase islands: repeated parallel evaluation preserves 
     workerPool.Initialise( 1 );
     PhysicsNarrowphaseStage stage;
 
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        stage.ReserveSceneCapacity( kBodyCount );
+    }
+
     REQUIRE( stage.TryRunParallel( bodies,
                                    colliders,
                                    {},

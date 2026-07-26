@@ -239,7 +239,7 @@ class PhysicsWorld
     uint64_t CollectMemoryBytes() const;
     uint64_t CollectDebugAndBroadphaseMemoryBytes() const;
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const;
-    const std::vector<int64_t>& GetCollisionCellKeys() const;
+    std::span<const int64_t> GetCollisionCellKeys() const;
     const std::vector<uint8_t>& GetCollisionVisualContacts() const;
     std::span<const int> GetFixedContactHighlightBodies() const;
 
@@ -264,7 +264,7 @@ class PhysicsWorld
 
 struct PhysicsDiagnosticsView
 {
-    const std::vector<PersistentContact>& persistentContacts;
+    std::span<const PersistentContact> persistentContacts;
     const PersistentContactSolverStats& persistentContactSolverStats;
     const std::vector<int>& sleepIslandParent;
     const std::vector<uint8_t>& sleepSupportedThisFrame;
@@ -276,7 +276,7 @@ struct PhysicsDiagnosticsView
     const std::vector<PointJointConstraint>& pointJointConstraints;
     const Math::CollisionDetection::SpatialGrid& spatialGrid;
     std::span<const std::pair<int, int>> candidatePairs;
-    const std::vector<int64_t>& collisionCellKeys;
+    std::span<const int64_t> collisionCellKeys;
     const std::vector<std::pair<int, int>>& sleepSupportEdges;
     const std::vector<int>& sleepIslandVisualId;
     const std::vector<PhysicsPipelineRecord>& physicsPipelineTrace;

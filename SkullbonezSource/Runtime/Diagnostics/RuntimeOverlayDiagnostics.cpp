@@ -146,7 +146,7 @@ void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneWorld& scene, RuntimeVal
     SpatialGrid::ActiveCell activeCells[SpatialGrid::MAX_BUCKETS];
     const int activeCellCount = grid.GetActiveCellCount();
     grid.GetActiveCells( activeCells, SpatialGrid::MAX_BUCKETS );
-    const std::vector<int64_t>& collisionKeys = PhysicsEngine::ReadCollisionCellKeys( physics );
+    const std::span<const int64_t> collisionKeys = PhysicsEngine::ReadCollisionCellKeys( physics );
     m_renderResources.m_broadphaseOverlay.Update( static_cast<float>( secondsPerFrame ), activeCells, activeCellCount,
                                                   collisionKeys.data(), static_cast<int>( collisionKeys.size() ) );
 

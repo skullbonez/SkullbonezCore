@@ -215,7 +215,7 @@ bool PersistentContactCacheEntryPrecedesKey( const PersistentContactCacheEntry& 
     return entry.key < lookupKey;
 }
 
-bool ObjectPairHasPersistentContactCache( const std::vector<PersistentContactCacheEntry>& persistentContactCache, int bodyA,
+bool ObjectPairHasPersistentContactCache( std::span<const PersistentContactCacheEntry> persistentContactCache, int bodyA,
                                           int bodyB )
 {
     constexpr uint64_t BODY_MASK = 0x7fffull;
@@ -238,7 +238,7 @@ bool ObjectPairHasPersistentContactCache( const std::vector<PersistentContactCac
 
 bool ObjectPairNeedsSweptCcd( const PhysicsBodyHotFieldsConstView& hotFields,
                               std::span<const ColliderRecord> colliderRecords,
-                              const std::vector<PersistentContactCacheEntry>& persistentContactCache, int bodyAIndex,
+                              std::span<const PersistentContactCacheEntry> persistentContactCache, int bodyAIndex,
                               int bodyBIndex, float availableTime, float contactSkin )
 {
 
@@ -328,7 +328,7 @@ void PhysicsNarrowphaseStage::WriteObjectCollisionCellEvent( ObjectNarrowphaseEv
 void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, PhysicsTerrainView terrain,
                                                             std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<const std::pair<int, int>> candidatePairs,
                                                             PhysicsNarrowphaseWakeAccess wakeAccess, std::span<float> timeRemaining,
-                                                            const std::vector<PersistentContactCacheEntry>& persistentContactCache, const ObjectNarrowphaseStepPolicy& policy,
+                                                            std::span<const PersistentContactCacheEntry> persistentContactCache, const ObjectNarrowphaseStepPolicy& policy,
                                                             Core::Profiler* profiler, int pairIndex, ObjectNarrowphaseEvent& event )
 {
     const PhysicsBodyHotFieldsConstView hotFields = bodyStore.HotFields();

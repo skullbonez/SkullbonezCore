@@ -221,7 +221,7 @@ class PhysicsEngine
     static std::size_t ReadBuoyancyFactCapacity( const PhysicsEngine& engine );
     static const Math::CollisionDetection::SpatialGrid& ReadSpatialGrid( const PhysicsEngine& engine );
     static std::span<const int> ReadFixedContactHighlightBodies( const PhysicsEngine& engine );
-    static const std::vector<int64_t>& ReadCollisionCellKeys( const PhysicsEngine& engine );
+    static std::span<const int64_t> ReadCollisionCellKeys( const PhysicsEngine& engine );
     static const std::vector<uint8_t>& ReadCollisionVisualContacts( const PhysicsEngine& engine );
     static std::span<const uint8_t> ReadSleepStates( const PhysicsEngine& engine );
     static std::span<const int> ReadSleepIslandVisualIds( const PhysicsEngine& engine );

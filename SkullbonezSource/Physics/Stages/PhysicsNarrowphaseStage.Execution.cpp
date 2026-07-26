@@ -16,7 +16,7 @@ Glossary:
 Invariants:
   - Union/find and final sort preserve ascending minimum candidate-pair order.
   - Worker islands never share a dynamic body.
-  - Steady-play vectors cannot exceed their scene and candidate-pair reserves.
+  - Steady-play lists cannot exceed their scene and candidate-pair reservations.
 
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.h
@@ -28,7 +28,6 @@ Related:
 #include "../../Core/FatalError.h"
 #include "../../Core/Profiler.h"
 #include "../../Core/WorkerPool.h"
-#include "../../Core/SceneCapacity.h"
 #include "../ColliderStore.h"
 #include "../DisjointSet.h"
 
@@ -45,19 +44,18 @@ constexpr int PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS = 16;
 constexpr int PHYSICS_NARROWPHASE_PARALLEL_MAX_AVG_PAIRS_PER_ISLAND = 4;
 constexpr int PHYSICS_NARROWPHASE_PARALLEL_MAX_PAIRS_PER_BODY = 2;
 constexpr bool PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED = true;
-constexpr int PHYSICS_CANDIDATE_PAIR_RESERVE = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 4;
 constexpr uint32_t PHYSICS_NARROWPHASE_ISLAND_WORKER_HASH = HashStr( "Frame/Physics/Narrowphase/IslandWorkerDispatch/WorkerIslands" );
 
-template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values )
+template <typename T> uint64_t ListCapacityBytes( const T& values )
 {
-    return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
+    return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( typename T::value_type ) );
 }
 } // namespace
 
 void PhysicsNarrowphaseStage::ProcessObjectNarrowphaseIsland( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, PhysicsTerrainView terrain,
                                                               std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<const std::pair<int, int>> candidatePairs,
                                                               PhysicsNarrowphaseWakeAccess wakeAccess, std::span<float> timeRemaining,
-                                                              const std::vector<PersistentContactCacheEntry>& persistentContactCache, const ObjectNarrowphaseStepPolicy& policy,
+                                                              std::span<const PersistentContactCacheEntry> persistentContactCache, const ObjectNarrowphaseStepPolicy& policy,
                                                               Core::Profiler* profiler, int islandIndex )
 {
     const ObjectNarrowphaseIsland& island = m_objectNarrowphaseIslands[static_cast<size_t>( islandIndex )];
@@ -92,7 +90,9 @@ void PhysicsNarrowphaseStage::BuildObjectNarrowphaseIslands( Core::Profiler* pro
         m_objectNarrowphaseParent[static_cast<size_t>( i )] = i;
     }
 
-    DisjointSet objectNarrowphaseSets( m_objectNarrowphaseParent, m_objectNarrowphaseRank, modelCount );
+    DisjointSet objectNarrowphaseSets( std::span<int>( m_objectNarrowphaseParent.data(), m_objectNarrowphaseParent.size() ),
+                                       std::span<uint8_t>( m_objectNarrowphaseRank.data(), m_objectNarrowphaseRank.size() ),
+                                       modelCount );
 
     for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
     {
@@ -206,15 +206,18 @@ void PhysicsNarrowphaseStage::BuildObjectNarrowphaseIslands( Core::Profiler* pro
                ObjectNarrowphaseIslandPrecedesByMinPairIndex );
 }
 
-PhysicsNarrowphaseStage::PhysicsNarrowphaseStage()
+PhysicsNarrowphaseStage::PhysicsNarrowphaseStage() = default;
+
+void PhysicsNarrowphaseStage::ReserveSceneCapacity( std::size_t bodyCapacity )
 {
-    m_objectNarrowphaseEvents.reserve( PHYSICS_CANDIDATE_PAIR_RESERVE );
-    m_objectNarrowphaseIslands.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
-    m_objectNarrowphaseIslandPairIndices.reserve( PHYSICS_CANDIDATE_PAIR_RESERVE );
-    m_objectNarrowphaseIslandWriteOffsets.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
-    m_objectNarrowphaseParent.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
-    m_objectNarrowphaseRank.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
-    m_objectNarrowphaseRootToIsland.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    const std::size_t pairCapacity = PhysicsCandidatePairCapacity( bodyCapacity );
+    m_objectNarrowphaseEvents.Reserve( pairCapacity );
+    m_objectNarrowphaseIslands.Reserve( bodyCapacity );
+    m_objectNarrowphaseIslandPairIndices.Reserve( pairCapacity );
+    m_objectNarrowphaseIslandWriteOffsets.Reserve( bodyCapacity );
+    m_objectNarrowphaseParent.Reserve( bodyCapacity );
+    m_objectNarrowphaseRank.Reserve( bodyCapacity );
+    m_objectNarrowphaseRootToIsland.Reserve( bodyCapacity );
 }
 
 void PhysicsNarrowphaseStage::Clear()
@@ -238,7 +241,7 @@ bool PhysicsNarrowphaseStage::TryRunParallel( PhysicsBodyStore& bodyStore, const
                                               PhysicsTerrainView terrain, std::span<BuoyancyBodyFacts> buoyancyFacts,
                                               std::span<const std::pair<int, int>> candidatePairs,
                                               PhysicsNarrowphaseWakeAccess wakeAccess, std::span<float> timeRemaining,
-                                              const std::vector<PersistentContactCacheEntry>& persistentContactCache,
+                                              std::span<const PersistentContactCacheEntry> persistentContactCache,
                                               const ObjectNarrowphaseStepPolicy& policy, Core::Profiler* profiler,
                                               Threading::WorkerPool& workerPool )
 {
@@ -295,12 +298,12 @@ std::span<const ObjectNarrowphaseEvent> PhysicsNarrowphaseStage::GetEvents() con
 uint64_t PhysicsNarrowphaseStage::CollectDynamicMemoryBytes() const
 {
     uint64_t bytes = 0;
-    bytes += VectorCapacityBytes( m_objectNarrowphaseEvents );
-    bytes += VectorCapacityBytes( m_objectNarrowphaseIslands );
-    bytes += VectorCapacityBytes( m_objectNarrowphaseIslandPairIndices );
-    bytes += VectorCapacityBytes( m_objectNarrowphaseIslandWriteOffsets );
-    bytes += VectorCapacityBytes( m_objectNarrowphaseParent );
-    bytes += VectorCapacityBytes( m_objectNarrowphaseRank );
-    bytes += VectorCapacityBytes( m_objectNarrowphaseRootToIsland );
+    bytes += ListCapacityBytes( m_objectNarrowphaseEvents );
+    bytes += ListCapacityBytes( m_objectNarrowphaseIslands );
+    bytes += ListCapacityBytes( m_objectNarrowphaseIslandPairIndices );
+    bytes += ListCapacityBytes( m_objectNarrowphaseIslandWriteOffsets );
+    bytes += ListCapacityBytes( m_objectNarrowphaseParent );
+    bytes += ListCapacityBytes( m_objectNarrowphaseRank );
+    bytes += ListCapacityBytes( m_objectNarrowphaseRootToIsland );
     return bytes;
 }

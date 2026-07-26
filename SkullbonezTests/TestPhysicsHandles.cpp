@@ -692,7 +692,11 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
 
     RuntimeReserveGrowthEventView events[128] = {};
     const int eventCount = RuntimeReserveAllocator::CopyRecentGrowthEvents( events, 128 );
-    REQUIRE( eventCount == 67 );
+#if defined( _DEBUG )
+    REQUIRE( eventCount == 89 );
+#else
+    REQUIRE( eventCount == 86 );
+#endif
     CHECK( static_cast<uint64_t>( eventCount ) == RuntimeReserveAllocator::GrowthEventCount() );
 
     for ( int eventIndex = 0; eventIndex < eventCount; ++eventIndex )
@@ -716,6 +720,30 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
         { "PhysicsWorld.pointJointConstraints", 24 },
         { "PhysicsForceStage.m_mutualGravityForces", 2000 },
         { "PhysicsForceStage.m_mutualGravityPairForces", 130816 },
+        { "PhysicsBroadphaseStage.candidatePairs", 8000 },
+        { "PhysicsBroadphaseStage.collisionCellKeys", 8000 },
+#if defined( _DEBUG )
+        { "PhysicsBroadphaseStage.sleepPrunedPairs", 8000 },
+        { "PhysicsBroadphaseStage.pairOracleShadowPairs", 8000 },
+        { "PhysicsBroadphaseStage.pairOracleNormalizedDriverPairs", 8000 },
+#endif
+        { "PhysicsNarrowphaseStage.events", 8000 },
+        { "PhysicsNarrowphaseStage.islands", 2000 },
+        { "PhysicsNarrowphaseStage.islandPairIndices", 8000 },
+        { "PhysicsNarrowphaseStage.islandWriteOffsets", 2000 },
+        { "PhysicsNarrowphaseStage.parent", 2000 },
+        { "PhysicsNarrowphaseStage.rank", 2000 },
+        { "PhysicsNarrowphaseStage.rootToIsland", 2000 },
+        { "PhysicsContactSolverStage.persistentContacts", 48000 },
+        { "PhysicsContactSolverStage.persistentContactCache", 48000 },
+        { "PhysicsContactSolverStage.persistentContactCounts", 2000 },
+        { "PhysicsContactSolverStage.persistentRestingContactCounts", 2000 },
+        { "PhysicsContactSolverStage.solverBodies", 2000 },
+        { "PhysicsContactSolverStage.collisionVisualBodies", 16000 },
+        { "PhysicsContactSolverStage.fixedContactBodies", 48000 },
+        { "PhysicsContactSolverStage.releaseWakeBodies", 2000 },
+        { "PhysicsContactSolverStage.fixedTreeReleases", 2000 },
+        { "PhysicsStepDiagnostics.physicsDebugContacts", 48000 },
         { "PhysicsSleepController.m_sleepSupportedThisFrame", 2000 },
         { "PhysicsSleepController.m_sleepInhibitedThisFrame", 2000 },
         { "PhysicsSleepController.m_sleepState", 2000 },

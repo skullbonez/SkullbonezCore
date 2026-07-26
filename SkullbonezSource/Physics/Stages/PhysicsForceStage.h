@@ -40,11 +40,11 @@ Related:
 #include <cstddef>
 #include <cstdint>
 #include <span>
-#include <vector>
 
 #include "../../Maths/Vector3.h"
 #include "../PhysicsBodyStore.h"
 #include "../PhysicsRuntimeSettings.h"
+#include "../PhysicsStageCapacity.h"
 
 namespace SkullbonezCore
 {
@@ -69,8 +69,10 @@ struct PhysicsWorldForces;
 class PhysicsForceStage
 {
   private:
-    std::vector<Math::Vector::Vector3> m_mutualGravityForces;
-    std::vector<Math::Vector::Vector3> m_mutualGravityPairForces;
+    PhysicsFixedList<Math::Vector::Vector3, PHYSICS_MAX_BODY_ROWS> m_mutualGravityForces {
+        "PhysicsForceStage.m_mutualGravityForces" };
+    PhysicsFixedList<Math::Vector::Vector3, PHYSICS_MAX_MUTUAL_GRAVITY_PAIRS> m_mutualGravityPairForces {
+        "PhysicsForceStage.m_mutualGravityPairForces" };
     std::size_t m_mutualGravityPairHighWater = 0;
 
   public:

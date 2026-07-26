@@ -1368,7 +1368,7 @@ std::span<const int> PhysicsEngine::ReadFixedContactHighlightBodies( const Physi
 }
 
 
-const std::vector<int64_t>& PhysicsEngine::ReadCollisionCellKeys( const PhysicsEngine& engine )
+std::span<const int64_t> PhysicsEngine::ReadCollisionCellKeys( const PhysicsEngine& engine )
 {
     return engine.m_world.GetCollisionCellKeys();
 }

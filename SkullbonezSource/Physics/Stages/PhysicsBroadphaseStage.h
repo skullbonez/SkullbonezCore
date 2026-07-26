@@ -30,8 +30,8 @@ Invariants:
   - Pruning predicates and pipeline-trace side effects keep their established
     per-pair order after that explicit canonical transition.
   - Returned spans remain valid only until the next Run or Clear call.
-  - Candidate and collision-key vectors are reserved at construction and never
-    grow beyond their fixed runtime capacities.
+  - Candidate and collision-key lists commit scene-derived capacities before
+    play and fail rather than grow during a fixed step.
   - Swept occupancy expires every step and never changes persistent membership.
   - Debug full-cell traversal preserves bounded SleepPrunedPair diagnostics;
     Profile/Release never generate sleep-only candidate work.
@@ -51,6 +51,7 @@ Related:
 #include "../PhysicsDebugData.h"
 #include "../PhysicsBodyStore.h"
 #include "../PhysicsRuntimeSettings.h"
+#include "../PhysicsStageCapacity.h"
 #include "../Ragdoll.h"
 #include "../SpatialGrid.h"
 
@@ -73,8 +74,8 @@ class PhysicsBroadphaseStage
 {
   private:
     Math::CollisionDetection::SpatialGrid m_spatialGrid;
-    std::vector<std::pair<int, int>> m_candidatePairs;
-    std::vector<int64_t> m_collisionCellKeys;
+    PhysicsCandidatePairList m_candidatePairs { "PhysicsBroadphaseStage.candidatePairs" };
+    PhysicsCollisionCellKeyList m_collisionCellKeys { "PhysicsBroadphaseStage.collisionCellKeys" };
     bool m_gridMembershipSeeded = false;
     int m_gridMembershipBodyCount = 0;
     float m_largestBroadphaseRadius = 0.0f;
@@ -82,13 +83,13 @@ class PhysicsBroadphaseStage
 #if defined( _DEBUG )
 
     // Debug-only bounded evidence for pairs now suppressed at grid emission.
-    std::vector<std::pair<int, int>> m_sleepPrunedPairs;
+    PhysicsCandidatePairList m_sleepPrunedPairs { "PhysicsBroadphaseStage.sleepPrunedPairs" };
 
-    // P1 same-state transition oracle. These buffers are construction-reserved,
+    // P1 same-state transition oracle. These buffers are scene-load reserved,
     // included in Debug memory accounting, and absent from Release's canonical
     // production path.
-    std::vector<std::pair<int, int>> m_pairOracleShadowPairs;
-    std::vector<std::pair<int, int>> m_pairOracleNormalizedDriverPairs;
+    PhysicsCandidatePairList m_pairOracleShadowPairs { "PhysicsBroadphaseStage.pairOracleShadowPairs" };
+    PhysicsCandidatePairList m_pairOracleNormalizedDriverPairs { "PhysicsBroadphaseStage.pairOracleNormalizedDriverPairs" };
     bool m_pairOracleEnabled = false;
     bool m_pairOracleLegacyDrives = false;
     uint64_t m_pairOracleTickCount = 0;
@@ -97,6 +98,7 @@ class PhysicsBroadphaseStage
   public:
     PhysicsBroadphaseStage();
 
+    void ReserveSceneCapacity( std::size_t bodyCapacity );
     void ApplyRuntimeSettings( const BroadphaseSettings& settings );
     void Clear();
     void InvalidateBodyTopology();
@@ -114,12 +116,12 @@ class PhysicsBroadphaseStage
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const;
     float GetCellSize() const;
     std::span<const std::pair<int, int>> GetCandidatePairs() const;
-    const std::vector<int64_t>& GetCollisionCellKeys() const;
-    const std::vector<int64_t>& CollisionCellKeysForReplay() const;
+    std::span<const int64_t> GetCollisionCellKeys() const;
+    std::span<const int64_t> CollisionCellKeysForReplay() const;
 
-    // Lifetime: replay restore mutates this construction-reserved buffer only
+    // Lifetime: replay restore mutates this capacity-governed buffer only
     // during the synchronous owner restore sequence; the reference is not retained.
-    std::vector<int64_t>& CollisionCellKeysForReplay();
+    PhysicsCollisionCellKeyList& CollisionCellKeysForReplay();
     void AppendCollisionCellKey( int64_t collisionCellKey );
 
     uint64_t CollectDynamicMemoryBytes() const;

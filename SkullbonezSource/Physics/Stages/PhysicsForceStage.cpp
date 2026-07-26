@@ -38,7 +38,6 @@ Related:
 #include "../ColliderStore.h"
 #include "../BuoyancySystem.h"
 #include "../PhysicsBodyStore.h"
-#include "../PhysicsSceneVectorReserve.h"
 #include "../PhysicsWorldForces.h"
 
 #include <algorithm>
@@ -52,7 +51,7 @@ namespace Vector = SkullbonezCore::Math::Vector;
 namespace
 {
 constexpr int PHYSICS_PARALLEL_MIN_BODIES = 512;
-constexpr int MUTUAL_GRAVITY_MAX_BODIES = 512;
+constexpr int MUTUAL_GRAVITY_MAX_BODIES = static_cast<int>( Physics::PHYSICS_MUTUAL_GRAVITY_MAX_BODIES );
 constexpr int MUTUAL_GRAVITY_ROWS_PER_CHUNK = 8;
 constexpr int MUTUAL_GRAVITY_MAX_CHUNKS = ( MUTUAL_GRAVITY_MAX_BODIES + MUTUAL_GRAVITY_ROWS_PER_CHUNK - 1 ) /
                                           MUTUAL_GRAVITY_ROWS_PER_CHUNK;
@@ -70,9 +69,9 @@ constexpr std::size_t MutualGravityRowOffset( int row, int bodyCount )
     return static_cast<std::size_t>( row ) * static_cast<std::size_t>( 2 * bodyCount - row - 1 ) / 2;
 }
 
-template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values )
+template <typename T> uint64_t ListCapacityBytes( const T& values )
 {
-    return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
+    return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( typename T::value_type ) );
 }
 
 bool IsSolverBodyFixed( const Physics::PhysicsBodyHotFieldsConstView& hotFields, int bodyIndex )
@@ -143,16 +142,8 @@ void PhysicsForceStage::Clear()
 
 void PhysicsForceStage::ReserveBodyScratchCapacity( std::size_t capacity )
 {
-    ReservePhysicsSceneVector( m_mutualGravityForces, capacity, Scene::Capacity::MAX_SCENE_OBJECTS,
-                               "PhysicsForceStage.m_mutualGravityForces",
-                               "Exact scene body rows for mutual-gravity accumulation" );
-
-    const std::size_t pairBodyCapacity = (std::min)( capacity, static_cast<std::size_t>( MUTUAL_GRAVITY_MAX_BODIES ) );
-    const std::size_t pairCapacity = MutualGravityPairCount( pairBodyCapacity );
-    const std::size_t pairCeiling = MutualGravityPairCount( static_cast<std::size_t>( MUTUAL_GRAVITY_MAX_BODIES ) );
-    ReservePhysicsSceneVector( m_mutualGravityPairForces, pairCapacity, pairCeiling,
-                               "PhysicsForceStage.m_mutualGravityPairForces",
-                               "Exact bounded scene pair rows for deterministic mutual gravity" );
+    m_mutualGravityForces.Reserve( capacity );
+    m_mutualGravityPairForces.Reserve( PhysicsMutualGravityPairCapacity( capacity ) );
 }
 
 const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* profiler, std::span<const PhysicsBodyRecord> bodyRecords, const PhysicsBodyHotFieldsConstView& hotFields,
@@ -468,7 +459,7 @@ void PhysicsForceStage::IntegrateRemaining( PhysicsBodyStore& bodyStore, Core::P
 
 uint64_t PhysicsForceStage::CollectDynamicMemoryBytes() const
 {
-    return VectorCapacityBytes( m_mutualGravityForces ) + VectorCapacityBytes( m_mutualGravityPairForces );
+    return ListCapacityBytes( m_mutualGravityForces ) + ListCapacityBytes( m_mutualGravityPairForces );
 }
 } // namespace Physics
 } // namespace SkullbonezCore

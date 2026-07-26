@@ -356,22 +356,10 @@
       "removal_or_wrapper_plan": "Teach the allocation scanner to recognize PhysicsFixedList operations and registered reserve phases, then remove this lexical allowlist."
     },
     {
-      "path": "SkullbonezSource/Physics/DisjointSet.h",
-      "patterns": [
-        ".assign("
-      ],
-      "owner": "Physics preallocated/replay static STL surface",
-      "phase": "startup_preallocation_scene_load_replay",
-      "reason": "Existing physics vectors are pre-sized or reserved around scene/model capacity, public API views, debug traces, or replay snapshot paths; unapproved steady gameplay heap traffic is still caught by the runtime allocation guard.",
-      "cap": "Bounded by scene model/body/contact capacities or replay snapshot hard caps; no new physics runtime allocation exception is approved by this row.",
-      "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
-    },
-    {
       "path": "SkullbonezSource/Physics/PersistentContactSolver.cpp",
       "patterns": [
         ".assign(",
-        ".push_back(",
-        ".reserve("
+        ".push_back("
       ],
       "owner": "Physics preallocated/replay static STL surface",
       "phase": "startup_preallocation_scene_load_replay",
@@ -517,25 +505,13 @@
     {
       "path": "SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.cpp",
       "patterns": [
-        ".push_back(",
-        ".reserve("
+        ".push_back("
       ],
       "owner": "PhysicsContactSolverStage bounded solver state and replay transfer",
       "phase": "startup_preallocation_scene_load_replay",
       "reason": "The contact-solver owner construction-reserves persistent rows, cache, per-body scratch, and consequence queues before steady gameplay. Replay restore may reserve under the existing replay allocation scope; fixed-tick solver growth remains guarded by retained capacity and the runtime allocation guard.",
       "cap": "Persistent rows/cache and collision consequence indices are capped at four/eight rows per 8,192 scene bodies as applicable; per-body rows are capped at 8,192; pipeline records at 4,096; replay restore remains under the solver snapshot hard cap.",
       "removal_or_wrapper_plan": "Replace solver vectors with fixed-capacity stores and route replay transfer through bounded stores, then remove this row."
-    },
-    {
-      "path": "SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h",
-      "patterns": [
-        "std::vector<"
-      ],
-      "owner": "PhysicsContactSolverStage bounded solver state and consequences",
-      "phase": "startup_preallocation_scene_load_replay",
-      "reason": "The concrete solver stage retains persistent rows, cache, counts, body scratch, and typed consequence vectors; fixed-step contexts borrow all other owner rows synchronously.",
-      "cap": "All vectors are bounded by scene model/contact capacity, the 4,096-record pipeline cap, or replay snapshot hard cap.",
-      "removal_or_wrapper_plan": "Replace solver vectors with fixed-capacity stores, then remove this row."
     },
     {
       "path": "SkullbonezSource/Physics/Stages/PhysicsForceStage.cpp",
@@ -549,39 +525,16 @@
       "removal_or_wrapper_plan": "Replace both vectors with fixed-capacity arrays owned by PhysicsForceStage, then remove this row."
     },
     {
-      "path": "SkullbonezSource/Physics/Stages/PhysicsForceStage.h",
-      "patterns": [
-        "std::vector<"
-      ],
-      "owner": "PhysicsForceStage bounded mutual-gravity scratch",
-      "phase": "startup_preallocation_scene_load",
-      "reason": "The force owner retains one model-order force vector and one capped triangular pair-force vector; both establish capacity before steady gameplay.",
-      "cap": "The body vector is capped at 8,192 rows and the pair vector at 130,816 rows for 512 bodies.",
-      "removal_or_wrapper_plan": "Replace both vectors with fixed-capacity arrays owned by PhysicsForceStage, then remove this row."
-    },
-    {
       "path": "SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.Execution.cpp",
       "patterns": [
         ".assign(",
         ".push_back(",
-        ".reserve(",
         ".resize("
       ],
       "owner": "PhysicsNarrowphaseStage bounded island and pair-event scratch",
       "phase": "startup_preallocation_scene_load",
       "reason": "The narrowphase owner reserves all seven pair-event, island, disjoint-set, and compaction vectors at construction. Fixed-tick assignments and appends remain within scene and candidate-pair capacity, and the runtime allocation guard rejects accidental growth.",
       "cap": "Body/island/disjoint-set vectors are capped at 8,192 rows; pair-index and event vectors are capped at four rows per scene body (32,768).",
-      "removal_or_wrapper_plan": "Replace the seven vectors with fixed-capacity stores owned by PhysicsNarrowphaseStage, then remove this row."
-    },
-    {
-      "path": "SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.h",
-      "patterns": [
-        "std::vector<"
-      ],
-      "owner": "PhysicsNarrowphaseStage bounded island and pair-event scratch",
-      "phase": "startup_preallocation_scene_load",
-      "reason": "The concrete narrowphase owner retains seven bounded vectors between fixed ticks; pair-processing contexts only borrow store and sequencer rows synchronously.",
-      "cap": "Body/island/disjoint-set vectors are capped at 8,192 rows; pair-index and event vectors are capped at 32,768 rows.",
       "removal_or_wrapper_plan": "Replace the seven vectors with fixed-capacity stores owned by PhysicsNarrowphaseStage, then remove this row."
     },
     {
@@ -623,23 +576,11 @@
       "path": "SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.cpp",
       "patterns": [
         ".emplace_back(",
-        ".push_back(",
-        ".reserve("
+        ".push_back("
       ],
       "owner": "PhysicsBroadphaseStage bounded candidate and diagnostic output",
       "phase": "startup_preallocation_scene_load",
       "reason": "The broadphase owner reserves candidate-pair and collision-cell-key storage at construction. Fixed-step appends are bounded by those retained capacities, and the runtime allocation guard rejects accidental growth.",
-      "cap": "Each vector is capped at four rows per 8,192 scene bodies: 32,768 candidate pairs and 32,768 collision-cell keys.",
-      "removal_or_wrapper_plan": "Replace both vectors with fixed-capacity stores owned by PhysicsBroadphaseStage, then remove this row."
-    },
-    {
-      "path": "SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.h",
-      "patterns": [
-        "std::vector<"
-      ],
-      "owner": "PhysicsBroadphaseStage bounded candidate and diagnostic output",
-      "phase": "startup_preallocation_scene_load",
-      "reason": "The concrete broadphase owner retains its candidate-pair and collision-cell-key vectors between fixed ticks so Run can return a stable borrowed span without allocating.",
       "cap": "Each vector is capped at four rows per 8,192 scene bodies: 32,768 candidate pairs and 32,768 collision-cell keys.",
       "removal_or_wrapper_plan": "Replace both vectors with fixed-capacity stores owned by PhysicsBroadphaseStage, then remove this row."
     },
