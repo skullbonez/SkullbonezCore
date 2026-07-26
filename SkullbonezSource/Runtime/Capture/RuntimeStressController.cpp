@@ -1132,13 +1132,12 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
                                                                diagnosticsRuntime,
                                                                renderBackendView.RendererName(),
                                                                timers.simulationTimer.GetTotalTime() },
-                                       SceneLoadInteractionParticipants {
-                                           camera,
-                                           CaptureSceneLoadNavigationState( ui.SceneNavigation() ) },
-                                       SceneLoadPresentationParticipants { sceneOwners.overlays.PresentationSnapshot(),
-                                                                           renderBackendView.renderFrame,
-                                                                           renderBackendView.renderResources,
-                                                                           renderer } )
+                                       camera,
+                                       CaptureSceneLoadNavigationState( ui.SceneNavigation() ),
+                                       sceneOwners.overlays.PresentationSnapshot(),
+                                       renderBackendView.renderFrame,
+                                       renderBackendView.renderResources,
+                                       renderer )
                                 .ok;
 
         if ( !legacyDevelopmentUiActive )

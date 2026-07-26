@@ -59,117 +59,6 @@ void LogGeneratedControlFailure( const SkullbonezCore::Core::SbResult& result )
 }
 } // namespace
 
-SceneGeneratedControlTransaction::SceneGeneratedControlTransaction( RequestKind kind,
-                                                                    int requestedPrimary,
-                                                                    int requestedSecondary,
-                                                                    GeneratedObjectTypeOverride objectTypeOverride,
-                                                                    int modelCapacity )
-    : m_kind( kind ), m_requestedPrimary( requestedPrimary ), m_requestedSecondary( requestedSecondary ),
-      m_objectTypeOverride( objectTypeOverride ), m_modelCapacity( (std::max)( 0, modelCapacity ) )
-{
-}
-
-SceneGeneratedControlTransaction
-SceneGeneratedControlTransaction::ModelCount( int requestedCount,
-                                              GeneratedObjectTypeOverride objectTypeOverride,
-                                              int modelCapacity )
-{
-    return SceneGeneratedControlTransaction( RequestKind::ModelCount,
-                                             requestedCount,
-                                             -1,
-                                             objectTypeOverride,
-                                             modelCapacity );
-}
-
-SceneGeneratedControlTransaction
-SceneGeneratedControlTransaction::SolverBallCount( int requestedCount,
-                                                   GeneratedObjectTypeOverride objectTypeOverride,
-                                                   int modelCapacity )
-{
-    return SceneGeneratedControlTransaction( RequestKind::SolverBallCount,
-                                             requestedCount,
-                                             -1,
-                                             objectTypeOverride,
-                                             modelCapacity );
-}
-
-SceneGeneratedControlTransaction
-SceneGeneratedControlTransaction::SolverBoxCount( int requestedCount,
-                                                  GeneratedObjectTypeOverride objectTypeOverride,
-                                                  int modelCapacity )
-{
-    return SceneGeneratedControlTransaction( RequestKind::SolverBoxCount,
-                                             requestedCount,
-                                             -1,
-                                             objectTypeOverride,
-                                             modelCapacity );
-}
-
-SceneGeneratedControlTransaction
-SceneGeneratedControlTransaction::SolverCounts( int requestedBalls,
-                                                int requestedBoxes,
-                                                GeneratedObjectTypeOverride objectTypeOverride,
-                                                int modelCapacity )
-{
-    return SceneGeneratedControlTransaction( RequestKind::SolverCounts,
-                                             requestedBalls,
-                                             requestedBoxes,
-                                             objectTypeOverride,
-                                             modelCapacity );
-}
-
-bool SceneGeneratedControlTransaction::ResolveRequest( const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                                                       const SceneSessionState& sceneState )
-{
-    if ( m_kind != RequestKind::SolverCounts && m_requestedPrimary < 0 )
-    {
-        return false;
-    }
-
-    if ( m_kind == RequestKind::ModelCount )
-    {
-        // Invariant: model-count and exact solver overrides are mutually
-        // exclusive. Repopulate commits this resolved mode atomically.
-        m_modelCount = std::clamp( m_requestedPrimary, 0, m_modelCapacity );
-        return true;
-    }
-
-    if ( m_kind == RequestKind::SolverBallCount )
-    {
-        // Invariant: a prior accepted box command in the same frame wins over
-        // stale scene state when constraining this partial request.
-        m_solverBoxes = uiOverrides.solverBoxCountOverride >= 0 ? uiOverrides.solverBoxCountOverride
-                                                                : sceneState.solverBoxCount;
-
-        m_solverBalls = std::clamp( m_requestedPrimary, 0, (std::max)( 0, m_modelCapacity - m_solverBoxes ) );
-    }
-    else if ( m_kind == RequestKind::SolverBoxCount )
-    {
-        // Invariant: InputFrame executes ball before box. Read its newest
-        // accepted override so the combined request cannot exceed capacity.
-        m_solverBalls = uiOverrides.solverBallCountOverride >= 0 ? uiOverrides.solverBallCountOverride
-                                                                 : sceneState.solverBallCount;
-
-        m_solverBoxes = std::clamp( m_requestedPrimary, 0, (std::max)( 0, m_modelCapacity - m_solverBalls ) );
-    }
-    else
-    {
-        m_solverBalls = m_requestedPrimary;
-        m_solverBoxes = m_requestedSecondary;
-    }
-
-    // Exact-count stress requests and partial UI requests share one final
-    // normalization rule: preserve balls first and trim boxes second.
-    m_solverBalls = std::clamp( m_solverBalls, 0, m_modelCapacity );
-    m_solverBoxes = std::clamp( m_solverBoxes, 0, m_modelCapacity );
-    if ( m_solverBalls + m_solverBoxes > m_modelCapacity )
-    {
-        m_solverBoxes = (std::max)( 0, m_modelCapacity - m_solverBalls );
-    }
-
-    return true;
-}
-
 SkullbonezCore::Core::SbResult SceneGeneratedControlTransaction::DrainAndReset( SceneController& scene,
                                                                                 SimulationSystem& simulation,
                                                                                 RuntimeTools& tools,
@@ -178,7 +67,9 @@ SkullbonezCore::Core::SbResult SceneGeneratedControlTransaction::DrainAndReset( 
     AdvanceOrFatal( SceneGeneratedControlPhaseCursor::Phase::DrainAndReset, "DrainAndReset" );
     if ( !m_rebuildActiveScene )
     {
-        return SkullbonezCore::Core::SbResult::Success();
+        const SkullbonezCore::Core::SbResult success = SkullbonezCore::Core::SbResult::Success();
+        RecordDrainResult( success );
+        return success;
     }
 
     // Hazard: generated rebuilds destroy model/render state. A failed GPU drain
@@ -186,12 +77,24 @@ SkullbonezCore::Core::SbResult SceneGeneratedControlTransaction::DrainAndReset( 
     if ( renderFrame )
     {
         const SkullbonezCore::Core::SbResult flushResult = renderFrame->FlushGPU();
-        if ( !flushResult.ok )
+        if ( !RecordDrainResult( flushResult ) )
         {
             // Lane R: the input/stress boundary reports the device failure and
             // this transaction never enters Repopulate.
             return flushResult;
         }
+    }
+    else
+    {
+        RecordDrainResult( SkullbonezCore::Core::SbResult::Success() );
+    }
+
+    // Invariant: RecordDrainResult is the single gate between the device
+    // result and owner mutation. Failure returns above with this predicate false.
+    if ( !MutationAllowedAfterDrain() )
+    {
+        SB_FATAL( "Runtime/SceneGeneratedControlTransaction",
+                  "Generated-scene mutation reached without a successful drain." );
     }
 
     scene.Scene().Clear();
@@ -267,11 +170,7 @@ void SceneGeneratedControlTransaction::Repopulate( const SkullbonezCore::Core::E
 void SceneGeneratedControlTransaction::PublishFollowUps()
 {
     AdvanceOrFatal( SceneGeneratedControlPhaseCursor::Phase::PublishFollowUps, "PublishFollowUps" );
-    if ( m_rebuildActiveScene )
-    {
-        m_result.action.resetReplayTimeline = true;
-        m_result.action.scheduleProfileReset = true;
-    }
+    RecordFollowUps();
 }
 
 void SceneGeneratedControlTransaction::AdvanceOrFatal( SceneGeneratedControlPhaseCursor::Phase next,

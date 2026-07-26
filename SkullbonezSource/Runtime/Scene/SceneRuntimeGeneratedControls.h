@@ -27,7 +27,8 @@ Invariants:
     runtime owner is borrowed by Execute and expires before it returns.
   - Generated model/resource mutation starts only after a successful GPU drain;
     an illegal phase transition is Lane F fatal.
-  - TestOwnerRequestQueues.cpp exhaustively proves the cursor transition matrix.
+  - TestOwnerRequestQueues.cpp proves the cursor matrix, partial-count
+    arbitration, failed-drain mutation gate, and active-rebuild follow-ups.
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.h
@@ -38,9 +39,11 @@ Related:
 
 #include "SceneControllerState.h"
 #include "SceneGeneratedSetup.h"
+#include "SceneRuntime.h"
 #include "../Camera/CameraControlState.h"
 #include "../../Core/SbResult.h"
 
+#include <algorithm>
 #include <cstdint>
 
 namespace SkullbonezCore
@@ -54,7 +57,7 @@ namespace Runtime
 class SceneController;
 class SimulationSystem;
 class RuntimeTools;
-struct SceneSessionState;
+struct SceneGeneratedControlTransactionTestAccess;
 
 class SceneGeneratedControlPhaseCursor
 {
@@ -112,6 +115,12 @@ struct SceneGeneratedUICommandResult
     SceneRuntimeGeneratedControlAction action;
 };
 
+// Invariant:
+// - One accepted count request must drain/reset before repopulation and publish
+//   detached follow-ups only after repopulation through the adjacent phase walk.
+// - The owner retains request/policy/result values and its cursor, never a
+//   borrowed runtime owner. TestOwnerRequestQueues.cpp proves the transition
+//   matrix plus the arbitration, failed-drain, and follow-up decisions.
 class SceneGeneratedControlTransaction
 {
   public:
@@ -119,15 +128,46 @@ class SceneGeneratedControlTransaction
     SceneGeneratedControlTransaction& operator=( const SceneGeneratedControlTransaction& ) = delete;
 
     static SceneGeneratedControlTransaction
-    ModelCount( int requestedCount, GeneratedObjectTypeOverride objectTypeOverride, int modelCapacity );
+    ModelCount( int requestedCount, GeneratedObjectTypeOverride objectTypeOverride, int modelCapacity )
+    {
+        return SceneGeneratedControlTransaction( RequestKind::ModelCount,
+                                                 requestedCount,
+                                                 -1,
+                                                 objectTypeOverride,
+                                                 modelCapacity );
+    }
+
     static SceneGeneratedControlTransaction
-    SolverBallCount( int requestedCount, GeneratedObjectTypeOverride objectTypeOverride, int modelCapacity );
+    SolverBallCount( int requestedCount, GeneratedObjectTypeOverride objectTypeOverride, int modelCapacity )
+    {
+        return SceneGeneratedControlTransaction( RequestKind::SolverBallCount,
+                                                 requestedCount,
+                                                 -1,
+                                                 objectTypeOverride,
+                                                 modelCapacity );
+    }
+
     static SceneGeneratedControlTransaction
-    SolverBoxCount( int requestedCount, GeneratedObjectTypeOverride objectTypeOverride, int modelCapacity );
+    SolverBoxCount( int requestedCount, GeneratedObjectTypeOverride objectTypeOverride, int modelCapacity )
+    {
+        return SceneGeneratedControlTransaction( RequestKind::SolverBoxCount,
+                                                 requestedCount,
+                                                 -1,
+                                                 objectTypeOverride,
+                                                 modelCapacity );
+    }
+
     static SceneGeneratedControlTransaction SolverCounts( int requestedBalls,
                                                           int requestedBoxes,
                                                           GeneratedObjectTypeOverride objectTypeOverride,
-                                                          int modelCapacity );
+                                                          int modelCapacity )
+    {
+        return SceneGeneratedControlTransaction( RequestKind::SolverCounts,
+                                                 requestedBalls,
+                                                 requestedBoxes,
+                                                 objectTypeOverride,
+                                                 modelCapacity );
+    }
 
     SceneGeneratedUICommandResult Execute( const SkullbonezCore::Core::EngineConfig& config,
                                            SceneController& scene,
@@ -155,10 +195,63 @@ class SceneGeneratedControlTransaction
                                       int requestedPrimary,
                                       int requestedSecondary,
                                       GeneratedObjectTypeOverride objectTypeOverride,
-                                      int modelCapacity );
+                                      int modelCapacity )
+        : m_kind( kind ), m_requestedPrimary( requestedPrimary ), m_requestedSecondary( requestedSecondary ),
+          m_objectTypeOverride( objectTypeOverride ), m_modelCapacity( (std::max)( 0, modelCapacity ) )
+    {
+    }
 
     bool ResolveRequest( const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                         const SceneSessionState& sceneState );
+                         const SceneSessionState& sceneState )
+    {
+        if ( m_kind != RequestKind::SolverCounts && m_requestedPrimary < 0 )
+        {
+            return false;
+        }
+
+        if ( m_kind == RequestKind::ModelCount )
+        {
+            // Invariant: model-count and exact solver overrides are mutually
+            // exclusive. Repopulate commits this resolved mode atomically.
+            m_modelCount = std::clamp( m_requestedPrimary, 0, m_modelCapacity );
+            return true;
+        }
+
+        if ( m_kind == RequestKind::SolverBallCount )
+        {
+            // Invariant: the newest accepted box override, possibly from a
+            // prior frame, wins over stale scene state for this partial request.
+            m_solverBoxes = uiOverrides.solverBoxCountOverride >= 0 ? uiOverrides.solverBoxCountOverride
+                                                                    : sceneState.solverBoxCount;
+
+            m_solverBalls = std::clamp( m_requestedPrimary, 0, (std::max)( 0, m_modelCapacity - m_solverBoxes ) );
+        }
+        else if ( m_kind == RequestKind::SolverBoxCount )
+        {
+            // Invariant: InputFrame executes ball before box. Read its newest
+            // accepted override so the combined request cannot exceed capacity.
+            m_solverBalls = uiOverrides.solverBallCountOverride >= 0 ? uiOverrides.solverBallCountOverride
+                                                                     : sceneState.solverBallCount;
+
+            m_solverBoxes = std::clamp( m_requestedPrimary, 0, (std::max)( 0, m_modelCapacity - m_solverBalls ) );
+        }
+        else
+        {
+            m_solverBalls = m_requestedPrimary;
+            m_solverBoxes = m_requestedSecondary;
+        }
+
+        // Exact-count stress requests and partial UI requests share one final
+        // normalization rule: preserve balls first and trim boxes second.
+        m_solverBalls = std::clamp( m_solverBalls, 0, m_modelCapacity );
+        m_solverBoxes = std::clamp( m_solverBoxes, 0, m_modelCapacity );
+        if ( m_solverBalls + m_solverBoxes > m_modelCapacity )
+        {
+            m_solverBoxes = (std::max)( 0, m_modelCapacity - m_solverBalls );
+        }
+
+        return true;
+    }
     SkullbonezCore::Core::SbResult DrainAndReset( SceneController& scene,
                                                   SimulationSystem& simulation,
                                                   RuntimeTools& tools,
@@ -169,6 +262,30 @@ class SceneGeneratedControlTransaction
                      CameraControlState& camera );
     void PublishFollowUps();
     void AdvanceOrFatal( SceneGeneratedControlPhaseCursor::Phase next, const char* operation );
+    // Invariant: this recorded result is the only permission bit consulted
+    // immediately before generated topology and owner state may mutate.
+    bool RecordDrainResult( const SkullbonezCore::Core::SbResult& result )
+    {
+        m_result.action.status = result;
+        m_drainSucceeded = result.ok;
+        return m_drainSucceeded;
+    }
+
+    bool MutationAllowedAfterDrain() const
+    {
+        return m_phase.Current() == SceneGeneratedControlPhaseCursor::Phase::DrainAndReset && m_drainSucceeded;
+    }
+
+    void RecordFollowUps()
+    {
+        if ( m_rebuildActiveScene )
+        {
+            m_result.action.resetReplayTimeline = true;
+            m_result.action.scheduleProfileReset = true;
+        }
+    }
+
+    friend struct SceneGeneratedControlTransactionTestAccess;
 
     RequestKind m_kind;
     int m_requestedPrimary = -1;
@@ -179,6 +296,7 @@ class SceneGeneratedControlTransaction
     int m_solverBalls = -1;
     int m_solverBoxes = -1;
     bool m_rebuildActiveScene = false;
+    bool m_drainSucceeded = false;
     SceneGeneratedUICommandResult m_result;
     SceneGeneratedControlPhaseCursor m_phase;
 };

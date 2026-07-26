@@ -146,10 +146,11 @@ struct SceneDefaultsSaveView
 };
 
 // Concept: scene loading borrows phase-oriented transaction inputs instead of
-// accepting the process shell's complete owner graph. OF2 removes every
-// interaction and Replay owner from Load: camera, navigation, time, and debug
-// presentation cross as detached values. Reactive owners consume the lifecycle
-// packet after the transaction and no participant or output is retained.
+// accepting the process shell's complete owner graph. Interaction and Replay
+// owners remain outside Load: camera, navigation, time, and debug presentation
+// cross as detached values. Reactive owners consume the lifecycle packet
+// through SceneLoadTransaction; inputs remain synchronous and outputs stay
+// transaction-private until completion.
 struct SceneLoadPolicyInputs
 {
     SkullbonezCore::Core::EngineConfig& config;
@@ -163,23 +164,6 @@ struct SceneLoadPolicyInputs
     DiagnosticsRuntime& diagnosticsRuntime;
     const char* rendererName = "unknown";
     double sceneTimeSeconds = 0.0;
-};
-
-struct SceneLoadInteractionParticipants
-{
-    CameraControlState camera;
-    SceneLoadNavigationState navigation;
-};
-
-struct SceneLoadPresentationParticipants
-{
-    OverlayDebugState debug;
-    // Hazard: scene mutation may start only after the DX12 frame is drained;
-    // terrain construction then uses the cold resource builder. No other
-    // backend capability belongs inside the load transaction.
-    Rendering::Dx12FrameOwner* renderFrame = nullptr;
-    Rendering::Dx12ResourceBuilder* renderResources = nullptr;
-    RuntimeRenderer& renderer;
 };
 
 struct SceneLoadCompletedWorldChange
@@ -244,8 +228,12 @@ class SceneController
     // owns outputs and enforces the later reaction/presentation phases.
     bool ExecutePending( SceneLoadTransaction& transaction,
                          const SceneLoadPolicyInputs& policy,
-                         const SceneLoadInteractionParticipants& interaction,
-                         const SceneLoadPresentationParticipants& presentation );
+                         const CameraControlState& camera,
+                         const SceneLoadNavigationState& navigation,
+                         const OverlayDebugState& debug,
+                         Rendering::Dx12FrameOwner* renderFrame,
+                         Rendering::Dx12ResourceBuilder* renderResources,
+                         RuntimeRenderer& renderer );
     SkullbonezCore::Core::SbResult SaveCurrentDefaults( const SceneDefaultsSaveView& view ) const;
 
     // Scene request submission and ordered batch execution stay owner-specific;
@@ -268,10 +256,16 @@ class SceneController
     // Lifetime: cold load orchestration borrows each phase value only for this
     // call. The transaction owns detached outputs; neither owner stores a Run
     // backpointer or complete mutable context.
+    // Hazard: renderFrame proves old GPU use complete before scene mutation;
+    // renderResources is borrowed only afterward for cold terrain construction.
     SkullbonezCore::Core::SbResult Load( const SceneLoadRequest& request,
                                          const SceneLoadPolicyInputs& policy,
-                                         const SceneLoadInteractionParticipants& interaction,
-                                         const SceneLoadPresentationParticipants& presentation,
+                                         const CameraControlState& camera,
+                                         const SceneLoadNavigationState& navigation,
+                                         const OverlayDebugState& debug,
+                                         Rendering::Dx12FrameOwner* renderFrame,
+                                         Rendering::Dx12ResourceBuilder* renderResources,
+                                         RuntimeRenderer& renderer,
                                          SceneLoadTransaction& transaction );
 
     SceneRuntime m_runtime;               // Scene queue and active scene-run state

@@ -641,13 +641,13 @@ is now 4/13 (31%).
 
 ## Current Execution Priority
 
-The 2026-07-25 round-4 campaign is the active queue with binding order:
-1 `invariant-ownership-governance-and-transaction-repair` (4/5; GV0 installed
-  the governance amendment, GV1 ratified the census, GV2 installed the
-  scene-load transaction, GV3 installed the generated-scene transaction, and
-  GV4 is next),
-2 `concrete-parameter-bag-elimination` (0/8; consumes GV2's concrete
-  scene-load transaction, then closes the complete 22-shape bag census).
+The 2026-07-25 round-4 campaign now has one live plan:
+`concrete-parameter-bag-elimination` (0/8). Invariant Ownership Governance And
+Transaction Repair closed GV0-GV4 and left the live ledger under rule 4;
+permanent evidence is
+`../Reports/2026-07-26/invariant-ownership-governance-and-transaction-repair-closure.md`.
+PB0 is next: ratify the 22-shape census and concrete owner designs before
+implementation.
 Header-claim staleness remediation is complete at 3/3 and removed
 from the live ledger; its permanent evidence is
 `../Reports/2026-07-25/header-claim-staleness-remediation-closure.md`. Replay
@@ -1820,8 +1820,8 @@ second and preserved GV0.
 | [header-claim-staleness-remediation](../Reports/2026-07-25/header-claim-staleness-remediation-closure.md) | Complete | 3/3 | Closed and removed from the live ledger under inventory rule 4 |
 | [replay-subsystem-partition](../Reports/2026-07-26/replay-subsystem-partition-closure.md) | Complete | 6/6 | Closed and removed from the live ledger under inventory rule 4 |
 | [downward-domain-bleed-remediation](../Reports/2026-07-26/downward-domain-bleed-remediation-closure.md) | Complete | 6/6 | Closed and removed from the live ledger under inventory rule 4 |
-| [invariant-ownership-governance-and-transaction-repair](TODO/invariant-ownership-governance-and-transaction-repair.md) | In progress | 4/5 | GV3 installed the generated-scene transaction; GV4 is next |
-| [concrete-parameter-bag-elimination](TODO/concrete-parameter-bag-elimination.md) | Ready | 0/8 | Starts after GV4; PB0 ratifies the 22-shape census and concrete owner designs |
+| [invariant-ownership-governance-and-transaction-repair](../Reports/2026-07-26/invariant-ownership-governance-and-transaction-repair-closure.md) | Complete | 5/5 | Closed and removed from the live ledger under rule 4 |
+| [concrete-parameter-bag-elimination](TODO/concrete-parameter-bag-elimination.md) | In progress | 0/8 | PB0 ratifies the 22-shape census and concrete owner designs |
 
 ## Features
 

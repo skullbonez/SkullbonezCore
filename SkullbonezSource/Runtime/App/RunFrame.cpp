@@ -1206,13 +1206,12 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
                                                           m_diagnosticsRuntime,
                                                           m_renderBackendView.RendererName(),
                                                           m_timers.simulationTimer.GetTotalTime() },
-                                  SceneLoadInteractionParticipants {
-                                      m_camera,
-                                      CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ) },
-                                  SceneLoadPresentationParticipants { m_overlayDiagnostics->PresentationSnapshot(),
-                                                                      m_renderBackendView.renderFrame,
-                                                                      m_renderBackendView.renderResources,
-                                                                      m_renderer } )
+                                  m_camera,
+                                  CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
+                                  m_overlayDiagnostics->PresentationSnapshot(),
+                                  m_renderBackendView.renderFrame,
+                                  m_renderBackendView.renderResources,
+                                  m_renderer )
                            .ok;
 
             sceneLoad.ApplyRuntimeReactions( m_launchOptions,
@@ -1359,13 +1358,12 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
                                                            m_diagnosticsRuntime,
                                                            m_renderBackendView.RendererName(),
                                                            m_timers.simulationTimer.GetTotalTime() },
-                                   SceneLoadInteractionParticipants {
-                                       m_camera,
-                                       CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ) },
-                                   SceneLoadPresentationParticipants { m_overlayDiagnostics->PresentationSnapshot(),
-                                                                       m_renderBackendView.renderFrame,
-                                                                       m_renderBackendView.renderResources,
-                                                                       m_renderer } )
+                                   m_camera,
+                                   CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
+                                   m_overlayDiagnostics->PresentationSnapshot(),
+                                   m_renderBackendView.renderFrame,
+                                   m_renderBackendView.renderResources,
+                                   m_renderer )
                             .ok;
 
         sceneLoad.ApplyRuntimeReactions( m_launchOptions,

@@ -607,18 +607,17 @@ void Run::Initialise()
                                                   m_timers.simulationTimer.GetTotalTime() };
 
     SceneLoadNavigationState sceneLoadNavigation = CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() );
-    const SceneLoadInteractionParticipants sceneLoadInteraction { m_camera, std::move( sceneLoadNavigation ) };
-    const SceneLoadPresentationParticipants sceneLoadPresentation { m_overlayDiagnostics->PresentationSnapshot(),
-                                                                    m_renderBackendView.renderFrame,
-                                                                    m_renderBackendView.renderResources,
-                                                                    m_renderer };
 
     SceneLoadTransaction sceneLoad;
     m_lastSceneLoadResult = sceneLoad.Load( m_sceneController,
                                             SceneLoadRequest::Load( 0, false, false, false ),
                                             sceneLoadPolicy,
-                                            sceneLoadInteraction,
-                                            sceneLoadPresentation );
+                                            m_camera,
+                                            sceneLoadNavigation,
+                                            m_overlayDiagnostics->PresentationSnapshot(),
+                                            m_renderBackendView.renderFrame,
+                                            m_renderBackendView.renderResources,
+                                            m_renderer );
 
     sceneLoad.ApplyRuntimeReactions( m_launchOptions,
                                      m_timers,
@@ -861,12 +860,12 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
                                     m_diagnosticsRuntime,
                                     m_renderBackendView.RendererName(),
                                     m_timers.simulationTimer.GetTotalTime() },
-            SceneLoadInteractionParticipants { m_camera,
-                                               CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ) },
-            SceneLoadPresentationParticipants { m_overlayDiagnostics->PresentationSnapshot(),
-                                                m_renderBackendView.renderFrame,
-                                                m_renderBackendView.renderResources,
-                                                m_renderer } );
+            m_camera,
+            CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
+            m_overlayDiagnostics->PresentationSnapshot(),
+            m_renderBackendView.renderFrame,
+            m_renderBackendView.renderResources,
+            m_renderer );
 
         sceneLoad.ApplyRuntimeReactions( m_launchOptions,
                                          m_timers,

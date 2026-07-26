@@ -2,7 +2,7 @@
 
 Date: 2026-07-26
 Owner: skullbonez
-State: Ready after `invariant-ownership-governance-and-transaction-repair`
+State: IN PROGRESS (PB0 next; prerequisite governance plan closed 5/5)
 Ledger tasks: 8 (PB0-PB7)
 Branch: `nightrunner-25th-JUL-26`
 
@@ -36,7 +36,8 @@ function inventory. This audit is broader: it examines current aggregate
 construction, repeated owner projection, immediate repacking, and service
 bundles regardless of which campaign introduced them.
 
-`invariant-ownership-governance-and-transaction-repair` remains authoritative
+The completed invariant-ownership plan remains authoritative through
+`../../Reports/2026-07-26/invariant-ownership-governance-and-transaction-repair-closure.md`
 for the governance rule and the scene-load transaction. This plan owns the
 complete 22-shape closure. It consumes GV2's scene-load result instead of
 implementing a competing transaction, then closes every remaining named row.
@@ -323,8 +324,9 @@ or type erasure is allowed.
 
 ## Dependencies And Coordination
 
-- Binding order: Replay partition RS5, downward-domain-bleed DB0-DB5,
-  invariant-ownership GV1-GV4, then PB0-PB7.
+- Binding order prerequisites (Replay partition RS5, downward-domain-bleed
+  DB0-DB5, and invariant-ownership GV1-GV4) are complete. PB0-PB7 is now the
+  active sequence.
 - GV2 owns the first implementation of the concrete scene-load transaction.
   PB1 consumes and verifies it; it does not introduce a second transaction.
 - GV1's ruled census feeds PB0. The 22 rows in this plan are assigned here,

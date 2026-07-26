@@ -472,25 +472,24 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         presentationEdit.Commit();
         SceneLoadTransaction sceneLoad;
         const bool loaded = sceneLoad
-                                .Load( m_sceneController,
-                                       request,
-                                       SceneLoadPolicyInputs { m_config,
-                                                               m_launchOptions,
-                                                               m_renderDefaults.CinematicBaseline(),
-                                                               m_startup,
-                                                               m_assets,
-                                                               m_workerPool,
-                                                               m_diagnosticsRuntime,
-                                                               m_renderBackendView.RendererName(),
-                                                               m_timers.simulationTimer.GetTotalTime() },
-                                       SceneLoadInteractionParticipants {
-                                           m_camera,
-                                           CaptureSceneLoadNavigationState(
-                                               interactionOwners.operatorUi.SceneNavigation() ) },
-                                       SceneLoadPresentationParticipants { m_debug,
-                                                                           m_renderBackendView.renderFrame,
-                                                                           m_renderBackendView.renderResources,
-                                                                           m_renderer } )
+                                .Load(
+                                    m_sceneController,
+                                    request,
+                                    SceneLoadPolicyInputs { m_config,
+                                                            m_launchOptions,
+                                                            m_renderDefaults.CinematicBaseline(),
+                                                            m_startup,
+                                                            m_assets,
+                                                            m_workerPool,
+                                                            m_diagnosticsRuntime,
+                                                            m_renderBackendView.RendererName(),
+                                                            m_timers.simulationTimer.GetTotalTime() },
+                                    m_camera,
+                                    CaptureSceneLoadNavigationState( interactionOwners.operatorUi.SceneNavigation() ),
+                                    m_debug,
+                                    m_renderBackendView.renderFrame,
+                                    m_renderBackendView.renderResources,
+                                    m_renderer )
                                 .ok;
 
         sceneLoad.ApplyRuntimeReactions( m_launchOptions,
@@ -1297,20 +1296,18 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                                   m_renderBackendView.RendererName(),
                                                   m_timers.simulationTimer.GetTotalTime() };
 
-    const SceneLoadInteractionParticipants sceneLoadInteraction {
-        m_camera,
-        CaptureSceneLoadNavigationState( interactionOwners.operatorUi.SceneNavigation() ) };
-
-    const SceneLoadPresentationParticipants sceneLoadPresentation { m_debug,
-                                                                    m_renderBackendView.renderFrame,
-                                                                    m_renderBackendView.renderResources,
-                                                                    m_renderer };
+    const SceneLoadNavigationState sceneLoadNavigation = CaptureSceneLoadNavigationState(
+        interactionOwners.operatorUi.SceneNavigation() );
 
     SceneLoadTransaction sceneLoad;
     const bool processedScene = m_sceneController.ExecutePending( sceneLoad,
                                                                   sceneLoadPolicy,
-                                                                  sceneLoadInteraction,
-                                                                  sceneLoadPresentation );
+                                                                  m_camera,
+                                                                  sceneLoadNavigation,
+                                                                  m_debug,
+                                                                  m_renderBackendView.renderFrame,
+                                                                  m_renderBackendView.renderResources,
+                                                                  m_renderer );
 
     sceneLoad.ApplyRuntimeReactions( m_launchOptions,
                                      m_timers,

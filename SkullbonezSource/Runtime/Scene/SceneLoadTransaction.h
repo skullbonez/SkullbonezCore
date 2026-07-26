@@ -50,6 +50,8 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
+struct SceneLoadTransactionTestAccess;
+
 class SceneLoadPhaseCursor
 {
   public:
@@ -91,6 +93,12 @@ class SceneLoadPhaseCursor
     Phase m_phase = Phase::Idle;
 };
 
+// Invariant:
+// - One request batch may expose presentation only after Load and
+//   RuntimeReactions complete through the adjacent phase walk.
+// - The owner retains detached values and its cursor, never a borrowed runtime
+//   owner. TestOwnerRequestQueues.cpp proves the complete transition matrix and
+//   loaded-versus-submitted arbitration.
 class SceneLoadTransaction
 {
   public:
@@ -101,8 +109,12 @@ class SceneLoadTransaction
     SkullbonezCore::Core::SbResult Load( SceneController& sceneController,
                                          const SceneLoadRequest& request,
                                          const SceneLoadPolicyInputs& policy,
-                                         const SceneLoadInteractionParticipants& interaction,
-                                         const SceneLoadPresentationParticipants& presentation );
+                                         const CameraControlState& camera,
+                                         const SceneLoadNavigationState& navigation,
+                                         const OverlayDebugState& debug,
+                                         Rendering::Dx12FrameOwner* renderFrame,
+                                         Rendering::Dx12ResourceBuilder* renderResources,
+                                         RuntimeRenderer& renderer );
 
     void ApplyRuntimeReactions( const RunLaunchOptions& launchOptions,
                                 RunTimerState& timers,
@@ -125,30 +137,17 @@ class SceneLoadTransaction
 
     const SceneLoadNavigationState& NavigationForFollowingRequest( const SceneLoadNavigationState& submitted ) const
     {
-        return SelectFollowingNavigation( submitted, m_outputs.navigation, m_outputs.applyNavigation );
+        return m_outputs.applyNavigation ? m_outputs.navigation : submitted;
     }
 
     const OverlayDebugState& PresentationForFollowingRequest( const OverlayDebugState& submitted,
                                                               const SceneLifecyclePacket& lifecycle ) const
     {
         return m_request.HasLoad() && m_phase.Current() == SceneLoadPhaseCursor::Phase::Load
-                   ? SelectFollowingPresentation( submitted, m_outputs.presentation, lifecycle.event )
+                   ? ( SceneLifecycleReached( lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneCleared )
+                           ? m_outputs.presentation
+                           : submitted )
                    : submitted;
-    }
-
-    static const SceneLoadNavigationState& SelectFollowingNavigation( const SceneLoadNavigationState& submitted,
-                                                                      const SceneLoadNavigationState& loaded,
-                                                                      bool applyLoadedNavigation )
-    {
-        return applyLoadedNavigation ? loaded : submitted;
-    }
-
-    static const OverlayDebugState& SelectFollowingPresentation( const OverlayDebugState& submitted,
-                                                                 const OverlayDebugState& loaded,
-                                                                 SceneRuntimeLifecycleEvent lifecycleEvent )
-    {
-        return SceneLifecycleReached( lifecycleEvent, SceneRuntimeLifecycleEvent::AfterSceneCleared ) ? loaded
-                                                                                                      : submitted;
     }
 
     // The stress lane may suppress Legacy activation without recovering the
@@ -179,6 +178,7 @@ class SceneLoadTransaction
     };
 
     friend class SceneController;
+    friend struct SceneLoadTransactionTestAccess;
 
     // A request batch with no transition still completes a load phase so every
     // caller follows the same reaction/presentation schedule.

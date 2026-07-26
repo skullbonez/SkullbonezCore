@@ -633,12 +633,17 @@ void SceneLoadTransaction::FinishLoadPhase()
 SkullbonezCore::Core::SbResult SceneLoadTransaction::Load( SceneController& sceneController,
                                                            const SceneLoadRequest& request,
                                                            const SceneLoadPolicyInputs& policy,
-                                                           const SceneLoadInteractionParticipants& interaction,
-                                                           const SceneLoadPresentationParticipants& presentation )
+                                                           const CameraControlState& camera,
+                                                           const SceneLoadNavigationState& navigation,
+                                                           const OverlayDebugState& debug,
+                                                           Rendering::Dx12FrameOwner* renderFrame,
+                                                           Rendering::Dx12ResourceBuilder* renderResources,
+                                                           RuntimeRenderer& renderer )
 {
     AdvanceOrFatal( SceneLoadPhaseCursor::Phase::Load, "Load" );
     m_request = request;
-    return sceneController.Load( request, policy, interaction, presentation, *this );
+    return sceneController
+        .Load( request, policy, camera, navigation, debug, renderFrame, renderResources, renderer, *this );
 }
 
 
@@ -839,8 +844,12 @@ void SceneLoadTransaction::ApplyPresentationOutputs( Window& window,
 
 SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& request,
                                                       const SceneLoadPolicyInputs& policy,
-                                                      const SceneLoadInteractionParticipants& interactionParticipants,
-                                                      const SceneLoadPresentationParticipants& presentation,
+                                                      const CameraControlState& submittedCamera,
+                                                      const SceneLoadNavigationState& submittedNavigation,
+                                                      const OverlayDebugState& submittedDebug,
+                                                      Rendering::Dx12FrameOwner* renderFrame,
+                                                      Rendering::Dx12ResourceBuilder* renderResources,
+                                                      RuntimeRenderer& renderer,
                                                       SceneLoadTransaction& transaction )
 {
     SceneLoadTransaction::Outputs& consumerOutputs = transaction.m_outputs;
@@ -855,15 +864,11 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     Threading::WorkerPool& workerPool = policy.workerPool;
     DiagnosticsRuntime& diagnosticsRuntime = policy.diagnosticsRuntime;
     const char* rendererName = policy.rendererName ? policy.rendererName : "unknown";
-    Rendering::Dx12FrameOwner* renderFrame = presentation.renderFrame;
-    Rendering::Dx12ResourceBuilder* renderResources = presentation.renderResources;
-    RuntimeRenderer& renderer = presentation.renderer;
-
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::SceneLoad );
     consumerOutputs.ResetForLoad();
-    consumerOutputs.navigation = interactionParticipants.navigation;
-    consumerOutputs.presentation = presentation.debug;
-    consumerOutputs.camera = interactionParticipants.camera;
+    consumerOutputs.navigation = submittedNavigation;
+    consumerOutputs.presentation = submittedDebug;
+    consumerOutputs.camera = submittedCamera;
     SceneLoadNavigationState& sceneNavigation = consumerOutputs.navigation;
     OverlayDebugState& m_debug = consumerOutputs.presentation;
     CameraControlState& camera = consumerOutputs.camera;

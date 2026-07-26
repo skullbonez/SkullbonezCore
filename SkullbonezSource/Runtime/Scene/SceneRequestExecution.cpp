@@ -50,8 +50,12 @@ using namespace SkullbonezCore::Physics;
 
 bool SceneController::ExecutePending( SceneLoadTransaction& transaction,
                                       const SceneLoadPolicyInputs& policy,
-                                      const SceneLoadInteractionParticipants& interaction,
-                                      const SceneLoadPresentationParticipants& presentation )
+                                      const CameraControlState& camera,
+                                      const SceneLoadNavigationState& navigation,
+                                      const OverlayDebugState& debug,
+                                      Rendering::Dx12FrameOwner* renderFrame,
+                                      Rendering::Dx12ResourceBuilder* renderResources,
+                                      RuntimeRenderer& renderer )
 {
     SceneRequestBatch completedRequests;
     SceneController& m_sceneController = *this;
@@ -62,7 +66,17 @@ bool SceneController::ExecutePending( SceneLoadTransaction& transaction,
             return false;
         }
 
-        return transaction.Load( m_sceneController, request, policy, interaction, presentation ).ok;
+        return transaction
+            .Load( m_sceneController,
+                   request,
+                   policy,
+                   camera,
+                   navigation,
+                   debug,
+                   renderFrame,
+                   renderResources,
+                   renderer )
+            .ok;
     };
 
     const SceneRequestBatch batch = m_sceneController.TakePendingRequests();
@@ -83,11 +97,11 @@ bool SceneController::ExecutePending( SceneLoadTransaction& transaction,
         {
         case SceneRequestType::LoadBrowserIndex:
             accepted = executeSceneLoadRequest(
-                interaction.navigation.LoadSceneFromBrowserIndex( request.index, m_sceneController.Runtime() ) );
+                navigation.LoadSceneFromBrowserIndex( request.index, m_sceneController.Runtime() ) );
 
             break;
         case SceneRequestType::LoadDemoScene:
-            accepted = executeSceneLoadRequest( interaction.navigation.LoadDemoScene( m_sceneController.Runtime() ) );
+            accepted = executeSceneLoadRequest( navigation.LoadDemoScene( m_sceneController.Runtime() ) );
             break;
         case SceneRequestType::ResetCurrentScene:
             accepted = executeSceneLoadRequest( m_sceneController.ResetCurrentScene( request.preserveUIState,
@@ -110,16 +124,13 @@ bool SceneController::ExecutePending( SceneLoadTransaction& transaction,
         case SceneRequestType::SaveCurrentDefaults:
         {
             const OverlayDebugState& presentationState = transaction.PresentationForFollowingRequest(
-                presentation.debug,
+                debug,
                 LifecyclePacket() );
 
-            const SceneLoadNavigationState& currentNavigation = transaction.NavigationForFollowingRequest( interaction.navigation );
+            const SceneLoadNavigationState& currentNavigation = transaction.NavigationForFollowingRequest( navigation );
 
             const SkullbonezCore::Core::SbResult saveResult = m_sceneController.SaveCurrentDefaults(
-                SceneDefaultsSaveView { presentationState,
-                                        presentation.renderer,
-                                        interaction.camera,
-                                        currentNavigation.overrides } );
+                SceneDefaultsSaveView { presentationState, renderer, camera, currentNavigation.overrides } );
 
             if ( !saveResult.ok )
             {

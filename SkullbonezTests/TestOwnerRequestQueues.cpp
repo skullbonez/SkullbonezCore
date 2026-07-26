@@ -42,6 +42,8 @@ Invariants:
     lifecycle generation at most once.
   - Generated-scene rebuilds accept only the adjacent drain, repopulate,
     follow-up publication, and completion walk.
+  - Transaction tests drive the production arbitration and drain gates through
+    bounded friend access; they do not duplicate those decisions in test code.
 
 Related:
   - SkullbonezSource/Runtime/Capture/CaptureController.h
@@ -83,6 +85,89 @@ Related:
 #include <type_traits>
 
 using namespace SkullbonezCore::Runtime;
+
+namespace SkullbonezCore
+{
+namespace Runtime
+{
+// Test access seeds transaction-private values and invokes the exact production
+// kernels. It stores no owner and introduces no parallel arbitration rule.
+struct SceneLoadTransactionTestAccess
+{
+    static void SetLoadedValues( SceneLoadTransaction& transaction,
+                                 const SceneLoadRequest& request,
+                                 const SceneLoadNavigationState& navigation,
+                                 const OverlayDebugState& presentation,
+                                 bool applyNavigation )
+    {
+        transaction.m_request = request;
+        transaction.m_outputs.navigation = navigation;
+        transaction.m_outputs.presentation = presentation;
+        transaction.m_outputs.applyNavigation = applyNavigation;
+    }
+
+    static bool EnterLoadPhase( SceneLoadTransaction& transaction )
+    {
+        return transaction.m_phase.TryAdvance( SceneLoadPhaseCursor::Phase::Load );
+    }
+};
+
+struct SceneGeneratedControlTransactionTestAccess
+{
+    static bool Resolve( SceneGeneratedControlTransaction& transaction,
+                         const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+                         const SceneSessionState& sceneState )
+    {
+        return transaction.ResolveRequest( uiOverrides, sceneState );
+    }
+
+    static bool RecordDrain( SceneGeneratedControlTransaction& transaction,
+                             bool rebuildActiveScene,
+                             const SkullbonezCore::Core::SbResult& result )
+    {
+        transaction.m_rebuildActiveScene = rebuildActiveScene;
+        if ( !transaction.m_phase.TryAdvance( SceneGeneratedControlPhaseCursor::Phase::DrainAndReset ) )
+        {
+            return false;
+        }
+
+        return transaction.RecordDrainResult( result );
+    }
+
+    static bool MutationAllowedAfterDrain( const SceneGeneratedControlTransaction& transaction )
+    {
+        return transaction.MutationAllowedAfterDrain();
+    }
+
+    static bool PublishAfterRepopulation( SceneGeneratedControlTransaction& transaction )
+    {
+        if ( !transaction.m_phase.TryAdvance( SceneGeneratedControlPhaseCursor::Phase::Repopulate ) ||
+             !transaction.m_phase.TryAdvance( SceneGeneratedControlPhaseCursor::Phase::PublishFollowUps ) )
+        {
+            return false;
+        }
+
+        transaction.RecordFollowUps();
+        return true;
+    }
+
+    static int SolverBalls( const SceneGeneratedControlTransaction& transaction )
+    {
+        return transaction.m_solverBalls;
+    }
+
+    static int SolverBoxes( const SceneGeneratedControlTransaction& transaction )
+    {
+        return transaction.m_solverBoxes;
+    }
+
+    static const SceneGeneratedUICommandResult& Result( const SceneGeneratedControlTransaction& transaction )
+    {
+        return transaction.m_result;
+    }
+};
+} // namespace Runtime
+} // namespace SkullbonezCore
 
 TEST_CASE( "Replay velocity drag publishes one coalesced newest-state refresh per frame" )
 {
@@ -338,13 +423,23 @@ TEST_CASE( "Scene batch followers prefer presentation values emitted by a comple
     submitted.physicsDebugAlpha = 0.25f;
     OverlayDebugState loaded;
     loaded.physicsDebugAlpha = 0.75f;
-    SceneLifecyclePacket lifecycle;
+    SceneLoadNavigationState navigation;
+    SceneLoadTransaction transaction;
+    SceneLoadTransactionTestAccess::SetLoadedValues(
+        transaction,
+        SceneLoadRequest::Load( 0, false, false, false ),
+        navigation,
+        loaded,
+        false );
 
-    CHECK( SceneLoadTransaction::SelectFollowingPresentation( submitted, loaded, lifecycle.event ).physicsDebugAlpha ==
-           doctest::Approx( 0.25f ) );
+    SceneLifecyclePacket lifecycle;
+    CHECK( &transaction.PresentationForFollowingRequest( submitted, lifecycle ) == &submitted );
+    REQUIRE( SceneLoadTransactionTestAccess::EnterLoadPhase( transaction ) );
+    CHECK( &transaction.PresentationForFollowingRequest( submitted, lifecycle ) == &submitted );
     lifecycle.generation = 1;
     lifecycle.event = SceneRuntimeLifecycleEvent::AfterSceneCleared;
-    CHECK( SceneLoadTransaction::SelectFollowingPresentation( submitted, loaded, lifecycle.event ).physicsDebugAlpha ==
+    CHECK( &transaction.PresentationForFollowingRequest( submitted, lifecycle ) != &submitted );
+    CHECK( transaction.PresentationForFollowingRequest( submitted, lifecycle ).physicsDebugAlpha ==
            doctest::Approx( 0.75f ) );
 }
 
@@ -411,6 +506,57 @@ TEST_CASE( "Generated-scene control phase cursor accepts only the complete adjac
     CHECK( cursor.TryAdvance( Phase::Complete ) );
     CHECK_FALSE( cursor.TryAdvance( Phase::Idle ) );
     CHECK( cursor.Current() == Phase::Complete );
+}
+
+TEST_CASE( "Generated-scene control transaction blocks mutation after a failed drain" )
+{
+    SkullbonezCore::UI::RunSceneUIOverrideState uiOverrides;
+    uiOverrides.solverBoxCountOverride = 40;
+    SceneSessionState sceneState;
+    sceneState.solverBallCount = 10;
+    sceneState.solverBoxCount = 30;
+
+    SceneGeneratedControlTransaction transaction =
+        SceneGeneratedControlTransaction::SolverBallCount( 80, GeneratedObjectTypeOverride::Mixed, 100 );
+
+    REQUIRE( SceneGeneratedControlTransactionTestAccess::Resolve( transaction, uiOverrides, sceneState ) );
+    CHECK( SceneGeneratedControlTransactionTestAccess::SolverBalls( transaction ) == 60 );
+    CHECK( SceneGeneratedControlTransactionTestAccess::SolverBoxes( transaction ) == 40 );
+
+    const auto drainFailure =
+        SkullbonezCore::Core::SbResult::Failure( "Test/SceneGeneratedControlTransaction", "Injected drain failure." );
+
+    CHECK_FALSE(
+        SceneGeneratedControlTransactionTestAccess::RecordDrain( transaction, true, drainFailure ) );
+    CHECK_FALSE( SceneGeneratedControlTransactionTestAccess::MutationAllowedAfterDrain( transaction ) );
+    CHECK( transaction.Phase() == SceneGeneratedControlPhaseCursor::Phase::DrainAndReset );
+    CHECK_FALSE( SceneGeneratedControlTransactionTestAccess::Result( transaction ).action.status.ok );
+    CHECK_FALSE( SceneGeneratedControlTransactionTestAccess::Result( transaction ).action.resetReplayTimeline );
+    CHECK_FALSE( SceneGeneratedControlTransactionTestAccess::Result( transaction ).action.scheduleProfileReset );
+    CHECK( uiOverrides.solverBoxCountOverride == 40 );
+    CHECK( sceneState.solverBallCount == 10 );
+    CHECK( sceneState.solverBoxCount == 30 );
+}
+
+TEST_CASE( "Generated-scene control transaction publishes follow-ups only for an active rebuild" )
+{
+    SkullbonezCore::UI::RunSceneUIOverrideState uiOverrides;
+    SceneSessionState sceneState;
+    SceneGeneratedControlTransaction transaction =
+        SceneGeneratedControlTransaction::SolverCounts( 70, 50, GeneratedObjectTypeOverride::Mixed, 100 );
+
+    REQUIRE( SceneGeneratedControlTransactionTestAccess::Resolve( transaction, uiOverrides, sceneState ) );
+    CHECK( SceneGeneratedControlTransactionTestAccess::SolverBalls( transaction ) == 70 );
+    CHECK( SceneGeneratedControlTransactionTestAccess::SolverBoxes( transaction ) == 30 );
+    REQUIRE( SceneGeneratedControlTransactionTestAccess::RecordDrain(
+        transaction,
+        true,
+        SkullbonezCore::Core::SbResult::Success() ) );
+
+    CHECK( SceneGeneratedControlTransactionTestAccess::MutationAllowedAfterDrain( transaction ) );
+    REQUIRE( SceneGeneratedControlTransactionTestAccess::PublishAfterRepopulation( transaction ) );
+    CHECK( SceneGeneratedControlTransactionTestAccess::Result( transaction ).action.resetReplayTimeline );
+    CHECK( SceneGeneratedControlTransactionTestAccess::Result( transaction ).action.scheduleProfileReset );
 }
 
 TEST_CASE( "Scene navigation returns value-only accepted load decisions" )
@@ -675,12 +821,25 @@ TEST_CASE( "Scene request execution saves navigation committed by an earlier loa
     SceneLoadNavigationState loaded;
     loaded.overrides.timeScaleOverride = 0.5f;
     loaded.overrides.modelCountOverride = 24;
-    CHECK( &SceneLoadTransaction::SelectFollowingNavigation( submitted, loaded, false ) == &submitted );
+    OverlayDebugState presentation;
+    SceneLoadTransaction transaction;
+    SceneLoadTransactionTestAccess::SetLoadedValues(
+        transaction,
+        SceneLoadRequest::Load( 0, false, false, false ),
+        loaded,
+        presentation,
+        false );
+    REQUIRE( SceneLoadTransactionTestAccess::EnterLoadPhase( transaction ) );
+    CHECK( &transaction.NavigationForFollowingRequest( submitted ) == &submitted );
 
-    const SceneLoadNavigationState& committed = SceneLoadTransaction::SelectFollowingNavigation( submitted,
-                                                                                                 loaded,
-                                                                                                 true );
-    CHECK( &committed == &loaded );
+    SceneLoadTransactionTestAccess::SetLoadedValues(
+        transaction,
+        SceneLoadRequest::Load( 0, false, false, false ),
+        loaded,
+        presentation,
+        true );
+    const SceneLoadNavigationState& committed = transaction.NavigationForFollowingRequest( submitted );
+    CHECK( &committed != &submitted );
     CHECK( committed.overrides.timeScaleOverride == doctest::Approx( 0.5f ) );
     CHECK( committed.overrides.modelCountOverride == 24 );
 }

@@ -11,19 +11,18 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-25th-JUL-26` |
-| Current baseline | Downward Domain Bleed Remediation is complete at 6/6 and removed from the live inventory: all three ownership boundaries and the include residue are closed, mechanically enforced, independently reviewed, and fully validated. |
-| Current objective | Execute `invariant-ownership-governance-and-transaction-repair` GV4: final sweeps, touched-source audit, one hostile independent review, closure gate, and handoff. |
-| Active/future progress | Invariant Ownership Governance And Transaction Repair 4/5; Concrete Parameter-Bag Elimination 0/8; active/future ledger 4/13 (31%). |
+| Current baseline | Invariant Ownership Governance And Transaction Repair is complete at 5/5 and removed from the live inventory: both runtime transactions enforce their named invariants, the hostile review is clear, and final gates pass without refresh. |
+| Current objective | Execute `concrete-parameter-bag-elimination` PB0: ratify the complete 22-shape census, dispositions, concrete owner designs, and deletion proofs. |
+| Active/future progress | Concrete Parameter-Bag Elimination 0/8; active/future ledger 0/8 (0%). |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | GV3 `validate_full.bat` passes: mandatory CPU/coverage, Automation/replay, DX12, and byte-exact physics regression. |
-| Validation for current edits | GV3 generated-scene transaction: 395 doctests / 2,403,407 assertions, `validate_full`, and one-minute graphics stress pass; retired-symbol and baseline-motion scans are empty. |
+| Last broad local gate | GV4 `validate_full.bat` passes in 165.3 s: mandatory CPU/coverage, Automation/replay, DX12, and byte-exact 44,401-line physics regression. |
+| Validation for current edits | GV4: 397 doctests / 2,403,431 assertions, final full gate, and 61-second graphics stress pass; retired-symbol, extrusion, and baseline-motion scans are clean. |
 
 ## Live Queue
 
-NOW. The 2026-07-25 round-4 architecture campaign is active at 4/13 with
-binding order: `invariant-ownership-governance-and-transaction-repair` (4/5),
-then
-`concrete-parameter-bag-elimination` (0/8).
+NOW. The 2026-07-25 round-4 architecture campaign has one live plan:
+`concrete-parameter-bag-elimination` (0/8), so the ledger is 0/8 (0%). PB0 is
+next.
 
 Header Claim Staleness Remediation is complete at 3/3 and removed from the live
 inventory under rule 4. Permanent evidence is
@@ -47,7 +46,9 @@ GV2 permanent evidence is
 `Agentic/Reports/2026-07-26/invariant-ownership-governance-gv2-scene-load-transaction.md`.
 GV3 permanent evidence is
 `Agentic/Reports/2026-07-26/invariant-ownership-governance-gv3-generated-scene-transaction.md`.
-Implementation continues through the repository orchestrator skill with GV4
+GV4 closed the plan at 5/5; permanent evidence is
+`Agentic/Reports/2026-07-26/invariant-ownership-governance-and-transaction-repair-closure.md`.
+Implementation continues through the repository orchestrator skill with PB0
 next. Live plans are under
 `Agentic/Plans/TODO/`.
 
@@ -460,8 +461,8 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Execute `downward-domain-bleed-remediation` DB1: replace trajectory-named
-Rendering contracts with the ratified retained-geometry values, move the
-19-float layout/capacities/adjacency repair into Runtime/Prediction, preserve
-upload-plan coverage, and run the DX12, tests, bounded stress, and sole replay
-visual-fidelity gates without refresh.
+Execute `concrete-parameter-bag-elimination` PB0: re-run the authoritative
+22-shape census, ratify each repair disposition and concrete owner design,
+record exact symbol-level deletion proofs and mapped validation, and preserve
+the plan's ban on inheritance, interfaces, callbacks, type erasure, and renamed
+service/context bags.
