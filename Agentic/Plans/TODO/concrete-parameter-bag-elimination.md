@@ -2,16 +2,16 @@
 
 Date: 2026-07-26
 Owner: skullbonez
-State: IN PROGRESS (PB0 next; prerequisite governance plan closed 5/5)
+State: IN PROGRESS (PB0 complete; PB1 next)
 Ledger tasks: 8 (PB0-PB7)
 Branch: `nightrunner-25th-JUL-26`
 
 ## Goal
 
 Eliminate every large authority-free parameter bag found by the 2026-07-26
-owner-requested audit. The audit found 22 concrete target shapes: the original
-`SceneSaveRequest`, 19 established additional shapes, and two Replay-restore
-contexts added by the current Replay partition.
+owner-requested audit. PB0 ratified the 22 registered target shapes and added
+eight repair rows at implementation tip `e61e82a6`. The final inventory is 30
+repair rows plus three existing 13-parameter render/UI operations.
 
 The endpoint is concrete composition:
 
@@ -39,7 +39,7 @@ bundles regardless of which campaign introduced them.
 The completed invariant-ownership plan remains authoritative through
 `../../Reports/2026-07-26/invariant-ownership-governance-and-transaction-repair-closure.md`
 for the governance rule and the scene-load transaction. This plan owns the
-complete 22-shape closure. It consumes GV2's scene-load result instead of
+complete 30-row closure. It consumes GV2's scene-load result instead of
 implementing a competing transaction, then closes every remaining named row.
 
 ## Binding Design Rules
@@ -102,9 +102,21 @@ Every row is repair-required. There are no retain-as-is rows.
 | 21 | `ReplayRestoreOwnerContext` | `SkullbonezSource/Runtime/App/ReplayValidation.cpp` | Delete the restore service bag; use a concrete stack-scoped restore transaction with borrowed phase-method owners |
 | 22 | `ReplayRestoreStepContext` | `SkullbonezSource/Runtime/App/ReplayValidation.cpp` | Delete the second restore repacking layer; target/checkpoint values belong to the concrete transaction |
 
-The implementation-tip PB0 census may add missed rows. It may not remove or
-retain any of these 22 without an explicit owner decision recorded in this
-plan and `MASTER-PLAN.md`.
+PB0 added eight binding repair rows:
+
+1. `EditorSaveHotkeyContext`;
+2. `UiTextPassState`;
+3. the 13-member private Runtime render graph `*GraphCallbackData` family;
+4. the Replay restore support family named in the PB0 report;
+5. `BroadphaseCandidateFilterContext`;
+6. `TerrainDetectionStageContext`;
+7. `ApplyForcesStageContext`;
+8. `IntegrateRemainingStageContext`.
+
+The authoritative file:line census, endpoint sketches, explicit retain
+rulings, and task/gate mapping are in
+`../../Reports/2026-07-26/concrete-parameter-bag-elimination-pb0-census.md`.
+No registered row was removed or retained.
 
 ## Required Concrete Endpoints
 
@@ -189,7 +201,7 @@ or type erasure is allowed.
 
 ## Ledger
 
-- [ ] **PB0 - Ratify the implementation-tip census and owner designs.**
+- [x] **PB0 - Ratify the implementation-tip census and owner designs.**
 
   Re-run the aggregate/construction audit after the prerequisite plans land.
   Record every definition, construction site, consumer, immediate repack, and
@@ -205,12 +217,23 @@ or type erasure is allowed.
   - every repair has a concrete, non-inherited endpoint sketch;
   - no source changes; documentation-only, no repository validation.
 
+  Evidence:
+
+  - implementation tip `e61e82a6`;
+  - 22/22 registered rows have current definition, construction, consumer,
+    repack, owner, lifetime, deletion-proof, and validation evidence;
+  - eight repair rows and three existing ceiling defects were assigned;
+  - every other reviewed hit has an explicit retain ruling;
+  - permanent report:
+    `../../Reports/2026-07-26/concrete-parameter-bag-elimination-pb0-census.md`.
+
 - [ ] **PB1 - Repair Scene save and consume the scene-load transaction.**
 
   Introduce the three concrete owner-produced save values, reduce
   `SceneSaveRequest` to path plus those values, delete `SceneSaveView`, and
   migrate every save call site. Consume GV2's concrete scene-load transaction
-  and prove the two scene-load bag rows are gone.
+  and prove the two scene-load bag rows are gone. Split
+  `EditorSaveHotkeyContext` into focused scene-save and screenshot operations.
 
   Acceptance:
 
@@ -220,6 +243,7 @@ or type erasure is allowed.
   - `SceneSaveView`, `SceneLoadPolicyInputs`, and
     `SceneLoadConsumerOutputs` have zero definitions/usages;
   - `SceneSaveRequest` contains only path and three owner-produced values;
+  - `EditorSaveHotkeyContext` has zero definitions/usages;
   - no inheritance, interface, callback, service bag, or behavior change.
 
 - [ ] **PB2 - Collapse the pointer-routing projection chain.**
@@ -239,14 +263,19 @@ or type erasure is allowed.
 - [ ] **PB3 - Remove render-frame, UI-text, and Replay-overlay service bags.**
 
   Delete `RenderFrameContext`, `UiTextPassInputs`, and
-  `ReplayOverlayRenderContext`. Give concrete render phases and owners the
-  values they actually consume, retaining `RuntimeRenderModelFrameView` only
-  as the previously ruled Scene-to-render publication.
+  `ReplayOverlayRenderContext`, eliminate `UiTextPassState` and the PB0-named
+  graph callback payload family, and repair the three assigned 13-parameter
+  operations. Give concrete render phases and owners the values they actually
+  consume, retaining `RuntimeRenderModelFrameView` only as the previously
+  ruled Scene-to-render publication.
 
   Acceptance:
 
   - the three target symbols and `BuildRenderFrameContext` have zero
     definitions/usages;
+  - `UiTextPassState`, all 13 PB0-named graph callback payloads, and all three
+    13-parameter operation definitions are gone or below the ceiling through
+    concrete phase decomposition;
   - no replacement master render context or pass-interface hierarchy exists;
   - pass order, resource lifetime, overlay semantics, UI text, allocation
     behavior, and render fingerprints remain exact;
@@ -256,11 +285,15 @@ or type erasure is allowed.
 
   Replace `ReplayCaptureInput` with concrete owner-produced capture values,
   remove the isomorphic camera-focus request, and implement the concrete
-  phase-checked restore transaction that deletes both restore contexts.
+  phase-checked restore transaction that deletes both restore contexts and
+  the PB0-named restore support owner bags/callback seams.
 
   Acceptance:
 
   - all four target symbols have zero definitions/usages;
+  - `ReplaySolverSampleRestoreContext`, `ReplayArtifactTopologyOwners`,
+    `ReplayRestoreEventContext`, and `ReplaySceneTimelineResetOwners` are
+    deleted, while `ReplayRestoreTransaction` is the value-and-cursor owner;
   - capture values have independent domain identity and are not immediately
     flattened;
   - restore order is enforced by a tested cursor and lane-F transition checks;
@@ -272,12 +305,13 @@ or type erasure is allowed.
 
   Delete `PersistentContactSolverContext`,
   `PhysicsContactSolverStageContext`, `ObjectNarrowphasePairStageContext`, and
-  `PhysicsBroadphaseStageContext`. Use concrete stage owners and focused
+  `PhysicsBroadphaseStageContext` plus PB0-added
+  `BroadphaseCandidateFilterContext`. Use concrete stage owners and focused
   store/settings/step values without changing hot-loop order.
 
   Acceptance:
 
-  - all four target symbols have zero definitions/usages;
+  - all five target symbols have zero definitions/usages;
   - no `PhysicsStepContext`, virtual stage base, interface, callback, or
     allocation replaces them;
   - focused determinism, collision, solver, and broadphase tests pass;
@@ -286,13 +320,15 @@ or type erasure is allowed.
 - [ ] **PB6 - Repair Physics sleep, force, and terrain stage bags.**
 
   Delete `PhysicsSleepIslandStageContext`, `PhysicsSleepWakeContext`,
-  `ExternalForceBodyContext`, and `TerrainCandidateCommitContext`. Keep the
-  concrete stage owners, existing fixed storage, and prepared terrain commit
-  value while making per-operation borrows explicit.
+  `ExternalForceBodyContext`, `TerrainCandidateCommitContext`,
+  `TerrainDetectionStageContext`, `ApplyForcesStageContext`, and
+  `IntegrateRemainingStageContext`. Keep the concrete stage owners, existing
+  fixed storage, and prepared terrain commit value while making per-operation
+  borrows explicit.
 
   Acceptance:
 
-  - all four target symbols have zero definitions/usages;
+  - all seven target symbols have zero definitions/usages;
   - sleep/wake sequencing, external-force accumulation, terrain commit order,
     diagnostics, worker partitioning, and allocation behavior remain exact;
   - no inheritance, interface, callback, master Physics context, or owner
@@ -309,7 +345,7 @@ or type erasure is allowed.
 
   Acceptance:
 
-  - all 22 rows plus every PB0-added repair row are closed;
+  - all 30 rows and all three assigned ceiling defects are closed;
   - the original bad full-field `SceneSaveRequest` construction has zero
     matches and all save sites use concrete owner save values;
   - no inheritance, interface, virtual method, type erasure, callback pack,
@@ -329,7 +365,7 @@ or type erasure is allowed.
   active sequence.
 - GV2 owns the first implementation of the concrete scene-load transaction.
   PB1 consumes and verifies it; it does not introduce a second transaction.
-- GV1's ruled census feeds PB0. The 22 rows in this plan are assigned here,
+- GV1's ruled census feeds PB0. The 30 rows in this plan are assigned here,
   not duplicated in GV3; GV3 remains responsible for additional
   invariant-shaped offenders outside this explicit bag inventory.
 - Replay package names and include paths are taken from the post-RS5 tree.
@@ -345,11 +381,14 @@ The following symbol inventory must return no rows at closure except
 
 ```powershell
 rg -n 'SceneSaveView|SceneLoadPolicyInputs|SceneLoadConsumerOutputs' SkullbonezSource
+rg -n 'EditorSaveHotkeyContext' SkullbonezSource
 rg -n 'RuntimePointerRouteInput|EditorPointerRouteInput|MousePickupPointerInput' SkullbonezSource
-rg -n 'RenderFrameContext|UiTextPassInputs|ReplayOverlayRenderContext|BuildRenderFrameContext' SkullbonezSource
+rg -n 'RenderFrameContext|UiTextPassInputs|UiTextPassState|ReplayOverlayRenderContext|BuildRenderFrameContext' SkullbonezSource
+rg -n '(CinematicPost|Shadow|Reflection|Object|Terrain|Water|DebugOverlay|SceneTarget|BackbufferAcquire|Skybox|UiText|ReplayGhost|DevelopmentUi)GraphCallbackData' SkullbonezSource
 rg -n 'ReplayCaptureInput|ReplayCameraFocusRequest|ReplayRestoreOwnerContext|ReplayRestoreStepContext' SkullbonezSource
-rg -n 'PersistentContactSolverContext|PhysicsContactSolverStageContext|ObjectNarrowphasePairStageContext|PhysicsBroadphaseStageContext' SkullbonezSource
-rg -n 'PhysicsSleepIslandStageContext|PhysicsSleepWakeContext|ExternalForceBodyContext|TerrainCandidateCommitContext' SkullbonezSource
+rg -n 'ReplaySolverSampleRestoreContext|ReplayArtifactTopologyOwners|ReplayRestoreEventContext|ReplaySceneTimelineResetOwners' SkullbonezSource
+rg -n 'PersistentContactSolverContext|PhysicsContactSolverStageContext|ObjectNarrowphasePairStageContext|PhysicsBroadphaseStageContext|BroadphaseCandidateFilterContext' SkullbonezSource
+rg -n 'PhysicsSleepIslandStageContext|PhysicsSleepWakeContext|ExternalForceBodyContext|TerrainCandidateCommitContext|TerrainDetectionStageContext|ApplyForcesStageContext|IntegrateRemainingStageContext' SkullbonezSource
 ```
 
 Review the diff for inheritance/interface substitutions; do not add a
@@ -379,7 +418,7 @@ Any hit is reviewed manually and blocks closure when introduced by this plan.
 
 The closure report must contain:
 
-- the final PB0 census with all 22 rows and any additions;
+- the final PB0 census with all 30 repair rows and three assigned ceiling defects;
 - before/after construction examples for each group;
 - exact definitions/usages deletion proof per target;
 - the reduced `SceneSaveRequest` definition and all call sites;

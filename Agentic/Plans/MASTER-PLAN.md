@@ -587,7 +587,7 @@ installed the standing table, placement rule, and full dependency-fixture
 matrix. With GV0, the active/future ledger was 6/17. The denominator then grew
 17 -> 25 on 2026-07-26 when the owner registered
 `concrete-parameter-bag-elimination` (8 tasks) from the complete current-tree
-bag audit. The plan owns 22 repair-required shapes: the original
+bag audit. The plan registered 22 repair-required shapes: the original
 `SceneSaveRequest`, 19 established additional shapes, and two Replay-restore
 contexts present after the Replay partition work. It requires concrete
 owner-produced values, focused direct operations, or concrete phase-checked
@@ -638,16 +638,23 @@ runtime owners remain synchronous borrows. Three authority-free participant
 bags and five free operations are deleted; the exhaustive cursor test, full
 gate, and bounded graphics stress pass without baseline motion. The live ledger
 is now 4/13 (31%).
+GV4 then completed the governance plan at 5/5 and removed it from the live
+inventory. PB0 subsequently ratified all 22 registered parameter-bag rows at
+implementation tip `e61e82a6`, added eight repair rows, carried forward three
+13-parameter render/UI operations, and explicitly ruled every other reviewed
+hit. Permanent PB0 evidence is
+`../Reports/2026-07-26/concrete-parameter-bag-elimination-pb0-census.md`.
+The active/future ledger is now 1/8 (13%).
 
 ## Current Execution Priority
 
 The 2026-07-25 round-4 campaign now has one live plan:
-`concrete-parameter-bag-elimination` (0/8). Invariant Ownership Governance And
+`concrete-parameter-bag-elimination` (1/8). Invariant Ownership Governance And
 Transaction Repair closed GV0-GV4 and left the live ledger under rule 4;
 permanent evidence is
 `../Reports/2026-07-26/invariant-ownership-governance-and-transaction-repair-closure.md`.
-PB0 is next: ratify the 22-shape census and concrete owner designs before
-implementation.
+PB0 is complete. PB1 is next: repair Scene save, consume the existing
+scene-load transaction, and split the mixed save/screenshot hotkey context.
 Header-claim staleness remediation is complete at 3/3 and removed
 from the live ledger; its permanent evidence is
 `../Reports/2026-07-25/header-claim-staleness-remediation-closure.md`. Replay
@@ -1765,7 +1772,8 @@ campaign owns plus one amendment set:
    rule. No type owns the sequencing or arbitration invariant, and four call
    sites re-encode the ordering by hand.
 6. **Concrete parameter-bag elimination** (registered 2026-07-26 from the
-   owner-requested current-tree audit) - 22 repair-required aggregate shapes
+   owner-requested current-tree audit) - 22 registered aggregate shapes plus
+   eight PB0-added repair rows
    repeatedly flatten concrete owners, repack the same fields between layers,
    or bundle unrelated services for one operation. The scope includes Scene
    save/load, pointer routing, render/UI composition, Replay capture/focus/
@@ -1802,13 +1810,14 @@ remediation (DB1 additionally requires RS1's `Runtime/Prediction` package to
 exist), 5 invariant-ownership governance and transaction repair. The
 2026-07-26 owner direction appends 6 concrete parameter-bag elimination after
 GV4; GV2 supplies its scene-load transaction and the later plan owns closure
-of the complete 22-shape census. The two
+of the complete 30-row census plus three assigned ceiling defects. The two
 authorized documentation-only exceptions are complete: GV0 landed during the
 UI campaign, and HC0 ran beside the UI tail. HC1-HC2 then closed after UR6 as
 sequenced. HC2 preserved GV0's aggregate-invariant procedure and added claim
 verification as a separate step. Replay and Downward Domain Bleed are complete;
 GV1 ratified the offender census, GV2 installed the scene-load transaction,
-GV3 installed the generated-scene transaction, and GV4 is now the binding next
+GV3 installed the generated-scene transaction, GV4 closed governance, and PB0
+ratified the implementation-tip parameter-bag census. PB1 is the binding next
 task. HC2 and
 GV0 both amended
 `Agentic/Skills/comment-style-audit/skill.md` in separate sections; HC2 landed
@@ -1821,7 +1830,7 @@ second and preserved GV0.
 | [replay-subsystem-partition](../Reports/2026-07-26/replay-subsystem-partition-closure.md) | Complete | 6/6 | Closed and removed from the live ledger under inventory rule 4 |
 | [downward-domain-bleed-remediation](../Reports/2026-07-26/downward-domain-bleed-remediation-closure.md) | Complete | 6/6 | Closed and removed from the live ledger under inventory rule 4 |
 | [invariant-ownership-governance-and-transaction-repair](../Reports/2026-07-26/invariant-ownership-governance-and-transaction-repair-closure.md) | Complete | 5/5 | Closed and removed from the live ledger under rule 4 |
-| [concrete-parameter-bag-elimination](TODO/concrete-parameter-bag-elimination.md) | In progress | 0/8 | PB0 ratifies the 22-shape census and concrete owner designs |
+| [concrete-parameter-bag-elimination](TODO/concrete-parameter-bag-elimination.md) | In progress | 1/8 | PB1 repairs Scene save/load and the mixed save hotkey context |
 
 ## Features
 

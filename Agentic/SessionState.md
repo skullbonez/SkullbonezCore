@@ -12,8 +12,8 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-25th-JUL-26` |
 | Current baseline | Invariant Ownership Governance And Transaction Repair is complete at 5/5 and removed from the live inventory: both runtime transactions enforce their named invariants, the hostile review is clear, and final gates pass without refresh. |
-| Current objective | Execute `concrete-parameter-bag-elimination` PB0: ratify the complete 22-shape census, dispositions, concrete owner designs, and deletion proofs. |
-| Active/future progress | Concrete Parameter-Bag Elimination 0/8; active/future ledger 0/8 (0%). |
+| Current objective | Execute `concrete-parameter-bag-elimination` PB1: repair Scene save/load and split the mixed save/screenshot hotkey context. |
+| Active/future progress | Concrete Parameter-Bag Elimination 1/8; active/future ledger 1/8 (13%). |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | GV4 `validate_full.bat` passes in 165.3 s: mandatory CPU/coverage, Automation/replay, DX12, and byte-exact 44,401-line physics regression. |
 | Validation for current edits | GV4: 397 doctests / 2,403,431 assertions, final full gate, and 61-second graphics stress pass; retired-symbol, extrusion, and baseline-motion scans are clean. |
@@ -21,7 +21,9 @@ plan inventory.
 ## Live Queue
 
 NOW. The 2026-07-25 round-4 architecture campaign has one live plan:
-`concrete-parameter-bag-elimination` (0/8), so the ledger is 0/8 (0%). PB0 is
+`concrete-parameter-bag-elimination` (1/8), so the ledger is 1/8 (13%). PB0
+ratified all 22 registered rows, added eight repair rows, carried forward three
+13-parameter render/UI operations, and ruled every other reviewed hit. PB1 is
 next.
 
 Header Claim Staleness Remediation is complete at 3/3 and removed from the live
@@ -48,7 +50,9 @@ GV3 permanent evidence is
 `Agentic/Reports/2026-07-26/invariant-ownership-governance-gv3-generated-scene-transaction.md`.
 GV4 closed the plan at 5/5; permanent evidence is
 `Agentic/Reports/2026-07-26/invariant-ownership-governance-and-transaction-repair-closure.md`.
-Implementation continues through the repository orchestrator skill with PB0
+PB0 permanent evidence is
+`Agentic/Reports/2026-07-26/concrete-parameter-bag-elimination-pb0-census.md`.
+Implementation continues through the repository orchestrator skill with PB1
 next. Live plans are under
 `Agentic/Plans/TODO/`.
 
@@ -461,8 +465,10 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Execute `concrete-parameter-bag-elimination` PB0: re-run the authoritative
-22-shape census, ratify each repair disposition and concrete owner design,
-record exact symbol-level deletion proofs and mapped validation, and preserve
-the plan's ban on inheritance, interfaces, callbacks, type erasure, and renamed
-service/context bags.
+Execute `concrete-parameter-bag-elimination` PB1: introduce three concrete
+owner-produced Scene save values, reduce `SceneSaveRequest`, delete
+`SceneSaveView` and `SceneLoadPolicyInputs`, verify
+`SceneLoadConsumerOutputs` stays absent, and split `EditorSaveHotkeyContext`
+into focused scene-save and screenshot operations. Preserve the plan's ban on
+inheritance, interfaces, callbacks, type erasure, and renamed service/context
+bags.
