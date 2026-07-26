@@ -67,24 +67,24 @@ enum class ColliderShapeKind : uint8_t
 
 struct ColliderRecord
 {
-    PhysicsColliderHandle handle;                                                                    // Stable collider handle resolved through store maps.
-    PhysicsBodyHandle body;                                                                          // Body handle resolved by PhysicsBodyStore for the same model slot.
+    PhysicsColliderHandle handle;                                                                          // Stable collider handle resolved through store maps.
+    PhysicsBodyHandle body;                                                                                // Body handle resolved by PhysicsBodyStore for the same model slot.
 
     // Stable cross-system identity paired with this collider.
     PhysicsSceneObjectId sceneObjectId;
-    Math::CollisionDetection::CollisionShapeReference shape;                                         // Typed borrow into the store's per-kind shape storage.
-    ColliderShapeKind shapeKind = ColliderShapeKind::Sphere;                                         // Cheap typed discriminator for tools and migration checks.
-    float boundingRadius = 0.0f;                                                                     // Broadphase reads this conservative radius every fixed tick.
-    float restitution = 0.0f;                                                                        // Contact generation reads this bounce policy every fixed tick.
-    float friction = 0.0f;                                                                           // Contact solving reads this tangential resistance every fixed tick.
-    uint32_t contactMaterialId = 0;                                                                  // Runtime contact/gameplay classification hash.
-    float projectedSurfaceArea = 0.0f;                                                               // Shape/editor query copy; BuoyancySystem owns the fixed-step fluid value.
-    float dragCoefficient = 0.0f;                                                                    // Shape/editor query copy; BuoyancySystem owns the fixed-step fluid value.
+    Math::CollisionDetection::CollisionShapeReference shape;                                               // Typed borrow into the store's per-kind shape storage.
+    ColliderShapeKind shapeKind = ColliderShapeKind::Sphere;                                               // Cheap typed discriminator for tools and migration checks.
+    float boundingRadius = 0.0f;                                                                           // Broadphase reads this conservative radius every fixed tick.
+    float restitution = 0.0f;                                                                              // Contact generation reads this bounce policy every fixed tick.
+    float friction = 0.0f;                                                                                 // Contact solving reads this tangential resistance every fixed tick.
+    uint32_t contactMaterialId = 0;                                                                        // Runtime contact/gameplay classification hash.
+    float projectedSurfaceArea = 0.0f;                                                                     // Shape/editor query copy; BuoyancySystem owns the fixed-step fluid value.
+    float dragCoefficient = 0.0f;                                                                          // Shape/editor query copy; BuoyancySystem owns the fixed-step fluid value.
 };
 
 struct ColliderAuthoringRecord
 {
-    char contactMaterialName[32] = {};                                                               // Cold scene round-trip token; never read by fixed-step physics.
+    char contactMaterialName[32] = {};                                                                     // Cold scene round-trip token; never read by fixed-step physics.
 };
 
 using ColliderRecordList = PhysicsFixedList<ColliderRecord, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
@@ -194,27 +194,38 @@ class ColliderStore
     void RebindShapeReferences();
     void RebindShapeReferences( ColliderShapeKind shapeKind );
 
-    ColliderRecordList m_colliders { "ColliderStore.colliders" };                                    // Dense live collider records.
+    ColliderRecordList m_colliders { "ColliderStore.colliders",
+                                     PhysicsCapacityReason::SceneColliders };                              // Dense live collider records.
 
     // Cold scene text remains index-aligned with m_colliders but outside the
     // rows scanned by broadphase, narrowphase, contact solving, and fluid force.
-    ColliderAuthoringRecordList m_authoringRecords { "ColliderStore.authoringRecords" };
-    ColliderHandleList m_modelColliderHandles { "ColliderStore.modelColliderHandles" };              // Model slot to collider handle map.
-    ColliderHandleGenerationList m_handleGenerations { "ColliderStore.handleGenerations" };          // Handle-slot generations.
-    ColliderHandleFlagList m_handleAlive { "ColliderStore.handleAlive" };                            // Live handle slot flags.
-    ColliderHandleModelIndexList m_handleModelIndices { "ColliderStore.handleModelIndices" };        // Slot to model index.
-    ColliderHandleSceneObjectIdList m_handleSceneObjectIds { "ColliderStore.handleSceneObjectIds" }; // Slot scene ids.
-    ColliderHandleSlotList m_freeHandleSlots { "ColliderStore.freeHandleSlots" };                    // Retired reusable slots.
+    ColliderAuthoringRecordList m_authoringRecords { "ColliderStore.authoringRecords",
+                                                     PhysicsCapacityReason::SceneColliders };
+    ColliderHandleList
+        m_modelColliderHandles { "ColliderStore.modelColliderHandles",
+                                 PhysicsCapacityReason::SceneColliders };                                  // Model slot to collider handle map.
+    ColliderHandleGenerationList
+        m_handleGenerations { "ColliderStore.handleGenerations",
+                              PhysicsCapacityReason::ColliderHandleSlots };                                // Handle-slot generations.
+    ColliderHandleFlagList m_handleAlive { "ColliderStore.handleAlive",
+                                           PhysicsCapacityReason::ColliderHandleSlots };                   // Live handle slot flags.
+    ColliderHandleModelIndexList m_handleModelIndices { "ColliderStore.handleModelIndices",
+                                                        PhysicsCapacityReason::ColliderHandleSlots };      // Slot to model index.
+    ColliderHandleSceneObjectIdList m_handleSceneObjectIds { "ColliderStore.handleSceneObjectIds",
+                                                             PhysicsCapacityReason::ColliderHandleSlots }; // Slot scene ids.
+    ColliderHandleSlotList m_freeHandleSlots { "ColliderStore.freeHandleSlots",
+                                               PhysicsCapacityReason::ColliderHandleSlots };               // Retired reusable slots.
 
     // Runtime allocation policy: refresh reuses this handle-slot mask rather
     // than allocating a heap-backed standard-library container in topology repair.
-    ColliderHandleAssignmentMask m_assignedHandleScratch { "ColliderStore.assignedHandleScratch" };
+    ColliderHandleAssignmentMask m_assignedHandleScratch { "ColliderStore.assignedHandleScratch",
+                                                           PhysicsCapacityReason::ColliderHandleSlots };
 
     // Shape payloads are dense by concrete type. In particular, hull backing is
     // absent for a zero-hull scene instead of inflating every ColliderRecord.
-    ColliderSphereShapeList m_sphereShapes { "ColliderStore.sphereShapes" };
-    ColliderBoxShapeList m_boxShapes { "ColliderStore.boxShapes" };
-    ColliderHullShapeList m_hullShapes { "ColliderStore.hullShapes" };
+    ColliderSphereShapeList m_sphereShapes { "ColliderStore.sphereShapes", PhysicsCapacityReason::SphereColliders };
+    ColliderBoxShapeList m_boxShapes { "ColliderStore.boxShapes", PhysicsCapacityReason::BoxColliders };
+    ColliderHullShapeList m_hullShapes { "ColliderStore.hullShapes", PhysicsCapacityReason::HullColliders };
 };
 } // namespace Physics
 } // namespace SkullbonezCore

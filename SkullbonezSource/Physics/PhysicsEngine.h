@@ -253,22 +253,25 @@ class PhysicsEngine
     void ValidatePhysicsStoreMappings( int modelCount ) const;
 #endif
 
-    PhysicsWorld m_world;                                    // Deterministic solver and debug state over body-store records.
-    PhysicsBodyRowList<PhysicsBodyCreateDesc> m_authoredBodyDescs {
-        "PhysicsEngine.m_authoredBodyDescs" };               // Cold descriptors keyed by scene/model order.
-    PhysicsBodyStore m_bodyStore;                            // Mutable body state in model/replay order.
-    ColliderStore m_colliderStore;                           // Collider snapshot in model/replay order.
-    BuoyancySystem m_buoyancySystem;                         // Fluid facts aligned with body/collider model rows.
-    PhysicsMaterial m_physicsMaterial;                       // Runtime material policy copied into body/collider descriptors.
-    BodySimulationLimits m_bodySimulationLimits;             // Runtime body caps copied at authoring/import boundaries.
-    ContactPolicy m_contactPolicy;                           // Runtime contact thresholds copied at authoring/import boundaries.
-    PhysicsRuntimeSettings m_runtimeSettings;                // Physics-owned process settings stamped before fixed stepping.
-    PhysicsWorldForces m_lastWorldForces;                    // Last real step boundary forces used by explicit wake commands.
-    bool m_hasLastWorldForces = false;                       // False until the first physics step supplies world forces.
-    PhysicsBodyIndexList m_fixedTreeReleaseWakeBodies {      // Fixed owner-edge wake list; never grows during release.
-                                                        "PhysicsEngine fixed-tree release output" };
-    mutable PhysicsBodyHandleList m_broadphaseQueryScratch { // Borrowed query result, replaced by the next query.
-                                                             "PhysicsEngine broadphase query results" };
+    PhysicsWorld m_world;                                           // Deterministic solver and debug state over body-store records.
+    PhysicsBodyRowList<PhysicsBodyCreateDesc>
+        m_authoredBodyDescs { "PhysicsEngine.m_authoredBodyDescs",
+                              PhysicsCapacityReason::SceneBodies }; // Cold descriptors keyed by scene/model order.
+    PhysicsBodyStore m_bodyStore;                                   // Mutable body state in model/replay order.
+    ColliderStore m_colliderStore;                                  // Collider snapshot in model/replay order.
+    BuoyancySystem m_buoyancySystem;                                // Fluid facts aligned with body/collider model rows.
+    PhysicsMaterial m_physicsMaterial;                              // Runtime material policy copied into body/collider descriptors.
+    BodySimulationLimits m_bodySimulationLimits;                    // Runtime body caps copied at authoring/import boundaries.
+    ContactPolicy m_contactPolicy;                                  // Runtime contact thresholds copied at authoring/import boundaries.
+    PhysicsRuntimeSettings m_runtimeSettings;                       // Physics-owned process settings stamped before fixed stepping.
+    PhysicsWorldForces m_lastWorldForces;                           // Last real step boundary forces used by explicit wake commands.
+    bool m_hasLastWorldForces = false;                              // False until the first physics step supplies world forces.
+    PhysicsBodyIndexList m_fixedTreeReleaseWakeBodies {             // Fixed owner-edge wake list; never grows during release.
+                                                        "PhysicsEngine fixed-tree release output",
+                                                        PhysicsCapacityReason::SceneBodies };
+    mutable PhysicsBodyHandleList m_broadphaseQueryScratch {        // Borrowed query result, replaced by the next query.
+                                                             "PhysicsEngine broadphase query results",
+                                                             PhysicsCapacityReason::SceneBodies };
 };
 } // namespace Physics
 } // namespace SkullbonezCore

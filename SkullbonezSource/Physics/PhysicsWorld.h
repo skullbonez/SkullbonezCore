@@ -136,7 +136,7 @@ class PhysicsWorld
 
     // Invariant: narrowphase, terrain, and final integration all write this
     // cross-stage CCD clock, so it deliberately remains on the sequencer.
-    PhysicsBodyRowList<float> m_timeRemaining { "PhysicsWorld.timeRemaining" };
+    PhysicsBodyRowList<float> m_timeRemaining { "PhysicsWorld.timeRemaining", PhysicsCapacityReason::SceneBodies };
     float m_lastTimeRemainingStep = 0.0f;
     bool m_lastTimeRemainingStepValid = false;
 
@@ -160,7 +160,8 @@ class PhysicsWorld
 
     // Point joints are PhysicsWorld-owned solver state; the solver and sleep
     // owner borrow the dense rows synchronously.
-    PhysicsBodyRowList<PointJointConstraint> m_pointJointConstraints { "PhysicsWorld.pointJointConstraints" };
+    PhysicsBodyRowList<PointJointConstraint> m_pointJointConstraints { "PhysicsWorld.pointJointConstraints",
+                                                                       PhysicsCapacityReason::PointJoints };
     std::size_t m_pointJointCapacity = 0u;
     uint32_t m_nextPointJointHandleIndex = 0u;
     uint32_t m_pointJointHandleGeneration = PHYSICS_HANDLE_INITIAL_GENERATION;

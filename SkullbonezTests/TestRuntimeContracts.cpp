@@ -258,7 +258,8 @@ bool RunRuntimeFatalCase( const char* caseName )
 {
     if ( std::strcmp( caseName, "physics-fixed-list-runtime-capacity" ) == 0 )
     {
-        SkullbonezCore::Physics::PhysicsFixedList<int, 4> values( "fatal.physics-fixed-list.runtime" );
+        SkullbonezCore::Physics::PhysicsFixedList<int, 4> values(
+            "fatal.physics-fixed-list.runtime", SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity );
         {
             RuntimeAllocationScope sceneLoad( RuntimeAllocationPhase::SceneLoad );
             values.Reserve( 1u );
@@ -269,14 +270,16 @@ bool RunRuntimeFatalCase( const char* caseName )
     }
     if ( std::strcmp( caseName, "physics-fixed-list-compile-capacity" ) == 0 )
     {
-        SkullbonezCore::Physics::PhysicsFixedList<int, 2> values( "fatal.physics-fixed-list.compile" );
+        SkullbonezCore::Physics::PhysicsFixedList<int, 2> values(
+            "fatal.physics-fixed-list.compile", SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity );
         RuntimeAllocationScope sceneLoad( RuntimeAllocationPhase::SceneLoad );
         values.Reserve( 3u );
         return true;
     }
     if ( std::strcmp( caseName, "physics-fixed-list-phase" ) == 0 )
     {
-        SkullbonezCore::Physics::PhysicsFixedList<int, 2> values( "fatal.physics-fixed-list.phase" );
+        SkullbonezCore::Physics::PhysicsFixedList<int, 2> values(
+            "fatal.physics-fixed-list.phase", SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity );
         values.Reserve( 1u );
         return true;
     }
@@ -332,7 +335,8 @@ bool RunRuntimeFatalCase( const char* caseName )
     if ( std::strcmp( caseName, "sleep-support-edge-capacity" ) == 0 )
     {
         static SkullbonezCore::Physics::PhysicsCandidatePairList edges {
-            "TestRuntimeContracts.sleepSupportEdges"
+            "TestRuntimeContracts.sleepSupportEdges",
+            SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity
         };
         {
             SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(

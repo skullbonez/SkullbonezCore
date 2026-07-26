@@ -48,10 +48,13 @@ struct PhysicsDiagnosticsView;
 class PhysicsStepDiagnostics
 {
   private:
-    PhysicsBodyRowList<uint8_t> m_collisionVisualContacts { "PhysicsStepDiagnostics.collisionVisualContacts" };
+    PhysicsBodyRowList<uint8_t> m_collisionVisualContacts { "PhysicsStepDiagnostics.collisionVisualContacts",
+                                                            PhysicsCapacityReason::SceneBodies };
     bool m_collisionVisualFrameActive = false;
-    PhysicsContactRowList<PhysicsDebugContact> m_physicsDebugContacts { "PhysicsStepDiagnostics.physicsDebugContacts" };
-    PhysicsPipelineRowList<PhysicsPipelineRecord> m_physicsPipelineTrace { "PhysicsStepDiagnostics.physicsPipelineTrace" };
+    PhysicsContactRowList<PhysicsDebugContact> m_physicsDebugContacts { "PhysicsStepDiagnostics.physicsDebugContacts",
+                                                                        PhysicsCapacityReason::PersistentContacts };
+    PhysicsPipelineRowList<PhysicsPipelineRecord> m_physicsPipelineTrace { "PhysicsStepDiagnostics.physicsPipelineTrace",
+                                                                           PhysicsCapacityReason::PipelineRecords };
     PhysicsDiagnosticsSink m_sink;
 
   public:

@@ -74,8 +74,10 @@ class PhysicsBroadphaseStage
 {
   private:
     Math::CollisionDetection::SpatialGrid m_spatialGrid;
-    PhysicsCandidatePairList m_candidatePairs { "PhysicsBroadphaseStage.candidatePairs" };
-    PhysicsCollisionCellKeyList m_collisionCellKeys { "PhysicsBroadphaseStage.collisionCellKeys" };
+    PhysicsCandidatePairList m_candidatePairs { "PhysicsBroadphaseStage.candidatePairs",
+                                                PhysicsCapacityReason::CandidatePairs };
+    PhysicsCollisionCellKeyList m_collisionCellKeys { "PhysicsBroadphaseStage.collisionCellKeys",
+                                                      PhysicsCapacityReason::CandidatePairs };
     bool m_gridMembershipSeeded = false;
     int m_gridMembershipBodyCount = 0;
     float m_largestBroadphaseRadius = 0.0f;
@@ -83,13 +85,16 @@ class PhysicsBroadphaseStage
 #if defined( _DEBUG )
 
     // Debug-only bounded evidence for pairs now suppressed at grid emission.
-    PhysicsCandidatePairList m_sleepPrunedPairs { "PhysicsBroadphaseStage.sleepPrunedPairs" };
+    PhysicsCandidatePairList m_sleepPrunedPairs { "PhysicsBroadphaseStage.sleepPrunedPairs",
+                                                  PhysicsCapacityReason::CandidatePairs };
 
     // P1 same-state transition oracle. These buffers are scene-load reserved,
     // included in Debug memory accounting, and absent from Release's canonical
     // production path.
-    PhysicsCandidatePairList m_pairOracleShadowPairs { "PhysicsBroadphaseStage.pairOracleShadowPairs" };
-    PhysicsCandidatePairList m_pairOracleNormalizedDriverPairs { "PhysicsBroadphaseStage.pairOracleNormalizedDriverPairs" };
+    PhysicsCandidatePairList m_pairOracleShadowPairs { "PhysicsBroadphaseStage.pairOracleShadowPairs",
+                                                       PhysicsCapacityReason::CandidatePairs };
+    PhysicsCandidatePairList m_pairOracleNormalizedDriverPairs { "PhysicsBroadphaseStage.pairOracleNormalizedDriverPairs",
+                                                                 PhysicsCapacityReason::CandidatePairs };
     bool m_pairOracleEnabled = false;
     bool m_pairOracleLegacyDrives = false;
     uint64_t m_pairOracleTickCount = 0;

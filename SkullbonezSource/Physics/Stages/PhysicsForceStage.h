@@ -69,10 +69,11 @@ struct PhysicsWorldForces;
 class PhysicsForceStage
 {
   private:
-    PhysicsFixedList<Math::Vector::Vector3, PHYSICS_MAX_BODY_ROWS> m_mutualGravityForces {
-        "PhysicsForceStage.m_mutualGravityForces" };
-    PhysicsFixedList<Math::Vector::Vector3, PHYSICS_MAX_MUTUAL_GRAVITY_PAIRS> m_mutualGravityPairForces {
-        "PhysicsForceStage.m_mutualGravityPairForces" };
+    PhysicsFixedList<Math::Vector::Vector3, PHYSICS_MAX_BODY_ROWS>
+        m_mutualGravityForces { "PhysicsForceStage.m_mutualGravityForces", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<Math::Vector::Vector3, PHYSICS_MAX_MUTUAL_GRAVITY_PAIRS>
+        m_mutualGravityPairForces { "PhysicsForceStage.m_mutualGravityPairForces",
+                                    PhysicsCapacityReason::MutualGravityPairs };
     std::size_t m_mutualGravityPairHighWater = 0;
 
   public:

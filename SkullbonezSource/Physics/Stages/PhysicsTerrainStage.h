@@ -88,8 +88,10 @@ struct PreparedTerrainCandidateCommit
 class PhysicsTerrainStage
 {
   private:
-    PhysicsBodyRowList<TerrainDetectionCandidate> m_detectionCandidates { "PhysicsTerrainStage.detectionCandidates" };
-    PhysicsBodyRowList<TerrainContactManifold> m_contactManifolds { "PhysicsTerrainStage.contactManifolds" };
+    PhysicsBodyRowList<TerrainDetectionCandidate> m_detectionCandidates { "PhysicsTerrainStage.detectionCandidates",
+                                                                          PhysicsCapacityReason::SceneBodies };
+    PhysicsBodyRowList<TerrainContactManifold> m_contactManifolds { "PhysicsTerrainStage.contactManifolds",
+                                                                    PhysicsCapacityReason::SceneBodies };
     std::array<uint8_t, Scene::Capacity::MAX_SCENE_OBJECTS> m_restApplied = {};
 
     void DetectTerrainAt( std::span<const PhysicsBodyRecord> bodyRecords, std::span<const BuoyancyBodyFacts> buoyancyFacts,

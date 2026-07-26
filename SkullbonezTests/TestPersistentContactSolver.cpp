@@ -141,9 +141,12 @@ struct SolverFixture
     ColliderStore& colliderStore;
     std::vector<std::pair<int, int>> candidatePairs;
     std::vector<uint8_t> sleepState;
-    SkullbonezCore::Physics::PhysicsCandidatePairList sleepSupportEdges { "TestPersistentContactSolver.sleepSupportEdges" };
+    SkullbonezCore::Physics::PhysicsCandidatePairList sleepSupportEdges {
+        "TestPersistentContactSolver.sleepSupportEdges",
+        SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity };
     SkullbonezCore::Physics::PhysicsBodyRowList<TerrainContactManifold> terrainContactManifolds {
-        "TestPersistentContactSolver.terrainContactManifolds"
+        "TestPersistentContactSolver.terrainContactManifolds",
+        SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity
     };
     std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> terrainRestApplied = {};
     std::vector<uint8_t> sleepSupportedThisFrame;

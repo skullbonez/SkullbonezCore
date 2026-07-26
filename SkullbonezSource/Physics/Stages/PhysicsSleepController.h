@@ -130,17 +130,25 @@ class PhysicsSleepController
     friend class PhysicsNarrowphaseWakeAccess;
 
   private:
-    PhysicsBodyRowList<uint8_t> m_sleepSupportedThisFrame { "PhysicsSleepController.m_sleepSupportedThisFrame" };
-    PhysicsBodyRowList<uint8_t> m_sleepInhibitedThisFrame { "PhysicsSleepController.m_sleepInhibitedThisFrame" };
-    PhysicsBodyRowList<uint8_t> m_sleepState { "PhysicsSleepController.m_sleepState" };
-    PhysicsBodyRowList<uint8_t> m_sleepCounter { "PhysicsSleepController.m_sleepCounter" };
-    PhysicsBodyRowList<uint8_t> m_underwaterSleepLocked { "PhysicsSleepController.m_underwaterSleepLocked" };
-    PhysicsBodyRowList<int> m_sleepIslandVisualId { "PhysicsSleepController.m_sleepIslandVisualId" };
-    PhysicsBodyRowList<int> m_sleepIslandAssignedVisualId { "PhysicsSleepController.m_sleepIslandAssignedVisualId" };
+    PhysicsBodyRowList<uint8_t> m_sleepSupportedThisFrame { "PhysicsSleepController.m_sleepSupportedThisFrame",
+                                                            PhysicsCapacityReason::SceneBodies };
+    PhysicsBodyRowList<uint8_t> m_sleepInhibitedThisFrame { "PhysicsSleepController.m_sleepInhibitedThisFrame",
+                                                            PhysicsCapacityReason::SceneBodies };
+    PhysicsBodyRowList<uint8_t> m_sleepState { "PhysicsSleepController.m_sleepState", PhysicsCapacityReason::SceneBodies };
+    PhysicsBodyRowList<uint8_t> m_sleepCounter { "PhysicsSleepController.m_sleepCounter",
+                                                 PhysicsCapacityReason::SceneBodies };
+    PhysicsBodyRowList<uint8_t> m_underwaterSleepLocked { "PhysicsSleepController.m_underwaterSleepLocked",
+                                                          PhysicsCapacityReason::SceneBodies };
+    PhysicsBodyRowList<int> m_sleepIslandVisualId { "PhysicsSleepController.m_sleepIslandVisualId",
+                                                    PhysicsCapacityReason::SceneBodies };
+    PhysicsBodyRowList<int> m_sleepIslandAssignedVisualId { "PhysicsSleepController.m_sleepIslandAssignedVisualId",
+                                                            PhysicsCapacityReason::SceneBodies };
     int m_nextSleepIslandVisualId = 1;
     int m_awakeBodyCount = 0; // Dynamic awake rows at the last mirror or completed sleep-island transition.
-    PhysicsBodyRowList<int> m_awakeBodyIndices { "PhysicsSleepController.awakeBodyIndices" };
-    PhysicsBodyRowList<int> m_awakeListPositions { "PhysicsSleepController.awakeListPositions" };
+    PhysicsBodyRowList<int> m_awakeBodyIndices { "PhysicsSleepController.awakeBodyIndices",
+                                                 PhysicsCapacityReason::SceneBodies };
+    PhysicsBodyRowList<int> m_awakeListPositions { "PhysicsSleepController.awakeListPositions",
+                                                   PhysicsCapacityReason::SceneBodies };
     int m_pendingAwakeIndices[Scene::Capacity::MAX_SCENE_OBJECTS] = {};
 
     // Parallel producers access this aligned scalar only through atomic_ref;
@@ -149,17 +157,28 @@ class PhysicsSleepController
     bool m_awakeListNeedsRebuild = true;
     bool m_sleepEnabled = true;
     uint8_t m_seedSleepFrameCount = 30;
-    PhysicsCandidatePairList m_sleepSupportEdges { "PhysicsSleepController.m_sleepSupportEdges" };
-    PhysicsBodyRowList<int> m_sleepIslandParent { "PhysicsSleepController.m_sleepIslandParent" };
-    PhysicsBodyRowList<uint8_t> m_sleepIslandRank { "PhysicsSleepController.m_sleepIslandRank" };
-    PhysicsBodyRowList<uint8_t> m_sleepIslandHasAwake { "PhysicsSleepController.m_sleepIslandHasAwake" };
-    PhysicsBodyRowList<uint8_t> m_sleepIslandHasSupportAnchor { "PhysicsSleepController.m_sleepIslandHasSupportAnchor" };
-    PhysicsBodyRowList<uint8_t> m_sleepIslandEligible { "PhysicsSleepController.m_sleepIslandEligible" };
-    PhysicsBodyRowList<uint8_t> m_sleepIslandCanSleep { "PhysicsSleepController.m_sleepIslandCanSleep" };
-    PhysicsBodyRowList<PhysicsSleepScratchFlags> m_sleepScratchFlags { "PhysicsSleepController.m_sleepScratchFlags" };
-    PhysicsBodyRowList<int> m_sleepVisualIslandIds { "PhysicsSleepController.m_sleepVisualIslandIds" };
-    PhysicsBodyRowList<int> m_sleepVisualIslandBodies { "PhysicsSleepController.m_sleepVisualIslandBodies" };
-    PhysicsBodyRowList<int> m_restingWakeQueueScratch { "PhysicsSleepController.m_restingWakeQueueScratch" };
+    PhysicsCandidatePairList m_sleepSupportEdges { "PhysicsSleepController.m_sleepSupportEdges",
+                                                   PhysicsCapacityReason::CandidatePairs };
+    PhysicsBodyRowList<int> m_sleepIslandParent { "PhysicsSleepController.m_sleepIslandParent",
+                                                  PhysicsCapacityReason::SceneBodies };
+    PhysicsBodyRowList<uint8_t> m_sleepIslandRank { "PhysicsSleepController.m_sleepIslandRank",
+                                                    PhysicsCapacityReason::SceneBodies };
+    PhysicsBodyRowList<uint8_t> m_sleepIslandHasAwake { "PhysicsSleepController.m_sleepIslandHasAwake",
+                                                        PhysicsCapacityReason::SceneBodies };
+    PhysicsBodyRowList<uint8_t> m_sleepIslandHasSupportAnchor { "PhysicsSleepController.m_sleepIslandHasSupportAnchor",
+                                                                PhysicsCapacityReason::SceneBodies };
+    PhysicsBodyRowList<uint8_t> m_sleepIslandEligible { "PhysicsSleepController.m_sleepIslandEligible",
+                                                        PhysicsCapacityReason::SceneBodies };
+    PhysicsBodyRowList<uint8_t> m_sleepIslandCanSleep { "PhysicsSleepController.m_sleepIslandCanSleep",
+                                                        PhysicsCapacityReason::SceneBodies };
+    PhysicsBodyRowList<PhysicsSleepScratchFlags> m_sleepScratchFlags { "PhysicsSleepController.m_sleepScratchFlags",
+                                                                       PhysicsCapacityReason::SceneBodies };
+    PhysicsBodyRowList<int> m_sleepVisualIslandIds { "PhysicsSleepController.m_sleepVisualIslandIds",
+                                                     PhysicsCapacityReason::SceneBodies };
+    PhysicsBodyRowList<int> m_sleepVisualIslandBodies { "PhysicsSleepController.m_sleepVisualIslandBodies",
+                                                        PhysicsCapacityReason::SceneBodies };
+    PhysicsBodyRowList<int> m_restingWakeQueueScratch { "PhysicsSleepController.m_restingWakeQueueScratch",
+                                                        PhysicsCapacityReason::SceneBodies };
     SleepIslandSystem m_sleepIslandSystem;
 
     void EnsureUnderwaterSleepLockBuffer( int modelCount );

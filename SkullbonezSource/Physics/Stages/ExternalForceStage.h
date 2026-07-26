@@ -102,8 +102,9 @@ class ExternalForceStage
                                               ExternalCylindricalForceField& outBestField,
                                               float& outBestAccelerationSq ) const;
 
-    PhysicsBodyIndexList m_fixedTreeReleaseWakeScratch { "ExternalForceStage.fixedTreeReleaseWakeScratch" };
-    PhysicsBodyIndexList m_releaseWakeBodies { "ExternalForceStage.releaseWakeBodies" };
+    PhysicsBodyIndexList m_fixedTreeReleaseWakeScratch { "ExternalForceStage.fixedTreeReleaseWakeScratch",
+                                                         PhysicsCapacityReason::SceneBodies };
+    PhysicsBodyIndexList m_releaseWakeBodies { "ExternalForceStage.releaseWakeBodies", PhysicsCapacityReason::SceneBodies };
 };
 } // namespace Physics
 } // namespace SkullbonezCore

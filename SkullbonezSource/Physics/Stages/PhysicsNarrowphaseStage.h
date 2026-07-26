@@ -120,17 +120,22 @@ struct ObjectNarrowphaseIsland
 class PhysicsNarrowphaseStage
 {
   private:
-    PhysicsFixedList<ObjectNarrowphaseEvent, PHYSICS_MAX_CANDIDATE_PAIRS> m_objectNarrowphaseEvents {
-        "PhysicsNarrowphaseStage.events" };
-    PhysicsFixedList<ObjectNarrowphaseIsland, PHYSICS_MAX_BODY_ROWS> m_objectNarrowphaseIslands {
-        "PhysicsNarrowphaseStage.islands" };
-    PhysicsFixedList<int, PHYSICS_MAX_CANDIDATE_PAIRS> m_objectNarrowphaseIslandPairIndices {
-        "PhysicsNarrowphaseStage.islandPairIndices" };
-    PhysicsFixedList<size_t, PHYSICS_MAX_BODY_ROWS> m_objectNarrowphaseIslandWriteOffsets {
-        "PhysicsNarrowphaseStage.islandWriteOffsets" };
-    PhysicsFixedList<int, PHYSICS_MAX_BODY_ROWS> m_objectNarrowphaseParent { "PhysicsNarrowphaseStage.parent" };
-    PhysicsFixedList<uint8_t, PHYSICS_MAX_BODY_ROWS> m_objectNarrowphaseRank { "PhysicsNarrowphaseStage.rank" };
-    PhysicsFixedList<int, PHYSICS_MAX_BODY_ROWS> m_objectNarrowphaseRootToIsland { "PhysicsNarrowphaseStage.rootToIsland" };
+    PhysicsFixedList<ObjectNarrowphaseEvent, PHYSICS_MAX_CANDIDATE_PAIRS>
+        m_objectNarrowphaseEvents { "PhysicsNarrowphaseStage.events", PhysicsCapacityReason::CandidatePairs };
+    PhysicsFixedList<ObjectNarrowphaseIsland, PHYSICS_MAX_BODY_ROWS>
+        m_objectNarrowphaseIslands { "PhysicsNarrowphaseStage.islands", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<int, PHYSICS_MAX_CANDIDATE_PAIRS>
+        m_objectNarrowphaseIslandPairIndices { "PhysicsNarrowphaseStage.islandPairIndices",
+                                               PhysicsCapacityReason::CandidatePairs };
+    PhysicsFixedList<size_t, PHYSICS_MAX_BODY_ROWS>
+        m_objectNarrowphaseIslandWriteOffsets { "PhysicsNarrowphaseStage.islandWriteOffsets",
+                                                PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<int, PHYSICS_MAX_BODY_ROWS> m_objectNarrowphaseParent { "PhysicsNarrowphaseStage.parent",
+                                                                             PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<uint8_t, PHYSICS_MAX_BODY_ROWS> m_objectNarrowphaseRank { "PhysicsNarrowphaseStage.rank",
+                                                                               PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<int, PHYSICS_MAX_BODY_ROWS> m_objectNarrowphaseRootToIsland { "PhysicsNarrowphaseStage.rootToIsland",
+                                                                                   PhysicsCapacityReason::SceneBodies };
 
     struct ObjectNarrowphaseIslandStage
     {

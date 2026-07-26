@@ -58,8 +58,8 @@ static_assert( sizeof( BuoyancyBodyFacts ) == sizeof( float ) * 5u,
 class BuoyancySystem
 {
   private:
-    PhysicsFixedList<BuoyancyBodyFacts, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_bodyFacts {
-        "BuoyancySystem.bodyFacts" };
+    PhysicsFixedList<BuoyancyBodyFacts, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_bodyFacts { "BuoyancySystem.bodyFacts", PhysicsCapacityReason::SceneBodies };
 
   public:
     void ReserveCapacity( std::size_t capacity );

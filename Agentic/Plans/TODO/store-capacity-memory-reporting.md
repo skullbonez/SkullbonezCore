@@ -1,11 +1,12 @@
 # Store Capacity Memory Reporting
 
 Date: 2026-07-26
-Status: NOT STARTED — drafted from the 2026-07-26 from-source architecture
+Status: IN PROGRESS — drafted from the 2026-07-26 from-source architecture
 review of `nightrunner-26th-JUL-26` at tip `35f6de4e` and the owner's same-day
 request to track memory more closely. Registered in `MASTER-PLAN.md` on
 2026-07-26 as plan 3 of the Architecture Follow-Up Campaign Round 5. Starts
-after `scene-sized-store-capacity` closes. 0/4 phases complete.
+after `scene-sized-store-capacity` closes. MR0 closed 2026-07-27. 1/4 phases
+complete; MR1 is binding.
 Impact area: `Core/Allocation/RuntimeReserveAllocator.*`, `Physics/` store
 registration, `UI/UITabMemory.cpp`, scene-unload diagnostics
 Owner: core allocation + physics
@@ -70,7 +71,7 @@ without allocating to do it.
 
 ## Phases
 
-- [ ] **MR0 — Register every dense store as a reserve owner.**
+- [x] **MR0 — Register every dense store as a reserve owner.**
   Give `PhysicsFixedList` and the runtime-capacity path from
   `scene-sized-store-capacity` SC1 a registered `RuntimeReserveOwnerHandle`
   instead of a bare name string, reusing the existing
@@ -81,6 +82,16 @@ without allocating to do it.
   the stores SC0 censused resolves to a registered owner; handle zero
   (`INVALID_RUNTIME_RESERVE_OWNER`, `:56`) appears for none of them; registration
   performs no allocation outside the startup/scene-load phases.
+  Closed 2026-07-27. `PhysicsFixedList` now registers once at construction,
+  retains the nonzero allocator handle, requires an explicit sizing reason,
+  reuses that handle for every scene-load request, and exposes its authoritative
+  live-count high-water. Final Debug inventory proves 98/98 Physics owners;
+  non-Debug proves 95/95 after excluding the three Debug-only broadphase rows.
+  The four registered rows with no second-growth event are checked by name and
+  reason, while every growth-event owner rejects the former generic reason.
+  Focused tests (6/6, 36 assertions; owner inventory 5,161 assertions), the
+  412-test umbrella (2,408,915 assertions), Debug build, performance gate,
+  allocation-policy scans, format gate, and 19-file comment audit pass.
 
 - [ ] **MR1 — Publish the capacity readout.**
   Add a bounded, allocation-free query that returns one row per registered store:

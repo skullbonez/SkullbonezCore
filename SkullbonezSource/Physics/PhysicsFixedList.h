@@ -7,7 +7,8 @@ Summary:
   Physics hot-path owners need vector-like dense rows sized to the active scene,
   without steady-state reallocation. This type commits one aligned backing range
   during scene load, or under ReplayPrediction's already-approved replay growth
-  scope, constructs only the live prefix, and treats growth past the runtime
+  scope, retains one allocator-registry handle and a concrete sizing reason,
+  constructs only the live prefix, and treats growth past the runtime
   reservation or compile-time cap as a policy failure.
 
 Glossary:
@@ -15,14 +16,18 @@ Glossary:
     compile-time absolute maximum.
   Live count: Number of initialized entries currently visible to callers.
   Capacity cap: Compile-time maximum entry count that replaces vector capacity.
+  Capacity reason: Scene quantity or fixed semantic bound that sizes one owner.
 
 Invariants:
-  - Reserve allocates through a registered SceneLoad owner, except that
+  - Construction registers one nonzero Physics owner handle in the allocator's
+    fixed registry; registration itself does not allocate.
+  - Reserve allocates through that registered SceneLoad owner, except that
     ReplayPrediction may use its existing registered owner and approved Replay
     growth scope; the list never creates Replay authority itself.
   - Only indices below the live count hold constructed T instances.
   - Runtime-reservation and compile-time overflow both fail loudly.
-  - Iteration exposes the live prefix as ordinary contiguous pointers.
+  - Iteration exposes the live prefix as ordinary contiguous pointers, and the
+    list retains its own monotonic live-count high-water.
 
 Related:
   - SkullbonezSource/Physics/PhysicsBodyStore.h
@@ -47,6 +52,26 @@ namespace SkullbonezCore
 {
 namespace Physics
 {
+namespace PhysicsCapacityReason
+{
+inline constexpr char SceneBodies[] = "Exact scene body count";
+inline constexpr char SceneColliders[] = "Exact scene collider count";
+inline constexpr char BodyHandleSlots[] = "Maximum of exact scene body count and retained body handle-slot high-water";
+inline constexpr char
+    ColliderHandleSlots[] = "Maximum of exact scene collider count and retained collider handle-slot high-water";
+inline constexpr char SphereColliders[] = "Exact scene sphere-collider count";
+inline constexpr char BoxColliders[] = "Exact scene box-collider count";
+inline constexpr char HullColliders[] = "Exact scene convex-hull-collider count";
+inline constexpr char PointJoints[] = "Exact authored and ragdoll point-joint count";
+inline constexpr char CandidatePairs[] = "Minimum of the scene body pair count and the compile-time candidate-pair ceiling";
+inline constexpr char
+    PersistentContacts[] = "Four manifold points per candidate pair plus eight terrain points per scene body";
+inline constexpr char PipelineRecords[] = "Fixed 4096-record physics pipeline trace ceiling";
+inline constexpr char CollisionVisualBodies[] = "Two body references per bounded candidate pair";
+inline constexpr char MutualGravityPairs[] = "Pair count for the first min(scene body count, 512) bodies";
+inline constexpr char ExplicitTestCapacity[] = "Explicit unit-test fixed-list capacity";
+} // namespace PhysicsCapacityReason
+
 template <typename T, std::size_t Capacity> class PhysicsFixedList
 {
   public:
@@ -54,12 +79,20 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
     using iterator = T*;
     using const_iterator = const T*;
 
-    explicit PhysicsFixedList( const char* ownerName = "PhysicsFixedList" )
-        : m_ownerName( ownerName ? ownerName : "PhysicsFixedList" )
+    explicit PhysicsFixedList( const char* ownerName, const char* capacityReason )
+        : m_ownerName( ownerName ? ownerName : "PhysicsFixedList" ),
+          m_capacityReason( capacityReason ? capacityReason : "Unspecified PhysicsFixedList capacity" ),
+          m_ownerHandle( RegisterFixedOwner( m_ownerName, m_capacityReason ) )
     {
+
+        if ( m_ownerHandle == SkullbonezCore::Core::Allocation::INVALID_RUNTIME_RESERVE_OWNER )
+        {
+            FailOwnerRegistration();
+        }
     }
 
-    PhysicsFixedList( const PhysicsFixedList& other ) : m_ownerName( other.m_ownerName )
+    PhysicsFixedList( const PhysicsFixedList& other )
+        : m_ownerName( other.m_ownerName ), m_capacityReason( other.m_capacityReason ), m_ownerHandle( other.m_ownerHandle )
     {
         Reserve( other.m_count );
         CopyConstructFrom( other );
@@ -81,7 +114,7 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
     }
 
     PhysicsFixedList( PhysicsFixedList&& other ) noexcept( std::is_nothrow_move_constructible<T>::value )
-        : m_ownerName( other.m_ownerName )
+        : m_ownerName( other.m_ownerName ), m_capacityReason( other.m_capacityReason ), m_ownerHandle( other.m_ownerHandle )
     {
         Reserve( other.m_count );
         MoveConstructFrom( other );
@@ -131,6 +164,21 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
     std::size_t committed_bytes() const
     {
         return m_runtimeCapacity * sizeof( Storage );
+    }
+
+    std::size_t high_water() const
+    {
+        return m_highWater;
+    }
+
+    SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle owner_handle() const
+    {
+        return m_ownerHandle;
+    }
+
+    const char* capacity_reason() const
+    {
+        return m_capacityReason;
     }
 
     T* data()
@@ -224,21 +272,19 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
             FailReserveDenied( requested, phase );
         }
 
-        const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner( { m_ownerName, RuntimeReserveSubsystem::Physics, RuntimeReservePhase::SceneLoad, 0, static_cast<int>( Capacity ),
-                                                                                          0, false, "Scene-sized PhysicsFixedList backing storage" } );
         const RuntimeReserveGrowthResult
-            growth = RuntimeReserveAllocator::RequestGrowth( owner, { m_ownerName, m_ownerName, phase, -1,
-                                                                      static_cast<int>( m_runtimeCapacity ),
-                                                                      static_cast<int>( requested ),
-                                                                      static_cast<int>( sizeof( Storage ) ) } );
+            growth = RuntimeReserveAllocator::RequestGrowth( m_ownerHandle, { m_ownerName, m_ownerName, phase, -1,
+                                                                              static_cast<int>( m_runtimeCapacity ),
+                                                                              static_cast<int>( requested ),
+                                                                              static_cast<int>( sizeof( Storage ) ) } );
 
         if ( !growth.granted )
         {
             FailReserveDenied( requested, phase );
         }
 
-        RuntimeReserveOwnerScope ownerScope( owner );
-        RuntimeReserveGrowthScope growthScope( owner, phase, growth );
+        RuntimeReserveOwnerScope ownerScope( m_ownerHandle );
+        RuntimeReserveGrowthScope growthScope( m_ownerHandle, phase, growth );
         CommitBacking( requested );
     }
 
@@ -372,6 +418,15 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
     }
 
   private:
+    static SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle RegisterFixedOwner( const char* ownerName,
+                                                                                           const char* capacityReason )
+    {
+        using namespace SkullbonezCore::Core::Allocation;
+        return RuntimeReserveAllocator::RegisterOwner( { ownerName, RuntimeReserveSubsystem::Physics,
+                                                         RuntimeReservePhase::SceneLoad, 0, static_cast<int>( Capacity ), 0,
+                                                         false, capacityReason } );
+    }
+
     struct alignas( alignof( T ) ) Storage
     {
         unsigned char bytes[sizeof( T )];
@@ -633,6 +688,18 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
         std::abort();
     }
 
+    [[noreturn]] void FailOwnerRegistration() const
+    {
+        std::fprintf( stderr, "FATAL: PhysicsFixedList owner registration failed owner=%s reason=%s.\n", m_ownerName,
+                      m_capacityReason );
+        std::fprintf( stdout, "FATAL: PhysicsFixedList owner registration failed owner=%s reason=%s.\n", m_ownerName,
+                      m_capacityReason );
+        std::fflush( stderr );
+        std::fflush( stdout );
+        assert( false && "PhysicsFixedList owner registration failed" );
+        std::abort();
+    }
+
     [[noreturn]] void FailPopFromEmpty() const
     {
         std::fprintf( stderr, "FATAL: PhysicsFixedList pop from empty list owner=%s.\n", m_ownerName );
@@ -648,6 +715,9 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
     std::size_t m_highWater = 0u;
     std::size_t m_runtimeCapacity = 0u;
     const char* m_ownerName = "PhysicsFixedList";
+    const char* m_capacityReason = "Unspecified PhysicsFixedList capacity";
+    SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle
+        m_ownerHandle = SkullbonezCore::Core::Allocation::INVALID_RUNTIME_RESERVE_OWNER;
 };
 } // namespace Physics
 } // namespace SkullbonezCore

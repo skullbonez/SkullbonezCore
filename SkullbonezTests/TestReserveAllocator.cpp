@@ -51,6 +51,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <new>
 #include <ranges>
 #include <stdexcept>
@@ -84,6 +85,7 @@ using SkullbonezCore::Core::Allocation::RuntimeReservePhase;
 using SkullbonezCore::Core::Allocation::RuntimeReserveSubsystem;
 using SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode;
 using SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase;
+using SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity;
 using SkullbonezCore::Physics::PhysicsFixedList;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 using SkullbonezCore::Core::Allocation::CopyDevelopmentToolAllocationStats;
@@ -562,7 +564,9 @@ TEST_CASE( "PhysicsFixedList: scene-load reserve fills exact runtime capacity th
     static_assert( std::ranges::contiguous_range<const List> );
 
     RuntimeAllocationScope sceneLoad( RuntimeAllocationPhase::SceneLoad );
-    List values( "unit.physics-fixed-list.reserve-fill" );
+    List values( "unit.physics-fixed-list.reserve-fill", ExplicitTestCapacity );
+    CHECK( values.owner_handle() != INVALID_RUNTIME_RESERVE_OWNER );
+    CHECK( std::strcmp( values.capacity_reason(), ExplicitTestCapacity ) == 0 );
     CHECK( values.capacity() == 0u );
     CHECK( values.max_capacity() == 8u );
     values.Reserve( 3u );
@@ -573,6 +577,7 @@ TEST_CASE( "PhysicsFixedList: scene-load reserve fills exact runtime capacity th
     values.push_back( 22 );
     values.push_back( 33 );
     CHECK( values.size() == values.capacity() );
+    CHECK( values.high_water() == 3u );
     CHECK( values.end() - values.begin() == 3 );
     CHECK( values.data()[0] == 11 );
     CHECK( values.data()[2] == 33 );
@@ -582,7 +587,7 @@ TEST_CASE( "PhysicsFixedList: scene-load reserve fills exact runtime capacity th
 TEST_CASE( "PhysicsFixedList: runtime and compile-time ceilings remain distinct" )
 {
     RuntimeAllocationScope sceneLoad( RuntimeAllocationPhase::SceneLoad );
-    PhysicsFixedList<int, 7> values( "unit.physics-fixed-list.ceilings" );
+    PhysicsFixedList<int, 7> values( "unit.physics-fixed-list.ceilings", ExplicitTestCapacity );
     values.Reserve( 2u );
 
     CHECK( values.capacity() == 2u );
@@ -661,7 +666,7 @@ TEST_CASE( "PhysicsFixedList: trivial and non-trivial copy move preserve live va
 {
     RuntimeAllocationScope sceneLoad( RuntimeAllocationPhase::SceneLoad );
 
-    PhysicsFixedList<uint32_t, 8> trivial( "unit.physics-fixed-list.trivial-source" );
+    PhysicsFixedList<uint32_t, 8> trivial( "unit.physics-fixed-list.trivial-source", ExplicitTestCapacity );
     trivial.Reserve( 4u );
     trivial.push_back( 4u );
     trivial.push_back( 9u );
@@ -673,7 +678,8 @@ TEST_CASE( "PhysicsFixedList: trivial and non-trivial copy move preserve live va
 
     PhysicsFixedListTrackedValue::copyConstructions = 0;
     PhysicsFixedListTrackedValue::moveConstructions = 0;
-    PhysicsFixedList<PhysicsFixedListTrackedValue, 8> tracked( "unit.physics-fixed-list.tracked-source" );
+    PhysicsFixedList<PhysicsFixedListTrackedValue, 8> tracked( "unit.physics-fixed-list.tracked-source",
+                                                              ExplicitTestCapacity );
     tracked.Reserve( 3u );
     tracked.push_back( PhysicsFixedListTrackedValue( 17 ) );
     tracked.push_back( PhysicsFixedListTrackedValue( 23 ) );
@@ -697,7 +703,7 @@ TEST_CASE( "PhysicsFixedList: failed non-trivial copy and relocation clean every
     PhysicsFixedListThrowingValue::throwOnCopyAttempt = 0;
 
     {
-        List source( "unit.physics-fixed-list.throwing-source" );
+        List source( "unit.physics-fixed-list.throwing-source", ExplicitTestCapacity );
         source.Reserve( 3u );
         source.push_back( PhysicsFixedListThrowingValue( 17 ) );
         source.push_back( PhysicsFixedListThrowingValue( 23 ) );
@@ -755,7 +761,7 @@ TEST_CASE( "PhysicsFixedList: replay reserve requires an approved outer owner an
     const RuntimeReserveGrowthResult growth = RuntimeReserveAllocator::RequestGrowth( owner, request );
     REQUIRE( growth.granted );
 
-    PhysicsFixedList<int, 8> values( "unit.physics-fixed-list.replay-target" );
+    PhysicsFixedList<int, 8> values( "unit.physics-fixed-list.replay-target", ExplicitTestCapacity );
     {
         RuntimeAllocationScope replayPhase( RuntimeAllocationPhase::Replay );
         RuntimeReserveOwnerScope ownerScope( owner );

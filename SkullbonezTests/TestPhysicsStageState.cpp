@@ -467,7 +467,7 @@ TEST_CASE( "Physics sleep awake list: one-frame transitions visit every row whil
     const std::array<uint16_t, 4> restingCounts = { 0u, 0u, 0u, 0u };
     const std::vector<SkullbonezCore::Physics::PointJointConstraint> joints;
     SkullbonezCore::Physics::PhysicsPipelineRowList<SkullbonezCore::Physics::PhysicsPipelineRecord> pipeline {
-        "TestPhysicsStageState.pipeline"
+        "TestPhysicsStageState.pipeline", SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity
     };
     {
         SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
@@ -519,7 +519,8 @@ TEST_CASE( "Physics sleep point-joint island: stretched anchors block relaxation
         std::array<float, 2> timeRemaining = { 1.0f / 120.0f, 1.0f / 120.0f };
         std::array<uint16_t, 2> restingCounts = { 0u, 0u };
         SkullbonezCore::Physics::PhysicsPipelineRowList<SkullbonezCore::Physics::PhysicsPipelineRecord> pipeline {
-            "TestPhysicsStageState.pointJointPipeline"
+            "TestPhysicsStageState.pointJointPipeline",
+            SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity
         };
         {
             SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(

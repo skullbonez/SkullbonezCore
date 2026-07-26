@@ -655,6 +655,8 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
     using SkullbonezCore::Core::Allocation::RuntimeAllocationScope;
     using SkullbonezCore::Core::Allocation::RuntimeReserveAllocator;
     using SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView;
+    using SkullbonezCore::Core::Allocation::RuntimeReserveOwnerStatsView;
+    using SkullbonezCore::Core::Allocation::RuntimeReserveSubsystem;
 
     auto engine = std::make_unique<PhysicsEngine>();
 
@@ -703,6 +705,13 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
     for ( int eventIndex = 0; eventIndex < eventCount; ++eventIndex )
     {
         CHECK( events[eventIndex].granted );
+        RuntimeReserveOwnerStatsView ownerStats = {};
+        REQUIRE( RuntimeReserveAllocator::CopyOwnerStatsByName( events[eventIndex].ownerName, ownerStats ) );
+        CHECK( ownerStats.subsystem == RuntimeReserveSubsystem::Physics );
+        REQUIRE( ownerStats.capacityReason != nullptr );
+        CHECK( ownerStats.capacityReason[0] != '\0' );
+        CHECK( std::strcmp( ownerStats.capacityReason, "Scene-sized PhysicsFixedList backing storage" ) != 0 );
+        CHECK( std::strcmp( ownerStats.capacityReason, "unspecified" ) != 0 );
 
         for ( int earlierIndex = 0; earlierIndex < eventIndex; ++earlierIndex )
         {
@@ -784,6 +793,34 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
         }
 
         CHECK( matchingEvents == 1 );
+    }
+
+    struct ExpectedRegisteredWithoutGrowth
+    {
+        const char* ownerName;
+        const char* capacityReason;
+    };
+    const ExpectedRegisteredWithoutGrowth expectedRegisteredWithoutGrowth[] = {
+        { "ColliderStore.hullShapes", SkullbonezCore::Physics::PhysicsCapacityReason::HullColliders },
+        { "PhysicsContactSolverStage.pipelineRecords",
+          SkullbonezCore::Physics::PhysicsCapacityReason::PipelineRecords },
+        { "PhysicsStepDiagnostics.physicsPipelineTrace",
+          SkullbonezCore::Physics::PhysicsCapacityReason::PipelineRecords },
+        { "PhysicsSleepController.m_sleepSupportEdges",
+          SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
+    };
+#if defined( _DEBUG )
+    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 98 );
+#else
+    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 95 );
+#endif
+
+    for ( const ExpectedRegisteredWithoutGrowth& expected : expectedRegisteredWithoutGrowth )
+    {
+        RuntimeReserveOwnerStatsView ownerStats = {};
+        REQUIRE( RuntimeReserveAllocator::CopyOwnerStatsByName( expected.ownerName, ownerStats ) );
+        CHECK( ownerStats.subsystem == RuntimeReserveSubsystem::Physics );
+        CHECK( std::strcmp( ownerStats.capacityReason, expected.capacityReason ) == 0 );
     }
 
     CHECK( PhysicsEngine::ReadBodies( *engine ).RecordCapacity() == 2000u );

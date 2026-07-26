@@ -131,11 +131,16 @@ struct PersistentContactSolverSideEffects
 
     // These are values, not callbacks: the sequencer applies them in the same
     // deterministic order after Solve returns.
-    PhysicsPipelineRecordList pipelineRecords { "PhysicsContactSolverStage.pipelineRecords" };
-    PhysicsCollisionVisualBodyList collisionVisualBodies { "PhysicsContactSolverStage.collisionVisualBodies" };
-    PhysicsContactBodyList fixedContactBodies { "PhysicsContactSolverStage.fixedContactBodies" };
-    PhysicsReleaseWakeBodyList releaseWakeBodies { "PhysicsContactSolverStage.releaseWakeBodies" };
-    PhysicsFixedTreeReleaseList fixedTreeReleases { "PhysicsContactSolverStage.fixedTreeReleases" };
+    PhysicsPipelineRecordList pipelineRecords { "PhysicsContactSolverStage.pipelineRecords",
+                                                PhysicsCapacityReason::PipelineRecords };
+    PhysicsCollisionVisualBodyList collisionVisualBodies { "PhysicsContactSolverStage.collisionVisualBodies",
+                                                           PhysicsCapacityReason::CollisionVisualBodies };
+    PhysicsContactBodyList fixedContactBodies { "PhysicsContactSolverStage.fixedContactBodies",
+                                                PhysicsCapacityReason::PersistentContacts };
+    PhysicsReleaseWakeBodyList releaseWakeBodies { "PhysicsContactSolverStage.releaseWakeBodies",
+                                                   PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedTreeReleaseList fixedTreeReleases { "PhysicsContactSolverStage.fixedTreeReleases",
+                                                    PhysicsCapacityReason::SceneBodies };
 };
 
 class PhysicsContactCacheWakeAccess
@@ -156,13 +161,16 @@ class PhysicsContactCacheWakeAccess
 class PhysicsContactSolverStage
 {
   private:
-    PersistentContactList m_persistentContacts { "PhysicsContactSolverStage.persistentContacts" };
-    PersistentContactCacheList m_persistentContactCache { "PhysicsContactSolverStage.persistentContactCache" };
+    PersistentContactList m_persistentContacts { "PhysicsContactSolverStage.persistentContacts",
+                                                 PhysicsCapacityReason::PersistentContacts };
+    PersistentContactCacheList m_persistentContactCache { "PhysicsContactSolverStage.persistentContactCache",
+                                                          PhysicsCapacityReason::PersistentContacts };
     PersistentContactSolverStats m_persistentContactSolverStats;
-    PersistentContactCountList m_persistentContactCounts { "PhysicsContactSolverStage.persistentContactCounts" };
-    PersistentContactCountList m_persistentRestingContactCounts {
-        "PhysicsContactSolverStage.persistentRestingContactCounts" };
-    SolverBodyStateList m_solverBodies { "PhysicsContactSolverStage.solverBodies" };
+    PersistentContactCountList m_persistentContactCounts { "PhysicsContactSolverStage.persistentContactCounts",
+                                                           PhysicsCapacityReason::SceneBodies };
+    PersistentContactCountList m_persistentRestingContactCounts { "PhysicsContactSolverStage.persistentRestingContactCounts",
+                                                                  PhysicsCapacityReason::SceneBodies };
+    SolverBodyStateList m_solverBodies { "PhysicsContactSolverStage.solverBodies", PhysicsCapacityReason::SceneBodies };
     PersistentContactSolverSideEffects m_sideEffects;
 
     void PrepareSideEffects( int modelCount, std::size_t candidatePairCount, int pipelineRecordCapacity );
