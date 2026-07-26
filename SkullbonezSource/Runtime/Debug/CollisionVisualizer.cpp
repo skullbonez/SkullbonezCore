@@ -309,7 +309,7 @@ void CollisionVisualizer::Update( float dt, const CollisionVisualizerFrameView& 
         m_models.assign( modelCount, TrackedModel() );
     }
 
-    const std::vector<uint8_t>& contacts = view.collisionContacts;
+    const auto contacts = view.collisionContacts;
     const auto sleepStates = view.sleepStates;
     const float fadeStep = ( FADE_DURATION > 0.0f ) ? ( dt / FADE_DURATION ) : 1.0f;
 

@@ -180,8 +180,8 @@ class PhysicsContactSolverStage
                                                                 const PhysicsWorldForces& worldForces ) noexcept;
     void Solve( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                 const PersistentContactSolverStepPolicy& stepPolicy, std::span<const std::pair<int, int>> candidatePairs,
-                std::span<const uint8_t> sleepState, std::vector<std::pair<int, int>>& sleepSupportEdges,
-                std::vector<TerrainContactManifold>& terrainContactManifolds, std::span<uint8_t> terrainRestApplied,
+                std::span<const uint8_t> sleepState, PhysicsCandidatePairList& sleepSupportEdges,
+                PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds, std::span<uint8_t> terrainRestApplied,
                 std::span<uint8_t> sleepSupportedThisFrame, PhysicsStepDiagnostics& stepDiagnostics, float dt,
                 Core::Profiler* profiler );
     PhysicsContactCacheWakeAccess CreateWakeAccess();

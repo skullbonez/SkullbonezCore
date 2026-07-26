@@ -409,7 +409,7 @@ void PhysicsDebugVisualizer::EmitSleepState( const PhysicsDebugFrameView& view )
 
 void PhysicsDebugVisualizer::EmitPipelineStage( const PhysicsDebugFrameView& view )
 {
-    const std::vector<PhysicsPipelineRecord>& records = view.pipelineTrace;
+    const auto records = view.pipelineTrace;
 
     if ( records.empty() || PIPELINE_STAGE_COUNT <= 0 )
     {
@@ -560,7 +560,7 @@ void PhysicsDebugVisualizer::Update( float dt, const PhysicsDebugFrameView& view
         return;
     }
 
-    const std::vector<PhysicsDebugContact>& contacts = view.debugContacts;
+    const auto contacts = view.debugContacts;
 
     if ( m_contactLingerSeconds <= 0.0f )
     {

@@ -43,6 +43,7 @@ Related:
 #include "PhysicsBodyStore.h"
 #include "PhysicsObjectPolicy.h"
 #include "PhysicsRuntimeSettings.h"
+#include "PhysicsStageCapacity.h"
 #include "PhysicsWorld.h"
 #include "PhysicsWorldForces.h"
 
@@ -222,14 +223,14 @@ class PhysicsEngine
     static const Math::CollisionDetection::SpatialGrid& ReadSpatialGrid( const PhysicsEngine& engine );
     static std::span<const int> ReadFixedContactHighlightBodies( const PhysicsEngine& engine );
     static std::span<const int64_t> ReadCollisionCellKeys( const PhysicsEngine& engine );
-    static const std::vector<uint8_t>& ReadCollisionVisualContacts( const PhysicsEngine& engine );
+    static std::span<const uint8_t> ReadCollisionVisualContacts( const PhysicsEngine& engine );
     static std::span<const uint8_t> ReadSleepStates( const PhysicsEngine& engine );
     static std::span<const int> ReadSleepIslandVisualIds( const PhysicsEngine& engine );
     static std::span<const uint8_t> ReadSleepSupportedStates( const PhysicsEngine& engine );
     static std::span<const uint8_t> ReadSleepInhibitedStates( const PhysicsEngine& engine );
-    static const std::vector<PhysicsDebugContact>& ReadDebugContacts( const PhysicsEngine& engine );
-    static const std::vector<PhysicsPipelineRecord>& ReadPipelineTrace( const PhysicsEngine& engine );
-    static const std::vector<PointJointConstraint>& ReadPointJointConstraints( const PhysicsEngine& engine );
+    static std::span<const PhysicsDebugContact> ReadDebugContacts( const PhysicsEngine& engine );
+    static std::span<const PhysicsPipelineRecord> ReadPipelineTrace( const PhysicsEngine& engine );
+    static const PhysicsBodyRowList<PointJointConstraint>& ReadPointJointConstraints( const PhysicsEngine& engine );
     static std::size_t ReadPointJointCapacity( const PhysicsEngine& engine );
 
 #ifdef _DEBUG
@@ -248,7 +249,8 @@ class PhysicsEngine
 #endif
 
     PhysicsWorld m_world;                                    // Deterministic solver and debug state over body-store records.
-    std::vector<PhysicsBodyCreateDesc> m_authoredBodyDescs;  // Cold body authoring descriptors keyed by scene/model order.
+    PhysicsBodyRowList<PhysicsBodyCreateDesc> m_authoredBodyDescs {
+        "PhysicsEngine.m_authoredBodyDescs" };               // Cold descriptors keyed by scene/model order.
     PhysicsBodyStore m_bodyStore;                            // Mutable body state in model/replay order.
     ColliderStore m_colliderStore;                           // Collider snapshot in model/replay order.
     BuoyancySystem m_buoyancySystem;                         // Fluid facts aligned with body/collider model rows.

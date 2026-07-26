@@ -108,7 +108,7 @@ class PhysicsBroadphaseStage
     // call; only the stage-owned grid and bounded result buffers are retained.
     std::span<const std::pair<int, int>> Run( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                                               const BroadphaseSettings& broadphaseSettings,
-                                              const std::vector<PointJointConstraint>& pointJointConstraints,
+                                              std::span<const PointJointConstraint> pointJointConstraints,
                                               std::span<const uint8_t> sleepState, std::span<const int> awakeBodyIndices,
                                               PhysicsStepDiagnostics& stepDiagnostics, float dt, float contactSkin,
                                               float contactEpsilon, Core::Profiler* profiler );

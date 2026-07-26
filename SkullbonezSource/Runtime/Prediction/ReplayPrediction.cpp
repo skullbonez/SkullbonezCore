@@ -473,7 +473,7 @@ bool CaptureReplayPredictionFrame( RunReplayPredictionState& prediction, const P
         }
     }
 
-    const std::vector<PhysicsDebugContact>& debugContacts = SkullbonezCore::Physics::PhysicsEngine::ReadDebugContacts( physicsEngine );
+    const auto debugContacts = SkullbonezCore::Physics::PhysicsEngine::ReadDebugContacts( physicsEngine );
 
     if ( debugContacts.size() > frame.debugContacts.capacity() )
     {
@@ -506,7 +506,7 @@ bool CaptureReplayPredictionFrame( RunReplayPredictionState& prediction, const P
         }
     }
 
-    frame.debugContacts = debugContacts;
+    frame.debugContacts.assign( debugContacts.begin(), debugContacts.end() );
     frame.contactsIncomplete = false;
 
     if ( !PublishReplayPredictionRootTrajectoryFrame( prediction, frame, frameSlot ) )

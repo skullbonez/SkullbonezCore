@@ -331,9 +331,15 @@ bool RunRuntimeFatalCase( const char* caseName )
     }
     if ( std::strcmp( caseName, "sleep-support-edge-capacity" ) == 0 )
     {
-        static std::vector<std::pair<int, int>> edges;
+        static SkullbonezCore::Physics::PhysicsCandidatePairList edges {
+            "TestRuntimeContracts.sleepSupportEdges"
+        };
+        {
+            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+                SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+            edges.Reserve( MAX_SLEEP_SUPPORT_EDGES );
+        }
         edges.clear();
-        edges.reserve( MAX_SLEEP_SUPPORT_EDGES );
         for ( std::size_t edgeIndex = 0; edgeIndex <= MAX_SLEEP_SUPPORT_EDGES; ++edgeIndex )
         {
             AppendSleepSupportEdge( edges, 0, 1 );

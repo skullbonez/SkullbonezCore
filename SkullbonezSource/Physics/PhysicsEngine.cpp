@@ -46,7 +46,6 @@ Related:
 #include "../Core/Config.h"
 #include "../Core/SceneCapacity.h"
 #include "PhysicsApi.h"
-#include "PhysicsSceneVectorReserve.h"
 
 #include "../Core/Common.h"
 #include "../Core/FatalError.h"
@@ -354,8 +353,7 @@ void PhysicsEngine::ReserveAuthoredBodyCapacity( std::size_t bodyCapacity, std::
                   bodyCapacity, sphereCapacity, boxCapacity, hullCapacity, pointJointCapacity, ceiling );
     }
 
-    ReservePhysicsSceneVector( m_authoredBodyDescs, bodyCapacity, ceiling, "PhysicsEngine.m_authoredBodyDescs",
-                               "Exact scene body rows for cold authored descriptors" );
+    m_authoredBodyDescs.Reserve( bodyCapacity );
 
     m_bodyStore.ReserveCapacity( bodyCapacity );
     m_colliderStore.ReserveCapacity( bodyCapacity );
@@ -1305,7 +1303,7 @@ uint64_t PhysicsEngine::CollectDebugAndBroadphaseMemoryBytes() const
 
 uint64_t PhysicsEngine::CollectSceneSizedStoreMemoryBytes() const
 {
-    uint64_t bytes = static_cast<uint64_t>( m_authoredBodyDescs.capacity() ) * sizeof( PhysicsBodyCreateDesc );
+    uint64_t bytes = m_authoredBodyDescs.committed_bytes();
     bytes += m_bodyStore.CollectRuntimeCapacityMemoryBytes();
     bytes += m_colliderStore.CollectRuntimeCapacityMemoryBytes();
     bytes += static_cast<uint64_t>( m_buoyancySystem.RecordCapacity() ) * sizeof( BuoyancyBodyFacts );
@@ -1374,7 +1372,7 @@ std::span<const int64_t> PhysicsEngine::ReadCollisionCellKeys( const PhysicsEngi
 }
 
 
-const std::vector<uint8_t>& PhysicsEngine::ReadCollisionVisualContacts( const PhysicsEngine& engine )
+std::span<const uint8_t> PhysicsEngine::ReadCollisionVisualContacts( const PhysicsEngine& engine )
 {
     return engine.m_world.GetCollisionVisualContacts();
 }
@@ -1404,19 +1402,20 @@ std::span<const uint8_t> PhysicsEngine::ReadSleepInhibitedStates( const PhysicsE
 }
 
 
-const std::vector<PhysicsDebugContact>& PhysicsEngine::ReadDebugContacts( const PhysicsEngine& engine )
+std::span<const PhysicsDebugContact> PhysicsEngine::ReadDebugContacts( const PhysicsEngine& engine )
 {
     return engine.m_world.GetPhysicsDebugContacts();
 }
 
 
-const std::vector<PhysicsPipelineRecord>& PhysicsEngine::ReadPipelineTrace( const PhysicsEngine& engine )
+std::span<const PhysicsPipelineRecord> PhysicsEngine::ReadPipelineTrace( const PhysicsEngine& engine )
 {
     return engine.m_world.GetPhysicsPipelineTrace();
 }
 
 
-const std::vector<PointJointConstraint>& PhysicsEngine::ReadPointJointConstraints( const PhysicsEngine& engine )
+const SkullbonezCore::Physics::PhysicsBodyRowList<PointJointConstraint>&
+PhysicsEngine::ReadPointJointConstraints( const PhysicsEngine& engine )
 {
     return engine.m_world.GetPointJointConstraints();
 }

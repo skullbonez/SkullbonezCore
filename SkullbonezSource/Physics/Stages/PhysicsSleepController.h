@@ -41,12 +41,11 @@ Related:
 #include <cstdint>
 #include <span>
 #include <utility>
-#include <vector>
 
 #include "../PhysicsDebugData.h"
 #include "../BuoyancySystem.h"
-#include "../PhysicsFixedList.h"
 #include "../PhysicsRuntimeSettings.h"
+#include "../PhysicsStageCapacity.h"
 #include "../Ragdoll.h"
 #include "../SleepIslandSystem.h"
 #include "../PhysicsBodyStore.h"
@@ -131,19 +130,17 @@ class PhysicsSleepController
     friend class PhysicsNarrowphaseWakeAccess;
 
   private:
-    std::vector<uint8_t> m_sleepSupportedThisFrame;
-    std::vector<uint8_t> m_sleepInhibitedThisFrame;
-    std::vector<uint8_t> m_sleepState;
-    std::vector<uint8_t> m_sleepCounter;
-    std::vector<uint8_t> m_underwaterSleepLocked;
-    std::vector<int> m_sleepIslandVisualId;
-    std::vector<int> m_sleepIslandAssignedVisualId;
+    PhysicsBodyRowList<uint8_t> m_sleepSupportedThisFrame { "PhysicsSleepController.m_sleepSupportedThisFrame" };
+    PhysicsBodyRowList<uint8_t> m_sleepInhibitedThisFrame { "PhysicsSleepController.m_sleepInhibitedThisFrame" };
+    PhysicsBodyRowList<uint8_t> m_sleepState { "PhysicsSleepController.m_sleepState" };
+    PhysicsBodyRowList<uint8_t> m_sleepCounter { "PhysicsSleepController.m_sleepCounter" };
+    PhysicsBodyRowList<uint8_t> m_underwaterSleepLocked { "PhysicsSleepController.m_underwaterSleepLocked" };
+    PhysicsBodyRowList<int> m_sleepIslandVisualId { "PhysicsSleepController.m_sleepIslandVisualId" };
+    PhysicsBodyRowList<int> m_sleepIslandAssignedVisualId { "PhysicsSleepController.m_sleepIslandAssignedVisualId" };
     int m_nextSleepIslandVisualId = 1;
     int m_awakeBodyCount = 0; // Dynamic awake rows at the last mirror or completed sleep-island transition.
-    PhysicsFixedList<int, Scene::Capacity::MAX_SCENE_OBJECTS> m_awakeBodyIndices {
-        "PhysicsSleepController.awakeBodyIndices" };
-    PhysicsFixedList<int, Scene::Capacity::MAX_SCENE_OBJECTS> m_awakeListPositions {
-        "PhysicsSleepController.awakeListPositions" };
+    PhysicsBodyRowList<int> m_awakeBodyIndices { "PhysicsSleepController.awakeBodyIndices" };
+    PhysicsBodyRowList<int> m_awakeListPositions { "PhysicsSleepController.awakeListPositions" };
     int m_pendingAwakeIndices[Scene::Capacity::MAX_SCENE_OBJECTS] = {};
 
     // Parallel producers access this aligned scalar only through atomic_ref;
@@ -152,17 +149,17 @@ class PhysicsSleepController
     bool m_awakeListNeedsRebuild = true;
     bool m_sleepEnabled = true;
     uint8_t m_seedSleepFrameCount = 30;
-    std::vector<std::pair<int, int>> m_sleepSupportEdges;
-    std::vector<int> m_sleepIslandParent;
-    std::vector<uint8_t> m_sleepIslandRank;
-    std::vector<uint8_t> m_sleepIslandHasAwake;
-    std::vector<uint8_t> m_sleepIslandHasSupportAnchor;
-    std::vector<uint8_t> m_sleepIslandEligible;
-    std::vector<uint8_t> m_sleepIslandCanSleep;
-    std::vector<PhysicsSleepScratchFlags> m_sleepScratchFlags;
-    std::vector<int> m_sleepVisualIslandIds;
-    std::vector<int> m_sleepVisualIslandBodies;
-    std::vector<int> m_restingWakeQueueScratch;
+    PhysicsCandidatePairList m_sleepSupportEdges { "PhysicsSleepController.m_sleepSupportEdges" };
+    PhysicsBodyRowList<int> m_sleepIslandParent { "PhysicsSleepController.m_sleepIslandParent" };
+    PhysicsBodyRowList<uint8_t> m_sleepIslandRank { "PhysicsSleepController.m_sleepIslandRank" };
+    PhysicsBodyRowList<uint8_t> m_sleepIslandHasAwake { "PhysicsSleepController.m_sleepIslandHasAwake" };
+    PhysicsBodyRowList<uint8_t> m_sleepIslandHasSupportAnchor { "PhysicsSleepController.m_sleepIslandHasSupportAnchor" };
+    PhysicsBodyRowList<uint8_t> m_sleepIslandEligible { "PhysicsSleepController.m_sleepIslandEligible" };
+    PhysicsBodyRowList<uint8_t> m_sleepIslandCanSleep { "PhysicsSleepController.m_sleepIslandCanSleep" };
+    PhysicsBodyRowList<PhysicsSleepScratchFlags> m_sleepScratchFlags { "PhysicsSleepController.m_sleepScratchFlags" };
+    PhysicsBodyRowList<int> m_sleepVisualIslandIds { "PhysicsSleepController.m_sleepVisualIslandIds" };
+    PhysicsBodyRowList<int> m_sleepVisualIslandBodies { "PhysicsSleepController.m_sleepVisualIslandBodies" };
+    PhysicsBodyRowList<int> m_restingWakeQueueScratch { "PhysicsSleepController.m_restingWakeQueueScratch" };
     SleepIslandSystem m_sleepIslandSystem;
 
     void EnsureUnderwaterSleepLockBuffer( int modelCount );
@@ -176,12 +173,13 @@ class PhysicsSleepController
                                          PhysicsContactCacheWakeAccess contactCache, int index, float dt );
     void WakeSleepVisualIsland( PhysicsBodyStore& bodyStore, PhysicsContactCacheWakeAccess contactCache, int index );
     void WakePointJointIsland( PhysicsBodyStore& bodyStore, PhysicsContactCacheWakeAccess contactCache,
-                               const std::vector<PointJointConstraint>& pointJointConstraints, int index );
+                               std::span<const PointJointConstraint> pointJointConstraints, int index );
     void WakeRestingContactIsland( PhysicsBodyStore& bodyStore, PhysicsContactCacheWakeAccess contactCache,
                                    std::span<const PersistentContact> persistentContacts, int index );
     void ApplyTransitions( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                            const PhysicsWorldForces& worldForces, std::span<BuoyancyBodyFacts> buoyancyFacts,
-                           std::span<float> timeRemaining, std::vector<PhysicsPipelineRecord>& physicsPipelineTrace,
+                           std::span<float> timeRemaining,
+                           PhysicsPipelineRowList<PhysicsPipelineRecord>& physicsPipelineTrace,
                            const PhysicsSleepStepPolicy& sleepPolicy, class DisjointSet& sleepIslands );
     void RebuildAwakeBodyIndices( const PhysicsBodyHotFieldsConstView& hotFields, int modelCount );
     void AddAwakeBodyIndex( int index );
@@ -204,11 +202,11 @@ class PhysicsSleepController
     void EnsureVisualIdSize( int modelCount );
     void WakeModel( PhysicsBodyStore& bodyStore, PhysicsContactCacheWakeAccess contactCache,
                     std::span<const PersistentContact> persistentContacts,
-                    const std::vector<PointJointConstraint>& pointJointConstraints, int index );
+                    std::span<const PointJointConstraint> pointJointConstraints, int index );
     void WakeModel( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const PhysicsWorldForces& worldForces,
                     std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<float> timeRemaining,
                     PhysicsContactCacheWakeAccess contactCache, std::span<const PersistentContact> persistentContacts,
-                    const std::vector<PointJointConstraint>& pointJointConstraints, int index );
+                    std::span<const PointJointConstraint> pointJointConstraints, int index );
     PhysicsNarrowphaseWakeAccess CreateNarrowphaseWakeAccess( PhysicsBodyStore& bodyStore,
                                                               const ColliderStore& colliderStore, PhysicsTerrainView terrain,
                                                               const PhysicsWorldForces& worldForces,
@@ -223,20 +221,20 @@ class PhysicsSleepController
                                        std::span<float> timeRemaining, int index );
     void PropagateSupport( const PhysicsBodyStore& bodyStore );
     void AppendPointJointSupportEdges( const PhysicsBodyStore& bodyStore,
-                                       const std::vector<PointJointConstraint>& pointJointConstraints, int modelCount );
+                                       std::span<const PointJointConstraint> pointJointConstraints, int modelCount );
     void WakePointJointConnectedBodies( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                                         PhysicsTerrainView terrain, const PhysicsWorldForces& worldForces,
                                         std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<float> timeRemaining,
                                         PhysicsContactCacheWakeAccess contactCache,
-                                        const std::vector<PointJointConstraint>& pointJointConstraints, float dt );
+                                        std::span<const PointJointConstraint> pointJointConstraints, float dt );
     void RunIslandStage( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                          const PhysicsWorldForces& worldForces, std::span<BuoyancyBodyFacts> buoyancyFacts,
                          std::span<float> timeRemaining, std::span<const PersistentContact> persistentContacts,
                          std::span<const uint16_t> persistentRestingContactCounts,
-                         const std::vector<PointJointConstraint>& pointJointConstraints,
-                         std::vector<PhysicsPipelineRecord>& physicsPipelineTrace,
+                         std::span<const PointJointConstraint> pointJointConstraints,
+                         PhysicsPipelineRowList<PhysicsPipelineRecord>& physicsPipelineTrace,
                          const PhysicsSleepStepPolicy& sleepPolicy );
-    bool IsPointJointPair( const PhysicsBodyStore& bodyStore, const std::vector<PointJointConstraint>& pointJointConstraints,
+    bool IsPointJointPair( const PhysicsBodyStore& bodyStore, std::span<const PointJointConstraint> pointJointConstraints,
                            int bodyA, int bodyB ) const;
 
     void CaptureReplayState( PhysicsSolverSnapshot& outSnapshot ) const;
@@ -253,23 +251,24 @@ class PhysicsSleepController
 
     // Lifetime: contact/terrain stages borrow these bounded rows only for one
     // synchronous pass; capacity and semantic ownership remain here.
-    std::vector<std::pair<int, int>>& MutableSupportEdgesForContactSolver();
+    PhysicsCandidatePairList& MutableSupportEdgesForContactSolver();
     std::span<uint8_t> MutableSupportedStatesForTerrain();
     std::span<uint8_t> MutableInhibitedStatesForTerrain();
-    const std::vector<int>& GetSleepIslandParents() const;
-    const std::vector<uint8_t>& GetSleepCounters() const;
-    const std::vector<uint8_t>& GetSleepIslandRanks() const;
-    const std::vector<uint8_t>& GetSleepIslandHasAwake() const;
-    const std::vector<uint8_t>& GetSleepIslandHasSupportAnchor() const;
-    const std::vector<uint8_t>& GetSleepIslandEligible() const;
-    const std::vector<uint8_t>& GetSleepIslandCanSleep() const;
-    const std::vector<uint8_t>& GetUnderwaterSleepLockVector() const;
-    const std::vector<int>& GetSleepIslandVisualIdVector() const;
-    const std::vector<int>& GetSleepIslandAssignedVisualIds() const;
-    const std::vector<uint8_t>& GetSleepStateVector() const;
-    const std::vector<uint8_t>& GetSleepSupportedVector() const;
-    const std::vector<uint8_t>& GetSleepInhibitedVector() const;
-    const std::vector<std::pair<int, int>>& GetSleepSupportEdgeVector() const;
+    std::span<const int> GetSleepIslandParents() const;
+    std::span<const uint8_t> GetSleepCounters() const;
+    std::span<const uint8_t> GetSleepIslandRanks() const;
+    std::span<const uint8_t> GetSleepIslandHasAwake() const;
+    std::span<const uint8_t> GetSleepIslandHasSupportAnchor() const;
+    std::span<const uint8_t> GetSleepIslandEligible() const;
+    std::span<const uint8_t> GetSleepIslandCanSleep() const;
+    std::span<const uint8_t> GetUnderwaterSleepLockVector() const;
+    std::span<const int> GetSleepIslandVisualIdVector() const;
+    uint64_t GetSleepIslandVisualIdCapacityBytes() const;
+    std::span<const int> GetSleepIslandAssignedVisualIds() const;
+    std::span<const uint8_t> GetSleepStateVector() const;
+    std::span<const uint8_t> GetSleepSupportedVector() const;
+    std::span<const uint8_t> GetSleepInhibitedVector() const;
+    std::span<const std::pair<int, int>> GetSleepSupportEdgeVector() const;
     uint64_t CollectDynamicMemoryBytes() const;
 };
 } // namespace Physics

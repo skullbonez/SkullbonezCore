@@ -461,20 +461,25 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
         }
         else
         {
+#if defined( _CPPUNWIND )
             try
             {
+#endif
 
                 for ( const T& value : other )
                 {
                     new ( RawSlot( m_count ) ) T( value );
                     ++m_count;
                 }
+
+#if defined( _CPPUNWIND )
             }
             catch ( ... )
             {
                 DestroyLivePrefix();
                 throw;
             }
+#endif
         }
 
         TrackHighWater();
@@ -495,20 +500,25 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
         }
         else
         {
+#if defined( _CPPUNWIND )
             try
             {
+#endif
 
                 for ( T& value : other )
                 {
                     new ( RawSlot( m_count ) ) T( std::move( value ) );
                     ++m_count;
                 }
+
+#if defined( _CPPUNWIND )
             }
             catch ( ... )
             {
                 DestroyLivePrefix();
                 throw;
             }
+#endif
         }
 
         TrackHighWater();
@@ -529,14 +539,18 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
         {
             std::size_t constructed = 0u;
 
+#if defined( _CPPUNWIND )
             try
             {
+#endif
 
                 for ( ; constructed < m_count; ++constructed )
                 {
                     new ( static_cast<void*>( &replacement[constructed] ) )
                         T( std::move_if_noexcept( *ValueAt( constructed ) ) );
                 }
+
+#if defined( _CPPUNWIND )
             }
             catch ( ... )
             {
@@ -549,6 +563,7 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
 
                 throw;
             }
+#endif
 
             for ( std::size_t index = 0; index < m_count; ++index )
             {

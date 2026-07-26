@@ -5,8 +5,8 @@ Status: IN PROGRESS — drafted from the 2026-07-26 from-source architecture
 review of `nightrunner-26th-JUL-26` at tip `35f6de4e`, extended by the same-day
 capacity measurement below. Registered in `MASTER-PLAN.md` on 2026-07-26 as
 plan 2 of the Architecture Follow-Up Campaign Round 5. Starts after
-`governance-shape-to-judgment-conversion` closes. SC0-SC4 closed 2026-07-27.
-5/8 phases complete; SC5 is binding.
+`governance-shape-to-judgment-conversion` closes. SC0-SC5 closed 2026-07-27.
+6/8 phases complete; SC6 is binding.
 Impact area: `Core/SceneCapacity.h`, `Physics/PhysicsFixedList.h`,
 `Physics/ColliderStore.*`, `Physics/PhysicsBodyStore.*`, every
 `Physics/Stages/*` store, `Physics/CollisionShape.h`,
@@ -279,7 +279,7 @@ its shape costs.
   pass. Permanent evidence:
   `../../Reports/2026-07-27/scene-sized-store-capacity-sc4-hot-stage-lists.md`.
 
-- [ ] **SC5 — Convert the sleep, terrain, diagnostics, and world vectors.**
+- [x] **SC5 — Convert the sleep, terrain, diagnostics, and world vectors.**
   Move the 18 `PhysicsSleepController`, 2 `PhysicsTerrainStage`, 3
   `PhysicsStepDiagnostics`, 2 `PhysicsWorld`, and 1 `PhysicsEngine` members.
   `PhysicsWorld::m_timeRemaining` is the cross-stage CCD clock
@@ -290,6 +290,15 @@ its shape costs.
   under `Physics/`; zero `std::vector` members remain under `Physics/` except
   rows SC0 explicitly ruled cold-and-unbounded with a reason; physics CSV
   byte-exact; sleep/island focused tests and `validate_physics_deep` pass.
+  Closed 2026-07-27. All 26 retained sleep, terrain, diagnostics, world, and
+  engine rows now use scene-committed `PhysicsFixedList` backing. The CCD clock,
+  point-joint handle generation and compaction, sleep/island ordering, terrain
+  manifold order, and Debug pipeline rows retain their prior semantics.
+  Profile growth is now 89 unique owners and Debug records 92. Focused capacity
+  coverage, the 410-doctest fast gate, allocation policy, byte-exact
+  44,401-line physics regression, deep physics diagnostics, and performance
+  budgets pass. Permanent evidence:
+  `../../Reports/2026-07-27/scene-sized-store-capacity-sc5-remaining-live-rows.md`.
 
 - [ ] **SC6 — Prediction engine parity.**
   The isolated prediction engine (`Runtime/Prediction/ReplayPrediction.h:250`)

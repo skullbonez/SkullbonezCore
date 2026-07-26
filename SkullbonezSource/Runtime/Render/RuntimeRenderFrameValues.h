@@ -26,7 +26,6 @@ Related:
 
 #include <cstdint>
 #include <span>
-#include <vector>
 
 #include "../../Core/MainMemoryStats.h"
 
@@ -131,13 +130,13 @@ struct RuntimeRenderModelFrameView
     Physics::PhysicsEngine& physicsEngine;
     std::span<const float> worldExtensionDebugLines;
     std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords;
-    const std::vector<uint8_t>& collisionVisualContacts;
+    std::span<const uint8_t> collisionVisualContacts;
     std::span<const uint8_t> sleepStates;
     std::span<const int> sleepIslandVisualIds;
     std::span<const uint8_t> sleepSupportedStates;
     std::span<const uint8_t> sleepInhibitedStates;
-    const std::vector<Physics::PhysicsDebugContact>& physicsDebugContacts;
-    const std::vector<Physics::PhysicsPipelineRecord>& physicsPipelineTrace;
+    std::span<const Physics::PhysicsDebugContact> physicsDebugContacts;
+    std::span<const Physics::PhysicsPipelineRecord> physicsPipelineTrace;
     Threading::WorkerPool* renderWorkerPool;
     int modelCount = 0;
     bool renderCollisionVolumes = false;

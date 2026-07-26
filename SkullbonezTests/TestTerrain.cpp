@@ -174,6 +174,11 @@ TEST_CASE( "Physics terrain stage: candidate rows preserve model order and eligi
     LockOrderValidator lockOrderValidator;
     WorkerPool inlinePool( lockOrderValidator );
     PhysicsTerrainStage stage;
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        stage.ReserveSceneCapacity( 3u );
+    }
     const std::array<int, 1> awakeBodyIndices = { 0 };
 
     stage.Detect( bodies,

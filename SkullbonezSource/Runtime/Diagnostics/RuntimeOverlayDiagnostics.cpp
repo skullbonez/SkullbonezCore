@@ -182,7 +182,7 @@ void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneWorld& scene, RuntimeVal
                                                    scene.BodyStore().Count() };
 
     m_renderResources.m_physicsDebugOverlay.Update( static_cast<float>( secondsPerFrame ), physicsDebugView );
-    const std::vector<PhysicsDebugContact>& debugContacts = PhysicsEngine::ReadDebugContacts( physics );
+    const auto debugContacts = PhysicsEngine::ReadDebugContacts( physics );
     validationHarness.SceneGates().UpdateRequiredContacts( SceneAutomationGatePhysicsView { scene.BodyStore(),
                                                                                             scene.Colliders(),
                                                                                             debugContacts },

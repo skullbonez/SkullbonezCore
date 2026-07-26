@@ -25,7 +25,7 @@ Invariants:
     are the validation contract.
   - Support propagation reads fixed-body state from hot arrays, not directly
     from legacy model storage.
-  - Support-edge producers fail before the construction-reserved vector can
+  - Support-edge producers fail before the scene-committed list can
     grow during steady gameplay.
 
 Related:
@@ -36,11 +36,11 @@ Related:
 #pragma once
 
 #include "PhysicsBodyStore.h"
+#include "PhysicsStageCapacity.h"
 #include "../Core/SceneCapacity.h"
 
 #include <cstddef>
 #include <utility>
-#include <vector>
 
 namespace SkullbonezCore
 {
@@ -52,8 +52,8 @@ constexpr std::size_t MAX_SLEEP_SUPPORT_EDGES = static_cast<std::size_t>( Scene:
 
 // Lane F: support edges are hot solver output. Every producer uses this one
 // fail-before-grow boundary so contact density or point joints cannot escape
-// the construction-time reserve and allocate during steady gameplay.
-void AppendSleepSupportEdge( std::vector<std::pair<int, int>>& edges, int supporter, int supported );
+// the scene-load commit and allocate during steady gameplay.
+void AppendSleepSupportEdge( PhysicsCandidatePairList& edges, int supporter, int supported );
 void ValidateSleepSupportEdgeCount( std::size_t requested, std::size_t reservedCapacity, std::size_t highWater,
                                     const char* phase );
 

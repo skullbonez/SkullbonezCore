@@ -59,7 +59,6 @@ Related:
 #include "DisjointSet.h"
 #include "PhysicsApi.h"
 #include "PhysicsBodyStore.h"
-#include "PhysicsSceneVectorReserve.h"
 #include "SolverBroadphaseStage.h"
 #include "PhysicsWorldForces.h"
 #include "ColliderStore.h"
@@ -162,9 +161,9 @@ double EstimatePhysicsHotBytesPerBodyStep( int totalBodies, int forceAwakeBodies
 
 #endif
 
-template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values )
+template <typename T> uint64_t ListCapacityBytes( const T& values )
 {
-    return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
+    return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( typename T::value_type ) );
 }
 
 float SolverBodyRadius( std::span<const ColliderRecord> colliderRecords, int bodyIndex )
@@ -172,7 +171,7 @@ float SolverBodyRadius( std::span<const ColliderRecord> colliderRecords, int bod
     return colliderRecords[static_cast<size_t>( bodyIndex )].boundingRadius;
 }
 
-bool IsPointJointBodyPair( const PhysicsBodyStore& bodyStore, const std::vector<PointJointConstraint>& pointJointConstraints,
+bool IsPointJointBodyPair( const PhysicsBodyStore& bodyStore, std::span<const PointJointConstraint> pointJointConstraints,
                            int bodyA, int bodyB )
 {
 
@@ -298,9 +297,8 @@ void ReserveReplaySolverSnapshotVector( std::vector<T>& values, std::size_t requ
 // Invariant: replay solver state fields live in these X-macro lists so capture
 // clear/reserve/copy and restore copy cannot silently drift apart when solver
 // state grows.
-#define SB_REPLAY_SOLVER_DIRECT_VECTOR_FIELDS( VISIT ) VISIT( timeRemaining, m_timeRemaining, "timeRemaining" )
-
 #define SB_REPLAY_SOLVER_FIXED_LIST_FIELDS( VISIT )                                                                         \
+    VISIT( timeRemaining, m_timeRemaining, "timeRemaining" )                                                                \
     VISIT( collisionCellKeys, m_broadphase.CollisionCellKeysForReplay(), "collisionCellKeys" )
 
 #define SB_REPLAY_SOLVER_DIAGNOSTIC_VECTOR_FIELDS( VISIT )                                                                  \
@@ -333,7 +331,6 @@ void ReserveReplaySolverSnapshotVector( std::vector<T>& values, std::size_t requ
     VISIT( persistentContactCache, m_contactSolverStage.GetPersistentContactCache(), "persistentContactCache" )
 
 #define SB_REPLAY_SOLVER_VECTOR_FIELDS( VISIT )                                                                             \
-    SB_REPLAY_SOLVER_DIRECT_VECTOR_FIELDS( VISIT )                                                                          \
     SB_REPLAY_SOLVER_FIXED_LIST_FIELDS( VISIT )                                                                             \
     SB_REPLAY_SOLVER_SLEEP_VECTOR_FIELDS( VISIT )                                                                           \
     SB_REPLAY_SOLVER_DIAGNOSTIC_VECTOR_FIELDS( VISIT )                                                                      \
@@ -399,19 +396,16 @@ void PhysicsWorld::InvalidateBodyTopology()
 
 void PhysicsWorld::ReserveBodyScratchCapacity( std::size_t bodyCapacity, std::size_t pointJointCapacity )
 {
-    constexpr std::size_t bodyCeiling = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS;
-    ReservePhysicsSceneVector( m_timeRemaining, bodyCapacity, bodyCeiling, "PhysicsWorld.timeRemaining",
-                               "Exact scene body rows for fixed-step time scratch" );
-
-    ReservePhysicsSceneVector( m_pointJointConstraints, pointJointCapacity, bodyCeiling,
-                               "PhysicsWorld.pointJointConstraints", "Exact current-scene point-joint backing allowance" );
+    m_timeRemaining.Reserve( bodyCapacity );
+    m_pointJointConstraints.Reserve( pointJointCapacity );
 
     m_forceStage.ReserveBodyScratchCapacity( bodyCapacity );
     m_broadphase.ReserveSceneCapacity( bodyCapacity );
     m_narrowphase.ReserveSceneCapacity( bodyCapacity );
     m_contactSolverStage.ReserveSceneCapacity( bodyCapacity );
-    m_stepDiagnostics.ReserveDebugContactCapacity( bodyCapacity );
+    m_stepDiagnostics.ReserveSceneCapacity( bodyCapacity );
     m_sleepController.ReserveBodyCapacity( bodyCapacity, pointJointCapacity );
+    m_terrain.ReserveSceneCapacity( bodyCapacity );
     m_pointJointCapacity = pointJointCapacity;
 }
 
@@ -444,7 +438,7 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapsh
     bool snapshotNeedsGrowth = false;
     const auto includeSnapshotReserve = [&]( const auto& values, std::size_t requestedCapacity )
     {
-        oldSnapshotBytes += VectorCapacityBytes( values );
+        oldSnapshotBytes += ListCapacityBytes( values );
 
         requestedSnapshotBytes += ReplaySolverSnapshotRequestedBytes( values, requestedCapacity );
         snapshotNeedsGrowth = snapshotNeedsGrowth || requestedCapacity > values.capacity();
@@ -501,11 +495,14 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapsh
         reserveSnapshotVectors();
     }
 
-#define CAPTURE_REPLAY_SOLVER_VECTOR_FIELD( snapshotField, worldValues, label ) outSnapshot.snapshotField = worldValues;
-    SB_REPLAY_SOLVER_DIRECT_VECTOR_FIELDS( CAPTURE_REPLAY_SOLVER_VECTOR_FIELD )
-#undef CAPTURE_REPLAY_SOLVER_VECTOR_FIELD
-    const std::span<const int64_t> collisionCellKeys = m_broadphase.CollisionCellKeysForReplay();
-    outSnapshot.collisionCellKeys.assign( collisionCellKeys.begin(), collisionCellKeys.end() );
+#define CAPTURE_REPLAY_SOLVER_FIXED_LIST_FIELD( snapshotField, worldValues, label )                                         \
+    for ( const auto& value : worldValues )                                                                                 \
+    {                                                                                                                       \
+        outSnapshot.snapshotField.push_back( value );                                                                       \
+    }
+
+    SB_REPLAY_SOLVER_FIXED_LIST_FIELDS( CAPTURE_REPLAY_SOLVER_FIXED_LIST_FIELD )
+#undef CAPTURE_REPLAY_SOLVER_FIXED_LIST_FIELD
 
     m_sleepController.CaptureReplayState( outSnapshot );
     m_stepDiagnostics.CaptureReplayState( outSnapshot );
@@ -521,17 +518,16 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& sna
         return false;
     }
 
-#define RESTORE_REPLAY_SOLVER_VECTOR_FIELD( snapshotField, worldValues, label ) worldValues = snapshot.snapshotField;
-    SB_REPLAY_SOLVER_DIRECT_VECTOR_FIELDS( RESTORE_REPLAY_SOLVER_VECTOR_FIELD )
-#undef RESTORE_REPLAY_SOLVER_VECTOR_FIELD
-    PhysicsCollisionCellKeyList& collisionCellKeys = m_broadphase.CollisionCellKeysForReplay();
-    collisionCellKeys.Reserve( snapshot.collisionCellKeys.size() );
-    collisionCellKeys.clear();
-
-    for ( int64_t key : snapshot.collisionCellKeys )
-    {
-        collisionCellKeys.push_back( key );
+#define RESTORE_REPLAY_SOLVER_FIXED_LIST_FIELD( snapshotField, worldValues, label )                                         \
+    worldValues.Reserve( snapshot.snapshotField.size() );                                                                   \
+    worldValues.clear();                                                                                                    \
+    for ( const auto& value : snapshot.snapshotField )                                                                      \
+    {                                                                                                                       \
+        worldValues.push_back( value );                                                                                     \
     }
+
+    SB_REPLAY_SOLVER_FIXED_LIST_FIELDS( RESTORE_REPLAY_SOLVER_FIXED_LIST_FIELD )
+#undef RESTORE_REPLAY_SOLVER_FIXED_LIST_FIELD
 
     m_sleepController.RestoreReplayState( snapshot );
     m_stepDiagnostics.RestoreReplayState( snapshot );
@@ -542,7 +538,6 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& sna
     return true;
 }
 
-#undef SB_REPLAY_SOLVER_DIRECT_VECTOR_FIELDS
 #undef SB_REPLAY_SOLVER_FIXED_LIST_FIELDS
 #undef SB_REPLAY_SOLVER_SLEEP_VECTOR_FIELDS
 #undef SB_REPLAY_SOLVER_DIAGNOSTIC_VECTOR_FIELDS
@@ -1151,7 +1146,7 @@ bool PhysicsWorld::DestroyConstraint( PhysicsConstraintHandle constraint )
 }
 
 
-const std::vector<PointJointConstraint>& PhysicsWorld::GetPointJointConstraints() const
+const PhysicsBodyRowList<PointJointConstraint>& PhysicsWorld::GetPointJointConstraints() const
 {
     return m_pointJointConstraints;
 }
@@ -1262,13 +1257,13 @@ uint64_t PhysicsWorld::CollectMemoryBytes() const
     uint64_t bytes = static_cast<uint64_t>( sizeof( *this ) );
     bytes += m_forceStage.CollectDynamicMemoryBytes();
     bytes += m_broadphase.CollectDynamicMemoryBytes();
-    bytes += VectorCapacityBytes( m_timeRemaining );
+    bytes += ListCapacityBytes( m_timeRemaining );
     bytes += m_sleepController.CollectDynamicMemoryBytes();
     bytes += m_stepDiagnostics.CollectDynamicMemoryBytes();
     bytes += m_contactSolverStage.CollectDynamicMemoryBytes();
     bytes += m_terrain.CollectDynamicMemoryBytes();
     bytes += m_narrowphase.CollectDynamicMemoryBytes();
-    bytes += VectorCapacityBytes( m_pointJointConstraints );
+    bytes += ListCapacityBytes( m_pointJointConstraints );
     bytes += m_externalForceStage.CollectMemoryBytes();
     return bytes;
 }
@@ -1277,7 +1272,7 @@ uint64_t PhysicsWorld::CollectDebugAndBroadphaseMemoryBytes() const
 {
     uint64_t bytes = m_broadphase.CollectDebugAndBroadphaseMemoryBytes();
     bytes += m_stepDiagnostics.CollectDebugMemoryBytes();
-    bytes += VectorCapacityBytes( m_sleepController.GetSleepIslandVisualIdVector() );
+    bytes += m_sleepController.GetSleepIslandVisualIdCapacityBytes();
     return bytes;
 }
 
@@ -1294,7 +1289,7 @@ std::span<const int64_t> PhysicsWorld::GetCollisionCellKeys() const
 }
 
 
-const std::vector<uint8_t>& PhysicsWorld::GetCollisionVisualContacts() const
+std::span<const uint8_t> PhysicsWorld::GetCollisionVisualContacts() const
 {
     return m_stepDiagnostics.GetCollisionVisualContacts();
 }
@@ -1336,13 +1331,13 @@ std::span<const uint8_t> PhysicsWorld::GetSleepInhibitedStates() const
 }
 
 
-const std::vector<PhysicsDebugContact>& PhysicsWorld::GetPhysicsDebugContacts() const
+std::span<const PhysicsDebugContact> PhysicsWorld::GetPhysicsDebugContacts() const
 {
     return m_stepDiagnostics.GetDebugContacts();
 }
 
 
-const std::vector<PhysicsPipelineRecord>& PhysicsWorld::GetPhysicsPipelineTrace() const
+std::span<const PhysicsPipelineRecord> PhysicsWorld::GetPhysicsPipelineTrace() const
 {
     return m_stepDiagnostics.GetPipelineTrace();
 }

@@ -126,6 +126,11 @@ PhysicsStepDiagnostics& TestStepDiagnostics()
     // scene capacity. Static storage mirrors the runtime owner and keeps two
     // simultaneous warm-start fixtures within the doctest stack budget.
     static PhysicsStepDiagnostics diagnostics;
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        diagnostics.ReserveSceneCapacity( 16u );
+    }
     diagnostics.Clear();
     return diagnostics;
 }
@@ -136,8 +141,10 @@ struct SolverFixture
     ColliderStore& colliderStore;
     std::vector<std::pair<int, int>> candidatePairs;
     std::vector<uint8_t> sleepState;
-    std::vector<std::pair<int, int>> sleepSupportEdges;
-    std::vector<TerrainContactManifold> terrainContactManifolds;
+    SkullbonezCore::Physics::PhysicsCandidatePairList sleepSupportEdges { "TestPersistentContactSolver.sleepSupportEdges" };
+    SkullbonezCore::Physics::PhysicsBodyRowList<TerrainContactManifold> terrainContactManifolds {
+        "TestPersistentContactSolver.terrainContactManifolds"
+    };
     std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> terrainRestApplied = {};
     std::vector<uint8_t> sleepSupportedThisFrame;
     SkullbonezCore::Physics::PhysicsRuntimeSettings config;
@@ -150,14 +157,11 @@ struct SolverFixture
         colliderStore( TestColliderStore() ),
         diagnostics( TestStepDiagnostics() )
     {
-        // Runtime support edges are construction-reserved to their fixed cap;
-        // mirror that owner precondition so focused solver tests cannot hide a
-        // growth path behind their smaller fixture vector.
-        sleepSupportEdges.reserve( MAX_SLEEP_SUPPORT_EDGES );
-
         {
             SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
                 SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+            sleepSupportEdges.Reserve( MAX_SLEEP_SUPPORT_EDGES );
+            terrainContactManifolds.Reserve( 16u );
             solver.ReserveSceneCapacity( 16u );
         }
 

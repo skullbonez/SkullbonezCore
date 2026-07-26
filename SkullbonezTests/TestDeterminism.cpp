@@ -882,8 +882,7 @@ ReplaySolverBodySample CaptureMicroWorldReplayBodySample( const PhysicsEngine& e
     const auto sleepStates = SkullbonezCore::Physics::PhysicsEngine::ReadSleepStates( engine );
     const auto sleepSupportedStates = SkullbonezCore::Physics::PhysicsEngine::ReadSleepSupportedStates( engine );
     const auto sleepInhibitedStates = SkullbonezCore::Physics::PhysicsEngine::ReadSleepInhibitedStates( engine );
-    const std::vector<uint8_t>& collisionContacts =
-        SkullbonezCore::Physics::PhysicsEngine::ReadCollisionVisualContacts( engine );
+    const auto collisionContacts = SkullbonezCore::Physics::PhysicsEngine::ReadCollisionVisualContacts( engine );
     const auto sleepIslandIds = SkullbonezCore::Physics::PhysicsEngine::ReadSleepIslandVisualIds( engine );
     body.sleeping = bodyIndex < sleepStates.size() && sleepStates[bodyIndex] != 0;
     body.sleepSupported = bodyIndex < sleepSupportedStates.size() && sleepSupportedStates[bodyIndex] != 0;

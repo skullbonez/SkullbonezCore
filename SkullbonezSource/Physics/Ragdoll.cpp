@@ -189,7 +189,7 @@ bool IsBodySleeping( int bodyIndex, std::span<const uint8_t> sleepState )
 }
 
 
-bool ApplyNeckSwingLimits( PhysicsBodyStore& bodyStore, const std::vector<PointJointConstraint>& constraints,
+bool ApplyNeckSwingLimits( PhysicsBodyStore& bodyStore, std::span<const PointJointConstraint> constraints,
                            std::span<const uint8_t> sleepState )
 {
     const PhysicsBodyHotFieldsView hotFields = bodyStore.MutableHotFields();
@@ -382,7 +382,7 @@ void Ragdoll::AddPreviewLines( std::vector<float>& lineData, const Vector3& terr
     }
 }
 
-bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore, const std::vector<PointJointConstraint>& constraints,
+bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore, std::span<const PointJointConstraint> constraints,
                                 std::span<const uint8_t> sleepState, float dt )
 {
 

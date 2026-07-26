@@ -466,7 +466,14 @@ TEST_CASE( "Physics sleep awake list: one-frame transitions visit every row whil
     const std::vector<SkullbonezCore::Physics::PersistentContact> contacts;
     const std::array<uint16_t, 4> restingCounts = { 0u, 0u, 0u, 0u };
     const std::vector<SkullbonezCore::Physics::PointJointConstraint> joints;
-    std::vector<SkullbonezCore::Physics::PhysicsPipelineRecord> pipeline;
+    SkullbonezCore::Physics::PhysicsPipelineRowList<SkullbonezCore::Physics::PhysicsPipelineRecord> pipeline {
+        "TestPhysicsStageState.pipeline"
+    };
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        pipeline.Reserve( 16u );
+    }
     PhysicsWorldForces worldForces;
     std::array<BuoyancyBodyFacts, 4> buoyancyFacts;
     const SkullbonezCore::Physics::PhysicsSleepStepPolicy sleepPolicy { 0.01f, 0.01f, 1u };
@@ -511,7 +518,14 @@ TEST_CASE( "Physics sleep point-joint island: stretched anchors block relaxation
         const std::vector<SkullbonezCore::Physics::PersistentContact> contacts;
         std::array<float, 2> timeRemaining = { 1.0f / 120.0f, 1.0f / 120.0f };
         std::array<uint16_t, 2> restingCounts = { 0u, 0u };
-        std::vector<SkullbonezCore::Physics::PhysicsPipelineRecord> pipeline;
+        SkullbonezCore::Physics::PhysicsPipelineRowList<SkullbonezCore::Physics::PhysicsPipelineRecord> pipeline {
+            "TestPhysicsStageState.pointJointPipeline"
+        };
+        {
+            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+                SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+            pipeline.Reserve( 16u );
+        }
         PhysicsWorldForces worldForces;
         std::array<BuoyancyBodyFacts, 2> buoyancyFacts;
         PhysicsSleepController controller;

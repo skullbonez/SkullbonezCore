@@ -45,12 +45,12 @@ Related:
 #include <cstdint>
 #include <span>
 #include <utility>
-#include <vector>
 
 #include "ColliderStore.h"
 #include "PhysicsBodyStore.h"
 #include "PhysicsDiagnosticsSink.h"
 #include "PhysicsDebugData.h"
+#include "PhysicsStageCapacity.h"
 #include "Ragdoll.h"
 #include "PhysicsSolverSnapshot.h"
 #include "PhysicsRuntimeSettings.h"
@@ -136,7 +136,7 @@ class PhysicsWorld
 
     // Invariant: narrowphase, terrain, and final integration all write this
     // cross-stage CCD clock, so it deliberately remains on the sequencer.
-    std::vector<float> m_timeRemaining;
+    PhysicsBodyRowList<float> m_timeRemaining { "PhysicsWorld.timeRemaining" };
     float m_lastTimeRemainingStep = 0.0f;
     bool m_lastTimeRemainingStepValid = false;
 
@@ -160,7 +160,7 @@ class PhysicsWorld
 
     // Point joints are PhysicsWorld-owned solver state; the solver and sleep
     // owner borrow the dense rows synchronously.
-    std::vector<PointJointConstraint> m_pointJointConstraints;
+    PhysicsBodyRowList<PointJointConstraint> m_pointJointConstraints { "PhysicsWorld.pointJointConstraints" };
     std::size_t m_pointJointCapacity = 0u;
     uint32_t m_nextPointJointHandleIndex = 0u;
     uint32_t m_pointJointHandleGeneration = PHYSICS_HANDLE_INITIAL_GENERATION;
@@ -232,7 +232,7 @@ class PhysicsWorld
     PhysicsConstraintHandle CreatePointJoint( const PhysicsPointJointCreateDesc& desc );
     bool UpdatePointJoint( const PhysicsPointJointUpdateDesc& desc );
     bool DestroyConstraint( PhysicsConstraintHandle constraint );
-    const std::vector<PointJointConstraint>& GetPointJointConstraints() const;
+    const PhysicsBodyRowList<PointJointConstraint>& GetPointJointConstraints() const;
     void CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapshot, int modelCount ) const;
     bool RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, int modelCount );
     PhysicsDiagnosticsView GetDiagnosticsView() const;
@@ -240,7 +240,7 @@ class PhysicsWorld
     uint64_t CollectDebugAndBroadphaseMemoryBytes() const;
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const;
     std::span<const int64_t> GetCollisionCellKeys() const;
-    const std::vector<uint8_t>& GetCollisionVisualContacts() const;
+    std::span<const uint8_t> GetCollisionVisualContacts() const;
     std::span<const int> GetFixedContactHighlightBodies() const;
 
     // Returns solver-emitted fixed-tree releases from the latest step. The
@@ -250,8 +250,8 @@ class PhysicsWorld
     std::span<const int> GetSleepIslandVisualIds() const;
     std::span<const uint8_t> GetSleepSupportedStates() const;
     std::span<const uint8_t> GetSleepInhibitedStates() const;
-    const std::vector<PhysicsDebugContact>& GetPhysicsDebugContacts() const;
-    const std::vector<PhysicsPipelineRecord>& GetPhysicsPipelineTrace() const;
+    std::span<const PhysicsDebugContact> GetPhysicsDebugContacts() const;
+    std::span<const PhysicsPipelineRecord> GetPhysicsPipelineTrace() const;
 
 #ifdef _DEBUG
     void SetPhysicsRegressionLogPath( const char* path );
@@ -266,21 +266,21 @@ struct PhysicsDiagnosticsView
 {
     std::span<const PersistentContact> persistentContacts;
     const PersistentContactSolverStats& persistentContactSolverStats;
-    const std::vector<int>& sleepIslandParent;
-    const std::vector<uint8_t>& sleepSupportedThisFrame;
-    const std::vector<uint8_t>& sleepInhibitedThisFrame;
-    const std::vector<uint8_t>& sleepState;
-    const std::vector<uint8_t>& sleepCounter;
-    const std::vector<uint8_t>& sleepIslandEligible;
-    const std::vector<uint8_t>& sleepIslandCanSleep;
-    const std::vector<PointJointConstraint>& pointJointConstraints;
+    std::span<const int> sleepIslandParent;
+    std::span<const uint8_t> sleepSupportedThisFrame;
+    std::span<const uint8_t> sleepInhibitedThisFrame;
+    std::span<const uint8_t> sleepState;
+    std::span<const uint8_t> sleepCounter;
+    std::span<const uint8_t> sleepIslandEligible;
+    std::span<const uint8_t> sleepIslandCanSleep;
+    std::span<const PointJointConstraint> pointJointConstraints;
     const Math::CollisionDetection::SpatialGrid& spatialGrid;
     std::span<const std::pair<int, int>> candidatePairs;
     std::span<const int64_t> collisionCellKeys;
-    const std::vector<std::pair<int, int>>& sleepSupportEdges;
-    const std::vector<int>& sleepIslandVisualId;
-    const std::vector<PhysicsPipelineRecord>& physicsPipelineTrace;
-    const std::vector<TerrainContactManifold>& terrainContactManifolds;
+    std::span<const std::pair<int, int>> sleepSupportEdges;
+    std::span<const int> sleepIslandVisualId;
+    std::span<const PhysicsPipelineRecord> physicsPipelineTrace;
+    std::span<const TerrainContactManifold> terrainContactManifolds;
 };
 
 } // namespace Physics

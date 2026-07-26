@@ -363,7 +363,7 @@ class PhysicsBodyStore
     bool RestoreReplayBodyState( const PhysicsBodyRestoreState& restore );
     void RefreshRecordFromDescriptorAt( const PhysicsBodyCreateDesc& desc, int modelIndex );
     void CopySleepStatesFrom( std::span<const uint8_t> sleepStates );
-    void CopySleepStatesTo( std::vector<uint8_t>& sleepStates ) const;
+    void CopySleepStatesTo( std::span<uint8_t> sleepStates ) const;
 
     // Cold descriptor refresh keeps scene identity with the body store. Scene
     // owners supply only the row count; missing rows receive fresh store-scanned ids.

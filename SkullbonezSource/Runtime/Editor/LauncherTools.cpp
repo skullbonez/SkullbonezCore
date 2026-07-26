@@ -325,7 +325,7 @@ LauncherReproSnapshotStatus RuntimeTools::WriteLauncherReproSnapshot( const Laun
         sleepInhibited = sleepInhibitedStates[targetIndex] ? 1 : 0;
     }
 
-    const std::vector<uint8_t>& collisionContacts = PhysicsEngine::ReadCollisionVisualContacts( physics );
+    const auto collisionContacts = PhysicsEngine::ReadCollisionVisualContacts( physics );
 
     if ( targetIndex < static_cast<int>( collisionContacts.size() ) )
     {

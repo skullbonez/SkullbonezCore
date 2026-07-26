@@ -269,8 +269,7 @@ void PhysicsSleepController::WakeSleepVisualIsland( PhysicsBodyStore& bodyStore,
 }
 
 void PhysicsSleepController::WakePointJointIsland( PhysicsBodyStore& bodyStore, PhysicsContactCacheWakeAccess contactCache,
-                                                   const std::vector<PointJointConstraint>& pointJointConstraints,
-                                                   int index )
+                                                   std::span<const PointJointConstraint> pointJointConstraints, int index )
 {
     const int modelCount = (std::min)( bodyStore.Count(), static_cast<int>( bodyStore.Records().size() ) );
 
@@ -455,7 +454,7 @@ bool PhysicsSleepController::PrepareExplicitWake( PhysicsBodyStore& bodyStore, i
 
 void PhysicsSleepController::WakeModel( PhysicsBodyStore& bodyStore, PhysicsContactCacheWakeAccess contactCache,
                                         std::span<const PersistentContact> persistentContacts,
-                                        const std::vector<PointJointConstraint>& pointJointConstraints, int index )
+                                        std::span<const PointJointConstraint> pointJointConstraints, int index )
 {
 
     if ( PrepareExplicitWake( bodyStore, index ) )
@@ -476,7 +475,7 @@ void PhysicsSleepController::WakeModel( PhysicsBodyStore& bodyStore, const Colli
                                         const PhysicsWorldForces& worldForces, std::span<BuoyancyBodyFacts> buoyancyFacts,
                                         std::span<float> timeRemaining, PhysicsContactCacheWakeAccess contactCache,
                                         std::span<const PersistentContact> persistentContacts,
-                                        const std::vector<PointJointConstraint>& pointJointConstraints, int index )
+                                        std::span<const PointJointConstraint> pointJointConstraints, int index )
 {
 
     if ( PrepareExplicitWake( bodyStore, index ) )

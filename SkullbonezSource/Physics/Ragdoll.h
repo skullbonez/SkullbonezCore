@@ -158,7 +158,7 @@ class Ragdoll
                                                        const Math::Orientation::Quaternion& orientation );
     static void AddPreviewLines( std::vector<float>& lineData, const Math::Vector::Vector3& terrainPoint, float scale,
                                  const Math::Orientation::Quaternion& orientation, float r, float g, float b );
-    static bool SolvePointJoints( PhysicsBodyStore& bodyStore, const std::vector<PointJointConstraint>& constraints,
+    static bool SolvePointJoints( PhysicsBodyStore& bodyStore, std::span<const PointJointConstraint> constraints,
                                   std::span<const uint8_t> sleepState, float dt );
 };
 } // namespace Physics

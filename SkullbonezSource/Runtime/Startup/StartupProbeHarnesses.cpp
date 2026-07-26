@@ -619,7 +619,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     const PhysicsBodyStore& bodyStore = collection->Scene().BodyStore();
     const ColliderStore& colliderStore = collection->Scene().Colliders();
     const RenderInstanceStore& renderStore = collection->Scene().GetRenderInstanceStore();
-    const std::vector<PointJointConstraint>& pointJoints = PhysicsEngine::ReadPointJointConstraints( collection->Scene().Physics() );
+    const auto& pointJoints = PhysicsEngine::ReadPointJointConstraints( collection->Scene().Physics() );
 
     const size_t initialColliderCount = colliderStore.Count();
     const ColliderRecord initialCollider = colliderStore.Records()[0];

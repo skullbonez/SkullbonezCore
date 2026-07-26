@@ -62,6 +62,9 @@ constexpr std::size_t PhysicsMutualGravityPairCapacity( std::size_t bodyCapacity
     return pairBodies > 1u ? pairBodies * ( pairBodies - 1u ) / 2u : 0u;
 }
 
+template <typename T> using PhysicsBodyRowList = PhysicsFixedList<T, PHYSICS_MAX_BODY_ROWS>;
+template <typename T> using PhysicsContactRowList = PhysicsFixedList<T, PHYSICS_MAX_CONTACT_ROWS>;
+template <typename T> using PhysicsPipelineRowList = PhysicsFixedList<T, PHYSICS_MAX_PIPELINE_TRACE_RECORDS>;
 using PhysicsCandidatePairList = PhysicsFixedList<std::pair<int, int>, PHYSICS_MAX_CANDIDATE_PAIRS>;
 using PhysicsCollisionCellKeyList = PhysicsFixedList<int64_t, PHYSICS_MAX_CANDIDATE_PAIRS>;
 } // namespace SkullbonezCore::Physics

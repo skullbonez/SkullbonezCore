@@ -22,7 +22,7 @@ Invariants:
   - Candidate commit remains serial in ascending model order.
   - Detection worker slots map to ascending awake indices and retain per-body
     candidate identity regardless of worker scheduling.
-  - Manifold and candidate vectors are construction-reserved to scene capacity.
+  - Manifold and candidate lists are committed to exact scene capacity.
 
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsTerrainStage.cpp
@@ -35,13 +35,13 @@ Related:
 #include <cstddef>
 #include <cstdint>
 #include <span>
-#include <vector>
 
 #include "../../Core/SceneCapacity.h"
 #include "../BuoyancySystem.h"
 #include "../PhysicsDebugData.h"
 #include "../PhysicsBodyStore.h"
 #include "../PhysicsRuntimeSettings.h"
+#include "../PhysicsStageCapacity.h"
 #include "../TerrainContactManifold.h"
 
 namespace SkullbonezCore
@@ -88,8 +88,8 @@ struct PreparedTerrainCandidateCommit
 class PhysicsTerrainStage
 {
   private:
-    std::vector<TerrainDetectionCandidate> m_detectionCandidates;
-    std::vector<TerrainContactManifold> m_contactManifolds;
+    PhysicsBodyRowList<TerrainDetectionCandidate> m_detectionCandidates { "PhysicsTerrainStage.detectionCandidates" };
+    PhysicsBodyRowList<TerrainContactManifold> m_contactManifolds { "PhysicsTerrainStage.contactManifolds" };
     std::array<uint8_t, Scene::Capacity::MAX_SCENE_OBJECTS> m_restApplied = {};
 
     void DetectTerrainAt( std::span<const PhysicsBodyRecord> bodyRecords, std::span<const BuoyancyBodyFacts> buoyancyFacts,
@@ -100,6 +100,7 @@ class PhysicsTerrainStage
 
   public:
     PhysicsTerrainStage();
+    void ReserveSceneCapacity( std::size_t bodyCapacity );
 
     void Clear();
     void BeginFrame();
@@ -125,8 +126,8 @@ class PhysicsTerrainStage
                           std::span<uint8_t> sleepInhibitedThisFrame );
 
     std::span<const TerrainDetectionCandidate> GetDetectionCandidates() const;
-    std::vector<TerrainContactManifold>& GetContactManifolds();
-    const std::vector<TerrainContactManifold>& GetContactManifolds() const;
+    PhysicsBodyRowList<TerrainContactManifold>& GetContactManifolds();
+    std::span<const TerrainContactManifold> GetContactManifolds() const;
     std::span<uint8_t> GetRestApplied();
     uint64_t CollectDynamicMemoryBytes() const;
 };

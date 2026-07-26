@@ -46,9 +46,9 @@ constexpr int TERRAIN_BODY_INDEX = -1;
 constexpr int PHYSICS_PARALLEL_MIN_BODIES = 512;
 constexpr uint32_t PHYSICS_TERRAIN_DETECT_WORKER_HASH = HashStr( "Frame/Physics/Terrain/Detect/WorkerBodies" );
 
-template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values )
+template <typename T> uint64_t ListCapacityBytes( const T& values )
 {
-    return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
+    return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( typename T::value_type ) );
 }
 
 bool IsSolverBodyFixed( const PhysicsBodyHotFieldsConstView& hotFields, int bodyIndex )
@@ -76,10 +76,12 @@ TerrainContactBodyView TerrainContactBodyViewForIndex( std::span<const BuoyancyB
 }
 } // namespace
 
-PhysicsTerrainStage::PhysicsTerrainStage()
+PhysicsTerrainStage::PhysicsTerrainStage() = default;
+
+void PhysicsTerrainStage::ReserveSceneCapacity( std::size_t bodyCapacity )
 {
-    m_detectionCandidates.reserve( Scene::Capacity::MAX_SCENE_OBJECTS );
-    m_contactManifolds.reserve( Scene::Capacity::MAX_SCENE_OBJECTS );
+    m_detectionCandidates.Reserve( bodyCapacity );
+    m_contactManifolds.Reserve( bodyCapacity );
 }
 
 void PhysicsTerrainStage::Clear()
@@ -247,12 +249,12 @@ std::span<const TerrainDetectionCandidate> PhysicsTerrainStage::GetDetectionCand
     return m_detectionCandidates;
 }
 
-std::vector<TerrainContactManifold>& PhysicsTerrainStage::GetContactManifolds()
+PhysicsBodyRowList<TerrainContactManifold>& PhysicsTerrainStage::GetContactManifolds()
 {
     return m_contactManifolds;
 }
 
-const std::vector<TerrainContactManifold>& PhysicsTerrainStage::GetContactManifolds() const
+std::span<const TerrainContactManifold> PhysicsTerrainStage::GetContactManifolds() const
 {
     return m_contactManifolds;
 }
@@ -264,5 +266,5 @@ std::span<uint8_t> PhysicsTerrainStage::GetRestApplied()
 
 uint64_t PhysicsTerrainStage::CollectDynamicMemoryBytes() const
 {
-    return VectorCapacityBytes( m_detectionCandidates ) + VectorCapacityBytes( m_contactManifolds );
+    return ListCapacityBytes( m_detectionCandidates ) + ListCapacityBytes( m_contactManifolds );
 }

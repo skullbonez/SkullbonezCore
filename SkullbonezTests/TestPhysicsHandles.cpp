@@ -693,9 +693,9 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
     RuntimeReserveGrowthEventView events[128] = {};
     const int eventCount = RuntimeReserveAllocator::CopyRecentGrowthEvents( events, 128 );
 #if defined( _DEBUG )
-    REQUIRE( eventCount == 89 );
+    REQUIRE( eventCount == 92 );
 #else
-    REQUIRE( eventCount == 86 );
+    REQUIRE( eventCount == 89 );
 #endif
     CHECK( static_cast<uint64_t>( eventCount ) == RuntimeReserveAllocator::GrowthEventCount() );
 
@@ -709,12 +709,12 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
         }
     }
 
-    struct ExpectedVectorGrowth
+    struct ExpectedFixedRowGrowth
     {
         const char* ownerName;
         int requestedCapacity;
     };
-    const ExpectedVectorGrowth expectedVectorGrowth[] = {
+    const ExpectedFixedRowGrowth expectedFixedRowGrowth[] = {
         { "PhysicsEngine.m_authoredBodyDescs", 2000 },
         { "PhysicsWorld.timeRemaining", 2000 },
         { "PhysicsWorld.pointJointConstraints", 24 },
@@ -743,6 +743,7 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
         { "PhysicsContactSolverStage.fixedContactBodies", 48000 },
         { "PhysicsContactSolverStage.releaseWakeBodies", 2000 },
         { "PhysicsContactSolverStage.fixedTreeReleases", 2000 },
+        { "PhysicsStepDiagnostics.collisionVisualContacts", 2000 },
         { "PhysicsStepDiagnostics.physicsDebugContacts", 48000 },
         { "PhysicsSleepController.m_sleepSupportedThisFrame", 2000 },
         { "PhysicsSleepController.m_sleepInhibitedThisFrame", 2000 },
@@ -761,9 +762,11 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
         { "PhysicsSleepController.m_sleepVisualIslandIds", 2000 },
         { "PhysicsSleepController.m_sleepVisualIslandBodies", 2000 },
         { "PhysicsSleepController.m_restingWakeQueueScratch", 2000 },
+        { "PhysicsTerrainStage.detectionCandidates", 2000 },
+        { "PhysicsTerrainStage.contactManifolds", 2000 },
     };
 
-    for ( const ExpectedVectorGrowth& expected : expectedVectorGrowth )
+    for ( const ExpectedFixedRowGrowth& expected : expectedFixedRowGrowth )
     {
         int matchingEvents = 0;
 

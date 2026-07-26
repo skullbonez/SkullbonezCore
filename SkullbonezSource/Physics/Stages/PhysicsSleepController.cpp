@@ -35,7 +35,6 @@ Related:
 #include "../ColliderStore.h"
 #include "../DisjointSet.h"
 #include "../PhysicsBodyStore.h"
-#include "../PhysicsSceneVectorReserve.h"
 #include "../PhysicsWorldForces.h"
 
 #include <algorithm>
@@ -50,14 +49,12 @@ constexpr float POINT_JOINT_SLEEP_MIN_ERROR_TOLERANCE = 0.15f;
 constexpr float POINT_JOINT_SLEEP_SLACK_TOLERANCE_SCALE = 0.75f;
 constexpr float POINT_JOINT_SLEEP_LINEAR_SPEED_SCALE = 6.0f;
 constexpr float POINT_JOINT_SLEEP_ANGULAR_SPEED_SCALE = 6.0f;
-constexpr std::size_t MAX_PIPELINE_TRACE_RECORDS = 4096;
-
 bool IsSolverBodyFixed( const PhysicsBodyHotFieldsConstView& hotFields, int bodyIndex )
 {
     return hotFields.fixed[static_cast<std::size_t>( bodyIndex )] != 0u;
 }
 
-bool IsPointJointBodyPair( const PhysicsBodyStore& bodyStore, const std::vector<PointJointConstraint>& pointJointConstraints,
+bool IsPointJointBodyPair( const PhysicsBodyStore& bodyStore, std::span<const PointJointConstraint> pointJointConstraints,
                            int bodyA, int bodyB )
 {
 
@@ -75,10 +72,10 @@ bool IsPointJointBodyPair( const PhysicsBodyStore& bodyStore, const std::vector<
     return false;
 }
 
-void RecordPipelineStage( std::vector<PhysicsPipelineRecord>& trace, const PhysicsPipelineRecord& record )
+void RecordPipelineStage( PhysicsPipelineRowList<PhysicsPipelineRecord>& trace, const PhysicsPipelineRecord& record )
 {
 
-    if ( trace.size() < MAX_PIPELINE_TRACE_RECORDS )
+    if ( trace.size() < PHYSICS_MAX_PIPELINE_TRACE_RECORDS )
     {
         trace.push_back( record );
     }
@@ -100,11 +97,11 @@ void SkullbonezCore::Physics::ValidateSleepSupportEdgeCount( std::size_t request
               requested, MAX_SLEEP_SUPPORT_EDGES, reservedCapacity, highWater, phase );
 }
 
-void SkullbonezCore::Physics::AppendSleepSupportEdge( std::vector<std::pair<int, int>>& edges, int supporter, int supported )
+void SkullbonezCore::Physics::AppendSleepSupportEdge( PhysicsCandidatePairList& edges, int supporter, int supported )
 {
 
     // Hazard: checking the semantic cap alone would still let an incorrectly
-    // initialized vector grow below that cap. The actual construction reserve
+    // initialized list overrun below that cap. The actual scene-load commit
     // is part of the fail-before-grow contract too.
     ValidateSleepSupportEdgeCount( edges.size() + 1u, edges.capacity(), edges.size(), "steady_gameplay" );
     edges.emplace_back( supporter, supported );
@@ -115,30 +112,25 @@ PhysicsSleepController::PhysicsSleepController() = default;
 
 void PhysicsSleepController::ReserveBodyCapacity( std::size_t bodyCapacity, std::size_t pointJointCapacity )
 {
-    constexpr std::size_t bodyCeiling = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS;
-    const auto reserveBodyRows = [&]( auto& values, const char* ownerName )
-    {
-        ReservePhysicsSceneVector( values, bodyCapacity, bodyCeiling, ownerName,
-                                   "Exact scene body rows for sleep and island state" );
-    };
+    const auto reserveBodyRows = [&]( auto& values ) { values.Reserve( bodyCapacity ); };
 
-    reserveBodyRows( m_sleepSupportedThisFrame, "PhysicsSleepController.m_sleepSupportedThisFrame" );
-    reserveBodyRows( m_sleepInhibitedThisFrame, "PhysicsSleepController.m_sleepInhibitedThisFrame" );
-    reserveBodyRows( m_sleepState, "PhysicsSleepController.m_sleepState" );
-    reserveBodyRows( m_sleepCounter, "PhysicsSleepController.m_sleepCounter" );
-    reserveBodyRows( m_underwaterSleepLocked, "PhysicsSleepController.m_underwaterSleepLocked" );
-    reserveBodyRows( m_sleepIslandVisualId, "PhysicsSleepController.m_sleepIslandVisualId" );
-    reserveBodyRows( m_sleepIslandAssignedVisualId, "PhysicsSleepController.m_sleepIslandAssignedVisualId" );
-    reserveBodyRows( m_sleepIslandParent, "PhysicsSleepController.m_sleepIslandParent" );
-    reserveBodyRows( m_sleepIslandRank, "PhysicsSleepController.m_sleepIslandRank" );
-    reserveBodyRows( m_sleepIslandHasAwake, "PhysicsSleepController.m_sleepIslandHasAwake" );
-    reserveBodyRows( m_sleepIslandHasSupportAnchor, "PhysicsSleepController.m_sleepIslandHasSupportAnchor" );
-    reserveBodyRows( m_sleepIslandEligible, "PhysicsSleepController.m_sleepIslandEligible" );
-    reserveBodyRows( m_sleepIslandCanSleep, "PhysicsSleepController.m_sleepIslandCanSleep" );
-    reserveBodyRows( m_sleepScratchFlags, "PhysicsSleepController.m_sleepScratchFlags" );
-    reserveBodyRows( m_sleepVisualIslandIds, "PhysicsSleepController.m_sleepVisualIslandIds" );
-    reserveBodyRows( m_sleepVisualIslandBodies, "PhysicsSleepController.m_sleepVisualIslandBodies" );
-    reserveBodyRows( m_restingWakeQueueScratch, "PhysicsSleepController.m_restingWakeQueueScratch" );
+    reserveBodyRows( m_sleepSupportedThisFrame );
+    reserveBodyRows( m_sleepInhibitedThisFrame );
+    reserveBodyRows( m_sleepState );
+    reserveBodyRows( m_sleepCounter );
+    reserveBodyRows( m_underwaterSleepLocked );
+    reserveBodyRows( m_sleepIslandVisualId );
+    reserveBodyRows( m_sleepIslandAssignedVisualId );
+    reserveBodyRows( m_sleepIslandParent );
+    reserveBodyRows( m_sleepIslandRank );
+    reserveBodyRows( m_sleepIslandHasAwake );
+    reserveBodyRows( m_sleepIslandHasSupportAnchor );
+    reserveBodyRows( m_sleepIslandEligible );
+    reserveBodyRows( m_sleepIslandCanSleep );
+    reserveBodyRows( m_sleepScratchFlags );
+    reserveBodyRows( m_sleepVisualIslandIds );
+    reserveBodyRows( m_sleepVisualIslandBodies );
+    reserveBodyRows( m_restingWakeQueueScratch );
 
     const std::size_t pairCapacity = (std::min)( bodyCapacity * ( bodyCapacity > 0u ? bodyCapacity - 1u : 0u ) / 2u,
                                                  MAX_SLEEP_SUPPORT_EDGES );
@@ -147,9 +139,7 @@ void PhysicsSleepController::ReserveBodyCapacity( std::size_t bodyCapacity, std:
                                                         (std::min)( pointJointCapacity, MAX_SLEEP_SUPPORT_EDGES / 2u ) * 2u,
                                                     MAX_SLEEP_SUPPORT_EDGES );
 
-    ReservePhysicsSceneVector( m_sleepSupportEdges, supportCapacity, MAX_SLEEP_SUPPORT_EDGES,
-                               "PhysicsSleepController.m_sleepSupportEdges",
-                               "Bounded candidate-pair and point-joint support edges for the scene" );
+    m_sleepSupportEdges.Reserve( supportCapacity );
 
     m_awakeBodyIndices.Reserve( bodyCapacity );
     m_awakeListPositions.Reserve( bodyCapacity );
@@ -438,7 +428,7 @@ void PhysicsSleepController::PropagateSupport( const PhysicsBodyStore& bodyStore
 }
 
 void PhysicsSleepController::AppendPointJointSupportEdges( const PhysicsBodyStore& bodyStore,
-                                                           const std::vector<PointJointConstraint>& pointJointConstraints,
+                                                           std::span<const PointJointConstraint> pointJointConstraints,
                                                            int modelCount )
 {
 
@@ -459,7 +449,7 @@ void PhysicsSleepController::AppendPointJointSupportEdges( const PhysicsBodyStor
 
 void PhysicsSleepController::WakePointJointConnectedBodies( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, PhysicsTerrainView terrain,
                                                             const PhysicsWorldForces& worldForces, std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<float> timeRemaining,
-                                                            PhysicsContactCacheWakeAccess contactCache, const std::vector<PointJointConstraint>& pointJointConstraints, float dt )
+                                                            PhysicsContactCacheWakeAccess contactCache, std::span<const PointJointConstraint> pointJointConstraints, float dt )
 {
 
     if ( pointJointConstraints.empty() || m_sleepState.empty() )
@@ -549,8 +539,8 @@ void PhysicsSleepController::RunIslandStage( PhysicsBodyStore& bodyStore, const 
                                              std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<float> timeRemaining,
                                              std::span<const PersistentContact> persistentContacts,
                                              std::span<const uint16_t> persistentRestingContactCounts,
-                                             const std::vector<PointJointConstraint>& pointJointConstraints,
-                                             std::vector<PhysicsPipelineRecord>& physicsPipelineTrace,
+                                             std::span<const PointJointConstraint> pointJointConstraints,
+                                             PhysicsPipelineRowList<PhysicsPipelineRecord>& physicsPipelineTrace,
                                              const PhysicsSleepStepPolicy& sleepPolicy )
 {
 
@@ -782,7 +772,7 @@ void PhysicsSleepController::RunIslandStage( PhysicsBodyStore& bodyStore, const 
 void PhysicsSleepController::ApplyTransitions( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                                                const PhysicsWorldForces& worldForces,
                                                std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<float> timeRemaining,
-                                               std::vector<PhysicsPipelineRecord>& physicsPipelineTrace,
+                                               PhysicsPipelineRowList<PhysicsPipelineRecord>& physicsPipelineTrace,
                                                const PhysicsSleepStepPolicy& sleepPolicy, DisjointSet& sleepIslands )
 {
 
@@ -896,7 +886,7 @@ void PhysicsSleepController::ApplyTransitions( PhysicsBodyStore& bodyStore, cons
 }
 
 bool PhysicsSleepController::IsPointJointPair( const PhysicsBodyStore& bodyStore,
-                                               const std::vector<PointJointConstraint>& pointJointConstraints, int bodyA,
+                                               std::span<const PointJointConstraint> pointJointConstraints, int bodyA,
                                                int bodyB ) const
 {
     return IsPointJointBodyPair( bodyStore, pointJointConstraints, bodyA, bodyB );

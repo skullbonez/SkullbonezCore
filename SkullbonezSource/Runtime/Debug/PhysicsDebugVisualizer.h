@@ -60,8 +60,8 @@ struct PhysicsDebugFrameView
     std::span<const uint8_t> sleepStates;
     std::span<const uint8_t> sleepSupportedStates;
     std::span<const uint8_t> sleepInhibitedStates;
-    const std::vector<PhysicsDebugContact>& debugContacts;
-    const std::vector<PhysicsPipelineRecord>& pipelineTrace;
+    std::span<const PhysicsDebugContact> debugContacts;
+    std::span<const PhysicsPipelineRecord> pipelineTrace;
     int modelCount = 0;
 };
 

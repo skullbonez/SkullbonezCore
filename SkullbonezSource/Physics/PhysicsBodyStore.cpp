@@ -1646,10 +1646,10 @@ void PhysicsBodyStore::CopySleepStatesFrom( std::span<const uint8_t> sleepStates
 }
 
 
-void PhysicsBodyStore::CopySleepStatesTo( std::vector<uint8_t>& sleepStates ) const
+void PhysicsBodyStore::CopySleepStatesTo( std::span<uint8_t> sleepStates ) const
 {
     const PhysicsBodyHotFieldsConstView hotFields = HotFields();
-    sleepStates.resize( hotFields.awake.size(), 0 );
+    assert( sleepStates.size() == hotFields.awake.size() );
 
     for ( std::size_t i = 0; i < hotFields.awake.size(); ++i )
     {

@@ -239,7 +239,7 @@ struct FixedSolverCandidatePairPredicate
 };
 
 bool IsPointJointCandidatePair( const Physics::PhysicsBodyStore& bodyStore,
-                                const std::vector<Physics::PointJointConstraint>& pointJointConstraints,
+                                std::span<const Physics::PointJointConstraint> pointJointConstraints,
                                 const std::pair<int, int>& pair )
 {
     int bodyA = pair.first;
@@ -282,7 +282,7 @@ bool IsPointJointCandidatePair( const Physics::PhysicsBodyStore& bodyStore,
 struct PointJointCandidatePairPredicate
 {
     const Physics::PhysicsBodyStore& bodyStore;
-    const std::vector<Physics::PointJointConstraint>& pointJointConstraints;
+    std::span<const Physics::PointJointConstraint> pointJointConstraints;
 
     bool operator()( const std::pair<int, int>& pair ) const
     {
@@ -290,66 +290,65 @@ struct PointJointCandidatePairPredicate
     }
 };
 
-void TryRecordSleepPrunedCandidatePair( std::vector<Physics::PhysicsPipelineRecord>& physicsPipelineTrace,
-                                        const Physics::PhysicsBodyHotFieldsConstView& hotFields,
-                                        const std::pair<int, int>& pair )
-{
+void TryRecordSleepPrunedCandidatePair( Physics::PhysicsPipelineRowList<Physics::PhysicsPipelineRecord>& physicsPipelineTrace,
+                                        const Physics::PhysicsBodyHotFieldsConstView& hotFields, const std::pair<int, int>& pair )
+                                        {
 
-    if ( physicsPipelineTrace.size() >= MAX_PIPELINE_TRACE_RECORDS )
-    {
-        return;
-    }
+                                        if ( physicsPipelineTrace.size() >= MAX_PIPELINE_TRACE_RECORDS )
+                                        {
+                                        return;
+                                        }
 
-    const int a = pair.first;
-    const int b = pair.second;
-    Physics::PhysicsPipelineRecord record;
-    record.stage = Physics::PhysicsPipelineStage::SleepPrunedPair;
-    record.bodyA = a;
-    record.bodyB = b;
-    record.point = ( Physics::PhysicsBodyPosition( hotFields, static_cast<size_t>( a ) ) +
-                     Physics::PhysicsBodyPosition( hotFields, static_cast<size_t>( b ) ) ) *
-                   0.5f;
+                                        const int a = pair.first;
+                                        const int b = pair.second;
+                                        Physics::PhysicsPipelineRecord record;
+                                        record.stage = Physics::PhysicsPipelineStage::SleepPrunedPair;
+                                        record.bodyA = a;
+                                        record.bodyB = b;
+                                        record.point = ( Physics::PhysicsBodyPosition( hotFields, static_cast<size_t>( a ) ) +
+                                        Physics::PhysicsBodyPosition( hotFields, static_cast<size_t>( b ) ) ) *
+                                        0.5f;
 
-    record.scalarA = 1.0f;
-    physicsPipelineTrace.push_back( record );
-}
+                                        record.scalarA = 1.0f;
+                                        physicsPipelineTrace.push_back( record );
+                                        }
 
-bool TryRecordBroadphaseCandidatePair( std::vector<Physics::PhysicsPipelineRecord>& physicsPipelineTrace,
-                                       const Physics::PhysicsBodyHotFieldsConstView& hotFields, int modelCount,
-                                       const std::pair<int, int>& pair, size_t candidateCount )
-{
+                                        bool TryRecordBroadphaseCandidatePair( Physics::PhysicsPipelineRowList<Physics::PhysicsPipelineRecord>& physicsPipelineTrace,
+                                        const Physics::PhysicsBodyHotFieldsConstView& hotFields, int modelCount,
+                                        const std::pair<int, int>& pair, size_t candidateCount )
+                                        {
 
-    if ( physicsPipelineTrace.size() >= MAX_PIPELINE_TRACE_RECORDS )
-    {
-        return false;
-    }
+                                        if ( physicsPipelineTrace.size() >= MAX_PIPELINE_TRACE_RECORDS )
+                                        {
+                                        return false;
+                                        }
 
-    if ( pair.first < 0 || pair.second < 0 || pair.first >= modelCount || pair.second >= modelCount )
-    {
-        return true;
-    }
+                                        if ( pair.first < 0 || pair.second < 0 || pair.first >= modelCount || pair.second >= modelCount )
+                                        {
+                                        return true;
+                                        }
 
-    Physics::PhysicsPipelineRecord record;
-    record.stage = Physics::PhysicsPipelineStage::BroadphaseCandidate;
-    record.bodyA = pair.first;
-    record.bodyB = pair.second;
-    record.point = ( Physics::PhysicsBodyPosition( hotFields, static_cast<size_t>( pair.first ) ) +
-                     Physics::PhysicsBodyPosition( hotFields, static_cast<size_t>( pair.second ) ) ) *
-                   0.5f;
+                                        Physics::PhysicsPipelineRecord record;
+                                        record.stage = Physics::PhysicsPipelineStage::BroadphaseCandidate;
+                                        record.bodyA = pair.first;
+                                        record.bodyB = pair.second;
+                                        record.point = ( Physics::PhysicsBodyPosition( hotFields, static_cast<size_t>( pair.first ) ) +
+                                        Physics::PhysicsBodyPosition( hotFields, static_cast<size_t>( pair.second ) ) ) *
+                                        0.5f;
 
-    const Vector3 delta = Physics::PhysicsBodyPosition( hotFields, static_cast<size_t>( pair.second ) ) -
-                          Physics::PhysicsBodyPosition( hotFields, static_cast<size_t>( pair.first ) );
+                                        const Vector3 delta = Physics::PhysicsBodyPosition( hotFields, static_cast<size_t>( pair.second ) ) -
+                                        Physics::PhysicsBodyPosition( hotFields, static_cast<size_t>( pair.first ) );
 
-    const float deltaMag = Vector::VectorMag( delta );
-    record.normal = deltaMag > TOLERANCE ? delta / deltaMag : Vector3( 0.0f, 1.0f, 0.0f );
-    record.scalarA = static_cast<float>( candidateCount );
-    physicsPipelineTrace.push_back( record );
-    return true;
-}
+                                        const float deltaMag = Vector::VectorMag( delta );
+                                        record.normal = deltaMag > TOLERANCE ? delta / deltaMag : Vector3( 0.0f, 1.0f, 0.0f );
+                                        record.scalarA = static_cast<float>( candidateCount );
+                                        physicsPipelineTrace.push_back( record );
+                                        return true;
+                                        }
 
-#if defined( _DEBUG )
-void CopyPairsWithoutGrowth( const Physics::PhysicsCandidatePairList& source,
-                             Physics::PhysicsCandidatePairList& destination )
+                                        #if defined( _DEBUG )
+                                        void CopyPairsWithoutGrowth( const Physics::PhysicsCandidatePairList& source,
+                                        Physics::PhysicsCandidatePairList& destination )
 {
     destination.clear();
 
@@ -509,7 +508,7 @@ void PhysicsBroadphaseStage::ResetTransientAfterReplayRestore()
 
 
 std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const BroadphaseSettings& broadphaseSettings,
-                                                                  const std::vector<PointJointConstraint>& pointJointConstraints, std::span<const uint8_t> sleepState,
+                                                                  std::span<const PointJointConstraint> pointJointConstraints, std::span<const uint8_t> sleepState,
                                                                   std::span<const int> awakeBodyIndices, PhysicsStepDiagnostics& stepDiagnostics, float dt, float contactSkin,
                                                                   float contactEpsilon, Core::Profiler* profiler )
 {
@@ -520,7 +519,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
     const int modelCount = (std::min)( { bodyStore.Count(), static_cast<int>( bodyRecords.size() ),
                                          static_cast<int>( colliderRecords.size() ) } );
 
-    std::vector<PhysicsPipelineRecord>& physicsPipelineTrace = stepDiagnostics.MutablePipelineTrace();
+    auto& physicsPipelineTrace = stepDiagnostics.MutablePipelineTrace();
 
     {
 
