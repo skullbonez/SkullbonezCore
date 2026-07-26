@@ -188,7 +188,6 @@ PHYSICS_STAGE_PREFIXES = (
     "PhysicsForceStage",
     "PhysicsNarrowphaseStage",
     "PhysicsSleepController",
-    "PhysicsStageContexts",
     "PhysicsStepDiagnostics",
     "PhysicsTerrainStage",
 )

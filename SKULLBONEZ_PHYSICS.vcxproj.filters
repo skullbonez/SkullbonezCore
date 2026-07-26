@@ -260,9 +260,6 @@
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseStage.h">
       <Filter>Header Files\Stages</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsStageContexts.h">
-      <Filter>Header Files\Stages</Filter>
-    </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsTerrainStage.h">
       <Filter>Header Files\Stages</Filter>
     </ClInclude>

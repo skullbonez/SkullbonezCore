@@ -6,8 +6,8 @@ Purpose:
 Summary:
   PhysicsForceStage prepares deterministic model-order gravity forces, retains
   the capped triangular pair table used by worker dispatch, and applies all
-  per-body forces and remaining-time integration through explicit borrowed
-  contexts. Large scenes retain the exact serial fallback without allocating
+  per-body forces and remaining-time integration through explicit synchronous
+  borrows. Large scenes retain the exact serial fallback without allocating
   pair scratch beyond 512 bodies.
 
 Glossary:
@@ -25,7 +25,7 @@ Invariants:
   - Worker chunks write disjoint pair-table slots and never reduce forces.
   - Model-order accumulation, serial fallback arithmetic, marker names, worker
     thresholds, and worker hashes match the certified P2 implementation.
-  - Borrowed contexts and returned force pointers are valid only during the
+  - Borrowed spans and returned force pointers are valid only during the
     enclosing fixed step; the force pointer expires on the next prepare/clear.
   - Integration borrows the PhysicsWorld-owned CCD clock and mutates no retained
     stage state.
@@ -33,7 +33,6 @@ Invariants:
 
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsForceStage.cpp
-  - SkullbonezSource/Physics/Stages/PhysicsStageContexts.h
   - SkullbonezSource/Physics/PhysicsWorld.cpp
 */
 #pragma once
@@ -61,8 +60,9 @@ class WorkerPool;
 
 namespace Physics
 {
-struct ApplyForcesStageContext;
-struct IntegrateRemainingStageContext;
+class ColliderStore;
+class PhysicsBodyStore;
+struct BuoyancyBodyFacts;
 struct PhysicsBodyRecord;
 struct PhysicsWorldForces;
 
@@ -103,11 +103,27 @@ class PhysicsForceStage
                                            execution,
                                            workerPool );
     }
-    void ApplyForces( const ApplyForcesStageContext& context,
+    // Invariant: these direct operations derive store views once, then map the
+    // sleep owner's ascending awake slots without retaining any frame borrow.
+    void ApplyForces( PhysicsBodyStore& bodyStore,
+                      const ColliderStore& colliderStore,
+                      PhysicsTerrainView terrain,
+                      const PhysicsWorldForces& worldForces,
+                      std::span<const BuoyancyBodyFacts> buoyancyFacts,
+                      std::span<const uint8_t> sleepState,
+                      std::span<float> timeRemaining,
+                      const Math::Vector::Vector3* mutualGravityForces,
+                      float dt,
                       std::span<const int> awakeBodyIndices,
                       Threading::WorkerPool& workerPool,
                       const PhysicsExecutionSettings& execution ) const;
-    void IntegrateRemaining( const IntegrateRemainingStageContext& context,
+    void IntegrateRemaining( PhysicsBodyStore& bodyStore,
+                             Core::Profiler* profiler,
+                             const ColliderStore& colliderStore,
+                             PhysicsTerrainView terrain,
+                             std::span<BuoyancyBodyFacts> buoyancyFacts,
+                             std::span<const uint8_t> sleepState,
+                             std::span<const float> timeRemaining,
                              std::span<const int> awakeBodyIndices,
                              Threading::WorkerPool& workerPool,
                              const PhysicsExecutionSettings& execution ) const;

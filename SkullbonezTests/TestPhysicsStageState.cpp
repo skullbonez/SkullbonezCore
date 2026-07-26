@@ -446,25 +446,17 @@ TEST_CASE( "Physics sleep awake list: one-frame transitions visit every row whil
     std::vector<SkullbonezCore::Physics::PhysicsPipelineRecord> pipeline;
     PhysicsWorldForces worldForces;
     std::array<BuoyancyBodyFacts, 4> buoyancyFacts;
-    const SkullbonezCore::Physics::PhysicsSleepIslandStageContext context{ bodies,
-                                                                           colliders,
-                                                                           {},
-                                                                           worldForces,
-                                                                           buoyancyFacts,
-                                                                           bodies.MutableRecords(),
-                                                                           bodies.MutableHotFields(),
-                                                                           timeRemaining,
-                                                                           contacts,
-                                                                           restingCounts,
-                                                                           controller.GetAwakeBodyIndices(),
-                                                                           joints,
-                                                                           pipeline,
-                                                                           4,
-                                                                           0.01f,
-                                                                           0.01f,
-                                                                           1u };
-
-    controller.RunIslandStage( context );
+    const SkullbonezCore::Physics::PhysicsSleepStepPolicy sleepPolicy { 0.01f, 0.01f, 1u };
+    controller.RunIslandStage( bodies,
+                               colliders,
+                               worldForces,
+                               buoyancyFacts,
+                               timeRemaining,
+                               contacts,
+                               restingCounts,
+                               joints,
+                               pipeline,
+                               sleepPolicy );
 
     CHECK( controller.GetAwakeBodyIndices().empty() );
     REQUIRE( controller.GetSleepStates().size() == 4u );
@@ -501,25 +493,17 @@ TEST_CASE( "Physics sleep point-joint island: stretched anchors block relaxation
         std::array<BuoyancyBodyFacts, 2> buoyancyFacts;
         PhysicsSleepController controller;
         controller.MirrorFlagsFrom( bodies, 2 );
-        const SkullbonezCore::Physics::PhysicsSleepIslandStageContext context{ bodies,
-                                                                               colliders,
-                                                                               {},
-                                                                               worldForces,
-                                                                               buoyancyFacts,
-                                                                               bodies.MutableRecords(),
-                                                                               bodies.MutableHotFields(),
-                                                                               timeRemaining,
-                                                                               contacts,
-                                                                               restingCounts,
-                                                                               controller.GetAwakeBodyIndices(),
-                                                                               joints,
-                                                                               pipeline,
-                                                                               2,
-                                                                               0.01f,
-                                                                               0.01f,
-                                                                               3u };
-
-        controller.RunIslandStage( context );
+        const SkullbonezCore::Physics::PhysicsSleepStepPolicy sleepPolicy { 0.01f, 0.01f, 3u };
+        controller.RunIslandStage( bodies,
+                                   colliders,
+                                   worldForces,
+                                   buoyancyFacts,
+                                   timeRemaining,
+                                   contacts,
+                                   restingCounts,
+                                   joints,
+                                   pipeline,
+                                   sleepPolicy );
 
         REQUIRE( pipeline.size() == 1u );
         CHECK( pipeline[0].stage == SkullbonezCore::Physics::PhysicsPipelineStage::SleepIslandDecision );

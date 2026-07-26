@@ -243,7 +243,6 @@
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsForceStage.h" />
     <ClInclude Include="SkullbonezSource\Physics\Stages\ExternalForceStage.h" />
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseStage.h" />
-    <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsStageContexts.h" />
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsTerrainStage.h" />
     <ClInclude Include="SkullbonezSource\Physics\TerrainContactManifold.h" />
   </ItemGroup>

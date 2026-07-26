@@ -30,13 +30,13 @@ Related:
 */
 #include "PhysicsForceStage.h"
 
-#include "PhysicsStageContexts.h"
 #include "../../Core/Common.h"
 #include "../../Core/FatalError.h"
 #include "../../Core/Profiler.h"
 #include "../../Core/WorkerPool.h"
 #include "../../Core/SceneCapacity.h"
 #include "../ColliderStore.h"
+#include "../BuoyancySystem.h"
 #include "../PhysicsBodyStore.h"
 #include "../PhysicsWorldForces.h"
 
@@ -86,7 +86,7 @@ void ApplyForcesForSolverBody( Physics::PhysicsBodyStore& bodyStore,
                                std::span<const Physics::BuoyancyBodyFacts> buoyancyFacts,
                                const Physics::PhysicsBodyHotFieldsConstView& hotFields,
                                std::span<const uint8_t> sleepState,
-                               std::vector<float>& timeRemaining,
+                               std::span<float> timeRemaining,
                                const Vector3* mutualGravityForces,
                                int bodyIndex,
                                float dt )
@@ -146,33 +146,6 @@ namespace SkullbonezCore
 {
 namespace Physics
 {
-void ApplyForcesStageContext::operator()( int bodyIndex ) const
-{
-    ApplyForcesForSolverBody( bodyStore,
-                              colliderStore,
-                              terrain,
-                              worldForces,
-                              buoyancyFacts,
-                              hotFields,
-                              sleepState,
-                              timeRemaining,
-                              mutualGravityForces,
-                              bodyIndex,
-                              dt );
-}
-
-void IntegrateRemainingStageContext::operator()( int bodyIndex ) const
-{
-    IntegrateRemainingSolverBody( bodyStore,
-                                  profiler,
-                                  colliderStore,
-                                  terrain,
-                                  buoyancyFacts,
-                                  hotFields,
-                                  sleepState,
-                                  timeRemaining,
-                                  bodyIndex );
-}
 
 PhysicsForceStage::PhysicsForceStage()
 {
@@ -439,14 +412,34 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* pr
     return m_mutualGravityForces.data();
 }
 
-void PhysicsForceStage::ApplyForces( const ApplyForcesStageContext& context,
+void PhysicsForceStage::ApplyForces( PhysicsBodyStore& bodyStore,
+                                     const ColliderStore& colliderStore,
+                                     PhysicsTerrainView terrain,
+                                     const PhysicsWorldForces& worldForces,
+                                     std::span<const BuoyancyBodyFacts> buoyancyFacts,
+                                     std::span<const uint8_t> sleepState,
+                                     std::span<float> timeRemaining,
+                                     const Vector3* mutualGravityForces,
+                                     float dt,
                                      std::span<const int> awakeBodyIndices,
                                      Threading::WorkerPool& workerPool,
                                      const PhysicsExecutionSettings& execution ) const
 {
-    PROFILE_BEGIN( context.profiler, "Frame/Physics/ApplyForces" );
+    const PhysicsBodyHotFieldsConstView hotFields = bodyStore.HotFields();
     const auto applyAwakeBody = [&]( int awakeSlot )
-    { context( awakeBodyIndices[static_cast<std::size_t>( awakeSlot )] ); };
+    {
+        ApplyForcesForSolverBody( bodyStore,
+                                  colliderStore,
+                                  terrain,
+                                  worldForces,
+                                  buoyancyFacts,
+                                  hotFields,
+                                  sleepState,
+                                  timeRemaining,
+                                  mutualGravityForces,
+                                  awakeBodyIndices[static_cast<std::size_t>( awakeSlot )],
+                                  dt );
+    };
 
     const int awakeBodyCount = static_cast<int>( awakeBodyIndices.size() );
     if ( execution.parallel && execution.parallelApplyForces )
@@ -465,17 +458,32 @@ void PhysicsForceStage::ApplyForces( const ApplyForcesStageContext& context,
             applyAwakeBody( awakeSlot );
         }
     }
-
-    PROFILE_END( context.profiler, "Frame/Physics/ApplyForces" );
 }
 
-void PhysicsForceStage::IntegrateRemaining( const IntegrateRemainingStageContext& context,
+void PhysicsForceStage::IntegrateRemaining( PhysicsBodyStore& bodyStore,
+                                            Core::Profiler* profiler,
+                                            const ColliderStore& colliderStore,
+                                            PhysicsTerrainView terrain,
+                                            std::span<BuoyancyBodyFacts> buoyancyFacts,
+                                            std::span<const uint8_t> sleepState,
+                                            std::span<const float> timeRemaining,
                                             std::span<const int> awakeBodyIndices,
                                             Threading::WorkerPool& workerPool,
                                             const PhysicsExecutionSettings& execution ) const
 {
+    const PhysicsBodyHotFieldsConstView hotFields = bodyStore.HotFields();
     const auto integrateAwakeBody = [&]( int awakeSlot )
-    { context( awakeBodyIndices[static_cast<std::size_t>( awakeSlot )] ); };
+    {
+        IntegrateRemainingSolverBody( bodyStore,
+                                      profiler,
+                                      colliderStore,
+                                      terrain,
+                                      buoyancyFacts,
+                                      hotFields,
+                                      sleepState,
+                                      timeRemaining,
+                                      awakeBodyIndices[static_cast<std::size_t>( awakeSlot )] );
+    };
 
     const int awakeBodyCount = static_cast<int>( awakeBodyIndices.size() );
     if ( execution.parallel && execution.parallelIntegrate )

@@ -101,6 +101,7 @@ class PhysicsNarrowphaseWakeAccess
   public:
     // Read-only pair queries preserve the sleep controller as sole row owner;
     // this capability borrow remains scoped to one synchronous narrowphase pass.
+    int SleepRowCount() const;
     bool IsSleeping( int bodyIndex ) const;
     bool IsUnderwaterSleepLocked( int bodyIndex ) const;
     void WakeBody( int sleepingIndex ) const;
@@ -111,45 +112,6 @@ struct PhysicsSleepStepPolicy
     float linearSpeedSquared = 0.0f;
     float angularSpeedSquared = 0.0f;
     uint8_t frameCount = 1;
-};
-
-struct PhysicsSleepWakeContext
-{
-    // Lifetime: all rows and the cache capability are consumed synchronously;
-    // the sleep owner never retains a sibling owner or borrowed frame state.
-    int bodyCount = 0;
-    std::span<const PhysicsBodyRecord> bodyRecords;
-    PhysicsBodyHotFieldsView hotFields;
-    PhysicsBodyStore* bodyStore = nullptr;
-    const ColliderStore* colliderStore = nullptr;
-    PhysicsTerrainView terrain;
-    const PhysicsWorldForces* worldForces = nullptr;
-    std::span<BuoyancyBodyFacts> buoyancyFacts;
-    std::span<float> timeRemaining;
-    PhysicsContactCacheWakeAccess contactCache;
-    std::span<const PersistentContact> persistentContacts;
-    const std::vector<PointJointConstraint>& pointJointConstraints;
-};
-
-struct PhysicsSleepIslandStageContext
-{
-    PhysicsBodyStore& bodyStore;
-    const ColliderStore& colliderStore;
-    PhysicsTerrainView terrain;
-    const PhysicsWorldForces& worldForces;
-    std::span<BuoyancyBodyFacts> buoyancyFacts;
-    std::span<PhysicsBodyRecord> bodyRecords;
-    PhysicsBodyHotFieldsView hotFields;
-    std::span<float> timeRemaining;
-    std::span<const PersistentContact> persistentContacts;
-    std::span<const uint16_t> persistentRestingContactCounts;
-    std::span<const int> awakeBodyIndices;
-    const std::vector<PointJointConstraint>& pointJointConstraints;
-    std::vector<PhysicsPipelineRecord>& physicsPipelineTrace;
-    int modelCount = 0;
-    float sleepLinearSq = 0.0f;
-    float sleepAngularSq = 0.0f;
-    uint8_t sleepFrames = 0;
 };
 
 // Concept: related one-bit scratch decisions share one byte per model row.
@@ -209,11 +171,34 @@ class PhysicsSleepController
     void EnsureUnderwaterSleepLockBuffer( int modelCount );
     void EnsureScratchFlagsSize( int modelCount );
     bool IsUnderwaterSleepLocked( int bodyCount, int index );
-    bool WakeDynamicBodyState( const PhysicsSleepWakeContext& context, int index, float dt, bool applyForces );
-    void WakeSleepVisualIsland( const PhysicsSleepWakeContext& context, int index, float dt, bool applyForces );
-    void WakePointJointIsland( const PhysicsSleepWakeContext& context, int index, float dt, bool applyForces );
-    void WakeRestingContactIsland( const PhysicsSleepWakeContext& context, int index, float dt, bool applyForces );
-    void ApplyTransitions( const PhysicsSleepIslandStageContext& context, class DisjointSet& sleepIslands );
+    bool PrepareExplicitWake( PhysicsBodyStore& bodyStore, int index );
+    bool WakeDynamicBodyState( PhysicsBodyStore& bodyStore, PhysicsContactCacheWakeAccess contactCache, int index );
+    bool WakeDynamicBodyStateWithForces( PhysicsBodyStore& bodyStore,
+                                         const ColliderStore& colliderStore,
+                                         PhysicsTerrainView terrain,
+                                         const PhysicsWorldForces& worldForces,
+                                         std::span<BuoyancyBodyFacts> buoyancyFacts,
+                                         std::span<float> timeRemaining,
+                                         PhysicsContactCacheWakeAccess contactCache,
+                                         int index,
+                                         float dt );
+    void WakeSleepVisualIsland( PhysicsBodyStore& bodyStore, PhysicsContactCacheWakeAccess contactCache, int index );
+    void WakePointJointIsland( PhysicsBodyStore& bodyStore,
+                               PhysicsContactCacheWakeAccess contactCache,
+                               const std::vector<PointJointConstraint>& pointJointConstraints,
+                               int index );
+    void WakeRestingContactIsland( PhysicsBodyStore& bodyStore,
+                                   PhysicsContactCacheWakeAccess contactCache,
+                                   std::span<const PersistentContact> persistentContacts,
+                                   int index );
+    void ApplyTransitions( PhysicsBodyStore& bodyStore,
+                           const ColliderStore& colliderStore,
+                           const PhysicsWorldForces& worldForces,
+                           std::span<BuoyancyBodyFacts> buoyancyFacts,
+                           std::span<float> timeRemaining,
+                           std::vector<PhysicsPipelineRecord>& physicsPipelineTrace,
+                           const PhysicsSleepStepPolicy& sleepPolicy,
+                           class DisjointSet& sleepIslands );
     void RebuildAwakeBodyIndices( const PhysicsBodyHotFieldsConstView& hotFields, int modelCount );
     void AddAwakeBodyIndex( int index );
     void RemoveAwakeBodyIndex( int index );
@@ -231,7 +216,20 @@ class PhysicsSleepController
     void InvalidateBodyTopology();
     void FlushPendingAwakeBodyIndices();
     void EnsureVisualIdSize( int modelCount );
-    void WakeModel( const PhysicsSleepWakeContext& context, int index );
+    void WakeModel( PhysicsBodyStore& bodyStore,
+                    PhysicsContactCacheWakeAccess contactCache,
+                    std::span<const PersistentContact> persistentContacts,
+                    const std::vector<PointJointConstraint>& pointJointConstraints,
+                    int index );
+    void WakeModel( PhysicsBodyStore& bodyStore,
+                    const ColliderStore& colliderStore,
+                    const PhysicsWorldForces& worldForces,
+                    std::span<BuoyancyBodyFacts> buoyancyFacts,
+                    std::span<float> timeRemaining,
+                    PhysicsContactCacheWakeAccess contactCache,
+                    std::span<const PersistentContact> persistentContacts,
+                    const std::vector<PointJointConstraint>& pointJointConstraints,
+                    int index );
     PhysicsNarrowphaseWakeAccess CreateNarrowphaseWakeAccess( PhysicsBodyStore& bodyStore,
                                                               const ColliderStore& colliderStore,
                                                               PhysicsTerrainView terrain,
@@ -261,10 +259,18 @@ class PhysicsSleepController
                                         std::span<BuoyancyBodyFacts> buoyancyFacts,
                                         std::span<float> timeRemaining,
                                         PhysicsContactCacheWakeAccess contactCache,
-                                        std::span<const PersistentContact> persistentContacts,
                                         const std::vector<PointJointConstraint>& pointJointConstraints,
                                         float dt );
-    void RunIslandStage( const PhysicsSleepIslandStageContext& context );
+    void RunIslandStage( PhysicsBodyStore& bodyStore,
+                         const ColliderStore& colliderStore,
+                         const PhysicsWorldForces& worldForces,
+                         std::span<BuoyancyBodyFacts> buoyancyFacts,
+                         std::span<float> timeRemaining,
+                         std::span<const PersistentContact> persistentContacts,
+                         std::span<const uint16_t> persistentRestingContactCounts,
+                         const std::vector<PointJointConstraint>& pointJointConstraints,
+                         std::vector<PhysicsPipelineRecord>& physicsPipelineTrace,
+                         const PhysicsSleepStepPolicy& sleepPolicy );
     bool IsPointJointPair( const PhysicsBodyStore& bodyStore,
                            const std::vector<PointJointConstraint>& pointJointConstraints,
                            int bodyA,

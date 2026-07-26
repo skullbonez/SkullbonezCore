@@ -80,28 +80,20 @@ struct ExternalForceFrameInput
     }
 };
 
-struct ExternalForceBodyContext
-{
-    PhysicsBodyStore& bodyStore;
-    const ColliderStore& colliderStore;
-    const PhysicsWorldForces& worldForces;
-    PhysicsNarrowphaseWakeAccess wakeAccess;
-    std::span<const uint8_t> sleepState;
-    std::span<const uint8_t> underwaterSleepLocked;
-    const PhysicsExecutionSettings& execution;
-    Threading::WorkerPool& workerPool;
-    int minParallelBodies = 0;
-    const char* workerMarkerPath = nullptr;
-    uint32_t workerMarkerHash = 0;
-};
-
 class ExternalForceStage
 {
   public:
     ExternalForceStage();
     void Clear();
     std::span<const int> ReleaseFixedBodies( const ExternalForceFrameInput& input, PhysicsBodyStore& bodyStore );
-    void ApplyBodyForces( const ExternalForceFrameInput& input, const ExternalForceBodyContext& context );
+    // Lifetime: the concrete wake capability and worker owner are borrowed only
+    // until this synchronous body partition completes.
+    void ApplyBodyForces( const ExternalForceFrameInput& input,
+                          PhysicsBodyStore& bodyStore,
+                          const ColliderStore& colliderStore,
+                          PhysicsNarrowphaseWakeAccess wakeAccess,
+                          const PhysicsExecutionSettings& execution,
+                          Threading::WorkerPool& workerPool );
     uint64_t CollectMemoryBytes() const;
 
   private:

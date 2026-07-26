@@ -41,6 +41,9 @@ namespace SkullbonezCore::Physics
 namespace
 {
 constexpr float EJECTION_PHASE_HZ = 10.0f;
+constexpr int PHYSICS_PARALLEL_MIN_BODIES = 512;
+constexpr const char* EXTERNAL_FORCE_WORKER_MARKER = "Frame/Physics/ExternalForceField/WorkerBodies";
+constexpr uint32_t PHYSICS_EXTERNAL_FORCE_WORKER_HASH = HashStr( EXTERNAL_FORCE_WORKER_MARKER );
 
 float SmoothStep01( float edge0, float edge1, float value )
 {
@@ -96,11 +99,6 @@ Vector3 ClampVectorMagnitude( const Vector3& value, float maxMagnitude )
     return value * ( maxMagnitude / sqrtf( magnitudeSq ) );
 }
 
-bool IsUnderwaterSleepLocked( std::span<const uint8_t> locks, int bodyCount, int index )
-{
-    return index >= 0 && index < bodyCount && index < static_cast<int>( locks.size() ) &&
-           locks[static_cast<std::size_t>( index )] != 0u;
-}
 } // namespace
 
 ExternalForceStage::ExternalForceStage() = default;
@@ -171,28 +169,32 @@ std::span<const int> ExternalForceStage::ReleaseFixedBodies( const ExternalForce
 }
 
 void ExternalForceStage::ApplyBodyForces( const ExternalForceFrameInput& input,
-                                          const ExternalForceBodyContext& context )
+                                          PhysicsBodyStore& bodyStore,
+                                          const ColliderStore& colliderStore,
+                                          PhysicsNarrowphaseWakeAccess wakeAccess,
+                                          const PhysicsExecutionSettings& execution,
+                                          Threading::WorkerPool& workerPool )
 {
     if ( !input.Active() )
     {
         return;
     }
 
-    const auto bodyRecords = context.bodyStore.Records();
-    const PhysicsBodyHotFieldsView hotFields = context.bodyStore.MutableHotFields();
+    const auto bodyRecords = bodyStore.Records();
+    const PhysicsBodyHotFieldsView hotFields = bodyStore.MutableHotFields();
     const PhysicsBodyHotFieldsConstView hotRead = ConstPhysicsBodyHotFields( hotFields );
-    const int modelCount = (std::min)( { context.bodyStore.Count(),
+    const int modelCount = (std::min)( { bodyStore.Count(),
                                          static_cast<int>( bodyRecords.size() ),
-                                         context.colliderStore.Count(),
+                                         colliderStore.Count(),
                                          static_cast<int>( input.exposureSeconds.size() ),
                                          static_cast<int>( input.repeatCooldownSeconds.size() ),
-                                         static_cast<int>( context.sleepState.size() ) } );
+                                         wakeAccess.SleepRowCount() } );
 
     const auto applyAt = [&]( int index )
     {
         const std::size_t row = static_cast<std::size_t>( index );
 
-        if ( hotFields.fixed[row] != 0u || IsUnderwaterSleepLocked( context.underwaterSleepLocked, modelCount, index ) )
+        if ( hotFields.fixed[row] != 0u || wakeAccess.IsUnderwaterSleepLocked( index ) )
         {
             input.exposureSeconds[row] = 0.0f;
             input.repeatCooldownSeconds[row] = 0.0f;
@@ -215,9 +217,9 @@ void ExternalForceStage::ApplyBodyForces( const ExternalForceFrameInput& input,
             return;
         }
 
-        if ( context.sleepState[index] )
+        if ( wakeAccess.IsSleeping( index ) )
         {
-            context.wakeAccess.WakeBody( index );
+            wakeAccess.WakeBody( index );
         }
 
         Vector3 velocity = PhysicsBodyLinearVelocity( hotRead, row );
@@ -264,14 +266,14 @@ void ExternalForceStage::ApplyBodyForces( const ExternalForceFrameInput& input,
         hotFields.linearVelocityZ[row] = velocity.z;
     };
 
-    if ( context.execution.parallel && input.parallelEvaluation )
+    if ( execution.parallel && input.parallelEvaluation )
     {
-        context.workerPool.ParallelForNoAlloc( 0,
-                                               modelCount,
-                                               applyAt,
-                                               context.minParallelBodies,
-                                               context.workerMarkerPath,
-                                               context.workerMarkerHash );
+        workerPool.ParallelForNoAlloc( 0,
+                                       modelCount,
+                                       applyAt,
+                                       PHYSICS_PARALLEL_MIN_BODIES,
+                                       EXTERNAL_FORCE_WORKER_MARKER,
+                                       PHYSICS_EXTERNAL_FORCE_WORKER_HASH );
     }
     else
     {

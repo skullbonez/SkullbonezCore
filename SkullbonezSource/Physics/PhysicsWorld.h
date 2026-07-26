@@ -61,7 +61,6 @@ Related:
 #include "Stages/ExternalForceStage.h"
 #include "Stages/PhysicsForceStage.h"
 #include "Stages/PhysicsNarrowphaseStage.h"
-#include "Stages/PhysicsStageContexts.h"
 #include "Stages/PhysicsTerrainStage.h"
 #include "Stages/PhysicsSleepController.h"
 #include "Stages/PhysicsStepDiagnostics.h"
@@ -105,7 +104,7 @@ class PhysicsWorld
     using PersistentContactSolverStats = Physics::PersistentContactSolverStats;
 
   private:
-    // Lifetime: startup-bound diagnostics borrow; stage contexts never retain it.
+    // Lifetime: startup-bound diagnostics borrow; stage operations never retain it.
     SkullbonezCore::Core::Profiler* m_profiler = nullptr;
     PhysicsForceStage m_forceStage;
     // Gameplay force content crosses one bounded value lane; this stage owns

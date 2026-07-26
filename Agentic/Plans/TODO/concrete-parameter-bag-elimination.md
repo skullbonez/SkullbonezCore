@@ -2,7 +2,7 @@
 
 Date: 2026-07-26
 Owner: skullbonez
-State: IN PROGRESS (PB0-PB5 complete; PB6 next)
+State: IN PROGRESS (PB0-PB6 complete; PB7 next)
 Ledger tasks: 8 (PB0-PB7)
 Branch: `nightrunner-25th-JUL-26`
 
@@ -400,7 +400,7 @@ or type erasure is allowed.
   - permanent report:
     `../../Reports/2026-07-26/concrete-parameter-bag-elimination-pb5-physics-collision-solver.md`.
 
-- [ ] **PB6 - Repair Physics sleep, force, and terrain stage bags.**
+- [x] **PB6 - Repair Physics sleep, force, and terrain stage bags.**
 
   Delete `PhysicsSleepIslandStageContext`, `PhysicsSleepWakeContext`,
   `ExternalForceBodyContext`, `TerrainCandidateCommitContext`,
@@ -417,6 +417,17 @@ or type erasure is allowed.
   - no inheritance, interface, callback, master Physics context, or owner
     reach-back exists;
   - Physics, performance, and broad validation pass with byte-exact CSVs.
+  - all seven target symbols and the obsolete `PhysicsStageContexts.h` are
+    deleted;
+  - explicit wake paths preserve state, clock, force, cache, and sorted-awake
+    publication order without a behavior flag or nullable owner;
+  - force/integration and terrain operations use concrete owners and direct
+    values within the 12-parameter ceiling;
+  - comment audit: 14/14 surviving touched source files checked, 0 deferred;
+  - focused sleep/terrain/external-force/gravity tests and Physics,
+    performance, and full gates pass with zero baseline refresh;
+  - permanent report:
+    `../../Reports/2026-07-26/concrete-parameter-bag-elimination-pb6-physics-sleep-force-terrain.md`.
 
 - [ ] **PB7 - Prove complete closure.**
 

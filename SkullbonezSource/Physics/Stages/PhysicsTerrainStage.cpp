@@ -94,57 +94,86 @@ void PhysicsTerrainStage::BeginFrame()
     m_contactManifolds.clear();
 }
 
-void PhysicsTerrainStage::DetectTerrainAt( const TerrainDetectionStageContext& context, int bodyIndex )
+void PhysicsTerrainStage::DetectTerrainAt( std::span<const PhysicsBodyRecord> bodyRecords,
+                                           std::span<const BuoyancyBodyFacts> buoyancyFacts,
+                                           const PhysicsBodyHotFieldsConstView& hotFields,
+                                           std::span<const ColliderRecord> colliderRecords,
+                                           PhysicsTerrainView terrain,
+                                           const PhysicsRuntimeSettings& settings,
+                                           std::span<const uint8_t> sleepState,
+                                           std::span<const float> timeRemaining,
+                                           Core::Profiler* profiler,
+                                           int bodyIndex )
 {
     TerrainDetectionCandidate& candidate = m_detectionCandidates[static_cast<size_t>( bodyIndex )];
-    if ( IsSolverBodyFixed( context.hotFields, bodyIndex ) )
+    if ( IsSolverBodyFixed( hotFields, bodyIndex ) )
     {
         return;
     }
 
-    if ( context.sleepState[bodyIndex] || context.timeRemaining[bodyIndex] <= 0.0f )
+    if ( sleepState[bodyIndex] || timeRemaining[bodyIndex] <= 0.0f )
     {
         return;
     }
 
-    if ( bodyIndex >= static_cast<int>( context.bodyRecords.size() ) ||
-         bodyIndex >= static_cast<int>( context.colliderRecords.size() ) )
+    if ( bodyIndex >= static_cast<int>( bodyRecords.size() ) ||
+         bodyIndex >= static_cast<int>( colliderRecords.size() ) )
     {
         return;
     }
 
-    candidate.availableTime = context.timeRemaining[bodyIndex];
-    candidate.sweep = SweepTerrainContact( context.profiler,
-                                           TerrainContactBodyViewForIndex( context.buoyancyFacts,
-                                                                           context.hotFields,
-                                                                           context.terrain,
-                                                                           context.settings,
-                                                                           bodyIndex ),
-                                           context.colliderRecords[static_cast<size_t>( bodyIndex )].shape,
-                                           candidate.availableTime );
+    candidate.availableTime = timeRemaining[bodyIndex];
+    candidate.sweep = SweepTerrainContact(
+        profiler,
+        TerrainContactBodyViewForIndex( buoyancyFacts, hotFields, terrain, settings, bodyIndex ),
+        colliderRecords[static_cast<size_t>( bodyIndex )].shape,
+        candidate.availableTime );
 
     candidate.tested = 1;
 }
 
-void PhysicsTerrainStage::TerrainDetectionStage::operator()( int bodySlot ) const
-{
-    stage.DetectTerrainAt( context, bodyIndices[static_cast<std::size_t>( bodySlot )] );
-}
-
-void PhysicsTerrainStage::Detect( const TerrainDetectionStageContext& context,
-                                  int modelCount,
+void PhysicsTerrainStage::Detect( const PhysicsBodyStore& bodyStore,
+                                  const ColliderStore& colliderStore,
+                                  std::span<const BuoyancyBodyFacts> buoyancyFacts,
+                                  PhysicsTerrainView terrain,
+                                  const PhysicsRuntimeSettings& settings,
+                                  std::span<const uint8_t> sleepState,
+                                  std::span<const float> timeRemaining,
+                                  Core::Profiler* profiler,
                                   std::span<const int> awakeBodyIndices,
                                   const PhysicsExecutionSettings& execution,
                                   Threading::WorkerPool& workerPool )
 {
+    const std::span<const PhysicsBodyRecord> bodyRecords = bodyStore.Records();
+    const PhysicsBodyHotFieldsConstView hotFields = bodyStore.HotFields();
+    const std::span<const ColliderRecord> colliderRecords = colliderStore.Records();
+    const int modelCount = (std::min)( { bodyStore.Count(),
+                                         static_cast<int>( bodyRecords.size() ),
+                                         colliderStore.Count(),
+                                         static_cast<int>( colliderRecords.size() ),
+                                         static_cast<int>( buoyancyFacts.size() ) } );
+
     m_detectionCandidates.assign( static_cast<size_t>( modelCount ), TerrainDetectionCandidate() );
-    TerrainDetectionStage detectionStage { *this, context, awakeBodyIndices };
+    const auto detectAwakeBody = [&]( int bodySlot )
+    {
+        DetectTerrainAt( bodyRecords,
+                         buoyancyFacts,
+                         hotFields,
+                         colliderRecords,
+                         terrain,
+                         settings,
+                         sleepState,
+                         timeRemaining,
+                         profiler,
+                         awakeBodyIndices[static_cast<std::size_t>( bodySlot )] );
+    };
+
     const int awakeBodyCount = static_cast<int>( awakeBodyIndices.size() );
     if ( execution.parallel && execution.parallelTerrainDetect )
     {
         workerPool.ParallelForNoAlloc( 0,
                                        awakeBodyCount,
-                                       detectionStage,
+                                       detectAwakeBody,
                                        PHYSICS_PARALLEL_MIN_BODIES,
                                        "Frame/Physics/Terrain/Detect/WorkerBodies",
                                        PHYSICS_TERRAIN_DETECT_WORKER_HASH );
@@ -153,36 +182,38 @@ void PhysicsTerrainStage::Detect( const TerrainDetectionStageContext& context,
     {
         for ( int awakeSlot = 0; awakeSlot < awakeBodyCount; ++awakeSlot )
         {
-            detectionStage( awakeSlot );
+            detectAwakeBody( awakeSlot );
         }
     }
 }
 
-PreparedTerrainCandidateCommit
-PhysicsTerrainStage::PrepareCandidateCommit( const TerrainCandidateCommitContext& context,
-                                             int bodyIndex,
-                                             float availableTime,
-                                             const TerrainContactSweepResult& sweep )
+PreparedTerrainCandidateCommit PhysicsTerrainStage::PrepareCandidateCommit( PhysicsBodyStore& bodyStore,
+                                                                            const ColliderStore& colliderStore,
+                                                                            PhysicsTerrainView terrain,
+                                                                            std::span<BuoyancyBodyFacts> buoyancyFacts,
+                                                                            const PhysicsRuntimeSettings& settings,
+                                                                            Core::Profiler* profiler,
+                                                                            int bodyIndex,
+                                                                            float availableTime,
+                                                                            const TerrainContactSweepResult& sweep )
 {
     PreparedTerrainCandidateCommit commit;
+    const PhysicsBodyHotFieldsConstView hotFields = bodyStore.HotFields();
+    const std::span<const ColliderRecord> colliderRecords = colliderStore.Records();
     if ( sweep.hit )
     {
         const float colTime = sweep.collisionTime;
-        (void)context.bodyStore.IntegrateBodyPose( context.profiler,
-                                                   context.colliderStore,
-                                                   context.terrain,
-                                                   context.buoyancyFacts[static_cast<std::size_t>( bodyIndex )],
-                                                   bodyIndex,
-                                                   colTime );
+        (void)bodyStore.IntegrateBodyPose( profiler,
+                                           colliderStore,
+                                           terrain,
+                                           buoyancyFacts[static_cast<std::size_t>( bodyIndex )],
+                                           bodyIndex,
+                                           colTime );
         const float remainingTime = (std::max)( 0.0f, availableTime - colTime );
         const bool hasManifold = Physics::BuildTerrainContactManifold(
-            context.profiler,
-            TerrainContactBodyViewForIndex( context.buoyancyFacts,
-                                            context.hotFields,
-                                            context.terrain,
-                                            context.settings,
-                                            bodyIndex ),
-            context.colliderRecords[static_cast<size_t>( bodyIndex )].shape,
+            profiler,
+            TerrainContactBodyViewForIndex( buoyancyFacts, hotFields, terrain, settings, bodyIndex ),
+            colliderRecords[static_cast<size_t>( bodyIndex )].shape,
             bodyIndex,
             sweep,
             availableTime,
@@ -193,7 +224,7 @@ PhysicsTerrainStage::PrepareCandidateCommit( const TerrainCandidateCommitContext
         record.bodyA = bodyIndex;
         record.bodyB = TERRAIN_BODY_INDEX;
         record.point = hasManifold ? commit.manifold.points[0].point
-                                   : PhysicsBodyPosition( context.hotFields, static_cast<size_t>( bodyIndex ) );
+                                   : PhysicsBodyPosition( hotFields, static_cast<size_t>( bodyIndex ) );
 
         record.normal = hasManifold ? commit.manifold.normal : ZERO_VECTOR;
         record.scalarA = colTime;
@@ -212,8 +243,9 @@ PhysicsTerrainStage::PrepareCandidateCommit( const TerrainCandidateCommitContext
     return commit;
 }
 
-void PhysicsTerrainStage::CommitCandidate( const TerrainCandidateCommitContext& context,
-                                           const PreparedTerrainCandidateCommit& commit )
+void PhysicsTerrainStage::CommitCandidate( const PreparedTerrainCandidateCommit& commit,
+                                           std::span<uint8_t> sleepSupportedThisFrame,
+                                           std::span<uint8_t> sleepInhibitedThisFrame )
 {
     if ( !commit.hit )
     {
@@ -225,16 +257,16 @@ void PhysicsTerrainStage::CommitCandidate( const TerrainCandidateCommitContext& 
         m_contactManifolds.push_back( commit.manifold );
         if ( commit.manifold.supportsRestingPolicy )
         {
-            context.sleepSupportedThisFrame[commit.bodyIndex] = 1;
+            sleepSupportedThisFrame[commit.bodyIndex] = 1;
         }
         else
         {
-            context.sleepInhibitedThisFrame[commit.bodyIndex] = 1;
+            sleepInhibitedThisFrame[commit.bodyIndex] = 1;
         }
     }
     else
     {
-        context.sleepInhibitedThisFrame[commit.bodyIndex] = 1;
+        sleepInhibitedThisFrame[commit.bodyIndex] = 1;
     }
 }
 

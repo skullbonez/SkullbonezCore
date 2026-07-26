@@ -57,7 +57,6 @@ using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::PhysicsBodyCreateRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsTerrainStage;
-using SkullbonezCore::Physics::TerrainDetectionStageContext;
 using SkullbonezCore::Threading::LockOrderValidator;
 using SkullbonezCore::Threading::WorkerPool;
 
@@ -156,14 +155,6 @@ TEST_CASE( "Physics terrain stage: candidate rows preserve model order and eligi
     const std::array<uint8_t, 3> sleepState = { 0u, 0u, 1u };
     const std::array<float, 3> timeRemaining = { 0.5f, 0.5f, 0.5f };
     const std::array<SkullbonezCore::Physics::BuoyancyBodyFacts, 3> buoyancyFacts;
-    const TerrainDetectionStageContext context{ bodies.Records(),
-                                                buoyancyFacts,
-                                                bodies.HotFields(),
-                                                colliders.Records(),
-                                                terrain.PhysicsView(),
-                                                physicsSettings,
-                                                sleepState,
-                                                timeRemaining };
     SkullbonezCore::Physics::PhysicsExecutionSettings execution;
     execution.parallel = false;
     LockOrderValidator lockOrderValidator;
@@ -171,7 +162,17 @@ TEST_CASE( "Physics terrain stage: candidate rows preserve model order and eligi
     PhysicsTerrainStage stage;
     const std::array<int, 1> awakeBodyIndices = { 0 };
 
-    stage.Detect( context, 3, awakeBodyIndices, execution, inlinePool );
+    stage.Detect( bodies,
+                  colliders,
+                  buoyancyFacts,
+                  terrain.PhysicsView(),
+                  physicsSettings,
+                  sleepState,
+                  timeRemaining,
+                  nullptr,
+                  awakeBodyIndices,
+                  execution,
+                  inlinePool );
 
     const auto candidates = stage.GetDetectionCandidates();
     REQUIRE( candidates.size() == 3u );
