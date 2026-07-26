@@ -31,10 +31,10 @@ Related:
 #include "../Input/InputController.h"
 #include "../Tools/RuntimeFileWriter.h"
 #include "../Scene/SceneRuntime.h"
+#include "../Scene/SceneSaveOperations.h"
 #include "../Tools/RuntimeTools.h"
 #include "../../Core/Common.h"
 #include "../Scene/SceneController.h"
-#include "../../Scene/SceneSnapshotWriter.h"
 #include "../../UI/UICommands.h"
 #include "../../UI/UITabEditor.h"
 #include "../../World/WorldEnvironment.h"
@@ -42,8 +42,6 @@ Related:
 #include <algorithm>
 #include <utility>
 
-using SkullbonezCore::GameObjects::SceneSaveRequest;
-using SkullbonezCore::GameObjects::SceneSnapshotWriter;
 using SkullbonezCore::Math::Vector::Vector3;
 
 namespace SkullbonezCore
@@ -441,24 +439,15 @@ void HandleEditorSceneSaveHotkey( SceneWorld& world,
     }
 
     static int sSnapshotSeq = 0;
-    char path[256] = {};
-    if ( RuntimeFileWriter::NextNumberedPath( path,
-                                              sizeof( path ),
-                                              "Scenes",
-                                              "snapshot_",
-                                              ".scene.json",
-                                              sSnapshotSeq,
-                                              100 ) )
+    SkullbonezCore::Core::SbResult saveResult = SkullbonezCore::Core::SbResult::Success();
+    if ( TrySaveNextEditorSceneSnapshot( sSnapshotSeq,
+                                         world.GetSaveState(),
+                                         scene.GetSaveState(),
+                                         presentation,
+                                         saveResult ) &&
+         !saveResult.ok )
     {
-        // Lifetime: the composed request borrows SceneWorld stores only for this
-        // synchronous write. Session and presentation fields are detached values.
-        const SceneSaveRequest request { path, world.GetSaveState(), scene.GetSaveState(), presentation };
-
-        const SkullbonezCore::Core::SbResult saveResult = SceneSnapshotWriter::Save( request );
-        if ( !saveResult.ok )
-        {
-            fprintf( stderr, "[%s] %s\n", saveResult.error.owner, saveResult.error.message );
-        }
+        fprintf( stderr, "[%s] %s\n", saveResult.error.owner, saveResult.error.message );
     }
 }
 

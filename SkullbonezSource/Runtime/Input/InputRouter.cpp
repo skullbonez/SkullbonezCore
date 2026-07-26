@@ -9,7 +9,8 @@ Summary:
   later decides which already-observed edges are eligible for delivery. This
   separation prevents held keys from firing when UI or tool contexts change.
   Water-height keys are translated here into a world-unit command so simulation
-  code never reinterprets device vocabulary.
+  code never reinterprets device vocabulary. RuntimePointerArbitration enforces
+  the production world-pointer claim sequence without retaining domain owners.
 
 Glossary:
   Delivered action: Press edge previously emitted to a consumer; held and
@@ -21,18 +22,23 @@ Glossary:
     phases.
   Fluid-surface command: Signed world-space velocity published in the immutable
     RuntimeInputSnapshot.
+  Pointer arbitration: Phase cursor that lets the first consuming editor,
+    pickup, camera, Replay, or launcher stage suppress every later owner call.
 
 Invariants:
   - No operation in this file allocates or retains caller-owned storage.
   - One action contributes at most one event per routed phase and frame.
   - Context matching is all-of; every required bit must be active.
   - Refocus synchronizes held inputs without inventing press edges.
+  - Pointer stages execute in their declared order and cannot replace an earlier
+    winner.
 
 Related:
   - InputRouter.h defines the value records and caller contract.
   - SkullbonezTests/TestInputRouter.cpp covers edge and context behavior.
 */
 #include "InputRouter.h"
+#include "../../Core/FatalError.h"
 #include "../Interaction/RuntimeInteractionController.h"
 
 namespace SkullbonezCore
@@ -61,6 +67,83 @@ Environment::FluidSurfaceAdjustment BuildFluidSurfaceAdjustment( const InputKeyS
                                                        : -FLUID_SURFACE_CONTROL_SPEED_METERS_PER_SECOND };
 }
 } // namespace
+
+
+bool RuntimePointerArbitration::BeginStage( RuntimePointerRouteStage stage )
+{
+    if ( m_active != RuntimePointerRouteStage::None || stage != m_next || stage == RuntimePointerRouteStage::Complete )
+    {
+        SB_FATAL( "Runtime/InputRouter", "Illegal runtime pointer arbitration stage begin." );
+    }
+
+    m_active = stage;
+    return m_winner == RuntimePointerRouteStage::None;
+}
+
+
+void RuntimePointerArbitration::FinishStage( RuntimePointerRouteStage stage, bool consumed )
+{
+    if ( m_active != stage )
+    {
+        SB_FATAL( "Runtime/InputRouter", "Runtime pointer arbitration finished a stage that is not active." );
+    }
+
+    const bool mayConsume = m_winner == RuntimePointerRouteStage::None;
+    if ( consumed && !mayConsume )
+    {
+        SB_FATAL( "Runtime/InputRouter", "A later runtime pointer stage attempted to replace the winning owner." );
+    }
+
+    if ( consumed )
+    {
+        m_winner = stage;
+    }
+
+    switch ( stage )
+    {
+    case RuntimePointerRouteStage::Editor:
+        m_next = RuntimePointerRouteStage::MousePickup;
+        break;
+    case RuntimePointerRouteStage::MousePickup:
+        m_next = RuntimePointerRouteStage::AttachedCamera;
+        break;
+    case RuntimePointerRouteStage::AttachedCamera:
+        m_next = RuntimePointerRouteStage::Replay;
+        break;
+    case RuntimePointerRouteStage::Replay:
+        m_next = RuntimePointerRouteStage::Launcher;
+        break;
+    case RuntimePointerRouteStage::Launcher:
+        m_next = RuntimePointerRouteStage::Complete;
+        break;
+    default:
+        SB_FATAL( "Runtime/InputRouter", "Runtime pointer arbitration reached an invalid active stage." );
+    }
+
+    m_active = RuntimePointerRouteStage::None;
+}
+
+
+bool RuntimePointerArbitration::Consumed() const
+{
+    if ( m_active != RuntimePointerRouteStage::None || m_next != RuntimePointerRouteStage::Complete )
+    {
+        SB_FATAL( "Runtime/InputRouter", "Runtime pointer arbitration was observed before all stages completed." );
+    }
+
+    return m_winner != RuntimePointerRouteStage::None;
+}
+
+
+RuntimePointerRouteStage RuntimePointerArbitration::Winner() const
+{
+    if ( m_active != RuntimePointerRouteStage::None || m_next != RuntimePointerRouteStage::Complete )
+    {
+        SB_FATAL( "Runtime/InputRouter", "Runtime pointer arbitration winner was observed before route completion." );
+    }
+
+    return m_winner;
+}
 
 
 InputKeySnapshot InputKeySnapshot::FromWords( const std::array<uint64_t, WORD_COUNT>& words )

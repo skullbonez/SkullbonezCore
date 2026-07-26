@@ -280,9 +280,12 @@ RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointer
         return result;
     }
 
+    RuntimePointerArbitration arbitration;
     // Invariant: this order is the world-pointer arbitration contract. Each
     // concrete owner sees the immutable pointer/ray values only when every
-    // earlier owner declined the gesture.
+    // earlier owner declined the gesture. The phase cursor lane-F fails a
+    // reordered, skipped, or repeated stage.
+    (void)arbitration.BeginStage( RuntimePointerRouteStage::Editor );
     const EditorPointerRouteResult editorResult = RouteEditorPointer( pointer,
                                                                       hasWorldRay,
                                                                       rayOrigin,
@@ -321,9 +324,10 @@ RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointer
         appendModeAction( editorResult.modeActions[actionIndex] );
     }
 
-    bool consumed = editorResult.consumed;
+    arbitration.FinishStage( RuntimePointerRouteStage::Editor, editorResult.consumed );
 
-    if ( !consumed )
+    bool pickupConsumed = false;
+    if ( arbitration.BeginStage( RuntimePointerRouteStage::MousePickup ) )
     {
         const bool pickupModeActive = RunCameraModeIsManipulator( cameraMode ) &&
                                       !runtimeTools.Editor().editorModeEnabled && !replayInspectionActive;
@@ -348,11 +352,15 @@ RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointer
                                                                                                 interaction );
 
             result.enteredInteractiveScene |= pickupResult.enteredInteractive;
-            consumed = pickupResult.consumed;
+            pickupConsumed = pickupResult.consumed;
         }
     }
 
-    if ( !consumed && RunCameraModeIsAttached( cameraMode ) && pointer.leftPressed && !pointer.suppressWorldAction )
+    arbitration.FinishStage( RuntimePointerRouteStage::MousePickup, pickupConsumed );
+
+    bool cameraConsumed = false;
+    if ( arbitration.BeginStage( RuntimePointerRouteStage::AttachedCamera ) && RunCameraModeIsAttached( cameraMode ) &&
+         pointer.leftPressed && !pointer.suppressWorldAction )
     {
         AttachedCameraTargetSelection selection;
         if ( attachedCamera.PickTarget( models.Scene(), hasWorldRay, rayOrigin, rayDirection, selection ) )
@@ -370,10 +378,13 @@ RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointer
 
         result.enteredInteractiveScene = true;
         appendModeAction( RuntimeInputAction::SetCameraMode );
-        consumed = true;
+        cameraConsumed = true;
     }
 
-    if ( !consumed )
+    arbitration.FinishStage( RuntimePointerRouteStage::AttachedCamera, cameraConsumed );
+
+    bool replayConsumed = false;
+    if ( arbitration.BeginStage( RuntimePointerRouteStage::Replay ) )
     {
         ReplayPathPickInput pickInput;
         pickInput.hasWorldRay = pointer.leftPressed && hasWorldRay;
@@ -381,27 +392,31 @@ RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointer
         pickInput.rayDirection = rayDirection;
         pickInput.additive = pointer.shiftDown;
         pickInput.clearOnMiss = !pointer.shiftDown;
-        consumed = replayRuntime.RouteWorldPointer( ReplayWorldPointerInput { pointer.leftPressed,
-                                                                              pointer.suppressWorldAction,
-                                                                              runtimeTools.Editor().editorModeEnabled,
-                                                                              pointer.controlDown,
-                                                                              RunCameraModeUsesLauncher( cameraMode ),
-                                                                              pickInput,
-                                                                              replayRestoreCameraMode,
-                                                                              attachedCameraFollow,
-                                                                              directorGrabbed },
-                                                    entities,
-                                                    models.Scene().BodyStore(),
-                                                    models.Scene().Colliders(),
-                                                    models.Scene().RenderPresentationRecords(),
-                                                    &cameras,
-                                                    terrain,
-                                                    camera,
-                                                    interaction,
-                                                    *this );
+        replayConsumed = replayRuntime.RouteWorldPointer(
+            ReplayWorldPointerInput { pointer.leftPressed,
+                                      pointer.suppressWorldAction,
+                                      runtimeTools.Editor().editorModeEnabled,
+                                      pointer.controlDown,
+                                      RunCameraModeUsesLauncher( cameraMode ),
+                                      pickInput,
+                                      replayRestoreCameraMode,
+                                      attachedCameraFollow,
+                                      directorGrabbed },
+            entities,
+            models.Scene().BodyStore(),
+            models.Scene().Colliders(),
+            models.Scene().RenderPresentationRecords(),
+            &cameras,
+            terrain,
+            camera,
+            interaction,
+            *this );
     }
 
-    if ( !consumed )
+    arbitration.FinishStage( RuntimePointerRouteStage::Replay, replayConsumed );
+
+    bool launcherConsumed = false;
+    if ( arbitration.BeginStage( RuntimePointerRouteStage::Launcher ) )
     {
         const LauncherPointerResult launcherResult = runtimeTools.RouteLauncherPointer(
             { RunCameraModeUsesLauncher( cameraMode ),
@@ -423,10 +438,12 @@ RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointer
             appendModeAction( RuntimeInputAction::FireLauncher );
         }
 
-        consumed = launcherResult.consumed;
+        launcherConsumed = launcherResult.consumed;
     }
 
-    result.consumed = consumed;
+    arbitration.FinishStage( RuntimePointerRouteStage::Launcher, launcherConsumed );
+
+    result.consumed = arbitration.Consumed();
     return result;
 }
 

@@ -11,17 +11,18 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-25th-JUL-26` |
-| Current baseline | Concrete Parameter-Bag Elimination PB6 is complete: sleep, wake, external-force, terrain, force, and integration bags are deleted. |
-| Current objective | Execute `concrete-parameter-bag-elimination` PB7: final census, cumulative gates, and one independent hostile ownership review. |
-| Active/future progress | Concrete Parameter-Bag Elimination 7/8; active/future ledger 7/8 (88%). |
+| Current baseline | Concrete Parameter-Bag Elimination is complete at PB0-PB7; all 30 repair rows and three ceiling defects are closed. |
+| Current objective | No live implementation plan; await the next owner direction. |
+| Active/future progress | No live plans; active/future ledger denominator is 0. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | PB6 `validate_full.bat` passes in 228.4 s: mandatory CPU/coverage, Automation/Replay, DX12 without refresh, and byte-exact 44,401-line physics regression. |
-| Validation for current edits | PB6: focused sleep/terrain/external-force/gravity tests and Physics, performance, and full gates pass; retired symbols, threshold-13, dependency, allocation, and direction scans are clean. |
+| Last broad local gate | PB7 `validate_full.bat` passes in 230.9 s: mandatory CPU/coverage, Automation/Replay, DX12 without refresh, and byte-exact 44,401-line Physics regression. |
+| Validation for current edits | PB7: 401 doctests, fast, DX12, 61-second stress, performance, Replay artifact/allocation/scrub-visual-fidelity, Physics, and full gates pass; final 91/91 comment audit and static closure proofs are clean. |
 
 ## Live Queue
 
-NOW. The 2026-07-25 round-4 architecture campaign has one live plan:
-`concrete-parameter-bag-elimination` (7/8), so the ledger is 7/8 (88%). PB0
+NOW. The 2026-07-25 round-4 architecture campaign has no live plan.
+`concrete-parameter-bag-elimination` is complete at 8/8 and has left the live
+inventory under rule 4. PB0
 ratified all 22 registered rows, added eight repair rows, carried forward three
 13-parameter render/UI operations, and ruled every other reviewed hit. PB1
 then repaired Scene save/load and split editor save/capture authority. PB2
@@ -33,8 +34,10 @@ capture/focus bags with concrete values and restore bags with an owner-free,
 phase-checked transaction. PB5 deleted the five Physics collision/solver bags
 through concrete stages and direct values while preserving byte-exact pair
 and solver behavior. PB6 deleted the seven sleep/force/terrain bags and their
-obsolete shared header while preserving exact wake and worker order; PB7 is
-next.
+obsolete shared header while preserving exact wake and worker order. PB7
+reconciled all 30 repair rows and three ceiling defects, remediated the
+independent review's UI ownership and focused-test findings, completed the
+91/91 comment audit, and passed every cumulative gate without refresh.
 
 Header Claim Staleness Remediation is complete at 3/3 and removed from the live
 inventory under rule 4. Permanent evidence is
@@ -74,9 +77,10 @@ PB5 permanent evidence is
 `Agentic/Reports/2026-07-26/concrete-parameter-bag-elimination-pb5-physics-collision-solver.md`.
 PB6 permanent evidence is
 `Agentic/Reports/2026-07-26/concrete-parameter-bag-elimination-pb6-physics-sleep-force-terrain.md`.
-Implementation continues through the repository orchestrator skill with PB7
-next. Live plans are under
-`Agentic/Plans/TODO/`.
+PB7 permanent closure evidence is
+`Agentic/Reports/2026-07-26/concrete-parameter-bag-elimination-closure.md`.
+No plan in `Agentic/Plans/TODO/` remains live; retained completed files do not
+contribute to the active/future ledger.
 
 NOW. `solar-prediction-presentation-correction` is complete at 4/4. The
 120-second Mars-assist scene keeps every planet/moon bounded, exact-compares
@@ -487,7 +491,4 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Execute `concrete-parameter-bag-elimination` PB7: repeat the PB0 census from
-final source, reconcile all 30 repair rows and three ceiling defects, complete
-the final touched-source comment inventory, run one independent hostile
-ownership review, and execute all cumulative mapped gates before closure.
+No live implementation plan remains. Await the next owner direction.

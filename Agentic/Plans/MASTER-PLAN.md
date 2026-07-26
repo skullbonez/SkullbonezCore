@@ -648,9 +648,10 @@ The active/future ledger is now 1/8 (13%).
 
 ## Current Execution Priority
 
-The 2026-07-25 round-4 campaign now has one live plan:
-`concrete-parameter-bag-elimination` (7/8). Invariant Ownership Governance And
-Transaction Repair closed GV0-GV4 and left the live ledger under rule 4;
+The 2026-07-25 round-4 campaign has no live plans. Concrete Parameter-Bag
+Elimination closed PB0-PB7 and left the live ledger under rule 4. Invariant
+Ownership Governance And Transaction Repair closed GV0-GV4 and left the live
+ledger under rule 4;
 permanent evidence is
 `../Reports/2026-07-26/invariant-ownership-governance-and-transaction-repair-closure.md`.
 PB1 then installed the three owner-produced save publications, removed the
@@ -683,7 +684,13 @@ operations preserve worker partitioning and wake/terrain order, and pass
 focused tests plus Physics, performance, and broad gates with the physics
 oracle byte-exact. Permanent evidence is
 `../Reports/2026-07-26/concrete-parameter-bag-elimination-pb6-physics-sleep-force-terrain.md`.
-PB0-PB6 are complete. The active/future ledger is 7/8 (88%), with PB7 next.
+PB7 then reconciled all 30 repair rows and three ceiling defects, remediated
+the independent review's UI ownership and focused-test findings, completed the
+91/91 comment audit, and passed every cumulative mapped gate without baseline
+refresh. Permanent evidence is
+`../Reports/2026-07-26/concrete-parameter-bag-elimination-closure.md`.
+PB0-PB7 are complete. The completed plan leaves the live inventory under rule
+4, returning the active/future denominator from 8 to 0.
 Header-claim staleness remediation is complete at 3/3 and removed
 from the live ledger; its permanent evidence is
 `../Reports/2026-07-25/header-claim-staleness-remediation-closure.md`. Replay
@@ -1859,7 +1866,7 @@ second and preserved GV0.
 | [replay-subsystem-partition](../Reports/2026-07-26/replay-subsystem-partition-closure.md) | Complete | 6/6 | Closed and removed from the live ledger under inventory rule 4 |
 | [downward-domain-bleed-remediation](../Reports/2026-07-26/downward-domain-bleed-remediation-closure.md) | Complete | 6/6 | Closed and removed from the live ledger under inventory rule 4 |
 | [invariant-ownership-governance-and-transaction-repair](../Reports/2026-07-26/invariant-ownership-governance-and-transaction-repair-closure.md) | Complete | 5/5 | Closed and removed from the live ledger under rule 4 |
-| [concrete-parameter-bag-elimination](TODO/concrete-parameter-bag-elimination.md) | In progress | 7/8 | PB7 proves complete closure |
+| [concrete-parameter-bag-elimination](../Reports/2026-07-26/concrete-parameter-bag-elimination-closure.md) | Complete | 8/8 | Closed and removed from the live ledger under inventory rule 4 |
 
 ## Features
 
@@ -1874,8 +1881,9 @@ rule 9 applies — it is not live work and is not tracked here).
 
 Binding:
 
-- 2026-07-26 concrete parameter-bag ruling: the 22 shapes enumerated in
-  `TODO/concrete-parameter-bag-elimination.md` are repair-required. Their
+- 2026-07-26 concrete parameter-bag ruling: the 22 registered shapes preserved
+  in `../Reports/2026-07-26/concrete-parameter-bag-elimination-closure.md` were
+  repair-required. Their
   replacements use concrete owner-produced values, focused direct operations,
   or concrete stack-scoped invariant owners. This remediation may introduce no
   inheritance, abstract or pure-virtual interface, virtual dispatch, CRTP

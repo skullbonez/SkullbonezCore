@@ -7,8 +7,9 @@ Summary:
   World rendering can be skipped, redirected, or post-processed, but UI/text is
   a late pass over the final window. This owner holds font/text-batch lifetime,
   profiler/timing and ray-tracing presentation capabilities, text-only output,
-  HUD overlays, and the in-game UI draw payload. RuntimeRenderer schedules it
-  through one frame input record.
+  HUD overlays, and the in-game UI frame publication. RuntimeRenderer schedules
+  focused metrics, chrome, operator projection/submission, Replay, and overlay
+  operations.
 
 Glossary:
   HUD (Heads-Up Display): Lightweight text diagnostics drawn over the scene.
@@ -29,12 +30,12 @@ Glossary:
 Invariants:
   - Font resources are created once through EnsureGpuResources and released
     before backend teardown.
-  - Render flushes Text2d before returning, so callers do not inherit queued UI
-    glyphs into later frame work.
+  - Every scheduled UI path flushes Text2d before the graph completes, so later
+    frame work cannot inherit queued UI glyphs.
   - Development-tool status is copied into the UI snapshot; draw code never
     reaches back into the live Tracy owner.
-  - HUD, operator, Replay, and submission phases are borrowed only during the
-    synchronous graph callback; no owner reference is retained.
+  - Operation-specific graph ABI records borrow direct values only until their
+    synchronous callback returns; no owner reference is retained between calls.
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.h
@@ -203,43 +204,16 @@ BuildMainMemoryOverlayStats( const DiagnosticsRuntime& diagnosticsRuntime,
     return stats;
 }
 
-void RenderReplayScrubberOverlayFromInputs( UiDrawSubmission& submission,
-                                            SkullbonezCore::Text::TextBatch& textBatch,
-                                            SkullbonezCore::UI::UIDrawList& drawList,
-                                            const UiReplayTextPhase& replay,
-                                            SkullbonezCore::Rendering::Dx12TextureOwner& renderTextures,
-                                            SkullbonezCore::Rendering::Dx12GeometryOwner& renderCommands,
-                                            SkullbonezCore::Rendering::Dx12Diagnostics& renderDiagnostics )
-{
-    if ( !replay.legacySurfaceActive )
-    {
-        return;
-    }
-
-    ReplayOverlay::RenderReplayScrubberOverlay( submission,
-                                                textBatch,
-                                                drawList,
-                                                replay.overlay,
-                                                renderTextures,
-                                                renderCommands,
-                                                renderDiagnostics,
-                                                replay.profiler,
-                                                replay.scenePhysicsEnabled,
-                                                replay.gesture,
-                                                { replay.screenW, replay.screenH },
-                                                replay.nowSeconds );
-}
-
 void RenderReplayDivergenceCounter( SkullbonezCore::Text::TextBatch& textBatch,
-                                    const UiHudScenePhase& hud,
-                                    const UiReplayTextPhase& replay )
+                                    const OverlayDebugState& debug,
+                                    const ReplayHudStatus& replayHud )
 {
-    if ( !hud.debug.isTopTextHidden || !replay.hud.divergenceValid )
+    if ( !debug.isTopTextHidden || !replayHud.divergenceValid )
     {
         return;
     }
 
-    const int divergence = (std::max)( 0, static_cast<int>( replay.hud.divergenceUnits + 0.5f ) );
+    const int divergence = (std::max)( 0, static_cast<int>( replayHud.divergenceUnits + 0.5f ) );
     char value[32] = {};
 
     if ( divergence >= 1000 )
@@ -307,19 +281,20 @@ void UiTextPass::ReleaseGpuResources( Rendering::Dx12TextureOwner* renderTexture
 }
 
 
-bool UiTextPass::ShouldRender( const UiHudScenePhase& scene,
-                               const UiHudInteractionPhase& interaction,
+bool UiTextPass::ShouldRender( const OverlayDebugState& debug,
+                               const SceneSessionState& scene,
+                               bool crossScenePauseLocked,
+                               const CameraControlState& camera,
                                const UI::InGameUI& ui,
                                bool replayScrubberVisible,
                                bool replayPathVisualizerHasTarget ) const
 {
-    return scene.debug.isTextOnly || !scene.scene.isSceneMode || scene.scene.isSceneText ||
-           scene.debug.overlayMode != OverlayMode::None || ui.NeedsUiTextPass() ||
-           ( scene.crossScenePauseLocked && !scene.debug.isTopTextHidden ) ||
-           ( scene.scene.isTestComplete && !scene.debug.isTopTextHidden ) || replayScrubberVisible ||
+    return debug.isTextOnly || !scene.isSceneMode || scene.isSceneText || debug.overlayMode != OverlayMode::None ||
+           ui.NeedsUiTextPass() || ( crossScenePauseLocked && !debug.isTopTextHidden ) ||
+           ( scene.isTestComplete && !debug.isTopTextHidden ) || replayScrubberVisible ||
            replayPathVisualizerHasTarget ||
-           ( interaction.camera.mode != RunCameraMode::Demo && interaction.camera.mode != RunCameraMode::Scene &&
-             interaction.camera.mode != RunCameraMode::Director );
+           ( camera.mode != RunCameraMode::Demo && camera.mode != RunCameraMode::Scene &&
+             camera.mode != RunCameraMode::Director );
 }
 
 
@@ -329,92 +304,86 @@ void UiTextPass::SetRayTracingCapability( Rendering::Dx12RaytracingOwner* render
 }
 
 
-void UiTextPass::Render( const UiHudScenePhase& scene,
-                         const UiHudInteractionPhase& interaction,
-                         const UiHudFramePhase& frameFacts,
-                         const UiOperatorTextPhase& operatorPhase,
-                         const UiReplayTextPhase& replay,
-                         const UiTextSubmissionPhase& submission,
-                         Rendering::Dx12ResourceBuilder& renderResources,
-                         Rendering::Dx12TextureOwner& renderTextures,
-                         Rendering::Dx12GeometryOwner& renderCommands,
-                         Rendering::Dx12Diagnostics& renderDiagnostics )
+float UiTextPass::BeginFrame( RunTimerState& timers,
+                              const RuntimeRenderModelFrameView& models,
+                              double secondsPerFrame,
+                              int screenW,
+                              int screenH )
 {
     m_testPatternDrawList.Clear();
     m_badgeDrawList.Clear();
     m_replayDrawList.Clear();
     m_profilerDrawList.Clear();
-    // Lifetime: this scope observes every return path, including text-only and
-    // replay-only frames, after all retained draw streams have been reset.
-    const RetainedUIDrawStatsScope retainedDrawStats( m_testPatternDrawList,
-                                                      m_badgeDrawList,
-                                                      m_replayDrawList,
-                                                      m_profilerDrawList );
-
-    const UiHudScenePhase& state = scene;
-    const UiTextSubmissionPhase& inputs = submission;
-    Text::TextBatch& textBatch = m_textBatch;
-    Text2d::RebuildProjection( textBatch, (std::max)( 1, frameFacts.screenW ), (std::max)( 1, frameFacts.screenH ) );
-    const int uiPassDrawCallStart = renderDiagnostics.GetFrameDrawCallCount();
-    const auto renderReplayScrubber = [&]()
-    {
-        RenderReplayScrubberOverlayFromInputs( m_uiDrawSubmission,
-                                               textBatch,
-                                               m_replayDrawList,
-                                               replay,
-                                               renderTextures,
-                                               renderCommands,
-                                               renderDiagnostics );
-    };
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
     assert( m_profiler && "UiTextPass requires a startup-bound profiler in profile builds." );
-    const SkullbonezCore::Core::Profiler& profiler = *m_profiler;
-    const UI::UIProfilerOverlayPresenter profilerOverlay;
 #endif
+    Text2d::RebuildProjection( m_textBatch, (std::max)( 1, screenW ), (std::max)( 1, screenH ) );
+    return UpdateFrameMetrics( timers, models, secondsPerFrame );
+}
 
+
+float UiTextPass::UpdateFrameMetrics( RunTimerState& timers,
+                                      const RuntimeRenderModelFrameView& models,
+                                      double secondsPerFrame )
+{
     // Invariant: rolling diagnostics update before any overlay early return so
     // FPS, physics time, render time, and scene energy age at the same cadence.
-    submission.timers.updateTimer.StopTimer();
-    submission.timers.timeSinceLastRender += static_cast<float>( submission.timers.updateTimer.GetElapsedTime() );
-    submission.timers.updateTimer.StartTimer();
+    timers.updateTimer.StopTimer();
+    timers.timeSinceLastRender += static_cast<float>( timers.updateTimer.GetElapsedTime() );
+    timers.updateTimer.StartTimer();
 
-    const double currentSceneEnergy = submission.models.sceneKineticEnergy;
-    submission.timers.sceneEnergyAccumulator += currentSceneEnergy;
-    ++submission.timers.sceneEnergySampleCount;
+    const double currentSceneEnergy = models.sceneKineticEnergy;
+    timers.sceneEnergyAccumulator += currentSceneEnergy;
+    ++timers.sceneEnergySampleCount;
 
-    if ( submission.timers.timeSinceLastRender > 0.5f )
+    if ( timers.timeSinceLastRender > 0.5f )
     {
-        if ( submission.secondsPerFrame )
+        if ( secondsPerFrame )
         {
-            submission.timers.rollingFpsTime = 1.0f / static_cast<float>( submission.secondsPerFrame );
-            submission.timers.rollingPhysicsTime = submission.timers.physicsTime;
-            submission.timers.rollingRenderTime = submission.timers.renderTime;
+            timers.rollingFpsTime = 1.0f / static_cast<float>( secondsPerFrame );
+            timers.rollingPhysicsTime = timers.physicsTime;
+            timers.rollingRenderTime = timers.renderTime;
         }
 
-        if ( submission.timers.sceneEnergySampleCount > 0 )
+        if ( timers.sceneEnergySampleCount > 0 )
         {
-            submission.timers.rollingSceneEnergy = static_cast<float>(
-                submission.timers.sceneEnergyAccumulator /
-                static_cast<double>( submission.timers.sceneEnergySampleCount ) );
+            timers.rollingSceneEnergy = static_cast<float>( timers.sceneEnergyAccumulator /
+                                                            static_cast<double>( timers.sceneEnergySampleCount ) );
 
-            submission.timers.sceneEnergyAccumulator = 0.0;
-            submission.timers.sceneEnergySampleCount = 0;
+            timers.sceneEnergyAccumulator = 0.0;
+            timers.sceneEnergySampleCount = 0;
         }
 
-        submission.timers.timeSinceLastRender = 0.0f;
+        timers.timeSinceLastRender = 0.0f;
     }
 
-    float sceneEnergyForDisplay = submission.timers.rollingSceneEnergy;
-    if ( submission.timers.sceneEnergySampleCount > 0 && sceneEnergyForDisplay == 0.0f )
+    float sceneEnergyForDisplay = timers.rollingSceneEnergy;
+    if ( timers.sceneEnergySampleCount > 0 && sceneEnergyForDisplay == 0.0f )
     {
-        sceneEnergyForDisplay = static_cast<float>( submission.timers.sceneEnergyAccumulator /
-                                                    static_cast<double>( submission.timers.sceneEnergySampleCount ) );
+        sceneEnergyForDisplay = static_cast<float>( timers.sceneEnergyAccumulator /
+                                                    static_cast<double>( timers.sceneEnergySampleCount ) );
     }
 
+    return sceneEnergyForDisplay;
+}
+
+
+void UiTextPass::RenderChromeStatus( const UiTextViewport& viewport,
+                                     const OverlayDebugState& debug,
+                                     bool crossScenePauseLocked,
+                                     const SceneSessionState& scene,
+                                     const CameraControlState& camera,
+                                     int sceneQueueSize,
+                                     const char* cameraModeLabel,
+                                     Rendering::Dx12TextureOwner& renderTextures,
+                                     Rendering::Dx12GeometryOwner& renderCommands,
+                                     Rendering::Dx12Diagnostics& renderDiagnostics )
+{
+    Text::TextBatch& textBatch = m_textBatch;
     const char* rendererName = renderDiagnostics.GetRendererName();
 
     // text_only mode: solid background + full-screen pangram, no HUD/profiler
-    if ( state.debug.isTextOnly )
+    if ( debug.isTextOnly )
     {
         // Dark background covering the full viewport
         Text2d::Render2dQuad( textBatch, renderCommands, -0.55f, -0.45f, 0.55f, 0.45f, 0.08f, 0.08f, 0.12f, 1.0f );
@@ -444,65 +413,58 @@ void UiTextPass::Render( const UiHudScenePhase& scene,
         return;
     }
 
-    const float hw = Text2d::HalfW( textBatch );
-    const float hh = Text2d::HalfH( textBatch );
-    const float mX = 0.022f; // horizontal inset from left/right edge
-    const float mY = 0.015f; // vertical inset from top/bottom edge
-
     constexpr float TOP_RIGHT_BADGE_MARGIN = 12.0f;
 
     constexpr float TOP_RIGHT_BADGE_GAP = 6.0f;
     float topRightBadgeY = TOP_RIGHT_BADGE_MARGIN;
     m_badgeDrawList.Clear();
-    const SkullbonezCore::UI::UIDrawContext badgeDraw( (std::max)( 1, frameFacts.screenW ),
-                                                       (std::max)( 1, frameFacts.screenH ),
+    const SkullbonezCore::UI::UIDrawContext badgeDraw( (std::max)( 1, viewport.screenW ),
+                                                       (std::max)( 1, viewport.screenH ),
                                                        m_badgeDrawList );
 
     const auto renderScenePauseBadge = [&]()
     {
-        if ( state.debug.isTopTextHidden ||
-             ( !state.scene.isSceneMode && !state.crossScenePauseLocked && !state.scene.isTestComplete ) )
+        if ( debug.isTopTextHidden || ( !scene.isSceneMode && !crossScenePauseLocked && !scene.isTestComplete ) )
         {
             return;
         }
 
-        const int screenW = (std::max)( 1, frameFacts.screenW );
+        const int screenW = (std::max)( 1, viewport.screenW );
         const SkullbonezCore::UI::UIDrawContext& draw = badgeDraw;
         const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
         const SkullbonezCore::UI::Style::UIRadii& radii = SkullbonezCore::UI::Style::Radii();
 
         char sceneLine[64] = {};
-        if ( !state.scene.isSceneMode )
+        if ( !scene.isSceneMode )
         {
-            sprintf_s( sceneLine, sizeof( sceneLine ), "Demo  Frame %d", state.scene.currentFrame );
+            sprintf_s( sceneLine, sizeof( sceneLine ), "Demo  Frame %d", scene.currentFrame );
         }
-        else if ( state.scene.targetFrameCount > 0 )
+        else if ( scene.targetFrameCount > 0 )
         {
-            const int frame = state.scene.isTestComplete && state.scene.currentFrame > state.scene.targetFrameCount
-                                  ? state.scene.targetFrameCount
-                                  : state.scene.currentFrame;
+            const int sceneFrame = scene.isTestComplete && scene.currentFrame > scene.targetFrameCount
+                                       ? scene.targetFrameCount
+                                       : scene.currentFrame;
 
             sprintf_s( sceneLine,
                        sizeof( sceneLine ),
                        "Scene %d/%d  Frame %d/%d",
-                       state.scene.currentSceneIndex + 1,
-                       frameFacts.sceneQueueSize,
-                       frame,
-                       state.scene.targetFrameCount );
+                       scene.currentSceneIndex + 1,
+                       sceneQueueSize,
+                       sceneFrame,
+                       scene.targetFrameCount );
         }
         else
         {
             sprintf_s( sceneLine,
                        sizeof( sceneLine ),
                        "Scene %d/%d  Frame %d",
-                       state.scene.currentSceneIndex + 1,
-                       frameFacts.sceneQueueSize,
-                       state.scene.currentFrame );
+                       scene.currentSceneIndex + 1,
+                       sceneQueueSize,
+                       scene.currentFrame );
         }
 
-        const char* stateLine = state.crossScenePauseLocked
-                                    ? "P Pause Lock   Space advances"
-                                    : ( state.scene.isTestComplete ? "Scene complete" : "P pause lock" );
+        const char* stateLine = crossScenePauseLocked ? "P Pause Lock   Space advances"
+                                                      : ( scene.isTestComplete ? "Scene complete" : "P pause lock" );
 
         const float titlePx = 11.5f;
         const float valuePx = 10.0f;
@@ -526,9 +488,9 @@ void UiTextPass::Render( const UiHudScenePhase& scene,
                           4.0f,
                           panelH - 2.0f,
                           radii.smallButton,
-                          state.crossScenePauseLocked ? palette.warningAccent.r : palette.accent.r,
-                          state.crossScenePauseLocked ? palette.warningAccent.g : palette.accent.g,
-                          state.crossScenePauseLocked ? palette.warningAccent.b : palette.accent.b,
+                          crossScenePauseLocked ? palette.warningAccent.r : palette.accent.r,
+                          crossScenePauseLocked ? palette.warningAccent.g : palette.accent.g,
+                          crossScenePauseLocked ? palette.warningAccent.b : palette.accent.b,
                           0.90f );
 
         draw.Text( x + padX,
@@ -542,9 +504,9 @@ void UiTextPass::Render( const UiHudScenePhase& scene,
         draw.Text( x + padX,
                    y + padY + lineGap,
                    valuePx,
-                   state.crossScenePauseLocked ? palette.warningAccent.r : palette.accent.r,
-                   state.crossScenePauseLocked ? palette.warningAccent.g : palette.accent.g,
-                   state.crossScenePauseLocked ? palette.warningAccent.b : palette.accent.b,
+                   crossScenePauseLocked ? palette.warningAccent.r : palette.accent.r,
+                   crossScenePauseLocked ? palette.warningAccent.g : palette.accent.g,
+                   crossScenePauseLocked ? palette.warningAccent.b : palette.accent.b,
                    stateLine );
 
         topRightBadgeY = y + panelH + TOP_RIGHT_BADGE_GAP;
@@ -554,41 +516,41 @@ void UiTextPass::Render( const UiHudScenePhase& scene,
     {
         // Why: clean validation/look-dev captures use --hide-top-text to remove
         // top-left chrome without changing scene simulation or camera state.
-        if ( state.debug.isTopTextHidden )
+        if ( debug.isTopTextHidden )
         {
             return;
         }
 
-        if ( interaction.camera.mode == RunCameraMode::Demo || interaction.camera.mode == RunCameraMode::Scene ||
-             interaction.camera.mode == RunCameraMode::Director )
+        if ( camera.mode == RunCameraMode::Demo || camera.mode == RunCameraMode::Scene ||
+             camera.mode == RunCameraMode::Director )
         {
             return;
         }
 
-        const int screenW = (std::max)( 1, frameFacts.screenW );
+        const int screenW = (std::max)( 1, viewport.screenW );
         const SkullbonezCore::UI::UIDrawContext& draw = badgeDraw;
         const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
         const SkullbonezCore::UI::Style::UIRadii& radii = SkullbonezCore::UI::Style::Radii();
 
-        const char* modeLine = frameFacts.cameraModeLabel;
+        const char* modeLine = cameraModeLabel;
 
         const char* detail = "RMB look  WASD  Space";
         SkullbonezCore::UI::Style::UIColor accent = palette.accent;
-        if ( interaction.camera.mode == RunCameraMode::Attach )
+        if ( camera.mode == RunCameraMode::Attach )
         {
             detail = "LMB target  RMB orbit  F1  Enter";
             accent = palette.accentStrong;
         }
-        else if ( interaction.camera.mode == RunCameraMode::Manipulator )
+        else if ( camera.mode == RunCameraMode::Manipulator )
         {
             detail = "LMB drag  Space";
             accent = palette.accentStrong;
         }
-        else if ( interaction.camera.mode == RunCameraMode::Launcher )
+        else if ( camera.mode == RunCameraMode::Launcher )
         {
             detail = "LMB fire  M mode";
         }
-        else if ( interaction.camera.mode == RunCameraMode::Inspect )
+        else if ( camera.mode == RunCameraMode::Inspect )
         {
             detail = "RMB look  WASD  Space";
         }
@@ -640,15 +602,26 @@ void UiTextPass::Render( const UiHudScenePhase& scene,
                                    renderTextures,
                                    renderCommands,
                                    renderDiagnostics,
-                                   (std::max)( 1, frameFacts.screenW ),
-                                   (std::max)( 1, frameFacts.screenH ) );
+                                   (std::max)( 1, viewport.screenW ),
+                                   (std::max)( 1, viewport.screenH ) );
     }
+}
 
-    RenderReplayDivergenceCounter( textBatch, scene, replay );
+
+void UiTextPass::RenderChromeTail( const OverlayDebugState& debug,
+                                   const ReplayHudStatus& replayHud,
+                                   bool launcherCameraMode,
+                                   const char* launcherFireModeLabel,
+                                   double reproMessageAgeSeconds,
+                                   Rendering::Dx12GeometryOwner& renderCommands )
+{
+    Text::TextBatch& textBatch = m_textBatch;
+    (void)reproMessageAgeSeconds; // Development-only repro banner clock.
+    RenderReplayDivergenceCounter( textBatch, debug, replayHud );
 
     // Crosshair - always visible when launcher mode is active, regardless of overlay state.
     // A tiny center gap keeps the target visible instead of covering it.
-    if ( frameFacts.launcherCameraMode )
+    if ( launcherCameraMode )
     {
         const float cArm = 0.020f;
         const float cGap = 0.004f;
@@ -702,16 +675,15 @@ void UiTextPass::Render( const UiHudScenePhase& scene,
         Text2d::Render2dQuad( textBatch, renderCommands, cGap, -cHalf, cArm, cHalf, 0.80f, 0.96f, 1.0f, 0.88f );
         Text2d::Render2dQuad( textBatch, renderCommands, -cHalf, -cArm, cHalf, -cGap, 0.80f, 0.96f, 1.0f, 0.88f );
         Text2d::Render2dQuad( textBatch, renderCommands, -cHalf, cGap, cHalf, cArm, 0.80f, 0.96f, 1.0f, 0.88f );
-        const char* fireModeLabel = frameFacts.launcherFireModeLabel;
+        const char* fireModeLabel = launcherFireModeLabel;
         const float modeSz = 0.011f;
         const float modeW = Text2d::MeasureText( modeSz, fireModeLabel );
         Text2d::Render2dTextColor( textBatch, -modeW * 0.5f, -0.048f, modeSz, 0.72f, 0.94f, 1.0f, "%s", fireModeLabel );
 #ifdef _DEBUG
-        if ( state.debug.reproSnapshotMessage[0] != '\0' &&
-             inputs.timers.simulationTimer.GetTimeSinceLastStart() <= state.debug.reproSnapshotMessageUntil )
+        if ( debug.reproSnapshotMessage[0] != '\0' && reproMessageAgeSeconds <= debug.reproSnapshotMessageUntil )
         {
             const float msgSz = 0.014f;
-            float msgW = Text2d::MeasureText( msgSz, state.debug.reproSnapshotMessage );
+            float msgW = Text2d::MeasureText( msgSz, debug.reproSnapshotMessage );
             Text2d::Render2dTextColor( textBatch,
                                        -msgW * 0.5f,
                                        -0.065f,
@@ -720,513 +692,580 @@ void UiTextPass::Render( const UiHudScenePhase& scene,
                                        0.92f,
                                        1.0f,
                                        "%s",
-                                       state.debug.reproSnapshotMessage );
+                                       debug.reproSnapshotMessage );
         }
 #endif
     }
+}
 
-    const RuntimeViewModel& view = operatorPhase.runtimeViewModel;
 
-    const char* sceneName = "";
-    if ( view.sceneMode && frameFacts.sceneHasCurrentEntry && frameFacts.currentScenePath )
+void UiTextPass::PrepareOperatorFrame( UI::InGameUIFrameData& UIData,
+                                       const UiTextViewport& viewport,
+                                       bool drawTestPattern,
+                                       Rendering::Dx12TextureOwner& renderTextures,
+                                       Rendering::Dx12GeometryOwner& renderCommands,
+                                       Rendering::Dx12Diagnostics& renderDiagnostics )
+{
+    Text::TextBatch& textBatch = m_textBatch;
+    PROFILE_BEGIN( m_profiler, "Frame/UI/BuildData" );
+    UIData.screenW = viewport.screenW;
+    UIData.screenH = viewport.screenH;
+    UIData.rendererName = renderDiagnostics.GetRendererName();
+    if ( drawTestPattern )
     {
-        sceneName = SceneFileNameFromPath( frameFacts.currentScenePath );
+        DrawUiTestPattern( m_uiDrawSubmission,
+                           m_testPatternDrawList,
+                           textBatch,
+                           renderTextures,
+                           renderCommands,
+                           renderDiagnostics,
+                           UIData.screenW,
+                           UIData.screenH );
     }
+}
 
-    if ( inputs.ui.NeedsUiTextPass() )
-    {
-        PROFILE_BEGIN( m_profiler, "Frame/UI/BuildData" );
-        InGameUIFrameData UIData;
-        UIData.screenW = frameFacts.screenW;
-        UIData.screenH = frameFacts.screenH;
-        if ( state.debug.isUITestPattern )
-        {
-            DrawUiTestPattern( m_uiDrawSubmission,
-                               m_testPatternDrawList,
-                               textBatch,
-                               renderTextures,
-                               renderCommands,
-                               renderDiagnostics,
-                               UIData.screenW,
-                               UIData.screenH );
-        }
 
-        UIData.rendererName = rendererName;
-        UIData.sceneName = sceneName;
-        UIData.sceneOptions = operatorPhase.sceneBrowser.namePtrs.empty() ? nullptr
-                                                                          : operatorPhase.sceneBrowser.namePtrs.data();
-
-        UIData.sceneOptionCount = static_cast<int>( operatorPhase.sceneBrowser.namePtrs.size() );
-        UIData.selectedSceneOption = frameFacts.currentSceneBrowserIndex;
-        UIData.selectedCineModeSceneOption = operatorPhase.sceneBrowser.selectedCineModeSceneIndex;
-        UIData.UIDrawCalls = inputs.timers.lastUIDrawCalls;
-        UIData.visibility = ProjectRenderVisibilityDiagnostics( renderDiagnostics.GetFrameVisibilityStats() );
-        UIData.fps = inputs.timers.rollingFpsTime > 0.0f
-                         ? inputs.timers.rollingFpsTime
-                         : ( inputs.secondsPerFrame > 0.0 ? 1.0f / static_cast<float>( inputs.secondsPerFrame )
-                                                          : 0.0f );
-
-        UIData.renderMs = ( inputs.timers.rollingRenderTime > 0.0f ? inputs.timers.rollingRenderTime
-                                                                   : inputs.timers.renderTime ) *
-                          1000.0f;
-
-        UIData.physicsMs = ( inputs.timers.rollingPhysicsTime > 0.0f ? inputs.timers.rollingPhysicsTime
-                                                                     : inputs.timers.physicsTime ) *
-                           1000.0f;
-
-        UIData.cpuFrameMs = inputs.timers.cpuFrameWorkMs;
-        UIData.gpuFrameMs = inputs.timers.gpuFrameWorkMs;
-        {
-            // Concept: render draw attribution is copied through UIData while
-            // the render diagnostics capability is already borrowed by Run. The
-            // profiler tab never needs the wide renderer facade to explain draw
-            // calls.
-            const auto drawTrace = renderDiagnostics.GetFrameDrawCallTrace();
-            const int sourceNodeCount = (std::max)( 0, drawTrace.nodeCount );
-            const int nodeCount = (std::min)( sourceNodeCount, SkullbonezCore::UI::ProfilerTab::MAX_MARKERS );
-            SkullbonezCore::UI::ProfilerTab::DrawTraceSnapshot& uiTrace = UIData.profiler.drawTrace;
-            uiTrace.nodeCount = nodeCount;
-            uiTrace.nodeOverflowCount = drawTrace.nodeOverflowCount + ( sourceNodeCount - nodeCount );
-            uiTrace.eventCount = drawTrace.eventCount;
-            uiTrace.eventOverflowCount = drawTrace.eventOverflowCount;
-            uiTrace.scopeMismatchCount = drawTrace.scopeMismatchCount;
-            if ( drawTrace.nodes )
-            {
-                for ( int nodeIndex = 0; nodeIndex < nodeCount; ++nodeIndex )
-                {
-                    const auto& source = drawTrace.nodes[nodeIndex];
-                    SkullbonezCore::UI::ProfilerTab::DrawTraceNodeSnapshot& target = uiTrace.nodes[nodeIndex];
-                    target.name = source.name ? source.name : "";
-                    target.leafName = source.leafName ? source.leafName : target.name;
-                    target.hash = source.hash;
-                    target.parentIndex = source.parentIndex;
-                    target.depth = source.depth;
-                    target.drawCallCount = source.drawCallCount;
-                    target.vertexCount = source.vertexCount;
-                    target.instanceCount = source.instanceCount;
-                }
-            }
-        }
+void UiTextPass::ProjectOperatorDiagnostics( UI::InGameUIFrameData& UIData,
+                                             const ReplayHudStatus& replayHud,
+                                             RunTimerState& timers,
+                                             const RuntimeRenderModelFrameView& models,
+                                             DiagnosticsRuntime& diagnosticsRuntime,
+                                             UI::InGameUI& ui,
+                                             Threading::WorkerPool* workerPool,
+                                             double secondsPerFrame,
+                                             Rendering::Dx12Diagnostics& renderDiagnostics )
+{
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
+    assert( m_profiler && "UiTextPass requires a startup-bound profiler in profile builds." );
+    const SkullbonezCore::Core::Profiler& profiler = *m_profiler;
+#endif
+    UIData.UIDrawCalls = timers.lastUIDrawCalls;
+    UIData.visibility = ProjectRenderVisibilityDiagnostics( renderDiagnostics.GetFrameVisibilityStats() );
+    UIData.fps = timers.rollingFpsTime > 0.0f
+                     ? timers.rollingFpsTime
+                     : ( secondsPerFrame > 0.0 ? 1.0f / static_cast<float>( secondsPerFrame ) : 0.0f );
+
+    UIData.renderMs = ( timers.rollingRenderTime > 0.0f ? timers.rollingRenderTime : timers.renderTime ) * 1000.0f;
+
+    UIData.physicsMs = ( timers.rollingPhysicsTime > 0.0f ? timers.rollingPhysicsTime : timers.physicsTime ) * 1000.0f;
+
+    UIData.cpuFrameMs = timers.cpuFrameWorkMs;
+    UIData.gpuFrameMs = timers.gpuFrameWorkMs;
+    {
+        // Concept: render draw attribution is copied through UIData while
+        // the render diagnostics capability is already borrowed by Run. The
+        // profiler tab never needs the wide renderer facade to explain draw
+        // calls.
+        const auto drawTrace = renderDiagnostics.GetFrameDrawCallTrace();
+        const int sourceNodeCount = (std::max)( 0, drawTrace.nodeCount );
+        const int nodeCount = (std::min)( sourceNodeCount, SkullbonezCore::UI::ProfilerTab::MAX_MARKERS );
+        SkullbonezCore::UI::ProfilerTab::DrawTraceSnapshot& uiTrace = UIData.profiler.drawTrace;
+        uiTrace.nodeCount = nodeCount;
+        uiTrace.nodeOverflowCount = drawTrace.nodeOverflowCount + ( sourceNodeCount - nodeCount );
+        uiTrace.eventCount = drawTrace.eventCount;
+        uiTrace.eventOverflowCount = drawTrace.eventOverflowCount;
+        uiTrace.scopeMismatchCount = drawTrace.scopeMismatchCount;
+        if ( drawTrace.nodes )
         {
-            static_assert( SkullbonezCore::UI::ProfilerTab::MAX_MARKERS == SkullbonezCore::Core::Profiler::MAX_MARKERS,
-                           "UI profiler snapshot capacity must match SkullbonezCore::Core::Profiler markers" );
-
-            static_assert( SkullbonezCore::UI::ProfilerTab::MAX_WORKER_CORE_SAMPLES ==
-                               SkullbonezCore::Core::Profiler::MAX_WORKER_CORES,
-                           "UI worker sample snapshot capacity must match SkullbonezCore::Core::Profiler samples" );
-
-            SkullbonezCore::UI::ProfilerTab::FrameSnapshot& profilerFrame = UIData.profiler;
-            profilerFrame.markerCount = (std::min)( profiler.MarkerCount(),
-                                                    SkullbonezCore::UI::ProfilerTab::MAX_MARKERS );
-
-            for ( int markerIndex = 0; markerIndex < profilerFrame.markerCount; ++markerIndex )
+            for ( int nodeIndex = 0; nodeIndex < nodeCount; ++nodeIndex )
             {
-                const SkullbonezCore::Core::Profiler::Marker& source = profiler.GetMarker( markerIndex );
-                const int paletteIndex = source.colorIndex >= 0
-                                             ? source.colorIndex % SkullbonezCore::Core::Profiler::BAR_PALETTE_SIZE
-                                             : 0;
-
-                const SkullbonezCore::Core::Profiler::BarColor&
-                    color = SkullbonezCore::Core::Profiler::BAR_PALETTE[paletteIndex];
-
-                SkullbonezCore::UI::ProfilerTab::MarkerSnapshot& target = profilerFrame.markers[markerIndex];
+                const auto& source = drawTrace.nodes[nodeIndex];
+                SkullbonezCore::UI::ProfilerTab::DrawTraceNodeSnapshot& target = uiTrace.nodes[nodeIndex];
                 target.name = source.name ? source.name : "";
                 target.leafName = source.leafName ? source.leafName : target.name;
                 target.hash = source.hash;
                 target.parentIndex = source.parentIndex;
                 target.depth = source.depth;
-                target.lastFrameMs = source.lastFrameMs;
-                target.lastSelfMs = source.lastSelfMs;
-                target.avgMs = source.avgMs;
-                target.selfAvgMs = source.selfAvgMs;
-                target.p50Ms = source.p50Ms;
-                target.p99Ms = source.p99Ms;
-                target.colorR = color.r;
-                target.colorG = color.g;
-                target.colorB = color.b;
+                target.drawCallCount = source.drawCallCount;
+                target.vertexCount = source.vertexCount;
+                target.instanceCount = source.instanceCount;
             }
-
-            profilerFrame
-                .workerCoreSampleCount = (std::min)( profiler.WorkerCoreSampleCount(),
-                                                     SkullbonezCore::UI::ProfilerTab::MAX_WORKER_CORE_SAMPLES );
-            for ( int sampleIndex = 0; sampleIndex < profilerFrame.workerCoreSampleCount; ++sampleIndex )
-            {
-                const SkullbonezCore::Core::Profiler::WorkerCoreSample& source = profiler.GetWorkerCoreSample( sampleIndex );
-
-                SkullbonezCore::UI::ProfilerTab::WorkerCoreSampleSnapshot& target = profilerFrame
-                                                                                        .workerCoreSamples[sampleIndex];
-
-                target.workerIndex = source.workerIndex;
-                target.jobCount = source.jobCount;
-                target.coreMs = source.coreMs;
-                target.avgCoreMs = source.avgCoreMs;
-                target.spanStartMs = source.spanStartMs;
-                target.spanEndMs = source.spanEndMs;
-                UIData.workerCoreTotalMs += (std::max)( 0.0f, target.coreMs );
-            }
-        }
-#endif
-#if defined( TRACY_ENABLE )
-        {
-            const SkullbonezCore::Core::DevelopmentTools::TracyClientStatus
-                tracyStatus = SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::CopyStatus();
-
-            UIData.profiler.tracyBuildEnabled = tracyStatus.buildEnabled;
-            UIData.profiler.tracyInitialized = tracyStatus.initialized;
-            UIData.profiler.tracyViewerConnected = tracyStatus.viewerConnected;
-        }
-#endif
-        {
-            // Concept: marker enumeration stays in the runtime pass that owns
-            // profiler access. The UI receives a bounded frame snapshot so
-            // drawing and hit testing do not reach into profiler globals.
-            auto markerOptionExists = [&]( uint32_t hash, bool isFrameTotal ) -> bool
-            {
-                for ( int i = 0; i < UIData.profilerMarkerOptionCount; ++i )
-                {
-                    const SkullbonezCore::UI::UIProfilerMarkerOption& option = UIData.profilerMarkerOptions[i];
-
-                    if ( option.isFrameTotal == isFrameTotal && ( isFrameTotal || option.hash == hash ) )
-                    {
-                        return true;
-                    }
-                }
-
-                return false;
-            };
-
-            // Why: callers label one complete profiler option; this bounded
-            // append only normalizes nullable names and non-negative timings.
-            auto addMarkerOption = [&]( const SkullbonezCore::UI::UIProfilerMarkerOption& input )
-            {
-                if ( UIData.profilerMarkerOptionCount >= SkullbonezCore::UI::UI_PROFILER_MARKER_OPTION_MAX ||
-                     markerOptionExists( input.hash, input.isFrameTotal ) )
-                {
-                    return;
-                }
-
-                SkullbonezCore::UI::UIProfilerMarkerOption&
-                    option = UIData.profilerMarkerOptions[UIData.profilerMarkerOptionCount++];
-
-                option = input;
-                option.name = input.name ? input.name : "";
-                option.leafName = input.leafName ? input.leafName : option.name;
-                option.cpuMs = (std::max)( 0.0f, input.cpuMs );
-                option.cpuAverageMs = (std::max)( 0.0f, input.cpuAverageMs );
-                option.gpuMs = (std::max)( 0.0f, input.gpuMs );
-            };
-
-            float frameAverageMs = UIData.cpuFrameMs;
-#if defined( SKULLBONEZ_PROFILE_ENABLED )
-            {
-                static constexpr uint32_t kFrameHash = ::HashStr( "Frame" );
-                for ( int markerIndex = 0; markerIndex < profiler.MarkerCount(); ++markerIndex )
-                {
-                    const SkullbonezCore::Core::Profiler::Marker& marker = profiler.GetMarker( markerIndex );
-                    if ( marker.hash == kFrameHash )
-                    {
-                        frameAverageMs = marker.avgMs > 0.0f ? marker.avgMs : marker.lastFrameMs;
-                        break;
-                    }
-                }
-            }
-#endif
-            const SkullbonezCore::UI::Style::UIColor& mainColor = SkullbonezCore::UI::Style::Palette().accent;
-            addMarkerOption(
-                SkullbonezCore::UI::UIProfilerMarkerOption { .name = "Frame Total",
-                                                             .leafName = "Frame Total",
-                                                             .hash = SkullbonezCore::UI::UI_PROFILER_FRAME_TOTAL_HASH,
-                                                             .cpuMs = UIData.cpuFrameMs,
-                                                             .cpuAverageMs = frameAverageMs,
-                                                             .gpuMs = UIData.gpuFrameMs,
-                                                             .colorR = mainColor.r,
-                                                             .colorG = mainColor.g,
-                                                             .colorB = mainColor.b,
-                                                             .hasGpu = true,
-                                                             .sampleValid = true,
-                                                             .isFrameTotal = true } );
-
-#if defined( SKULLBONEZ_PROFILE_ENABLED )
-            auto addProfilerMarker = [&]( const SkullbonezCore::Core::Profiler::Marker& marker )
-            {
-                const SkullbonezCore::Core::Profiler::BarColor& color = SkullbonezCore::Core::Profiler::BAR_PALETTE
-                    [marker.colorIndex % SkullbonezCore::Core::Profiler::BAR_PALETTE_SIZE];
-
-                addMarkerOption( SkullbonezCore::UI::UIProfilerMarkerOption {
-                    .name = marker.name,
-                    .leafName = marker.leafName,
-                    .hash = marker.hash,
-                    .cpuMs = marker.lastFrameMs,
-                    .cpuAverageMs = marker.avgMs > 0.0f ? marker.avgMs : marker.lastFrameMs,
-                    .gpuMs = marker.hasGpu ? marker.gpuLastFrameMs : 0.0f,
-                    .colorR = color.r,
-                    .colorG = color.g,
-                    .colorB = color.b,
-                    .hasGpu = marker.hasGpu,
-                    .sampleValid = true,
-                    .isFrameTotal = false } );
-            };
-
-            static constexpr uint32_t kPinnedMarkerHashes[] = {
-                ::HashStr( "Frame/Physics" ),
-                ::HashStr( "Frame/Physics/Step" ),
-                ::HashStr( "Frame/Physics/Narrowphase/PersistentContacts/"
-                           "SolveRows" ),
-                ::HashStr( "Frame/Render" ),
-                ::HashStr( "Frame/UI" ) };
-
-            for ( uint32_t pinnedHash : kPinnedMarkerHashes )
-            {
-                for ( int markerIndex = 0; markerIndex < profiler.MarkerCount(); ++markerIndex )
-                {
-                    const SkullbonezCore::Core::Profiler::Marker& marker = profiler.GetMarker( markerIndex );
-                    if ( marker.hash == pinnedHash )
-                    {
-                        addProfilerMarker( marker );
-                        break;
-                    }
-                }
-            }
-
-            for ( int markerIndex = 0; markerIndex < profiler.MarkerCount(); ++markerIndex )
-            {
-                addProfilerMarker( profiler.GetMarker( markerIndex ) );
-            }
-#endif
-        }
-        UIData.modelCount = view.modelCount;
-        UIData.modelCapacity = SkullbonezCore::Core::ActiveSceneObjectCapacity( state.config );
-        UIData.workerThreadCount = interaction.workerPool ? interaction.workerPool->GetThreadCount() : 0;
-        UIData.maxWorkerThreadCount = SkullbonezCore::Threading::WorkerPool::MaxThreadCount();
-        UIData.currentFrame = view.frame;
-        UIData.targetFrameCount = view.targetFrameCount;
-        UIData.rngSeed = state.scene.rngSeed;
-        UIData.solverBallCount = state.scene.solverBallCount;
-        UIData.solverBoxCount = state.scene.solverBoxCount;
-        UIData.currentSceneIndex = view.sceneIndex;
-        UIData.sceneCount = view.sceneCount;
-        UIData.now = inputs.timers.simulationTimer.GetTotalTime();
-        UIData.replayMemoryPreset = replay.hud.memoryPreset;
-        UIData.replayMemoryRequestedRetentionSeconds = replay.hud.requestedRetentionSeconds;
-        UIData.replayMemoryRequestedBudgetMiB = replay.hud.requestedBudgetMiB;
-        UIData.replayMemoryPresentationRetentionSeconds = replay.hud.presentationRetentionSeconds;
-        UIData.replayMemorySolverRetentionSeconds = replay.hud.solverRetentionSeconds;
-        UIData.replayMemoryBudgetClamped = replay.hud.memoryBudgetClamped;
-        UIData.replayMemorySolverWindowReduced = replay.hud.solverWindowReduced;
-        const bool memoryTabActive = inputs.ui.IsVisible() && !inputs.ui.IsMinimized() &&
-                                     inputs.ui.GetActiveTab() == InGameUITab::Memory;
-
-        const bool memoryOverlayEnabled = inputs.ui.IsMemoryOverlayEnabled();
-        if ( memoryTabActive )
-        {
-            // Why: memory sampling belongs to DiagnosticsRuntime; the render host
-            // only decides whether the UI pass needs to draw.
-            assert( replay.hud.memoryStatsValid );
-            UIData.mainMemory = inputs.diagnosticsRuntime.RefreshMainMemoryStats( replay.hud.memoryStats,
-                                                                                  inputs.models.gameObjectMemory,
-                                                                                  UIData.now,
-                                                                                  false,
-                                                                                  false );
-        }
-        else if ( memoryOverlayEnabled )
-        {
-            // Why: F6 stays event/counter driven. Merely leaving the overlay up
-            // must not start a process-memory or replay-memory sampling heartbeat.
-            UIData.mainMemory = BuildMainMemoryOverlayStats( inputs.diagnosticsRuntime,
-                                                             inputs.models.gameObjectMemory );
-        }
-
-        if ( memoryTabActive || memoryOverlayEnabled )
-        {
-            // The render snapshot is cheap owner-maintained accounting; unlike
-            // process memory sampling, it is safe to refresh for the F6 overlay.
-            UIData.renderMemory = ProjectRenderMemoryDiagnostics( renderDiagnostics.GetRenderMemoryStats() );
-            UIData.reserveGrowthEventTotalCount = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::
-                GrowthEventCount();
-
-            UIData.reserveGrowthEventDroppedCount = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::
-                GrowthEventDroppedCount();
-
-            UIData.reserveGrowthEventCount = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::
-                CopyRecentGrowthEvents( UIData.reserveGrowthEvents,
-                                        SkullbonezCore::UI::UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX );
-        }
-
-        UIData.sceneMode = view.sceneMode;
-        UIData.scenePhysicsEnabled = view.scenePhysics;
-        UIData.sceneTextEnabled = view.sceneText;
-        UIData.textOnly = state.debug.isTextOnly;
-        UIData.fixedStep = view.fixedStep;
-        UIData.exitOnComplete = state.scene.isExitOnComplete;
-        UIData.testComplete = state.scene.isTestComplete;
-        UIData.vsyncEnabled = state.renderPresentation.vsyncEnabled;
-        UIData.pipelineSyncEnabled = state.renderPresentation.pipelineSyncEnabled;
-        UIData.sceneEnergy = sceneEnergyForDisplay;
-        UIData.timeScale = view.timeScale;
-        UIData.presentationInterpolation = view.presentationInterpolation;
-        UIData.presentationPinned = view.presentationPinned;
-        UIData.presentationAlpha = view.presentationAlpha;
-        UIData.trackHeight = interaction.camera.trackBallRow.IsValid() ? interaction.camera.trackHeight : 0.0f;
-        UIData.autoCycleInterval = interaction.camera.autoCycleInterval > 0.0f ? interaction.camera.autoCycleInterval
-                                                                               : 0.0f;
-
-        UIData.worldGravity = state.world.Environment().GetGravity();
-        UIData.worldFluidHeight = state.world.Environment().GetFluidSurfaceHeight();
-        UIData.worldFluidDensity = state.world.Environment().GetFluidDensity();
-        UIData.physicsDebug = BuildDiagnosticsPhysicsUIStatus( state.debug );
-        UIData.physicsSleepEnabled = state.world.Physics().IsSleepEnabled();
-        const Gameplay::TornadoFieldConfig& tornadoField = state.world.Tornado().GetFieldConfig();
-        UIData.tornadoEnabled = tornadoField.enabled;
-        UIData.tornadoVisualShell = state.world.Tornado().VisualSettings().enabled && tornadoField.enabled;
-        UIData.tornadoFieldVectors = tornadoField.visualizeVelocityField;
-        UIData.tornadoRadius = tornadoField.radius;
-        UIData.tornadoHeight = tornadoField.height;
-        UIData.tornadoInwardAcceleration = tornadoField.inwardAcceleration;
-        UIData.tornadoSwirlAcceleration = tornadoField.swirlAcceleration;
-        UIData.tornadoLiftAcceleration = tornadoField.liftAcceleration;
-        const SkullbonezCore::Core::EngineConfig& liveConfig = state.config;
-        UIData.rayCastVisualization = interaction.rayCastTest.visualizeRays;
-        UIData.rayCastImpulseStrength = interaction.rayCastTest.impulseStrength;
-        UIData.launcherProjectileSpeed = interaction.rayCastTest.projectileSpeed;
-        UIData.terrainFrictionCoeff = liveConfig.physicsMaterial.frictionCoeff;
-        UIData.objectFrictionCoeff = liveConfig.physicsMaterial.objectFrictionCoeff;
-        UIData.rollingFrictionCoeff = liveConfig.physicsMaterial.rollingFrictionCoeff;
-        UIData.waterFreezeDebug = state.debug.isWaterFreezeDebug;
-        UIData.waterFlatDebug = state.debug.isWaterFlatDebug;
-        UIData.terrainHidden = state.debug.isTerrainHidden;
-        UIData.waterHidden = state.debug.isWaterHidden;
-        UIData.waterNoReflect = state.debug.isWaterNoReflect;
-        UIData.waterRTReflect = state.debug.isWaterRTReflect;
-        const RuntimeInputMode runtimeInputMode = interaction.runtimeInput.CurrentMode();
-        UIData.cameraModeIndex = static_cast<int>( interaction.camera.mode );
-        UIData.cameraModeEnabledMask = frameFacts.cameraModeEnabledMask;
-        UIData.runtimeInputModeLabel = frameFacts.cameraModeLabel;
-        UIData.cameraMouseActive = ( runtimeInputMode == RuntimeInputMode::FlyCamera ||
-                                     runtimeInputMode == RuntimeInputMode::Launcher ||
-                                     runtimeInputMode == RuntimeInputMode::EditorViewportLook ) &&
-                                   !inputs.ui.BlocksCameraMouse();
-
-        UIData.nativeCursorVisible = !UIData.cameraMouseActive;
-        UIData.editorModeEnabled = interaction.editor.editorModeEnabled;
-        UIData.editorPlacementMode = interaction.editor.placementModeEnabled;
-        UIData.editorPlaceStatic = interaction.editor.placeStaticObject;
-        UIData.editorTerrainAlign = interaction.editor.autoTerrainAlign;
-        UIData.editorViewportLookActive = interaction.editor.viewportLookActive;
-        UIData.editorObjectType = interaction.editor.objectType;
-        UIData.editorUndoDepth = static_cast<int>( interaction.editor.history.UndoDepth() );
-        UIData.editorRedoDepth = static_cast<int>( interaction.editor.history.RedoDepth() );
-        UIData.canSaveSceneDefaults = view.sceneMode && frameFacts.sceneHasCurrentEntry &&
-                                      frameFacts.currentScenePath && frameFacts.currentScenePath[0] != '\0';
-
-        UIData.cinematicRendering = inputs.cinematicRendering;
-        UIData.ordinaryRender = liveConfig.ordinaryRender;
-        UIData.cinematic = inputs.cinematic;
-        // Invariant: representative legacy controls display the same immutable
-        // values supplied to the secondary editor for this frame.
-        UIData.operatorEditor = operatorPhase.operatorEditorView;
-        UIData.sceneName = UIData.operatorEditor.scene.sceneName;
-        UIData.modelCount = UIData.operatorEditor.scene.modelCount;
-        UIData.currentFrame = UIData.operatorEditor.scene.currentFrame;
-        UIData.currentSceneIndex = UIData.operatorEditor.scene.currentSceneIndex;
-        UIData.sceneCount = UIData.operatorEditor.scene.sceneCount;
-        UIData.timeScale = UIData.operatorEditor.scene.timeScale;
-        UIData.worldGravity = UIData.operatorEditor.property.worldGravity;
-        UIData.worldFluidHeight = UIData.operatorEditor.property.worldFluidHeight;
-        UIData.worldFluidDensity = UIData.operatorEditor.property.worldFluidDensity;
-        UIData.vsyncEnabled = UIData.operatorEditor.rendering.vsyncEnabled;
-        UIData.presentationInterpolation = UIData.operatorEditor.rendering.presentationInterpolation;
-        UIData.presentationAlpha = UIData.operatorEditor.rendering.presentationAlpha;
-        UIData.cinematicRendering = UIData.operatorEditor.rendering.cinematicRendering;
-        UIData.replayMemoryPreset = UIData.operatorEditor.replay.memoryPreset;
-        UIData.replayMemoryRequestedRetentionSeconds = UIData.operatorEditor.replay.requestedRetentionSeconds;
-        UIData.replayMemoryRequestedBudgetMiB = UIData.operatorEditor.replay.requestedBudgetMiB;
-        UIData.replayMemoryPresentationRetentionSeconds = UIData.operatorEditor.replay.presentationRetentionSeconds;
-        UIData.replayMemorySolverRetentionSeconds = UIData.operatorEditor.replay.solverRetentionSeconds;
-        UIData.replayMemoryBudgetClamped = UIData.operatorEditor.replay.memoryBudgetClamped;
-        UIData.replayMemorySolverWindowReduced = UIData.operatorEditor.replay.solverWindowReduced;
-        // Invariant: the UI projection below omits backend handles. This
-        // renderer-owned copy retains them only until submission resolves the
-        // recorded catalog index for this same frame.
-        RuntimeRenderTargetPreviewSnapshot resolvedPreviews = operatorPhase.renderTargetPreviews;
-        {
-            const uint32_t dxrReflection = m_renderRayTracing ? m_renderRayTracing->GetReflectionUAVTexture() : 0;
-            if ( resolvedPreviews.count < static_cast<int>( resolvedPreviews.targets.size() ) )
-            {
-                RuntimeRenderTargetPreview& preview = resolvedPreviews
-                                                          .targets[static_cast<size_t>( resolvedPreviews.count++ )];
-
-                preview.label = "DXR Reflection";
-                preview.textureHandle = dxrReflection;
-                preview.width = frameFacts.screenW * 2;
-                preview.height = frameFacts.screenH * 2;
-                preview.available = UIData.waterRTReflect && !UIData.waterNoReflect && dxrReflection != 0;
-                preview.depth = false;
-                preview.hdr = false;
-            }
-
-            for ( int index = 0; index < resolvedPreviews.count; ++index )
-            {
-                const RuntimeRenderTargetPreview& source = resolvedPreviews.targets[static_cast<size_t>( index )];
-                SkullbonezCore::UI::UIRenderTargetPreviewResource&
-                    preview = UIData.renderTargetPreviews[UIData.renderTargetPreviewCount++];
-
-                preview.label = source.label;
-                preview.width = source.width;
-                preview.height = source.height;
-                preview.available = source.available && source.width > 0 && source.height > 0;
-                preview.depth = source.depth;
-                preview.hdr = source.hdr;
-            }
-        }
-        PROFILE_END( m_profiler, "Frame/UI/BuildData" );
-
-        PROFILE_BEGIN( m_profiler, "Frame/UI/PreFlushText" );
-        {
-            DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "PreFlushText" );
-            Text2d::FlushText( textBatch, renderTextures, renderCommands );
-        }
-        PROFILE_END( m_profiler, "Frame/UI/PreFlushText" );
-        UIData.drawCallsBeforeUI = uiPassDrawCallStart;
-        const UI::UIDrawList& uiDrawList = inputs.ui.Draw( UIData );
-        m_uiDrawSubmission.SubmitWithPreviews( uiDrawList,
-                                               resolvedPreviews,
-                                               textBatch,
-                                               m_gpuTiming,
-                                               inputs.assets,
-                                               renderResources,
-                                               renderTextures,
-                                               renderCommands,
-                                               renderDiagnostics,
-                                               UIData.screenW,
-                                               UIData.screenH );
-
-        PROFILE_BEGIN( m_profiler, "Frame/UI/PostFlushText" );
-        {
-            DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Frame/UI/PostFlushText" );
-            Text2d::FlushText( textBatch, renderTextures, renderCommands );
-        }
-        PROFILE_END( m_profiler, "Frame/UI/PostFlushText" );
-        if ( inputs.ui.IsVisible() )
-        {
-            renderReplayScrubber();
-            return;
         }
     }
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+    {
+        static_assert( SkullbonezCore::UI::ProfilerTab::MAX_MARKERS == SkullbonezCore::Core::Profiler::MAX_MARKERS,
+                       "UI profiler snapshot capacity must match SkullbonezCore::Core::Profiler markers" );
+
+        static_assert( SkullbonezCore::UI::ProfilerTab::MAX_WORKER_CORE_SAMPLES ==
+                           SkullbonezCore::Core::Profiler::MAX_WORKER_CORES,
+                       "UI worker sample snapshot capacity must match SkullbonezCore::Core::Profiler samples" );
+
+        SkullbonezCore::UI::ProfilerTab::FrameSnapshot& profilerFrame = UIData.profiler;
+        profilerFrame.markerCount = (std::min)( profiler.MarkerCount(), SkullbonezCore::UI::ProfilerTab::MAX_MARKERS );
+
+        for ( int markerIndex = 0; markerIndex < profilerFrame.markerCount; ++markerIndex )
+        {
+            const SkullbonezCore::Core::Profiler::Marker& source = profiler.GetMarker( markerIndex );
+            const int paletteIndex = source.colorIndex >= 0
+                                         ? source.colorIndex % SkullbonezCore::Core::Profiler::BAR_PALETTE_SIZE
+                                         : 0;
+
+            const SkullbonezCore::Core::Profiler::BarColor&
+                color = SkullbonezCore::Core::Profiler::BAR_PALETTE[paletteIndex];
+
+            SkullbonezCore::UI::ProfilerTab::MarkerSnapshot& target = profilerFrame.markers[markerIndex];
+            target.name = source.name ? source.name : "";
+            target.leafName = source.leafName ? source.leafName : target.name;
+            target.hash = source.hash;
+            target.parentIndex = source.parentIndex;
+            target.depth = source.depth;
+            target.lastFrameMs = source.lastFrameMs;
+            target.lastSelfMs = source.lastSelfMs;
+            target.avgMs = source.avgMs;
+            target.selfAvgMs = source.selfAvgMs;
+            target.p50Ms = source.p50Ms;
+            target.p99Ms = source.p99Ms;
+            target.colorR = color.r;
+            target.colorG = color.g;
+            target.colorB = color.b;
+        }
+
+        profilerFrame.workerCoreSampleCount = (std::min)( profiler.WorkerCoreSampleCount(),
+                                                          SkullbonezCore::UI::ProfilerTab::MAX_WORKER_CORE_SAMPLES );
+
+        for ( int sampleIndex = 0; sampleIndex < profilerFrame.workerCoreSampleCount; ++sampleIndex )
+        {
+            const SkullbonezCore::Core::Profiler::WorkerCoreSample& source = profiler.GetWorkerCoreSample( sampleIndex );
+
+            SkullbonezCore::UI::ProfilerTab::WorkerCoreSampleSnapshot& target = profilerFrame
+                                                                                    .workerCoreSamples[sampleIndex];
+
+            target.workerIndex = source.workerIndex;
+            target.jobCount = source.jobCount;
+            target.coreMs = source.coreMs;
+            target.avgCoreMs = source.avgCoreMs;
+            target.spanStartMs = source.spanStartMs;
+            target.spanEndMs = source.spanEndMs;
+            UIData.workerCoreTotalMs += (std::max)( 0.0f, target.coreMs );
+        }
+    }
+#endif
+#if defined( TRACY_ENABLE )
+    {
+        const SkullbonezCore::Core::DevelopmentTools::TracyClientStatus
+            tracyStatus = SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::CopyStatus();
+
+        UIData.profiler.tracyBuildEnabled = tracyStatus.buildEnabled;
+        UIData.profiler.tracyInitialized = tracyStatus.initialized;
+        UIData.profiler.tracyViewerConnected = tracyStatus.viewerConnected;
+    }
+#endif
+    {
+        // Concept: marker enumeration stays in the runtime pass that owns
+        // profiler access. The UI receives a bounded frame snapshot so
+        // drawing and hit testing do not reach into profiler globals.
+        auto markerOptionExists = [&]( uint32_t hash, bool isFrameTotal ) -> bool
+        {
+            for ( int i = 0; i < UIData.profilerMarkerOptionCount; ++i )
+            {
+                const SkullbonezCore::UI::UIProfilerMarkerOption& option = UIData.profilerMarkerOptions[i];
+
+                if ( option.isFrameTotal == isFrameTotal && ( isFrameTotal || option.hash == hash ) )
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        };
+
+        // Why: callers label one complete profiler option; this bounded
+        // append only normalizes nullable names and non-negative timings.
+        auto addMarkerOption = [&]( const SkullbonezCore::UI::UIProfilerMarkerOption& input )
+        {
+            if ( UIData.profilerMarkerOptionCount >= SkullbonezCore::UI::UI_PROFILER_MARKER_OPTION_MAX ||
+                 markerOptionExists( input.hash, input.isFrameTotal ) )
+            {
+                return;
+            }
+
+            SkullbonezCore::UI::UIProfilerMarkerOption&
+                option = UIData.profilerMarkerOptions[UIData.profilerMarkerOptionCount++];
+
+            option = input;
+            option.name = input.name ? input.name : "";
+            option.leafName = input.leafName ? input.leafName : option.name;
+            option.cpuMs = (std::max)( 0.0f, input.cpuMs );
+            option.cpuAverageMs = (std::max)( 0.0f, input.cpuAverageMs );
+            option.gpuMs = (std::max)( 0.0f, input.gpuMs );
+        };
+
+        float frameAverageMs = UIData.cpuFrameMs;
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+        {
+            static constexpr uint32_t kFrameHash = ::HashStr( "Frame" );
+            for ( int markerIndex = 0; markerIndex < profiler.MarkerCount(); ++markerIndex )
+            {
+                const SkullbonezCore::Core::Profiler::Marker& marker = profiler.GetMarker( markerIndex );
+                if ( marker.hash == kFrameHash )
+                {
+                    frameAverageMs = marker.avgMs > 0.0f ? marker.avgMs : marker.lastFrameMs;
+                    break;
+                }
+            }
+        }
+#endif
+        const SkullbonezCore::UI::Style::UIColor& mainColor = SkullbonezCore::UI::Style::Palette().accent;
+        addMarkerOption(
+            SkullbonezCore::UI::UIProfilerMarkerOption { .name = "Frame Total",
+                                                         .leafName = "Frame Total",
+                                                         .hash = SkullbonezCore::UI::UI_PROFILER_FRAME_TOTAL_HASH,
+                                                         .cpuMs = UIData.cpuFrameMs,
+                                                         .cpuAverageMs = frameAverageMs,
+                                                         .gpuMs = UIData.gpuFrameMs,
+                                                         .colorR = mainColor.r,
+                                                         .colorG = mainColor.g,
+                                                         .colorB = mainColor.b,
+                                                         .hasGpu = true,
+                                                         .sampleValid = true,
+                                                         .isFrameTotal = true } );
+
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+        auto addProfilerMarker = [&]( const SkullbonezCore::Core::Profiler::Marker& marker )
+        {
+            const SkullbonezCore::Core::Profiler::BarColor&
+                color = SkullbonezCore::Core::Profiler::BAR_PALETTE[marker.colorIndex %
+                                                                    SkullbonezCore::Core::Profiler::BAR_PALETTE_SIZE];
+
+            addMarkerOption( SkullbonezCore::UI::UIProfilerMarkerOption {
+                .name = marker.name,
+                .leafName = marker.leafName,
+                .hash = marker.hash,
+                .cpuMs = marker.lastFrameMs,
+                .cpuAverageMs = marker.avgMs > 0.0f ? marker.avgMs : marker.lastFrameMs,
+                .gpuMs = marker.hasGpu ? marker.gpuLastFrameMs : 0.0f,
+                .colorR = color.r,
+                .colorG = color.g,
+                .colorB = color.b,
+                .hasGpu = marker.hasGpu,
+                .sampleValid = true,
+                .isFrameTotal = false } );
+        };
+
+        static constexpr uint32_t kPinnedMarkerHashes[] = { ::HashStr( "Frame/Physics" ),
+                                                            ::HashStr( "Frame/Physics/Step" ),
+                                                            ::HashStr( "Frame/Physics/Narrowphase/PersistentContacts/"
+                                                                       "SolveRows" ),
+                                                            ::HashStr( "Frame/Render" ),
+                                                            ::HashStr( "Frame/UI" ) };
+
+        for ( uint32_t pinnedHash : kPinnedMarkerHashes )
+        {
+            for ( int markerIndex = 0; markerIndex < profiler.MarkerCount(); ++markerIndex )
+            {
+                const SkullbonezCore::Core::Profiler::Marker& marker = profiler.GetMarker( markerIndex );
+                if ( marker.hash == pinnedHash )
+                {
+                    addProfilerMarker( marker );
+                    break;
+                }
+            }
+        }
+
+        for ( int markerIndex = 0; markerIndex < profiler.MarkerCount(); ++markerIndex )
+        {
+            addProfilerMarker( profiler.GetMarker( markerIndex ) );
+        }
+#endif
+    }
+    UIData.workerThreadCount = workerPool ? workerPool->GetThreadCount() : 0;
+    UIData.maxWorkerThreadCount = SkullbonezCore::Threading::WorkerPool::MaxThreadCount();
+    UIData.now = timers.simulationTimer.GetTotalTime();
+    UIData.replayMemoryPreset = replayHud.memoryPreset;
+    UIData.replayMemoryRequestedRetentionSeconds = replayHud.requestedRetentionSeconds;
+    UIData.replayMemoryRequestedBudgetMiB = replayHud.requestedBudgetMiB;
+    UIData.replayMemoryPresentationRetentionSeconds = replayHud.presentationRetentionSeconds;
+    UIData.replayMemorySolverRetentionSeconds = replayHud.solverRetentionSeconds;
+    UIData.replayMemoryBudgetClamped = replayHud.memoryBudgetClamped;
+    UIData.replayMemorySolverWindowReduced = replayHud.solverWindowReduced;
+    const bool memoryTabActive = ui.IsVisible() && !ui.IsMinimized() && ui.GetActiveTab() == InGameUITab::Memory;
+    const bool memoryOverlayEnabled = ui.IsMemoryOverlayEnabled();
+    if ( memoryTabActive )
+    {
+        // Why: memory sampling belongs to DiagnosticsRuntime; the render host
+        // only decides whether the UI pass needs to draw.
+        assert( replayHud.memoryStatsValid );
+        UIData.mainMemory = diagnosticsRuntime.RefreshMainMemoryStats( replayHud.memoryStats,
+                                                                       models.gameObjectMemory,
+                                                                       UIData.now,
+                                                                       false,
+                                                                       false );
+    }
+    else if ( memoryOverlayEnabled )
+    {
+        // Why: F6 stays event/counter driven. Merely leaving the overlay up
+        // must not start a process-memory or replay-memory sampling heartbeat.
+        UIData.mainMemory = BuildMainMemoryOverlayStats( diagnosticsRuntime, models.gameObjectMemory );
+    }
+
+    if ( memoryTabActive || memoryOverlayEnabled )
+    {
+        // The render snapshot is cheap owner-maintained accounting; unlike
+        // process memory sampling, it is safe to refresh for the F6 overlay.
+        UIData.renderMemory = ProjectRenderMemoryDiagnostics( renderDiagnostics.GetRenderMemoryStats() );
+        UIData.reserveGrowthEventTotalCount = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::
+            GrowthEventCount();
+
+        UIData.reserveGrowthEventDroppedCount = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::
+            GrowthEventDroppedCount();
+
+        UIData.reserveGrowthEventCount = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::
+            CopyRecentGrowthEvents( UIData.reserveGrowthEvents,
+                                    SkullbonezCore::UI::UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX );
+    }
+}
+
+
+void UiTextPass::ProjectOperatorPresentation( UI::InGameUIFrameData& UIData,
+                                              const SceneSessionState& scene,
+                                              const RuntimeViewModel& view,
+                                              const SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser,
+                                              const UI::OperatorEditorFrameView& operatorEditorView,
+                                              bool sceneHasCurrentEntry,
+                                              const char* currentScenePath,
+                                              int currentSceneBrowserIndex,
+                                              float sceneEnergyForDisplay )
+{
+    const char* sceneName = "";
+    if ( view.sceneMode && sceneHasCurrentEntry && currentScenePath )
+    {
+        sceneName = SceneFileNameFromPath( currentScenePath );
+    }
+
+    UIData.sceneName = sceneName;
+    UIData.sceneOptions = sceneBrowser.namePtrs.empty() ? nullptr : sceneBrowser.namePtrs.data();
+    UIData.sceneOptionCount = static_cast<int>( sceneBrowser.namePtrs.size() );
+    UIData.selectedSceneOption = currentSceneBrowserIndex;
+    UIData.selectedCineModeSceneOption = sceneBrowser.selectedCineModeSceneIndex;
+    UIData.modelCount = view.modelCount;
+    UIData.currentFrame = view.frame;
+    UIData.targetFrameCount = view.targetFrameCount;
+    UIData.rngSeed = scene.rngSeed;
+    UIData.solverBallCount = scene.solverBallCount;
+    UIData.solverBoxCount = scene.solverBoxCount;
+    UIData.currentSceneIndex = view.sceneIndex;
+    UIData.sceneCount = view.sceneCount;
+    UIData.sceneMode = view.sceneMode;
+    UIData.scenePhysicsEnabled = view.scenePhysics;
+    UIData.sceneTextEnabled = view.sceneText;
+    UIData.fixedStep = view.fixedStep;
+    UIData.exitOnComplete = scene.isExitOnComplete;
+    UIData.testComplete = scene.isTestComplete;
+    UIData.sceneEnergy = sceneEnergyForDisplay;
+    UIData.timeScale = view.timeScale;
+    UIData.presentationInterpolation = view.presentationInterpolation;
+    UIData.presentationPinned = view.presentationPinned;
+    UIData.presentationAlpha = view.presentationAlpha;
+    UIData.canSaveSceneDefaults = view.sceneMode && sceneHasCurrentEntry && currentScenePath &&
+                                  currentScenePath[0] != '\0';
+
+    // Invariant: representative legacy controls display the same immutable
+    // values supplied to the secondary editor for this frame.
+    UIData.operatorEditor = operatorEditorView;
+    UIData.sceneName = UIData.operatorEditor.scene.sceneName;
+    UIData.modelCount = UIData.operatorEditor.scene.modelCount;
+    UIData.currentFrame = UIData.operatorEditor.scene.currentFrame;
+    UIData.currentSceneIndex = UIData.operatorEditor.scene.currentSceneIndex;
+    UIData.sceneCount = UIData.operatorEditor.scene.sceneCount;
+    UIData.timeScale = UIData.operatorEditor.scene.timeScale;
+    UIData.worldGravity = UIData.operatorEditor.property.worldGravity;
+    UIData.worldFluidHeight = UIData.operatorEditor.property.worldFluidHeight;
+    UIData.worldFluidDensity = UIData.operatorEditor.property.worldFluidDensity;
+    UIData.vsyncEnabled = UIData.operatorEditor.rendering.vsyncEnabled;
+    UIData.presentationInterpolation = UIData.operatorEditor.rendering.presentationInterpolation;
+    UIData.presentationAlpha = UIData.operatorEditor.rendering.presentationAlpha;
+    UIData.cinematicRendering = UIData.operatorEditor.rendering.cinematicRendering;
+    UIData.replayMemoryPreset = UIData.operatorEditor.replay.memoryPreset;
+    UIData.replayMemoryRequestedRetentionSeconds = UIData.operatorEditor.replay.requestedRetentionSeconds;
+    UIData.replayMemoryRequestedBudgetMiB = UIData.operatorEditor.replay.requestedBudgetMiB;
+    UIData.replayMemoryPresentationRetentionSeconds = UIData.operatorEditor.replay.presentationRetentionSeconds;
+    UIData.replayMemorySolverRetentionSeconds = UIData.operatorEditor.replay.solverRetentionSeconds;
+    UIData.replayMemoryBudgetClamped = UIData.operatorEditor.replay.memoryBudgetClamped;
+    UIData.replayMemorySolverWindowReduced = UIData.operatorEditor.replay.solverWindowReduced;
+}
+
+
+void UiTextPass::ProjectOperatorSettings( UI::InGameUIFrameData& UIData,
+                                          const OverlayDebugState& debug,
+                                          const RenderPresentationSettings& renderPresentation,
+                                          const SceneWorld& world,
+                                          const SkullbonezCore::Core::EngineConfig& config,
+                                          const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+                                          bool cinematicRendering )
+{
+    UIData.modelCapacity = SkullbonezCore::Core::ActiveSceneObjectCapacity( config );
+    UIData.textOnly = debug.isTextOnly;
+    UIData.vsyncEnabled = renderPresentation.vsyncEnabled;
+    UIData.pipelineSyncEnabled = renderPresentation.pipelineSyncEnabled;
+    UIData.worldGravity = world.Environment().GetGravity();
+    UIData.worldFluidHeight = world.Environment().GetFluidSurfaceHeight();
+    UIData.worldFluidDensity = world.Environment().GetFluidDensity();
+    UIData.physicsDebug = BuildDiagnosticsPhysicsUIStatus( debug );
+    UIData.physicsSleepEnabled = world.Physics().IsSleepEnabled();
+    const Gameplay::TornadoFieldConfig& tornadoField = world.Tornado().GetFieldConfig();
+    UIData.tornadoEnabled = tornadoField.enabled;
+    UIData.tornadoVisualShell = world.Tornado().VisualSettings().enabled && tornadoField.enabled;
+    UIData.tornadoFieldVectors = tornadoField.visualizeVelocityField;
+    UIData.tornadoRadius = tornadoField.radius;
+    UIData.tornadoHeight = tornadoField.height;
+    UIData.tornadoInwardAcceleration = tornadoField.inwardAcceleration;
+    UIData.tornadoSwirlAcceleration = tornadoField.swirlAcceleration;
+    UIData.tornadoLiftAcceleration = tornadoField.liftAcceleration;
+    UIData.terrainFrictionCoeff = config.physicsMaterial.frictionCoeff;
+    UIData.objectFrictionCoeff = config.physicsMaterial.objectFrictionCoeff;
+    UIData.rollingFrictionCoeff = config.physicsMaterial.rollingFrictionCoeff;
+    UIData.waterFreezeDebug = debug.isWaterFreezeDebug;
+    UIData.waterFlatDebug = debug.isWaterFlatDebug;
+    UIData.terrainHidden = debug.isTerrainHidden;
+    UIData.waterHidden = debug.isWaterHidden;
+    UIData.waterNoReflect = debug.isWaterNoReflect;
+    UIData.waterRTReflect = debug.isWaterRTReflect;
+    UIData.cinematicRendering = cinematicRendering;
+    UIData.ordinaryRender = config.ordinaryRender;
+    UIData.cinematic = cinematic;
+}
+
+
+void UiTextPass::ProjectOperatorInteraction( UI::InGameUIFrameData& UIData,
+                                             const RunRayCastTestState& rayCastTest,
+                                             const RunEditorPlacementState& editor,
+                                             const RuntimeInputContext& runtimeInput,
+                                             const CameraControlState& camera,
+                                             const UI::InGameUI& ui,
+                                             uint32_t cameraModeEnabledMask,
+                                             const char* cameraModeLabel )
+{
+    UIData.trackHeight = camera.trackBallRow.IsValid() ? camera.trackHeight : 0.0f;
+    UIData.autoCycleInterval = camera.autoCycleInterval > 0.0f ? camera.autoCycleInterval : 0.0f;
+    UIData.rayCastVisualization = rayCastTest.visualizeRays;
+    UIData.rayCastImpulseStrength = rayCastTest.impulseStrength;
+    UIData.launcherProjectileSpeed = rayCastTest.projectileSpeed;
+    const RuntimeInputMode runtimeInputMode = runtimeInput.CurrentMode();
+    UIData.cameraModeIndex = static_cast<int>( camera.mode );
+    UIData.cameraModeEnabledMask = cameraModeEnabledMask;
+    UIData.runtimeInputModeLabel = cameraModeLabel;
+    UIData.cameraMouseActive = ( runtimeInputMode == RuntimeInputMode::FlyCamera ||
+                                 runtimeInputMode == RuntimeInputMode::Launcher ||
+                                 runtimeInputMode == RuntimeInputMode::EditorViewportLook ) &&
+                               !ui.BlocksCameraMouse();
+
+    UIData.nativeCursorVisible = !UIData.cameraMouseActive;
+    UIData.editorModeEnabled = editor.editorModeEnabled;
+    UIData.editorPlacementMode = editor.placementModeEnabled;
+    UIData.editorPlaceStatic = editor.placeStaticObject;
+    UIData.editorTerrainAlign = editor.autoTerrainAlign;
+    UIData.editorViewportLookActive = editor.viewportLookActive;
+    UIData.editorObjectType = editor.objectType;
+    UIData.editorUndoDepth = static_cast<int>( editor.history.UndoDepth() );
+    UIData.editorRedoDepth = static_cast<int>( editor.history.RedoDepth() );
+}
+
+
+void UiTextPass::SubmitOperatorFrame( UI::InGameUIFrameData& UIData,
+                                      UI::InGameUI& ui,
+                                      const RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews,
+                                      Assets::AssetSystem& assets,
+                                      Rendering::Dx12ResourceBuilder& renderResources,
+                                      Rendering::Dx12TextureOwner& renderTextures,
+                                      Rendering::Dx12GeometryOwner& renderCommands,
+                                      Rendering::Dx12Diagnostics& renderDiagnostics,
+                                      int uiPassDrawCallStart )
+{
+    Text::TextBatch& textBatch = m_textBatch;
+    // Invariant: the UI projection below omits backend handles. This
+    // renderer-owned copy retains them only until submission resolves the
+    // recorded catalog index for this same frame.
+    RuntimeRenderTargetPreviewSnapshot resolvedPreviews = renderTargetPreviews;
+    {
+        const uint32_t dxrReflection = m_renderRayTracing ? m_renderRayTracing->GetReflectionUAVTexture() : 0;
+        if ( resolvedPreviews.count < static_cast<int>( resolvedPreviews.targets.size() ) )
+        {
+            RuntimeRenderTargetPreview& preview = resolvedPreviews
+                                                      .targets[static_cast<size_t>( resolvedPreviews.count++ )];
+
+            preview.label = "DXR Reflection";
+            preview.textureHandle = dxrReflection;
+            preview.width = UIData.screenW * 2;
+            preview.height = UIData.screenH * 2;
+            preview.available = UIData.waterRTReflect && !UIData.waterNoReflect && dxrReflection != 0;
+            preview.depth = false;
+            preview.hdr = false;
+        }
+
+        for ( int index = 0; index < resolvedPreviews.count; ++index )
+        {
+            const RuntimeRenderTargetPreview& source = resolvedPreviews.targets[static_cast<size_t>( index )];
+            SkullbonezCore::UI::UIRenderTargetPreviewResource&
+                preview = UIData.renderTargetPreviews[UIData.renderTargetPreviewCount++];
+
+            preview.label = source.label;
+            preview.width = source.width;
+            preview.height = source.height;
+            preview.available = source.available && source.width > 0 && source.height > 0;
+            preview.depth = source.depth;
+            preview.hdr = source.hdr;
+        }
+    }
+    PROFILE_END( m_profiler, "Frame/UI/BuildData" );
+
+    PROFILE_BEGIN( m_profiler, "Frame/UI/PreFlushText" );
+    {
+        DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "PreFlushText" );
+        Text2d::FlushText( textBatch, renderTextures, renderCommands );
+    }
+    PROFILE_END( m_profiler, "Frame/UI/PreFlushText" );
+    UIData.drawCallsBeforeUI = uiPassDrawCallStart;
+    const UI::UIDrawList& uiDrawList = ui.Draw( UIData );
+    m_uiDrawSubmission.SubmitWithPreviews( uiDrawList,
+                                           resolvedPreviews,
+                                           textBatch,
+                                           m_gpuTiming,
+                                           assets,
+                                           renderResources,
+                                           renderTextures,
+                                           renderCommands,
+                                           renderDiagnostics,
+                                           UIData.screenW,
+                                           UIData.screenH );
+
+    PROFILE_BEGIN( m_profiler, "Frame/UI/PostFlushText" );
+    {
+        DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Frame/UI/PostFlushText" );
+        Text2d::FlushText( textBatch, renderTextures, renderCommands );
+    }
+    PROFILE_END( m_profiler, "Frame/UI/PostFlushText" );
+}
+
+
+void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport,
+                                       OverlayMode mode,
+                                       int modelCount,
+                                       float rollingFpsTime,
+                                       float sceneEnergyForDisplay,
+                                       Rendering::Dx12TextureOwner& renderTextures,
+                                       Rendering::Dx12GeometryOwner& renderCommands,
+                                       Rendering::Dx12Diagnostics& renderDiagnostics )
+{
+    Text::TextBatch& textBatch = m_textBatch;
+    const float hw = Text2d::HalfW( textBatch );
+    const float hh = Text2d::HalfH( textBatch );
+    const float mX = 0.022f;
+    const float mY = 0.015f;
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+    assert( m_profiler && "UiTextPass requires a startup-bound profiler in profile builds." );
+    const SkullbonezCore::Core::Profiler& profiler = *m_profiler;
+    const UI::UIProfilerOverlayPresenter profilerOverlay;
+#endif
 
     // --- Overlay: None ---
-    if ( state.debug.overlayMode == OverlayMode::None )
+    if ( mode == OverlayMode::None )
     {
-        renderReplayScrubber();
-        {
-            DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "HUD" );
-            Text2d::FlushText( textBatch, renderTextures, renderCommands );
-        }
         return;
     }
 
     // --- Overlay: Scene telemetry ---
-    if ( state.debug.overlayMode == OverlayMode::SceneStats )
+    if ( mode == OverlayMode::SceneStats )
     {
         const float titleSz = 0.013f;
         const float entrySz = 0.012f;
@@ -1257,7 +1296,7 @@ void UiTextPass::Render( const UiHudScenePhase& scene,
                                    0.85f,
                                    0.85f,
                                    "Model Count: %d",
-                                   state.scene.modelCount );
+                                   modelCount );
 
         Text2d::Render2dTextColor( textBatch,
                                    panX0 + panPad,
@@ -1269,18 +1308,12 @@ void UiTextPass::Render( const UiHudScenePhase& scene,
                                    "Scene Energy: %.6f",
                                    sceneEnergyForDisplay );
 
-        renderReplayScrubber();
-        {
-            DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "SceneStats" );
-            Text2d::FlushText( textBatch, renderTextures, renderCommands );
-        }
         return;
     }
 
     // --- Overlay: Visual profiler bars (normalized or absolute) ---
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-    if ( state.debug.overlayMode == OverlayMode::BarsNormalized ||
-         state.debug.overlayMode == OverlayMode::BarsAbsolute )
+    if ( mode == OverlayMode::BarsNormalized || mode == OverlayMode::BarsAbsolute )
     {
         // Panel anchored bottom-left, filling most of the width. Height kept modest - leave vertical
         // space above for future multi-core stacked rows.
@@ -1291,10 +1324,10 @@ void UiTextPass::Render( const UiHudScenePhase& scene,
 
         const float panY = -( hh - mY ) + mY * 0.5f; // slight bottom margin
 
-        const bool absolute = ( state.debug.overlayMode == OverlayMode::BarsAbsolute );
+        const bool absolute = ( mode == OverlayMode::BarsAbsolute );
 
         m_profilerDrawList.Clear();
-        const UI::UIDrawContext profilerDraw( frameFacts.screenW, frameFacts.screenH, m_profilerDrawList );
+        const UI::UIDrawContext profilerDraw( viewport.screenW, viewport.screenH, m_profilerDrawList );
         profilerOverlay.RecordBarOverlay( profiler.FrameView(), profilerDraw, panX, panY, panW, panH, absolute );
         {
             DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "ProfilerBars" );
@@ -1304,16 +1337,15 @@ void UiTextPass::Render( const UiHudScenePhase& scene,
                                        renderTextures,
                                        renderCommands,
                                        renderDiagnostics,
-                                       frameFacts.screenW,
-                                       frameFacts.screenH );
+                                       viewport.screenW,
+                                       viewport.screenH );
         }
-        renderReplayScrubber();
         return;
     }
 #endif
 
     // --- Overlay: Keys reference screen (compact, bottom-left) ---
-    if ( state.debug.overlayMode == OverlayMode::Keys )
+    if ( mode == OverlayMode::Keys )
     {
         const float titleSz = 0.013f;
         const float entrySz = 0.011f;
@@ -1405,11 +1437,6 @@ void UiTextPass::Render( const UiHudScenePhase& scene,
             Text2d::Render2dTextColor( textBatch, col2Desc, y, entrySz, 0.85f, 0.85f, 0.85f, "%s", kRight[i].desc );
         }
 
-        renderReplayScrubber();
-        {
-            DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Keys" );
-            Text2d::FlushText( textBatch, renderTextures, renderCommands );
-        }
         return;
     }
 
@@ -1423,14 +1450,14 @@ void UiTextPass::Render( const UiHudScenePhase& scene,
         const float profFSz = 0.012f;
         const float padY = lineH * 1.2f;
         m_profilerDrawList.Clear();
-        const UI::UIDrawContext profilerDraw( frameFacts.screenW, frameFacts.screenH, m_profilerDrawList );
+        const UI::UIDrawContext profilerDraw( viewport.screenW, viewport.screenH, m_profilerDrawList );
         profilerOverlay.RecordOverlay( profiler.FrameView(),
                                        profilerDraw,
                                        -( hw - mX ),
                                        -( hh - mY ) - padY,
                                        lineH,
                                        profFSz,
-                                       inputs.timers.rollingFpsTime );
+                                       rollingFpsTime );
 
         m_uiDrawSubmission.Submit( m_profilerDrawList,
                                    textBatch,
@@ -1438,14 +1465,81 @@ void UiTextPass::Render( const UiHudScenePhase& scene,
                                    renderTextures,
                                    renderCommands,
                                    renderDiagnostics,
-                                   frameFacts.screenW,
-                                   frameFacts.screenH );
+                                   viewport.screenW,
+                                   viewport.screenH );
     }
 #endif
+}
 
-    renderReplayScrubber();
+
+void UiTextPass::RenderReplay( const ReplayOverlay::ReplayOverlayStateView& overlay,
+                               Core::Profiler* profiler,
+                               bool legacySurfaceActive,
+                               bool scenePhysicsEnabled,
+                               RuntimeInteractionGestureKind gesture,
+                               const UiTextViewport& viewport,
+                               double nowSeconds,
+                               Rendering::Dx12TextureOwner& renderTextures,
+                               Rendering::Dx12GeometryOwner& renderCommands,
+                               Rendering::Dx12Diagnostics& renderDiagnostics )
+{
+    if ( !legacySurfaceActive )
     {
-        DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "ProfilerOverlay" );
-        Text2d::FlushText( textBatch, renderTextures, renderCommands );
+        return;
     }
+
+    ReplayOverlay::RenderReplayScrubberOverlay( m_uiDrawSubmission,
+                                                m_textBatch,
+                                                m_replayDrawList,
+                                                overlay,
+                                                renderTextures,
+                                                renderCommands,
+                                                renderDiagnostics,
+                                                profiler,
+                                                scenePhysicsEnabled,
+                                                gesture,
+                                                { viewport.screenW, viewport.screenH },
+                                                nowSeconds );
+}
+
+
+void UiTextPass::FinalizeOverlay( OverlayMode mode,
+                                  Rendering::Dx12TextureOwner& renderTextures,
+                                  Rendering::Dx12GeometryOwner& renderCommands,
+                                  Rendering::Dx12Diagnostics& renderDiagnostics )
+{
+    if ( mode == OverlayMode::BarsNormalized || mode == OverlayMode::BarsAbsolute )
+    {
+        return;
+    }
+
+    const char* traceLabel = "ProfilerOverlay";
+    if ( mode == OverlayMode::None )
+    {
+        traceLabel = "HUD";
+    }
+    else if ( mode == OverlayMode::SceneStats )
+    {
+        traceLabel = "SceneStats";
+    }
+    else if ( mode == OverlayMode::Keys )
+    {
+        traceLabel = "Keys";
+    }
+
+    {
+        DRAW_CALL_TRACE_SCOPE( renderDiagnostics, traceLabel );
+        Text2d::FlushText( m_textBatch, renderTextures, renderCommands );
+    }
+}
+
+
+void UiTextPass::ReportRetainedDrawStats()
+{
+    // Lifetime: reporting runs after the complete UI graph, so every retained
+    // stream reflects the same final command/text counts as the former scope.
+    const RetainedUIDrawStatsScope retainedDrawStats( m_testPatternDrawList,
+                                                      m_badgeDrawList,
+                                                      m_replayDrawList,
+                                                      m_profilerDrawList );
 }

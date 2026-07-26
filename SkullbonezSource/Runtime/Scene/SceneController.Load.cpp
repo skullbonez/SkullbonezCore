@@ -57,6 +57,7 @@ Related:
 #include "../Render/RuntimeRenderer.h"
 #include "SceneRuntimeCoordinator.h"
 #include "SceneRuntimeLoad.h"
+#include "SceneSaveOperations.h"
 #include "SceneRuntimeReset.h"
 #include "SceneRuntimeStyle.h"
 #include "SceneRuntimeUiOptions.h"
@@ -71,7 +72,6 @@ Related:
 #include "../../Rendering/DX12/RenderDeviceDX12.h"
 #include "../../Rendering/RenderRaytracingTypes.h"
 #include "../../Rendering/DX12/Dx12ResourceBuilder.h"
-#include "../../Scene/SceneSnapshotWriter.h"
 #include "../../UI/UI.h"
 #include "../../Scene/AuthoredScene.h"
 #include "../../World/Terrain.h"
@@ -92,8 +92,6 @@ using namespace SkullbonezCore::Physics;
 using SkullbonezCore::Assets::ResolveEditorHullAssetPath;
 using SkullbonezCore::Environment::CameraCollection;
 using SkullbonezCore::Environment::WorldEnvironment;
-using SkullbonezCore::GameObjects::SceneSaveRequest;
-using SkullbonezCore::GameObjects::SceneSnapshotWriter;
 using SkullbonezCore::Gameplay::TornadoFieldConfig;
 using SkullbonezCore::Gameplay::TornadoSystemConfig;
 using SkullbonezCore::Geometry::Terrain;
@@ -523,22 +521,6 @@ SkullbonezCore::Core::SbResult UseFlatSlopeTerrain( SceneWorld& sceneWorld,
 
     UpdateWorldTerrainBounds( world, terrainOwner.Get() );
     return SkullbonezCore::Core::SbResult::Success();
-}
-
-SkullbonezCore::Core::SbResult
-SaveCurrentEditableSceneSnapshot( const std::string& scenePath,
-                                  const SceneSessionState& sceneState,
-                                  const SceneWorld& sceneWorld,
-                                  const SkullbonezCore::GameObjects::PresentationSaveState& presentation )
-{
-    // Lifetime: editable persistence borrows the concrete scene world only for
-    // this synchronous write; scene reload may replace its stores afterward.
-    const SceneSaveRequest request { scenePath.c_str(),
-                                     sceneWorld.GetSaveState(),
-                                     sceneState.GetSaveState(),
-                                     presentation };
-
-    return SceneSnapshotWriter::Save( request );
 }
 
 void ApplyTornadoDefaultsForActiveScene( TornadoFieldConfig& field,
@@ -1603,10 +1585,11 @@ SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const Scene
 
     if ( State().isEditableScene )
     {
-        const SkullbonezCore::Core::SbResult saveResult = SaveCurrentEditableSceneSnapshot( *scenePath,
-                                                                                            State(),
-                                                                                            Scene(),
-                                                                                            view.debug.GetSaveState() );
+        const SkullbonezCore::Core::SbResult saveResult = SaveEditableSceneBeforeReplacement(
+            scenePath->c_str(),
+            Scene().GetSaveState(),
+            State().GetSaveState(),
+            view.debug.GetSaveState() );
 
         return saveResult;
     }

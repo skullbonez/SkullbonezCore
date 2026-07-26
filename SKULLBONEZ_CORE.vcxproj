@@ -330,6 +330,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRequestQueue.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneEntityStore.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntime.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneSaveOperations.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneNavigationModel.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeCreate.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneGeneratedSetup.cpp" />
@@ -611,6 +612,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneEntityStore.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneLifecycle.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntime.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneSaveOperations.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeCreate.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneGeneratedSetup.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeCoordinator.h" />

@@ -25,7 +25,7 @@ Invariants:
   - Pass input/output structs borrow data for one frame only.
   - Pass constructors receive named long-lived owners; per-frame runtime data
     travels through explicit pass input structs.
-  - Pass order is owned by RuntimeRenderer::RenderFrame.
+  - Pass order is owned by RuntimeRenderer::RenderPreparedFrame.
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderHost.h
@@ -116,6 +116,7 @@ class AssetSystem;
 namespace UI
 {
 class InGameUI;
+struct InGameUIFrameData;
 struct OperatorEditorFrameView;
 } // namespace UI
 namespace Text
@@ -154,6 +155,7 @@ struct ReflectionPassResources;
 struct ReplayPresentationSample;
 struct ReplaySolverFrameSample;
 struct CameraControlState;
+enum class OverlayMode;
 struct OverlayDebugState;
 struct RunEditorPlacementState;
 struct RunRayCastTestState;
@@ -361,85 +363,11 @@ struct RuntimeRenderTargetPreviewSnapshot
     int count = 0;
 };
 
-struct UiHudScenePhase
+// Value: the viewport is shared by focused draw operations that place UI.
+struct UiTextViewport
 {
-    // Scene/HUD policy stays separate from interaction and viewport facts so
-    // the text pass cannot receive a replacement all-purpose UI context.
-    const OverlayDebugState& debug;
-    bool crossScenePauseLocked = false;
-    const SceneSessionState& scene;
-    const RenderPresentationSettings& renderPresentation;
-    const SceneWorld& world;
-    const SkullbonezCore::Core::EngineConfig& config;
-};
-
-struct UiHudInteractionPhase
-{
-    // Interaction diagnostics borrow the concrete state owners whose values
-    // they label. No command or pointer-routing authority crosses this phase.
-    const RunRayCastTestState& rayCastTest;
-    const RunEditorPlacementState& editor;
-    const RuntimeInputContext& runtimeInput;
-    const CameraControlState& camera;
-    Threading::WorkerPool* workerPool = nullptr;
-};
-
-struct UiHudFramePhase
-{
-    // Frame-local layout and scene-browser labels are detached scalar values.
     int screenW = 1;
     int screenH = 1;
-    int sceneQueueSize = 0;
-    bool sceneHasCurrentEntry = false;
-    const char* currentScenePath = nullptr;
-    int currentSceneBrowserIndex = 0;
-    uint32_t cameraModeEnabledMask = 0u;
-    const char* cameraModeLabel = "";
-    const char* launcherFireModeLabel = "";
-    bool launcherCameraMode = false;
-};
-
-struct UiOperatorTextPhase
-{
-    // UI-facing values are detached snapshots. The phase cannot reopen scene,
-    // Replay, or diagnostics owners while translating operator commands.
-    const RuntimeViewModel& runtimeViewModel;
-    const SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser;
-    const RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews;
-    const UI::OperatorEditorFrameView& operatorEditorView;
-};
-
-struct UiReplayTextPhase
-{
-    // Replay owns the immutable publication; this phase adds only the concrete
-    // gesture, scene, viewport, and clock facts needed to draw it.
-    const ReplayHudStatus& hud;
-    const ReplayOverlay::ReplayOverlayStateView& overlay;
-    Core::Profiler* profiler = nullptr;
-    bool legacySurfaceActive = true;
-    bool scenePhysicsEnabled = false;
-    RuntimeInteractionGestureKind gesture = RuntimeInteractionGestureKind::None;
-    int screenW = 1;
-    int screenH = 1;
-    double nowSeconds = 0.0;
-    bool scrubberVisible = false;
-    bool pathVisualizerHasTarget = false;
-};
-
-struct UiTextSubmissionPhase
-{
-    // Non-backend submission borrows are consumed synchronously by UiTextPass.
-    // RuntimeRenderer supplies its four concrete backend owners at execution.
-    RunTimerState& timers;
-    UI::InGameUI& ui;
-    Assets::AssetSystem& assets;
-    const RuntimeRenderModelFrameView& models;
-    DiagnosticsRuntime& diagnosticsRuntime;
-    // Lifetime: selected by Run for this UI frame. UI text can render without
-    // world passes, so it receives its own snapshot instead of reopening host state.
-    const SkullbonezCore::Core::CinematicRenderConfig& cinematic;
-    bool cinematicRendering = false;
-    double secondsPerFrame = 0.0;
 };
 
 struct WaterPassDebugInfo
@@ -951,24 +879,110 @@ class UiTextPass
                                                        int screenH );
     void ReleaseGpuResources( Rendering::Dx12TextureOwner* renderTextures,
                               Rendering::Dx12GeometryOwner* renderGeometry );
-    bool ShouldRender( const UiHudScenePhase& scene,
-                       const UiHudInteractionPhase& interaction,
+    bool ShouldRender( const OverlayDebugState& debug,
+                       const SceneSessionState& scene,
+                       bool crossScenePauseLocked,
+                       const CameraControlState& camera,
                        const UI::InGameUI& ui,
                        bool replayScrubberVisible,
                        bool replayPathVisualizerHasTarget ) const;
     void SetRayTracingCapability( Rendering::Dx12RaytracingOwner* renderRayTracing );
-    void Render( const UiHudScenePhase& scene,
-                 const UiHudInteractionPhase& interaction,
-                 const UiHudFramePhase& frameFacts,
-                 const UiOperatorTextPhase& operatorPhase,
-                 const UiReplayTextPhase& replay,
-                 const UiTextSubmissionPhase& submission,
-                 Rendering::Dx12ResourceBuilder& renderResources,
-                 Rendering::Dx12TextureOwner& renderTextures,
-                 Rendering::Dx12GeometryOwner& renderGeometry,
-                 Rendering::Dx12Diagnostics& renderDiagnostics );
+    float BeginFrame( RunTimerState& timers,
+                      const RuntimeRenderModelFrameView& models,
+                      double secondsPerFrame,
+                      int screenW,
+                      int screenH );
+    void RenderChromeStatus( const UiTextViewport& viewport,
+                             const OverlayDebugState& debug,
+                             bool crossScenePauseLocked,
+                             const SceneSessionState& scene,
+                             const CameraControlState& camera,
+                             int sceneQueueSize,
+                             const char* cameraModeLabel,
+                             Rendering::Dx12TextureOwner& renderTextures,
+                             Rendering::Dx12GeometryOwner& renderGeometry,
+                             Rendering::Dx12Diagnostics& renderDiagnostics );
+    void RenderChromeTail( const OverlayDebugState& debug,
+                           const ReplayHudStatus& replayHud,
+                           bool launcherCameraMode,
+                           const char* launcherFireModeLabel,
+                           double reproMessageAgeSeconds,
+                           Rendering::Dx12GeometryOwner& renderGeometry );
+    void PrepareOperatorFrame( UI::InGameUIFrameData& uiData,
+                               const UiTextViewport& viewport,
+                               bool drawTestPattern,
+                               Rendering::Dx12TextureOwner& renderTextures,
+                               Rendering::Dx12GeometryOwner& renderGeometry,
+                               Rendering::Dx12Diagnostics& renderDiagnostics );
+    void ProjectOperatorDiagnostics( UI::InGameUIFrameData& uiData,
+                                     const ReplayHudStatus& replayHud,
+                                     RunTimerState& timers,
+                                     const RuntimeRenderModelFrameView& models,
+                                     DiagnosticsRuntime& diagnosticsRuntime,
+                                     UI::InGameUI& ui,
+                                     Threading::WorkerPool* workerPool,
+                                     double secondsPerFrame,
+                                     Rendering::Dx12Diagnostics& renderDiagnostics );
+    void ProjectOperatorSettings( UI::InGameUIFrameData& uiData,
+                                  const OverlayDebugState& debug,
+                                  const RenderPresentationSettings& renderPresentation,
+                                  const SceneWorld& world,
+                                  const SkullbonezCore::Core::EngineConfig& config,
+                                  const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+                                  bool cinematicRendering );
+    void ProjectOperatorInteraction( UI::InGameUIFrameData& uiData,
+                                     const RunRayCastTestState& rayCastTest,
+                                     const RunEditorPlacementState& editor,
+                                     const RuntimeInputContext& runtimeInput,
+                                     const CameraControlState& camera,
+                                     const UI::InGameUI& ui,
+                                     uint32_t cameraModeEnabledMask,
+                                     const char* cameraModeLabel );
+    void ProjectOperatorPresentation( UI::InGameUIFrameData& uiData,
+                                      const SceneSessionState& scene,
+                                      const RuntimeViewModel& runtimeViewModel,
+                                      const SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser,
+                                      const UI::OperatorEditorFrameView& operatorEditorView,
+                                      bool sceneHasCurrentEntry,
+                                      const char* currentScenePath,
+                                      int currentSceneBrowserIndex,
+                                      float sceneEnergyForDisplay );
+    void SubmitOperatorFrame( UI::InGameUIFrameData& uiData,
+                              UI::InGameUI& ui,
+                              const RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews,
+                              Assets::AssetSystem& assets,
+                              Rendering::Dx12ResourceBuilder& renderResources,
+                              Rendering::Dx12TextureOwner& renderTextures,
+                              Rendering::Dx12GeometryOwner& renderGeometry,
+                              Rendering::Dx12Diagnostics& renderDiagnostics,
+                              int uiPassDrawCallStart );
+    void RenderOverlayContent( const UiTextViewport& viewport,
+                               OverlayMode mode,
+                               int modelCount,
+                               float rollingFpsTime,
+                               float sceneEnergyForDisplay,
+                               Rendering::Dx12TextureOwner& renderTextures,
+                               Rendering::Dx12GeometryOwner& renderGeometry,
+                               Rendering::Dx12Diagnostics& renderDiagnostics );
+    void RenderReplay( const ReplayOverlay::ReplayOverlayStateView& overlay,
+                       Core::Profiler* profiler,
+                       bool legacySurfaceActive,
+                       bool scenePhysicsEnabled,
+                       RuntimeInteractionGestureKind gesture,
+                       const UiTextViewport& viewport,
+                       double nowSeconds,
+                       Rendering::Dx12TextureOwner& renderTextures,
+                       Rendering::Dx12GeometryOwner& renderGeometry,
+                       Rendering::Dx12Diagnostics& renderDiagnostics );
+    void FinalizeOverlay( OverlayMode mode,
+                          Rendering::Dx12TextureOwner& renderTextures,
+                          Rendering::Dx12GeometryOwner& renderGeometry,
+                          Rendering::Dx12Diagnostics& renderDiagnostics );
+    void ReportRetainedDrawStats();
 
   private:
+    float
+    UpdateFrameMetrics( RunTimerState& timers, const RuntimeRenderModelFrameView& models, double secondsPerFrame );
     // Lifetime: font vertices/projection and optional render capabilities share
     // this pass's process lifetime and are cleared before backend teardown.
     Text::TextBatch m_textBatch;

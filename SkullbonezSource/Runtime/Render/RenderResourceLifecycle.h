@@ -58,8 +58,10 @@ class RenderResourceLifecycle
     RuntimeRenderTargetPreviewSnapshot BuildRenderTargetPreviewSnapshot( bool shadowsAvailable,
                                                                          bool cinematicTargetsAvailable,
                                                                          bool volumetricAvailable ) const;
-    bool ShouldRenderUiText( const UiHudScenePhase& scene,
-                             const UiHudInteractionPhase& interaction,
+    bool ShouldRenderUiText( const OverlayDebugState& debug,
+                             const SceneSessionState& scene,
+                             bool crossScenePauseLocked,
+                             const CameraControlState& camera,
                              const UI::InGameUI& ui,
                              bool replayScrubberVisible,
                              bool replayPathVisualizerHasTarget ) const;

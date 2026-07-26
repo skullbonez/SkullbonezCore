@@ -30,9 +30,10 @@ Invariants:
     framebuffers, shaders, and dynamic vertex buffers can own backend objects.
   - Pass input/output structs borrow data for one frame only. Do not cache
     pointers returned from ShadowPassOutput or ReflectionPassOutput consumers.
-  - UI-text scheduling separates HUD scene, interaction, frame, operator,
-    Replay, and submission phases. Font, timing, and ray-tracing capabilities
-    remain inside UiTextPass.
+  - UI-text scheduling executes frame metrics before one graph compile, then
+    chrome, focused operator projection/submission, HUD overlay, Replay, and
+    final flush callbacks in visual order. Font, timing, and ray-tracing
+    capabilities remain inside UiTextPass.
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h declares pass contracts.
@@ -246,17 +247,41 @@ struct SkyboxGraphInvocation
     SkullbonezCore::Rendering::Dx12TextureOwner* renderTextures = nullptr;
 };
 
-struct UiTextGraphInvocation
+struct UiOperatorPrepareGraphInvocation
 {
-    UiTextPass* uiTextPass = nullptr;
+    UiTextPass* pass = nullptr;
     SkullbonezCore::Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
-    const UiHudScenePhase* scene = nullptr;
-    const UiHudInteractionPhase* interaction = nullptr;
-    const UiHudFramePhase* frame = nullptr;
-    const UiOperatorTextPhase* operatorPhase = nullptr;
-    const UiReplayTextPhase* replay = nullptr;
-    const UiTextSubmissionPhase* submission = nullptr;
-    SkullbonezCore::Rendering::Dx12ResourceBuilder* renderResources = nullptr;
+    SkullbonezCore::UI::InGameUIFrameData* uiData = nullptr;
+    UiTextViewport viewport;
+    bool drawTestPattern = false;
+    SkullbonezCore::Rendering::Dx12TextureOwner* renderTextures = nullptr;
+    SkullbonezCore::Rendering::Dx12GeometryOwner* renderGeometry = nullptr;
+    SkullbonezCore::Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
+    const SkullbonezCore::Rendering::RenderGraphCompileResult* compiled = nullptr;
+    size_t expectedTransitionCount = 0;
+};
+
+struct UiOverlayGraphInvocation
+{
+    UiTextPass* pass = nullptr;
+    SkullbonezCore::Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
+    UiTextViewport viewport;
+    OverlayMode mode = OverlayMode::None;
+    int modelCount = 0;
+    float rollingFpsTime = 0.0f;
+    SkullbonezCore::Rendering::Dx12TextureOwner* renderTextures = nullptr;
+    SkullbonezCore::Rendering::Dx12GeometryOwner* renderGeometry = nullptr;
+    SkullbonezCore::Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
+    float sceneEnergyForDisplay = 0.0f;
+    const SkullbonezCore::Rendering::RenderGraphCompileResult* compiled = nullptr;
+    size_t expectedTransitionCount = 0;
+};
+
+struct UiFinalizeGraphInvocation
+{
+    UiTextPass* pass = nullptr;
+    SkullbonezCore::Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
+    OverlayMode mode = OverlayMode::None;
     SkullbonezCore::Rendering::Dx12TextureOwner* renderTextures = nullptr;
     SkullbonezCore::Rendering::Dx12GeometryOwner* renderGeometry = nullptr;
     SkullbonezCore::Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
@@ -549,27 +574,209 @@ void ExecuteSkyboxGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
                           SkyPassMode::CubemapOnly );
 }
 
-void ExecuteUiTextGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
-                                 UiTextGraphInvocation& data )
+void ExecuteUiChromeGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
+                                   UiChromeGraphInvocation& data )
 {
-    if ( !data.uiTextPass || !data.renderGraph || !data.scene || !data.interaction || !data.frame ||
-         !data.operatorPhase || !data.replay || !data.submission || !data.renderResources || !data.renderTextures ||
-         !data.renderGeometry || !data.renderDiagnostics )
+    if ( !data.pass || !data.renderGraph || !data.debug || !data.scene || !data.camera || !data.replayHud ||
+         !data.renderTextures || !data.renderGeometry || !data.renderDiagnostics )
     {
-        SB_FATAL( "RunRender", "UiTextPass graph callback missing execution data." );
+        SB_FATAL( "RunRender", "UI chrome graph callback missing execution data." );
     }
 
     (void)ExecuteRequiredGraphTransitions( context, data.renderGraph, data.compiled, data.expectedTransitionCount );
-    data.uiTextPass->Render( *data.scene,
-                             *data.interaction,
-                             *data.frame,
-                             *data.operatorPhase,
-                             *data.replay,
-                             *data.submission,
-                             *data.renderResources,
+    data.pass->RenderChromeStatus( data.viewport,
+                                   *data.debug,
+                                   data.crossScenePauseLocked,
+                                   *data.scene,
+                                   *data.camera,
+                                   data.sceneQueueSize,
+                                   data.cameraModeLabel,
+                                   *data.renderTextures,
+                                   *data.renderGeometry,
+                                   *data.renderDiagnostics );
+
+    if ( !data.debug->isTextOnly )
+    {
+        data.pass->RenderChromeTail( *data.debug,
+                                     *data.replayHud,
+                                     data.launcherCameraMode,
+                                     data.launcherFireModeLabel,
+                                     data.reproMessageAgeSeconds,
+                                     *data.renderGeometry );
+    }
+}
+
+void ExecuteUiOperatorPrepareGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
+                                            UiOperatorPrepareGraphInvocation& data )
+{
+    if ( !data.pass || !data.renderGraph || !data.uiData || !data.renderTextures || !data.renderGeometry ||
+         !data.renderDiagnostics )
+    {
+        SB_FATAL( "RunRender", "UI operator prepare graph callback missing execution data." );
+    }
+
+    (void)ExecuteRequiredGraphTransitions( context, data.renderGraph, data.compiled, data.expectedTransitionCount );
+    data.pass->PrepareOperatorFrame( *data.uiData,
+                                     data.viewport,
+                                     data.drawTestPattern,
+                                     *data.renderTextures,
+                                     *data.renderGeometry,
+                                     *data.renderDiagnostics );
+}
+
+void ExecuteUiOperatorDiagnosticsGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
+                                                UiOperatorDiagnosticsGraphInvocation& data )
+{
+    if ( !data.pass || !data.renderGraph || !data.uiData || !data.replayHud || !data.timers || !data.models ||
+         !data.diagnosticsRuntime || !data.ui || !data.renderDiagnostics )
+    {
+        SB_FATAL( "RunRender", "UI operator diagnostics graph callback missing execution data." );
+    }
+
+    (void)ExecuteRequiredGraphTransitions( context, data.renderGraph, data.compiled, data.expectedTransitionCount );
+    data.pass->ProjectOperatorDiagnostics( *data.uiData,
+                                           *data.replayHud,
+                                           *data.timers,
+                                           *data.models,
+                                           *data.diagnosticsRuntime,
+                                           *data.ui,
+                                           data.workerPool,
+                                           data.secondsPerFrame,
+                                           *data.renderDiagnostics );
+}
+
+void ExecuteUiOperatorSettingsGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
+                                             UiOperatorSettingsGraphInvocation& data )
+{
+    if ( !data.pass || !data.renderGraph || !data.uiData || !data.debug || !data.renderPresentation || !data.world ||
+         !data.config || !data.cinematic )
+    {
+        SB_FATAL( "RunRender", "UI operator settings graph callback missing execution data." );
+    }
+
+    (void)ExecuteRequiredGraphTransitions( context, data.renderGraph, data.compiled, data.expectedTransitionCount );
+    data.pass->ProjectOperatorSettings( *data.uiData,
+                                        *data.debug,
+                                        *data.renderPresentation,
+                                        *data.world,
+                                        *data.config,
+                                        *data.cinematic,
+                                        data.cinematicRendering );
+}
+
+void ExecuteUiOperatorInteractionGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
+                                                UiOperatorInteractionGraphInvocation& data )
+{
+    if ( !data.pass || !data.renderGraph || !data.uiData || !data.rayCastTest || !data.editor || !data.runtimeInput ||
+         !data.camera || !data.ui )
+    {
+        SB_FATAL( "RunRender", "UI operator interaction graph callback missing execution data." );
+    }
+
+    (void)ExecuteRequiredGraphTransitions( context, data.renderGraph, data.compiled, data.expectedTransitionCount );
+    data.pass->ProjectOperatorInteraction( *data.uiData,
+                                           *data.rayCastTest,
+                                           *data.editor,
+                                           *data.runtimeInput,
+                                           *data.camera,
+                                           *data.ui,
+                                           data.cameraModeEnabledMask,
+                                           data.cameraModeLabel );
+}
+
+void ExecuteUiOperatorPresentationGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
+                                                 UiOperatorPresentationGraphInvocation& data )
+{
+    if ( !data.pass || !data.renderGraph || !data.uiData || !data.scene || !data.runtimeViewModel ||
+         !data.sceneBrowser || !data.operatorEditorView )
+    {
+        SB_FATAL( "RunRender", "UI operator presentation graph callback missing execution data." );
+    }
+
+    (void)ExecuteRequiredGraphTransitions( context, data.renderGraph, data.compiled, data.expectedTransitionCount );
+    data.pass->ProjectOperatorPresentation( *data.uiData,
+                                            *data.scene,
+                                            *data.runtimeViewModel,
+                                            *data.sceneBrowser,
+                                            *data.operatorEditorView,
+                                            data.sceneHasCurrentEntry,
+                                            data.currentScenePath,
+                                            data.currentSceneBrowserIndex,
+                                            data.sceneEnergyForDisplay );
+}
+
+void ExecuteUiOperatorSubmissionGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
+                                               UiOperatorSubmissionGraphInvocation& data )
+{
+    if ( !data.pass || !data.renderGraph || !data.uiData || !data.ui || !data.renderTargetPreviews || !data.assets ||
+         !data.renderResources || !data.renderTextures || !data.renderGeometry || !data.renderDiagnostics )
+    {
+        SB_FATAL( "RunRender", "UI operator submission graph callback missing execution data." );
+    }
+
+    (void)ExecuteRequiredGraphTransitions( context, data.renderGraph, data.compiled, data.expectedTransitionCount );
+    data.pass->SubmitOperatorFrame( *data.uiData,
+                                    *data.ui,
+                                    *data.renderTargetPreviews,
+                                    *data.assets,
+                                    *data.renderResources,
+                                    *data.renderTextures,
+                                    *data.renderGeometry,
+                                    *data.renderDiagnostics,
+                                    data.uiPassDrawCallStart );
+}
+
+void ExecuteUiOverlayGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
+                                    UiOverlayGraphInvocation& data )
+{
+    if ( !data.pass || !data.renderGraph || !data.renderTextures || !data.renderGeometry || !data.renderDiagnostics )
+    {
+        SB_FATAL( "RunRender", "UI overlay graph callback missing execution data." );
+    }
+
+    (void)ExecuteRequiredGraphTransitions( context, data.renderGraph, data.compiled, data.expectedTransitionCount );
+    data.pass->RenderOverlayContent( data.viewport,
+                                     data.mode,
+                                     data.modelCount,
+                                     data.rollingFpsTime,
+                                     data.sceneEnergyForDisplay,
+                                     *data.renderTextures,
+                                     *data.renderGeometry,
+                                     *data.renderDiagnostics );
+}
+
+void ExecuteUiReplayGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
+                                   UiReplayGraphInvocation& data )
+{
+    if ( !data.pass || !data.renderGraph || !data.overlay || !data.renderTextures || !data.renderGeometry ||
+         !data.renderDiagnostics )
+    {
+        SB_FATAL( "RunRender", "UI Replay graph callback missing execution data." );
+    }
+
+    (void)ExecuteRequiredGraphTransitions( context, data.renderGraph, data.compiled, data.expectedTransitionCount );
+    data.pass->RenderReplay( *data.overlay,
+                             data.profiler,
+                             data.legacySurfaceActive,
+                             data.scenePhysicsEnabled,
+                             data.gesture,
+                             data.viewport,
+                             data.nowSeconds,
                              *data.renderTextures,
                              *data.renderGeometry,
                              *data.renderDiagnostics );
+}
+
+void ExecuteUiFinalizeGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
+                                     UiFinalizeGraphInvocation& data )
+{
+    if ( !data.pass || !data.renderGraph || !data.renderTextures || !data.renderGeometry || !data.renderDiagnostics )
+    {
+        SB_FATAL( "RunRender", "UI finalize graph callback missing execution data." );
+    }
+
+    (void)ExecuteRequiredGraphTransitions( context, data.renderGraph, data.compiled, data.expectedTransitionCount );
+    data.pass->FinalizeOverlay( data.mode, *data.renderTextures, *data.renderGeometry, *data.renderDiagnostics );
 }
 
 void ExecuteVolumetricGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
@@ -1539,13 +1746,64 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const CinematicPostGrap
 }
 
 
-void RuntimeRenderer::ExecuteUiTextThroughRenderGraph( const UiHudScenePhase& scene,
-                                                       const UiHudInteractionPhase& interaction,
-                                                       const UiHudFramePhase& frame,
-                                                       const UiOperatorTextPhase& operatorPhase,
-                                                       const UiReplayTextPhase& replay,
-                                                       const UiTextSubmissionPhase& submission )
+int RuntimeRenderer::RenderUiText( RunTimerState& timers,
+                                   const RuntimeRenderModelFrameView& models,
+                                   double secondsPerFrame,
+                                   UiChromeGraphInvocation& chrome,
+                                   UiOperatorDiagnosticsGraphInvocation& operatorDiagnostics,
+                                   UiOperatorSettingsGraphInvocation& operatorSettings,
+                                   UiOperatorInteractionGraphInvocation& operatorInteraction,
+                                   UiOperatorPresentationGraphInvocation& operatorPresentation,
+                                   UiOperatorSubmissionGraphInvocation& operatorSubmission,
+                                   UiReplayGraphInvocation& replay )
 {
+    // Why: RenderGraph borrows callback userdata until ExecuteGraphCallbacksOrFatal(),
+    // so callers own each operation-specific ABI record until this method returns.
+    // Invariant: no record collects the UI union; focused passes register in
+    // visual order and share exactly one compile/execute cycle.
+    Rendering::Dx12Diagnostics* renderDiagnostics = m_resources.Backend().renderDiagnostics;
+    if ( !renderDiagnostics )
+    {
+        SB_FATAL( "RunRender", "UI text submission requires renderer-owned diagnostics." );
+    }
+
+    const int drawCallStart = renderDiagnostics->GetFrameDrawCallCount();
+    DRAW_CALL_TRACE_SCOPE( *renderDiagnostics, "Frame/UI" );
+    const float sceneEnergyForDisplay = m_resources.UiText().BeginFrame( timers,
+                                                                         models,
+                                                                         secondsPerFrame,
+                                                                         chrome.viewport.screenW,
+                                                                         chrome.viewport.screenH );
+
+    chrome.reproMessageAgeSeconds = timers.simulationTimer.GetTimeSinceLastStart();
+
+    UI::InGameUIFrameData uiData;
+    UiOperatorPrepareGraphInvocation operatorPrepare;
+    operatorPrepare.uiData = &uiData;
+    operatorPrepare.viewport = chrome.viewport;
+    operatorPrepare.drawTestPattern = operatorSettings.debug && operatorSettings.debug->isUITestPattern;
+
+    operatorDiagnostics.uiData = &uiData;
+    operatorDiagnostics.timers = &timers;
+    operatorDiagnostics.models = &models;
+    operatorDiagnostics.secondsPerFrame = secondsPerFrame;
+    operatorSettings.uiData = &uiData;
+    operatorInteraction.uiData = &uiData;
+    operatorPresentation.uiData = &uiData;
+    operatorPresentation.sceneEnergyForDisplay = sceneEnergyForDisplay;
+    operatorSubmission.uiData = &uiData;
+    operatorSubmission.uiPassDrawCallStart = drawCallStart;
+
+    UiOverlayGraphInvocation overlay;
+    overlay.viewport = chrome.viewport;
+    overlay.mode = chrome.debug ? chrome.debug->overlayMode : OverlayMode::None;
+    overlay.modelCount = chrome.scene ? chrome.scene->modelCount : 0;
+    overlay.rollingFpsTime = timers.rollingFpsTime;
+    overlay.sceneEnergyForDisplay = sceneEnergyForDisplay;
+
+    UiFinalizeGraphInvocation finalize;
+    finalize.mode = overlay.mode;
+
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     if ( !m_resources.Backend().renderGraph )
     {
@@ -1555,31 +1813,169 @@ void RuntimeRenderer::ExecuteUiTextThroughRenderGraph( const UiHudScenePhase& sc
     const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph,
                                                                                    *m_resources.Backend().renderGraph );
 
-    const uint32_t uiTextPass = graph.AddPass( "UiTextPass", Rendering::RenderGraphQueueType::Graphics );
-    graph.AddWrite( uiTextPass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
+    constexpr uint32_t INVALID_PASS = 0xFFFFFFFFu;
+    uint32_t callbackCount = 0;
+    const bool textOnly = chrome.debug && chrome.debug->isTextOnly;
+    const bool operatorNeeded = operatorSubmission.ui && operatorSubmission.ui->NeedsUiTextPass();
+    const bool operatorVisible = operatorSubmission.ui && operatorSubmission.ui->IsVisible();
+    const bool profilerBars = overlay.mode == OverlayMode::BarsNormalized || overlay.mode == OverlayMode::BarsAbsolute;
 
-    UiTextGraphInvocation callbackData;
-    callbackData.uiTextPass = &m_resources.UiText();
-    callbackData.renderGraph = m_resources.Backend().renderGraph;
-    callbackData.scene = &scene;
-    callbackData.interaction = &interaction;
-    callbackData.frame = &frame;
-    callbackData.operatorPhase = &operatorPhase;
-    callbackData.replay = &replay;
-    callbackData.submission = &submission;
-    callbackData.renderResources = m_resources.Backend().renderResources;
-    callbackData.renderTextures = m_resources.Backend().renderTextures;
-    callbackData.renderGeometry = m_resources.Backend().renderGeometry;
-    callbackData.renderDiagnostics = m_resources.Backend().renderDiagnostics;
-    graph.SetPassCallback<ExecuteUiTextGraphCallback>( uiTextPass, callbackData, true, "Frame/UI" );
+    const uint32_t chromePass = graph.AddPass( "UiChrome", Rendering::RenderGraphQueueType::Graphics );
+    graph.AddWrite( chromePass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
+    chrome.pass = &m_resources.UiText();
+    chrome.renderGraph = m_resources.Backend().renderGraph;
+    chrome.renderTextures = m_resources.Backend().renderTextures;
+    chrome.renderGeometry = m_resources.Backend().renderGeometry;
+    chrome.renderDiagnostics = renderDiagnostics;
+    graph.SetPassCallback<ExecuteUiChromeGraphCallback>( chromePass, chrome, true, "Frame/UI/Chrome" );
+    ++callbackCount;
 
-    // Invariant: UI/text always lands on the presentable backbuffer. Text-only
-    // mode skips world rendering before this point but still uses this callback
-    // path so the late overlay pass has one scheduling owner.
+    uint32_t operatorPreparePass = INVALID_PASS;
+    uint32_t operatorDiagnosticsPass = INVALID_PASS;
+    uint32_t operatorSettingsPass = INVALID_PASS;
+    uint32_t operatorInteractionPass = INVALID_PASS;
+    uint32_t operatorPresentationPass = INVALID_PASS;
+    uint32_t operatorSubmissionPass = INVALID_PASS;
+    if ( !textOnly && operatorNeeded )
+    {
+        // Invariant: one RenderGraph order owns the UIData write sequence.
+        // Prepare and submission are scheduled together, which balances the
+        // BuildData profile scope and prevents a partially projected draw.
+        auto addOperatorPass = [&]( const char* name ) -> uint32_t
+        {
+            const uint32_t pass = graph.AddPass( name, Rendering::RenderGraphQueueType::Graphics );
+
+            graph.AddWrite( pass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
+            ++callbackCount;
+            return pass;
+        };
+
+        operatorPreparePass = addOperatorPass( "UiOperatorPrepare" );
+        operatorPrepare.pass = &m_resources.UiText();
+        operatorPrepare.renderGraph = m_resources.Backend().renderGraph;
+        operatorPrepare.renderTextures = m_resources.Backend().renderTextures;
+        operatorPrepare.renderGeometry = m_resources.Backend().renderGeometry;
+        operatorPrepare.renderDiagnostics = renderDiagnostics;
+        graph.SetPassCallback<ExecuteUiOperatorPrepareGraphCallback>( operatorPreparePass,
+                                                                      operatorPrepare,
+                                                                      true,
+                                                                      "Frame/UI/Operator/Prepare" );
+
+        operatorDiagnosticsPass = addOperatorPass( "UiOperatorDiagnostics" );
+        operatorDiagnostics.pass = &m_resources.UiText();
+        operatorDiagnostics.renderGraph = m_resources.Backend().renderGraph;
+        operatorDiagnostics.renderDiagnostics = renderDiagnostics;
+        graph.SetPassCallback<ExecuteUiOperatorDiagnosticsGraphCallback>( operatorDiagnosticsPass,
+                                                                          operatorDiagnostics,
+                                                                          true,
+                                                                          "Frame/UI/Operator/Diagnostics" );
+
+        operatorSettingsPass = addOperatorPass( "UiOperatorSettings" );
+        operatorSettings.pass = &m_resources.UiText();
+        operatorSettings.renderGraph = m_resources.Backend().renderGraph;
+        graph.SetPassCallback<ExecuteUiOperatorSettingsGraphCallback>( operatorSettingsPass,
+                                                                       operatorSettings,
+                                                                       true,
+                                                                       "Frame/UI/Operator/Settings" );
+
+        operatorInteractionPass = addOperatorPass( "UiOperatorInteraction" );
+        operatorInteraction.pass = &m_resources.UiText();
+        operatorInteraction.renderGraph = m_resources.Backend().renderGraph;
+        graph.SetPassCallback<ExecuteUiOperatorInteractionGraphCallback>( operatorInteractionPass,
+                                                                          operatorInteraction,
+                                                                          true,
+                                                                          "Frame/UI/Operator/Interaction" );
+
+        operatorPresentationPass = addOperatorPass( "UiOperatorPresentation" );
+        operatorPresentation.pass = &m_resources.UiText();
+        operatorPresentation.renderGraph = m_resources.Backend().renderGraph;
+        graph.SetPassCallback<ExecuteUiOperatorPresentationGraphCallback>( operatorPresentationPass,
+                                                                           operatorPresentation,
+                                                                           true,
+                                                                           "Frame/UI/Operator/Presentation" );
+
+        operatorSubmissionPass = addOperatorPass( "UiOperatorSubmission" );
+        operatorSubmission.pass = &m_resources.UiText();
+        operatorSubmission.renderGraph = m_resources.Backend().renderGraph;
+        operatorSubmission.renderResources = m_resources.Backend().renderResources;
+        operatorSubmission.renderTextures = m_resources.Backend().renderTextures;
+        operatorSubmission.renderGeometry = m_resources.Backend().renderGeometry;
+        operatorSubmission.renderDiagnostics = renderDiagnostics;
+        graph.SetPassCallback<ExecuteUiOperatorSubmissionGraphCallback>( operatorSubmissionPass,
+                                                                         operatorSubmission,
+                                                                         true,
+                                                                         "Frame/UI/Operator/Submission" );
+    }
+
+    uint32_t overlayPass = INVALID_PASS;
+    if ( !textOnly && !operatorVisible )
+    {
+        overlayPass = graph.AddPass( "UiOverlay", Rendering::RenderGraphQueueType::Graphics );
+        graph.AddWrite( overlayPass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
+        overlay.pass = &m_resources.UiText();
+        overlay.renderGraph = m_resources.Backend().renderGraph;
+        overlay.renderTextures = m_resources.Backend().renderTextures;
+        overlay.renderGeometry = m_resources.Backend().renderGeometry;
+        overlay.renderDiagnostics = renderDiagnostics;
+        graph.SetPassCallback<ExecuteUiOverlayGraphCallback>( overlayPass, overlay, true, "Frame/UI/Overlay" );
+        ++callbackCount;
+    }
+
+    uint32_t replayPass = INVALID_PASS;
+    if ( !textOnly )
+    {
+        replayPass = graph.AddPass( "UiReplay", Rendering::RenderGraphQueueType::Graphics );
+        graph.AddWrite( replayPass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
+        replay.pass = &m_resources.UiText();
+        replay.renderGraph = m_resources.Backend().renderGraph;
+        replay.renderTextures = m_resources.Backend().renderTextures;
+        replay.renderGeometry = m_resources.Backend().renderGeometry;
+        replay.renderDiagnostics = renderDiagnostics;
+        graph.SetPassCallback<ExecuteUiReplayGraphCallback>( replayPass, replay, true, "Frame/UI/Replay" );
+        ++callbackCount;
+    }
+
+    uint32_t finalizePass = INVALID_PASS;
+    if ( !textOnly && !operatorVisible && !profilerBars )
+    {
+        finalizePass = graph.AddPass( "UiFinalize", Rendering::RenderGraphQueueType::Graphics );
+        graph.AddWrite( finalizePass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
+        finalize.pass = &m_resources.UiText();
+        finalize.renderGraph = m_resources.Backend().renderGraph;
+        finalize.renderTextures = m_resources.Backend().renderTextures;
+        finalize.renderGeometry = m_resources.Backend().renderGeometry;
+        finalize.renderDiagnostics = renderDiagnostics;
+        graph.SetPassCallback<ExecuteUiFinalizeGraphCallback>( finalizePass, finalize, true, "Frame/UI/Finalize" );
+        ++callbackCount;
+    }
+
+    // Invariant: the focused callbacks retain the historical draw order while
+    // sharing one graph compile/execute cycle. Text-only schedules only chrome;
+    // visible Legacy UI skips HUD overlay/final flush but still draws Replay.
     const Rendering::RenderGraphCompileResult& compiled = CompileRenderPassGraph( graph );
-    callbackData.compiled = &compiled;
-    callbackData.expectedTransitionCount = CountCompiledTransitionsForPass( compiled, uiTextPass );
-    ExecuteGraphCallbacksOrFatal( graph, 1u, "UiText" );
+    chrome.compiled = &compiled;
+    chrome.expectedTransitionCount = CountCompiledTransitionsForPass( compiled, chromePass );
+    auto bindCompiledPass = [&]( auto& invocation, uint32_t pass )
+    {
+        if ( pass != INVALID_PASS )
+        {
+            invocation.compiled = &compiled;
+
+            invocation.expectedTransitionCount = CountCompiledTransitionsForPass( compiled, pass );
+        }
+    };
+    bindCompiledPass( operatorPrepare, operatorPreparePass );
+    bindCompiledPass( operatorDiagnostics, operatorDiagnosticsPass );
+    bindCompiledPass( operatorSettings, operatorSettingsPass );
+    bindCompiledPass( operatorInteraction, operatorInteractionPass );
+    bindCompiledPass( operatorPresentation, operatorPresentationPass );
+    bindCompiledPass( operatorSubmission, operatorSubmissionPass );
+    bindCompiledPass( overlay, overlayPass );
+    bindCompiledPass( replay, replayPass );
+    bindCompiledPass( finalize, finalizePass );
+    ExecuteGraphCallbacksOrFatal( graph, callbackCount, "UiText" );
+    m_resources.UiText().ReportRetainedDrawStats();
+    return (std::max)( 0, renderDiagnostics->GetFrameDrawCallCount() - drawCallStart );
 }
 
 
@@ -2378,33 +2774,7 @@ void RuntimeRenderer::FinalizeFrameGraphInternal( const char* declarationOnlyPas
 }
 
 
-int RuntimeRenderer::RenderUiText( const UiHudScenePhase& scene,
-                                   const UiHudInteractionPhase& interaction,
-                                   const UiHudFramePhase& frame,
-                                   const UiOperatorTextPhase& operatorPhase,
-                                   const UiReplayTextPhase& replay,
-                                   const UiTextSubmissionPhase& submission )
-{
-    // Invariant: composition callers never receive the backend owner set.
-    // RuntimeRenderer resolves the current epoch and the graph callback consumes
-    // every borrow before this method returns.
-    Rendering::Dx12Diagnostics* renderDiagnostics = m_resources.Backend().renderDiagnostics;
-    if ( !renderDiagnostics )
-    {
-        SB_FATAL( "RunRender", "UI text submission requires renderer-owned diagnostics." );
-    }
-
-    const int drawCallStart = renderDiagnostics->GetFrameDrawCallCount();
-    {
-        DRAW_CALL_TRACE_SCOPE( *renderDiagnostics, "Frame/UI" );
-        ExecuteUiTextThroughRenderGraph( scene, interaction, frame, operatorPhase, replay, submission );
-    }
-
-    return (std::max)( 0, renderDiagnostics->GetFrameDrawCallCount() - drawCallStart );
-}
-
-
-RuntimeRenderDiagnosticsSnapshot RuntimeRenderer::CaptureDiagnosticsSnapshot() const
+RenderDiagnosticsReadout RuntimeRenderer::BuildDiagnosticsReadout() const
 {
     Rendering::Dx12Diagnostics* renderDiagnostics = m_resources.Backend().renderDiagnostics;
     if ( !renderDiagnostics )
@@ -2412,11 +2782,11 @@ RuntimeRenderDiagnosticsSnapshot RuntimeRenderer::CaptureDiagnosticsSnapshot() c
         SB_FATAL( "RunRender", "Operator diagnostics require renderer-owned diagnostics." );
     }
 
-    RuntimeRenderDiagnosticsSnapshot snapshot;
-    snapshot.rendererName = renderDiagnostics->GetRendererName();
-    snapshot.drawCalls = renderDiagnostics->GetFrameDrawCallCount();
-    snapshot.memory = renderDiagnostics->GetRenderMemoryStats();
-    return snapshot;
+    RenderDiagnosticsReadout readout;
+    sprintf_s( readout.rendererName.data(), readout.rendererName.size(), "%s", renderDiagnostics->GetRendererName() );
+    readout.drawCalls = renderDiagnostics->GetFrameDrawCallCount();
+    readout.memory = renderDiagnostics->GetRenderMemoryStats();
+    return readout;
 }
 
 

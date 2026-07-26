@@ -234,13 +234,21 @@ RenderResourceLifecycle::BuildRenderTargetPreviewSnapshot( bool shadowsAvailable
 }
 
 
-bool RenderResourceLifecycle::ShouldRenderUiText( const UiHudScenePhase& scene,
-                                                  const UiHudInteractionPhase& interaction,
+bool RenderResourceLifecycle::ShouldRenderUiText( const OverlayDebugState& debug,
+                                                  const SceneSessionState& scene,
+                                                  bool crossScenePauseLocked,
+                                                  const CameraControlState& camera,
                                                   const UI::InGameUI& ui,
                                                   bool replayScrubberVisible,
                                                   bool replayPathVisualizerHasTarget ) const
 {
-    return m_uiTextPass.ShouldRender( scene, interaction, ui, replayScrubberVisible, replayPathVisualizerHasTarget );
+    return m_uiTextPass.ShouldRender( debug,
+                                      scene,
+                                      crossScenePauseLocked,
+                                      camera,
+                                      ui,
+                                      replayScrubberVisible,
+                                      replayPathVisualizerHasTarget );
 }
 
 

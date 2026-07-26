@@ -467,6 +467,9 @@ void Render( RuntimeFrameHostView& host,
 #endif
     RuntimeViewModel runtimeViewModel;
     RuntimeRenderTargetPreviewSnapshot renderTargetPreviews;
+    // Lifetime: the diagnostics view borrows this detached buffer until both
+    // operator surfaces finish consuming the frame view below.
+    RenderDiagnosticsReadout renderDiagnosticsReadout;
     if ( operatorEditorView.surfaces.secondaryVisible )
     {
         // Why: the secondary surface can be visible while the legacy UI is
@@ -490,9 +493,9 @@ void Render( RuntimeFrameHostView& host,
         // Invariant: the right rail reads fixed snapshots and cached counters;
         // opening Diagnostics must not trigger an allocation scan or grow data.
         const SkullbonezCore::Core::MainMemoryStats& mainMemory = diagnosticsRuntime.MainMemoryStatsSnapshot();
-        const RuntimeRenderDiagnosticsSnapshot renderDiagnostics = renderer.CaptureDiagnosticsSnapshot();
-        diagnostics.rendererName = renderDiagnostics.rendererName;
-        diagnostics.drawCalls = renderDiagnostics.drawCalls;
+        renderDiagnosticsReadout = renderer.BuildDiagnosticsReadout();
+        diagnostics.rendererName = renderDiagnosticsReadout.rendererName.data();
+        diagnostics.drawCalls = renderDiagnosticsReadout.drawCalls;
         diagnostics.uiDrawCalls = timers.lastUIDrawCalls;
         diagnostics.workerThreadCount = workerPool.GetThreadCount();
         diagnostics.maxWorkerThreadCount = SkullbonezCore::Threading::WorkerPool::MaxThreadCount();
@@ -530,8 +533,8 @@ void Render( RuntimeFrameHostView& host,
         diagnostics.rayCastVisualization = runtimeTools.RayCastTest().visualizeRays;
         diagnostics.trackedEngineBytes = mainMemory.trackedEngineBytes;
         diagnostics.reconciledTotalBytes = mainMemory.reconciledTotalBytes;
-        diagnostics.uploadUsedBytes = renderDiagnostics.memory.uploadUsedBytes;
-        diagnostics.uploadCapacityBytes = renderDiagnostics.memory.uploadCapacityBytes;
+        diagnostics.uploadUsedBytes = renderDiagnosticsReadout.memory.uploadUsedBytes;
+        diagnostics.uploadCapacityBytes = renderDiagnosticsReadout.memory.uploadCapacityBytes;
         diagnostics
             .replayReserveGrowthEvents = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::GrowthEventCount();
         diagnostics.renderTargetCount = (std::min)( renderTargetPreviews.count,
@@ -549,41 +552,14 @@ void Render( RuntimeFrameHostView& host,
         }
     }
 
-    const UiHudScenePhase hudScene { debug,
-                                     sceneController.CrossScenePauseLocked(),
-                                     scene,
-                                     renderer.PresentationSettings(),
-                                     sceneController.Scene(),
-                                     config };
-
-    const UiHudInteractionPhase hudInteraction { runtimeTools.RayCastTest(),
-                                                 runtimeTools.Editor(),
-                                                 runtimeInput,
-                                                 camera,
-                                                 &workerPool };
-
-    const UiHudFramePhase hudFrame { window.ClientWidth(),
-                                     window.ClientHeight(),
-                                     sceneController.QueueSize(),
-                                     sceneController.HasCurrentEntry(),
-                                     uiScenePath ? uiScenePath->c_str() : nullptr,
-                                     CurrentSceneBrowserIndex( sceneController, uiSceneBrowser ),
-                                     facts.cameraModeEnabledMask,
-                                     facts.cameraModeLabel,
-                                     facts.launcherFireModeLabel,
-                                     facts.isLauncherCameraMode };
-
-    const UiOperatorTextPhase operatorPhase { runtimeViewModel,
-                                              uiSceneBrowser,
-                                              renderTargetPreviews,
-                                              operatorEditorView };
-
     const bool replayPathVisualizerHasTarget = replayRuntime.BuildInputView().hasPathTarget;
 
     renderer.PrepareUiFrameTarget();
 
-    if ( renderer.ResourceLifecycle().ShouldRenderUiText( hudScene,
-                                                          hudInteraction,
+    if ( renderer.ResourceLifecycle().ShouldRenderUiText( debug,
+                                                          scene,
+                                                          sceneController.CrossScenePauseLocked(),
+                                                          camera,
                                                           ui,
                                                           replayOverlay.shouldRenderScrubber,
                                                           replayPathVisualizerHasTarget ) )
@@ -611,38 +587,79 @@ void Render( RuntimeFrameHostView& host,
                                                 ui.GetActiveTab() == SkullbonezCore::UI::InGameUITab::Memory;
 
         const ReplayHudStatus replayHud = replayRuntime.BuildHudStatus( replayMemoryStatsRequested );
-        const UiReplayTextPhase replayPhase { replayHud,
-                                              replayOverlay,
-                                              host.profiler,
-                                              facts.legacyDevelopmentUiActive,
-                                              scene.isScenePhysics,
-                                              facts.interactionGestureKind,
-                                              window.ClientWidth(),
-                                              window.ClientHeight(),
-                                              timers.simulationTimer.GetTotalTime(),
-                                              replayOverlay.shouldRenderScrubber,
-                                              replayPathVisualizerHasTarget };
+        UiChromeGraphInvocation uiChrome;
+        uiChrome.debug = &debug;
+        uiChrome.crossScenePauseLocked = sceneController.CrossScenePauseLocked();
+        uiChrome.scene = &scene;
+        uiChrome.camera = &camera;
+        uiChrome.sceneQueueSize = sceneController.QueueSize();
+        uiChrome.cameraModeLabel = facts.cameraModeLabel;
+        uiChrome.launcherFireModeLabel = facts.launcherFireModeLabel;
+        uiChrome.launcherCameraMode = facts.isLauncherCameraMode;
+        uiChrome.replayHud = &replayHud;
+        uiChrome.viewport = { window.ClientWidth(), window.ClientHeight() };
+
+        UiOperatorDiagnosticsGraphInvocation uiOperatorDiagnostics;
+        uiOperatorDiagnostics.replayHud = &replayHud;
+        uiOperatorDiagnostics.diagnosticsRuntime = &diagnosticsRuntime;
+        uiOperatorDiagnostics.ui = &ui;
+        uiOperatorDiagnostics.workerPool = &workerPool;
+
+        UiOperatorSettingsGraphInvocation uiOperatorSettings;
+        uiOperatorSettings.debug = &debug;
+        uiOperatorSettings.renderPresentation = &renderer.PresentationSettings();
+        uiOperatorSettings.world = &sceneController.Scene();
+        uiOperatorSettings.config = &config;
+        uiOperatorSettings.cinematic = &uiCinematic;
+        uiOperatorSettings.cinematicRendering = uiCinematicRendering;
+
+        UiOperatorInteractionGraphInvocation uiOperatorInteraction;
+        uiOperatorInteraction.rayCastTest = &runtimeTools.RayCastTest();
+        uiOperatorInteraction.editor = &runtimeTools.Editor();
+        uiOperatorInteraction.runtimeInput = &runtimeInput;
+        uiOperatorInteraction.camera = &camera;
+        uiOperatorInteraction.ui = &ui;
+        uiOperatorInteraction.cameraModeEnabledMask = facts.cameraModeEnabledMask;
+        uiOperatorInteraction.cameraModeLabel = facts.cameraModeLabel;
+
+        UiOperatorPresentationGraphInvocation uiOperatorPresentation;
+        uiOperatorPresentation.scene = &scene;
+        uiOperatorPresentation.runtimeViewModel = &runtimeViewModel;
+        uiOperatorPresentation.sceneBrowser = &uiSceneBrowser;
+        uiOperatorPresentation.operatorEditorView = &operatorEditorView;
+        uiOperatorPresentation.sceneHasCurrentEntry = sceneController.HasCurrentEntry();
+        uiOperatorPresentation.currentScenePath = uiScenePath ? uiScenePath->c_str() : nullptr;
+        uiOperatorPresentation.currentSceneBrowserIndex = CurrentSceneBrowserIndex( sceneController, uiSceneBrowser );
+
+        UiOperatorSubmissionGraphInvocation uiOperatorSubmission;
+        uiOperatorSubmission.ui = &ui;
+        uiOperatorSubmission.renderTargetPreviews = &renderTargetPreviews;
+        uiOperatorSubmission.assets = &host.assets;
+
+        UiReplayGraphInvocation uiReplay;
+        uiReplay.overlay = &replayOverlay;
+        uiReplay.profiler = host.profiler;
+        uiReplay.legacySurfaceActive = facts.legacyDevelopmentUiActive;
+        uiReplay.scenePhysicsEnabled = scene.isScenePhysics;
+        uiReplay.gesture = facts.interactionGestureKind;
+        uiReplay.viewport = { window.ClientWidth(), window.ClientHeight() };
+        uiReplay.nowSeconds = timers.simulationTimer.GetTotalTime();
 
         PROFILE_BEGIN( host.profiler, "Frame/UI" );
         {
             CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Render );
-            // Lifetime: every reference in this stack record remains valid until
-            // the renderer executes the synchronous UI-text graph callback below.
-            const UiTextSubmissionPhase submissionPhase { timers,
-                                                          ui,
-                                                          host.assets,
-                                                          renderModels,
-                                                          diagnosticsRuntime,
-                                                          uiCinematic,
-                                                          uiCinematicRendering,
-                                                          facts.secondsPerFrame };
-
-            timers.lastUIDrawCalls = renderer.RenderUiText( hudScene,
-                                                            hudInteraction,
-                                                            hudFrame,
-                                                            operatorPhase,
-                                                            replayPhase,
-                                                            submissionPhase );
+            // Lifetime: caller-owned ABI records and every direct borrow remain
+            // valid until the synchronous UI-text graph completes below.
+            timers.lastUIDrawCalls = renderer.RenderUiText( timers,
+                                                            renderModels,
+                                                            facts.secondsPerFrame,
+                                                            uiChrome,
+                                                            uiOperatorDiagnostics,
+                                                            uiOperatorSettings,
+                                                            uiOperatorInteraction,
+                                                            uiOperatorPresentation,
+                                                            uiOperatorSubmission,
+                                                            uiReplay );
         }
         PROFILE_END( host.profiler, "Frame/UI" );
     }

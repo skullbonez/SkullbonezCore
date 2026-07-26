@@ -1,16 +1,18 @@
 /*
 File: SkullbonezSource/Runtime/Planning/ReplayOverlayPackets.h
 Purpose:
-  Publishes the synchronous replay overlay state and draw-context packets used by Runtime UI composition.
+  Publishes synchronous Replay overlay state and viewport values used by
+  Runtime UI composition.
 
 Summary:
   ReplayRuntime selects immutable owner views once. UI composition may copy or
-  borrow those values for the current late pass but cannot reach replay mutation
-  or prediction scheduling through these packets.
+  borrow those values plus a detached viewport for the current late pass, but
+  cannot reach Replay mutation or prediction scheduling through them.
 
 Glossary:
   Overlay state view: Read-only Replay publication for one UI composition turn.
-  Render context: Overlay values plus the current render-command target and window facts.
+  Overlay viewport: Coupled pixel width and height used by overlay layout; the
+    render-command target remains an explicit synchronous borrow.
 
 Invariants:
   - References and sample pointers remain valid for one synchronous late pass.

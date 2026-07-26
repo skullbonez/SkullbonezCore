@@ -18,10 +18,12 @@ Glossary:
   All-body path: Space-scene future trajectory selected by body identity rather
     than contact-derived causality.
   Overlay state view: Read-only replay publication borrowed for one late pass.
-  Render context: Overlay state plus the render-command target and window facts.
+  Overlay viewport: Coupled pixel width and height used by overlay layout; the
+    render-command target remains an explicit synchronous borrow.
 
 Invariants:
-  - Replay state reaches the context only through the published overlay view.
+  - Replay state reaches each draw operation only through the published overlay
+    view.
   - Published references and sample pointers remain valid for one frame only.
   - Overlay functions consume every publication and render borrow synchronously.
   - A stable trajectory publication returns before traversing source records.

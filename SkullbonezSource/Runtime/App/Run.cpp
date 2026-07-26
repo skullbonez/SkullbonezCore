@@ -38,9 +38,9 @@ Related:
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
 #include "../Scene/SceneRuntimeLoad.h"
+#include "../Scene/SceneSaveOperations.h"
 #include "../Scene/SceneLoadTransaction.h"
 #include "../Diagnostics/SceneMemoryDiagnostics.h"
-#include "../../Scene/SceneSnapshotWriter.h"
 #include "../../Core/FatalError.h"
 #include "../../Core/Log.h"
 #include "../../Physics/PhysicsTimestep.h"
@@ -59,8 +59,6 @@ using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using SkullbonezCore::Environment::WorldEnvironment;
-using SkullbonezCore::GameObjects::SceneSaveRequest;
-using SkullbonezCore::GameObjects::SceneSnapshotWriter;
 using SkullbonezCore::Geometry::Terrain;
 using SkullbonezCore::Geometry::XZBounds;
 using SkullbonezCore::UI::InGameUITab;
@@ -788,12 +786,12 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
     if ( writeSnapshot )
     {
         const OverlayDebugState presentation = m_overlayDiagnostics->PresentationSnapshot();
-        const SceneSaveRequest saveRequest { snapshotOutPath,
-                                             m_sceneController.Scene().GetSaveState(),
-                                             m_sceneController.State().GetSaveState(),
-                                             presentation.GetSaveState() };
+        const SkullbonezCore::Core::SbResult saveResult = SaveSceneLoadOnlySnapshot(
+            snapshotOutPath,
+            m_sceneController.Scene().GetSaveState(),
+            m_sceneController.State().GetSaveState(),
+            presentation.GetSaveState() );
 
-        const SkullbonezCore::Core::SbResult saveResult = SceneSnapshotWriter::Save( saveRequest );
         if ( !saveResult.ok )
         {
             return saveResult;

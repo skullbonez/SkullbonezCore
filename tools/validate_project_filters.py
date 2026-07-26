@@ -379,6 +379,7 @@ RUNTIME_SCENE_PREFIXES = (
     "SceneRuntimeCoordinator",
     "SceneRuntimeDefaults",
     "SceneRequestQueue",
+    "SceneSaveOperations",
     "SceneEntityStore",
     "SceneNavigationModel",
     "SceneRuntimeGeneratedControls",

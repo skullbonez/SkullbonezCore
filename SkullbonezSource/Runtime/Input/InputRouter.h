@@ -9,7 +9,8 @@ Summary:
   advances key/button memory exactly once and emits ordered semantic action
   events in the same order as the immutable binding table. Context predicates
   decide whether an observed edge is delivered; they never decide whether edge
-  memory advances.
+  memory advances. A separate phase cursor enforces world-pointer precedence
+  without storing the participating editor, pickup, camera, Replay, or launcher.
 
 Glossary:
   UI (user interface): Interactive engine controls evaluated between the input
@@ -27,6 +28,8 @@ Glossary:
     a new workspace or world-input owner begins consuming gestures.
   Lifecycle activation: Completed scene-load phase that can publish a new
     cursor intent and request hardware mouse-delta cleanup.
+  Pointer arbitration: Ordered phase cursor that gives the first consuming
+    world-pointer stage exclusive ownership.
 
 Invariants:
   - BeginFrame is called once before any RoutePhase call for a device snapshot.
@@ -47,6 +50,8 @@ Invariants:
   - Transition cleanup borrows concrete owners synchronously and never stores
     their references or absorbs their domain state.
   - A scene generation publishes its activation cursor intent at most once.
+  - World-pointer stages visit editor, mouse pickup, attached camera, Replay,
+    and launcher exactly once in that order; later stages cannot replace a winner.
 
 Related:
   - InputController.h defines the existing action and context vocabulary.
@@ -150,6 +155,37 @@ struct RuntimePointerRouteResult
     std::array<RuntimeInputAction, MAX_MODE_ACTIONS> modeActions = {};
     std::size_t modeActionCount = 0;
 };
+
+enum class RuntimePointerRouteStage : uint8_t
+{
+    None,
+    Editor,
+    MousePickup,
+    AttachedCamera,
+    Replay,
+    Launcher,
+    Complete
+};
+
+// Invariant: one route visits Editor -> MousePickup -> AttachedCamera -> Replay
+// -> Launcher exactly once. The first consuming stage wins; later stages remain
+// structurally visited but receive no owner call. Illegal phase transitions are
+// Lane F failures. SkullbonezTests/TestInputRouter.cpp exhaustively exercises
+// every combination of the five stage claims.
+class RuntimePointerArbitration
+{
+  public:
+    bool BeginStage( RuntimePointerRouteStage stage );
+    void FinishStage( RuntimePointerRouteStage stage, bool consumed );
+    bool Consumed() const;
+    RuntimePointerRouteStage Winner() const;
+
+  private:
+    RuntimePointerRouteStage m_next = RuntimePointerRouteStage::Editor;
+    RuntimePointerRouteStage m_active = RuntimePointerRouteStage::None;
+    RuntimePointerRouteStage m_winner = RuntimePointerRouteStage::None;
+};
+
 class InputKeySnapshot
 {
   public:

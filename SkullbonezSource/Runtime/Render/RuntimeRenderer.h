@@ -33,8 +33,9 @@ Invariants:
   - Backend resource release begins only after a successful GPU drain, then
     keeps consumer passes ahead of producer passes.
   - The world-extension registration is consumed before its stack scope ends.
-  - UI-text callers provide only non-backend phases; RuntimeRenderer injects
-    its current resource, texture, geometry, and diagnostics owners.
+  - UI-text callers provide only operation-specific graph ABI records;
+    RuntimeRenderer injects its current resource, texture, geometry, and
+    diagnostics owners.
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h
@@ -54,6 +55,7 @@ Related:
 #include "../../Rendering/WorldRenderExtension.h"
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
@@ -67,13 +69,144 @@ class ImGuiEditorOwner;
 #endif
 namespace Runtime
 {
-struct RuntimeRenderDiagnosticsSnapshot
+struct RenderDiagnosticsReadout
 {
-    // Detached UI-facing diagnostics; no backend owner or command surface
-    // escapes RuntimeRenderer.
-    const char* rendererName = "";
+    // Detached UI-facing diagnostics. The renderer name is copied into bounded
+    // storage so no backend-owned character pointer escapes RuntimeRenderer.
+    std::array<char, 64> rendererName = {};
     int drawCalls = 0;
     Rendering::RenderMemoryStats memory;
+};
+
+// Graph ABI: each record below is caller-owned until RenderUiText returns and
+// contains only the direct values/capabilities consumed by one focused pass.
+// Operation: draws text-only output or the ordered HUD chrome stream.
+struct UiChromeGraphInvocation
+{
+    UiTextPass* pass = nullptr;
+    Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
+    const OverlayDebugState* debug = nullptr;
+    bool crossScenePauseLocked = false;
+    const SceneSessionState* scene = nullptr;
+    const CameraControlState* camera = nullptr;
+    int sceneQueueSize = 0;
+    const char* cameraModeLabel = "";
+    const char* launcherFireModeLabel = "";
+    bool launcherCameraMode = false;
+    const ReplayHudStatus* replayHud = nullptr;
+    UiTextViewport viewport;
+    double reproMessageAgeSeconds = 0.0;
+    Rendering::Dx12TextureOwner* renderTextures = nullptr;
+    Rendering::Dx12GeometryOwner* renderGeometry = nullptr;
+    Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
+    const Rendering::RenderGraphCompileResult* compiled = nullptr;
+    size_t expectedTransitionCount = 0;
+};
+
+// Operation: copies bounded profiler, timing, memory, and Replay diagnostics.
+struct UiOperatorDiagnosticsGraphInvocation
+{
+    UiTextPass* pass = nullptr;
+    Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
+    UI::InGameUIFrameData* uiData = nullptr;
+    const ReplayHudStatus* replayHud = nullptr;
+    RunTimerState* timers = nullptr;
+    const RuntimeRenderModelFrameView* models = nullptr;
+    DiagnosticsRuntime* diagnosticsRuntime = nullptr;
+    UI::InGameUI* ui = nullptr;
+    Threading::WorkerPool* workerPool = nullptr;
+    double secondsPerFrame = 0.0;
+    Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
+    const Rendering::RenderGraphCompileResult* compiled = nullptr;
+    size_t expectedTransitionCount = 0;
+};
+
+// Operation: projects immutable render, world, physics, and cinematic settings.
+struct UiOperatorSettingsGraphInvocation
+{
+    UiTextPass* pass = nullptr;
+    Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
+    UI::InGameUIFrameData* uiData = nullptr;
+    const OverlayDebugState* debug = nullptr;
+    const RenderPresentationSettings* renderPresentation = nullptr;
+    const SceneWorld* world = nullptr;
+    const SkullbonezCore::Core::EngineConfig* config = nullptr;
+    const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
+    bool cinematicRendering = false;
+    const Rendering::RenderGraphCompileResult* compiled = nullptr;
+    size_t expectedTransitionCount = 0;
+};
+
+// Operation: projects input mode, camera, ray-cast, and editor interaction state.
+struct UiOperatorInteractionGraphInvocation
+{
+    UiTextPass* pass = nullptr;
+    Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
+    UI::InGameUIFrameData* uiData = nullptr;
+    const RunRayCastTestState* rayCastTest = nullptr;
+    const RunEditorPlacementState* editor = nullptr;
+    const RuntimeInputContext* runtimeInput = nullptr;
+    const CameraControlState* camera = nullptr;
+    const UI::InGameUI* ui = nullptr;
+    uint32_t cameraModeEnabledMask = 0u;
+    const char* cameraModeLabel = "";
+    const Rendering::RenderGraphCompileResult* compiled = nullptr;
+    size_t expectedTransitionCount = 0;
+};
+
+// Operation: publishes scene navigation and the shared operator editor view.
+struct UiOperatorPresentationGraphInvocation
+{
+    UiTextPass* pass = nullptr;
+    Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
+    UI::InGameUIFrameData* uiData = nullptr;
+    const SceneSessionState* scene = nullptr;
+    const RuntimeViewModel* runtimeViewModel = nullptr;
+    const UI::RunSceneBrowserState* sceneBrowser = nullptr;
+    const UI::OperatorEditorFrameView* operatorEditorView = nullptr;
+    bool sceneHasCurrentEntry = false;
+    const char* currentScenePath = nullptr;
+    int currentSceneBrowserIndex = 0;
+    float sceneEnergyForDisplay = 0.0f;
+    const Rendering::RenderGraphCompileResult* compiled = nullptr;
+    size_t expectedTransitionCount = 0;
+};
+
+// Operation: resolves preview resources, draws Legacy UI, and flushes text.
+struct UiOperatorSubmissionGraphInvocation
+{
+    UiTextPass* pass = nullptr;
+    Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
+    UI::InGameUIFrameData* uiData = nullptr;
+    UI::InGameUI* ui = nullptr;
+    const RuntimeRenderTargetPreviewSnapshot* renderTargetPreviews = nullptr;
+    Assets::AssetSystem* assets = nullptr;
+    Rendering::Dx12ResourceBuilder* renderResources = nullptr;
+    Rendering::Dx12TextureOwner* renderTextures = nullptr;
+    Rendering::Dx12GeometryOwner* renderGeometry = nullptr;
+    Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
+    int uiPassDrawCallStart = 0;
+    const Rendering::RenderGraphCompileResult* compiled = nullptr;
+    size_t expectedTransitionCount = 0;
+};
+
+// Operation: draws the Replay scrubber from its immutable publication.
+struct UiReplayGraphInvocation
+{
+    UiTextPass* pass = nullptr;
+    Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
+    const ReplayOverlay::ReplayOverlayStateView* overlay = nullptr;
+    Core::Profiler* profiler = nullptr;
+    bool legacySurfaceActive = true;
+    bool scenePhysicsEnabled = false;
+    RuntimeInteractionGestureKind gesture = RuntimeInteractionGestureKind::None;
+    UiTextViewport viewport;
+    double nowSeconds = 0.0;
+    Rendering::Dx12TextureOwner* renderTextures = nullptr;
+    Rendering::Dx12GeometryOwner* renderGeometry = nullptr;
+    Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
+    const Rendering::RenderGraphCompileResult* compiled = nullptr;
+    size_t expectedTransitionCount = 0;
 };
 
 class RuntimeRenderer
@@ -141,15 +274,19 @@ class RuntimeRenderer
     // Validates a restart frame with no Present edge, then releases every
     // callback/resource borrow before capture automation can replace the scene.
     void FinalizeCaptureOnlyFrameGraph();
-    // Schedules concrete HUD scene/interaction/frame, operator, Replay, and
-    // submission phases. RuntimeRenderer owns graph order, not composition.
-    int RenderUiText( const UiHudScenePhase& scene,
-                      const UiHudInteractionPhase& interaction,
-                      const UiHudFramePhase& frame,
-                      const UiOperatorTextPhase& operatorPhase,
-                      const UiReplayTextPhase& replay,
-                      const UiTextSubmissionPhase& submission );
-    RuntimeRenderDiagnosticsSnapshot CaptureDiagnosticsSnapshot() const;
+    // Runs CPU frame preparation, then registers operation-specific callback
+    // ABI records in one graph compile/execute cycle.
+    int RenderUiText( RunTimerState& timers,
+                      const RuntimeRenderModelFrameView& models,
+                      double secondsPerFrame,
+                      UiChromeGraphInvocation& chrome,
+                      UiOperatorDiagnosticsGraphInvocation& operatorDiagnostics,
+                      UiOperatorSettingsGraphInvocation& operatorSettings,
+                      UiOperatorInteractionGraphInvocation& operatorInteraction,
+                      UiOperatorPresentationGraphInvocation& operatorPresentation,
+                      UiOperatorSubmissionGraphInvocation& operatorSubmission,
+                      UiReplayGraphInvocation& replay );
+    RenderDiagnosticsReadout BuildDiagnosticsReadout() const;
     const Rendering::RenderSceneSnapshot& FrameGraphSnapshot() const
     {
         return m_frameGraphSnapshot;
@@ -270,12 +407,6 @@ class RuntimeRenderer
     void ExecuteReplayGhostsThroughRenderGraph( const ReplayGhostGraphInputs& inputs );
     bool ExecuteDebugOverlayThroughRenderGraph( const DebugOverlayGraphInputs& inputs );
     CinematicPostFrameOutput ExecuteCinematicPostThroughRenderGraph( const CinematicPostGraphInputs& inputs );
-    void ExecuteUiTextThroughRenderGraph( const UiHudScenePhase& scene,
-                                          const UiHudInteractionPhase& interaction,
-                                          const UiHudFramePhase& frame,
-                                          const UiOperatorTextPhase& operatorPhase,
-                                          const UiReplayTextPhase& replay,
-                                          const UiTextSubmissionPhase& submission );
     void ReleaseBackendOwnedResources( Rendering::Dx12GeometryOwner* renderGeometry );
     // Owner: backend-epoch state and cold setup live behind one resource seam;
     // frame graph and pass scheduling below retain no duplicate backend borrows.
