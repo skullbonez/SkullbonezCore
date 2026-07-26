@@ -4,8 +4,7 @@ Date: 2026-07-25
 
 Owner: Governance (`AGENTS.md`) + Runtime/Scene + Runtime/App
 
-State: IN PROGRESS (GV0 complete; GV1+ remain sequenced after
-`downward-domain-bleed-remediation`)
+State: IN PROGRESS (GV0-GV1 complete; GV2 is next)
 
 Ledger tasks: 5 (GV0-GV4)
 
@@ -235,7 +234,7 @@ this transaction needs). So both are banned, and the invariant is homeless.
     aggregate-invariant step when adding claim verification.
   - Documentation-only; no repository validation required.
 
-- [ ] **GV1 — Ratify the offender census.**
+- [x] **GV1 — Ratify the offender census.**
 
   From the implementation tip, sweep for the extruded shape and produce a
   ruled disposition table (repair / retain-with-ruling / out-of-scope) with
@@ -274,6 +273,22 @@ this transaction needs). So both are banned, and the invariant is homeless.
   - Every repair-now row has an invariant statement and an owner sketch.
   - Prior rulings are honored or explicitly challenged with new evidence.
   - No source behavior changes in GV1.
+
+  Evidence (2026-07-26):
+
+  - Permanent census:
+    `../../Reports/2026-07-26/invariant-ownership-governance-gv1-census.md`.
+  - The current implementation-tip sweep ruled 201 wide operation
+    definitions, 22 suffix-family definitions, every ordering/arbitration
+    text hit, all 22 companion-plan targets, and all four pre-ruled
+    non-offenders.
+  - Scene load remains the pre-ruled GV2 repair. One additional
+    invariant-shaped row, generated-scene control rebuild ordering, is
+    assigned to GV3 with a concrete owner sketch.
+  - Three 13-parameter render/UI operations are assigned to the companion
+    plan's PB0 intake; they are ceiling/bag work, not homeless ordering
+    invariants.
+  - Documentation-only; no repository validation required.
 
 - [ ] **GV2 — Repair the scene-load transaction.**
 
@@ -413,12 +428,10 @@ this transaction needs). So both are banned, and the invariant is homeless.
 
 ## Dependencies And Decisions
 
-- **GV0 is an authorized early parallel documentation lane**: it is
+- **GV0 was an authorized early parallel documentation lane**: it was
   documentation-only, does not touch source, and its amended review rules
-  benefit the in-flight round-4 implementation reviews. It may execute any
-  time after registration. GV1-GV4 wait for
-  `downward-domain-bleed-remediation` to close so this plan's source repairs
-  do not collide with the partition/bleed file moves.
+  benefit the in-flight round-4 implementation reviews. Downward Domain Bleed
+  is closed, GV1 is complete, and GV2-GV4 now own the active dependency chain.
 - Coordination with header-claim staleness HC2: GV0 landed its
   aggregate-invariant audit step first. HC2 must add claim verification as a
   separate section without overwriting or weakening that step. HC2 landed

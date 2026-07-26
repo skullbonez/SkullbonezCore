@@ -12,16 +12,16 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-25th-JUL-26` |
 | Current baseline | Downward Domain Bleed Remediation is complete at 6/6 and removed from the live inventory: all three ownership boundaries and the include residue are closed, mechanically enforced, independently reviewed, and fully validated. |
-| Current objective | Execute `invariant-ownership-governance-and-transaction-repair` GV1: ratify the offender census with ruled dispositions and file:line evidence. |
-| Active/future progress | Invariant Ownership Governance And Transaction Repair 1/5; Concrete Parameter-Bag Elimination 0/8; active/future ledger 1/13 (8%). |
+| Current objective | Execute `invariant-ownership-governance-and-transaction-repair` GV2: replace scene-load hand sequencing with the concrete phase-checked transaction. |
+| Active/future progress | Invariant Ownership Governance And Transaction Repair 2/5; Concrete Parameter-Bag Elimination 0/8; active/future ledger 2/13 (15%). |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | DB5 `validate_full.bat` passes in 265.2 seconds: mandatory CPU/coverage and all five required runtime processes. |
-| Validation for current edits | DB5 direct dependency validator and every static closure proof pass; final full gate includes zero DX12 errors and the byte-exact 44,401-line physics oracle; no baseline refresh. |
+| Validation for current edits | GV1 is documentation-only: the 201-operation, 22-suffix-family, ordering/arbitration, companion-target, and prior-ruling census is complete; no repository validation required. |
 
 ## Live Queue
 
-NOW. The 2026-07-25 round-4 architecture campaign is active at 1/13 with
-binding order: `invariant-ownership-governance-and-transaction-repair` (1/5),
+NOW. The 2026-07-25 round-4 architecture campaign is active at 2/13 with
+binding order: `invariant-ownership-governance-and-transaction-repair` (2/5),
 then
 `concrete-parameter-bag-elimination` (0/8).
 
@@ -41,7 +41,9 @@ The completed Replay plan is removed from the live inventory under rule 4.
 Downward Domain Bleed Remediation is complete at 6/6 and removed from the live
 inventory under rule 4. Permanent evidence is
 `Agentic/Reports/2026-07-26/downward-domain-bleed-remediation-closure.md`.
-Implementation continues through the repository orchestrator skill with GV1
+GV1 permanent evidence is
+`Agentic/Reports/2026-07-26/invariant-ownership-governance-gv1-census.md`.
+Implementation continues through the repository orchestrator skill with GV2
 next. Live plans are under
 `Agentic/Plans/TODO/`.
 
