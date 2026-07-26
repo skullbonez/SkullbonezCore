@@ -31,6 +31,8 @@
 #include "../SkullbonezSource/Runtime/Replay/ReplayArtifactSource.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayCoordination.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRetainedMemory.h"
+#include "../SkullbonezSource/Runtime/App/ReplayReserveInventory.h"
+#include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionRetainedMemory.h"
 
 #include <vector>
 

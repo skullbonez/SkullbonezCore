@@ -33,7 +33,7 @@ Related:
 #include "../Diagnostics/SceneMemoryDiagnostics.h"
 #include "../Render/RuntimeRenderHost.h"
 #include "../Render/RuntimeRenderer.h"
-#include "../Replay/ReplayRuntime.h"
+#include "../App/ReplayRuntime.h"
 #include "../Render/RenderDefaultsStore.h"
 #include "../Camera/CameraControlState.h"
 #include "../Diagnostics/OverlayDebugState.h"

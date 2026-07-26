@@ -4,7 +4,7 @@ Purpose:
   Defines the frame-local replay presentation packet consumed by rendering and validation.
 
 Summary:
-  ReplayPresentation publishes one immutable packet after preparing its
+  ReplayPredictionPresentation publishes one immutable packet after preparing
   fixed-capacity line and ribbon buffers. Rendering and probes read
   that same value, so validation cannot accidentally describe a parallel visual
   builder that production never submits.
@@ -26,20 +26,21 @@ Glossary:
 
 Invariants:
   - Buffer spans borrow EditorTracer storage for the current render frame only.
-  - ReplayPresentation owns packet publication and semantic metadata; the tracer owns
-    storage capacity but cannot invent scene object identity or reveal state.
+  - ReplayPredictionPresentation owns packet publication and semantic metadata;
+    the tracer owns storage capacity but cannot invent identity or reveal state.
   - Production rendering and validation consume the same published packet.
   - Float equality is bit-exact; no epsilon or order normalization is permitted.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
+  - SkullbonezSource/Runtime/App/ReplayRuntime.h
+  - SkullbonezSource/Runtime/Prediction/ReplayPredictionPresentation.h
   - SkullbonezSource/Runtime/Editor/EditorTracer.cpp
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp
 */
 #pragma once
 
 #include "ReplayRecorder.h"
-#include "../Prediction/TrajectoryStore.h"
+#include "ReplayTrajectoryPackets.h"
 #include "../../Core/MainMemoryStats.h"
 #include "../../Core/ByteView.h"
 #include "../../Maths/Quaternion.h"

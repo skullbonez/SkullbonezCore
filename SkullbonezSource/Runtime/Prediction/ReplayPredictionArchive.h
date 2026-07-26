@@ -23,7 +23,7 @@ Invariants:
   - Loading always leaves prediction generation disabled and build state clean.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
+  - SkullbonezSource/Runtime/App/ReplayRuntime.h
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h
   - Agentic/Reports/2026-07-14/replay-visual-fidelity-mega-probe-closure.md
 */

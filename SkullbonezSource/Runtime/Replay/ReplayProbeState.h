@@ -26,8 +26,8 @@ Invariants:
     probe result after the frame loop exits.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
-  - SkullbonezSource/Runtime/Replay/ReplayValidation.Probes.cpp
+  - SkullbonezSource/Runtime/App/ReplayRuntime.h
+  - SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp
 */
 #pragma once
 

@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Replay/ReplayValidation.Internal.h
+File: SkullbonezSource/Runtime/App/ReplayValidation.Internal.h
 Purpose:
   Shares the narrow replay-restore vocabulary used by product restore and the
   Debug-only replay probe implementation.
@@ -22,8 +22,8 @@ Invariants:
   - No probe entry point or mutable probe state crosses this header.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/ReplayValidation.cpp
-  - SkullbonezSource/Runtime/Replay/ReplayValidation.Probes.cpp
+  - SkullbonezSource/Runtime/App/ReplayValidation.cpp
+  - SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp
 */
 #pragma once
 

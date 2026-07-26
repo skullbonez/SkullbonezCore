@@ -30,6 +30,7 @@ Related:
 
 #include "../Replay/ReplayIdentity.h"
 #include "ReplayPredictionPublication.h"
+#include "ReplayPredictionPresentation.h"
 #include "ReplayPredictionView.h"
 #include "ReplayPredictionScheduling.h"
 #include "../Replay/ReplayRecorder.h"
@@ -343,7 +344,7 @@ struct ReplayPredictionMemoryStats
 class ReplayPrediction
 {
   public:
-    explicit ReplayPrediction( Core::Profiler* profiler = nullptr ) : m_profiler( profiler )
+    explicit ReplayPrediction( Core::Profiler* profiler = nullptr ) : m_profiler( profiler ), m_presentation( profiler )
     {
     }
 
@@ -412,6 +413,16 @@ class ReplayPrediction
         view.deterministicRevealEnabled = m_state.revealClock.deterministicFrameEnabled;
         view.generationPermitted = m_generationPermitted;
         return view;
+    }
+
+    ReplayPredictionPresentation& PresentationOwner() noexcept
+    {
+        return m_presentation;
+    }
+
+    const ReplayPredictionPresentation& PresentationOwner() const noexcept
+    {
+        return m_presentation;
     }
 
     bool ToggleEnabled() noexcept
@@ -550,6 +561,7 @@ class ReplayPrediction
   private:
     // Lifetime: startup-bound diagnostics borrow; worker slices retain no owner state.
     Core::Profiler* m_profiler;
+    ReplayPredictionPresentation m_presentation;
     RunReplayPredictionState m_state;
     bool m_generationPermitted = true;
 };

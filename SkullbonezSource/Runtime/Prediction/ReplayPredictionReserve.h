@@ -34,7 +34,7 @@ Related:
 */
 #pragma once
 
-#include "../Replay/ReplayRetainedMemory.h"
+#include "ReplayPredictionRetainedMemory.h"
 
 #include <cstddef>
 #include <cstdint>

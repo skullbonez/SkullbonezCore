@@ -1,5 +1,5 @@
 /*
-File: InputFrame.h
+File: SkullbonezSource/Runtime/App/InputFrame.h
 Purpose:
   Declares the stateless once-per-frame input orchestration boundary.
 
@@ -36,7 +36,7 @@ Related:
 #pragma once
 
 #include "../Input/InputRouter.h"
-#include "../Replay/ReplayRuntime.h"
+#include "ReplayRuntime.h"
 #include "../RuntimeFrameViews.h"
 #include "../../UI/UICommands.h"
 #include "../../UI/UIInput.h"

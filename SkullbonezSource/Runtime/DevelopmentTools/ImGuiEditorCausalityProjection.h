@@ -25,13 +25,13 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayAuthoring.h
-  - SkullbonezSource/Runtime/Replay/ReplayOverlayRenderer.h
+  - SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.h
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp
   - Agentic/Reports/2026-07-21/imgui-tracy-editor-campaign-closure.md (E14)
 */
 #pragma once
 
-#include "../Replay/ReplayOverlayPackets.h"
+#include "../Planning/ReplayOverlayPackets.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -182,8 +182,7 @@ BuildImGuiEditorCausalityContext( const ReplayOverlay::ReplayOverlayStateView& r
     // so the compact UI can distinguish exhaustion from an ordinary empty tree.
     const bool usePredictionNodes = replay.prediction.enabled && replay.prediction.targetId.value != 0u &&
                                     replay.prediction.targetId.value == replay.pathVisualizer.targetId.value;
-    const std::size_t nodeCount = usePredictionNodes ? replay.prediction.futureNodes.size()
-                                                     : replay.pathVisualizer.futureNodes.size();
+    const std::size_t nodeCount = usePredictionNodes ? replay.prediction.futureNodes.size() : std::size_t { 0u };
     const std::size_t contactCount = selection.currentSolver
                                          ? selection.currentSolver->worldSnapshot.physics.persistentContacts.size()
                                          : std::size_t { 0u };

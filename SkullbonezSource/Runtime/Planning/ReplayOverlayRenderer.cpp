@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Replay/ReplayOverlayRenderer.cpp
+File: SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.cpp
 Purpose:
   Draws replay scrubber and cause-tree overlays from replay-owned state.
 
@@ -25,14 +25,15 @@ Invariants:
     and runtime replay helpers.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/ReplayOverlayRenderer.h
+  - SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.h
   - SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h
 */
 #include "ReplayOverlayRenderer.h"
 #include "../Render/UiDrawSubmission.h"
+#include "ReplayPlanningOverlayLayout.h"
 #include "../../Core/FatalError.h"
 #include "../../Assets/AssetKeys.h"
-#include "ReplayOverlayLayout.h"
+#include "../Replay/ReplayOverlayLayout.h"
 #include "../../Core/Common.h"
 #include "../../Core/Profiler.h"
 #include "../../Physics/PhysicsTimestep.h"

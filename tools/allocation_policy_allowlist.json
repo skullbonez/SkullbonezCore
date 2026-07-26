@@ -128,7 +128,7 @@
       "owner": "ReplayPrediction private working set",
       "phase": "replay",
       "reason": "Prediction frames, frame payload pools, private prediction engine storage, and trajectory records share one registered replay growth gate.",
-      "cap": "ReplayRetainedMemory policy registers replay_prediction_working_set with a 256 MiB hard byte cap; the strict two-generation probe measured 110,979,828 bytes high-water.",
+      "cap": "ReplayPredictionRetainedMemory policy registers replay_prediction_working_set with a 256 MiB hard byte cap; the strict two-generation probe measured 110,979,828 bytes high-water.",
       "removal_or_wrapper_plan": "Keep prediction growth behind RequestReplayPredictionReserveGrowth/ReserveReplayPredictionVector or replace the working set with a fixed prediction arena."
     },
     {
@@ -1076,26 +1076,38 @@
     {
       "path": "SkullbonezSource/Runtime/Replay/ReplayPresentation.cpp",
       "patterns": [
-        ".assign(",
         ".push_back(",
         ".reserve("
       ],
       "owner": "ReplayPresentation",
       "phase": "startup_replay_and_capacity_bounded_interaction",
-      "reason": "ReplayPresentation reserves target, focus-mask, and ghost storage before steady use; live picking rotates targets and focus assignment remains within those pre-reserved hard capacities.",
-      "cap": "Targets are capped by REPLAY_PATH_MAX_ROOT_TARGETS, focus rows by MAX_SCENE_OBJECTS, and ghosts by REPLAY_PREDICTION_GHOST_REQUEST_CAPACITY.",
+      "reason": "ReplayPresentation reserves its bounded recorded-path target table before steady use; live picking rotates targets within that pre-reserved hard capacity.",
+      "cap": "Targets are capped by REPLAY_PATH_MAX_ROOT_TARGETS.",
       "removal_or_wrapper_plan": "Route presentation reserves through a typed ReplayPresentation reserve wrapper once the replay allocation-policy owner API replaces direct pre-gameplay vector reservation."
     },
     {
-      "path": "SkullbonezSource/Runtime/Replay/ReplayPresentation.h",
+      "path": "SkullbonezSource/Runtime/Prediction/ReplayPredictionPresentation.cpp",
+      "patterns": [
+        ".assign(",
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "ReplayPredictionPresentation",
+      "phase": "startup_replay_and_capacity_bounded_interaction",
+      "reason": "The Prediction visual owner reserves focus-mask and ghost storage before steady use; frame-local assignment and append remain within those pre-reserved hard capacities.",
+      "cap": "Focus rows are capped by MAX_SCENE_OBJECTS and ghosts by REPLAY_PREDICTION_GHOST_REQUEST_CAPACITY.",
+      "removal_or_wrapper_plan": "Replace both vectors with typed fixed/reserve-backed Prediction presentation buffers when the replay allocation owner wrapper lands."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Prediction/ReplayPredictionPresentation.h",
       "patterns": [
         "std::vector<"
       ],
-      "owner": "ReplayPresentation",
+      "owner": "ReplayPredictionPresentation",
       "phase": "startup_replay_and_capacity_bounded_interaction",
-      "reason": "The concrete presentation owner retains only replay-approved target, ghost, and focus vectors whose capacity is established before steady use.",
-      "cap": "Targets, ghosts, and focus rows use the explicit replay/model hard caps named by ReplayPresentation.cpp.",
-      "removal_or_wrapper_plan": "Replace the vectors with typed fixed/reserve-backed presentation buffers when the replay allocation owner wrapper lands."
+      "reason": "The Prediction visual sub-owner retains only bounded ghost requests and focus-mask rows whose capacities are established before steady use.",
+      "cap": "Ghost requests use REPLAY_PREDICTION_GHOST_REQUEST_CAPACITY and focus rows use MAX_SCENE_OBJECTS.",
+      "removal_or_wrapper_plan": "Replace both vectors with typed fixed/reserve-backed Prediction presentation buffers when the replay allocation owner wrapper lands."
     },
     {
       "path": "SkullbonezSource/Runtime/Replay/ReplayTimeline.h",

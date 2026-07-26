@@ -18,7 +18,7 @@ Invariants:
   - Sample and topology operands remain separate at the production boundary.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
+  - SkullbonezSource/Runtime/App/ReplayRuntime.h
   - SkullbonezSource/Runtime/Replay/ReplayRestoreService.h
 */
 #pragma once
@@ -30,6 +30,10 @@ namespace SkullbonezCore
 namespace Assets
 {
 class AssetSystem;
+}
+namespace Core
+{
+class EngineConfig;
 }
 namespace Threading
 {

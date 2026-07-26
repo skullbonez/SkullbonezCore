@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Replay/ReplayAuthoringCauseTree.cpp
+File: SkullbonezSource/Runtime/Prediction/ReplayAuthoringCauseTree.cpp
 Purpose:
   Implements replay cause-row construction, window input, and focus behavior.
 
@@ -25,18 +25,18 @@ Related:
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp
   - SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h
 */
-#include "ReplayAuthoring.h"
-#include "ReplayCoordination.h"
-#include "../Prediction/ReplayPrediction.h"
-#include "../Prediction/ReplayPredictionPublicationOperations.h"
-#include "ReplayPresentation.h"
+#include "../Replay/ReplayAuthoring.h"
+#include "../Replay/ReplayCoordination.h"
+#include "ReplayPrediction.h"
+#include "ReplayPredictionPublicationOperations.h"
+#include "../Replay/ReplayPresentation.h"
 #include "../../Assets/AssetKeys.h"
 #include "../Camera/CameraCollection.h"
 #include "../Input/InputController.h"
 #include "../Input/InputRouter.h"
 #include "../../Core/Profiler.h"
 #include "../../Core/FatalError.h"
-#include "ReplayOverlayLayout.h"
+#include "../Replay/ReplayOverlayLayout.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Rendering/RenderInstanceStore.h"
@@ -317,8 +317,9 @@ bool ReplayAuthoring::BuildCauseTreeRows(
     const bool usePrediction = prediction.enabled && predictionPrefixVisible &&
                                prediction.simulation.targetId.value == path.targetId.value;
 
+    static const std::vector<RunReplayPathTraceNode> EMPTY_PREDICTION_NODES;
     const std::vector<RunReplayPathTraceNode>& nodes = usePrediction ? prediction.futureNodeCache.futureNodes
-                                                                     : path.futureNodes;
+                                                                     : EMPTY_PREDICTION_NODES;
 
     const std::size_t solverContactCount = solverSample ? solverSample->worldSnapshot.physics.persistentContacts.size()
                                                         : static_cast<std::size_t>( 0 );

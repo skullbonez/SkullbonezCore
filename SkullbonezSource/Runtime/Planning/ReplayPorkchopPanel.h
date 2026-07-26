@@ -26,7 +26,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Maths/OrbitalMechanics.h
-  - SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp
+  - SkullbonezSource/Runtime/App/ReplayRuntime.cpp
   - SkullbonezTests/TestReplayPorkchopPanel.cpp
 */
 #pragma once

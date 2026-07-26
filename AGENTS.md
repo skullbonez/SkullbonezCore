@@ -190,18 +190,20 @@ rg -n '^#include[[:space:]]+\x22(\.\./)?(App|Automation|Camera|Capture|Debug|Dev
 
 ## Replay Boundary Rule
 
-Replay is an upper Runtime consumer, not a type provider to engine layers.
-`Physics/`, `Rendering/`, `Scene/`, `World/`, and `Core/` must not include
-`Runtime/Replay/*`. Replay reads Physics through `PhysicsApi.h`,
+Replay, Prediction, and Planning are upper Runtime consumers, not type
+providers to engine layers. `Physics/`, `Rendering/`, `Scene/`, `World/`, and
+`Core/` must not include `Runtime/Replay/*`, `Runtime/Prediction/*`, or
+`Runtime/Planning/*`. These packages read Physics through `PhysicsApi.h`,
 `PhysicsEngine`, and Physics-owned value snapshots; render presentation crosses
-as value packets or bounded queues. Do not move a Replay type downward or hide
-one behind a forwarding header, alias, callback pack, or broad context object.
+as value packets or bounded queues. Do not move one of their types downward or
+hide an upward edge behind a forwarding header, alias, callback pack, or broad
+context object.
 
 The dependency-graph validator is authoritative for this Replay edge. Before
 closing replay-facing work, the mirror proof must also return no rows:
 
 ```powershell
-rg -n '^#include[[:space:]]+.*Runtime/Replay/' SkullbonezSource/Physics SkullbonezSource/Rendering SkullbonezSource/Scene SkullbonezSource/World SkullbonezSource/Core
+rg -n '^#include[[:space:]]+.*Runtime/(Replay|Prediction|Planning)/' SkullbonezSource/Physics SkullbonezSource/Rendering SkullbonezSource/Scene SkullbonezSource/World SkullbonezSource/Core
 ```
 
 Replay retains the only post-gameplay growth privilege, and only through a

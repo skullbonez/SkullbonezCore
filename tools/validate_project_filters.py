@@ -395,13 +395,17 @@ CORE_ALLOCATION_PREFIXES = (
 )
 
 RUNTIME_PREDICTION_PREFIXES = (
+    "ReplayAuthoringCauseTree",
+    "ReplayCauseFocusSubmission",
     "ReplayPredictionArchive",
     "ReplayPredictionPackets",
     "ReplayPrediction",
     "ReplayPredictionDrawing",
+    "ReplayPredictionPresentation",
     "ReplayPredictionPublication",
     "ReplayPredictionPublicationOperations",
     "ReplayPredictionReserve",
+    "ReplayPredictionRetainedMemory",
     "ReplayPredictionScheduling",
     "ReplayPredictionTopologyPublication",
     "ReplayPredictionView",
@@ -411,13 +415,24 @@ RUNTIME_PREDICTION_PREFIXES = (
 RUNTIME_PLANNING_PREFIXES = (
     "ReplayGuideArcs",
     "ReplayInterceptReadout",
+    "ReplayOverlayPackets",
+    "ReplayOverlayRenderer",
+    "ReplayPlanningOverlayLayout",
+    "ReplayPlanningRuntime",
     "ReplayPorkchopPanel",
     "ReplayTripPlanner",
 )
 
+RUNTIME_APP_PREFIXES = (
+    "ReplayReserveInventory",
+    "ReplayRuntime",
+    "ReplayRuntimePackets",
+    "ReplayScrubberTools",
+    "ReplayValidation",
+)
+
 RUNTIME_REPLAY_PREFIXES = (
     "ReplayAuthoring",
-    "ReplayAuthoringCauseTree",
     "ReplayAuthoringVelocity",
     "ReplayAuthoringPackets",
     "ReplayArtifactHashLog",
@@ -429,10 +444,7 @@ RUNTIME_REPLAY_PREFIXES = (
     "ReplayIdentity",
     "ReplayInteractionController",
     "ReplayOverlayLayout",
-    "ReplayOverlayPackets",
     "ReplayOverlaySurface",
-    "ReplayOverlayRenderer",
-    "ReplayCauseFocusSubmission",
     "ReplayPathPackets",
     "ReplayPresentationSubmission",
     "ReplayPresentationPackets",
@@ -441,17 +453,15 @@ RUNTIME_REPLAY_PREFIXES = (
     "ReplayPresentation",
     "ReplayProbeState",
     "ReplayRestoreService",
-    "ReplayRuntime",
     "ReplayRestoreTransactions",
     "ReplayScrubber",
-    "ReplayScrubberTools",
     "ReplayTimeline",
     "ReplayTimelinePackets",
     "ReplayToolPackets",
+    "ReplayTrajectoryPackets",
     "ReplayVisualPacket",
     "ReplayVisualPacketFingerprint",
     "ReplayV2Artifact",
-    "ReplayValidation",
 )
 
 RUNTIME_RENDER_PREFIXES = (
@@ -547,6 +557,7 @@ AREA_PREFIXES = (
     ("Physics\\Support", PHYSICS_SUPPORT_PREFIXES),
     ("Runtime\\Scene", RUNTIME_SCENE_PREFIXES),
     ("Core\\Allocation", CORE_ALLOCATION_PREFIXES),
+    ("Runtime\\App", RUNTIME_APP_PREFIXES),
     ("Runtime\\Planning", RUNTIME_PLANNING_PREFIXES),
     ("Runtime\\Prediction", RUNTIME_PREDICTION_PREFIXES),
     ("Runtime\\Replay", RUNTIME_REPLAY_PREFIXES),

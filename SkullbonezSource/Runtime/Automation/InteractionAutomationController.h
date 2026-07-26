@@ -50,6 +50,7 @@ Related:
 #include "../../Core/PlatformWin32.h"
 
 #include "../RuntimeFrameViews.h"
+#include "../App/ReplayRuntimePackets.h"
 #include "InteractionAutomationInputDriver.h"
 #include "InteractionAutomationReportWriter.h"
 #include "../App/RunLaunchOptions.h"

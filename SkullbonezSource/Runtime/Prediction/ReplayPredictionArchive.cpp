@@ -547,7 +547,6 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes,
     }
 
     RunReplayPredictionState& state = prediction;
-    pathVisualizer.futureNodes.clear();
     pathVisualizer.targets.clear();
     pathVisualizer.pastTrajectory = {};
 

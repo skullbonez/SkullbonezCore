@@ -46,7 +46,7 @@
       "id": "replay_downward_boundary",
       "source_prefixes": ["Physics", "Rendering", "Scene", "World", "Core"],
       "mode": "deny",
-      "target_prefixes": ["Runtime/Replay"],
+      "target_prefixes": ["Runtime/Replay", "Runtime/Prediction", "Runtime/Planning"],
       "positive_target": "Core/Common.h",
       "negative_target": "Runtime/Replay/ReplayTimeline.h"
     },
@@ -55,7 +55,7 @@
       "source_prefixes": ["Runtime/App"],
       "mode": "allow",
       "target_scope": "Runtime",
-      "allowed_target_prefixes": ["Runtime/App", "Runtime/Automation", "Runtime/Camera", "Runtime/Capture", "Runtime/Debug", "Runtime/DevelopmentTools", "Runtime/Diagnostics", "Runtime/Direction", "Runtime/Editor", "Runtime/Input", "Runtime/Interaction", "Runtime/Render", "Runtime/Replay", "Runtime/RuntimeFrameViews.h", "Runtime/Scene", "Runtime/Simulation", "Runtime/Startup", "Runtime/Tools", "Runtime/UI"],
+      "allowed_target_prefixes": ["Runtime/App", "Runtime/Automation", "Runtime/Camera", "Runtime/Capture", "Runtime/Debug", "Runtime/DevelopmentTools", "Runtime/Diagnostics", "Runtime/Direction", "Runtime/Editor", "Runtime/Input", "Runtime/Interaction", "Runtime/Planning", "Runtime/Prediction", "Runtime/Render", "Runtime/Replay", "Runtime/RuntimeFrameViews.h", "Runtime/Scene", "Runtime/Simulation", "Runtime/Startup", "Runtime/Tools", "Runtime/UI"],
       "positive_target": "Runtime/Render/RuntimeRenderer.h",
       "negative_target": "Runtime/FutureGodBag.h"
     },
@@ -64,8 +64,8 @@
       "source_prefixes": ["Runtime/Automation"],
       "mode": "allow",
       "target_scope": "Runtime",
-      "allowed_target_prefixes": ["Runtime/Automation", "Runtime/App", "Runtime/Camera", "Runtime/Capture", "Runtime/DevelopmentTools", "Runtime/Diagnostics", "Runtime/Direction", "Runtime/Editor", "Runtime/Input", "Runtime/Interaction", "Runtime/Prediction", "Runtime/Replay", "Runtime/RuntimeFrameViews.h", "Runtime/Scene", "Runtime/Tools"],
-      "positive_target": "Runtime/Replay/ReplayRuntime.h",
+      "allowed_target_prefixes": ["Runtime/Automation", "Runtime/App", "Runtime/Camera", "Runtime/Capture", "Runtime/DevelopmentTools", "Runtime/Diagnostics", "Runtime/Direction", "Runtime/Editor", "Runtime/Input", "Runtime/Interaction", "Runtime/Planning", "Runtime/Prediction", "Runtime/Replay", "Runtime/RuntimeFrameViews.h", "Runtime/Scene", "Runtime/Tools"],
+      "positive_target": "Runtime/App/ReplayRuntime.h",
       "negative_target": "Runtime/Render/RuntimeRenderer.h"
     },
     {
@@ -91,7 +91,7 @@
       "source_prefixes": ["Runtime/DevelopmentTools"],
       "mode": "allow",
       "target_scope": "Runtime",
-      "allowed_target_prefixes": ["Runtime/DevelopmentTools", "Runtime/App", "Runtime/Input", "Runtime/Replay"],
+      "allowed_target_prefixes": ["Runtime/DevelopmentTools", "Runtime/App", "Runtime/Input", "Runtime/Planning", "Runtime/Replay"],
       "positive_target": "Runtime/Input/InputFrame.h",
       "negative_target": "Runtime/UI/RuntimeViewModel.h"
     },
@@ -146,7 +146,7 @@
       "source_prefixes": ["Runtime/Render"],
       "mode": "allow",
       "target_scope": "Runtime",
-      "allowed_target_prefixes": ["Runtime/Render", "Runtime/App", "Runtime/Camera", "Runtime/Debug", "Runtime/DevelopmentTools", "Runtime/Diagnostics", "Runtime/Input", "Runtime/Interaction", "Runtime/Replay", "Runtime/RuntimeFrameViews.h", "Runtime/Scene", "Runtime/Tools", "Runtime/UI"],
+      "allowed_target_prefixes": ["Runtime/Render", "Runtime/App", "Runtime/Camera", "Runtime/Debug", "Runtime/DevelopmentTools", "Runtime/Diagnostics", "Runtime/Input", "Runtime/Interaction", "Runtime/Planning", "Runtime/Replay", "Runtime/RuntimeFrameViews.h", "Runtime/Scene", "Runtime/Tools", "Runtime/UI"],
       "positive_target": "Runtime/UI/RuntimeViewModel.h",
       "negative_target": "Runtime/Simulation/SimulationSystem.h"
     },
@@ -155,7 +155,7 @@
       "source_prefixes": ["Runtime/Replay"],
       "mode": "allow",
       "target_scope": "Runtime",
-      "allowed_target_prefixes": ["Runtime/Replay", "Runtime/Camera", "Runtime/Diagnostics", "Runtime/Editor", "Runtime/Input", "Runtime/Interaction", "Runtime/Planning", "Runtime/Prediction", "Runtime/Render", "Runtime/Scene", "Runtime/Simulation", "Runtime/Tools", "Runtime/UI"],
+      "allowed_target_prefixes": ["Runtime/Replay", "Runtime/Camera", "Runtime/Diagnostics", "Runtime/Editor", "Runtime/Input", "Runtime/Interaction", "Runtime/Render", "Runtime/Scene", "Runtime/Simulation", "Runtime/Tools", "Runtime/UI"],
       "positive_target": "Runtime/Render/RuntimeRenderer.h",
       "negative_target": "Runtime/App/Run.h"
     },
@@ -164,7 +164,7 @@
       "source_prefixes": ["Runtime/Prediction"],
       "mode": "allow",
       "target_scope": "Runtime",
-      "allowed_target_prefixes": ["Runtime/Prediction", "Runtime/Editor", "Runtime/Replay", "Runtime/Scene", "Runtime/Tools"],
+      "allowed_target_prefixes": ["Runtime/Prediction", "Runtime/Camera", "Runtime/Editor", "Runtime/Input", "Runtime/Replay", "Runtime/Scene", "Runtime/Tools"],
       "positive_target": "Runtime/Replay/ReplayIdentity.h",
       "negative_target": "Runtime/Planning/ReplayTripPlanner.h"
     },
@@ -173,7 +173,7 @@
       "source_prefixes": ["Runtime/Planning"],
       "mode": "allow",
       "target_scope": "Runtime",
-      "allowed_target_prefixes": ["Runtime/Planning", "Runtime/Prediction", "Runtime/Replay"],
+      "allowed_target_prefixes": ["Runtime/Planning", "Runtime/Input", "Runtime/Interaction", "Runtime/Prediction", "Runtime/Render", "Runtime/Replay", "Runtime/Scene", "Runtime/UI"],
       "positive_target": "Runtime/Prediction/ReplayPredictionView.h",
       "negative_target": "Runtime/App/Run.h"
     },
@@ -193,7 +193,7 @@
       "target_scope": "Runtime",
       "allowed_target_prefixes": ["Runtime/Simulation", "Runtime/Interaction", "Runtime/Scene"],
       "positive_target": "Runtime/Scene/SceneRuntime.h",
-      "negative_target": "Runtime/Replay/ReplayRuntime.h"
+      "negative_target": "Runtime/App/ReplayRuntime.h"
     },
     {
       "id": "runtime_startup",
@@ -218,7 +218,7 @@
       "source_prefixes": ["Runtime/UI"],
       "mode": "allow",
       "target_scope": "Runtime",
-      "allowed_target_prefixes": ["Runtime/UI", "Runtime/App", "Runtime/Automation", "Runtime/Capture", "Runtime/Diagnostics", "Runtime/Editor", "Runtime/Replay", "Runtime/RuntimeFrameViews.h", "Runtime/Scene"],
+      "allowed_target_prefixes": ["Runtime/UI", "Runtime/App", "Runtime/Automation", "Runtime/Capture", "Runtime/Diagnostics", "Runtime/Editor", "Runtime/Planning", "Runtime/Replay", "Runtime/RuntimeFrameViews.h", "Runtime/Scene"],
       "positive_target": "Runtime/Diagnostics/DiagnosticsRuntime.h",
       "negative_target": "Runtime/Render/RuntimeRenderer.h"
     },

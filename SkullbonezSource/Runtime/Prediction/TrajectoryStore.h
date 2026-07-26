@@ -1,8 +1,7 @@
 /*
 File: SkullbonezSource/Runtime/Prediction/TrajectoryStore.h
 Purpose:
-  Defines the replay trajectory store: versioned path records with explicit
-  published point prefixes for past and future overlay lanes.
+  Defines Prediction's mutable trajectory store over Replay-owned value records.
 
 Summary:
   Builders own mutation. Renderers read only records whose `publishedPointCount`
@@ -23,12 +22,12 @@ Invariants:
     version before any new points become visible.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
+  - SkullbonezSource/Runtime/Replay/ReplayTrajectoryPackets.h
   - SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp
 */
 #pragma once
 
-#include "../Replay/ReplayRecorder.h"
+#include "../Replay/ReplayTrajectoryPackets.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -36,42 +35,6 @@ Related:
 
 namespace SkullbonezCore::Runtime
 {
-enum class ReplayTrajectoryLane : uint8_t
-{
-    PastRoot,
-    FutureRoot,
-    FutureChildIncoming,
-    FutureChildOutgoing,
-    RetainedTrail,
-    BaselineRoot
-};
-
-struct ReplayTrajectoryRecordKey
-{
-    Physics::PhysicsSceneObjectId bodyId;
-    ReplayTrajectoryLane lane = ReplayTrajectoryLane::PastRoot;
-    uint16_t branchOrdinal = 0;
-};
-
-struct ReplayTrajectoryPoint
-{
-    ReplayFrameIndex frameIndex = 0;
-    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
-};
-
-struct ReplayTrajectoryRecord
-{
-    ReplayTrajectoryRecordKey key;
-    uint32_t version = 0;
-    std::size_t publishedPointCount = 0;
-    uint16_t styleId = 0;
-    Physics::PhysicsSceneObjectId parentId;
-    int depth = 0;
-    ReplayFrameIndex firstFrame = 0;
-    bool contactDerived = false;
-    std::vector<ReplayTrajectoryPoint> points;
-};
-
 struct ReplayTrajectoryStore
 {
     std::vector<ReplayTrajectoryRecord> records;
@@ -105,7 +68,4 @@ struct ReplayTrajectoryStore
   private:
     uint32_t AllocateVersion() noexcept;
 };
-
-bool operator==( const ReplayTrajectoryRecordKey& lhs, const ReplayTrajectoryRecordKey& rhs ) noexcept;
-bool operator!=( const ReplayTrajectoryRecordKey& lhs, const ReplayTrajectoryRecordKey& rhs ) noexcept;
 } // namespace SkullbonezCore::Runtime

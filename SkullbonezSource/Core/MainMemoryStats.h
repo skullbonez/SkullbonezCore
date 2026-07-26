@@ -239,7 +239,7 @@ struct MainMemoryReplayStats
     int solverRetentionSeconds = 0;
     bool memoryBudgetClamped = false;
     bool solverWindowReduced = false;
-    std::array<GrowthOwner, 3> growthOwners;                // Same stable order as REPLAY_GROWTH_OWNER_POLICIES.
+    std::array<GrowthOwner, 3> growthOwners;                // Same stable order as App's REPLAY_GROWTH_OWNER_POLICIES.
     MainMemoryReplayCategoryBytes categoryBytes;
     MainMemoryReplayTrajectoryStats trajectory;
 };

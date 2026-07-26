@@ -69,7 +69,7 @@ Related:
 #include "../../Core/WorkerPool.h"
 #include "InputFrame.h"
 #include "../Replay/ReplayRestoreTransactions.h"
-#include "../Replay/ReplayOverlayPackets.h"
+#include "../Planning/ReplayOverlayPackets.h"
 #include "../Direction/DemoDirectorPlayback.h"
 #include "../Scene/SceneRuntimeLoad.h"
 

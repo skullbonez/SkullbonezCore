@@ -403,9 +403,9 @@ def run_self_tests() -> int:
                 "removal_or_wrapper_plan": "wrap when real code grows",
             }
         ],
-        "SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp": [
+        "SkullbonezSource/Runtime/App/ReplayRuntime.cpp": [
             {
-                "path": "SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp",
+                "path": "SkullbonezSource/Runtime/App/ReplayRuntime.cpp",
                 "patterns": ["RuntimeReserveAllocator::RequestReplayGrowth("],
                 "owner": "replay",
                 "phase": "replay",
@@ -463,7 +463,7 @@ def run_self_tests() -> int:
         return 1
 
     reserve = Finding(
-        "SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp",
+        "SkullbonezSource/Runtime/App/ReplayRuntime.cpp",
         3,
         "reserve-bump",
         "RuntimeReserveAllocator::RequestReplayGrowth( owner, bytes );",

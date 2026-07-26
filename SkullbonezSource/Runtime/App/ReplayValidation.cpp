@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Replay/ReplayValidation.cpp
+File: SkullbonezSource/Runtime/App/ReplayValidation.cpp
 Purpose:
   Owns transactional v2 target restore and the thin startup dispatch into
   configuration-specific replay diagnostics.
@@ -28,15 +28,15 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/App/RunFrame.cpp
-  - SkullbonezSource/Runtime/Replay/ReplayValidation.Probes.cpp
-  - SkullbonezSource/Runtime/Replay/ReplayValidation.Internal.h
+  - SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp
+  - SkullbonezSource/Runtime/App/ReplayValidation.Internal.h
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h
   - Agentic/Reference/comment-style-guide.md
 */
-#include "ReplayPresentation.h"
-#include "ReplayOverlayLayout.h"
-#include "ReplayScrubber.h"
-#include "ReplayTimeline.h"
+#include "../Replay/ReplayPresentation.h"
+#include "../Replay/ReplayOverlayLayout.h"
+#include "../Replay/ReplayScrubber.h"
+#include "../Replay/ReplayTimeline.h"
 #include "ReplayRuntime.h"
 #include "../Input/InputRouter.h"
 #include "../Diagnostics/RuntimeDiagnostics.h"
@@ -46,11 +46,10 @@ Related:
 #include "../../Core/WorkerPool.h"
 #include "../Interaction/OperatorCommandApplier.h"
 #include "../Editor/EditorTools.h"
-#include "ReplayRestoreService.h"
-#include "ReplayRestoreTransactions.h"
-#include "../Prediction/ReplayPredictionArchive.h"
+#include "../Replay/ReplayRestoreService.h"
+#include "../Replay/ReplayRestoreTransactions.h"
 #include "ReplayValidation.Internal.h"
-#include "ReplayV2Artifact.h"
+#include "../Replay/ReplayV2Artifact.h"
 
 #include "../../Core/FatalError.h"
 #include "../../Core/Profiler.h"

@@ -36,7 +36,7 @@ Related:
 #include "../Editor/EditorTools.h"
 #include "../Prediction/ReplayPrediction.h"
 #include "../Prediction/ReplayPredictionArchive.h"
-#include "../Replay/ReplayOverlayRenderer.h"
+#include "../Planning/ReplayOverlayRenderer.h"
 #include "../Replay/ReplayPresentation.h"
 #include "../Replay/ReplayV2Artifact.h"
 #include "../Camera/CameraControlState.h"
@@ -546,7 +546,7 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
     offlinePresentations.emplace_back();
     ReplayPresentation& offlinePresentation = offlinePresentations.front();
     offlinePrediction.EnterOfflineVerification();
-    offlinePresentation.ResetTrajectoryVisualStats();
+    offlinePrediction.PresentationOwner().ResetTrajectoryVisualStats();
     char archiveReason[192] = {};
 
     RunReplayPathVisualizerState archivePath;
@@ -571,7 +571,7 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
     // The archived value retains the final marker prefix. CPU projection starts
     // at reveal zero and rebuilds first appearance exactly as the sole presented
     // run did. No renderer/backend method is reachable from this function.
-    offlinePresentation.ResetTrajectoryVisualStats();
+    offlinePrediction.PresentationOwner().ResetTrajectoryVisualStats();
     offlinePrediction.ResetVerificationMarkers();
     EditorTracer& tracer = runtimeTools.Tracer();
     std::vector<ReplayVisualTrajectoryDigestState> trajectoryDigests;
@@ -605,7 +605,7 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
         {
             for ( uint32_t count = 0; count < update.budgetExpiries[passIndex]; ++count )
             {
-                offlinePresentation.RecordTrajectoryBudgetExpiry(
+                offlinePrediction.PresentationOwner().RecordTrajectoryBudgetExpiry(
                     static_cast<Core::MainMemoryReplayBudgetPass>( passIndex ) );
             }
         }
@@ -614,30 +614,32 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
         {
             for ( uint32_t count = 0; count < update.rebuildCauses[causeIndex]; ++count )
             {
-                offlinePresentation.RecordTrajectoryRebuildCause(
+                offlinePrediction.PresentationOwner().RecordTrajectoryRebuildCause(
                     static_cast<Core::MainMemoryReplayRebuildCause>( causeIndex ) );
             }
         }
 
         offlinePresentation.PreparePathDrawing( world.BodyStore() );
         const ReplayPredictionPresentationView prediction = offlinePrediction.PresentationView();
-        offlinePresentation.RenderPathVisualizer( prediction,
-                                                  latestSolverSample,
-                                                  world.Physics(),
-                                                  world.Entities(),
-                                                  tracer );
+        offlinePrediction.PresentationOwner().RenderPathVisualizer( prediction,
+                                                                    offlinePresentation.PathVisualizer(),
+                                                                    latestSolverSample,
+                                                                    world.Physics(),
+                                                                    world.Entities(),
+                                                                    tracer );
 
-        (void)offlinePresentation.BuildPredictionGhostDrawRequests( prediction,
-                                                                    world.RenderPresentationRecords(),
-                                                                    world.BodyStore() );
+        (void)offlinePrediction.PresentationOwner().BuildGhostDrawRequests( prediction,
+                                                                            world.RenderPresentationRecords(),
+                                                                            world.BodyStore() );
 
         ReplayVisualPacket projected = tracer.BuildReplayVisualPacket( expected.cameraEye, expected.cameraUp );
-        offlinePresentation.PublishVisualPacket( projected,
-                                                 prediction,
-                                                 latestSolverSample,
-                                                 expected.replayReserveGrowthEvents );
+        offlinePrediction.PresentationOwner().PublishVisualPacket( projected,
+                                                                   prediction,
+                                                                   offlinePresentation.PathVisualizer().targetId,
+                                                                   latestSolverSample,
+                                                                   expected.replayReserveGrowthEvents );
 
-        projected = offlinePresentation.PublishedVisualPacketView();
+        projected = offlinePrediction.PresentationOwner().PublishedVisualPacketView();
         const ReplayVisualPacketFingerprint fingerprint = BuildReplayVisualPacketFingerprint(
             projected,
             trajectoryDigests,
@@ -845,8 +847,8 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::ReplayPredictio
     // Concept: long prediction jobs expose a populated build prefix before the
     // final frame vector is swapped in. Automation should agree with the overlay
     // and count that prefix as visible once it can draw at least one segment.
-    return replay.path.hasTarget && ( !replay.path.futureNodes.empty() || VisiblePredictionFrameCount( replay ) >= 2 ||
-                                      !replay.prediction.futureNodeCache.futureNodes.empty() );
+    return replay.path.hasTarget &&
+           ( VisiblePredictionFrameCount( replay ) >= 2 || !replay.prediction.futureNodeCache.futureNodes.empty() );
 }
 
 std::size_t SkullbonezCore::Runtime::InteractionAutomationReportWriter::ReplayPastTrajectoryPublishedPointCount( const ReplayAutomationView& replay )
@@ -1739,7 +1741,7 @@ SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( const Interac
         { "replaySolverPresentTrackPosition", replaySolverPresentTrackPosition },
         { "replaySolverTrackAtPresent", replaySolverTrackAtPresent },
         { "predictionScrubFrameActive", predictionScrubFrameActive },
-        { "replayFutureNodeCount", static_cast<int>( replay.path.futureNodes.size() ) } };
+        { "replayFutureNodeCount", static_cast<int>( replay.prediction.futureNodeCache.futureNodes.size() ) } };
 
     std::ofstream output;
     if ( !RuntimeFileWriter::OpenTextFile( m_path, output ) )

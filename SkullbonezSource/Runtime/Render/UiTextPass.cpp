@@ -57,7 +57,7 @@ Related:
 #include "../../Core/TracyClientOwner.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../Diagnostics/DiagnosticsPhysicsUI.h"
-#include "../Replay/ReplayOverlayRenderer.h"
+#include "../Planning/ReplayOverlayRenderer.h"
 #include "../../Core/WorkerPool.h"
 #include "../../Physics/PhysicsDebugData.h"
 #include "../../Core/Profiler.h"

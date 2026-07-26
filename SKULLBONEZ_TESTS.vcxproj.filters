@@ -357,6 +357,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayPlanningOverlayLayout.cpp">
+      <Filter>Source Files\Runtime\Planning</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayGuideArcs.cpp">
       <Filter>Source Files\Runtime\Planning</Filter>
     </ClCompile>

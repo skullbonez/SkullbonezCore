@@ -1,17 +1,17 @@
 /*
-File: SkullbonezSource/Runtime/Replay/ReplayRuntime.h
+File: SkullbonezSource/Runtime/App/ReplayRuntime.h
 Purpose:
-  Composes replay's timeline, scrubber, presentation, prediction, and authoring owners.
+  Composes Replay, Prediction, and Planning sibling owners at the application boundary.
 
 Summary:
-  ReplayRuntime sequences typed work across concrete replay owners and exposes
-  published value views to the application shell. Configuration-specific probe
-  implementations are linked separately and call the same private operations.
+  Runtime/App sequences typed work across concrete sibling owners and exposes
+  published value views to the application shell. Replay remains the lower
+  capture/timeline/scrub package; Prediction and Planning retain their own state.
 
 Mental model:
-  ReplayRuntime sequences owner-to-owner work. The application shell exchanges
-  typed commands and read-only published views; concrete replay owners retain
-  their own state and implement their domain transitions.
+  ReplayRuntime is an App composition root, not a Replay-package owner. It
+  sequences owner-to-owner work while concrete package owners retain state and
+  implement their domain transitions.
 
 Glossary:
   Presentation track: Render-facing replay samples used for visual scrubbing.
@@ -42,8 +42,10 @@ Glossary:
     interaction cleanup from activated-scene timeline setup.
 
 Invariants:
-  - Full timeline, scrubber, presentation, prediction, and authoring state is
-    private; external callers cannot recover mutable owner authority.
+  - Replay, Prediction, and Planning are sibling fields; none retains a
+    retained reference to this App composition root or to another lower owner.
+  - Full timeline, scrubber, presentation, prediction, planning, and authoring
+    state is private; external callers cannot recover mutable owner authority.
   - Stored dense rows use ModelRowHint; Physics::PhysicsSceneObjectId remains the identity check.
   - Scrub/prediction draw poses are presentation-only value overrides; replay
     must not backup or mutate live legacy object record pose for rendering.
@@ -55,6 +57,8 @@ Invariants:
     only activation may apply replay presentation against the populated scene.
 
 Related:
+  - SkullbonezSource/Runtime/Replay/ReplayCoordination.h
+  - SkullbonezSource/Runtime/Planning/ReplayPlanningRuntime.h
   - SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
@@ -63,22 +67,21 @@ Related:
 
 #include "../../Core/PlatformWin32.h"
 
-#include "ReplayAuthoring.h"
-#include "ReplayCoordination.h"
-#include "../Planning/ReplayGuideArcs.h"
-#include "../Planning/ReplayInterceptReadout.h"
-#include "../Planning/ReplayPorkchopPanel.h"
-#include "../Planning/ReplayTripPlanner.h"
-#include "ReplayIdentity.h"
+#include "../Replay/ReplayAuthoring.h"
+#include "../Replay/ReplayCoordination.h"
+#include "ReplayRuntimePackets.h"
+#include "../Planning/ReplayPlanningRuntime.h"
+#include "../Replay/ReplayIdentity.h"
 #include "../Prediction/ReplayPrediction.h"
-#include "ReplayPresentation.h"
-#include "ReplayOverlayRenderer.h"
-#include "ReplayScrubber.h"
-#include "ReplayTimeline.h"
+#include "../Replay/ReplayPresentation.h"
+#include "../Planning/ReplayOverlayRenderer.h"
+#include "../Replay/ReplayScrubber.h"
+#include "../Replay/ReplayTimeline.h"
 
-#include "ReplayRecorder.h"
-#include "ReplayVisualPacket.h"
+#include "../Replay/ReplayRecorder.h"
+#include "../Replay/ReplayVisualPacket.h"
 #include "../Prediction/ReplayPredictionScheduling.h"
+#include "../Prediction/ReplayPredictionDrawing.h"
 #include "../../Assets/AssetKeys.h"
 #include "../../Core/SceneCapacity.h"
 #include "../Prediction/TrajectoryStore.h"
@@ -86,7 +89,7 @@ Related:
 #include "../Interaction/RuntimeInteractionController.h"
 #include "../Scene/SceneLifecycle.h"
 #include "../Tools/RuntimeTools.h"
-#include "ReplayProbeState.h"
+#include "../Replay/ReplayProbeState.h"
 #include "../../Core/MainMemoryStats.h"
 #include "../../Core/Common.h"
 #include "../../Core/AmortizedTask.h"
@@ -155,6 +158,19 @@ class RuntimeRenderer;
 struct SceneSessionState;
 struct ReplayV2SaveResult;
 struct ReplaySolverSampleRestoreContext;
+
+namespace ReplayPresentationOperations
+{
+// App-level activation closes both lower Replay presentation state and the
+// sibling Prediction owner before arming the loaded scrub position.
+void ArmLoadedPresentation( float normalized,
+                            double now,
+                            ReplayScrubber& scrubber,
+                            ReplayPresentation& presentation,
+                            ReplayAuthoring& authoring,
+                            ReplayPrediction& prediction,
+                            RuntimeInteractionController& interaction );
+} // namespace ReplayPresentationOperations
 
 class ReplayRuntime
 {
@@ -428,20 +444,6 @@ class ReplayRuntime
     ReplayPathPickResult ApplyInterceptTargetPick( const ReplayPathPickInput& input,
                                                    const Physics::PhysicsBodyStore& bodyStore,
                                                    const Physics::ColliderStore& colliderStore );
-    void UpdateInterceptReadout( Physics::PhysicsEngine& physics, bool mutualGravityEnabled );
-    void UpdateGuideArcs( Physics::PhysicsEngine& physics,
-                          const SceneEntityStore& entities,
-                          const Physics::PhysicsWorldForces& worldForces,
-                          double nowSeconds );
-    void UpdatePorkchopPanel( Physics::PhysicsEngine& physics,
-                              const SceneEntityStore& entities,
-                              const Physics::PhysicsWorldForces& worldForces,
-                              double nowSeconds );
-    void BeginTripPlannerFrame( Physics::PhysicsEngine& physics,
-                                const SceneEntityStore& entities,
-                                const Physics::PhysicsWorldForces& worldForces );
-    void ObserveTripPlannerPrediction( Physics::PhysicsEngine& physics );
-    bool ApplyTripPlannerMutation( Physics::PhysicsEngine& physics, const ReplayTripPlannerVelocityMutation& mutation );
     ReplayInspectionCameraAction TickScrubberInput( bool uiBlocksMouse,
                                                     bool editorModeEnabled,
                                                     bool scenePhysicsEnabled,
@@ -504,10 +506,7 @@ class ReplayRuntime
     ReplayPresentation m_visualPresentation;
     ReplayAuthoring m_authoring;
     ReplayPrediction m_predictionOwner;
-    ReplayInterceptReadout m_interceptReadout;
-    ReplayGuideArcs m_guideArcs;
-    ReplayPorkchopPanel m_porkchopPanel;
-    ReplayTripPlanner m_tripPlanner;
+    ReplayPlanningRuntime m_planningOwner;
     // Concept: prediction ribbons are a retained append-only command list.
     // Frame-local tool/cause overlays keep using RuntimeTools::Tracer(), while
     // this tracer changes only when trajectory publication or reveal advances.

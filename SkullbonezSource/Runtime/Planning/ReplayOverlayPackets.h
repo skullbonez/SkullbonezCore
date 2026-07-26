@@ -1,5 +1,5 @@
 /*
-File: ReplayOverlayPackets.h
+File: SkullbonezSource/Runtime/Planning/ReplayOverlayPackets.h
 Purpose:
   Publishes the synchronous replay overlay state and draw-context packets used by Runtime UI composition.
 
@@ -22,15 +22,15 @@ Related:
 */
 #pragma once
 
-#include "ReplayCapturePackets.h"
-#include "ReplayAuthoringPackets.h"
-#include "../Planning/ReplayInterceptReadout.h"
-#include "../Planning/ReplayPorkchopPanel.h"
-#include "../Planning/ReplayTripPlanner.h"
+#include "../Replay/ReplayCapturePackets.h"
+#include "../Replay/ReplayAuthoringPackets.h"
+#include "ReplayInterceptReadout.h"
+#include "ReplayPorkchopPanel.h"
+#include "ReplayTripPlanner.h"
 #include "../Prediction/ReplayPredictionView.h"
-#include "ReplayPathPackets.h"
-#include "ReplayPresentationPackets.h"
-#include "ReplayTimelinePackets.h"
+#include "../Replay/ReplayPathPackets.h"
+#include "../Replay/ReplayPresentationPackets.h"
+#include "../Replay/ReplayTimelinePackets.h"
 #include "../Interaction/RuntimeInteractionController.h"
 
 namespace SkullbonezCore::Rendering

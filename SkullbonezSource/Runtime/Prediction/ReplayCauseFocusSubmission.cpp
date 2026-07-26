@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Replay/ReplayCauseFocusSubmission.cpp
+File: SkullbonezSource/Runtime/Prediction/ReplayCauseFocusSubmission.cpp
 Purpose:
   Submits markers for the replay body, manifold, prediction-contact, and solver-row focus chosen by Presentation.
 
@@ -20,15 +20,15 @@ Invariants:
 Related:
   - ReplayPresentationSubmission.h
   - ReplayPredictionDrawing.cpp
-  - ReplayPresentation.h
+  - ReplayPredictionPresentation.h
   - Agentic/Reference/comment-style-guide.md
 */
-#include "ReplayPresentationSubmission.h"
+#include "../Replay/ReplayPresentationSubmission.h"
 
-#include "ReplayAuthoring.h"
-#include "../Prediction/ReplayPrediction.h"
-#include "../Prediction/ReplayPredictionPublicationOperations.h"
-#include "ReplayPresentation.h"
+#include "../Replay/ReplayAuthoring.h"
+#include "ReplayPrediction.h"
+#include "ReplayPredictionPresentation.h"
+#include "ReplayPredictionPublicationOperations.h"
 #include "../Editor/EditorTools.h"
 #include "../Scene/SceneEntityStore.h"
 #include "../Tools/RuntimeTools.h"
@@ -193,17 +193,17 @@ bool TryAddReplayTargetMarkerFromStores( EditorTracer& tracer,
 
 namespace SkullbonezCore::Runtime
 {
-void ReplayPresentation::RenderCauseFocusOverlay( const RunReplayCauseTreeState& causeTree,
-                                                  const ReplayPredictionPresentationView& prediction,
-                                                  const ReplaySolverFrameSample* currentSolverSample,
-                                                  const PhysicsBodyStore& bodyStore,
-                                                  const ColliderStore& colliderStore,
-                                                  const SceneEntityStore& entities,
-                                                  EditorTracer& tracer )
+void ReplayPredictionPresentation::RenderCauseFocusOverlay( const RunReplayCameraState& camera,
+                                                            const RunReplayCauseTreeState& causeTree,
+                                                            const ReplayPredictionPresentationView& prediction,
+                                                            const ReplaySolverFrameSample* currentSolverSample,
+                                                            const PhysicsBodyStore& bodyStore,
+                                                            const ColliderStore& colliderStore,
+                                                            const SceneEntityStore& entities,
+                                                            EditorTracer& tracer )
 {
     using namespace ReplayPresentationSubmissionOperations;
 
-    const RunReplayCameraState camera = CameraView();
     if ( camera.focusKind == RunReplayCameraFocusKind::None )
     {
         return;

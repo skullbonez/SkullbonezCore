@@ -26,7 +26,7 @@ Invariants:
   - Velocity-edit helper functions are file-local to this translation unit.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
+  - SkullbonezSource/Runtime/App/ReplayRuntime.h
   - SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp
   - Agentic/Reference/comment-style-guide.md
 */

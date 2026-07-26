@@ -581,12 +581,14 @@ prediction files into `Runtime/Prediction`, updated every live
 path/project/filter, and passed the mapped plus cumulative Runtime gates
 without refresh. RS2 then moved all eight planning files into
 `Runtime/Planning` with exact production/test project ownership and the same
-zero-refresh gate result. With GV0, the active/future ledger is 4/17.
+zero-refresh gate result. RS3 then reconciled sibling composition and the
+three-owner reserve inventory without introducing an upward escape. With GV0,
+the active/future ledger is 5/17.
 
 ## Current Execution Priority
 
 The 2026-07-25 round-4 campaign is the active queue with binding order:
-1 `replay-subsystem-partition` (3/6; RS3 is next),
+1 `replay-subsystem-partition` (4/6; RS4 is next),
 2 `downward-domain-bleed-remediation` (0/6),
 3 `invariant-ownership-governance-and-transaction-repair` (1/5; GV0 installed
   the documentation-only governance amendment, GV1+ wait for the dependency
@@ -598,7 +600,9 @@ RS0 evidence is
 is `../Reports/2026-07-25/replay-subsystem-partition-rs1-prediction.md`; RS2
 evidence is
 `../Reports/2026-07-25/replay-subsystem-partition-rs2-planning.md`. RS3 now
-owns the front of the dependency chain.
+has permanent evidence in
+`../Reports/2026-07-26/replay-subsystem-partition-rs3-seams.md`; RS4 owns the
+front of the dependency chain.
 The UI plan preserves the existing UI/Runtime value-command boundary and
 makes Runtime/Render the sole UI-to-renderer composition point, and its UR5
 validator is the shared enforcement vehicle the two follow-up plans extend
@@ -1722,7 +1726,7 @@ exist), 5 invariant-ownership governance and transaction repair. The two
 authorized documentation-only exceptions are complete: GV0 landed during the
 UI campaign, and HC0 ran beside the UI tail. HC1-HC2 then closed after UR6 as
 sequenced. HC2 preserved GV0's aggregate-invariant procedure and added claim
-verification as a separate step. Replay RS3 is now the binding next task;
+verification as a separate step. Replay RS4 is now the binding next task;
 GV1-GV4 still wait for the dependency chain. HC2 and GV0 both amended
 `Agentic/Skills/comment-style-audit/skill.md` in separate sections; HC2 landed
 second and preserved GV0.
@@ -1731,7 +1735,7 @@ second and preserved GV0.
 |---|---|---:|---|
 | [ui-renderer-hard-boundary](../Reports/2026-07-25/ui-renderer-hard-boundary-closure.md) | Complete | 7/7 | Closed and removed from the live ledger under inventory rule 4 |
 | [header-claim-staleness-remediation](../Reports/2026-07-25/header-claim-staleness-remediation-closure.md) | Complete | 3/3 | Closed and removed from the live ledger under inventory rule 4 |
-| [replay-subsystem-partition](TODO/replay-subsystem-partition.md) | In progress | 3/6 | RS2 extracted all eight Planning files; RS3 reconciles composition and seams |
+| [replay-subsystem-partition](TODO/replay-subsystem-partition.md) | In progress | 4/6 | RS3 reconciled sibling composition and reserve seams; RS4 installs anti-accretion enforcement |
 | [downward-domain-bleed-remediation](TODO/downward-domain-bleed-remediation.md) | Ready | 0/6 | Starts after RS5 closes; DB0 bleed census and boundary-contract design |
 | [invariant-ownership-governance-and-transaction-repair](TODO/invariant-ownership-governance-and-transaction-repair.md) | In progress | 1/5 | GV0 installed; GV1-GV4 start after DB5 closes |
 

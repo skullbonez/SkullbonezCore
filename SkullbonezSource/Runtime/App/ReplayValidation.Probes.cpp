@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Replay/ReplayValidation.Probes.cpp
+File: SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp
 Purpose:
   Owns the legacy Debug replay probes that exercise production replay restore,
   scrub, save/load, failure, branch, and visual reconstruction paths.
@@ -24,14 +24,14 @@ Invariants:
   - This file is linked only by the Debug engine configuration.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/ReplayValidation.cpp
-  - SkullbonezSource/Runtime/Replay/ReplayValidation.Internal.h
+  - SkullbonezSource/Runtime/App/ReplayValidation.cpp
+  - SkullbonezSource/Runtime/App/ReplayValidation.Internal.h
   - SkullbonezSource/Runtime/Replay/ReplayProbeState.h
 */
-#include "ReplayPresentation.h"
-#include "ReplayOverlayLayout.h"
-#include "ReplayScrubber.h"
-#include "ReplayTimeline.h"
+#include "../Replay/ReplayPresentation.h"
+#include "../Replay/ReplayOverlayLayout.h"
+#include "../Replay/ReplayScrubber.h"
+#include "../Replay/ReplayTimeline.h"
 #include "ReplayRuntime.h"
 #include "../Input/InputRouter.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
@@ -40,12 +40,11 @@ Related:
 #include "../../Core/WorkerPool.h"
 #include "../Interaction/OperatorCommandApplier.h"
 #include "../Editor/EditorTools.h"
-#include "ReplayRestoreService.h"
-#include "ReplayRestoreTransactions.h"
-#include "../Prediction/ReplayPredictionArchive.h"
+#include "../Replay/ReplayRestoreService.h"
+#include "../Replay/ReplayRestoreTransactions.h"
 #include "ReplayValidation.Internal.h"
-#include "ReplayVisualPacketFingerprint.h"
-#include "ReplayV2Artifact.h"
+#include "../Replay/ReplayVisualPacketFingerprint.h"
+#include "../Replay/ReplayV2Artifact.h"
 
 #include "../../Core/FatalError.h"
 #include "../../Core/Profiler.h"
@@ -138,7 +137,7 @@ void ApplyReplayProbePredictionResult( const ReplayPredictionUpdateResult& resul
                                        ReplayTimeline& timeline,
                                        ReplayScrubber& scrubber,
                                        ReplayPresentation& presentation,
-                                       const ReplayPrediction& prediction )
+                                       ReplayPrediction& prediction )
 {
     // Invariant: the probe applies the same owner-to-owner publication facts as
     // production without receiving mutable prediction storage.
@@ -162,7 +161,7 @@ void ApplyReplayProbePredictionResult( const ReplayPredictionUpdateResult& resul
     {
         for ( uint32_t count = 0; count < result.budgetExpiries[passIndex]; ++count )
         {
-            presentation.RecordTrajectoryBudgetExpiry(
+            prediction.PresentationOwner().RecordTrajectoryBudgetExpiry(
                 static_cast<SkullbonezCore::Core::MainMemoryReplayBudgetPass>( passIndex ) );
         }
     }
@@ -171,7 +170,7 @@ void ApplyReplayProbePredictionResult( const ReplayPredictionUpdateResult& resul
     {
         for ( uint32_t count = 0; count < result.rebuildCauses[causeIndex]; ++count )
         {
-            presentation.RecordTrajectoryRebuildCause(
+            prediction.PresentationOwner().RecordTrajectoryRebuildCause(
                 static_cast<SkullbonezCore::Core::MainMemoryReplayRebuildCause>( causeIndex ) );
         }
     }
@@ -1198,7 +1197,7 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::VerifyLoadedPresentation( Repl
         SceneWorld& world = transaction.sampleOwners.world;
         EditorTracer& tracer = runtimeTools.Tracer();
         presentation.ApplyArchivePathState( archivePath );
-        presentation.ResetTrajectoryVisualStats();
+        prediction.PresentationOwner().ResetTrajectoryVisualStats();
         prediction.ResetVerificationMarkers();
         // The archive retains the final marker prefix exactly. This optional
         // presenting Debug probe deliberately replays first appearance from
@@ -1226,19 +1225,21 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::VerifyLoadedPresentation( Repl
             const ReplaySolverFrameSample* presentSolver = currentSolver ? currentSolver
                                                                          : timeline.Solver().LatestSample();
 
-            presentation.RenderPathVisualizer( predictionView,
-                                               presentSolver,
-                                               world.Physics(),
-                                               world.Entities(),
-                                               tracer );
+            prediction.PresentationOwner().RenderPathVisualizer( predictionView,
+                                                                 presentation.PathVisualizer(),
+                                                                 presentSolver,
+                                                                 world.Physics(),
+                                                                 world.Entities(),
+                                                                 tracer );
 
-            presentation.RenderCauseFocusOverlay( authoring.CauseTree(),
-                                                  predictionView,
-                                                  currentSolver,
-                                                  world.BodyStore(),
-                                                  PhysicsEngine::ReadColliders( world.Physics() ),
-                                                  world.Entities(),
-                                                  tracer );
+            prediction.PresentationOwner().RenderCauseFocusOverlay( presentation.CameraView(),
+                                                                    authoring.CauseTree(),
+                                                                    predictionView,
+                                                                    currentSolver,
+                                                                    world.BodyStore(),
+                                                                    PhysicsEngine::ReadColliders( world.Physics() ),
+                                                                    world.Entities(),
+                                                                    tracer );
 
             const RunReplayPathVisualizerState& path = presentation.PathVisualizer();
             authoring.AppendVelocityEditOverlay( path.targetId,
@@ -1248,17 +1249,18 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::VerifyLoadedPresentation( Repl
                                                  RuntimeInteractionGesture {},
                                                  tracer );
 
-            (void)presentation.BuildPredictionGhostDrawRequests( predictionView,
-                                                                 world.RenderPresentationRecords(),
-                                                                 world.BodyStore() );
+            (void)prediction.PresentationOwner().BuildGhostDrawRequests( predictionView,
+                                                                         world.RenderPresentationRecords(),
+                                                                         world.BodyStore() );
 
             ReplayVisualPacket packet = tracer.BuildReplayVisualPacket( expected.cameraEye, expected.cameraUp );
-            presentation.PublishVisualPacket( packet,
-                                              predictionView,
-                                              timeline.Solver().LatestSample(),
-                                              expected.replayReserveGrowthEvents );
+            prediction.PresentationOwner().PublishVisualPacket( packet,
+                                                                predictionView,
+                                                                presentation.PathVisualizer().targetId,
+                                                                timeline.Solver().LatestSample(),
+                                                                expected.replayReserveGrowthEvents );
 
-            const ReplayVisualPacket projected = presentation.PublishedVisualPacketView();
+            const ReplayVisualPacket projected = prediction.PresentationOwner().PublishedVisualPacketView();
             const ReplayVisualPacketFingerprint fingerprint = BuildReplayVisualPacketFingerprint( projected,
                                                                                                   trajectoryDigests );
 

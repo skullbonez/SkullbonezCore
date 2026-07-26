@@ -4,7 +4,7 @@ Date: 2026-07-25
 
 Owner: Runtime/Replay + Runtime composition
 
-State: IN PROGRESS (RS0-RS2 complete; RS3 next)
+State: IN PROGRESS (RS0-RS3 complete; RS4 next)
 
 Ledger tasks: 6 (RS0-RS5)
 
@@ -289,7 +289,7 @@ back-reference.
   - No golden, baseline, manifest, replay artifact, scene, config, shader, or
     physics CSV file changed.
 
-- [ ] **RS3 — Reconcile composition, shared seams, and the reserve inventory.**
+- [x] **RS3 — Reconcile composition, shared seams, and the reserve inventory.**
 
   Apply the RS0 composition ruling for `ReplayRuntime` versus a sibling
   prediction composer; re-home any remaining shared value header per the
@@ -308,6 +308,23 @@ back-reference.
     caps, and zero policy violations as the pre-partition baseline.
   - No `void*`, callback pack, friend edge, or backpointer was introduced to
     make the composition split compile.
+
+  Evidence (2026-07-26):
+
+  - `Agentic/Reports/2026-07-26/replay-subsystem-partition-rs3-seams.md`
+    records the sibling composition, shared value seams, three-owner reserve
+    inventory, 62-file comment audit, and validation evidence.
+  - Replay has zero Prediction/Planning includes; Prediction has zero Planning
+    includes; lower engine packages have zero Replay-family includes.
+  - The aggregate inventory remains exactly recorder samples (32 MiB), solver
+    snapshots (8 MiB), and Prediction working set (256 MiB), all Replay-phase
+    gated with their existing counters and exhaustion policies.
+  - Fast, strict Replay allocation, static allocation, and the single
+    visual-fidelity generation all pass. The visual command wrapper timed out
+    after the sole engine process generated its report; all remaining CPU-only
+    controls passed directly against that report without a second generation.
+  - No golden, baseline, manifest, replay artifact, scene, config, shader, or
+    physics CSV file changed.
 
 - [ ] **RS4 — Install the anti-accretion enforcement.**
 

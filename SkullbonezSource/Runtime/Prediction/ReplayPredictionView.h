@@ -23,12 +23,13 @@ Invariants:
 
 Related:
   - ReplayPrediction.h
-  - ReplayPresentation.h
+  - ReplayPredictionPresentation.h
   - ReplayVisualPacket.h
 */
 #pragma once
 
 #include "../Replay/ReplayIdentity.h"
+#include "../Replay/ReplayPathPackets.h"
 #include "ReplayPredictionPackets.h"
 #include "../Replay/ReplayVisualPacket.h"
 #include "../../Maths/Quaternion.h"
@@ -116,20 +117,4 @@ struct ReplayPredictionPresentationView
     bool generationPermitted = true;
 };
 
-// Immutable presentation cursor consumed while prediction maintains the
-// retained/past trajectory lane. This avoids borrowing the presentation
-// owner's complete path state across the owner boundary.
-struct ReplayPastTrajectoryView
-{
-    Physics::PhysicsSceneObjectId targetId;
-    Physics::PhysicsSceneObjectId retainedTargetId;
-    Physics::ModelRowHint targetModelRow;
-    ReplayFrameIndex firstFrame = 0;
-    ReplayFrameIndex builtThroughFrame = 0;
-    uint64_t totalFramesEvicted = 0;
-    uint64_t fullRebuildCount = 0;
-    uint64_t incrementalTrimCount = 0;
-    bool hasTarget = false;
-    bool valid = false;
-};
 } // namespace SkullbonezCore::Runtime

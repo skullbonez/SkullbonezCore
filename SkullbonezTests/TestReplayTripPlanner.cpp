@@ -20,8 +20,8 @@ Related:
   - SkullbonezSource/Runtime/Planning/ReplayTripPlanner.h
 */
 #include "doctest/doctest.h"
+#include "../SkullbonezSource/Runtime/Planning/ReplayPlanningOverlayLayout.h"
 #include "../SkullbonezSource/Runtime/Planning/ReplayTripPlanner.h"
-#include "../SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h"
 
 #include <cmath>
 #include <vector>

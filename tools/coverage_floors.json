@@ -69,7 +69,7 @@
     "SkullbonezSource/Runtime/Render/**",
     "SkullbonezSource/Runtime/App/RunRender.*",
     "SkullbonezSource/Runtime/Render/UiTextPass.*",
-    "SkullbonezSource/Runtime/Replay/ReplayValidation*",
+    "SkullbonezSource/Runtime/App/ReplayValidation*",
     "SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.*",
     "SkullbonezSource/Runtime/Scene/SceneController.*",
     "SkullbonezSource/Runtime/Startup/StartupProbeHarnesses.*"

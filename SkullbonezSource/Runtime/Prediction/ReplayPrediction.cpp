@@ -45,8 +45,8 @@ Invariants:
     owner; this coordinator does not manipulate their atomics or task storage.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/ReplayScrubberTools.cpp
-  - SkullbonezSource/Runtime/Replay/ReplayAuthoringCauseTree.cpp
+  - SkullbonezSource/Runtime/App/ReplayScrubberTools.cpp
+  - SkullbonezSource/Runtime/Prediction/ReplayAuthoringCauseTree.cpp
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionScheduling.cpp
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.cpp

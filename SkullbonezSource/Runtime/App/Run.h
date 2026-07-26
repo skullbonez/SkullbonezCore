@@ -74,7 +74,7 @@ Related:
 #endif
 #include "RunStartupState.h"
 #include "RunTimerState.h"
-#include "../Replay/ReplayRuntime.h"
+#include "ReplayRuntime.h"
 #include "../Scene/SceneController.h"
 #include "../Simulation/SimulationSystem.h"
 #include "../Tools/RuntimeTools.h"

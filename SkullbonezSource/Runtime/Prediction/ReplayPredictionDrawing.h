@@ -1,82 +1,57 @@
 /*
-File: SkullbonezSource/Runtime/Replay/ReplayOverlayRenderer.h
+File: SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.h
 Purpose:
-  Declares replay overlay drawing entry points used by the late UI/text pass.
+  Declares retained and frame-local drawing over immutable Prediction publication.
 
 Summary:
-  RuntimeRenderer decides pass order, but replay owns UI drawing plus the
-  retained prediction command-list cursors used by the geometry pass.
+  Prediction owns the cursors that turn published trajectory prefixes into a
+  retained draw list. Callers supply Replay-owned path selection values and
+  frame-local scene/render borrows; no draw operation can schedule prediction
+  work or mutate a Replay owner.
 
 Glossary:
-  UI (User Interface): Runtime controls and overlays drawn over the 3D scene.
-  UI text pass: Late overlay pass that invokes replay overlay drawing after
-    scene rendering.
-  Replay overlay: UI draw pass for replay timeline, prediction controls, and
-    cause-tree inspection.
-  Retained prediction list: Append-only trajectory chunks reused until the
-    prediction generation, source bank, palette, or topology changes.
-  All-body path: Space-scene future trajectory selected by body identity rather
-    than contact-derived causality.
-  Overlay state view: Read-only replay publication borrowed for one late pass.
-  Render context: Overlay state plus the render-command target and window facts.
+  Record cursor: Retained progress through one versioned trajectory record.
+  Retained trail: Independently sampled marker path for a completed outgoing
+    trajectory.
+  Publication token: Monotonic Prediction value that invalidates retained
+    geometry only when a reader-visible trajectory prefix changes.
 
 Invariants:
-  - Replay state reaches the context only through the published overlay view.
-  - Published references and sample pointers remain valid for one frame only.
-  - Overlay functions must not store references from the context.
-  - A stable trajectory publication returns before traversing source records.
-  - Legacy scrubber and cause-tree pixels draw only while the Legacy
-    development surface owns presentation; ImGui consumes the same values in
-    its own exclusive surface.
+  - Draw cursors and retained command storage belong to Prediction.
+  - Stable publication returns before traversing trajectory records.
+  - All references in render contexts are synchronous frame borrows.
 
 Related:
-  - SkullbonezSource/Runtime/Render/UiTextPass.cpp
-  - SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h
+  - SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp
+  - SkullbonezSource/Runtime/Replay/ReplayPathPackets.h
+  - SkullbonezSource/Runtime/Replay/ReplayTrajectoryPackets.h
 */
 #pragma once
 
-#include "ReplayAuthoring.h"
-#include "ReplayOverlayPackets.h"
-#include "../Prediction/ReplayPrediction.h"
-#include "ReplayPresentation.h"
-#include "ReplayScrubber.h"
+#include "ReplayPredictionView.h"
+#include "../Replay/ReplayPathPackets.h"
+#include "../Replay/ReplayTrajectoryPackets.h"
 #include "../../Rendering/RenderInstanceStore.h"
 
 #include <array>
-#include <vector>
-
-namespace SkullbonezCore::Rendering
-{
-class Dx12GeometryOwner;
-class Dx12TextureOwner;
-} // namespace SkullbonezCore::Rendering
+#include <cstddef>
+#include <cstdint>
 
 namespace SkullbonezCore::Core
 {
 class Profiler;
 }
 
-namespace SkullbonezCore::Text
-{
-class TextBatch;
-}
-
-namespace SkullbonezCore::UI
-{
-class UIDrawList;
-}
-
 namespace SkullbonezCore::Physics
 {
 class ColliderStore;
-class PhysicsBodyStore;
 class PhysicsEngine;
 } // namespace SkullbonezCore::Physics
 
 namespace SkullbonezCore::Runtime
 {
 class EditorTracer;
-class UiDrawSubmission;
+class SceneEntityStore;
 } // namespace SkullbonezCore::Runtime
 
 namespace SkullbonezCore::Runtime::ReplayOverlay
@@ -106,8 +81,7 @@ struct ReplayPredictionDrawListState
 
     std::array<ReplayPredictionDrawRecordCursor, MAX_RECORD_CURSORS> recordCursors = {};
     // Retained marker trails are a second presentation of child-outgoing
-    // records with a denser, independently bounded sampling policy. Their
-    // cursors must not consume the ordinary child-path cursor.
+    // records with a denser, independently bounded sampling policy.
     std::array<ReplayPredictionDrawRecordCursor, MAX_RECORD_CURSORS> retainedTrailCursors = {};
     std::size_t recordCursorCount = 0;
     std::size_t retainedTrailCursorCount = 0;
@@ -131,8 +105,7 @@ struct ReplayPredictionDrawListState
     void Reset() noexcept
     {
         // Hazard: assigning this whole state from {} materializes a
-        // hundreds-of-KiB temporary. Nested Debug render frames can then
-        // exhaust the process stack before prediction drawing begins.
+        // hundreds-of-KiB temporary and can exhaust nested Debug render stacks.
         for ( ReplayPredictionDrawRecordCursor& cursor : recordCursors )
         {
             cursor = {};
@@ -179,9 +152,6 @@ constexpr bool IsReplayPredictionDrawListPublicationStable( bool reset,
            retainedRevealFrame == incomingRevealFrame;
 }
 
-// An extending publication resumes exactly at its cursor. The point before the
-// cursor remains the start of the next segment; no historical command is read
-// or emitted again.
 constexpr std::size_t ReplayPredictionFirstUnconsumedPoint( std::size_t consumedPointCount ) noexcept
 {
     return consumedPointCount > 1u ? consumedPointCount : 1u;
@@ -214,14 +184,12 @@ constexpr bool ReplayPredictionUsesAuthoredBodyColor( bool showAllFuturePaths, R
 
 struct ReplayPathVisualizerRenderContext
 {
-    // Lifetime: every reference is a frame-local borrow from the render-tool
-    // pass. Prediction scheduling and presentation-cache preparation have
-    // already published for this frame, so drawing receives prediction as a
-    // read-only borrow and cannot reach worker or reveal-clock authority.
+    // Lifetime: every reference is a frame-local borrow after Prediction has
+    // published for this frame.
     const ReplayPredictionPresentationView& prediction;
     Core::Profiler* profiler = nullptr;
     const RunReplayPathVisualizerState& pathVisualizer;
-    SkullbonezCore::Physics::PhysicsEngine& physics;
+    Physics::PhysicsEngine& physics;
     const SceneEntityStore& entities;
     EditorTracer& tracer;
     ReplayFrameIndex presentFrame = 0;
@@ -234,38 +202,12 @@ struct ReplayPathVisualizerRenderResult
     bool retainedRefreshBudgetExpired = false;
 };
 
-void RenderReplayScrubberOverlay( UiDrawSubmission& submission,
-                                  Text::TextBatch& textBatch,
-                                  UI::UIDrawList& drawList,
-                                  const ReplayOverlayRenderContext& context );
-void RenderReplayInterceptOverlay( UiDrawSubmission& submission,
-                                   Text::TextBatch& textBatch,
-                                   UI::UIDrawList& drawList,
-                                   const ReplayOverlayRenderContext& context );
-void RenderReplayTripPlannerOverlay( UiDrawSubmission& submission,
-                                     Text::TextBatch& textBatch,
-                                     UI::UIDrawList& drawList,
-                                     const ReplayOverlayRenderContext& context );
-void RenderReplayPorkchopOverlay( UiDrawSubmission& submission,
-                                  Text::TextBatch& textBatch,
-                                  UI::UIDrawList& drawList,
-                                  const ReplayOverlayRenderContext& context );
-void RenderReplayCauseTreeOverlay( UiDrawSubmission& submission,
-                                   Text::TextBatch& textBatch,
-                                   UI::UIDrawList& drawList,
-                                   const ReplayOverlayRenderContext& context );
-// Appends only newly published/revealed trajectory points to a retained tracer.
-// A generation, topology, record replacement, or palette change resets the
-// bounded list; an unchanged publication token returns without traversing it.
 ReplayPredictionDrawListUpdate UpdateReplayPredictionDrawList( const ReplayPredictionPresentationView& prediction,
                                                                const RunReplayPathVisualizerState& pathVisualizer,
                                                                const SceneEntityStore& entities,
                                                                const Physics::ColliderStore& colliderStore,
                                                                EditorTracer& drawList,
                                                                ReplayPredictionDrawListState& state );
-// Emits only each active path's current unsampled endpoint. Completed segments
-// stay in the retained append-only list, so the reveal remains continuous
-// without rebuilding historical commands.
 void AppendReplayPredictionProvisionalTails( const ReplayPredictionPresentationView& prediction,
                                              const RunReplayPathVisualizerState& pathVisualizer,
                                              const ReplayPredictionDrawListState& state,

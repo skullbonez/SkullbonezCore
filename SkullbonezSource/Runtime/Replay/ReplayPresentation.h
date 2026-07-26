@@ -1,11 +1,12 @@
 /*
 File: SkullbonezSource/Runtime/Replay/ReplayPresentation.h
 Purpose:
-  Owns replay path, camera, overlay, render-pose, and published visual state.
+  Owns recorded replay path, camera, launcher backup, and render-pose state.
 
 Summary:
-  ReplayPresentation is the mutable authority for everything replay renders.
-  ReplayRuntime sequences the owner but does not retain parallel visual state.
+  ReplayPresentation is the lower Replay visual owner. Prediction pose, ghost,
+  trajectory, and packet state belong to ReplayPredictionPresentation above it;
+  Runtime/App passes only synchronous path and camera values between siblings.
 
 Glossary:
   Path target: Stable replay body selected for visualization.
@@ -16,7 +17,6 @@ Glossary:
 
 Invariants:
   - Physics::PhysicsSceneObjectId is identity; ModelRowHint is only a dense-row hint.
-  - Published packet spans are frame-local borrows into the submitted tracer.
   - Render-pose matching uses a fixed model-capacity mask and never allocates.
   - ReplayHudStatus borrows no owner and is coherent for one UI frame.
 
@@ -30,7 +30,6 @@ Related:
 #include "ReplayPathPackets.h"
 #include "ReplayPresentationPackets.h"
 #include "ReplayRecorder.h"
-#include "ReplayVisualPacket.h"
 #include "../Camera/RuntimeCameraMode.h"
 #include "../Interaction/RuntimeInteractionController.h"
 #include "../../Assets/AssetKeys.h"
@@ -74,7 +73,6 @@ namespace Runtime
 class SceneEntityStore;
 class InputRouter;
 class ReplayAuthoring;
-class ReplayPrediction;
 class ReplayPresentation;
 class ReplayScrubber;
 class RuntimeTools;
@@ -82,9 +80,6 @@ class EditorTracer;
 struct CameraControlState;
 struct RunMousePickupState;
 struct RunReplayCauseTreeState;
-struct RunReplayPredictionFrame;
-struct ReplayPastTrajectoryView;
-struct ReplayPredictionPresentationView;
 
 struct ReplayOverlayBuildInput
 {
@@ -149,13 +144,6 @@ bool BeginLoadedPresentationActivation( bool hasLoadedPresentation,
                                         ReplayAuthoring& authoring,
                                         RuntimeInteractionController& interaction,
                                         InputRouter& inputRouter );
-void ArmLoadedPresentation( float normalized,
-                            double now,
-                            ReplayScrubber& scrubber,
-                            ReplayPresentation& presentation,
-                            ReplayAuthoring& authoring,
-                            ReplayPrediction& prediction,
-                            RuntimeInteractionController& interaction );
 } // namespace ReplayPresentationOperations
 
 struct ReplayWorldPointerInput
@@ -212,32 +200,6 @@ struct RunReplayCameraState
     bool focusTerrain = false;
 };
 
-struct ReplayTrajectorySubmissionProbeStats
-{
-    bool hasSubmission = false;
-    bool stableWindowReady = false;
-    bool noReserveGrowth = true;
-    int observedFrameCount = 0;
-    int stableFrameCount = 0;
-    int stableWindowTargetFrameCount = 120;
-    int firstFrame = -1;
-    int lastFrame = -1;
-    uint64_t stableHash = 0;
-    uint64_t vertexBytes = 0;
-    uint32_t vertexCount = 0;
-    uint32_t segmentCount = 0;
-    uint64_t reserveGrowthEventsAtStart = 0;
-    uint64_t reserveGrowthEventsAtEnd = 0;
-    // Live-publication coherence probe: once a prediction's child tree is
-    // render-ready, it must remain ready for every later frame of that run.
-    uint64_t presentationTargetId = 0;
-    ReplayFrameIndex presentationSourceFrame = 0;
-    uint32_t futureTreeReadinessDropCount = 0;
-    bool presentationKeyValid = false;
-    bool futureTreeReadySeen = false;
-    bool futureTreeReadyLastFrame = false;
-};
-
 // Value-only selection applied by the presentation owner after cause-tree hit
 // testing. Restore-camera state remains private and cannot be overwritten by a
 // focus command.
@@ -264,13 +226,7 @@ struct ReplayPresentationMemoryStats
 {
     uint64_t pathOwnerBytes = 0;
     uint64_t pathTargetCapacityBytes = 0;
-    uint64_t pathFutureNodeCapacityBytes = 0;
-    uint64_t ghostRequestCapacityBytes = 0;
-    uint64_t focusModelMaskCapacityBytes = 0;
     uint64_t launcherVisualBytes = 0;
-    uint64_t pathNodeCount = 0;
-    uint64_t ghostRequestCount = 0;
-    SkullbonezCore::Core::MainMemoryReplayTrajectoryStats trajectory;
 };
 
 // Concept: presentation is a concrete owner, not a collection of fields on
@@ -287,14 +243,8 @@ class ReplayPresentation
         return m_pathVisualizer;
     }
     ReplayPastTrajectoryView PastTrajectoryView() const noexcept;
-    SkullbonezCore::Core::MainMemoryReplayTrajectoryStats TrajectoryVisualStatsSnapshot() const noexcept;
-    ReplayTrajectorySubmissionProbeStats TrajectorySubmissionProbeSnapshot() const noexcept;
-    const ReplayVisualPacket& PublishedVisualPacketView() const noexcept;
-    std::span<const ReplayPredictionGhostDrawRequest> PredictionGhostDrawRequestsView() const noexcept;
-    const std::vector<uint8_t>& FocusModelMaskView() const noexcept;
     ReplayPresentationMemoryStats CollectMemoryStats() const noexcept;
     bool HasLauncherVisualBackup() const noexcept;
-    void ReserveRecordingBuffers();
     void ReserveLauncherVisualCaptureBuffers();
     void PopulateLauncherVisualCapture( ReplayCaptureInput& input, RuntimeTools& runtimeTools );
     void StoreLauncherVisualBackupFrom( RuntimeTools& runtimeTools );
@@ -337,24 +287,8 @@ class ReplayPresentation
                        const Physics::ColliderStore& colliderStore,
                        std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
                        const ReplaySolverFrameSample* currentSolverSample );
-    bool BuildFocusModelMask( const Physics::PhysicsBodyStore& bodyStore,
-                              int modelCount,
-                              std::span<const RunReplayPathTraceNode> futureNodes );
-    void ClearPredictionGhostDrawRequests() noexcept;
-    bool CanAppendPredictionGhostDrawRequests( std::size_t count ) const noexcept;
-    void AppendPredictionGhostDrawRequest( const ReplayPredictionGhostDrawRequest& request );
-    bool HasPredictionGhostDrawRequests() const noexcept;
     bool PrepareRenderPoseBodyMatch( int modelCount ) noexcept;
     void ClearLauncherVisualBackup();
-    void ResetTrajectoryVisualStats() noexcept;
-    void RecordTrajectoryFrameStats( const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& frameStats );
-    void PublishVisualPacket( ReplayVisualPacket packet );
-    void RecordTrajectorySubmissionFrame(
-        const SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats& submissionStats,
-        int frameNumber,
-        uint64_t reserveGrowthEventCount );
-    void RecordTrajectoryBudgetExpiry( SkullbonezCore::Core::MainMemoryReplayBudgetPass pass );
-    void RecordTrajectoryRebuildCause( SkullbonezCore::Core::MainMemoryReplayRebuildCause cause );
     bool ApplyPresentationSampleForRender( Rendering::RenderInstanceStore& renderInstances,
                                            const Physics::PhysicsBodyStore& bodyStore,
                                            const Physics::ColliderStore& colliderStore,
@@ -363,42 +297,10 @@ class ReplayPresentation
                                      const Physics::PhysicsBodyStore& bodyStore,
                                      const Physics::ColliderStore& colliderStore,
                                      const ReplaySolverFrameSample& sample );
-    bool ApplyPredictionFrameForRender( Rendering::RenderInstanceStore& renderInstances,
-                                        const Physics::PhysicsBodyStore& bodyStore,
-                                        const Physics::ColliderStore& colliderStore,
-                                        const RunReplayPredictionFrame& frame );
-    bool
-    BuildPredictionGhostDrawRequests( const ReplayPredictionPresentationView& prediction,
-                                      std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
-                                      const Physics::PhysicsBodyStore& bodyStore );
-    void PublishVisualPacket( ReplayVisualPacket packet,
-                              const ReplayPredictionPresentationView& prediction,
-                              const ReplaySolverFrameSample* latestSolver,
-                              uint64_t replayReserveGrowthEvents );
-    void RenderPathVisualizer( const ReplayPredictionPresentationView& prediction,
-                               const ReplaySolverFrameSample* presentSample,
-                               Physics::PhysicsEngine& physics,
-                               const SceneEntityStore& entities,
-                               EditorTracer& tracer,
-                               bool drawPredictionOverlay = true );
-    void RenderCauseFocusOverlay( const RunReplayCauseTreeState& causeTree,
-                                  const ReplayPredictionPresentationView& prediction,
-                                  const ReplaySolverFrameSample* currentSolverSample,
-                                  const Physics::PhysicsBodyStore& bodyStore,
-                                  const Physics::ColliderStore& colliderStore,
-                                  const SceneEntityStore& entities,
-                                  EditorTracer& tracer );
 
   private:
-    // Lifetime: startup-bound diagnostics borrow; never retained beyond Run.
-    Core::Profiler* m_profiler;
     RunReplayCameraState m_camera;
     RunReplayPathVisualizerState m_pathVisualizer;
-    SkullbonezCore::Core::MainMemoryReplayTrajectoryStats m_trajectoryVisualStats;
-    ReplayTrajectorySubmissionProbeStats m_trajectorySubmissionProbe;
-    ReplayVisualPacket m_publishedVisualPacket;
-    std::vector<ReplayPredictionGhostDrawRequest> m_predictionGhostDrawRequests;
-    std::vector<uint8_t> m_focusModelMask;
     ReplayLauncherVisualSample m_launcherVisualBackup;
     ReplayLauncherVisualSample m_launcherVisualCaptureScratch;
     // Invariant: replay render pose matching is a per-frame mark table capped

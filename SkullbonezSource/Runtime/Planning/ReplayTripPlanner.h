@@ -22,7 +22,7 @@ Invariants:
   - At most four candidate generations are submitted for one plan.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp
+  - SkullbonezSource/Runtime/App/ReplayRuntime.cpp
   - SkullbonezSource/Maths/OrbitalMechanics.h
   - SkullbonezTests/TestReplayTripPlanner.cpp
 */

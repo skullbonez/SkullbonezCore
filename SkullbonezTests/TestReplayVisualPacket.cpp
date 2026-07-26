@@ -38,8 +38,8 @@ Related:
 
 #include "../SkullbonezSource/Runtime/Replay/ReplayVisualPacket.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayVisualPacketFingerprint.h"
+#include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.h"
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.h"
-#include "../SkullbonezSource/Runtime/Replay/ReplayOverlayRenderer.h"
 
 #include <algorithm>
 #include <array>

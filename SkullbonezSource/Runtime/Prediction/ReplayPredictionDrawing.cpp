@@ -30,15 +30,15 @@ Invariants:
 
 Related:
   - ReplayPrediction.h
-  - ReplayOverlayRenderer.h
-  - ReplayPresentation.h
+  - ReplayPredictionDrawing.h
+  - ReplayPredictionPresentation.h
   - Agentic/Reference/comment-style-guide.md
 */
-#include "../Replay/ReplayOverlayRenderer.h"
+#include "ReplayPredictionDrawing.h"
 #include "../Replay/ReplayAuthoring.h"
 #include "ReplayPrediction.h"
+#include "ReplayPredictionPresentation.h"
 #include "ReplayPredictionPublicationOperations.h"
-#include "../Replay/ReplayPresentation.h"
 #include "../Replay/ReplayPresentationSubmission.h"
 #include "../Editor/EditorTools.h"
 #include "../Tools/RuntimeTools.h"
@@ -2358,12 +2358,13 @@ ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPathVis
     return result;
 }
 } // namespace SkullbonezCore::Runtime::ReplayOverlay
-void ReplayPresentation::RenderPathVisualizer( const ReplayPredictionPresentationView& prediction,
-                                               const ReplaySolverFrameSample* presentSample,
-                                               PhysicsEngine& physics,
-                                               const SceneEntityStore& entities,
-                                               EditorTracer& tracer,
-                                               bool drawPredictionOverlay )
+void ReplayPredictionPresentation::RenderPathVisualizer( const ReplayPredictionPresentationView& prediction,
+                                                         const RunReplayPathVisualizerState& path,
+                                                         const ReplaySolverFrameSample* presentSample,
+                                                         PhysicsEngine& physics,
+                                                         const SceneEntityStore& entities,
+                                                         EditorTracer& tracer,
+                                                         bool drawPredictionOverlay )
 {
     tracer.ClearReplayTrajectoryStats();
     const ReplayFrameIndex presentFrame = prediction.generationPermitted && presentSample ? presentSample->frameIndex
@@ -2371,7 +2372,7 @@ void ReplayPresentation::RenderPathVisualizer( const ReplayPredictionPresentatio
 
     const SkullbonezCore::Runtime::ReplayOverlay::ReplayPathVisualizerRenderContext context { prediction,
                                                                                               m_profiler,
-                                                                                              m_pathVisualizer,
+                                                                                              path,
                                                                                               physics,
                                                                                               entities,
                                                                                               tracer,
