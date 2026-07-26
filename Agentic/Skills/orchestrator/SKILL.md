@@ -97,7 +97,10 @@ in-scope attempts and alternatives. When a blocker is genuine:
 1. Leave the owning task or phase incomplete.
 2. Mark its MASTER-PLAN state `Blocked` and record the owner, cause, evidence,
    exact unblock condition, unchanged verified count, and affected dependents
-   in the owning plan and MASTER-PLAN's existing state/next-action fields.
+   in the owning plan, MASTER-PLAN's existing state/next-action fields, and
+   `Agentic/SessionState.md`. A blocker that is not in SessionState is invisible
+   to the next agent, which reads it at startup and would pick the blocked item
+   straight back up.
 3. Never stage broken or unvalidated implementation. If the blocked attempt
    left unsafe partial changes, preserve bounded evidence, then remove only
    changes created by that attempt. Never alter pre-existing user-owned work.
@@ -212,16 +215,25 @@ Return findings with file/line references and a clear verdict.
 7. Run the smallest required pre-commit validation from `AGENTS.md` for that
    plan's final changed-file set. Documentation-only changes require no
    validation.
-8. Run `git status --short --branch` before staging.
-9. Stage only files belonging to the completed plan and its required
+8. Update `Agentic/SessionState.md` whenever a task or phase completes, a plan
+    closes, a blocker is recorded, or the portfolio denominator moves. This is a
+    write step, not a read step: steps 9 and 10 stage and report the update, but
+    neither creates it. At minimum the Current State table's objective and
+    active/future progress figure, and the Live Queue's binding next task, must
+    match the post-commit MASTER-PLAN ledger exactly. Recompute the progress
+    figure from the ledger; never carry the previous value forward. A closed plan
+    that left the live inventory under rule 4 changes both the numerator and the
+    denominator, so the figure usually moves more than one task's worth.
+9. Run `git status --short --branch` before staging.
+10. Stage only files belonging to the completed plan and its required
     reports/session-state updates.
-10. Commit with the required MASTER progress header as the subject's first
+11. Commit with the required MASTER progress header as the subject's first
     fields, followed by a concise action summary. Use the post-commit ledger
     values and update MASTER in the same commit whenever task completion or the
     portfolio denominator changes. The body records what changed, why,
     implementation details by area, exact validation command and result, and
     baseline/report/session-state updates.
-11. Push normally. Never force-push.
+12. Push normally. Never force-push.
 
 Advance after the current item is either reviewed, validated, committed, and
 pushed, or its blocker record is committed and pushed under Blocker
@@ -253,6 +265,10 @@ Report:
 - Any skipped plan, blocker, dirty user-owned file, or residual risk.
 - Goal status plus the next actionable MASTER-PLAN item, or proof that only
   explicitly blocked work remains.
+- Confirmation that `Agentic/SessionState.md` matches the final MASTER-PLAN
+  ledger, quoting the progress figure from both. They are the two documents a
+  fresh agent reads first; if they disagree, the handoff is wrong regardless of
+  how good the work was.
 - Total elapsed wall-clock time and timings for long builds, validations,
   launches, or investigations.
 - A final rubber-duck accounting table, one row per review pass. If no review
