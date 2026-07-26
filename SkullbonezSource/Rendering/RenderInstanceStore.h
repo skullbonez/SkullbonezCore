@@ -23,7 +23,7 @@ Glossary:
   Shadow caster stream: Opaque prepared bin selecting the sphere, box, pine, or
     convex-hull submission stream without interpreting content in the renderer.
   RenderSceneSnapshot: Future immutable frame input consumed by render passes.
-  Scene object id: Stable per-scene id shared with physics/replay records.
+  Scene object id: Stable per-scene id shared with other subsystem records.
   Pose history: Previous/current completed solver endpoints stored in the
     existing fixed-capacity instance row for allocation-free presentation.
 
@@ -133,13 +133,13 @@ struct RenderInstanceRecord
     bool editorVisible = true;                                           // Session-only hierarchy visibility; false suppresses raster/shadow submission.
     bool isFixed = false;                                                // Fixed bodies can receive contact-highlight tinting.
     float fixedContactAlpha = 0.0f;                                      // Render-only red contact feedback strength.
-    Math::Vector::Vector3 previousPosition =
-        Math::Vector::ZERO_VECTOR;                                       // Solver pose before the latest completed fixed tick.
+    Math::Vector::Vector3
+        previousPosition = Math::Vector::ZERO_VECTOR;                    // Solver pose before the latest completed fixed tick.
     Math::Vector::Vector3 currentPosition = Math::Vector::ZERO_VECTOR;   // Solver pose after the latest completed fixed tick.
-    Math::Orientation::Quaternion previousOrientation =
-        Math::Orientation::IDENTITY_QUATERNION;                          // Orientation paired with previousPosition.
-    Math::Orientation::Quaternion currentOrientation =
-        Math::Orientation::IDENTITY_QUATERNION;                          // Orientation paired with currentPosition.
+    Math::Orientation::Quaternion
+        previousOrientation = Math::Orientation::IDENTITY_QUATERNION;    // Orientation paired with previousPosition.
+    Math::Orientation::Quaternion
+        currentOrientation = Math::Orientation::IDENTITY_QUATERNION;     // Orientation paired with currentPosition.
     bool poseHistoryValid = false;                                       // Both endpoints belong to this live body row.
 };
 
@@ -149,7 +149,7 @@ struct RenderInstancePresentationRecord
     ShadowCasterStream shadowCasterStream = ShadowCasterStream::None;    // Scene-owner stream choice copied into the draw row.
     bool editorVisible = true;                                           // Scene editor visibility copied into the prepared draw row.
     char displayName[64] = {};                                           // Presentation/debug label paired with the model slot.
-    bool simpleRagdollPart = false;                                      // Replay ghost filter metadata copied from scene grouping.
+    bool simpleRagdollPart = false;                                      // Presentation filter metadata copied from scene grouping.
     float fixedContactAlpha = 0.0f;                                      // Render-only red contact feedback strength.
     float fixedContactSeconds = 0.0f;                                    // Seconds remaining for fixed-body contact feedback.
 };
@@ -161,13 +161,11 @@ class RenderInstanceStore
 
     void ReservePresentationCapacity( std::size_t capacity );
     bool CanAppendCreationRow( int expectedCount ) const;
-    void CommitCreationRow(
-        const RenderInstancePresentationRecord& presentation,
-        const Physics::PhysicsBodyRecord& body,
-        const Physics::PhysicsBodyHotState& hotState,
-        const Physics::ColliderRecord& collider,
-        int expectedIndex
-    );
+    void CommitCreationRow( const RenderInstancePresentationRecord& presentation,
+                            const Physics::PhysicsBodyRecord& body,
+                            const Physics::PhysicsBodyHotState& hotState,
+                            const Physics::ColliderRecord& collider,
+                            int expectedIndex );
     // Scene deletion compacts presentation, instance, and handle rows together.
     bool DestroyCreationRowAtSwapLast( int modelIndex );
     bool ResizePresentationRecords( int presentationCount );
@@ -184,39 +182,29 @@ class RenderInstanceStore
     void Clear();
     void BeginPhysicsStepPoseCapture( const Physics::PhysicsBodyStore& bodyStore );
     void CompletePhysicsStepPoseCapture( const Physics::PhysicsBodyStore& bodyStore );
-    void Refresh(
-        const Physics::PhysicsBodyStore& bodyStore,
-        const Physics::ColliderStore& colliderStore,
-        float presentationAlpha = 1.0f
-    );
-    void Refresh(
-        const std::vector<RenderInstancePresentationRecord>& presentation,
-        const Physics::PhysicsBodyStore& bodyStore,
-        const Physics::ColliderStore& colliderStore,
-        float presentationAlpha = 1.0f
-    );
-    void Refresh(
-        const RenderInstancePresentationRecord* presentation,
-        int presentationCount,
-        const Physics::PhysicsBodyStore& bodyStore,
-        const Physics::ColliderStore& colliderStore,
-        float presentationAlpha = 1.0f
-    );
-    // Applies a one-frame presentation pose, such as replay scrub/prediction,
+    void Refresh( const Physics::PhysicsBodyStore& bodyStore,
+                  const Physics::ColliderStore& colliderStore,
+                  float presentationAlpha = 1.0f );
+    void Refresh( const std::vector<RenderInstancePresentationRecord>& presentation,
+                  const Physics::PhysicsBodyStore& bodyStore,
+                  const Physics::ColliderStore& colliderStore,
+                  float presentationAlpha = 1.0f );
+    void Refresh( const RenderInstancePresentationRecord* presentation,
+                  int presentationCount,
+                  const Physics::PhysicsBodyStore& bodyStore,
+                  const Physics::ColliderStore& colliderStore,
+                  float presentationAlpha = 1.0f );
+    // Applies a one-frame presentation pose, such as a scrub or simulation preview,
     // without writing that pose into PhysicsBodyStore or authoring storage.
-    bool OverridePose(
-        int modelIndex,
-        Physics::PhysicsSceneObjectId sceneObjectId,
-        const Math::Vector::Vector3& position,
-        const Math::Orientation::Quaternion& orientation,
-        const Physics::ColliderStore& colliderStore
-    );
-    bool TryGetPresentationPose(
-        int modelIndex,
-        float presentationAlpha,
-        Math::Vector::Vector3& outPosition,
-        Math::Orientation::Quaternion& outOrientation
-    ) const;
+    bool OverridePose( int modelIndex,
+                       Physics::PhysicsSceneObjectId sceneObjectId,
+                       const Math::Vector::Vector3& position,
+                       const Math::Orientation::Quaternion& orientation,
+                       const Physics::ColliderStore& colliderStore );
+    bool TryGetPresentationPose( int modelIndex,
+                                 float presentationAlpha,
+                                 Math::Vector::Vector3& outPosition,
+                                 Math::Orientation::Quaternion& outOrientation ) const;
 
     const RenderInstanceRecord* Data() const;
     int Count() const;

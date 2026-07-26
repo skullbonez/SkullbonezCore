@@ -113,7 +113,7 @@ inline const ShaderVertexInputContract* ShippingShaderVertexInputContracts()
         { "solid_color_batch", "POSITION0:xy:NONE,TEXCOORD0:xyzw:NONE" },
         { "text", "POSITION0:xy:NONE,TEXCOORD0:xy:NONE,TEXCOORD1:xyz:NONE" },
         { "transient_colored_triangles", "POSITION0:xyz:NONE,TEXCOORD0:xyzw:NONE,TEXCOORD1:xyzw:NONE" },
-        { "trajectory_ribbon",
+        { "retained_ribbon",
           "POSITION0:xyz:NONE,TEXCOORD0:xyzw:NONE,TEXCOORD1:xyzw:NONE,TEXCOORD2:xy:NONE,TEXCOORD3:xyz:NONE,"
           "TEXCOORD4:xyz:NONE,SV_VertexID0:x:VERTID" },
         { "ui_render_target_preview", "POSITION0:xy:NONE,TEXCOORD0:xy:NONE" },
@@ -272,7 +272,7 @@ inline const ShaderProgramDesc* ShippingRasterShaderContracts()
     static constexpr ShaderUniformDecl projectionUniforms[] = {
         { "uProjection", ShaderValueType::Mat4, true },
     };
-    static constexpr ShaderUniformDecl trajectoryRibbonUniforms[] = {
+    static constexpr ShaderUniformDecl retainedRibbonUniforms[] = {
         { "uViewProj", ShaderValueType::Mat4, true },
         { "uViewportPixels", ShaderValueType::Vec4, true },
         { "uRibbonStyle", ShaderValueType::Vec4, true },
@@ -367,10 +367,14 @@ inline const ShaderProgramDesc* ShippingRasterShaderContracts()
     };
 
     static constexpr ShaderUniformDecl skyAtmosphereUniforms[] = {
-        { "uSunParams", ShaderValueType::Vec4, true },     { "uSunColor", ShaderValueType::Vec3, true },
-        { "uHorizonColor", ShaderValueType::Vec3, true },  { "uZenithColor", ShaderValueType::Vec3, true },
-        { "uCloudParams", ShaderValueType::Vec4, true },   { "uInvView", ShaderValueType::Mat4, true },
-        { "uInvProjection", ShaderValueType::Mat4, true }, { "uSkyMode", ShaderValueType::Int, true },
+        { "uSunParams", ShaderValueType::Vec4, true },
+        { "uSunColor", ShaderValueType::Vec3, true },
+        { "uHorizonColor", ShaderValueType::Vec3, true },
+        { "uZenithColor", ShaderValueType::Vec3, true },
+        { "uCloudParams", ShaderValueType::Vec4, true },
+        { "uInvView", ShaderValueType::Mat4, true },
+        { "uInvProjection", ShaderValueType::Mat4, true },
+        { "uSkyMode", ShaderValueType::Int, true },
     };
 
     static constexpr ShaderUniformDecl tonemapUniforms[] = {
@@ -510,11 +514,11 @@ inline const ShaderProgramDesc* ShippingRasterShaderContracts()
           sizeof( viewProjectionUniforms ) / sizeof( viewProjectionUniforms[0] ),
           nullptr,
           0 },
-        { "trajectory_ribbon",
+        { "retained_ribbon",
           "effects",
           "P3_End4_Color4_Style2_Previous3_Next3",
-          trajectoryRibbonUniforms,
-          sizeof( trajectoryRibbonUniforms ) / sizeof( trajectoryRibbonUniforms[0] ),
+          retainedRibbonUniforms,
+          sizeof( retainedRibbonUniforms ) / sizeof( retainedRibbonUniforms[0] ),
           nullptr,
           0 },
         { "ui_render_target_preview",

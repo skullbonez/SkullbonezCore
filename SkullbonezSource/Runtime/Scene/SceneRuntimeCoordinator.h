@@ -70,13 +70,11 @@ struct SceneLoadRequest
         return request;
     }
 
-    static SceneLoadRequest Load(
-        int index,
-        bool preserveUIState,
-        bool suppressExitOnComplete,
-        bool preserveRuntimeState,
-        bool enterInteractiveSceneRun = false
-    )
+    static SceneLoadRequest Load( int index,
+                                  bool preserveUIState,
+                                  bool suppressExitOnComplete,
+                                  bool preserveRuntimeState,
+                                  bool enterInteractiveSceneRun = false )
     {
         SceneLoadRequest request;
         request.accepted = index >= 0;
@@ -96,8 +94,8 @@ struct SceneLoadRequest
 
 struct SceneRuntimeUICommandResult
 {
-    // Invariant: flags report accepted UI commands for RunInput action logging;
-    // the SceneController request batch preserves their submission order.
+    // Invariant: flags report accepted UI commands for InputFrame transition
+    // recording; SceneController preserves request submission order.
     bool resetScene = false;
     bool resetSceneDefaults = false;
     bool loadDemoScene = false;
@@ -107,8 +105,8 @@ struct SceneRuntimeUICommandResult
     SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
 };
 
-SceneRuntimeUICommandResult
-SubmitSceneUIRequests( SceneController& sceneController, const UI::UISceneCommands& commands );
+SceneRuntimeUICommandResult SubmitSceneUIRequests( SceneController& sceneController,
+                                                   const UI::UISceneCommands& commands );
 
 } // namespace Runtime
 } // namespace SkullbonezCore

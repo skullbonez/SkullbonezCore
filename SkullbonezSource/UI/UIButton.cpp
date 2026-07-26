@@ -25,7 +25,7 @@ Related:
 */
 #include "UIButton.h"
 
-#include "../Rendering/Text.h"
+#include "UIFontMetrics.h"
 #include "UIStyle.h"
 
 #include <algorithm>
@@ -59,19 +59,17 @@ void UIButton::Draw( const UIDrawContext& draw, const char* label, int mouseX, i
     const Style::UIPalette& palette = Style::Palette();
     const float radius = Style::Radii().control;
     const float textSize = 11.0f;
-    const float labelW = Text::Text2d::MeasureText( textSize, label ? label : "" );
+    const float labelW = UIFontMetrics::MeasureText( textSize, label ? label : "" );
     const float labelX = m_bounds.x + (std::max)( 8.0f, ( m_bounds.w - labelW ) * 0.5f );
     const float labelY = m_bounds.y + ( m_bounds.h - textSize ) * 0.5f - 1.0f;
     draw.RoundedPanel( m_bounds, radius, hot ? palette.controlHover : palette.control, palette.border );
-    draw.Text(
-        labelX,
-        labelY,
-        textSize,
-        hot ? palette.textPrimary.r : palette.textSecondary.r,
-        hot ? palette.textPrimary.g : palette.textSecondary.g,
-        hot ? palette.textPrimary.b : palette.textSecondary.b,
-        label
-    );
+    draw.Text( labelX,
+               labelY,
+               textSize,
+               hot ? palette.textPrimary.r : palette.textSecondary.r,
+               hot ? palette.textPrimary.g : palette.textSecondary.g,
+               hot ? palette.textPrimary.b : palette.textSecondary.b,
+               label );
 }
 
 } // namespace UI

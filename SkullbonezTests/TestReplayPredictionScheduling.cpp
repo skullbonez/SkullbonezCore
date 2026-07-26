@@ -26,13 +26,13 @@ Invariants:
   - Solver lookup may preserve a negative sentinel; prediction-style lookup rejects it.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/ReplayPredictionScheduling.h
+  - SkullbonezSource/Runtime/Prediction/ReplayPredictionScheduling.h
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 
-#include "../SkullbonezSource/Runtime/Replay/ReplayPredictionScheduling.h"
-#include "../SkullbonezSource/Runtime/Replay/ReplayPredictionPublication.h"
-#include "../SkullbonezSource/Runtime/Replay/ReplayPredictionPublicationOperations.h"
+#include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionScheduling.h"
+#include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.h"
+#include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionPublicationOperations.h"
 
 using SkullbonezCore::Runtime::ReplayPredictionBuildMode;
 using SkullbonezCore::Runtime::ReplayPredictionCoalescerAction;

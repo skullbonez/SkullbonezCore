@@ -48,15 +48,38 @@ only after it has been inspected against this skill and the guide.
 5. Replace non-assumed acronym-only comments with concept comments.
 6. Replace restatement comments with `Why:`, `Invariant:`, `Lifetime:`, or
    `Hazard:` comments.
-7. Keep comments close to the concept they explain.
-8. Preserve existing useful teaching comments. Do not rewrite good comments
+7. For any type that aggregates unrelated-owner data or orchestrates
+   multi-owner sequencing, require a header `Invariant:` block that names the
+   rule the type enforces and identify the focused test that exercises it.
+   Absence of either artifact is an audit failure; a data-only aggregate that
+   merely shortens a signature remains a banned bag.
+8. Verify behavioral claims in every touched file:
+   - Identify sentences that assert ownership, sequencing, or subsystem
+     behavior and confirm each against the post-change source and call path.
+   - Correct in the same commit every claim falsified by a responsibility move.
+   - Treat `still owns`, `remains the owner`, `currently`, `for now`,
+     `temporarily`, `on this branch`, `not yet`, and embedded task codes such
+     as `C1` or `UR3` as prompts to verify, not banned words. The repository
+     audit found roughly 55 correct uses that describe runtime state.
+   - Require repository-relative `Related:` entries to resolve. Cite permanent
+     closure reports, never deletion-bound `Agentic/Plans/TODO/` paths.
+9. Keep comments close to the concept they explain.
+10. Preserve existing useful teaching comments. Do not rewrite good comments
    just to make them look new.
-9. Tick each checklist item only after the file was inspected. Leave deferred
+11. Tick each checklist item only after the file was inspected. Leave deferred
    files unchecked and record the reason beside the item.
-10. Rerun the scoped `git ls-files` inventory before reporting completion and
+12. Rerun the scoped `git ls-files` inventory before reporting completion and
     confirm every tracked source file in scope appears in the checklist exactly
     once.
-11. Confirm the diff is comment/documentation only before reporting completion.
+13. Confirm the diff is comment/documentation only before reporting completion.
+
+## Why Claim Verification Exists
+
+`RenderGraph.h` once retained a pre-completion claim that DX12 still owned live
+barrier derivation after `Dx12RenderGraphExecutor` had taken that responsibility.
+An architecture review trusted the stale header and nearly registered a
+six-task campaign to rebuild shipped work. Verify responsibility claims against
+post-change source so ownership moves cannot create the same false finding.
 
 ## Checklist
 
@@ -71,6 +94,12 @@ only after it has been inspected against this skill and the guide.
 - Scene/runtime files call out command-line and scene-file compatibility.
 - UI files call out the request/command contract and draw/hitbox consistency.
 - Tools call out bounded output and validation purpose.
+- Aggregate/transaction types name their enforced invariant and focused test;
+  data-only parameter bags fail the audit.
+- Ownership, sequencing, and behavior claims match post-change source; every
+  rot marker was reviewed as a prompt rather than rejected mechanically.
+- Repository-relative `Related:` entries resolve and permanent history points
+  to closure reports rather than live `TODO/` plans.
 - No source file in the selected scope is silently skipped. The checklist has no
   unchecked items unless each remaining item has a written deferral reason.
 
@@ -81,5 +110,6 @@ Summarize:
 - Files or subsystems audited.
 - Checklist path, checked count, deferred count, and unchecked files if any.
 - The comment/documentation changes made.
+- The ownership, sequencing, and behavior claims verified or corrected.
 - Any terms that still need human-approved wording.
 - Validation status, usually: `No validation run; comment-only changes.`

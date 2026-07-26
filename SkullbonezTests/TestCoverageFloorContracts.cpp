@@ -32,7 +32,7 @@
 // Related:
 //   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.cpp
 //   - SkullbonezSource/Physics/ObjectContactManifold.cpp
-//   - Agentic/Plans/TODO/unit-test-coverage-campaign.md
+//   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
@@ -65,6 +65,7 @@ using SkullbonezCore::Math::CollisionDetection::CollisionShape;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::BuildObjectContactManifold;
 using SkullbonezCore::Physics::BuildTerrainContactManifold;
+using SkullbonezCore::Physics::BuoyancyBodyFacts;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
@@ -155,12 +156,13 @@ void CheckUnderwaterForcePath( const CollisionShape& shape, uint32_t sceneId )
     colliders.Clear();
 
     PhysicsBodyCreateRecord body;
+    BuoyancyBodyFacts buoyancyFacts;
     body.cold.sceneObjectId = PhysicsSceneObjectId{ sceneId };
     body.cold.mass = 4.0f;
-    body.cold.volume = SkullbonezCore::Math::CollisionDetection::GetShapeVolume( shape );
-    body.cold.projectedSurfaceArea =
+    buoyancyFacts.volume = SkullbonezCore::Math::CollisionDetection::GetShapeVolume( shape );
+    buoyancyFacts.projectedSurfaceArea =
         SkullbonezCore::Math::CollisionDetection::GetShapeProjectedSurfaceArea( shape );
-    body.cold.dragCoefficient = 0.4f;
+    buoyancyFacts.dragCoefficient = 0.4f;
     body.cold.rotationalInertia = Vector3( 8.0f, 2.0f, 6.0f );
     body.cold.angularVelocityLimit = 100.0f;
     body.cold.usesWorldInertia = true;
@@ -180,8 +182,8 @@ void CheckUnderwaterForcePath( const CollisionShape& shape, uint32_t sceneId )
     collider.shape = shape;
     collider.shapeKind = ShapeKind( shape );
     collider.boundingRadius = body.hot.boundingRadius;
-    collider.projectedSurfaceArea = body.cold.projectedSurfaceArea;
-    collider.dragCoefficient = body.cold.dragCoefficient;
+    collider.projectedSurfaceArea = buoyancyFacts.projectedSurfaceArea;
+    collider.dragCoefficient = buoyancyFacts.dragCoefficient;
     REQUIRE( colliders.CreateColliderRecord( collider ).IsValid() );
 
     PhysicsWorldForces forces;
@@ -191,7 +193,7 @@ void CheckUnderwaterForcePath( const CollisionShape& shape, uint32_t sceneId )
     forces.gasDensity = 0.05f;
     forces.angularDragMultiplier = 2.0f;
     const Vector3 mutualForce( 1.0f, 0.0f, -0.5f );
-    REQUIRE( bodies.ApplyForces( forces, colliders, 0, 1.0f / 120.0f, &mutualForce ) );
+    REQUIRE( bodies.ApplyForces( forces, colliders, {}, buoyancyFacts, 0, 1.0f / 120.0f, &mutualForce ) );
     const auto hot = bodies.HotFields();
     CHECK( std::isfinite( hot.linearVelocityX[0] ) );
     CHECK( std::isfinite( hot.linearVelocityY[0] ) );
@@ -218,7 +220,6 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
                                                2.0f,
                                                0.25f,
                                                PhysicsBodyMotionKind::Dynamic,
-                                               nullptr,
                                                "coverage-artifact-body" );
     auto colliderDesc = MakeColliderCreateDesc( shape, 0.25f, 4u, "coverage-artifact" );
     colliderDesc.sceneObjectId = bodyDesc.sceneObjectId;
@@ -270,22 +271,26 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     shot.active = true;
     launcher.laserShots.push_back( shot );
 
-    ReplayCaptureInput capture;
     SkullbonezCore::Gameplay::TornadoGameplay tornadoGameplay;
-    capture.branch.branchId = 9u;
-    capture.branch.parentBranchId = 4u;
-    capture.eventCursor = 3u;
-    capture.sceneFrame = 20;
-    capture.physicsDt = 1.0f / 120.0f;
-    capture.fixedStep = true;
-    capture.physics = &engine;
-    capture.tornadoGameplay = &tornadoGameplay;
-    capture.entities = &entities;
-    capture.bodyStore = &PhysicsEngine::ReadBodies( engine );
-    capture.colliderStore = &PhysicsEngine::ReadColliders( engine );
-    capture.launcherVisual = &launcher;
+    ReplayBranchInfo captureBranch;
+    captureBranch.branchId = 9u;
+    captureBranch.parentBranchId = 4u;
+    ReplayWorldPresentationSample captureWorld;
+    captureWorld.fixedStep = true;
+    ReplayCameraSample captureCamera;
 
-    solver.CaptureFrame( capture );
+    solver.CaptureFrame( captureBranch,
+                         3u,
+                         20,
+                         1.0f / 120.0f,
+                         captureWorld,
+                         captureCamera,
+                         launcher,
+                         engine,
+                         tornadoGameplay,
+                         entities,
+                         PhysicsEngine::ReadBodies( engine ),
+                         PhysicsEngine::ReadColliders( engine ) );
     const ReplaySolverFrameSample* sample = solver.LatestSample();
     REQUIRE( sample != nullptr );
     presentation.CaptureFrameFromSolverSample( *sample );
@@ -294,9 +299,18 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
                                      Vector3( 2.0f, 1.0f, -1.0f ),
                                      Vector3( 0.1f, 0.2f, 0.3f ),
                                      true ) );
-    capture.eventCursor = 4u;
-    capture.sceneFrame = 21;
-    solver.CaptureFrame( capture );
+    solver.CaptureFrame( captureBranch,
+                         4u,
+                         21,
+                         1.0f / 120.0f,
+                         captureWorld,
+                         captureCamera,
+                         launcher,
+                         engine,
+                         tornadoGameplay,
+                         entities,
+                         PhysicsEngine::ReadBodies( engine ),
+                         PhysicsEngine::ReadColliders( engine ) );
     sample = solver.LatestSample();
     REQUIRE( sample != nullptr );
     presentation.CaptureFrameFromSolverSample( *sample );
@@ -305,7 +319,7 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     {
         ReplayEventInput event;
         event.frameIndex = frame;
-        event.branch = capture.branch;
+        event.branch = captureBranch;
         event.kind = ReplayEventKind::OwnerAction;
         event.flags = 5u + static_cast<uint32_t>( frame );
         event.value0 = 100 + static_cast<int32_t>( frame );
@@ -429,7 +443,7 @@ TEST_CASE( "Coverage floor contract: terrain sweep and manifold support every co
         TerrainContactBodyView body;
         body.position = Vector3( 20.0f, centerHeights[index], 20.0f );
         body.linearVelocity = Vector3( 0.0f, -5.0f, 0.0f );
-        body.terrain = &terrain;
+        body.terrain = terrain.PhysicsView();
         body.boundingRadius = SkullbonezCore::Math::CollisionDetection::GetShapeBoundingRadius( shapes[index] );
         body.contactEpsilon = 0.05f;
         body.terrainContactThreshold = 0.15f;
@@ -452,7 +466,7 @@ TEST_CASE( "Coverage floor contract: terrain sweep and manifold support every co
     // centroid reduction used by the swept cases above.
     TerrainContactBodyView resting;
     resting.position = Vector3( 20.0f, 1.0f, 20.0f );
-    resting.terrain = &terrain;
+    resting.terrain = terrain.PhysicsView();
     resting.terrainContactThreshold = 0.15f;
     resting.contactEpsilon = 0.05f;
     TerrainContactSweepResult restingSweep;

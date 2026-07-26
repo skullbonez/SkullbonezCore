@@ -50,16 +50,15 @@ using namespace SkullbonezCore::Rendering;
 
 namespace
 {
-void AllocateImGuiDescriptor(
-    ImGui_ImplDX12_InitInfo* info,
-    D3D12_CPU_DESCRIPTOR_HANDLE* outCpu,
-    D3D12_GPU_DESCRIPTOR_HANDLE* outGpu
-)
+void AllocateImGuiDescriptor( ImGui_ImplDX12_InitInfo* info,
+                              D3D12_CPU_DESCRIPTOR_HANDLE* outCpu,
+                              D3D12_GPU_DESCRIPTOR_HANDLE* outGpu )
 {
     if ( !info || !info->UserData || !outCpu || !outGpu )
     {
         SB_FATAL( "Rendering/DX12/ImGui", "Descriptor allocation callback received an invalid capability." );
     }
+
     // Why: the pinned vendor API requires retained callbacks. UserData is the
     // concrete descriptor owner, not a backend/service bag; callbacks run only
     // for font or explicit editor texture creation, outside world hot loops.
@@ -69,33 +68,28 @@ void AllocateImGuiDescriptor(
     *outGpu = descriptor.gpuHandle;
 }
 
-void FreeImGuiDescriptor(
-    ImGui_ImplDX12_InitInfo* info,
-    D3D12_CPU_DESCRIPTOR_HANDLE cpu,
-    D3D12_GPU_DESCRIPTOR_HANDLE gpu
-)
+void FreeImGuiDescriptor( ImGui_ImplDX12_InitInfo* info,
+                          D3D12_CPU_DESCRIPTOR_HANDLE cpu,
+                          D3D12_GPU_DESCRIPTOR_HANDLE gpu )
 {
     if ( !info || !info->UserData )
     {
         SB_FATAL( "Rendering/DX12/ImGui", "Descriptor free callback received an invalid capability." );
     }
+
     static_cast<Dx12DescriptorHeaps*>( info->UserData )->FreeDevelopmentUi( cpu, gpu );
 }
 } // namespace
 
-Dx12ImGuiRendererOwner::Dx12ImGuiRendererOwner(
-    Dx12RenderDevice& device,
-    Dx12DescriptorHeaps& descriptors,
-    Dx12FrameOwner& frame,
-    Dx12PipelineOwner& pipeline,
-    Dx12TextureOwner& textures
-) noexcept
+Dx12ImGuiRendererOwner::Dx12ImGuiRendererOwner( Dx12RenderDevice& device,
+                                                Dx12DescriptorHeaps& descriptors,
+                                                Dx12FrameOwner& frame,
+                                                Dx12PipelineOwner& pipeline,
+                                                Dx12TextureOwner& textures ) noexcept
     : m_device( device ), m_descriptors( descriptors ), m_frame( frame ), m_pipeline( pipeline ), m_textures( textures )
 {
-    static_assert(
-        Dx12FrameOwner::FRAME_COUNT == 2,
-        "Dear ImGui frame resources must match the engine's two-frame reuse contract."
-    );
+    static_assert( Dx12FrameOwner::FRAME_COUNT == 2,
+                   "Dear ImGui frame resources must match the engine's two-frame reuse contract." );
 }
 
 SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::BindContext( ImGuiContext& context )
@@ -104,13 +98,13 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::BindContext( ImGuiContext
     {
         return SkullbonezCore::Core::SbResult::Success();
     }
+
     if ( !m_device.Device() || !m_device.GraphicsQueue() || !m_descriptors.DevelopmentUiHeap() )
     {
         // Lane R: device/heap publication depends on the host graphics environment.
         return SkullbonezCore::Core::SbResult::Failure(
             "Rendering/DX12/ImGui",
-            "Cannot bind ImGui renderer without a complete device, queue, and development descriptor heap"
-        );
+            "Cannot bind ImGui renderer without a complete device, queue, and development descriptor heap" );
     }
 
     ImGui::SetCurrentContext( &context );
@@ -128,30 +122,26 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::BindContext( ImGuiContext
     info.SrvDescriptorFreeFn = FreeImGuiDescriptor;
     if ( !ImGui_ImplDX12_Init( &info ) )
     {
-        return SkullbonezCore::Core::SbResult::Failure(
-            "Rendering/DX12/ImGui",
-            "Dear ImGui DX12 backend initialization failed"
-        );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12/ImGui",
+                                                        "Dear ImGui DX12 backend initialization failed" );
     }
+
     m_initialized = true;
     if ( !ImGui_ImplDX12_CreateDeviceObjects() )
     {
         ImGui_ImplDX12_Shutdown();
         m_initialized = false;
-        return SkullbonezCore::Core::SbResult::Failure(
-            "Rendering/DX12/ImGui",
-            "Dear ImGui DX12 device-object creation failed"
-        );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12/ImGui",
+                                                        "Dear ImGui DX12 device-object creation failed" );
     }
+
     m_gameViewportDescriptor = m_descriptors.AllocateDevelopmentUi();
 
     const Dx12DevelopmentUiDescriptorStats descriptorStats = m_descriptors.DevelopmentUiStats();
-    printf(
-        "[imgui-dx12] Renderer ready frames=%d descriptors=%u/%u.\n",
-        Dx12FrameOwner::FRAME_COUNT,
-        descriptorStats.used,
-        descriptorStats.capacity
-    );
+    printf( "[imgui-dx12] Renderer ready frames=%d descriptors=%u/%u.\n",
+            Dx12FrameOwner::FRAME_COUNT,
+            descriptorStats.used,
+            descriptorStats.capacity );
 
     return SkullbonezCore::Core::SbResult::Success();
 }
@@ -162,6 +152,7 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::EnsureGameViewportTexture
     {
         return SkullbonezCore::Core::SbResult::Success();
     }
+
     const uint64_t deviceGeneration = m_device.RecreationGeneration();
     if ( m_gameViewportTexture && m_gameViewportWidth == width && m_gameViewportHeight == height &&
          m_gameViewportDeviceGeneration == deviceGeneration )
@@ -190,14 +181,12 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::EnsureGameViewportTexture
     texture.Flags = D3D12_RESOURCE_FLAG_NONE;
 
     ID3D12Resource* candidate = nullptr;
-    const HRESULT createResult = m_device.Device()->CreateCommittedResource(
-        &heap,
-        D3D12_HEAP_FLAG_NONE,
-        &texture,
-        D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-        nullptr,
-        IID_PPV_ARGS( &candidate )
-    );
+    const HRESULT createResult = m_device.Device()->CreateCommittedResource( &heap,
+                                                                             D3D12_HEAP_FLAG_NONE,
+                                                                             &texture,
+                                                                             D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+                                                                             nullptr,
+                                                                             IID_PPV_ARGS( &candidate ) );
 
     if ( FAILED( createResult ) || !candidate )
     {
@@ -208,9 +197,9 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::EnsureGameViewportTexture
             "CreateCommittedResource for the game viewport failed (hr=0x%08X extent=%dx%d)",
             static_cast<unsigned int>( createResult ),
             width,
-            height
-        );
+            height );
     }
+
     candidate->SetName( L"Skore ImGui Game Viewport Copy" );
 
     D3D12_SHADER_RESOURCE_VIEW_DESC srv = {};
@@ -226,6 +215,7 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::EnsureGameViewportTexture
     {
         m_gameViewportTexture->Release();
     }
+
     m_gameViewportTexture = candidate;
     m_gameViewportWidth = width;
     m_gameViewportHeight = height;
@@ -238,30 +228,28 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::CaptureGameViewport()
 {
     if ( !m_initialized )
     {
-        return SkullbonezCore::Core::SbResult::Failure(
-            "Rendering/DX12/ImGui",
-            "Game viewport capture has no live renderer binding"
-        );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12/ImGui",
+                                                        "Game viewport capture has no live renderer binding" );
     }
+
     SkullbonezCore::Core::SbResult result = m_frame.EnsureOpen();
     if ( !result.ok )
     {
         return result;
     }
+
     ID3D12Resource* backbuffer = m_frame.RenderTarget( m_frame.FrameIndex() );
     ID3D12GraphicsCommandList* commandList = m_frame.CommandList();
     if ( !backbuffer || !commandList )
     {
         return SkullbonezCore::Core::SbResult::Failure(
             "Rendering/DX12/ImGui",
-            "Game viewport capture has no active backbuffer or command list"
-        );
+            "Game viewport capture has no active backbuffer or command list" );
     }
+
     const D3D12_RESOURCE_DESC backbufferDesc = backbuffer->GetDesc();
-    result = EnsureGameViewportTexture(
-        static_cast<int>( backbufferDesc.Width ),
-        static_cast<int>( backbufferDesc.Height )
-    );
+    result = EnsureGameViewportTexture( static_cast<int>( backbufferDesc.Width ),
+                                        static_cast<int>( backbufferDesc.Height ) );
 
     if ( !result.ok || !m_gameViewportTexture )
     {
@@ -276,6 +264,7 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::CaptureGameViewport()
     {
         return m_frame.CurrentResult();
     }
+
     D3D12_RESOURCE_BARRIER toCopy = {};
 
     toCopy.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -293,6 +282,7 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::CaptureGameViewport()
     {
         return m_frame.CurrentResult();
     }
+
     ++m_gameViewportCaptures;
     return SkullbonezCore::Core::SbResult::Success();
 }
@@ -303,6 +293,7 @@ void Dx12ImGuiRendererOwner::BeginFrame( ImGuiContext& context )
     {
         SB_FATAL( "Rendering/DX12/ImGui", "BeginFrame called without a live renderer binding." );
     }
+
     ImGui::SetCurrentContext( &context );
     ImGui_ImplDX12_NewFrame();
 }
@@ -311,11 +302,10 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::RenderDrawData( ImGuiCont
 {
     if ( !m_initialized )
     {
-        return SkullbonezCore::Core::SbResult::Failure(
-            "Rendering/DX12/ImGui",
-            "Draw submission has no live renderer binding"
-        );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12/ImGui",
+                                                        "Draw submission has no live renderer binding" );
     }
+
     if ( drawData.DisplaySize.x <= 0.0f || drawData.DisplaySize.y <= 0.0f )
     {
         return SkullbonezCore::Core::SbResult::Success();
@@ -326,16 +316,15 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::RenderDrawData( ImGuiCont
     {
         return result;
     }
+
     if ( m_frame.BackBufferAccess() != RenderGraphResourceAccess::RenderTarget )
     {
         // Invariant: RuntimeRenderer schedules UiTargetAcquire before either UI
         // surface submits. The vendor renderer consumes that state and cannot
         // become a second backbuffer barrier authority.
-        SB_FATAL(
-            "Rendering/DX12/ImGui",
-            "Development UI submission reached a non-render-target backbuffer. tracked=%s",
-            ToString( m_frame.BackBufferAccess() )
-        );
+        SB_FATAL( "Rendering/DX12/ImGui",
+                  "Development UI submission reached a non-render-target backbuffer. tracked=%s",
+                  ToString( m_frame.BackBufferAccess() ) );
     }
 
     ID3D12GraphicsCommandList* commandList = m_frame.CommandList();
@@ -367,6 +356,7 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::RenderDrawData( ImGuiCont
             }
         }
     }
+
     return SkullbonezCore::Core::SbResult::Success();
 }
 
@@ -376,6 +366,7 @@ void Dx12ImGuiRendererOwner::Shutdown( ImGuiContext& context ) noexcept
     {
         return;
     }
+
     ImGui::SetCurrentContext( &context );
     ImGui_ImplDX12_Shutdown();
     if ( m_gameViewportTexture )
@@ -383,11 +374,13 @@ void Dx12ImGuiRendererOwner::Shutdown( ImGuiContext& context ) noexcept
         m_gameViewportTexture->Release();
         m_gameViewportTexture = nullptr;
     }
+
     if ( m_gameViewportDescriptor.cpuHandle.ptr != 0u )
     {
         m_descriptors.FreeDevelopmentUi( m_gameViewportDescriptor.cpuHandle, m_gameViewportDescriptor.gpuHandle );
         m_gameViewportDescriptor = {};
     }
+
     m_gameViewportWidth = 0;
     m_gameViewportHeight = 0;
     m_gameViewportDeviceGeneration = 0;
@@ -396,25 +389,22 @@ void Dx12ImGuiRendererOwner::Shutdown( ImGuiContext& context ) noexcept
     const Dx12DevelopmentUiDescriptorStats descriptorStats = m_descriptors.DevelopmentUiStats();
     if ( descriptorStats.used != 0u )
     {
-        SB_FATAL(
-            "Rendering/DX12/ImGui",
-            "Renderer shutdown leaked bounded descriptor rows. used=%u capacity=%u high_water=%u",
-            descriptorStats.used,
-            descriptorStats.capacity,
-            descriptorStats.highWater
-        );
+        SB_FATAL( "Rendering/DX12/ImGui",
+                  "Renderer shutdown leaked bounded descriptor rows. used=%u capacity=%u high_water=%u",
+                  descriptorStats.used,
+                  descriptorStats.capacity,
+                  descriptorStats.highWater );
     }
-    printf(
-        "[imgui-dx12] Renderer shutdown frames=%llu draws=%llu viewport_captures=%llu "
-        "viewport_recreates=%u descriptors=%u high_water=%u/%u.\n",
-        static_cast<unsigned long long>( m_recordedFrames ),
-        static_cast<unsigned long long>( m_indexedDraws ),
-        static_cast<unsigned long long>( m_gameViewportCaptures ),
-        m_gameViewportRecreations,
-        descriptorStats.used,
-        descriptorStats.highWater,
-        descriptorStats.capacity
-    );
+
+    printf( "[imgui-dx12] Renderer shutdown frames=%llu draws=%llu viewport_captures=%llu "
+            "viewport_recreates=%u descriptors=%u high_water=%u/%u.\n",
+            static_cast<unsigned long long>( m_recordedFrames ),
+            static_cast<unsigned long long>( m_indexedDraws ),
+            static_cast<unsigned long long>( m_gameViewportCaptures ),
+            m_gameViewportRecreations,
+            descriptorStats.used,
+            descriptorStats.highWater,
+            descriptorStats.capacity );
 }
 
 bool Dx12ImGuiRendererOwner::IsInitialized() const noexcept

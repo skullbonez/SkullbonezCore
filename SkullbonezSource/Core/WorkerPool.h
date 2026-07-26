@@ -87,26 +87,22 @@ class WorkerPool
     // stays private so runtime callers cannot build callback-style interfaces.
     template <typename TaskT> void SubmitNoAlloc( TaskT& task );
     template <typename IndexFunctionT>
-    void ParallelForNoAlloc(
-        int begin,
-        int end,
-        IndexFunctionT&& fn,
-        int minParallelItems,
-        const char* workerMarkerPath,
-        uint32_t workerMarkerHash
-    );
+    void ParallelForNoAlloc( int begin,
+                             int end,
+                             IndexFunctionT&& fn,
+                             int minParallelItems,
+                             const char* workerMarkerPath,
+                             uint32_t workerMarkerHash );
     template <typename ChunkFunctionT>
     void ParallelForChunksNoAlloc( const WorkerChunkRange* chunks, int chunkCount, ChunkFunctionT&& fn );
     // Returns deterministic chunk ranges in caller-owned storage. Use this for
     // hot-path two-pass jobs that need prefix sums or fixed scratch before
     // calling ParallelForChunksNoAlloc().
-    int BuildChunkRangesNoAlloc(
-        int begin,
-        int end,
-        int minParallelItems,
-        WorkerChunkRange* outChunks,
-        int outCapacity
-    ) const;
+    int BuildChunkRangesNoAlloc( int begin,
+                                 int end,
+                                 int minParallelItems,
+                                 WorkerChunkRange* outChunks,
+                                 int outCapacity ) const;
 
     int GetThreadCount() const;
     int GetMinParallelItems() const;
@@ -118,14 +114,12 @@ class WorkerPool
     static int CurrentWorkerIndex();
 
     template <typename ChunkOutput, typename BuildChunk, typename MergeChunk>
-    void ParallelCollectOrdered(
-        int begin,
-        int end,
-        std::vector<ChunkOutput>& chunkOutputs,
-        BuildChunk buildChunk,
-        MergeChunk mergeChunk,
-        int minParallelItems = 0
-    )
+    void ParallelCollectOrdered( int begin,
+                                 int end,
+                                 std::vector<ChunkOutput>& chunkOutputs,
+                                 BuildChunk buildChunk,
+                                 MergeChunk mergeChunk,
+                                 int minParallelItems = 0 )
     {
         WorkerChunkRange chunks[WORKER_PARALLEL_TASK_CAPACITY];
         const int chunkCount = BuildChunks( begin, end, minParallelItems, chunks, WORKER_PARALLEL_TASK_CAPACITY );
@@ -136,8 +130,7 @@ class WorkerPool
             chunks,
             chunkCount,
             [&]( int chunkIndex, int chunkBegin, int chunkEnd )
-            { buildChunk( chunkIndex, chunkBegin, chunkEnd, chunkOutputs[static_cast<size_t>( chunkIndex )] ); }
-        );
+            { buildChunk( chunkIndex, chunkBegin, chunkEnd, chunkOutputs[static_cast<size_t>( chunkIndex )] ); } );
 
         for ( size_t chunkIndex = 0; chunkIndex < chunkOutputs.size(); ++chunkIndex )
         {
@@ -226,14 +219,12 @@ template <typename TaskT> void WorkerPool::ExecuteTaskRecord( void* taskState )
 }
 
 template <typename IndexFunctionT>
-void WorkerPool::ParallelForNoAlloc(
-    int begin,
-    int end,
-    IndexFunctionT&& fn,
-    int minParallelItems,
-    const char* workerMarkerPath,
-    uint32_t workerMarkerHash
-)
+void WorkerPool::ParallelForNoAlloc( int begin,
+                                     int end,
+                                     IndexFunctionT&& fn,
+                                     int minParallelItems,
+                                     const char* workerMarkerPath,
+                                     uint32_t workerMarkerHash )
 {
     const int itemCount = end - begin;
     if ( itemCount <= 0 )

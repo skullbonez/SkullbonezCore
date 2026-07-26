@@ -29,6 +29,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SceneController.h"
+#include "SceneLoadTransaction.h"
 #include "../Automation/RuntimeValidationHarness.h"
 #include "../Tools/RuntimeTools.h"
 #include "SceneRuntimeCreate.h"
@@ -47,34 +48,55 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 
 
-bool SceneController::ExecutePending(
-    const SceneLoadPolicyInputs& policy,
-    const SceneLoadInteractionParticipants& interaction,
-    const SceneLoadPresentationParticipants& presentation,
-    SceneLoadConsumerOutputs& consumerOutputs
-)
+bool SceneController::ExecutePending( SceneLoadTransaction& transaction,
+                                      SkullbonezCore::Core::EngineConfig& config,
+                                      RunLaunchOptions& launchOptions,
+                                      const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender,
+                                      const RunStartupState& startup,
+                                      Assets::AssetSystem& assets,
+                                      Threading::WorkerPool& workerPool,
+                                      DiagnosticsRuntime& diagnosticsRuntime,
+                                      Rendering::Dx12FrameOwner* renderFrame,
+                                      Rendering::Dx12ResourceBuilder* renderResources,
+                                      RuntimeRenderer& renderer )
 {
     SceneRequestBatch completedRequests;
     SceneController& m_sceneController = *this;
+    const CameraControlState& camera = transaction.m_outputs.camera;
+    const SceneLoadNavigationState& navigation = transaction.m_outputs.navigation;
     const auto executeSceneLoadRequest = [&]( const SceneLoadRequest& request )
     {
         if ( !request.accepted )
         {
             return false;
         }
-        return m_sceneController.Load( request, policy, interaction, presentation, consumerOutputs ).ok;
+
+        return transaction
+            .Load( m_sceneController,
+                   request,
+                   config,
+                   launchOptions,
+                   defaultCinematicRender,
+                   startup,
+                   assets,
+                   workerPool,
+                   diagnosticsRuntime,
+                   renderFrame,
+                   renderResources,
+                   renderer )
+            .ok;
     };
 
     const SceneRequestBatch batch = m_sceneController.TakePendingRequests();
     if ( batch.rejectedTransitionCount > 0 )
     {
-        std::fprintf(
-            stderr,
-            "Runtime/SceneController: rejected %zu additional same-frame scene transition(s)\n",
-            batch.rejectedTransitionCount
-        );
+        std::fprintf( stderr,
+                      "Runtime/SceneController: rejected %zu additional same-frame scene transition(s)\n",
+                      batch.rejectedTransitionCount );
+
         std::fflush( stderr );
     }
+
     for ( std::size_t requestIndex = 0; requestIndex < batch.count; ++requestIndex )
     {
         const SceneRequest& request = batch.requests[requestIndex];
@@ -83,48 +105,47 @@ bool SceneController::ExecutePending(
         {
         case SceneRequestType::LoadBrowserIndex:
             accepted = executeSceneLoadRequest(
-                interaction.navigation.LoadSceneFromBrowserIndex( request.index, m_sceneController.Runtime() )
-            );
+                navigation.LoadSceneFromBrowserIndex( request.index, m_sceneController.Runtime() ) );
+
             break;
         case SceneRequestType::LoadDemoScene:
-            accepted = executeSceneLoadRequest( interaction.navigation.LoadDemoScene( m_sceneController.Runtime() ) );
+            accepted = executeSceneLoadRequest( navigation.LoadDemoScene( m_sceneController.Runtime() ) );
             break;
         case SceneRequestType::ResetCurrentScene:
-            accepted = executeSceneLoadRequest( m_sceneController.ResetCurrentScene(
-                request.preserveUIState,
-                request.suppressExitOnComplete,
-                request.preserveRuntimeState
-            ) );
+            accepted = executeSceneLoadRequest( m_sceneController.ResetCurrentScene( request.preserveUIState,
+                                                                                     request.suppressExitOnComplete,
+                                                                                     request.preserveRuntimeState ) );
+
             break;
         case SceneRequestType::CreateScene:
         {
-            const SceneLoadRequest createRequest =
-                CreateSceneFromUI( SceneRuntimeCreateContext { m_sceneController }, request.text );
+            const SceneLoadRequest createRequest = CreateSceneFromUI( SceneRuntimeCreateContext { m_sceneController },
+                                                                      request.text );
+
             accepted = executeSceneLoadRequest( createRequest );
             // Why: file creation can succeed before a later load phase fails.
             // The UI still needs to discover that durable authored file, while
             // replay records the create action only after the load completes.
-            consumerOutputs.refreshSceneBrowser = createRequest.accepted;
+            transaction.m_outputs.refreshSceneBrowser = createRequest.accepted;
             break;
         }
         case SceneRequestType::SaveCurrentDefaults:
         {
-            const OverlayDebugState& presentationState =
-                ScenePresentationForFollowingRequest( presentation.debug, consumerOutputs, LifecyclePacket() );
-            const SceneLoadNavigationState& currentNavigation =
-                SceneNavigationForFollowingRequest( interaction.navigation, consumerOutputs );
+            const OverlayDebugState& presentationState = transaction.PresentationForFollowingRequest(
+                transaction.m_outputs.presentation,
+                LifecyclePacket() );
+
+            const SceneLoadNavigationState& currentNavigation = transaction.NavigationForFollowingRequest( transaction.m_outputs.navigation );
+
             const SkullbonezCore::Core::SbResult saveResult = m_sceneController.SaveCurrentDefaults(
-                SceneDefaultsSaveView { presentationState,
-                                        presentation.renderer,
-                                        interaction.camera,
-                                        currentNavigation.overrides }
-            );
+                SceneDefaultsSaveView { presentationState, renderer, camera, currentNavigation.overrides } );
 
             if ( !saveResult.ok )
             {
                 std::fprintf( stderr, "[%s] %s\n", saveResult.error.owner, saveResult.error.message );
                 std::fflush( stderr );
             }
+
             accepted = saveResult.ok;
             break;
         }
@@ -139,8 +160,10 @@ bool SceneController::ExecutePending(
             {
                 SB_FATAL( "Runtime/SceneController", "Fixed completed scene-request capacity exhausted." );
             }
+
             completedRequests.requests[completedRequests.count++] = request;
         }
+
         if ( !SceneRequestBatchContinuesAfter( request.type, accepted ) )
         {
             // Hazard: load/create teardown may already have cleared the old
@@ -149,6 +172,8 @@ bool SceneController::ExecutePending(
             break;
         }
     }
-    consumerOutputs.completedRequests = completedRequests;
+
+    transaction.m_outputs.completedRequests = completedRequests;
+    transaction.FinishLoadPhase();
     return batch.count > 0;
 }

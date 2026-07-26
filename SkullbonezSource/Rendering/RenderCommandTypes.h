@@ -15,14 +15,14 @@ Glossary:
   Dynamic vertex buffer: Backend-owned transient buffer used for text, overlays,
     and other per-frame geometry.
   Transient triangle style: Shader interpretation for packed overlay triangles
-    or replay segment payloads submitted for one frame.
+    or retained segment payloads submitted for one frame.
   Instanced mesh: Static mesh plus per-instance data drawn many times in one
     backend call.
   Compiled transition: Render-graph state edge assigned to a specific pass and
     resource before callbacks record live commands.
   Raster bucket: Pass-local value naming one complete fixed-function PSO recipe.
-  Retained trajectory chunk: Stable compact segment slice whose physical
-    address does not change when another prediction path grows.
+  Retained geometry chunk: Stable compact record slice whose physical address
+    does not change when another feature-owned range grows.
 
 Invariants:
   - Callers borrow concrete command owners only while DX12 is initialized.
@@ -147,138 +147,96 @@ enum class TransientTriangleStyle
 {
     Color,
     SoftAdditiveRibbon,
-    TrajectoryRibbon,
-    TrajectoryRibbonDepthHint
+    InstancedRibbon,
+    InstancedRibbonDepthHint
 };
 
-inline constexpr std::size_t RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT = 19u;
-inline constexpr std::size_t RETAINED_TRAJECTORY_ORDINARY_SEGMENT_CAPACITY = 24000u;
-inline constexpr std::size_t RETAINED_TRAJECTORY_PRIORITY_SEGMENT_CAPACITY = 3000u;
-inline constexpr std::size_t RETAINED_TRAJECTORY_MAX_DRAW_RANGES = 4096u;
+enum class RetainedGeometryLane : uint8_t
+{
+    Ordinary,
+    Priority
+};
 
-// Concept: one range is a stable chunk of the retained trajectory arena.
-// `drawOrder` preserves record-major presentation even though physical chunks
-// append in publication order, while `cacheSlot` keeps DX12 upload history
-// attached to the physical chunk when the command list is sorted.
-struct RetainedTrajectoryDrawRange
+struct RetainedGeometryCapacity
+{
+    uint32_t floatsPerRecord = 0;
+    uint32_t ordinaryRecordCapacity = 0;
+    uint32_t priorityRecordCapacity = 0;
+    uint32_t ordinaryLineFloatCapacity = 0;
+    uint32_t priorityLineFloatCapacity = 0;
+    uint32_t rangeCapacity = 0;
+};
+
+struct RetainedGeometryStreamToken
+{
+    uint64_t identity = 0;
+    uint64_t revision = 0;
+};
+
+// Concept: one token describes a stable feature-owned chunk without teaching
+// Rendering what the records mean. `drawOrder` preserves caller order while
+// `cacheSlot` keeps backend upload history attached to the physical chunk.
+struct RetainedGeometryRangeToken
 {
     uint64_t identity = 0;
     uint64_t drawOrder = 0;
-    uint32_t firstSegment = 0;
-    uint32_t segmentCapacity = 0;
-    uint32_t segmentCount = 0;
-    // Record replacement version plus rare continuation-tail repairs. DX12 uses
-    // this token to refresh a full eight-segment chunk when its closed cap joins
-    // the first segment of a newly allocated continuation.
+    uint32_t firstRecord = 0;
+    uint32_t recordCapacity = 0;
+    uint32_t recordCount = 0;
+    // Feature replacement version plus a possible repaired predecessor. The
+    // backend refreshes the changed tail without interpreting the feature record.
     uint32_t sourceVersion = 0;
     uint32_t cacheSlot = 0;
-    uint32_t continuationRange = RETAINED_TRAJECTORY_MAX_DRAW_RANGES;
-    bool priority = false;
+    uint32_t continuationRange = UINT32_MAX;
+    RetainedGeometryLane lane = RetainedGeometryLane::Ordinary;
 };
 
-// Appends one already-styled compact record into its stable trajectory slice.
-// Invariant: only the formerly open tail may change; every earlier record and
-// every sibling range remain byte-for-byte stable.
-inline bool AppendRetainedTrajectoryRecord(
-    std::span<float> arena,
-    RetainedTrajectoryDrawRange& range,
-    const std::array<float, RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT>& incoming,
-    float continuityToleranceSquared
-) noexcept
+struct RetainedGeometryUploadPlan
 {
-    if ( range.segmentCount >= range.segmentCapacity )
+    bool uploadRequired = false;
+    std::size_t firstChangedUnit = 0;
+};
+
+// Concept: retained buffers are invalidated by value tokens, not by frame
+// number. Equal tokens therefore produce no upload plan.
+constexpr RetainedGeometryUploadPlan BuildRetainedGeometryUploadPlan( RetainedGeometryStreamToken cached,
+                                                                      std::size_t cachedUnitCount,
+                                                                      RetainedGeometryStreamToken incoming,
+                                                                      std::size_t incomingUnitCount,
+                                                                      bool repairPreviousUnit ) noexcept
+{
+    if ( cached.identity == incoming.identity && cached.revision == incoming.revision )
     {
-        return false;
-    }
-    const std::size_t segmentIndex = static_cast<std::size_t>( range.firstSegment ) + range.segmentCount;
-    const std::size_t firstFloat = segmentIndex * RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT;
-    if ( firstFloat + RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT > arena.size() )
-    {
-        return false;
+        return {};
     }
 
-    std::array<float, RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT> record = incoming;
-    if ( range.segmentCount > 0u )
+    const bool append = cached.identity == incoming.identity && cachedUnitCount <= incomingUnitCount;
+    std::size_t firstChangedUnit = append ? cachedUnitCount : 0u;
+    if ( append && repairPreviousUnit && firstChangedUnit > 0u )
     {
-        float* previous = arena.data() + firstFloat - RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT;
-        const float dx = previous[3] - record[0];
-        const float dy = previous[4] - record[1];
-        const float dz = previous[5] - record[2];
-        const bool samePresentation = previous[6] == record[6] && previous[10] == record[10] &&
-                                      previous[11] == record[11] && previous[12] == record[12];
-        if ( samePresentation && dx * dx + dy * dy + dz * dz <= continuityToleranceSquared )
-        {
-            record[13] = previous[0];
-            record[14] = previous[1];
-            record[15] = previous[2];
-            previous[16] = record[3];
-            previous[17] = record[4];
-            previous[18] = record[5];
-        }
+        --firstChangedUnit;
     }
-
-    float* destination = arena.data() + firstFloat;
-    for ( std::size_t component = 0; component < RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT; ++component )
-    {
-        destination[component] = record[component];
-    }
-    ++range.segmentCount;
-    return true;
+    return { true, firstChangedUnit };
 }
 
-// Appends the first record of a non-contiguous continuation chunk and repairs
-// adjacency across the physical gap. Only the previous chunk's final compact
-// record changes; its source token is advanced so GPU caches refresh that tail.
-inline bool AppendRetainedTrajectoryContinuationRecord(
-    std::span<float> arena,
-    RetainedTrajectoryDrawRange& previousRange,
-    RetainedTrajectoryDrawRange& range,
-    const std::array<float, RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT>& incoming,
-    float continuityToleranceSquared
-) noexcept
+// Concept: each retained range owns an independent compact slice. A sibling
+// append may advance the stream revision without changing this slice, while
+// extending the slice repairs only its formerly open adjacency tail.
+constexpr RetainedGeometryUploadPlan
+BuildRetainedGeometryRangeUploadPlan( const RetainedGeometryRangeToken& cached,
+                                      const RetainedGeometryRangeToken& incoming ) noexcept
 {
-    if ( range.segmentCount != 0u )
+    const bool sameRange = cached.identity == incoming.identity && cached.sourceVersion == incoming.sourceVersion;
+    if ( sameRange && cached.recordCount == incoming.recordCount )
     {
-        return false;
-    }
-    if ( !AppendRetainedTrajectoryRecord( arena, range, incoming, continuityToleranceSquared ) )
-    {
-        return false;
-    }
-    if ( previousRange.segmentCount == 0u )
-    {
-        return true;
+        return {};
     }
 
-    const std::size_t previousSegment =
-        static_cast<std::size_t>( previousRange.firstSegment ) + previousRange.segmentCount - 1u;
-    const std::size_t currentSegment = static_cast<std::size_t>( range.firstSegment );
-    const std::size_t previousFloat = previousSegment * RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT;
-    const std::size_t currentFloat = currentSegment * RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT;
-    if ( previousFloat + RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT > arena.size() ||
-         currentFloat + RETAINED_TRAJECTORY_FLOATS_PER_SEGMENT > arena.size() )
+    if ( sameRange && cached.recordCount < incoming.recordCount )
     {
-        return true;
+        return { true, cached.recordCount > 0u ? cached.recordCount - 1u : 0u };
     }
-
-    float* previous = arena.data() + previousFloat;
-    float* current = arena.data() + currentFloat;
-    const float dx = previous[3] - current[0];
-    const float dy = previous[4] - current[1];
-    const float dz = previous[5] - current[2];
-    const bool samePresentation = previous[6] == current[6] && previous[10] == current[10] &&
-                                  previous[11] == current[11] && previous[12] == current[12];
-    if ( samePresentation && dx * dx + dy * dy + dz * dz <= continuityToleranceSquared )
-    {
-        current[13] = previous[0];
-        current[14] = previous[1];
-        current[15] = previous[2];
-        previous[16] = current[3];
-        previous[17] = current[4];
-        previous[18] = current[5];
-        ++previousRange.sourceVersion;
-    }
-    return true;
+    return { true, 0u };
 }
 
 } // namespace Rendering

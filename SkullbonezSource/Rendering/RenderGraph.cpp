@@ -152,10 +152,8 @@ bool DescriptorNeedsEqual( const RenderGraphDescriptorNeeds& lhs, const RenderGr
 }
 
 
-bool TransientResourceDescCompatible(
-    const RenderGraphTransientResourceDesc& lhs,
-    const RenderGraphTransientResourceDesc& rhs
-)
+bool TransientResourceDescCompatible( const RenderGraphTransientResourceDesc& lhs,
+                                      const RenderGraphTransientResourceDesc& rhs )
 {
     return lhs.kind == rhs.kind && lhs.format == rhs.format && lhs.width == rhs.width && lhs.height == rhs.height &&
            lhs.mipLevels == rhs.mipLevels && DescriptorNeedsEqual( lhs.descriptors, rhs.descriptors );
@@ -171,10 +169,12 @@ void AppendDescriptorNeeds( std::ostringstream& out, const RenderGraphDescriptor
         {
             return;
         }
+
         if ( wroteAny )
         {
             out << "|";
         }
+
         out << name;
         wroteAny = true;
     };
@@ -196,6 +196,7 @@ void RenderGraphResourceUseList::push_back( const RenderGraphResourceUse& use )
     {
         SB_FATAL( "RenderGraph", "Pass resource-use capacity exceeded. count=%zu capacity=%zu", count, uses.size() );
     }
+
     uses[count++] = use;
 }
 
@@ -235,11 +236,9 @@ void RenderGraph::ReserveForRuntimePassGraph()
 }
 
 
-RenderGraphResourceHandle RenderGraph::AddExternalResource(
-    const char* name,
-    RenderGraphResourceAccess initialAccess,
-    RenderGraphNativeResourceToken nativeResource
-)
+RenderGraphResourceHandle RenderGraph::AddExternalResource( const char* name,
+                                                            RenderGraphResourceAccess initialAccess,
+                                                            RenderGraphNativeResourceToken nativeResource )
 {
     // External resources are objects the current renderer already owns, such as
     // the swap-chain back buffer or an existing reflection target. The graph can
@@ -256,19 +255,23 @@ RenderGraphResourceHandle RenderGraph::AddExternalResource(
         {
             continue;
         }
+
         if ( !existing.external )
         {
             SB_FATAL( "RenderGraph", "External resource name aliases a transient resource. name=%s", resolvedName );
         }
+
         if ( static_cast<bool>( existing.nativeResource ) && static_cast<bool>( nativeResource ) &&
              existing.nativeResource.value != nativeResource.value )
         {
             SB_FATAL( "RenderGraph", "External resource name aliases two native resources. name=%s", resolvedName );
         }
+
         if ( !static_cast<bool>( existing.nativeResource ) && static_cast<bool>( nativeResource ) )
         {
             existing.nativeResource = nativeResource;
         }
+
         RenderGraphResourceHandle existingHandle;
         existingHandle.index = static_cast<uint32_t>( resourceIndex );
         return existingHandle;
@@ -276,13 +279,12 @@ RenderGraphResourceHandle RenderGraph::AddExternalResource(
 
     if ( m_resources.size() >= RENDER_GRAPH_MAX_RESOURCES )
     {
-        SB_FATAL(
-            "RenderGraph",
-            "Resource capacity exceeded while adding external resource. count=%zu capacity=%zu",
-            m_resources.size(),
-            RENDER_GRAPH_MAX_RESOURCES
-        );
+        SB_FATAL( "RenderGraph",
+                  "Resource capacity exceeded while adding external resource. count=%zu capacity=%zu",
+                  m_resources.size(),
+                  RENDER_GRAPH_MAX_RESOURCES );
     }
+
     RenderGraphResourceDesc desc;
     desc.name = resolvedName;
     desc.external = true;
@@ -296,34 +298,30 @@ RenderGraphResourceHandle RenderGraph::AddExternalResource(
 }
 
 
-RenderGraphResourceHandle RenderGraph::AddTransientResource(
-    const char* name,
-    const RenderGraphTransientResourceDesc& transient,
-    RenderGraphResourceAccess initialAccess
-)
+RenderGraphResourceHandle RenderGraph::AddTransientResource( const char* name,
+                                                             const RenderGraphTransientResourceDesc& transient,
+                                                             RenderGraphResourceAccess initialAccess )
 {
     if ( transient.width == 0 || transient.height == 0 || transient.mipLevels == 0 )
     {
-        SB_FATAL(
-            "RenderGraph",
-            "Transient resource dimensions must be non-zero. width=%u height=%u mipLevels=%u",
-            transient.width,
-            transient.height,
-            transient.mipLevels
-        );
+        SB_FATAL( "RenderGraph",
+                  "Transient resource dimensions must be non-zero. width=%u height=%u mipLevels=%u",
+                  transient.width,
+                  transient.height,
+                  transient.mipLevels );
     }
+
     if ( CountDescriptorNeeds( transient.descriptors ) == 0 )
     {
         SB_FATAL( "RenderGraph", "Transient resource requires at least one descriptor need." );
     }
+
     if ( m_resources.size() >= RENDER_GRAPH_MAX_RESOURCES )
     {
-        SB_FATAL(
-            "RenderGraph",
-            "Resource capacity exceeded while adding transient resource. count=%zu capacity=%zu",
-            m_resources.size(),
-            RENDER_GRAPH_MAX_RESOURCES
-        );
+        SB_FATAL( "RenderGraph",
+                  "Resource capacity exceeded while adding transient resource. count=%zu capacity=%zu",
+                  m_resources.size(),
+                  RENDER_GRAPH_MAX_RESOURCES );
     }
 
     RenderGraphResourceDesc desc;
@@ -347,13 +345,12 @@ uint32_t RenderGraph::AddPass( const char* name, RenderGraphQueueType queue )
     // bookkeeping only.
     if ( m_passes.size() >= RENDER_GRAPH_MAX_PASSES )
     {
-        SB_FATAL(
-            "RenderGraph",
-            "Pass capacity exceeded. count=%zu capacity=%zu",
-            m_passes.size(),
-            RENDER_GRAPH_MAX_PASSES
-        );
+        SB_FATAL( "RenderGraph",
+                  "Pass capacity exceeded. count=%zu capacity=%zu",
+                  m_passes.size(),
+                  RENDER_GRAPH_MAX_PASSES );
     }
+
     RenderGraphPassDesc pass;
     pass.name = ( name && name[0] != '\0' ) ? name : "UnnamedPass";
     pass.debugLabel = pass.name;
@@ -367,12 +364,10 @@ uint32_t RenderGraph::AddPass( const char* name, RenderGraphQueueType queue )
 }
 
 
-void RenderGraph::AddRead(
-    uint32_t passIndex,
-    RenderGraphResourceHandle resource,
-    RenderGraphResourceAccess access,
-    uint32_t subresource
-)
+void RenderGraph::AddRead( uint32_t passIndex,
+                           RenderGraphResourceHandle resource,
+                           RenderGraphResourceAccess access,
+                           uint32_t subresource )
 {
     // A read means this pass expects the previous contents of the resource to
     // already exist and be visible to the shader or fixed-function GPU stage.
@@ -385,12 +380,10 @@ void RenderGraph::AddRead(
 }
 
 
-void RenderGraph::AddWrite(
-    uint32_t passIndex,
-    RenderGraphResourceHandle resource,
-    RenderGraphResourceAccess access,
-    uint32_t subresource
-)
+void RenderGraph::AddWrite( uint32_t passIndex,
+                            RenderGraphResourceHandle resource,
+                            RenderGraphResourceAccess access,
+                            uint32_t subresource )
 {
     // A write means this pass produces or overwrites contents in the resource.
     // Graph compilation remembers this as the latest known resource state, then
@@ -403,12 +396,10 @@ void RenderGraph::AddWrite(
 }
 
 
-void RenderGraph::SetPassCallbackRecord(
-    uint32_t passIndex,
-    CallbackRecord record,
-    bool enabled,
-    const char* debugLabel
-)
+void RenderGraph::SetPassCallbackRecord( uint32_t passIndex,
+                                         CallbackRecord record,
+                                         bool enabled,
+                                         const char* debugLabel )
 {
     // Concept: callback ownership is a pass-order contract, not a closure
     // warehouse. A raw function pointer plus caller-owned userdata keeps the
@@ -461,6 +452,7 @@ std::string RenderGraph::DumpText() const
             out << " callback_enabled=" << ( pass.callbackEnabled ? "true" : "false" )
                 << " debug_label=" << pass.debugLabel;
         }
+
         out << "\n";
 
         for ( const RenderGraphResourceUse& read : pass.reads )
@@ -508,8 +500,10 @@ std::string RenderGraph::DumpText() const
         {
             out << " subresource=" << transition.subresource;
         }
+
         out << "\n";
     }
+
     out << "TransientAllocations:\n";
     for ( const RenderGraphTransientAllocationDesc& allocation : compiled.transientAllocations )
     {
@@ -519,6 +513,7 @@ std::string RenderGraph::DumpText() const
             << " descriptors=" << allocation.descriptorCount << " reused=" << ( allocation.reused ? "true" : "false" )
             << " released_at_frame_end=" << ( allocation.releasedAtFrameEnd ? "true" : "false" ) << "\n";
     }
+
     out << "TransientDiagnostics allocation_count=" << compiled.transientDiagnostics.allocationCount
         << " reuse_count=" << compiled.transientDiagnostics.reuseCount
         << " release_count=" << compiled.transientDiagnostics.releaseCount
@@ -590,13 +585,14 @@ void RenderGraph::Compile( RenderGraphCompileResult& result ) const
     {
         const RenderGraphPassDesc& pass = m_passes[passIndex];
 
-        const auto emitTransition =
-            [&]( const RenderGraphResourceUse& use, RenderGraphResourceAccess before, uint32_t subresource )
+        const auto emitTransition = [&]( const RenderGraphResourceUse& use,
+                                        RenderGraphResourceAccess before, uint32_t subresource )
         {
             if ( before == RenderGraphResourceAccess::Unknown )
             {
                 return;
             }
+
             if ( before == use.access )
             {
                 return;
@@ -611,13 +607,12 @@ void RenderGraph::Compile( RenderGraphCompileResult& result ) const
             transition.subresource = subresource;
             if ( result.transitions.size() >= RENDER_GRAPH_MAX_TRANSITIONS )
             {
-                SB_FATAL(
-                    "RenderGraph",
-                    "Transition capacity exceeded. count=%zu capacity=%zu",
-                    result.transitions.size(),
-                    RENDER_GRAPH_MAX_TRANSITIONS
-                );
+                SB_FATAL( "RenderGraph",
+                          "Transition capacity exceeded. count=%zu capacity=%zu",
+                          result.transitions.size(),
+                          RENDER_GRAPH_MAX_TRANSITIONS );
             }
+
             result.transitions.push_back( transition );
         };
 
@@ -627,17 +622,20 @@ void RenderGraph::Compile( RenderGraphCompileResult& result ) const
             for ( size_t i = 0; i < states.count; ++i )
             {
                 SubresourceAccessState& state = states.states[i];
+
                 if ( state.subresource == subresource )
                 {
                     return &state;
                 }
             }
+
             return nullptr;
         };
 
         const auto recordUse = [&]( const RenderGraphResourceUse& use )
         {
             CheckedConcreteAccess( use.access );
+
             CheckedResource( use.resource );
             const uint32_t resourceIndex = use.resource.index;
             RenderGraphResourceLifetimeDesc& lifetime = result.resourceLifetimes[resourceIndex];
@@ -646,6 +644,7 @@ void RenderGraph::Compile( RenderGraphCompileResult& result ) const
                 lifetime.firstPass = static_cast<uint32_t>( passIndex );
                 lifetime.used = true;
             }
+
             lifetime.lastPass = static_cast<uint32_t>( passIndex );
 
             RenderGraphResourceAccess& allAccess = allSubresourceAccess[resourceIndex];
@@ -658,6 +657,7 @@ void RenderGraph::Compile( RenderGraphCompileResult& result ) const
                     const SubresourceAccessState& state = specificAccess.states[stateIndex];
                     emitTransition( use, state.access, state.subresource );
                 }
+
                 const bool hadSpecificAccess = specificAccess.count > 0;
                 specificAccess.count = 0;
                 if ( allAccess == RenderGraphResourceAccess::Unknown )
@@ -668,13 +668,13 @@ void RenderGraph::Compile( RenderGraphCompileResult& result ) const
                     allAccess = use.access;
                     return;
                 }
+
                 if ( hadSpecificAccess && allAccess != use.access )
                 {
-                    SB_FATAL(
-                        "RenderGraph",
-                        "Cannot compile an all-subresources transition after mixed subresource states."
-                    );
+                    SB_FATAL( "RenderGraph",
+                              "Cannot compile an all-subresources transition after mixed subresource states." );
                 }
+
                 emitTransition( use, allAccess, RENDER_GRAPH_ALL_SUBRESOURCES );
                 allAccess = use.access;
                 return;
@@ -696,6 +696,7 @@ void RenderGraph::Compile( RenderGraphCompileResult& result ) const
                             {
                                 specificAccess.states[moveIndex - 1] = specificAccess.states[moveIndex];
                             }
+
                             --specificAccess.count;
                             break;
                         }
@@ -706,13 +707,12 @@ void RenderGraph::Compile( RenderGraphCompileResult& result ) const
             {
                 if ( specificAccess.count >= RENDER_GRAPH_MAX_SUBRESOURCE_STATES_PER_RESOURCE )
                 {
-                    SB_FATAL(
-                        "RenderGraph",
-                        "Subresource state capacity exceeded. count=%zu capacity=%zu",
-                        specificAccess.count,
-                        RENDER_GRAPH_MAX_SUBRESOURCE_STATES_PER_RESOURCE
-                    );
+                    SB_FATAL( "RenderGraph",
+                              "Subresource state capacity exceeded. count=%zu capacity=%zu",
+                              specificAccess.count,
+                              RENDER_GRAPH_MAX_SUBRESOURCE_STATES_PER_RESOURCE );
                 }
+
                 specificAccess.states[specificAccess.count++] = { use.subresource, use.access };
             }
         };
@@ -721,6 +721,7 @@ void RenderGraph::Compile( RenderGraphCompileResult& result ) const
         {
             recordUse( read );
         }
+
         for ( const RenderGraphResourceUse& write : pass.writes )
         {
             recordUse( write );
@@ -747,11 +748,9 @@ void RenderGraph::Compile( RenderGraphCompileResult& result ) const
         const RenderGraphResourceLifetimeDesc& lifetime = result.resourceLifetimes[resourceIndex];
         if ( !lifetime.used )
         {
-            SB_FATAL(
-                "RenderGraph",
-                "Transient resource must be read or written by at least one pass. resourceIndex=%zu",
-                resourceIndex
-            );
+            SB_FATAL( "RenderGraph",
+                      "Transient resource must be read or written by at least one pass. resourceIndex=%zu",
+                      resourceIndex );
         }
 
         uint32_t poolSlot = static_cast<uint32_t>( poolSlotCount );
@@ -781,13 +780,12 @@ void RenderGraph::Compile( RenderGraphCompileResult& result ) const
             slot.occupied = true;
             if ( poolSlotCount >= poolSlots.size() )
             {
-                SB_FATAL(
-                    "RenderGraph",
-                    "Transient pool capacity exceeded. count=%zu capacity=%zu",
-                    poolSlotCount,
-                    poolSlots.size()
-                );
+                SB_FATAL( "RenderGraph",
+                          "Transient pool capacity exceeded. count=%zu capacity=%zu",
+                          poolSlotCount,
+                          poolSlots.size() );
             }
+
             poolSlots[poolSlotCount++] = slot;
         }
 
@@ -801,13 +799,12 @@ void RenderGraph::Compile( RenderGraphCompileResult& result ) const
         allocation.releasedAtFrameEnd = true;
         if ( result.transientAllocations.size() >= RENDER_GRAPH_MAX_TRANSIENT_ALLOCATIONS )
         {
-            SB_FATAL(
-                "RenderGraph",
-                "Transient allocation capacity exceeded. count=%zu capacity=%zu",
-                result.transientAllocations.size(),
-                RENDER_GRAPH_MAX_TRANSIENT_ALLOCATIONS
-            );
+            SB_FATAL( "RenderGraph",
+                      "Transient allocation capacity exceeded. count=%zu capacity=%zu",
+                      result.transientAllocations.size(),
+                      RENDER_GRAPH_MAX_TRANSIENT_ALLOCATIONS );
         }
+
         result.transientAllocations.push_back( allocation );
     }
 
@@ -833,10 +830,12 @@ void RenderGraph::Compile( RenderGraphCompileResult& result ) const
                 liveDescriptors += allocation.descriptorCount;
             }
         }
-        result.transientDiagnostics.highWaterResources =
-            (std::max)( result.transientDiagnostics.highWaterResources, liveResources );
-        result.transientDiagnostics.highWaterDescriptors =
-            (std::max)( result.transientDiagnostics.highWaterDescriptors, liveDescriptors );
+
+        result.transientDiagnostics.highWaterResources = (std::max)( result.transientDiagnostics.highWaterResources,
+                                                                     liveResources );
+
+        result.transientDiagnostics.highWaterDescriptors = (std::max)( result.transientDiagnostics.highWaterDescriptors,
+                                                                       liveDescriptors );
     }
 }
 
@@ -855,14 +854,13 @@ RenderGraph::ExecuteCallbacks( RenderGraphCallbackExecutionMode mode, uint32_t f
     const size_t requestedEnd = first + static_cast<size_t>( passCount );
     if ( first > m_passes.size() || requestedEnd < first || requestedEnd > m_passes.size() )
     {
-        SB_FATAL(
-            "RenderGraph",
-            "Callback execution range is out of bounds. first=%u count=%u passes=%zu",
-            firstPass,
-            passCount,
-            m_passes.size()
-        );
+        SB_FATAL( "RenderGraph",
+                  "Callback execution range is out of bounds. first=%u count=%u passes=%zu",
+                  firstPass,
+                  passCount,
+                  m_passes.size() );
     }
+
     for ( size_t passIndex = first; passIndex < requestedEnd; ++passIndex )
     {
         const RenderGraphPassDesc& pass = m_passes[passIndex];
@@ -878,11 +876,13 @@ RenderGraph::ExecuteCallbacks( RenderGraphCallbackExecutionMode mode, uint32_t f
             ++result.disabledCallbackPassCount;
             continue;
         }
+
         const CallbackRecord& callback = m_callbackRecords[passIndex];
         if ( callback.invoke == nullptr )
         {
             SB_FATAL( "RenderGraph", "Callback pass has no callback." );
         }
+
         if ( pass.reads.empty() && pass.writes.empty() )
         {
             SB_FATAL( "RenderGraph", "Callback pass must declare at least one resource use." );
@@ -904,6 +904,7 @@ RenderGraph::ExecuteCallbacks( RenderGraphCallbackExecutionMode mode, uint32_t f
         callback.invoke( context, callback );
         ++result.executedPassCount;
     }
+
     return result;
 }
 
@@ -923,10 +924,12 @@ RenderGraph::ValidateFrameExecutionContract( const char* declarationOnlyPassName
             result.allCallbacksEnabled = result.allCallbacksEnabled && pass.callbackEnabled;
             continue;
         }
+
         ++result.declarationOnlyPassCount;
-        result.declarationOnlyNameMatches =
-            result.declarationOnlyNameMatches && std::strcmp( pass.name, expectedName ) == 0;
+        result.declarationOnlyNameMatches = result.declarationOnlyNameMatches &&
+                                            std::strcmp( pass.name, expectedName ) == 0;
     }
+
     return result;
 }
 
@@ -935,7 +938,7 @@ void RenderGraph::ReleaseCallbackPayloadBorrows()
 {
     // Lifetime: production callbacks borrow stack payloads only through their
     // synchronous append/execute range. Once frame diagnostics are complete,
-    // poison every erased invocation slot so accidental full-graph replay
+    // poison every erased invocation slot so an accidental full-graph rerun
     // fails through the missing-callback invariant instead of dereferencing a
     // payload whose owner has left scope.
     for ( size_t passIndex = 0; passIndex < m_passes.size(); ++passIndex )
@@ -958,6 +961,7 @@ const RenderGraphResourceDesc& RenderGraph::CheckedResource( RenderGraphResource
     {
         SB_FATAL( "RenderGraph", "Resource handle out of range. index=%u count=%zu", handle.index, m_resources.size() );
     }
+
     return m_resources[handle.index];
 }
 
@@ -971,6 +975,7 @@ RenderGraphPassDesc& RenderGraph::CheckedPass( uint32_t passIndex )
     {
         SB_FATAL( "RenderGraph", "Pass index out of range. index=%u count=%zu", passIndex, m_passes.size() );
     }
+
     return m_passes[passIndex];
 }
 

@@ -193,9 +193,9 @@ PhysicsWorldForces DampingForces()
 
 Terrain& FlatTestTerrain()
 {
-    // Lifetime: bodies borrow this Terrain pointer for every step. Static
-    // storage keeps the borrowed terrain and config valid across repeated
-    // engine resets without depending on process-global configuration.
+    // Lifetime: Physics borrows the terrain's detached collision-cell span.
+    // Static storage keeps that backing cache and its construction config valid
+    // across repeated engine resets without process-global configuration.
     static SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
     static Terrain terrain( 0.0f, 0.0f, 0.0f, config );
     return terrain;
@@ -218,6 +218,7 @@ void AddMicroBody( PhysicsEngine& engine,
                    const Vector3& position,
                    const Vector3& linearVelocity )
 {
+    engine.SetTerrainView( FlatTestTerrain().PhysicsView() );
     const float radius = 1.0f;
     const float mass = 2.0f;
     const float inertia = 0.4f * mass * radius * radius;
@@ -232,7 +233,6 @@ void AddMicroBody( PhysicsEngine& engine,
                                                mass,
                                                0.0f,
                                                PhysicsBodyMotionKind::Dynamic,
-                                               &FlatTestTerrain(),
                                                "unit-determinism-body" );
     bodyDesc.angularVelocityLimit = 1000.0f;
     auto colliderDesc = MakeColliderCreateDesc( shape, 0.0f, 0u, "unit" );
@@ -242,6 +242,7 @@ void AddMicroBody( PhysicsEngine& engine,
 
 void AddSupportedSleepBody( PhysicsEngine& engine, uint32_t sceneObjectIdValue, const Vector3& position )
 {
+    engine.SetTerrainView( FlatTestTerrain().PhysicsView() );
     const float radius = 1.0f;
     const float mass = 2.0f;
     const float inertia = 0.4f * mass * radius * radius;
@@ -256,7 +257,6 @@ void AddSupportedSleepBody( PhysicsEngine& engine, uint32_t sceneObjectIdValue, 
                                                mass,
                                                0.0f,
                                                PhysicsBodyMotionKind::Dynamic,
-                                               &FlatTestTerrain(),
                                                "unit-sleep-threshold-body" );
     bodyDesc.angularVelocityLimit = 1000.0f;
     auto colliderDesc = MakeColliderCreateDesc( shape, 0.0f, 0u, "unit" );
@@ -482,6 +482,14 @@ void AddMutualGravityBody( PhysicsEngine& engine,
                            PhysicsBodyMotionKind motionKind = PhysicsBodyMotionKind::Dynamic,
                            Terrain* terrain = &FlatTestTerrain() )
 {
+    if ( terrain )
+    {
+        engine.SetTerrainView( terrain->PhysicsView() );
+    }
+    else
+    {
+        engine.ClearTerrainView();
+    }
     const float inertia = 0.4f * mass * radius * radius;
     const CollisionShape shape = MakeSphereShape( radius );
     auto bodyDesc = MakePhysicsBodyCreateDesc( PhysicsSceneObjectId{ sceneObjectIdValue },
@@ -494,7 +502,6 @@ void AddMutualGravityBody( PhysicsEngine& engine,
                                                mass,
                                                0.0f,
                                                motionKind,
-                                               terrain,
                                                "unit-mutual-gravity-body" );
     bodyDesc.angularVelocityLimit = 1000.0f;
     auto colliderDesc = MakeColliderCreateDesc( shape, 0.0f, 0u, "unit" );

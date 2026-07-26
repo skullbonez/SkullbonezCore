@@ -1,13 +1,13 @@
 /*
 File: SkullbonezSource/Runtime/Replay/ReplayProbeState.h
 Purpose:
-  Owns cold startup workflow configuration and debug-only replay probe state.
+  Defines cold startup workflow configuration and debug-only Replay probe values.
 
 Summary:
   These probes are launch-requested diagnostics that drive replay scrub,
   restore, and save coverage after the scene has enough captured samples. They
-  share one probe runner lifecycle so configuration, one-shot completion, and
-  bounded failure reporting stay beside the workflows they control.
+  share bounded values so App can sequence configuration, one-shot completion,
+  and failure reporting without placing Prediction contracts in Replay.
 
 Glossary:
   Scrub probe: Debug launch path that seeks into captured replay history.
@@ -22,12 +22,13 @@ Invariants:
   - Probe state exists only in debug builds and is driven by CLI test paths.
   - Completion flags are one-shot guards so a successful probe does not repeat
     every frame after its minimum sample count is reached.
-  - Failure text is bounded and stored here so WinMain can return a nonzero
-    probe result after the frame loop exits.
+  - Failure text is bounded so WinMain can return a nonzero probe result after
+    the frame loop exits.
+  - Replay values never name the App probe runner or the Prediction owner.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
-  - SkullbonezSource/Runtime/Replay/ReplayValidation.Probes.cpp
+  - SkullbonezSource/Runtime/App/ReplayRuntime.h
+  - SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp
 */
 #pragma once
 
@@ -41,14 +42,12 @@ namespace SkullbonezCore
 namespace Runtime
 {
 struct ReplayStartupRequest;
-struct ReplayArtifactTopologyOwners;
 struct ReplayLiveRestoreOutcome;
 struct ReplayLiveRestoreRequest;
-struct ReplayRestoreTransaction;
+class ReplayRestoreTransaction;
 struct ReplayV2SolverCheckpointLoadResult;
 struct RunReplayV2TargetRestoreResult;
 class ReplayAuthoring;
-class ReplayPrediction;
 class ReplayPresentation;
 class ReplayScrubber;
 class ReplayTimeline;
@@ -112,10 +111,10 @@ struct ReplayProbeState
             return;
         }
 
-        const char* failureOwner =
-            result.error.owner && result.error.owner[0] != '\0' ? result.error.owner : "ReplayProbe";
-        const char* failureMessage =
-            result.error.message[0] != '\0' ? result.error.message : "replay probe failed without a failure message";
+        const char* failureOwner = result.error.owner && result.error.owner[0] != '\0' ? result.error.owner
+                                                                                       : "ReplayProbe";
+        const char* failureMessage = result.error.message[0] != '\0' ? result.error.message
+                                                                     : "replay probe failed without a failure message";
         failure.failed = true;
         strcpy_s( failure.owner, sizeof( failure.owner ), failureOwner );
         strcpy_s( failure.message, sizeof( failure.message ), failureMessage );
@@ -207,87 +206,5 @@ struct ReplayFailureFileProbeState
 };
 #endif
 
-class ReplayProbeRunner
-{
-  public:
-    // Returns whether live prediction generation remains permitted after the
-    // startup capability request is installed.
-    bool Configure( const ReplayStartupRequest& request );
-    const ReplayStartupWorkflowState& Startup() const noexcept
-    {
-        return m_startup;
-    }
-#ifdef _DEBUG
-    // Installs Debug-only CLI probe state after Configure has copied the
-    // product load request and capability bit.
-    void ConfigureDebug( const ReplayStartupRequest& request );
-    SkullbonezCore::Core::SbResult TickScrubProbe(
-        const ReplayRestoreTransaction& transaction,
-        const ReplayTimeline& timeline,
-        ReplayPresentation& presentation
-    );
-    ReplayProbeRestoreRequest PrepareRestoreProbe( const ReplayTimeline& timeline );
-    SkullbonezCore::Core::SbResult
-    CompleteRestoreProbe( const ReplayProbeRestoreRequest& request, bool restored, const char* reason );
-    ReplayProbeSaveRequest PrepareSaveProbe( const ReplayTimeline& timeline );
-    void CompleteSaveProbe( const ReplayProbeSaveRequest& request, const SkullbonezCore::Core::SbResult& result );
-    SkullbonezCore::Core::SbResult CurrentFailure() const;
-    void RecordFailure( const SkullbonezCore::Core::SbResult& result );
-    SkullbonezCore::Core::SbResult VerifyLoadedPresentation(
-        ReplayTimeline& timeline,
-        ReplayScrubber& scrubber,
-        ReplayPresentation& presentation,
-        ReplayAuthoring& authoring,
-        ReplayPrediction& prediction,
-        const ReplayRestoreTransaction& transaction,
-        RunMousePickupState& mousePickup,
-        RunCameraMode normalizedCurrentMode,
-        double now,
-        float normalized
-    );
-    SkullbonezCore::Core::SbResult PrepareCheckpointFileProbe(
-        const char* path,
-        ReplaySolverFrameSample& outCheckpoint,
-        ReplayV2SolverCheckpointLoadResult& outLoadResult
-    );
-    SkullbonezCore::Core::SbResult CompleteCheckpointFileProbe(
-        const char* path,
-        const ReplaySolverFrameSample& checkpoint,
-        const ReplayV2SolverCheckpointLoadResult& loadResult,
-        bool restored,
-        const char* reason
-    );
-    SkullbonezCore::Core::SbResult CompleteTargetFileProbe(
-        const char* path,
-        const RunReplayV2TargetRestoreResult& result,
-        bool restored,
-        const char* reason
-    );
-    ReplayFailureProbeRequest BeginFailureFileProbe( const char* path );
-    ReplayFailureProbeRequest
-    AdvanceFailureFileProbe( const ReplayFailureProbeRequest& request, const ReplayFailureProbeStepResult& result );
-    SkullbonezCore::Core::SbResult PrepareBranchFileProbe(
-        ReplayTimeline& timeline,
-        ReplayScrubber& scrubber,
-        ReplayPresentation& presentation,
-        ReplayAuthoring& authoring,
-        ReplayPrediction& prediction,
-        const ReplayRestoreTransaction& transaction,
-        RunMousePickupState& mousePickup,
-        RunCameraMode normalizedCurrentMode,
-        double now,
-        const char* path,
-        ReplayLiveRestoreRequest& outRequest
-    );
-    SkullbonezCore::Core::SbResult CompleteBranchFileProbe( const char* path, const ReplayLiveRestoreOutcome& outcome );
-#endif
-
-  private:
-    ReplayStartupWorkflowState m_startup;
-#ifdef _DEBUG
-    ReplayProbeState m_probes;
-    ReplayFailureFileProbeState m_failureFile;
-#endif
-};
 } // namespace Runtime
 } // namespace SkullbonezCore

@@ -56,19 +56,19 @@ void AuthoredSceneParser::ApplyBall( const Json& object, const std::string& path
     {
         return;
     }
+
     ReadRequiredStringField( ball.name, object, path, "ball", "name" );
     if ( ParserFailed() || !RegisterSceneObjectName( ball.name, path ) )
     {
         return;
     }
-    ReadVec3(
-        RequireMember( object, path, "ball", "position" ),
-        path,
-        "ball.position",
-        ball.posX,
-        ball.posY,
-        ball.posZ
-    );
+
+    ReadVec3( RequireMember( object, path, "ball", "position" ),
+              path,
+              "ball.position",
+              ball.posX,
+              ball.posY,
+              ball.posZ );
 
     ball.m_radius = ReadFloat( RequireMember( object, path, "ball", "radius" ), path, "ball.radius" );
     ball.m_mass = ReadFloat( RequireMember( object, path, "ball", "mass" ), path, "ball.mass" );
@@ -81,19 +81,23 @@ void AuthoredSceneParser::ApplyBall( const Json& object, const std::string& path
     {
         ball.isFixed = ReadBool( *fixed, path, "ball.fixed" );
     }
+
     if ( const Json* force = FindMember( object, "force" ) )
     {
         ReadVec3( *force, path, "ball.force", ball.forceX, ball.forceY, ball.forceZ );
     }
+
     if ( const Json* forcePosition = FindMember( object, "forcePosition" ) )
     {
         ReadVec3( *forcePosition, path, "ball.forcePosition", ball.forcePosX, ball.forcePosY, ball.forcePosZ );
     }
+
     if ( const Json* euler = FindMember( object, "euler" ) )
     {
         ReadVec3( *euler, path, "ball.euler", ball.eulerX, ball.eulerY, ball.eulerZ );
         ball.hasInitOrient = true;
     }
+
     m_scene.m_balls.push_back( ball );
 }
 
@@ -105,20 +109,20 @@ void AuthoredSceneParser::ApplyBox( const Json& object, const std::string& path,
     {
         return;
     }
+
     ReadRequiredStringField( box.name, object, path, "box", "name" );
     if ( ParserFailed() || !RegisterSceneObjectName( box.name, path ) )
     {
         return;
     }
+
     ReadVec3( RequireMember( object, path, "box", "position" ), path, "box.position", box.posX, box.posY, box.posZ );
-    ReadVec3(
-        RequireMember( object, path, "box", "halfExtents" ),
-        path,
-        "box.halfExtents",
-        box.halfX,
-        box.halfY,
-        box.halfZ
-    );
+    ReadVec3( RequireMember( object, path, "box", "halfExtents" ),
+              path,
+              "box.halfExtents",
+              box.halfX,
+              box.halfY,
+              box.halfZ );
 
     box.mass = ReadFloat( RequireMember( object, path, "box", "mass" ), path, "box.mass" );
     box.restitution = ReadFloat( RequireMember( object, path, "box", "restitution" ), path, "box.restitution" );
@@ -128,25 +132,26 @@ void AuthoredSceneParser::ApplyBox( const Json& object, const std::string& path,
     {
         box.isFixed = ReadBool( *fixed, path, "box.fixed" );
     }
+
     if ( const Json* euler = FindMember( object, "euler" ) )
     {
         ReadVec3( *euler, path, "box.euler", box.eulerX, box.eulerY, box.eulerZ );
         box.hasInitOrient = true;
     }
+
     if ( const Json* velocity = FindMember( object, "velocity" ) )
     {
         ReadVec3( *velocity, path, "box.velocity", box.velX, box.velY, box.velZ );
         box.hasInitVelocity = true;
     }
+
     m_scene.m_boxes.push_back( box );
 }
 
-void AuthoredSceneParser::ApplyConvexHull(
-    const Json& object,
-    const std::string& path,
-    bool isFixed,
-    const Math::Orientation::Quaternion* composedOrientation
-)
+void AuthoredSceneParser::ApplyConvexHull( const Json& object,
+                                           const std::string& path,
+                                           bool isFixed,
+                                           const Math::Orientation::Quaternion* composedOrientation )
 {
     SceneConvexHull hull = {};
     hull.sceneObjectId = ReadSceneObjectId( object, path, "convexHull" );
@@ -154,21 +159,21 @@ void AuthoredSceneParser::ApplyConvexHull(
     {
         return;
     }
+
     ReadRequiredStringField( hull.name, object, path, "convexHull", "name" );
     if ( ParserFailed() || !RegisterSceneObjectName( hull.name, path ) )
     {
         return;
     }
+
     ReadRequiredStringField( hull.hullPath, object, path, "convexHull", "hull" );
     ReadOptionalSceneObjectGroup( hull.group, object, path, "convexHull" );
-    ReadVec3(
-        RequireMember( object, path, "convexHull", "position" ),
-        path,
-        "convexHull.position",
-        hull.posX,
-        hull.posY,
-        hull.posZ
-    );
+    ReadVec3( RequireMember( object, path, "convexHull", "position" ),
+              path,
+              "convexHull.position",
+              hull.posX,
+              hull.posY,
+              hull.posZ );
 
     if ( const Json* mass = FindMember( object, "mass" ) )
     {
@@ -178,30 +183,39 @@ void AuthoredSceneParser::ApplyConvexHull(
     {
         hull.mass = LoadConvexHullDefaultMass( hull.hullPath );
     }
-    hull.restitution =
-        ReadFloat( RequireMember( object, path, "convexHull", "restitution" ), path, "convexHull.restitution" );
+
+    hull.restitution = ReadFloat( RequireMember( object, path, "convexHull", "restitution" ),
+                                  path,
+                                  "convexHull.restitution" );
+
     CopyOptionalContactMaterial( hull.contactMaterial, object, path, "convexHull.contactMaterial" );
     hull.isFixed = isFixed;
     hull.contactReleaseOnImpact = SkullbonezCore::Assets::HullAssetTokenDefaultsToContactRelease( hull.hullPath );
-    hull.contactReleaseImpulseThreshold =
-        SkullbonezCore::Assets::HullAssetTokenDefaultContactReleaseThreshold( hull.hullPath );
+    hull.contactReleaseImpulseThreshold = SkullbonezCore::Assets::HullAssetTokenDefaultContactReleaseThreshold( hull.hullPath );
+
     if ( const Json* fixed = FindMember( object, "fixed" ) )
     {
         hull.isFixed = ReadBool( *fixed, path, "convexHull.fixed" );
     }
+
     if ( const Json* sleeping = FindMember( object, "sleeping" ) )
     {
         hull.isSleeping = ReadBool( *sleeping, path, "convexHull.sleeping" );
     }
+
     if ( const Json* release = FindMember( object, "contactReleaseOnImpact" ) )
     {
         hull.contactReleaseOnImpact = ReadBool( *release, path, "convexHull.contactReleaseOnImpact" );
     }
+
     if ( const Json* threshold = FindMember( object, "contactReleaseImpulseThreshold" ) )
     {
-        hull.contactReleaseImpulseThreshold =
-            (std::max)( 0.0f, ReadFloat( *threshold, path, "convexHull.contactReleaseImpulseThreshold" ) );
+        hull.contactReleaseImpulseThreshold = (std::max)( 0.0f,
+                                                          ReadFloat( *threshold,
+                                                                     path,
+                                                                     "convexHull.contactReleaseImpulseThreshold" ) );
     }
+
     if ( composedOrientation )
     {
         // Lifetime: this pointer is borrowed only for the internal asset
@@ -214,16 +228,19 @@ void AuthoredSceneParser::ApplyConvexHull(
         ReadVec3( *euler, path, "convexHull.euler", hull.eulerX, hull.eulerY, hull.eulerZ );
         hull.hasInitOrient = true;
     }
+
     if ( const Json* velocity = FindMember( object, "velocity" ) )
     {
         ReadVec3( *velocity, path, "convexHull.velocity", hull.velX, hull.velY, hull.velZ );
         hull.hasInitVelocity = true;
     }
+
     if ( const Json* angularVelocity = FindMember( object, "angularVelocity" ) )
     {
         ReadVec3( *angularVelocity, path, "convexHull.angularVelocity", hull.angVelX, hull.angVelY, hull.angVelZ );
         hull.hasInitAngularVelocity = true;
     }
+
     m_scene.m_convexHulls.push_back( hull );
 }
 
@@ -235,70 +252,66 @@ void AuthoredSceneParser::ApplyBallState( const Json& object, const std::string&
     {
         return;
     }
+
     ReadRequiredStringField( state.name, object, path, "ballState", "name" );
     if ( ParserFailed() || !RegisterSceneObjectName( state.name, path ) )
     {
         return;
     }
-    ReadVec3(
-        RequireMember( object, path, "ballState", "position" ),
-        path,
-        "ballState.position",
-        state.posX,
-        state.posY,
-        state.posZ
-    );
 
-    ReadVec3(
-        RequireMember( object, path, "ballState", "velocity" ),
-        path,
-        "ballState.velocity",
-        state.velX,
-        state.velY,
-        state.velZ
-    );
+    ReadVec3( RequireMember( object, path, "ballState", "position" ),
+              path,
+              "ballState.position",
+              state.posX,
+              state.posY,
+              state.posZ );
 
-    ReadVec3(
-        RequireMember( object, path, "ballState", "angularVelocity" ),
-        path,
-        "ballState.angularVelocity",
-        state.angVelX,
-        state.angVelY,
-        state.angVelZ
-    );
+    ReadVec3( RequireMember( object, path, "ballState", "velocity" ),
+              path,
+              "ballState.velocity",
+              state.velX,
+              state.velY,
+              state.velZ );
 
-    ReadVec4(
-        RequireMember( object, path, "ballState", "orientation" ),
-        path,
-        "ballState.orientation",
-        state.orientX,
-        state.orientY,
-        state.orientZ,
-        state.orientW
-    );
+    ReadVec3( RequireMember( object, path, "ballState", "angularVelocity" ),
+              path,
+              "ballState.angularVelocity",
+              state.angVelX,
+              state.angVelY,
+              state.angVelZ );
+
+    ReadVec4( RequireMember( object, path, "ballState", "orientation" ),
+              path,
+              "ballState.orientation",
+              state.orientX,
+              state.orientY,
+              state.orientZ,
+              state.orientW );
 
     state.radius = ReadFloat( RequireMember( object, path, "ballState", "radius" ), path, "ballState.radius" );
     state.mass = ReadFloat( RequireMember( object, path, "ballState", "mass" ), path, "ballState.mass" );
-    state.restitution =
-        ReadFloat( RequireMember( object, path, "ballState", "restitution" ), path, "ballState.restitution" );
+    state.restitution = ReadFloat( RequireMember( object, path, "ballState", "restitution" ),
+                                   path,
+                                   "ballState.restitution" );
+
     CopyOptionalContactMaterial( state.contactMaterial, object, path, "ballState.contactMaterial" );
-    ReadVec3(
-        RequireMember( object, path, "ballState", "inertia" ),
-        path,
-        "ballState.inertia",
-        state.inertiaX,
-        state.inertiaY,
-        state.inertiaZ
-    );
+    ReadVec3( RequireMember( object, path, "ballState", "inertia" ),
+              path,
+              "ballState.inertia",
+              state.inertiaX,
+              state.inertiaY,
+              state.inertiaZ );
 
     if ( const Json* fixed = FindMember( object, "fixed" ) )
     {
         state.isFixed = ReadBool( *fixed, path, "ballState.fixed" );
     }
+
     if ( const Json* sleeping = FindMember( object, "sleeping" ) )
     {
         state.isSleeping = ReadBool( *sleeping, path, "ballState.sleeping" );
     }
+
     m_scene.m_ballStates.push_back( state );
 }
 
@@ -310,75 +323,68 @@ void AuthoredSceneParser::ApplyBoxState( const Json& object, const std::string& 
     {
         return;
     }
+
     ReadRequiredStringField( state.name, object, path, "boxState", "name" );
     if ( ParserFailed() || !RegisterSceneObjectName( state.name, path ) )
     {
         return;
     }
-    ReadVec3(
-        RequireMember( object, path, "boxState", "position" ),
-        path,
-        "boxState.position",
-        state.posX,
-        state.posY,
-        state.posZ
-    );
 
-    ReadVec3(
-        RequireMember( object, path, "boxState", "velocity" ),
-        path,
-        "boxState.velocity",
-        state.velX,
-        state.velY,
-        state.velZ
-    );
+    ReadVec3( RequireMember( object, path, "boxState", "position" ),
+              path,
+              "boxState.position",
+              state.posX,
+              state.posY,
+              state.posZ );
 
-    ReadVec3(
-        RequireMember( object, path, "boxState", "angularVelocity" ),
-        path,
-        "boxState.angularVelocity",
-        state.angVelX,
-        state.angVelY,
-        state.angVelZ
-    );
+    ReadVec3( RequireMember( object, path, "boxState", "velocity" ),
+              path,
+              "boxState.velocity",
+              state.velX,
+              state.velY,
+              state.velZ );
 
-    ReadVec4(
-        RequireMember( object, path, "boxState", "orientation" ),
-        path,
-        "boxState.orientation",
-        state.orientX,
-        state.orientY,
-        state.orientZ,
-        state.orientW
-    );
+    ReadVec3( RequireMember( object, path, "boxState", "angularVelocity" ),
+              path,
+              "boxState.angularVelocity",
+              state.angVelX,
+              state.angVelY,
+              state.angVelZ );
 
-    ReadVec3(
-        RequireMember( object, path, "boxState", "halfExtents" ),
-        path,
-        "boxState.halfExtents",
-        state.halfX,
-        state.halfY,
-        state.halfZ
-    );
+    ReadVec4( RequireMember( object, path, "boxState", "orientation" ),
+              path,
+              "boxState.orientation",
+              state.orientX,
+              state.orientY,
+              state.orientZ,
+              state.orientW );
+
+    ReadVec3( RequireMember( object, path, "boxState", "halfExtents" ),
+              path,
+              "boxState.halfExtents",
+              state.halfX,
+              state.halfY,
+              state.halfZ );
 
     state.mass = ReadFloat( RequireMember( object, path, "boxState", "mass" ), path, "boxState.mass" );
-    state.restitution =
-        ReadFloat( RequireMember( object, path, "boxState", "restitution" ), path, "boxState.restitution" );
+    state.restitution = ReadFloat( RequireMember( object, path, "boxState", "restitution" ),
+                                   path,
+                                   "boxState.restitution" );
+
     CopyOptionalContactMaterial( state.contactMaterial, object, path, "boxState.contactMaterial" );
-    ReadVec3(
-        RequireMember( object, path, "boxState", "inertia" ),
-        path,
-        "boxState.inertia",
-        state.inertiaX,
-        state.inertiaY,
-        state.inertiaZ
-    );
+    ReadVec3( RequireMember( object, path, "boxState", "inertia" ),
+              path,
+              "boxState.inertia",
+              state.inertiaX,
+              state.inertiaY,
+              state.inertiaZ );
 
     state.isFixed = ReadBool( RequireMember( object, path, "boxState", "fixed" ), path, "boxState.fixed" );
     if ( const Json* sleeping = FindMember( object, "sleeping" ) )
     {
         state.isSleeping = ReadBool( *sleeping, path, "boxState.sleeping" );
     }
+
     m_scene.m_boxStates.push_back( state );
 }
 
@@ -391,96 +397,105 @@ void AuthoredSceneParser::ApplyConvexHullState( const Json& object, const std::s
 
         return;
     }
+
     ReadRequiredStringField( state.name, object, path, "convexHullState", "name" );
     if ( ParserFailed() || !RegisterSceneObjectName( state.name, path ) )
     {
         return;
     }
+
     ReadRequiredStringField( state.hullPath, object, path, "convexHullState", "hull" );
     ReadOptionalSceneObjectGroup( state.group, object, path, "convexHullState" );
-    ReadVec3(
-        RequireMember( object, path, "convexHullState", "position" ),
-        path,
-        "convexHullState.position",
-        state.posX,
-        state.posY,
-        state.posZ
-    );
-    ReadVec3(
-        RequireMember( object, path, "convexHullState", "velocity" ),
-        path,
-        "convexHullState.velocity",
-        state.velX,
-        state.velY,
-        state.velZ
-    );
-    ReadVec3(
-        RequireMember( object, path, "convexHullState", "angularVelocity" ),
-        path,
-        "convexHullState.angularVelocity",
-        state.angVelX,
-        state.angVelY,
-        state.angVelZ
-    );
-    ReadVec4(
-        RequireMember( object, path, "convexHullState", "orientation" ),
-        path,
-        "convexHullState.orientation",
-        state.orientX,
-        state.orientY,
-        state.orientZ,
-        state.orientW
-    );
+    ReadVec3( RequireMember( object, path, "convexHullState", "position" ),
+              path,
+              "convexHullState.position",
+              state.posX,
+              state.posY,
+              state.posZ );
+
+    ReadVec3( RequireMember( object, path, "convexHullState", "velocity" ),
+              path,
+              "convexHullState.velocity",
+              state.velX,
+              state.velY,
+              state.velZ );
+
+    ReadVec3( RequireMember( object, path, "convexHullState", "angularVelocity" ),
+              path,
+              "convexHullState.angularVelocity",
+              state.angVelX,
+              state.angVelY,
+              state.angVelZ );
+
+    ReadVec4( RequireMember( object, path, "convexHullState", "orientation" ),
+              path,
+              "convexHullState.orientation",
+              state.orientX,
+              state.orientY,
+              state.orientZ,
+              state.orientW );
+
     state.mass = ReadFloat( RequireMember( object, path, "convexHullState", "mass" ), path, "convexHullState.mass" );
-    state.restitution = ReadFloat(
-        RequireMember( object, path, "convexHullState", "restitution" ),
-        path,
-        "convexHullState.restitution"
-    );
+    state.restitution = ReadFloat( RequireMember( object, path, "convexHullState", "restitution" ),
+                                   path,
+                                   "convexHullState.restitution" );
+
     CopyOptionalContactMaterial( state.contactMaterial, object, path, "convexHullState.contactMaterial" );
-    ReadVec3(
-        RequireMember( object, path, "convexHullState", "inertia" ),
-        path,
-        "convexHullState.inertia",
-        state.inertiaX,
-        state.inertiaY,
-        state.inertiaZ
-    );
-    state.isFixed =
-        ReadBool( RequireMember( object, path, "convexHullState", "fixed" ), path, "convexHullState.fixed" );
+    ReadVec3( RequireMember( object, path, "convexHullState", "inertia" ),
+              path,
+              "convexHullState.inertia",
+              state.inertiaX,
+              state.inertiaY,
+              state.inertiaZ );
+
+    state.isFixed = ReadBool( RequireMember( object, path, "convexHullState", "fixed" ),
+                              path,
+                              "convexHullState.fixed" );
+
     state.contactReleaseOnImpact = SkullbonezCore::Assets::HullAssetTokenDefaultsToContactRelease( state.hullPath );
-    state.contactReleaseImpulseThreshold =
-        SkullbonezCore::Assets::HullAssetTokenDefaultContactReleaseThreshold( state.hullPath );
+    state.contactReleaseImpulseThreshold = SkullbonezCore::Assets::HullAssetTokenDefaultContactReleaseThreshold( state.hullPath );
+
     if ( const Json* sleeping = FindMember( object, "sleeping" ) )
     {
         state.isSleeping = ReadBool( *sleeping, path, "convexHullState.sleeping" );
     }
+
     if ( const Json* release = FindMember( object, "contactReleaseOnImpact" ) )
     {
         state.contactReleaseOnImpact = ReadBool( *release, path, "convexHullState.contactReleaseOnImpact" );
     }
+
     if ( const Json* threshold = FindMember( object, "contactReleaseImpulseThreshold" ) )
     {
-        state.contactReleaseImpulseThreshold =
-            (std::max)( 0.0f, ReadFloat( *threshold, path, "convexHullState.contactReleaseImpulseThreshold" ) );
+        state.contactReleaseImpulseThreshold = (std::max)( 0.0f,
+                                                           ReadFloat( *threshold,
+                                                                      path,
+                                                                      "convexHullState."
+                                                                      "contactReleaseImpulseThreshold" ) );
     }
+
     m_scene.m_convexHullStates.push_back( state );
 }
 
 void AuthoredSceneParser::ApplyRagdoll( const Json& object, const std::string& path )
 {
     SceneRagdoll ragdoll = {};
-    ragdoll.firstSceneObjectId =
-        ReadSceneObjectId( object, path, "ragdoll", static_cast<uint32_t>( Physics::Ragdoll::SIMPLE_PART_COUNT ) );
+    ragdoll.firstSceneObjectId = ReadSceneObjectId( object,
+                                                    path,
+                                                    "ragdoll",
+                                                    static_cast<uint32_t>( Physics::Ragdoll::SIMPLE_PART_COUNT ) );
+
     if ( ParserFailed() )
     {
         return;
     }
+
     ReadRequiredStringField( ragdoll.name, object, path, "ragdoll", "name" );
     if ( ParserFailed() )
     {
         return;
     }
+
     for ( int partIndex = 0; partIndex < Physics::Ragdoll::SIMPLE_PART_COUNT; ++partIndex )
     {
         char partName[64] = {};
@@ -490,42 +505,47 @@ void AuthoredSceneParser::ApplyRagdoll( const Json& object, const std::string& p
             Fail( path, "ragdoll.name produces a part name longer than 63 characters" );
             return;
         }
+
         if ( !RegisterSceneObjectName( partName, path ) )
         {
             return;
         }
     }
-    ReadVec3(
-        RequireMember( object, path, "ragdoll", "position" ),
-        path,
-        "ragdoll.position",
-        ragdoll.posX,
-        ragdoll.posY,
-        ragdoll.posZ
-    );
+
+    ReadVec3( RequireMember( object, path, "ragdoll", "position" ),
+              path,
+              "ragdoll.position",
+              ragdoll.posX,
+              ragdoll.posY,
+              ragdoll.posZ );
 
     ragdoll.scale = 1.0f;
     if ( const Json* scale = FindMember( object, "scale" ) )
     {
         ragdoll.scale = (std::max)( 0.25f, ReadFloat( *scale, path, "ragdoll.scale" ) );
     }
+
     if ( const Json* fixed = FindMember( object, "fixed" ) )
     {
         ragdoll.isFixed = ReadBool( *fixed, path, "ragdoll.fixed" );
     }
+
     if ( const Json* sleeping = FindMember( object, "sleeping" ) )
     {
         ragdoll.startsAsleep = ReadBool( *sleeping, path, "ragdoll.sleeping" );
     }
+
     if ( const Json* awake = FindMember( object, "awake" ) )
     {
         ragdoll.startsAsleep = !ReadBool( *awake, path, "ragdoll.awake" );
     }
+
     if ( const Json* euler = FindMember( object, "euler" ) )
     {
         ReadVec3( *euler, path, "ragdoll.euler", ragdoll.eulerX, ragdoll.eulerY, ragdoll.eulerZ );
         ragdoll.hasInitOrient = true;
     }
+
     m_scene.m_ragdolls.push_back( ragdoll );
 }
 
@@ -585,44 +605,45 @@ void AuthoredSceneParser::ApplyPointJointConstraint( const Json& jointJson, cons
     ScenePointJointConstraint joint = {};
     ReadRequiredStringField( joint.bodyA, jointJson, path, "ragdollJoint", "bodyA" );
     ReadRequiredStringField( joint.bodyB, jointJson, path, "ragdollJoint", "bodyB" );
-    ReadVec3(
-        RequireMember( jointJson, path, "ragdollJoint", "localAnchorA" ),
-        path,
-        "ragdollJoint.localAnchorA",
-        joint.localAnchorA.x,
-        joint.localAnchorA.y,
-        joint.localAnchorA.z
-    );
+    ReadVec3( RequireMember( jointJson, path, "ragdollJoint", "localAnchorA" ),
+              path,
+              "ragdollJoint.localAnchorA",
+              joint.localAnchorA.x,
+              joint.localAnchorA.y,
+              joint.localAnchorA.z );
 
-    ReadVec3(
-        RequireMember( jointJson, path, "ragdollJoint", "localAnchorB" ),
-        path,
-        "ragdollJoint.localAnchorB",
-        joint.localAnchorB.x,
-        joint.localAnchorB.y,
-        joint.localAnchorB.z
-    );
+    ReadVec3( RequireMember( jointJson, path, "ragdollJoint", "localAnchorB" ),
+              path,
+              "ragdollJoint.localAnchorB",
+              joint.localAnchorB.x,
+              joint.localAnchorB.y,
+              joint.localAnchorB.z );
 
     if ( const Json* slack = FindMember( jointJson, "slack" ) )
     {
         joint.slack = (std::max)( 0.0f, ReadFloat( *slack, path, "ragdollJoint.slack" ) );
     }
+
     if ( const Json* stiffness = FindMember( jointJson, "stiffness" ) )
     {
         joint.stiffness = std::clamp( ReadFloat( *stiffness, path, "ragdollJoint.stiffness" ), 0.0f, 1.0f );
     }
+
     if ( const Json* damping = FindMember( jointJson, "damping" ) )
     {
         joint.damping = std::clamp( ReadFloat( *damping, path, "ragdollJoint.damping" ), 0.0f, 1.0f );
     }
+
     if ( const Json* group = FindMember( jointJson, "groupId" ) )
     {
         joint.groupId = static_cast<uint32_t>( (std::max)( 0, ReadInt( *group, path, "ragdollJoint.groupId" ) ) );
     }
+
     if ( const Json* flags = FindMember( jointJson, "flags" ) )
     {
         joint.flags = static_cast<uint8_t>( std::clamp( ReadInt( *flags, path, "ragdollJoint.flags" ), 0, 255 ) );
     }
+
     m_scene.m_pointJointConstraints.push_back( joint );
 }
 
@@ -637,6 +658,7 @@ void AuthoredSceneParser::ApplyObjectMaterial( const Json& materialJson, const s
     {
         modeValue = FindMember( materialJson, "kind" );
     }
+
     if ( !modeValue )
     {
         Fail( path, "objectMaterial is missing required field 'mode'" );
@@ -653,10 +675,12 @@ void AuthoredSceneParser::ApplyObjectMaterial( const Json& materialJson, const s
     {
         tint = FindMember( materialJson, "color" );
     }
+
     if ( !tint )
     {
         tint = FindMember( materialJson, "colour" );
     }
+
     if ( tint )
     {
         ReadVec3( *tint, path, "objectMaterial.color", tintR, tintG, tintB );
@@ -664,12 +688,11 @@ void AuthoredSceneParser::ApplyObjectMaterial( const Json& materialJson, const s
 
     material.materialMode = ParseMaterialModeValue( *modeValue, path, "objectMaterial.mode" );
     material.material = Rendering::MakeRenderMaterialFromLegacyTint( tintR, tintG, tintB, material.materialMode );
-    strncpy_s(
-        material.material.name,
-        sizeof( material.material.name ),
-        Rendering::RenderMaterialKindName( material.material.kind ),
-        _TRUNCATE
-    );
+    strncpy_s( material.material.name,
+               sizeof( material.material.name ),
+               Rendering::RenderMaterialKindName( material.material.kind ),
+               _TRUNCATE );
+
     SetObjectMaterialBaseColor( material, tintR, tintG, tintB );
 
     if ( const Json* alpha = FindMember( materialJson, "alpha" ) )
@@ -681,64 +704,80 @@ void AuthoredSceneParser::ApplyObjectMaterial( const Json& materialJson, const s
     {
         material.material.roughness = ReadUnitFloat( *roughness, path, "objectMaterial.roughness" );
     }
+
     if ( const Json* metallic = FindMember( materialJson, "metallic" ) )
     {
         material.material.metallic = ReadUnitFloat( *metallic, path, "objectMaterial.metallic" );
     }
+
     if ( const Json* specular = FindMember( materialJson, "specular" ) )
     {
         material.material.specular = ReadUnitFloat( *specular, path, "objectMaterial.specular" );
     }
+
     if ( const Json* transmission = FindMember( materialJson, "transmission" ) )
     {
         material.material.transmission = ReadUnitFloat( *transmission, path, "objectMaterial.transmission" );
     }
+
     if ( const Json* stylization = FindMember( materialJson, "stylization" ) )
     {
         material.material.stylization = ReadUnitFloat( *stylization, path, "objectMaterial.stylization" );
     }
+
     if ( const Json* emissive = FindMember( materialJson, "emissive" ) )
     {
-        ReadVec3(
-            *emissive,
-            path,
-            "objectMaterial.emissive",
-            material.material.emissiveColor[0],
-            material.material.emissiveColor[1],
-            material.material.emissiveColor[2]
-        );
+        ReadVec3( *emissive,
+                  path,
+                  "objectMaterial.emissive",
+                  material.material.emissiveColor[0],
+                  material.material.emissiveColor[1],
+                  material.material.emissiveColor[2] );
     }
+
     if ( const Json* strength = FindMember( materialJson, "strength" ) )
     {
-        material.material.emissiveStrength =
-            (std::max)( 0.0f, ReadFloat( *strength, path, "objectMaterial.strength" ) );
+        material.material.emissiveStrength = (std::max)( 0.0f,
+                                                         ReadFloat( *strength, path, "objectMaterial.strength" ) );
     }
+
     if ( const Json* flags = FindMember( materialJson, "flags" ) )
     {
         material.material.flags = static_cast<uint32_t>( ReadInt( *flags, path, "objectMaterial.flags" ) );
     }
+
     if ( const Json* name = FindMember( materialJson, "name" ) )
     {
-        strncpy_s(
-            material.material.name,
-            sizeof( material.material.name ),
-            ReadString( *name, path, "objectMaterial.name" ).c_str(),
-            _TRUNCATE
-        );
+        strncpy_s( material.material.name,
+                   sizeof( material.material.name ),
+                   ReadString( *name, path, "objectMaterial.name" ).c_str(),
+                   _TRUNCATE );
     }
 
     static constexpr const char* kAllowedKeys[] = {
-        "target",   "mode",     "kind",         "tint",        "color",    "colour",   "alpha", "roughness",
-        "metallic", "specular", "transmission", "stylization", "emissive", "strength", "flags", "name",
+        "target",
+        "mode",
+        "kind",
+        "tint",
+        "color",
+        "colour",
+        "alpha",
+        "roughness",
+        "metallic",
+        "specular",
+        "transmission",
+        "stylization",
+        "emissive",
+        "strength",
+        "flags",
+        "name",
     };
 
     for ( const auto& item : materialJson.items() )
     {
-        const bool known = std::any_of(
-            std::begin( kAllowedKeys ),
-            std::end( kAllowedKeys ),
-            [&]( const char* key ) { return item.key() == key; }
-        );
+        const bool known = std::any_of( std::begin( kAllowedKeys ),
+                                        std::end( kAllowedKeys ),
+                                        [&]( const char* key ) { return item.key() == key; } );
 
         if ( !known )
         {
@@ -764,6 +803,7 @@ void AuthoredSceneParser::ApplyRequirements( const Json& requirements, const std
             m_scene.m_requiredContacts.push_back( contact );
         }
     }
+
     if ( const Json* cells = FindMember( requirements, "broadphaseXCells" ) )
     {
         RequireArray( *cells, path, "requirements.broadphaseXCells" );
@@ -772,29 +812,21 @@ void AuthoredSceneParser::ApplyRequirements( const Json& requirements, const std
             RequireObject( cellJson, path, "requirements.broadphaseXCells[]" );
             SceneRequiredBroadphaseXCells cell = {};
 
-            cell.minCellX = ReadInt(
-                RequireMember( cellJson, path, "requirements.broadphaseXCells[]", "min" ),
-                path,
-                "requirements.broadphaseXCells[].min"
-            );
+            cell.minCellX = ReadInt( RequireMember( cellJson, path, "requirements.broadphaseXCells[]", "min" ),
+                                     path,
+                                     "requirements.broadphaseXCells[].min" );
 
-            cell.maxCellX = ReadInt(
-                RequireMember( cellJson, path, "requirements.broadphaseXCells[]", "max" ),
-                path,
-                "requirements.broadphaseXCells[].max"
-            );
+            cell.maxCellX = ReadInt( RequireMember( cellJson, path, "requirements.broadphaseXCells[]", "max" ),
+                                     path,
+                                     "requirements.broadphaseXCells[].max" );
 
-            cell.cellY = ReadInt(
-                RequireMember( cellJson, path, "requirements.broadphaseXCells[]", "y" ),
-                path,
-                "requirements.broadphaseXCells[].y"
-            );
+            cell.cellY = ReadInt( RequireMember( cellJson, path, "requirements.broadphaseXCells[]", "y" ),
+                                  path,
+                                  "requirements.broadphaseXCells[].y" );
 
-            cell.cellZ = ReadInt(
-                RequireMember( cellJson, path, "requirements.broadphaseXCells[]", "z" ),
-                path,
-                "requirements.broadphaseXCells[].z"
-            );
+            cell.cellZ = ReadInt( RequireMember( cellJson, path, "requirements.broadphaseXCells[]", "z" ),
+                                  path,
+                                  "requirements.broadphaseXCells[].z" );
 
             m_scene.m_requiredBroadphaseXCells.push_back( cell );
         }

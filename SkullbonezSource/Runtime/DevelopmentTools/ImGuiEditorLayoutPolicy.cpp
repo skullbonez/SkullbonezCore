@@ -45,6 +45,7 @@ template <typename T> bool ParseUnsigned( const char* begin, const char* end, T&
     {
         return false;
     }
+
     const std::from_chars_result result = std::from_chars( begin, end, outValue );
     return result.ec == std::errc() && result.ptr == end;
 }
@@ -55,12 +56,14 @@ void CopyPreferenceText( char* destination, std::size_t capacity, const char* be
     {
         return;
     }
+
     const std::size_t sourceLength = begin && end && end >= begin ? static_cast<std::size_t>( end - begin ) : 0u;
     const std::size_t copyLength = (std::min)( sourceLength, capacity - 1u );
     if ( copyLength > 0u )
     {
         std::memcpy( destination, begin, copyLength );
     }
+
     destination[copyLength] = '\0';
 }
 
@@ -70,6 +73,7 @@ void CopySanitizedPreferenceText( char* destination, std::size_t capacity, const
     {
         return;
     }
+
     std::size_t write = 0u;
     for ( std::size_t read = 0u; source && source[read] != '\0' && write + 1u < capacity; ++read )
     {
@@ -79,6 +83,7 @@ void CopySanitizedPreferenceText( char* destination, std::size_t capacity, const
             destination[write++] = value;
         }
     }
+
     destination[write] = '\0';
 }
 } // namespace
@@ -108,15 +113,13 @@ ImGuiEditorLayoutEnvelope ResolveImGuiEditorLayoutEnvelope( int contentWidth, in
     return result;
 }
 
-ImGuiGameViewportRect ResolveImGuiGameViewportRect(
-    float availableMinX,
-    float availableMinY,
-    float availableWidth,
-    float availableHeight,
-    int sourceWidth,
-    int sourceHeight,
-    float dpiScale
-) noexcept
+ImGuiGameViewportRect ResolveImGuiGameViewportRect( float availableMinX,
+                                                    float availableMinY,
+                                                    float availableWidth,
+                                                    float availableHeight,
+                                                    int sourceWidth,
+                                                    int sourceHeight,
+                                                    float dpiScale ) noexcept
 {
     ImGuiGameViewportRect result;
     result.dpiScale = std::isfinite( dpiScale ) && dpiScale > 0.0f ? dpiScale : 1.0f;
@@ -141,21 +144,21 @@ ImGuiGameViewportRect ResolveImGuiGameViewportRect(
         result.imageWidth = availableWidth;
         result.imageHeight = availableWidth / sourceAspect;
     }
+
     result.imageMinX = availableMinX + ( availableWidth - result.imageWidth ) * 0.5f;
     result.imageMinY = availableMinY + ( availableHeight - result.imageHeight ) * 0.5f;
     result.letterboxed = std::fabs( result.imageWidth - availableWidth ) > 0.5f ||
                          std::fabs( result.imageHeight - availableHeight ) > 0.5f;
+
     result.valid = result.imageWidth >= 1.0f && result.imageHeight >= 1.0f;
     return result;
 }
 
-bool MapImGuiGameViewportPoint(
-    const ImGuiGameViewportRect& viewport,
-    float clientX,
-    float clientY,
-    int& outSourceX,
-    int& outSourceY
-) noexcept
+bool MapImGuiGameViewportPoint( const ImGuiGameViewportRect& viewport,
+                                float clientX,
+                                float clientY,
+                                int& outSourceX,
+                                int& outSourceY ) noexcept
 {
     outSourceX = 0;
     outSourceY = 0;
@@ -163,6 +166,7 @@ bool MapImGuiGameViewportPoint(
     {
         return false;
     }
+
     const float maxX = viewport.imageMinX + viewport.imageWidth;
     const float maxY = viewport.imageMinY + viewport.imageHeight;
     if ( clientX < viewport.imageMinX || clientY < viewport.imageMinY || clientX >= maxX || clientY >= maxY )
@@ -219,6 +223,7 @@ bool TryParseImGuiEditorPanel( const char* name, ImGuiEditorPanelId& outPanel ) 
     {
         return false;
     }
+
     for ( uint32_t index = 0u; index < static_cast<uint32_t>( ImGuiEditorPanelId::Count ); ++index )
     {
         const ImGuiEditorPanelId candidate = static_cast<ImGuiEditorPanelId>( index );
@@ -229,6 +234,7 @@ bool TryParseImGuiEditorPanel( const char* name, ImGuiEditorPanelId& outPanel ) 
             return true;
         }
     }
+
     return false;
 }
 
@@ -255,11 +261,13 @@ ImGuiEditorPreferenceParseResult ParseImGuiEditorPreferences( const char* text, 
         {
             ++lineEnd;
         }
+
         const char* separator = cursor;
         while ( separator < lineEnd && *separator != '=' )
         {
             ++separator;
         }
+
         if ( separator < lineEnd )
         {
             const char* value = separator + 1;
@@ -290,36 +298,32 @@ ImGuiEditorPreferenceParseResult ParseImGuiEditorPreferences( const char* text, 
             }
             else if ( keyLength == 12u && std::memcmp( cursor, "scene_filter", keyLength ) == 0 )
             {
-                CopyPreferenceText(
-                    result.preferences.sceneFilter,
-                    sizeof( result.preferences.sceneFilter ),
-                    value,
-                    lineEnd
-                );
+                CopyPreferenceText( result.preferences.sceneFilter,
+                                    sizeof( result.preferences.sceneFilter ),
+                                    value,
+                                    lineEnd );
             }
             else if ( keyLength == 16u && std::memcmp( cursor, "hierarchy_filter", keyLength ) == 0 )
             {
-                CopyPreferenceText(
-                    result.preferences.hierarchyFilter,
-                    sizeof( result.preferences.hierarchyFilter ),
-                    value,
-                    lineEnd
-                );
+                CopyPreferenceText( result.preferences.hierarchyFilter,
+                                    sizeof( result.preferences.hierarchyFilter ),
+                                    value,
+                                    lineEnd );
             }
             else if ( keyLength == 12u && std::memcmp( cursor, "asset_filter", keyLength ) == 0 )
             {
-                CopyPreferenceText(
-                    result.preferences.assetFilter,
-                    sizeof( result.preferences.assetFilter ),
-                    value,
-                    lineEnd
-                );
+                CopyPreferenceText( result.preferences.assetFilter,
+                                    sizeof( result.preferences.assetFilter ),
+                                    value,
+                                    lineEnd );
             }
         }
+
         while ( lineEnd < textEnd && ( *lineEnd == '\n' || *lineEnd == '\r' ) )
         {
             ++lineEnd;
         }
+
         cursor = lineEnd;
     }
 
@@ -336,6 +340,7 @@ ImGuiEditorPreferenceParseResult ParseImGuiEditorPreferences( const char* text, 
 
     result.layoutResetRequired = result.preferences.layoutVersion != IMGUI_EDITOR_LAYOUT_VERSION ||
                                  result.preferences.topologyFingerprint != FingerprintImGuiEditorDefaultTopology();
+
     result.recoveredDefaults = result.layoutResetRequired;
     if ( result.layoutResetRequired )
     {
@@ -345,19 +350,19 @@ ImGuiEditorPreferenceParseResult ParseImGuiEditorPreferences( const char* text, 
         result.preferences.topologyFingerprint = FingerprintImGuiEditorDefaultTopology();
         result.preferences.panelVisibilityMask = IMGUI_EDITOR_DEFAULT_PANEL_MASK;
     }
+
     return result;
 }
 
-std::size_t SerializeImGuiEditorPreferences(
-    const ImGuiEditorPreferences& preferences,
-    char* output,
-    std::size_t outputCapacity
-) noexcept
+std::size_t SerializeImGuiEditorPreferences( const ImGuiEditorPreferences& preferences,
+                                             char* output,
+                                             std::size_t outputCapacity ) noexcept
 {
     if ( !output || outputCapacity == 0u )
     {
         return 0u;
     }
+
     char sceneFilter[IMGUI_EDITOR_FILTER_CAPACITY] = {};
     char hierarchyFilter[IMGUI_EDITOR_FILTER_CAPACITY] = {};
 
@@ -366,25 +371,24 @@ std::size_t SerializeImGuiEditorPreferences(
     CopySanitizedPreferenceText( sceneFilter, sizeof( sceneFilter ), preferences.sceneFilter );
     CopySanitizedPreferenceText( hierarchyFilter, sizeof( hierarchyFilter ), preferences.hierarchyFilter );
     CopySanitizedPreferenceText( assetFilter, sizeof( assetFilter ), preferences.assetFilter );
-    const int written = snprintf(
-        output,
-        outputCapacity,
-        "schema=%d\nlayout=%d\ntopology=%llu\npanels=%u\nscene_filter=%s\n"
-        "hierarchy_filter=%s\nasset_filter=%s\n",
-        IMGUI_EDITOR_PREFERENCES_VERSION,
-        IMGUI_EDITOR_LAYOUT_VERSION,
-        static_cast<unsigned long long>( FingerprintImGuiEditorDefaultTopology() ),
-        preferences.panelVisibilityMask & IMGUI_EDITOR_ALL_PANEL_MASK,
-        sceneFilter,
-        hierarchyFilter,
-        assetFilter
-    );
+    const int written = snprintf( output,
+                                  outputCapacity,
+                                  "schema=%d\nlayout=%d\ntopology=%llu\npanels=%u\nscene_filter=%s\n"
+                                  "hierarchy_filter=%s\nasset_filter=%s\n",
+                                  IMGUI_EDITOR_PREFERENCES_VERSION,
+                                  IMGUI_EDITOR_LAYOUT_VERSION,
+                                  static_cast<unsigned long long>( FingerprintImGuiEditorDefaultTopology() ),
+                                  preferences.panelVisibilityMask & IMGUI_EDITOR_ALL_PANEL_MASK,
+                                  sceneFilter,
+                                  hierarchyFilter,
+                                  assetFilter );
 
     if ( written < 0 || static_cast<std::size_t>( written ) >= outputCapacity )
     {
         output[0] = '\0';
         return 0u;
     }
+
     return static_cast<std::size_t>( written );
 }
 
@@ -397,6 +401,7 @@ uint64_t FingerprintImGuiEditorDefaultTopology() noexcept
         hash ^= static_cast<uint8_t>( IMGUI_EDITOR_TOPOLOGY_DESCRIPTOR[index] );
         hash *= 1099511628211ull;
     }
+
     return hash;
 }
 } // namespace SkullbonezCore::Runtime::DevelopmentTools

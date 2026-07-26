@@ -80,21 +80,51 @@ bypass it.
 
 Dependency direction must remain visible from physical include paths. `Core/`
 is the infrastructure floor and must not include Assets, Gameplay, Physics,
-Rendering, Scene, World, Runtime, or UI. Physics and Rendering may include Core
-and Maths, but must not include Gameplay, Runtime, or UI. Gameplay may include
-Core, Maths, and stable Physics/Rendering value or registration seams, but must
-not include Assets, Scene, World, Runtime, or UI. Move a misplaced value or
-implementation to its owning layer instead of adding a forwarding header,
-compatibility alias, callback pack, service bag, or upward include.
+Rendering, Scene, World, Runtime, or UI. Physics may include Core and Maths, but
+must not include Assets, Gameplay, Scene, World, Runtime, or UI. Rendering may
+include Core and Maths, but must not include Gameplay, Runtime, or UI. Gameplay
+may include Core, Maths, and stable Physics/Rendering value or registration
+seams, but must not include Assets, Scene, World, Runtime, or UI. Move a
+misplaced value or implementation to its owning layer instead of adding a
+forwarding header, compatibility alias, callback pack, service bag, or upward
+include.
 
-Before closing a dependency-direction change, run these exact review proofs;
+Authoritative dependency enforcement lives in
+`tools/check_dependency_graph.py` with data in
+`tools/dependency_graph_rules.json`. `tools/validate_dependency_graph.bat`
+runs its positive/negative fixtures and repository scan through the mandatory
+fast, CPU, full, and hosted gates. Add or change a direction only by updating
+rule data, fixtures, and this ownership table in the same change; do not
+hardcode a new checker branch or count budget.
+
+The exact review proofs below remain human-readable mirrors of the validator;
 all commands must return no rows:
 
 ```powershell
 rg -n '^#include[[:space:]]+.*(Assets|Gameplay|Physics|Rendering|Scene|World|Runtime|UI)/' SkullbonezSource/Core
-rg -n '^#include[[:space:]]+.*(Gameplay|Runtime|UI)/' SkullbonezSource/Physics SkullbonezSource/Rendering
+rg -n '^#include[[:space:]]+.*(Assets|Gameplay|Scene|World|Runtime|UI)/' SkullbonezSource/Physics
+rg -n '^#include[[:space:]]+.*(Gameplay|Runtime|UI)/' SkullbonezSource/Rendering
 rg -n '^#include[[:space:]]+.*(Assets|Scene|World|Runtime|UI)/' SkullbonezSource/Gameplay
 ```
+
+Rendering contracts must remain feature-neutral. No type, constant, or function
+under `SkullbonezSource/Rendering` may name Runtime feature domains such as
+trajectory, replay, prediction, planning, cause trees, porkchops, or operator
+panels. Feature owners supply layouts, capacities, and presentation data through
+generic Rendering value contracts. The validator mechanically rejects the
+retired `RetainedTrajectory` and `RETAINED_TRAJECTORY` names; the broader review
+proof below prevents a renamed feature-specific replacement:
+
+```powershell
+rg -n --ignore-case 'trajectory|porkchop|replay|prediction' SkullbonezSource/Rendering
+rg -n 'RetainedTrajectory|RETAINED_TRAJECTORY' SkullbonezSource/Rendering
+```
+
+`PhysicsBodyRecord` and hot physics store arrays gain a per-body field only
+with an owner ruling in the owning plan or commit body. The ruling must name the
+consuming stage and explain why a stage-owned fixed-capacity parallel store is
+insufficient. This is a review invariant rather than a frozen field-count or
+spelling-budget check.
 
 If an edge cannot be inverted in the owning task, record it in that task's
 exception table with the owner, reason, and deletion condition. An unrecorded
@@ -126,22 +156,24 @@ Runtime targets:
 | Source package | Allowed Runtime package targets |
 |---|---|
 | `App` | Every Runtime package |
-| `Automation` | `App`, `Camera`, `Capture`, `DevelopmentTools`, `Diagnostics`, `Direction`, `Editor`, `Input`, `Interaction`, `Replay`, top-level frame views, `Scene`, `Tools` |
+| `Automation` | `App`, `Camera`, `Capture`, `DevelopmentTools`, `Diagnostics`, `Direction`, `Editor`, `Input`, `Interaction`, `Planning`, `Prediction`, `Replay`, top-level frame views, `Scene`, `Tools` |
 | `Camera` | `App` process values, `Direction`, `Input`, `Interaction`, `Scene`; never `Render` |
 | `Capture` | `App`, `Automation`, `Camera`, `Diagnostics`, `Input`, `Interaction`, `Render`, `Replay`, top-level frame views, `Scene`, `Simulation`, `Tools` |
-| `DevelopmentTools` | `App`, `Input`, `Replay` |
+| `DevelopmentTools` | `App`, `Input`, `Planning`, `Replay` |
 | `Diagnostics` | `App`, `Automation`, `Capture`, `Debug`, `Input`, `Render`, `Replay`, `Scene` |
 | `Direction` | `Camera`, `Capture`, `Scene`, `Tools` |
 | `Editor` | `App`, `Camera`, `Capture`, `Diagnostics`, `Input`, `Interaction`, `Replay`, top-level frame views, `Scene`, `Tools` |
 | `Input` | `App/Window` platform capability, `Camera`, `Interaction`, `ReplayEventCommand`, `SceneLifecycle`; never `Render`, `UI`, or `DevelopmentTools` |
 | `Interaction` | `Camera`, `Diagnostics`, `Render`, `Scene`, `Simulation` |
-| `Render` | `App`, `Camera`, `Debug`, `DevelopmentTools`, `Diagnostics`, `Input`, `Interaction`, `Replay`, top-level frame views, `Scene`, `Tools`, `UI` |
-| `Replay` | `Camera`, `Diagnostics`, `Editor`, `Input`, `Interaction`, `Render`, `Scene`, `Simulation`, `Tools`, `UI`; Replay remains an upper Runtime consumer |
-| `Scene` | `App`, `Automation`, `Camera`, `Debug`, `Diagnostics`, `Editor`, `Input`, `Interaction`, `Render`, `Replay`, `Simulation`, `Tools` |
+| `Render` | `App`, `Camera`, `Debug`, `DevelopmentTools`, `Diagnostics`, `Input`, `Interaction`, `Planning`, `Prediction`, `Replay`, top-level frame views, `Scene`, `Tools`, `UI` |
+| `Replay` | `Camera`, `Diagnostics`, `Editor`, `Input`, `Interaction`, `Render`, `Scene`, `Simulation`, `Tools`, `UI`; never `Prediction` or `Planning` |
+| `Prediction` | `Camera`, `Editor`, `Input`, `Replay`, `Scene`, `Tools`; never `Planning` |
+| `Planning` | `Input`, `Interaction`, `Prediction`, `Render`, `Replay`, `Scene`, `UI` |
+| `Scene` | `App`, `Automation`, `Camera`, `Debug`, `Diagnostics`, `Editor`, `Input`, `Interaction`, `Planning`, `Render`, `Replay`, `Simulation`, `Tools` |
 | `Simulation` | `Interaction`, `Scene` |
 | `Startup` | `App`, `Replay`, `Scene` |
 | `Tools` | `Camera`, `Editor`, `Input`, `Interaction`, `Replay`, `Scene` |
-| `UI` | `App`, `Automation`, `Capture`, `Diagnostics`, `Editor`, `Replay`, top-level frame views, `Scene` |
+| `UI` | `App`, `Automation`, `Capture`, `Diagnostics`, `Editor`, `Planning`, `Replay`, top-level frame views, `Scene` |
 | `Debug` | No other Runtime package |
 | top-level frame views | No Runtime package |
 
@@ -152,47 +184,69 @@ sequences the turn, `InputRouter.Interactions` remains part of the same router
 owner, and stateless `InputController` applies mode/camera policy. Do not add a
 second retained input state owner or move frame orchestration down into Input.
 
-Before closing a Runtime package change, run every proof below; every command
-must return no rows. Each pattern is the complement of the source package's
-allowed Runtime targets, so a new edge requires an owner-approved table and
-proof update rather than a forwarding header, callback facade, or context bag:
+The dependency-graph validator is authoritative for this Runtime matrix and
+must pass before closing a Runtime package change. The mirror commands below
+must also return no rows. Each pattern is the complement of the source
+package's allowed Runtime targets, so a new edge requires an owner-approved
+table, rule-data/fixture, and proof update rather than a forwarding header,
+callback facade, or context bag:
 
 ```powershell
 rg -n '^#include[[:space:]]+\x22(\.\./)?(Debug|Render|Simulation|Startup|UI)/' SkullbonezSource/Runtime/Automation
-rg -n '^#include[[:space:]]+\x22((\.\./)?(Automation|Capture|Debug|DevelopmentTools|Diagnostics|Editor|Render|Replay|Simulation|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Camera
-rg -n '^#include[[:space:]]+\x22(\.\./)?(Debug|DevelopmentTools|Direction|Editor|Startup|UI)/' SkullbonezSource/Runtime/Capture
-rg -n '^#include[[:space:]]+\x22((\.\./)?(Automation|Camera|Capture|Debug|Diagnostics|Direction|Editor|Interaction|Render|Scene|Simulation|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/DevelopmentTools
-rg -n '^#include[[:space:]]+\x22((\.\./)?(Camera|DevelopmentTools|Direction|Editor|Interaction|Simulation|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Diagnostics
-rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Debug|DevelopmentTools|Diagnostics|Editor|Input|Interaction|Render|Replay|Simulation|Startup|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Direction
-rg -n '^#include[[:space:]]+\x22(\.\./)?(Automation|Debug|DevelopmentTools|Direction|Render|Simulation|Startup|UI)/' SkullbonezSource/Runtime/Editor
-rg -n '^#include[[:space:]]+\x22((\.\./)?(Automation|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Render|Simulation|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Input
-rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Capture|Debug|DevelopmentTools|Direction|Editor|Input|Replay|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Interaction
+rg -n '^#include[[:space:]]+\x22((\.\./)?(Automation|Capture|Debug|DevelopmentTools|Diagnostics|Editor|Planning|Prediction|Render|Replay|Simulation|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Camera
+rg -n '^#include[[:space:]]+\x22(\.\./)?(Debug|DevelopmentTools|Direction|Editor|Planning|Prediction|Startup|UI)/' SkullbonezSource/Runtime/Capture
+rg -n '^#include[[:space:]]+\x22((\.\./)?(Automation|Camera|Capture|Debug|Diagnostics|Direction|Editor|Interaction|Prediction|Render|Scene|Simulation|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/DevelopmentTools
+rg -n '^#include[[:space:]]+\x22((\.\./)?(Camera|DevelopmentTools|Direction|Editor|Interaction|Planning|Prediction|Simulation|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Diagnostics
+rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Debug|DevelopmentTools|Diagnostics|Editor|Input|Interaction|Planning|Prediction|Render|Replay|Simulation|Startup|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Direction
+rg -n '^#include[[:space:]]+\x22(\.\./)?(Automation|Debug|DevelopmentTools|Direction|Planning|Prediction|Render|Simulation|Startup|UI)/' SkullbonezSource/Runtime/Editor
+rg -n '^#include[[:space:]]+\x22((\.\./)?(Automation|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Planning|Prediction|Render|Simulation|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Input
+rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Capture|Debug|DevelopmentTools|Direction|Editor|Input|Planning|Prediction|Replay|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Interaction
 rg -n '^#include[[:space:]]+\x22(\.\./)?(Automation|Capture|Direction|Editor|Simulation|Startup)/' SkullbonezSource/Runtime/Render
-rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Capture|Debug|DevelopmentTools|Direction|Startup)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Replay
-rg -n '^#include[[:space:]]+\x22((\.\./)?(Capture|DevelopmentTools|Direction|Startup|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Scene
-rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Camera|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Input|Render|Replay|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Simulation
-rg -n '^#include[[:space:]]+\x22((\.\./)?(Automation|Camera|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Input|Interaction|Render|Simulation|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Startup
-rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Render|Simulation|Startup|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Tools
-rg -n '^#include[[:space:]]+\x22(\.\./)?(Camera|Debug|DevelopmentTools|Direction|Input|Interaction|Render|Simulation|Startup|Tools)/' SkullbonezSource/Runtime/UI
-rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Camera|Capture|DevelopmentTools|Diagnostics|Direction|Editor|Input|Interaction|Render|Replay|Scene|Simulation|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Debug
-rg -n '^#include[[:space:]]+\x22(\.\./)?(App|Automation|Camera|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Input|Interaction|Render|Replay|Scene|Simulation|Startup|Tools|UI)/' SkullbonezSource/Runtime/RuntimeFrameViews.h
+rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Capture|Debug|DevelopmentTools|Direction|Planning|Prediction|Startup)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Replay
+rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Interaction|Planning|Render|Simulation|Startup|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Prediction
+rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Camera|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Simulation|Startup|Tools)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Planning
+rg -n '^#include[[:space:]]+\x22((\.\./)?(Capture|DevelopmentTools|Direction|Prediction|Startup|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Scene
+rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Camera|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Input|Planning|Prediction|Render|Replay|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Simulation
+rg -n '^#include[[:space:]]+\x22((\.\./)?(Automation|Camera|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Input|Interaction|Planning|Prediction|Render|Simulation|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Startup
+rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Planning|Prediction|Render|Simulation|Startup|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Tools
+rg -n '^#include[[:space:]]+\x22(\.\./)?(Camera|Debug|DevelopmentTools|Direction|Input|Interaction|Prediction|Render|Simulation|Startup|Tools)/' SkullbonezSource/Runtime/UI
+rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Camera|Capture|DevelopmentTools|Diagnostics|Direction|Editor|Input|Interaction|Planning|Prediction|Render|Replay|Scene|Simulation|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Debug
+rg -n '^#include[[:space:]]+\x22(\.\./)?(App|Automation|Camera|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Input|Interaction|Planning|Prediction|Render|Replay|Scene|Simulation|Startup|Tools|UI)/' SkullbonezSource/Runtime/RuntimeFrameViews.h
 ```
 
 ## Replay Boundary Rule
 
-Replay is an upper Runtime consumer, not a type provider to engine layers.
-`Physics/`, `Rendering/`, `Scene/`, `World/`, and `Core/` must not include
-`Runtime/Replay/*`. Replay reads Physics through `PhysicsApi.h`,
+Replay, Prediction, and Planning are upper Runtime consumers, not type
+providers to engine layers. `Physics/`, `Rendering/`, `Scene/`, `World/`, and
+`Core/` must not include `Runtime/Replay/*`, `Runtime/Prediction/*`, or
+`Runtime/Planning/*`. These packages read Physics through `PhysicsApi.h`,
 `PhysicsEngine`, and Physics-owned value snapshots; render presentation crosses
-as value packets or bounded queues. Do not move a Replay type downward or hide
-one behind a forwarding header, alias, callback pack, or broad context object.
+as value packets or bounded queues. Do not move one of their types downward or
+hide an upward edge behind a forwarding header, alias, callback pack, or broad
+context object.
 
-Before closing replay-facing work, run this exact review proof; it must return
-no rows:
+The dependency-graph validator is authoritative for this Replay edge. Before
+closing replay-facing work, the mirror proof must also return no rows:
 
 ```powershell
-rg -n '^#include[[:space:]]+.*Runtime/Replay/' SkullbonezSource/Physics SkullbonezSource/Rendering SkullbonezSource/Scene SkullbonezSource/World SkullbonezSource/Core
+rg -n '^#include[[:space:]]+.*Runtime/(Replay|Prediction|Planning)/' SkullbonezSource/Physics SkullbonezSource/Rendering SkullbonezSource/Scene SkullbonezSource/World SkullbonezSource/Core
 ```
+
+### Replay-Family Placement Rule
+
+A new operator-facing feature built on predicted or recorded data belongs in
+`Runtime/Planning/`, or in a future explicitly named product package above it.
+It must not be placed in `Runtime/Replay/` or `Runtime/Prediction/`. Replay owns
+recorded-data infrastructure; Prediction owns future-simulation production and
+publication; neither is a miscellaneous home for trip analysis, launch-window
+tools, product panels, or later operator workflows.
+
+Review placement by responsibility and dependency direction. New retained
+product state, commands, panels, or orchestration in Replay or Prediction are a
+closure failure even if their names avoid planning vocabulary. Shared immutable
+values stay in the lowest honest owner, while App may compose siblings. Do not
+add frozen type counts, line budgets, or spelling ratchets to enforce this
+rule.
 
 Replay retains the only post-gameplay growth privilege, and only through a
 `RuntimeReserveAllocator`-registered owner with a replay-phase check, hard cap,
@@ -231,6 +285,14 @@ Comment quality is part of completion, not a follow-up nicety.
   and any nearby `Concept:`, `Why:`, `Invariant:`, `Lifetime:`, or `Hazard:`
   comments needed by the guide for non-obvious code. Missing either part keeps
   the item unchecked.
+- Comments that assert ownership, sequencing, or subsystem behavior must name
+  owners and paths that exist in the post-change source. When a change moves a
+  responsibility, correct every touched comment describing the previous owner
+  in the same commit.
+- Repository-relative `Related:` entries must resolve. Permanent source
+  history cites closure reports under `Agentic/Reports/<date>/`, never
+  deletion-bound `Agentic/Plans/TODO/` plans; `validate_fast` enforces the
+  mechanical path-resolution portion.
 - Before final reporting on a comment pass, rerun the scoped `git ls-files`
   inventory and reconcile it against the checklist. The final answer or handoff
   must include the checklist path, checked count, deferred count, and any files
@@ -288,6 +350,46 @@ state, or dependency authority and the owner boundary they violate. Any such
 finding reopens the owning checklist item and blocks plan/campaign completion;
 it cannot be waived as follow-up debt. Large cohesive files are allowed only
 when the review records why their state and invariants belong to one owner.
+Distinguish banned bags from invariant owners per the Invariant Ownership Rule.
+
+## Invariant Ownership Rule
+
+Judge aggregate types by the invariant they own and enforce, not by their
+shape or their effect on parameter count.
+
+- A struct or class that groups unrelated-owner data or orchestrates
+  multi-owner work is legitimate only when its header names the owned rule in
+  an `Invariant:` block and a focused test exercises that rule.
+- An aggregate that only carries data to shorten a signature is an
+  authority-free bag and remains banned.
+- An invariant-owning transaction stores values and a phase cursor, never
+  long-lived owner pointers. Borrowed owners enter phase methods and expire
+  when those calls return.
+- Multi-step work whose correctness depends on call order must enforce that
+  order in a type, using a phase cursor and lane-F fatal on an illegal
+  transition, rather than relying on comments or caller discipline.
+- Three or more sibling input/participant/output structs combined with a wide
+  apply free function and ordering/arbitration comments are an extrusion
+  signal: the operation needs an invariant owner. Rearranging parameters is
+  not a remediation.
+
+**Banned example — authority-free bag:** the rejected
+`RenderModelPassInput` shape from the 2026-07-23 parameter-bag remediation
+was immediately unpacked by its consumer. Deleting it only widened the
+signature; it enforced no lifecycle, ordering, arbitration, or authority
+rule.
+
+**Legitimate example — invariant owner:** a transaction type may own a phase
+cursor whose legal walk is tested, make an out-of-order phase call lane-F
+fatal, and expose arbitration methods that replace free which-value-wins
+helpers. Its header must name the exact phase-order and arbitration invariant
+it enforces.
+
+This rule does not relax the context-bag, callback-pack, owner reach-back, or
+forwarding bans and does not change the 12-parameter ceiling. Passing a
+legitimate invariant owner as one parameter is not ceiling evasion because
+the header invariant and focused test independently establish why the type
+exists.
 
 ## Migration Cleanup Review Rule
 
@@ -313,6 +415,8 @@ body: owner, reason, deletion condition, and review evidence.
   boundary and move strict-authority work to the appropriate follow-up plan.
 - Use a single independent rubber-duck review at the end of a whole cleanup
   plan, not one review per tiny slice, unless the user explicitly asks for more.
+
+Distinguish banned bags from invariant owners per the Invariant Ownership Rule.
 
 ## Hot-Path Data and Inheritance Review Rule
 
@@ -565,6 +669,11 @@ determinism risks, DX12 validation risks, and hot-path allocation concerns first
 ordered by severity with file and line references. Keep summaries secondary.
 If no issues are found, say so clearly and name any residual validation or test
 risk.
+
+Reviews must report the extrusion signal—three or more sibling structs, a
+wide apply free function, and ordering/arbitration comments—as a design
+finding with a proposed invariant owner. A parameter reshuffle does not close
+that finding.
 
 For bug fixes in subsystems that already have unit coverage, add or update a
 regression test in the same commit unless the user explicitly scopes the work to

@@ -60,6 +60,7 @@ uint32_t LockOrderValidator::RegisterLock( const char* name )
     {
         return 0;
     }
+
     const uint32_t lockId = m_nextLockId++;
     m_names[lockId - 1] = name ? name : "<unnamed>";
     return lockId;
@@ -78,6 +79,7 @@ void LockOrderValidator::RecordAcquisition( uint32_t lockId )
         assert( false && "Invalid lock-order validator id." );
         return;
     }
+
     {
         std::lock_guard<std::mutex> lock( m_mutex );
         for ( std::size_t heldIndex = 0; heldIndex < g_heldLockCount; ++heldIndex )
@@ -91,12 +93,11 @@ void LockOrderValidator::RecordAcquisition( uint32_t lockId )
 
         if ( DetectCycleUnlocked() )
         {
-            fprintf(
-                stderr,
-                "[workers] Lock-order cycle detected while acquiring lock %u (%s).\n",
-                lockId,
-                m_names[lockId - 1] ? m_names[lockId - 1] : "<unnamed>"
-            );
+            fprintf( stderr,
+                     "[workers] Lock-order cycle detected while acquiring lock %u (%s).\n",
+                     lockId,
+                     m_names[lockId - 1] ? m_names[lockId - 1] : "<unnamed>" );
+
             assert( false && "Lock-order cycle detected." );
         }
     }
@@ -123,6 +124,7 @@ void LockOrderValidator::RecordRelease( uint32_t lockId )
             {
                 g_heldLocks[moveIndex - 1] = g_heldLocks[moveIndex];
             }
+
             --g_heldLockCount;
             return;
         }
@@ -134,16 +136,15 @@ void LockOrderValidator::RecordRelease( uint32_t lockId )
 
 
 #ifdef _DEBUG
-bool LockOrderValidator::HasCycleFrom(
-    uint32_t node,
-    std::bitset<MAX_LOCK_COUNT>& visiting,
-    std::bitset<MAX_LOCK_COUNT>& visited
-) const
+bool LockOrderValidator::HasCycleFrom( uint32_t node,
+                                       std::bitset<MAX_LOCK_COUNT>& visiting,
+                                       std::bitset<MAX_LOCK_COUNT>& visited ) const
 {
     if ( visiting.test( node ) )
     {
         return true;
     }
+
     if ( visited.test( node ) )
     {
         return false;
@@ -157,6 +158,7 @@ bool LockOrderValidator::HasCycleFrom(
             return true;
         }
     }
+
     visiting.reset( node );
     visited.set( node );
     return false;
@@ -174,6 +176,7 @@ bool LockOrderValidator::DetectCycleUnlocked() const
             return true;
         }
     }
+
     return false;
 }
 #endif
@@ -208,6 +211,7 @@ bool TrackedMutex::try_lock()
     {
         return false;
     }
+
 #ifdef _DEBUG
     m_validator->RecordAcquisition( m_id );
 #endif

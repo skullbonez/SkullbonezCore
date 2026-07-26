@@ -107,7 +107,7 @@ exit /b 0
 :run_renderer
 set "RENDERER=%~1"
 set "ARGS=%~2"
-"%REPO%\Profile\SKULLBONEZ_CORE.exe" %ARGS% --vsync off --suite SkullbonezData/scenes/ui_tests.suite.json >"%REPO%\Profile\ui_%RENDERER%_stdout.txt" 2>"%REPO%\Profile\ui_%RENDERER%_stderr.txt"
+"%REPO%\Profile\SKULLBONEZ_CORE.exe" %ARGS% --vsync off --automation-hidden-window --suite SkullbonezData/scenes/ui_tests.suite.json >"%REPO%\Profile\ui_%RENDERER%_stdout.txt" 2>"%REPO%\Profile\ui_%RENDERER%_stderr.txt"
 if errorlevel 1 (
     echo FAIL: %RENDERER% UI suite exited with error.
     exit /b 1

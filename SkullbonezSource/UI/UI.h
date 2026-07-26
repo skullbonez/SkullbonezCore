@@ -4,7 +4,7 @@ Purpose:
   Declares the in-engine UI draw composer and its stable public command surface.
 
 Summary:
-  InGameUI composes drawing and draw-only resources around a concrete
+  InGameUI composes one bounded draw frame around a concrete
   UIWindowInteractionOwner. Callers keep the stable InGameUI API while window,
   widget, tab-input, gesture, and cache authority live in that owner.
 
@@ -26,6 +26,7 @@ Invariants:
     runtime owners never retain a backpointer to this model.
   - The interaction owner has no InGameUI backpointer, friend edge, callback
     pack, or unrelated runtime context.
+  - Draw returns backend-neutral values and never requires a renderer owner.
 
 Related:
   - SkullbonezSource/UI/UI.cpp
@@ -38,12 +39,11 @@ Related:
 #include "../Core/Config.h"
 #include "../Core/MainMemoryStats.h"
 #include "../Core/Allocation/RuntimeReserveAllocator.h"
-#include "../Rendering/DX12/ShaderDX12.h"
-#include "../Rendering/DX12/Dx12Diagnostics.h"
 #include "UIButton.h"
 #include "UICheckBox.h"
 #include "UIComboBox.h"
 #include "UICommands.h"
+#include "UIRenderDiagnostics.h"
 #include "UICache.h"
 #include "UIBackdropBlur.h"
 #include "UIScrollBar.h"
@@ -63,7 +63,6 @@ Related:
 #include "UITabSky.h"
 #include "UIWindowInteractionOwner.h"
 #include <cstdint>
-#include <memory>
 
 namespace SkullbonezCore
 {
@@ -71,28 +70,6 @@ namespace Core
 {
 class Profiler;
 } // namespace Core
-
-namespace Text
-{
-class TextBatch;
-} // namespace Text
-
-namespace Assets
-{
-class AssetSystem;
-}
-
-namespace Rendering
-{
-class Dx12GeometryOwner;
-class Dx12Diagnostics;
-class Dx12FrameOwner;
-class Dx12GraphTransientPool;
-class Dx12ResourceBuilder;
-class Dx12TextureOwner;
-class Dx12GeometryOwner;
-class RenderGpuTimingOwner;
-} // namespace Rendering
 
 namespace UI
 {
@@ -118,31 +95,9 @@ constexpr int UI_PROFILER_MARKER_OPTION_MAX = ProfilerTab::MAX_MARKERS + 1;
 constexpr uint32_t UI_PROFILER_FRAME_TOTAL_HASH = 0u;
 constexpr int UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX = 64;
 
-struct UIRenderContext
-{
-    // Lifetime: each pointer is borrowed for the current UI/text pass only.
-    // Resource creation, draw commands, and draw tracing stay split so the UI
-    // never needs the wide renderer facade.
-    Assets::AssetSystem* assets = nullptr;
-    Rendering::Dx12ResourceBuilder* resources = nullptr;
-    Rendering::Dx12TextureOwner* textures = nullptr;
-    Rendering::Dx12GeometryOwner* geometry = nullptr;
-    Rendering::Dx12Diagnostics* diagnostics = nullptr;
-    Rendering::RenderGpuTimingOwner* gpuTiming = nullptr;
-    // Lifetime: the late UI pass installs RuntimeRenderer's batch owner for
-    // this synchronous draw only. Run's wider frame context leaves it null.
-    Text::TextBatch* textBatch = nullptr;
-
-    bool IsReady() const
-    {
-        return assets != nullptr && resources != nullptr && textures != nullptr && geometry != nullptr &&
-               diagnostics != nullptr;
-    }
-};
 struct UIRenderTargetPreviewResource
 {
     const char* label = "";
-    uint32_t textureHandle = 0;
     int width = 0;
     int height = 0;
     bool available = false;
@@ -156,9 +111,9 @@ struct UIProfilerMarkerOption
     const char* leafName = "";
     uint32_t hash = UI_PROFILER_FRAME_TOTAL_HASH;
     float cpuMs = 0.0f;
-    float cpuAverageMs = 0.0f;                 // Same 500 ms moving average used by the profiler table.
+    float cpuAverageMs = 0.0f;        // Same 500 ms moving average used by the profiler table.
     float gpuMs = 0.0f;
-    float colorR = 0.0f;                       // RGB borrowed from the profiler row palette for chart overlays.
+    float colorR = 0.0f;              // RGB borrowed from the profiler row palette for chart overlays.
     float colorG = 0.0f;
     float colorB = 0.0f;
     bool hasGpu = false;
@@ -184,13 +139,13 @@ struct InGameUIFrameData
     int selectedCineModeSceneOption = -1;
     int drawCallsBeforeUI = 0;
     int UIDrawCalls = 0;
-    Rendering::RenderVisibilityStats visibility;
+    UIRenderVisibilityStats visibility;
     float fps = 0.0f;
     float renderMs = 0.0f;
     float physicsMs = 0.0f;
     float cpuFrameMs = 0.0f;
     float gpuFrameMs = 0.0f;
-    float workerCoreTotalMs = 0.0f;            // Sum of worker-pool CPU chunk time from the last committed frame, in ms.
+    float workerCoreTotalMs = 0.0f;   // Sum of worker-pool CPU chunk time from the last committed frame, in ms.
     // Lifetime: profiler and draw-trace names are borrowed for this immediate UI
     // pass. The profiler tab caches only bounded values needed for next-frame
     // input/layout; drawing gets refreshed from this snapshot every frame.
@@ -198,7 +153,7 @@ struct InGameUIFrameData
     UIProfilerMarkerOption profilerMarkerOptions[UI_PROFILER_MARKER_OPTION_MAX];
     int profilerMarkerOptionCount = 0;
     SkullbonezCore::Core::MainMemoryStats mainMemory;
-    Rendering::RenderMemoryStats renderMemory; // Value snapshot for the Memory tab/overlay only.
+    UIRenderMemoryStats renderMemory; // Value snapshot for the Memory tab/overlay only.
     SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView
         reserveGrowthEvents[UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX];
     int reserveGrowthEventCount = 0;
@@ -321,7 +276,9 @@ class InGameUI
     void SetScrollY( float scrollY );
     void SetMouseOverride( bool enabled, int x = 0, int y = 0 );
     void CancelInputCapture();
-    void ResetResources( Rendering::Dx12GeometryOwner* geometry );
+    // Clears UI-owned layout/backdrop caches after presentation invalidation;
+    // GPU resource release belongs exclusively to Runtime/Render.
+    void ResetPresentationState();
     SceneNavigationModel& SceneNavigation()
     {
         return m_sceneNavigation;
@@ -334,21 +291,21 @@ class InGameUI
     // Returns the UI-owned automation pointer substitution by value so Runtime
     // can apply it while constructing the detached input snapshot.
     InputControl::UIPointerOverride InputOverride() const;
-    InGameUIInputResult UpdateInput(
-        const InputControl::UIInputSnapshot& input,
-        int screenWidth,
-        int screenHeight,
-        double now,
-        bool editorModeEnabled,
-        bool editorPlacementMode,
-        bool editorPlaceStatic,
-        bool editorTerrainAlign,
-        int cameraModeIndex,
-        uint32_t cameraModeEnabledMask,
-        std::span<const char* const> sceneOptions,
-        int selectedSceneOption
-    );
-    void Draw( const InGameUIFrameData& data, const UIRenderContext& render );
+    InGameUIInputResult UpdateInput( const InputControl::UIInputSnapshot& input,
+                                     int screenWidth,
+                                     int screenHeight,
+                                     double now,
+                                     bool editorModeEnabled,
+                                     bool editorPlacementMode,
+                                     bool editorPlaceStatic,
+                                     bool editorTerrainAlign,
+                                     int cameraModeIndex,
+                                     uint32_t cameraModeEnabledMask,
+                                     std::span<const char* const> sceneOptions,
+                                     int selectedSceneOption );
+    // Builds one complete ordered frame of backend-neutral draw values. The
+    // returned view remains valid until the next Draw call on this owner.
+    const UIDrawList& Draw( const InGameUIFrameData& data );
 
   private:
     // Lifetime: Init owns this profiler beyond the cohesive UI owner; input and
@@ -358,17 +315,14 @@ class InGameUI
     // Lifetime: the interaction owner holds every widget and gesture record
     // shared by hit testing and drawing. It never retains an InGameUI reach-back.
     UIWindowInteractionOwner m_windowInteraction;
+    UIDrawList m_frameDrawList;
     UIDrawList m_histogramDrawList;
     UIDrawList m_memoryOverlayDrawList;
-    std::unique_ptr<Rendering::ShaderDX12> m_renderTargetPreviewShader;
-    uint32_t m_renderTargetPreviewVB = 0;
-    void DrawHitboxOverlay(
-        const UIDrawContext& draw,
-        const InGameUIFrameData& data,
-        const UIRect& windowBounds,
-        const UIRect& contentBounds,
-        const UIRect& footerBounds
-    );
+    void DrawHitboxOverlay( const UIDrawContext& draw,
+                            const InGameUIFrameData& data,
+                            const UIRect& windowBounds,
+                            const UIRect& contentBounds,
+                            const UIRect& footerBounds );
 };
 
 } // namespace UI

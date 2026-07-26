@@ -54,6 +54,7 @@ bool ReadBytes( const std::string& path, std::string& bytes )
     {
         return false;
     }
+
     bytes = std::string( std::istreambuf_iterator<char>( file ), std::istreambuf_iterator<char>() );
     return file.good() || file.eof();
 }
@@ -73,31 +74,35 @@ bool Sha256Hex( std::string& bytes, std::string& hex )
     {
         // Why: BCryptGetProperty exposes arbitrary property storage as
         // mutable bytes; the requested property is exactly one DWORD.
-        status = BCryptGetProperty(
-            algorithm,
-            BCRYPT_OBJECT_LENGTH,
-            reinterpret_cast<PUCHAR>( &objectBytes ),
-            sizeof( objectBytes ),
-            &resultBytes,
-            0
-        );
+        status = BCryptGetProperty( algorithm,
+                                    BCRYPT_OBJECT_LENGTH,
+                                    reinterpret_cast<PUCHAR>( &objectBytes ),
+                                    sizeof( objectBytes ),
+                                    &resultBytes,
+                                    0 );
     }
+
     if ( status >= 0 && objectBytes > object.size() )
     {
         BCryptCloseAlgorithmProvider( algorithm, 0 );
         return false;
     }
+
     if ( status >= 0 )
     {
         status = BCryptCreateHash( algorithm, &hash, object.data(), objectBytes, nullptr, 0, 0 );
     }
+
     if ( status >= 0 && !bytes.empty() )
     {
         // Why: BCryptHashData's ABI accepts mutable bytes. ReadBytes owns this
         // writable string, and BCrypt borrows it synchronously without mutation.
-        status =
-            BCryptHashData( hash, reinterpret_cast<PUCHAR>( bytes.data() ), static_cast<ULONG>( bytes.size() ), 0 );
+        status = BCryptHashData( hash,
+                                 reinterpret_cast<PUCHAR>( bytes.data() ),
+                                 static_cast<ULONG>( bytes.size() ),
+                                 0 );
     }
+
     if ( status >= 0 )
     {
         status = BCryptFinishHash( hash, digest.data(), static_cast<ULONG>( digest.size() ), 0 );
@@ -107,10 +112,12 @@ bool Sha256Hex( std::string& bytes, std::string& hex )
     {
         BCryptDestroyHash( hash );
     }
+
     if ( algorithm )
     {
         BCryptCloseAlgorithmProvider( algorithm, 0 );
     }
+
     if ( status < 0 )
     {
         return false;
@@ -124,6 +131,7 @@ bool Sha256Hex( std::string& bytes, std::string& hex )
         hashText[i * 2] = digits[digest[i] >> 4];
         hashText[i * 2 + 1] = digits[digest[i] & 0x0f];
     }
+
     hex = hashText;
     return true;
 }
@@ -151,45 +159,55 @@ bool CommandLineHasExactToken( const char* expected )
         {
             ++cursor;
         }
+
         const bool quoted = *cursor == '"';
         if ( quoted )
         {
             ++cursor;
         }
+
         const char* begin = cursor;
         while ( *cursor && ( quoted ? *cursor != '"' : !std::isspace( static_cast<unsigned char>( *cursor ) ) ) )
         {
             ++cursor;
         }
+
         if ( static_cast<size_t>( cursor - begin ) == std::strlen( expected ) &&
              std::strncmp( begin, expected, std::strlen( expected ) ) == 0 )
         {
             return true;
         }
+
         if ( quoted && *cursor == '"' )
         {
             ++cursor;
         }
     }
+
     return false;
 }
 
-bool ResourceShapeMatches(
-    const GeneratedShaderReflection::Resource& expected,
-    const D3D12_SHADER_INPUT_BIND_DESC& actual
-)
+bool ResourceShapeMatches( const GeneratedShaderReflection::Resource& expected,
+                           const D3D12_SHADER_INPUT_BIND_DESC& actual )
 {
     const bool typeMatches = ( std::strcmp( expected.type, "cbuffer" ) == 0 && actual.Type == D3D_SIT_CBUFFER ) ||
                              ( std::strcmp( expected.type, "sampler" ) == 0 && actual.Type == D3D_SIT_SAMPLER ) ||
                              ( std::strcmp( expected.type, "texture" ) == 0 && actual.Type == D3D_SIT_TEXTURE ) ||
                              ( std::strcmp( expected.type, "uav" ) == 0 && actual.Type == D3D_SIT_UAV_RWTYPED );
-    const bool dimensionMatches =
-        ( std::strcmp( expected.dimension, "na" ) == 0 && actual.Dimension == D3D_SRV_DIMENSION_UNKNOWN ) ||
-        ( std::strcmp( expected.dimension, "buffer" ) == 0 && actual.Dimension == D3D_SRV_DIMENSION_BUFFER ) ||
-        ( std::strcmp( expected.dimension, "2d" ) == 0 && actual.Dimension == D3D_SRV_DIMENSION_TEXTURE2D ) ||
-        ( std::strcmp( expected.dimension, "2darray" ) == 0 && actual.Dimension == D3D_SRV_DIMENSION_TEXTURE2DARRAY ) ||
-        ( std::strcmp( expected.dimension, "3d" ) == 0 && actual.Dimension == D3D_SRV_DIMENSION_TEXTURE3D ) ||
-        ( std::strcmp( expected.dimension, "cube" ) == 0 && actual.Dimension == D3D_SRV_DIMENSION_TEXTURECUBE );
+
+    const bool dimensionMatches = ( std::strcmp( expected.dimension, "na" ) == 0 &&
+                                    actual.Dimension == D3D_SRV_DIMENSION_UNKNOWN ) ||
+                                  ( std::strcmp( expected.dimension, "buffer" ) == 0 &&
+                                    actual.Dimension == D3D_SRV_DIMENSION_BUFFER ) ||
+                                  ( std::strcmp( expected.dimension, "2d" ) == 0 &&
+                                    actual.Dimension == D3D_SRV_DIMENSION_TEXTURE2D ) ||
+                                  ( std::strcmp( expected.dimension, "2darray" ) == 0 &&
+                                    actual.Dimension == D3D_SRV_DIMENSION_TEXTURE2DARRAY ) ||
+                                  ( std::strcmp( expected.dimension, "3d" ) == 0 &&
+                                    actual.Dimension == D3D_SRV_DIMENSION_TEXTURE3D ) ||
+                                  ( std::strcmp( expected.dimension, "cube" ) == 0 &&
+                                    actual.Dimension == D3D_SRV_DIMENSION_TEXTURECUBE );
+
     return typeMatches && dimensionMatches;
 }
 
@@ -201,6 +219,7 @@ bool ValidateLoadedReflection( const char* hlslPath, const char* stage, ID3DBlob
         outError = "generated reflection has no matching stage";
         return false;
     }
+
     ComPtr<ID3D12ShaderReflection> reflection;
     HRESULT result = E_FAIL;
     if ( !ReflectShaderBytecode( blob, reflection, result ) )
@@ -208,6 +227,7 @@ bool ValidateLoadedReflection( const char* hlslPath, const char* stage, ID3DBlob
         outError = "cannot reflect loaded shader container";
         return false;
     }
+
     D3D12_SHADER_DESC shader = {};
 
     if ( FAILED( reflection->GetDesc( &shader ) ) )
@@ -231,6 +251,7 @@ bool ValidateLoadedReflection( const char* hlslPath, const char* stage, ID3DBlob
             {
                 continue;
             }
+
             for ( UINT variableIndex = 0; variableIndex < cbDesc.Variables; ++variableIndex )
             {
                 D3D12_SHADER_VARIABLE_DESC variable = {};
@@ -239,12 +260,14 @@ bool ValidateLoadedReflection( const char* hlslPath, const char* stage, ID3DBlob
                 matched = reflectedVariable && SUCCEEDED( reflectedVariable->GetDesc( &variable ) ) && variable.Name &&
                           std::strcmp( variable.Name, expected.name ) == 0 && variable.StartOffset == expected.offset &&
                           variable.Size == expected.size;
+
                 if ( matched )
                 {
                     break;
                 }
             }
         }
+
         if ( !matched )
         {
             outError = std::string( "cbuffer field metadata mismatch: " ) + expected.name;
@@ -257,6 +280,7 @@ bool ValidateLoadedReflection( const char* hlslPath, const char* stage, ID3DBlob
         outError = "bound-resource count metadata mismatch";
         return false;
     }
+
     for ( std::uint32_t expectedIndex = 0; expectedIndex < expectedStage->resourceCount; ++expectedIndex )
     {
         const auto& expected = GeneratedShaderReflection::Resources[expectedStage->resourceStart + expectedIndex];
@@ -269,18 +293,22 @@ bool ValidateLoadedReflection( const char* hlslPath, const char* stage, ID3DBlob
             {
                 continue;
             }
+
             const char registerClass = resource.Type == D3D_SIT_CBUFFER   ? 'b'
                                        : resource.Type == D3D_SIT_SAMPLER ? 's'
                                        : resource.Type == D3D_SIT_TEXTURE ? 't'
                                                                           : 'u';
+
             matched = std::strcmp( resource.Name, expected.name ) == 0 && registerClass == expected.registerClass &&
                       resource.BindPoint == expected.slot && resource.Space == expected.space &&
                       ResourceShapeMatches( expected, resource );
+
             if ( matched )
             {
                 break;
             }
         }
+
         if ( !matched )
         {
             outError = std::string( "resource metadata mismatch: " ) + expected.name;
@@ -303,12 +331,10 @@ bool DevShaderHotReloadEnabled()
     return enabled;
 }
 
-bool LoadManifestCurrentShaderBytecode(
-    const char* hlslPath,
-    const char* stage,
-    ComPtr<ID3DBlob>& outBlob,
-    std::string& outError
-)
+bool LoadManifestCurrentShaderBytecode( const char* hlslPath,
+                                        const char* stage,
+                                        ComPtr<ID3DBlob>& outBlob,
+                                        std::string& outError )
 {
     outBlob.Reset();
     if ( !hlslPath || !stage )
@@ -325,12 +351,14 @@ bool LoadManifestCurrentShaderBytecode(
         outError = "cannot open freshness manifest " + manifestPath;
         return false;
     }
+
     const json manifest = json::parse( manifestFile, nullptr, false );
     if ( manifest.is_discarded() || !manifest.is_object() )
     {
         outError = "invalid freshness manifest " + manifestPath;
         return false;
     }
+
     const auto entriesIt = manifest.find( "entries" );
     if ( entriesIt == manifest.end() || !entriesIt->is_array() )
     {
@@ -352,6 +380,7 @@ bool LoadManifestCurrentShaderBytecode(
             break;
         }
     }
+
     if ( !matched )
     {
         outError = "freshness manifest has no row for " + normalizedSource + " stage=" + stage;
@@ -378,16 +407,19 @@ bool LoadManifestCurrentShaderBytecode(
         outError = "cannot hash shader source " + sourcePath;
         return false;
     }
+
     if ( sourceHash != sourceHashIt->get_ref<const std::string&>() )
     {
         outError = "shader source is newer than baked manifest: " + normalizedSource;
         return false;
     }
+
     if ( !ReadBytes( bytecodePath, bytecodeBytes ) || !Sha256Hex( bytecodeBytes, bytecodeHash ) )
     {
         outError = "cannot hash baked shader " + bytecodePath;
         return false;
     }
+
     if ( bytecodeHash != bytecodeHashIt->get_ref<const std::string&>() )
     {
         outError = "baked shader hash mismatch: " + bytecodePath;
@@ -400,6 +432,7 @@ bool LoadManifestCurrentShaderBytecode(
         outError = "cannot allocate baked shader blob " + bytecodePath;
         return false;
     }
+
     std::memcpy( outBlob->GetBufferPointer(), bytecodeBytes.data(), bytecodeBytes.size() );
     if ( !ValidateLoadedReflection( hlslPath, stage, outBlob.Get(), outError ) )
     {
@@ -407,6 +440,7 @@ bool LoadManifestCurrentShaderBytecode(
         outError = "shader reflection metadata rejected owner=ShaderBytecodeManifest: " + outError;
         return false;
     }
+
     return true;
 }
 
@@ -438,12 +472,11 @@ bool ReflectShaderBytecode( ID3DBlob* blob, ComPtr<ID3D12ShaderReflection>& outR
     // machines where the preferred container-reflection interface is absent.
     // Why: D3DReflect is a COM ABI that publishes an interface through an
     // untyped output pointer; ComPtr immediately owns the typed result.
-    outResult = D3DReflect(
-        blob->GetBufferPointer(),
-        blob->GetBufferSize(),
-        IID_ID3D12ShaderReflection,
-        reinterpret_cast<void**>( outReflection.ReleaseAndGetAddressOf() )
-    );
+    outResult = D3DReflect( blob->GetBufferPointer(),
+                            blob->GetBufferSize(),
+                            IID_ID3D12ShaderReflection,
+                            reinterpret_cast<void**>( outReflection.ReleaseAndGetAddressOf() ) );
+
     return SUCCEEDED( outResult ) && outReflection;
 }
 } // namespace SkullbonezCore::Rendering

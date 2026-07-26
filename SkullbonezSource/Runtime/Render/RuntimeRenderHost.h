@@ -35,7 +35,7 @@ Related:
 #include "../../Maths/Matrix4.h"
 #include "../../Maths/Vector3.h"
 #include "../../Rendering/Shadow.h"
-#include "../Replay/ReplayPresentationPackets.h"
+#include "../App/ReplayRuntimePackets.h"
 #include "../Tools/RuntimeTools.h"
 
 #include <array>
@@ -102,7 +102,6 @@ class RuntimeInputContext;
 class RuntimeOverlayRenderResources;
 class SceneTerrain;
 enum class RunCameraMode;
-struct RenderFrameContext;
 struct ReplayPresentationSample;
 struct ReplaySolverFrameSample;
 struct CameraControlState;

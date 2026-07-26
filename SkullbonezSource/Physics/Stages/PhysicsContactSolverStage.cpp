@@ -4,8 +4,8 @@ Purpose:
   Implements the persistent-contact stage owner and replay state transfer.
 
 Summary:
-  The stage prepares bounded consequence queues, builds the internal solver
-  context from explicit borrows, and executes the existing solver verbatim.
+  The stage prepares bounded consequence queues and owns the persistent-row
+  solve reached through explicit store, settings-policy, and step-value borrows.
   Replay capture/restore stays with the state owner so PhysicsWorld does not
   regain mutable access to solver internals.
 
@@ -124,11 +124,9 @@ void PhysicsContactSolverStage::Clear()
     m_sideEffects.fixedTreeReleases.clear();
 }
 
-void PhysicsContactSolverStage::PrepareSideEffects(
-    int modelCount,
-    std::size_t candidatePairCount,
-    int pipelineRecordCapacity
-)
+void PhysicsContactSolverStage::PrepareSideEffects( int modelCount,
+                                                    std::size_t candidatePairCount,
+                                                    int pipelineRecordCapacity )
 {
     m_sideEffects.pipelineRecords.clear();
     m_sideEffects.collisionVisualBodies.clear();
@@ -153,43 +151,12 @@ void PhysicsContactSolverStage::PrepareSideEffects(
     }
 }
 
-void PhysicsContactSolverStage::Solve( const PhysicsContactSolverStageContext& context, float dt )
-{
-    PrepareSideEffects( context.bodyStoreCount, context.candidatePairs.size(), context.pipelineRecordCapacity );
-    const bool elasticCollisions =
-        context.worldForces.mutualGravity.enabled && context.worldForces.mutualGravity.elasticCollisions;
-    PersistentContactSolverContext solverContext { context.candidatePairs,
-                                                   context.sleepState,
-                                                   context.sleepSupportEdges,
-                                                   m_persistentContacts,
-                                                   m_persistentContactCache,
-                                                   m_persistentContactSolverStats,
-                                                   m_persistentContactCounts,
-                                                   m_persistentRestingContactCounts,
-                                                   m_solverBodies,
-                                                   context.physicsDebugContacts,
-                                                   context.terrainContactManifolds,
-                                                   context.terrainRestApplied,
-                                                   context.sleepSupportedThisFrame,
-                                                   m_sideEffects,
-                                                   context.bodyStore,
-                                                   context.bodyRecords,
-                                                   context.hotFields,
-                                                   context.colliderRecords,
-                                                   context.bodyStoreCount,
-                                                   context.pipelineRecordCapacity,
-                                                   elasticCollisions,
-                                                   context.settings,
-                                                   context.profiler };
-
-    m_contactSolver.Solve( solverContext, dt );
-}
-
 void PhysicsContactCacheWakeAccess::ForgetBody( int bodyIndex ) const
 {
     const auto cacheEntryReferencesBody = []( const PersistentContactCacheEntry& entry, int index ) -> bool
     {
         const uint64_t key = static_cast<uint64_t>( entry.key );
+
         const uint32_t highBody = static_cast<uint32_t>( ( key >> 48 ) & 0xffffu );
         if ( highBody == 0xffffu )
         {
@@ -202,15 +169,11 @@ void PhysicsContactCacheWakeAccess::ForgetBody( int bodyIndex ) const
         return lowBody == static_cast<uint32_t>( index ) || objectHighBody == static_cast<uint32_t>( index );
     };
 
-    m_cache.erase(
-        std::remove_if(
-            m_cache.begin(),
-            m_cache.end(),
-            [bodyIndex, &cacheEntryReferencesBody]( const PersistentContactCacheEntry& entry )
-            { return cacheEntryReferencesBody( entry, bodyIndex ); }
-        ),
-        m_cache.end()
-    );
+    m_cache.erase( std::remove_if( m_cache.begin(),
+                                   m_cache.end(),
+                                   [bodyIndex, &cacheEntryReferencesBody]( const PersistentContactCacheEntry& entry )
+                                   { return cacheEntryReferencesBody( entry, bodyIndex ); } ),
+                   m_cache.end() );
 }
 
 PhysicsContactCacheWakeAccess PhysicsContactSolverStage::CreateWakeAccess()
@@ -230,6 +193,7 @@ void PhysicsContactSolverStage::CaptureReplayState( PhysicsSolverSnapshot& outSn
 #undef CAPTURE_REPLAY_CONTACT_SAMPLE_FIELD
         outSnapshot.persistentContacts.push_back( sample );
     }
+
     for ( const PersistentContactCacheEntry& cache : m_persistentContactCache )
     {
         PhysicsSolverContactCacheSample sample;
@@ -238,6 +202,7 @@ void PhysicsContactSolverStage::CaptureReplayState( PhysicsSolverSnapshot& outSn
 #undef CAPTURE_REPLAY_CONTACT_CACHE_FIELD
         outSnapshot.persistentContactCache.push_back( sample );
     }
+
 #define CAPTURE_REPLAY_SOLVER_STAT_FIELD( field ) outSnapshot.solverStats.field = m_persistentContactSolverStats.field;
     SB_REPLAY_SOLVER_STATS_FIELDS( CAPTURE_REPLAY_SOLVER_STAT_FIELD )
 #undef CAPTURE_REPLAY_SOLVER_STAT_FIELD

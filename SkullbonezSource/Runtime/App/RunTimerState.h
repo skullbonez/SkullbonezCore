@@ -57,8 +57,7 @@ class RunTimerSceneLifecyclePolicy
     {
         return RunTimerSceneLifecycleActions {
             m_sceneResetObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ),
-            m_sceneActivationObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneActivated )
-        };
+            m_sceneActivationObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneActivated ) };
     }
 
     uint64_t LastResetGeneration() const

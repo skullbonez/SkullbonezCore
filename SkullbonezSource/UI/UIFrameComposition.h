@@ -31,14 +31,6 @@ Related:
 #include "UIRenderAuthoringCatalog.h"
 
 #include "UI.h"
-#include "../Assets/AssetSystem.h"
-#include "../Rendering/RenderCommandTypes.h"
-#include "../Rendering/DX12/Dx12Diagnostics.h"
-#include "../Rendering/DX12/Dx12ResourceBuilder.h"
-#include "../Rendering/DX12/RenderBackendDX12.h"
-#include "../Maths/Matrix4.h"
-#include "../Core/Profiler.h"
-#include "../Rendering/Text.h"
 #include "UIDraw.h"
 #include "UIDrawList.h"
 #include "UIDrawWidgets.h"
@@ -79,8 +71,7 @@ uint32_t HashFloat( uint32_t seed, float value, float scale = 100.0f );
 // even though this UI file stays decoupled from the runtime enum header. Keep
 // this table in enum order and keep UI.h default masks at one bit per option.
 constexpr int CAMERA_MODE_OPTION_COUNT = 7;
-const char* const kCameraModeOptions[CAMERA_MODE_OPTION_COUNT] = { "Demo",     "Scene",       "Inspect", "Attach",
-                                                                   "Launcher", "Manipulator", "Director" };
+const char* const kCameraModeOptions[CAMERA_MODE_OPTION_COUNT] = { "Demo", "Scene", "Inspect", "Attach", "Launcher", "Manipulator", "Director" };
 constexpr float MINIMIZED_CAMERA_MODE_COMBO_W = 104.0f;
 constexpr float MINIMIZED_CAMERA_MODE_GAP = 8.0f;
 constexpr float MINIMIZED_RESTORE_W = 42.0f;
@@ -101,33 +92,18 @@ uint32_t HashProfilerFrameSnapshot( uint32_t hash, const ProfilerTab::FrameSnaps
 uint32_t BuildUIContentSignature( const InGameUIFrameData& data );
 
 
-uint32_t BuildUIInteractionSignature(
-    int mouseX,
-    int mouseY,
-    bool rendererOpen,
-    bool reflectionOpen,
-    bool sceneOpen,
-    bool cineSceneOpen,
-    bool editorObjectOpen,
-    bool renderTargetOpen,
-    bool cameraModeOpen,
-    int selectedRenderTarget,
-    int activeSlider
-);
+uint32_t BuildUIInteractionSignature( int mouseX,
+                                      int mouseY,
+                                      bool rendererOpen,
+                                      bool reflectionOpen,
+                                      bool sceneOpen,
+                                      bool cineSceneOpen,
+                                      bool editorObjectOpen,
+                                      bool renderTargetOpen,
+                                      bool cameraModeOpen,
+                                      int selectedRenderTarget,
+                                      int activeSlider );
 
-
-void FlushUIDrawList(
-    const UIDrawList& drawList,
-    Text::TextBatch& textBatch,
-    Rendering::RenderGpuTimingOwner* gpuTiming,
-    Rendering::Dx12TextureOwner& renderTextures,
-    Rendering::Dx12GeometryOwner& renderCommands,
-    Rendering::Dx12Diagnostics& renderDiagnostics,
-    int screenW,
-    int screenH,
-    float offsetX = 0.0f,
-    float offsetY = 0.0f
-);
 
 int RenderTargetPreviewCount( const InGameUIFrameData& data );
 
@@ -150,36 +126,12 @@ void BuildEditorObjectCounterText( const InGameUIFrameData& data, char* out, siz
 UIRect TitleButtonGroupBounds( const Chrome::TitleButtonRects& titleButtons );
 
 
-void DrawEditorObjectCounter(
-    const UIDrawContext& draw,
-    const InGameUIFrameData& data,
-    int screenW,
-    int screenH,
-    const UIRect* avoidBounds = nullptr
-);
+void DrawEditorObjectCounter( const UIDrawContext& draw,
+                              const InGameUIFrameData& data,
+                              int screenW,
+                              int screenH,
+                              const UIRect* avoidBounds = nullptr );
 
-
-void EnsureRenderTargetPreviewResources(
-    std::unique_ptr<Rendering::ShaderDX12>& shader,
-    uint32_t& dynamicVB,
-    const UIRenderContext& render
-);
-
-void ResetRenderTargetPreviewResources(
-    std::unique_ptr<Rendering::ShaderDX12>& shader,
-    uint32_t& dynamicVB,
-    Rendering::Dx12GeometryOwner* geometry
-);
-
-void DrawRenderTargetPreviewTexture(
-    std::unique_ptr<Rendering::ShaderDX12>& shader,
-    uint32_t& dynamicVB,
-    const UIDrawContext& draw,
-    const UIRenderTargetPreviewResource& resource,
-    const UIRect& bounds,
-    const UIRect& clipBounds,
-    const UIRenderContext& render
-);
 
 int WaterReflectionModeFromData( const InGameUIFrameData& data );
 
@@ -246,8 +198,8 @@ constexpr EditorMiniPaletteEntry kEditorMiniPaletteEntries[] = {
     { EditorTab::OBJECT_TREE_BIG_ROOTED, EDITOR_MINI_TREE_PLACEMENT_ROOTED, EDITOR_MINI_HOLD_MODE_TREE_TYPES },
     { EditorTab::OBJECT_RAGDOLL, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_RAGDOLL_MODES },
 };
-constexpr int EDITOR_MINI_PALETTE_ENTRY_COUNT =
-    static_cast<int>( sizeof( kEditorMiniPaletteEntries ) / sizeof( kEditorMiniPaletteEntries[0] ) );
+constexpr int EDITOR_MINI_PALETTE_ENTRY_COUNT = static_cast<int>( sizeof( kEditorMiniPaletteEntries ) /
+                                                                  sizeof( kEditorMiniPaletteEntries[0] ) );
 
 struct EditorMiniPaletteLayout
 {
@@ -278,173 +230,135 @@ int EditorMiniPaletteFlyoutOptionCount( int holdMode );
 bool EditorMiniTreeTypeForType( int objectType, int& outTreeType, int& outPlacement );
 bool EditorMiniPaletteTreeStateForType( int objectType, bool editorPlaceStatic, int& outPlacement, int& outTreeType );
 int EditorMiniTreeObjectType( int treeType, int placement );
-EditorMiniPaletteLayout BuildEditorMiniPaletteLayout(
-    int screenW,
-    int screenH,
-    const UIRect& minimized,
-    int flyoutAnchorEntry,
-    bool flyoutOpen
-);
+EditorMiniPaletteLayout BuildEditorMiniPaletteLayout( int screenW,
+                                                      int screenH,
+                                                      const UIRect& minimized,
+                                                      int flyoutAnchorEntry,
+                                                      bool flyoutOpen );
 int HitEditorMiniPaletteButton( const EditorMiniPaletteLayout& layout, int mouseX, int mouseY );
 int HitEditorMiniPaletteFlyoutOption( const EditorMiniPaletteLayout& layout, int mouseX, int mouseY );
 bool EditorMiniPaletteContains( const EditorMiniPaletteLayout& layout, int mouseX, int mouseY );
 bool IsBlockVisible( float contentY, float contentH, float blockY, float blockH );
-void DrawHitboxRect(
-    const UIDrawContext& draw,
-    const UIRect& bounds,
-    float r,
-    float g,
-    float b,
-    float fillA = 0.060f,
-    float outlineA = 0.94f
-);
-void DrawComboHitboxes(
-    const UIDrawContext& draw,
-    const UIComboBox& combo,
-    int optionCount,
-    float r,
-    float g,
-    float b
-);
+void DrawHitboxRect( const UIDrawContext& draw,
+                     const UIRect& bounds,
+                     float r,
+                     float g,
+                     float b,
+                     float fillA = 0.060f,
+                     float outlineA = 0.94f );
+void DrawComboHitboxes( const UIDrawContext& draw,
+                        const UIComboBox& combo,
+                        int optionCount,
+                        float r,
+                        float g,
+                        float b );
 void DrawTabHitboxes( const UIDrawContext& draw, const UITabBar& tabBar, int tabCount );
 int SceneDropdownHitboxOptionCount( const SceneTab::UISceneTabState& state, const InGameUIFrameData& data );
 void EllipsizeToWidth( char* text, size_t textSize, float pxSize, float maxWidth );
-void DrawFittedText(
-    const UIDrawContext& draw,
-    float x,
-    float y,
-    float pxSize,
-    const Style::UIColor& color,
-    const char* value,
-    float maxWidth
-);
+void DrawFittedText( const UIDrawContext& draw,
+                     float x,
+                     float y,
+                     float pxSize,
+                     const Style::UIColor& color,
+                     const char* value,
+                     float maxWidth );
 int RenderSliderIndexFromActiveSlider( int activeSlider );
 float RenderSliderY( int index, float baseY );
 int RenderContentHeight();
 int RenderTargetsContentHeight();
 float RenderValueForParam( const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary, UIRenderParam param );
-void SetRenderSliderResult(
-    InGameUIInputResult& result,
-    const UISlider& slider,
-    int mouseX,
-    const RenderSliderSpec& spec
-);
+void SetRenderSliderResult( InGameUIInputResult& result,
+                            const UISlider& slider,
+                            int mouseX,
+                            const RenderSliderSpec& spec );
 float EditorMiniChipWidth( const char* label );
-EditorMinimizedStatusLayout BuildEditorMinimizedStatusLayout(
-    const UIRect& minimized,
-    bool editorPlacementMode,
-    bool editorPlaceStatic,
-    bool editorTerrainAlign
-);
+EditorMinimizedStatusLayout BuildEditorMinimizedStatusLayout( const UIRect& minimized,
+                                                              bool editorPlacementMode,
+                                                              bool editorPlaceStatic,
+                                                              bool editorTerrainAlign );
 EditorMinimizedStatusLayout BuildEditorMinimizedStatusLayout( const UIRect& minimized, const InGameUIFrameData& data );
 float EditorMinimizedWidth( const InGameUIFrameData& data, int screenW );
-void DrawEditorMiniChip(
-    const UIDrawContext& draw,
-    float x,
-    float y,
-    const char* label,
-    const Style::UIColor& fill,
-    const Style::UIColor& text,
-    bool hot
-);
+void DrawEditorMiniChip( const UIDrawContext& draw,
+                         float x,
+                         float y,
+                         const char* label,
+                         const Style::UIColor& fill,
+                         const Style::UIColor& text,
+                         bool hot );
 bool IsEditorMiniRootType( int objectType );
 bool IsEditorMiniRockType( int objectType );
 bool IsEditorMiniHullType( int objectType );
-bool EditorMiniTreeVisualForType(
-    int objectType,
-    int& outTreeType,
-    int& outPlacement,
-    bool& outSlope,
-    bool& outShedding
-);
-void DrawEditorMiniRootSilhouette(
-    const UIDrawContext& draw,
-    const UIRect& bounds,
-    bool largeRoot,
-    const Style::UIColor& color,
-    float alpha
-);
-void DrawEditorMiniTreeSilhouette(
-    const UIDrawContext& draw,
-    const UIRect& bounds,
-    int family,
-    bool rooted,
-    bool slope,
-    bool shedding,
-    const Style::UIColor& color,
-    float alpha
-);
-void DrawEditorMiniHullSilhouette(
-    const UIDrawContext& draw,
-    const UIRect& bounds,
-    int objectType,
-    const Style::UIColor& color,
-    float alpha
-);
-void DrawEditorMiniRockSilhouette(
-    const UIDrawContext& draw,
-    const UIRect& bounds,
-    int objectType,
-    const Style::UIColor& color,
-    float alpha
-);
-void DrawEditorMiniIcon(
-    const UIDrawContext& draw,
-    const UIRect& bounds,
-    int objectType,
-    const Style::UIColor& color,
-    float alpha
-);
+bool EditorMiniTreeVisualForType( int objectType,
+                                  int& outTreeType,
+                                  int& outPlacement,
+                                  bool& outSlope,
+                                  bool& outShedding );
+void DrawEditorMiniRootSilhouette( const UIDrawContext& draw,
+                                   const UIRect& bounds,
+                                   bool largeRoot,
+                                   const Style::UIColor& color,
+                                   float alpha );
+void DrawEditorMiniTreeSilhouette( const UIDrawContext& draw,
+                                   const UIRect& bounds,
+                                   int family,
+                                   bool rooted,
+                                   bool slope,
+                                   bool shedding,
+                                   const Style::UIColor& color,
+                                   float alpha );
+void DrawEditorMiniHullSilhouette( const UIDrawContext& draw,
+                                   const UIRect& bounds,
+                                   int objectType,
+                                   const Style::UIColor& color,
+                                   float alpha );
+void DrawEditorMiniRockSilhouette( const UIDrawContext& draw,
+                                   const UIRect& bounds,
+                                   int objectType,
+                                   const Style::UIColor& color,
+                                   float alpha );
+void DrawEditorMiniIcon( const UIDrawContext& draw,
+                         const UIRect& bounds,
+                         int objectType,
+                         const Style::UIColor& color,
+                         float alpha );
 void DrawEditorMiniGlyph( const UIDrawContext& draw, const UIRect& bounds, int objectType );
-void DrawEditorMiniVariantMarker(
-    const UIDrawContext& draw,
-    const UIRect& bounds,
-    int variant,
-    const Style::UIColor& color
-);
-void DrawEditorMiniHoldMarker(
-    const UIDrawContext& draw,
-    const UIRect& bounds,
-    const Style::UIColor& color,
-    bool active
-);
-void DrawEditorMiniPaletteButton(
-    const UIDrawContext& draw,
-    const UIRect& bounds,
-    int objectType,
-    bool selected,
-    bool hot,
-    int variantMarker,
-    bool holdCapable,
-    bool holdActive
-);
-void DrawEditorMiniTooltip(
-    const UIDrawContext& draw,
-    const UIRect& anchor,
-    const char* label,
-    int screenW,
-    int screenH
-);
+void DrawEditorMiniVariantMarker( const UIDrawContext& draw,
+                                  const UIRect& bounds,
+                                  int variant,
+                                  const Style::UIColor& color );
+void DrawEditorMiniHoldMarker( const UIDrawContext& draw,
+                               const UIRect& bounds,
+                               const Style::UIColor& color,
+                               bool active );
+void DrawEditorMiniPaletteButton( const UIDrawContext& draw,
+                                  const UIRect& bounds,
+                                  int objectType,
+                                  bool selected,
+                                  bool hot,
+                                  int variantMarker,
+                                  bool holdCapable,
+                                  bool holdActive );
+void DrawEditorMiniTooltip( const UIDrawContext& draw,
+                            const UIRect& anchor,
+                            const char* label,
+                            int screenW,
+                            int screenH );
 int EditorMiniRagdollObjectType( int mode );
 bool EditorMiniSelectionRequestsStatic( int holdMode, int treePlacement, bool& outPlaceStatic );
-void DrawEditorMiniPalette(
-    const UIDrawContext& draw,
-    const EditorMiniPaletteLayout& layout,
-    int editorObjectType,
-    bool editorPlaceStatic,
-    int mouseX,
-    int mouseY,
-    int flyoutTreePlacement,
-    int flyoutHoldMode,
-    int pressedEntry,
-    int screenW,
-    int screenH
-);
-void DrawEditorMinimizedWindow(
-    const UIDrawContext& draw,
-    const UIRect& minimized,
-    const InGameUIFrameData& data,
-    int mouseX,
-    int mouseY
-);
+void DrawEditorMiniPalette( const UIDrawContext& draw,
+                            const EditorMiniPaletteLayout& layout,
+                            int editorObjectType,
+                            bool editorPlaceStatic,
+                            int mouseX,
+                            int mouseY,
+                            int flyoutTreePlacement,
+                            int flyoutHoldMode,
+                            int pressedEntry,
+                            int screenW,
+                            int screenH );
+void DrawEditorMinimizedWindow( const UIDrawContext& draw,
+                                const UIRect& minimized,
+                                const InGameUIFrameData& data,
+                                int mouseX,
+                                int mouseY );
 } // namespace SkullbonezCore::UI::FrameComposition

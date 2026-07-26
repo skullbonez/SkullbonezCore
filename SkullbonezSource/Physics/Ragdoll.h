@@ -115,8 +115,16 @@ class Ragdoll
   public:
     static constexpr int SIMPLE_PART_COUNT = 10;
     static inline constexpr const char* SIMPLE_PART_SUFFIXES[SIMPLE_PART_COUNT] = {
-        "torso",       "head",        "upper_arm_l", "lower_arm_l", "upper_arm_r",
-        "lower_arm_r", "upper_leg_l", "lower_leg_l", "upper_leg_r", "lower_leg_r",
+        "torso",
+        "head",
+        "upper_arm_l",
+        "lower_arm_l",
+        "upper_arm_r",
+        "lower_arm_r",
+        "upper_leg_l",
+        "lower_leg_l",
+        "upper_leg_r",
+        "lower_leg_r",
     };
 
     static bool TryBuildSimplePartName( const char* prefix, int partIndex, char ( &outName )[64] )
@@ -151,26 +159,20 @@ class Ragdoll
     static float SurfaceEpsilon();
     static const RagdollPartDesc* SimpleParts();
     static const RagdollJointDesc* SimpleJoints( int& outCount );
-    static Math::Vector::Vector3 DefaultPreviewCenter(
-        const Math::Vector::Vector3& terrainPoint,
-        float scale,
-        const Math::Orientation::Quaternion& orientation
-    );
-    static void AddPreviewLines(
-        std::vector<float>& lineData,
-        const Math::Vector::Vector3& terrainPoint,
-        float scale,
-        const Math::Orientation::Quaternion& orientation,
-        float r,
-        float g,
-        float b
-    );
-    static bool SolvePointJoints(
-        PhysicsBodyStore& bodyStore,
-        const std::vector<PointJointConstraint>& constraints,
-        std::span<const uint8_t> sleepState,
-        float dt
-    );
+    static Math::Vector::Vector3 DefaultPreviewCenter( const Math::Vector::Vector3& terrainPoint,
+                                                       float scale,
+                                                       const Math::Orientation::Quaternion& orientation );
+    static void AddPreviewLines( std::vector<float>& lineData,
+                                 const Math::Vector::Vector3& terrainPoint,
+                                 float scale,
+                                 const Math::Orientation::Quaternion& orientation,
+                                 float r,
+                                 float g,
+                                 float b );
+    static bool SolvePointJoints( PhysicsBodyStore& bodyStore,
+                                  const std::vector<PointJointConstraint>& constraints,
+                                  std::span<const uint8_t> sleepState,
+                                  float dt );
 };
 } // namespace Physics
 } // namespace SkullbonezCore

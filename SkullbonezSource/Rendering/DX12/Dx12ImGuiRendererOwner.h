@@ -33,7 +33,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/Dx12ImGuiRendererOwner.cpp
   - SkullbonezSource/Rendering/DX12/Dx12DescriptorHeaps.h
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h
-  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E6)
+  - Agentic/Reports/2026-07-21/imgui-tracy-editor-campaign-closure.md (E6)
 */
 #pragma once
 
@@ -74,13 +74,11 @@ struct Dx12ImGuiRenderStats
 class Dx12ImGuiRendererOwner
 {
   public:
-    Dx12ImGuiRendererOwner(
-        Dx12RenderDevice& device,
-        Dx12DescriptorHeaps& descriptors,
-        Dx12FrameOwner& frame,
-        Dx12PipelineOwner& pipeline,
-        Dx12TextureOwner& textures
-    ) noexcept;
+    Dx12ImGuiRendererOwner( Dx12RenderDevice& device,
+                            Dx12DescriptorHeaps& descriptors,
+                            Dx12FrameOwner& frame,
+                            Dx12PipelineOwner& pipeline,
+                            Dx12TextureOwner& textures ) noexcept;
 
     SkullbonezCore::Core::SbResult BindContext( ImGuiContext& context );
     SkullbonezCore::Core::SbResult CaptureGameViewport();

@@ -38,6 +38,7 @@ Related:
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/TracyClientOwner.h"
 #include "../Input/Input.h"
+#include "../Prediction/ReplayPredictionRetainedGeometry.h"
 #include "Run.h"
 #include "../Startup/StartupCommandLine.h"
 #include "../Startup/StartupCrashLogging.h"
@@ -68,8 +69,9 @@ namespace
 void ReportStartupFailure( const SkullbonezCore::Core::SbResult& result, const char* title )
 {
     const char* safeOwner = result.error.owner && result.error.owner[0] != '\0' ? result.error.owner : "Startup";
-    const char* safeMessage =
-        result.error.message[0] != '\0' ? result.error.message : "Startup failed without details.";
+    const char* safeMessage = result.error.message[0] != '\0' ? result.error.message
+                                                              : "Startup failed without details.";
+
     char dialogMessage[1024] = {};
 
     sprintf_s( dialogMessage, sizeof( dialogMessage ), "%s\n\n%s", safeOwner, safeMessage );
@@ -114,6 +116,7 @@ void AttachParentConsole()
         {
             freopen_s( &dummy, "CONOUT$", "w", stdout );
         }
+
         if ( !stderrRedirected )
         {
             freopen_s( &dummy, "CONOUT$", "w", stderr );
@@ -125,11 +128,9 @@ void AttachParentConsole()
 // Render backend
 // ---------------------------------------------------------------------------
 
-SkullbonezCore::Core::SbResult InitRenderBackend(
-    Window* window,
-    RuntimeRenderBackendView& renderBackendView,
-    std::unique_ptr<RenderBackendDX12>& outBackend
-)
+SkullbonezCore::Core::SbResult InitRenderBackend( Window* window,
+                                                  RuntimeRenderBackendView& renderBackendView,
+                                                  std::unique_ptr<RenderBackendDX12>& outBackend )
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
     auto backend = std::make_unique<RenderBackendDX12>();
@@ -138,8 +139,8 @@ SkullbonezCore::Core::SbResult InitRenderBackend(
         window->NativeWindowHandle(),
         window->NativeDeviceContext(),
         window->ClientWidth(),
-        window->ClientHeight()
-    );
+        window->ClientHeight(),
+        ReplayOverlay::PREDICTION_RETAINED_RIBBON_SHADER_BASE_NAME );
 
     if ( !renderInitResult.ok )
     {
@@ -148,6 +149,18 @@ SkullbonezCore::Core::SbResult InitRenderBackend(
         // are published into RuntimeRenderBackendView.
         renderBackendView = RuntimeRenderBackendView();
         return renderInitResult;
+    }
+
+    // Invariant: Prediction owns the logical record layout and configures the
+    // generic retained-geometry lane while BackendInit still owns all cold
+    // allocation. Frame code receives the geometry owner only after this succeeds.
+    if ( !renderBackend->Geometry().ConfigureRetainedGeometryCapacity(
+             ReplayOverlay::PredictionRetainedGeometryCapacity() ) )
+    {
+        renderBackendView = RuntimeRenderBackendView();
+        return SkullbonezCore::Core::SbResult::Failure(
+            "Runtime/Prediction",
+            "Retained geometry capacity exceeds the renderer's cold safety maximum" );
     }
 
     // Lifetime: the process bootstrap owns the backend unique_ptr. Runtime
@@ -171,38 +184,38 @@ SkullbonezCore::Core::SbResult InitRenderBackend(
     return SkullbonezCore::Core::SbResult::Success();
 }
 
-int RunApp(
-    Window* window,
-    ParsedArgs& args,
-    SkullbonezCore::Core::EngineConfig& cfg,
-    WorkerPool& workerPool,
-    SkullbonezCore::Core::Profiler* profiler,
-    RuntimeRenderBackendView renderBackendView,
-    SkullbonezCore::Core::DevelopmentTools::TracyClientOwner* tracyClientOwner
-)
+int RunApp( Window* window,
+            ParsedArgs& args,
+            SkullbonezCore::Core::EngineConfig& cfg,
+            WorkerPool& workerPool,
+            SkullbonezCore::Core::Profiler* profiler,
+            RuntimeRenderBackendView renderBackendView,
+            SkullbonezCore::Core::DevelopmentTools::TracyClientOwner* tracyClientOwner )
 {
     // Lifetime: Run releases all render-owned resources before its borrowed
     // DX12 backend and Win32 window are torn down by the process owner.
     {
-        std::unique_ptr<Run> cRun = std::make_unique<Run>(
-            *window,
-            std::move( args.sceneList ),
-            cfg,
-            workerPool,
-            profiler,
-            renderBackendView,
-            tracyClientOwner
-        );
+        std::unique_ptr<Run> cRun = std::make_unique<Run>( *window,
+                                                           std::move( args.sceneList ),
+                                                           cfg,
+                                                           workerPool,
+                                                           profiler,
+                                                           renderBackendView,
+                                                           tracyClientOwner );
 
         const RunStartupOverrides startupOverrides = BuildRunStartupOverrides( args );
         auto reportRunResult = [&]( const SkullbonezCore::Core::SbResult& result ) -> int
         {
-            const char* safeOwner =
-                result.error.owner && result.error.owner[0] != '\0' ? result.error.owner : "Runtime";
-            const char* safeMessage =
-                result.error.message[0] != '\0' ? result.error.message : "recoverable runtime operation failed";
-            SkullbonezCore::Core::Log()
-                .WriteEventf( "recoverable_failure owner=\"%s\" message=\"%s\"", safeOwner, safeMessage );
+            const char* safeOwner = result.error.owner && result.error.owner[0] != '\0' ? result.error.owner
+                                                                                        : "Runtime";
+
+            const char* safeMessage = result.error.message[0] != '\0' ? result.error.message
+                                                                      : "recoverable runtime operation failed";
+
+            SkullbonezCore::Core::Log().WriteEventf( "recoverable_failure owner=\"%s\" message=\"%s\"",
+                                                     safeOwner,
+                                                     safeMessage );
+
             fprintf( stderr, "[runtime] Recoverable failure owner=%s reason=\"%s\"\n", safeOwner, safeMessage );
             fflush( stderr );
             SkullbonezCore::Core::Log().FlushAll();
@@ -210,13 +223,15 @@ int RunApp(
             {
                 window->MsgBox( safeMessage, "Runtime Failure", MB_OK );
             }
+
             return 1;
         };
 
         auto reportInteractionAutomationResult = [&]( const SkullbonezCore::Core::SbResult& result ) -> int
         {
-            const char* safeMessage =
-                result.error.message[0] != '\0' ? result.error.message : "interaction automation failed";
+            const char* safeMessage = result.error.message[0] != '\0' ? result.error.message
+                                                                      : "interaction automation failed";
+
             SkullbonezCore::Core::Log().WriteEventf( "interaction_automation_failed message=\"%s\"", safeMessage );
             fprintf( stderr, "[interaction] Automation failed: %s\n", safeMessage );
             fflush( stderr );
@@ -225,6 +240,7 @@ int RunApp(
             {
                 window->MsgBox( safeMessage, "Interaction Automation Failed", MB_OK );
             }
+
             return 1;
         };
 
@@ -239,10 +255,11 @@ int RunApp(
         {
             return reportRunResult( cRun->LastSceneLoadResult() );
         }
+
         if ( args.sceneLoadOnly )
         {
-            const SkullbonezCore::Core::SbResult sceneLoadOnlyResult =
-                cRun->RunSceneLoadOnly( args.sceneSnapshotOutPath[0] != '\0' ? args.sceneSnapshotOutPath : nullptr );
+            const SkullbonezCore::Core::SbResult sceneLoadOnlyResult = cRun->RunSceneLoadOnly( args.sceneSnapshotOutPath[0] != '\0' ? args.sceneSnapshotOutPath : nullptr );
+
             if ( !sceneLoadOnlyResult.ok )
             {
                 return reportRunResult( sceneLoadOnlyResult );
@@ -257,8 +274,10 @@ int RunApp(
                 {
                     return reportInteractionAutomationResult( executeResult );
                 }
+
                 return reportRunResult( executeResult );
             }
+
             if ( args.graphicsStress )
             {
                 printf( "[graphics-stress] Execute returned.\n" );
@@ -287,6 +306,7 @@ void CleanupWindow( Window* window, HINSTANCE hInstance, std::unique_ptr<RenderB
     {
         SkullbonezCore::Hardware::Input::UnbindCallbackBridge( windowHandle );
     }
+
     SkullbonezCore::Hardware::Input::UnbindWindow( *window );
     window->SetResizeRenderFrameOwner( nullptr );
     renderBackend.reset();
@@ -352,10 +372,8 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     if ( !ParseCommandLine( commandLine, cfg, args ) )
     {
         const char* error = GetCommandLineError();
-        SkullbonezCore::Core::Log().WriteEventf(
-            "startup_failure owner=\"Startup/CommandLine\" message=\"%s\"",
-            error
-        );
+        SkullbonezCore::Core::Log().WriteEventf( "startup_failure owner=\"Startup/CommandLine\" message=\"%s\"",
+                                                 error );
 
         fprintf( stderr, "FATAL: %s\n", error );
         fflush( stderr );
@@ -367,18 +385,18 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         {
             MessageBoxA( nullptr, error, "Command line parse failed", MB_OK | MB_ICONERROR | MB_SETFOREGROUND );
         }
+
         CoUninitialize();
         return 1;
     }
+
     CoreAllocation::SetRuntimeAllocationGuardMode( args.allocationGuardMode );
     if ( CoreAllocation::RuntimeAllocationGuardEnabled() )
     {
-        fprintf(
-            stdout,
-            "[allocation-guard] Enabled mode=%s. Startup, scene, backend, gameplay, replay, capture, and shutdown "
-            "allocations will be summarized at process end.\n",
-            CoreAllocation::RuntimeAllocationGuardModeName( args.allocationGuardMode )
-        );
+        fprintf( stdout,
+                 "[allocation-guard] Enabled mode=%s. Startup, scene, backend, gameplay, replay, capture, and shutdown "
+                 "allocations will be summarized at process end.\n",
+                 CoreAllocation::RuntimeAllocationGuardModeName( args.allocationGuardMode ) );
     }
 
     int standalonePhysicsExitCode = 0;
@@ -417,8 +435,10 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     Window* window = &windowOwner;
     window->SetStartupWindowSize( cfg.window.screenX, cfg.window.screenY );
     window->SetProjectionFrustum( cfg.camera.frustumNear, cfg.camera.frustumFar );
-    const SkullbonezCore::Core::SbResult windowResult =
-        window->CreateAppWindow( hInstance, cfg.window.fullscreen, !args.automationWindowHidden );
+    const SkullbonezCore::Core::SbResult windowResult = window->CreateAppWindow( hInstance,
+                                                                                 cfg.window.fullscreen,
+                                                                                 !args.automationWindowHidden );
+
     if ( !windowResult.ok )
     {
         ReportStartupFailure( windowResult, "SkullbonezCore Startup Failed" );
@@ -429,12 +449,15 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         CoUninitialize();
         return 1;
     }
+
     window->AcquireDeviceContext();
 
     RuntimeRenderBackendView renderBackendView;
     std::unique_ptr<RenderBackendDX12> renderBackend;
-    const SkullbonezCore::Core::SbResult renderBackendResult =
-        InitRenderBackend( window, renderBackendView, renderBackend );
+    const SkullbonezCore::Core::SbResult renderBackendResult = InitRenderBackend( window,
+                                                                                  renderBackendView,
+                                                                                  renderBackend );
+
     if ( !renderBackendResult.ok )
     {
         ReportStartupFailure( renderBackendResult, "SkullbonezCore Renderer Startup Failed" );
@@ -446,6 +469,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         CoUninitialize();
         return 1;
     }
+
     window->SetResizeRenderFrameOwner( renderBackendView.renderFrame );
     const SkullbonezCore::Core::SbResult initialResizeResult = window->HandleScreenResize();
     if ( !initialResizeResult.ok )

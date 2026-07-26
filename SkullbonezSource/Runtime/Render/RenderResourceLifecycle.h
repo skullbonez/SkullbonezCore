@@ -47,22 +47,24 @@ namespace Runtime
 class RenderResourceLifecycle
 {
   public:
-    RenderResourceLifecycle(
-        RuntimeRenderBackendView backend,
-        const RenderWorldView& world,
-        const SceneSessionState& scene
-    );
+    RenderResourceLifecycle( RuntimeRenderBackendView backend,
+                             const RenderWorldView& world,
+                             const SceneSessionState& scene );
     ~RenderResourceLifecycle();
 
     SkullbonezCore::Core::SbResult InitialiseProcessResources( bool dumpTextureAssets );
     SkullbonezCore::Core::SbResult EnsureUiTextResources( int screenW, int screenH );
     SkullbonezCore::Core::SbResult InitialiseSceneRayTracing( int modelCapacity );
-    RuntimeRenderTargetPreviewSnapshot BuildRenderTargetPreviewSnapshot(
-        bool shadowsAvailable,
-        bool cinematicTargetsAvailable,
-        bool volumetricAvailable
-    ) const;
-    bool ShouldRenderUiText( const UiTextPassState& state, const UI::InGameUI& ui ) const;
+    RuntimeRenderTargetPreviewSnapshot BuildRenderTargetPreviewSnapshot( bool shadowsAvailable,
+                                                                         bool cinematicTargetsAvailable,
+                                                                         bool volumetricAvailable ) const;
+    bool ShouldRenderUiText( const OverlayDebugState& debug,
+                             const SceneSessionState& scene,
+                             bool crossScenePauseLocked,
+                             const CameraControlState& camera,
+                             const UI::InGameUI& ui,
+                             bool replayScrubberVisible,
+                             bool replayPathVisualizerHasTarget ) const;
     void SetUiTextRayTracingCapability( Rendering::Dx12RaytracingOwner* rayTracing );
 
   private:

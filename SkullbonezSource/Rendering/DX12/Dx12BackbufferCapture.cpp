@@ -54,6 +54,7 @@ Dx12BackbufferCapture::CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& 
     {
         return openResult;
     }
+
     outWidth = width;
     outHeight = height;
 
@@ -66,16 +67,14 @@ Dx12BackbufferCapture::CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& 
         // readiness, so report the unavailable operation to automation.
         outWidth = 0;
         outHeight = 0;
-        return SkullbonezCore::Core::SbResult::Failure(
-            "Dx12BackbufferCapture",
-            "Backbuffer capture is unavailable. device=%p list=%p "
-            "backbuffer=%p extent=%dx%d",
-            device,
-            commandList,
-            backbuffer,
-            width,
-            height
-        );
+        return SkullbonezCore::Core::SbResult::Failure( "Dx12BackbufferCapture",
+                                                        "Backbuffer capture is unavailable. device=%p list=%p "
+                                                        "backbuffer=%p extent=%dx%d",
+                                                        device,
+                                                        commandList,
+                                                        backbuffer,
+                                                        width,
+                                                        height );
     }
 
     // F3 captures normally begin in Present, while scene-suite captures may
@@ -103,10 +102,8 @@ Dx12BackbufferCapture::CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& 
         frame.TransitionBackbuffer( "BackbufferReadbackRestoreAfterFailure", accessBeforeCopy );
         outWidth = 0;
         outHeight = 0;
-        return SkullbonezCore::Core::SbResult::Failure(
-            "Dx12BackbufferCapture",
-            "CreateCommittedResource (screenshot readback) failed"
-        );
+        return SkullbonezCore::Core::SbResult::Failure( "Dx12BackbufferCapture",
+                                                        "CreateCommittedResource (screenshot readback) failed" );
     }
 
     D3D12_TEXTURE_COPY_LOCATION destination = {};
@@ -132,6 +129,7 @@ Dx12BackbufferCapture::CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& 
         {
             Quarantine( readback.DetachAfterUncertainSubmission(), submit.failedOperation );
         }
+
         return submit.result;
     }
 
@@ -176,6 +174,7 @@ void Dx12BackbufferCapture::ReleaseAfterTerminalDrain()
             m_quarantined[index] = nullptr;
         }
     }
+
     m_quarantinedCount = 0;
 }
 
@@ -185,15 +184,15 @@ void Dx12BackbufferCapture::Quarantine( ID3D12Resource* resource, const char* fa
     {
         SB_FATAL( "Dx12BackbufferCapture", "Uncertain capture did not transfer a readback resource." );
     }
+
     if ( m_quarantinedCount >= m_quarantined.size() )
     {
-        SB_FATAL(
-            "Dx12BackbufferCapture",
-            "Uncertain readback quarantine exhausted. operation=%s capacity=%zu high_water=%zu",
-            failedOperation ? failedOperation : "unknown",
-            m_quarantined.size(),
-            m_quarantinedCount
-        );
+        SB_FATAL( "Dx12BackbufferCapture",
+                  "Uncertain readback quarantine exhausted. operation=%s capacity=%zu high_water=%zu",
+                  failedOperation ? failedOperation : "unknown",
+                  m_quarantined.size(),
+                  m_quarantinedCount );
     }
+
     m_quarantined[m_quarantinedCount++] = resource;
 }

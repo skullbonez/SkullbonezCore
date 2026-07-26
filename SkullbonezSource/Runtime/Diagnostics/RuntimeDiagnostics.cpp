@@ -17,6 +17,7 @@ Glossary:
   Side-channel log: Artifact written for diagnostics without changing runtime
     behavior.
   Private working set: Resident process pages not shared with other processes;
+
     matching it requires a page-level OS query.
 
 Invariants:
@@ -71,13 +72,11 @@ void FlushPendingPerfLogWrites( RunPerfLogState& perfLog )
     }
 }
 
-bool FlushWorkingSetQueryBatch(
-    HANDLE process,
-    PSAPI_WORKING_SET_EX_INFORMATION* pages,
-    std::size_t pageCount,
-    uint64_t& privateWorkingSetBytes,
-    uint64_t pageSize
-)
+bool FlushWorkingSetQueryBatch( HANDLE process,
+                                PSAPI_WORKING_SET_EX_INFORMATION* pages,
+                                std::size_t pageCount,
+                                uint64_t& privateWorkingSetBytes,
+                                uint64_t pageSize )
 {
     // Hazard: QueryWorkingSetEx can fail for a region without invalidating the
     // whole sample. The caller tracks success separately from the byte count.
@@ -99,6 +98,7 @@ bool FlushWorkingSetQueryBatch(
             }
         }
     }
+
     return queried;
 }
 
@@ -129,8 +129,10 @@ bool TrySamplePrivateWorkingSetBytes( HANDLE process, uint64_t& outBytes )
     {
         MEMORY_BASIC_INFORMATION memoryInfo;
         std::memset( &memoryInfo, 0, sizeof( memoryInfo ) );
-        const SIZE_T queryBytes =
-            VirtualQuery( reinterpret_cast<const void*>( address ), &memoryInfo, sizeof( memoryInfo ) );
+        const SIZE_T queryBytes = VirtualQuery( reinterpret_cast<const void*>( address ),
+                                                &memoryInfo,
+                                                sizeof( memoryInfo ) );
+
         if ( queryBytes == 0 )
         {
             address += static_cast<uintptr_t>( pageSize );
@@ -147,6 +149,7 @@ bool TrySamplePrivateWorkingSetBytes( HANDLE process, uint64_t& outBytes )
 
         const bool queryable = memoryInfo.State == MEM_COMMIT && ( memoryInfo.Protect & PAGE_GUARD ) == 0 &&
                                ( memoryInfo.Protect & PAGE_NOACCESS ) == 0;
+
         if ( queryable )
         {
             uintptr_t pageAddress = regionBase;
@@ -155,6 +158,7 @@ bool TrySamplePrivateWorkingSetBytes( HANDLE process, uint64_t& outBytes )
             {
                 pageAddress = ( pageAddress + pageMask ) & ~pageMask;
             }
+
             for ( ; pageAddress < regionEnd; pageAddress += static_cast<uintptr_t>( pageSize ) )
             {
                 PSAPI_WORKING_SET_EX_INFORMATION page = {};
@@ -163,14 +167,13 @@ bool TrySamplePrivateWorkingSetBytes( HANDLE process, uint64_t& outBytes )
                 pages[pageCount++] = page;
                 if ( pageCount >= QUERY_BATCH_PAGES )
                 {
-                    allQueriesSucceeded = FlushWorkingSetQueryBatch(
-                                              process,
-                                              pages.data(),
-                                              pageCount,
-                                              privateWorkingSetBytes,
-                                              pageSize
-                                          ) &&
+                    allQueriesSucceeded = FlushWorkingSetQueryBatch( process,
+                                                                     pages.data(),
+                                                                     pageCount,
+                                                                     privateWorkingSetBytes,
+                                                                     pageSize ) &&
                                           allQueriesSucceeded;
+
                     pageCount = 0;
                 }
             }
@@ -179,9 +182,13 @@ bool TrySamplePrivateWorkingSetBytes( HANDLE process, uint64_t& outBytes )
         address = regionEnd;
     }
 
-    allQueriesSucceeded =
-        FlushWorkingSetQueryBatch( process, pages.data(), pageCount, privateWorkingSetBytes, pageSize ) &&
-        allQueriesSucceeded;
+    allQueriesSucceeded = FlushWorkingSetQueryBatch( process,
+                                                     pages.data(),
+                                                     pageCount,
+                                                     privateWorkingSetBytes,
+                                                     pageSize ) &&
+                          allQueriesSucceeded;
+
     outBytes = privateWorkingSetBytes;
     return allQueriesSucceeded;
 }
@@ -219,6 +226,7 @@ std::string JsonEscape( const char* value )
             break;
         }
     }
+
     return escaped;
 }
 #endif
@@ -295,19 +303,17 @@ void RuntimeDiagnostics::LogPerfMemory( RunPerfLogState& perfLog, int pass, cons
         const double privateWorkingSetMb = static_cast<double>( stats.privateWorkingSetBytes ) / ( 1024.0 * 1024.0 );
         const double privateCommitMb = static_cast<double>( stats.privateCommitBytes ) / ( 1024.0 * 1024.0 );
         const double pagefileMb = static_cast<double>( stats.pagefileUsageBytes ) / ( 1024.0 * 1024.0 );
-        fprintf(
-            perfLog.perfLogFile,
-            "# MEM %s pass=%d task_manager_metric=%s task_manager_mb=%.2f working_set_mb=%.2f "
-            "private_working_set_mb=%.2f private_commit_mb=%.2f pagefile_mb=%.2f\n",
-            checkpoint,
-            pass,
-            stats.taskManagerMetricName,
-            taskManagerMb,
-            workingSetMb,
-            privateWorkingSetMb,
-            privateCommitMb,
-            pagefileMb
-        );
+        fprintf( perfLog.perfLogFile,
+                 "# MEM %s pass=%d task_manager_metric=%s task_manager_mb=%.2f working_set_mb=%.2f "
+                 "private_working_set_mb=%.2f private_commit_mb=%.2f pagefile_mb=%.2f\n",
+                 checkpoint,
+                 pass,
+                 stats.taskManagerMetricName,
+                 taskManagerMb,
+                 workingSetMb,
+                 privateWorkingSetMb,
+                 privateCommitMb,
+                 pagefileMb );
 
         ++perfLog.perfLogWritesSinceFlush;
         FlushPerfLogIfNeeded( perfLog );
@@ -333,12 +339,10 @@ void RuntimeDiagnostics::ConfigurePerfLogFlush( RunPerfLogState& perfLog, bool e
 }
 
 
-void RuntimeDiagnostics::OpenScenePerfLog(
-    RunPerfLogState& perfLog,
-    const char* path,
-    int pass,
-    SkullbonezCore::Core::Profiler* profiler
-)
+void RuntimeDiagnostics::OpenScenePerfLog( RunPerfLogState& perfLog,
+                                           const char* path,
+                                           int pass,
+                                           SkullbonezCore::Core::Profiler* profiler )
 {
     if ( !path || path[0] == '\0' )
     {
@@ -382,6 +386,7 @@ RuntimeProfilerFrameTimes RuntimeDiagnostics::SampleProfilerFrameTimes( const Sk
     {
         return times;
     }
+
     static constexpr uint32_t kPhysicsHash = ::HashStr( "Frame/Physics" );
     static constexpr uint32_t kRenderHash = ::HashStr( "Frame/Render" );
     times.physicsTimeSeconds = profiler->LastFrameMsByHash( kPhysicsHash ) * 0.001f;
@@ -413,11 +418,9 @@ RuntimeProfilerFrameTimes RuntimeDiagnostics::SampleProfilerFrameTimes( const Sk
 }
 
 
-void RuntimeDiagnostics::TickPerfLog(
-    RunPerfLogState& perfLog,
-    const RuntimePerfTickContext& context,
-    SkullbonezCore::Core::Profiler* profiler
-)
+void RuntimeDiagnostics::TickPerfLog( RunPerfLogState& perfLog,
+                                      const RuntimePerfTickContext& context,
+                                      SkullbonezCore::Core::Profiler* profiler )
 {
     if ( !perfLog.isPerfTest || !perfLog.perfLogFile )
     {
@@ -431,22 +434,22 @@ void RuntimeDiagnostics::TickPerfLog(
         {
             profiler->WritePerfCSVHeader( perfLog.perfLogFile );
         }
+
         perfLog.perfHeaderWritten = true;
     }
+
     if ( profiler )
     {
         profiler->WritePerfCSVRow( perfLog.perfLogFile, context.pass, context.frame );
     }
 #else
     (void)profiler;
-    fprintf(
-        perfLog.perfLogFile,
-        "%d,%d,%.4f,%.4f\n",
-        context.pass,
-        context.frame,
-        context.physicsTimeSeconds * 1000.0f,
-        context.renderTimeSeconds * 1000.0f
-    );
+    fprintf( perfLog.perfLogFile,
+             "%d,%d,%.4f,%.4f\n",
+             context.pass,
+             context.frame,
+             context.physicsTimeSeconds * 1000.0f,
+             context.renderTimeSeconds * 1000.0f );
 #endif
 
     ++perfLog.perfLogWritesSinceFlush;
@@ -469,12 +472,10 @@ void RuntimeDiagnostics::SetPhysicsCollisionTimeLogOverride( RunPerfLogState& pe
     strcpy_s( perfLog.physicsCollisionTimeLogOverride, sizeof( perfLog.physicsCollisionTimeLogOverride ), path );
 }
 
-void RuntimeDiagnostics::SetPhysicsDiagnosticsPath(
-    RunPhysicsDiagnosticsState& diagnostics,
-    Physics::PhysicsEngine& physics,
-    const char* path,
-    bool fixedStepForcedByDiagnostics
-)
+void RuntimeDiagnostics::SetPhysicsDiagnosticsPath( RunPhysicsDiagnosticsState& diagnostics,
+                                                    Physics::PhysicsEngine& physics,
+                                                    const char* path,
+                                                    bool fixedStepForcedByDiagnostics )
 {
     strcpy_s( diagnostics.path, sizeof( diagnostics.path ), path );
     diagnostics.isEnabled = diagnostics.path[0] != '\0';
@@ -482,12 +483,10 @@ void RuntimeDiagnostics::SetPhysicsDiagnosticsPath(
     physics.SetPhysicsDiagnosticsPath( diagnostics.path );
 }
 
-void RuntimeDiagnostics::LogSceneFinished(
-    SceneSessionState& scene,
-    const char* scenePath,
-    const char* rendererName,
-    const char* reason
-)
+void RuntimeDiagnostics::LogSceneFinished( SceneSessionState& scene,
+                                           const char* scenePath,
+                                           const char* rendererName,
+                                           const char* reason )
 {
     if ( scene.isFinishLogged )
     {
@@ -505,20 +504,17 @@ void RuntimeDiagnostics::LogSceneFinished(
         scene.targetFrameCount,
         rendererName && rendererName[0] != '\0' ? rendererName : "unknown",
         scene.modelCount,
-        scene.isTestComplete ? 1 : 0
-    );
+        scene.isTestComplete ? 1 : 0 );
 
     scene.isFinishLogged = true;
 }
 
-void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun(
-    RunPhysicsDiagnosticsState& diagnostics,
-    Physics::PhysicsEngine& physics,
-    const SceneSessionState& scene,
-    const SkullbonezCore::Core::EngineConfig& config,
-    const char* scenePath,
-    const char* rendererName
-)
+void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,
+                                                     Physics::PhysicsEngine& physics,
+                                                     const SceneSessionState& scene,
+                                                     const SkullbonezCore::Core::EngineConfig& config,
+                                                     const char* scenePath,
+                                                     const char* rendererName )
 {
     if ( !diagnostics.isEnabled )
     {
@@ -577,15 +573,12 @@ void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun(
         config.terrainContact.maxBaumgarteBias,
         config.physicsSleep.linearSpeed,
         config.physicsSleep.angularSpeed,
-        config.physicsSleep.frames
-    );
+        config.physicsSleep.frames );
 }
 
-void RuntimeDiagnostics::LogReplayScrubProbe(
-    RunPhysicsDiagnosticsState& diagnostics,
-    const SceneSessionState& scene,
-    const ReplayScrubProbeDiagnostic& probe
-)
+void RuntimeDiagnostics::LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagnostics,
+                                              const SceneSessionState& scene,
+                                              const ReplayScrubProbeDiagnostic& probe )
 {
     if ( !diagnostics.isEnabled || !diagnostics.isRunActive )
     {
@@ -626,17 +619,14 @@ void RuntimeDiagnostics::LogReplayScrubProbe(
         probe.restored ? 1 : 0,
         probe.preLiveDeltaSquared,
         probe.appliedDeltaSquared,
-        probe.restoredDeltaSquared
-    );
+        probe.restoredDeltaSquared );
 
     SkullbonezCore::Core::Log().FlushAll();
 }
 
-void RuntimeDiagnostics::LogReplayRestoreProbe(
-    RunPhysicsDiagnosticsState& diagnostics,
-    const SceneSessionState& scene,
-    const ReplayRestoreProbeDiagnostic& probe
-)
+void RuntimeDiagnostics::LogReplayRestoreProbe( RunPhysicsDiagnosticsState& diagnostics,
+                                                const SceneSessionState& scene,
+                                                const ReplayRestoreProbeDiagnostic& probe )
 {
     ReplayRestoreResultDiagnostic result;
     result.restoreSource = "retained_solver";
@@ -660,19 +650,17 @@ void RuntimeDiagnostics::LogReplayRestoreProbe(
     LogReplayRestoreResult( diagnostics, scene, result );
 }
 
-void RuntimeDiagnostics::LogReplayRestoreResult(
-    RunPhysicsDiagnosticsState& diagnostics,
-    const SceneSessionState& scene,
-    const ReplayRestoreResultDiagnostic& result
-)
+void RuntimeDiagnostics::LogReplayRestoreResult( RunPhysicsDiagnosticsState& diagnostics,
+                                                 const SceneSessionState& scene,
+                                                 const ReplayRestoreResultDiagnostic& result )
 {
     if ( !diagnostics.isEnabled || !diagnostics.isRunActive )
     {
         return;
     }
 
-    std::string escapedSource =
-        JsonEscape( result.restoreSource && result.restoreSource[0] != '\0' ? result.restoreSource : "unknown" );
+    std::string escapedSource = JsonEscape( result.restoreSource && result.restoreSource[0] != '\0' ? result.restoreSource : "unknown" );
+
     std::string escapedReason = JsonEscape( result.failureReason ? result.failureReason : "" );
 
     SkullbonezCore::Core::Log().Writef(
@@ -703,16 +691,14 @@ void RuntimeDiagnostics::LogReplayRestoreResult(
         result.hashMatched ? 1 : 0,
         result.fallbackAttempted ? 1 : 0,
         result.fallbackRestored ? 1 : 0,
-        escapedReason.c_str()
-    );
+        escapedReason.c_str() );
+
     SkullbonezCore::Core::Log().FlushAll();
 }
 
-void RuntimeDiagnostics::EndPhysicsDiagnosticsRun(
-    RunPhysicsDiagnosticsState& diagnostics,
-    const SceneSessionState& scene,
-    const char* status
-)
+void RuntimeDiagnostics::EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,
+                                                   const SceneSessionState& scene,
+                                                   const char* status )
 {
     if ( !diagnostics.isEnabled || !diagnostics.isRunActive )
     {
@@ -720,13 +706,11 @@ void RuntimeDiagnostics::EndPhysicsDiagnosticsRun(
     }
 
     std::string escapedStatus = JsonEscape( status && status[0] != '\0' ? status : "ended" );
-    SkullbonezCore::Core::Log().Writef(
-        diagnostics.path,
-        "{\"kind\":\"end\",\"run\":\"%s\",\"frame\":%d,\"status\":\"%s\"}\n",
-        diagnostics.currentRunId,
-        scene.currentFrame,
-        escapedStatus.c_str()
-    );
+    SkullbonezCore::Core::Log().Writef( diagnostics.path,
+                                        "{\"kind\":\"end\",\"run\":\"%s\",\"frame\":%d,\"status\":\"%s\"}\n",
+                                        diagnostics.currentRunId,
+                                        scene.currentFrame,
+                                        escapedStatus.c_str() );
 
     SkullbonezCore::Core::Log().FlushAll();
 

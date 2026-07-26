@@ -50,6 +50,7 @@ Related:
 #include "../../Core/PlatformWin32.h"
 
 #include "../RuntimeFrameViews.h"
+#include "../App/ReplayRuntimePackets.h"
 #include "InteractionAutomationInputDriver.h"
 #include "InteractionAutomationReportWriter.h"
 #include "../App/RunLaunchOptions.h"
@@ -306,24 +307,19 @@ struct InteractionAutomationController
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     // Applies the bounded editor/window commands for one automation turn. Run
     // retains only the returned process-surface selection and failure boundary.
-    InteractionAutomationDevelopmentUiApplyResult ApplyDevelopmentUiCommands(
-        const InteractionAutomationFrameResult& frame,
-        Window& window,
-        DevelopmentTools::ImGuiEditorOwner& editor
-    ) const;
+    InteractionAutomationDevelopmentUiApplyResult
+    ApplyDevelopmentUiCommands( const InteractionAutomationFrameResult& frame,
+                                Window& window,
+                                DevelopmentTools::ImGuiEditorOwner& editor ) const;
     // Interprets the automation-owned replay command and submits it through
     // the same bounded queue used by real editor widgets.
-    SkullbonezCore::Core::SbResult SubmitOperatorEditorReplayCommand(
-        const InteractionAutomationFrameResult& frame,
-        UI::OperatorEditorCommandQueues& commands
-    ) const;
+    SkullbonezCore::Core::SbResult SubmitOperatorEditorReplayCommand( const InteractionAutomationFrameResult& frame,
+                                                                      UI::OperatorEditorCommandQueues& commands ) const;
     // Projects copied editor facts into the exact after-render assertion view;
     // no editor owner or mutable renderer state crosses this value boundary.
-    InteractionAutomationDevelopmentUiView BuildDevelopmentUiView(
-        const DevelopmentTools::ImGuiEditorStatus& editor,
-        bool legacyVisible,
-        bool legacyReplayPresentationActive
-    ) const;
+    InteractionAutomationDevelopmentUiView BuildDevelopmentUiView( const DevelopmentTools::ImGuiEditorStatus& editor,
+                                                                   bool legacyVisible,
+                                                                   bool legacyReplayPresentationActive ) const;
 #endif
 };
 
@@ -349,31 +345,27 @@ struct InteractionAutomationFrameResult
     std::size_t developmentUiCommandCount = 0u;
 };
 
-SkullbonezCore::Core::SbResult ConfigureInteractionAutomation(
-    InteractionAutomationController& state,
-    const char* scriptPath,
-    const char* reportPath
-);
+SkullbonezCore::Core::SbResult ConfigureInteractionAutomation( InteractionAutomationController& state,
+                                                               const char* scriptPath,
+                                                               const char* reportPath );
 SkullbonezCore::Core::SbResult InteractionAutomationResult( const InteractionAutomationController& state );
 void ClearInteractionAutomationInput( InteractionAutomationController& state );
-InteractionAutomationFrameResult TickInteractionAutomationBeforeInput(
-    InteractionAutomationController& state,
-    Window& window,
-    RuntimeFrameInteractionView& interactionOwners,
-    RuntimeFrameSceneView& sceneOwners,
-    const ReplayAutomationView& replayView,
-    const Rendering::RenderSceneSnapshot& renderSnapshot
-);
-InteractionAutomationFrameResult TickInteractionAutomationAfterRender(
-    InteractionAutomationController& state,
-    RuntimeFrameInteractionView& interactionOwners,
-    SceneController& scene,
-    const ReplayAutomationView& replayView,
-    const InteractionAutomationDevelopmentUiView& developmentUiView,
-    const Rendering::RenderSceneSnapshot& renderSnapshot,
-    CaptureController& capture,
-    Rendering::Dx12BackbufferCapture& backbufferCapture
-);
+InteractionAutomationFrameResult
+TickInteractionAutomationBeforeInput( InteractionAutomationController& state,
+                                      Window& window,
+                                      RuntimeFrameInteractionView& interactionOwners,
+                                      RuntimeFrameSceneView& sceneOwners,
+                                      const ReplayAutomationView& replayView,
+                                      const Rendering::RenderSceneSnapshot& renderSnapshot );
+InteractionAutomationFrameResult
+TickInteractionAutomationAfterRender( InteractionAutomationController& state,
+                                      RuntimeFrameInteractionView& interactionOwners,
+                                      SceneController& scene,
+                                      const ReplayAutomationView& replayView,
+                                      const InteractionAutomationDevelopmentUiView& developmentUiView,
+                                      const Rendering::RenderSceneSnapshot& renderSnapshot,
+                                      CaptureController& capture,
+                                      Rendering::Dx12BackbufferCapture& backbufferCapture );
 bool InteractionAutomationWillCaptureAfterRender( const InteractionAutomationController& state, int frame );
 } // namespace Runtime
 } // namespace SkullbonezCore

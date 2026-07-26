@@ -1,0 +1,283 @@
+{
+  "version": 1,
+  "source_root": "SkullbonezSource",
+  "include_rules": [
+    {
+      "id": "core_floor",
+      "source_prefixes": ["Core"],
+      "mode": "deny",
+      "target_prefixes": ["Assets", "Gameplay", "Physics", "Rendering", "Scene", "World", "Runtime", "UI"],
+      "positive_target": "Maths/Vector3.h",
+      "negative_target": "Runtime/App/Run.h"
+    },
+    {
+      "id": "physics_direction",
+      "source_prefixes": ["Physics"],
+      "mode": "deny",
+      "target_prefixes": ["Assets", "Gameplay", "Scene", "World", "Runtime", "UI"],
+      "positive_target": "Core/Common.h",
+      "negative_targets": ["Assets/AssetKeys.h", "Scene/AuthoredScene.h", "Runtime/Scene/SceneRuntime.h"],
+      "negative_include_fixtures": [
+        {
+          "target": "World/Terrain.h",
+          "include": "../World/Terrain.h"
+        }
+      ]
+    },
+    {
+      "id": "rendering_direction",
+      "source_prefixes": ["Rendering"],
+      "mode": "deny",
+      "target_prefixes": ["Gameplay", "Runtime", "UI"],
+      "positive_target": "Core/Common.h",
+      "negative_target": "UI/UIDraw.h"
+    },
+    {
+      "id": "gameplay_direction",
+      "source_prefixes": ["Gameplay"],
+      "mode": "deny",
+      "target_prefixes": ["Assets", "Scene", "World", "Runtime", "UI"],
+      "positive_target": "Physics/PhysicsApi.h",
+      "negative_target": "Scene/AuthoredScene.h"
+    },
+    {
+      "id": "ui_direction",
+      "source_prefixes": ["UI"],
+      "mode": "deny",
+      "target_prefixes": ["Runtime", "Rendering"],
+      "positive_target": "Core/Common.h",
+      "negative_target": "Rendering/Text.h"
+    },
+    {
+      "id": "replay_downward_boundary",
+      "source_prefixes": ["Physics", "Rendering", "Scene", "World", "Core"],
+      "mode": "deny",
+      "target_prefixes": ["Runtime/Replay", "Runtime/Prediction", "Runtime/Planning"],
+      "positive_target": "Core/Common.h",
+      "negative_targets": ["Runtime/Replay/ReplayTimeline.h", "Runtime/Prediction/ReplayPrediction.h", "Runtime/Planning/ReplayPlanningRuntime.h"]
+    },
+    {
+      "id": "runtime_app",
+      "source_prefixes": ["Runtime/App"],
+      "mode": "allow",
+      "target_scope": "Runtime",
+      "allowed_target_prefixes": ["Runtime/App", "Runtime/Automation", "Runtime/Camera", "Runtime/Capture", "Runtime/Debug", "Runtime/DevelopmentTools", "Runtime/Diagnostics", "Runtime/Direction", "Runtime/Editor", "Runtime/Input", "Runtime/Interaction", "Runtime/Planning", "Runtime/Prediction", "Runtime/Render", "Runtime/Replay", "Runtime/RuntimeFrameViews.h", "Runtime/Scene", "Runtime/Simulation", "Runtime/Startup", "Runtime/Tools", "Runtime/UI"],
+      "positive_target": "Runtime/Render/RuntimeRenderer.h",
+      "negative_target": "Runtime/FutureGodBag.h"
+    },
+    {
+      "id": "runtime_automation",
+      "source_prefixes": ["Runtime/Automation"],
+      "mode": "allow",
+      "target_scope": "Runtime",
+      "allowed_target_prefixes": ["Runtime/Automation", "Runtime/App", "Runtime/Camera", "Runtime/Capture", "Runtime/DevelopmentTools", "Runtime/Diagnostics", "Runtime/Direction", "Runtime/Editor", "Runtime/Input", "Runtime/Interaction", "Runtime/Planning", "Runtime/Prediction", "Runtime/Replay", "Runtime/RuntimeFrameViews.h", "Runtime/Scene", "Runtime/Tools"],
+      "positive_target": "Runtime/App/ReplayRuntime.h",
+      "negative_target": "Runtime/Render/RuntimeRenderer.h"
+    },
+    {
+      "id": "runtime_camera",
+      "source_prefixes": ["Runtime/Camera"],
+      "mode": "allow",
+      "target_scope": "Runtime",
+      "allowed_target_prefixes": ["Runtime/Camera", "Runtime/App", "Runtime/Direction", "Runtime/Input", "Runtime/Interaction", "Runtime/Scene"],
+      "positive_target": "Runtime/Input/InputFrame.h",
+      "negative_target": "Runtime/Render/RuntimeRenderer.h"
+    },
+    {
+      "id": "runtime_capture",
+      "source_prefixes": ["Runtime/Capture"],
+      "mode": "allow",
+      "target_scope": "Runtime",
+      "allowed_target_prefixes": ["Runtime/Capture", "Runtime/App", "Runtime/Automation", "Runtime/Camera", "Runtime/Diagnostics", "Runtime/Input", "Runtime/Interaction", "Runtime/Render", "Runtime/Replay", "Runtime/RuntimeFrameViews.h", "Runtime/Scene", "Runtime/Simulation", "Runtime/Tools"],
+      "positive_target": "Runtime/Render/RuntimeRenderer.h",
+      "negative_target": "Runtime/UI/RuntimeViewModel.h"
+    },
+    {
+      "id": "runtime_development_tools",
+      "source_prefixes": ["Runtime/DevelopmentTools"],
+      "mode": "allow",
+      "target_scope": "Runtime",
+      "allowed_target_prefixes": ["Runtime/DevelopmentTools", "Runtime/App", "Runtime/Input", "Runtime/Planning", "Runtime/Replay"],
+      "positive_target": "Runtime/Input/InputFrame.h",
+      "negative_target": "Runtime/UI/RuntimeViewModel.h"
+    },
+    {
+      "id": "runtime_diagnostics",
+      "source_prefixes": ["Runtime/Diagnostics"],
+      "mode": "allow",
+      "target_scope": "Runtime",
+      "allowed_target_prefixes": ["Runtime/Diagnostics", "Runtime/App", "Runtime/Automation", "Runtime/Capture", "Runtime/Debug", "Runtime/Input", "Runtime/Render", "Runtime/Replay", "Runtime/Scene"],
+      "positive_target": "Runtime/Debug/RuntimeDebug.h",
+      "negative_target": "Runtime/Tools/RuntimeTools.h"
+    },
+    {
+      "id": "runtime_direction",
+      "source_prefixes": ["Runtime/Direction"],
+      "mode": "allow",
+      "target_scope": "Runtime",
+      "allowed_target_prefixes": ["Runtime/Direction", "Runtime/Camera", "Runtime/Capture", "Runtime/Scene", "Runtime/Tools"],
+      "positive_target": "Runtime/Camera/CameraControlState.h",
+      "negative_target": "Runtime/Input/InputFrame.h"
+    },
+    {
+      "id": "runtime_editor",
+      "source_prefixes": ["Runtime/Editor"],
+      "mode": "allow",
+      "target_scope": "Runtime",
+      "allowed_target_prefixes": ["Runtime/Editor", "Runtime/App", "Runtime/Camera", "Runtime/Capture", "Runtime/Diagnostics", "Runtime/Input", "Runtime/Interaction", "Runtime/Replay", "Runtime/RuntimeFrameViews.h", "Runtime/Scene", "Runtime/Tools"],
+      "positive_target": "Runtime/Tools/RuntimeTools.h",
+      "negative_target": "Runtime/Render/RuntimeRenderer.h"
+    },
+    {
+      "id": "runtime_input",
+      "source_prefixes": ["Runtime/Input"],
+      "mode": "allow",
+      "target_scope": "Runtime",
+      "allowed_target_prefixes": ["Runtime/Input", "Runtime/Camera", "Runtime/Interaction"],
+      "allowed_target_files": ["Runtime/App/Window.h", "Runtime/Replay/ReplayEventCommand.h", "Runtime/Scene/SceneLifecycle.h"],
+      "positive_target": "Runtime/Interaction/RuntimeInteractionController.h",
+      "negative_target": "Runtime/App/Run.h"
+    },
+    {
+      "id": "runtime_interaction",
+      "source_prefixes": ["Runtime/Interaction"],
+      "mode": "allow",
+      "target_scope": "Runtime",
+      "allowed_target_prefixes": ["Runtime/Interaction", "Runtime/Camera", "Runtime/Diagnostics", "Runtime/Render", "Runtime/Scene", "Runtime/Simulation"],
+      "positive_target": "Runtime/Simulation/SimulationSystem.h",
+      "negative_target": "Runtime/Input/InputFrame.h"
+    },
+    {
+      "id": "runtime_render",
+      "source_prefixes": ["Runtime/Render"],
+      "mode": "allow",
+      "target_scope": "Runtime",
+      "allowed_target_prefixes": ["Runtime/Render", "Runtime/App", "Runtime/Camera", "Runtime/Debug", "Runtime/DevelopmentTools", "Runtime/Diagnostics", "Runtime/Input", "Runtime/Interaction", "Runtime/Planning", "Runtime/Prediction", "Runtime/Replay", "Runtime/RuntimeFrameViews.h", "Runtime/Scene", "Runtime/Tools", "Runtime/UI"],
+      "positive_target": "Runtime/UI/RuntimeViewModel.h",
+      "negative_target": "Runtime/Simulation/SimulationSystem.h"
+    },
+    {
+      "id": "runtime_replay",
+      "source_prefixes": ["Runtime/Replay"],
+      "mode": "allow",
+      "target_scope": "Runtime",
+      "allowed_target_prefixes": ["Runtime/Replay", "Runtime/Camera", "Runtime/Diagnostics", "Runtime/Editor", "Runtime/Input", "Runtime/Interaction", "Runtime/Render", "Runtime/Scene", "Runtime/Simulation", "Runtime/Tools", "Runtime/UI"],
+      "positive_target": "Runtime/Render/RuntimeRenderer.h",
+      "negative_targets": ["Runtime/App/Run.h", "Runtime/Prediction/ReplayPrediction.h", "Runtime/Planning/ReplayPlanningRuntime.h"]
+    },
+    {
+      "id": "runtime_prediction",
+      "source_prefixes": ["Runtime/Prediction"],
+      "mode": "allow",
+      "target_scope": "Runtime",
+      "allowed_target_prefixes": ["Runtime/Prediction", "Runtime/Camera", "Runtime/Editor", "Runtime/Input", "Runtime/Replay", "Runtime/Scene", "Runtime/Tools"],
+      "positive_target": "Runtime/Replay/ReplayIdentity.h",
+      "negative_target": "Runtime/Planning/ReplayTripPlanner.h"
+    },
+    {
+      "id": "runtime_planning",
+      "source_prefixes": ["Runtime/Planning"],
+      "mode": "allow",
+      "target_scope": "Runtime",
+      "allowed_target_prefixes": ["Runtime/Planning", "Runtime/Input", "Runtime/Interaction", "Runtime/Prediction", "Runtime/Render", "Runtime/Replay", "Runtime/Scene", "Runtime/UI"],
+      "positive_target": "Runtime/Prediction/ReplayPredictionView.h",
+      "negative_target": "Runtime/App/Run.h"
+    },
+    {
+      "id": "runtime_scene",
+      "source_prefixes": ["Runtime/Scene"],
+      "mode": "allow",
+      "target_scope": "Runtime",
+      "allowed_target_prefixes": ["Runtime/Scene", "Runtime/App", "Runtime/Automation", "Runtime/Camera", "Runtime/Debug", "Runtime/Diagnostics", "Runtime/Editor", "Runtime/Input", "Runtime/Interaction", "Runtime/Planning", "Runtime/Render", "Runtime/Replay", "Runtime/Simulation", "Runtime/Tools"],
+      "positive_target": "Runtime/Simulation/SimulationSystem.h",
+      "negative_target": "Runtime/UI/RuntimeViewModel.h"
+    },
+    {
+      "id": "runtime_simulation",
+      "source_prefixes": ["Runtime/Simulation"],
+      "mode": "allow",
+      "target_scope": "Runtime",
+      "allowed_target_prefixes": ["Runtime/Simulation", "Runtime/Interaction", "Runtime/Scene"],
+      "positive_target": "Runtime/Scene/SceneRuntime.h",
+      "negative_target": "Runtime/App/ReplayRuntime.h"
+    },
+    {
+      "id": "runtime_startup",
+      "source_prefixes": ["Runtime/Startup"],
+      "mode": "allow",
+      "target_scope": "Runtime",
+      "allowed_target_prefixes": ["Runtime/Startup", "Runtime/App", "Runtime/Replay", "Runtime/Scene"],
+      "positive_target": "Runtime/App/Run.h",
+      "negative_target": "Runtime/Input/InputFrame.h"
+    },
+    {
+      "id": "runtime_tools",
+      "source_prefixes": ["Runtime/Tools"],
+      "mode": "allow",
+      "target_scope": "Runtime",
+      "allowed_target_prefixes": ["Runtime/Tools", "Runtime/Camera", "Runtime/Editor", "Runtime/Input", "Runtime/Interaction", "Runtime/Replay", "Runtime/Scene"],
+      "positive_target": "Runtime/Editor/EditorInteractionTools.h",
+      "negative_target": "Runtime/App/Run.h"
+    },
+    {
+      "id": "runtime_ui",
+      "source_prefixes": ["Runtime/UI"],
+      "mode": "allow",
+      "target_scope": "Runtime",
+      "allowed_target_prefixes": ["Runtime/UI", "Runtime/App", "Runtime/Automation", "Runtime/Capture", "Runtime/Diagnostics", "Runtime/Editor", "Runtime/Planning", "Runtime/Replay", "Runtime/RuntimeFrameViews.h", "Runtime/Scene"],
+      "positive_target": "Runtime/Diagnostics/DiagnosticsRuntime.h",
+      "negative_target": "Runtime/Render/RuntimeRenderer.h"
+    },
+    {
+      "id": "runtime_debug",
+      "source_prefixes": ["Runtime/Debug"],
+      "mode": "allow",
+      "target_scope": "Runtime",
+      "allowed_target_prefixes": ["Runtime/Debug"],
+      "positive_target": "Runtime/Debug/RuntimeDebug.h",
+      "negative_target": "Runtime/App/Run.h"
+    },
+    {
+      "id": "runtime_frame_views",
+      "source_files": ["Runtime/RuntimeFrameViews.h"],
+      "mode": "deny",
+      "target_prefixes": ["Runtime"],
+      "positive_target": "Core/Common.h",
+      "negative_target": "Runtime/App/Run.h"
+    }
+  ],
+  "content_rules": [
+    {
+      "id": "rendering_retired_trajectory_vocabulary",
+      "source_prefixes": ["Rendering"],
+      "forbidden_literals": ["RetainedTrajectory", "RETAINED_TRAJECTORY"],
+      "positive_fixture": {
+        "source": "Rendering/RetainedGeometryFixture.h",
+        "text": "struct RetainedGeometryStream {};"
+      },
+      "negative_fixtures": [
+        {
+          "source": "Rendering/RetainedTrajectoryFixture.h",
+          "text": "struct RetainedTrajectory {};",
+          "literal": "RetainedTrajectory"
+        },
+        {
+          "source": "Rendering/RetainedTrajectoryConstantFixture.h",
+          "text": "constexpr unsigned RETAINED_TRAJECTORY_CAPACITY = 1;",
+          "literal": "RETAINED_TRAJECTORY"
+        }
+      ]
+    }
+  ],
+  "project_rules": [
+    {
+      "id": "ui_single_project_ownership",
+      "path_prefix": "SkullbonezSource/UI/",
+      "suffixes": [".cpp", ".h", ".hpp", ".inl"],
+      "required_project": "SKULLBONEZ_UI.vcxproj",
+      "forbidden_projects": ["SKULLBONEZ_CORE.vcxproj", "SKULLBONEZ_TESTS.vcxproj"],
+      "positive_projects": ["SKULLBONEZ_UI.vcxproj"],
+      "negative_projects": ["SKULLBONEZ_CORE.vcxproj"]
+    }
+  ]
+}

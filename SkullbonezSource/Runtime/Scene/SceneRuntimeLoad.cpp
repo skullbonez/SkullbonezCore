@@ -57,6 +57,7 @@ const char* FileNameFromPath( const char* path )
     {
         separator = backslash;
     }
+
     return separator ? separator + 1 : path;
 }
 
@@ -112,6 +113,7 @@ int SceneBrowserIndexForPath( const std::vector<std::string>& browserPaths, cons
             return i;
         }
     }
+
     return -1;
 }
 } // namespace
@@ -133,11 +135,10 @@ void RefreshSceneBrowserList( SkullbonezCore::UI::RunSceneBrowserState& sceneBro
     {
         if ( error )
         {
-            SkullbonezCore::Core::Log().WriteEventf(
-                "scene_browser_refresh_failed message=\"%s\"",
-                error.message().c_str()
-            );
+            SkullbonezCore::Core::Log().WriteEventf( "scene_browser_refresh_failed message=\"%s\"",
+                                                     error.message().c_str() );
         }
+
         return;
     }
 
@@ -151,28 +152,29 @@ void RefreshSceneBrowserList( SkullbonezCore::UI::RunSceneBrowserState& sceneBro
         {
             sceneBrowser.paths.push_back( NormalizeScenePath( entry.path().generic_string() ) );
         }
+
         iterator.increment( error );
     }
+
     if ( error )
     {
-        SkullbonezCore::Core::Log().WriteEventf(
-            "scene_browser_refresh_failed message=\"%s\"",
-            error.message().c_str()
-        );
+        SkullbonezCore::Core::Log().WriteEventf( "scene_browser_refresh_failed message=\"%s\"",
+                                                 error.message().c_str() );
+
         sceneBrowser.paths.clear();
     }
 
     std::sort( sceneBrowser.paths.begin(), sceneBrowser.paths.end() );
-    sceneBrowser.paths.erase(
-        std::unique( sceneBrowser.paths.begin(), sceneBrowser.paths.end() ),
-        sceneBrowser.paths.end()
-    );
+    sceneBrowser.paths.erase( std::unique( sceneBrowser.paths.begin(), sceneBrowser.paths.end() ),
+                              sceneBrowser.paths.end() );
+
     sceneBrowser.names.reserve( sceneBrowser.paths.size() );
     sceneBrowser.namePtrs.reserve( sceneBrowser.paths.size() );
     for ( const std::string& path : sceneBrowser.paths )
     {
         sceneBrowser.names.emplace_back( FileNameFromPath( path.c_str() ) );
     }
+
     for ( const std::string& name : sceneBrowser.names )
     {
         sceneBrowser.namePtrs.push_back( name.c_str() );
@@ -180,10 +182,8 @@ void RefreshSceneBrowserList( SkullbonezCore::UI::RunSceneBrowserState& sceneBro
 }
 
 
-int CurrentSceneBrowserIndex(
-    const SceneController& controller,
-    const SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser
-)
+int CurrentSceneBrowserIndex( const SceneController& controller,
+                              const SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser )
 {
     const std::string* currentScenePath = controller.CurrentPath();
     if ( !currentScenePath )
@@ -195,18 +195,16 @@ int CurrentSceneBrowserIndex(
 }
 
 
-SceneRuntimeLoadBeginResult PrepareSceneRuntimeLoad(
-    const SceneController& controller,
-    const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-    const RuntimeRenderer& renderer,
-    const OverlayDebugState& debug,
-    const CameraControlState& camera,
-    Rendering::Dx12FrameOwner* renderFrame,
-    bool interactiveSceneRunRequested,
-    int index,
-    bool suppressExitOnComplete,
-    bool preserveRuntimeState
-)
+SceneRuntimeLoadBeginResult PrepareSceneRuntimeLoad( const SceneController& controller,
+                                                     const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+                                                     const RuntimeRenderer& renderer,
+                                                     const OverlayDebugState& debug,
+                                                     const CameraControlState& camera,
+                                                     Rendering::Dx12FrameOwner* renderFrame,
+                                                     bool interactiveSceneRunRequested,
+                                                     int index,
+                                                     bool suppressExitOnComplete,
+                                                     bool preserveRuntimeState )
 {
     SceneRuntimeLoadBeginResult result;
     if ( !controller.HasEntry( index ) )
@@ -236,16 +234,15 @@ SceneRuntimeLoadBeginResult PrepareSceneRuntimeLoad(
         // restore policy sees the live operator-owned state from the old run.
         result.resetSnapshot = CaptureSceneRuntimeResetSnapshot( controller, uiOverrides, renderer, debug, camera );
     }
+
     result.shouldLoad = true;
     return result;
 }
 
 
-void CommitSceneRuntimeLoad(
-    SceneController& controller,
-    SceneLoadNavigationState& navigation,
-    const SceneRuntimeLoadBeginResult& prepared
-)
+void CommitSceneRuntimeLoad( SceneController& controller,
+                             SceneLoadNavigationState& navigation,
+                             const SceneRuntimeLoadBeginResult& prepared )
 {
     // Invariant: preparation has validated the index and drained the device;
     // the caller has already opened the lifecycle generation and completed the
@@ -254,17 +251,20 @@ void CommitSceneRuntimeLoad(
     {
         controller.State().isInteractiveRun = true;
     }
+
     if ( !prepared.shouldPreserveRuntimeState )
     {
         ClearSceneRuntimeUIOverrides( navigation.overrides );
     }
+
     controller.BeginLoad( prepared.index );
     if ( !prepared.shouldPreserveRuntimeState )
     {
-        navigation.selectedCineModeSceneIndex =
-            ( !prepared.scenePath->empty() && IsCineScenePath( *prepared.scenePath ) )
-                ? SceneBrowserIndexForPath( navigation.browserPaths, *prepared.scenePath )
-                : -1;
+        navigation.selectedCineModeSceneIndex = ( !prepared.scenePath->empty() &&
+                                                  IsCineScenePath( *prepared.scenePath ) )
+                                                    ? SceneBrowserIndexForPath( navigation.browserPaths,
+                                                                                *prepared.scenePath )
+                                                    : -1;
     }
 }
 

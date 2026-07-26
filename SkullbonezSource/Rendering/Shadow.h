@@ -156,17 +156,16 @@ inline ShadowReceiverBias ResolveShadowReceiverBias( const ShadowFrameData& shad
     // 0.0015/0.0035 clamps detached contact shadows; these bounded values retain
     // enough slope protection while allowing higher-resolution maps to reduce
     // peter-panning proportionally.
-    const float resolutionScale =
-        shadow.mapSize > 0 ? std::clamp( 2048.0f / static_cast<float>( shadow.mapSize ), 0.5f, 1.0f ) : 1.0f;
+    const float resolutionScale = shadow.mapSize > 0
+                                      ? std::clamp( 2048.0f / static_cast<float>( shadow.mapSize ), 0.5f, 1.0f )
+                                      : 1.0f;
     return { (std::max)( shadow.depthBias, 0.00035f * resolutionScale ),
              (std::max)( shadow.slopeBias, 0.00075f * resolutionScale ) };
 }
 
-inline void SnapShadowProjectionToTexelGrid(
-    Math::Transformation::Matrix4& projection,
-    const Math::Transformation::Matrix4& view,
-    int mapSize
-)
+inline void SnapShadowProjectionToTexelGrid( Math::Transformation::Matrix4& projection,
+                                             const Math::Transformation::Matrix4& view,
+                                             int mapSize )
 {
     if ( mapSize <= 0 )
     {
@@ -188,13 +187,11 @@ inline void SnapShadowProjectionToTexelGrid(
     projection.m[13] += ( snappedTexelY - originTexelY ) / halfMapSize;
 }
 
-inline void ApplyShadowReceiverUniforms(
-    ShaderDX12& shader,
-    Dx12TextureOwner& textures,
-    const ShadowFrameData* shadow,
-    bool receive,
-    bool objectReceiver = false
-)
+inline void ApplyShadowReceiverUniforms( ShaderDX12& shader,
+                                         Dx12TextureOwner& textures,
+                                         const ShadowFrameData* shadow,
+                                         bool receive,
+                                         bool objectReceiver = false )
 {
     // Receivers call this unconditionally, even when shadows are disabled. That
     // keeps all lit shaders using the same uniform layout and avoids stale GPU
@@ -202,30 +199,24 @@ inline void ApplyShadowReceiverUniforms(
     // enabled flag of 0, so their shader returns full visibility.
     const bool enabled = shadow && shadow->valid && receive && shadow->depthTextureHandle != 0;
     Math::Transformation::Matrix4 identity;
-    const ShadowReceiverBias bias =
-        enabled ? ResolveShadowReceiverBias( *shadow, objectReceiver ) : ShadowReceiverBias();
+    const ShadowReceiverBias bias = enabled ? ResolveShadowReceiverBias( *shadow, objectReceiver )
+                                            : ShadowReceiverBias();
     shader.SetMat4( "uShadowViewProj", enabled ? shadow->lightViewProjection : identity );
-    shader.SetVec4(
-        "uShadowParams",
-        enabled ? shadow->strength : 0.0f,
-        bias.depth,
-        bias.slope,
-        enabled ? shadow->texelSize * shadow->softness : 0.0f
-    );
-    shader.SetVec4(
-        "uShadowFlags",
-        enabled ? 1.0f : 0.0f,
-        receive ? 1.0f : 0.0f,
-        enabled ? static_cast<float>( shadow->pcfRadius ) : 0.0f,
-        enabled && shadow->zeroToOneDepth ? 1.0f : 0.0f
-    );
-    shader.SetVec4(
-        "uShadowLightDir",
-        enabled ? shadow->lightDirectionWorld.x : 0.0f,
-        enabled ? shadow->lightDirectionWorld.y : 1.0f,
-        enabled ? shadow->lightDirectionWorld.z : 0.0f,
-        0.0f
-    );
+    shader.SetVec4( "uShadowParams",
+                    enabled ? shadow->strength : 0.0f,
+                    bias.depth,
+                    bias.slope,
+                    enabled ? shadow->texelSize * shadow->softness : 0.0f );
+    shader.SetVec4( "uShadowFlags",
+                    enabled ? 1.0f : 0.0f,
+                    receive ? 1.0f : 0.0f,
+                    enabled ? static_cast<float>( shadow->pcfRadius ) : 0.0f,
+                    enabled && shadow->zeroToOneDepth ? 1.0f : 0.0f );
+    shader.SetVec4( "uShadowLightDir",
+                    enabled ? shadow->lightDirectionWorld.x : 0.0f,
+                    enabled ? shadow->lightDirectionWorld.y : 1.0f,
+                    enabled ? shadow->lightDirectionWorld.z : 0.0f,
+                    0.0f );
     shader.SetInt( "uShadowMap", SHADOW_TEXTURE_SLOT );
     if ( enabled )
     {
@@ -240,12 +231,10 @@ inline void ApplyShadowReceiverUniforms(
     }
 }
 
-inline void ApplyDetailShadowReceiverUniforms(
-    ShaderDX12& shader,
-    Dx12TextureOwner& textures,
-    const ShadowFrameData* shadow,
-    bool receive
-)
+inline void ApplyDetailShadowReceiverUniforms( ShaderDX12& shader,
+                                               Dx12TextureOwner& textures,
+                                               const ShadowFrameData* shadow,
+                                               bool receive )
 {
     // Concept: terrain keeps its broad-map payload at t3 and layers a tighter
     // object projection through t5. This deliberately appends a binding after
@@ -253,20 +242,16 @@ inline void ApplyDetailShadowReceiverUniforms(
     const bool enabled = shadow && shadow->valid && receive && shadow->depthTextureHandle != 0;
     Math::Transformation::Matrix4 identity;
     shader.SetMat4( "uDetailShadowViewProj", enabled ? shadow->lightViewProjection : identity );
-    shader.SetVec4(
-        "uDetailShadowParams",
-        enabled ? shadow->strength : 0.0f,
-        enabled ? shadow->depthBias : 0.0f,
-        enabled ? shadow->slopeBias : 0.0f,
-        enabled ? shadow->texelSize * shadow->softness : 0.0f
-    );
-    shader.SetVec4(
-        "uDetailShadowFlags",
-        enabled ? 1.0f : 0.0f,
-        receive ? 1.0f : 0.0f,
-        enabled ? static_cast<float>( shadow->pcfRadius ) : 0.0f,
-        enabled && shadow->zeroToOneDepth ? 1.0f : 0.0f
-    );
+    shader.SetVec4( "uDetailShadowParams",
+                    enabled ? shadow->strength : 0.0f,
+                    enabled ? shadow->depthBias : 0.0f,
+                    enabled ? shadow->slopeBias : 0.0f,
+                    enabled ? shadow->texelSize * shadow->softness : 0.0f );
+    shader.SetVec4( "uDetailShadowFlags",
+                    enabled ? 1.0f : 0.0f,
+                    receive ? 1.0f : 0.0f,
+                    enabled ? static_cast<float>( shadow->pcfRadius ) : 0.0f,
+                    enabled && shadow->zeroToOneDepth ? 1.0f : 0.0f );
     shader.SetInt( "uDetailShadowMap", DETAIL_SHADOW_TEXTURE_SLOT );
     // Lifetime: the frame payload borrows the depth handle. Clearing t5 on the
     // disabled path prevents a descriptor from surviving its producing pass.

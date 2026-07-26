@@ -1,12 +1,12 @@
 /*
 File: SkullbonezSource/Physics/PhysicsEngine.cpp
 Purpose:
-  Coordinates PhysicsWorld with deterministic body and collider stores.
+  Coordinates PhysicsWorld with deterministic body, collider, and buoyancy stores.
 
 Summary:
   PhysicsWorld still owns the solver. PhysicsEngine is the coordination boundary
-  that refreshes body and collider state around that solver while preserving
-  the live model order and the caller-owned presentation boundary.
+  that refreshes aligned body, collider, and buoyancy state around that solver
+  while preserving live model order and the caller-owned presentation boundary.
 
 Glossary:
   Solver: Physics step that integrates motion and applies collision/contact
@@ -66,6 +66,7 @@ using SkullbonezCore::Math::Transformation::RotationMatrix;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Math::Vector::VectorMag;
 using SkullbonezCore::Physics::BodySimulationLimits;
+using SkullbonezCore::Physics::BuoyancyBodyFacts;
 using SkullbonezCore::Physics::ColliderAuthoringRecord;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderShapeKind;
@@ -123,10 +124,12 @@ ColliderShapeKind ShapeKindForColliderDesc( const SkullbonezCore::Math::Collisio
     {
         return ColliderShapeKind::Box;
     }
+
     if ( std::holds_alternative<ConvexHullShape>( shape ) )
     {
         return ColliderShapeKind::ConvexHull;
     }
+
     return ColliderShapeKind::Sphere;
 }
 
@@ -161,18 +164,17 @@ ColliderAuthoringRecord MakeColliderAuthoringRecordFromDesc( const PhysicsCollid
 }
 
 
-bool BodyPassesQueryFilters(
-    const PhysicsBodyHotFieldsConstView& hotFields,
-    std::size_t bodyIndex,
-    bool includeFixedBodies,
-    bool includeSleepingBodies,
-    bool sleepEnabled
-)
+bool BodyPassesQueryFilters( const PhysicsBodyHotFieldsConstView& hotFields,
+                             std::size_t bodyIndex,
+                             bool includeFixedBodies,
+                             bool includeSleepingBodies,
+                             bool sleepEnabled )
 {
     if ( !includeFixedBodies && hotFields.fixed[bodyIndex] != 0u )
     {
         return false;
     }
+
     return includeSleepingBodies || !sleepEnabled || hotFields.awake[bodyIndex] != 0u;
 }
 
@@ -181,30 +183,27 @@ float EffectiveColliderRadius( const ColliderRecord& collider )
 {
     // Invariant: a conservative query sphere must include a collider's local
     // offset or a broadphase candidate can disappear before exact testing.
-    const float shapeRadius =
-        GetShapeBoundingRadius( collider.shape ) + VectorMag( GetShapePosition( collider.shape ) );
+    const float shapeRadius = GetShapeBoundingRadius( collider.shape ) +
+                              VectorMag( GetShapePosition( collider.shape ) );
+
     return collider.boundingRadius > shapeRadius ? collider.boundingRadius : shapeRadius;
 }
 
 
-Vector3 ColliderWorldCenter(
-    const PhysicsBodyHotFieldsConstView& hotFields,
-    std::size_t bodyIndex,
-    const ColliderRecord& collider
-)
+Vector3 ColliderWorldCenter( const PhysicsBodyHotFieldsConstView& hotFields,
+                             std::size_t bodyIndex,
+                             const ColliderRecord& collider )
 {
     const RotationMatrix rotation = PhysicsBodyOrientation( hotFields, bodyIndex ).GetOrientationMatrix();
     return PhysicsBodyPosition( hotFields, bodyIndex ) + rotation * GetShapePosition( collider.shape );
 }
 
 
-bool IntersectRaySphere(
-    const Vector3& rayOrigin,
-    const Vector3& rayDirection,
-    const Vector3& center,
-    float radius,
-    float& outDistance
-)
+bool IntersectRaySphere( const Vector3& rayOrigin,
+                         const Vector3& rayDirection,
+                         const Vector3& center,
+                         float radius,
+                         float& outDistance )
 {
     const Vector3 originToCenter = rayOrigin - center;
     const float directionProjection = originToCenter * rayDirection;
@@ -213,16 +212,19 @@ bool IntersectRaySphere(
     {
         return false;
     }
+
     const float discriminant = directionProjection * directionProjection - distanceTerm;
     if ( discriminant < 0.0f )
     {
         return false;
     }
+
     outDistance = -directionProjection - sqrtf( discriminant );
     if ( outDistance < 0.0f )
     {
         outDistance = 0.0f;
     }
+
     return true;
 }
 
@@ -341,6 +343,8 @@ bool PhysicsEngine::CanRegisterAuthoredBody( PhysicsAuthoredBodyCount expectedBo
     const std::size_t expected = static_cast<std::size_t>( expectedBodyCount.value );
     return m_authoredBodyDescs.size() == expected &&
            m_bodyStore.Count() == static_cast<int>( expectedBodyCount.value ) &&
+           m_colliderStore.Count() == static_cast<int>( expectedBodyCount.value ) &&
+           m_buoyancySystem.Count() == static_cast<int>( expectedBodyCount.value ) &&
            m_authoredBodyDescs.size() < m_authoredBodyDescs.capacity() &&
            expected < SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS;
 }
@@ -353,12 +357,21 @@ bool PhysicsEngine::TrimAuthoredBodyDescriptorsToCount( PhysicsAuthoredBodyCount
     {
         return false;
     }
-    m_authoredBodyDescs.erase(
-        m_authoredBodyDescs.begin() + static_cast<std::ptrdiff_t>( targetCount ),
-        m_authoredBodyDescs.end()
-    );
+
+    m_authoredBodyDescs.erase( m_authoredBodyDescs.begin() + static_cast<std::ptrdiff_t>( targetCount ),
+                               m_authoredBodyDescs.end() );
 
     return AuthoredBodyDescriptorCount().value == bodyCount.value;
+}
+
+void PhysicsEngine::SetTerrainView( PhysicsTerrainView terrain ) noexcept
+{
+    m_world.SetTerrainView( terrain );
+}
+
+void PhysicsEngine::ClearTerrainView() noexcept
+{
+    m_world.ClearTerrainView();
 }
 
 
@@ -368,6 +381,7 @@ void PhysicsEngine::Clear()
     m_authoredBodyDescs.clear();
     m_bodyStore.Clear();
     m_colliderStore.Clear();
+    m_buoyancySystem.Clear();
 }
 
 
@@ -399,6 +413,7 @@ bool PhysicsEngine::RefreshBodyStoreFromAuthoredDescriptors( const PhysicsAuthor
     {
         return false;
     }
+
     m_world.SetDiagnosticNames( std::span<const char* const>( refreshView.diagnosticNames, descriptorCount ) );
     return true;
 }
@@ -406,13 +421,22 @@ bool PhysicsEngine::RefreshBodyStoreFromAuthoredDescriptors( const PhysicsAuthor
 
 void PhysicsEngine::LoadBodyDescriptors( const std::vector<PhysicsBodyCreateDesc>& bodyDescs )
 {
+    m_buoyancySystem.Clear();
+    for ( const PhysicsBodyCreateDesc& desc : bodyDescs )
+    {
+        if ( !m_buoyancySystem.AppendBodyFacts( desc ) )
+        {
+            SB_FATAL( "Physics/PhysicsEngine", "Buoyancy facts exceeded fixed scene capacity during descriptor load." );
+        }
+    }
+
     m_bodyStore.LoadFromDescriptors( bodyDescs, m_world.GetSleepStates() );
     m_world.InvalidateBodyTopology();
 }
 
 
-PhysicsAuthoredBodyRegistration
-PhysicsEngine::RegisterAuthoredBody( const PhysicsBodyCreateDesc& bodyDesc, PhysicsColliderCreateDesc colliderDesc )
+PhysicsAuthoredBodyRegistration PhysicsEngine::RegisterAuthoredBody( const PhysicsBodyCreateDesc& bodyDesc,
+                                                                     PhysicsColliderCreateDesc colliderDesc )
 {
     // Invariant: authored registration must never let an invalid variant reach
     // std::visit, whose exception-disabled failure otherwise loses the owning
@@ -421,11 +445,13 @@ PhysicsEngine::RegisterAuthoredBody( const PhysicsBodyCreateDesc& bodyDesc, Phys
     {
         SB_FATAL( "Physics/PhysicsEngine", "Cannot register authored body: input collision shape is valueless." );
     }
+
     PhysicsBodyCreateDesc authoredDesc = bodyDesc;
     if ( authoredDesc.shape.valueless_by_exception() )
     {
         SB_FATAL( "Physics/PhysicsEngine", "Cannot register authored body: copied collision shape is valueless." );
     }
+
     ApplyAuthoredBodyPolicy( authoredDesc );
     m_authoredBodyDescs.push_back( authoredDesc );
     const PhysicsBodyHandle body = m_bodyStore.CreateBodyRecord( authoredDesc, m_world.IsPhysicsSleepEnabled() );
@@ -436,23 +462,31 @@ PhysicsEngine::RegisterAuthoredBody( const PhysicsBodyCreateDesc& bodyDesc, Phys
         return {};
     }
 
+    if ( !m_buoyancySystem.AppendBodyFacts( authoredDesc ) )
+    {
+        (void)m_bodyStore.DestroyBodyRecord( body );
+        m_authoredBodyDescs.pop_back();
+        return {};
+    }
+
     colliderDesc.body = body;
     colliderDesc.sceneObjectId = record->sceneObjectId;
     ApplyAuthoredColliderPolicy( colliderDesc );
     const PhysicsColliderHandle collider = m_colliderStore.CreateColliderRecord(
         MakeColliderRecordFromDesc( colliderDesc, *record ),
-        MakeColliderAuthoringRecordFromDesc( colliderDesc )
-    );
+        MakeColliderAuthoringRecordFromDesc( colliderDesc ) );
 
     if ( !collider.IsValid() )
     {
         // Invariant: registration is all-or-nothing even if a future collider
         // capacity rule rejects after body append. Retiring the handle here
         // prevents a partial live body from escaping the physics boundary.
+        (void)m_buoyancySystem.EraseBodyFactsSwapLast( m_buoyancySystem.Count() - 1 );
         (void)m_bodyStore.DestroyBodyRecord( body );
         m_authoredBodyDescs.pop_back();
         return {};
     }
+
     m_world.InvalidateBodyTopology();
     return { body, collider };
 }
@@ -473,6 +507,12 @@ bool PhysicsEngine::DestroyAuthoredBody( PhysicsBodyHandle body )
     {
         return false;
     }
+
+    if ( !m_buoyancySystem.EraseBodyFactsSwapLast( bodyRow ) )
+    {
+        SB_FATAL( "Physics/PhysicsEngine", "Buoyancy destruction failed after paired collider removal." );
+    }
+
     if ( !m_bodyStore.DestroyBodyRecord( body ) )
     {
         SB_FATAL( "Physics/PhysicsEngine", "Body destruction failed after paired collider removal." );
@@ -483,6 +523,7 @@ bool PhysicsEngine::DestroyAuthoredBody( PhysicsBodyHandle body )
     {
         m_authoredBodyDescs[row] = std::move( m_authoredBodyDescs.back() );
     }
+
     m_authoredBodyDescs.pop_back();
     m_world.InvalidateBodyTopology();
     return true;
@@ -519,24 +560,29 @@ bool PhysicsEngine::UpdateAuthoredBody( const PhysicsBodyUpdateDesc& update )
         desc.position = update.position;
         desc.orientation = update.orientation;
     }
+
     if ( update.updateMask & PHYSICS_BODY_UPDATE_VELOCITY )
     {
         desc.linearVelocity = update.linearVelocity;
         desc.angularVelocity = update.angularVelocity;
     }
+
     if ( update.updateMask & PHYSICS_BODY_UPDATE_MASS )
     {
         desc.mass = update.mass;
         desc.rotationalInertia = update.rotationalInertia;
     }
+
     if ( update.updateMask & PHYSICS_BODY_UPDATE_MOTION_KIND )
     {
         desc.motionKind = update.motionKind;
     }
+
     if ( update.updateMask & PHYSICS_BODY_UPDATE_SLEEP_STATE )
     {
         desc.startsAsleep = update.sleeping;
     }
+
     if ( update.updateMask & PHYSICS_BODY_UPDATE_DIAGNOSTIC_NAME )
     {
         desc.diagnosticName = update.diagnosticName;
@@ -545,6 +591,11 @@ bool PhysicsEngine::UpdateAuthoredBody( const PhysicsBodyUpdateDesc& update )
     ApplyAuthoredBodyPolicy( desc );
     m_authoredBodyDescs[static_cast<std::size_t>( bodyRow )] = desc;
     m_bodyStore.RefreshRecordFromDescriptorAt( desc, bodyRow );
+    if ( !m_buoyancySystem.RefreshBodyFacts( bodyRow, desc ) )
+    {
+        SB_FATAL( "Physics/PhysicsEngine", "Buoyancy refresh lost an aligned body row." );
+    }
+
     if ( update.updateMask & PHYSICS_BODY_UPDATE_SLEEP_STATE )
     {
         if ( update.sleeping )
@@ -556,15 +607,14 @@ bool PhysicsEngine::UpdateAuthoredBody( const PhysicsBodyUpdateDesc& update )
             WakeBody( update.body );
         }
     }
+
     m_world.InvalidateBodyTopology();
     return true;
 }
 
 
-bool PhysicsEngine::UpdateAuthoredBodyAndCollider(
-    const PhysicsBodyUpdateDesc& update,
-    PhysicsColliderCreateDesc colliderDesc
-)
+bool PhysicsEngine::UpdateAuthoredBodyAndCollider( const PhysicsBodyUpdateDesc& update,
+                                                   PhysicsColliderCreateDesc colliderDesc )
 {
     const PhysicsBodyRecord* body = m_bodyStore.RecordForHandle( update.body );
     const PhysicsColliderHandle collider = m_colliderStore.HandleForBodyHandle( update.body );
@@ -580,24 +630,21 @@ bool PhysicsEngine::UpdateAuthoredBodyAndCollider(
     ApplyAuthoredColliderPolicy( colliderDesc );
     if ( colliderDesc.contactMaterialName[0] == '\0' && existingAuthoring->contactMaterialName[0] != '\0' )
     {
-        strncpy_s(
-            colliderDesc.contactMaterialName,
-            sizeof( colliderDesc.contactMaterialName ),
-            existingAuthoring->contactMaterialName,
-            _TRUNCATE
-        );
+        strncpy_s( colliderDesc.contactMaterialName,
+                   sizeof( colliderDesc.contactMaterialName ),
+                   existingAuthoring->contactMaterialName,
+                   _TRUNCATE );
     }
+
     if ( !UpdateAuthoredBody( update ) )
     {
         return false;
     }
 
     body = m_bodyStore.RecordForHandle( update.body );
-    if ( !body || !m_colliderStore.UpdateRecordForHandle(
-                      collider,
-                      MakeColliderRecordFromDesc( colliderDesc, *body ),
-                      MakeColliderAuthoringRecordFromDesc( colliderDesc )
-                  ) )
+    if ( !body || !m_colliderStore.UpdateRecordForHandle( collider,
+                                                          MakeColliderRecordFromDesc( colliderDesc, *body ),
+                                                          MakeColliderAuthoringRecordFromDesc( colliderDesc ) ) )
     {
         // Lane F: preflighted fixed-capacity rows disappearing during one
         // synchronous owner command is internal handle-map corruption.
@@ -614,6 +661,11 @@ bool PhysicsEngine::UpdateAuthoredBodyAndCollider(
     authored.usesWorldInertia = !std::holds_alternative<BoundingSphere>( authored.shape );
     ApplyAuthoredBodyPolicy( authored );
     m_bodyStore.RefreshRecordFromDescriptorAt( authored, bodyRow );
+    if ( !m_buoyancySystem.RefreshBodyFacts( bodyRow, authored ) )
+    {
+        SB_FATAL( "Physics/PhysicsEngine", "Buoyancy shape refresh lost an aligned body row." );
+    }
+
     return true;
 }
 
@@ -626,11 +678,23 @@ void PhysicsEngine::ClearPendingBodyImpulses()
 
 bool PhysicsEngine::TrimBodiesToCount( PhysicsBodyCount bodyCount )
 {
-    const bool trimmed = m_bodyStore.TrimToCount( CountAsInt( bodyCount ) );
+    const int targetCount = CountAsInt( bodyCount );
+    if ( targetCount < 0 || targetCount > m_bodyStore.Count() || targetCount > m_buoyancySystem.Count() )
+    {
+        return false;
+    }
+
+    const bool trimmed = m_bodyStore.TrimToCount( targetCount );
     if ( trimmed )
     {
+        if ( !m_buoyancySystem.TrimToCount( targetCount ) )
+        {
+            SB_FATAL( "Physics/PhysicsEngine", "Buoyancy trim failed after body-store trim." );
+        }
+
         m_world.InvalidateBodyTopology();
     }
+
     return trimmed;
 }
 
@@ -648,6 +712,7 @@ bool PhysicsEngine::RestoreReplayBodyState( const PhysicsBodyRestoreState& resto
     {
         m_world.InvalidateBodyTopology();
     }
+
     return restored;
 }
 
@@ -663,6 +728,7 @@ void PhysicsEngine::ValidatePhysicsStoreMappings( int modelCount ) const
 {
     assert( m_bodyStore.Count() == modelCount );
     assert( m_colliderStore.Count() == modelCount );
+    assert( m_buoyancySystem.Count() == modelCount );
 
     const auto bodies = m_bodyStore.Records();
     const auto colliders = m_colliderStore.Records();
@@ -687,37 +753,32 @@ void PhysicsEngine::ValidatePhysicsStoreMappings( int modelCount ) const
 #endif
 
 
-void PhysicsEngine::Step(
-    float fChangeInTime,
-    const PhysicsWorldForces& worldForces,
-    Threading::WorkerPool& workerPool,
-    const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter
-)
+void PhysicsEngine::Step( float fChangeInTime,
+                          const PhysicsWorldForces& worldForces,
+                          Threading::WorkerPool& workerPool,
+                          const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
 {
     Step( fChangeInTime, worldForces, ExternalForceFrameInput {}, workerPool, diagnosticsCsvWriter );
 }
 
 
-void PhysicsEngine::Step(
-    float fChangeInTime,
-    const PhysicsWorldForces& worldForces,
-    const ExternalForceFrameInput& externalForces,
-    Threading::WorkerPool& workerPool,
-    const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter
-)
+void PhysicsEngine::Step( float fChangeInTime,
+                          const PhysicsWorldForces& worldForces,
+                          const ExternalForceFrameInput& externalForces,
+                          Threading::WorkerPool& workerPool,
+                          const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
 {
     m_lastWorldForces = worldForces;
     m_hasLastWorldForces = true;
 
-    m_world.RunPhysics(
-        m_bodyStore,
-        m_colliderStore,
-        fChangeInTime,
-        m_runtimeSettings,
-        worldForces,
-        externalForces,
-        workerPool
-    );
+    m_world.RunPhysics( m_bodyStore,
+                        m_colliderStore,
+                        m_buoyancySystem.MutableFacts(),
+                        fChangeInTime,
+                        m_runtimeSettings,
+                        worldForces,
+                        externalForces,
+                        workerPool );
 
     ApplyFixedTreeReleaseEvents( worldForces );
 
@@ -743,18 +804,16 @@ void PhysicsEngine::ApplyFixedTreeReleaseEvents( const PhysicsWorldForces& world
         m_bodyStore.ReleaseAttachedFixedTreeParts( event, m_fixedTreeReleaseWakeBodies );
         for ( int index : m_fixedTreeReleaseWakeBodies )
         {
-            m_world.WakeModel( m_bodyStore, m_colliderStore, worldForces, index );
+            m_world.WakeModel( m_bodyStore, m_colliderStore, m_buoyancySystem.MutableFacts(), worldForces, index );
         }
     }
 }
 
 
-bool PhysicsEngine::ReleaseFixedBodyAndAttachedTreeParts(
-    PhysicsBodyHandle sourceBody,
-    float releaseImpulseStrength,
-    const Math::Vector::Vector3& seedLinearVelocity,
-    const Math::Vector::Vector3& seedAngularVelocity
-)
+bool PhysicsEngine::ReleaseFixedBodyAndAttachedTreeParts( PhysicsBodyHandle sourceBody,
+                                                          float releaseImpulseStrength,
+                                                          const Math::Vector::Vector3& seedLinearVelocity,
+                                                          const Math::Vector::Vector3& seedAngularVelocity )
 {
     const int sourceIndex = m_bodyStore.ModelIndexForHandle( sourceBody );
     PhysicsBodyRecord* sourceRecord = m_bodyStore.MutableRecordForHandle( sourceBody );
@@ -776,10 +835,15 @@ bool PhysicsEngine::ReleaseFixedBodyAndAttachedTreeParts(
         {
             return false;
         }
-        const Math::Vector::Vector3 sourceLinearVelocity =
-            PhysicsBodyLinearVelocity( hotFields, static_cast<std::size_t>( sourceIndex ) );
-        const Math::Vector::Vector3 sourceAngularVelocity =
-            PhysicsBodyAngularVelocity( hotFields, static_cast<std::size_t>( sourceIndex ) );
+
+        const Math::Vector::Vector3 sourceLinearVelocity = PhysicsBodyLinearVelocity(
+            hotFields,
+            static_cast<std::size_t>( sourceIndex ) );
+
+        const Math::Vector::Vector3 sourceAngularVelocity = PhysicsBodyAngularVelocity(
+            hotFields,
+            static_cast<std::size_t>( sourceIndex ) );
+
         m_bodyStore.ReleaseFixedBody( sourceIndex, sourceLinearVelocity, sourceAngularVelocity );
         sourceReleased = true;
     }
@@ -791,7 +855,11 @@ bool PhysicsEngine::ReleaseFixedBodyAndAttachedTreeParts(
     {
         if ( m_hasLastWorldForces )
         {
-            m_world.WakeModel( m_bodyStore, m_colliderStore, m_lastWorldForces, index );
+            m_world.WakeModel( m_bodyStore,
+                               m_colliderStore,
+                               m_buoyancySystem.MutableFacts(),
+                               m_lastWorldForces,
+                               index );
         }
         else
         {
@@ -803,14 +871,17 @@ bool PhysicsEngine::ReleaseFixedBodyAndAttachedTreeParts(
     {
         wakeReleasedIndex( sourceIndex );
     }
+
     for ( int index : m_fixedTreeReleaseWakeBodies )
     {
         wakeReleasedIndex( index );
     }
+
     if ( sourceReleased || !m_fixedTreeReleaseWakeBodies.empty() )
     {
         m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
     }
+
     return true;
 }
 
@@ -825,14 +896,16 @@ void PhysicsEngine::WakeBody( PhysicsBodyHandle body )
     {
         return;
     }
+
     if ( m_hasLastWorldForces )
     {
-        m_world.WakeModel( m_bodyStore, m_colliderStore, m_lastWorldForces, index );
+        m_world.WakeModel( m_bodyStore, m_colliderStore, m_buoyancySystem.MutableFacts(), m_lastWorldForces, index );
     }
     else
     {
         m_world.WakeModel( m_bodyStore, index );
     }
+
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
     // Why: wake is solver sleep/island state. Rebuilding render projection here
     // would add work without changing pose; the normal step boundary owns later
@@ -840,12 +913,10 @@ void PhysicsEngine::WakeBody( PhysicsBodyHandle body )
 }
 
 
-bool PhysicsEngine::SetBodyVelocity(
-    PhysicsBodyHandle body,
-    const Math::Vector::Vector3& linearVelocity,
-    const Math::Vector::Vector3& angularVelocity,
-    bool wakeIfMoving
-)
+bool PhysicsEngine::SetBodyVelocity( PhysicsBodyHandle body,
+                                     const Math::Vector::Vector3& linearVelocity,
+                                     const Math::Vector::Vector3& angularVelocity,
+                                     bool wakeIfMoving )
 {
     const int index = m_bodyStore.ModelIndexForHandle( body );
     if ( index < 0 || !m_bodyStore.SetBodyVelocity( body, linearVelocity, angularVelocity ) )
@@ -858,12 +929,17 @@ bool PhysicsEngine::SetBodyVelocity(
     {
         if ( m_hasLastWorldForces )
         {
-            m_world.WakeModel( m_bodyStore, m_colliderStore, m_lastWorldForces, index );
+            m_world.WakeModel( m_bodyStore,
+                               m_colliderStore,
+                               m_buoyancySystem.MutableFacts(),
+                               m_lastWorldForces,
+                               index );
         }
         else
         {
             m_world.WakeModel( m_bodyStore, index );
         }
+
         m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
     }
 
@@ -893,11 +969,9 @@ void PhysicsEngine::SeedBodyAsleep( PhysicsBodyHandle body )
 }
 
 
-void PhysicsEngine::SetPendingBodyImpulse(
-    PhysicsBodyHandle body,
-    const Math::Vector::Vector3& impulse,
-    const Math::Vector::Vector3& localApplicationPoint
-)
+void PhysicsEngine::SetPendingBodyImpulse( PhysicsBodyHandle body,
+                                           const Math::Vector::Vector3& impulse,
+                                           const Math::Vector::Vector3& localApplicationPoint )
 {
     // Why: initial authored/generated impulses are one-shot physics state.
     // Writing them into the body store avoids routing setup through the
@@ -906,11 +980,9 @@ void PhysicsEngine::SetPendingBodyImpulse(
 }
 
 
-void PhysicsEngine::ApplyBodyImpulse(
-    PhysicsBodyHandle body,
-    const Math::Vector::Vector3& impulse,
-    const Math::Vector::Vector3& localApplicationPoint
-)
+void PhysicsEngine::ApplyBodyImpulse( PhysicsBodyHandle body,
+                                      const Math::Vector::Vector3& impulse,
+                                      const Math::Vector::Vector3& localApplicationPoint )
 {
     SetPendingBodyImpulse( body, impulse, localApplicationPoint );
     WakeBody( body );
@@ -969,11 +1041,13 @@ bool PhysicsEngine::UpdatePointJoint( const PhysicsPointJointUpdateDesc& desc )
     {
         return false;
     }
+
     const bool updated = m_world.UpdatePointJoint( desc );
     if ( updated && updatesBodies )
     {
         m_world.InvalidateBodyTopology();
     }
+
     return updated;
 }
 
@@ -985,6 +1059,7 @@ bool PhysicsEngine::DestroyConstraint( PhysicsConstraintHandle constraint )
     {
         m_world.InvalidateBodyTopology();
     }
+
     return destroyed;
 }
 
@@ -1002,6 +1077,7 @@ PhysicsRayCastHit PhysicsEngine::RayCast( const PhysicsRayCastDesc& desc ) const
     {
         return closestHit;
     }
+
     const Vector3 direction = desc.direction / directionLength;
     float closestDistance = ( std::numeric_limits<float>::max )();
     const auto hotFields = m_bodyStore.HotFields();
@@ -1014,13 +1090,11 @@ PhysicsRayCastHit PhysicsEngine::RayCast( const PhysicsRayCastDesc& desc ) const
         const PhysicsBodyRecord* body = m_bodyStore.RecordForHandle( collider.body );
         const int bodyIndex = m_bodyStore.ModelIndexForHandle( collider.body );
         if ( !body || bodyIndex < 0 ||
-             !BodyPassesQueryFilters(
-                 hotFields,
-                 static_cast<std::size_t>( bodyIndex ),
-                 desc.includeFixedBodies,
-                 desc.includeSleepingBodies,
-                 IsSleepEnabled()
-             ) )
+             !BodyPassesQueryFilters( hotFields,
+                                      static_cast<std::size_t>( bodyIndex ),
+                                      desc.includeFixedBodies,
+                                      desc.includeSleepingBodies,
+                                      IsSleepEnabled() ) )
         {
             continue;
         }
@@ -1044,6 +1118,7 @@ PhysicsRayCastHit PhysicsEngine::RayCast( const PhysicsRayCastDesc& desc ) const
         closestHit.normal = normalLength > 0.0f ? closestHit.normal / normalLength : -direction;
         closestHit.hit = true;
     }
+
     return closestHit;
 }
 
@@ -1057,39 +1132,37 @@ PhysicsBroadphaseQueryResultView PhysicsEngine::QueryBroadphaseCells( const Phys
     for ( std::size_t bodyIndex = 0; bodyIndex < bodies.size(); ++bodyIndex )
     {
         const PhysicsBodyRecord& body = bodies[bodyIndex];
-        if ( !BodyPassesQueryFilters(
-                 hotFields,
-                 bodyIndex,
-                 desc.includeFixedBodies,
-                 desc.includeSleepingBodies,
-                 IsSleepEnabled()
-             ) )
+        if ( !BodyPassesQueryFilters( hotFields,
+                                      bodyIndex,
+                                      desc.includeFixedBodies,
+                                      desc.includeSleepingBodies,
+                                      IsSleepEnabled() ) )
         {
             continue;
         }
 
-        bool overlaps = hotFields.boundingRadius[bodyIndex] > 0.0f && SphereOverlapsAabb(
-                                                                          PhysicsBodyPosition( hotFields, bodyIndex ),
-                                                                          hotFields.boundingRadius[bodyIndex],
-                                                                          desc.min,
-                                                                          desc.max
-                                                                      );
+        bool overlaps = hotFields.boundingRadius[bodyIndex] > 0.0f &&
+                        SphereOverlapsAabb( PhysicsBodyPosition( hotFields, bodyIndex ),
+                                            hotFields.boundingRadius[bodyIndex],
+                                            desc.min,
+                                            desc.max );
+
         for ( const ColliderRecord& collider : colliders )
         {
             if ( overlaps )
             {
                 break;
             }
+
             if ( collider.body == body.handle )
             {
-                overlaps = SphereOverlapsAabb(
-                    ColliderWorldCenter( hotFields, bodyIndex, collider ),
-                    EffectiveColliderRadius( collider ),
-                    desc.min,
-                    desc.max
-                );
+                overlaps = SphereOverlapsAabb( ColliderWorldCenter( hotFields, bodyIndex, collider ),
+                                               EffectiveColliderRadius( collider ),
+                                               desc.min,
+                                               desc.max );
             }
         }
+
         if ( overlaps )
         {
             m_broadphaseQueryScratch.push_back( body.handle );
@@ -1116,6 +1189,7 @@ bool PhysicsEngine::RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& sn
     {
         m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
     }
+
     return restored;
 }
 
@@ -1163,6 +1237,18 @@ const PhysicsBodyStore& PhysicsEngine::ReadBodies( const PhysicsEngine& engine )
 const ColliderStore& PhysicsEngine::ReadColliders( const PhysicsEngine& engine )
 {
     return engine.m_colliderStore;
+}
+
+
+std::span<const BuoyancyBodyFacts> PhysicsEngine::ReadBuoyancyFacts( const PhysicsEngine& engine )
+{
+    return engine.m_buoyancySystem.Facts();
+}
+
+
+std::size_t PhysicsEngine::ReadBuoyancyFactCapacity( const PhysicsEngine& engine )
+{
+    return engine.m_buoyancySystem.RecordCapacity();
 }
 
 

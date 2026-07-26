@@ -23,7 +23,7 @@ Invariants:
 Related:
   - SkullbonezSource/Core/Profiler.h
   - SkullbonezSource/Core/PlatformProfiler.h
-  - SkullbonezSource/Rendering/RenderProfilerPresentation.cpp
+  - SkullbonezSource/UI/UIProfilerOverlayPresenter.cpp
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Profiler.h"
@@ -59,6 +59,7 @@ int CountSlashes( const char* s )
             ++n;
         }
     }
+
     return n;
 }
 
@@ -72,6 +73,7 @@ const char* FindLeafName( const char* fullPath )
             leaf = p + 1;
         }
     }
+
     return leaf;
 }
 } // namespace
@@ -90,6 +92,7 @@ Profiler::Profiler()
     {
         m_qpcFrequency = 1; // avoid division by zero; timings will be garbage but won't crash
     }
+
     std::memset( m_markers, 0, sizeof( m_markers ) );
     std::memset( m_counters, 0, sizeof( m_counters ) );
     std::memset( m_workerCoreAccumulators, 0, sizeof( m_workerCoreAccumulators ) );
@@ -114,10 +117,12 @@ int Profiler::FindOrRegisterCounter( const char* fullPath, uint32_t hash )
         {
             continue;
         }
+
         if ( std::strcmp( m_counters[i].name, fullPath ) != 0 )
         {
             AbortMismatch( "FNV-1a hash collision between profiler counters", fullPath );
         }
+
         return i;
     }
 
@@ -149,6 +154,7 @@ void Profiler::AbortMismatch( const char* msg, const char* details ) const
     {
         _snprintf_s( buf, sizeof( buf ), _TRUNCATE, "PROFILER: %s\n", safeMessage );
     }
+
     OutputDebugStringA( buf );
     // Hazard: marker hash collisions and begin/end mismatches corrupt the
     // profiler's nesting stack. Treat them as Lane F engine invariants so the
@@ -157,6 +163,7 @@ void Profiler::AbortMismatch( const char* msg, const char* details ) const
     {
         SB_FATAL( "Core/Profiler", "%s [%s]", safeMessage, safeDetails );
     }
+
     SB_FATAL( "Core/Profiler", "%s", safeMessage );
 }
 
@@ -174,6 +181,7 @@ int Profiler::FindOrRegister( const char* fullPath, uint32_t hash )
             {
                 AbortMismatch( "FNV-1a hash collision between markers", fullPath );
             }
+
             return i;
         }
     }
@@ -243,11 +251,13 @@ int Profiler::FindOrRegister( const char* fullPath, uint32_t hash )
                 lastSlash = p;
             }
         }
+
         size_t plen = static_cast<size_t>( lastSlash - fullPath );
         if ( plen >= sizeof( parentPath ) )
         {
             plen = sizeof( parentPath ) - 1;
         }
+
         std::memcpy( parentPath, fullPath, plen );
         parentPath[plen] = '\0';
 
@@ -261,6 +271,7 @@ int Profiler::FindOrRegister( const char* fullPath, uint32_t hash )
                 break;
             }
         }
+
         // Parent might not be registered yet (e.g. first time we hit "Render/Skybox" before "Render"
         // ever opens). That's fine — overlay falls back to indenting by depth.
         m.parentIndex = pIdx;
@@ -276,6 +287,7 @@ void Profiler::Begin( const char* fullPath, uint32_t hash )
     {
         return;
     }
+
     BeginInternal( fullPath, hash, true );
 }
 
@@ -286,22 +298,22 @@ void Profiler::End( const char* fullPath, uint32_t hash )
     {
         return;
     }
+
     EndInternal( fullPath, hash, true );
 }
 
 
-void Profiler::RecordWorkerSample(
-    const char* fullPath,
-    uint32_t hash,
-    int workerIndex,
-    int64_t startTicks,
-    int64_t endTicks
-)
+void Profiler::RecordWorkerSample( const char* fullPath,
+                                   uint32_t hash,
+                                   int workerIndex,
+                                   int64_t startTicks,
+                                   int64_t endTicks )
 {
     if ( !m_inFrame || workerIndex < 0 || workerIndex >= MAX_WORKER_CORES )
     {
         return;
     }
+
     if ( endTicks < startTicks )
     {
         endTicks = startTicks;
@@ -310,10 +322,12 @@ void Profiler::RecordWorkerSample(
     std::lock_guard<std::mutex> lock( m_workerSampleMutex );
     int idx = FindOrRegister( fullPath, hash );
     Marker& marker = m_markers[idx];
-    const double startSeconds =
-        static_cast<double>( startTicks - m_frameStartTicks ) / static_cast<double>( m_qpcFrequency );
-    const double endSeconds =
-        static_cast<double>( endTicks - m_frameStartTicks ) / static_cast<double>( m_qpcFrequency );
+    const double startSeconds = static_cast<double>( startTicks - m_frameStartTicks ) /
+                                static_cast<double>( m_qpcFrequency );
+
+    const double endSeconds = static_cast<double>( endTicks - m_frameStartTicks ) /
+                              static_cast<double>( m_qpcFrequency );
+
     const double durationSeconds = static_cast<double>( endTicks - startTicks ) / static_cast<double>( m_qpcFrequency );
     marker.accumSecondsThisFrame += durationSeconds;
     if ( !marker.spanWrittenThisFrame )
@@ -351,6 +365,7 @@ void Profiler::RecordCounter( const char* fullPath, uint32_t hash, double value 
     {
         return;
     }
+
     if ( !m_inFrame )
     {
         AbortMismatch( "PROFILE_COUNTER called outside frame", fullPath );
@@ -372,6 +387,7 @@ WorkerProfilerScope::WorkerProfilerScope( Profiler* profiler, const char* fullPa
     {
         return;
     }
+
     LARGE_INTEGER t;
     QueryPerformanceCounter( &t );
     m_startTicks = t.QuadPart;
@@ -387,8 +403,7 @@ WorkerProfilerScope::WorkerProfilerScope( Profiler* profiler, const char* fullPa
         char markerName[PlatformProfiler::MAX_DECORATED_MARKER_NAME_CHARS];
         PlatformProfiler::CpuBegin(
             PlatformProfiler::DecorateMarkerName( m_fullPath, "_Worker", markerName, sizeof( markerName ) ),
-            m_hash
-        );
+            m_hash );
 
         m_platformProfilerOpen = true;
     }
@@ -401,6 +416,7 @@ WorkerProfilerScope::~WorkerProfilerScope()
     {
         return;
     }
+
     LARGE_INTEGER t;
     QueryPerformanceCounter( &t );
 #if defined( TRACY_ENABLE )
@@ -418,6 +434,7 @@ WorkerProfilerScope::~WorkerProfilerScope()
         PlatformProfiler::CpuEnd();
         m_platformProfilerOpen = false;
     }
+
     if ( m_profiler )
     {
         m_profiler->RecordWorkerSample( m_fullPath, m_hash, m_workerIndex, m_startTicks, t.QuadPart );
@@ -431,6 +448,7 @@ void Profiler::BeginInternal( const char* fullPath, uint32_t hash, bool emitCpuP
     {
         AbortMismatch( "PROFILE_BEGIN called outside frame", fullPath );
     }
+
     if ( m_stackTop >= MAX_DEPTH )
     {
         AbortMismatch( "MAX_DEPTH exceeded", fullPath );
@@ -447,13 +465,15 @@ void Profiler::BeginInternal( const char* fullPath, uint32_t hash, bool emitCpuP
     LARGE_INTEGER t;
     QueryPerformanceCounter( &t );
     m.openStartTicks = t.QuadPart;
-    const double startSeconds =
-        static_cast<double>( t.QuadPart - m_frameStartTicks ) / static_cast<double>( m_qpcFrequency );
+    const double startSeconds = static_cast<double>( t.QuadPart - m_frameStartTicks ) /
+                                static_cast<double>( m_qpcFrequency );
+
     if ( !m.spanWrittenThisFrame )
     {
         m.firstStartSecondsThisFrame = startSeconds;
         m.spanWrittenThisFrame = true;
     }
+
     m.openCount = 1;
     const int stackSlot = m_stackTop++;
     m_stackIndices[stackSlot] = idx;
@@ -509,9 +529,11 @@ void Profiler::EndInternal( const char* fullPath, uint32_t hash, bool emitCpuPla
     {
         delta = 0;
     }
+
     top.accumSecondsThisFrame += static_cast<double>( delta ) / static_cast<double>( m_qpcFrequency );
-    top.lastEndSecondsThisFrame =
-        static_cast<double>( t.QuadPart - m_frameStartTicks ) / static_cast<double>( m_qpcFrequency );
+    top.lastEndSecondsThisFrame = static_cast<double>( t.QuadPart - m_frameStartTicks ) /
+                                  static_cast<double>( m_qpcFrequency );
+
     top.openCount = 0;
     --m_stackTop;
 #if defined( TRACY_ENABLE )
@@ -534,6 +556,7 @@ int Profiler::BeginRenderRecord( const char* fullPath, uint32_t hash )
     {
         return -1;
     }
+
     BeginInternal( fullPath, hash, false );
     const int stackSlot = m_stackTop - 1;
     if ( PlatformProfiler::AreDetailedRangesEnabled() )
@@ -541,11 +564,11 @@ int Profiler::BeginRenderRecord( const char* fullPath, uint32_t hash )
         char markerName[PlatformProfiler::MAX_DECORATED_MARKER_NAME_CHARS];
         PlatformProfiler::CpuBegin(
             PlatformProfiler::DecorateMarkerName( fullPath, "_Record", markerName, sizeof( markerName ) ),
-            hash
-        );
+            hash );
 
         m_platformProfilerRenderRecordOpen[stackSlot] = true;
     }
+
     return m_stackIndices[stackSlot];
 }
 
@@ -556,16 +579,19 @@ void Profiler::EndRenderRecord( const char* fullPath, uint32_t hash )
     {
         return;
     }
+
     const int stackSlot = m_stackTop > 0 ? m_stackTop - 1 : -1;
     const bool platformRecordOpen = stackSlot >= 0 ? m_platformProfilerRenderRecordOpen[stackSlot] : false;
     if ( stackSlot >= 0 )
     {
         m_platformProfilerRenderRecordOpen[stackSlot] = false;
     }
+
     if ( platformRecordOpen )
     {
         PlatformProfiler::CpuEnd();
     }
+
     EndInternal( fullPath, hash, false );
 }
 
@@ -576,6 +602,7 @@ void Profiler::MarkGpuMarkerWritten( int markerIndex )
     {
         SB_FATAL( "Profiler", "GPU marker index %d is outside [0,%d)", markerIndex, m_markerCount );
     }
+
     Marker& marker = m_markers[markerIndex];
     marker.hasGpu = true;
     marker.gpuWrittenThisFrame = true;
@@ -593,6 +620,7 @@ void Profiler::ApplyGpuTimingSamples( std::span<const GpuTimingSample> samples )
             {
                 continue;
             }
+
             const float milliseconds = (std::max)( 0.0f, sample.milliseconds );
             marker.gpuLastFrameMs = milliseconds;
             marker.gpuRingMs[marker.gpuRingHead] = milliseconds;
@@ -601,11 +629,13 @@ void Profiler::ApplyGpuTimingSamples( std::span<const GpuTimingSample> samples )
             {
                 ++marker.gpuRingFilled;
             }
+
             double totalMilliseconds = 0.0;
             for ( int sampleIndex = 0; sampleIndex < marker.gpuRingFilled; ++sampleIndex )
             {
                 totalMilliseconds += marker.gpuRingMs[sampleIndex];
             }
+
             marker.gpuAvgMs = static_cast<float>( totalMilliseconds / marker.gpuRingFilled );
             break;
         }
@@ -639,6 +669,7 @@ void Profiler::InvalidateGpuSamples()
         m.gpuRingHead = 0;
         std::memset( m.gpuRingMs, 0, sizeof( m.gpuRingMs ) );
     }
+
     RestartWarmup();
 }
 
@@ -648,8 +679,7 @@ Profiler::ProfilerFrameView Profiler::FrameView() const
     return ProfilerFrameView {
         std::span<const Marker>( m_markers, static_cast<std::size_t>( m_markerCount ) ),
         std::span<const Counter>( m_counters, static_cast<std::size_t>( m_counterCount ) ),
-        std::span<const WorkerCoreSample>( m_workerCoreSamples, static_cast<std::size_t>( m_workerCoreSampleCount ) )
-    };
+        std::span<const WorkerCoreSample>( m_workerCoreSamples, static_cast<std::size_t>( m_workerCoreSampleCount ) ) };
 }
 
 
@@ -695,10 +725,12 @@ void Profiler::FrameBegin()
     {
         AbortMismatch( "FrameBegin called twice without FrameEnd", nullptr );
     }
+
     if ( m_stackTop != 0 )
     {
         AbortMismatch( "FrameBegin with non-empty stack", nullptr );
     }
+
     m_inFrame = true;
 
     LARGE_INTEGER frameStart;
@@ -718,11 +750,13 @@ void Profiler::FrameBegin()
         m_markers[i].lastEndSecondsThisFrame = 0.0;
         m_markers[i].spanWrittenThisFrame = false;
     }
+
     for ( int i = 0; i < m_counterCount; ++i )
     {
         m_counters[i].valueThisFrame = 0.0;
         m_counters[i].writtenThisFrame = false;
     }
+
     {
         std::lock_guard<std::mutex> lock( m_workerSampleMutex );
         std::memset( m_workerCoreAccumulators, 0, sizeof( m_workerCoreAccumulators ) );
@@ -754,10 +788,8 @@ void Profiler::FrameEnd()
 
     if ( m_stackTop != 0 )
     {
-        AbortMismatch(
-            "FrameEnd with open markers (missing PROFILE_END)",
-            m_markers[m_stackIndices[m_stackTop - 1]].name
-        );
+        AbortMismatch( "FrameEnd with open markers (missing PROFILE_END)",
+                       m_markers[m_stackIndices[m_stackTop - 1]].name );
     }
 
     // Advance GPU write cursors for markers that recorded timestamps this frame
@@ -781,12 +813,14 @@ void Profiler::FrameEnd()
     for ( int i = 0; i < m_markerCount; ++i )
     {
         Marker& m = m_markers[i];
+
         const bool isFrameMarker = m.hash == kFrameHash;
         float ms = static_cast<float>( m.accumSecondsThisFrame * 1000.0 );
         if ( isFrameMarker )
         {
             ms = (std::max)( 0.0f, ms - vsyncMsThisFrame );
         }
+
         m.lastFrameMs = ms;
         if ( m.spanWrittenThisFrame )
         {
@@ -802,6 +836,7 @@ void Profiler::FrameEnd()
             m.lastFrameStartMs = 0.0f;
             m.lastFrameEndMs = 0.0f;
         }
+
         if ( m_warmupFrames > 0 )
         {
             continue;
@@ -811,10 +846,12 @@ void Profiler::FrameEnd()
         {
             m.minMs = ms;
         }
+
         if ( ms > m.maxMs )
         {
             m.maxMs = ms;
         }
+
         m.ringMs[m.ringHead] = ms;
         m.ringHead = ( m.ringHead + 1 ) % RING_SIZE;
         if ( m.ringFilled < RING_SIZE )
@@ -834,10 +871,12 @@ void Profiler::FrameEnd()
             {
                 p99i = n - 1;
             }
+
             if ( p999i >= n )
             {
                 p999i = n - 1;
             }
+
             std::nth_element( scratch, scratch + p50i, scratch + n );
             m.p50Ms = scratch[p50i];
             std::nth_element( scratch, scratch + p99i, scratch + n );
@@ -861,10 +900,12 @@ void Profiler::FrameEnd()
             {
                 continue;
             }
+
             if ( marker.hash == kFrameHash && child.hash == kVsyncHash )
             {
                 continue;
             }
+
             directChildMs += child.lastFrameMs;
         }
 
@@ -873,6 +914,7 @@ void Profiler::FrameEnd()
         {
             continue;
         }
+
         marker.selfRingMs[marker.selfRingHead] = marker.lastSelfMs;
         marker.selfRingHead = ( marker.selfRingHead + 1 ) % RING_SIZE;
         if ( marker.selfRingFilled < RING_SIZE )
@@ -907,8 +949,9 @@ void Profiler::FrameEnd()
             ++average.frameCount;
             if ( refreshAverages && average.frameCount > 0 )
             {
-                average.avgCoreMs =
-                    static_cast<float>( average.accumulatedCoreMs / static_cast<double>( average.frameCount ) );
+                average.avgCoreMs = static_cast<float>( average.accumulatedCoreMs /
+                                                        static_cast<double>( average.frameCount ) );
+
                 average.accumulatedCoreMs = 0.0;
                 average.frameCount = 0;
             }
@@ -923,10 +966,13 @@ void Profiler::FrameEnd()
             sample.jobCount = worker.jobCount;
             sample.coreMs = frameCoreMs;
             sample.avgCoreMs = average.avgCoreMs;
-            sample.spanStartMs =
-                worker.spanWrittenThisFrame ? static_cast<float>( worker.firstStartSecondsThisFrame * 1000.0 ) : 0.0f;
-            sample.spanEndMs =
-                worker.spanWrittenThisFrame ? static_cast<float>( worker.lastEndSecondsThisFrame * 1000.0 ) : 0.0f;
+            sample.spanStartMs = worker.spanWrittenThisFrame
+                                     ? static_cast<float>( worker.firstStartSecondsThisFrame * 1000.0 )
+                                     : 0.0f;
+
+            sample.spanEndMs = worker.spanWrittenThisFrame
+                                   ? static_cast<float>( worker.lastEndSecondsThisFrame * 1000.0 )
+                                   : 0.0f;
         }
     }
 
@@ -943,6 +989,7 @@ void Profiler::FrameEnd()
             workerCoreMs += (std::max)( 0.0f, m_workerCoreSamples[index].coreMs );
             workerJobs += (std::max)( 0, m_workerCoreSamples[index].jobCount );
         }
+
         double frameMs = 0.0;
         for ( int index = 0; index < m_markerCount; ++index )
         {
@@ -952,10 +999,13 @@ void Profiler::FrameEnd()
                 break;
             }
         }
-        const double workerUtilization =
-            frameMs > 0.0 && m_workerCoreSampleCount > 0
-                ? (std::min)( 100.0, workerCoreMs * 100.0 / ( frameMs * m_workerCoreSampleCount ) )
-                : 0.0;
+
+        const double workerUtilization = frameMs > 0.0 && m_workerCoreSampleCount > 0
+                                             ? (std::min)( 100.0,
+                                                           workerCoreMs * 100.0 /
+                                                               ( frameMs * m_workerCoreSampleCount ) )
+                                             : 0.0;
+
         SKORE_TRACY_PLOT_VALUE( "Counter/Workers/ActiveWorkers", m_workerCoreSampleCount );
         SKORE_TRACY_PLOT_VALUE( "Counter/Workers/Jobs", workerJobs );
         SKORE_TRACY_PLOT_VALUE( "Counter/Workers/CoreMilliseconds", workerCoreMs );
@@ -982,6 +1032,7 @@ void Profiler::FrameEnd()
                 {
                     sum += m.ringMs[k];
                 }
+
                 m.avgMs = static_cast<float>( sum / n );
             }
 
@@ -993,6 +1044,7 @@ void Profiler::FrameEnd()
                 {
                     selfSum += m.selfRingMs[k];
                 }
+
                 m.selfAvgMs = static_cast<float>( selfSum / sn );
             }
 
@@ -1007,6 +1059,7 @@ void Profiler::FrameEnd()
                     {
                         gsum += m.gpuRingMs[k];
                     }
+
                     m.gpuAvgMs = static_cast<float>( gsum / gn );
                 }
             }
@@ -1026,6 +1079,7 @@ float Profiler::LastFrameMsByHash( uint32_t hash ) const
             return m_markers[i].lastFrameMs;
         }
     }
+
     return 0.0f;
 }
 
@@ -1039,6 +1093,7 @@ float Profiler::LastGpuFrameMsByHash( uint32_t hash ) const
             return m_markers[i].gpuLastFrameMs > 0.0f ? m_markers[i].gpuLastFrameMs : m_markers[i].gpuAvgMs;
         }
     }
+
     return 0.0f;
 }
 
@@ -1050,6 +1105,7 @@ int Profiler::PerfCSVColumnCount() const
     {
         columnCount += m_markers[i].hasGpu ? 2 : 1;
     }
+
     return columnCount;
 }
 
@@ -1065,12 +1121,14 @@ void Profiler::WritePerfCSVHeader( FILE* f ) const
         {
             continue;
         }
+
         fprintf( f, ",%s", m_markers[i].name );
         if ( m_markers[i].hasGpu )
         {
             fprintf( f, ",%s_gpu", m_markers[i].name );
         }
     }
+
     // Keep VsyncWait at the end so it doesn't skew active-frame averages when viewed together.
     for ( int i = 0; i < m_markerCount; ++i )
     {
@@ -1081,13 +1139,16 @@ void Profiler::WritePerfCSVHeader( FILE* f ) const
             {
                 fprintf( f, ",%s_gpu", m_markers[i].name );
             }
+
             break;
         }
     }
+
     for ( int i = 0; i < m_counterCount; ++i )
     {
         fprintf( f, ",%s", m_counters[i].name );
     }
+
     fprintf( f, "\n" );
     m_lastPerfCSVColumnCount = PerfCSVColumnCount();
 }
@@ -1118,12 +1179,14 @@ void Profiler::WritePerfCSVRow( FILE* f, int pass, int frame ) const
         {
             continue;
         }
+
         fprintf( f, ",%.4f", m_markers[i].lastFrameMs );
         if ( m_markers[i].hasGpu )
         {
             fprintf( f, ",%.4f", m_markers[i].gpuLastFrameMs );
         }
     }
+
     for ( int i = 0; i < m_markerCount; ++i )
     {
         if ( m_markers[i].hash == kVsyncHash )
@@ -1133,13 +1196,16 @@ void Profiler::WritePerfCSVRow( FILE* f, int pass, int frame ) const
             {
                 fprintf( f, ",%.4f", m_markers[i].gpuLastFrameMs );
             }
+
             break;
         }
     }
+
     for ( int i = 0; i < m_counterCount; ++i )
     {
         fprintf( f, ",%.4f", m_counters[i].lastFrameValue );
     }
+
     fprintf( f, "\n" );
 }
 

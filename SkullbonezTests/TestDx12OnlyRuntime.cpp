@@ -1,13 +1,13 @@
 /*
 File: TestDx12OnlyRuntime.cpp
 Purpose:
-  Proves the command-line renderer option table and retained trajectory upload
+  Proves the command-line renderer option table and retained geometry upload
   decisions preserve the DX12 runtime contract.
 
 Summary:
   This is the small boolean product check that survives the deleted regex
   boundary apparatus. It tests the runtime startup contract directly instead of
-  counting source spellings across the repository. Retained trajectory cases
+  counting source spellings across the repository. Retained geometry cases
   lock the token-driven stable and append-only upload plans.
 
 Glossary:
@@ -23,19 +23,21 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/App/RunLaunchOptions.Renderer.h owns the table.
-  - SkullbonezSource/Rendering/DX12/RenderBackendDX12.h owns retained upload planning.
+  - SkullbonezSource/Rendering/RenderCommandTypes.h owns retained upload planning.
   - AGENTS.md documents the DX12-only runtime contract.
 */
 
 #include "../ThirdPtySource/doctest/doctest.h"
 
-#include "../SkullbonezSource/Rendering/DX12/RenderBackendDX12.h"
+#include "../SkullbonezSource/Rendering/RenderCommandTypes.h"
 #include "../SkullbonezSource/Runtime/App/RunLaunchOptions.Renderer.h"
 
 #include <string>
 
-using SkullbonezCore::Rendering::BuildRetainedTrajectoryUploadPlanDX12;
-using SkullbonezCore::Rendering::BuildRetainedTrajectoryRangeUploadPlanDX12;
+using SkullbonezCore::Rendering::BuildRetainedGeometryRangeUploadPlan;
+using SkullbonezCore::Rendering::BuildRetainedGeometryUploadPlan;
+using SkullbonezCore::Rendering::RetainedGeometryRangeToken;
+using SkullbonezCore::Rendering::RetainedGeometryStreamToken;
 using SkullbonezCore::Runtime::kRuntimeRendererOptionCount;
 using SkullbonezCore::Runtime::kRuntimeRendererOptions;
 
@@ -51,52 +53,68 @@ TEST_CASE( "Runtime renderer options: DX12 is the only launch renderer" )
     CHECK( std::string( renderer.alias ) == "d3d12" );
 }
 
-TEST_CASE( "DX12 retained trajectory upload planning is stable and append-only" )
+TEST_CASE( "Retained geometry upload planning is stable and append-only" )
 {
-    const auto stable = BuildRetainedTrajectoryUploadPlanDX12( 7u, 11u, 96u, 7u, 11u, 96u, true );
+    const auto stable =
+        BuildRetainedGeometryUploadPlan( RetainedGeometryStreamToken { 7u, 11u },
+                                         96u,
+                                         RetainedGeometryStreamToken { 7u, 11u },
+                                         96u,
+                                         true );
     CHECK_FALSE( stable.uploadRequired );
     CHECK( stable.firstChangedUnit == 0u );
 
-    const auto appendedLines = BuildRetainedTrajectoryUploadPlanDX12( 7u, 11u, 96u, 7u, 12u, 120u, false );
+    const auto appendedLines =
+        BuildRetainedGeometryUploadPlan( { 7u, 11u }, 96u, { 7u, 12u }, 120u, false );
     CHECK( appendedLines.uploadRequired );
     CHECK( appendedLines.firstChangedUnit == 96u );
 
-    const auto appendedRibbon = BuildRetainedTrajectoryUploadPlanDX12( 7u, 11u, 8u, 7u, 12u, 10u, true );
+    const auto appendedRibbon =
+        BuildRetainedGeometryUploadPlan( { 7u, 11u }, 8u, { 7u, 12u }, 10u, true );
     CHECK( appendedRibbon.uploadRequired );
     CHECK( appendedRibbon.firstChangedUnit == 7u );
 
-    const auto replacement = BuildRetainedTrajectoryUploadPlanDX12( 7u, 11u, 96u, 8u, 1u, 24u, true );
+    const auto replacement =
+        BuildRetainedGeometryUploadPlan( { 7u, 11u }, 96u, { 8u, 1u }, 24u, true );
     CHECK( replacement.uploadRequired );
     CHECK( replacement.firstChangedUnit == 0u );
 
-    const auto contraction = BuildRetainedTrajectoryUploadPlanDX12( 7u, 11u, 96u, 7u, 12u, 24u, false );
+    const auto contraction =
+        BuildRetainedGeometryUploadPlan( { 7u, 11u }, 96u, { 7u, 12u }, 24u, false );
     CHECK( contraction.uploadRequired );
     CHECK( contraction.firstChangedUnit == 0u );
 }
 
-TEST_CASE( "DX12 retained trajectory ranges upload only the repaired append suffix" )
+TEST_CASE( "Retained geometry ranges upload only the repaired append suffix" )
 {
-    const auto stable =
-        BuildRetainedTrajectoryRangeUploadPlanDX12( 41u, 3u, 96u, 41u, 3u, 96u );
+    const auto range = []( uint64_t identity, uint32_t sourceVersion, uint32_t recordCount )
+    {
+        RetainedGeometryRangeToken token;
+        token.identity = identity;
+        token.sourceVersion = sourceVersion;
+        token.recordCount = recordCount;
+        return token;
+    };
+    const auto stable = BuildRetainedGeometryRangeUploadPlan( range( 41u, 3u, 96u ), range( 41u, 3u, 96u ) );
     CHECK_FALSE( stable.uploadRequired );
 
-    const auto appended =
-        BuildRetainedTrajectoryRangeUploadPlanDX12( 41u, 3u, 96u, 41u, 3u, 101u );
+    const auto appended = BuildRetainedGeometryRangeUploadPlan( range( 41u, 3u, 96u ),
+                                                                range( 41u, 3u, 101u ) );
     CHECK( appended.uploadRequired );
     CHECK( appended.firstChangedUnit == 95u );
 
     const auto firstAppend =
-        BuildRetainedTrajectoryRangeUploadPlanDX12( 41u, 3u, 0u, 41u, 3u, 1u );
+        BuildRetainedGeometryRangeUploadPlan( range( 41u, 3u, 0u ), range( 41u, 3u, 1u ) );
     CHECK( firstAppend.uploadRequired );
     CHECK( firstAppend.firstChangedUnit == 0u );
 
     const auto replaced =
-        BuildRetainedTrajectoryRangeUploadPlanDX12( 41u, 3u, 96u, 41u, 4u, 96u );
+        BuildRetainedGeometryRangeUploadPlan( range( 41u, 3u, 96u ), range( 41u, 4u, 96u ) );
     CHECK( replaced.uploadRequired );
     CHECK( replaced.firstChangedUnit == 0u );
 
     const auto contracted =
-        BuildRetainedTrajectoryRangeUploadPlanDX12( 41u, 3u, 96u, 41u, 3u, 24u );
+        BuildRetainedGeometryRangeUploadPlan( range( 41u, 3u, 96u ), range( 41u, 3u, 24u ) );
     CHECK( contracted.uploadRequired );
     CHECK( contracted.firstChangedUnit == 0u );
 }

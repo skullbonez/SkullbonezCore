@@ -119,50 +119,36 @@ class ReplayV2Artifact
     SavePresentation( const ReplayRecorder& recorder, const char* path, ReplayV2SaveResult* result = nullptr );
     // Saves presentation data plus sparse solver hashes/checkpoints so restore
     // validation can compare source frames against the saved artifact.
-    static bool SavePresentationWithSolverHashes(
-        const ReplayRecorder& recorder,
-        const ReplaySolverRecorder& solverRecorder,
-        const char* path,
-        ReplayV2SaveResult* result = nullptr
-    );
-    static bool SavePresentationWithSolverHashes(
-        const ReplayRecorder& recorder,
-        const ReplaySolverRecorder& solverRecorder,
-        const ReplayEventRecorder& eventRecorder,
-        const char* path,
-        ReplayV2SaveResult* result = nullptr
-    );
-    static bool SavePresentationWithSolverHashes(
-        const ReplayRecorder& recorder,
-        const ReplaySolverRecorder& solverRecorder,
-        const ReplayEventRecorder& eventRecorder,
-        std::span<const ReplayVisualArchiveSample> visualPackets,
-        std::span<const uint8_t> visualPredictionState,
-        const char* path,
-        ReplayV2SaveResult* result = nullptr
-    );
+    static bool SavePresentationWithSolverHashes( const ReplayRecorder& recorder,
+                                                  const ReplaySolverRecorder& solverRecorder,
+                                                  const char* path,
+                                                  ReplayV2SaveResult* result = nullptr );
+    static bool SavePresentationWithSolverHashes( const ReplayRecorder& recorder,
+                                                  const ReplaySolverRecorder& solverRecorder,
+                                                  const ReplayEventRecorder& eventRecorder,
+                                                  const char* path,
+                                                  ReplayV2SaveResult* result = nullptr );
+    static bool SavePresentationWithSolverHashes( const ReplayRecorder& recorder,
+                                                  const ReplaySolverRecorder& solverRecorder,
+                                                  const ReplayEventRecorder& eventRecorder,
+                                                  std::span<const ReplayVisualArchiveSample> visualPackets,
+                                                  std::span<const uint8_t> visualPredictionState,
+                                                  const char* path,
+                                                  ReplayV2SaveResult* result = nullptr );
     // Loaders are intentionally chunk-specific so tools can inspect a replay
     // without paying to inflate every optional stream.
-    static bool LoadPresentation(
-        const char* path,
-        std::vector<ReplayPresentationSample>& outSamples,
-        ReplayV2LoadResult* result = nullptr
-    );
-    static bool LoadSolverCheckpoints(
-        const char* path,
-        std::vector<ReplaySolverFrameSample>& outCheckpoints,
-        ReplayV2SolverCheckpointLoadResult* result = nullptr
-    );
-    static bool LoadEvents(
-        const char* path,
-        std::vector<ReplayEventSample>& outEvents,
-        ReplayV2EventLoadResult* result = nullptr
-    );
-    static bool LoadSolverHashes(
-        const char* path,
-        std::vector<ReplayV2SolverHashSample>& outHashes,
-        ReplayV2SolverHashLoadResult* result = nullptr
-    );
+    static bool LoadPresentation( const char* path,
+                                  std::vector<ReplayPresentationSample>& outSamples,
+                                  ReplayV2LoadResult* result = nullptr );
+    static bool LoadSolverCheckpoints( const char* path,
+                                       std::vector<ReplaySolverFrameSample>& outCheckpoints,
+                                       ReplayV2SolverCheckpointLoadResult* result = nullptr );
+    static bool LoadEvents( const char* path,
+                            std::vector<ReplayEventSample>& outEvents,
+                            ReplayV2EventLoadResult* result = nullptr );
+    static bool LoadSolverHashes( const char* path,
+                                  std::vector<ReplayV2SolverHashSample>& outHashes,
+                                  ReplayV2SolverHashLoadResult* result = nullptr );
     static bool LoadVisualPackets( const char* path, std::vector<ReplayVisualArchiveSample>& outPackets );
     static bool LoadVisualPredictionState( const char* path, std::vector<uint8_t>& outBytes );
 };

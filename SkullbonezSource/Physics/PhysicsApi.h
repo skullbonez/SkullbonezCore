@@ -53,11 +53,6 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Geometry
-{
-class Terrain;
-} // namespace Geometry
-
 namespace Physics
 {
 enum class PhysicsBodyMotionKind : uint8_t
@@ -111,24 +106,20 @@ struct PhysicsBodyCreateDesc
     bool releasesFromFixedOnContact = false;
     bool usesWorldInertia = false;
     float contactReleaseImpulseThreshold = 0.0f;
-    Geometry::Terrain* terrain = nullptr;
     const char* diagnosticName = nullptr;
 };
 
-inline PhysicsBodyCreateDesc MakePhysicsBodyCreateDesc(
-    PhysicsSceneObjectId sceneObjectId,
-    const Math::CollisionDetection::CollisionShape& shape,
-    const Math::Vector::Vector3& position,
-    const Math::Orientation::Quaternion& orientation,
-    const Math::Vector::Vector3& linearVelocity,
-    const Math::Vector::Vector3& angularVelocity,
-    const Math::Vector::Vector3& rotationalInertia,
-    float mass,
-    float restitution,
-    PhysicsBodyMotionKind motionKind,
-    Geometry::Terrain* terrain,
-    const char* diagnosticName = nullptr
-)
+inline PhysicsBodyCreateDesc MakePhysicsBodyCreateDesc( PhysicsSceneObjectId sceneObjectId,
+                                                        const Math::CollisionDetection::CollisionShape& shape,
+                                                        const Math::Vector::Vector3& position,
+                                                        const Math::Orientation::Quaternion& orientation,
+                                                        const Math::Vector::Vector3& linearVelocity,
+                                                        const Math::Vector::Vector3& angularVelocity,
+                                                        const Math::Vector::Vector3& rotationalInertia,
+                                                        float mass,
+                                                        float restitution,
+                                                        PhysicsBodyMotionKind motionKind,
+                                                        const char* diagnosticName = nullptr )
 {
     PhysicsBodyCreateDesc desc;
     desc.sceneObjectId = sceneObjectId;
@@ -156,7 +147,6 @@ inline PhysicsBodyCreateDesc MakePhysicsBodyCreateDesc(
     }
     desc.motionKind = motionKind;
     desc.usesWorldInertia = !std::holds_alternative<Math::CollisionDetection::BoundingSphere>( desc.shape );
-    desc.terrain = terrain;
     desc.diagnosticName = diagnosticName;
     return desc;
 }
@@ -205,12 +195,10 @@ struct PhysicsAuthoredBodyRegistration
     }
 };
 
-inline PhysicsColliderCreateDesc MakeColliderCreateDesc(
-    Math::CollisionDetection::CollisionShape shape,
-    float restitution,
-    uint32_t contactMaterialId,
-    const char* contactMaterialName = nullptr
-)
+inline PhysicsColliderCreateDesc MakeColliderCreateDesc( Math::CollisionDetection::CollisionShape shape,
+                                                         float restitution,
+                                                         uint32_t contactMaterialId,
+                                                         const char* contactMaterialName = nullptr )
 {
     // Why: creation paths already know the exact primitive facts. Build the
     // collider import packet once there so PhysicsEngine owns the live row and

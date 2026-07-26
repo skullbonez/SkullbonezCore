@@ -1,6 +1,6 @@
 # SkullbonezCore Session State
 
-Date: 2026-07-25
+Date: 2026-07-26
 
 Keep this file operational and short. Detailed evidence belongs in plans,
 reports, and git history. `Agentic/Plans/MASTER-PLAN.md` is the authoritative
@@ -10,34 +10,77 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `main` |
-| Current baseline | Solar prediction presentation correction is complete: the 32-body Mars-assist scene stays parent/solar bounded for 120 seconds, Replay/live endpoints agree, paths restyle live, and space scenes schedule neither shadow nor reflection passes. |
-| Current objective | Execute the round-4 architecture campaign in binding order: `ui-renderer-hard-boundary` (begin with UR0's census), then `replay-subsystem-partition`, then `downward-domain-bleed-remediation`. |
-| Active/future progress | UI / Renderer Hard Boundary 0/7; Replay Subsystem Partition 0/6; Downward Domain Bleed Remediation 0/6; active/future ledger 0/19. |
+| Branch | `nightrunner-25th-JUL-26` |
+| Current baseline | Concrete Parameter-Bag Elimination is complete at PB0-PB7; all 30 repair rows and three ceiling defects are closed. |
+| Current objective | No live implementation plan; await the next owner direction. |
+| Active/future progress | No live plans; active/future ledger denominator is 0. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | Solar prediction presentation correction `validate_full` passes with exit 0 in 165.7 s: mandatory CPU preflight and all Automation, replay/prediction, DX12, and physics runtime lanes passed. |
-| Validation for current edits | 383 tests/2,403,142 assertions, 16/16 focused slingshot assertions, held-drag instant/amortized probes, allocation policy, 23 dependency proofs, accepted DX12 captures, broad gate, and 39/39 touched-source comment audit pass. |
+| Last broad local gate | PB7 `validate_full.bat` passes in 230.9 s: mandatory CPU/coverage, Automation/Replay, DX12 without refresh, and byte-exact 44,401-line Physics regression. |
+| Validation for current edits | PB7: 401 doctests, fast, DX12, 61-second stress, performance, Replay artifact/allocation/scrub-visual-fidelity, Physics, and full gates pass; final 91/91 comment audit and static closure proofs are clean. |
 
 ## Live Queue
 
-NOW. The 2026-07-25 round-4 architecture campaign is registered at 0/19 with
-binding order: `ui-renderer-hard-boundary` (0/7), `replay-subsystem-partition`
-(0/6), `downward-domain-bleed-remediation` (0/6). The UI plan preserves the
-completed UI/Runtime value-command boundary while removing 25 direct
-UI-to-Rendering includes across 14 UI files, moving UI GPU submission and
-resource lifetime into Runtime/Render, removing operator-presentation policy
-from Rendering, creating a standalone UI build, and adding mandatory
-directional dependency enforcement; it was amended on 2026-07-25 with
-draw-stream fingerprint gating, baked font-metric single sourcing, measured
-capacity high-water, preview-fallback contract placement, and consolidation
-of the standing dependency proofs into the UR5 validator. The partition plan
-splits `Runtime/Replay` (72 files / 36,900 lines) into Replay, Prediction,
-and Planning packages with anti-accretion direction rules. The bleed plan
-moves retained-trajectory semantics out of Rendering, puts terrain behind a
-Physics-owned boundary (banning Physics→World), and extracts fluid fields
-from `PhysicsBodyRecord` — all byte-exact-or-revert. Start with UR0;
-implementation uses the repository orchestrator skill. Live plans are under
-`Agentic/Plans/TODO/`.
+NOW. The 2026-07-25 round-4 architecture campaign has no live plan.
+`concrete-parameter-bag-elimination` is complete at 8/8 and has left the live
+inventory under rule 4. PB0
+ratified all 22 registered rows, added eight repair rows, carried forward three
+13-parameter render/UI operations, and ruled every other reviewed hit. PB1
+then repaired Scene save/load and split editor save/capture authority. PB2
+deleted the pointer-routing projection chain while preserving exact editor,
+mouse-pick, camera, Replay, and launcher precedence. PB3 deleted the
+render-frame, UI-text, Replay-overlay, and graph-callback service bags while
+preserving exact render, allocation, and visual behavior. PB4 replaced Replay
+capture/focus bags with concrete values and restore bags with an owner-free,
+phase-checked transaction. PB5 deleted the five Physics collision/solver bags
+through concrete stages and direct values while preserving byte-exact pair
+and solver behavior. PB6 deleted the seven sleep/force/terrain bags and their
+obsolete shared header while preserving exact wake and worker order. PB7
+reconciled all 30 repair rows and three ceiling defects, remediated the
+independent review's UI ownership and focused-test findings, completed the
+91/91 comment audit, and passed every cumulative gate without refresh.
+
+Header Claim Staleness Remediation is complete at 3/3 and removed from the live
+inventory under rule 4. Permanent evidence is
+`Agentic/Reports/2026-07-25/header-claim-staleness-remediation-closure.md`.
+Its corrected ownership claims and durable `Related:` paths are now the source
+context for Replay and later GV work. Replay RS0-RS5 are complete; their
+permanent evidence is
+`Agentic/Reports/2026-07-25/replay-subsystem-partition-rs0-census.md` and
+`Agentic/Reports/2026-07-25/replay-subsystem-partition-rs1-prediction.md`, and
+`Agentic/Reports/2026-07-25/replay-subsystem-partition-rs2-planning.md`, and
+`Agentic/Reports/2026-07-26/replay-subsystem-partition-rs3-seams.md`, and
+`Agentic/Reports/2026-07-26/replay-subsystem-partition-rs4-enforcement.md`, and
+`Agentic/Reports/2026-07-26/replay-subsystem-partition-closure.md`.
+The completed Replay plan is removed from the live inventory under rule 4.
+Downward Domain Bleed Remediation is complete at 6/6 and removed from the live
+inventory under rule 4. Permanent evidence is
+`Agentic/Reports/2026-07-26/downward-domain-bleed-remediation-closure.md`.
+GV1 permanent evidence is
+`Agentic/Reports/2026-07-26/invariant-ownership-governance-gv1-census.md`.
+GV2 permanent evidence is
+`Agentic/Reports/2026-07-26/invariant-ownership-governance-gv2-scene-load-transaction.md`.
+GV3 permanent evidence is
+`Agentic/Reports/2026-07-26/invariant-ownership-governance-gv3-generated-scene-transaction.md`.
+GV4 closed the plan at 5/5; permanent evidence is
+`Agentic/Reports/2026-07-26/invariant-ownership-governance-and-transaction-repair-closure.md`.
+PB0 permanent evidence is
+`Agentic/Reports/2026-07-26/concrete-parameter-bag-elimination-pb0-census.md`.
+PB1 permanent evidence is
+`Agentic/Reports/2026-07-26/concrete-parameter-bag-elimination-pb1-scene.md`.
+PB2 permanent evidence is
+`Agentic/Reports/2026-07-26/concrete-parameter-bag-elimination-pb2-pointer-routing.md`.
+PB3 permanent evidence is
+`Agentic/Reports/2026-07-26/concrete-parameter-bag-elimination-pb3-render-ui.md`.
+PB4 permanent evidence is
+`Agentic/Reports/2026-07-26/concrete-parameter-bag-elimination-pb4-replay.md`.
+PB5 permanent evidence is
+`Agentic/Reports/2026-07-26/concrete-parameter-bag-elimination-pb5-physics-collision-solver.md`.
+PB6 permanent evidence is
+`Agentic/Reports/2026-07-26/concrete-parameter-bag-elimination-pb6-physics-sleep-force-terrain.md`.
+PB7 permanent closure evidence is
+`Agentic/Reports/2026-07-26/concrete-parameter-bag-elimination-closure.md`.
+No plan in `Agentic/Plans/TODO/` remains live; retained completed files do not
+contribute to the active/future ledger.
 
 NOW. `solar-prediction-presentation-correction` is complete at 4/4. The
 120-second Mars-assist scene keeps every planet/moon bounded, exact-compares
@@ -448,10 +491,4 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Merge `nightrunner-23rd-JUL-26` after reviewing
-`Agentic/Reports/2026-07-24/prediction-retained-rendering-handoff.md`. The first
-owner-visible check is the 200-box striker: its root line must grow continuously
-toward the wall before contact, remain stable after completion, and remain
-selectable while the expanded Legacy UI is visible. Treat any remaining absence
-as retained DX12 visibility/submission first; the simulation and acquire-latched
-trajectory prefix are already present.
+No live implementation plan remains. Await the next owner direction.

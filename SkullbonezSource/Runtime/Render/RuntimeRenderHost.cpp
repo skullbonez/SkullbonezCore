@@ -34,6 +34,7 @@ SkullbonezCore::Runtime::RuntimeRenderBackendView::RequireBackbufferCapture() co
     {
         SB_FATAL( "Runtime/RenderBackendView", "Screenshot capture requires a startup-bound DX12 capture owner" );
     }
+
     return *backbufferCapture;
 }
 

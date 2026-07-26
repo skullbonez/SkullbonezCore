@@ -53,20 +53,16 @@ class Dx12CachedPsoStore
     void Store( const D3D12_GRAPHICS_PIPELINE_STATE_DESC& desc, ID3D12PipelineState* pipeline );
     void Shutdown();
 
-    static bool BuildPersistentEntryNameForTest(
-        const D3D12_GRAPHICS_PIPELINE_STATE_DESC& desc,
-        const std::array<std::uint8_t, DIGEST_BYTES>& manifestDigest,
-        const std::array<std::uint8_t, DIGEST_BYTES>& rootSignatureDigest,
-        wchar_t ( &outName )[ENTRY_NAME_CHARS]
-    );
+    static bool BuildPersistentEntryNameForTest( const D3D12_GRAPHICS_PIPELINE_STATE_DESC& desc,
+                                                 const std::array<std::uint8_t, DIGEST_BYTES>& manifestDigest,
+                                                 const std::array<std::uint8_t, DIGEST_BYTES>& rootSignatureDigest,
+                                                 wchar_t ( &outName )[ENTRY_NAME_CHARS] );
 
   private:
-    static bool BuildEntryName(
-        const D3D12_GRAPHICS_PIPELINE_STATE_DESC& desc,
-        const std::array<std::uint8_t, DIGEST_BYTES>& manifestDigest,
-        const std::array<std::uint8_t, DIGEST_BYTES>& rootSignatureDigest,
-        wchar_t ( &outName )[ENTRY_NAME_CHARS]
-    );
+    static bool BuildEntryName( const D3D12_GRAPHICS_PIPELINE_STATE_DESC& desc,
+                                const std::array<std::uint8_t, DIGEST_BYTES>& manifestDigest,
+                                const std::array<std::uint8_t, DIGEST_BYTES>& rootSignatureDigest,
+                                wchar_t ( &outName )[ENTRY_NAME_CHARS] );
     void Persist();
 
     struct MappedEntry

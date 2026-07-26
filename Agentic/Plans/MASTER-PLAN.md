@@ -518,7 +518,10 @@ value-command separation while deleting the remaining UI-to-Rendering backend
 edges, moving GPU submission and resource lifetime into Runtime/Render,
 removing operator-presentation policy from Rendering, establishing a
 standalone UI build target, and adding a mandatory directional dependency
-gate.
+gate. UR6 closed at 7/7 after the owner approved the two attributed
+performance baselines and the complete performance gate passed; inventory rule
+4 removed those seven tasks from the live ledger. Permanent evidence is in
+[`ui-renderer-hard-boundary-closure`](../Reports/2026-07-25/ui-renderer-hard-boundary-closure.md).
 
 The denominator grew 7 → 19 on 2026-07-25 when the owner registered the
 architecture follow-up round-4 campaign from the same-day engine architecture
@@ -529,15 +532,189 @@ bleed remediation (6 tasks). The same registration amended
 font-metric single sourcing with exact parity, measured capacity high-water,
 preview-fallback contract placement, and consolidation of the standing
 shell-snippet dependency proofs into the UR5 validator; its task count is
-unchanged at 7. The active/future ledger is 0/19.
+unchanged at 7. UR0 then ratified the exact 25-row/14-file census, assigned
+every edge a destination owner and deletion condition, mapped the reverse
+Runtime/Render composition path, and recorded the expected final comment-audit
+scope. UR1 then established the bounded read-only draw stream, immutable
+baked-font metrics, preview fallback values, measured capacity evidence, and
+renderer-free CPU coverage. The denominator grew 19 → 24 on 2026-07-25 when
+the owner registered `invariant-ownership-governance-and-transaction-repair`
+(5 tasks) as the campaign's fourth entry: the review found that four sound
+bans (context bags, owner reach-back, callback packs, the 12-parameter
+ceiling) intersect to extrude wide transactions into N sibling structs plus
+wide apply free functions plus ordering comments, leaving the correctness
+invariant owned by nobody. GV0 amends the governance to test for invariant
+ownership rather than shape, and GV1-GV4 repair the scene-load transaction
+and every other censused offender. UR2 then converted Legacy UI construction,
+cached replay, Runtime badges, and Replay overlays to one record-only value
+flow with committed semantic fingerprints and Runtime-owned fixed scratch
+streams. UR3 then moved draw translation, preview GPU lifetime, frame-local
+handle resolution, timing, and draw attribution into a concrete Runtime/Render
+owner while deleting the UI render context and raw preview handles. UR4 then
+moved profiler layout into UI recording, projected renderer diagnostics at the
+Runtime/UI boundary, and removed the final UI-to-Rendering source edge. UR5
+then established the standalone UI production library, exact single-project
+UI ownership, and the mandatory data-driven dependency graph gate shared by
+the follow-up plans.
+
+The denominator grew 24 → 27 on 2026-07-25 when the owner registered
+`header-claim-staleness-remediation` (3 tasks) from the same-day header
+comment staleness audit
+(`../Reports/2026-07-25/header-comment-staleness-audit.md`). The audit was
+triggered by a near-miss: the architecture review reported a false
+"half-finished render graph" finding because `RenderGraph.h` still described
+the pre-`render-graph-completion` design, nearly registering a six-task
+campaign to build what shipped on 2026-07-20. The header was corrected in
+`d0e2c14f`. The audit then found a phantom `RunInput` owner named in 14
+comments across 9 files despite having zero declarations anywhere, three more
+falsified ownership claims, and 12 broken `Related:` pointers. It also
+established that the comment regime is strong at deletion (zero retired
+vocabulary survives) and blind to responsibility movement. This plan is
+sequenced early — before the replay partition — because RS0 and GV2 censuses
+read the exact files carrying false claims. HC0-HC2 then corrected 18
+false-claim sites, repaired 21 dead pointers, and installed claim-verification
+governance plus a mechanical `Related:` resolver. The completed plan is removed
+from the live inventory under ledger rule 4. Replay RS0 ratified all 72 files,
+188 internal include edges, 35 external include sites, 26 named upward-edge
+resolutions, and the three-owner reserve inventory. RS1 then moved all 18
+prediction files into `Runtime/Prediction`, updated every live
+path/project/filter, and passed the mapped plus cumulative Runtime gates
+without refresh. RS2 then moved all eight planning files into
+`Runtime/Planning` with exact production/test project ownership and the same
+zero-refresh gate result. RS3 then reconciled sibling composition and the
+three-owner reserve inventory without introducing an upward escape. RS4
+installed the standing table, placement rule, and full dependency-fixture
+matrix. With GV0, the active/future ledger was 6/17. The denominator then grew
+17 -> 25 on 2026-07-26 when the owner registered
+`concrete-parameter-bag-elimination` (8 tasks) from the complete current-tree
+bag audit. The plan registered 22 repair-required shapes: the original
+`SceneSaveRequest`, 19 established additional shapes, and two Replay-restore
+contexts present after the Replay partition work. It requires concrete
+owner-produced values, focused direct operations, or concrete phase-checked
+transactions and explicitly bans inheritance, interfaces, virtual dispatch,
+callbacks, type erasure, and renamed service/context bags. The active/future
+ledger was 6/25. Replay RS5 then closed final hidden cross-package contracts,
+moved retained Prediction presentation authority out of App, passed the
+complete census, comment audit, independent review, and mapped gates, and
+completed Replay Subsystem Partition at 6/6. The ledger reached 7/25 before
+the completed six-task plan left the active/future inventory under rule 4.
+Downward Domain Bleed DB0 then ratified the three registered bleed classes,
+added nine unused Physics-to-Assets include rows to DB2, fixed the exact
+retained-geometry and terrain value contracts, and recorded the B2/B3
+byte-exact strategy. DB1 then moved the retained-record meaning, capacity, and
+continuation policy into Runtime/Prediction while leaving Rendering with a
+generic value contract; the approved shader tree and every visual baseline
+remained unchanged. The live ledger was 3/19. DB2 then replaced per-body World
+terrain pointers with one Physics-owned scene view, moved support
+classification into Physics, removed all Physics-to-World/Scene/Assets
+includes, and passed the byte-exact 44,401-row physics oracle plus unit, perf,
+and dependency gates. DB3 then moved all five per-body fluid/support facts from
+`PhysicsBodyRecord` into a fixed-capacity `BuoyancySystem` store aligned with
+body/collider rows. The final source preserves the 44,401-row oracle
+byte-for-byte and passes unit, perf, allocation, and dependency gates. DB4 then
+extended the data-driven dependency validator with the complete Physics upward
+edge ban and exact retired Rendering trajectory-name deletion, including
+planted negative fixtures. DB5 then repeated the complete census and 89-file
+comment audit, remediated both hostile-review findings, and passed the final
+full gate with the physics oracle byte-exact. The ledger reached 7/19 before
+the completed six-task plan left the active/future inventory under rule 4,
+leaving 1/13 (8%).
+GV1 then ruled the complete current-tip census: 201 wide operation
+definitions, 22 suffix-family definitions, every ordering/arbitration hit,
+all 22 companion-plan targets, and all four pre-ruled non-offenders. Scene
+load remains GV2's repair; generated-scene control rebuild ordering is the
+single additional GV3 row. Three 13-parameter render/UI operations are
+assigned to PB0. The live ledger is now 2/13 (15%).
+GV2 then installed the concrete `SceneLoadTransaction`: a private detached
+request/output record plus an exhaustive phase cursor now owns Load ->
+RuntimeReactions -> Presentation and mid-batch value arbitration. All former
+call sites compile through the transaction, the four free helpers and public
+output bag are deleted, and the full gate passes without baseline motion. The
+live ledger is now 3/13 (23%).
+GV3 then repaired the census's sole additional invariant-shaped row. The
+non-copyable `SceneGeneratedControlTransaction` now owns the generated-scene
+walk DrainAndReset -> Repopulate -> PublishFollowUps -> Complete, while seven
+runtime owners remain synchronous borrows. Three authority-free participant
+bags and five free operations are deleted; the exhaustive cursor test, full
+gate, and bounded graphics stress pass without baseline motion. The live ledger
+is now 4/13 (31%).
+GV4 then completed the governance plan at 5/5 and removed it from the live
+inventory. PB0 subsequently ratified all 22 registered parameter-bag rows at
+implementation tip `e61e82a6`, added eight repair rows, carried forward three
+13-parameter render/UI operations, and explicitly ruled every other reviewed
+hit. Permanent PB0 evidence is
+`../Reports/2026-07-26/concrete-parameter-bag-elimination-pb0-census.md`.
+The active/future ledger is now 1/8 (13%).
 
 ## Current Execution Priority
 
-The 2026-07-25 round-4 campaign is the active queue with binding order:
-1 `ui-renderer-hard-boundary` (0/7), 2 `replay-subsystem-partition` (0/6),
-3 `downward-domain-bleed-remediation` (0/6). Start with UR0's source-derived
-edge census and disposition table; do not begin backend migration before
-every current UI-to-Rendering use has a named owner and deletion condition.
+The 2026-07-25 round-4 campaign has no live plans. Concrete Parameter-Bag
+Elimination closed PB0-PB7 and left the live ledger under rule 4. Invariant
+Ownership Governance And Transaction Repair closed GV0-GV4 and left the live
+ledger under rule 4;
+permanent evidence is
+`../Reports/2026-07-26/invariant-ownership-governance-and-transaction-repair-closure.md`.
+PB1 then installed the three owner-produced save publications, removed the
+duplicate writer view and scene-load policy bag, split the editor hotkey
+authority, and passed 398 doctests plus the 173.3-second broad gate. Permanent
+evidence is
+`../Reports/2026-07-26/concrete-parameter-bag-elimination-pb1-scene.md`.
+PB2 then deleted the Runtime/editor/mouse-pick projection bags, retained
+`RuntimePointerEvent` as the one semantic pointer value, and passed the
+256.6-second broad gate without a DX12 baseline refresh. Permanent evidence is
+`../Reports/2026-07-26/concrete-parameter-bag-elimination-pb2-pointer-routing.md`.
+PB3 then deleted the render-frame, UI-text, Replay-overlay, and graph-callback
+service bags, repaired all three wide operations, and passed DX12, stress,
+performance, Replay visual-fidelity, and broad gates without a baseline
+refresh. Permanent evidence is
+`../Reports/2026-07-26/concrete-parameter-bag-elimination-pb3-render-ui.md`.
+PB4 then removed all eight Replay capture, focus, and restore bags. Concrete
+capture/focus values and the owner-free, phase-checked restore transaction pass
+the artifact, allocation-policy, scrub/visual-fidelity, focused-test, and broad
+gates without a baseline refresh. Permanent evidence is
+`../Reports/2026-07-26/concrete-parameter-bag-elimination-pb4-replay.md`.
+PB5 then deleted the five collision, narrowphase, broadphase-filter, and
+persistent-solver bags. Concrete stage APIs preserve bounded storage and
+serial/parallel pair order, and pass focused tests plus Physics, performance,
+and broad gates with the physics oracle byte-exact. Permanent evidence is
+`../Reports/2026-07-26/concrete-parameter-bag-elimination-pb5-physics-collision-solver.md`.
+PB6 then deleted the seven sleep, wake, external-force, terrain, force, and
+integration bags plus the obsolete shared context header. Direct stage
+operations preserve worker partitioning and wake/terrain order, and pass
+focused tests plus Physics, performance, and broad gates with the physics
+oracle byte-exact. Permanent evidence is
+`../Reports/2026-07-26/concrete-parameter-bag-elimination-pb6-physics-sleep-force-terrain.md`.
+PB7 then reconciled all 30 repair rows and three ceiling defects, remediated
+the independent review's UI ownership and focused-test findings, completed the
+91/91 comment audit, and passed every cumulative mapped gate without baseline
+refresh. Permanent evidence is
+`../Reports/2026-07-26/concrete-parameter-bag-elimination-closure.md`.
+PB0-PB7 are complete. The completed plan leaves the live inventory under rule
+4, returning the active/future denominator from 8 to 0.
+Header-claim staleness remediation is complete at 3/3 and removed
+from the live ledger; its permanent evidence is
+`../Reports/2026-07-25/header-claim-staleness-remediation-closure.md`. Replay
+RS0 evidence is
+`../Reports/2026-07-25/replay-subsystem-partition-rs0-census.md`; RS1 evidence
+is `../Reports/2026-07-25/replay-subsystem-partition-rs1-prediction.md`; RS2
+evidence is
+`../Reports/2026-07-25/replay-subsystem-partition-rs2-planning.md`. RS3 now
+has permanent evidence in
+`../Reports/2026-07-26/replay-subsystem-partition-rs3-seams.md`; RS4 evidence
+is `../Reports/2026-07-26/replay-subsystem-partition-rs4-enforcement.md`.
+Replay is complete at 6/6 and removed from the live inventory; permanent
+closure evidence is
+`../Reports/2026-07-26/replay-subsystem-partition-closure.md`. Downward Domain
+Bleed Remediation is complete at 6/6 and removed from the live inventory;
+permanent closure evidence is
+`../Reports/2026-07-26/downward-domain-bleed-remediation-closure.md`. GV1 now
+has permanent evidence in
+`../Reports/2026-07-26/invariant-ownership-governance-gv1-census.md`; GV2 has
+permanent evidence in
+`../Reports/2026-07-26/invariant-ownership-governance-gv2-scene-load-transaction.md`;
+GV3 has permanent evidence in
+`../Reports/2026-07-26/invariant-ownership-governance-gv3-generated-scene-transaction.md`;
+GV4 owns the front of the dependency chain.
 The UI plan preserves the existing UI/Runtime value-command boundary and
 makes Runtime/Render the sole UI-to-renderer composition point, and its UR5
 validator is the shared enforcement vehicle the two follow-up plans extend
@@ -1580,7 +1757,7 @@ regression gate.
 
 | Plan | State | Verified phase count | Next action |
 |---|---|---:|---|
-| [ui-renderer-hard-boundary](TODO/ui-renderer-hard-boundary.md) | Ready | 0/7 | UR0: regenerate the full include/symbol/project census and ratify every edge disposition before source movement |
+| [ui-renderer-hard-boundary](../Reports/2026-07-25/ui-renderer-hard-boundary-closure.md) | Complete | 7/7 | Backend-neutral UI and Runtime/Render composition boundary closed; owner-approved performance baselines pass |
 
 Closure requires zero UI-to-Rendering/Runtime includes, zero
 Rendering-to-UI/Runtime includes, a fixed-capacity backend-neutral UI draw
@@ -1611,6 +1788,34 @@ campaign owns plus one amendment set:
    every scene.
 3. **UI plan amendments** — accepted improvements embedded into
    `ui-renderer-hard-boundary` without changing its task count.
+4. **Header claim staleness** (registered 2026-07-25 from
+   `../Reports/2026-07-25/header-comment-staleness-audit.md`) — the comment
+   regime catches deleted symbols but not moved responsibilities. A stale
+   `RenderGraph.h` header caused the architecture review to report a false
+   "half-finished render graph" finding and nearly registered a six-task
+   campaign to rebuild shipped work. The audit found a phantom `RunInput`
+   owner in 14 comments across 9 files with zero declarations anywhere,
+   three further falsified ownership claims, and 12 broken `Related:`
+   pointers — four of which cite `TODO/` plans that inventory rule 4 deletes
+   at closure, making them broken by construction.
+5. **Process-generated complexity** (registered 2026-07-25 as the campaign's
+   fifth plan) — the repository's own rules extrude wide transactions into
+   an unbanned but worse shape. The scene-load transaction is the flagship:
+   four sibling input/participant structs, an 11-parameter
+   `ApplySceneLoadRuntimeReactions`, an 8-parameter
+   `ApplySceneLoadPresentationOutputs` that must follow it, and two inline
+   arbitration helpers whose comments carry the mid-batch which-value-wins
+   rule. No type owns the sequencing or arbitration invariant, and four call
+   sites re-encode the ordering by hand.
+6. **Concrete parameter-bag elimination** (registered 2026-07-26 from the
+   owner-requested current-tree audit) - 22 registered aggregate shapes plus
+   eight PB0-added repair rows
+   repeatedly flatten concrete owners, repack the same fields between layers,
+   or bundle unrelated services for one operation. The scope includes Scene
+   save/load, pointer routing, render/UI composition, Replay capture/focus/
+   restore, and eight Physics stage contexts. The endpoint is concrete
+   owner-produced values, focused direct operations, or concrete
+   phase-checked transactions. Inheritance and interfaces are forbidden.
 
 Owner decisions ratified at registration: the 2026-07-22 replay ruling stands
 (replay remains the flagship subsystem; the partition is an ownership/naming
@@ -1620,7 +1825,13 @@ placement review rules only — no frozen counts, line budgets, or spelling
 ratchets; the UR5 dependency validator is the single shared enforcement
 vehicle, and RS4/DB4 extend it with rule data plus fixtures rather than new
 mechanisms; physics relocations (terrain boundary, buoyancy store) are
-byte-exact-or-revert — the bounded-divergence allowance does not apply.
+byte-exact-or-revert — the bounded-divergence allowance does not apply. For
+the fourth plan: the invariant-ownership test is the standing arbiter between
+a banned authority-free bag and a legitimate invariant owner; the amendment
+sharpens that test and repeals none of the context-bag, callback, reach-back,
+or forwarding bans; the 12-parameter ceiling remains binding; and the
+enforcement stays qualitative (review plus comment audit) with no counting or
+spelling ratchet added.
 
 Standing rules binding every plan in this campaign: zero behavioral baseline,
 golden, screenshot, replay artifact, scene, config, or physics CSV refresh —
@@ -1629,15 +1840,33 @@ graphics-stress proof per inventory rule 10; replay-facing slices run the
 one-invocation mega gate per inventory rule 11; one independent rubber-duck
 review per plan at closure; no new compatibility spellings, forwarding
 headers, context bags, callback packs, or hot-path inheritance artifacts.
-Execution order is binding: 1 UI/renderer hard boundary, 2 replay subsystem
-partition, 3 downward domain bleed remediation (DB1 additionally requires
-RS1's `Runtime/Prediction` package to exist).
+The original binding order was 1 UI/renderer hard boundary, 2 header claim
+staleness remediation, 3 replay subsystem partition, 4 downward domain bleed
+remediation (DB1 additionally requires RS1's `Runtime/Prediction` package to
+exist), 5 invariant-ownership governance and transaction repair. The
+2026-07-26 owner direction appends 6 concrete parameter-bag elimination after
+GV4; GV2 supplies its scene-load transaction and the later plan owns closure
+of the complete 30-row census plus three assigned ceiling defects. The two
+authorized documentation-only exceptions are complete: GV0 landed during the
+UI campaign, and HC0 ran beside the UI tail. HC1-HC2 then closed after UR6 as
+sequenced. HC2 preserved GV0's aggregate-invariant procedure and added claim
+verification as a separate step. Replay and Downward Domain Bleed are complete;
+GV1 ratified the offender census, GV2 installed the scene-load transaction,
+GV3 installed the generated-scene transaction, GV4 closed governance, and PB0
+ratified the implementation-tip parameter-bag census. PB1 is the binding next
+task. HC2 and
+GV0 both amended
+`Agentic/Skills/comment-style-audit/skill.md` in separate sections; HC2 landed
+second and preserved GV0.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [ui-renderer-hard-boundary](TODO/ui-renderer-hard-boundary.md) | Ready | 0/7 | UR0 census; amended 2026-07-25 with fingerprint/font-metric/capacity/fallback/validator-consolidation requirements |
-| [replay-subsystem-partition](TODO/replay-subsystem-partition.md) | Ready | 0/6 | Starts after UR6 closes; RS0 partition census of all 72 Replay files |
-| [downward-domain-bleed-remediation](TODO/downward-domain-bleed-remediation.md) | Ready | 0/6 | Starts after RS5 closes; DB0 bleed census and boundary-contract design |
+| [ui-renderer-hard-boundary](../Reports/2026-07-25/ui-renderer-hard-boundary-closure.md) | Complete | 7/7 | Closed and removed from the live ledger under inventory rule 4 |
+| [header-claim-staleness-remediation](../Reports/2026-07-25/header-claim-staleness-remediation-closure.md) | Complete | 3/3 | Closed and removed from the live ledger under inventory rule 4 |
+| [replay-subsystem-partition](../Reports/2026-07-26/replay-subsystem-partition-closure.md) | Complete | 6/6 | Closed and removed from the live ledger under inventory rule 4 |
+| [downward-domain-bleed-remediation](../Reports/2026-07-26/downward-domain-bleed-remediation-closure.md) | Complete | 6/6 | Closed and removed from the live ledger under inventory rule 4 |
+| [invariant-ownership-governance-and-transaction-repair](../Reports/2026-07-26/invariant-ownership-governance-and-transaction-repair-closure.md) | Complete | 5/5 | Closed and removed from the live ledger under rule 4 |
+| [concrete-parameter-bag-elimination](../Reports/2026-07-26/concrete-parameter-bag-elimination-closure.md) | Complete | 8/8 | Closed and removed from the live ledger under inventory rule 4 |
 
 ## Features
 
@@ -1652,6 +1881,28 @@ rule 9 applies — it is not live work and is not tracked here).
 
 Binding:
 
+- 2026-07-26 concrete parameter-bag ruling: the 22 registered shapes preserved
+  in `../Reports/2026-07-26/concrete-parameter-bag-elimination-closure.md` were
+  repair-required. Their
+  replacements use concrete owner-produced values, focused direct operations,
+  or concrete stack-scoped invariant owners. This remediation may introduce no
+  inheritance, abstract or pure-virtual interface, virtual dispatch, CRTP
+  policy base, type erasure, callback interface, service registry, or renamed
+  context bag. `SceneSaveRequest` may retain its name only in the owner-directed
+  four-field form: output path plus Scene, controller-state, and presentation
+  save values.
+- 2026-07-25 invariant-ownership ruling: an aggregate type is legitimate only
+  when it names and enforces an invariant (header `Invariant:` block plus a
+  focused test); an aggregate that only carries data to shorten a signature
+  remains a banned bag. Multi-step operations whose correctness depends on
+  call order must enforce that order in a type, not in comments or caller
+  discipline. When a review finds three or more sibling structs plus wide
+  apply free functions plus ordering/arbitration comments around one
+  operation, it must report "this operation needs an invariant owner" — a
+  parameter reshuffle is not an accepted remediation. This test repeals no
+  existing ban and does not change the 12-parameter ceiling. GV0 installed the
+  standing rule in `AGENTS.md`, added the aggregate-invariant check to the
+  comment-audit skill, and made the extrusion signal mandatory review output.
 - Satisfied 2026-07-20 by the owner's render-graph decision: RenderGraph is the
   owner of pass scheduling and ordinary frame-resource barrier emission.
   Closure and bounded edge exceptions are recorded in

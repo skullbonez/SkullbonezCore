@@ -48,15 +48,13 @@ class UIBackdropBlur
   public:
     ~UIBackdropBlur();
 
-    void Draw(
-        const UIDrawContext& draw,
-        const UIRect& bounds,
-        int screenW,
-        int screenH,
-        int currentFrame,
-        double now,
-        bool enabled
-    );
+    void Draw( const UIDrawContext& draw,
+               const UIRect& bounds,
+               int screenW,
+               int screenH,
+               int currentFrame,
+               double now,
+               bool enabled );
     void Invalidate( UIBackdropBlurInvalidationReason reason = UIBackdropBlurInvalidationReason::Unknown );
     void ResetResources();
     UIBackdropBlurInvalidationReason LastInvalidationReason() const;

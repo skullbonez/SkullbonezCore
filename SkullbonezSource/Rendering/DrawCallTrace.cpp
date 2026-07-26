@@ -14,6 +14,7 @@ Glossary:
   Leaf: Final component of a slash-delimited trace path, such as Water in
     Frame/Render/Water.
   Overflow: Count of trace nodes or draw events that exceeded the fixed budget;
+
     totals remain partial instead of allocating in the hot path.
 
 Invariants:
@@ -82,8 +83,10 @@ void DrawCallTrace::PopScope( uint32_t hash )
     if ( m_currentNodeIndex >= 0 )
     {
         const DrawCallTraceNode& node = m_nodes[m_currentNodeIndex];
-        const uint32_t leafHash =
-            node.leafName ? HashStringRange( node.leafName, static_cast<int>( strlen( node.leafName ) ) ) : 0u;
+        const uint32_t leafHash = node.leafName
+                                      ? HashStringRange( node.leafName, static_cast<int>( strlen( node.leafName ) ) )
+                                      : 0u;
+
         if ( node.hash != hash && leafHash != hash )
         {
             ++m_scopeMismatchCount;
@@ -177,6 +180,7 @@ void DrawCallTrace::ResetCurrentFrame()
         m_nodes[i] = DrawCallTraceNode();
         m_nodeNames[i][0] = '\0';
     }
+
     EnsureRootNode();
 }
 
@@ -188,11 +192,13 @@ int DrawCallTrace::EnsureRootNode()
     {
         return rootIndex;
     }
+
     rootIndex = AppendNode( ROOT_NODE_NAME, 5, HashStringRange( ROOT_NODE_NAME, 5 ), -1, 0 );
     if ( rootIndex >= 0 && m_currentNodeIndex < 0 )
     {
         m_currentNodeIndex = rootIndex;
     }
+
     return rootIndex;
 }
 
@@ -215,12 +221,15 @@ int DrawCallTrace::EnsurePathNode( const char* path, uint32_t fullHash )
         {
             nodeIndex = AppendNode( path, pathLength, hash, parentIndex, PathDepth( path, pathLength ) );
         }
+
         if ( nodeIndex < 0 )
         {
             return parentIndex >= 0 ? parentIndex : EnsureRootNode();
         }
+
         parentIndex = nodeIndex;
     }
+
     return nodeIndex >= 0 ? nodeIndex : EnsureRootNode();
 }
 
@@ -246,6 +255,7 @@ int DrawCallTrace::EnsureRelativeNode( const char* leaf )
     {
         return nodeIndex;
     }
+
     return AppendNode( fullPath, fullLength, hash, parentIndex, PathDepth( fullPath, fullLength ) );
 }
 
@@ -282,6 +292,7 @@ int DrawCallTrace::FindNode( uint32_t hash ) const
             return i;
         }
     }
+
     return -1;
 }
 
@@ -296,6 +307,7 @@ void DrawCallTrace::PushCurrentNode( int nodeIndex )
     {
         ++m_scopeMismatchCount;
     }
+
     m_currentNodeIndex = nodeIndex >= 0 ? nodeIndex : EnsureRootNode();
 }
 
@@ -307,6 +319,7 @@ uint32_t DrawCallTrace::HashStringRange( const char* text, int length )
     {
         hash = ( hash ^ static_cast<uint32_t>( text[i] ) ) * FNV_PRIME;
     }
+
     return hash;
 }
 
@@ -320,6 +333,7 @@ bool DrawCallTrace::HasPathSeparator( const char* text )
             return true;
         }
     }
+
     return false;
 }
 
@@ -334,6 +348,7 @@ int DrawCallTrace::PathDepth( const char* text, int length )
             ++depth;
         }
     }
+
     return depth;
 }
 
@@ -348,6 +363,7 @@ int DrawCallTrace::LeafOffset( const char* text )
             offset = i + 1;
         }
     }
+
     return offset;
 }
 

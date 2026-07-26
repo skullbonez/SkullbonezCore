@@ -45,11 +45,13 @@ void SkullbonezCore::Runtime::InteractionAutomationInputDriver::AdvanceReleases(
         m_leftMouseDown = false;
         m_releaseLeftFrame = -1;
     }
+
     if ( m_releaseRightFrame == frame )
     {
         m_rightMouseDown = false;
         m_releaseRightFrame = -1;
     }
+
     if ( m_releaseKeyFrame == frame )
     {
         m_keyVirtualKey = 0;
@@ -65,11 +67,9 @@ void SkullbonezCore::Runtime::InteractionAutomationInputDriver::MoveMouse( POINT
     m_hasMouseClientPosition = true;
 }
 
-void SkullbonezCore::Runtime::InteractionAutomationInputDriver::PressMouse(
-    bool rightButton,
-    int frame,
-    int holdFrames
-)
+void SkullbonezCore::Runtime::InteractionAutomationInputDriver::PressMouse( bool rightButton,
+                                                                            int frame,
+                                                                            int holdFrames )
 {
     if ( rightButton )
     {
@@ -77,6 +77,7 @@ void SkullbonezCore::Runtime::InteractionAutomationInputDriver::PressMouse(
         m_releaseRightFrame = frame + holdFrames;
         return;
     }
+
     m_leftMouseDown = true;
     m_releaseLeftFrame = frame + holdFrames;
 }

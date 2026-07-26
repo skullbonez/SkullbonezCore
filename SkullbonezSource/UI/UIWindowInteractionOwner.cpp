@@ -39,6 +39,13 @@ using namespace SkullbonezCore::UI::Widgets;
 using namespace SkullbonezCore::UI::Layout;
 using namespace SkullbonezCore::UI::FrameComposition;
 
+namespace
+{
+// Concept: input snapshots retain the Win32 wheel-unit contract as a plain
+// value; UI policy must not recover it through an incidental renderer include.
+constexpr float UI_MOUSE_WHEEL_DELTA = 120.0f;
+} // namespace
+
 UIWindowInteractionOwner::UIWindowInteractionOwner() : m_activeTab( InGameUITab::Scene )
 {
 }
@@ -155,6 +162,7 @@ void UIWindowInteractionOwner::ToggleVisible( double now )
         SetVisible( true, now );
         return;
     }
+
     SetMinimized( !m_window.isMinimized, now );
 }
 
@@ -203,6 +211,7 @@ void UIWindowInteractionOwner::SetMinimized( bool minimized, double now )
         Chrome::BeginWindowAnimation( m_window, minimizedBounds, Chrome::WindowRect( m_window ), now, false );
         m_scrollbarVisibleUntil = now + 1.2;
     }
+
     m_backdropBlur.Invalidate( UIBackdropBlurInvalidationReason::WindowState );
     m_cache.Reset();
 }
@@ -233,6 +242,7 @@ void UIWindowInteractionOwner::SetActiveTab( InGameUITab tab )
     {
         tab = InGameUITab::Scene;
     }
+
     m_activeTab = tab;
     m_scrollY = 0.0f;
     m_rendererCombo.Close();
@@ -525,20 +535,18 @@ InputControl::UIPointerOverride UIWindowInteractionOwner::InputOverride() const
 }
 
 
-InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
-    const InputControl::UIInputSnapshot& input,
-    int screenWidth,
-    int screenHeight,
-    double now,
-    bool editorModeEnabled,
-    bool editorPlacementMode,
-    bool editorPlaceStatic,
-    bool editorTerrainAlign,
-    int cameraModeIndex,
-    uint32_t cameraModeEnabledMask,
-    std::span<const char* const> sceneOptionView,
-    int selectedSceneOption
-)
+InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& input,
+                                                           int screenWidth,
+                                                           int screenHeight,
+                                                           double now,
+                                                           bool editorModeEnabled,
+                                                           bool editorPlacementMode,
+                                                           bool editorPlaceStatic,
+                                                           bool editorTerrainAlign,
+                                                           int cameraModeIndex,
+                                                           uint32_t cameraModeEnabledMask,
+                                                           std::span<const char* const> sceneOptionView,
+                                                           int selectedSceneOption )
 {
     InGameUIInputResult result;
     int screenW = screenWidth;
@@ -563,35 +571,37 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
     // Concept: the standalone histogram remains interactive even when the main
     // diagnostics window is hidden, so it gets first chance at mouse input.
     const bool histogramWasInteracting = ProfilerTab::PerformanceHistogramIsInteracting( m_profilerTab );
-    if ( ProfilerTab::HandlePerformanceHistogramInput(
-             m_profilerTab,
-             result,
-             screenW,
-             screenH,
-             m_mouseX,
-             m_mouseY,
-             leftNow,
-             input.leftPressed,
-             input.leftReleased,
-             wheelDelta
-         ) )
+    if ( ProfilerTab::HandlePerformanceHistogramInput( m_profilerTab,
+                                                       result,
+                                                       screenW,
+                                                       screenH,
+                                                       m_mouseX,
+                                                       m_mouseY,
+                                                       leftNow,
+                                                       input.leftPressed,
+                                                       input.leftReleased,
+                                                       wheelDelta ) )
     {
         const bool histogramIsInteracting = ProfilerTab::PerformanceHistogramIsInteracting( m_profilerTab );
         if ( input.leftPressed && histogramIsInteracting && !histogramWasInteracting )
         {
             result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
         }
+
         if ( input.leftReleased && histogramWasInteracting )
         {
             result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Release;
         }
+
         m_interaction.blocksCameraMouse = true;
         return result;
     }
+
     if ( !m_window.isVisible )
     {
         return result;
     }
+
     ProfilerTab::ApplyDefaultExpansion( m_profilerTab );
 
     const int minW = 520;
@@ -608,6 +618,7 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
     {
         Chrome::ApplyDefaultWindowPlacement( m_window, screenW, screenH );
     }
+
     Chrome::ClampWindowToScreen( m_window, screenW, screenH, minW, minH, margin );
 
     if ( m_window.isMinimized )
@@ -617,12 +628,10 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
         const bool showEditorMiniPalette = editorModeEnabled;
         const UIRect cameraModeComboBounds = MinimizedCameraModeComboBounds( minimized );
         m_cameraModeCombo.SetLabelVisible( false );
-        m_cameraModeCombo.SetBounds(
-            cameraModeComboBounds.x,
-            cameraModeComboBounds.y,
-            cameraModeComboBounds.w,
-            cameraModeComboBounds.h
-        );
+        m_cameraModeCombo.SetBounds( cameraModeComboBounds.x,
+                                     cameraModeComboBounds.y,
+                                     cameraModeComboBounds.w,
+                                     cameraModeComboBounds.h );
 
         m_cameraModeCombo.SetDropUp( true );
         bool cameraModeComboHandled = false;
@@ -634,21 +643,26 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
             {
                 result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Release;
             }
+
             CancelEditorMiniPaletteInteraction();
 
-            const bool comboOptionHit =
-                m_cameraModeCombo.IsOpen() &&
-                m_cameraModeCombo.HitOption( m_mouseX, m_mouseY, CAMERA_MODE_OPTION_COUNT ) >= 0;
-            const bool comboDropdownHit =
-                m_cameraModeCombo.IsOpen() &&
-                m_cameraModeCombo.DropdownBounds( CAMERA_MODE_OPTION_COUNT ).Contains( m_mouseX, m_mouseY );
-            insideCameraModeCombo =
-                m_cameraModeCombo.HitBox( m_mouseX, m_mouseY ) || comboOptionHit || comboDropdownHit;
+            const bool comboOptionHit = m_cameraModeCombo.IsOpen() &&
+                                        m_cameraModeCombo.HitOption( m_mouseX, m_mouseY, CAMERA_MODE_OPTION_COUNT ) >=
+                                            0;
+
+            const bool comboDropdownHit = m_cameraModeCombo.IsOpen() &&
+                                          m_cameraModeCombo.DropdownBounds( CAMERA_MODE_OPTION_COUNT )
+                                              .Contains( m_mouseX, m_mouseY );
+
+            insideCameraModeCombo = m_cameraModeCombo.HitBox( m_mouseX, m_mouseY ) || comboOptionHit ||
+                                    comboDropdownHit;
+
             if ( input.leftPressed && m_cameraModeCombo.IsOpen() )
             {
                 const int option = m_cameraModeCombo.HitOption( m_mouseX, m_mouseY, CAMERA_MODE_OPTION_COUNT );
-                const bool optionDisabled =
-                    option >= 0 && option < 32 && ( cameraModeDisabledMask & ( 1u << option ) ) != 0;
+                const bool optionDisabled = option >= 0 && option < 32 &&
+                                            ( cameraModeDisabledMask & ( 1u << option ) ) != 0;
+
                 if ( option >= 0 && option < CAMERA_MODE_OPTION_COUNT && !optionDisabled )
                 {
                     result.commands.run.requestedCameraMode = option;
@@ -692,12 +706,10 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
         bool insideEditorMinimizedStatusControl = false;
         if ( showEditorMiniPalette )
         {
-            const EditorMinimizedStatusLayout statusLayout = BuildEditorMinimizedStatusLayout(
-                minimized,
-                editorPlacementMode,
-                editorPlaceStatic,
-                editorTerrainAlign
-            );
+            const EditorMinimizedStatusLayout statusLayout = BuildEditorMinimizedStatusLayout( minimized,
+                                                                                               editorPlacementMode,
+                                                                                               editorPlaceStatic,
+                                                                                               editorTerrainAlign );
 
             const bool insideModeChip = statusLayout.modeChip.Contains( m_mouseX, m_mouseY );
             const bool insideBodyChip = statusLayout.bodyChip.Contains( m_mouseX, m_mouseY );
@@ -735,25 +747,27 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
                 m_editorMiniPaletteFlyoutOpen = true;
             }
 
-            editorMiniPalette = BuildEditorMiniPaletteLayout(
-                screenW,
-                screenH,
-                minimized,
-                m_editorMiniPalettePressedEntry,
-                m_editorMiniPaletteFlyoutOpen
-            );
+            editorMiniPalette = BuildEditorMiniPaletteLayout( screenW,
+                                                              screenH,
+                                                              minimized,
+                                                              m_editorMiniPalettePressedEntry,
+                                                              m_editorMiniPaletteFlyoutOpen );
+
             insideEditorMiniPalette = EditorMiniPaletteContains( editorMiniPalette, m_mouseX, m_mouseY );
 
-            const auto SelectEditorMiniPaletteObject =
-                [&]( int objectType, bool requestPlaceStatic = false, bool placeStatic = false ) -> void
+            const auto SelectEditorMiniPaletteObject = [&]( int objectType,
+                                                           bool requestPlaceStatic = false, bool placeStatic = false ) -> void
             {
-                result.commands.editor.requestedObjectType =
-                    std::clamp( objectType, 0, EditorTab::OBJECT_TYPE_COUNT - 1 );
+                result.commands.editor.requestedObjectType = std::clamp( objectType,
+                                                                         0,
+                                                                         EditorTab::OBJECT_TYPE_COUNT - 1 );
+
                 if ( requestPlaceStatic )
                 {
                     result.commands.editor.requestPlaceStatic = true;
                     result.commands.editor.requestedPlaceStatic = placeStatic;
                 }
+
                 result.commands.editor.enterPlacementMode = true;
                 result.commands.ui.userInteracted = true;
                 editorMiniPaletteHandled = true;
@@ -797,14 +811,17 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
                     bool requestedPlaceStatic = false;
                     if ( m_editorMiniPaletteFlyoutOpen )
                     {
-                        const int flyoutOption =
-                            HitEditorMiniPaletteFlyoutOption( editorMiniPalette, m_mouseX, m_mouseY );
+                        const int flyoutOption = HitEditorMiniPaletteFlyoutOption( editorMiniPalette,
+                                                                                   m_mouseX,
+                                                                                   m_mouseY );
+
                         if ( flyoutOption >= 0 )
                         {
                             if ( m_editorMiniPalettePressedHoldMode == EDITOR_MINI_HOLD_MODE_TREE_TYPES )
                             {
-                                selectedObjectType =
-                                    EditorMiniTreeObjectType( flyoutOption, m_editorMiniPalettePressedTreePlacement );
+                                selectedObjectType = EditorMiniTreeObjectType(
+                                    flyoutOption,
+                                    m_editorMiniPalettePressedTreePlacement );
                             }
                             else if ( m_editorMiniPalettePressedHoldMode == EDITOR_MINI_HOLD_MODE_RAGDOLL_MODES )
                             {
@@ -812,24 +829,23 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
                             }
                         }
                     }
-                    else if (
-                        m_editorMiniPalettePressedEntry >= 0 &&
-                        m_editorMiniPalettePressedEntry < editorMiniPalette.buttonCount &&
-                        editorMiniPalette.buttons[m_editorMiniPalettePressedEntry].Contains( m_mouseX, m_mouseY )
-                    )
+                    else if ( m_editorMiniPalettePressedEntry >= 0 &&
+                              m_editorMiniPalettePressedEntry < editorMiniPalette.buttonCount &&
+                              editorMiniPalette.buttons[m_editorMiniPalettePressedEntry].Contains( m_mouseX,
+                                                                                                   m_mouseY ) )
                     {
                         selectedObjectType = m_editorMiniPalettePressedObjectType;
                     }
 
                     if ( selectedObjectType >= 0 )
                     {
-                        requestPlaceStatic = EditorMiniSelectionRequestsStatic(
-                            m_editorMiniPalettePressedHoldMode,
-                            m_editorMiniPalettePressedTreePlacement,
-                            requestedPlaceStatic
-                        );
+                        requestPlaceStatic = EditorMiniSelectionRequestsStatic( m_editorMiniPalettePressedHoldMode,
+                                                                                m_editorMiniPalettePressedTreePlacement,
+                                                                                requestedPlaceStatic );
+
                         SelectEditorMiniPaletteObject( selectedObjectType, requestPlaceStatic, requestedPlaceStatic );
                     }
+
                     CancelEditorMiniPaletteInteraction();
                     result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Release;
                 }
@@ -841,15 +857,18 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
         {
             result.unhandledWheelDelta = 0;
         }
+
         if ( input.leftPressed && insideMinimized && !cameraModeComboHandled && !editorMiniPaletteHandled &&
              !editorMinimizedStatusHandled )
         {
             SetMinimized( false, now );
             result.commands.ui.userInteracted = true;
         }
+
         m_interaction.blocksCameraMouse = insideMinimized || insideCameraModeCombo || cameraModeComboHandled ||
                                           insideEditorMiniPalette || insideEditorMinimizedStatusControl ||
                                           m_editorMiniPalettePressActive;
+
         return result;
     }
 
@@ -863,12 +882,14 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
                                     static_cast<float>( inputW ),
                                     static_cast<float>( inputH ) };
 
-    const bool inside =
-        m_mouseX >= inputX && m_mouseX <= inputX + inputW && m_mouseY >= inputY && m_mouseY <= inputY + inputH;
+    const bool inside = m_mouseX >= inputX && m_mouseX <= inputX + inputW && m_mouseY >= inputY &&
+                        m_mouseY <= inputY + inputH;
+
     const bool inTitle = inside && m_mouseY < inputY + titleH;
     const bool inTabs = inside && m_mouseY >= inputY + titleH && m_mouseY < inputY + titleH + tabH;
-    const bool inResize =
-        !m_window.isMaximized && inside && Chrome::IsResizeHotspot( inputHitBounds, m_mouseX, m_mouseY );
+    const bool inResize = !m_window.isMaximized && inside &&
+                          Chrome::IsResizeHotspot( inputHitBounds, m_mouseX, m_mouseY );
+
     const int contentY = inputY + titleH + tabH + 12;
     const int contentH = (std::max)( 24, inputH - titleH - tabH - bottomH - contentPad );
     const int bottomY = inputY + inputH - bottomH;
@@ -881,12 +902,11 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
         result.unhandledWheelDelta = 0;
     }
 
-    m_tabBar.SetBounds(
-        static_cast<float>( inputX + 14 ),
-        static_cast<float>( inputY + titleH ),
-        static_cast<float>( inputW - 28 ),
-        static_cast<float>( tabH )
-    );
+    m_tabBar.SetBounds( static_cast<float>( inputX + 14 ),
+                        static_cast<float>( inputY + titleH ),
+                        static_cast<float>( inputW - 28 ),
+                        static_cast<float>( tabH ) );
+
     const float footerX = static_cast<float>( inputX );
     const float footerY = static_cast<float>( bottomY );
     const UIRect rendererComboBounds = FooterRendererComboBounds( footerX, footerY );
@@ -896,8 +916,11 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
     const UIRect hitboxBounds = FooterHitboxBounds( footerX, footerY );
     const UIRect timelineBounds = FooterTimelineBounds( footerX, footerY );
     const UIRect perfBounds = FooterPerfBounds( footerX, footerY );
-    m_rendererCombo
-        .SetBounds( rendererComboBounds.x, rendererComboBounds.y, rendererComboBounds.w, rendererComboBounds.h );
+    m_rendererCombo.SetBounds( rendererComboBounds.x,
+                               rendererComboBounds.y,
+                               rendererComboBounds.w,
+                               rendererComboBounds.h );
+
     m_rendererCombo.SetDropUp( true );
     m_reflectionCombo.SetBounds( waterComboBounds.x, waterComboBounds.y, waterComboBounds.w, waterComboBounds.h );
     m_reflectionCombo.SetDropUp( true );
@@ -931,22 +954,20 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
         const float contentX = static_cast<float>( inputX + contentPad );
         const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
         const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-        wheelHandled = SceneTab::HandleComboWheel(
-            m_sceneTab,
-            sceneOptions,
-            sceneOptionCount,
-            m_mouseX,
-            m_mouseY,
-            wheelDelta,
-            contentX,
-            rowBase,
-            contentW
-        );
+        wheelHandled = SceneTab::HandleComboWheel( m_sceneTab,
+                                                   sceneOptions,
+                                                   sceneOptionCount,
+                                                   m_mouseX,
+                                                   m_mouseY,
+                                                   wheelDelta,
+                                                   contentX,
+                                                   rowBase,
+                                                   contentW );
     }
 
     if ( wheelDelta != 0 && inContent && !wheelHandled )
     {
-        m_scrollY -= static_cast<float>( wheelDelta ) / static_cast<float>( WHEEL_DELTA ) * 42.0f;
+        m_scrollY -= static_cast<float>( wheelDelta ) / UI_MOUSE_WHEEL_DELTA * 42.0f;
         m_scrollY = std::clamp( m_scrollY, 0.0f, maxScroll );
         m_scrollbarVisibleUntil = now + 1.4;
     }
@@ -994,22 +1015,21 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
                 const float contentX = static_cast<float>( inputX + contentPad );
                 const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
                 const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-                SceneTab::HandleOpenComboClick(
-                    m_sceneTab,
-                    result,
-                    sceneOptions,
-                    sceneOptionCount,
-                    m_mouseX,
-                    m_mouseY,
-                    contentX,
-                    rowBase,
-                    contentW
-                );
+                SceneTab::HandleOpenComboClick( m_sceneTab,
+                                                result,
+                                                sceneOptions,
+                                                sceneOptionCount,
+                                                m_mouseX,
+                                                m_mouseY,
+                                                contentX,
+                                                rowBase,
+                                                contentW );
             }
             else
             {
                 CloseSceneCombo();
             }
+
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
             CinematicTab::CloseCombo( m_cinematicTab );
@@ -1018,14 +1038,13 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
         }
         else if ( CinematicTab::IsComboOpen( m_cinematicTab ) )
         {
-            CinematicTab::HandleOpenComboClick(
-                m_cinematicTab,
-                result,
-                sceneOptions,
-                sceneOptionCount,
-                m_mouseX,
-                m_mouseY
-            );
+            CinematicTab::HandleOpenComboClick( m_cinematicTab,
+                                                result,
+                                                sceneOptions,
+                                                sceneOptionCount,
+                                                m_mouseX,
+                                                m_mouseY );
+
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
             CloseSceneCombo();
@@ -1037,8 +1056,9 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
             if ( m_activeTab == InGameUITab::Targets )
             {
                 const int option = m_renderTargetCombo.HitOption( m_mouseX, m_mouseY, m_lastRenderTargetPreviewCount );
-                const bool optionDisabled =
-                    option >= 0 && option < 32 && ( m_lastRenderTargetDisabledMask & ( 1u << option ) ) != 0;
+                const bool optionDisabled = option >= 0 && option < 32 &&
+                                            ( m_lastRenderTargetDisabledMask & ( 1u << option ) ) != 0;
+
                 if ( option >= 0 && option < m_lastRenderTargetPreviewCount && !optionDisabled )
                 {
                     m_selectedRenderTargetPreview = option;
@@ -1058,6 +1078,7 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
             {
                 m_renderTargetCombo.Close();
             }
+
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
             CloseSceneCombo();
@@ -1077,6 +1098,7 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
             {
                 m_editorTab.objectCombo.Close();
             }
+
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
             CloseSceneCombo();
@@ -1099,6 +1121,7 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
             {
                 m_reflectionCombo.Close();
             }
+
             m_rendererCombo.Close();
             CloseSceneCombo();
             CinematicTab::CloseCombo( m_cinematicTab );
@@ -1129,23 +1152,22 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
         else if ( inContent && m_activeTab == InGameUITab::Profiler )
         {
             const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-            if ( ProfilerTab::HandleContentClick(
-                     m_profilerTab,
-                     result,
-                     m_activeSlider,
-                     inputX + contentPad,
-                     contentY,
-                     contentW,
-                     m_scrollY,
-                     m_mouseX,
-                     m_mouseY,
-                     m_lastWorkerThreadCount,
-                     m_lastMaxWorkerThreadCount
-                 ) )
+            if ( ProfilerTab::HandleContentClick( m_profilerTab,
+                                                  result,
+                                                  m_activeSlider,
+                                                  inputX + contentPad,
+                                                  contentY,
+                                                  contentW,
+                                                  m_scrollY,
+                                                  m_mouseX,
+                                                  m_mouseY,
+                                                  m_lastWorkerThreadCount,
+                                                  m_lastMaxWorkerThreadCount ) )
             {
                 result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
                 m_scrollbarVisibleUntil = now + 1.2;
             }
+
             m_rendererCombo.Close();
             CloseSceneCombo();
             CinematicTab::CloseCombo( m_cinematicTab );
@@ -1156,20 +1178,19 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
             const float contentX = static_cast<float>( inputX + contentPad );
             const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
             const float scrolledY = static_cast<float>( contentY ) - m_scrollY;
-            if ( MemoryTab::HandleContentClick(
-                     m_memoryOverlay,
-                     result,
-                     m_activeSlider,
-                     m_mouseX,
-                     m_mouseY,
-                     contentX,
-                     scrolledY,
-                     contentW
-                 ) )
+            if ( MemoryTab::HandleContentClick( m_memoryOverlay,
+                                                result,
+                                                m_activeSlider,
+                                                m_mouseX,
+                                                m_mouseY,
+                                                contentX,
+                                                scrolledY,
+                                                contentW ) )
             {
                 result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
                 m_scrollbarVisibleUntil = now + 1.2;
             }
+
             m_rendererCombo.Close();
             CloseSceneCombo();
             CinematicTab::CloseCombo( m_cinematicTab );
@@ -1180,33 +1201,37 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
             const float contentX = static_cast<float>( inputX + contentPad );
             const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
             const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-            bool sceneClickHandled =
-                SceneTab::HandleHeaderClick( m_sceneTab, result, m_mouseX, m_mouseY, contentX, rowBase, contentW );
+            bool sceneClickHandled = SceneTab::HandleHeaderClick( m_sceneTab,
+                                                                  result,
+                                                                  m_mouseX,
+                                                                  m_mouseY,
+                                                                  contentX,
+                                                                  rowBase,
+                                                                  contentW );
+
             if ( !sceneClickHandled )
             {
-                sceneClickHandled = SceneTab::HandleClosedComboClick(
-                    m_sceneTab,
-                    input,
-                    sceneOptions,
-                    sceneOptionCount,
-                    selectedSceneOption,
-                    m_mouseX,
-                    m_mouseY
-                );
+                sceneClickHandled = SceneTab::HandleClosedComboClick( m_sceneTab,
+                                                                      input,
+                                                                      sceneOptions,
+                                                                      sceneOptionCount,
+                                                                      selectedSceneOption,
+                                                                      m_mouseX,
+                                                                      m_mouseY );
             }
+
             if ( !sceneClickHandled )
             {
-                sceneClickHandled = SceneTab::HandleTimeScaleClick(
-                    m_sceneTab,
-                    result,
-                    m_activeSlider,
-                    m_mouseX,
-                    m_mouseY,
-                    contentX,
-                    rowBase,
-                    contentW
-                );
+                sceneClickHandled = SceneTab::HandleTimeScaleClick( m_sceneTab,
+                                                                    result,
+                                                                    m_activeSlider,
+                                                                    m_mouseX,
+                                                                    m_mouseY,
+                                                                    contentX,
+                                                                    rowBase,
+                                                                    contentW );
             }
+
             m_rendererCombo.Close();
             if ( sceneClickHandled )
             {
@@ -1232,20 +1257,19 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
             const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
             const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
             const int previousActiveSlider = m_activeSlider;
-            if ( PhysicsTab::HandleContentClick(
-                     m_physicsTab,
-                     result,
-                     m_activeSlider,
-                     m_mouseX,
-                     m_mouseY,
-                     contentX,
-                     rowBase,
-                     contentW
-                 ) &&
+            if ( PhysicsTab::HandleContentClick( m_physicsTab,
+                                                 result,
+                                                 m_activeSlider,
+                                                 m_mouseX,
+                                                 m_mouseY,
+                                                 contentX,
+                                                 rowBase,
+                                                 contentW ) &&
                  m_activeSlider != 0 && m_activeSlider != previousActiveSlider )
             {
                 result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
             }
+
             m_rendererCombo.Close();
             CinematicTab::CloseCombo( m_cinematicTab );
             m_editorTab.objectCombo.Close();
@@ -1255,20 +1279,19 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
             const float contentX = static_cast<float>( inputX + contentPad );
             const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
             const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-            if ( OptionsTab::HandleContentClick(
-                     m_optionsTab,
-                     result,
-                     m_activeSlider,
-                     m_mouseX,
-                     m_mouseY,
-                     contentX,
-                     rowBase,
-                     contentW,
-                     m_lastModelCapacity
-                 ) )
+            if ( OptionsTab::HandleContentClick( m_optionsTab,
+                                                 result,
+                                                 m_activeSlider,
+                                                 m_mouseX,
+                                                 m_mouseY,
+                                                 contentX,
+                                                 rowBase,
+                                                 contentW,
+                                                 m_lastModelCapacity ) )
             {
                 result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
             }
+
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
             CinematicTab::CloseCombo( m_cinematicTab );
@@ -1283,12 +1306,10 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
 
             const float colW = (std::max)( 148.0f, contentW * 0.46f );
             m_renderShadowToggle.SetBounds( contentX, scrolledY + UI_RENDER_FEATURE_START_Y, colW, 24.0f );
-            m_saveRenderDefaultsButton.SetBounds(
-                contentX + contentW - UI_RENDER_SAVE_BUTTON_W,
-                scrolledY + UI_RENDER_FEATURE_START_Y,
-                UI_RENDER_SAVE_BUTTON_W,
-                24.0f
-            );
+            m_saveRenderDefaultsButton.SetBounds( contentX + contentW - UI_RENDER_SAVE_BUTTON_W,
+                                                  scrolledY + UI_RENDER_FEATURE_START_Y,
+                                                  UI_RENDER_SAVE_BUTTON_W,
+                                                  24.0f );
 
             if ( m_renderShadowToggle.HitTest( m_mouseX, m_mouseY ) )
             {
@@ -1307,12 +1328,11 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
                     if ( RenderSliderStartsSection( i ) &&
                          kRenderSliderSpecs[i].section == UIRenderAuthoringSection::PredictionPaths )
                     {
-                        m_saveTrajectoryStyleButton.SetBounds(
-                            contentX + contentW - UI_TRAJECTORY_SAVE_BUTTON_W,
-                            sliderY - UI_RENDER_SECTION_H + 1.0f,
-                            UI_TRAJECTORY_SAVE_BUTTON_W,
-                            20.0f
-                        );
+                        m_saveTrajectoryStyleButton.SetBounds( contentX + contentW - UI_TRAJECTORY_SAVE_BUTTON_W,
+                                                               sliderY - UI_RENDER_SECTION_H + 1.0f,
+                                                               UI_TRAJECTORY_SAVE_BUTTON_W,
+                                                               20.0f );
+
                         if ( m_saveTrajectoryStyleButton.HitTest( m_mouseX, m_mouseY ) )
                         {
                             // One persistence owner writes the complete ordinary
@@ -1322,6 +1342,7 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
                             break;
                         }
                     }
+
                     m_renderSliders[i].SetBounds( contentX, sliderY, contentW, 34.0f );
                     if ( m_renderSliders[i].HitTest( m_mouseX, m_mouseY ) )
                     {
@@ -1337,6 +1358,7 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
             {
                 result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
             }
+
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
             CinematicTab::CloseCombo( m_cinematicTab );
@@ -1372,21 +1394,20 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
             const float contentX = static_cast<float>( inputX + contentPad );
             const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
             const float scrolledY = static_cast<float>( contentY ) - m_scrollY;
-            const bool capturedSlider = SkyTab::HandleContentClick(
-                m_skyTab,
-                result,
-                m_activeSlider,
-                m_mouseX,
-                m_mouseY,
-                contentX,
-                scrolledY,
-                contentW
-            );
+            const bool capturedSlider = SkyTab::HandleContentClick( m_skyTab,
+                                                                    result,
+                                                                    m_activeSlider,
+                                                                    m_mouseX,
+                                                                    m_mouseY,
+                                                                    contentX,
+                                                                    scrolledY,
+                                                                    contentW );
 
             if ( capturedSlider )
             {
                 result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
             }
+
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
             CinematicTab::CloseCombo( m_cinematicTab );
@@ -1397,21 +1418,20 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
             const float contentX = static_cast<float>( inputX + contentPad );
             const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
             const float scrolledY = static_cast<float>( contentY ) - m_scrollY;
-            const bool capturedSlider = CinematicTab::HandleContentClick(
-                m_cinematicTab,
-                result,
-                m_activeSlider,
-                m_mouseX,
-                m_mouseY,
-                contentX,
-                scrolledY,
-                contentW
-            );
+            const bool capturedSlider = CinematicTab::HandleContentClick( m_cinematicTab,
+                                                                          result,
+                                                                          m_activeSlider,
+                                                                          m_mouseX,
+                                                                          m_mouseY,
+                                                                          contentX,
+                                                                          scrolledY,
+                                                                          contentW );
 
             if ( capturedSlider )
             {
                 result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
             }
+
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
         }
@@ -1420,22 +1440,21 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
             const float contentX = static_cast<float>( inputX + contentPad );
             const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
             const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-            if ( ControlsTab::HandleContentClick(
-                     m_controlsTab,
-                     result,
-                     m_activeSlider,
-                     m_mouseX,
-                     m_mouseY,
-                     contentX,
-                     rowBase,
-                     contentW,
-                     m_lastModelCapacity,
-                     m_lastSolverBallCount,
-                     m_lastSolverBoxCount
-                 ) )
+            if ( ControlsTab::HandleContentClick( m_controlsTab,
+                                                  result,
+                                                  m_activeSlider,
+                                                  m_mouseX,
+                                                  m_mouseY,
+                                                  contentX,
+                                                  rowBase,
+                                                  contentW,
+                                                  m_lastModelCapacity,
+                                                  m_lastSolverBallCount,
+                                                  m_lastSolverBoxCount ) )
             {
                 result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
             }
+
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
             CinematicTab::CloseCombo( m_cinematicTab );
@@ -1498,13 +1517,11 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
         // such as rebuilding generated bodies are delayed until mouse release,
         // but cheap scalar controls are emitted every frame for immediate feedback.
         if ( !SceneTab::UpdateActiveSlider( m_sceneTab, m_activeSlider, m_mouseX, result ) &&
-             !ProfilerTab::UpdateActiveSlider(
-                 m_profilerTab,
-                 m_activeSlider,
-                 m_mouseX,
-                 m_lastMaxWorkerThreadCount,
-                 result
-             ) &&
+             !ProfilerTab::UpdateActiveSlider( m_profilerTab,
+                                               m_activeSlider,
+                                               m_mouseX,
+                                               m_lastMaxWorkerThreadCount,
+                                               result ) &&
              !MemoryTab::UpdateActiveSlider( m_memoryOverlay, m_activeSlider, m_mouseX, result ) &&
              !OptionsTab::UpdateActiveSlider( m_optionsTab, m_activeSlider, m_mouseX, m_lastModelCapacity, result ) &&
              !PhysicsTab::UpdateActiveSlider( m_physicsTab, m_activeSlider, m_mouseX, result ) )
@@ -1512,27 +1529,23 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
             const int renderSlider = RenderSliderIndexFromActiveSlider( m_activeSlider );
             if ( renderSlider >= 0 )
             {
-                SetRenderSliderResult(
-                    result,
-                    m_renderSliders[renderSlider],
-                    m_mouseX,
-                    kRenderSliderSpecs[renderSlider]
-                );
+                SetRenderSliderResult( result,
+                                       m_renderSliders[renderSlider],
+                                       m_mouseX,
+                                       kRenderSliderSpecs[renderSlider] );
             }
             else
             {
                 if ( !SkyTab::UpdateActiveSlider( m_skyTab, m_activeSlider, m_mouseX, result ) &&
                      !CinematicTab::UpdateActiveSlider( m_cinematicTab, m_activeSlider, m_mouseX, result ) )
                 {
-                    ControlsTab::UpdateActiveSlider(
-                        m_controlsTab,
-                        m_activeSlider,
-                        m_mouseX,
-                        m_lastModelCapacity,
-                        m_lastSolverBallCount,
-                        m_lastSolverBoxCount,
-                        result
-                    );
+                    ControlsTab::UpdateActiveSlider( m_controlsTab,
+                                                     m_activeSlider,
+                                                     m_mouseX,
+                                                     m_lastModelCapacity,
+                                                     m_lastSolverBallCount,
+                                                     m_lastSolverBoxCount,
+                                                     result );
                 }
             }
         }
@@ -1542,31 +1555,32 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
     {
         const int oldX = m_window.x;
         const int oldY = m_window.y;
-        m_window.x = std::clamp(
-            m_mouseX - m_interaction.dragOffsetX,
-            margin,
-            (std::max)( margin, screenW - m_window.width - margin )
-        );
+        m_window.x = std::clamp( m_mouseX - m_interaction.dragOffsetX,
+                                 margin,
+                                 (std::max)( margin, screenW - m_window.width - margin ) );
 
-        m_window.y = std::clamp(
-            m_mouseY - m_interaction.dragOffsetY,
-            margin,
-            (std::max)( margin, screenH - m_window.height - margin )
-        );
+        m_window.y = std::clamp( m_mouseY - m_interaction.dragOffsetY,
+                                 margin,
+                                 (std::max)( margin, screenH - m_window.height - margin ) );
 
         if ( oldX != m_window.x || oldY != m_window.y )
         {
             m_backdropBlur.Invalidate( UIBackdropBlurInvalidationReason::Bounds );
         }
     }
+
     if ( leftNow && m_interaction.isResizing )
     {
         const int oldW = m_window.width;
         const int oldH = m_window.height;
-        m_window.width =
-            std::clamp( m_interaction.resizeStartW + m_mouseX - m_interaction.resizeStartMouseX, minW, maxW );
-        m_window.height =
-            std::clamp( m_interaction.resizeStartH + m_mouseY - m_interaction.resizeStartMouseY, minH, maxH );
+        m_window.width = std::clamp( m_interaction.resizeStartW + m_mouseX - m_interaction.resizeStartMouseX,
+                                     minW,
+                                     maxW );
+
+        m_window.height = std::clamp( m_interaction.resizeStartH + m_mouseY - m_interaction.resizeStartMouseY,
+                                      minH,
+                                      maxH );
+
         m_scrollbarVisibleUntil = now + 1.4;
         if ( oldW != m_window.width || oldH != m_window.height )
         {
@@ -1588,12 +1602,10 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
             const int renderSlider = RenderSliderIndexFromActiveSlider( m_activeSlider );
             if ( renderSlider >= 0 )
             {
-                SetRenderSliderResult(
-                    result,
-                    m_renderSliders[renderSlider],
-                    m_mouseX,
-                    kRenderSliderSpecs[renderSlider]
-                );
+                SetRenderSliderResult( result,
+                                       m_renderSliders[renderSlider],
+                                       m_mouseX,
+                                       kRenderSliderSpecs[renderSlider] );
             }
             else
             {
@@ -1604,6 +1616,7 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
                 }
             }
         }
+
         m_activeSlider = 0;
         SceneTab::ResetPreviewState( m_sceneTab );
         ProfilerTab::ResetPreviewState( m_profilerTab );
@@ -1617,7 +1630,8 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput(
     }
 
     m_scrollY = std::clamp( m_scrollY, 0.0f, maxScroll );
-    m_interaction.blocksCameraMouse =
-        inside || m_interaction.isDragging || m_interaction.isResizing || m_activeSlider != 0;
+    m_interaction.blocksCameraMouse = inside || m_interaction.isDragging || m_interaction.isResizing ||
+                                      m_activeSlider != 0;
+
     return result;
 }

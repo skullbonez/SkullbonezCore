@@ -1,12 +1,12 @@
 /*
 File: UIFrameComposition.cpp
 Purpose:
-  Implements stateless UI frame signatures, resource-preview helpers, and
+  Implements stateless UI frame signatures, preview-catalog policy, and
   minimized-window geometry shared by the UI owner and palette units.
 
 Summary:
   UI.cpp owns retained widget state. These functions derive bounded hashes,
-  rectangles, labels, and draw submissions from explicit frame values without
+  rectangles, labels, and preview selections from explicit frame values without
   retaining a host or frame borrow.
 
 Glossary:
@@ -22,26 +22,18 @@ Invariants:
   - Functions retain no UI owner pointer or mutable frame state.
   - Tracy status participates in the profiler signature so a viewer connection
     transition invalidates the cached draw without per-frame text allocation.
-  - Render-target previews use a declared depth-disabled opaque bucket and do
-    not query or restore the surrounding UI pass's raster state.
+  - Preview helpers expose identities and layout only; Runtime/Render resolves
+    current GPU resources and submits them.
 
 Related:
   - UIFrameComposition.h declares value contracts and constants.
   - UI.cpp owns the surrounding UI frame.
 */
 #include "UIFrameComposition.h"
-#include "../Rendering/DX12/RenderBackendDX12.h"
-#include "../Assets/AssetKeys.h"
-#include "../Rendering/RenderGpuTimingOwner.h"
+#include "UIFontMetrics.h"
 
 namespace SkullbonezCore::UI::FrameComposition
 {
-namespace
-{
-constexpr Rendering::PassRasterStateBucket PREVIEW_RASTER_STATE =
-    Rendering::MakePassRasterStateBucket( 0, { false, false, false } );
-}
-
 uint32_t HashCombine( uint32_t seed, uint32_t value )
 {
     seed ^= value;
@@ -62,6 +54,7 @@ uint32_t HashTextValue( uint32_t seed, const char* value )
         seed = HashCombine( seed, static_cast<uint8_t>( *value ) );
         ++value;
     }
+
     return HashCombine( seed, 0u );
 }
 
@@ -99,9 +92,10 @@ float MinimizedWidthWithCameraModeCombo( const char* title, int screenW )
     constexpr float textSize = 12.5f;
     constexpr float titleLeft = 32.0f;
     const float maxW = (std::max)( 154.0f, static_cast<float>( screenW ) - margin * 2.0f );
-    const float titleW = Text::Text2d::MeasureText( textSize, title ? title : "" );
-    const float desiredW =
-        titleLeft + titleW + MINIMIZED_CAMERA_MODE_GAP + MINIMIZED_CAMERA_MODE_COMBO_W + MINIMIZED_RESTORE_W;
+    const float titleW = UIFontMetrics::MeasureText( textSize, title ? title : "" );
+    const float desiredW = titleLeft + titleW + MINIMIZED_CAMERA_MODE_GAP + MINIMIZED_CAMERA_MODE_COMBO_W +
+                           MINIMIZED_RESTORE_W;
+
     return std::clamp( desiredW, 154.0f, maxW );
 }
 
@@ -138,13 +132,13 @@ uint32_t HashRenderTargetPreviewCatalog( uint32_t hash, const InGameUIFrameData&
     {
         const UIRenderTargetPreviewResource& resource = data.renderTargetPreviews[i];
         hash = HashTextValue( hash, resource.label );
-        hash = HashInt( hash, static_cast<int>( resource.textureHandle ) );
         hash = HashInt( hash, resource.width );
         hash = HashInt( hash, resource.height );
         hash = HashBool( hash, resource.available );
         hash = HashBool( hash, resource.depth );
         hash = HashBool( hash, resource.hdr );
     }
+
     return hash;
 }
 
@@ -204,6 +198,7 @@ uint32_t HashProfilerFrameSnapshot( uint32_t hash, const ProfilerTab::FrameSnaps
         hash = HashInt( hash, node.instanceCount );
         hash = HashInt( hash, node.vertexCount );
     }
+
     return hash;
 }
 
@@ -223,26 +218,29 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     {
         hash = HashTextValue( hash, data.sceneOptions[i] );
     }
+
     hash = HashInt( hash, data.drawCallsBeforeUI );
     hash = HashInt( hash, data.UIDrawCalls );
     // Invariant: visibility rows are live diagnostics. Hash every field so a
     // retained UI draw cannot display the preceding frame's culling result.
-    for ( int viewIndex = 0; viewIndex < static_cast<int>( Rendering::RenderVisibilityView::Count ); ++viewIndex )
+    for ( int viewIndex = 0; viewIndex < static_cast<int>( UIRenderVisibilityView::Count ); ++viewIndex )
     {
-        const Rendering::RenderVisibilityViewStats& visibility = data.visibility.views[viewIndex];
+        const UIRenderVisibilityViewStats& visibility = data.visibility.views[viewIndex];
         hash = HashInt( hash, visibility.candidates );
         hash = HashInt( hash, visibility.submitted );
         hash = HashInt( hash, visibility.culled );
         hash = HashInt( hash, visibility.draws );
     }
+
     hash = HashInt( hash, static_cast<int>( data.reserveGrowthEventTotalCount ) );
     hash = HashInt( hash, data.reserveGrowthEventCount );
     for ( int eventIndex = 0;
           eventIndex < data.reserveGrowthEventCount && eventIndex < UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX;
           ++eventIndex )
     {
-        const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView& event =
-            data.reserveGrowthEvents[eventIndex];
+        const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView&
+            event = data.reserveGrowthEvents[eventIndex];
+
         hash = HashTextValue( hash, event.targetName );
         hash = HashInt( hash, event.frameNumber );
         hash = HashInt( hash, event.grantedCapacity );
@@ -444,19 +442,17 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
 }
 
 
-uint32_t BuildUIInteractionSignature(
-    int mouseX,
-    int mouseY,
-    bool rendererOpen,
-    bool reflectionOpen,
-    bool sceneOpen,
-    bool cineSceneOpen,
-    bool editorObjectOpen,
-    bool renderTargetOpen,
-    bool cameraModeOpen,
-    int selectedRenderTarget,
-    int activeSlider
-)
+uint32_t BuildUIInteractionSignature( int mouseX,
+                                      int mouseY,
+                                      bool rendererOpen,
+                                      bool reflectionOpen,
+                                      bool sceneOpen,
+                                      bool cineSceneOpen,
+                                      bool editorObjectOpen,
+                                      bool renderTargetOpen,
+                                      bool cameraModeOpen,
+                                      int selectedRenderTarget,
+                                      int activeSlider )
 {
     uint32_t hash = 2166136261u;
     hash = HashInt( hash, mouseX );
@@ -474,34 +470,6 @@ uint32_t BuildUIInteractionSignature(
 }
 
 
-void FlushUIDrawList(
-    const UIDrawList& drawList,
-    Text::TextBatch& textBatch,
-    Rendering::RenderGpuTimingOwner* gpuTiming,
-    Rendering::Dx12TextureOwner& renderTextures,
-    Rendering::Dx12GeometryOwner& renderCommands,
-    Rendering::Dx12Diagnostics& renderDiagnostics,
-    int screenW,
-    int screenH,
-    float offsetX,
-    float offsetY
-)
-{
-    PROFILE_GPU_BEGIN( gpuTiming, "Frame/UI/Draw" );
-    const UIDrawContext immediateDraw( screenW, screenH, nullptr, &renderTextures, &renderCommands, &textBatch );
-    drawList.Flush( immediateDraw, offsetX, offsetY );
-    {
-        DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Widgets" );
-        Text::Text2d::FlushQuads( textBatch, renderCommands );
-    }
-    {
-        DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Text" );
-        Text::Text2d::FlushText( textBatch, renderTextures, renderCommands );
-    }
-    PROFILE_GPU_END( gpuTiming, "Frame/UI/Draw" );
-}
-
-
 int RenderTargetPreviewCount( const InGameUIFrameData& data )
 {
     return std::clamp( data.renderTargetPreviewCount, 0, UI_RENDER_TARGET_PREVIEW_MAX );
@@ -515,11 +483,12 @@ uint32_t RenderTargetPreviewDisabledMask( const InGameUIFrameData& data )
     for ( int i = 0; i < count; ++i )
     {
         const UIRenderTargetPreviewResource& resource = data.renderTargetPreviews[i];
-        if ( !resource.available || resource.textureHandle == 0 || resource.width <= 0 || resource.height <= 0 )
+        if ( !resource.available || resource.width <= 0 || resource.height <= 0 )
         {
             mask |= 1u << i;
         }
     }
+
     return mask;
 }
 
@@ -530,11 +499,12 @@ int FirstAvailableRenderTargetPreview( const InGameUIFrameData& data )
     for ( int i = 0; i < count; ++i )
     {
         const UIRenderTargetPreviewResource& resource = data.renderTargetPreviews[i];
-        if ( resource.available && resource.textureHandle != 0 && resource.width > 0 && resource.height > 0 )
+        if ( resource.available && resource.width > 0 && resource.height > 0 )
         {
             return i;
         }
     }
+
     return count > 0 ? 0 : -1;
 }
 
@@ -550,12 +520,13 @@ int ResolveRenderTargetPreviewSelection( const InGameUIFrameData& data, int sele
     if ( selectedIndex >= 0 && selectedIndex < count )
     {
         const UIRenderTargetPreviewResource& resource = data.renderTargetPreviews[selectedIndex];
-        if ( resource.available && resource.textureHandle != 0 && resource.width > 0 && resource.height > 0 )
+        if ( resource.available && resource.width > 0 && resource.height > 0 )
         {
 
             return selectedIndex;
         }
     }
+
     return FirstAvailableRenderTargetPreview( data );
 }
 
@@ -566,6 +537,7 @@ const char* RenderTargetPreviewTypeText( const UIRenderTargetPreviewResource& re
     {
         return "Depth SRV";
     }
+
     return resource.hdr ? "RGBA16F SRV" : "RGBA8 SRV";
 }
 
@@ -580,6 +552,7 @@ UIRect IntersectRect( const UIRect& a, const UIRect& b )
     {
         return {};
     }
+
     return { left, top, right - left, bottom - top };
 }
 
@@ -599,6 +572,7 @@ UIRect FitRectToAspect( const UIRect& bounds, int width, int height )
         drawH = bounds.h;
         drawW = bounds.h * sourceAspect;
     }
+
     return { bounds.x + ( bounds.w - drawW ) * 0.5f, bounds.y + ( bounds.h - drawH ) * 0.5f, drawW, drawH };
 }
 
@@ -619,27 +593,29 @@ void BuildEditorObjectCounterText( const InGameUIFrameData& data, char* out, siz
 
 UIRect TitleButtonGroupBounds( const Chrome::TitleButtonRects& titleButtons )
 {
-    const float left =
-        (std::min)( titleButtons.minimize.x, (std::min)( titleButtons.maximize.x, titleButtons.close.x ) );
-    const float top =
-        (std::min)( titleButtons.minimize.y, (std::min)( titleButtons.maximize.y, titleButtons.close.y ) );
+    const float left = (std::min)( titleButtons.minimize.x,
+                                   (std::min)( titleButtons.maximize.x, titleButtons.close.x ) );
+
+    const float top = (std::min)( titleButtons.minimize.y,
+                                  (std::min)( titleButtons.maximize.y, titleButtons.close.y ) );
+
     const float right = (std::max)( titleButtons.minimize.x + titleButtons.minimize.w,
                                     (std::max)( titleButtons.maximize.x + titleButtons.maximize.w,
                                                 titleButtons.close.x + titleButtons.close.w ) );
+
     const float bottom = (std::max)( titleButtons.minimize.y + titleButtons.minimize.h,
                                      (std::max)( titleButtons.maximize.y + titleButtons.maximize.h,
                                                  titleButtons.close.y + titleButtons.close.h ) );
+
     return { left, top, right - left, bottom - top };
 }
 
 
-void DrawEditorObjectCounter(
-    const UIDrawContext& draw,
-    const InGameUIFrameData& data,
-    int screenW,
-    int screenH,
-    const UIRect* avoidBounds
-)
+void DrawEditorObjectCounter( const UIDrawContext& draw,
+                              const InGameUIFrameData& data,
+                              int screenW,
+                              int screenH,
+                              const UIRect* avoidBounds )
 {
     if ( !data.editorModeEnabled )
     {
@@ -655,8 +631,10 @@ void DrawEditorObjectCounter(
     constexpr float height = 30.0f;
     const float availableW = (std::max)( 1.0f, static_cast<float>( screenW ) - margin * 2.0f );
     const float minW = (std::min)( 140.0f, availableW );
-    const float width =
-        std::clamp( Text::Text2d::MeasureText( fontSize, counterText ) + padX * 2.0f, minW, availableW );
+    const float width = std::clamp( UIFontMetrics::MeasureText( fontSize, counterText ) + padX * 2.0f,
+                                    minW,
+                                    availableW );
+
     UIRect bounds = { static_cast<float>( screenW ) - margin - width, margin, width, height };
 
     if ( avoidBounds && IntersectRect( bounds, *avoidBounds ).w > 0.0f )
@@ -673,136 +651,24 @@ void DrawEditorObjectCounter(
     const Style::UIPalette& palette = Style::Palette();
     Style::UIColor fill = palette.windowRaised;
     fill.a = 0.90f;
-    draw.RoundedRect(
-        bounds.x + 3.0f,
-        bounds.y + 4.0f,
-        bounds.w,
-        bounds.h,
-        Style::Radii().control,
-        palette.shadow.r,
-        palette.shadow.g,
-        palette.shadow.b,
-        0.24f
-    );
+    draw.RoundedRect( bounds.x + 3.0f,
+                      bounds.y + 4.0f,
+                      bounds.w,
+                      bounds.h,
+                      Style::Radii().control,
+                      palette.shadow.r,
+                      palette.shadow.g,
+                      palette.shadow.b,
+                      0.24f );
 
     draw.RoundedPanel( bounds, Style::Radii().control, fill, palette.border );
-    draw.Text(
-        bounds.x + padX,
-        bounds.y + 8.0f,
-        fontSize,
-        palette.textPrimary.r,
-        palette.textPrimary.g,
-        palette.textPrimary.b,
-        counterText
-    );
-}
-
-
-void EnsureRenderTargetPreviewResources(
-    std::unique_ptr<Rendering::ShaderDX12>& shader,
-    uint32_t& dynamicVB,
-    const UIRenderContext& render
-)
-{
-    if ( !render.IsReady() )
-    {
-        return;
-    }
-
-    if ( !shader )
-    {
-        shader = render.assets->CreateShader( *render.resources, "shader.ui_render_target_preview" );
-        if ( !shader )
-        {
-            return;
-        }
-        shader->Use();
-        shader->SetInt( "uTexture", 0 );
-    }
-
-    if ( dynamicVB == 0 )
-    {
-        const int attribs[] = { 2, 2 };
-        dynamicVB = render.geometry->CreateDynamicVB( attribs, 2, 6 );
-    }
-}
-
-
-void ResetRenderTargetPreviewResources(
-    std::unique_ptr<Rendering::ShaderDX12>& shader,
-    uint32_t& dynamicVB,
-    Rendering::Dx12GeometryOwner* geometry
-)
-{
-    shader.reset();
-    if ( dynamicVB != 0 )
-    {
-        if ( geometry )
-        {
-            geometry->DestroyDynamicVB( dynamicVB );
-        }
-        dynamicVB = 0;
-    }
-}
-
-
-void DrawRenderTargetPreviewTexture(
-    std::unique_ptr<Rendering::ShaderDX12>& shader,
-    uint32_t& dynamicVB,
-    const UIDrawContext& draw,
-    const UIRenderTargetPreviewResource& resource,
-    const UIRect& bounds,
-    const UIRect& clipBounds,
-    const UIRenderContext& render
-)
-{
-    if ( !resource.available || resource.textureHandle == 0 || bounds.w <= 1.0f || bounds.h <= 1.0f ||
-         !render.IsReady() )
-    {
-        return;
-    }
-
-    EnsureRenderTargetPreviewResources( shader, dynamicVB, render );
-    if ( !shader || dynamicVB == 0 )
-    {
-        return;
-    }
-
-
-    const UIRect visible = IntersectRect( bounds, clipBounds );
-    if ( visible.w <= 1.0f || visible.h <= 1.0f )
-    {
-        return;
-    }
-
-    const float uvLeft = std::clamp( ( visible.x - bounds.x ) / bounds.w, 0.0f, 1.0f );
-    const float uvRight = std::clamp( ( visible.x + visible.w - bounds.x ) / bounds.w, 0.0f, 1.0f );
-    const float uvTop = std::clamp( ( visible.y - bounds.y ) / bounds.h, 0.0f, 1.0f );
-    const float uvBottom = std::clamp( ( visible.y + visible.h - bounds.y ) / bounds.h, 0.0f, 1.0f );
-    const float left = draw.TextX( visible.x );
-    const float right = draw.TextX( visible.x + visible.w );
-    const float top = draw.TextY( visible.y );
-    const float bottom = draw.TextY( visible.y + visible.h );
-    const float verts[] = {
-        left, bottom, uvLeft, uvBottom, right, bottom, uvRight, uvBottom, right, top, uvRight, uvTop,
-        left, bottom, uvLeft, uvBottom, right, top,    uvRight, uvTop,    left,  top, uvLeft,  uvTop,
-    };
-
-    const Math::Transformation::Matrix4 proj =
-        Math::Transformation::Matrix4::Ortho( -draw.HalfW(), draw.HalfW(), -draw.HalfH(), draw.HalfH(), -1.0f, 1.0f );
-    Rendering::Dx12TextureOwner& textures = *render.textures;
-    Rendering::Dx12GeometryOwner& geometry = *render.geometry;
-    const int mode = resource.depth ? 2 : ( resource.hdr ? 1 : 0 );
-    shader->Use();
-    shader->SetMat4( "uProjection", proj );
-    shader->SetInt( "uTexture", 0 );
-    shader->SetVec4( "uPreviewParams", static_cast<float>( mode ), 1.0f, 2.2f, 0.0f );
-    textures.BindTexture( resource.textureHandle, 0 );
-    {
-        DRAW_CALL_TRACE_SCOPE( *render.diagnostics, "RenderTargetPreview" );
-        geometry.UploadAndDrawDynamicVB( dynamicVB, verts, PREVIEW_RASTER_STATE );
-    }
-    textures.BindTexture( 0, 0 );
+    draw.Text( bounds.x + padX,
+               bounds.y + 8.0f,
+               fontSize,
+               palette.textPrimary.r,
+               palette.textPrimary.g,
+               palette.textPrimary.b,
+               counterText );
 }
 
 
@@ -812,6 +678,7 @@ int WaterReflectionModeFromData( const InGameUIFrameData& data )
     {
         return 2;
     }
+
     return data.waterRTReflect ? 1 : 0;
 }
 } // namespace SkullbonezCore::UI::FrameComposition

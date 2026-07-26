@@ -7,7 +7,8 @@ Purpose:
 Summary:
   Each test supplies immutable device frames and a tiny static binding table.
   BeginFrame advances all physical edge memory; RoutePhase then proves which
-  semantic events are eligible under current context facts.
+  semantic events are eligible under current context facts. Pointer arbitration
+  tests drive the production phase cursor without constructing domain owners.
 
 Glossary:
   UI (user interface): Interactive engine controls evaluated between routing
@@ -23,6 +24,8 @@ Glossary:
     treating it as newly pressed.
   Lifecycle generation: Scene-load identity that lets cursor intent publish
     once after activation without polling hardware in tests.
+  Pointer arbitration: Ordered production cursor that gives the first consuming
+    editor, pickup, camera, Replay, or launcher stage exclusive ownership.
 
 Invariants:
   - Tests use no hardware, window, renderer, physics, or dynamic action storage.
@@ -32,6 +35,8 @@ Invariants:
   - World-facing snapshots expose domain values, not physical water-control keys.
   - Repeated activation samples for one scene generation cannot republish the
     cursor-reset request.
+  - Every pointer-claim combination preserves editor-to-launcher precedence and
+    suppresses owner calls after the first accepted stage.
 
 Related:
   - SkullbonezSource/Runtime/Input/InputRouter.h
@@ -45,6 +50,7 @@ Related:
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorInputPolicy.h"
 #include "../SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h"
 
+#include <array>
 #include <initializer_list>
 
 using namespace SkullbonezCore::Runtime;
@@ -83,6 +89,40 @@ DeviceInputFrame UnfocusedFrame()
     return frame;
 }
 } // namespace
+
+
+TEST_CASE( "Input router: world pointer arbitration exhaustively preserves production precedence" )
+{
+    constexpr std::array<RuntimePointerRouteStage, 5> stages = {
+        RuntimePointerRouteStage::Editor,
+        RuntimePointerRouteStage::MousePickup,
+        RuntimePointerRouteStage::AttachedCamera,
+        RuntimePointerRouteStage::Replay,
+        RuntimePointerRouteStage::Launcher,
+    };
+
+    for ( unsigned int claimMask = 0; claimMask < ( 1u << stages.size() ); ++claimMask )
+    {
+        CAPTURE( claimMask );
+        RuntimePointerArbitration arbitration;
+        RuntimePointerRouteStage expectedWinner = RuntimePointerRouteStage::None;
+        for ( std::size_t stageIndex = 0; stageIndex < stages.size(); ++stageIndex )
+        {
+            const bool ownerMayRun = arbitration.BeginStage( stages[stageIndex] );
+            CHECK( ownerMayRun == ( expectedWinner == RuntimePointerRouteStage::None ) );
+
+            const bool stageClaims = ownerMayRun && ( claimMask & ( 1u << stageIndex ) ) != 0;
+            arbitration.FinishStage( stages[stageIndex], stageClaims );
+            if ( stageClaims )
+            {
+                expectedWinner = stages[stageIndex];
+            }
+        }
+
+        CHECK( arbitration.Consumed() == ( expectedWinner != RuntimePointerRouteStage::None ) );
+        CHECK( arbitration.Winner() == expectedWinner );
+    }
+}
 
 
 TEST_CASE( "Input router: key snapshot is bounded and ignores invalid virtual keys" )

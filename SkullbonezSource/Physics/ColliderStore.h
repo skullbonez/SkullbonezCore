@@ -70,8 +70,8 @@ struct ColliderRecord
     float restitution = 0.0f;                                                                        // Contact generation reads this bounce policy every fixed tick.
     float friction = 0.0f;                                                                           // Contact solving reads this tangential resistance every fixed tick.
     uint32_t contactMaterialId = 0;                                                                  // Runtime contact/gameplay classification hash.
-    float projectedSurfaceArea = 0.0f;                                                               // Fluid forces read this drag area every fixed tick.
-    float dragCoefficient = 0.0f;                                                                    // Fluid forces read this shape coefficient every fixed tick.
+    float projectedSurfaceArea = 0.0f;                                                               // Shape/editor query copy; BuoyancySystem owns the fixed-step fluid value.
+    float dragCoefficient = 0.0f;                                                                    // Shape/editor query copy; BuoyancySystem owns the fixed-step fluid value.
 };
 
 struct ColliderAuthoringRecord
@@ -80,14 +80,14 @@ struct ColliderAuthoringRecord
 };
 
 using ColliderRecordList = PhysicsFixedList<ColliderRecord, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
-using ColliderAuthoringRecordList =
-    PhysicsFixedList<ColliderAuthoringRecord, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
+using ColliderAuthoringRecordList = PhysicsFixedList<ColliderAuthoringRecord,
+                                                     SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 using ColliderHandleList = PhysicsFixedList<PhysicsColliderHandle, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 using ColliderHandleGenerationList = PhysicsFixedList<uint32_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 using ColliderHandleFlagList = PhysicsFixedList<uint8_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 using ColliderHandleModelIndexList = PhysicsFixedList<int, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
-using ColliderHandleSceneObjectIdList =
-    PhysicsFixedList<PhysicsSceneObjectId, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
+using ColliderHandleSceneObjectIdList = PhysicsFixedList<PhysicsSceneObjectId,
+                                                         SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 using ColliderHandleSlotList = PhysicsFixedList<uint32_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 using ColliderHandleAssignmentMask = PhysicsFixedList<uint8_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 
@@ -101,18 +101,16 @@ class ColliderStore
     PhysicsColliderHandle CreateColliderRecord( const ColliderRecord& initialRecord );
     // Creates hot and cold rows in one topology transaction. Callers that own
     // authored material text must use this overload so row indices cannot drift.
-    PhysicsColliderHandle
-    CreateColliderRecord( const ColliderRecord& initialRecord, const ColliderAuthoringRecord& initialAuthoringRecord );
+    PhysicsColliderHandle CreateColliderRecord( const ColliderRecord& initialRecord,
+                                                const ColliderAuthoringRecord& initialAuthoringRecord );
     // Authoring edits replace row contents through the stable collider handle,
     // so callers do not need to expose model-order slots at the PhysicsEngine
     // owner boundary.
     bool UpdateRecordForHandle( PhysicsColliderHandle handle, const ColliderRecord& record );
     // Replaces hot and cold authored facts together while retaining handle identity.
-    bool UpdateRecordForHandle(
-        PhysicsColliderHandle handle,
-        const ColliderRecord& record,
-        const ColliderAuthoringRecord& authoringRecord
-    );
+    bool UpdateRecordForHandle( PhysicsColliderHandle handle,
+                                const ColliderRecord& record,
+                                const ColliderAuthoringRecord& authoringRecord );
     bool UpdateRecordForModelIndex( int modelIndex, const ColliderRecord& record );
     // Runtime config updates material scalars in-place instead of rebuilding
     // shape records from scene authoring payloads.
@@ -148,11 +146,9 @@ class ColliderStore
     const ColliderAuthoringRecord* AuthoringRecordForModelIndex( int modelIndex ) const;
 
   private:
-    PhysicsColliderHandle ResolveHandleForModelIndex(
-        int modelIndex,
-        PhysicsSceneObjectId sceneObjectId,
-        ColliderHandleAssignmentMask& assignedHandleSlots
-    );
+    PhysicsColliderHandle ResolveHandleForModelIndex( int modelIndex,
+                                                      PhysicsSceneObjectId sceneObjectId,
+                                                      ColliderHandleAssignmentMask& assignedHandleSlots );
     void RetireUnassignedHandles( const ColliderHandleAssignmentMask& assignedHandleSlots );
 
     ColliderRecordList m_colliders { "ColliderStore.colliders" };                                    // Dense live collider records.
@@ -160,8 +156,7 @@ class ColliderStore
     // rows scanned by broadphase, narrowphase, contact solving, and fluid force.
     ColliderAuthoringRecordList m_authoringRecords { "ColliderStore.authoringRecords" };
     ColliderHandleList m_modelColliderHandles {
-        "ColliderStore.modelColliderHandles"
-    }; // Model slot to collider handle map.
+        "ColliderStore.modelColliderHandles" };                                                      // Model slot to collider handle map.
     ColliderHandleGenerationList m_handleGenerations { "ColliderStore.handleGenerations" };          // Handle-slot generations.
     ColliderHandleFlagList m_handleAlive { "ColliderStore.handleAlive" };                            // Live handle slot flags.
     ColliderHandleModelIndexList m_handleModelIndices { "ColliderStore.handleModelIndices" };        // Slot to model index.

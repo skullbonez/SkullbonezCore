@@ -25,7 +25,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneController.h
-  - SkullbonezSource/GameObjects/SceneController.cpp
+  - SkullbonezSource/Runtime/Scene/SceneController.cpp
   - Agentic/Reports/2026-07-11/physics-authority-and-identity-closure-review.md
 */
 #pragma once
@@ -84,14 +84,12 @@ struct SceneEntityCreateDesc
     void SetRenderTint( float tintR, float tintG, float tintB, float colorOverride );
     void SetRenderMaterial( const Rendering::RenderMaterial& material );
     const Rendering::RenderMaterial& GetRenderMaterial() const;
-    void SetAssetAffiliation(
-        Physics::PhysicsSceneObjectId rootObjectId,
-        const char* libraryToken,
-        const char* assetName,
-        const char* instanceName,
-        const char* partName,
-        uint32_t partIndex
-    );
+    void SetAssetAffiliation( Physics::PhysicsSceneObjectId rootObjectId,
+                              const char* libraryToken,
+                              const char* assetName,
+                              const char* instanceName,
+                              const char* partName,
+                              uint32_t partIndex );
     void SetBehaviorGroup( SceneBehaviorGroupKind kind, Physics::PhysicsSceneObjectId rootObjectId, int partIndex );
 };
 

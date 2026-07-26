@@ -38,16 +38,14 @@ using SkullbonezCore::Math::Vector::Vector3;
 
 namespace SkullbonezCore::Runtime
 {
-void CameraControlState::UpdateViewingOrientation(
-    RunTimerState& timers,
-    Runtime::SceneWorld& world,
-    bool replayCameraActive,
-    bool sceneMode,
-    bool attachedActiveFollow,
-    bool cameraLookCaptured,
-    float presentationAlpha,
-    Core::Profiler* profiler
-)
+void CameraControlState::UpdateViewingOrientation( RunTimerState& timers,
+                                                   Runtime::SceneWorld& world,
+                                                   bool replayCameraActive,
+                                                   bool sceneMode,
+                                                   bool attachedActiveFollow,
+                                                   bool cameraLookCaptured,
+                                                   float presentationAlpha,
+                                                   Core::Profiler* profiler )
 {
     Environment::CameraCollection& cameras = world.Cameras();
     if ( replayCameraActive )
@@ -58,10 +56,12 @@ void CameraControlState::UpdateViewingOrientation(
         timers.cameraTimer.StartTimer();
         return;
     }
+
     if ( sceneMode )
     {
         return;
     }
+
     if ( RunCameraModeUsesFlyControls( mode, attachedActiveFollow, director.grabbed ) || cameraLookCaptured )
     {
         cameraTime = 0.0f;
@@ -90,6 +90,7 @@ void CameraControlState::UpdateViewingOrientation(
         {
             continue;
         }
+
         Vector3 targetPosition;
         Quaternion targetOrientation;
         if ( world.TryGetPresentationPose( modelIndex, presentationAlpha, targetPosition, targetOrientation ) )
@@ -109,22 +110,21 @@ void CameraControlState::AdvanceAutoCycleClock( bool sceneMode, float simulation
 }
 
 
-void CameraControlState::TickControls(
-    Runtime::SceneWorld& world,
-    AttachedCameraController& attachedCamera,
-    const SkullbonezCore::Core::EngineConfig& config,
-    bool editorModeEnabled,
-    bool viewportLookActive,
-    bool sceneMode,
-    float cameraDt,
-    float presentationAlpha
-)
+void CameraControlState::TickControls( Runtime::SceneWorld& world,
+                                       AttachedCameraController& attachedCamera,
+                                       const SkullbonezCore::Core::EngineConfig& config,
+                                       bool editorModeEnabled,
+                                       bool viewportLookActive,
+                                       bool sceneMode,
+                                       float cameraDt,
+                                       float presentationAlpha )
 {
     Environment::CameraCollection& cameras = world.Cameras();
     Geometry::Terrain& terrain = *world.Terrain().Get();
     constexpr float CAMERA_MOUSE_REFERENCE_DT = 1.0f / 60.0f;
     const bool attachedOrbitOwnsCamera = RunCameraModeIsAttached( mode ) && attachedCamera.State().activeFollow &&
                                          attachedCamera.State().submode != AttachedCameraSubmode::RagdollEyes;
+
     InputController::ApplyCameraMovement(
         *this,
         cameras,
@@ -139,17 +139,19 @@ void CameraControlState::TickControls(
             editorModeEnabled,
             viewportLookActive,
             RunCameraModeUsesManualControls( mode, attachedCamera.State().activeFollow, director.grabbed ),
-            sceneMode }
-    );
+            sceneMode } );
 
     if ( RunCameraModeIsAttached( mode ) )
     {
-        const float orbitYawDelta =
-            static_cast<float>( input.xMove ) * CAMERA_MOUSE_REFERENCE_DT * config.camera.mouseSensitivity;
-        const float orbitPitchDelta =
-            static_cast<float>( input.yMove ) * CAMERA_MOUSE_REFERENCE_DT * config.camera.mouseSensitivity;
+        const float orbitYawDelta = static_cast<float>( input.xMove ) * CAMERA_MOUSE_REFERENCE_DT *
+                                    config.camera.mouseSensitivity;
+
+        const float orbitPitchDelta = static_cast<float>( input.yMove ) * CAMERA_MOUSE_REFERENCE_DT *
+                                      config.camera.mouseSensitivity;
+
         (void)attachedCamera.TickFollow( world, orbitYawDelta, orbitPitchDelta, presentationAlpha );
     }
+
     cameras.SetTweenSpeed( config.camera.cameraTweenRate * cameraDt );
 }
 } // namespace SkullbonezCore::Runtime

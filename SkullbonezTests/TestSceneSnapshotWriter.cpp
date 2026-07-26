@@ -1,12 +1,14 @@
 /*
 File: SkullbonezTests/TestSceneSnapshotWriter.cpp
 Purpose:
-  Verifies version-2 scene snapshots preserve asset-instance live part state.
+  Verifies version-2 scene snapshots preserve every owner-published save field
+  and asset-instance live part state.
 
 Summary:
-  The writer borrows scene/entity, body, collider, group, and joint owner data.
-  Asset-backed rows are grouped by stable asset-root id and serialized as
-  authoritative part states; the parser then rebuilds shape-specific rows.
+  The writer consumes SceneWorld, session, and presentation publications.
+  Tests cover their persisted policy fields, then reparse asset-backed rows as
+  authoritative shape-specific part states. The three runtime save policies
+  are executed directly so no caller can regress to a partial publication.
 
 Glossary:
   Live part state: Current body/collider values, independent of the original
@@ -15,15 +17,19 @@ Glossary:
     collider record.
   Stable root id: Scene object id shared by every part affiliation in one asset
     instance.
+  Entry policy: Production operation that owns editor numbering, load-only
+    output validation, or active editable-scene overwrite behavior.
 
 Invariants:
   - Asset parts are emitted once in contiguous authored part order.
   - Direct entities remain in objects[] and retain explicit schema-v2 ids.
   - Reparse uses live state rather than recomposing the asset recipe transform.
   - Contact-material text survives save/reparse through the cold authoring row.
+  - Every runtime save entry serializes all three owner publications.
 
 Related:
   - SkullbonezSource/Scene/SceneSnapshotWriter.cpp
+  - SkullbonezSource/Runtime/Scene/SceneSaveOperations.cpp
   - SkullbonezSource/Scene/AuthoredSceneParser.cpp
   - Agentic/Reports/2026-07-11/physics-authority-and-identity-closure-review.md
 */
@@ -34,7 +40,10 @@ Related:
 #include "../SkullbonezSource/Physics/ColliderStore.h"
 #include "../SkullbonezSource/Physics/ConvexHullShape.h"
 #include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
+#include "../SkullbonezSource/Runtime/Diagnostics/OverlayDebugState.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneEntityStore.h"
+#include "../SkullbonezSource/Runtime/Scene/SceneRuntime.h"
+#include "../SkullbonezSource/Runtime/Scene/SceneSaveOperations.h"
 #include "../SkullbonezSource/Scene/SceneSnapshotWriter.h"
 #include "../SkullbonezSource/Scene/AuthoredScene.h"
 
@@ -56,6 +65,9 @@ namespace
 {
 constexpr const char* kLibraryPath = "TestOutput/scene_snapshot_writer.assets.json";
 constexpr const char* kSnapshotPath = "TestOutput/scene_snapshot_writer.scene.json";
+constexpr const char* kEditorSnapshotPath = "Scenes/snapshot_9100.scene.json";
+constexpr const char* kLoadOnlySnapshotPath = "TestOutput/scene_snapshot_load_only.scene.json";
+constexpr const char* kEditableSnapshotPath = "TestOutput/scene_snapshot_editable.scene.json";
 
 struct TemporarySnapshotFiles
 {
@@ -64,6 +76,9 @@ struct TemporarySnapshotFiles
         std::error_code ignored;
         std::filesystem::remove( kSnapshotPath, ignored );
         std::filesystem::remove( kLibraryPath, ignored );
+        std::filesystem::remove( kEditorSnapshotPath, ignored );
+        std::filesystem::remove( kLoadOnlySnapshotPath, ignored );
+        std::filesystem::remove( kEditableSnapshotPath, ignored );
     }
 };
 
@@ -80,6 +95,141 @@ void WriteAssetLibrary()
   ]}]
 })";
     REQUIRE( output.good() );
+}
+
+TEST_CASE( "Scene save owners publish every session and presentation field" )
+{
+    SceneSessionState session;
+    session.isScenePhysics = false;
+    session.isSceneText = false;
+    session.isEditableScene = true;
+    session.isFixedStep = true;
+    session.hasFlatSlope = true;
+    session.flatBaseY = 3.5f;
+    session.flatSlopeX = -0.125f;
+    session.flatSlopeZ = 0.375f;
+
+    const SceneSessionSaveState sessionSave = session.GetSaveState();
+    CHECK_FALSE( sessionSave.physicsOn );
+    CHECK_FALSE( sessionSave.textOn );
+    CHECK( sessionSave.editableScene );
+    CHECK( sessionSave.fixedStep );
+    CHECK( sessionSave.hasFlatSlope );
+    CHECK( sessionSave.flatBaseY == doctest::Approx( 3.5f ) );
+    CHECK( sessionSave.flatSlopeX == doctest::Approx( -0.125f ) );
+    CHECK( sessionSave.flatSlopeZ == doctest::Approx( 0.375f ) );
+
+    OverlayDebugState presentation;
+    presentation.isWaterHidden = true;
+    presentation.isTerrainHidden = true;
+    const PresentationSaveState presentationSave = presentation.GetSaveState();
+    CHECK( presentationSave.waterHidden );
+    CHECK( presentationSave.terrainHidden );
+}
+
+
+void CheckCompleteOwnerPublication( const char* path,
+                                    const SceneWorldSaveState& world,
+                                    const SceneSessionSaveState& session,
+                                    const PresentationSaveState& presentation )
+{
+    const AuthoredScene saved = AuthoredScene::LoadFromFile( path );
+    CHECK( saved.IsPhysicsEnabled() == session.physicsOn );
+    CHECK( saved.IsTextEnabled() == session.textOn );
+    CHECK( saved.IsEditableScene() == session.editableScene );
+    CHECK( saved.IsFixedStep() == session.fixedStep );
+    CHECK( saved.IsWaterHidden() == presentation.waterHidden );
+    CHECK( saved.IsTerrainHidden() == presentation.terrainHidden );
+    CHECK( saved.HasFlatSlope() == session.hasFlatSlope );
+    CHECK( saved.GetFlatBaseY() == doctest::Approx( session.flatBaseY ) );
+    CHECK( saved.GetFlatSlopeX() == doctest::Approx( session.flatSlopeX ) );
+    CHECK( saved.GetFlatSlopeZ() == doctest::Approx( session.flatSlopeZ ) );
+    CHECK( saved.GetWorldGravity() == doctest::Approx( world.gravity ) );
+    CHECK( saved.GetWorldFluidHeight() == doctest::Approx( world.fluidSurfaceHeight ) );
+    CHECK( saved.GetWorldFluidDensity() == doctest::Approx( world.fluidDensity ) );
+
+    const MutualGravitySettings& savedMutualGravity = saved.GetWorldMutualGravitySettings();
+    CHECK( savedMutualGravity.enabled == world.mutualGravity.enabled );
+    CHECK( savedMutualGravity.gravitationalConstant == doctest::Approx( world.mutualGravity.gravitationalConstant ) );
+    CHECK( savedMutualGravity.softeningLength == doctest::Approx( world.mutualGravity.softeningLength ) );
+    CHECK( savedMutualGravity.elasticCollisions == world.mutualGravity.elasticCollisions );
+
+    REQUIRE( saved.GetCameraCount() == 1 );
+    CHECK( saved.GetCamera( 0 ).m_position == world.cameraEye );
+    CHECK( saved.GetCamera( 0 ).view == world.cameraView );
+    CHECK( saved.GetCamera( 0 ).up == world.cameraUp );
+}
+
+
+TEST_CASE( "Scene save entry policies serialize complete owner publications" )
+{
+    TemporarySnapshotFiles cleanup;
+    // These fixed-capacity stores are intentionally static: placing all three
+    // owner arrays in one doctest frame exceeds the Windows test-thread stack.
+    static SceneEntityStore entities;
+    static PhysicsBodyStore bodies;
+    static ColliderStore colliders;
+    entities.Clear();
+    bodies.Clear();
+    colliders.Clear();
+
+    MutualGravitySettings mutualGravity;
+    mutualGravity.enabled = true;
+    mutualGravity.gravitationalConstant = 4.75f;
+    mutualGravity.softeningLength = 0.625f;
+    mutualGravity.elasticCollisions = false;
+    const SceneWorldSaveState world { entities,
+                                      bodies,
+                                      colliders,
+                                      nullptr,
+                                      0,
+                                      -7.25f,
+                                      11.5f,
+                                      875.0f,
+                                      mutualGravity,
+                                      Vector3( 2.0f, 3.0f, 4.0f ),
+                                      Vector3( 5.0f, 6.0f, 7.0f ),
+                                      Vector3( 0.0f, 0.0f, 1.0f ) };
+
+    SceneSessionState sessionOwner;
+    sessionOwner.isScenePhysics = true;
+    sessionOwner.isSceneText = false;
+    sessionOwner.isEditableScene = true;
+    sessionOwner.isFixedStep = true;
+    sessionOwner.hasFlatSlope = true;
+    sessionOwner.flatBaseY = 8.5f;
+    sessionOwner.flatSlopeX = 0.125f;
+    sessionOwner.flatSlopeZ = -0.25f;
+    const SceneSessionSaveState session = sessionOwner.GetSaveState();
+
+    OverlayDebugState presentationOwner;
+    presentationOwner.isWaterHidden = true;
+    presentationOwner.isTerrainHidden = true;
+    const PresentationSaveState presentation = presentationOwner.GetSaveState();
+
+    SUBCASE( "editor hotkey policy selects a numbered path and writes every owner value" )
+    {
+        std::error_code ignored;
+        std::filesystem::remove( kEditorSnapshotPath, ignored );
+        int sequence = 9100;
+        Core::SbResult saveResult = Core::SbResult::Success();
+        REQUIRE( TrySaveNextEditorSceneSnapshot( sequence, world, session, presentation, saveResult ) );
+        REQUIRE( saveResult.ok );
+        CHECK( sequence == 9101 );
+        CheckCompleteOwnerPublication( kEditorSnapshotPath, world, session, presentation );
+    }
+
+    SUBCASE( "scene-load-only policy writes every owner value to its explicit output" )
+    {
+        REQUIRE( SaveSceneLoadOnlySnapshot( kLoadOnlySnapshotPath, world, session, presentation ).ok );
+        CheckCompleteOwnerPublication( kLoadOnlySnapshotPath, world, session, presentation );
+    }
+
+    SUBCASE( "editable replacement policy overwrites the active scene with every owner value" )
+    {
+        REQUIRE( SaveEditableSceneBeforeReplacement( kEditableSnapshotPath, world, session, presentation ).ok );
+        CheckCompleteOwnerPublication( kEditableSnapshotPath, world, session, presentation );
+    }
 }
 
 void AppendEntity( SceneEntityStore& entities,
@@ -634,17 +784,53 @@ TEST_CASE( "SceneSnapshotWriter: schema-v2 asset parts reparse from authoritativ
                   PhysicsSceneObjectId{ 1001u },
                   1 );
 
-    const SceneSaveView view{ entities, bodies, colliders, nullptr, 0, -9.81f, 5.0f, 1000.0f, {} };
-    SceneSaveRequest request;
-    request.path = kSnapshotPath;
-    request.cameraEye = Vector3( 1.0f, 2.0f, 3.0f );
-    request.cameraView = ZERO_VECTOR;
-    request.cameraUp = Vector3( 0.0f, 1.0f, 0.0f );
-    request.physicsOn = true;
-    REQUIRE( SceneSnapshotWriter::Save( view, request ).ok );
+    MutualGravitySettings mutualGravity;
+    mutualGravity.enabled = true;
+    mutualGravity.gravitationalConstant = 6.25f;
+    mutualGravity.softeningLength = 0.75f;
+    mutualGravity.elasticCollisions = false;
+    const SceneWorldSaveState world { entities,
+                                      bodies,
+                                      colliders,
+                                      nullptr,
+                                      0,
+                                      -9.81f,
+                                      5.0f,
+                                      1000.0f,
+                                      mutualGravity,
+                                      Vector3( 1.0f, 2.0f, 3.0f ),
+                                      Vector3( 4.0f, 5.0f, 6.0f ),
+                                      Vector3( 0.0f, 1.0f, 0.0f ) };
+
+    const SceneSessionSaveState session { true, false, true, true, true, 7.5f, 0.25f, -0.5f };
+    const PresentationSaveState presentation { true, true };
+    const SceneSaveRequest request { kSnapshotPath, world, session, presentation };
+    REQUIRE( SceneSnapshotWriter::Save( request ).ok );
 
     const AuthoredScene saved = AuthoredScene::LoadFromFile( kSnapshotPath );
     CHECK( saved.GetSchemaVersion() == 2u );
+    CHECK( saved.IsPhysicsEnabled() );
+    CHECK_FALSE( saved.IsTextEnabled() );
+    CHECK( saved.IsEditableScene() );
+    CHECK( saved.IsFixedStep() );
+    CHECK( saved.IsWaterHidden() );
+    CHECK( saved.IsTerrainHidden() );
+    CHECK( saved.HasFlatSlope() );
+    CHECK( saved.GetFlatBaseY() == doctest::Approx( 7.5f ) );
+    CHECK( saved.GetFlatSlopeX() == doctest::Approx( 0.25f ) );
+    CHECK( saved.GetFlatSlopeZ() == doctest::Approx( -0.5f ) );
+    CHECK( saved.GetWorldGravity() == doctest::Approx( -9.81f ) );
+    CHECK( saved.GetWorldFluidHeight() == doctest::Approx( 5.0f ) );
+    CHECK( saved.GetWorldFluidDensity() == doctest::Approx( 1000.0f ) );
+    REQUIRE( saved.GetCameraCount() == 1 );
+    CHECK( saved.GetCamera( 0 ).m_position == Vector3( 1.0f, 2.0f, 3.0f ) );
+    CHECK( saved.GetCamera( 0 ).view == Vector3( 4.0f, 5.0f, 6.0f ) );
+    CHECK( saved.GetCamera( 0 ).up == Vector3( 0.0f, 1.0f, 0.0f ) );
+    const MutualGravitySettings& savedMutualGravity = saved.GetWorldMutualGravitySettings();
+    CHECK( savedMutualGravity.enabled );
+    CHECK( savedMutualGravity.gravitationalConstant == doctest::Approx( 6.25f ) );
+    CHECK( savedMutualGravity.softeningLength == doctest::Approx( 0.75f ) );
+    CHECK_FALSE( savedMutualGravity.elasticCollisions );
     CHECK( saved.GetAssetLibraryCount() == 1 );
     CHECK( saved.GetAssetInstanceCount() == 1 );
     CHECK( saved.GetAssetPartCount() == 3 );

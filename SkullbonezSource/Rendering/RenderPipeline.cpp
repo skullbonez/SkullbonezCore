@@ -63,22 +63,26 @@ uint64_t FrameGraphShapeFingerprint( const RenderGraph& graph )
     const auto appendByte = [&]( uint8_t value )
     {
         hash ^= value;
+
         hash *= 1099511628211ull;
     };
 
     const auto appendName = [&]( const char* name )
     {
         for ( const unsigned char* cursor = reinterpret_cast<const unsigned char*>( name ); cursor && *cursor;
+
               ++cursor )
         {
             appendByte( *cursor );
         }
+
         appendByte( 0xffu );
     };
 
     const auto appendU32 = [&]( uint32_t value )
     {
         appendByte( static_cast<uint8_t>( value ) );
+
         appendByte( static_cast<uint8_t>( value >> 8u ) );
         appendByte( static_cast<uint8_t>( value >> 16u ) );
         appendByte( static_cast<uint8_t>( value >> 24u ) );
@@ -99,6 +103,7 @@ uint64_t FrameGraphShapeFingerprint( const RenderGraph& graph )
         appendByte( resource.transient.descriptors.shaderResource ? 1u : 0u );
         appendByte( resource.transient.descriptors.unorderedAccess ? 1u : 0u );
     }
+
     for ( const RenderGraphPassDesc& pass : graph.Passes() )
     {
         appendName( pass.name );
@@ -112,6 +117,7 @@ uint64_t FrameGraphShapeFingerprint( const RenderGraph& graph )
             appendByte( static_cast<uint8_t>( read.access ) );
             appendU32( read.subresource );
         }
+
         appendByte( 0xfeu );
         for ( const RenderGraphResourceUse& write : pass.writes )
         {
@@ -119,8 +125,10 @@ uint64_t FrameGraphShapeFingerprint( const RenderGraph& graph )
             appendByte( static_cast<uint8_t>( write.access ) );
             appendU32( write.subresource );
         }
+
         appendByte( 0xfdu );
     }
+
     return hash;
 }
 

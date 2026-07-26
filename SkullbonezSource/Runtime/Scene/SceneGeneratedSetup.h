@@ -103,11 +103,9 @@ class SceneGeneratedSetup
     static SkullbonezCore::Core::SbResult SetUpSceneEntities( SceneGeneratedModelContext context, int count );
     static SkullbonezCore::Core::SbResult
     SetUpSolverObjects( SceneGeneratedModelContext context, int balls, int boxes );
-    static SceneGeneratedSetupResult TrySetUpRequestedModels(
-        SceneGeneratedModelContext context,
-        const SceneGeneratedPopulationRequest& request,
-        bool useDefaultWhenNoRequest
-    );
+    static SceneGeneratedSetupResult TrySetUpRequestedModels( SceneGeneratedModelContext context,
+                                                              const SceneGeneratedPopulationRequest& request,
+                                                              bool useDefaultWhenNoRequest );
 };
 
 } // namespace Runtime

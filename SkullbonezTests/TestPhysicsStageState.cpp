@@ -25,6 +25,8 @@
 //   - Awake indices remain sorted across sleep, parallel-wake flush, and cold
 //     topology rebuild boundaries.
 //   - Parallel narrowphase scheduling cannot reorder pair-slot results.
+//   - Terrain sampling and swept contact consume Physics-owned value views
+//     without linking a World terrain implementation into the test path.
 //   - Config stamping copies every Physics-owned source field without clamping;
 //     clamp policy remains at the consuming owner boundary.
 //
@@ -43,7 +45,9 @@
 #include "../SkullbonezSource/Physics/ColliderStore.h"
 #include "../SkullbonezSource/Physics/PhysicsApi.h"
 #include "../SkullbonezSource/Physics/PhysicsEngine.h"
+#include "../SkullbonezSource/Physics/PhysicsTerrainView.h"
 #include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
+#include "../SkullbonezSource/Physics/TerrainContactManifold.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsSleepController.h"
 
@@ -58,10 +62,11 @@ using SkullbonezCore::Math::CollisionDetection::CollisionShape;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderStore;
+using SkullbonezCore::Physics::BuoyancyBodyFacts;
 using SkullbonezCore::Physics::MakePhysicsSceneObjectId;
 using SkullbonezCore::Physics::ObjectNarrowphaseEvent;
 using SkullbonezCore::Physics::ObjectNarrowphaseEventKind;
-using SkullbonezCore::Physics::ObjectNarrowphasePairStageContext;
+using SkullbonezCore::Physics::ObjectNarrowphaseStepPolicy;
 using SkullbonezCore::Physics::PhysicsBodyCreateRecord;
 using SkullbonezCore::Physics::PhysicsBodyMotionKind;
 using SkullbonezCore::Physics::PhysicsBodyStore;
@@ -69,7 +74,11 @@ using SkullbonezCore::Physics::PhysicsNarrowphaseStage;
 using SkullbonezCore::Physics::PhysicsEngine;
 using SkullbonezCore::Physics::PhysicsRuntimeSettings;
 using SkullbonezCore::Physics::PhysicsSleepController;
+using SkullbonezCore::Physics::PhysicsTerrainCell;
+using SkullbonezCore::Physics::PhysicsTerrainView;
 using SkullbonezCore::Physics::PhysicsWorldForces;
+using SkullbonezCore::Physics::SweepTerrainContact;
+using SkullbonezCore::Physics::TerrainContactBodyView;
 using SkullbonezCore::Threading::LockOrderValidator;
 using SkullbonezCore::Threading::WorkerPool;
 
@@ -130,6 +139,59 @@ void CheckRuntimeSettingsMatchConfig( const PhysicsRuntimeSettings& settings,
     CHECK( settings.worldForces.gravity == config.worldForces.gravity );
 }
 } // namespace
+
+TEST_CASE( "Physics terrain view: analytic and cached-cell sampling stay detached from World" )
+{
+    PhysicsTerrainView slope;
+    slope.flatSlope = true;
+    slope.flatSlopeExtent = 100.0f;
+    slope.slopeBaseY = 2.0f;
+    slope.slopeX = 0.5f;
+    slope.slopeZ = -0.25f;
+    slope.maxHeight = 52.0f;
+    slope.flatSlopePlane.m_normal = Vector3( -0.5f, 1.0f, 0.25f );
+    slope.flatSlopePlane.m_distance = 2.0f;
+
+    CHECK( slope.IsValid() );
+    CHECK( slope.IsInBounds( 10.0f, 4.0f ) );
+    CHECK_FALSE( slope.IsInBounds( 100.0f, 4.0f ) );
+    CHECK( slope.HeightAt( 10.0f, 4.0f ) == doctest::Approx( 6.0f ) );
+    CHECK( slope.MaxHeight() == doctest::Approx( 52.0f ) );
+
+    std::array<PhysicsTerrainCell, 1> cells;
+    cells[0].triangleA.m_normal = Vector3( 0.0f, 1.0f, 0.0f );
+    cells[0].triangleA.m_distance = 1.0f;
+    cells[0].triangleB.m_normal = Vector3( 1.0f, 1.0f, 0.0f );
+    cells[0].triangleB.m_distance = 12.0f;
+
+    PhysicsTerrainView cached;
+    cached.cells = cells;
+    cached.quadsPerSide = 1;
+    cached.scaledStepSize = 10.0f;
+    cached.worldExtent = 10.0f;
+    cached.maxHeight = 4.0f;
+
+    SkullbonezCore::Geometry::Plane sampledPlane;
+    float sampledHeight = 0.0f;
+    cached.HeightAndPlaneAt( 1.0f, 1.0f, sampledHeight, sampledPlane );
+    CHECK( sampledHeight == doctest::Approx( 1.0f ) );
+    CHECK( sampledPlane.m_normal.y == doctest::Approx( 1.0f ) );
+    cached.HeightAndPlaneAt( 9.0f, 9.0f, sampledHeight, sampledPlane );
+    CHECK( sampledHeight == doctest::Approx( 3.0f ) );
+    CHECK( sampledPlane.m_normal.x == doctest::Approx( 1.0f ) );
+
+    TerrainContactBodyView body;
+    body.position = Vector3( 10.0f, 5.0f, 10.0f );
+    body.linearVelocity = Vector3( 0.0f, -2.0f, 0.0f );
+    body.terrain = slope;
+    body.boundingRadius = 1.0f;
+    body.contactEpsilon = 0.05f;
+    body.terrainContactThreshold = 0.15f;
+    const auto sweep = SweepTerrainContact( body, UnitSphere(), 3.0f );
+    CHECK( sweep.hit );
+    CHECK( sweep.collisionTime >= 0.0f );
+    CHECK( sweep.collisionTime <= 3.0f );
+}
 
 TEST_CASE( "Physics runtime settings: default config stamps every owned field exactly" )
 {
@@ -280,10 +342,13 @@ TEST_CASE( "Physics sleep awake list: transitions and queued wakes preserve asce
     CHECK( controller.GetAwakeBodyIndices()[0] == 2 );
 
     PhysicsWorldForces worldForces;
+    std::array<BuoyancyBodyFacts, 3> buoyancyFacts;
     std::array<float, 3> timeRemaining = { 1.0f / 120.0f, 1.0f / 120.0f, 1.0f / 120.0f };
     const auto wakeAccess = controller.CreateNarrowphaseWakeAccess( bodies,
                                                                     colliders,
+                                                                    {},
                                                                     worldForces,
+                                                                    buoyancyFacts,
                                                                     bodies.MutableRecords(),
                                                                     timeRemaining,
                                                                     3,
@@ -318,8 +383,7 @@ TEST_CASE( "Physics sleep underwater lock: fully submerged sleeper locks and dis
                                                             Vector3( 1.0f, 1.0f, 1.0f ),
                                                             1.0f,
                                                             0.0f,
-                                                            PhysicsBodyMotionKind::Dynamic,
-                                                            nullptr );
+                                                            PhysicsBodyMotionKind::Dynamic );
     const auto handle = bodies.CreateBodyRecord( desc, true );
     ColliderRecord collider;
     collider.body = handle;
@@ -339,8 +403,9 @@ TEST_CASE( "Physics sleep underwater lock: fully submerged sleeper locks and dis
     worldForces.fluidSurfaceHeight = 10.0f;
     worldForces.fluidDensity = 1000.0f;
     std::array<float, 1> timeRemaining = { 1.0f / 120.0f };
+    std::array<BuoyancyBodyFacts, 1> buoyancyFacts;
 
-    controller.LockUnderwaterSleeperIfReady( worldForces, bodies, colliders, timeRemaining, 0 );
+    controller.LockUnderwaterSleeperIfReady( worldForces, bodies, colliders, buoyancyFacts, timeRemaining, 0 );
 
     REQUIRE( controller.GetUnderwaterSleepLocks().size() == 1u );
     CHECK( controller.GetUnderwaterSleepLocks()[0] == 1u );
@@ -380,23 +445,18 @@ TEST_CASE( "Physics sleep awake list: one-frame transitions visit every row whil
     const std::vector<SkullbonezCore::Physics::PointJointConstraint> joints;
     std::vector<SkullbonezCore::Physics::PhysicsPipelineRecord> pipeline;
     PhysicsWorldForces worldForces;
-    const SkullbonezCore::Physics::PhysicsSleepIslandStageContext context{ bodies,
-                                                                           colliders,
-                                                                           worldForces,
-                                                                           bodies.MutableRecords(),
-                                                                           bodies.MutableHotFields(),
-                                                                           timeRemaining,
-                                                                           contacts,
-                                                                           restingCounts,
-                                                                           controller.GetAwakeBodyIndices(),
-                                                                           joints,
-                                                                           pipeline,
-                                                                           4,
-                                                                           0.01f,
-                                                                           0.01f,
-                                                                           1u };
-
-    controller.RunIslandStage( context );
+    std::array<BuoyancyBodyFacts, 4> buoyancyFacts;
+    const SkullbonezCore::Physics::PhysicsSleepStepPolicy sleepPolicy { 0.01f, 0.01f, 1u };
+    controller.RunIslandStage( bodies,
+                               colliders,
+                               worldForces,
+                               buoyancyFacts,
+                               timeRemaining,
+                               contacts,
+                               restingCounts,
+                               joints,
+                               pipeline,
+                               sleepPolicy );
 
     CHECK( controller.GetAwakeBodyIndices().empty() );
     REQUIRE( controller.GetSleepStates().size() == 4u );
@@ -430,25 +490,20 @@ TEST_CASE( "Physics sleep point-joint island: stretched anchors block relaxation
         std::array<uint16_t, 2> restingCounts = { 0u, 0u };
         std::vector<SkullbonezCore::Physics::PhysicsPipelineRecord> pipeline;
         PhysicsWorldForces worldForces;
+        std::array<BuoyancyBodyFacts, 2> buoyancyFacts;
         PhysicsSleepController controller;
         controller.MirrorFlagsFrom( bodies, 2 );
-        const SkullbonezCore::Physics::PhysicsSleepIslandStageContext context{ bodies,
-                                                                               colliders,
-                                                                               worldForces,
-                                                                               bodies.MutableRecords(),
-                                                                               bodies.MutableHotFields(),
-                                                                               timeRemaining,
-                                                                               contacts,
-                                                                               restingCounts,
-                                                                               controller.GetAwakeBodyIndices(),
-                                                                               joints,
-                                                                               pipeline,
-                                                                               2,
-                                                                               0.01f,
-                                                                               0.01f,
-                                                                               3u };
-
-        controller.RunIslandStage( context );
+        const SkullbonezCore::Physics::PhysicsSleepStepPolicy sleepPolicy { 0.01f, 0.01f, 3u };
+        controller.RunIslandStage( bodies,
+                                   colliders,
+                                   worldForces,
+                                   buoyancyFacts,
+                                   timeRemaining,
+                                   contacts,
+                                   restingCounts,
+                                   joints,
+                                   pipeline,
+                                   sleepPolicy );
 
         REQUIRE( pipeline.size() == 1u );
         CHECK( pipeline[0].stage == SkullbonezCore::Physics::PhysicsPipelineStage::SleepIslandDecision );
@@ -489,44 +544,53 @@ TEST_CASE( "Physics narrowphase islands: repeated parallel evaluation preserves 
     sleep.MirrorFlagsFrom( bodies, kBodyCount );
     std::vector<float> timeRemaining( kBodyCount, 1.0f / 120.0f );
     PhysicsWorldForces worldForces;
+    std::vector<BuoyancyBodyFacts> buoyancyFacts( kBodyCount );
     std::vector<SkullbonezCore::Physics::PersistentContactCacheEntry> persistentCache;
     const auto wakeAccess = sleep.CreateNarrowphaseWakeAccess( bodies,
                                                                colliders,
+                                                               {},
                                                                worldForces,
+                                                               buoyancyFacts,
                                                                bodies.MutableRecords(),
                                                                timeRemaining,
                                                                kBodyCount,
                                                                1.0f / 120.0f );
-    const ObjectNarrowphasePairStageContext context{ bodies,
-                                                     colliders,
-                                                     worldForces,
-                                                     bodies.MutableRecords(),
-                                                     bodies.HotFields(),
-                                                     colliders.Records(),
-                                                     candidatePairs,
-                                                     wakeAccess,
-                                                     sleep.GetSleepStates(),
-                                                     timeRemaining,
-                                                     sleep.GetUnderwaterSleepLocks(),
-                                                     persistentCache,
-                                                     kBodyCount,
-                                                     0.25f,
-                                                     0.09f,
-                                                     0.01f,
-                                                     0.05f,
-                                                     1.0f / 24.0f,
-                                                     1.0f / 120.0f };
-    SkullbonezCore::Physics::PhysicsExecutionSettings execution;
-    execution.parallel = true;
-    execution.parallelNarrowphase = true;
+    const ObjectNarrowphaseStepPolicy policy { 0.25f,
+                                                0.09f,
+                                                0.01f,
+                                                0.05f,
+                                                1.0f / 24.0f,
+                                                1.0f / 120.0f,
+                                                true,
+                                                true };
     LockOrderValidator lockOrderValidator;
     WorkerPool workerPool( lockOrderValidator );
     workerPool.Initialise( 1 );
     PhysicsNarrowphaseStage stage;
 
-    REQUIRE( stage.TryRunParallel( context, kPairCount, kBodyCount, execution, workerPool ) );
+    REQUIRE( stage.TryRunParallel( bodies,
+                                   colliders,
+                                   {},
+                                   buoyancyFacts,
+                                   candidatePairs,
+                                   wakeAccess,
+                                   timeRemaining,
+                                   persistentCache,
+                                   policy,
+                                   nullptr,
+                                   workerPool ) );
     const std::vector<ObjectNarrowphaseEvent> first( stage.GetEvents().begin(), stage.GetEvents().end() );
-    REQUIRE( stage.TryRunParallel( context, kPairCount, kBodyCount, execution, workerPool ) );
+    REQUIRE( stage.TryRunParallel( bodies,
+                                   colliders,
+                                   {},
+                                   buoyancyFacts,
+                                   candidatePairs,
+                                   wakeAccess,
+                                   timeRemaining,
+                                   persistentCache,
+                                   policy,
+                                   nullptr,
+                                   workerPool ) );
     const auto second = stage.GetEvents();
 
     REQUIRE( first.size() == kPairCount );

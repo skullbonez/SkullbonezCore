@@ -98,11 +98,13 @@ std::string ResolveSceneLaunchPath( const char* rawSceneArg )
     {
         return sceneArg;
     }
+
     if ( _stricmp( sceneArg.c_str(), "hero" ) == 0 || _stricmp( sceneArg.c_str(), "low_poly_hero" ) == 0 ||
          _stricmp( sceneArg.c_str(), "low-poly-hero" ) == 0 )
     {
         return HeroSceneLaunchPath();
     }
+
     const std::string sceneDir = std::string( DATA_ROOT ) + "scenes/";
     if ( !SceneArgHasExtension( sceneArg ) )
     {
@@ -112,11 +114,13 @@ std::string ResolveSceneLaunchPath( const char* rawSceneArg )
             return sceneCandidate;
         }
     }
+
     const std::string directCandidate = sceneDir + sceneArg;
     if ( FileExistsForLaunch( directCandidate ) )
     {
         return directCandidate;
     }
+
     return sceneArg;
 }
 std::string ResolveSuiteLaunchPath( const char* rawSuiteArg )
@@ -126,6 +130,7 @@ std::string ResolveSuiteLaunchPath( const char* rawSuiteArg )
     {
         return suiteArg;
     }
+
     const std::string sceneDir = std::string( DATA_ROOT ) + "scenes/";
     if ( !SceneArgHasExtension( suiteArg ) )
     {
@@ -135,11 +140,13 @@ std::string ResolveSuiteLaunchPath( const char* rawSuiteArg )
             return suiteCandidate;
         }
     }
+
     const std::string directCandidate = sceneDir + suiteArg;
     if ( FileExistsForLaunch( directCandidate ) )
     {
         return directCandidate;
     }
+
     return suiteArg;
 }
 bool ParsePhysicsDebugMode( const char* value, uint32_t& outFlags )
@@ -148,31 +155,37 @@ bool ParsePhysicsDebugMode( const char* value, uint32_t& outFlags )
     {
         return false;
     }
+
     if ( _stricmp( value, "none" ) == 0 || _stricmp( value, "off" ) == 0 )
     {
         outFlags = PHYSICS_DEBUG_NONE;
         return true;
     }
+
     if ( _stricmp( value, "axes" ) == 0 )
     {
         outFlags = PHYSICS_DEBUG_AXES;
         return true;
     }
+
     if ( _stricmp( value, "contacts" ) == 0 )
     {
         outFlags = PHYSICS_DEBUG_CONTACTS;
         return true;
     }
+
     if ( _stricmp( value, "sleep" ) == 0 )
     {
         outFlags = PHYSICS_DEBUG_SLEEP;
         return true;
     }
+
     if ( _stricmp( value, "pipeline" ) == 0 )
     {
         outFlags = PHYSICS_DEBUG_PIPELINE;
         return true;
     }
+
     if ( _stricmp( value, "terrain" ) == 0 || _stricmp( value, "terrain_contact" ) == 0 ||
          _stricmp( value, "terrain-contact" ) == 0 || _stricmp( value, "terrain_probe" ) == 0 ||
          _stricmp( value, "terrain-probe" ) == 0 )
@@ -180,35 +193,38 @@ bool ParsePhysicsDebugMode( const char* value, uint32_t& outFlags )
         outFlags = PHYSICS_DEBUG_TERRAIN_CONTACT;
         return true;
     }
+
     if ( _stricmp( value, "all" ) == 0 || _stricmp( value, "on" ) == 0 )
     {
         outFlags = PHYSICS_DEBUG_ALL;
         return true;
     }
+
     return false;
 }
-bool ApplyPhysicsDebugComponentOverride(
-    const CommandLineView& commandLine,
-    const char* dashedName,
-    const char* underscoredName,
-    uint32_t flag,
-    ParsedArgs& out
-)
+bool ApplyPhysicsDebugComponentOverride( const CommandLineView& commandLine,
+                                         const char* dashedName,
+                                         const char* underscoredName,
+                                         uint32_t flag,
+                                         ParsedArgs& out )
 {
     const char* value = FindOptionValue( commandLine, dashedName, underscoredName );
     if ( !value )
     {
         return true;
     }
+
     bool enabled = false;
     if ( !ParseOptionalOnOffValue( value, enabled ) )
     {
         return FailCommandLineParse( "%s expects optional on|off.", dashedName );
     }
+
     if ( !out.hasPhysicsDebugFlagsOverride )
     {
         out.physicsDebugFlagsOverride = PHYSICS_DEBUG_NONE;
     }
+
     out.hasPhysicsDebugFlagsOverride = true;
     if ( enabled )
     {
@@ -218,24 +234,25 @@ bool ApplyPhysicsDebugComponentOverride(
     {
         out.physicsDebugFlagsOverride &= ~flag;
     }
+
     return true;
 }
-bool ApplyPhysicsDebugFloatOverride(
-    const CommandLineView& commandLine,
-    const PhysicsDebugFloatDirective& directive,
-    ParsedArgs& out
-)
+bool ApplyPhysicsDebugFloatOverride( const CommandLineView& commandLine,
+                                     const PhysicsDebugFloatDirective& directive,
+                                     ParsedArgs& out )
 {
     const char* value = FindOptionValue( commandLine, directive.dashedName, directive.underscoredName );
     if ( !value )
     {
         return true;
     }
+
     float parsed = 0.0f;
     if ( !ParseFloatToken( value, parsed ) || parsed < directive.minValue || parsed > directive.maxValue )
     {
         return FailCommandLineParse( directive.errorMessage );
     }
+
     out.*( directive.hasOverride ) = true;
     out.*( directive.value ) = parsed;
     if ( directive.enableTransparentBodies && !out.hasPhysicsDebugTransparentOverride )
@@ -243,6 +260,7 @@ bool ApplyPhysicsDebugFloatOverride(
         out.hasPhysicsDebugTransparentOverride = true;
         out.physicsDebugTransparentOverride = true;
     }
+
     return true;
 }
 struct RunCliValueDirective
@@ -258,10 +276,12 @@ bool ApplyLiveStyleControlDir( const char* value, ParsedArgs& args )
     {
         return FailCommandLineParse( "--live-style-control expects a directory path." );
     }
+
     if ( strlen( value ) >= sizeof( args.liveStyleControlDir ) )
     {
         return FailCommandLineParse( "--live-style-control path is too long." );
     }
+
     strcpy_s( args.liveStyleControlDir, sizeof( args.liveStyleControlDir ), value );
     args.interactiveRun = true;
     args.suppressExitDialog = true;
@@ -274,10 +294,12 @@ bool ApplySceneSnapshotOutPath( const char* value, ParsedArgs& args )
     {
         return FailCommandLineParse( "--scene-snapshot-out expects a file path." );
     }
+
     if ( strlen( value ) >= sizeof( args.sceneSnapshotOutPath ) )
     {
         return FailCommandLineParse( "--scene-snapshot-out path is too long." );
     }
+
     strcpy_s( args.sceneSnapshotOutPath, sizeof( args.sceneSnapshotOutPath ), value );
     args.sceneLoadOnly = true;
     args.suppressExitDialog = true;
@@ -290,21 +312,21 @@ bool ApplyMemoryDumpPath( const char* value, ParsedArgs& args )
     {
         return false;
     }
+
     args.suppressExitDialog = true;
     fprintf( stdout, "[memory] Dump output: %s\n", args.memoryDumpPath );
     return true;
 }
 bool ApplyInteractionScriptPath( const char* value, ParsedArgs& args )
 {
-    if ( !CopyCommandLinePath(
-             value,
-             "--interaction-script",
-             args.interactionScriptPath,
-             sizeof( args.interactionScriptPath )
-         ) )
+    if ( !CopyCommandLinePath( value,
+                               "--interaction-script",
+                               args.interactionScriptPath,
+                               sizeof( args.interactionScriptPath ) ) )
     {
         return false;
     }
+
     args.interactiveRun = true;
     args.suppressExitDialog = true;
     args.replayRecording = true;
@@ -313,15 +335,14 @@ bool ApplyInteractionScriptPath( const char* value, ParsedArgs& args )
 }
 bool ApplyInteractionReportPath( const char* value, ParsedArgs& args )
 {
-    if ( !CopyCommandLinePath(
-             value,
-             "--interaction-report",
-             args.interactionReportPath,
-             sizeof( args.interactionReportPath )
-         ) )
+    if ( !CopyCommandLinePath( value,
+                               "--interaction-report",
+                               args.interactionReportPath,
+                               sizeof( args.interactionReportPath ) ) )
     {
         return false;
     }
+
     args.suppressExitDialog = true;
     fprintf( stdout, "[interaction] Report output: %s\n", args.interactionReportPath );
     return true;
@@ -332,10 +353,12 @@ bool ApplyReplayHashLogPath( const char* value, ParsedArgs& args )
     {
         return FailCommandLineParse( "--replay-hashes expects a file path." );
     }
+
     if ( strlen( value ) >= sizeof( args.replayHashLogPath ) )
     {
         return FailCommandLineParse( "--replay-hashes path is too long." );
     }
+
     strcpy_s( args.replayHashLogPath, sizeof( args.replayHashLogPath ), value );
     args.replayRecording = true;
     args.replayExplicit = true;
@@ -348,10 +371,12 @@ bool ApplyReplaySaveProbePath( const char* value, ParsedArgs& args )
     {
         return FailCommandLineParse( "--replay-save-probe expects a file path." );
     }
+
     if ( strlen( value ) >= sizeof( args.replaySaveProbePath ) )
     {
         return FailCommandLineParse( "--replay-save-probe path is too long." );
     }
+
     strcpy_s( args.replaySaveProbePath, sizeof( args.replaySaveProbePath ), value );
     args.replaySaveProbe = true;
     args.replayRecording = true;
@@ -368,10 +393,12 @@ bool ApplyReplayLoadPath( const char* value, ParsedArgs& args )
     {
         return FailCommandLineParse( "--replay-load expects a file path." );
     }
+
     if ( strlen( value ) >= sizeof( args.replayLoadPath ) )
     {
         return FailCommandLineParse( "--replay-load path is too long." );
     }
+
     strcpy_s( args.replayLoadPath, sizeof( args.replayLoadPath ), value );
     args.replayLoad = true;
     args.interactiveRun = true;
@@ -385,6 +412,7 @@ bool ApplyReplayLoadProbePath( const char* value, ParsedArgs& args )
     {
         return false;
     }
+
     args.replayLoadProbe = true;
     args.fixedStep = true;
     args.suppressExitDialog = true;
@@ -397,10 +425,12 @@ bool ApplyReplayRestoreFileProbePath( const char* value, ParsedArgs& args )
     {
         return FailCommandLineParse( "--replay-restore-file-probe expects a file path." );
     }
+
     if ( strlen( value ) >= sizeof( args.replayRestoreFileProbePath ) )
     {
         return FailCommandLineParse( "--replay-restore-file-probe path is too long." );
     }
+
     strcpy_s( args.replayRestoreFileProbePath, sizeof( args.replayRestoreFileProbePath ), value );
     args.replayRestoreFileProbe = true;
     args.fixedStep = true;
@@ -414,10 +444,12 @@ bool ApplyReplayRestoreTargetFileProbePath( const char* value, ParsedArgs& args 
     {
         return FailCommandLineParse( "--replay-restore-target-file-probe expects a file path." );
     }
+
     if ( strlen( value ) >= sizeof( args.replayRestoreTargetFileProbePath ) )
     {
         return FailCommandLineParse( "--replay-restore-target-file-probe path is too long." );
     }
+
     strcpy_s( args.replayRestoreTargetFileProbePath, sizeof( args.replayRestoreTargetFileProbePath ), value );
     args.replayRestoreTargetFileProbe = true;
     args.fixedStep = true;
@@ -431,10 +463,12 @@ bool ApplyReplayRestoreBranchFileProbePath( const char* value, ParsedArgs& args 
     {
         return FailCommandLineParse( "--replay-restore-branch-file-probe expects a file path." );
     }
+
     if ( strlen( value ) >= sizeof( args.replayRestoreBranchFileProbePath ) )
     {
         return FailCommandLineParse( "--replay-restore-branch-file-probe path is too long." );
     }
+
     strcpy_s( args.replayRestoreBranchFileProbePath, sizeof( args.replayRestoreBranchFileProbePath ), value );
     args.replayRestoreBranchFileProbe = true;
     args.fixedStep = true;
@@ -448,10 +482,12 @@ bool ApplyReplayRestoreFailureFileProbePath( const char* value, ParsedArgs& args
     {
         return FailCommandLineParse( "--replay-restore-failure-file-probe expects a file path." );
     }
+
     if ( strlen( value ) >= sizeof( args.replayRestoreFailureFileProbePath ) )
     {
         return FailCommandLineParse( "--replay-restore-failure-file-probe path is too long." );
     }
+
     strcpy_s( args.replayRestoreFailureFileProbePath, sizeof( args.replayRestoreFailureFileProbePath ), value );
     args.replayRestoreFailureFileProbe = true;
     args.fixedStep = true;
@@ -467,12 +503,12 @@ bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs&
     {
         if ( !ParsePhysicsDebugMode( modeValue, out.physicsDebugFlagsOverride ) )
         {
-            return FailCommandLineParse(
-                "--physics-debug expects none|axes|contacts|sleep|pipeline|terrain|all|on|off."
-            );
+            return FailCommandLineParse( "--physics-debug expects none|axes|contacts|sleep|pipeline|terrain|all|on|off." );
         }
+
         out.hasPhysicsDebugFlagsOverride = true;
     }
+
     static const PhysicsDebugComponentDirective kComponentOverrides[] = {
         { "--physics-debug-axes", "--physics_debug_axes", PHYSICS_DEBUG_AXES },
         { "--physics-debug-contacts", "--physics_debug_contacts", PHYSICS_DEBUG_CONTACTS },
@@ -483,27 +519,30 @@ bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs&
 
     for ( const PhysicsDebugComponentDirective& component : kComponentOverrides )
     {
-        if ( !ApplyPhysicsDebugComponentOverride(
-                 commandLine,
-                 component.dashedName,
-                 component.underscoredName,
-                 component.flag,
-                 out
-             ) )
+        if ( !ApplyPhysicsDebugComponentOverride( commandLine,
+                                                  component.dashedName,
+                                                  component.underscoredName,
+                                                  component.flag,
+                                                  out ) )
         {
             return false;
         }
     }
-    const char* transparentValue =
-        FindOptionValue( commandLine, "--physics-debug-transparent", "--physics_debug_transparent" );
+
+    const char* transparentValue = FindOptionValue( commandLine,
+                                                    "--physics-debug-transparent",
+                                                    "--physics_debug_transparent" );
+
     if ( transparentValue )
     {
         if ( !ParseOptionalOnOffValue( transparentValue, out.physicsDebugTransparentOverride ) )
         {
             return FailCommandLineParse( "--physics-debug-transparent expects optional on|off." );
         }
+
         out.hasPhysicsDebugTransparentOverride = true;
     }
+
     static const PhysicsDebugFloatDirective kFloatOverrides[] = {
         { "--physics-debug-alpha",
           "--physics_debug_alpha",
@@ -530,26 +569,29 @@ bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs&
             return false;
         }
     }
+
     if ( out.hasPhysicsDebugFlagsOverride )
     {
         fprintf( stdout, "[physics-debug] Flags override: 0x%02x\n", out.physicsDebugFlagsOverride );
     }
+
     if ( out.hasPhysicsDebugTransparentOverride )
     {
-        fprintf(
-            stdout,
-            "[physics-debug] Transparent bodies: %s\n",
-            out.physicsDebugTransparentOverride ? "on" : "off"
-        );
+        fprintf( stdout,
+                 "[physics-debug] Transparent bodies: %s\n",
+                 out.physicsDebugTransparentOverride ? "on" : "off" );
     }
+
     if ( out.hasPhysicsDebugAlphaOverride )
     {
         fprintf( stdout, "[physics-debug] Body alpha: %.3f\n", out.physicsDebugAlphaOverride );
     }
+
     if ( out.hasPhysicsDebugContactLingerOverride )
     {
         fprintf( stdout, "[physics-debug] Contact linger: %.3fs\n", out.physicsDebugContactLingerOverride );
     }
+
     return true;
 }
 bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string>& sceneList, bool& isSuiteOrSceneMode )
@@ -563,6 +605,7 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
     {
         return FailCommandLineParse( "--demohero, --hero, --suite, and --scene are mutually exclusive." );
     }
+
     if ( heroArg )
     {
         sceneList.push_back( HeroSceneLaunchPath() );
@@ -575,6 +618,7 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
         {
             return FailCommandLineParse( "--suite requires a path." );
         }
+
         // Resolve a suite JSON path from either a file token or a repository-relative path.
         const std::string suitePath = ResolveSuiteLaunchPath( suiteArg );
         std::ifstream suiteFile( suitePath );
@@ -582,34 +626,41 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
         {
             return FailCommandLineParse( "--suite could not open '%s'.", suitePath.c_str() );
         }
+
         Json suite = Json::parse( suiteFile, nullptr, false );
         if ( suite.is_discarded() )
         {
             return FailCommandLineParse( "--suite invalid JSON in '%s'.", suitePath.c_str() );
         }
+
         if ( !suite.is_object() )
         {
             return FailCommandLineParse( "--suite '%s' root must be an object.", suitePath.c_str() );
         }
+
         const auto formatIt = suite.find( "format" );
         if ( formatIt == suite.end() || !formatIt->is_string() ||
              formatIt->get<std::string>() != "skullbonez.suite.json" )
         {
             return FailCommandLineParse( "--suite '%s' must declare format skullbonez.suite.json.", suitePath.c_str() );
         }
+
         const auto scenesIt = suite.find( "scenes" );
         if ( scenesIt == suite.end() || !scenesIt->is_array() )
         {
             return FailCommandLineParse( "--suite '%s' must contain a scenes array.", suitePath.c_str() );
         }
+
         for ( const Json& scene : *scenesIt )
         {
             if ( !scene.is_string() )
             {
                 return FailCommandLineParse( "--suite '%s' scenes entries must be strings.", suitePath.c_str() );
             }
+
             sceneList.push_back( ResolveSceneLaunchPath( scene.get<std::string>().c_str() ) );
         }
+
         isSuiteOrSceneMode = true;
     }
     else if ( sceneArg )
@@ -618,6 +669,7 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
         {
             return FailCommandLineParse( "--scene requires a path." );
         }
+
         if ( *sceneArg != '\0' )
         {
             // Support both quoted ("path with spaces") and unquoted tokens.
@@ -627,10 +679,12 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
             isSuiteOrSceneMode = true;
         }
     }
+
     if ( sceneList.empty() )
     {
         sceneList.push_back( "" ); // generated demo mode
     }
+
     return true;
 }
 RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
@@ -680,10 +734,12 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
     overrides.mainMemoryDumpPath = args.memoryDumpPath[0] != '\0' ? args.memoryDumpPath : nullptr;
     overrides.interactionScriptPath = args.interactionScriptPath[0] != '\0' ? args.interactionScriptPath : nullptr;
     overrides.interactionReportPath = args.interactionReportPath[0] != '\0' ? args.interactionReportPath : nullptr;
-    const bool replayDefaultAllowed =
-        !args.isSuiteOrSceneMode || args.interactiveRun || args.liveStyleControlDir[0] != '\0';
-    const bool replayEnabled =
-        args.replayExplicit ? args.replayRecording : ( args.replayRecording && replayDefaultAllowed );
+    const bool replayDefaultAllowed = !args.isSuiteOrSceneMode || args.interactiveRun ||
+                                      args.liveStyleControlDir[0] != '\0';
+
+    const bool replayEnabled = args.replayExplicit ? args.replayRecording
+                                                   : ( args.replayRecording && replayDefaultAllowed );
+
     overrides.configureReplayRecording = replayEnabled || args.replayHashLogPath[0] != '\0';
     overrides.replayRecordingEnabled = true;
     overrides.replayRetentionSeconds = args.replaySeconds;
@@ -702,16 +758,26 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
     overrides.replaySaveProbe = args.replaySaveProbe;
     overrides.replaySaveProbePath = args.replaySaveProbe ? args.replaySaveProbePath : nullptr;
     overrides.replayRestoreFileProbePath = args.replayRestoreFileProbe ? args.replayRestoreFileProbePath : nullptr;
-    overrides.replayRestoreTargetFileProbePath =
-        args.replayRestoreTargetFileProbe ? args.replayRestoreTargetFileProbePath : nullptr;
-    overrides.replayRestoreBranchFileProbePath =
-        args.replayRestoreBranchFileProbe ? args.replayRestoreBranchFileProbePath : nullptr;
-    overrides.replayRestoreFailureFileProbePath =
-        args.replayRestoreFailureFileProbe ? args.replayRestoreFailureFileProbePath : nullptr;
-    overrides.physicsRegressionLogPath =
-        args.physicsRegressionLogOverride[0] != '\0' ? args.physicsRegressionLogOverride : nullptr;
-    overrides.physicsCollisionTimeLogPath =
-        args.physicsCollisionTimeLogOverride[0] != '\0' ? args.physicsCollisionTimeLogOverride : nullptr;
+    overrides.replayRestoreTargetFileProbePath = args.replayRestoreTargetFileProbe
+                                                     ? args.replayRestoreTargetFileProbePath
+                                                     : nullptr;
+
+    overrides.replayRestoreBranchFileProbePath = args.replayRestoreBranchFileProbe
+                                                     ? args.replayRestoreBranchFileProbePath
+                                                     : nullptr;
+
+    overrides.replayRestoreFailureFileProbePath = args.replayRestoreFailureFileProbe
+                                                      ? args.replayRestoreFailureFileProbePath
+                                                      : nullptr;
+
+    overrides.physicsRegressionLogPath = args.physicsRegressionLogOverride[0] != '\0'
+                                             ? args.physicsRegressionLogOverride
+                                             : nullptr;
+
+    overrides.physicsCollisionTimeLogPath = args.physicsCollisionTimeLogOverride[0] != '\0'
+                                                ? args.physicsCollisionTimeLogOverride
+                                                : nullptr;
+
     overrides.physicsDiagnosticsPath = args.physicsDiagnosticsPath[0] != '\0' ? args.physicsDiagnosticsPath : nullptr;
     overrides.physicsDiagnosticsFixedStepForced = args.fixedStepForcedByPhysicsDiagnostics;
 #endif
@@ -728,10 +794,12 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
           []( const char* value, ParsedArgs& args ) -> bool
           {
               unsigned int seed = 0;
+
               if ( !ParseUnsignedCommandLineToken( value, seed ) || seed == 0 )
               {
                   return FailCommandLineParse( "--seed expects a positive 32-bit integer." );
               }
+
               args.seedOverride = seed;
               fprintf( stdout, "[seed] Override: %u\n", args.seedOverride );
               return true;
@@ -745,6 +813,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               {
                   return FailCommandLineParse( "--frames expects a positive integer." );
               }
+
               args.frameCountOverride = frames;
               args.suppressExitDialog = true;
               fprintf( stdout, "[frames] Exit after %d frames.\n", args.frameCountOverride );
@@ -759,6 +828,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               {
                   return FailCommandLineParse( "--allocation-guard expects off|measure|gameplay." );
               }
+
               args.allocationGuardMode = mode;
               fprintf( stdout, "[allocation-guard] Requested mode: %s\n", CoreAllocation::RuntimeAllocationGuardModeName( mode ) );
               return true;
@@ -772,6 +842,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               {
                   return FailCommandLineParse( "--dev-ui expects legacy|imgui; the two surfaces are mutually exclusive." );
               }
+
               if ( strcmp( value, "legacy" ) == 0 )
               {
                   args.developmentUiMode = DevelopmentUiMode::Legacy;
@@ -784,6 +855,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               {
                   return FailCommandLineParse( "--dev-ui expects legacy|imgui; the two surfaces are mutually exclusive." );
               }
+
               args.developmentUiModeExplicit = true;
               fprintf( stdout, "[dev-ui] Mode: %s\n", value );
               return true;
@@ -804,6 +876,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               {
                   return FailCommandLineParse( "--replay expects optional on|off." );
               }
+
               args.replayRecording = enabled;
               args.replayExplicit = true;
               fprintf( stdout, "[replay] Capture %s via command line.\n", enabled ? "enabled" : "disabled" );
@@ -818,6 +891,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               {
                   return FailCommandLineParse( "--replay-seconds expects 1..600." );
               }
+
               args.replaySeconds = seconds;
               args.replayExplicit = true;
               fprintf( stdout, "[replay] Retention window: %d seconds.\n", args.replaySeconds );
@@ -832,6 +906,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               {
                   return FailCommandLineParse( "--replay-scrub-probe expects a normalized position in the range 0..0.995." );
               }
+
               args.replayScrubProbe = true;
               args.replayScrubProbeNormalized = normalized;
               args.replayRecording = true;
@@ -851,6 +926,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               {
                   return FailCommandLineParse( "--replay-restore-probe expects a normalized position in the range 0..0.995." );
               }
+
               args.replayRestoreProbe = true;
               args.replayRestoreProbeNormalized = normalized;
               args.replayRecording = true;
@@ -881,6 +957,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               {
                   return FailCommandLineParse( "--ui-stress expects optional on|off." );
               }
+
               args.uiStress = enabled;
               args.suppressExitDialog = args.suppressExitDialog || enabled;
               return true;
@@ -894,6 +971,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               {
                   return FailCommandLineParse( "--ui-stress-seed expects a positive 32-bit integer." );
               }
+
               args.uiStress = true;
               args.uiStressSeed = seed;
               args.suppressExitDialog = true;
@@ -908,6 +986,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               {
                   return FailCommandLineParse( "--ui-stress-actions expects 1..32." );
               }
+
               args.uiStress = true;
               args.uiStressActions = actions;
               args.suppressExitDialog = true;
@@ -922,6 +1001,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               {
                   return FailCommandLineParse( "--graphics-stress expects optional on|off." );
               }
+
               args.graphicsStress = enabled;
               args.interactiveRun = args.interactiveRun || enabled;
               args.suppressExitDialog = args.suppressExitDialog || enabled;
@@ -936,6 +1016,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               {
                   return FailCommandLineParse( "--graphics-stress-seed expects a positive 32-bit integer." );
               }
+
               args.graphicsStress = true;
               args.graphicsStressSeed = seed;
               args.interactiveRun = true;
@@ -951,6 +1032,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               {
                   return FailCommandLineParse( "--graphics-stress-actions expects 1..64." );
               }
+
               args.graphicsStress = true;
               args.graphicsStressActions = actions;
               args.interactiveRun = true;
@@ -966,6 +1048,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               {
                   return FailCommandLineParse( "--graphics-stress-scene-interval expects 1..600 frames." );
               }
+
               args.graphicsStress = true;
               args.graphicsStressSceneIntervalFrames = frames;
               args.interactiveRun = true;
@@ -981,6 +1064,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               {
                   return FailCommandLineParse( "--graphics-stress-memory-interval expects 0..36000 frames." );
               }
+
               args.graphicsStress = true;
               args.graphicsStressMemoryIntervalFrames = frames;
               args.interactiveRun = true;
@@ -997,11 +1081,13 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
         {
             value = FindOptionValue( commandLine, directive.alias );
         }
+
         if ( value && !directive.apply( value, out ) )
         {
             return false;
         }
     }
+
     return true;
 }
 } // namespace Startup

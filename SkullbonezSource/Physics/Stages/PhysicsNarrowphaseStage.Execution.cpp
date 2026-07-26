@@ -29,6 +29,7 @@ Related:
 #include "../../Core/Profiler.h"
 #include "../../Core/WorkerPool.h"
 #include "../../Core/SceneCapacity.h"
+#include "../ColliderStore.h"
 #include "../DisjointSet.h"
 
 #include <algorithm>
@@ -45,8 +46,7 @@ constexpr int PHYSICS_NARROWPHASE_PARALLEL_MAX_AVG_PAIRS_PER_ISLAND = 4;
 constexpr int PHYSICS_NARROWPHASE_PARALLEL_MAX_PAIRS_PER_BODY = 2;
 constexpr bool PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED = true;
 constexpr int PHYSICS_CANDIDATE_PAIR_RESERVE = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 4;
-constexpr uint32_t PHYSICS_NARROWPHASE_ISLAND_WORKER_HASH =
-    HashStr( "Frame/Physics/Narrowphase/IslandWorkerDispatch/WorkerIslands" );
+constexpr uint32_t PHYSICS_NARROWPHASE_ISLAND_WORKER_HASH = HashStr( "Frame/Physics/Narrowphase/IslandWorkerDispatch/WorkerIslands" );
 
 template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values )
 {
@@ -55,34 +55,49 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
 } // namespace
 
 void PhysicsNarrowphaseStage::ProcessObjectNarrowphaseIsland(
-    const ObjectNarrowphasePairStageContext& context,
-    int islandIndex
-)
+    PhysicsBodyStore& bodyStore,
+    const ColliderStore& colliderStore,
+    PhysicsTerrainView terrain,
+    std::span<BuoyancyBodyFacts> buoyancyFacts,
+    std::span<const std::pair<int, int>> candidatePairs,
+    PhysicsNarrowphaseWakeAccess wakeAccess,
+    std::span<float> timeRemaining,
+    const std::vector<PersistentContactCacheEntry>& persistentContactCache,
+    const ObjectNarrowphaseStepPolicy& policy,
+    Core::Profiler* profiler,
+    int islandIndex )
 {
     const ObjectNarrowphaseIsland& island = m_objectNarrowphaseIslands[static_cast<size_t>( islandIndex )];
     const size_t pairEnd = island.firstPairOffset + island.pairCount;
     for ( size_t pairCursor = island.firstPairOffset; pairCursor < pairEnd; ++pairCursor )
     {
         const int pairIndex = m_objectNarrowphaseIslandPairIndices[pairCursor];
-        ProcessObjectNarrowphasePair( context, pairIndex, m_objectNarrowphaseEvents[static_cast<size_t>( pairIndex )] );
+        ProcessObjectNarrowphasePair( bodyStore,
+                                      colliderStore,
+                                      terrain,
+                                      buoyancyFacts,
+                                      candidatePairs,
+                                      wakeAccess,
+                                      timeRemaining,
+                                      persistentContactCache,
+                                      policy,
+                                      profiler,
+                                      pairIndex,
+                                      m_objectNarrowphaseEvents[static_cast<size_t>( pairIndex )] );
     }
 }
 
-bool PhysicsNarrowphaseStage::ObjectNarrowphaseIslandPrecedesByMinPairIndex(
-    const ObjectNarrowphaseIsland& a,
-    const ObjectNarrowphaseIsland& b
-)
+bool PhysicsNarrowphaseStage::ObjectNarrowphaseIslandPrecedesByMinPairIndex( const ObjectNarrowphaseIsland& a,
+                                                                             const ObjectNarrowphaseIsland& b )
 {
     return a.minPairIndex < b.minPairIndex;
 }
 
 
-void PhysicsNarrowphaseStage::BuildObjectNarrowphaseIslands(
-    Core::Profiler* profiler,
-    std::span<const std::pair<int, int>> candidatePairs,
-    int candidatePairCount,
-    int modelCount
-)
+void PhysicsNarrowphaseStage::BuildObjectNarrowphaseIslands( Core::Profiler* profiler,
+                                                             std::span<const std::pair<int, int>> candidatePairs,
+                                                             int candidatePairCount,
+                                                             int modelCount )
 {
     PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/BuildIslands" );
     m_objectNarrowphaseParent.resize( static_cast<size_t>( modelCount ) );
@@ -102,6 +117,7 @@ void PhysicsNarrowphaseStage::BuildObjectNarrowphaseIslands(
         {
             continue;
         }
+
         objectNarrowphaseSets.Unite( x, y );
     }
 
@@ -132,6 +148,7 @@ void PhysicsNarrowphaseStage::BuildObjectNarrowphaseIslands(
                 // reorder or drop pair work.
                 SB_FATAL( "Physics/PhysicsWorld", "Physics object narrowphase island capacity exceeded" );
             }
+
             m_objectNarrowphaseIslands.push_back( ObjectNarrowphaseIsland() );
             m_objectNarrowphaseIslands.back().minPairIndex = INT_MAX;
         }
@@ -140,6 +157,7 @@ void PhysicsNarrowphaseStage::BuildObjectNarrowphaseIslands(
         island.minPairIndex = (std::min)( island.minPairIndex, pairIndex );
         ++island.pairCount;
     }
+
     if ( m_objectNarrowphaseIslandWriteOffsets.capacity() < m_objectNarrowphaseIslands.size() )
     {
         assert( false && "Physics object narrowphase island write-offset capacity exceeded" );
@@ -147,6 +165,7 @@ void PhysicsNarrowphaseStage::BuildObjectNarrowphaseIslands(
         // make worker writes overlap or depend on allocation order.
         SB_FATAL( "Physics/PhysicsWorld", "Physics object narrowphase island write-offset capacity exceeded" );
     }
+
     m_objectNarrowphaseIslandWriteOffsets.assign( m_objectNarrowphaseIslands.size(), 0 );
     size_t pairOffset = 0;
     for ( size_t islandIndex = 0; islandIndex < m_objectNarrowphaseIslands.size(); ++islandIndex )
@@ -156,6 +175,7 @@ void PhysicsNarrowphaseStage::BuildObjectNarrowphaseIslands(
         m_objectNarrowphaseIslandWriteOffsets[islandIndex] = pairOffset;
         pairOffset += island.pairCount;
     }
+
     if ( pairOffset > m_objectNarrowphaseIslandPairIndices.capacity() )
     {
         assert( false && "Physics object narrowphase island pair capacity exceeded" );
@@ -163,6 +183,7 @@ void PhysicsNarrowphaseStage::BuildObjectNarrowphaseIslands(
         // worker pass. Overflow would drop pairs from narrowphase.
         SB_FATAL( "Physics/PhysicsWorld", "Physics object narrowphase island pair capacity exceeded" );
     }
+
     m_objectNarrowphaseIslandPairIndices.resize( pairOffset, 0 );
     for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
     {
@@ -179,14 +200,14 @@ void PhysicsNarrowphaseStage::BuildObjectNarrowphaseIslands(
         {
             continue;
         }
+
         size_t& writeOffset = m_objectNarrowphaseIslandWriteOffsets[static_cast<size_t>( islandIndex )];
         m_objectNarrowphaseIslandPairIndices[writeOffset++] = pairIndex;
     }
-    std::sort(
-        m_objectNarrowphaseIslands.begin(),
-        m_objectNarrowphaseIslands.end(),
-        ObjectNarrowphaseIslandPrecedesByMinPairIndex
-    );
+
+    std::sort( m_objectNarrowphaseIslands.begin(),
+               m_objectNarrowphaseIslands.end(),
+               ObjectNarrowphaseIslandPrecedesByMinPairIndex );
 }
 
 PhysicsNarrowphaseStage::PhysicsNarrowphaseStage()
@@ -213,53 +234,82 @@ void PhysicsNarrowphaseStage::Clear()
 
 void PhysicsNarrowphaseStage::ObjectNarrowphaseIslandStage::operator()( int islandIndex ) const
 {
-    stage.ProcessObjectNarrowphaseIsland( pairContext, islandIndex );
+    stage.ProcessObjectNarrowphaseIsland( bodyStore,
+                                          colliderStore,
+                                          terrain,
+                                          buoyancyFacts,
+                                          candidatePairs,
+                                          wakeAccess,
+                                          timeRemaining,
+                                          persistentContactCache,
+                                          policy,
+                                          profiler,
+                                          islandIndex );
 }
 
-bool PhysicsNarrowphaseStage::TryRunParallel(
-    const ObjectNarrowphasePairStageContext& context,
-    int candidatePairCount,
-    int modelCount,
-    const PhysicsExecutionSettings& execution,
-    Threading::WorkerPool& workerPool
-)
+bool PhysicsNarrowphaseStage::TryRunParallel( PhysicsBodyStore& bodyStore,
+                                              const ColliderStore& colliderStore,
+                                              PhysicsTerrainView terrain,
+                                              std::span<BuoyancyBodyFacts> buoyancyFacts,
+                                              std::span<const std::pair<int, int>> candidatePairs,
+                                              PhysicsNarrowphaseWakeAccess wakeAccess,
+                                              std::span<float> timeRemaining,
+                                              const std::vector<PersistentContactCacheEntry>& persistentContactCache,
+                                              const ObjectNarrowphaseStepPolicy& policy,
+                                              Core::Profiler* profiler,
+                                              Threading::WorkerPool& workerPool )
 {
+    const int candidatePairCount = static_cast<int>( candidatePairs.size() );
+    const int modelCount = (std::min)( bodyStore.Count(), colliderStore.Count() );
     m_objectNarrowphaseIslands.clear();
     m_objectNarrowphaseIslandPairIndices.clear();
     m_objectNarrowphaseIslandWriteOffsets.clear();
 
-    const bool mayBenefitFromIslandDispatch =
-        PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED && execution.parallel && execution.parallelNarrowphase &&
-        candidatePairCount >= PHYSICS_NARROWPHASE_PARALLEL_MIN_PAIRS &&
-        candidatePairCount <= modelCount * PHYSICS_NARROWPHASE_PARALLEL_MAX_PAIRS_PER_BODY &&
-        workerPool.GetThreadCount() > 0;
+    const bool mayBenefitFromIslandDispatch = PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED && policy.parallel &&
+                                              policy.parallelNarrowphase &&
+                                              candidatePairCount >= PHYSICS_NARROWPHASE_PARALLEL_MIN_PAIRS &&
+                                              candidatePairCount <=
+                                                  modelCount * PHYSICS_NARROWPHASE_PARALLEL_MAX_PAIRS_PER_BODY &&
+                                              workerPool.GetThreadCount() > 0;
+
     if ( !mayBenefitFromIslandDispatch )
     {
         return false;
     }
 
-    BuildObjectNarrowphaseIslands( context.profiler, context.candidatePairs, candidatePairCount, modelCount );
+    BuildObjectNarrowphaseIslands( profiler, candidatePairs, candidatePairCount, modelCount );
 
     const int islandCount = static_cast<int>( m_objectNarrowphaseIslands.size() );
-    const bool hasSpreadOutNarrowphaseIslands =
-        islandCount > 0 && candidatePairCount <= islandCount * PHYSICS_NARROWPHASE_PARALLEL_MAX_AVG_PAIRS_PER_ISLAND;
+    const bool hasSpreadOutNarrowphaseIslands = islandCount > 0 &&
+                                                candidatePairCount <=
+                                                    islandCount * PHYSICS_NARROWPHASE_PARALLEL_MAX_AVG_PAIRS_PER_ISLAND;
+
     if ( islandCount < PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS || !hasSpreadOutNarrowphaseIslands )
     {
         return false;
     }
 
-    m_objectNarrowphaseEvents.assign( context.candidatePairs.size(), ObjectNarrowphaseEvent() );
-    ObjectNarrowphaseIslandStage islandStage { *this, context };
+    m_objectNarrowphaseEvents.assign( candidatePairs.size(), ObjectNarrowphaseEvent() );
+    ObjectNarrowphaseIslandStage islandStage { *this,
+                                               bodyStore,
+                                               colliderStore,
+                                               terrain,
+                                               buoyancyFacts,
+                                               candidatePairs,
+                                               wakeAccess,
+                                               timeRemaining,
+                                               persistentContactCache,
+                                               policy,
+                                               profiler };
+
     {
-        PROFILE_SCOPED( context.profiler, "Frame/Physics/Narrowphase/IslandWorkerDispatch" );
-        workerPool.ParallelForNoAlloc(
-            0,
-            islandCount,
-            islandStage,
-            PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS,
-            "Frame/Physics/Narrowphase/IslandWorkerDispatch/WorkerIslands",
-            PHYSICS_NARROWPHASE_ISLAND_WORKER_HASH
-        );
+        PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/IslandWorkerDispatch" );
+        workerPool.ParallelForNoAlloc( 0,
+                                       islandCount,
+                                       islandStage,
+                                       PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS,
+                                       "Frame/Physics/Narrowphase/IslandWorkerDispatch/WorkerIslands",
+                                       PHYSICS_NARROWPHASE_ISLAND_WORKER_HASH );
     }
     return true;
 }

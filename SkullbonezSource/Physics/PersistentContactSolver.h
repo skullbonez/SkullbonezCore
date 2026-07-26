@@ -1,13 +1,12 @@
 /*
 File: SkullbonezSource/Physics/PersistentContactSolver.h
 Purpose:
-  Solves object/object and object/terrain persistent contact rows.
+  Defines persistent-contact step policy, cache, and body-scratch values.
 
 Summary:
-  PersistentContactSolver.h solves object/object and object/terrain persistent
-  contact rows. As a public header, keep edits anchored on deterministic
-  physics, diagnostics, or world-state flow and on the glossary/invariants
-  below.
+  PhysicsContactSolverStage uses these compact values while it solves
+  object/object and object/terrain rows. The values carry no owner authority,
+  callback, or retained borrow across a solve.
 
 Glossary:
   Broadphase: Cheap collision pass that finds object pairs worth testing more
@@ -40,9 +39,6 @@ namespace SkullbonezCore
 {
 namespace Physics
 {
-struct PersistentContactSolverContext;
-struct PhysicsRuntimeSettings;
-
 struct PersistentContactSolverStepPolicy
 {
     float objectSlop = 0.0f;
@@ -51,7 +47,19 @@ struct PersistentContactSolverStepPolicy
     float terrainSlop = 0.0f;
     float terrainBaumgarteBeta = 0.0f;
     float maxBaumgarteBias = 0.0f;
+    float contactRestitutionThreshold = 0.0f;    // Effective row threshold; elastic policy may force zero.
+    float rawContactRestitutionThreshold = 0.0f; // Authored threshold retained for motion admission.
+    float objectFrictionCoefficient = 0.0f;
+    float terrainFrictionCoefficient = 0.0f;
+    float rollingFrictionCoefficient = 0.0f;
+    float sleepLinearSpeed = 0.0f;               // Raw authored values used by legacy relative-motion limits.
+    float sleepAngularSpeed = 0.0f;
+    float nonNegativeSleepLinearSpeed = 0.0f;    // Normalized values used by the quiet-body gate.
+    float nonNegativeSleepAngularSpeed = 0.0f;
+    float gravityMagnitude = 0.0f;
+    float contactEpsilon = 0.0f;
     int iterations = 1;
+    bool elasticCollisions = false;
 };
 
 struct PersistentContactCacheEntry
@@ -76,15 +84,6 @@ struct SolverBodyState
     Math::Transformation::RotationMatrix orientation;
     float invMass = 0.0f;
     bool useWorldInertia = false;
-};
-
-class PersistentContactSolver
-{
-  public:
-    // Returns the single per-solve normalization of raw stamped settings.
-    // Tests use this value seam to pin bounds without recreating solver math.
-    static PersistentContactSolverStepPolicy ResolveStepPolicy( const PhysicsRuntimeSettings& settings ) noexcept;
-    void Solve( PersistentContactSolverContext& context, float dt );
 };
 } // namespace Physics
 } // namespace SkullbonezCore

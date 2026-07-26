@@ -1,9 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Source Files\UI">
-      <UniqueIdentifier>{A58C63D9-A37D-4D4D-BCCB-2FC0CB69F3B3}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Source Files">
       <UniqueIdentifier>{B25E98F8-1671-4EF8-A5CB-68B416912E0E}</UniqueIdentifier>
       <Extensions>cpp;c;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
@@ -63,6 +60,9 @@
     </Filter>
     <Filter Include="Source Files\Runtime\Replay">
       <UniqueIdentifier>{B75CFE80-5DE1-4FA6-B50A-6450A7E0A819}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Runtime\Planning">
+      <UniqueIdentifier>{E858DBAF-986E-4C68-9C84-CA4756DD08E5}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\Runtime\Scene">
       <UniqueIdentifier>{F44133F6-7B35-4C37-BB2B-E2F8A746D8A4}</UniqueIdentifier>
@@ -147,12 +147,6 @@
     <ClCompile Include="SkullbonezTests\TestOwnerRequestQueues.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\UI\OperatorEditorExchange.cpp">
-      <Filter>Source Files\UI</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezSource\UI\UIInput.cpp">
-      <Filter>Source Files\UI</Filter>
-    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsPhysicsUI.cpp">
       <Filter>Source Files\Runtime\Diagnostics</Filter>
     </ClCompile>
@@ -199,6 +193,9 @@
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestRuntimeValueSeams.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestUIDrawValues.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestReplayPredictionScheduling.cpp">
@@ -279,7 +276,7 @@
     <ClCompile Include="SkullbonezSource\Core\Profiler.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Rendering\RenderProfilerPresentation.cpp">
+    <ClCompile Include="SkullbonezSource\Rendering\RenderGpuTimingOwner.cpp">
       <Filter>Source Files\Rendering</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Core\WorkerPool.cpp">
@@ -339,6 +336,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntime.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneSaveOperations.cpp">
+      <Filter>Source Files\Runtime\Scene</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneNavigationModel.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
@@ -360,17 +360,20 @@
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayGuideArcs.cpp">
-      <Filter>Source Files\Runtime\Replay</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayPlanningOverlayLayout.cpp">
+      <Filter>Source Files\Runtime\Planning</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayTripPlanner.cpp">
-      <Filter>Source Files\Runtime\Replay</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayGuideArcs.cpp">
+      <Filter>Source Files\Runtime\Planning</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPorkchopPanel.cpp">
-      <Filter>Source Files\Runtime\Replay</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayTripPlanner.cpp">
+      <Filter>Source Files\Runtime\Planning</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayInterceptReadout.cpp">
-      <Filter>Source Files\Runtime\Replay</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayPorkchopPanel.cpp">
+      <Filter>Source Files\Runtime\Planning</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayInterceptReadout.cpp">
+      <Filter>Source Files\Runtime\Planning</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayArtifactHashLog.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>

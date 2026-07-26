@@ -35,7 +35,7 @@ Related:
   - SkullbonezSource/UI/UICommands.h
   - SkullbonezSource/Runtime/App/InputFrame.cpp
   - SkullbonezSource/Runtime/DevelopmentTools editor owner
-  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E8-E15)
+  - Agentic/Reports/2026-07-21/imgui-tracy-editor-campaign-closure.md (E8-E15)
 */
 #pragma once
 
@@ -505,45 +505,31 @@ struct OperatorEditorArbitrationResult
     uint32_t coalescedDuplicateCommands = 0u;
 };
 
-SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand(
-    OperatorEditorSceneCommandQueue& queue,
-    const OperatorEditorSceneCommand& command,
-    bool* duplicate = nullptr
-);
-SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand(
-    OperatorEditorPropertyCommandQueue& queue,
-    const OperatorEditorPropertyCommand& command,
-    bool* duplicate = nullptr
-);
-SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand(
-    OperatorEditorRenderingCommandQueue& queue,
-    const OperatorEditorRenderingCommand& command,
-    bool* duplicate = nullptr
-);
-SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand(
-    OperatorEditorDiagnosticsCommandQueue& queue,
-    const OperatorEditorDiagnosticsCommand& command,
-    bool* duplicate = nullptr
-);
-SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand(
-    OperatorEditorReplayCommandQueue& queue,
-    const OperatorEditorReplayCommand& command,
-    bool* duplicate = nullptr
-);
-SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand(
-    OperatorEditorToolCommandQueue& queue,
-    const OperatorEditorToolCommand& command,
-    bool* duplicate = nullptr
-);
+SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorSceneCommandQueue& queue,
+                                                            const OperatorEditorSceneCommand& command,
+                                                            bool* duplicate = nullptr );
+SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorPropertyCommandQueue& queue,
+                                                            const OperatorEditorPropertyCommand& command,
+                                                            bool* duplicate = nullptr );
+SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorRenderingCommandQueue& queue,
+                                                            const OperatorEditorRenderingCommand& command,
+                                                            bool* duplicate = nullptr );
+SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorDiagnosticsCommandQueue& queue,
+                                                            const OperatorEditorDiagnosticsCommand& command,
+                                                            bool* duplicate = nullptr );
+SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorReplayCommandQueue& queue,
+                                                            const OperatorEditorReplayCommand& command,
+                                                            bool* duplicate = nullptr );
+SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorToolCommandQueue& queue,
+                                                            const OperatorEditorToolCommand& command,
+                                                            bool* duplicate = nullptr );
 
 // Converts the representative legacy packet fields into the shared queues and
 // clears those fields so only the post-arbitration projection reaches owners.
 SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICommands& commands );
-OperatorEditorArbitrationResult ArbitrateOperatorEditorCommands(
-    const OperatorEditorCommandQueues& legacy,
-    const OperatorEditorCommandQueues& secondary
-);
-SkullbonezCore::Core::SbResult
-ProjectOperatorEditorCommands( const OperatorEditorCommandQueues& exchange, InGameUICommands& commands );
+OperatorEditorArbitrationResult ArbitrateOperatorEditorCommands( const OperatorEditorCommandQueues& legacy,
+                                                                 const OperatorEditorCommandQueues& secondary );
+SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( const OperatorEditorCommandQueues& exchange,
+                                                              InGameUICommands& commands );
 uint64_t FingerprintOperatorEditorFrameView( const OperatorEditorFrameView& view ) noexcept;
 } // namespace SkullbonezCore::UI

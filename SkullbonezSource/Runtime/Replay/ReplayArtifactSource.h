@@ -34,10 +34,10 @@ struct ReplayEventSample;
 class ReplayArtifactSource
 {
   public:
-    static void
-    MaterializePresentation( const ReplayRecorder& recorder, std::vector<ReplayPresentationSample>& outSamples );
-    static void
-    MaterializeSolver( const ReplaySolverRecorder& recorder, std::vector<ReplaySolverFrameSample>& outSamples );
+    static void MaterializePresentation( const ReplayRecorder& recorder,
+                                         std::vector<ReplayPresentationSample>& outSamples );
+    static void MaterializeSolver( const ReplaySolverRecorder& recorder,
+                                   std::vector<ReplaySolverFrameSample>& outSamples );
     static void MaterializeEvents( const ReplayEventRecorder& recorder, std::vector<ReplayEventSample>& outEvents );
 };
 } // namespace SkullbonezCore::Runtime

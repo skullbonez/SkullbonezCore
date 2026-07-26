@@ -58,11 +58,9 @@ struct UIPointerOverride
 };
 
 void CaptureKeyStates( bool keyWasDown[UIInputSnapshot::VIRTUAL_KEY_COUNT], const UIInputSnapshot& input );
-bool ConsumeKeyPress(
-    bool keyWasDown[UIInputSnapshot::VIRTUAL_KEY_COUNT],
-    const UIInputSnapshot& input,
-    int virtualKey
-);
+bool ConsumeKeyPress( bool keyWasDown[UIInputSnapshot::VIRTUAL_KEY_COUNT],
+                      const UIInputSnapshot& input,
+                      int virtualKey );
 bool IsVirtualKeyDown( const UIInputSnapshot& input, int virtualKey );
 
 } // namespace InputControl

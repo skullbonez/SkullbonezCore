@@ -84,15 +84,13 @@ class TextureCollection
     int FindIndexNoThrow( uint32_t hash ) const;
     int FindFreeSlot() const;
     void ReleaseTexture( GpuTextureRecord& texture );
-    SkullbonezCore::Core::SbResult LoadJpegTextureIntoSlot(
-        int slot,
-        const char* fileName,
-        uint32_t hash,
-        Assets::AssetId sourceId,
-        bool generateMips,
-        bool linearFilter,
-        int channelsHint
-    );
+    SkullbonezCore::Core::SbResult LoadJpegTextureIntoSlot( int slot,
+                                                            const char* fileName,
+                                                            uint32_t hash,
+                                                            Assets::AssetId sourceId,
+                                                            bool generateMips,
+                                                            bool linearFilter,
+                                                            int channelsHint );
     SkullbonezCore::Core::SbResult CreateTextureFromSourceAsset( const Assets::TextureSourceAsset& source );
 
   public:
@@ -102,8 +100,8 @@ class TextureCollection
     TextureCollection& operator=( const TextureCollection& ) = delete;
 
     void BindAssetSystem( Assets::AssetSystem* assets );
-    void
-    BindRenderContexts( Rendering::Dx12TextureOwner* renderResources, Rendering::Dx12TextureOwner* renderBindings );
+    void BindRenderContexts( Rendering::Dx12TextureOwner* renderResources,
+                             Rendering::Dx12TextureOwner* renderBindings );
     bool HasTexture( uint32_t hash ) const;
     SkullbonezCore::Core::SbResult EnsureTexture( uint32_t hash );
     SkullbonezCore::Core::SbResult SelectTexture( uint32_t hash );

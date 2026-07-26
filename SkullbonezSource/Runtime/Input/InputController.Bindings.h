@@ -1,12 +1,12 @@
 /*
 File: InputController.Bindings.h
 Purpose:
-  Publishes the keyboard binding table consumed by RunInput.
+  Publishes the keyboard binding table consumed by InputFrameExecution.
 
 Summary:
   Keyboard shortcuts are data first and side effects second. This module names
   the key/action/context rows so tests and runtime dispatch read the same table,
-  while RunInput still owns what each action does.
+  while InputFrameExecution dispatches each action to its named domain owner.
 
 Glossary:
   Virtual key: Win32 integer key code sampled in DeviceInputFrame.

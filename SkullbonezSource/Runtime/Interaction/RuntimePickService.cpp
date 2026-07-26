@@ -67,6 +67,7 @@ bool RuntimePickService::TryPickModel( const RuntimePickRequest& request, Runtim
         {
             continue;
         }
+
         const std::size_t bodyIndex = static_cast<std::size_t>( i );
         if ( skipFixedBodies && hotFields.fixed[bodyIndex] != 0u )
         {

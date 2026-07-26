@@ -1,13 +1,11 @@
 /*
 File: SkullbonezSource/Runtime/Replay/ReplayRetainedMemory.h
 Purpose:
-  Defines durable replay sample ownership and the registered runtime-growth
-  contracts shared by recording, solver snapshots, and prediction.
+  Defines durable replay sample ownership and Replay-core runtime-growth contracts.
 
 Summary:
-  Replay retains three live data families and writes one cold artifact family.
-  Each live growth owner has one name, replay-only phase, hard byte cap,
-  measured high-water reference, counter source, and exhaustion rule.
+  Replay retains recorded presentation and solver data and writes one cold
+  artifact family. Prediction owns its separate working-set policy row.
 
 Glossary:
   Presentation sample: Render-facing retained pose/style state owned by
@@ -20,10 +18,7 @@ Glossary:
     its hard cap.
 
 Invariants:
-  - The policy table names every RuntimeReserveAllocator owner registered for
-    replay data growth.
-  - Prediction denial cancels or truncates the current build without publishing
-    an incoherent prefix.
+  - The policy table names the Replay-core and Physics snapshot owners.
   - Recorder and solver-snapshot denial is fatal because partial retained state
     would make scrub/restore nondeterministic.
   - Artifact load/save growth remains cold I/O and never registers as live
@@ -31,7 +26,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
-  - SkullbonezSource/Runtime/Replay/ReplayPredictionReserve.h
+  - SkullbonezSource/Runtime/Prediction/ReplayPredictionRetainedMemory.h
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h
   - SkullbonezSource/Physics/PhysicsSolverSnapshot.h
   - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h
@@ -84,8 +79,7 @@ inline constexpr std::array<ReplayRetainedOwnershipRule, 4> REPLAY_RETAINED_OWNE
                                   "ReplayV2Document",
                                   "ReplayV2Artifact cold I/O",
                                   false,
-                                  true }
-};
+                                  true } };
 
 enum class ReplayGrowthExhaustionRule : uint8_t
 {
@@ -106,12 +100,7 @@ inline constexpr const char* REPLAY_RECORDER_SAMPLE_RESERVE_OWNER = "replay_reco
 // The strict two-generation prediction probe measured 17,737,640 aggregate
 // recorder bytes. Thirty-two MiB preserves 1.89x measured headroom.
 inline constexpr int REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES = 32 * 1024 * 1024;
-inline constexpr const char* REPLAY_PREDICTION_RESERVE_OWNER = "replay_prediction_working_set";
-// The same strict probe measured 110,979,828 prediction bytes. The 256 MiB cap
-// preserves 2.42x headroom for larger retained path/cause-tree generations.
-inline constexpr int REPLAY_PREDICTION_RESERVE_HARD_BYTES = 256 * 1024 * 1024;
-
-inline constexpr std::array<ReplayGrowthOwnerPolicy, 3> REPLAY_GROWTH_OWNER_POLICIES = {
+inline constexpr std::array<ReplayGrowthOwnerPolicy, 2> REPLAY_CORE_GROWTH_OWNER_POLICIES = {
     ReplayGrowthOwnerPolicy { REPLAY_RECORDER_SAMPLE_RESERVE_OWNER,
                               SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
                               REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES,
@@ -121,34 +110,5 @@ inline constexpr std::array<ReplayGrowthOwnerPolicy, 3> REPLAY_GROWTH_OWNER_POLI
                               SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
                               Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES,
                               2877186u,
-                              ReplayGrowthExhaustionRule::FatalRetainedState },
-    ReplayGrowthOwnerPolicy { REPLAY_PREDICTION_RESERVE_OWNER,
-                              SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
-                              REPLAY_PREDICTION_RESERVE_HARD_BYTES,
-                              110979828u,
-                              ReplayGrowthExhaustionRule::CancelPredictionBuild }
-};
-
-inline const ReplayGrowthOwnerPolicy* FindReplayGrowthOwnerPolicy( const char* ownerName ) noexcept
-{
-    if ( !ownerName )
-    {
-        return nullptr;
-    }
-    for ( const ReplayGrowthOwnerPolicy& policy : REPLAY_GROWTH_OWNER_POLICIES )
-    {
-        const char* lhs = policy.ownerName;
-        const char* rhs = ownerName;
-        while ( *lhs != '\0' && *lhs == *rhs )
-        {
-            ++lhs;
-            ++rhs;
-        }
-        if ( *lhs == '\0' && *rhs == '\0' )
-        {
-            return &policy;
-        }
-    }
-    return nullptr;
-}
+                              ReplayGrowthExhaustionRule::FatalRetainedState } };
 } // namespace SkullbonezCore::Runtime

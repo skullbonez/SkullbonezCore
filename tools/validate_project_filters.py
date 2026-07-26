@@ -102,6 +102,7 @@ DEFAULT_PRODUCTION_PROJECTS = (
     ("SKULLBONEZ_CORE.vcxproj", "SKULLBONEZ_CORE.vcxproj.filters"),
     ("SKULLBONEZ_MATHS.vcxproj", "SKULLBONEZ_MATHS.vcxproj.filters"),
     ("SKULLBONEZ_PHYSICS.vcxproj", "SKULLBONEZ_PHYSICS.vcxproj.filters"),
+    ("SKULLBONEZ_UI.vcxproj", "SKULLBONEZ_UI.vcxproj.filters"),
 )
 # Concept: extracted single-area libraries already name their subsystem at the
 # project node in Solution Explorer. Their filters should stay shallow instead
@@ -109,6 +110,7 @@ DEFAULT_PRODUCTION_PROJECTS = (
 FLATTENED_LIBRARY_PROJECT_AREAS = {
     "SKULLBONEZ_MATHS.vcxproj": "Maths",
     "SKULLBONEZ_PHYSICS.vcxproj": "Physics",
+    "SKULLBONEZ_UI.vcxproj": "UI",
 }
 # Concept: `.inl` files are source-bearing include slices, not build units.
 # Keep them as ClInclude items so Visual Studio shows ownership splits while
@@ -160,8 +162,10 @@ PHYSICS_COLLISION_PREFIXES = (
     "CollisionShape",
     "ConvexHullShape",
     "ObjectContactManifold",
+    "PhysicsTerrainView",
     "SpatialGrid",
     "TerrainContactManifold",
+    "TerrainSupportClassifier",
 )
 
 PHYSICS_FORCE_PREFIXES = (
@@ -184,7 +188,6 @@ PHYSICS_STAGE_PREFIXES = (
     "PhysicsForceStage",
     "PhysicsNarrowphaseStage",
     "PhysicsSleepController",
-    "PhysicsStageContexts",
     "PhysicsStepDiagnostics",
     "PhysicsTerrainStage",
 )
@@ -245,8 +248,6 @@ DX12_RENDERING_PREFIXES = (
 
 RENDERING_PREFIXES = (
     "DrawCallTrace",
-    "ProfilerOverlayPresenter",
-    "RenderProfilerPresentation",
     "RenderInstanceRenderer",
     "Helper",
     "IRenderBackend",
@@ -288,7 +289,6 @@ WORLD_PREFIXES = (
     "FluidSurfaceAdjustment",
     "SkyBox",
     "Terrain",
-    "TerrainSupportClassifier",
     "WorldEnvironment",
 )
 
@@ -369,6 +369,7 @@ RUNTIME_SCENE_PREFIXES = (
     "SceneController",
     "SceneControllerState",
     "SceneLifecycle",
+    "SceneLoadTransaction",
     "SceneWorld",
     "SceneTerrain",
     "SceneAuthoredSetup",
@@ -378,6 +379,7 @@ RUNTIME_SCENE_PREFIXES = (
     "SceneRuntimeCoordinator",
     "SceneRuntimeDefaults",
     "SceneRequestQueue",
+    "SceneSaveOperations",
     "SceneEntityStore",
     "SceneNavigationModel",
     "SceneRuntimeGeneratedControls",
@@ -394,9 +396,47 @@ CORE_ALLOCATION_PREFIXES = (
     "RuntimeReserveAllocator",
 )
 
+RUNTIME_PREDICTION_PREFIXES = (
+    "ReplayAuthoringCauseTree",
+    "ReplayCauseFocusSubmission",
+    "ReplayPredictionArchive",
+    "ReplayPredictionPackets",
+    "ReplayPrediction",
+    "ReplayPredictionDrawing",
+    "ReplayPredictionPresentation",
+    "ReplayPredictionPublication",
+    "ReplayPredictionPublicationOperations",
+    "ReplayPredictionReserve",
+    "ReplayPredictionRetainedGeometry",
+    "ReplayPredictionRetainedMemory",
+    "ReplayPredictionScheduling",
+    "ReplayPredictionTopologyPublication",
+    "ReplayPredictionView",
+    "TrajectoryStore",
+)
+
+RUNTIME_PLANNING_PREFIXES = (
+    "ReplayGuideArcs",
+    "ReplayInterceptReadout",
+    "ReplayOverlayPackets",
+    "ReplayOverlayRenderer",
+    "ReplayPlanningOverlayLayout",
+    "ReplayPlanningRuntime",
+    "ReplayPorkchopPanel",
+    "ReplayTripPlanner",
+)
+
+RUNTIME_APP_PREFIXES = (
+    "ReplayReserveInventory",
+    "ReplayRuntime",
+    "ReplayRuntimePackets",
+    "ReplayScrubberTools",
+    "ReplayValidation",
+)
+
 RUNTIME_REPLAY_PREFIXES = (
     "ReplayAuthoring",
-    "ReplayAuthoringCauseTree",
+    "ReplayAuthoringCauseTreeInput",
     "ReplayAuthoringVelocity",
     "ReplayAuthoringPackets",
     "ReplayArtifactHashLog",
@@ -407,45 +447,25 @@ RUNTIME_REPLAY_PREFIXES = (
     "ReplayEventCommand",
     "ReplayIdentity",
     "ReplayInteractionController",
-    "ReplayGuideArcs",
-    "ReplayInterceptReadout",
-    "ReplayTripPlanner",
-    "ReplayPorkchopPanel",
     "ReplayOverlayLayout",
-    "ReplayOverlayPackets",
     "ReplayOverlaySurface",
-    "ReplayOverlayRenderer",
-    "ReplayCauseFocusSubmission",
-    "ReplayPredictionArchive",
     "ReplayPathPackets",
-    "ReplayPredictionPackets",
-    "ReplayPrediction",
-    "ReplayPredictionDrawing",
     "ReplayPresentationSubmission",
     "ReplayPresentationPackets",
-    "ReplayPredictionPublication",
-    "ReplayPredictionPublicationOperations",
-    "ReplayPredictionReserve",
-    "ReplayPredictionScheduling",
-    "ReplayPredictionTopologyPublication",
-    "ReplayPredictionView",
     "ReplayRetainedMemory",
     "ReplayRecorder",
     "ReplayPresentation",
     "ReplayProbeState",
     "ReplayRestoreService",
-    "ReplayRuntime",
     "ReplayRestoreTransactions",
     "ReplayScrubber",
-    "ReplayScrubberTools",
     "ReplayTimeline",
     "ReplayTimelinePackets",
     "ReplayToolPackets",
+    "ReplayTrajectoryPackets",
     "ReplayVisualPacket",
     "ReplayVisualPacketFingerprint",
     "ReplayV2Artifact",
-    "ReplayValidation",
-    "TrajectoryStore",
 )
 
 RUNTIME_RENDER_PREFIXES = (
@@ -459,6 +479,7 @@ RUNTIME_RENDER_PREFIXES = (
     "RuntimeRenderPasses",
     "RuntimeRenderResources",
     "RuntimeRenderer",
+    "UiDrawSubmission",
 )
 
 RUNTIME_EDITOR_PREFIXES = (
@@ -500,6 +521,7 @@ RUNTIME_UI_PREFIXES = (
     "OperatorEditorFrameComposer",
     "UiTextPass",
     "RuntimeViewModel",
+    "RenderDiagnosticsProjection",
     "RuntimeUiSurface",
 )
 
@@ -539,6 +561,9 @@ AREA_PREFIXES = (
     ("Physics\\Support", PHYSICS_SUPPORT_PREFIXES),
     ("Runtime\\Scene", RUNTIME_SCENE_PREFIXES),
     ("Core\\Allocation", CORE_ALLOCATION_PREFIXES),
+    ("Runtime\\App", RUNTIME_APP_PREFIXES),
+    ("Runtime\\Planning", RUNTIME_PLANNING_PREFIXES),
+    ("Runtime\\Prediction", RUNTIME_PREDICTION_PREFIXES),
     ("Runtime\\Replay", RUNTIME_REPLAY_PREFIXES),
     ("Runtime\\Render", RUNTIME_RENDER_PREFIXES),
     ("Runtime\\Editor", RUNTIME_EDITOR_PREFIXES),

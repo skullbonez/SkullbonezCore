@@ -33,7 +33,7 @@ Related:
 #include "../Diagnostics/SceneMemoryDiagnostics.h"
 #include "../Render/RuntimeRenderHost.h"
 #include "../Render/RuntimeRenderer.h"
-#include "../Replay/ReplayRuntime.h"
+#include "../App/ReplayRuntime.h"
 #include "../Render/RenderDefaultsStore.h"
 #include "../Camera/CameraControlState.h"
 #include "../Diagnostics/OverlayDebugState.h"
@@ -43,6 +43,7 @@ Related:
 #include "../Interaction/RuntimeInteractionController.h"
 #include "../Interaction/OperatorCommandApplier.h"
 #include "../Scene/SceneController.h"
+#include "../Scene/SceneLoadTransaction.h"
 #include "../Scene/SceneRuntimeCoordinator.h"
 #include "../Scene/SceneRuntimeGeneratedControls.h"
 #include "../Scene/SceneRuntimeStyle.h"
@@ -79,6 +80,7 @@ unsigned int NextStressRandom( unsigned int& state )
     {
         state = 0xC11E2026u;
     }
+
     state = state * 1664525u + 1013904223u;
     return state;
 }
@@ -95,6 +97,7 @@ class StressHarness
         {
             return 0;
         }
+
         return static_cast<int>( NextRandom( stress ) % static_cast<unsigned int>( maxExclusive ) );
     }
 
@@ -129,15 +132,13 @@ class StressHarness
 
 // Lifetime: every borrow is consumed by one deterministic action and cannot be
 // retained as a replacement shell context.
-void ApplyUIStressAction(
-    SkullbonezCore::UI::InGameUI& ui,
-    RuntimeFrameSceneView& sceneOwners,
-    RuntimeRenderBackendView& renderBackendView,
-    RuntimeRenderer& renderer,
-    ReplayRuntime& replayRuntime,
-    UIStressState& stress,
-    bool allowRuntimeChurn
-)
+void ApplyUIStressAction( SkullbonezCore::UI::InGameUI& ui,
+                          RuntimeFrameSceneView& sceneOwners,
+                          RuntimeRenderBackendView& renderBackendView,
+                          RuntimeRenderer& renderer,
+                          ReplayRuntime& replayRuntime,
+                          UIStressState& stress,
+                          bool allowRuntimeChurn )
 {
     RuntimeOverlayPresentationEdit presentationEdit = sceneOwners.overlays.EditPresentation();
     OverlayDebugState& debug = presentationEdit.State();
@@ -150,8 +151,7 @@ void ApplyUIStressAction(
     {
     case 0:
         ui.SetActiveTab(
-            static_cast<InGameUITab>( StressHarness::NextInt( stress, static_cast<int>( InGameUITab::Count ) ) )
-        );
+            static_cast<InGameUITab>( StressHarness::NextInt( stress, static_cast<int>( InGameUITab::Count ) ) ) );
         break;
     case 1:
         ui.SetScrollY( StressHarness::NextFloat( stress, 0.0f, 900.0f ) );
@@ -182,12 +182,14 @@ void ApplyUIStressAction(
         {
             renderBackendView.renderDevice->SetVsyncEnabled( renderer.VsyncEnabled() );
         }
+
         break;
     case 9:
         if ( allowRuntimeChurn )
         {
             debug.isCollisionVisualizer = !debug.isCollisionVisualizer;
         }
+
         break;
     case 10:
     {
@@ -201,6 +203,7 @@ void ApplyUIStressAction(
         {
             debug.physicsDebugFlags = kFlags[flagIndex];
         }
+
         break;
     }
     case 11:
@@ -208,12 +211,14 @@ void ApplyUIStressAction(
         {
             debug.isPhysicsDebugTransparent = !debug.isPhysicsDebugTransparent;
         }
+
         break;
     case 12:
         if ( allowRuntimeChurn )
         {
             debug.isBroadphaseOverlay = !debug.isBroadphaseOverlay;
         }
+
         break;
     case 13:
         if ( allowRuntimeChurn )
@@ -221,18 +226,21 @@ void ApplyUIStressAction(
             scene.isFixedStep = !scene.isFixedStep;
             simulation.Reset();
         }
+
         break;
     case 14:
         if ( allowRuntimeChurn )
         {
             debug.isTerrainHidden = !debug.isTerrainHidden;
         }
+
         break;
     case 15:
         if ( allowRuntimeChurn )
         {
             debug.isWaterHidden = !debug.isWaterHidden;
         }
+
         break;
     case 16:
         if ( allowRuntimeChurn )
@@ -243,12 +251,14 @@ void ApplyUIStressAction(
                 debug.frozenWaterTime = static_cast<float>( timers.simulationTimer.GetTimeSinceLastStart() );
             }
         }
+
         break;
     case 17:
         if ( allowRuntimeChurn )
         {
             debug.isWaterFlatDebug = !debug.isWaterFlatDebug;
         }
+
         break;
     case 18:
     {
@@ -258,6 +268,7 @@ void ApplyUIStressAction(
             debug.isWaterRTReflect = mode == 1;
             debug.isWaterNoReflect = mode == 2;
         }
+
         break;
     }
     case 19:
@@ -271,6 +282,7 @@ void ApplyUIStressAction(
             scene.timeScale = ui.SceneNavigation().overrides.timeScaleOverride;
             simulation.Reset();
         }
+
         break;
     }
     case 20:
@@ -280,6 +292,7 @@ void ApplyUIStressAction(
         {
             debug.physicsDebugAlpha = alpha;
         }
+
         break;
     }
     case 21:
@@ -289,6 +302,7 @@ void ApplyUIStressAction(
         {
             debug.physicsDebugContactLinger = contactLinger;
         }
+
         break;
     }
     case 22:
@@ -299,23 +313,19 @@ void ApplyUIStressAction(
         if ( allowRuntimeChurn )
         {
             const WorldOverrideChange change = ApplyUIWorldOverride( world, gravity, fluidHeight, fluidDensity );
-            replayRuntime.SubmitEvent(
-                ReplayEventCommandOperations::BuildWorldOverride(
-                    change.previousGravity,
-                    change.previousFluidHeight,
-                    change.previousFluidDensity,
-                    change.gravity,
-                    change.fluidHeight,
-                    change.fluidDensity
-                )
-            );
+            replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildWorldOverride( change.previousGravity,
+                                                                                         change.previousFluidHeight,
+                                                                                         change.previousFluidDensity,
+                                                                                         change.gravity,
+                                                                                         change.fluidHeight,
+                                                                                         change.fluidDensity ) );
         }
+
         break;
     }
     case 23:
         ui.SetActiveTab(
-            static_cast<InGameUITab>( StressHarness::NextInt( stress, static_cast<int>( InGameUITab::Count ) ) )
-        );
+            static_cast<InGameUITab>( StressHarness::NextInt( stress, static_cast<int>( InGameUITab::Count ) ) ) );
         break;
     default:
         break;
@@ -323,32 +333,32 @@ void ApplyUIStressAction(
 }
 
 
-SceneRuntimeStyleContext BuildGraphicsStressStyleContext(
-    RunLaunchOptions& launchOptions,
-    SceneSessionState& scene,
-    SkullbonezCore::UI::RunSceneBrowserState& browser,
-    SceneWorld& world,
-    const SkullbonezCore::Assets::AssetSystem& assets,
-    SkullbonezCore::Core::EngineConfig& config,
-    const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender
-)
+SceneRuntimeStyleContext
+BuildGraphicsStressStyleContext( RunLaunchOptions& launchOptions,
+                                 SceneSessionState& scene,
+                                 SkullbonezCore::UI::RunSceneBrowserState& browser,
+                                 SceneWorld& world,
+                                 const SkullbonezCore::Assets::AssetSystem& assets,
+                                 SkullbonezCore::Core::EngineConfig& config,
+                                 const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender )
 {
-    return SceneRuntimeStyleContext {
-        launchOptions,         scene, browser, world, assets, ActiveSceneCinematicConfig( scene, config ),
-        defaultCinematicRender
-    };
+    return SceneRuntimeStyleContext { launchOptions,
+                                      scene,
+                                      browser,
+                                      world,
+                                      assets,
+                                      ActiveSceneCinematicConfig( scene, config ),
+                                      defaultCinematicRender };
 }
 
 
-void ApplyGraphicsStressAction(
-    const SkullbonezCore::Assets::AssetSystem& assets,
-    RuntimeFrameInteractionView& interactionOwners,
-    RuntimeFrameSceneView& sceneOwners,
-    const RenderDefaultsStore& renderDefaults,
-    RuntimeRenderer& renderer,
-    ReplayRuntime& replayRuntime,
-    GraphicsStressController& stress
-)
+void ApplyGraphicsStressAction( const SkullbonezCore::Assets::AssetSystem& assets,
+                                RuntimeFrameInteractionView& interactionOwners,
+                                RuntimeFrameSceneView& sceneOwners,
+                                const RenderDefaultsStore& renderDefaults,
+                                RuntimeRenderer& renderer,
+                                ReplayRuntime& replayRuntime,
+                                GraphicsStressController& stress )
 {
     RunLaunchOptions& launchOptions = sceneOwners.launchOptions;
     SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
@@ -378,25 +388,29 @@ void ApplyGraphicsStressAction(
             scene.cinematicOverrideMask |= SCENE_CINE_RENDERING;
             scene.uiCinematicOverrideMask |= SCENE_CINE_RENDERING;
         }
+
         break;
     }
     case 1:
     {
         SkullbonezCore::Core::CinematicRenderConfig& cinematic = ActiveSceneCinematicConfig( scene, config );
-        const UICinematicFeature feature =
-            static_cast<UICinematicFeature>( stress.NextInt( static_cast<int>( UICinematicFeature::Count ) ) );
+        const UICinematicFeature feature = static_cast<UICinematicFeature>(
+            stress.NextInt( static_cast<int>( UICinematicFeature::Count ) ) );
+
         if ( feature == UICinematicFeature::Shadows )
         {
             launchOptions.hasCinematicShadowsOverride = false;
         }
+
         ToggleCinematicUIFeature( cinematic, scene, feature );
         break;
     }
     case 2:
     {
         SkullbonezCore::Core::CinematicRenderConfig& cinematic = ActiveSceneCinematicConfig( scene, config );
-        const UICinematicParam param =
-            static_cast<UICinematicParam>( stress.NextInt( static_cast<int>( UICinematicParam::Count ) ) );
+        const UICinematicParam param = static_cast<UICinematicParam>(
+            stress.NextInt( static_cast<int>( UICinematicParam::Count ) ) );
+
         ApplyCinematicUIParam( cinematic, scene, param, stress.RandomCinematicParamValue( param ) );
         break;
     }
@@ -404,18 +418,14 @@ void ApplyGraphicsStressAction(
     {
         const int browserCount = static_cast<int>( ui.SceneNavigation().browser.paths.size() );
         const int browserIndex = ( browserCount > 0 && stress.NextInt( 5 ) != 0 ) ? stress.NextInt( browserCount ) : -1;
-        (void)ApplyCinematicModeFromBrowserIndex(
-            BuildGraphicsStressStyleContext(
-                launchOptions,
-                scene,
-                ui.SceneNavigation().browser,
-                sceneController.Scene(),
-                assets,
-                config,
-                defaultCinematicRender
-            ),
-            browserIndex
-        );
+        (void)ApplyCinematicModeFromBrowserIndex( BuildGraphicsStressStyleContext( launchOptions,
+                                                                                   scene,
+                                                                                   ui.SceneNavigation().browser,
+                                                                                   sceneController.Scene(),
+                                                                                   assets,
+                                                                                   config,
+                                                                                   defaultCinematicRender ),
+                                                  browserIndex );
 
         break;
     }
@@ -437,6 +447,7 @@ void ApplyGraphicsStressAction(
         {
             debug.frozenWaterTime = static_cast<float>( timers.simulationTimer.GetTimeSinceLastStart() );
         }
+
         break;
     case 9:
         debug.isWaterFlatDebug = !debug.isWaterFlatDebug;
@@ -457,7 +468,11 @@ void ApplyGraphicsStressAction(
     case 13:
     {
         static const uint32_t kFlags[] = {
-            PHYSICS_DEBUG_NONE, PHYSICS_DEBUG_AXES, PHYSICS_DEBUG_CONTACTS, PHYSICS_DEBUG_SLEEP, PHYSICS_DEBUG_ALL,
+            PHYSICS_DEBUG_NONE,
+            PHYSICS_DEBUG_AXES,
+            PHYSICS_DEBUG_CONTACTS,
+            PHYSICS_DEBUG_SLEEP,
+            PHYSICS_DEBUG_ALL,
         };
 
         debug.physicsDebugFlags = kFlags[stress.NextInt( static_cast<int>( sizeof( kFlags ) / sizeof( kFlags[0] ) ) )];
@@ -478,23 +493,17 @@ void ApplyGraphicsStressAction(
     }
     case 16:
     {
-        const WorldOverrideChange change = ApplyUIWorldOverride(
-            world,
-            -stress.NextFloat( 0.0f, 80.0f ),
-            stress.NextFloat( -80.0f, 160.0f ),
-            stress.NextFloat( 0.0f, 5.0f )
-        );
+        const WorldOverrideChange change = ApplyUIWorldOverride( world,
+                                                                 -stress.NextFloat( 0.0f, 80.0f ),
+                                                                 stress.NextFloat( -80.0f, 160.0f ),
+                                                                 stress.NextFloat( 0.0f, 5.0f ) );
 
-        replayRuntime.SubmitEvent(
-            ReplayEventCommandOperations::BuildWorldOverride(
-                change.previousGravity,
-                change.previousFluidHeight,
-                change.previousFluidDensity,
-                change.gravity,
-                change.fluidHeight,
-                change.fluidDensity
-            )
-        );
+        replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildWorldOverride( change.previousGravity,
+                                                                                     change.previousFluidHeight,
+                                                                                     change.previousFluidDensity,
+                                                                                     change.gravity,
+                                                                                     change.fluidHeight,
+                                                                                     change.fluidDensity ) );
 
         break;
     }
@@ -571,12 +580,10 @@ void ApplyGraphicsStressAction(
 } // namespace
 
 
-void GraphicsStressController::Configure(
-    unsigned int seed,
-    int actionsPerFrame,
-    int sceneIntervalFrames,
-    int memoryLogIntervalFrames
-)
+void GraphicsStressController::Configure( unsigned int seed,
+                                          int actionsPerFrame,
+                                          int sceneIntervalFrames,
+                                          int memoryLogIntervalFrames )
 {
     m_enabled = true;
     m_randomState = seed;
@@ -598,6 +605,7 @@ void GraphicsStressController::ResumeAfterSceneLoad( unsigned int seed, int acti
     {
         m_randomState = seed;
     }
+
     m_actionsPerFrame = actionsPerFrame;
     m_sceneIntervalFrames = sceneIntervalFrames;
 }
@@ -658,6 +666,7 @@ int GraphicsStressController::NextInt( int maxExclusive )
     {
         return 0;
     }
+
     m_randomState = NextStressRandom( m_randomState );
     return static_cast<int>( m_randomState % static_cast<unsigned int>( maxExclusive ) );
 }
@@ -897,15 +906,14 @@ float GraphicsStressController::RandomCinematicParamValue( UI::UICinematicParam 
 // Lifetime: UI stress is a validation harness over synchronous owner borrows.
 // It keeps only deterministic counters in DiagnosticsRuntime and retains no
 // scene, UI, renderer, or input owner after the action batch returns.
-SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::RunUIStressActions(
-    RuntimeFrameHostView& host,
-    RuntimeFrameInteractionView& interactionOwners,
-    RuntimeFrameSceneView& sceneOwners,
-    RuntimeRenderBackendView& renderBackendView,
-    RuntimeRenderer& renderer,
-    ReplayRuntime& replayRuntime,
-    RunCameraMode replayRestoreCameraMode
-)
+SkullbonezCore::Core::SbResult
+SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host,
+                                             RuntimeFrameInteractionView& interactionOwners,
+                                             RuntimeFrameSceneView& sceneOwners,
+                                             RuntimeRenderBackendView& renderBackendView,
+                                             RuntimeRenderer& renderer,
+                                             ReplayRuntime& replayRuntime,
+                                             RunCameraMode replayRestoreCameraMode )
 {
     DiagnosticsRuntime& m_diagnosticsRuntime = host.diagnosticsRuntime;
     Window* window = &host.window;
@@ -941,20 +949,9 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::RunUIStressActions(
     // This gate is a UI control-state crash sweep. Runtime rebuilds and world
     // debug toggles belong to render/physics validation, so they stay frozen here.
     const bool allowRuntimeChurn = StressHarness::AllowsRuntimeChurn();
-    const SceneGeneratedControlPolicy sceneGeneratedPolicy {
-        m_config,
-        m_launchOptions.generatedObjectTypeOverride,
-        SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config )
-    };
+    const int generatedObjectCapacity = SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config );
 
-    const SceneGeneratedControlPresentation sceneGeneratedPresentation { m_UI.SceneNavigation().overrides, m_camera };
-
-    const SceneGeneratedControlResetParticipants sceneGeneratedReset { m_simulation,
-                                                                       m_runtimeTools,
-                                                                       m_renderBackendView.renderFrame };
-
-    const auto executeSceneGeneratedControlAction =
-        [&]( const SceneRuntimeGeneratedControlAction& action ) -> SkullbonezCore::Core::SbResult
+    const auto executeSceneGeneratedControlAction = [&]( const SceneRuntimeGeneratedControlAction& action ) -> SkullbonezCore::Core::SbResult
     {
         if ( !action.status.ok )
         {
@@ -962,6 +959,7 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::RunUIStressActions(
             // and let the input boundary report and end the run.
             return action.status;
         }
+
         if ( action.resetReplayTimeline )
         {
             const ReplaySceneTimelineResetInput reset = DescribeReplaySceneTimeline(
@@ -969,25 +967,24 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::RunUIStressActions(
                 m_UI.SceneNavigation().overrides,
                 m_sceneController.State(),
                 SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ),
-                static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride )
-            );
+                static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
 
-            m_replayRuntime.ResetSceneTimeline(
-                reset,
-                ReplaySceneTimelineResetOwners { m_inputRouter,
-                                                 m_interaction,
-                                                 &m_sceneController.Scene().Cameras(),
-                                                 m_sceneController.Scene().Terrain().Get(),
-                                                 m_camera,
-                                                 replayRestoreCameraMode,
-                                                 m_attachedCamera.State().activeFollow,
-                                                 m_camera.director.grabbed }
-            );
+            m_replayRuntime.ResetSceneTimeline( reset,
+                                                m_inputRouter,
+                                                m_interaction,
+                                                &m_sceneController.Scene().Cameras(),
+                                                m_sceneController.Scene().Terrain().Get(),
+                                                m_camera,
+                                                replayRestoreCameraMode,
+                                                m_attachedCamera.State().activeFollow,
+                                                m_camera.director.grabbed );
         }
+
         if ( action.scheduleProfileReset )
         {
             PROFILE_SCHEDULE_RESET( host.profiler );
         }
+
         return SkullbonezCore::Core::SbResult::Success();
     };
 
@@ -996,74 +993,90 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::RunUIStressActions(
         const int modelCount = 96 + StressHarness::NextInt( stress, 160 );
         if ( allowRuntimeChurn )
         {
-            const SkullbonezCore::Core::SbResult actionResult =
-                executeSceneGeneratedControlAction( ApplyUIModelCountOverride(
-                    sceneGeneratedPolicy,
-                    sceneGeneratedPresentation,
-                    sceneGeneratedReset,
-                    m_sceneController,
-                    modelCount
-                ) );
+            SceneGeneratedControlTransaction transaction = SceneGeneratedControlTransaction::ModelCount(
+                modelCount,
+                m_launchOptions.generatedObjectTypeOverride,
+                generatedObjectCapacity );
+
+            const SkullbonezCore::Core::SbResult actionResult = executeSceneGeneratedControlAction(
+                transaction
+                    .Execute( m_config,
+                              m_sceneController,
+                              m_UI.SceneNavigation().overrides,
+                              m_camera,
+                              m_simulation,
+                              m_runtimeTools,
+                              m_renderBackendView.renderFrame )
+                    .action );
+
             if ( !actionResult.ok )
             {
                 return actionResult;
             }
         }
     }
+
     if ( stress.framesRun == 42 )
     {
         const int balls = 24 + StressHarness::NextInt( stress, 220 );
         const int boxes = StressHarness::NextInt( stress, 1000 - balls + 1 );
         if ( allowRuntimeChurn )
         {
-            const SkullbonezCore::Core::SbResult actionResult =
-                executeSceneGeneratedControlAction( ApplyUISolverObjectCounts(
-                    sceneGeneratedPolicy,
-                    sceneGeneratedPresentation,
-                    sceneGeneratedReset,
-                    m_sceneController,
-                    balls,
-                    boxes
-                ) );
+            SceneGeneratedControlTransaction transaction = SceneGeneratedControlTransaction::SolverCounts(
+                balls,
+                boxes,
+                m_launchOptions.generatedObjectTypeOverride,
+                generatedObjectCapacity );
+
+            const SkullbonezCore::Core::SbResult actionResult = executeSceneGeneratedControlAction(
+                transaction
+                    .Execute( m_config,
+                              m_sceneController,
+                              m_UI.SceneNavigation().overrides,
+                              m_camera,
+                              m_simulation,
+                              m_runtimeTools,
+                              m_renderBackendView.renderFrame )
+                    .action );
+
             if ( !actionResult.ok )
             {
                 return actionResult;
             }
         }
     }
+
     const int actionCount = StressHarness::ActionCount( stress );
     for ( int i = 0; i < actionCount; ++i )
     {
-        ApplyUIStressAction(
-            m_UI,
-            sceneOwners,
-            m_renderBackendView,
-            renderer,
-            m_replayRuntime,
-            stress,
-            allowRuntimeChurn
-        );
+        ApplyUIStressAction( m_UI,
+                             sceneOwners,
+                             m_renderBackendView,
+                             renderer,
+                             m_replayRuntime,
+                             stress,
+                             allowRuntimeChurn );
     }
+
     return SkullbonezCore::Core::SbResult::Success();
 }
 
 
-void RuntimeValidationHarness::ExecuteGraphicsStressFrame(
-    RuntimeFrameHostView& host,
-    RuntimeFrameInteractionView& interactionOwners,
-    RuntimeFrameSceneView& sceneOwners,
-    RuntimeFramePresentationView& presentationOwners,
-    ReplayRuntime& replayRuntime,
-    const Rendering::Dx12Diagnostics& renderDiagnostics,
-    bool legacyDevelopmentUiActive
-)
+void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView& host,
+                                                           RuntimeFrameInteractionView& interactionOwners,
+                                                           RuntimeFrameSceneView& sceneOwners,
+                                                           RuntimeFramePresentationView& presentationOwners,
+                                                           ReplayRuntime& replayRuntime,
+                                                           const Rendering::Dx12Diagnostics& renderDiagnostics,
+                                                           bool legacyDevelopmentUiActive )
 {
     GraphicsStressController& stress = m_graphicsStress;
     Window* window = &host.window;
     SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
     RunLaunchOptions& launchOptions = sceneOwners.launchOptions;
-    const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender =
-        presentationOwners.renderDefaults.CinematicBaseline();
+    const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender = presentationOwners.renderDefaults
+                                                                                    .CinematicBaseline();
+
     const RunStartupState& startup = sceneOwners.startup;
     DiagnosticsRuntime& diagnosticsRuntime = host.diagnosticsRuntime;
     RunTimerState& timers = sceneOwners.timers;
@@ -1090,12 +1103,11 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame(
     stress.BeginFrame();
     if ( stress.FramesRun() == 1 )
     {
-        printf(
-            "[graphics-stress] Running seed=%u actions=%d scene_interval_frames=%d\n",
-            stress.RandomState(),
-            stress.ActionsPerFrame(),
-            stress.SceneIntervalFrames()
-        );
+        printf( "[graphics-stress] Running seed=%u actions=%d scene_interval_frames=%d\n",
+                stress.RandomState(),
+                stress.ActionsPerFrame(),
+                stress.SceneIntervalFrames() );
+
         fflush( stdout );
     }
 
@@ -1105,61 +1117,54 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame(
         {
             return false;
         }
-        SceneLoadConsumerOutputs sceneLoadOutputs;
-        const bool loaded =
-            sceneController
-                .Load(
-                    request,
-                    SceneLoadPolicyInputs { config,
-                                            launchOptions,
-                                            defaultCinematicRender,
-                                            startup,
-                                            assets,
-                                            workerPool,
-                                            diagnosticsRuntime,
-                                            renderBackendView.RendererName(),
-                                            timers.simulationTimer.GetTotalTime() },
-                    SceneLoadInteractionParticipants { camera,
-                                                       CaptureSceneLoadNavigationState( ui.SceneNavigation() ) },
-                    SceneLoadPresentationParticipants { sceneOwners.overlays.PresentationSnapshot(),
-                                                        renderBackendView.renderFrame,
-                                                        renderBackendView.renderResources,
-                                                        renderer },
-                    sceneLoadOutputs
-                )
-                .ok;
+
+        SceneLoadTransaction sceneLoad;
+        sceneLoad.CaptureSubmittedState( camera,
+                                         CaptureSceneLoadNavigationState( ui.SceneNavigation() ),
+                                         sceneOwners.overlays.PresentationSnapshot(),
+                                         renderBackendView.RendererName(),
+                                         timers.simulationTimer.GetTotalTime() );
+
+        const bool loaded = sceneLoad
+                                .Load( sceneController,
+                                       request,
+                                       config,
+                                       launchOptions,
+                                       defaultCinematicRender,
+                                       startup,
+                                       assets,
+                                       workerPool,
+                                       diagnosticsRuntime,
+                                       renderBackendView.renderFrame,
+                                       renderBackendView.renderResources,
+                                       renderer )
+                                .ok;
+
         if ( !legacyDevelopmentUiActive )
         {
             // Invariant: scene churn may update diagnostics and runtime state,
             // but it cannot reactivate the mutually exclusive Legacy surface.
-            sceneLoadOutputs.uiActivation.preserveUIState = true;
-            sceneLoadOutputs.uiActivation.forceVisible = false;
-            sceneLoadOutputs.uiActivation.forceUnminimized = false;
+            sceneLoad.PreserveInactiveDevelopmentUi();
         }
-        ApplySceneLoadRuntimeReactions(
-            sceneLoadOutputs,
-            launchOptions,
-            timers,
-            sceneOwners.overlays,
-            sceneController,
-            inputRouter,
-            interaction,
-            camera,
-            attachedCamera,
-            runtimeTools,
-            replayRuntime
-        );
 
-        ApplySceneLoadPresentationOutputs(
-            sceneLoadOutputs,
-            *window,
-            ui,
-            presentationOwners.validationHarness,
-            launchOptions,
-            renderBackendView.renderDevice,
-            renderer.VsyncEnabled(),
-            sceneController
-        );
+        sceneLoad.ApplyRuntimeReactions( launchOptions,
+                                         timers,
+                                         sceneOwners.overlays,
+                                         sceneController,
+                                         inputRouter,
+                                         interaction,
+                                         camera,
+                                         attachedCamera,
+                                         runtimeTools,
+                                         replayRuntime );
+
+        sceneLoad.ApplyPresentationOutputs( *window,
+                                            ui,
+                                            presentationOwners.validationHarness,
+                                            launchOptions,
+                                            renderBackendView.renderDevice,
+                                            renderer.VsyncEnabled(),
+                                            sceneController );
 
         return loaded;
     };
@@ -1167,17 +1172,16 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame(
     const SkullbonezCore::Rendering::RenderMemoryStats preActionRenderStats = renderDiagnostics.GetRenderMemoryStats();
     if ( stress.ShouldCaptureDescriptorBaseline() )
     {
-        stress.CaptureDescriptorBaseline(
-            preActionRenderStats.srvStaticDescriptorsUsed,
-            preActionRenderStats.recreationGeneration
-        );
-        printf(
-            "[graphics-stress-descriptor-churn] baseline=%u frame=%d\n",
-            stress.DescriptorBaseline(),
-            stress.FramesRun()
-        );
+        stress.CaptureDescriptorBaseline( preActionRenderStats.srvStaticDescriptorsUsed,
+                                          preActionRenderStats.recreationGeneration );
+
+        printf( "[graphics-stress-descriptor-churn] baseline=%u frame=%d\n",
+                stress.DescriptorBaseline(),
+                stress.FramesRun() );
+
         fflush( stdout );
     }
+
     if ( stress.ShouldIssueDescriptorResize() )
     {
         // A request counts only after diagnostics observes the backend's
@@ -1186,17 +1190,17 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame(
         const int edge = ( stress.DescriptorResizeCount() & 1 ) == 0 ? 1280 : 1281;
         if ( !SetWindowPos( window->NativeWindowHandle(), nullptr, 0, 0, edge, 720, SWP_NOMOVE | SWP_NOZORDER ) )
         {
-            SB_FATAL(
-                "GraphicsStress",
-                "Descriptor churn SetWindowPos failed. resize=%d",
-                stress.DescriptorResizeCount()
-            );
+            SB_FATAL( "GraphicsStress",
+                      "Descriptor churn SetWindowPos failed. resize=%d",
+                      stress.DescriptorResizeCount() );
         }
+
         stress.RecordDescriptorResize();
         if ( !renderBackendView.renderTextures )
         {
             SB_FATAL( "GraphicsStress", "Descriptor churn requires the DX12 texture owner." );
         }
+
         const uint8_t churnPixel[4] = { 255u, 0u, 255u, 255u };
 
         const uint32_t churnTexture = renderBackendView.renderTextures->CreateTexture2D(
@@ -1205,46 +1209,43 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame(
             1,
             4,
             Rendering::TextureMipPolicy::SingleLevel,
-            Rendering::TextureFilterPolicy::Nearest
-        );
+            Rendering::TextureFilterPolicy::Nearest );
 
         if ( churnTexture == 0 )
         {
-            SB_FATAL(
-                "GraphicsStress",
-                "Descriptor churn texture creation failed. request=%d",
-                stress.DescriptorResizeCount()
-            );
+            SB_FATAL( "GraphicsStress",
+                      "Descriptor churn texture creation failed. request=%d",
+                      stress.DescriptorResizeCount() );
         }
+
         renderBackendView.renderTextures->DeleteTexture( churnTexture );
         stress.RecordTextureChurn();
     }
+
     if ( stress.ShouldVerifyDescriptorChurn() )
     {
         stress.ObserveRecreationGeneration( preActionRenderStats.recreationGeneration );
         if ( !stress.DescriptorChurnMatchesBaseline( preActionRenderStats.srvStaticDescriptorsUsed ) )
         {
-            SB_FATAL(
-                "GraphicsStress",
-                "Static descriptor churn did not return to baseline. baseline=%u current=%u requested=%d "
-                "acknowledged=%d textures=%d",
+            SB_FATAL( "GraphicsStress",
+                      "Static descriptor churn did not return to baseline. baseline=%u current=%u requested=%d "
+                      "acknowledged=%d textures=%d",
+                      stress.DescriptorBaseline(),
+                      preActionRenderStats.srvStaticDescriptorsUsed,
+                      stress.DescriptorResizeCount(),
+                      stress.AcknowledgedResizeCount(),
+                      stress.TextureChurnCount() );
+        }
+
+        printf( "[graphics-stress-descriptor-churn] PASS baseline=%u current=%u requested=%d acknowledged=%d "
+                "textures=%d high_water=%u\n",
                 stress.DescriptorBaseline(),
                 preActionRenderStats.srvStaticDescriptorsUsed,
                 stress.DescriptorResizeCount(),
                 stress.AcknowledgedResizeCount(),
-                stress.TextureChurnCount()
-            );
-        }
-        printf(
-            "[graphics-stress-descriptor-churn] PASS baseline=%u current=%u requested=%d acknowledged=%d "
-            "textures=%d high_water=%u\n",
-            stress.DescriptorBaseline(),
-            preActionRenderStats.srvStaticDescriptorsUsed,
-            stress.DescriptorResizeCount(),
-            stress.AcknowledgedResizeCount(),
-            stress.TextureChurnCount(),
-            preActionRenderStats.srvStaticDescriptorsHighWater
-        );
+                stress.TextureChurnCount(),
+                preActionRenderStats.srvStaticDescriptorsHighWater );
+
         fflush( stdout );
     }
 
@@ -1272,24 +1273,22 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame(
         if ( executeSceneLoadRequest( request ) )
         {
             stress.RecordSceneLoad();
-            printf(
-                "[graphics-stress] scene_load=%d frame=%d source=%s selected_index=%d action_index=%d\n",
-                stress.SceneLoadsRequested(),
-                stress.FramesRun(),
-                selectedSceneSource,
-                selectedSceneIndex,
-                request.index
-            );
+            printf( "[graphics-stress] scene_load=%d frame=%d source=%s selected_index=%d action_index=%d\n",
+                    stress.SceneLoadsRequested(),
+                    stress.FramesRun(),
+                    selectedSceneSource,
+                    selectedSceneIndex,
+                    request.index );
+
             fflush( stdout );
         }
         else
         {
-            printf(
-                "[graphics-stress] scene_load_skipped frame=%d source=%s selected_index=%d\n",
-                stress.FramesRun(),
-                selectedSceneSource,
-                selectedSceneIndex
-            );
+            printf( "[graphics-stress] scene_load_skipped frame=%d source=%s selected_index=%d\n",
+                    stress.FramesRun(),
+                    selectedSceneSource,
+                    selectedSceneIndex );
+
             fflush( stdout );
         }
     }
@@ -1299,6 +1298,7 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame(
         ui.SetVisible( true, timers.simulationTimer.GetTotalTime() );
         ui.SetMinimized( false, timers.simulationTimer.GetTotalTime() );
     }
+
     sceneController.EnterInteractiveRun();
 
     const int actionCount = stress.InDescriptorChurnQuietWindow() ? 0 : stress.ActionCount();
@@ -1307,25 +1307,22 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame(
     // not manufacture impossible physics or render data.
     for ( int i = 0; i < actionCount; ++i )
     {
-        ApplyGraphicsStressAction(
-            assets,
-            interactionOwners,
-            sceneOwners,
-            presentationOwners.renderDefaults,
-            renderer,
-            replayRuntime,
-            stress
-        );
+        ApplyGraphicsStressAction( assets,
+                                   interactionOwners,
+                                   sceneOwners,
+                                   presentationOwners.renderDefaults,
+                                   renderer,
+                                   replayRuntime,
+                                   stress );
     }
 
     if ( stress.ShouldPrintFrameSummary() )
     {
-        printf(
-            "[graphics-stress] frame=%d scene_loads=%d rng=%u\n",
-            stress.FramesRun(),
-            stress.SceneLoadsRequested(),
-            stress.RandomState()
-        );
+        printf( "[graphics-stress] frame=%d scene_loads=%d rng=%u\n",
+                stress.FramesRun(),
+                stress.SceneLoadsRequested(),
+                stress.RandomState() );
+
         fflush( stdout );
     }
 
@@ -1341,84 +1338,75 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame(
                                              sceneController.Scene().CollectGameplayMemoryBytes(),
                                              sceneController.Scene().CollectGameplayDebugMemoryBytes(),
                                              sceneController.Scene().Physics(),
-                                             sceneController.Scene().RenderInstances() }
-            ),
+                                             sceneController.Scene().RenderInstances() } ),
             timers.simulationTimer.GetTotalTime(),
-            true
-        );
+            true );
 
         const SkullbonezCore::Rendering::RenderMemoryStats renderStats = renderDiagnostics.GetRenderMemoryStats();
-        printf(
-            "[graphics-stress-memory] frame=%d scene_loads=%d task_manager_bytes=%llu "
-            "working_set_bytes=%llu private_working_set_bytes=%llu private_commit_bytes=%llu pagefile_bytes=%llu "
-            "tracked_engine_bytes=%llu replay_bytes=%llu game_object_bytes=%llu unattributed_process_bytes=%llu "
-            "render_available=%d render_adapter_available=%d dxgi_local_usage_bytes=%llu "
-            "dxgi_nonlocal_usage_bytes=%llu dxgi_local_budget_bytes=%llu dxgi_nonlocal_budget_bytes=%llu "
-            "upload_capacity_bytes=%llu upload_used_bytes=%llu upload_peak_bytes=%llu timer_readback_bytes=%llu "
-            "upload_constants_peak_bytes=%llu upload_dynamic_peak_bytes=%llu upload_instances_peak_bytes=%llu "
-            "upload_textures_peak_bytes=%llu upload_overlay_peak_bytes=%llu upload_flushes=%llu upload_drops=%llu "
-            "textures=%zu texture_capacity=%zu psos=%zu pso_hits=%llu pso_misses=%llu "
-            "pso_precompiled=%llu graph_transients=%zu graph_transient_capacity=%zu "
-            "rtv_used=%u rtv_capacity=%u dsv_used=%u dsv_capacity=%u srv_static_used=%u srv_static_capacity=%u "
-            "srv_static_high_water=%u "
-            "srv_transient_used=%u srv_transient_capacity=%u srv_transient_peak=%u\n",
-            stress.FramesRun(),
-            stress.SceneLoadsRequested(),
-            static_cast<unsigned long long>( memoryStats.process.taskManagerBytes ),
-            static_cast<unsigned long long>( memoryStats.process.workingSetBytes ),
-            static_cast<unsigned long long>( memoryStats.process.privateWorkingSetBytes ),
-            static_cast<unsigned long long>( memoryStats.process.privateCommitBytes ),
-            static_cast<unsigned long long>( memoryStats.process.pagefileUsageBytes ),
-            static_cast<unsigned long long>( memoryStats.trackedEngineBytes ),
-            static_cast<unsigned long long>( memoryStats.replay.totalBytes ),
-            static_cast<unsigned long long>( memoryStats.gameObjects.totalBytes ),
-            static_cast<unsigned long long>( memoryStats.unattributedProcessBytes ),
-            renderStats.available ? 1 : 0,
-            renderStats.adapterMemoryAvailable ? 1 : 0,
-            static_cast<unsigned long long>( renderStats.localCurrentUsageBytes ),
-            static_cast<unsigned long long>( renderStats.nonLocalCurrentUsageBytes ),
-            static_cast<unsigned long long>( renderStats.localBudgetBytes ),
-            static_cast<unsigned long long>( renderStats.nonLocalBudgetBytes ),
-            static_cast<unsigned long long>( renderStats.uploadCapacityBytes ),
-            static_cast<unsigned long long>( renderStats.uploadUsedBytes ),
-            static_cast<unsigned long long>( renderStats.uploadPeakBytes ),
-            static_cast<unsigned long long>( renderStats.timerReadbackBytes ),
-            static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>(
-                SkullbonezCore::Rendering::RenderUploadCategory::Constants
-            )] ),
-            static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>(
-                SkullbonezCore::Rendering::RenderUploadCategory::DynamicVertex
-            )] ),
-            static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>(
-                SkullbonezCore::Rendering::RenderUploadCategory::InstanceData
-            )] ),
-            static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>(
-                SkullbonezCore::Rendering::RenderUploadCategory::TextureRows
-            )] ),
-            static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>(
-                SkullbonezCore::Rendering::RenderUploadCategory::DebugPredictionOverlay
-            )] ),
-            static_cast<unsigned long long>( renderStats.uploadFlushCount ),
-            static_cast<unsigned long long>( renderStats.uploadDropCount ),
-            renderStats.textureRegistryCount,
-            renderStats.textureRegistryCapacity,
-            renderStats.psoCacheCount,
-            static_cast<unsigned long long>( renderStats.psoCacheHitCount ),
-            static_cast<unsigned long long>( renderStats.psoCacheMissCount ),
-            static_cast<unsigned long long>( renderStats.precompiledPsoCount ),
-            renderStats.graphTransientCount,
-            renderStats.graphTransientCapacity,
-            renderStats.rtvDescriptorsUsed,
-            renderStats.rtvDescriptorsCapacity,
-            renderStats.dsvDescriptorsUsed,
-            renderStats.dsvDescriptorsCapacity,
-            renderStats.srvStaticDescriptorsUsed,
-            renderStats.srvStaticDescriptorsCapacity,
-            renderStats.srvStaticDescriptorsHighWater,
-            renderStats.srvTransientDescriptorsUsedThisFrame,
-            renderStats.srvTransientDescriptorsCapacityPerFrame,
-            renderStats.srvTransientDescriptorsPeakThisRun
-        );
+        printf( "[graphics-stress-memory] frame=%d scene_loads=%d task_manager_bytes=%llu "
+                "working_set_bytes=%llu private_working_set_bytes=%llu private_commit_bytes=%llu pagefile_bytes=%llu "
+                "tracked_engine_bytes=%llu replay_bytes=%llu game_object_bytes=%llu unattributed_process_bytes=%llu "
+                "render_available=%d render_adapter_available=%d dxgi_local_usage_bytes=%llu "
+                "dxgi_nonlocal_usage_bytes=%llu dxgi_local_budget_bytes=%llu dxgi_nonlocal_budget_bytes=%llu "
+                "upload_capacity_bytes=%llu upload_used_bytes=%llu upload_peak_bytes=%llu timer_readback_bytes=%llu "
+                "upload_constants_peak_bytes=%llu upload_dynamic_peak_bytes=%llu upload_instances_peak_bytes=%llu "
+                "upload_textures_peak_bytes=%llu upload_overlay_peak_bytes=%llu upload_flushes=%llu upload_drops=%llu "
+                "textures=%zu texture_capacity=%zu psos=%zu pso_hits=%llu pso_misses=%llu "
+                "pso_precompiled=%llu graph_transients=%zu graph_transient_capacity=%zu "
+                "rtv_used=%u rtv_capacity=%u dsv_used=%u dsv_capacity=%u srv_static_used=%u srv_static_capacity=%u "
+                "srv_static_high_water=%u "
+                "srv_transient_used=%u srv_transient_capacity=%u srv_transient_peak=%u\n",
+                stress.FramesRun(),
+                stress.SceneLoadsRequested(),
+                static_cast<unsigned long long>( memoryStats.process.taskManagerBytes ),
+                static_cast<unsigned long long>( memoryStats.process.workingSetBytes ),
+                static_cast<unsigned long long>( memoryStats.process.privateWorkingSetBytes ),
+                static_cast<unsigned long long>( memoryStats.process.privateCommitBytes ),
+                static_cast<unsigned long long>( memoryStats.process.pagefileUsageBytes ),
+                static_cast<unsigned long long>( memoryStats.trackedEngineBytes ),
+                static_cast<unsigned long long>( memoryStats.replay.totalBytes ),
+                static_cast<unsigned long long>( memoryStats.gameObjects.totalBytes ),
+                static_cast<unsigned long long>( memoryStats.unattributedProcessBytes ),
+                renderStats.available ? 1 : 0,
+                renderStats.adapterMemoryAvailable ? 1 : 0,
+                static_cast<unsigned long long>( renderStats.localCurrentUsageBytes ),
+                static_cast<unsigned long long>( renderStats.nonLocalCurrentUsageBytes ),
+                static_cast<unsigned long long>( renderStats.localBudgetBytes ),
+                static_cast<unsigned long long>( renderStats.nonLocalBudgetBytes ),
+                static_cast<unsigned long long>( renderStats.uploadCapacityBytes ),
+                static_cast<unsigned long long>( renderStats.uploadUsedBytes ),
+                static_cast<unsigned long long>( renderStats.uploadPeakBytes ),
+                static_cast<unsigned long long>( renderStats.timerReadbackBytes ),
+                static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>(
+                    SkullbonezCore::Rendering::RenderUploadCategory::Constants )] ),
+                static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>(
+                    SkullbonezCore::Rendering::RenderUploadCategory::DynamicVertex )] ),
+                static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>(
+                    SkullbonezCore::Rendering::RenderUploadCategory::InstanceData )] ),
+                static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>(
+                    SkullbonezCore::Rendering::RenderUploadCategory::TextureRows )] ),
+                static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>(
+                    SkullbonezCore::Rendering::RenderUploadCategory::RetainedGeometry )] ),
+                static_cast<unsigned long long>( renderStats.uploadFlushCount ),
+                static_cast<unsigned long long>( renderStats.uploadDropCount ),
+                renderStats.textureRegistryCount,
+                renderStats.textureRegistryCapacity,
+                renderStats.psoCacheCount,
+                static_cast<unsigned long long>( renderStats.psoCacheHitCount ),
+                static_cast<unsigned long long>( renderStats.psoCacheMissCount ),
+                static_cast<unsigned long long>( renderStats.precompiledPsoCount ),
+                renderStats.graphTransientCount,
+                renderStats.graphTransientCapacity,
+                renderStats.rtvDescriptorsUsed,
+                renderStats.rtvDescriptorsCapacity,
+                renderStats.dsvDescriptorsUsed,
+                renderStats.dsvDescriptorsCapacity,
+                renderStats.srvStaticDescriptorsUsed,
+                renderStats.srvStaticDescriptorsCapacity,
+                renderStats.srvStaticDescriptorsHighWater,
+                renderStats.srvTransientDescriptorsUsedThisFrame,
+                renderStats.srvTransientDescriptorsCapacityPerFrame,
+                renderStats.srvTransientDescriptorsPeakThisRun );
 
         fflush( stdout );
     }

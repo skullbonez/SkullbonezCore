@@ -35,17 +35,13 @@ class EditorTracer;
 
 namespace SkullbonezCore::Runtime::ReplayPresentationSubmissionOperations
 {
-bool TryResolveReplayBodyModelIndex(
-    const Physics::PhysicsBodyStore& bodyStore,
-    Physics::PhysicsSceneObjectId id,
-    Physics::ModelRowHint& hint,
-    int modelCount,
-    int& outModelIndex
-);
-bool TryAddReplayTargetMarkerFromStores(
-    EditorTracer& tracer,
-    const Physics::PhysicsBodyStore& bodyStore,
-    const Physics::ColliderStore& colliderStore,
-    int modelIndex
-);
+bool TryResolveReplayBodyModelIndex( const Physics::PhysicsBodyStore& bodyStore,
+                                     Physics::PhysicsSceneObjectId id,
+                                     Physics::ModelRowHint& hint,
+                                     int modelCount,
+                                     int& outModelIndex );
+bool TryAddReplayTargetMarkerFromStores( EditorTracer& tracer,
+                                         const Physics::PhysicsBodyStore& bodyStore,
+                                         const Physics::ColliderStore& colliderStore,
+                                         int modelIndex );
 } // namespace SkullbonezCore::Runtime::ReplayPresentationSubmissionOperations

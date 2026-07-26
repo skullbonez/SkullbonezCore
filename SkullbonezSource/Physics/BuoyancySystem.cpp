@@ -1,21 +1,21 @@
 /*
 File: SkullbonezSource/Physics/BuoyancySystem.cpp
 Purpose:
-  Implements deterministic sphere-cap buoyancy snapshots for sleep policy.
+  Implements dense fluid-fact lifecycle and deterministic submersion queries.
 
 Summary:
-  The main force integrator already computes broad fluid forces for all bodies.
-  Underwater sleep locking needs one narrow question: is this ball fully
-  submerged now? This file answers that question and writes only the body row's
-  transient submersion snapshot.
+  Descriptor facts enter one dense fixed-capacity store at cold topology
+  boundaries. The main force integrator borrows those rows, while underwater
+  sleep locking refreshes only the candidate row's transient submersion value.
 
 Glossary:
   Sphere cap: Portion of a sphere below the fluid surface; its analytic volume
     gives a deterministic submerged fraction without sampling.
-  Body row: Physics-owned dense record mutated during a fixed tick.
+  Buoyancy row: Physics-owned dense fluid facts aligned with one body row.
   Fluid surface: World-space Y plane where the fluid medium begins.
 
 Invariants:
+  - Row mutations mirror body/collider dense compaction exactly.
   - Non-sphere or invalid colliders leave the refreshed submersion fraction at
     zero and report no usable buoyancy snapshot.
   - Full-submerged classification uses a near-one threshold so tiny float drift
@@ -43,15 +43,109 @@ namespace Physics
 namespace
 {
 constexpr float UNDERWATER_SLEEP_LOCK_SUBMERGED_PERCENT = 0.999f;
+
+void ApplyDescriptorFacts( const PhysicsBodyCreateDesc& desc, BuoyancyBodyFacts& facts )
+{
+    // Invariant: assignment order matches the retired PhysicsBodyRecord
+    // stamping path so topology refresh cannot change fixed-step inputs.
+    facts.volume = desc.volume;
+    facts.projectedSurfaceArea = desc.projectedSurfaceArea;
+    facts.dragCoefficient = desc.dragCoefficient;
+    facts.submergedVolumePercent = 0.0f;
+    facts.contactEpsilon = desc.contactEpsilon;
+}
+} // namespace
+
+
+bool BuoyancySystem::AppendBodyFacts( const PhysicsBodyCreateDesc& desc )
+{
+    if ( m_bodyFacts.size() >= m_bodyFacts.capacity() )
+    {
+        return false;
+    }
+
+    m_bodyFacts.push_back( {} );
+    ApplyDescriptorFacts( desc, m_bodyFacts.back() );
+    return true;
 }
 
 
-bool BuoyancySystem::IsFullySubmergedBall(
-    const PhysicsBodyRecord& bodyRecord,
-    bool fixed,
-    const ColliderStore& colliderStore,
-    int index
-)
+bool BuoyancySystem::RefreshBodyFacts( int index, const PhysicsBodyCreateDesc& desc )
+{
+    if ( index < 0 || index >= Count() )
+    {
+        return false;
+    }
+
+    ApplyDescriptorFacts( desc, m_bodyFacts[static_cast<std::size_t>( index )] );
+    return true;
+}
+
+
+bool BuoyancySystem::EraseBodyFactsSwapLast( int index )
+{
+    if ( index < 0 || index >= Count() )
+    {
+        return false;
+    }
+
+    const std::size_t row = static_cast<std::size_t>( index );
+    if ( row + 1u != m_bodyFacts.size() )
+    {
+        m_bodyFacts[row] = m_bodyFacts.back();
+    }
+
+    m_bodyFacts.pop_back();
+    return true;
+}
+
+
+bool BuoyancySystem::TrimToCount( int count )
+{
+    if ( count < 0 || count > Count() )
+    {
+        return false;
+    }
+
+    m_bodyFacts.resize( static_cast<std::size_t>( count ) );
+    return true;
+}
+
+
+void BuoyancySystem::Clear()
+{
+    m_bodyFacts.clear();
+}
+
+
+int BuoyancySystem::Count() const
+{
+    return static_cast<int>( m_bodyFacts.size() );
+}
+
+
+std::size_t BuoyancySystem::RecordCapacity() const
+{
+    return m_bodyFacts.capacity();
+}
+
+
+std::span<const BuoyancyBodyFacts> BuoyancySystem::Facts() const
+{
+    return { m_bodyFacts.data(), m_bodyFacts.size() };
+}
+
+
+std::span<BuoyancyBodyFacts> BuoyancySystem::MutableFacts()
+{
+    return { m_bodyFacts.data(), m_bodyFacts.size() };
+}
+
+
+bool BuoyancySystem::IsFullySubmergedBall( const BuoyancyBodyFacts& facts,
+                                           bool fixed,
+                                           const ColliderStore& colliderStore,
+                                           int index )
 {
     const auto colliders = colliderStore.Records();
     if ( index < 0 || index >= static_cast<int>( colliders.size() ) || fixed ||
@@ -60,24 +154,22 @@ bool BuoyancySystem::IsFullySubmergedBall(
         return false;
     }
 
-    return bodyRecord.submergedVolumePercent >= UNDERWATER_SLEEP_LOCK_SUBMERGED_PERCENT;
+    return facts.submergedVolumePercent >= UNDERWATER_SLEEP_LOCK_SUBMERGED_PERCENT;
 }
 
 
-bool BuoyancySystem::RefreshUnderwaterSubmersionForBall(
-    const PhysicsWorldForces& worldForces,
-    PhysicsBodyStore& bodyStore,
-    const ColliderStore& colliderStore,
-    int index
-)
+bool BuoyancySystem::RefreshUnderwaterSubmersionForBall( const PhysicsWorldForces& worldForces,
+                                                         const PhysicsBodyStore& bodyStore,
+                                                         const ColliderStore& colliderStore,
+                                                         BuoyancyBodyFacts& facts,
+                                                         int index )
 {
-    PhysicsBodyRecord* bodyRecord = bodyStore.MutableRecordForModelIndex( index );
-    if ( !bodyRecord )
+    if ( index < 0 || index >= bodyStore.Count() )
     {
         return false;
     }
 
-    bodyRecord->submergedVolumePercent = 0.0f;
+    facts.submergedVolumePercent = 0.0f;
     const auto colliders = colliderStore.Records();
     if ( index < 0 || index >= static_cast<int>( colliders.size() ) )
     {
@@ -98,10 +190,12 @@ bool BuoyancySystem::RefreshUnderwaterSubmersionForBall(
 
     const PhysicsBodyHotFieldsConstView hotFields = bodyStore.HotFields();
     const std::size_t bodyIndex = static_cast<std::size_t>( index );
-    const Math::Transformation::RotationMatrix rotation =
-        PhysicsBodyOrientation( hotFields, bodyIndex ).GetOrientationMatrix();
-    const Math::Vector::Vector3 center =
-        PhysicsBodyPosition( hotFields, bodyIndex ) + ( rotation * sphere->GetPosition() );
+    const Math::Transformation::RotationMatrix rotation = PhysicsBodyOrientation( hotFields, bodyIndex )
+                                                              .GetOrientationMatrix();
+
+    const Math::Vector::Vector3 center = PhysicsBodyPosition( hotFields, bodyIndex ) +
+                                         ( rotation * sphere->GetPosition() );
+
     const float radius = sphere->GetRadius();
     if ( radius <= TOLERANCE )
     {
@@ -113,9 +207,10 @@ bool BuoyancySystem::RefreshUnderwaterSubmersionForBall(
     {
         return true;
     }
+
     if ( fluidHeightRelativeToCenter >= radius )
     {
-        bodyRecord->submergedVolumePercent = 1.0f;
+        facts.submergedVolumePercent = 1.0f;
         return true;
     }
 
@@ -123,11 +218,10 @@ bool BuoyancySystem::RefreshUnderwaterSubmersionForBall(
     // sphere pose. The sleep policy reads this value later; no force is applied
     // here.
     const float yValue = fluidHeightRelativeToCenter + radius;
-    bodyRecord->submergedVolumePercent = std::clamp(
+    facts.submergedVolumePercent = std::clamp(
         ( ONE_OVER_THREE * _PI * ( ( 3.0f * radius ) - yValue ) * yValue * yValue ) / sphere->GetVolume(),
         0.0f,
-        1.0f
-    );
+        1.0f );
 
     return true;
 }

@@ -82,8 +82,10 @@ BoundingBox::BoundingBox( const Vector3& halfExtents, const Vector3& position )
 // The shader renders a unit cube [-1,1]³ scaled by half-extents.
 Matrix4 BoundingBox::GetModelMatrix( const Vector3& worldPos, const Matrix4& rotation ) const
 {
-    Matrix4 translate =
-        Matrix4::Translate( worldPos.x + m_position.x, worldPos.y + m_position.y, worldPos.z + m_position.z );
+    Matrix4 translate = Matrix4::Translate( worldPos.x + m_position.x,
+                                            worldPos.y + m_position.y,
+                                            worldPos.z + m_position.z );
+
     Matrix4 scale = Matrix4::Scale( m_halfExtents.x, m_halfExtents.y, m_halfExtents.z );
     return translate * rotation * scale;
 }
@@ -112,6 +114,7 @@ float BoundingBox::GetSubmergedVolumePercent( float fluidSurfaceHeight ) const
     {
         return 1.0f;
     }
+
     if ( fluidSurfaceHeight <= bottom )
     {
         return 0.0f;
@@ -142,9 +145,8 @@ float BoundingBox::GetProjectedSurfaceArea() const
 // Bounding radius: distance from center to corner
 float BoundingBox::GetBoundingRadius() const
 {
-    return sqrtf(
-        m_halfExtents.x * m_halfExtents.x + m_halfExtents.y * m_halfExtents.y + m_halfExtents.z * m_halfExtents.z
-    );
+    return sqrtf( m_halfExtents.x * m_halfExtents.x + m_halfExtents.y * m_halfExtents.y +
+                  m_halfExtents.z * m_halfExtents.z );
 }
 
 
@@ -201,6 +203,7 @@ float BoundingBox::TestCollision( const BoundingSphere& target, const Ray& targe
         {
             return 0.0f;
         }
+
         return NO_COLLISION;
     }
 
@@ -245,6 +248,7 @@ float BoundingBox::TestCollision( const BoundingBox& target, const Ray& targetRa
         {
             return 0.0f;
         }
+
         return NO_COLLISION;
     }
 

@@ -106,17 +106,13 @@ class RuntimeOverlayDiagnostics
     {
     }
 
-    void ApplyStartupPolicy(
-        const RunStartupOverrides& overrides,
-        RunLaunchOptions& launchOptions,
-        UI::InGameUI& operatorUi
-    );
-    void UpdatePostPhysics(
-        SceneWorld& scene,
-        RuntimeValidationHarness& validationHarness,
-        float contactEpsilon,
-        double secondsPerFrame
-    );
+    void ApplyStartupPolicy( const RunStartupOverrides& overrides,
+                             RunLaunchOptions& launchOptions,
+                             UI::InGameUI& operatorUi );
+    void UpdatePostPhysics( SceneWorld& scene,
+                            RuntimeValidationHarness& validationHarness,
+                            float contactEpsilon,
+                            double secondsPerFrame );
     RuntimeRenderFramePolicy BuildFramePolicy( double simulationSeconds, double totalSimulationSeconds ) const;
     // Publishes the detached scene presentation once after a load generation
     // reaches the clear boundary. The load transaction never receives this owner.

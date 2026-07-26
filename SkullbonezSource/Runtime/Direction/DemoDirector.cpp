@@ -63,26 +63,32 @@ std::string JsonTypeName( const Json& value )
     {
         return "null";
     }
+
     if ( value.is_boolean() )
     {
         return "bool";
     }
+
     if ( value.is_number() )
     {
         return "number";
     }
+
     if ( value.is_string() )
     {
         return "string";
     }
+
     if ( value.is_array() )
     {
         return "array";
     }
+
     if ( value.is_object() )
     {
         return "object";
     }
+
     return "value";
 }
 
@@ -106,6 +112,7 @@ bool RequireObject( const Json& value, const char* path, const std::string& cont
     {
         return true;
     }
+
     std::ostringstream detail;
     detail << "must be an object, got " << JsonTypeName( value );
     return FailField( path, context, detail.str() );
@@ -117,6 +124,7 @@ bool RequireArray( const Json& value, const char* path, const std::string& conte
     {
         return true;
     }
+
     std::ostringstream detail;
     detail << "must be an array, got " << JsonTypeName( value );
     return FailField( path, context, detail.str() );
@@ -130,6 +138,7 @@ bool ReadStringValue( const Json& value, const char* path, const std::string& co
         detail << "must be a string, got " << JsonTypeName( value );
         return FailField( path, context, detail.str() );
     }
+
     out = value.get<std::string>();
     return true;
 }
@@ -142,6 +151,7 @@ bool ReadFloatValue( const Json& value, const char* path, const std::string& con
         detail << "must be a number, got " << JsonTypeName( value );
         return FailField( path, context, detail.str() );
     }
+
     out = value.get<float>();
     return true;
 }
@@ -153,21 +163,21 @@ bool ReadBoolValue( const Json& value, const char* path, const std::string& cont
         out = value.get<bool>();
         return true;
     }
+
     if ( value.is_number_integer() )
     {
         out = value.get<int>() != 0;
         return true;
     }
+
     return FailField( path, context, "must be a bool" );
 }
 
-bool CopyTextField(
-    char* destination,
-    std::size_t destinationSize,
-    const std::string& value,
-    const char* path,
-    const std::string& context
-)
+bool CopyTextField( char* destination,
+                    std::size_t destinationSize,
+                    const std::string& value,
+                    const char* path,
+                    const std::string& context )
 {
     if ( value.size() >= destinationSize )
     {
@@ -175,22 +185,22 @@ bool CopyTextField(
         detail << "string is too long for fixed field (" << value.size() << " >= " << destinationSize << ")";
         return FailField( path, context, detail.str() );
     }
+
     strcpy_s( destination, destinationSize, value.c_str() );
     return true;
 }
 
-bool ReadOptionalFloatMember(
-    const Json& object,
-    const char* key,
-    const char* path,
-    const std::string& context,
-    float& inOutValue
-)
+bool ReadOptionalFloatMember( const Json& object,
+                              const char* key,
+                              const char* path,
+                              const std::string& context,
+                              float& inOutValue )
 {
     if ( const Json* member = FindMember( object, key ) )
     {
         return ReadFloatValue( *member, path, context + "." + key, inOutValue );
     }
+
     return true;
 }
 
@@ -205,6 +215,7 @@ bool ReadVec3Value( const Json& value, const char* path, const std::string& cont
     {
         return false;
     }
+
     if ( value.size() != 3u )
     {
         return FailField( path, context, "must have exactly 3 numbers" );
@@ -215,35 +226,33 @@ bool ReadVec3Value( const Json& value, const char* path, const std::string& cont
            ReadFloatValue( value[2], path, context + "[2]", out.z );
 }
 
-bool ReadRequiredStringMember(
-    const Json& object,
-    const char* key,
-    const char* path,
-    const std::string& context,
-    std::string& out
-)
+bool ReadRequiredStringMember( const Json& object,
+                               const char* key,
+                               const char* path,
+                               const std::string& context,
+                               std::string& out )
 {
     const Json* member = FindMember( object, key );
     if ( !member )
     {
         return FailField( path, context, std::string( "missing '" ) + key + "'" );
     }
+
     return ReadStringValue( *member, path, context + "." + key, out );
 }
 
-bool ReadRequiredVec3Member(
-    const Json& object,
-    const char* key,
-    const char* path,
-    const std::string& context,
-    Vector3& out
-)
+bool ReadRequiredVec3Member( const Json& object,
+                             const char* key,
+                             const char* path,
+                             const std::string& context,
+                             Vector3& out )
 {
     const Json* member = FindMember( object, key );
     if ( !member )
     {
         return FailField( path, context, std::string( "missing '" ) + key + "'" );
     }
+
     return ReadVec3Value( *member, path, context + "." + key, out );
 }
 
@@ -270,6 +279,7 @@ bool ReadPhase( const Json& value, const char* path, int index, DemoPhase& outPh
     {
         return FailField( path, context, "missing 'camera'" );
     }
+
     if ( !RequireObject( *camera, path, context + ".camera" ) ||
          !ReadRequiredVec3Member( *camera, "position", path, context + ".camera", outPhase.camera.eye ) ||
          !ReadRequiredVec3Member( *camera, "view", path, context + ".camera", outPhase.camera.view ) ||
@@ -295,6 +305,7 @@ bool ReadPhase( const Json& value, const char* path, int index, DemoPhase& outPh
         {
             return false;
         }
+
         if ( !TryParsePhaseAdvance( advanceText.c_str(), outPhase.advance ) )
         {
             return FailField( path, context + ".advance", "unknown advance rule" );
@@ -319,6 +330,7 @@ bool ReadRoot( const Json& root, const char* path, DemoShotList& outShotList )
     {
         return false;
     }
+
     if ( format != kShotListFormat )
     {
         return FailField( path, "format", "expected 'skullbonez.shot.json'" );
@@ -329,11 +341,13 @@ bool ReadRoot( const Json& root, const char* path, DemoShotList& outShotList )
     {
         return FailField( path, "version", "missing version" );
     }
+
     float version = 0.0f;
     if ( !ReadFloatValue( *versionMember, path, "version", version ) )
     {
         return false;
     }
+
     if ( version != static_cast<float>( kShotListVersion ) )
     {
         return FailField( path, "version", "expected 1" );
@@ -355,10 +369,12 @@ bool ReadRoot( const Json& root, const char* path, DemoShotList& outShotList )
     {
         return FailField( path, "document root", "missing 'phases'" );
     }
+
     if ( !RequireArray( *phases, path, "phases" ) )
     {
         return false;
     }
+
     if ( phases->size() > static_cast<std::size_t>( DemoShotList::MAX_PHASES ) )
     {
         return FailField( path, "phases", "too many phases for fixed shot-list storage" );
@@ -371,6 +387,7 @@ bool ReadRoot( const Json& root, const char* path, DemoShotList& outShotList )
         {
             return false;
         }
+
         parsed.phaseCount = phaseIndex + 1;
     }
 
@@ -387,6 +404,7 @@ Json PhaseJson( const DemoPhase& phase )
         { "view", Vec3Json( phase.camera.view ) },
         { "up", Vec3Json( phase.camera.up ) },
     };
+
     value["stylePath"] = phase.stylePath;
     value["advance"] = PhaseAdvanceName( phase.advance );
     value["timerSeconds"] = phase.timerSeconds;
@@ -419,22 +437,26 @@ bool TryParsePhaseAdvance( const char* text, PhaseAdvance& outAdvance )
     {
         return false;
     }
+
     if ( strcmp( text, "Manual" ) == 0 || strcmp( text, "manual" ) == 0 )
     {
         outAdvance = PhaseAdvance::Manual;
         return true;
     }
+
     if ( strcmp( text, "Timer" ) == 0 || strcmp( text, "timer" ) == 0 )
     {
         outAdvance = PhaseAdvance::Timer;
         return true;
     }
+
     if ( strcmp( text, "RevealAtLeast" ) == 0 || strcmp( text, "revealAtLeast" ) == 0 ||
          strcmp( text, "reveal_at_least" ) == 0 )
     {
         outAdvance = PhaseAdvance::RevealAtLeast;
         return true;
     }
+
     return false;
 }
 
@@ -459,6 +481,7 @@ bool LoadDemoShotList( const char* path, DemoShotList& outShotList )
         LogShotListError( path, "invalid JSON" );
         return false;
     }
+
     return ReadRoot( root, path, outShotList );
 }
 
@@ -469,6 +492,7 @@ bool SaveDemoShotList( const char* path, const DemoShotList& shotList )
         LogShotListError( path, "missing shot-list path" );
         return false;
     }
+
     if ( shotList.phaseCount < 0 || shotList.phaseCount > DemoShotList::MAX_PHASES )
     {
         LogShotListError( path, "phaseCount is outside DemoShotList::MAX_PHASES" );

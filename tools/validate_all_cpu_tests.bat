@@ -41,6 +41,7 @@ set "STATUS_TESTS=NOT RUN"
 set "STATUS_COVERAGE=NOT RUN"
 set "STATUS_INTERACTION=NOT RUN"
 set "STATUS_SCENE_PARSER=NOT RUN"
+set "STATUS_UI_BOUNDARY=NOT RUN"
 set "STATUS_DX12_ARCH=NOT RUN"
 
 echo.
@@ -49,7 +50,15 @@ echo   VALIDATE_ALL_CPU_TESTS - Mandatory CPU Test Umbrella
 echo ============================================================
 echo.
 
-echo [1/5] Running validate_tests.bat...
+if "%SKULLBONEZ_DEPENDENCY_GRAPH_ALREADY_VALIDATED%"=="1" (
+    echo Dependency graph already passed in the owning preflight.
+) else (
+    echo Running dependency graph preflight...
+    call "%~dp0validate_dependency_graph.bat"
+    if errorlevel 1 exit /b %errorlevel%
+)
+
+echo [1/6] Running validate_tests.bat...
 if not exist "%CPU_TEST_SCRIPT_DIR%validate_tests.bat" (
     set "CHILD_EXIT=99"
     goto :on_tests_missing
@@ -60,7 +69,7 @@ if not "%CHILD_EXIT%"=="0" goto :on_tests_failure
 set "STATUS_TESTS=PASS"
 
 echo.
-echo [2/5] Running validate_coverage.bat...
+echo [2/6] Running validate_coverage.bat...
 if not exist "%CPU_TEST_SCRIPT_DIR%validate_coverage.bat" (
     set "CHILD_EXIT=99"
     goto :on_coverage_missing
@@ -71,7 +80,7 @@ if not "%CHILD_EXIT%"=="0" goto :on_coverage_failure
 set "STATUS_COVERAGE=PASS"
 
 echo.
-echo [3/5] Running validate_runtime_interaction_policy.bat...
+echo [3/6] Running validate_runtime_interaction_policy.bat...
 if not exist "%CPU_TEST_SCRIPT_DIR%validate_runtime_interaction_policy.bat" (
     set "CHILD_EXIT=99"
     goto :on_interaction_missing
@@ -82,7 +91,7 @@ if not "%CHILD_EXIT%"=="0" goto :on_interaction_failure
 set "STATUS_INTERACTION=PASS"
 
 echo.
-echo [4/5] Running validate_scene_parser_tests.bat...
+echo [4/6] Running validate_scene_parser_tests.bat...
 if not exist "%CPU_TEST_SCRIPT_DIR%validate_scene_parser_tests.bat" (
     set "CHILD_EXIT=99"
     goto :on_scene_parser_missing
@@ -93,7 +102,18 @@ if not "%CHILD_EXIT%"=="0" goto :on_scene_parser_failure
 set "STATUS_SCENE_PARSER=PASS"
 
 echo.
-echo [5/5] Running validate_dx12_arch_tests.bat...
+echo [5/6] Running validate_ui_boundary_tests.bat...
+if not exist "%CPU_TEST_SCRIPT_DIR%validate_ui_boundary_tests.bat" (
+    set "CHILD_EXIT=99"
+    goto :on_ui_boundary_missing
+)
+call "%CPU_TEST_SCRIPT_DIR%validate_ui_boundary_tests.bat"
+set "CHILD_EXIT=%ERRORLEVEL%"
+if not "%CHILD_EXIT%"=="0" goto :on_ui_boundary_failure
+set "STATUS_UI_BOUNDARY=PASS"
+
+echo.
+echo [6/6] Running validate_dx12_arch_tests.bat...
 if not exist "%CPU_TEST_SCRIPT_DIR%validate_dx12_arch_tests.bat" (
     set "CHILD_EXIT=99"
     goto :on_dx12_arch_missing
@@ -109,6 +129,7 @@ echo   validate_tests.bat                       %STATUS_TESTS%
 echo   validate_coverage.bat                    %STATUS_COVERAGE%
 echo   validate_runtime_interaction_policy.bat  %STATUS_INTERACTION%
 echo   validate_scene_parser_tests.bat          %STATUS_SCENE_PARSER%
+echo   validate_ui_boundary_tests.bat           %STATUS_UI_BOUNDARY%
 echo   validate_dx12_arch_tests.bat              %STATUS_DX12_ARCH%
 echo --------------------------------------------------
 echo.
@@ -161,6 +182,16 @@ set "STATUS_SCENE_PARSER=FAIL - exit %CHILD_EXIT%"
 set "FAILED_TARGET=validate_scene_parser_tests.bat"
 goto :emit_failure
 
+:on_ui_boundary_missing
+set "STATUS_UI_BOUNDARY=MISSING - exit 99"
+set "FAILED_TARGET=validate_ui_boundary_tests.bat"
+goto :emit_failure
+
+:on_ui_boundary_failure
+set "STATUS_UI_BOUNDARY=FAIL - exit %CHILD_EXIT%"
+set "FAILED_TARGET=validate_ui_boundary_tests.bat"
+goto :emit_failure
+
 :on_dx12_arch_missing
 set "STATUS_DX12_ARCH=MISSING - exit 99"
 set "FAILED_TARGET=validate_dx12_arch_tests.bat"
@@ -177,6 +208,7 @@ echo   validate_tests.bat                       %STATUS_TESTS%
 echo   validate_coverage.bat                    %STATUS_COVERAGE%
 echo   validate_runtime_interaction_policy.bat  %STATUS_INTERACTION%
 echo   validate_scene_parser_tests.bat          %STATUS_SCENE_PARSER%
+echo   validate_ui_boundary_tests.bat           %STATUS_UI_BOUNDARY%
 echo   validate_dx12_arch_tests.bat              %STATUS_DX12_ARCH%
 echo --------------------------------------------------
 echo.

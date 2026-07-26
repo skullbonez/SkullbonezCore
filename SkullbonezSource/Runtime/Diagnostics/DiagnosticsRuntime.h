@@ -91,16 +91,12 @@ struct DiagnosticsUIKeyboardShortcutResult
     bool releaseMouseToUI = false;                  // True when Run should refresh cursor ownership and release capture.
 };
 
-bool HandleDiagnosticsKeyboardShortcut(
-    DiagnosticsKeyboardShortcutContext context,
-    RuntimeInputAction action,
-    bool wasPressed
-);
-DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut(
-    DiagnosticsUIKeyboardShortcutContext context,
-    RuntimeInputAction action,
-    bool wasPressed
-);
+bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext context,
+                                        RuntimeInputAction action,
+                                        bool wasPressed );
+DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( DiagnosticsUIKeyboardShortcutContext context,
+                                                                         RuntimeInputAction action,
+                                                                         bool wasPressed );
 
 class DiagnosticsRuntime
 {
@@ -130,24 +126,21 @@ class DiagnosticsRuntime
     RuntimeProfilerFrameTimes SampleProfilerFrameTimes() const;
     // Accepts replay accounting already published by the composition root so
     // the UI pass cannot reopen replay ownership while reconciling totals.
-    const SkullbonezCore::Core::MainMemoryStats& RefreshMainMemoryStats(
-        const SkullbonezCore::Core::MainMemoryReplayStats& replay,
-        const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects,
-        double nowSeconds,
-        bool force,
-        bool includePrivateWorkingSet = true
-    );
+    const SkullbonezCore::Core::MainMemoryStats&
+    RefreshMainMemoryStats( const SkullbonezCore::Core::MainMemoryReplayStats& replay,
+                            const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects,
+                            double nowSeconds,
+                            bool force,
+                            bool includePrivateWorkingSet = true );
     const SkullbonezCore::Core::MainMemoryStats& MainMemoryStatsSnapshot() const;
     void SetMainMemoryDumpPath( const char* path );
     const char* MainMemoryDumpPath() const;
     bool MainMemoryDumpRequested() const;
-    bool WriteMainMemoryDump(
-        const SkullbonezCore::Core::MainMemoryReplayStats& replay,
-        const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects,
-        const SceneSessionState& scene,
-        const char* checkpoint,
-        double nowSeconds
-    );
+    bool WriteMainMemoryDump( const SkullbonezCore::Core::MainMemoryReplayStats& replay,
+                              const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects,
+                              const SceneSessionState& scene,
+                              const char* checkpoint,
+                              double nowSeconds );
 
 #ifdef _DEBUG
     RunPhysicsDiagnosticsState& PhysicsDiagnostics();
@@ -160,13 +153,11 @@ class DiagnosticsRuntime
     SetPhysicsDiagnosticsPath( Physics::PhysicsEngine& physics, const char* path, bool fixedStepForcedByDiagnostics );
     void
     LogSceneFinished( SceneController& scene, const Rendering::Dx12Diagnostics* renderDiagnostics, const char* reason );
-    void BeginPhysicsDiagnosticsRun(
-        Physics::PhysicsEngine& physics,
-        const SceneSessionState& scene,
-        const SkullbonezCore::Core::EngineConfig& config,
-        const char* scenePath,
-        const char* rendererName
-    );
+    void BeginPhysicsDiagnosticsRun( Physics::PhysicsEngine& physics,
+                                     const SceneSessionState& scene,
+                                     const SkullbonezCore::Core::EngineConfig& config,
+                                     const char* scenePath,
+                                     const char* rendererName );
     void LogReplayScrubProbe( const SceneSessionState& scene, const ReplayScrubProbeDiagnostic& probe );
     void LogReplayRestoreProbe( const SceneSessionState& scene, const ReplayRestoreProbeDiagnostic& probe );
     void LogReplayRestoreResult( const SceneSessionState& scene, const ReplayRestoreResultDiagnostic& result );

@@ -55,55 +55,61 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     const ReplayInputView replayInput = m_replayRuntime.BuildInputView();
     // Update the active camera selection and any transition/tween state before
     // rendering asks for view matrices.
-    m_camera.UpdateViewingOrientation(
-        m_timers,
-        m_sceneController.Scene(),
-        replayInput.inspectionCameraActive,
-        m_sceneController.State().isSceneMode,
-        m_attachedCamera.State().activeFollow,
-        m_interaction.PointerCapture() == RuntimePointerCaptureOwner::CameraLook,
-        presentationAlpha,
-        m_profiler
-    );
+    m_camera.UpdateViewingOrientation( m_timers,
+                                       m_sceneController.Scene(),
+                                       replayInput.inspectionCameraActive,
+                                       m_sceneController.State().isSceneMode,
+                                       m_attachedCamera.State().activeFollow,
+                                       m_interaction.PointerCapture() == RuntimePointerCaptureOwner::CameraLook,
+                                       presentationAlpha,
+                                       m_profiler );
 
     // Selected camera state is copied into the camera collection so render code below
     // reads one coherent eye/view/up triple for this frame.
     m_sceneController.Scene().Cameras().SetCamera();
 
-    const SkullbonezCore::Core::CinematicRenderConfig& activeCinematic =
-        ActiveSceneCinematicConfig( m_sceneController.State(), m_config );
-    const bool cinematicRequested =
-        IsSceneCinematicRenderingEnabled( m_sceneController.State(), m_config, m_launchOptions, debug, true );
+    const SkullbonezCore::Core::CinematicRenderConfig& activeCinematic = ActiveSceneCinematicConfig(
+        m_sceneController.State(),
+        m_config );
+
+    const bool cinematicRequested = IsSceneCinematicRenderingEnabled( m_sceneController.State(),
+                                                                      m_config,
+                                                                      m_launchOptions,
+                                                                      debug,
+                                                                      true );
+
     int attachedTargetIndex = -1;
     if ( RunCameraModeIsAttached( m_camera.mode ) )
     {
         (void)m_attachedCamera.ResolveTargetIdentity( m_sceneController.Scene(), attachedTargetIndex );
     }
+
     const float rayLinger = (std::max)( 0.0f, debug.physicsDebugContactLinger );
-    const bool editorOverlayWorkVisible =
-        m_runtimeTools.HasLingeredRayCastLine( rayLinger ) ||
-        m_runtimeTools.HasSelectionOverlayWork( renderModels.modelCount, m_camera.mode ) ||
-        m_runtimeTools.HasMousePickupOverlayWork( m_interaction.Gesture() ) || replayInput.hasPathTarget ||
-        replayInput.hasCameraFocus ||
-        ( replayInput.velocityEditEnabled && !m_runtimeTools.Editor().editorModeEnabled ) ||
-        m_runtimeTools.HasLauncherShots();
+    const bool editorOverlayWorkVisible = m_runtimeTools.HasLingeredRayCastLine( rayLinger ) ||
+                                          m_runtimeTools.HasSelectionOverlayWork( renderModels.modelCount,
+                                                                                  m_camera.mode ) ||
+                                          m_runtimeTools.HasMousePickupOverlayWork( m_interaction.Gesture() ) ||
+                                          replayInput.hasPathTarget || replayInput.hasCameraFocus ||
+                                          ( replayInput.velocityEditEnabled &&
+                                            !m_runtimeTools.Editor().editorModeEnabled ) ||
+                                          m_runtimeTools.HasLauncherShots();
+
     const RenderToolOverlayView toolOverlay {
         m_runtimeTools,
         editorOverlayWorkVisible,
         m_runtimeTools.InspectGizmoInteractionActive( m_camera.mode, replayInput.inspectionActive ),
         m_inputRouter.RuntimeSnapshot().pointer.controlDown,
         attachedTargetIndex,
-        m_attachedCamera.State().activeFollow
-    };
+        m_attachedCamera.State().activeFollow };
 
     const RuntimeRenderFramePolicy framePolicy = m_overlayDiagnostics->BuildFramePolicy(
         m_timers.simulationTimer.GetTimeSinceLastStart(),
-        m_timers.simulationTimer.GetTotalTime()
-    );
+        m_timers.simulationTimer.GetTotalTime() );
 
     const bool renderReady = m_renderBackendView.renderFrame && m_renderBackendView.renderGraph &&
                              m_renderBackendView.renderResources && m_renderBackendView.renderTextures &&
                              m_renderBackendView.renderGeometry && m_renderBackendView.renderDiagnostics;
+
     if ( !renderReady )
     {
         m_replayRuntime.CancelRenderFrame( m_runtimeTools );
@@ -117,49 +123,41 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     m_sceneController.Scene().PrepareRenderInstances( presentationAlpha );
     PROFILE_END( m_profiler, "Frame/Render/PrepareModels" );
 
-    m_runtimeTools.PrepareOverlayTrace(
-        m_sceneController.Scene(),
-        m_assets,
-        ToolOverlayBuildInput { framePolicy.physicsDebugContactLinger,
-                                toolOverlay.inspectGizmoInteractionActive,
-                                toolOverlay.controlDown,
-                                m_interaction.Gesture(),
-                                toolOverlay.attachedTargetIndex,
-                                toolOverlay.attachedFollow }
-    );
+    m_runtimeTools.PrepareOverlayTrace( m_sceneController.Scene(),
+                                        m_assets,
+                                        ToolOverlayBuildInput { framePolicy.physicsDebugContactLinger,
+                                                                toolOverlay.inspectGizmoInteractionActive,
+                                                                toolOverlay.controlDown,
+                                                                m_interaction.Gesture(),
+                                                                toolOverlay.attachedTargetIndex,
+                                                                toolOverlay.attachedFollow } );
+
     const uint64_t replayGrowthEventCount = CoreAllocation::RuntimeReserveAllocator::GrowthEventCount();
     const bool debugTransparentBodyPass = debug.isPhysicsDebugTransparent && debug.physicsDebugAlpha < 1.0f;
-    const ReplayPresentationSelection replaySelection = m_replayRuntime.ApplyRenderPose(
+    const ReplayFrameSelection replaySelection = m_replayRuntime.ApplyRenderPose(
         m_sceneController.Scene().MutableRenderInstances(),
         m_sceneController.Scene().Physics(),
-        m_runtimeTools
-    );
+        m_runtimeTools );
 
-    m_replayRuntime.PrepareRenderOverlay(
-        m_sceneController.Scene().Physics(),
-        m_sceneController.Scene().Entities(),
-        m_runtimeTools.Tracer(),
-        m_config.ordinaryRender.replayTrajectory,
-        m_runtimeTools.Editor().editorModeEnabled,
-        m_interaction.Gesture(),
-        m_sceneController.State().currentFrame,
-        m_sceneController.Scene().RenderPresentationRecords()
-    );
+    m_replayRuntime.PrepareRenderOverlay( m_sceneController.Scene().Physics(),
+                                          m_sceneController.Scene().Entities(),
+                                          m_runtimeTools.Tracer(),
+                                          m_config.ordinaryRender.replayTrajectory,
+                                          m_runtimeTools.Editor().editorModeEnabled,
+                                          m_interaction.Gesture(),
+                                          m_sceneController.State().currentFrame,
+                                          m_sceneController.Scene().RenderPresentationRecords() );
 
-    m_replayRuntime.PublishRenderPacket(
-        m_runtimeTools.Tracer(),
-        m_sceneController.Scene().Cameras().GetRenderCameraTranslation(),
-        m_sceneController.Scene().Cameras().GetRenderCameraUp(),
-        replayGrowthEventCount
-    );
+    m_replayRuntime.PublishRenderPacket( m_runtimeTools.Tracer(),
+                                         m_sceneController.Scene().Cameras().GetRenderCameraTranslation(),
+                                         m_sceneController.Scene().Cameras().GetRenderCameraUp(),
+                                         replayGrowthEventCount );
 
-    const ReplayRenderFrameView replayFrame = m_replayRuntime.BuildRenderFrameView(
-        replaySelection,
-        m_sceneController.Scene().Physics(),
-        renderModels.modelCount,
-        debug.isCollisionVisualizer,
-        debugTransparentBodyPass
-    );
+    const ReplayRenderFrameView replayFrame = m_replayRuntime.BuildRenderFrameView( replaySelection,
+                                                                                    m_sceneController.Scene().Physics(),
+                                                                                    renderModels.modelCount,
+                                                                                    debug.isCollisionVisualizer,
+                                                                                    debugTransparentBodyPass );
 
     const RenderReplayOverlayView replayOverlay { replayFrame };
 
@@ -171,18 +169,21 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
         visualTime.hasPresentation = true;
         visualTime.presentationSeconds = replayFrame.presentationSample->simulationSeconds;
     }
+
     if ( replayFrame.solverSample )
     {
         visualTime.hasSolver = true;
         visualTime.solverSeconds = replayFrame.solverSample->simulationSeconds;
         visualTime.solverSystemSeconds = replayFrame.solverSample->worldSnapshot.tornadoSystemElapsedSeconds;
     }
+
     if ( replayFrame.predictionFrame )
     {
         visualTime.hasPrediction = true;
         visualTime.predictionSeconds = replayFrame.predictionFrame->simulationSeconds;
         visualTime.predictionSystemSeconds = replayFrame.predictionFrame->tornadoSystemElapsedSeconds;
     }
+
     Rendering::WorldRenderExtensionRegistration worldExtension;
     // Invariant: Gameplay preallocates its bounded visual maximum during owner
     // construction. Steady rendering receives no allocation-phase exemption.
@@ -194,13 +195,10 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
                                              toolOverlay,
                                              worldExtension,
                                              activeCinematic,
-                                             cinematicRequested }
-    );
+                                             cinematicRequested } );
 
-    m_replayRuntime.CompleteRenderFrame(
-        replaySubmissionRendered,
-        m_sceneController.State().currentFrame,
-        replayGrowthEventCount,
-        m_runtimeTools
-    );
+    m_replayRuntime.CompleteRenderFrame( replaySubmissionRendered,
+                                         m_sceneController.State().currentFrame,
+                                         replayGrowthEventCount,
+                                         m_runtimeTools );
 }

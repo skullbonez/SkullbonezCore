@@ -25,18 +25,15 @@ Invariants:
   - Scene reset facts contain no mutable scene or physics authority.
 
 Related:
-  - ReplayRuntime.h
-  - ReplayRestoreTransactions.h
+  - SkullbonezSource/Runtime/App/ReplayRuntime.h
+  - SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h
 */
 #pragma once
 
 #include "ReplayAuthoring.h"
-#include "ReplayPrediction.h"
-#include "ReplayPorkchopPanel.h"
 #include "ReplayPresentation.h"
 #include "ReplayScrubber.h"
 #include "ReplayTimeline.h"
-#include "ReplayTripPlanner.h"
 #include "../../Core/PlatformWin32.h"
 #include "../../Core/Common.h"
 #include "ReplayProbeState.h"
@@ -67,8 +64,7 @@ class InputRouter;
 class RuntimeInteractionController;
 class SceneController;
 class SceneEntityStore;
-struct ReplayArtifactTopologyOwners;
-struct ReplayRestoreTransaction;
+class ReplayRestoreTransaction;
 struct ReplayStartupLoadInput;
 struct CameraControlState;
 struct RunMousePickupState;
@@ -192,44 +188,6 @@ struct ReplayInteractionExitInput
     bool directorGrabbed = false;
 };
 
-#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
-// Lifetime: validation borrows this immutable publication only for the call
-// that requested it. Spans and references point into replay-owned storage and
-// cannot be retained across the next replay update.
-//
-// Why: the automation harness needs rich evidence to prove visual fidelity,
-// but it must not regain the mutable recorder/prediction/presentation authority
-// removed from the replay root. This is a read-only evidence surface.
-struct ReplayAutomationView
-{
-    const RunReplayPredictionState& prediction;
-    const ReplayPorkchopPanelView& porkchop;
-    const ReplayTripPlannerView& tripPlanner;
-    const RunReplayPathVisualizerState& path;
-    // Closest-approach evidence is a detached value snapshot; automation cannot
-    // mutate the retained target or incremental scan through this view.
-    ReplayInterceptView intercept;
-    // Cold artifact writers borrow recorder owners only for the synchronous
-    // report write. The view is never retained across a replay mutation.
-    const ReplayRecorder& presentationRecorder;
-    const ReplaySolverRecorder& solverRecorder;
-    const ReplayEventRecorder& eventRecorder;
-    std::span<const RunReplayPredictionFrame> activePredictionFrames;
-    ReplayScrubberView scrubber;
-    ReplayRecorderStats solverStats;
-    const ReplaySolverFrameSample* latestSolverSample = nullptr;
-    const ReplaySolverFrameSample* currentSolverSample = nullptr;
-    const RunReplayPredictionFrame* currentPredictionFrame = nullptr;
-    ReplayVisualPacket visualPacket;
-    ReplayTrajectorySubmissionProbeStats trajectorySubmission;
-    uint64_t predictionAppearanceInvalidationCount = 0;
-    SkullbonezCore::Core::MainMemoryReplayStats memoryStats;
-    ReplayInputView input;
-    float solverTrackPosition = 0.0f;
-    float solverPresentTrackPosition = 0.0f;
-};
-#endif
-
 struct ReplayLiveRestoreOutcome
 {
     bool requested = false;
@@ -280,45 +238,6 @@ struct ReplayRecordingActivationResult
     bool exitInspectionCamera = false;
 };
 
-// Concept: external automation publishes replay intent as values. The replay
-// composition boundary applies each requested transition through the owning
-// scrubber or prediction API; no caller receives a mutable owner reference.
-struct ReplayFrameIntent
-{
-    bool setScrubberVisibility = false;
-    bool scrubberVisible = false;
-    double scrubberNow = 0.0;
-    double scrubberHoldSeconds = 0.0;
-    bool setPredictionEnabled = false;
-    bool predictionEnabled = false;
-    bool setPredictionHorizon = false;
-    float predictionHorizonSeconds = 0.0f;
-    bool prepareVelocityMutationBaseline = false;
-    bool commitVelocityMutation = false;
-    bool clearVelocityEditInputState = false;
-    bool queryDeterministicRevealReady = false;
-    bool armDeterministicReveal = false;
-    ReplayFrameIndex revealFrame = 0;
-    bool resetPresentedRevealFrame = false;
-    bool applyPredictionRevealRate = false;
-    double predictionRevealRate = 1.0;
-    bool setPathTarget = false;
-    Physics::PhysicsSceneObjectId pathTargetId;
-    Physics::ModelRowHint pathTargetModelRow;
-    char pathTargetName[64] = {};
-    bool setInterceptTarget = false;
-    Physics::PhysicsSceneObjectId interceptTargetId;
-    Physics::ModelRowHint interceptTargetModelRow;
-    bool hasTripPlannerCommand = false;
-    ReplayTripPlannerCommand tripPlannerCommand;
-};
-
-struct ReplayFrameIntentResult
-{
-    bool velocityMutationBaselinePrepared = false;
-    bool deterministicRevealReady = false;
-};
-
 struct ReplaySceneTimelineResetInput
 {
     const char* sceneLabel = nullptr;
@@ -349,8 +268,8 @@ inline bool SceneTimelineRecordsGeneratedConfig( const ReplaySceneTimelineResetI
 inline uint32_t SceneTimelineGeneratedConfigFlags( const ReplaySceneTimelineResetInput& input ) noexcept
 {
     uint32_t flags = 0;
-    flags |=
-        ( input.solverBallCount > 0 || input.solverBoxCount > 0 ) ? REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS : 0u;
+    flags |= ( input.solverBallCount > 0 || input.solverBoxCount > 0 ) ? REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS
+                                                                       : 0u;
     flags |= input.hasUiModelCountOverride ? REPLAY_GENERATED_SCENE_UI_MODEL_COUNT : 0u;
     flags |= input.hasUiSolverCountOverride ? REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS : 0u;
     flags |= ( input.generatedObjectTypeOverride << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT ) &
@@ -358,31 +277,18 @@ inline uint32_t SceneTimelineGeneratedConfigFlags( const ReplaySceneTimelineRese
     return flags;
 }
 
-ReplaySceneTimelineResetInput DescribeReplaySceneTimeline(
-    const SceneController& sceneController,
-    const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-    const SceneSessionState& scene,
-    int sceneObjectCapacity,
-    uint32_t generatedObjectTypeOverride
-);
+ReplaySceneTimelineResetInput
+DescribeReplaySceneTimeline( const SceneController& sceneController,
+                             const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+                             const SceneSessionState& scene,
+                             int sceneObjectCapacity,
+                             uint32_t generatedObjectTypeOverride );
 } // namespace ReplayTimelineOperations
 
 struct ReplaySceneTimelineResetResult
 {
     bool exitInspectionCamera = false;
     bool timelineStarted = false;
-};
-
-struct ReplaySceneTimelineResetOwners
-{
-    InputRouter& inputRouter;
-    RuntimeInteractionController& interaction;
-    Environment::CameraCollection* cameras = nullptr;
-    Geometry::Terrain* terrain = nullptr;
-    CameraControlState& camera;
-    RunCameraMode normalizedRestoreMode = RunCameraMode::Demo;
-    bool attachedFollow = false;
-    bool directorGrabbed = false;
 };
 
 struct ReplayKeyboardVelocityEditInput

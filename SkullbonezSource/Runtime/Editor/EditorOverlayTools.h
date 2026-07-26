@@ -5,9 +5,9 @@ Purpose:
   and render callback composition.
 
 Summary:
-  Run still owns runtime side effects. Editor overlay helpers refresh editor
-  preview state and append deterministic tool geometry to the shared tracer from
-  explicit borrowed state.
+  Calling owners apply runtime side effects. Editor overlay helpers refresh
+  preview state and append deterministic tool geometry to the shared tracer
+  from explicit borrowed state.
 
 Glossary:
   Asset system: Runtime-owned registry borrowed by placement preview when a
@@ -114,8 +114,8 @@ struct EditorToolOverlayTraceInput
     bool attachedCameraActiveFollow = false;
 };
 
-EditorInteractionPreviewResult
-UpdateEditorInteractionPreview( EditorInteractionPreviewContext context, const EditorInteractionPreviewInput& input );
+EditorInteractionPreviewResult UpdateEditorInteractionPreview( EditorInteractionPreviewContext context,
+                                                               const EditorInteractionPreviewInput& input );
 void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const EditorToolOverlayTraceInput& input );
 } // namespace RunInternal
 } // namespace Runtime

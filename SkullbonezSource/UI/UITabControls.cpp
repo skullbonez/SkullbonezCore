@@ -38,12 +38,10 @@ using namespace SkullbonezCore::UI::Widgets;
 namespace
 {
 
-void SetContentBounds(
-    SkullbonezCore::UI::ControlsTab::UIControlsTabState& state,
-    float contentX,
-    float rowBase,
-    float contentW
-)
+void SetContentBounds( SkullbonezCore::UI::ControlsTab::UIControlsTabState& state,
+                       float contentX,
+                       float rowBase,
+                       float contentW )
 {
     state.seedSlider.SetBounds( contentX, rowBase, contentW, 34.0f );
     state.solverBallSlider.SetBounds( contentX, rowBase + 88.0f, contentW, 34.0f );
@@ -74,32 +72,28 @@ void ResetPreviewState( UIControlsTabState& state )
 }
 
 
-bool HandleContentClick(
-    UIControlsTabState& state,
-    InGameUIInputResult& result,
-    int& activeSlider,
-    int mouseX,
-    int mouseY,
-    float contentX,
-    float rowBase,
-    float contentW,
-    int modelCapacity,
-    int lastSolverBallCount,
-    int lastSolverBoxCount
-)
+bool HandleContentClick( UIControlsTabState& state,
+                         InGameUIInputResult& result,
+                         int& activeSlider,
+                         int mouseX,
+                         int mouseY,
+                         float contentX,
+                         float rowBase,
+                         float contentW,
+                         int modelCapacity,
+                         int lastSolverBallCount,
+                         int lastSolverBoxCount )
 {
     modelCapacity = (std::max)( UI_SOLVER_COUNT_MIN, modelCapacity );
     const int displayBalls = std::clamp(
         state.previewSolverBallCount >= 0 ? state.previewSolverBallCount : lastSolverBallCount,
         UI_SOLVER_COUNT_MIN,
-        modelCapacity
-    );
+        modelCapacity );
 
     const int displayBoxes = std::clamp(
         state.previewSolverBoxCount >= 0 ? state.previewSolverBoxCount : lastSolverBoxCount,
         UI_SOLVER_COUNT_MIN,
-        modelCapacity
-    );
+        modelCapacity );
 
     SetContentBounds( state, contentX, rowBase, contentW );
 
@@ -107,35 +101,40 @@ bool HandleContentClick(
     {
         activeSlider = SLIDER_SEED;
         result.commands.run.requestedSeed = static_cast<int>(
-            state.seedSlider
-                .ValueFromMouse( mouseX, static_cast<float>( UI_SEED_MIN ), static_cast<float>( UI_SEED_MAX ), 1.0f )
-        );
+            state.seedSlider.ValueFromMouse( mouseX,
+                                             static_cast<float>( UI_SEED_MIN ),
+                                             static_cast<float>( UI_SEED_MAX ),
+                                             1.0f ) );
+
         return true;
     }
+
     if ( state.solverBallSlider.HitTest( mouseX, mouseY ) )
     {
         activeSlider = SLIDER_SOLVER_BALLS;
         const int maxBalls = RemainingSceneObjectSlots( modelCapacity, displayBoxes );
-        state.previewSolverBallCount = static_cast<int>( state.solverBallSlider.ValueFromMouse(
-            mouseX,
-            static_cast<float>( UI_SOLVER_COUNT_MIN ),
-            static_cast<float>( maxBalls ),
-            1.0f
-        ) );
+        state.previewSolverBallCount = static_cast<int>(
+            state.solverBallSlider.ValueFromMouse( mouseX,
+                                                   static_cast<float>( UI_SOLVER_COUNT_MIN ),
+                                                   static_cast<float>( maxBalls ),
+                                                   1.0f ) );
+
         return true;
     }
+
     if ( state.solverBoxSlider.HitTest( mouseX, mouseY ) )
     {
         activeSlider = SLIDER_SOLVER_BOXES;
         const int maxBoxes = RemainingSceneObjectSlots( modelCapacity, displayBalls );
-        state.previewSolverBoxCount = static_cast<int>( state.solverBoxSlider.ValueFromMouse(
-            mouseX,
-            static_cast<float>( UI_SOLVER_COUNT_MIN ),
-            static_cast<float>( maxBoxes ),
-            1.0f
-        ) );
+        state.previewSolverBoxCount = static_cast<int>(
+            state.solverBoxSlider.ValueFromMouse( mouseX,
+                                                  static_cast<float>( UI_SOLVER_COUNT_MIN ),
+                                                  static_cast<float>( maxBoxes ),
+                                                  1.0f ) );
+
         return true;
     }
+
     if ( state.worldFluidHeightSlider.HitTest( mouseX, mouseY ) )
     {
         activeSlider = SLIDER_WORLD_FLUID_HEIGHT;
@@ -144,10 +143,11 @@ bool HandleContentClick(
             mouseX,
             UI_WORLD_FLUID_HEIGHT_MIN,
             UI_WORLD_FLUID_HEIGHT_MAX,
-            UI_WORLD_FLUID_HEIGHT_STEP
-        );
+            UI_WORLD_FLUID_HEIGHT_STEP );
+
         return true;
     }
+
     if ( state.worldFluidDensitySlider.HitTest( mouseX, mouseY ) )
     {
         activeSlider = SLIDER_WORLD_FLUID_DENSITY;
@@ -156,67 +156,69 @@ bool HandleContentClick(
             mouseX,
             UI_WORLD_FLUID_DENSITY_MIN,
             UI_WORLD_FLUID_DENSITY_MAX,
-            UI_WORLD_FLUID_DENSITY_STEP
-        );
+            UI_WORLD_FLUID_DENSITY_STEP );
+
         return true;
     }
+
     return false;
 }
 
 
-bool UpdateActiveSlider(
-    UIControlsTabState& state,
-    int activeSlider,
-    int mouseX,
-    int modelCapacity,
-    int lastSolverBallCount,
-    int lastSolverBoxCount,
-    InGameUIInputResult& result
-)
+bool UpdateActiveSlider( UIControlsTabState& state,
+                         int activeSlider,
+                         int mouseX,
+                         int modelCapacity,
+                         int lastSolverBallCount,
+                         int lastSolverBoxCount,
+                         InGameUIInputResult& result )
 {
     modelCapacity = (std::max)( UI_SOLVER_COUNT_MIN, modelCapacity );
     if ( activeSlider == SLIDER_SEED )
     {
         result.commands.run.requestedSeed = static_cast<int>(
-            state.seedSlider
-                .ValueFromMouse( mouseX, static_cast<float>( UI_SEED_MIN ), static_cast<float>( UI_SEED_MAX ), 1.0f )
-        );
+            state.seedSlider.ValueFromMouse( mouseX,
+                                             static_cast<float>( UI_SEED_MIN ),
+                                             static_cast<float>( UI_SEED_MAX ),
+                                             1.0f ) );
+
         return true;
     }
+
     if ( activeSlider == SLIDER_SOLVER_BALLS )
     {
         const int boxes = std::clamp(
             state.previewSolverBoxCount >= 0 ? state.previewSolverBoxCount : lastSolverBoxCount,
             UI_SOLVER_COUNT_MIN,
-            modelCapacity
-        );
+            modelCapacity );
 
         const int maxBalls = RemainingSceneObjectSlots( modelCapacity, boxes );
-        state.previewSolverBallCount = static_cast<int>( state.solverBallSlider.ValueFromMouse(
-            mouseX,
-            static_cast<float>( UI_SOLVER_COUNT_MIN ),
-            static_cast<float>( maxBalls ),
-            1.0f
-        ) );
+        state.previewSolverBallCount = static_cast<int>(
+            state.solverBallSlider.ValueFromMouse( mouseX,
+                                                   static_cast<float>( UI_SOLVER_COUNT_MIN ),
+                                                   static_cast<float>( maxBalls ),
+                                                   1.0f ) );
+
         return true;
     }
+
     if ( activeSlider == SLIDER_SOLVER_BOXES )
     {
         const int balls = std::clamp(
             state.previewSolverBallCount >= 0 ? state.previewSolverBallCount : lastSolverBallCount,
             UI_SOLVER_COUNT_MIN,
-            modelCapacity
-        );
+            modelCapacity );
 
         const int maxBoxes = RemainingSceneObjectSlots( modelCapacity, balls );
-        state.previewSolverBoxCount = static_cast<int>( state.solverBoxSlider.ValueFromMouse(
-            mouseX,
-            static_cast<float>( UI_SOLVER_COUNT_MIN ),
-            static_cast<float>( maxBoxes ),
-            1.0f
-        ) );
+        state.previewSolverBoxCount = static_cast<int>(
+            state.solverBoxSlider.ValueFromMouse( mouseX,
+                                                  static_cast<float>( UI_SOLVER_COUNT_MIN ),
+                                                  static_cast<float>( maxBoxes ),
+                                                  1.0f ) );
+
         return true;
     }
+
     if ( activeSlider == SLIDER_WORLD_FLUID_HEIGHT )
     {
         result.commands.water.requestWorldFluidHeight = true;
@@ -224,10 +226,11 @@ bool UpdateActiveSlider(
             mouseX,
             UI_WORLD_FLUID_HEIGHT_MIN,
             UI_WORLD_FLUID_HEIGHT_MAX,
-            UI_WORLD_FLUID_HEIGHT_STEP
-        );
+            UI_WORLD_FLUID_HEIGHT_STEP );
+
         return true;
     }
+
     if ( activeSlider == SLIDER_WORLD_FLUID_DENSITY )
     {
         result.commands.water.requestWorldFluidDensity = true;
@@ -235,10 +238,11 @@ bool UpdateActiveSlider(
             mouseX,
             UI_WORLD_FLUID_DENSITY_MIN,
             UI_WORLD_FLUID_DENSITY_MAX,
-            UI_WORLD_FLUID_DENSITY_STEP
-        );
+            UI_WORLD_FLUID_DENSITY_STEP );
+
         return true;
     }
+
     return false;
 }
 
@@ -250,25 +254,25 @@ bool CommitActiveSlider( UIControlsTabState& state, int activeSlider, InGameUIIn
         result.commands.run.requestedSolverBallCount = state.previewSolverBallCount;
         return true;
     }
+
     if ( activeSlider == SLIDER_SOLVER_BOXES && state.previewSolverBoxCount >= 0 )
     {
         result.commands.run.requestedSolverBoxCount = state.previewSolverBoxCount;
         return true;
     }
+
     return false;
 }
 
 
-void Draw(
-    UIControlsTabState& state,
-    const UIDrawContext& draw,
-    const InGameUIFrameData& data,
-    float contentX,
-    float contentY,
-    float contentW,
-    float contentH,
-    float scrolledY
-)
+void Draw( UIControlsTabState& state,
+           const UIDrawContext& draw,
+           const InGameUIFrameData& data,
+           float contentX,
+           float contentY,
+           float contentW,
+           float contentH,
+           float scrolledY )
 {
     char buf[128];
     const int displaySeed = static_cast<int>( (std::max)( 1u, data.rngSeed ) );
@@ -276,14 +280,12 @@ void Draw(
     const int displaySolverBalls = std::clamp(
         state.previewSolverBallCount >= 0 ? state.previewSolverBallCount : data.solverBallCount,
         UI_SOLVER_COUNT_MIN,
-        modelCapacity
-    );
+        modelCapacity );
 
     const int displaySolverBoxes = std::clamp(
         state.previewSolverBoxCount >= 0 ? state.previewSolverBoxCount : data.solverBoxCount,
         UI_SOLVER_COUNT_MIN,
-        modelCapacity
-    );
+        modelCapacity );
 
     const int displayBallMax = RemainingSceneObjectSlots( modelCapacity, displaySolverBoxes );
     const int displayBoxMax = RemainingSceneObjectSlots( modelCapacity, displaySolverBalls );
@@ -293,74 +295,70 @@ void Draw(
     state.seedSlider.SetBounds( contentX, scrolledY + 42.0f, contentW, 34.0f );
     if ( IsRowVisible( contentY, contentH, scrolledY + 42.0f, 34.0f ) )
     {
-        state.seedSlider.Draw(
-            draw,
-            "Seed",
-            buf,
-            static_cast<float>( displaySeed ),
-            static_cast<float>( UI_SEED_MIN ),
-            static_cast<float>( UI_SEED_MAX )
-        );
+        state.seedSlider.Draw( draw,
+                               "Seed",
+                               buf,
+                               static_cast<float>( displaySeed ),
+                               static_cast<float>( UI_SEED_MIN ),
+                               static_cast<float>( UI_SEED_MAX ) );
     }
+
     if ( IsRowVisible( contentY, contentH, scrolledY + 104.0f, 18.0f ) )
     {
         DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 104.0f, 12.0f, "Scene Objects" );
     }
+
     snprintf( buf, sizeof( buf ), "%d", displaySolverBalls );
     state.solverBallSlider.SetBounds( contentX, scrolledY + 130.0f, contentW, 34.0f );
     if ( IsRowVisible( contentY, contentH, scrolledY + 130.0f, 34.0f ) )
     {
-        state.solverBallSlider.Draw(
-            draw,
-            "Balls",
-            buf,
-            static_cast<float>( displaySolverBalls ),
-            static_cast<float>( UI_SOLVER_COUNT_MIN ),
-            static_cast<float>( displayBallMax )
-        );
+        state.solverBallSlider.Draw( draw,
+                                     "Balls",
+                                     buf,
+                                     static_cast<float>( displaySolverBalls ),
+                                     static_cast<float>( UI_SOLVER_COUNT_MIN ),
+                                     static_cast<float>( displayBallMax ) );
     }
+
     snprintf( buf, sizeof( buf ), "%d", displaySolverBoxes );
     state.solverBoxSlider.SetBounds( contentX, scrolledY + 170.0f, contentW, 34.0f );
     if ( IsRowVisible( contentY, contentH, scrolledY + 170.0f, 34.0f ) )
     {
-        state.solverBoxSlider.Draw(
-            draw,
-            "Boxes",
-            buf,
-            static_cast<float>( displaySolverBoxes ),
-            static_cast<float>( UI_SOLVER_COUNT_MIN ),
-            static_cast<float>( displayBoxMax )
-        );
+        state.solverBoxSlider.Draw( draw,
+                                    "Boxes",
+                                    buf,
+                                    static_cast<float>( displaySolverBoxes ),
+                                    static_cast<float>( UI_SOLVER_COUNT_MIN ),
+                                    static_cast<float>( displayBoxMax ) );
     }
+
     if ( IsRowVisible( contentY, contentH, scrolledY + 226.0f, 18.0f ) )
     {
         DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 226.0f, 12.0f, "Fluid" );
     }
+
     snprintf( buf, sizeof( buf ), "%.0f", data.worldFluidHeight );
     state.worldFluidHeightSlider.SetBounds( contentX, scrolledY + 252.0f, contentW, 34.0f );
     if ( IsRowVisible( contentY, contentH, scrolledY + 252.0f, 34.0f ) )
     {
-        state.worldFluidHeightSlider.Draw(
-            draw,
-            "Fluid height",
-            buf,
-            data.worldFluidHeight,
-            UI_WORLD_FLUID_HEIGHT_MIN,
-            UI_WORLD_FLUID_HEIGHT_MAX
-        );
+        state.worldFluidHeightSlider.Draw( draw,
+                                           "Fluid height",
+                                           buf,
+                                           data.worldFluidHeight,
+                                           UI_WORLD_FLUID_HEIGHT_MIN,
+                                           UI_WORLD_FLUID_HEIGHT_MAX );
     }
+
     snprintf( buf, sizeof( buf ), "%.2f", data.worldFluidDensity );
     state.worldFluidDensitySlider.SetBounds( contentX, scrolledY + 292.0f, contentW, 34.0f );
     if ( IsRowVisible( contentY, contentH, scrolledY + 292.0f, 34.0f ) )
     {
-        state.worldFluidDensitySlider.Draw(
-            draw,
-            "Fluid density",
-            buf,
-            data.worldFluidDensity,
-            UI_WORLD_FLUID_DENSITY_MIN,
-            UI_WORLD_FLUID_DENSITY_MAX
-        );
+        state.worldFluidDensitySlider.Draw( draw,
+                                            "Fluid density",
+                                            buf,
+                                            data.worldFluidDensity,
+                                            UI_WORLD_FLUID_DENSITY_MIN,
+                                            UI_WORLD_FLUID_DENSITY_MAX );
     }
 }
 

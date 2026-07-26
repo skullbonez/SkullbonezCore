@@ -38,6 +38,7 @@ Related:
 #include <vector>
 
 #include "../../Core/SceneCapacity.h"
+#include "../BuoyancySystem.h"
 #include "../PhysicsDebugData.h"
 #include "../PhysicsBodyStore.h"
 #include "../PhysicsRuntimeSettings.h"
@@ -69,34 +70,6 @@ struct TerrainDetectionCandidate
     uint8_t tested = 0;
 };
 
-struct TerrainDetectionStageContext
-{
-    // Lifetime: terrain workers borrow this fixed-step snapshot only during
-    // synchronous dispatch; each writes one stage-owned candidate row.
-    std::span<const PhysicsBodyRecord> bodyRecords;
-    PhysicsBodyHotFieldsConstView hotFields;
-    std::span<const ColliderRecord> colliderRecords;
-    const PhysicsRuntimeSettings& settings;
-    std::span<const uint8_t> sleepState;
-    std::span<const float> timeRemaining;
-    Core::Profiler* profiler = nullptr;
-};
-
-struct TerrainCandidateCommitContext
-{
-    // Lifetime: serial model-order commits borrow solver and sleep rows for the
-    // current terrain phase. The stage retains none of these references.
-    PhysicsBodyStore& bodyStore;
-    const ColliderStore& colliderStore;
-    std::span<const PhysicsBodyRecord> bodyRecords;
-    PhysicsBodyHotFieldsConstView hotFields;
-    std::span<const ColliderRecord> colliderRecords;
-    const PhysicsRuntimeSettings& settings;
-    std::span<uint8_t> sleepSupportedThisFrame;
-    std::span<uint8_t> sleepInhibitedThisFrame;
-    Core::Profiler* profiler = nullptr;
-};
-
 struct PreparedTerrainCandidateCommit
 {
     // Value transaction split around sequencer-owned diagnostics. This keeps
@@ -118,36 +91,50 @@ class PhysicsTerrainStage
     std::vector<TerrainContactManifold> m_contactManifolds;
     std::array<uint8_t, Scene::Capacity::MAX_SCENE_OBJECTS> m_restApplied = {};
 
-    struct TerrainDetectionStage
-    {
-        PhysicsTerrainStage& stage;
-        const TerrainDetectionStageContext& context;
-        std::span<const int> bodyIndices;
-
-        void operator()( int bodySlot ) const;
-    };
-
-    void DetectTerrainAt( const TerrainDetectionStageContext& context, int bodyIndex );
+    void DetectTerrainAt( std::span<const PhysicsBodyRecord> bodyRecords,
+                          std::span<const BuoyancyBodyFacts> buoyancyFacts,
+                          const PhysicsBodyHotFieldsConstView& hotFields,
+                          std::span<const ColliderRecord> colliderRecords,
+                          PhysicsTerrainView terrain,
+                          const PhysicsRuntimeSettings& settings,
+                          std::span<const uint8_t> sleepState,
+                          std::span<const float> timeRemaining,
+                          Core::Profiler* profiler,
+                          int bodyIndex );
 
   public:
     PhysicsTerrainStage();
 
     void Clear();
     void BeginFrame();
-    void Detect(
-        const TerrainDetectionStageContext& context,
-        int modelCount,
-        std::span<const int> awakeBodyIndices,
-        const PhysicsExecutionSettings& execution,
-        Threading::WorkerPool& workerPool
-    );
-    PreparedTerrainCandidateCommit PrepareCandidateCommit(
-        const TerrainCandidateCommitContext& context,
-        int bodyIndex,
-        float availableTime,
-        const TerrainContactSweepResult& sweep
-    );
-    void CommitCandidate( const TerrainCandidateCommitContext& context, const PreparedTerrainCandidateCommit& commit );
+    // Lifetime: detection workers borrow these concrete rows only until the
+    // no-allocation dispatch joins; candidate storage remains stage-owned.
+    void Detect( const PhysicsBodyStore& bodyStore,
+                 const ColliderStore& colliderStore,
+                 std::span<const BuoyancyBodyFacts> buoyancyFacts,
+                 PhysicsTerrainView terrain,
+                 const PhysicsRuntimeSettings& settings,
+                 std::span<const uint8_t> sleepState,
+                 std::span<const float> timeRemaining,
+                 Core::Profiler* profiler,
+                 std::span<const int> awakeBodyIndices,
+                 const PhysicsExecutionSettings& execution,
+                 Threading::WorkerPool& workerPool );
+    // Invariant: prepare performs body integration and manifold construction;
+    // commit performs only the serial manifold/sleep publication after the
+    // PhysicsWorld diagnostic gap.
+    PreparedTerrainCandidateCommit PrepareCandidateCommit( PhysicsBodyStore& bodyStore,
+                                                           const ColliderStore& colliderStore,
+                                                           PhysicsTerrainView terrain,
+                                                           std::span<BuoyancyBodyFacts> buoyancyFacts,
+                                                           const PhysicsRuntimeSettings& settings,
+                                                           Core::Profiler* profiler,
+                                                           int bodyIndex,
+                                                           float availableTime,
+                                                           const TerrainContactSweepResult& sweep );
+    void CommitCandidate( const PreparedTerrainCandidateCommit& commit,
+                          std::span<uint8_t> sleepSupportedThisFrame,
+                          std::span<uint8_t> sleepInhibitedThisFrame );
 
     std::span<const TerrainDetectionCandidate> GetDetectionCandidates() const;
     std::vector<TerrainContactManifold>& GetContactManifolds();

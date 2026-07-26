@@ -53,6 +53,7 @@ Related:
 #include <cstring>
 #include <cmath>
 #include <cassert>
+#include <span>
 #include "../Core/Common.h"
 #include "../Core/SceneCapacity.h"
 #include "../Maths/Vector3.h"
@@ -61,8 +62,9 @@ namespace SkullbonezCore
 {
 namespace Physics
 {
-struct BroadphaseCandidateFilterContext;
-}
+class ColliderStore;
+class PhysicsBodyStore;
+} // namespace Physics
 namespace Math
 {
 namespace CollisionDetection
@@ -230,12 +232,23 @@ class SpatialGrid
     void ResetSweptOverlay();
     int CollectBucketObjects( const Bucket& bucket, int* outIndices, int capacity );
     void ResetCandidatePairDedup();
-    bool MarkCandidatePairFirstSeen(
-        int a,
-        int b,
-        const Physics::BroadphaseCandidateFilterContext* filter,
-        std::vector<std::pair<int, int>>* sleepPrunedPairs
-    );
+    bool MarkCandidatePairFirstSeen( int a, int b );
+    bool MarkFilteredCandidatePairFirstSeen( int a,
+                                             int b,
+                                             const Physics::PhysicsBodyStore& bodyStore,
+                                             const Physics::ColliderStore& colliderStore,
+                                             std::span<const uint8_t> sleepState,
+                                             float dt,
+                                             float contactSkin,
+                                             std::vector<std::pair<int, int>>* sleepPrunedPairs );
+    void GetFilteredCandidatePairsImpl( std::vector<std::pair<int, int>>& outPairs,
+                                        const Physics::PhysicsBodyStore& bodyStore,
+                                        const Physics::ColliderStore& colliderStore,
+                                        std::span<const uint8_t> sleepState,
+                                        float dt,
+                                        float contactSkin,
+                                        std::vector<std::pair<int, int>>* sleepPrunedPairs,
+                                        bool restrictToPairSourceCells );
 
   public:
     static constexpr int MAX_BUCKETS = TABLE_SIZE;
@@ -272,24 +285,35 @@ class SpatialGrid
     // they are created.
     void MarkPairSourceCells( int index );
     // Emits deduplicated cell-sharing pairs in ascending normalized body-index
-    // order. A filter can reject a known-safe false positive before it is
-    // staged, but narrowphase still owns contacts. Debug may retain geometric
-    // sleep-only admissions in a bounded diagnostic vector; production may
-    // restrict traversal to current pair-source cells.
-    void GetCandidatePairs(
-        std::vector<std::pair<int, int>>& outPairs,
-        const Physics::BroadphaseCandidateFilterContext* filter = nullptr,
-        std::vector<std::pair<int, int>>* sleepPrunedPairs = nullptr,
-        bool restrictToPairSourceCells = false
-    );
+    // order. The unfiltered overload exposes pure membership to focused tools;
+    // filtered overloads require concrete stores and step scalars. Debug may
+    // additionally retain sleep-only geometric admissions as bounded evidence.
+    void GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs, bool restrictToPairSourceCells = false );
+    void GetFilteredCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
+                                    const Physics::PhysicsBodyStore& bodyStore,
+                                    const Physics::ColliderStore& colliderStore,
+                                    std::span<const uint8_t> sleepState,
+                                    float dt,
+                                    float contactSkin,
+                                    std::vector<std::pair<int, int>>& sleepPrunedPairs,
+                                    bool restrictToPairSourceCells );
+    void GetFilteredCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
+                                    const Physics::PhysicsBodyStore& bodyStore,
+                                    const Physics::ColliderStore& colliderStore,
+                                    std::span<const uint8_t> sleepState,
+                                    float dt,
+                                    float contactSkin,
+                                    bool restrictToPairSourceCells );
 #if defined( _DEBUG )
     // P1 transition oracle only: emits the pre-transition bucket-history order
     // from the same grid state so Debug runs can compare work membership without
     // evolving a second simulation.
-    void GetCandidatePairsLegacyForOracle(
-        std::vector<std::pair<int, int>>& outPairs,
-        const Physics::BroadphaseCandidateFilterContext* filter = nullptr
-    );
+    void GetFilteredCandidatePairsLegacyForOracle( std::vector<std::pair<int, int>>& outPairs,
+                                                   const Physics::PhysicsBodyStore& bodyStore,
+                                                   const Physics::ColliderStore& colliderStore,
+                                                   std::span<const uint8_t> sleepState,
+                                                   float dt,
+                                                   float contactSkin );
 #endif
     float GetCellSize() const
     {

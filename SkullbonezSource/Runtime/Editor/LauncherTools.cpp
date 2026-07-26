@@ -39,7 +39,7 @@ Related:
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsBodyStore.h"
-#include "../../World/TerrainSupportClassifier.h"
+#include "../../Physics/TerrainSupportClassifier.h"
 
 #include <cfloat>
 #include <memory>
@@ -80,11 +80,9 @@ float LauncherReproRadius( const ColliderRecord& collider )
 }
 
 
-const ColliderRecord* LauncherReproColliderForModelIndex(
-    const PhysicsBodyStore& bodyStore,
-    const ColliderStore& colliderStore,
-    int modelIndex
-)
+const ColliderRecord* LauncherReproColliderForModelIndex( const PhysicsBodyStore& bodyStore,
+                                                          const ColliderStore& colliderStore,
+                                                          int modelIndex )
 {
     const PhysicsBodyHandle bodyHandle = bodyStore.HandleForModelIndex( modelIndex );
     const PhysicsColliderHandle colliderHandle = colliderStore.HandleForBodyHandle( bodyHandle );
@@ -92,20 +90,18 @@ const ColliderRecord* LauncherReproColliderForModelIndex(
 }
 
 
-const PhysicsBodyRecord*
-LauncherReproBodyForCollider( const PhysicsBodyStore& bodyStore, const ColliderRecord& collider )
+const PhysicsBodyRecord* LauncherReproBodyForCollider( const PhysicsBodyStore& bodyStore,
+                                                       const ColliderRecord& collider )
 {
     return bodyStore.RecordForHandle( collider.body );
 }
 } // namespace
 
 
-bool RuntimeTools::PickLauncherReproTarget(
-    const SceneWorld& world,
-    int& outIndex,
-    float& outRayT,
-    float& outCrosshairDistance
-) const
+bool RuntimeTools::PickLauncherReproTarget( const SceneWorld& world,
+                                            int& outIndex,
+                                            float& outRayT,
+                                            float& outCrosshairDistance ) const
 {
     outIndex = -1;
     outRayT = 0.0f;
@@ -119,6 +115,7 @@ bool RuntimeTools::PickLauncherReproTarget(
     {
         return false;
     }
+
     rayDir = rayDir * ( 1.0f / sqrtf( rayMagSq ) );
 
     float bestT = FLT_MAX;
@@ -212,13 +209,15 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     {
         return LauncherReproSnapshotStatus::NoTarget;
     }
+
     const PhysicsBodyRecord* body = LauncherReproBodyForCollider( bodyStore, *collider );
     if ( !body )
     {
         return LauncherReproSnapshotStatus::NoTarget;
     }
-    const PhysicsBodyHotState hotState =
-        LoadPhysicsBodyHotState( bodyStore.HotFields(), static_cast<std::size_t>( targetIndex ) );
+
+    const PhysicsBodyHotState hotState = LoadPhysicsBodyHotState( bodyStore.HotFields(),
+                                                                  static_cast<std::size_t>( targetIndex ) );
 
     CreateDirectoryA( "Debug", nullptr );
     FILE* rawFile = nullptr;
@@ -226,6 +225,7 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     {
         return LauncherReproSnapshotStatus::WriteFailed;
     }
+
     std::unique_ptr<FILE, decltype( &fclose )> file( rawFile, fclose );
     FILE* f = file.get();
 
@@ -263,8 +263,9 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
         }
     }
 
-    const char* rendererName =
-        context.rendererName && context.rendererName[0] != '\0' ? context.rendererName : "DirectX 12";
+    const char* rendererName = context.rendererName && context.rendererName[0] != '\0' ? context.rendererName
+                                                                                       : "DirectX 12";
+
     const char* rendererArg = "dx12";
     const char* generatedObjectOverride = "mixed";
     const char* generatedObjectArg = "";
@@ -278,6 +279,7 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
         generatedObjectOverride = "all_boxes";
         generatedObjectArg = " --all-boxes";
     }
+
     const Vector3& camPos = context.world.Cameras().GetCameraTranslation();
     const Vector3& camView = context.world.Cameras().GetCameraView();
     const Vector3& camUp = context.world.Cameras().GetCameraUp();
@@ -293,21 +295,25 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     {
         sleeping = sleepStates[targetIndex] ? 1 : 0;
     }
+
     const auto sleepSupportedStates = PhysicsEngine::ReadSleepSupportedStates( physics );
     if ( targetIndex < static_cast<int>( sleepSupportedStates.size() ) )
     {
         sleepSupported = sleepSupportedStates[targetIndex] ? 1 : 0;
     }
+
     const auto sleepInhibitedStates = PhysicsEngine::ReadSleepInhibitedStates( physics );
     if ( targetIndex < static_cast<int>( sleepInhibitedStates.size() ) )
     {
         sleepInhibited = sleepInhibitedStates[targetIndex] ? 1 : 0;
     }
+
     const std::vector<uint8_t>& collisionContacts = PhysicsEngine::ReadCollisionVisualContacts( physics );
     if ( targetIndex < static_cast<int>( collisionContacts.size() ) )
     {
         collisionVisualContact = collisionContacts[targetIndex] ? 1 : 0;
     }
+
     const auto islandIds = PhysicsEngine::ReadSleepIslandVisualIds( physics );
     if ( targetIndex < static_cast<int>( islandIds.size() ) )
     {
@@ -332,8 +338,13 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
         const BoundingBox& box = std::get<BoundingBox>( shape );
         Quaternion qCopy = hotState.orientation;
         RotationMatrix orientMat = qCopy.GetOrientationMatrix();
-        const BoxTerrainVertexSupportProbe supportProbe =
-            ProbeBoxTerrainVertices( nullptr, box, pos, orientMat, *terrain, context.contactEpsilon, false );
+        const BoxTerrainVertexSupportProbe supportProbe = ProbeBoxTerrainVertices( nullptr,
+                                                                                   box,
+                                                                                   pos,
+                                                                                   orientMat,
+                                                                                   terrain->PhysicsView(),
+                                                                                   context.contactEpsilon,
+                                                                                   false );
 
         if ( supportProbe.hasTerrainGaps )
         {
@@ -373,34 +384,31 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     fprintf( f, "pipeline_sync_enabled,%d\n", context.pipelineSyncEnabled ? 1 : 0 );
     if ( context.sceneState.isSceneMode )
     {
-        fprintf(
-            f,
-            "repro_command_hint,Debug\\SKULLBONEZ_CORE.exe --renderer %s --scene \"%s\" --seed %u --time-scale "
-            "%.6f%s%s%s%s\n",
-            rendererArg,
-            scenePath,
-            context.sceneState.rngSeed,
-            context.sceneState.timeScale,
-            context.sceneState.isFixedStep ? " --fixed-step" : "",
-            context.launchOptions.noWater ? " --no-water" : "",
-            context.physicsSleepEnabled ? "" : " --no-sleep",
-            generatedObjectArg
-        );
+        fprintf( f,
+                 "repro_command_hint,Debug\\SKULLBONEZ_CORE.exe --renderer %s --scene \"%s\" --seed %u --time-scale "
+                 "%.6f%s%s%s%s\n",
+                 rendererArg,
+                 scenePath,
+                 context.sceneState.rngSeed,
+                 context.sceneState.timeScale,
+                 context.sceneState.isFixedStep ? " --fixed-step" : "",
+                 context.launchOptions.noWater ? " --no-water" : "",
+                 context.physicsSleepEnabled ? "" : " --no-sleep",
+                 generatedObjectArg );
     }
     else
     {
-        fprintf(
-            f,
-            "repro_command_hint,Debug\\SKULLBONEZ_CORE.exe --renderer %s --seed %u --time-scale %.6f%s%s%s%s\n",
-            rendererArg,
-            context.sceneState.rngSeed,
-            context.sceneState.timeScale,
-            context.sceneState.isFixedStep ? " --fixed-step" : "",
-            context.launchOptions.noWater ? " --no-water" : "",
-            context.physicsSleepEnabled ? "" : " --no-sleep",
-            generatedObjectArg
-        );
+        fprintf( f,
+                 "repro_command_hint,Debug\\SKULLBONEZ_CORE.exe --renderer %s --seed %u --time-scale %.6f%s%s%s%s\n",
+                 rendererArg,
+                 context.sceneState.rngSeed,
+                 context.sceneState.timeScale,
+                 context.sceneState.isFixedStep ? " --fixed-step" : "",
+                 context.launchOptions.noWater ? " --no-water" : "",
+                 context.physicsSleepEnabled ? "" : " --no-sleep",
+                 generatedObjectArg );
     }
+
     fprintf( f, "water_hidden,%d\n", context.debug.isWaterHidden ? 1 : 0 );
     fprintf( f, "terrain_hidden,%d\n", context.debug.isTerrainHidden ? 1 : 0 );
     fprintf( f, "collision_visualizer,%d\n", context.debug.isCollisionVisualizer ? 1 : 0 );
@@ -453,6 +461,7 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
         fprintf( f, "hull_faces,%u\n", static_cast<unsigned>( hull.GetFaceCount() ) );
         fprintf( f, "hull_edges,%u\n", static_cast<unsigned>( hull.GetEdgeCount() ) );
     }
+
     fprintf( f, "sleeping,%d\n", sleeping );
     fprintf( f, "sleep_supported_this_frame,%d\n", sleepSupported );
     fprintf( f, "sleep_inhibited_this_frame,%d\n", sleepInhibited );
@@ -461,15 +470,13 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     fprintf( f, "terrain_at_center,%d\n", terrainAtCenter ? 1 : 0 );
     fprintf( f, "terrain_height_at_center,%.6f\n", terrainHeight );
     fprintf( f, "terrain_normal_at_center,%.6f,%.6f,%.6f\n", terrainNormal.x, terrainNormal.y, terrainNormal.z );
-    fprintf(
-        f,
-        "scene_object_line_hint,%s %s %.6f %.6f %.6f",
-        isSphere ? "ball_state/manual" : ( isBox ? "box/manual" : "convex_hull/manual" ),
-        name,
-        pos.x,
-        pos.y,
-        pos.z
-    );
+    fprintf( f,
+             "scene_object_line_hint,%s %s %.6f %.6f %.6f",
+             isSphere ? "ball_state/manual" : ( isBox ? "box/manual" : "convex_hull/manual" ),
+             name,
+             pos.x,
+             pos.y,
+             pos.z );
 
     if ( isSphere )
     {
@@ -485,17 +492,16 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     else
     {
         const ConvexHullShape& hull = std::get<ConvexHullShape>( shape );
-        fprintf(
-            f,
-            " hull=%s vertices=%u faces=%u edges=%u mass=%.6f restitution=%.6f",
-            hull.GetName(),
-            static_cast<unsigned>( hull.GetVertexCount() ),
-            static_cast<unsigned>( hull.GetFaceCount() ),
-            static_cast<unsigned>( hull.GetEdgeCount() ),
-            mass,
-            restitution
-        );
+        fprintf( f,
+                 " hull=%s vertices=%u faces=%u edges=%u mass=%.6f restitution=%.6f",
+                 hull.GetName(),
+                 static_cast<unsigned>( hull.GetVertexCount() ),
+                 static_cast<unsigned>( hull.GetFaceCount() ),
+                 static_cast<unsigned>( hull.GetEdgeCount() ),
+                 mass,
+                 restitution );
     }
+
     fprintf( f, "\n" );
     fprintf( f, "=== END LAUNCHER REPRO SNAPSHOT ===\n" );
 
@@ -503,10 +509,9 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
 }
 
 
-LauncherReproSnapshotStatus RuntimeTools::WriteLauncherReproSnapshotWithStatusMessage(
-    const LauncherReproSnapshotContext& context,
-    OverlayDebugState& debug
-) const
+LauncherReproSnapshotStatus
+RuntimeTools::WriteLauncherReproSnapshotWithStatusMessage( const LauncherReproSnapshotContext& context,
+                                                           OverlayDebugState& debug ) const
 {
     // Why: the debug Enter shortcut should ask the launcher owner for both the
     // cold snapshot artifact and the operator-facing status text, leaving Run to
@@ -515,12 +520,10 @@ LauncherReproSnapshotStatus RuntimeTools::WriteLauncherReproSnapshotWithStatusMe
     const char* snapshotMessage = "Failed to write repro snapshot";
     if ( snapshotStatus == LauncherReproSnapshotStatus::Wrote )
     {
-        sprintf_s(
-            debug.reproSnapshotMessage,
-            sizeof( debug.reproSnapshotMessage ),
-            "Repro snapshot: %s",
-            LAUNCHER_REPRO_SNAPSHOT_PATH
-        );
+        sprintf_s( debug.reproSnapshotMessage,
+                   sizeof( debug.reproSnapshotMessage ),
+                   "Repro snapshot: %s",
+                   LAUNCHER_REPRO_SNAPSHOT_PATH );
     }
     else if ( snapshotStatus == LauncherReproSnapshotStatus::NoTarget )
     {

@@ -60,13 +60,11 @@ struct SceneRuntimeUiOptionsContext
     SceneUiActivation& activation;
 };
 
-void PrepareSceneUiOptions(
-    SceneRuntimeUiOptionsContext context,
-    const SceneUIOptions& options,
-    double nowSeconds,
-    bool preserveUIState,
-    bool automationScene
-);
+void PrepareSceneUiOptions( SceneRuntimeUiOptionsContext context,
+                            const SceneUIOptions& options,
+                            double nowSeconds,
+                            bool preserveUIState,
+                            bool automationScene );
 void ApplySceneUiActivation( UI::InGameUI& ui, const SceneUiActivation& activation );
 
 } // namespace Runtime

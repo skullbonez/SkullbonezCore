@@ -56,22 +56,16 @@ struct SceneLoadNavigationState
 SceneLoadRequest
 LoadSceneFromBrowserIndex( const SkullbonezCore::UI::SceneNavigationModel& navigation, int index, SceneRuntime& scene );
 SceneLoadRequest LoadDemoScene( SceneRuntime& scene );
-int AdjacentCinematicModeBrowserIndex(
-    const SkullbonezCore::UI::SceneNavigationModel& navigation,
-    int direction,
-    int currentSceneBrowserIndex,
-    bool isCinematicTabActive
-);
-SceneLoadRequest LoadAdjacentScene(
-    const SkullbonezCore::UI::SceneNavigationModel& navigation,
-    int direction,
-    int currentSceneBrowserIndex,
-    SceneRuntime& scene
-);
+int AdjacentCinematicModeBrowserIndex( const SkullbonezCore::UI::SceneNavigationModel& navigation,
+                                       int direction,
+                                       int currentSceneBrowserIndex,
+                                       bool isCinematicTabActive );
+SceneLoadRequest LoadAdjacentScene( const SkullbonezCore::UI::SceneNavigationModel& navigation,
+                                    int direction,
+                                    int currentSceneBrowserIndex,
+                                    SceneRuntime& scene );
 SceneLoadNavigationState CaptureSceneLoadNavigationState( const SkullbonezCore::UI::SceneNavigationModel& navigation );
-void ApplySceneLoadNavigationState(
-    SkullbonezCore::UI::SceneNavigationModel& navigation,
-    const SceneLoadNavigationState& state
-);
+void ApplySceneLoadNavigationState( SkullbonezCore::UI::SceneNavigationModel& navigation,
+                                    const SceneLoadNavigationState& state );
 } // namespace Runtime
 } // namespace SkullbonezCore

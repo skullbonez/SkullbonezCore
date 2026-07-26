@@ -78,6 +78,9 @@
     <ClCompile Include="SkullbonezSource\Physics\PhysicsBodyStore.cpp">
       <Filter>Source Files\Bodies</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\PhysicsTerrainView.cpp">
+      <Filter>Source Files\Collision</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.cpp">
       <Filter>Source Files\Diagnostics</Filter>
     </ClCompile>
@@ -176,6 +179,9 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsBodyStore.h">
       <Filter>Header Files\Bodies</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsTerrainView.h">
+      <Filter>Header Files\Collision</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsDebugData.h">
       <Filter>Header Files\Diagnostics</Filter>
     </ClInclude>
@@ -215,6 +221,9 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsWorld.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\TerrainSupportClassifier.h">
+      <Filter>Header Files\Collision</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsWorldForces.h">
       <Filter>Header Files\Forces</Filter>
     </ClInclude>
@@ -249,9 +258,6 @@
       <Filter>Header Files\Stages</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseStage.h">
-      <Filter>Header Files\Stages</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsStageContexts.h">
       <Filter>Header Files\Stages</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsTerrainStage.h">

@@ -158,23 +158,19 @@ class Input
     static void SetSystemCursorVisible( bool visible );  // Shows or hides the Win32 cursor display counter
     static bool IsSystemCursorVisibleRequested();        // Last requested native cursor ownership state
     static SkullbonezCore::Core::SbResult CaptureDeviceInputFrame(
-        Runtime::DeviceInputFrame& frame
-    );                                                   // Captures the complete immutable keyboard/pointer frame once.
+        Runtime::DeviceInputFrame& frame );              // Captures the complete immutable keyboard/pointer frame once.
     static SkullbonezCore::Core::SbResult
     SetNativeMouseCapture( bool captured );              // Applies InputRouter's single native-capture decision.
     static void BindCallbackBridge( HWND window );       // Arms callback-fed input queues for the active HWND.
     static void UnbindCallbackBridge( HWND window );     // Disarms callback-fed queues and clears stale queued input.
     static void ClearCallbackEventBuffer( HWND window ); // Clears queued callback data for the bound HWND.
     static bool RegisterRawMouseInput( HWND window );    // Registers the window for relative mouse movement messages
-    static void AccumulateRawMouseDelta(
-        HWND window,
-        HRAWINPUT rawInput
-    );                                                   // Adds WM_INPUT movement when the callback bridge is bound.
+    static void
+    AccumulateRawMouseDelta( HWND window,
+                             HRAWINPUT rawInput );       // Adds WM_INPUT movement when the callback bridge is bound.
     static void ResetMouseLookDeltas();                  // Clears queued raw mouse movement and absolute tracking state
-    static void AccumulateMouseWheelDelta(
-        HWND window,
-        int delta
-    );                                                   // Adds a Win32 wheel delta when the callback bridge is bound.
+    static void AccumulateMouseWheelDelta( HWND window,
+                                           int delta );  // Adds a Win32 wheel delta when the callback bridge is bound.
     static void SetAutomationState( const AutomationState& state );
     static void ClearAutomationState();
 

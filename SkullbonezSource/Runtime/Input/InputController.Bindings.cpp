@@ -34,8 +34,7 @@ namespace Runtime
 namespace
 {
 using InputBindingContext = RuntimeInputBindingContext;
-constexpr RuntimeInputContextMask kKeyboardUnblockedContext =
-    RuntimeInputContextBit( InputBindingContext::KeyboardUnblocked );
+constexpr RuntimeInputContextMask kKeyboardUnblockedContext = RuntimeInputContextBit( InputBindingContext::KeyboardUnblocked );
 constexpr RuntimeInputContextMask kAfterUIUpdateContext = RuntimeInputContextBit( InputBindingContext::AfterUIUpdate );
 constexpr RuntimeInputContextMask kCaptureContext = RuntimeInputContextBit( InputBindingContext::Capture );
 
@@ -95,10 +94,9 @@ const RuntimeInputKeyBinding kTakeInputKeyboardBindings[] = {
     { VK_F2, RuntimeInputAction::SaveSceneSnapshot, kCaptureContext },
     { VK_F3, RuntimeInputAction::SaveScreenshot, kCaptureContext },
     { 'R', RuntimeInputAction::ResetScene, kAfterUIUpdateContext },
-    { VK_BACK, RuntimeInputAction::ResetSceneFromBackspace, kAfterUIUpdateContext | InputBindingContext::Scene }
-};
-constexpr std::size_t kTakeInputKeyboardBindingCount =
-    sizeof( kTakeInputKeyboardBindings ) / sizeof( kTakeInputKeyboardBindings[0] );
+    { VK_BACK, RuntimeInputAction::ResetSceneFromBackspace, kAfterUIUpdateContext | InputBindingContext::Scene } };
+constexpr std::size_t kTakeInputKeyboardBindingCount = sizeof( kTakeInputKeyboardBindings ) /
+                                                       sizeof( kTakeInputKeyboardBindings[0] );
 } // namespace
 
 RuntimeInputKeyBindingView TakeInputKeyboardBindings()

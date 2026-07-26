@@ -203,16 +203,16 @@ Vector3 CinematicSkySunDirection( const SkullbonezCore::Core::CinematicRenderCon
     return direction;
 }
 
-void ApplyWorkerThreadCountOverride(
-    SkullbonezCore::Core::EngineConfig& config,
-    SkullbonezCore::Threading::WorkerPool& workerPool,
-    int requestedWorkerThreads
-)
+void ApplyWorkerThreadCountOverride( SkullbonezCore::Core::EngineConfig& config,
+                                     SkullbonezCore::Threading::WorkerPool& workerPool,
+                                     int requestedWorkerThreads )
 {
-    const int clampedWorkerThreads =
-        requestedWorkerThreads < 0
-            ? -1
-            : std::clamp( requestedWorkerThreads, 0, SkullbonezCore::Threading::WorkerPool::MaxThreadCount() );
+    const int clampedWorkerThreads = requestedWorkerThreads < 0
+                                         ? -1
+                                         : std::clamp( requestedWorkerThreads,
+                                                       0,
+                                                       SkullbonezCore::Threading::WorkerPool::MaxThreadCount() );
+
     const int resolvedWorkerThreads = SkullbonezCore::Threading::WorkerPool::ResolveThreadCount( clampedWorkerThreads );
     config.runtimeCapacity.workerThreads = clampedWorkerThreads;
     if ( workerPool.GetThreadCount() != resolvedWorkerThreads )
@@ -234,6 +234,7 @@ bool ApplyRenderVsyncUICommand( RenderDeviceUICommandContext context, const UI::
     {
         context.renderDevice->SetVsyncEnabled( vsyncEnabled );
     }
+
     return true;
 }
 
@@ -264,12 +265,10 @@ RunCameraModeUICommandResult DecodeRunCameraModeUICommand( const UI::UIRunComman
 }
 
 
-RunSimulationUICommandResult ApplyRunSimulationUICommands(
-    RunSimulationUICommandContext context,
-    const UI::UISceneOptionCommands& sceneOptions,
-    const UI::UIRunCommands& run,
-    const UI::UIProfilerCommands& profiler
-)
+RunSimulationUICommandResult ApplyRunSimulationUICommands( RunSimulationUICommandContext context,
+                                                           const UI::UISceneOptionCommands& sceneOptions,
+                                                           const UI::UIRunCommands& run,
+                                                           const UI::UIProfilerCommands& profiler )
 {
     RunSimulationUICommandResult result;
     if ( sceneOptions.requestedTimeScale > 0.0f )
@@ -278,6 +277,7 @@ RunSimulationUICommandResult ApplyRunSimulationUICommands(
         context.scene.timeScale = context.uiOverrides.timeScaleOverride;
         result.setTimeScale = true;
     }
+
     if ( run.requestedSeed > 0 )
     {
         // Invariant: seed edits reset rngState immediately so generated rebuilds
@@ -286,11 +286,13 @@ RunSimulationUICommandResult ApplyRunSimulationUICommands(
         context.scene.rngState = context.scene.rngSeed;
         result.setRunSeed = true;
     }
+
     if ( profiler.requestedWorkerThreads >= -1 )
     {
         ApplyWorkerThreadCountOverride( context.config, context.workerPool, profiler.requestedWorkerThreads );
         result.setWorkerThreads = true;
     }
+
     return result;
 }
 
@@ -310,11 +312,9 @@ ApplyUIWorldOverride( WorldEnvironment& world, float gravity, float fluidHeight,
     return change;
 }
 
-bool ApplyWorldWaterUICommands(
-    WorldEnvironment& world,
-    const UI::UIWaterCommands& commands,
-    WorldOverrideChange& outChange
-)
+bool ApplyWorldWaterUICommands( WorldEnvironment& world,
+                                const UI::UIWaterCommands& commands,
+                                WorldOverrideChange& outChange )
 {
     if ( !commands.requestWorldGravity && !commands.requestWorldFluidHeight && !commands.requestWorldFluidDensity )
     {
@@ -324,16 +324,16 @@ bool ApplyWorldWaterUICommands(
     // Invariant: Water-tab sliders are partial requests. Unspecified fields keep
     // their current world values so a gravity edit does not rewrite fluid policy.
     const float gravity = commands.requestWorldGravity ? commands.requestedWorldGravity : world.GetGravity();
-    const float fluidHeight =
-        commands.requestWorldFluidHeight ? commands.requestedWorldFluidHeight : world.GetFluidSurfaceHeight();
-    const float fluidDensity =
-        commands.requestWorldFluidDensity ? commands.requestedWorldFluidDensity : world.GetFluidDensity();
-    outChange = ApplyUIWorldOverride(
-        world,
-        std::clamp( gravity, -100.0f, 0.0f ),
-        std::clamp( fluidHeight, -100.0f, 200.0f ),
-        std::clamp( fluidDensity, 0.0f, 5.0f )
-    );
+    const float fluidHeight = commands.requestWorldFluidHeight ? commands.requestedWorldFluidHeight
+                                                               : world.GetFluidSurfaceHeight();
+
+    const float fluidDensity = commands.requestWorldFluidDensity ? commands.requestedWorldFluidDensity
+                                                                 : world.GetFluidDensity();
+
+    outChange = ApplyUIWorldOverride( world,
+                                      std::clamp( gravity, -100.0f, 0.0f ),
+                                      std::clamp( fluidHeight, -100.0f, 200.0f ),
+                                      std::clamp( fluidDensity, 0.0f, 5.0f ) );
 
     return true;
 }
@@ -349,12 +349,10 @@ bool ApplyRuntimeTextOnlyUICommand( OverlayDebugState& debug, const UI::UISceneO
     return true;
 }
 
-RuntimePresentationUICommandResult ApplyRuntimePresentationUICommands(
-    RuntimePresentationUICommandContext context,
-    const UI::UISceneOptionCommands& sceneOptions,
-    const UI::UIRenderCommands& renderTuning,
-    const UI::UIWaterCommands& water
-)
+RuntimePresentationUICommandResult ApplyRuntimePresentationUICommands( RuntimePresentationUICommandContext context,
+                                                                       const UI::UISceneOptionCommands& sceneOptions,
+                                                                       const UI::UIRenderCommands& renderTuning,
+                                                                       const UI::UIWaterCommands& water )
 {
     RuntimePresentationUICommandResult result;
     OverlayDebugState& debug = context.debug;
@@ -364,11 +362,13 @@ RuntimePresentationUICommandResult ApplyRuntimePresentationUICommands(
         debug.isTerrainHidden = !debug.isTerrainHidden;
         result.toggledTerrainHidden = true;
     }
+
     if ( sceneOptions.toggleWaterHidden )
     {
         debug.isWaterHidden = !debug.isWaterHidden;
         result.toggledWaterHidden = true;
     }
+
     if ( sceneOptions.toggleWaterFreeze )
     {
         debug.isWaterFreezeDebug = !debug.isWaterFreezeDebug;
@@ -376,52 +376,56 @@ RuntimePresentationUICommandResult ApplyRuntimePresentationUICommands(
         {
             debug.frozenWaterTime = static_cast<float>( context.simulationSeconds );
         }
+
         result.toggledWaterFreeze = true;
     }
+
     if ( sceneOptions.toggleWaterFlat )
     {
         debug.isWaterFlatDebug = !debug.isWaterFlatDebug;
         result.toggledWaterFlat = true;
     }
+
     if ( sceneOptions.toggleShadows )
     {
-        if ( IsSceneCinematicRenderingEnabled(
-                 context.scene,
-                 config,
-                 context.launchOptions,
-                 debug,
-                 context.graphicsReady
-             ) )
+        if ( IsSceneCinematicRenderingEnabled( context.scene,
+                                               config,
+                                               context.launchOptions,
+                                               debug,
+                                               context.graphicsReady ) )
         {
             const bool shadowsActive = ActiveSceneCinematicConfig( context.scene, config ).shadow.enabled;
             context.launchOptions.hasCinematicShadowsOverride = false;
-            SetCinematicShadowsEnabledFromUI(
-                ActiveSceneCinematicConfig( context.scene, config ),
-                context.scene,
-                !shadowsActive
-            );
+            SetCinematicShadowsEnabledFromUI( ActiveSceneCinematicConfig( context.scene, config ),
+                                              context.scene,
+                                              !shadowsActive );
         }
         else
         {
             config.ordinaryRender.shadow.enabled = !config.ordinaryRender.shadow.enabled;
         }
+
         result.toggledSceneShadows = true;
     }
+
     if ( renderTuning.toggleShadows )
     {
         config.ordinaryRender.shadow.enabled = !config.ordinaryRender.shadow.enabled;
         result.toggledRenderShadows = true;
     }
+
     if ( renderTuning.saveDefaults )
     {
         context.renderDefaults.SubmitOrdinarySave();
         result.queuedRenderDefaultsSave = true;
     }
+
     if ( renderTuning.requestedParam != UIRenderParam::None )
     {
         ApplyOrdinaryRenderUIParam( config.ordinaryRender, renderTuning.requestedParam, renderTuning.requestedValue );
         result.appliedRenderTuning = true;
     }
+
     if ( water.toggleWaterReflection )
     {
         if ( debug.isWaterNoReflect )
@@ -433,8 +437,10 @@ RuntimePresentationUICommandResult ApplyRuntimePresentationUICommands(
             debug.isWaterNoReflect = true;
             debug.isWaterRTReflect = false;
         }
+
         result.toggledWaterReflection = true;
     }
+
     if ( water.requestedWaterReflectionMode >= 0 )
     {
         const int mode = std::clamp( water.requestedWaterReflectionMode, 0, 2 );
@@ -442,13 +448,12 @@ RuntimePresentationUICommandResult ApplyRuntimePresentationUICommands(
         debug.isWaterNoReflect = mode == 2;
         result.setWaterReflectionMode = true;
     }
+
     return result;
 }
 
-bool ApplyCinematicRenderingToggleUICommand(
-    CinematicUICommandContext context,
-    const UI::UICinematicCommands& commands
-)
+bool ApplyCinematicRenderingToggleUICommand( CinematicUICommandContext context,
+                                             const UI::UICinematicCommands& commands )
 {
     if ( !commands.toggleRendering )
     {
@@ -460,6 +465,7 @@ bool ApplyCinematicRenderingToggleUICommand(
     const bool currentlyEnabled = context.launchOptions.hasCinematicRenderingOverride
                                       ? context.launchOptions.cinematicRendering
                                       : context.cinematic.enabled;
+
     context.cinematic.enabled = !currentlyEnabled;
     context.launchOptions.hasCinematicRenderingOverride = false;
     if ( context.scene.isSceneMode )
@@ -469,6 +475,7 @@ bool ApplyCinematicRenderingToggleUICommand(
         context.scene.cinematicOverrideMask |= SCENE_CINE_RENDERING;
         context.scene.uiCinematicOverrideMask |= SCENE_CINE_RENDERING;
     }
+
     return true;
 }
 
@@ -499,13 +506,13 @@ bool ApplyCinematicModeUICommand( SceneRuntimeStyleContext context, const UI::UI
 
     // Invariant: input action reporting tracks the accepted UI request. The
     // underlying style loader can fail closed for a bad/missing scene, but the
-    // previous RunInput path still recorded the selection action for the request.
+    // InputFrame transition record still preserves the accepted selection.
     (void)ApplyCinematicModeFromBrowserIndex( context, commands.requestedModeSceneIndex );
     return true;
 }
 
-CinematicTuningUICommandResult
-ApplyCinematicTuningUICommands( CinematicUICommandContext context, const UI::UICinematicCommands& commands )
+CinematicTuningUICommandResult ApplyCinematicTuningUICommands( CinematicUICommandContext context,
+                                                               const UI::UICinematicCommands& commands )
 {
     CinematicTuningUICommandResult result;
     if ( commands.requestedFeature != UICinematicFeature::None )
@@ -514,21 +521,22 @@ ApplyCinematicTuningUICommands( CinematicUICommandContext context, const UI::UIC
         {
             context.launchOptions.hasCinematicShadowsOverride = false;
         }
+
         ToggleCinematicUIFeature( context.cinematic, context.scene, commands.requestedFeature );
         result.toggledFeature = true;
     }
+
     if ( commands.requestedParam != UICinematicParam::None )
     {
         ApplyCinematicUIParam( context.cinematic, context.scene, commands.requestedParam, commands.requestedValue );
         result.appliedParam = true;
     }
+
     return result;
 }
 
-bool ApplyPhysicsSleepPolicyUICommand(
-    PhysicsSleepPolicyUICommandContext context,
-    const UI::UIPhysicsCommands& commands
-)
+bool ApplyPhysicsSleepPolicyUICommand( PhysicsSleepPolicyUICommandContext context,
+                                       const UI::UIPhysicsCommands& commands )
 {
     if ( !commands.togglePhysicsSleepPolicy )
     {
@@ -539,42 +547,42 @@ bool ApplyPhysicsSleepPolicyUICommand(
     return true;
 }
 
-PhysicsFrictionUICommandResult
-ApplyPhysicsFrictionUICommands( PhysicsFrictionUICommandContext context, const UI::UIPhysicsCommands& commands )
+PhysicsFrictionUICommandResult ApplyPhysicsFrictionUICommands( PhysicsFrictionUICommandContext context,
+                                                               const UI::UIPhysicsCommands& commands )
 {
     PhysicsFrictionUICommandResult result;
     SkullbonezCore::Core::EngineConfig& liveConfig = context.config;
     bool runtimePhysicsConfigChanged = false;
     if ( commands.requestTerrainFrictionCoeff )
     {
-        liveConfig.physicsMaterial.frictionCoeff = std::clamp(
-            commands.requestedTerrainFrictionCoeff,
-            UI::Layout::UI_FRICTION_COEFF_MIN,
-            UI::Layout::UI_FRICTION_COEFF_MAX
-        );
+        liveConfig.physicsMaterial.frictionCoeff = std::clamp( commands.requestedTerrainFrictionCoeff,
+                                                               UI::Layout::UI_FRICTION_COEFF_MIN,
+                                                               UI::Layout::UI_FRICTION_COEFF_MAX );
+
         runtimePhysicsConfigChanged = true;
         ++result.applySettingsActionCount;
     }
+
     if ( commands.requestObjectFrictionCoeff )
     {
-        liveConfig.physicsMaterial.objectFrictionCoeff = std::clamp(
-            commands.requestedObjectFrictionCoeff,
-            UI::Layout::UI_FRICTION_COEFF_MIN,
-            UI::Layout::UI_FRICTION_COEFF_MAX
-        );
+        liveConfig.physicsMaterial.objectFrictionCoeff = std::clamp( commands.requestedObjectFrictionCoeff,
+                                                                     UI::Layout::UI_FRICTION_COEFF_MIN,
+                                                                     UI::Layout::UI_FRICTION_COEFF_MAX );
+
         runtimePhysicsConfigChanged = true;
         ++result.applySettingsActionCount;
     }
+
     if ( commands.requestRollingFrictionCoeff )
     {
-        liveConfig.physicsMaterial.rollingFrictionCoeff = std::clamp(
-            commands.requestedRollingFrictionCoeff,
-            UI::Layout::UI_ROLLING_FRICTION_COEFF_MIN,
-            UI::Layout::UI_ROLLING_FRICTION_COEFF_MAX
-        );
+        liveConfig.physicsMaterial.rollingFrictionCoeff = std::clamp( commands.requestedRollingFrictionCoeff,
+                                                                      UI::Layout::UI_ROLLING_FRICTION_COEFF_MIN,
+                                                                      UI::Layout::UI_ROLLING_FRICTION_COEFF_MAX );
+
         runtimePhysicsConfigChanged = true;
         ++result.applySettingsActionCount;
     }
+
     if ( runtimePhysicsConfigChanged )
     {
         // Invariant: SceneWorld caches per-model runtime tuning so
@@ -582,13 +590,14 @@ ApplyPhysicsFrictionUICommands( PhysicsFrictionUICommandContext context, const U
         // physics settings immediately after UI config edits.
         context.world.ApplyRuntimeConfig( liveConfig );
     }
+
     return result;
 }
 
 TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, const UI::UIPhysicsCommands& commands )
 {
-    // Why: RunInput owns input-mode bookkeeping, while this helper owns the
-    // gameplay-facing mutation and single sync point for accepted tornado edits.
+    // Why: InputFrame routes accepted UI actions through InputController mode
+    // bookkeeping; this helper owns the gameplay mutation and tornado sync.
     TornadoUICommandResult result;
     Gameplay::TornadoGameplay& tornado = context.world.Tornado();
 
@@ -599,82 +608,74 @@ TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, 
         {
             tornado.SetVisualEnabled( enabled );
         }
+
         result.toggledTornado = true;
     }
+
     if ( commands.toggleTornadoVisualShell )
     {
         tornado.ToggleVisualEnabled();
         result.toggledVisualShell = true;
     }
+
     if ( commands.toggleTornadoFieldVectors )
     {
         tornado.ToggleFieldVectors();
         result.toggledFieldVectors = true;
     }
+
     if ( commands.requestTornadoRadius )
     {
-        tornado.SetFieldRadius(
-            std::clamp(
-                commands.requestedTornadoRadius,
-                UI::Layout::UI_TORNADO_RADIUS_MIN,
-                UI::Layout::UI_TORNADO_RADIUS_MAX
-            )
-        );
+        tornado.SetFieldRadius( std::clamp( commands.requestedTornadoRadius,
+                                            UI::Layout::UI_TORNADO_RADIUS_MIN,
+                                            UI::Layout::UI_TORNADO_RADIUS_MAX ) );
+
         ++result.applySettingsActionCount;
     }
+
     if ( commands.requestTornadoHeight )
     {
-        tornado.SetFieldHeight(
-            std::clamp(
-                commands.requestedTornadoHeight,
-                UI::Layout::UI_TORNADO_HEIGHT_MIN,
-                UI::Layout::UI_TORNADO_HEIGHT_MAX
-            )
-        );
+        tornado.SetFieldHeight( std::clamp( commands.requestedTornadoHeight,
+                                            UI::Layout::UI_TORNADO_HEIGHT_MIN,
+                                            UI::Layout::UI_TORNADO_HEIGHT_MAX ) );
+
         ++result.applySettingsActionCount;
     }
+
     if ( commands.requestTornadoInward )
     {
-        tornado.SetFieldInwardAcceleration(
-            std::clamp(
-                commands.requestedTornadoInward,
-                UI::Layout::UI_TORNADO_INWARD_MIN,
-                UI::Layout::UI_TORNADO_INWARD_MAX
-            )
-        );
+        tornado.SetFieldInwardAcceleration( std::clamp( commands.requestedTornadoInward,
+                                                        UI::Layout::UI_TORNADO_INWARD_MIN,
+                                                        UI::Layout::UI_TORNADO_INWARD_MAX ) );
+
         ++result.applySettingsActionCount;
     }
+
     if ( commands.requestTornadoSwirl )
     {
-        tornado.SetFieldSwirlAcceleration(
-            std::clamp(
-                commands.requestedTornadoSwirl,
-                UI::Layout::UI_TORNADO_SWIRL_MIN,
-                UI::Layout::UI_TORNADO_SWIRL_MAX
-            )
-        );
+        tornado.SetFieldSwirlAcceleration( std::clamp( commands.requestedTornadoSwirl,
+                                                       UI::Layout::UI_TORNADO_SWIRL_MIN,
+                                                       UI::Layout::UI_TORNADO_SWIRL_MAX ) );
+
         ++result.applySettingsActionCount;
     }
+
     if ( commands.requestTornadoLift )
     {
-        tornado.SetFieldLiftAcceleration(
-            std::clamp(
-                commands.requestedTornadoLift,
-                UI::Layout::UI_TORNADO_LIFT_MIN,
-                UI::Layout::UI_TORNADO_LIFT_MAX
-            )
-        );
+        tornado.SetFieldLiftAcceleration( std::clamp( commands.requestedTornadoLift,
+                                                      UI::Layout::UI_TORNADO_LIFT_MIN,
+                                                      UI::Layout::UI_TORNADO_LIFT_MAX ) );
+
         ++result.applySettingsActionCount;
     }
+
     return result;
 }
 
-void ApplyCinematicUIParam(
-    SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-    SceneSessionState& scene,
-    UICinematicParam param,
-    float rawValue
-)
+void ApplyCinematicUIParam( SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+                            SceneSessionState& scene,
+                            UICinematicParam param,
+                            float rawValue )
 {
     // The UI sends "the user dragged this slider to this raw value." This helper
     // clamps the value into a safe range, writes it into the live cinematic
@@ -959,11 +960,9 @@ void ApplyCinematicUIParam(
     }
 }
 
-void SetCinematicShadowsEnabledFromUI(
-    SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-    SceneSessionState& scene,
-    bool enabled
-)
+void SetCinematicShadowsEnabledFromUI( SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+                                       SceneSessionState& scene,
+                                       bool enabled )
 {
     // Shadow maps are configured next to the cinematic controls because the
     // original implementation grew from that renderer work, but the depth pass
@@ -975,11 +974,9 @@ void SetCinematicShadowsEnabledFromUI(
     scene.uiCinematicOverrideMask |= SCENE_CINE_SHADOWS;
 }
 
-void ApplyOrdinaryRenderUIParam(
-    SkullbonezCore::Core::OrdinaryRenderConfig& ordinary,
-    UIRenderParam param,
-    float rawValue
-)
+void ApplyOrdinaryRenderUIParam( SkullbonezCore::Core::OrdinaryRenderConfig& ordinary,
+                                 UIRenderParam param,
+                                 float rawValue )
 {
     switch ( param )
     {
@@ -1102,11 +1099,9 @@ void ApplyOrdinaryRenderUIParam(
     }
 }
 
-void ToggleCinematicUIFeature(
-    SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-    SceneSessionState& scene,
-    UICinematicFeature feature
-)
+void ToggleCinematicUIFeature( SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+                               SceneSessionState& scene,
+                               UICinematicFeature feature )
 {
     // Feature toggles are boolean pass switches: sky on/off, bloom on/off, etc.
     // Each toggle also marks the matching override bit for scene persistence.

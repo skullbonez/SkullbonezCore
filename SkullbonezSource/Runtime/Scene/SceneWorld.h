@@ -5,8 +5,9 @@ Purpose:
   environment settings, and render-instance presentation.
 
 Summary:
-  SceneWorld commits aligned entity/body/collider/render topology and exposes
-  stable-identity operations, including transient editor visibility and locks.
+  SceneWorld commits aligned entity/body/collider/buoyancy/render topology and
+  exposes stable-identity operations, including transient editor visibility
+  and locks.
 
 Mental model:
   SceneController decides when a scene lifecycle advances. SceneWorld owns what
@@ -17,16 +18,17 @@ Mental model:
 Glossary:
   World owner: Concrete lifetime boundary joining the stores replaced together
     by a successful scene load or replay topology restore.
-  Dense topology: Entity, body, collider, and render rows sharing one temporary
-    model order while stable PhysicsSceneObjectId remains durable identity.
+  Dense topology: Entity, body, collider, buoyancy, and render rows sharing one
+    temporary model order while stable PhysicsSceneObjectId remains durable
+    identity.
   Presentation capture: Previous/current physics poses retained by the render
     store across one fixed step for interpolation.
   Post-step output: Bounded physics facts borrowed synchronously by presentation.
 
 Invariants:
   - All six owned domains are born, cleared, and replaced as one scene lifetime.
-  - Entity, body, collider, and render row counts remain aligned after every
-    successful topology mutation.
+  - Entity, body, collider, buoyancy, and render row counts remain aligned
+    after every successful topology mutation.
   - Physics stepping and topology repair occur inside this owner; there is no
     reach-back to SceneController or the process shell.
   - Accessors return borrowed owners and never transfer or duplicate authority.
@@ -40,6 +42,7 @@ Related:
 
 #include "SceneEntityStore.h"
 #include "SceneTerrain.h"
+#include "../../Scene/SceneSnapshotWriter.h"
 #include "../../Maths/Vector3.h"
 #include "../../Gameplay/TornadoGameplay.h"
 #include "../../Physics/PhysicsApi.h"
@@ -89,18 +92,19 @@ class SceneWorld
     SceneWorld();
 
     void ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config );
-    // Published owner value; Replay composition need not retain a duplicate
-    // config-derived capacity in SceneLoadConsumerOutputs.
+    // Published owner value; the scene-load transaction need not retain a
+    // duplicate config-derived capacity among its detached outputs.
     int ActiveSceneObjectCapacity() const;
     // One preflighted command publishes entity, physics, collider, and render
     // rows together. A mismatched post-commit count is a fatal invariant.
-    SceneEntityCreateResult TryCreateSceneEntity(
-        SceneEntityCreateDesc entity,
-        Physics::PhysicsBodyCreateDesc bodyDesc,
-        Physics::PhysicsColliderCreateDesc colliderDesc
-    );
+    SceneEntityCreateResult TryCreateSceneEntity( SceneEntityCreateDesc entity,
+                                                  Physics::PhysicsBodyCreateDesc bodyDesc,
+                                                  Physics::PhysicsColliderCreateDesc colliderDesc );
     // Cold editor deletion removes the same four rows as one swap-last commit.
     bool DestroySceneEntity( Physics::PhysicsBodyHandle body );
+    // Terrain replacement is a lifetime transaction: revoke Physics' borrowed
+    // cell span before destroying the backing owner, then publish the new view.
+    void ReplaceTerrain( std::unique_ptr<Geometry::Terrain> terrain, bool isFlatSlope );
     void Clear();
     bool TrimForReplayRestore( int bodyCount );
 
@@ -115,13 +119,14 @@ class SceneWorld
     void EndCollisionVisualFrame();
 
     bool TryGetModelPosition( int index, Math::Vector::Vector3& outPosition ) const;
-    bool TryGetPresentationPose(
-        int index,
-        float presentationAlpha,
-        Math::Vector::Vector3& outPosition,
-        Math::Orientation::Quaternion& outOrientation
-    ) const;
+    bool TryGetPresentationPose( int index,
+                                 float presentationAlpha,
+                                 Math::Vector::Vector3& outPosition,
+                                 Math::Orientation::Quaternion& outOrientation ) const;
     int SceneEntityCount() const;
+    // Publishes every SceneWorld-owned field needed by one synchronous scene
+    // save. Borrowed store rows remain valid only until the writer returns.
+    GameObjects::SceneWorldSaveState GetSaveState() const;
     // Current prepared physics views. Callers must not retain either span/view
     // across topology mutation or scene replacement.
     const Physics::PhysicsBodyStore& BodyStore() const;
@@ -134,16 +139,14 @@ class SceneWorld
     double GetSceneKineticEnergy();
     // Runtime-tool edge: resolve a picked row once, then perform release and
     // same-tree propagation through PhysicsEngine-owned handles.
-    bool ReleaseAttachedFixedTreeParts(
-        int sourceIndex,
-        float releaseImpulseStrength,
-        const Math::Vector::Vector3& seedLinearVelocity,
-        const Math::Vector::Vector3& seedAngularVelocity
-    );
+    bool ReleaseAttachedFixedTreeParts( int sourceIndex,
+                                        float releaseImpulseStrength,
+                                        const Math::Vector::Vector3& seedLinearVelocity,
+                                        const Math::Vector::Vector3& seedAngularVelocity );
     void CaptureReplaySolverWorldSnapshot( Physics::PhysicsSolverSnapshot& outSnapshot ) const;
     bool RestoreReplaySolverWorldSnapshot( const Physics::PhysicsSolverSnapshot& snapshot );
-    // Explicit cold boundary used before tools borrow paired body/collider
-    // handles. Hot passes must never trigger topology repair.
+    // Explicit cold boundary used before tools borrow aligned physics rows and
+    // paired body/collider handles. Hot passes never trigger topology repair.
     bool RepairPhysicsBodyAndColliderTopology();
 
     std::span<const Rendering::RenderInstancePresentationRecord> RenderPresentationRecords() const

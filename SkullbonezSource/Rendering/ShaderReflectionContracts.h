@@ -17,7 +17,7 @@ Invariants:
   - Generated metadata is immutable and covers every shipping stage.
 
 Related:
-  - DX12/GeneratedShaderReflection.h
+  - SkullbonezData/generated/GeneratedShaderReflection.h
   - ShaderContracts.h
   - tools/bake_shaders.py
 */
@@ -25,7 +25,7 @@ Related:
 
 #include "ShaderContracts.h"
 #include "RenderRasterBindingContract.h"
-#include "DX12/GeneratedShaderReflection.h"
+#include "../../SkullbonezData/generated/GeneratedShaderReflection.h"
 
 #include <algorithm>
 #include <cstring>
@@ -61,12 +61,10 @@ struct ShaderVertexInputLayoutElement
 // Concept: a vertex shader's reflected inputs are a required subset of the
 // mesh layout. Extra mesh attributes are legal because depth-only shaders often
 // consume POSITION from a richer POSITION/NORMAL/TEXCOORD vertex stream.
-inline bool ValidateGeneratedShaderVertexInputLayout(
-    const char* sourcePath,
-    const ShaderVertexInputLayoutElement* elements,
-    size_t count,
-    const char*& outError
-)
+inline bool ValidateGeneratedShaderVertexInputLayout( const char* sourcePath,
+                                                      const ShaderVertexInputLayoutElement* elements,
+                                                      size_t count,
+                                                      const char*& outError )
 {
     const auto* reflected = FindGeneratedShaderStage( sourcePath, "vs" );
     if ( !reflected )
@@ -229,16 +227,14 @@ ValidateGeneratedShaderProgramContract( const char* path, const ShaderProgramDes
     return true;
 }
 
-inline bool ValidateUnifiedRasterResource(
-    const GeneratedShaderReflection::Stage& stage,
-    const GeneratedShaderReflection::Resource& resource,
-    std::string& outError
-)
+inline bool ValidateUnifiedRasterResource( const GeneratedShaderReflection::Stage& stage,
+                                           const GeneratedShaderReflection::Resource& resource,
+                                           std::string& outError )
 {
     if ( resource.space != UnifiedRasterRootSignature::REGISTER_SPACE )
     {
-        outError =
-            std::string( stage.source ) + ":" + stage.stage + " uses non-zero register space for " + resource.name;
+        outError = std::string( stage.source ) + ":" + stage.stage + " uses non-zero register space for " +
+                   resource.name;
         return false;
     }
 
@@ -291,8 +287,8 @@ inline bool ValidateGeneratedUnifiedRasterRootSignature( std::string& outError )
 
     if ( rasterStageCount != 42 )
     {
-        outError =
-            "UnifiedRaster expected reflection for 42 raster stages, found " + std::to_string( rasterStageCount );
+        outError = "UnifiedRaster expected reflection for 42 raster stages, found " +
+                   std::to_string( rasterStageCount );
         return false;
     }
     return true;

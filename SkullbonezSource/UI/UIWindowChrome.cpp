@@ -24,7 +24,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "UIWindowChrome.h"
-#include "../Rendering/Text.h"
+#include "UIFontMetrics.h"
 #include "UI.h"
 #include "UIDrawWidgets.h"
 #include "UILayout.h"
@@ -34,8 +34,6 @@ Related:
 #include <cmath>
 #include <cstdio>
 #include <cstring>
-
-using namespace SkullbonezCore::Text;
 
 namespace SkullbonezCore
 {
@@ -53,10 +51,11 @@ void BuildWindowTitle( const InGameUIFrameData& data, char* out, size_t outSize 
 
     if ( data.sceneMode && data.sceneName && data.sceneName[0] != '\0' )
     {
-        const int displayedFrame =
-            ( data.testComplete && data.targetFrameCount > 0 && data.currentFrame > data.targetFrameCount )
-                ? data.targetFrameCount
-                : data.currentFrame;
+        const int displayedFrame = ( data.testComplete && data.targetFrameCount > 0 &&
+                                     data.currentFrame > data.targetFrameCount )
+                                       ? data.targetFrameCount
+                                       : data.currentFrame;
+
         if ( data.testComplete )
         {
             if ( data.targetFrameCount > 0 )
@@ -98,7 +97,7 @@ void BuildWindowTitle( const InGameUIFrameData& data, char* out, size_t outSize 
 
 void FitTitleText( char* text, size_t textSize, float fontSize, float maxWidth )
 {
-    if ( textSize == 0 || Text2d::MeasureText( fontSize, text ) <= maxWidth )
+    if ( textSize == 0 || UIFontMetrics::MeasureText( fontSize, text ) <= maxWidth )
     {
         return;
     }
@@ -109,7 +108,7 @@ void FitTitleText( char* text, size_t textSize, float fontSize, float maxWidth )
     for ( size_t start = 1; start < len; ++start )
     {
         snprintf( text, textSize, "...%s", original + start );
-        if ( Text2d::MeasureText( fontSize, text ) <= maxWidth )
+        if ( UIFontMetrics::MeasureText( fontSize, text ) <= maxWidth )
         {
             return;
         }
@@ -201,6 +200,7 @@ void BeginWindowAnimation( UIWindowState& window, const UIRect& from, const UIRe
 {
     const bool sameBounds = std::fabs( from.x - to.x ) < 0.5f && std::fabs( from.y - to.y ) < 0.5f &&
                             std::fabs( from.w - to.w ) < 0.5f && std::fabs( from.h - to.h ) < 0.5f;
+
     if ( now <= 0.0 || sameBounds )
     {
         window.animationActive = false;
@@ -252,17 +252,15 @@ bool IsResizeHotspot( const UIRect& windowBounds, int mouseX, int mouseY )
 void DrawWindowAnimationShell( const UIDrawContext& draw, const UIRect& bounds )
 {
     const Style::UIPalette& palette = Style::Palette();
-    draw.RoundedRect(
-        bounds.x + 4.0f,
-        bounds.y + 6.0f,
-        bounds.w,
-        bounds.h,
-        Style::Radii().window,
-        0.0f,
-        0.0f,
-        0.0f,
-        0.26f
-    );
+    draw.RoundedRect( bounds.x + 4.0f,
+                      bounds.y + 6.0f,
+                      bounds.w,
+                      bounds.h,
+                      Style::Radii().window,
+                      0.0f,
+                      0.0f,
+                      0.0f,
+                      0.26f );
 
     draw.RoundedPanel( bounds, Style::Radii().window, palette.window, palette.border );
 }
@@ -273,168 +271,140 @@ void DrawMinimizedWindow( const UIDrawContext& draw, const UIRect& minimized, co
     const Style::UIPalette& palette = Style::Palette();
     const UIRect restoreButton = { minimized.x + minimized.w - 36.0f, minimized.y + 7.0f, 26.0f, 22.0f };
 
-    draw.RoundedRect(
-        minimized.x + 4.0f,
-        minimized.y + 5.0f,
-        minimized.w,
-        minimized.h,
-        Style::Radii().window,
-        0.0f,
-        0.0f,
-        0.0f,
-        0.26f
-    );
+    draw.RoundedRect( minimized.x + 4.0f,
+                      minimized.y + 5.0f,
+                      minimized.w,
+                      minimized.h,
+                      Style::Radii().window,
+                      0.0f,
+                      0.0f,
+                      0.0f,
+                      0.26f );
 
     draw.RoundedPanel( minimized, Style::Radii().window, palette.window, palette.border );
-    draw.RoundedRect(
-        minimized.x + 11.0f,
-        minimized.y + 13.0f,
-        10.0f,
-        10.0f,
-        5.0f,
-        palette.accent.r,
-        palette.accent.g,
-        palette.accent.b,
-        0.90f
-    );
+    draw.RoundedRect( minimized.x + 11.0f,
+                      minimized.y + 13.0f,
+                      10.0f,
+                      10.0f,
+                      5.0f,
+                      palette.accent.r,
+                      palette.accent.g,
+                      palette.accent.b,
+                      0.90f );
 
     draw.RoundedPanel( restoreButton, Style::Radii().smallButton, palette.control, palette.border );
-    draw.Text(
-        minimized.x + 32.0f,
-        minimized.y + 11.0f,
-        12.5f,
-        palette.textPrimary.r,
-        palette.textPrimary.g,
-        palette.textPrimary.b,
-        titleText
-    );
+    draw.Text( minimized.x + 32.0f,
+               minimized.y + 11.0f,
+               12.5f,
+               palette.textPrimary.r,
+               palette.textPrimary.g,
+               palette.textPrimary.b,
+               titleText );
 
     const float plusX = restoreButton.x + restoreButton.w * 0.5f;
     const float plusY = restoreButton.y + restoreButton.h * 0.5f;
-    draw.Rect(
-        plusX - 5.0f,
-        plusY - 1.0f,
-        10.0f,
-        2.0f,
-        palette.textSecondary.r,
-        palette.textSecondary.g,
-        palette.textSecondary.b,
-        0.96f
-    );
+    draw.Rect( plusX - 5.0f,
+               plusY - 1.0f,
+               10.0f,
+               2.0f,
+               palette.textSecondary.r,
+               palette.textSecondary.g,
+               palette.textSecondary.b,
+               0.96f );
 
-    draw.Rect(
-        plusX - 1.0f,
-        plusY - 5.0f,
-        2.0f,
-        10.0f,
-        palette.textSecondary.r,
-        palette.textSecondary.g,
-        palette.textSecondary.b,
-        0.96f
-    );
+    draw.Rect( plusX - 1.0f,
+               plusY - 5.0f,
+               2.0f,
+               10.0f,
+               palette.textSecondary.r,
+               palette.textSecondary.g,
+               palette.textSecondary.b,
+               0.96f );
 }
 
 
-void DrawWindowFrame(
-    const UIDrawContext& draw,
-    const UIRect& bounds,
-    float titleH,
-    float tabH,
-    bool blurEnabled,
-    const char* titleText
-)
+void DrawWindowFrame( const UIDrawContext& draw,
+                      const UIRect& bounds,
+                      float titleH,
+                      float tabH,
+                      bool blurEnabled,
+                      const char* titleText )
 {
     const Style::UIPalette& palette = Style::Palette();
     Style::UIColor windowFill = palette.window;
     windowFill.a = blurEnabled ? 0.60f : palette.window.a;
-    draw.RoundedRect(
-        bounds.x + 5.0f,
-        bounds.y + 7.0f,
-        bounds.w,
-        bounds.h,
-        Style::Radii().window,
-        0.0f,
-        0.0f,
-        0.0f,
-        0.28f
-    );
+    draw.RoundedRect( bounds.x + 5.0f,
+                      bounds.y + 7.0f,
+                      bounds.w,
+                      bounds.h,
+                      Style::Radii().window,
+                      0.0f,
+                      0.0f,
+                      0.0f,
+                      0.28f );
 
     draw.RoundedPanel( bounds, Style::Radii().window, windowFill, palette.border );
-    draw.RoundedRect(
-        bounds.x + 2.0f,
-        bounds.y + 2.0f,
-        bounds.w - 4.0f,
-        titleH - 3.0f,
-        Style::Radii().window - 2.0f,
-        palette.windowRaised.r,
-        palette.windowRaised.g,
-        palette.windowRaised.b,
-        0.72f
-    );
+    draw.RoundedRect( bounds.x + 2.0f,
+                      bounds.y + 2.0f,
+                      bounds.w - 4.0f,
+                      titleH - 3.0f,
+                      Style::Radii().window - 2.0f,
+                      palette.windowRaised.r,
+                      palette.windowRaised.g,
+                      palette.windowRaised.b,
+                      0.72f );
 
-    draw.Rect(
-        bounds.x + 2.0f,
-        bounds.y + titleH,
-        bounds.w - 4.0f,
-        tabH,
-        palette.windowSubtle.r,
-        palette.windowSubtle.g,
-        palette.windowSubtle.b,
-        0.58f
-    );
+    draw.Rect( bounds.x + 2.0f,
+               bounds.y + titleH,
+               bounds.w - 4.0f,
+               tabH,
+               palette.windowSubtle.r,
+               palette.windowSubtle.g,
+               palette.windowSubtle.b,
+               0.58f );
 
-    draw.Rect(
-        bounds.x + 16.0f,
-        bounds.y + titleH + tabH,
-        bounds.w - 32.0f,
-        1.0f,
-        palette.lineSoft.r,
-        palette.lineSoft.g,
-        palette.lineSoft.b,
-        0.14f
-    );
+    draw.Rect( bounds.x + 16.0f,
+               bounds.y + titleH + tabH,
+               bounds.w - 32.0f,
+               1.0f,
+               palette.lineSoft.r,
+               palette.lineSoft.g,
+               palette.lineSoft.b,
+               0.14f );
 
-    draw.Text(
-        bounds.x + 20.0f,
-        bounds.y + 12.0f,
-        15.5f,
-        palette.textPrimary.r,
-        palette.textPrimary.g,
-        palette.textPrimary.b,
-        titleText
-    );
+    draw.Text( bounds.x + 20.0f,
+               bounds.y + 12.0f,
+               15.5f,
+               palette.textPrimary.r,
+               palette.textPrimary.g,
+               palette.textPrimary.b,
+               titleText );
 }
 
 
-void DrawTitleButtons(
-    const UIDrawContext& draw,
-    const TitleButtonRects& buttons,
-    bool isMaximized,
-    int mouseX,
-    int mouseY
-)
+void DrawTitleButtons( const UIDrawContext& draw,
+                       const TitleButtonRects& buttons,
+                       bool isMaximized,
+                       int mouseX,
+                       int mouseY )
 {
-    Widgets::DrawTitleButton(
-        draw,
-        buttons.minimize,
-        Widgets::TitleButtonIcon::Minimize,
-        buttons.minimize.Contains( mouseX, mouseY ),
-        false
-    );
-    Widgets::DrawTitleButton(
-        draw,
-        buttons.maximize,
-        isMaximized ? Widgets::TitleButtonIcon::Restore : Widgets::TitleButtonIcon::Maximize,
-        buttons.maximize.Contains( mouseX, mouseY ),
-        isMaximized
-    );
-    Widgets::DrawTitleButton(
-        draw,
-        buttons.close,
-        Widgets::TitleButtonIcon::Close,
-        buttons.close.Contains( mouseX, mouseY ),
-        false
-    );
+    Widgets::DrawTitleButton( draw,
+                              buttons.minimize,
+                              Widgets::TitleButtonIcon::Minimize,
+                              buttons.minimize.Contains( mouseX, mouseY ),
+                              false );
+
+    Widgets::DrawTitleButton( draw,
+                              buttons.maximize,
+                              isMaximized ? Widgets::TitleButtonIcon::Restore : Widgets::TitleButtonIcon::Maximize,
+                              buttons.maximize.Contains( mouseX, mouseY ),
+                              isMaximized );
+
+    Widgets::DrawTitleButton( draw,
+                              buttons.close,
+                              Widgets::TitleButtonIcon::Close,
+                              buttons.close.Contains( mouseX, mouseY ),
+                              false );
 }
 
 } // namespace Chrome

@@ -17,7 +17,7 @@
     {
       "date": "2026-07-17",
       "owner": "unit-test-coverage-campaign U10",
-      "scope": "SkullbonezSource/Runtime/Replay/ReplayPredictionArchive.*",
+      "scope": "SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.*",
       "decision": "Keep the prediction archive in the replay visual-fidelity system gate rather than the CPU artifact-codec floor.",
       "reason": "Its public values are constructed by ReplayPrediction and ReplayPresentation owners; U5's sole mega invocation exercised the production build/load/rebuild round-trip without adding a test-only runtime seam."
     },
@@ -69,8 +69,8 @@
     "SkullbonezSource/Runtime/Render/**",
     "SkullbonezSource/Runtime/App/RunRender.*",
     "SkullbonezSource/Runtime/Render/UiTextPass.*",
-    "SkullbonezSource/Runtime/Replay/ReplayValidation*",
-    "SkullbonezSource/Runtime/Replay/ReplayPredictionArchive.*",
+    "SkullbonezSource/Runtime/App/ReplayValidation*",
+    "SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.*",
     "SkullbonezSource/Runtime/Scene/SceneController.*",
     "SkullbonezSource/Runtime/Startup/StartupProbeHarnesses.*"
   ],

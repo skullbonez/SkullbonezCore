@@ -28,7 +28,7 @@ Related:
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp
   - SkullbonezSource/Runtime/Input/InputRouter.h
   - SkullbonezSource/Runtime/App/Window.cpp
-  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E7)
+  - Agentic/Reports/2026-07-21/imgui-tracy-editor-campaign-closure.md (E7)
 */
 #pragma once
 
@@ -139,8 +139,8 @@ constexpr ImGuiEditorInputCapture EvaluateImGuiEditorInputCapture( const ImGuiEd
     return capture;
 }
 
-constexpr ImGuiEditorMessageDecision
-DecideImGuiEditorMessageRoute( ImGuiEditorMessageClass messageClass, const ImGuiEditorInputCapture& capture ) noexcept
+constexpr ImGuiEditorMessageDecision DecideImGuiEditorMessageRoute( ImGuiEditorMessageClass messageClass,
+                                                                    const ImGuiEditorInputCapture& capture ) noexcept
 {
     bool editorConsumes = false;
     switch ( messageClass )

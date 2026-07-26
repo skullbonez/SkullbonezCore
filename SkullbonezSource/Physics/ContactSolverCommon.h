@@ -42,11 +42,9 @@ namespace ContactSolver
 // A "row" is one tiny rule such as "do not move into the wall along this normal"
 // or "slow sideways sliding along this tangent." Keeping the math here helps the
 // terrain and object paths agree about directions, effective mass, and friction.
-inline void BuildContactTangents(
-    const Math::Vector::Vector3& normal,
-    Math::Vector::Vector3& tangent1,
-    Math::Vector::Vector3& tangent2
-)
+inline void BuildContactTangents( const Math::Vector::Vector3& normal,
+                                  Math::Vector::Vector3& tangent1,
+                                  Math::Vector::Vector3& tangent2 )
 {
     // Catto-style 3D contact solving treats friction as two scalar tangent rows
     // attached to the same contact point as the normal row. The tangent frame
@@ -97,12 +95,10 @@ inline void ClampFrictionVector( float& accT1, float& accT2, float limit )
 }
 
 template <typename ApplyInvInertia>
-inline float ComputeStaticBodyEffectiveMass(
-    float invMass,
-    const Math::Vector::Vector3& axis,
-    const Math::Vector::Vector3& r,
-    ApplyInvInertia applyInvInertia
-)
+inline float ComputeStaticBodyEffectiveMass( float invMass,
+                                             const Math::Vector::Vector3& axis,
+                                             const Math::Vector::Vector3& r,
+                                             ApplyInvInertia applyInvInertia )
 {
     // Effective mass is the scalar denominator in Catto's row solve:
     //
@@ -119,15 +115,13 @@ inline float ComputeStaticBodyEffectiveMass(
 }
 
 template <typename ApplyInvInertiaA, typename ApplyInvInertiaB>
-inline float ComputeTwoBodyEffectiveMass(
-    float invMassA,
-    float invMassB,
-    const Math::Vector::Vector3& axis,
-    const Math::Vector::Vector3& rA,
-    const Math::Vector::Vector3& rB,
-    ApplyInvInertiaA applyInvInertiaA,
-    ApplyInvInertiaB applyInvInertiaB
-)
+inline float ComputeTwoBodyEffectiveMass( float invMassA,
+                                          float invMassB,
+                                          const Math::Vector::Vector3& axis,
+                                          const Math::Vector::Vector3& rA,
+                                          const Math::Vector::Vector3& rB,
+                                          ApplyInvInertiaA applyInvInertiaA,
+                                          ApplyInvInertiaB applyInvInertiaB )
 {
     // Same row denominator as ComputeStaticBodyEffectiveMass, but with both
     // dynamic bodies contributing linear and angular terms. Keeping the formula

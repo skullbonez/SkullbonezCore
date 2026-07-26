@@ -5,8 +5,9 @@ Purpose:
 
 Summary:
   These structs are ownership records, not rendering behavior. RuntimeRenderer
-  and the individual pass classes create, reset, and consume these resources
-  while Run still owns the broader backend teardown order.
+  and the individual pass classes create, reset, consume, and release these
+  resources. RuntimeRenderer owns ordered backend teardown after a successful
+  GPU drain, keeping consumer passes ahead of producer passes.
 
 Glossary:
   Pass resource: Backend-owned framebuffer, shader, or vertex buffer attached
@@ -24,7 +25,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/App/Run.h
-  - SkullbonezSource/Runtime/RunPasses.cpp
+  - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h
 */
 #pragma once

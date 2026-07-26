@@ -24,25 +24,23 @@ Invariants:
     mutate replay state.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/ReplayPredictionDrawing.cpp
-  - SkullbonezSource/Runtime/Replay/ReplayOverlayRenderer.h
+  - SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp
+  - SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.h
 */
 #pragma once
 
 #include "ReplayAuthoring.h"
 #include "ReplayOverlaySurface.h"
-#include "ReplayPorkchopPanel.h"
 #include "ReplayRecorder.h"
 #include "ReplayScrubber.h"
-#include "ReplayTripPlanner.h"
 #include "../Interaction/RuntimeInteractionController.h"
 #include "../UI/RuntimeUiSurface.h"
 #include "../../UI/UIDraw.h"
 
 namespace SkullbonezCore::Runtime::ReplayOverlay
 {
-inline constexpr float REPLAY_SCRUBBER_HOT_ZONE_HEIGHT =
-    78.0f; // Bottom-screen hover strip that reveals replay controls.
+inline constexpr float
+    REPLAY_SCRUBBER_HOT_ZONE_HEIGHT = 78.0f; // Bottom-screen hover strip that reveals replay controls.
 inline constexpr float REPLAY_SCRUBBER_PANEL_HEIGHT = 50.0f;
 inline constexpr float REPLAY_SCRUBBER_PANEL_MAX_WIDTH = 1080.0f;
 inline constexpr float REPLAY_SCRUBBER_PANEL_MARGIN = 18.0f;
@@ -61,18 +59,6 @@ inline constexpr float REPLAY_SCRUBBER_PAST_TOGGLE_WIDTH = 68.0f;
 inline constexpr double REPLAY_SCRUBBER_FADE_IN_SECONDS = 0.18;
 inline constexpr double REPLAY_SCRUBBER_FADE_OUT_SECONDS = 0.24;
 inline constexpr float REPLAY_SCRUBBER_FADE_EPSILON = 0.015f;
-inline constexpr float REPLAY_INTERCEPT_READOUT_WIDTH = 250.0f;
-inline constexpr float REPLAY_INTERCEPT_READOUT_HEIGHT = 28.0f;
-inline constexpr float REPLAY_INTERCEPT_READOUT_TOP = 52.0f;
-inline constexpr float REPLAY_TRIP_PLANNER_PANEL_WIDTH = 500.0f;
-inline constexpr float REPLAY_TRIP_PLANNER_PANEL_HEIGHT = 94.0f;
-inline constexpr float REPLAY_TRIP_PLANNER_PANEL_TOP = 88.0f;
-inline constexpr float REPLAY_PORKCHOP_PANEL_WIDTH = 720.0f;
-inline constexpr float REPLAY_PORKCHOP_PANEL_HEIGHT = 420.0f;
-inline constexpr float REPLAY_PORKCHOP_PANEL_TOP = 198.0f;
-inline constexpr float REPLAY_PORKCHOP_GRID_MARGIN_X = 40.0f;
-inline constexpr float REPLAY_PORKCHOP_GRID_TOP = 52.0f;
-inline constexpr float REPLAY_PORKCHOP_GRID_HEIGHT = 288.0f;
 inline constexpr float REPLAY_CAUSE_TREE_PANEL_WIDTH = 312.0f;
 inline constexpr float REPLAY_CAUSE_TREE_PANEL_MARGIN = 18.0f;
 inline constexpr float REPLAY_CAUSE_TREE_PANEL_TOP = 84.0f;
@@ -125,24 +111,6 @@ struct ReplayScrubberSurfaceInput
 
 using ReplayScrubberSurface = RuntimeUiSurface<13>;
 
-enum class ReplayTripPlannerControl : uint32_t
-{
-    None,
-    TimeOfFlightDecrease,
-    TimeOfFlightIncrease,
-    Plan,
-    Commit,
-    Cancel,
-    Panel
-};
-
-inline RuntimeUiControlId ReplayTripPlannerControlId( ReplayTripPlannerControl control )
-{
-    return RuntimeUiControlId { static_cast<uint32_t>( control ) };
-}
-
-using ReplayTripPlannerSurface = RuntimeUiSurface<6>;
-
 enum class ReplayCauseWindowControl : uint32_t
 {
     None,
@@ -161,31 +129,18 @@ using ReplayCauseWindowSurface = RuntimeUiSurface<4>;
 
 // Derives track/tool availability from replay state. Callers then add their
 // one-frame screen, gesture, and pointer-blocking facts before surface layout.
-ReplayScrubberSurfaceInput DescribeReplayScrubberAvailability(
-    const ReplayScrubberView& scrubber,
-    const ReplayRecorderStats& solverStats,
-    bool loadedPresentation,
-    bool pathTargetAvailable,
-    bool predictionTimelineAvailable,
-    bool currentPresentationAvailable,
-    bool currentSolverAvailable,
-    bool scenePhysicsEnabled
-);
+ReplayScrubberSurfaceInput DescribeReplayScrubberAvailability( const ReplayScrubberView& scrubber,
+                                                               const ReplayRecorderStats& solverStats,
+                                                               bool loadedPresentation,
+                                                               bool pathTargetAvailable,
+                                                               bool predictionTimelineAvailable,
+                                                               bool currentPresentationAvailable,
+                                                               bool currentSolverAvailable,
+                                                               bool scenePhysicsEnabled );
 void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, ReplayScrubberSurface& outSurface );
 void BuildReplayCauseWindowSurface( const RunReplayCauseTreeState& state, ReplayCauseWindowSurface& outSurface );
 
 UI::UIRect ReplayScrubberPanelRect( int screenW, int screenH );
-UI::UIRect ReplayInterceptReadoutRect( int screenW );
-UI::UIRect ReplayTripPlannerPanelRect( int screenW );
-UI::UIRect ReplayPorkchopPanelRect( int screenW );
-UI::UIRect ReplayPorkchopGridRect( int screenW );
-UI::UIRect ReplayPorkchopCellRect( int screenW, std::size_t cellIndex );
-bool ReplayPorkchopCellAtPointer( int screenW, int pointerX, int pointerY, std::size_t& outCellIndex );
-void BuildReplayTripPlannerSurface(
-    const ReplayTripPlannerView& planner,
-    int screenW,
-    ReplayTripPlannerSurface& outSurface
-);
 float ReplayScrubberRowCenterY( const UI::UIRect& panel, RunReplayTrack track );
 UI::UIRect ReplayScrubberSaveButtonRect( int screenW, int screenH, RunReplayTrack trackName );
 UI::UIRect ReplayScrubberLoadButtonRect( int screenW, int screenH, RunReplayTrack trackName );

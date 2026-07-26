@@ -1,11 +1,13 @@
 /*
 File: SkullbonezSource/Runtime/Editor/EditorTools.cpp
 Purpose:
-  Owns editor placement scale math for primitive bodies, hulls, trees, and compound assets.
+  Owns editor placement math and the focused cold save/capture actions invoked
+  by editor input.
 
 Summary:
-  Placement gestures start as mouse deltas and wheel clicks. This file maps
-  that input into safe object scale values before RunInput commits the object.
+  Placement gestures map to safe object scale values before commit. Separate
+  scene-snapshot and screenshot operations keep persistence authority from
+  travelling in one multi-owner hotkey context.
 
 Glossary:
   Placement gesture: Mouse drag and wheel input used to size an editor object
@@ -29,10 +31,10 @@ Related:
 #include "../Input/InputController.h"
 #include "../Tools/RuntimeFileWriter.h"
 #include "../Scene/SceneRuntime.h"
+#include "../Scene/SceneSaveOperations.h"
 #include "../Tools/RuntimeTools.h"
 #include "../../Core/Common.h"
 #include "../Scene/SceneController.h"
-#include "../../Scene/SceneSnapshotWriter.h"
 #include "../../UI/UICommands.h"
 #include "../../UI/UITabEditor.h"
 #include "../../World/WorldEnvironment.h"
@@ -40,9 +42,6 @@ Related:
 #include <algorithm>
 #include <utility>
 
-using SkullbonezCore::GameObjects::SceneSaveRequest;
-using SkullbonezCore::GameObjects::SceneSaveView;
-using SkullbonezCore::GameObjects::SceneSnapshotWriter;
 using SkullbonezCore::Math::Vector::Vector3;
 
 namespace SkullbonezCore
@@ -64,10 +63,8 @@ int ClampEditorObjectType( int objectType )
     return std::clamp( objectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
 }
 
-static_assert(
-    UI::EditorTab::OBJECT_TYPE_COUNT == 37,
-    "Update editor placement scale classification when adding editor object types."
-);
+static_assert( UI::EditorTab::OBJECT_TYPE_COUNT == 37,
+               "Update editor placement scale classification when adding editor object types." );
 } // namespace
 
 int EditorMouseWheelSteps( int wheelDelta )
@@ -76,6 +73,7 @@ int EditorMouseWheelSteps( int wheelDelta )
     {
         return 0;
     }
+
     return wheelDelta / EDITOR_MOUSE_WHEEL_DELTA;
 }
 
@@ -193,34 +191,29 @@ Vector3 EditorClampPlacementScale( int objectType, const Vector3& scale )
 
     if ( EditorPlacementUsesHullScaleFactors( type ) )
     {
-        return Vector3(
-            std::clamp( scale.x, 0.05f, 20.0f ),
-            std::clamp( scale.y, 0.05f, 20.0f ),
-            std::clamp( scale.z, 0.05f, 20.0f )
-        );
+        return Vector3( std::clamp( scale.x, 0.05f, 20.0f ),
+                        std::clamp( scale.y, 0.05f, 20.0f ),
+                        std::clamp( scale.z, 0.05f, 20.0f ) );
     }
 
-    return Vector3(
-        std::clamp( scale.x, 0.25f, 200.0f ),
-        std::clamp( scale.y, 0.25f, 200.0f ),
-        std::clamp( scale.z, 0.25f, 200.0f )
-    );
+    return Vector3( std::clamp( scale.x, 0.25f, 200.0f ),
+                    std::clamp( scale.y, 0.25f, 200.0f ),
+                    std::clamp( scale.z, 0.25f, 200.0f ) );
 }
 
-Vector3 EditorPlacementScaleFromGesture(
-    int objectType,
-    const Vector3& startScale,
-    float dragPixelsX,
-    float dragPixelsY,
-    int wheelSteps
-)
+Vector3 EditorPlacementScaleFromGesture( int objectType,
+                                         const Vector3& startScale,
+                                         float dragPixelsX,
+                                         float dragPixelsY,
+                                         int wheelSteps )
 {
     const int type = ClampEditorObjectType( objectType );
     if ( EditorPlacementUsesUniformScale( type ) )
     {
         const float dragUnits = ( dragPixelsX + dragPixelsY ) / ( EDITOR_PLACEMENT_SCALE_PIXELS_PER_UNIT * 2.0f );
-        const float radius =
-            startScale.x + dragUnits + static_cast<float>( wheelSteps ) * EDITOR_PLACEMENT_SCALE_WHEEL_UNIT;
+        const float radius = startScale.x + dragUnits +
+                             static_cast<float>( wheelSteps ) * EDITOR_PLACEMENT_SCALE_WHEEL_UNIT;
+
         return EditorClampPlacementScale( type, Vector3( radius, radius, radius ) );
     }
 
@@ -299,8 +292,9 @@ SetEditorPlacementMode( EditorGizmoContext context, bool enabled, bool clearMani
 
     EditorPlacementModeChangeResult result;
     result.placementModeEnabled = context.editor.placementModeEnabled;
-    result.worldOwner =
-        result.placementModeEnabled ? WorldInteractionOwner::EditorPlacement : WorldInteractionOwner::EditorGizmo;
+    result.worldOwner = result.placementModeEnabled ? WorldInteractionOwner::EditorPlacement
+                                                    : WorldInteractionOwner::EditorGizmo;
+
     return result;
 }
 
@@ -382,13 +376,14 @@ SelectEditorObjectType( EditorGizmoContext context, int requestedObjectType, boo
     {
         ClearEditorManipulationState( context );
     }
+
     result.enterPlacementMode = enterPlacementMode && context.editor.editorModeEnabled;
     return result;
 }
 
 
-EditorPlacementPreModeUICommandResult
-ApplyEditorPlacementPreModeUICommands( EditorGizmoContext context, const UI::UIEditorCommands& commands )
+EditorPlacementPreModeUICommandResult ApplyEditorPlacementPreModeUICommands( EditorGizmoContext context,
+                                                                             const UI::UIEditorCommands& commands )
 {
     EditorPlacementPreModeUICommandResult result;
     result.toggleEditorMode = commands.toggleEditorMode;
@@ -397,19 +392,23 @@ ApplyEditorPlacementPreModeUICommands( EditorGizmoContext context, const UI::UIE
     {
         result.setPlaceStatic = true;
     }
+
     if ( commands.requestedObjectType >= 0 )
     {
-        const EditorObjectTypeRequestResult objectTypeRequest =
-            SelectEditorObjectType( context, commands.requestedObjectType, commands.enterPlacementMode );
+        const EditorObjectTypeRequestResult objectTypeRequest = SelectEditorObjectType( context,
+                                                                                        commands.requestedObjectType,
+                                                                                        commands.enterPlacementMode );
+
         result.requestedObjectType = true;
         result.enterPlacementMode = objectTypeRequest.enterPlacementMode;
     }
+
     return result;
 }
 
 
-EditorPlacementPostModeUICommandResult
-ApplyEditorPlacementPostModeUICommands( EditorGizmoContext context, const UI::UIEditorCommands& commands )
+EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( EditorGizmoContext context,
+                                                                               const UI::UIEditorCommands& commands )
 {
     RunEditorPlacementState& editor = context.editor;
     EditorPlacementPostModeUICommandResult result;
@@ -418,102 +417,64 @@ ApplyEditorPlacementPostModeUICommands( EditorGizmoContext context, const UI::UI
         ToggleEditorPlaceStaticObject( editor );
         result.toggledPlaceStatic = true;
     }
+
     if ( commands.toggleTerrainAlign )
     {
         ToggleEditorTerrainAlign( context );
         result.toggledTerrainAlign = true;
     }
+
     return result;
 }
 
 
-void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction action, bool wasPressed )
+void HandleEditorSceneSaveHotkey( SceneWorld& world,
+                                  const SceneSessionState& scene,
+                                  const GameObjects::PresentationSaveState& presentation,
+                                  bool wasPressed )
 {
-    // Why: the binding table owns the key/action pair, while editor tools keep
-    // numbered snapshot paths and screenshot commands behind the editor boundary.
-    switch ( action )
+    if ( !wasPressed )
     {
-    case RuntimeInputAction::SaveSceneSnapshot:
-    {
-        if ( !wasPressed )
-        {
-            return;
-        }
-
-        static int sSnapshotSeq = 0;
-        char path[256] = {};
-
-        if ( RuntimeFileWriter::NextNumberedPath(
-                 path,
-                 sizeof( path ),
-                 "Scenes",
-                 "snapshot_",
-                 ".scene.json",
-                 sSnapshotSeq,
-                 100
-             ) )
-        {
-            // Lifetime: the save view borrows cold owner arrays only for this
-            // synchronous file write; editor input retains none of the rows.
-            const auto& joints = Physics::PhysicsEngine::ReadPointJointConstraints( context.world.Physics() );
-            const SceneSaveView saveView { context.world.Entities(),
-                                           context.world.BodyStore(),
-                                           context.world.Colliders(),
-                                           joints.data(),
-                                           static_cast<int>( joints.size() ),
-                                           context.world.Environment().GetGravity(),
-                                           context.world.Environment().GetFluidSurfaceHeight(),
-                                           context.world.Environment().GetFluidDensity(),
-                                           context.world.Environment().GetMutualGravitySettings() };
-
-            const SceneSaveRequest request { path,
-                                             context.world.Cameras().GetCameraTranslation(),
-                                             context.world.Cameras().GetCameraView(),
-                                             context.world.Cameras().GetCameraUp(),
-                                             context.scene.isScenePhysics,
-                                             context.scene.isSceneText };
-
-            const SkullbonezCore::Core::SbResult saveResult = SceneSnapshotWriter::Save( saveView, request );
-            if ( !saveResult.ok )
-            {
-                fprintf( stderr, "[%s] %s\n", saveResult.error.owner, saveResult.error.message );
-            }
-        }
         return;
     }
 
-    case RuntimeInputAction::SaveScreenshot:
+    static int sSnapshotSeq = 0;
+    SkullbonezCore::Core::SbResult saveResult = SkullbonezCore::Core::SbResult::Success();
+    if ( TrySaveNextEditorSceneSnapshot( sSnapshotSeq,
+                                         world.GetSaveState(),
+                                         scene.GetSaveState(),
+                                         presentation,
+                                         saveResult ) &&
+         !saveResult.ok )
     {
-        if ( !wasPressed )
-        {
-            return;
-        }
+        fprintf( stderr, "[%s] %s\n", saveResult.error.owner, saveResult.error.message );
+    }
+}
 
-        static int sScreenshotSeq = 0;
-        char path[256] = {};
 
-        if ( RuntimeFileWriter::NextNumberedPath(
-                 path,
-                 sizeof( path ),
-                 "Screenshots",
-                 "screenshot_",
-                 ".bmp",
-                 sScreenshotSeq,
-                 100
-             ) )
-        {
-            const SkullbonezCore::Core::SbResult queueResult = context.capture.QueueScreenshot( path );
-            if ( !queueResult.ok )
-            {
-                std::fprintf( stderr, "%s: %s\n", queueResult.error.owner, queueResult.error.message );
-                std::fflush( stderr );
-            }
-        }
+void HandleEditorScreenshotHotkey( CaptureController& capture, bool wasPressed )
+{
+    if ( !wasPressed )
+    {
         return;
     }
 
-    default:
-        return;
+    static int sScreenshotSeq = 0;
+    char path[256] = {};
+    if ( RuntimeFileWriter::NextNumberedPath( path,
+                                              sizeof( path ),
+                                              "Screenshots",
+                                              "screenshot_",
+                                              ".bmp",
+                                              sScreenshotSeq,
+                                              100 ) )
+    {
+        const SkullbonezCore::Core::SbResult queueResult = capture.QueueScreenshot( path );
+        if ( !queueResult.ok )
+        {
+            std::fprintf( stderr, "%s: %s\n", queueResult.error.owner, queueResult.error.message );
+            std::fflush( stderr );
+        }
     }
 }
 

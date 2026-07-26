@@ -1,5 +1,5 @@
 /*
-File: ReplayPathPackets.h
+File: SkullbonezSource/Runtime/Replay/ReplayPathPackets.h
 Purpose:
   Publishes replay path-target and retained/future trajectory selection values without Presentation ownership.
 
@@ -17,11 +17,10 @@ Invariants:
 
 Related:
   - ReplayPresentation.h
-  - ReplayPredictionView.h
+  - SkullbonezSource/Runtime/Prediction/ReplayPredictionView.h
 */
 #pragma once
 
-#include "ReplayPredictionView.h"
 #include "../../Physics/PhysicsHandles.h"
 
 #include <cstdint>
@@ -49,6 +48,23 @@ struct RunReplayPastTrajectoryBuildState
     bool valid = false;
 };
 
+// Immutable presentation cursor consumed while Prediction maintains the
+// retained trajectory lane. Replay owns the vocabulary because the cursor
+// describes recorded solver history, not future-simulation authority.
+struct ReplayPastTrajectoryView
+{
+    Physics::PhysicsSceneObjectId targetId;
+    Physics::PhysicsSceneObjectId retainedTargetId;
+    Physics::ModelRowHint targetModelRow;
+    ReplayFrameIndex firstFrame = 0;
+    ReplayFrameIndex builtThroughFrame = 0;
+    uint64_t totalFramesEvicted = 0;
+    uint64_t fullRebuildCount = 0;
+    uint64_t incrementalTrimCount = 0;
+    bool hasTarget = false;
+    bool valid = false;
+};
+
 enum class ReplayPathColorMode : uint8_t
 {
     LaneFlat,
@@ -68,9 +84,9 @@ struct RunReplayPathVisualizerState
     Physics::PhysicsSceneObjectId targetId;
     Physics::ModelRowHint targetModelRow;
     char targetName[64] = {};
-    // Invariant: Presentation reserves both arrays to their owner-defined caps before gameplay;
-    // per-frame path rebuilding reuses storage and never grows either vector.
-    std::vector<RunReplayPathTraceNode> futureNodes;
+    // Invariant: Presentation reserves selected-target rows before gameplay;
+    // per-frame path rebuilding reuses storage and never grows this vector.
+    // Predicted future nodes publish separately from Runtime/Prediction.
     std::vector<RunReplayPathTarget> targets;
     RunReplayPastTrajectoryBuildState pastTrajectory;
 };

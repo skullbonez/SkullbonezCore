@@ -96,6 +96,7 @@ int WorkerPool::ResolveThreadCount( int requestedThreadCount )
         {
             return 0;
         }
+
         return maxThreadCount - 1;
     }
 
@@ -191,22 +192,20 @@ void WorkerPool::SubmitTaskRecord( void* taskState, TaskDispatcher dispatch )
         std::lock_guard<WorkerPoolMutex> lock( m_mutex );
         if ( m_stopping )
         {
-            SB_FATAL(
-                "WorkerPool",
-                "SubmitNoAlloc called while shutting down: owner=Core/WorkerPool phase=runtime_dispatch."
-            );
+            SB_FATAL( "WorkerPool",
+                      "SubmitNoAlloc called while shutting down: owner=Core/WorkerPool phase=runtime_dispatch." );
         }
+
         if ( m_taskCount >= WORKER_PARALLEL_TASK_CAPACITY )
         {
-            SB_FATAL(
-                "WorkerPool",
-                "Fixed task queue exhausted: owner=Core/WorkerPool phase=runtime_dispatch count=%d capacity=%d "
-                "high_water=%d.",
-                m_taskCount,
-                WORKER_PARALLEL_TASK_CAPACITY,
-                m_taskHighWater
-            );
+            SB_FATAL( "WorkerPool",
+                      "Fixed task queue exhausted: owner=Core/WorkerPool phase=runtime_dispatch count=%d capacity=%d "
+                      "high_water=%d.",
+                      m_taskCount,
+                      WORKER_PARALLEL_TASK_CAPACITY,
+                      m_taskHighWater );
         }
+
         const int tail = ( m_taskHead + m_taskCount ) % WORKER_PARALLEL_TASK_CAPACITY;
         m_tasks[tail] = { taskState, dispatch };
 
@@ -217,25 +216,21 @@ void WorkerPool::SubmitTaskRecord( void* taskState, TaskDispatcher dispatch )
 }
 
 
-int WorkerPool::BuildChunkRangesNoAlloc(
-    int begin,
-    int end,
-    int minParallelItems,
-    WorkerChunkRange* outChunks,
-    int outCapacity
-) const
+int WorkerPool::BuildChunkRangesNoAlloc( int begin,
+                                         int end,
+                                         int minParallelItems,
+                                         WorkerChunkRange* outChunks,
+                                         int outCapacity ) const
 {
     return BuildChunks( begin, end, minParallelItems, outChunks, outCapacity );
 }
 
 
-int WorkerPool::BuildChunks(
-    int begin,
-    int end,
-    int minParallelItems,
-    WorkerChunkRange* outChunks,
-    int outCapacity
-) const
+int WorkerPool::BuildChunks( int begin,
+                             int end,
+                             int minParallelItems,
+                             WorkerChunkRange* outChunks,
+                             int outCapacity ) const
 {
     const int itemCount = end - begin;
     if ( itemCount <= 0 || !outChunks || outCapacity <= 0 )
@@ -253,14 +248,12 @@ int WorkerPool::BuildChunks(
     const int chunkCount = (std::max)( 1, (std::min)( workerCount, itemCount ) );
     if ( chunkCount > outCapacity )
     {
-        SB_FATAL(
-            "WorkerPool",
-            "Parallel chunk capacity exceeded: chunks=%d capacity=%d items=%d workers=%d.",
-            chunkCount,
-            outCapacity,
-            itemCount,
-            workerCount
-        );
+        SB_FATAL( "WorkerPool",
+                  "Parallel chunk capacity exceeded: chunks=%d capacity=%d items=%d workers=%d.",
+                  chunkCount,
+                  outCapacity,
+                  itemCount,
+                  workerCount );
     }
 
     const int baseChunkSize = itemCount / chunkCount;
@@ -279,11 +272,9 @@ int WorkerPool::BuildChunks(
 }
 
 
-void WorkerPool::SubmitParallelChunk(
-    void* dispatchState,
-    ParallelTaskDispatcher dispatch,
-    const WorkerChunkRange& chunk
-)
+void WorkerPool::SubmitParallelChunk( void* dispatchState,
+                                      ParallelTaskDispatcher dispatch,
+                                      const WorkerChunkRange& chunk )
 {
     // Why: ParallelForChunksNoAlloc owns the typed stack state and waits on its
     // fence before returning; this private fixed queue only transports the
@@ -294,6 +285,7 @@ void WorkerPool::SubmitParallelChunk(
         {
             dispatch( dispatchState, chunk );
         }
+
         return;
     }
 
@@ -303,16 +295,15 @@ void WorkerPool::SubmitParallelChunk(
         {
             SB_FATAL( "WorkerPool", "SubmitParallelChunk called while shutting down." );
         }
+
         if ( m_parallelTaskCount >= WORKER_PARALLEL_TASK_CAPACITY )
         {
-            SB_FATAL(
-                "WorkerPool",
-                "Fixed parallel task queue exhausted: owner=Core/WorkerPool phase=runtime_parallel_dispatch "
-                "count=%d capacity=%d high_water=%d.",
-                m_parallelTaskCount,
-                WORKER_PARALLEL_TASK_CAPACITY,
-                m_parallelTaskHighWater
-            );
+            SB_FATAL( "WorkerPool",
+                      "Fixed parallel task queue exhausted: owner=Core/WorkerPool phase=runtime_parallel_dispatch "
+                      "count=%d capacity=%d high_water=%d.",
+                      m_parallelTaskCount,
+                      WORKER_PARALLEL_TASK_CAPACITY,
+                      m_parallelTaskHighWater );
         }
 
         const int tail = ( m_parallelTaskHead + m_parallelTaskCount ) % WORKER_PARALLEL_TASK_CAPACITY;
@@ -433,6 +424,7 @@ bool RunWorkerSystemSelfTest( WorkerPool& pool, FILE* out )
         {
             pool.SubmitNoAlloc( fixedTaskProbe );
         }
+
         fixedTaskProbe.fence.Wait();
         if ( fixedTaskProbe.completed.load( std::memory_order_relaxed ) != fixedTaskCount )
         {
@@ -448,8 +440,7 @@ bool RunWorkerSystemSelfTest( WorkerPool& pool, FILE* out )
         [&]( int index ) { squares[static_cast<size_t>( index )] = index * index; },
         1,
         "Frame/Workers/SelfTest/ParallelFor",
-        HashStr( "Frame/Workers/SelfTest/ParallelFor" )
-    );
+        HashStr( "Frame/Workers/SelfTest/ParallelFor" ) );
 
     for ( int index = 0; index < static_cast<int>( squares.size() ); ++index )
     {
@@ -475,8 +466,7 @@ bool RunWorkerSystemSelfTest( WorkerPool& pool, FILE* out )
             }
         },
         [&]( int, const std::vector<int>& local ) { merged.insert( merged.end(), local.begin(), local.end() ); },
-        1
-    );
+        1 );
 
     if ( merged.size() != squares.size() )
     {

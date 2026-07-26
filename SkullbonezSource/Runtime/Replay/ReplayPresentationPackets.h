@@ -5,19 +5,17 @@ Purpose:
 
 Summary:
   Runtime render and UI composition consume these synchronous values after
-  ReplayRuntime has selected and prepared one frame. All pointers borrow Replay
-  owner storage and are invalidated by the next replay update.
+  ReplayRuntime has selected and prepared one frame. Pointers in this lower
+  packet borrow Replay owner storage and are invalidated by the next replay update.
 
 Glossary:
   Presentation selection: One coherent set of selected, latest, and current
     timeline borrows for a frame.
-  Render frame view: Read-only pose, prediction, ghost, and focus-mask values for one render turn.
   HUD (Heads-Up Display): Scalar replay diagnostics shown by the late UI pass.
 
 Invariants:
   - Packets contain no mutable replay owner or scheduling operation.
   - Selection is resolved once by ReplayRuntime and composed into consumers.
-  - Frame-view pointers are consumed synchronously before replay mutation.
   - HUD memory statistics are populated only when explicitly requested.
 
 Related:
@@ -30,14 +28,11 @@ Related:
 
 #include <cstddef>
 #include <cstdint>
-#include <vector>
 
 namespace SkullbonezCore::Runtime
 {
 struct ReplayPresentationSample;
 struct ReplaySolverFrameSample;
-struct ReplayVisualPacket;
-struct RunReplayPredictionFrame;
 
 // Concept: this is the Presentation domain's single answer to "what should this
 // frame show?" Render-pose application and overlay drawing consume the same
@@ -50,25 +45,11 @@ struct ReplayPresentationSelection
     const ReplayPresentationSample* latestPresentation = nullptr;
     const ReplaySolverFrameSample* selectedSolver = nullptr;
     const ReplaySolverFrameSample* latestSolver = nullptr;
-    const RunReplayPredictionFrame* selectedPrediction = nullptr;
     const ReplayPresentationSample* currentPresentation = nullptr;
     const ReplaySolverFrameSample* currentSolver = nullptr;
     float solverPresentTrackPosition = 1.0f;
     std::size_t loadedSampleCount = 0u;
     bool loadedPresentation = false;
-    bool predictionTimelineAvailable = false;
-};
-
-struct ReplayRenderFrameView
-{
-    const ReplayPresentationSample* presentationSample = nullptr;
-    const ReplaySolverFrameSample* solverSample = nullptr;
-    const RunReplayPredictionFrame* predictionFrame = nullptr;
-    const ReplayVisualPacket* visualPacket = nullptr;
-    const std::vector<uint8_t>* focusModelMask = nullptr;
-    bool predictionEnabled = false;
-    bool liveAdvanceHeld = false;
-    bool focusFadeActive = false;
 };
 
 struct ReplayHudStatus

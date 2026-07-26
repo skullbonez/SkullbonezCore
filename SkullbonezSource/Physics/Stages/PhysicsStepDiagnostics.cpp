@@ -70,10 +70,12 @@ void PhysicsStepDiagnostics::BeginStep( int modelCount )
     {
         m_collisionVisualContacts.assign( modelCount, 0 );
     }
+
     if ( !m_collisionVisualFrameActive )
     {
         m_collisionVisualContacts.assign( modelCount, 0 );
     }
+
     m_physicsDebugContacts.clear();
     m_physicsPipelineTrace.clear();
     m_sink.BeginCollisionTimeFrame();
@@ -118,14 +120,12 @@ int PhysicsStepDiagnostics::RemainingPipelineRecordCapacity() const
                            static_cast<int>( m_physicsPipelineTrace.size() ) );
 }
 
-void PhysicsStepDiagnostics::EmitCollisionTime(
-    bool diagnosticsSuppressed,
-    const char* type,
-    int bodyA,
-    int bodyB,
-    float collisionTime,
-    float availableTime
-)
+void PhysicsStepDiagnostics::EmitCollisionTime( bool diagnosticsSuppressed,
+                                                const char* type,
+                                                int bodyA,
+                                                int bodyB,
+                                                float collisionTime,
+                                                float availableTime )
 {
 #ifdef _DEBUG
     if ( diagnosticsSuppressed )
@@ -158,14 +158,12 @@ bool PhysicsStepDiagnostics::ShouldEmitCollisionTimeDiagnostics( bool diagnostic
 #endif
 }
 
-void PhysicsStepDiagnostics::EmitStepDiagnostics(
-    bool diagnosticsSuppressed,
-    const PhysicsDiagnosticsView& diagnosticsView,
-    const PhysicsBodyStore& bodyStore,
-    const ColliderStore& colliderStore,
-    float deltaSeconds,
-    const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter
-)
+void PhysicsStepDiagnostics::EmitStepDiagnostics( bool diagnosticsSuppressed,
+                                                  const PhysicsDiagnosticsView& diagnosticsView,
+                                                  const PhysicsBodyStore& bodyStore,
+                                                  const ColliderStore& colliderStore,
+                                                  float deltaSeconds,
+                                                  const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
 {
 #ifdef _DEBUG
     if ( !diagnosticsSuppressed )
@@ -175,18 +173,24 @@ void PhysicsStepDiagnostics::EmitStepDiagnostics(
         if ( regressionLogEnabled || frameLogEnabled )
         {
             const PhysicsDiagnosticsNameView names = m_sink.RegisteredNames();
-            const PhysicsDiagnosticsFrameInput frame { diagnosticsView,      bodyStore,   colliderStore, names,
-                                                       diagnosticsCsvWriter, deltaSeconds };
+            const PhysicsDiagnosticsFrameInput frame { diagnosticsView,
+                                                       bodyStore,
+                                                       colliderStore,
+                                                       names,
+                                                       diagnosticsCsvWriter,
+                                                       deltaSeconds };
 
             if ( regressionLogEnabled )
             {
                 m_sink.EmitRegressionLog( frame );
             }
+
             if ( frameLogEnabled )
             {
                 m_sink.EmitFrame( frame );
             }
         }
+
         m_sink.FlushCollisionTimes( diagnosticsCsvWriter );
         m_sink.IncrementCollisionTimeFrameIfEnabled();
     }

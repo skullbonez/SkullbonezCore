@@ -141,33 +141,29 @@ struct UIPhysicsTabState
 int ContentHeight();
 void ResetPreviewState( UIPhysicsTabState& state );
 
-bool HandleContentClick(
-    UIPhysicsTabState& state,
-    InGameUIInputResult& result,
-    int& activeSlider,
-    int mouseX,
-    int mouseY,
-    float contentX,
-    float rowBase,
-    float contentW
-);
+bool HandleContentClick( UIPhysicsTabState& state,
+                         InGameUIInputResult& result,
+                         int& activeSlider,
+                         int mouseX,
+                         int mouseY,
+                         float contentX,
+                         float rowBase,
+                         float contentW );
 
 bool UpdateActiveSlider( UIPhysicsTabState& state, int activeSlider, int mouseX, InGameUIInputResult& result );
 bool CommitActiveSlider( UIPhysicsTabState& state, int activeSlider, InGameUIInputResult& result );
 
-void Draw(
-    UIPhysicsTabState& state,
-    const UIDrawContext& draw,
-    const InGameUIFrameData& data,
-    float contentX,
-    float contentY,
-    float contentW,
-    float contentH,
-    float scrolledY,
-    int activeSlider,
-    int mouseX,
-    int mouseY
-);
+void Draw( UIPhysicsTabState& state,
+           const UIDrawContext& draw,
+           const InGameUIFrameData& data,
+           float contentX,
+           float contentY,
+           float contentW,
+           float contentH,
+           float scrolledY,
+           int activeSlider,
+           int mouseX,
+           int mouseY );
 
 } // namespace PhysicsTab
 } // namespace UI

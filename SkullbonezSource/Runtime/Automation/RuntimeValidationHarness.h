@@ -102,10 +102,8 @@ class SceneAutomationGateTracker
     void ObserveSceneLifecycle( const SceneLifecyclePacket& packet, SceneAutomationGateConfiguration&& configuration );
 
     void UpdateRequiredContacts( SceneAutomationGatePhysicsView physics, float contactEpsilon );
-    void UpdateRequiredBroadphaseXCells(
-        const Math::CollisionDetection::SpatialGrid::ActiveCell* activeCells,
-        int activeCellCount
-    );
+    void UpdateRequiredBroadphaseXCells( const Math::CollisionDetection::SpatialGrid::ActiveCell* activeCells,
+                                         int activeCellCount );
     SceneAutomationGateStatus Status() const;
     void PrintMissingRequirements() const;
 
@@ -131,17 +129,15 @@ class RuntimeValidationHarness
 
     void ObserveSceneLifecycle( const SceneLifecyclePacket& packet, const RunLaunchOptions& launchOptions );
     void PrintGraphicsStressExitSummary( int currentSceneFrame ) const;
-    void ExecuteGraphicsStressFrame(
-        RuntimeFrameHostView& host,
-        RuntimeFrameInteractionView& interactionOwners,
-        RuntimeFrameSceneView& sceneOwners,
-        RuntimeFramePresentationView& presentationOwners,
-        ReplayRuntime& replayRuntime,
-        const Rendering::Dx12Diagnostics& renderDiagnostics,
-        // Prevents scene churn from reactivating the
-        // dormant Legacy surface during ImGui stress.
-        bool legacyDevelopmentUiActive
-    );
+    void ExecuteGraphicsStressFrame( RuntimeFrameHostView& host,
+                                     RuntimeFrameInteractionView& interactionOwners,
+                                     RuntimeFrameSceneView& sceneOwners,
+                                     RuntimeFramePresentationView& presentationOwners,
+                                     ReplayRuntime& replayRuntime,
+                                     const Rendering::Dx12Diagnostics& renderDiagnostics,
+                                     // Prevents scene churn from reactivating the
+                                     // dormant Legacy surface during ImGui stress.
+                                     bool legacyDevelopmentUiActive );
     SceneAutomationGateTracker& SceneGates();
     const SceneAutomationGateTracker& SceneGates() const;
 

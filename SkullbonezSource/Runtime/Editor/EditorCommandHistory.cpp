@@ -28,10 +28,8 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-bool TryCaptureEditorPrimitiveShape(
-    const Math::CollisionDetection::CollisionShape& shape,
-    EditorPrimitiveShapeSnapshot& outSnapshot
-)
+bool TryCaptureEditorPrimitiveShape( const Math::CollisionDetection::CollisionShape& shape,
+                                     EditorPrimitiveShapeSnapshot& outSnapshot )
 {
     using namespace Math::CollisionDetection;
     outSnapshot = {};
@@ -43,6 +41,7 @@ bool TryCaptureEditorPrimitiveShape(
         outSnapshot.dragCoefficient = sphere->GetDragCoefficient();
         return true;
     }
+
     if ( const BoundingBox* box = std::get_if<BoundingBox>( &shape ) )
     {
         outSnapshot.kind = EditorPrimitiveShapeKind::Box;
@@ -50,14 +49,13 @@ bool TryCaptureEditorPrimitiveShape(
         outSnapshot.localPosition = box->GetPosition();
         return true;
     }
+
     return false;
 }
 
 
-bool TryBuildEditorPrimitiveShape(
-    const EditorPrimitiveShapeSnapshot& snapshot,
-    Math::CollisionDetection::CollisionShape& outShape
-)
+bool TryBuildEditorPrimitiveShape( const EditorPrimitiveShapeSnapshot& snapshot,
+                                   Math::CollisionDetection::CollisionShape& outShape )
 {
     using namespace Math::CollisionDetection;
     if ( snapshot.kind == EditorPrimitiveShapeKind::Sphere )
@@ -65,11 +63,13 @@ bool TryBuildEditorPrimitiveShape(
         outShape = BoundingSphere( snapshot.dimensions.x, snapshot.localPosition, snapshot.dragCoefficient );
         return true;
     }
+
     if ( snapshot.kind == EditorPrimitiveShapeKind::Box )
     {
         outShape = BoundingBox( snapshot.dimensions, snapshot.localPosition );
         return true;
     }
+
     return false;
 }
 
@@ -97,6 +97,7 @@ void EditorCommandHistory::Push( const EditorCommandEntry& entry )
     {
         return;
     }
+
     // Hazard: a branch from before the clean cursor removes the only route
     // back to the saved state, so equality with a future cursor is no longer
     // meaningful until the next successful save.
@@ -104,6 +105,7 @@ void EditorCommandHistory::Push( const EditorCommandEntry& entry )
     {
         m_cleanCursor = EDITOR_COMMAND_HISTORY_CAPACITY + 1;
     }
+
     m_count = m_cursor;
     if ( m_count < EDITOR_COMMAND_HISTORY_CAPACITY )
     {
@@ -122,10 +124,12 @@ void EditorCommandHistory::Push( const EditorCommandEntry& entry )
     {
         --m_cleanCursor;
     }
+
     for ( std::size_t index = 1; index < EDITOR_COMMAND_HISTORY_CAPACITY; ++index )
     {
         m_entries[index - 1] = m_entries[index];
     }
+
     m_entries[EDITOR_COMMAND_HISTORY_CAPACITY - 1] = entry;
     m_count = EDITOR_COMMAND_HISTORY_CAPACITY;
     m_cursor = m_count;
@@ -150,6 +154,7 @@ bool EditorCommandHistory::CommitUndo()
     {
         return false;
     }
+
     --m_cursor;
     return true;
 }
@@ -161,6 +166,7 @@ bool EditorCommandHistory::CommitRedo()
     {
         return false;
     }
+
     ++m_cursor;
     return true;
 }

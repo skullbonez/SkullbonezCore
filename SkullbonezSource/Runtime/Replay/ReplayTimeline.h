@@ -20,8 +20,8 @@ Invariants:
   - Hash-log recording cannot be stopped by an editor command.
 
 Related:
-  - ReplayRuntime.h
-  - ReplayRecorder.h
+  - SkullbonezSource/Runtime/App/ReplayRuntime.h
+  - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
 */
 #pragma once
 
@@ -115,16 +115,12 @@ inline ReplayMemoryPolicy ReplayMemoryPresetPolicy( ReplayMemoryPreset preset )
 
 inline ReplayMemoryPolicy ResolveReplayMemoryPolicy( ReplayMemoryPolicy policy )
 {
-    policy.requestedRetentionSeconds = std::clamp(
-        policy.requestedRetentionSeconds,
-        REPLAY_MEMORY_POLICY_MIN_SECONDS,
-        REPLAY_MEMORY_POLICY_MAX_SECONDS
-    );
-    policy.requestedBudgetMiB = std::clamp(
-        policy.requestedBudgetMiB,
-        REPLAY_MEMORY_POLICY_MIN_BUDGET_MIB,
-        REPLAY_MEMORY_POLICY_MAX_BUDGET_MIB
-    );
+    policy.requestedRetentionSeconds = std::clamp( policy.requestedRetentionSeconds,
+                                                   REPLAY_MEMORY_POLICY_MIN_SECONDS,
+                                                   REPLAY_MEMORY_POLICY_MAX_SECONDS );
+    policy.requestedBudgetMiB = std::clamp( policy.requestedBudgetMiB,
+                                            REPLAY_MEMORY_POLICY_MIN_BUDGET_MIB,
+                                            REPLAY_MEMORY_POLICY_MAX_BUDGET_MIB );
     policy.presentationRetentionSeconds = policy.requestedRetentionSeconds;
     policy.solverRetentionSeconds = policy.requestedRetentionSeconds;
 
@@ -153,16 +149,15 @@ inline ReplayMemoryPolicy ResolveReplayMemoryPolicy( ReplayMemoryPolicy policy )
         policy.presentationRetentionSeconds = (std::min)( policy.presentationRetentionSeconds, 30 );
     }
 
-    policy.solverRetentionSeconds =
-        std::clamp( policy.solverRetentionSeconds, REPLAY_MEMORY_POLICY_MIN_SECONDS, REPLAY_MEMORY_POLICY_MAX_SECONDS );
-    policy.presentationRetentionSeconds = std::clamp(
-        policy.presentationRetentionSeconds,
-        REPLAY_MEMORY_POLICY_MIN_SECONDS,
-        REPLAY_MEMORY_POLICY_MAX_SECONDS
-    );
+    policy.solverRetentionSeconds = std::clamp( policy.solverRetentionSeconds,
+                                                REPLAY_MEMORY_POLICY_MIN_SECONDS,
+                                                REPLAY_MEMORY_POLICY_MAX_SECONDS );
+    policy.presentationRetentionSeconds = std::clamp( policy.presentationRetentionSeconds,
+                                                      REPLAY_MEMORY_POLICY_MIN_SECONDS,
+                                                      REPLAY_MEMORY_POLICY_MAX_SECONDS );
     policy.solverWindowReduced = policy.solverRetentionSeconds < policy.requestedRetentionSeconds;
-    policy.budgetClamped =
-        policy.solverWindowReduced || policy.presentationRetentionSeconds < policy.requestedRetentionSeconds;
+    policy.budgetClamped = policy.solverWindowReduced ||
+                           policy.presentationRetentionSeconds < policy.requestedRetentionSeconds;
     return policy;
 }
 } // namespace ReplayTimelineOperations
@@ -255,7 +250,17 @@ class ReplayTimeline
     // exposing temporary sample storage to the composition root.
     bool LoadPresentationArtifact( const char* path );
     bool NextPresentationSavePath( char* outPath, std::size_t outPathSize );
-    ReplayTimelineCaptureResult CaptureFrame( ReplayCaptureInput input );
+    ReplayTimelineCaptureResult CaptureFrame( int sceneFrame,
+                                              float physicsDt,
+                                              const ReplayWorldPresentationSample& world,
+                                              const ReplayCameraSample& camera,
+                                              const ReplayLauncherVisualSample& launcherVisual,
+                                              Physics::PhysicsEngine& physics,
+                                              const Gameplay::TornadoGameplay& tornadoGameplay,
+                                              const SceneEntityStore& entities,
+                                              const Physics::PhysicsBodyStore& bodyStore,
+                                              const Physics::ColliderStore& colliderStore,
+                                              const ReplayBranchInfo& branch );
     void RecordEvent( const ReplayEventInput& input );
     // Concept: event sequencing belongs to the timeline owner. The caller
     // supplies branch provenance as a value so recording never reaches into
@@ -266,14 +271,12 @@ class ReplayTimeline
     void ResetCaptureMismatchDiagnostics() noexcept;
 
   private:
-    void InstallLoadedPresentation(
-        const char* path,
-        std::vector<ReplayPresentationSample>& samples,
-        std::size_t bodyDictionaryCount,
-        std::size_t fileBytes,
-        ReplayFrameIndex firstFrame,
-        ReplayFrameIndex lastFrame
-    );
+    void InstallLoadedPresentation( const char* path,
+                                    std::vector<ReplayPresentationSample>& samples,
+                                    std::size_t bodyDictionaryCount,
+                                    std::size_t fileBytes,
+                                    ReplayFrameIndex firstFrame,
+                                    ReplayFrameIndex lastFrame );
     void ReportLatestCaptureMismatch();
     ReplayRecorder m_presentation;
     ReplaySolverRecorder m_solver;

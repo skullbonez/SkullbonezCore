@@ -24,13 +24,11 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "UIDrawWidgets.h"
-#include "../Rendering/Text.h"
+#include "UIFontMetrics.h"
 #include "UICheckBox.h"
 #include "UIStyle.h"
 
 #include <algorithm>
-
-using namespace SkullbonezCore::Text;
 
 namespace SkullbonezCore
 {
@@ -49,8 +47,9 @@ void DrawTitleButton( const UIDrawContext& draw, const UIRect& bounds, TitleButt
 {
     const Style::UIPalette& palette = Style::Palette();
     const Style::UIColor bg = hot ? palette.controlHover : ( active ? palette.windowRaised : palette.control );
-    const Style::UIColor iconColor =
-        icon == TitleButtonIcon::Close && hot ? palette.warningAccent : palette.textSecondary;
+    const Style::UIColor iconColor = icon == TitleButtonIcon::Close && hot ? palette.warningAccent
+                                                                           : palette.textSecondary;
+
     const float iconR = iconColor.r;
     const float iconG = iconColor.g;
     const float iconB = iconColor.b;
@@ -85,6 +84,7 @@ void DrawTitleButton( const UIDrawContext& draw, const UIRect& bounds, TitleButt
                 draw.Rect( cx + 3.0f - offset, cy - 5.0f + offset, 2.0f, 2.0f, iconR, iconG, iconB, iconA );
             }
         }
+
         break;
     }
 }
@@ -115,106 +115,97 @@ void DrawFooterToggle( const UIDrawContext& draw, const UIRect& bounds, const ch
     const float switchX = bounds.x + bounds.w - switchW - 2.0f;
     const float switchY = bounds.y + 5.0f;
     const float labelAreaW = (std::max)( 1.0f, switchX - bounds.x - 6.0f );
-    const float labelW = Text2d::MeasureText( style.labelTextSize, label );
+    const float labelW = UIFontMetrics::MeasureText( style.labelTextSize, label );
     const float labelX = bounds.x + (std::max)( 0.0f, ( labelAreaW - labelW ) * 0.5f );
 
     draw.Text( labelX, bounds.y + 4.0f, style.labelTextSize, style.label.r, style.label.g, style.label.b, label );
     const Style::UIColor offFill = { palette.control.r, palette.control.g, palette.control.b, 0.78f };
-    draw.RoundedPanel(
-        { switchX, switchY, switchW, switchH },
-        switchH * 0.5f,
-        checked ? accent : offFill,
-        palette.border
-    );
+    draw.RoundedPanel( { switchX, switchY, switchW, switchH },
+                       switchH * 0.5f,
+                       checked ? accent : offFill,
+                       palette.border );
 
-    draw.RoundedRect(
-        switchX + ( checked ? switchW - style.knobW - 3.0f : 3.0f ),
-        bounds.y + 8.0f,
-        style.knobW,
-        style.knobH,
-        style.knobW * 0.5f,
-        checked ? palette.accentStrong.r : palette.textMuted.r,
-        checked ? palette.accentStrong.g : palette.textMuted.g,
-        checked ? palette.accentStrong.b : palette.textMuted.b,
-        0.96f
-    );
+    draw.RoundedRect( switchX + ( checked ? switchW - style.knobW - 3.0f : 3.0f ),
+                      bounds.y + 8.0f,
+                      style.knobW,
+                      style.knobH,
+                      style.knobW * 0.5f,
+                      checked ? palette.accentStrong.r : palette.textMuted.r,
+                      checked ? palette.accentStrong.g : palette.textMuted.g,
+                      checked ? palette.accentStrong.b : palette.textMuted.b,
+                      0.96f );
 }
 
 
-void DrawLabelValueAt(
-    const UIDrawContext& draw,
-    float contentY,
-    float contentH,
-    float tx,
-    float rowY,
-    const char* label,
-    const char* value,
-    float vr,
-    float vg,
-    float vb
-)
+void DrawLabelValueAt( const UIDrawContext& draw,
+                       float contentY,
+                       float contentH,
+                       float tx,
+                       float rowY,
+                       const char* label,
+                       const char* value,
+                       float vr,
+                       float vg,
+                       float vb )
 {
     if ( !IsRowVisible( contentY, contentH, rowY, 18.0f ) )
     {
         return;
     }
+
     const Style::UIPalette& palette = Style::Palette();
     draw.Text( tx, rowY, 11.5f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b, label );
     draw.Text( tx + 126.0f, rowY, 11.5f, vr, vg, vb, value );
 }
 
 
-void DrawSectionTitle(
-    const UIDrawContext& draw,
-    float contentX,
-    float contentY,
-    float contentH,
-    float rowY,
-    float textSize,
-    const char* text
-)
+void DrawSectionTitle( const UIDrawContext& draw,
+                       float contentX,
+                       float contentY,
+                       float contentH,
+                       float rowY,
+                       float textSize,
+                       const char* text )
 {
     if ( !IsRowVisible( contentY, contentH, rowY, textSize + 4.0f ) )
     {
         return;
     }
+
     const Style::UIColor& section = Style::Palette().textPrimary;
     draw.Text( contentX, rowY, textSize, section.r, section.g, section.b, text );
 }
 
 
-void DrawContentToggle(
-    const UIDrawContext& draw,
-    float contentY,
-    float contentH,
-    UICheckBox& toggle,
-    float tx,
-    float rowY,
-    float controlW,
-    const char* label,
-    bool checked
-)
+void DrawContentToggle( const UIDrawContext& draw,
+                        float contentY,
+                        float contentH,
+                        UICheckBox& toggle,
+                        float tx,
+                        float rowY,
+                        float controlW,
+                        const char* label,
+                        bool checked )
 {
     if ( !IsRowVisible( contentY, contentH, rowY, 24.0f ) )
     {
         return;
     }
+
     const Style::UIColor& accent = Style::Accent();
     toggle.SetBounds( tx, rowY, controlW, 24.0f );
     toggle.DrawToggle( draw, label, checked, accent.r, accent.g, accent.b );
 }
 
 
-void DrawFooterStatCell(
-    const UIDrawContext& draw,
-    float tx,
-    float bottomY,
-    const char* name,
-    const char* value,
-    float r,
-    float g,
-    float b
-)
+void DrawFooterStatCell( const UIDrawContext& draw,
+                         float tx,
+                         float bottomY,
+                         const char* name,
+                         const char* value,
+                         float r,
+                         float g,
+                         float b )
 {
     const Style::UIPalette& palette = Style::Palette();
     draw.Text( tx, bottomY + 25.0f, 10.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, name );
@@ -222,16 +213,14 @@ void DrawFooterStatCell(
 }
 
 
-void DrawCompactFooterStat(
-    const UIDrawContext& draw,
-    float statsX,
-    float ty,
-    const char* name,
-    const char* value,
-    float r,
-    float g,
-    float b
-)
+void DrawCompactFooterStat( const UIDrawContext& draw,
+                            float statsX,
+                            float ty,
+                            const char* name,
+                            const char* value,
+                            float r,
+                            float g,
+                            float b )
 {
     const Style::UIPalette& palette = Style::Palette();
     draw.Text( statsX + 12.0f, ty, 9.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, name );

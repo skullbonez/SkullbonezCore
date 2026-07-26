@@ -93,6 +93,9 @@ jobs:
                 Tee-Object -FilePath $log -Append
               exit $exitCode
             }
+            if ($gate.Name -eq "validate_fast.bat --preflight-only") {
+              $env:SKULLBONEZ_DEPENDENCY_GRAPH_ALREADY_VALIDATED = "1"
+            }
           }
 
           "mandatory_cpu_lane=PASS" |

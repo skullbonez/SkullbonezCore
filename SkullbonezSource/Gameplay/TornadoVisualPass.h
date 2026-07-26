@@ -74,12 +74,10 @@ class TornadoVisualPass
     bool AutoEnableWithTornado() const;
     uint64_t DynamicMemoryBytes() const;
 
-    Rendering::WorldRenderExtensionRegistration PrepareFrame(
-        const TornadoFieldConfig& field,
-        const TornadoSystemConfig& system,
-        float systemElapsedSeconds,
-        const TornadoVisualTimeCandidates& time
-    );
+    Rendering::WorldRenderExtensionRegistration PrepareFrame( const TornadoFieldConfig& field,
+                                                              const TornadoSystemConfig& system,
+                                                              float systemElapsedSeconds,
+                                                              const TornadoVisualTimeCandidates& time );
     void ReleaseResources();
 
   private:
@@ -89,10 +87,10 @@ class TornadoVisualPass
     static constexpr int MAX_VISUAL_DUST_BANDS = 3;
     static constexpr int MAX_VISUAL_DUST_SEGMENTS = 56;
     static constexpr std::size_t VISUAL_FLOATS_PER_VERTEX = 11u;
-    static constexpr std::size_t MAX_VISUAL_VERTEX_COUNT =
-        MAX_TORNADO_ACTIVE_FORCE_FIELDS *
-        ( MAX_VISUAL_RIBBONS * MAX_VISUAL_RIBBON_SEGMENTS * 6 + MAX_VISUAL_DUST_BANDS * MAX_VISUAL_DUST_SEGMENTS * 6 +
-          MAX_VISUAL_PARTICLES * 6 );
+    static constexpr std::size_t MAX_VISUAL_VERTEX_COUNT = MAX_TORNADO_ACTIVE_FORCE_FIELDS *
+                                                           ( MAX_VISUAL_RIBBONS * MAX_VISUAL_RIBBON_SEGMENTS * 6 +
+                                                             MAX_VISUAL_DUST_BANDS * MAX_VISUAL_DUST_SEGMENTS * 6 +
+                                                             MAX_VISUAL_PARTICLES * 6 );
     static constexpr std::size_t MAX_VISUAL_FLOAT_CAPACITY = MAX_VISUAL_VERTEX_COUNT * VISUAL_FLOATS_PER_VERTEX;
 
     struct FrameSnapshot

@@ -121,11 +121,11 @@ class TracyOwnerZoneScope
 #define SKORE_TRACY_PASTE_INNER( a, b ) a##b
 #define SKORE_TRACY_PASTE( a, b ) SKORE_TRACY_PASTE_INNER( a, b )
 #define SKORE_TRACY_SCOPED_OWNER_ZONE_IMPL( name, hash, line )                                                         \
-    static const uint32_t SKORE_TRACY_PASTE( _skoreTracySource_, line ) =                                              \
-        ::SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::RegisterOwnerZone( name, hash );                   \
+    static const uint32_t SKORE_TRACY_PASTE(                                                                           \
+        _skoreTracySource_,                                                                                            \
+        line ) = ::SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::RegisterOwnerZone( name, hash );          \
     ::SkullbonezCore::Core::DevelopmentTools::TracyOwnerZoneScope SKORE_TRACY_PASTE( _skoreTracyScope_, line )(        \
-        SKORE_TRACY_PASTE( _skoreTracySource_, line )                                                                  \
-    )
+        SKORE_TRACY_PASTE( _skoreTracySource_, line ) )
 #define SKORE_TRACY_SCOPED_OWNER_ZONE( name, hash ) SKORE_TRACY_SCOPED_OWNER_ZONE_IMPL( name, hash, __LINE__ )
 
 #define SKORE_TRACY_MARK_SUBMITTED_FRAME()                                                                             \

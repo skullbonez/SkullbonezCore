@@ -60,8 +60,9 @@ using SkullbonezCore::Math::Transformation::Matrix4;
 
 namespace
 {
-constexpr PassRasterStateBucket BROADPHASE_LINE_RASTER =
-    MakePassRasterStateBucket( 0, { false, false, false, BlendFactor::One, BlendFactor::Zero, CullMode::None } );
+constexpr PassRasterStateBucket BROADPHASE_LINE_RASTER = MakePassRasterStateBucket(
+    0,
+    { false, false, false, BlendFactor::One, BlendFactor::Zero, CullMode::None } );
 }
 
 
@@ -89,6 +90,7 @@ int BroadphaseVisualizer::FindCell( int64_t key ) const
             return i;
         }
     }
+
     return -1;
 }
 
@@ -100,12 +102,14 @@ int BroadphaseVisualizer::FindOrAddCell( int64_t key, int16_t ix, int16_t iy, in
     {
         return idx;
     }
+
     if ( m_cellCount >= MAX_TRACKED_CELLS )
     {
         // Hazard: this is a debug renderer. Dropping excess visualization cells
         // is preferable to unbounded allocation while physics is stepping.
         return -1; // Silently drop if at capacity
     }
+
     TrackedCell& cell = m_cells[m_cellCount];
     cell.key = key;
     cell.ix = ix;
@@ -125,6 +129,7 @@ void BroadphaseVisualizer::RemoveCell( int index )
     {
         return;
     }
+
     // Swap with last element for O(1) removal
     m_cells[index] = m_cells[m_cellCount - 1];
     --m_cellCount;
@@ -170,6 +175,7 @@ void BroadphaseVisualizer::ComputeCellColor( const TrackedCell& cell, float& r, 
         {
             intensity = 0.0f;
         }
+
         r = intensity;
         g = 0.0f;
         b = 0.0f;
@@ -184,6 +190,7 @@ void BroadphaseVisualizer::ComputeCellColor( const TrackedCell& cell, float& r, 
         {
             intensity = 0.0f;
         }
+
         // Fade from (intensity, 0, 0) toward (0, 0, 1)
         r = intensity * ( 1.0f - t );
         g = 0.0f;
@@ -209,6 +216,7 @@ void BroadphaseVisualizer::EmitCubeWireframe( int16_t ix, int16_t iy, int16_t iz
     auto emit = [&]( float ax, float ay, float az, float bx, float by, float bz )
     {
         m_lineData.push_back( ax );
+
         m_lineData.push_back( ay );
         m_lineData.push_back( az );
         m_lineData.push_back( r );
@@ -242,13 +250,11 @@ void BroadphaseVisualizer::EmitCubeWireframe( int16_t ix, int16_t iy, int16_t iz
 }
 
 
-void BroadphaseVisualizer::Update(
-    float dt,
-    const SpatialGrid::ActiveCell* activeCells,
-    int activeCellCount,
-    const int64_t* collisionKeys,
-    int collisionKeyCount
-)
+void BroadphaseVisualizer::Update( float dt,
+                                   const SpatialGrid::ActiveCell* activeCells,
+                                   int activeCellCount,
+                                   const int64_t* collisionKeys,
+                                   int collisionKeyCount )
 {
     if ( !m_enabled )
     {
@@ -295,6 +301,7 @@ void BroadphaseVisualizer::Update(
         {
             continue;
         }
+
         TrackedCell& cell = m_cells[idx];
         // Red collision overrides yellow entry transition
         cell.state = CellState::Colliding;
@@ -318,6 +325,7 @@ void BroadphaseVisualizer::Update(
                 RemoveCell( i );
                 continue;
             }
+
             break;
 
         case CellState::Entering:
@@ -327,6 +335,7 @@ void BroadphaseVisualizer::Update(
                 cell.state = CellState::Occupied;
                 cell.timer = 0.0f;
             }
+
             break;
 
         case CellState::Occupied:
@@ -336,6 +345,7 @@ void BroadphaseVisualizer::Update(
                 cell.state = CellState::Empty;
                 cell.timer = 0.0f;
             }
+
             break;
 
         case CellState::Colliding:
@@ -346,6 +356,7 @@ void BroadphaseVisualizer::Update(
                 cell.state = CellState::Fading;
                 cell.timer = 0.0f;
             }
+
             break;
 
         case CellState::Fading:
@@ -360,9 +371,11 @@ void BroadphaseVisualizer::Update(
                 {
                     cell.state = CellState::Empty;
                 }
+
                 cell.timer = 0.0f;
                 cell.collisionHeat = 0;
             }
+
             break;
         }
 

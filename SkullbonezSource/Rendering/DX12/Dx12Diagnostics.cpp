@@ -43,16 +43,14 @@ Related:
 using namespace SkullbonezCore::Rendering;
 using Microsoft::WRL::ComPtr;
 
-void Dx12Diagnostics::BindSources(
-    Dx12RenderDevice& device,
-    Dx12DescriptorHeaps& descriptors,
-    Dx12FrameOwner& frame,
-    Dx12TextureOwner& textures,
-    Dx12PipelineOwner& pipeline,
-    Dx12GeometryOwner& geometry,
-    Dx12GraphTransientPool& graphTransients,
-    Dx12RaytracingOwner& raytracing
-)
+void Dx12Diagnostics::BindSources( Dx12RenderDevice& device,
+                                   Dx12DescriptorHeaps& descriptors,
+                                   Dx12FrameOwner& frame,
+                                   Dx12TextureOwner& textures,
+                                   Dx12PipelineOwner& pipeline,
+                                   Dx12GeometryOwner& geometry,
+                                   Dx12GraphTransientPool& graphTransients,
+                                   Dx12RaytracingOwner& raytracing )
 {
     m_device = &device;
     m_descriptors = &descriptors;
@@ -116,6 +114,7 @@ RenderMemoryStats Dx12Diagnostics::GetRenderMemoryStats() const
                                                                        uploadStats.categoryPeakBytes[categoryIndex] );
         }
     }
+
     stats.uploadFlushCount = m_frame->UploadFlushCount();
     stats.uploadDropCount = m_frame->UploadDropCount();
     const Dx12ReadbackBufferStats timerStats = TimerReadbackStats();
@@ -147,6 +146,7 @@ RenderMemoryStats Dx12Diagnostics::GetRenderMemoryStats() const
             {
                 break;
             }
+
             DXGI_ADAPTER_DESC1 desc = {};
 
             if ( FAILED( enumResult ) || FAILED( adapter->GetDesc1( &desc ) ) ||
@@ -154,20 +154,22 @@ RenderMemoryStats Dx12Diagnostics::GetRenderMemoryStats() const
             {
                 continue;
             }
+
             (void)adapter.As( &activeAdapter );
             break;
         }
+
         if ( activeAdapter )
         {
             DXGI_QUERY_VIDEO_MEMORY_INFO localInfo = {};
 
             DXGI_QUERY_VIDEO_MEMORY_INFO nonLocalInfo = {};
 
-            const bool localAvailable =
-                SUCCEEDED( activeAdapter->QueryVideoMemoryInfo( 0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &localInfo ) );
+            const bool localAvailable = SUCCEEDED(
+                activeAdapter->QueryVideoMemoryInfo( 0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &localInfo ) );
+
             const bool nonLocalAvailable = SUCCEEDED(
-                activeAdapter->QueryVideoMemoryInfo( 0, DXGI_MEMORY_SEGMENT_GROUP_NON_LOCAL, &nonLocalInfo )
-            );
+                activeAdapter->QueryVideoMemoryInfo( 0, DXGI_MEMORY_SEGMENT_GROUP_NON_LOCAL, &nonLocalInfo ) );
 
             stats.adapterMemoryAvailable = localAvailable || nonLocalAvailable;
             if ( localAvailable )
@@ -177,16 +179,17 @@ RenderMemoryStats Dx12Diagnostics::GetRenderMemoryStats() const
                 stats.localCurrentReservationBytes = static_cast<uint64_t>( localInfo.CurrentReservation );
                 stats.localAvailableForReservationBytes = static_cast<uint64_t>( localInfo.AvailableForReservation );
             }
+
             if ( nonLocalAvailable )
             {
                 stats.nonLocalBudgetBytes = static_cast<uint64_t>( nonLocalInfo.Budget );
                 stats.nonLocalCurrentUsageBytes = static_cast<uint64_t>( nonLocalInfo.CurrentUsage );
                 stats.nonLocalCurrentReservationBytes = static_cast<uint64_t>( nonLocalInfo.CurrentReservation );
-                stats.nonLocalAvailableForReservationBytes =
-                    static_cast<uint64_t>( nonLocalInfo.AvailableForReservation );
+                stats.nonLocalAvailableForReservationBytes = static_cast<uint64_t>( nonLocalInfo.AvailableForReservation );
             }
         }
     }
+
     return stats;
 }
 
@@ -241,26 +244,26 @@ void Dx12Diagnostics::PlatformProfilerGpuMarker( const char* name, uint32_t hash
     {
         return;
     }
+
 #if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
     if ( !m_device->CommandList() || !m_frame->EnsureOpen().ok )
     {
         return;
     }
+
     char markerNameBuffer[SkullbonezCore::Core::PlatformProfiler::MAX_DECORATED_MARKER_NAME_CHARS];
     const char* markerName = SkullbonezCore::Core::PlatformProfiler::AreDetailedRangesEnabled()
                                  ? SkullbonezCore::Core::PlatformProfiler::DecorateMarkerName(
                                        name,
                                        "_GPU",
                                        markerNameBuffer,
-                                       sizeof( markerNameBuffer )
-                                   )
+                                       sizeof( markerNameBuffer ) )
                                  : name;
-    PIXSetMarker(
-        m_device->CommandList(),
-        SkullbonezCore::Core::PlatformProfiler::ColorForMarker( markerName, hash ),
-        "%s",
-        markerName
-    );
+
+    PIXSetMarker( m_device->CommandList(),
+                  SkullbonezCore::Core::PlatformProfiler::ColorForMarker( markerName, hash ),
+                  "%s",
+                  markerName );
 
 #else
     (void)name;
@@ -275,8 +278,7 @@ SkullbonezCore::Core::SbResult Dx12Diagnostics::InitializeGpuTimers( ID3D12Devic
     {
         return SkullbonezCore::Core::SbResult::Failure(
             "Dx12Diagnostics",
-            "GPU timer initialization requires a device and graphics queue."
-        );
+            "GPU timer initialization requires a device and graphics queue." );
     }
 
     D3D12_QUERY_HEAP_DESC heapDesc = {};
@@ -288,6 +290,7 @@ SkullbonezCore::Core::SbResult Dx12Diagnostics::InitializeGpuTimers( ID3D12Devic
         // usable when the driver cannot expose a timestamp query heap.
         return SkullbonezCore::Core::SbResult::Success();
     }
+
     NameDx12Object( m_gpuTimers.queryHeap, L"Skullbonez DX12 GPU Timer Query Heap" );
 
     const UINT64 readbackBytes = static_cast<UINT64>( TIMER_HEAP_SIZE ) * sizeof( uint64_t );
@@ -303,12 +306,11 @@ SkullbonezCore::Core::SbResult Dx12Diagnostics::InitializeGpuTimers( ID3D12Devic
     {
         // Lane R: frequency is driver/device capability discovered at startup.
         ShutdownGpuTimers();
-        return SkullbonezCore::Core::SbResult::Failure(
-            "Dx12Diagnostics",
-            "GetTimestampFrequency failed (HRESULT 0x%08X)",
-            static_cast<unsigned int>( frequencyResult )
-        );
+        return SkullbonezCore::Core::SbResult::Failure( "Dx12Diagnostics",
+                                                        "GetTimestampFrequency failed (HRESULT 0x%08X)",
+                                                        static_cast<unsigned int>( frequencyResult ) );
     }
+
     return SkullbonezCore::Core::SbResult::Success();
 }
 
@@ -319,6 +321,7 @@ void Dx12Diagnostics::ShutdownGpuTimers()
     {
         m_gpuTimers.queryHeap->Release();
     }
+
     m_gpuTimers.queryHeap = nullptr;
     std::memset( m_gpuTimers.resultMilliseconds, 0, sizeof( m_gpuTimers.resultMilliseconds ) );
     std::memset( m_gpuTimers.resultValid, 0, sizeof( m_gpuTimers.resultValid ) );
@@ -341,11 +344,10 @@ void Dx12Diagnostics::ConsumeGpuTimerReadback( Dx12DiagnosticsFrame& frame, bool
         const SkullbonezCore::Core::SbResult waitResult = frame.WaitForFenceValue( m_gpuTimers.readFenceValue );
         if ( !waitResult.ok )
         {
-            SkullbonezCore::Core::Log().WriteEventf(
-                "dx12_gpu_timer_wait_failed owner=%s message=%s",
-                waitResult.error.owner,
-                waitResult.error.message
-            );
+            SkullbonezCore::Core::Log().WriteEventf( "dx12_gpu_timer_wait_failed owner=%s message=%s",
+                                                     waitResult.error.owner,
+                                                     waitResult.error.message );
+
             m_gpuTimers.readPending = false;
             return;
         }
@@ -362,6 +364,7 @@ void Dx12Diagnostics::ConsumeGpuTimerReadback( Dx12DiagnosticsFrame& frame, bool
                 break;
             }
         }
+
         if ( frame.CompletedFenceValue() < m_gpuTimers.readFenceValue )
         {
             return;
@@ -388,11 +391,12 @@ void Dx12Diagnostics::ConsumeGpuTimerReadback( Dx12DiagnosticsFrame& frame, bool
         if ( end > begin && m_gpuTimers.frequency > 0 )
         {
             m_gpuTimers.resultMilliseconds[markerIndex] = static_cast<float>(
-                static_cast<double>( end - begin ) / static_cast<double>( m_gpuTimers.frequency ) * 1000.0
-            );
+                static_cast<double>( end - begin ) / static_cast<double>( m_gpuTimers.frequency ) * 1000.0 );
+
             m_gpuTimers.resultValid[markerIndex] = true;
         }
     }
+
     m_gpuTimers.readback.UnmapNoWrite();
     m_gpuTimers.readPending = false;
 }
@@ -403,6 +407,7 @@ void Dx12Diagnostics::GpuTimerBegin( Dx12DiagnosticsFrame& frame, int markerInde
     {
         return;
     }
+
     const int slot = markerIndex * 2;
     frame.CommandList()->EndQuery( m_gpuTimers.queryHeap, D3D12_QUERY_TYPE_TIMESTAMP, static_cast<UINT>( slot ) );
     m_gpuTimers.slotWritten[slot] = true;
@@ -414,6 +419,7 @@ void Dx12Diagnostics::GpuTimerEnd( Dx12DiagnosticsFrame& frame, int markerIndex 
     {
         return;
     }
+
     const int slot = markerIndex * 2 + 1;
     frame.CommandList()->EndQuery( m_gpuTimers.queryHeap, D3D12_QUERY_TYPE_TIMESTAMP, static_cast<UINT>( slot ) );
     m_gpuTimers.slotWritten[slot] = true;
@@ -425,6 +431,7 @@ void Dx12Diagnostics::GpuTimerInvalidate( Dx12DiagnosticsFrame& frame )
     {
         ConsumeGpuTimerReadback( frame, true );
     }
+
     // Invariant: retain the most recent valid values across marker-table reset;
     // the first post-reset fence may not be ready during the non-blocking read.
     std::memset( m_gpuTimers.slotWritten, 0, sizeof( m_gpuTimers.slotWritten ) );
@@ -439,6 +446,7 @@ bool Dx12Diagnostics::GpuTimerRead( Dx12DiagnosticsFrame& frame, int markerIndex
     {
         return false;
     }
+
     outMilliseconds = m_gpuTimers.resultMilliseconds[markerIndex];
     return true;
 }
@@ -450,6 +458,7 @@ bool Dx12Diagnostics::ResolveWrittenGpuTimers( Dx12DiagnosticsFrame& frame )
     {
         return false;
     }
+
     int slot = 0;
     while ( slot < TIMER_HEAP_SIZE )
     {
@@ -458,22 +467,23 @@ bool Dx12Diagnostics::ResolveWrittenGpuTimers( Dx12DiagnosticsFrame& frame )
             ++slot;
             continue;
         }
+
         const int start = slot;
         while ( slot < TIMER_HEAP_SIZE && m_gpuTimers.slotWritten[slot] )
         {
             ++slot;
         }
-        frame.CommandList()->ResolveQueryData(
-            m_gpuTimers.queryHeap,
-            D3D12_QUERY_TYPE_TIMESTAMP,
-            static_cast<UINT>( start ),
-            static_cast<UINT>( slot - start ),
-            m_gpuTimers.readback.Resource(),
-            static_cast<UINT>( start * sizeof( uint64_t ) )
-        );
+
+        frame.CommandList()->ResolveQueryData( m_gpuTimers.queryHeap,
+                                               D3D12_QUERY_TYPE_TIMESTAMP,
+                                               static_cast<UINT>( start ),
+                                               static_cast<UINT>( slot - start ),
+                                               m_gpuTimers.readback.Resource(),
+                                               static_cast<UINT>( start * sizeof( uint64_t ) ) );
 
         resolved = true;
     }
+
     std::memset( m_gpuTimers.slotWritten, 0, sizeof( m_gpuTimers.slotWritten ) );
     return resolved;
 }
@@ -484,6 +494,7 @@ void Dx12Diagnostics::PublishResolvedGpuTimerFence( bool resolvedThisFrame, UINT
     {
         return;
     }
+
     // Why: free-running Present may lap the GPU. Replacing one stale sample is
     // preferable to blocking the entire renderer diagnostics path.
     m_gpuTimers.readPending = true;
@@ -509,19 +520,18 @@ int Dx12Diagnostics::DrawCallHighWater() const
     return (std::max)( m_frameDrawCallHighWater, m_frameDrawCallCount );
 }
 
-void Dx12Diagnostics::RecordVisibility(
-    RenderVisibilityView view,
-    int candidates,
-    int submitted,
-    int culled,
-    int draws
-)
+void Dx12Diagnostics::RecordVisibility( RenderVisibilityView view,
+                                        int candidates,
+                                        int submitted,
+                                        int culled,
+                                        int draws )
 {
     const int index = static_cast<int>( view );
     if ( index < 0 || index >= static_cast<int>( RenderVisibilityView::Count ) )
     {
         return;
     }
+
     RenderVisibilityViewStats& stats = m_frameVisibilityStats.views[index];
     stats.candidates += candidates;
     stats.submitted += submitted;
@@ -543,19 +553,19 @@ void Dx12Diagnostics::ConfigureFaultInjection( Dx12DiagnosticsFrame& frame )
 {
 #ifdef _DEBUG
     char token[64] = {};
-    const DWORD length =
-        GetEnvironmentVariableA( "SKULLBONEZ_DX12_FAULT", token, static_cast<DWORD>( sizeof( token ) ) );
+    const DWORD length = GetEnvironmentVariableA( "SKULLBONEZ_DX12_FAULT",
+                                                  token,
+                                                  static_cast<DWORD>( sizeof( token ) ) );
+
     frame.ConfigureFaultInjection( length > 0 && length < sizeof( token ) ? token : nullptr );
 #else
     frame.ConfigureFaultInjection( nullptr );
 #endif
 }
 
-void Dx12Diagnostics::ReportArchitectureStats(
-    const char* reason,
-    const Dx12DescriptorHeaps& descriptors,
-    const Dx12FrameOwner& frame
-) const
+void Dx12Diagnostics::ReportArchitectureStats( const char* reason,
+                                               const Dx12DescriptorHeaps& descriptors,
+                                               const Dx12FrameOwner& frame ) const
 {
     const Dx12CpuDescriptorAllocatorStats rtvStats = descriptors.RtvStats();
     const Dx12CpuDescriptorAllocatorStats dsvStats = descriptors.DsvStats();
@@ -571,8 +581,8 @@ void Dx12Diagnostics::ReportArchitectureStats(
         uploadPeakBytes = (std::max)( uploadPeakBytes, uploadStats.peakBytes );
         for ( std::size_t category = 0; category < RENDER_UPLOAD_CATEGORY_COUNT; ++category )
         {
-            categoryPeakBytes[category] =
-                (std::max)( categoryPeakBytes[category], uploadStats.categoryPeakBytes[category] );
+            categoryPeakBytes[category] = (std::max)( categoryPeakBytes[category],
+                                                      uploadStats.categoryPeakBytes[category] );
         }
     }
 
@@ -604,14 +614,11 @@ void Dx12Diagnostics::ReportArchitectureStats(
         static_cast<unsigned long long>( uploadCapacityBytes ),
         static_cast<unsigned long long>( categoryPeakBytes[static_cast<size_t>( RenderUploadCategory::Constants )] ),
         static_cast<unsigned long long>(
-            categoryPeakBytes[static_cast<size_t>( RenderUploadCategory::DynamicVertex )]
-        ),
+            categoryPeakBytes[static_cast<size_t>( RenderUploadCategory::DynamicVertex )] ),
         static_cast<unsigned long long>( categoryPeakBytes[static_cast<size_t>( RenderUploadCategory::InstanceData )] ),
         static_cast<unsigned long long>( categoryPeakBytes[static_cast<size_t>( RenderUploadCategory::TextureRows )] ),
         static_cast<unsigned long long>(
-            categoryPeakBytes[static_cast<size_t>( RenderUploadCategory::DebugPredictionOverlay )]
-        ),
+            categoryPeakBytes[static_cast<size_t>( RenderUploadCategory::RetainedGeometry )] ),
         static_cast<unsigned long long>( frame.UploadFlushCount() ),
-        static_cast<unsigned long long>( frame.UploadDropCount() )
-    );
+        static_cast<unsigned long long>( frame.UploadDropCount() ) );
 }

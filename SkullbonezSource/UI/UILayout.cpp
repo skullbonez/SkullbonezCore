@@ -24,11 +24,9 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "UILayout.h"
-#include "../Rendering/Text.h"
+#include "UIFontMetrics.h"
 
 #include <algorithm>
-
-using namespace SkullbonezCore::Text;
 
 namespace SkullbonezCore
 {
@@ -57,6 +55,7 @@ int SceneComboScrollForSelection( int selectedIndex, int optionCount )
     {
         return 0;
     }
+
     return ClampSceneComboScroll( selectedIndex - visibleCount / 2, optionCount );
 }
 
@@ -66,6 +65,7 @@ float SceneTabComboWidth( float contentW )
     const float maxComboW = (std::min)( contentW, 520.0f );
     const float buttonW = UI_SCENE_RESET_BUTTON_W + UI_SCENE_RESET_DEFAULTS_BUTTON_W + UI_SCENE_SAVE_DEFAULTS_BUTTON_W +
                           UI_SCENE_HEADER_BUTTON_GAP * 3.0f;
+
     const float withButtons = contentW - buttonW;
     return (std::max)( 180.0f, (std::min)( maxComboW, withButtons ) );
 }
@@ -97,7 +97,7 @@ float MinimizedWidthForTitle( const char* title, int screenW )
     constexpr float textSize = 12.5f;
     constexpr float chromeW = 76.0f;
     const float maxW = (std::max)( 154.0f, static_cast<float>( screenW ) - margin * 2.0f );
-    const float textW = Text2d::MeasureText( textSize, title ? title : "" );
+    const float textW = UIFontMetrics::MeasureText( textSize, title ? title : "" );
     return std::clamp( textW + chromeW, 154.0f, maxW );
 }
 

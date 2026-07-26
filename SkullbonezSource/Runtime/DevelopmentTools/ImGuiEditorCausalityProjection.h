@@ -25,13 +25,13 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayAuthoring.h
-  - SkullbonezSource/Runtime/Replay/ReplayOverlayRenderer.h
+  - SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.h
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp
-  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E14)
+  - Agentic/Reports/2026-07-21/imgui-tracy-editor-campaign-closure.md (E14)
 */
 #pragma once
 
-#include "../Replay/ReplayOverlayPackets.h"
+#include "../Planning/ReplayOverlayPackets.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -148,7 +148,7 @@ BuildImGuiEditorCausalityContext( const ReplayOverlay::ReplayOverlayStateView& r
         context.hasReplayTick = true;
         return true;
     };
-    if ( !setTick( selection.selectedPrediction ) && !setTick( selection.selectedSolver ) &&
+    if ( !setTick( replay.selectedPrediction ) && !setTick( selection.selectedSolver ) &&
          !setTick( selection.selectedPresentation ) && !setTick( selection.currentSolver ) &&
          !setTick( selection.currentPresentation ) && !setTick( selection.latestSolver ) )
     {
@@ -182,14 +182,13 @@ BuildImGuiEditorCausalityContext( const ReplayOverlay::ReplayOverlayStateView& r
     // so the compact UI can distinguish exhaustion from an ordinary empty tree.
     const bool usePredictionNodes = replay.prediction.enabled && replay.prediction.targetId.value != 0u &&
                                     replay.prediction.targetId.value == replay.pathVisualizer.targetId.value;
-    const std::size_t nodeCount =
-        usePredictionNodes ? replay.prediction.futureNodes.size() : replay.pathVisualizer.futureNodes.size();
+    const std::size_t nodeCount = usePredictionNodes ? replay.prediction.futureNodes.size() : std::size_t { 0u };
     const std::size_t contactCount = selection.currentSolver
                                          ? selection.currentSolver->worldSnapshot.physics.persistentContacts.size()
                                          : std::size_t { 0u };
     const std::size_t estimatedRows = 1u + ( usePredictionNodes ? nodeCount * 2u : nodeCount ) + contactCount * 3u;
-    const bool capacityLimited =
-        replay.pathVisualizer.hasTarget && tree.rows.empty() && estimatedRows > tree.rows.capacity();
+    const bool capacityLimited = replay.pathVisualizer.hasTarget && tree.rows.empty() &&
+                                 estimatedRows > tree.rows.capacity();
     if ( capacityLimited )
     {
         context.state = ImGuiEditorCausalityState::CapacityLimited;
@@ -197,13 +196,14 @@ BuildImGuiEditorCausalityContext( const ReplayOverlay::ReplayOverlayStateView& r
     }
     if ( tree.rows.empty() )
     {
-        context.state =
-            tree.focusedId.value != 0u ? ImGuiEditorCausalityState::Stale : ImGuiEditorCausalityState::Empty;
+        context.state = tree.focusedId.value != 0u ? ImGuiEditorCausalityState::Stale
+                                                   : ImGuiEditorCausalityState::Empty;
         return context;
     }
 
-    context.selectedRowIndex =
-        tree.selectedRow >= 0 && tree.selectedRow < static_cast<int>( tree.rows.size() ) ? tree.selectedRow : 0;
+    context.selectedRowIndex = tree.selectedRow >= 0 && tree.selectedRow < static_cast<int>( tree.rows.size() )
+                                   ? tree.selectedRow
+                                   : 0;
     context.selectedRow = &tree.rows[static_cast<std::size_t>( context.selectedRowIndex )];
     const std::size_t halfWindow = IMGUI_CAUSALITY_COMPACT_SCAN_CAPACITY / 2u;
     std::size_t scanBegin = context.selectedRowIndex > static_cast<int>( halfWindow )
@@ -250,11 +250,11 @@ BuildImGuiEditorCausalityContext( const ReplayOverlay::ReplayOverlayStateView& r
         {
             context.immediateCauseRow = &row;
         }
-        const bool isParent =
-            context.selectedRow->parentId.value != 0u && row.id.value == context.selectedRow->parentId.value;
+        const bool isParent = context.selectedRow->parentId.value != 0u &&
+                              row.id.value == context.selectedRow->parentId.value;
         const bool isChild = row.parentId.value != 0u && row.parentId.value == context.selectedRow->id.value;
-        const bool isSameBodyDetail =
-            row.id.value == context.selectedRow->id.value && row.kind != RunReplayCauseTreeRowKind::Body;
+        const bool isSameBodyDetail = row.id.value == context.selectedRow->id.value &&
+                                      row.kind != RunReplayCauseTreeRowKind::Body;
         if ( isParent || isChild || isSameBodyDetail )
         {
             appendRelevant( row );

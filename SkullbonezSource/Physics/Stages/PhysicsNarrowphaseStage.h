@@ -14,6 +14,8 @@ Glossary:
   Narrowphase island: Connected group of candidate pairs that may mutate the
     same bodies and therefore must execute on one worker.
   Pair-order commit: Sequencer replay of events by original candidate index.
+  Step policy: Scalar thresholds and execution switches normalized once by the
+    sequencer; it contains no store, owner, or retained authority.
 
 Invariants:
   - Serial processing commits each event immediately before the next pair.
@@ -21,6 +23,8 @@ Invariants:
     after all islands complete, in ascending original pair order.
   - All seven retained vectors are construction-reserved and cannot grow during
     steady gameplay beyond scene/candidate capacities.
+  - Worker callables are stack-scoped; WorkerPool completes every borrowed
+    island/store reference before TryRunParallel returns.
 
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.cpp
@@ -37,6 +41,7 @@ Related:
 #include <vector>
 
 #include "../PersistentContactSolver.h"
+#include "../BuoyancySystem.h"
 #include "../PhysicsBodyStore.h"
 #include "../PhysicsDebugData.h"
 #include "../PhysicsRuntimeSettings.h"
@@ -89,30 +94,18 @@ struct ObjectNarrowphaseEvent
     uint8_t hasCollisionCellKey = 0;
 };
 
-struct ObjectNarrowphasePairStageContext
+struct ObjectNarrowphaseStepPolicy
 {
-    // Lifetime: pair processing and bounded island dispatch borrow these values
-    // only for the current synchronous narrowphase pass.
-    PhysicsBodyStore& bodyStore;
-    const ColliderStore& colliderStore;
-    const PhysicsWorldForces& worldForces;
-    std::span<PhysicsBodyRecord> bodyRecords;
-    PhysicsBodyHotFieldsConstView hotFields;
-    std::span<const ColliderRecord> colliderRecords;
-    std::span<const std::pair<int, int>> candidatePairs;
-    PhysicsNarrowphaseWakeAccess wakeAccess;
-    std::span<const uint8_t> sleepState;
-    std::span<float> timeRemaining;
-    std::span<const uint8_t> underwaterSleepLocked;
-    const std::vector<PersistentContactCacheEntry>& persistentContactCache;
-    int modelCount = 0;
+    // Value-only per-step policy: no owner reach-back or borrowed storage may
+    // be added here.
     float sleepLinearSq = 0.0f;
     float sleepAngularSq = 0.0f;
     float contactSkin = 0.0f;
     float contactEpsilon = 0.0f;
     float invCellSize = 0.0f;
     float dt = 0.0f;
-    Core::Profiler* profiler = nullptr;
+    bool parallel = false;
+    bool parallelNarrowphase = false;
 };
 
 struct ObjectNarrowphaseIsland
@@ -135,58 +128,82 @@ class PhysicsNarrowphaseStage
 
     struct ObjectNarrowphaseIslandStage
     {
+        // Lifetime: WorkerPool invokes this concrete callable synchronously;
+        // these direct borrows expire before TryRunParallel returns.
         PhysicsNarrowphaseStage& stage;
-        const ObjectNarrowphasePairStageContext& pairContext;
+        PhysicsBodyStore& bodyStore;
+        const ColliderStore& colliderStore;
+        PhysicsTerrainView terrain;
+        std::span<BuoyancyBodyFacts> buoyancyFacts;
+        std::span<const std::pair<int, int>> candidatePairs;
+        PhysicsNarrowphaseWakeAccess wakeAccess;
+        std::span<float> timeRemaining;
+        const std::vector<PersistentContactCacheEntry>& persistentContactCache;
+        ObjectNarrowphaseStepPolicy policy;
+        Core::Profiler* profiler;
 
         void operator()( int islandIndex ) const;
     };
 
-    static void RecordObjectNarrowphaseEvent(
-        ObjectNarrowphaseEvent& event,
-        ObjectNarrowphaseEventKind kind,
-        const PhysicsPipelineRecord& record
-    );
-    static void EmitObjectCollisionTimeEvent(
-        ObjectNarrowphaseEvent& event,
-        int bodyA,
-        int bodyB,
-        float collisionTime,
-        float availableTime
-    );
+    static void RecordObjectNarrowphaseEvent( ObjectNarrowphaseEvent& event,
+                                              ObjectNarrowphaseEventKind kind,
+                                              const PhysicsPipelineRecord& record );
+    static void EmitObjectCollisionTimeEvent( ObjectNarrowphaseEvent& event,
+                                              int bodyA,
+                                              int bodyB,
+                                              float collisionTime,
+                                              float availableTime );
     static void MarkObjectVisualEvent( ObjectNarrowphaseEvent& event, int bodyA, int bodyB );
-    static void WriteObjectCollisionCellEvent(
-        ObjectNarrowphaseEvent& event,
-        const PhysicsBodyHotFieldsConstView& hotFields,
-        int bodyA,
-        int bodyB,
-        float invCellSize
-    );
-    void ProcessObjectNarrowphaseIsland( const ObjectNarrowphasePairStageContext& context, int islandIndex );
-    void BuildObjectNarrowphaseIslands(
-        Core::Profiler* profiler,
-        std::span<const std::pair<int, int>> candidatePairs,
-        int candidatePairCount,
-        int modelCount
-    );
-    static bool
-    ObjectNarrowphaseIslandPrecedesByMinPairIndex( const ObjectNarrowphaseIsland& a, const ObjectNarrowphaseIsland& b );
+    static void WriteObjectCollisionCellEvent( ObjectNarrowphaseEvent& event,
+                                               const PhysicsBodyHotFieldsConstView& hotFields,
+                                               int bodyA,
+                                               int bodyB,
+                                               float invCellSize );
+    void ProcessObjectNarrowphaseIsland( PhysicsBodyStore& bodyStore,
+                                         const ColliderStore& colliderStore,
+                                         PhysicsTerrainView terrain,
+                                         std::span<BuoyancyBodyFacts> buoyancyFacts,
+                                         std::span<const std::pair<int, int>> candidatePairs,
+                                         PhysicsNarrowphaseWakeAccess wakeAccess,
+                                         std::span<float> timeRemaining,
+                                         const std::vector<PersistentContactCacheEntry>& persistentContactCache,
+                                         const ObjectNarrowphaseStepPolicy& policy,
+                                         Core::Profiler* profiler,
+                                         int islandIndex );
+    void BuildObjectNarrowphaseIslands( Core::Profiler* profiler,
+                                        std::span<const std::pair<int, int>> candidatePairs,
+                                        int candidatePairCount,
+                                        int modelCount );
+    static bool ObjectNarrowphaseIslandPrecedesByMinPairIndex( const ObjectNarrowphaseIsland& a,
+                                                               const ObjectNarrowphaseIsland& b );
 
   public:
     PhysicsNarrowphaseStage();
 
     void Clear();
-    void ProcessObjectNarrowphasePair(
-        const ObjectNarrowphasePairStageContext& context,
-        int pairIndex,
-        ObjectNarrowphaseEvent& event
-    );
-    bool TryRunParallel(
-        const ObjectNarrowphasePairStageContext& context,
-        int candidatePairCount,
-        int modelCount,
-        const PhysicsExecutionSettings& execution,
-        Threading::WorkerPool& workerPool
-    );
+    void ProcessObjectNarrowphasePair( PhysicsBodyStore& bodyStore,
+                                       const ColliderStore& colliderStore,
+                                       PhysicsTerrainView terrain,
+                                       std::span<BuoyancyBodyFacts> buoyancyFacts,
+                                       std::span<const std::pair<int, int>> candidatePairs,
+                                       PhysicsNarrowphaseWakeAccess wakeAccess,
+                                       std::span<float> timeRemaining,
+                                       const std::vector<PersistentContactCacheEntry>& persistentContactCache,
+                                       const ObjectNarrowphaseStepPolicy& policy,
+                                       Core::Profiler* profiler,
+                                       int pairIndex,
+                                       ObjectNarrowphaseEvent& event );
+    bool TryRunParallel( PhysicsBodyStore& bodyStore,
+                         const ColliderStore& colliderStore,
+                         PhysicsTerrainView terrain,
+                         std::span<BuoyancyBodyFacts> buoyancyFacts,
+                         std::span<const std::pair<int, int>> candidatePairs,
+                         PhysicsNarrowphaseWakeAccess wakeAccess,
+                         std::span<float> timeRemaining,
+                         const std::vector<PersistentContactCacheEntry>& persistentContactCache,
+                         const ObjectNarrowphaseStepPolicy& policy,
+                         Core::Profiler* profiler,
+                         Threading::WorkerPool& workerPool );
     std::span<const ObjectNarrowphaseEvent> GetEvents() const;
     uint64_t CollectDynamicMemoryBytes() const;
 };

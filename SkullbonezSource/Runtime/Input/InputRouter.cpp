@@ -9,7 +9,8 @@ Summary:
   later decides which already-observed edges are eligible for delivery. This
   separation prevents held keys from firing when UI or tool contexts change.
   Water-height keys are translated here into a world-unit command so simulation
-  code never reinterprets device vocabulary.
+  code never reinterprets device vocabulary. RuntimePointerArbitration enforces
+  the production world-pointer claim sequence without retaining domain owners.
 
 Glossary:
   Delivered action: Press edge previously emitted to a consumer; held and
@@ -21,18 +22,23 @@ Glossary:
     phases.
   Fluid-surface command: Signed world-space velocity published in the immutable
     RuntimeInputSnapshot.
+  Pointer arbitration: Phase cursor that lets the first consuming editor,
+    pickup, camera, Replay, or launcher stage suppress every later owner call.
 
 Invariants:
   - No operation in this file allocates or retains caller-owned storage.
   - One action contributes at most one event per routed phase and frame.
   - Context matching is all-of; every required bit must be active.
   - Refocus synchronizes held inputs without inventing press edges.
+  - Pointer stages execute in their declared order and cannot replace an earlier
+    winner.
 
 Related:
   - InputRouter.h defines the value records and caller contract.
   - SkullbonezTests/TestInputRouter.cpp covers edge and context behavior.
 */
 #include "InputRouter.h"
+#include "../../Core/FatalError.h"
 #include "../Interaction/RuntimeInteractionController.h"
 
 namespace SkullbonezCore
@@ -63,6 +69,83 @@ Environment::FluidSurfaceAdjustment BuildFluidSurfaceAdjustment( const InputKeyS
 } // namespace
 
 
+bool RuntimePointerArbitration::BeginStage( RuntimePointerRouteStage stage )
+{
+    if ( m_active != RuntimePointerRouteStage::None || stage != m_next || stage == RuntimePointerRouteStage::Complete )
+    {
+        SB_FATAL( "Runtime/InputRouter", "Illegal runtime pointer arbitration stage begin." );
+    }
+
+    m_active = stage;
+    return m_winner == RuntimePointerRouteStage::None;
+}
+
+
+void RuntimePointerArbitration::FinishStage( RuntimePointerRouteStage stage, bool consumed )
+{
+    if ( m_active != stage )
+    {
+        SB_FATAL( "Runtime/InputRouter", "Runtime pointer arbitration finished a stage that is not active." );
+    }
+
+    const bool mayConsume = m_winner == RuntimePointerRouteStage::None;
+    if ( consumed && !mayConsume )
+    {
+        SB_FATAL( "Runtime/InputRouter", "A later runtime pointer stage attempted to replace the winning owner." );
+    }
+
+    if ( consumed )
+    {
+        m_winner = stage;
+    }
+
+    switch ( stage )
+    {
+    case RuntimePointerRouteStage::Editor:
+        m_next = RuntimePointerRouteStage::MousePickup;
+        break;
+    case RuntimePointerRouteStage::MousePickup:
+        m_next = RuntimePointerRouteStage::AttachedCamera;
+        break;
+    case RuntimePointerRouteStage::AttachedCamera:
+        m_next = RuntimePointerRouteStage::Replay;
+        break;
+    case RuntimePointerRouteStage::Replay:
+        m_next = RuntimePointerRouteStage::Launcher;
+        break;
+    case RuntimePointerRouteStage::Launcher:
+        m_next = RuntimePointerRouteStage::Complete;
+        break;
+    default:
+        SB_FATAL( "Runtime/InputRouter", "Runtime pointer arbitration reached an invalid active stage." );
+    }
+
+    m_active = RuntimePointerRouteStage::None;
+}
+
+
+bool RuntimePointerArbitration::Consumed() const
+{
+    if ( m_active != RuntimePointerRouteStage::None || m_next != RuntimePointerRouteStage::Complete )
+    {
+        SB_FATAL( "Runtime/InputRouter", "Runtime pointer arbitration was observed before all stages completed." );
+    }
+
+    return m_winner != RuntimePointerRouteStage::None;
+}
+
+
+RuntimePointerRouteStage RuntimePointerArbitration::Winner() const
+{
+    if ( m_active != RuntimePointerRouteStage::None || m_next != RuntimePointerRouteStage::Complete )
+    {
+        SB_FATAL( "Runtime/InputRouter", "Runtime pointer arbitration winner was observed before route completion." );
+    }
+
+    return m_winner;
+}
+
+
 InputKeySnapshot InputKeySnapshot::FromWords( const std::array<uint64_t, WORD_COUNT>& words )
 {
     InputKeySnapshot snapshot;
@@ -91,6 +174,7 @@ InputKeySnapshot InputKeySnapshot::FromDownKeys( const int* virtualKeys, std::si
         const uint64_t bit = uint64_t { 1 } << ( static_cast<unsigned int>( virtualKey ) & 63u );
         snapshot.m_words[word] |= bit;
     }
+
     return snapshot;
 }
 
@@ -199,12 +283,10 @@ const InputActions& InputRouter::Actions() const
 }
 
 
-void InputRouter::BeginFrame(
-    const DeviceInputFrame& frame,
-    RuntimeInputKeyBindingView bindings,
-    InputActions& output,
-    UiInputCaptureIntent capture
-)
+void InputRouter::BeginFrame( const DeviceInputFrame& frame,
+                              RuntimeInputKeyBindingView bindings,
+                              InputActions& output,
+                              UiInputCaptureIntent capture )
 {
     const bool keyboardCaptured = capture.keyboard || capture.text;
     const bool captureReleased = ( m_keyboardCaptured && !keyboardCaptured ) || ( m_mouseCaptured && !capture.mouse );
@@ -213,6 +295,7 @@ void InputRouter::BeginFrame(
     {
         routedFrame.keys = {};
     }
+
     if ( capture.mouse )
     {
         // Invariant: ImGui already received these native events in WndProc.
@@ -296,12 +379,10 @@ void InputRouter::BeginFrame(
 }
 
 
-void InputRouter::RoutePhase(
-    RuntimeInputKeyBindingView bindings,
-    InputActionPhase phase,
-    RuntimeInputContextMask activeContexts,
-    InputActions& output
-)
+void InputRouter::RoutePhase( RuntimeInputKeyBindingView bindings,
+                              InputActionPhase phase,
+                              RuntimeInputContextMask activeContexts,
+                              InputActions& output )
 {
     if ( !m_frameFocused || !bindings.bindings || !IsPhaseValid( phase ) )
     {
@@ -315,6 +396,7 @@ void InputRouter::RoutePhase(
         // output, even if an integration bug asks to route it twice.
         return;
     }
+
     m_phaseRoutedThisFrame[phaseIndex] = true;
 
     const RuntimeInputContextMask effectiveContexts = EffectiveContexts( phase, activeContexts );
@@ -335,19 +417,19 @@ void InputRouter::RoutePhase(
             // duplicate fails closed without double-emitting an action event.
             continue;
         }
+
         routedThisCall[actionIndex] = true;
 
         const InputActionEdge observedEdge = m_frameEdges[actionIndex];
         const bool contextActive = ContextsSatisfied( binding.contexts, effectiveContexts );
         if ( m_actionDelivered[actionIndex] && ( observedEdge == InputActionEdge::Released || !contextActive ) )
         {
-            output.TryAppend(
-                InputActionEvent { binding.action,
-                                   RuntimeInputActionSource::Keyboard,
-                                   phase,
-                                   InputActionEdge::Released,
-                                   binding.virtualKey }
-            );
+            output.TryAppend( InputActionEvent { binding.action,
+                                                 RuntimeInputActionSource::Keyboard,
+                                                 phase,
+                                                 InputActionEdge::Released,
+                                                 binding.virtualKey } );
+
             m_actionDelivered[actionIndex] = false;
             continue;
         }
@@ -359,26 +441,22 @@ void InputRouter::RoutePhase(
 
         if ( observedEdge == InputActionEdge::Pressed )
         {
-            if ( output.TryAppend(
-                     InputActionEvent { binding.action,
-                                        RuntimeInputActionSource::Keyboard,
-                                        phase,
-                                        InputActionEdge::Pressed,
-                                        binding.virtualKey }
-                 ) )
+            if ( output.TryAppend( InputActionEvent { binding.action,
+                                                      RuntimeInputActionSource::Keyboard,
+                                                      phase,
+                                                      InputActionEdge::Pressed,
+                                                      binding.virtualKey } ) )
             {
                 m_actionDelivered[actionIndex] = true;
             }
         }
         else if ( observedEdge == InputActionEdge::Held && m_actionDelivered[actionIndex] )
         {
-            output.TryAppend(
-                InputActionEvent { binding.action,
-                                   RuntimeInputActionSource::Keyboard,
-                                   phase,
-                                   InputActionEdge::Held,
-                                   binding.virtualKey }
-            );
+            output.TryAppend( InputActionEvent { binding.action,
+                                                 RuntimeInputActionSource::Keyboard,
+                                                 phase,
+                                                 InputActionEdge::Held,
+                                                 binding.virtualKey } );
         }
     }
 }
@@ -428,8 +506,8 @@ const UiInputHitSnapshot& InputRouter::UiSnapshot() const
 }
 
 
-RuntimeInputSnapshot
-InputRouter::BuildRuntimeSnapshot( const RuntimeInteractionFrameInput& frameInput, bool suppressWorldAction ) const
+RuntimeInputSnapshot InputRouter::BuildRuntimeSnapshot( const RuntimeInteractionFrameInput& frameInput,
+                                                        bool suppressWorldAction ) const
 {
     RuntimeInputSnapshot snapshot;
     snapshot.appFocused = m_deviceFrame.appFocused;
@@ -443,6 +521,7 @@ InputRouter::BuildRuntimeSnapshot( const RuntimeInteractionFrameInput& frameInpu
         snapshot.pointer.clientX = m_deviceFrame.clientX;
         snapshot.pointer.clientY = m_deviceFrame.clientY;
     }
+
     snapshot.pointer.leftDown = m_uiSnapshot.mouse.leftDown;
     snapshot.pointer.leftPressed = m_uiSnapshot.mouse.leftPressed;
     snapshot.pointer.leftReleased = m_uiSnapshot.mouse.leftReleased;
@@ -462,13 +541,14 @@ InputRouter::BuildRuntimeSnapshot( const RuntimeInteractionFrameInput& frameInpu
     {
         snapshot.pointer.button = RuntimePointerButton::Right;
     }
+
     snapshot.frameInput = frameInput;
     return snapshot;
 }
 
 
-const RuntimeInputSnapshot&
-InputRouter::PublishRuntimeSnapshot( const RuntimeInteractionFrameInput& frameInput, bool suppressWorldAction )
+const RuntimeInputSnapshot& InputRouter::PublishRuntimeSnapshot( const RuntimeInteractionFrameInput& frameInput,
+                                                                 bool suppressWorldAction )
 {
     m_runtimeSnapshot = BuildRuntimeSnapshot( frameInput, suppressWorldAction );
     return m_runtimeSnapshot;
@@ -488,6 +568,7 @@ PointerPresentationPolicy InputRouter::EvaluatePointerPresentation( const Pointe
     {
         return policy;
     }
+
     if ( input.editorModeEnabled )
     {
         policy.mouseLookOwnsCursor = input.editorViewportLookActive || m_runtimeSnapshot.pointer.rightDown;
@@ -500,9 +581,11 @@ PointerPresentationPolicy InputRouter::EvaluatePointerPresentation( const Pointe
     {
         policy.mouseLookOwnsCursor = m_runtimeSnapshot.pointer.rightDown;
     }
-    policy.hideNativeCursor =
-        policy.mouseLookOwnsCursor || ( input.editorModeEnabled && input.editorPlacementModeEnabled &&
-                                        input.editorPlacementPreviewVisible && !m_uiSnapshot.wantsNativeCursor );
+
+    policy.hideNativeCursor = policy.mouseLookOwnsCursor ||
+                              ( input.editorModeEnabled && input.editorPlacementModeEnabled &&
+                                input.editorPlacementPreviewVisible && !m_uiSnapshot.wantsNativeCursor );
+
     return policy;
 }
 
@@ -521,6 +604,7 @@ bool InputRouter::ReleasePointerToUi( const PointerPresentationPolicy& policy )
     {
         return false;
     }
+
     ReleaseNativeCapture();
     return true;
 }
@@ -552,6 +636,7 @@ bool InputRouter::ObserveSceneLifecycle( const SceneLifecyclePacket& packet, boo
         RequestCursorVisible( false );
         return true;
     }
+
     return false;
 }
 
@@ -582,6 +667,7 @@ bool InputRouter::ConsumePointerPresentationChange( PointerPresentationState& st
     // otherwise the composition root never normalizes the native cursor.
     const bool changed = !m_pointerPresentationCommitted || m_committedNativeCapture != m_nativeCaptureRequested ||
                          m_committedCursorVisible != m_cursorVisibleRequested;
+
     m_committedNativeCapture = m_nativeCaptureRequested;
     m_committedCursorVisible = m_cursorVisibleRequested;
     m_pointerPresentationCommitted = true;
@@ -607,6 +693,7 @@ bool InputRouter::IsQuickRepeat( RuntimeInputAction action, double nowSeconds, d
     {
         return false;
     }
+
     // Preserve the existing UI clock contract: the caller supplies one
     // monotonic timeline and owns the repeat interval policy.
     return nowSeconds - m_lastTapSeconds[ActionIndex( action )] <= intervalSeconds;
@@ -640,10 +727,12 @@ InputActionPhase InputRouter::PhaseForBinding( const RuntimeInputKeyBinding& bin
     {
         return InputActionPhase::Capture;
     }
+
     if ( ( binding.contexts & ContextBit( RuntimeInputBindingContext::AfterUIUpdate ) ) != 0u )
     {
         return InputActionPhase::AfterUi;
     }
+
     return InputActionPhase::PreUi;
 }
 
@@ -685,6 +774,7 @@ RuntimeInputContextMask InputRouter::EffectiveContexts( InputActionPhase phase, 
     {
         activeContexts |= ContextBit( RuntimeInputBindingContext::Capture );
     }
+
     return activeContexts;
 }
 
@@ -723,14 +813,13 @@ void InputRouter::CaptureFocusLoss( RuntimeInputKeyBindingView bindings, InputAc
             {
                 continue;
             }
+
             released[actionIndex] = true;
-            output.TryAppend(
-                InputActionEvent { binding.action,
-                                   RuntimeInputActionSource::FocusLost,
-                                   PhaseForBinding( binding ),
-                                   InputActionEdge::Released,
-                                   binding.virtualKey }
-            );
+            output.TryAppend( InputActionEvent { binding.action,
+                                                 RuntimeInputActionSource::FocusLost,
+                                                 PhaseForBinding( binding ),
+                                                 InputActionEdge::Released,
+                                                 binding.virtualKey } );
         }
     }
 
@@ -752,6 +841,7 @@ void InputRouter::SynchronizeFocusedInputs( const DeviceInputFrame& frame, Runti
     {
         return;
     }
+
     for ( std::size_t bindingIndex = 0; bindingIndex < bindings.count; ++bindingIndex )
     {
         const RuntimeInputKeyBinding& binding = bindings.bindings[bindingIndex];
@@ -765,6 +855,7 @@ void InputRouter::SynchronizeFocusedInputs( const DeviceInputFrame& frame, Runti
         {
             continue;
         }
+
         m_actionSampledThisFrame[actionIndex] = true;
         m_actionDown[actionIndex] = frame.keys.IsDown( binding.virtualKey );
     }
@@ -791,6 +882,7 @@ void InputRouter::SampleKeyboard( const DeviceInputFrame& frame, RuntimeInputKey
         {
             continue;
         }
+
         m_actionSampledThisFrame[actionIndex] = true;
 
         const bool wasDown = m_actionDown[actionIndex];

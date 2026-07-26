@@ -61,28 +61,22 @@ struct SceneRuntimeLoadBeginResult
     const std::string* scenePath = nullptr;
 };
 
-SceneRuntimeLoadBeginResult PrepareSceneRuntimeLoad(
-    const SceneController& controller,
-    const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-    const RuntimeRenderer& renderer,
-    const OverlayDebugState& debug,
-    const CameraControlState& camera,
-    Rendering::Dx12FrameOwner* renderFrame,
-    bool interactiveSceneRunRequested,
-    int index,
-    bool suppressExitOnComplete,
-    bool preserveRuntimeState
-);
-void CommitSceneRuntimeLoad(
-    SceneController& controller,
-    SceneLoadNavigationState& navigation,
-    const SceneRuntimeLoadBeginResult& prepared
-);
+SceneRuntimeLoadBeginResult PrepareSceneRuntimeLoad( const SceneController& controller,
+                                                     const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+                                                     const RuntimeRenderer& renderer,
+                                                     const OverlayDebugState& debug,
+                                                     const CameraControlState& camera,
+                                                     Rendering::Dx12FrameOwner* renderFrame,
+                                                     bool interactiveSceneRunRequested,
+                                                     int index,
+                                                     bool suppressExitOnComplete,
+                                                     bool preserveRuntimeState );
+void CommitSceneRuntimeLoad( SceneController& controller,
+                             SceneLoadNavigationState& navigation,
+                             const SceneRuntimeLoadBeginResult& prepared );
 void RefreshSceneBrowserList( SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser );
-int CurrentSceneBrowserIndex(
-    const SceneController& controller,
-    const SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser
-);
+int CurrentSceneBrowserIndex( const SceneController& controller,
+                              const SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser );
 
 } // namespace Runtime
 } // namespace SkullbonezCore

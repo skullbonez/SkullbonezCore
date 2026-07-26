@@ -42,21 +42,21 @@ class ShaderDX12;
 class Dx12ResourceBuilder
 {
   public:
-    Dx12ResourceBuilder(
-        Dx12RenderDevice& device,
-        Dx12PipelineOwner& pipeline,
-        Dx12TextureOwner& textures,
-        Dx12DescriptorHeaps& descriptors,
-        Dx12FrameOwner& frame,
-        Dx12ShaderDevelopment& shaderDevelopment,
-        Dx12Diagnostics& diagnostics
-    )
+    Dx12ResourceBuilder( Dx12RenderDevice& device,
+                         Dx12PipelineOwner& pipeline,
+                         Dx12TextureOwner& textures,
+                         Dx12DescriptorHeaps& descriptors,
+                         Dx12FrameOwner& frame,
+                         Dx12ShaderDevelopment& shaderDevelopment,
+                         Dx12Diagnostics& diagnostics )
         : m_device( device ), m_pipeline( pipeline ), m_textures( textures ), m_descriptors( descriptors ),
           m_frame( frame ), m_shaderDevelopment( shaderDevelopment ), m_diagnostics( diagnostics )
     {
     }
 
-    std::unique_ptr<ShaderDX12> CreateShader( const char* baseName );
+    // contractBaseName separates a feature-owned physical asset name from the
+    // generic CPU ABI name used by Rendering.
+    std::unique_ptr<ShaderDX12> CreateShader( const char* baseName, const char* contractBaseName = nullptr );
     std::unique_ptr<MeshDX12> CreateMesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords );
     std::unique_ptr<FramebufferDX12>
     CreateFramebuffer( int width, int height, FramebufferColorFormat colorFormat = FramebufferColorFormat::RGBA8 );

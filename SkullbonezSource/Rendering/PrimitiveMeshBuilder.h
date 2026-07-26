@@ -130,8 +130,8 @@ template <typename EmitVertex> inline void EmitUnitSphereFlat( int slices, int s
         float u, v;
     };
 
-    auto normalFor =
-        []( const LocalVertex& a, const LocalVertex& b, const LocalVertex& c, float& nx, float& ny, float& nz )
+    auto normalFor = []( const LocalVertex& a,
+                        const LocalVertex& b, const LocalVertex& c, float& nx, float& ny, float& nz )
     {
         const float abx = b.x - a.x;
         const float aby = b.y - a.y;

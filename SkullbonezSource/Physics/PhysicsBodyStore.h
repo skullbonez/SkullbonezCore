@@ -49,6 +49,7 @@ Related:
 #include <vector>
 
 #include "PhysicsHandles.h"
+#include "PhysicsTerrainView.h"
 #include "../Core/SceneCapacity.h"
 #include "PhysicsFixedList.h"
 #include "../Maths/Quaternion.h"
@@ -61,14 +62,10 @@ namespace Core
 {
 class Profiler;
 }
-namespace Geometry
-{
-class Terrain;
-}
-
 namespace Physics
 {
 class ColliderStore;
+struct BuoyancyBodyFacts;
 struct PhysicsBodyCreateDesc;
 struct PhysicsWorldForces;
 
@@ -92,25 +89,17 @@ struct PhysicsBodyRecord
     Math::Vector::Vector3 rotationalInertia = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 pendingImpulse = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 pendingImpulseApplicationPoint = Math::Vector::ZERO_VECTOR;
-    Geometry::Terrain* terrain = nullptr;                                                       // Borrowed terrain pointer supplied by the authoring descriptor.
     float mass = 0.0f;                                                                          // Authoring mass; fixed bodies still report mass.
-    float volume = 0.0f;                                                                        // Cached body volume used by buoyancy force math.
-    float projectedSurfaceArea = 0.0f;                                                          // Cached drag area used by world-force integration.
-    float dragCoefficient = 0.0f;                                                               // Cached drag coefficient used by world-force integration.
-    float submergedVolumePercent = 0.0f;                                                        // Targeted water snapshot for underwater sleep gates.
     float contactReleaseImpulseThreshold = 1.0f;                                                // Minimum contact impulse before authored fixed props release.
     float angularVelocityLimit = 5.0f;                                                          // Per-body spin cap applied before force integration.
-    float contactEpsilon = 0.05f;                                                               // Terrain proximity tolerance used by buoyancy support damping.
     int fixedTreeReleaseRootIndex = -1;                                                         // Authored release group root; -1 means no fixed-tree group.
     bool usesWorldInertia = false;                                                              // Non-sphere bodies rotate inertia through orientation.
     bool releasesFromFixedOnContact = false;                                                    // Authored fixed prop can become dynamic after strong contact.
     bool hasPendingImpulse = false;                                                             // One-shot impulse waiting for the next body integration pass.
 };
 
-static_assert(
-    offsetof( PhysicsBodyRecord, rotationalInertia ) == 16u,
-    "PhysicsBodyRecord vector metadata must retain its 16-byte boundary"
-);
+static_assert( offsetof( PhysicsBodyRecord, rotationalInertia ) == 16u,
+               "PhysicsBodyRecord vector metadata must retain its 16-byte boundary" );
 
 // Plain one-row value used only at cold creation/restore boundaries and inside
 // scalar kernels. Live storage remains the component arrays below.
@@ -156,8 +145,8 @@ using PhysicsBodyHandleList = PhysicsFixedList<PhysicsBodyHandle, SkullbonezCore
 using PhysicsHandleGenerationList = PhysicsFixedList<uint32_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 using PhysicsHandleFlagList = PhysicsFixedList<uint8_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 using PhysicsHandleModelIndexList = PhysicsFixedList<int, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
-using PhysicsHandleSceneObjectIdList =
-    PhysicsFixedList<PhysicsSceneObjectId, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
+using PhysicsHandleSceneObjectIdList = PhysicsFixedList<PhysicsSceneObjectId,
+                                                        SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 using PhysicsHandleSlotList = PhysicsFixedList<uint32_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 using PhysicsHandleAssignmentMask = PhysicsFixedList<uint8_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 using PhysicsBodyIndexList = PhysicsFixedList<int, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
@@ -250,8 +239,8 @@ inline Math::Vector::Vector3 PhysicsBodyLinearVelocity( const PhysicsBodyHotFiel
     return { fields.linearVelocityX[index], fields.linearVelocityY[index], fields.linearVelocityZ[index] };
 }
 
-inline Math::Vector::Vector3
-PhysicsBodyAngularVelocity( const PhysicsBodyHotFieldsConstView& fields, std::size_t index )
+inline Math::Vector::Vector3 PhysicsBodyAngularVelocity( const PhysicsBodyHotFieldsConstView& fields,
+                                                         std::size_t index )
 {
     return { fields.angularVelocityX[index], fields.angularVelocityY[index], fields.angularVelocityZ[index] };
 }
@@ -261,8 +250,8 @@ inline Math::Vector::Vector3 PhysicsBodyInverseInertia( const PhysicsBodyHotFiel
     return { fields.inverseInertiaX[index], fields.inverseInertiaY[index], fields.inverseInertiaZ[index] };
 }
 
-inline Math::Orientation::Quaternion
-PhysicsBodyOrientation( const PhysicsBodyHotFieldsConstView& fields, std::size_t index )
+inline Math::Orientation::Quaternion PhysicsBodyOrientation( const PhysicsBodyHotFieldsConstView& fields,
+                                                             std::size_t index )
 {
     return { fields.orientationX[index],
              fields.orientationY[index],
@@ -274,27 +263,19 @@ inline PhysicsBodyHotState LoadPhysicsBodyHotState( const PhysicsBodyHotFieldsCo
 {
     PhysicsBodyHotState state;
     state.position = Math::Vector::Vector3( fields.positionX[index], fields.positionY[index], fields.positionZ[index] );
-    state.orientation = Math::Orientation::Quaternion(
-        fields.orientationX[index],
-        fields.orientationY[index],
-        fields.orientationZ[index],
-        fields.orientationW[index]
-    );
-    state.linearVelocity = Math::Vector::Vector3(
-        fields.linearVelocityX[index],
-        fields.linearVelocityY[index],
-        fields.linearVelocityZ[index]
-    );
-    state.angularVelocity = Math::Vector::Vector3(
-        fields.angularVelocityX[index],
-        fields.angularVelocityY[index],
-        fields.angularVelocityZ[index]
-    );
-    state.inverseRotationalInertia = Math::Vector::Vector3(
-        fields.inverseInertiaX[index],
-        fields.inverseInertiaY[index],
-        fields.inverseInertiaZ[index]
-    );
+    state.orientation = Math::Orientation::Quaternion( fields.orientationX[index],
+                                                       fields.orientationY[index],
+                                                       fields.orientationZ[index],
+                                                       fields.orientationW[index] );
+    state.linearVelocity = Math::Vector::Vector3( fields.linearVelocityX[index],
+                                                  fields.linearVelocityY[index],
+                                                  fields.linearVelocityZ[index] );
+    state.angularVelocity = Math::Vector::Vector3( fields.angularVelocityX[index],
+                                                   fields.angularVelocityY[index],
+                                                   fields.angularVelocityZ[index] );
+    state.inverseRotationalInertia = Math::Vector::Vector3( fields.inverseInertiaX[index],
+                                                            fields.inverseInertiaY[index],
+                                                            fields.inverseInertiaZ[index] );
     state.inverseMass = fields.inverseMass[index];
     state.boundingRadius = fields.boundingRadius[index];
     state.fixed = fields.fixed[index] != 0u;
@@ -313,12 +294,10 @@ StorePhysicsBodyHotState( const PhysicsBodyHotFieldsView& fields, std::size_t in
     fields.positionX[index] = state.position.x;
     fields.positionY[index] = state.position.y;
     fields.positionZ[index] = state.position.z;
-    state.orientation.GetComponents(
-        fields.orientationX[index],
-        fields.orientationY[index],
-        fields.orientationZ[index],
-        fields.orientationW[index]
-    );
+    state.orientation.GetComponents( fields.orientationX[index],
+                                     fields.orientationY[index],
+                                     fields.orientationZ[index],
+                                     fields.orientationW[index] );
     fields.linearVelocityX[index] = state.linearVelocity.x;
     fields.linearVelocityY[index] = state.linearVelocity.y;
     fields.linearVelocityZ[index] = state.linearVelocity.z;
@@ -377,17 +356,13 @@ class PhysicsBodyStore
     std::vector<PhysicsSceneObjectId> BuildSceneObjectIdsForReload( int sceneEntityCount ) const;
     // Converts an authored fixed body row into a dynamic body without a
     // descriptor reload. Release-on-impact paths call the store by dense row.
-    bool ReleaseFixedBody(
-        int modelIndex,
-        const Math::Vector::Vector3& seedLinearVelocity,
-        const Math::Vector::Vector3& seedAngularVelocity
-    );
+    bool ReleaseFixedBody( int modelIndex,
+                           const Math::Vector::Vector3& seedLinearVelocity,
+                           const Math::Vector::Vector3& seedAngularVelocity );
     // Releases higher same-tree fixed parts using release-group metadata already
     // copied into body rows. outReleasedBodyIndices is caller-owned scratch.
-    void ReleaseAttachedFixedTreeParts(
-        const PhysicsFixedTreeReleaseEvent& event,
-        PhysicsBodyIndexList& outReleasedBodyIndices
-    );
+    void ReleaseAttachedFixedTreeParts( const PhysicsFixedTreeReleaseEvent& event,
+                                        PhysicsBodyIndexList& outReleasedBodyIndices );
 
     const PhysicsBodyRecord* Data() const;
     int Count() const;
@@ -422,45 +397,37 @@ class PhysicsBodyStore
     // Edits live velocity through the handle-owned body record. The command is
     // intentionally handle-only so replay/editor tools do not regain model-index
     // physics authority while dragging.
-    bool SetBodyVelocity(
-        PhysicsBodyHandle body,
-        const Math::Vector::Vector3& linearVelocity,
-        const Math::Vector::Vector3& angularVelocity
-    );
-    bool SetPendingBodyImpulse(
-        PhysicsBodyHandle body,
-        const Math::Vector::Vector3& impulse,
-        const Math::Vector::Vector3& localApplicationPoint
-    );
-    bool ApplyBodyImpulse(
-        PhysicsBodyHandle body,
-        const Math::Vector::Vector3& impulse,
-        const Math::Vector::Vector3& localApplicationPoint
-    );
+    bool SetBodyVelocity( PhysicsBodyHandle body,
+                          const Math::Vector::Vector3& linearVelocity,
+                          const Math::Vector::Vector3& angularVelocity );
+    bool SetPendingBodyImpulse( PhysicsBodyHandle body,
+                                const Math::Vector::Vector3& impulse,
+                                const Math::Vector::Vector3& localApplicationPoint );
+    bool ApplyBodyImpulse( PhysicsBodyHandle body,
+                           const Math::Vector::Vector3& impulse,
+                           const Math::Vector::Vector3& localApplicationPoint );
     bool ConsumePendingBodyImpulse( int modelIndex );
     // Advances one mutable body record from its current velocities and shape
     // snapshot. Returns false when the slot is fixed, sleeping, missing, or has
     // no positive time to integrate.
-    bool IntegrateBodyPose(
-        Core::Profiler* profiler,
-        const ColliderStore& colliderStore,
-        int modelIndex,
-        float deltaSeconds
-    );
-    bool ApplyForces(
-        const PhysicsWorldForces& worldForces,
-        const ColliderStore& colliderStore,
-        int modelIndex,
-        float deltaSeconds,
-        const Math::Vector::Vector3* precomputedMutualGravityForce = nullptr
-    );
+    bool IntegrateBodyPose( Core::Profiler* profiler,
+                            const ColliderStore& colliderStore,
+                            const PhysicsTerrainView& terrain,
+                            BuoyancyBodyFacts& buoyancyFacts,
+                            int modelIndex,
+                            float deltaSeconds );
+    bool ApplyForces( const PhysicsWorldForces& worldForces,
+                      const ColliderStore& colliderStore,
+                      const PhysicsTerrainView& terrain,
+                      const BuoyancyBodyFacts& buoyancyFacts,
+                      int modelIndex,
+                      float deltaSeconds,
+                      const Math::Vector::Vector3* precomputedMutualGravityForce = nullptr );
 
   private:
-    PhysicsBodyHandle ResolveHandleForModelIndex(
-        int modelIndex,
-        PhysicsSceneObjectId sceneObjectId,
-        PhysicsHandleAssignmentMask& assignedHandleSlots
-    );
+    PhysicsBodyHandle ResolveHandleForModelIndex( int modelIndex,
+                                                  PhysicsSceneObjectId sceneObjectId,
+                                                  PhysicsHandleAssignmentMask& assignedHandleSlots );
     void RetireUnassignedHandles( const PhysicsHandleAssignmentMask& assignedHandleSlots );
     void ClearHotFields();
     void ResizeHotFields( std::size_t count );
@@ -469,88 +436,59 @@ class PhysicsBodyStore
 
     PhysicsBodyRecordList m_bodies { "PhysicsBodyStore.bodies" };                               // Cold records in dense scene/model order.
     alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_positionX {
-        "PhysicsBodyStore.positionX"
-    };
+        "PhysicsBodyStore.positionX" };
     alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_positionY {
-        "PhysicsBodyStore.positionY"
-    };
+        "PhysicsBodyStore.positionY" };
     alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_positionZ {
-        "PhysicsBodyStore.positionZ"
-    };
+        "PhysicsBodyStore.positionZ" };
     alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_orientationX {
-        "PhysicsBodyStore.orientationX"
-    };
+        "PhysicsBodyStore.orientationX" };
     alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_orientationY {
-        "PhysicsBodyStore.orientationY"
-    };
+        "PhysicsBodyStore.orientationY" };
     alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_orientationZ {
-        "PhysicsBodyStore.orientationZ"
-    };
+        "PhysicsBodyStore.orientationZ" };
     alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_orientationW {
-        "PhysicsBodyStore.orientationW"
-    };
+        "PhysicsBodyStore.orientationW" };
     alignas(
-        32
-    ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_linearVelocityX {
-        "PhysicsBodyStore.linearVelocityX"
-    };
+        32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_linearVelocityX {
+        "PhysicsBodyStore.linearVelocityX" };
     alignas(
-        32
-    ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_linearVelocityY {
-        "PhysicsBodyStore.linearVelocityY"
-    };
+        32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_linearVelocityY {
+        "PhysicsBodyStore.linearVelocityY" };
     alignas(
-        32
-    ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_linearVelocityZ {
-        "PhysicsBodyStore.linearVelocityZ"
-    };
+        32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_linearVelocityZ {
+        "PhysicsBodyStore.linearVelocityZ" };
     alignas(
-        32
-    ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_angularVelocityX {
-        "PhysicsBodyStore.angularVelocityX"
-    };
+        32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_angularVelocityX {
+        "PhysicsBodyStore.angularVelocityX" };
     alignas(
-        32
-    ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_angularVelocityY {
-        "PhysicsBodyStore.angularVelocityY"
-    };
+        32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_angularVelocityY {
+        "PhysicsBodyStore.angularVelocityY" };
     alignas(
-        32
-    ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_angularVelocityZ {
-        "PhysicsBodyStore.angularVelocityZ"
-    };
+        32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_angularVelocityZ {
+        "PhysicsBodyStore.angularVelocityZ" };
     alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_inverseMass {
-        "PhysicsBodyStore.inverseMass"
-    };
+        "PhysicsBodyStore.inverseMass" };
     alignas(
-        32
-    ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_inverseInertiaX {
-        "PhysicsBodyStore.inverseInertiaX"
-    };
+        32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_inverseInertiaX {
+        "PhysicsBodyStore.inverseInertiaX" };
     alignas(
-        32
-    ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_inverseInertiaY {
-        "PhysicsBodyStore.inverseInertiaY"
-    };
+        32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_inverseInertiaY {
+        "PhysicsBodyStore.inverseInertiaY" };
     alignas(
-        32
-    ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_inverseInertiaZ {
-        "PhysicsBodyStore.inverseInertiaZ"
-    };
+        32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_inverseInertiaZ {
+        "PhysicsBodyStore.inverseInertiaZ" };
     alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_boundingRadius {
-        "PhysicsBodyStore.boundingRadius"
-    };
+        "PhysicsBodyStore.boundingRadius" };
     alignas( 32 ) mutable PhysicsHandleFlagList m_fixed { "PhysicsBodyStore.fixed" };
     alignas( 32 ) mutable PhysicsHandleFlagList m_awake { "PhysicsBodyStore.awake" };
     PhysicsBodyHandleList m_modelBodyHandles { "PhysicsBodyStore.modelBodyHandles" };           // Model index to body handle map.
     PhysicsHandleGenerationList m_handleGenerations {
-        "PhysicsBodyStore.handleGenerations"
-    }; // Handle-slot generations.
+        "PhysicsBodyStore.handleGenerations" };                                                 // Handle-slot generations.
     PhysicsHandleFlagList m_handleAlive { "PhysicsBodyStore.handleAlive" };                     // Live handle slot flags.
     PhysicsHandleModelIndexList m_handleModelIndices { "PhysicsBodyStore.handleModelIndices" }; // Slot to model index.
     PhysicsHandleSceneObjectIdList m_handleSceneObjectIds {
-        "PhysicsBodyStore.handleSceneObjectIds"
-    }; // Slot scene ids.
+        "PhysicsBodyStore.handleSceneObjectIds" };                                              // Slot scene ids.
     PhysicsHandleSlotList m_freeHandleSlots { "PhysicsBodyStore.freeHandleSlots" };             // Retired reusable slots.
     // Runtime allocation policy: topology repair reuses this handle-slot mask
     // instead of constructing a heap-backed standard-library container.
