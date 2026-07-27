@@ -70,3 +70,12 @@ type.
 - Treat 125 characters as a soft limit. A slightly longer indivisible token or
   a clearer compact expression is preferable to an artificial wrap, but avoid
   substantially exceeding it.
+
+## Test File Ownership
+
+- Name a test file for the subsystem whose behavior it pins, never for a gate,
+  metric, campaign, or plan.
+- Raise coverage by adding behavioral cases to the owning subsystem's test
+  file. A coverage result is validation evidence, not a test-file owner.
+- Put value-only fixtures shared by multiple subsystem test files in clearly
+  named shared test support; do not create a gate-named collection point.
