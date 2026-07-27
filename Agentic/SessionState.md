@@ -12,8 +12,8 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-26th-JUL-26` |
 | Current baseline | Nightrunner 26 July is complete at N26-1 through N26-3: replay scrub spikes removed, owner code style ratified, and selected-body velocity-drag preview published. |
-| Current objective | Architecture Follow-Up Campaign Round 5. Plans 5 and 11 are blocked and plan 12 waits for plan 5; `terrain-legacy-and-contact-seed-remediation` T0 is binding. |
-| Active/future progress | 3/15 (20%). Round 5 is the live queue; completed plans are excluded under rule 4. |
+| Current objective | Architecture Follow-Up Campaign Round 5. Plans 5 and 11 are blocked and plan 12 waits for plan 5; `terrain-legacy-and-contact-seed-remediation` T1 is binding. |
+| Active/future progress | 4/15 (27%). Round 5 is the live queue; completed plans are excluded under rule 4. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | Operator-command OC3 `validate_full.bat` passes: 418/418 doctests and every CPU/runtime lane, Automation smoke, DX12 run `20260727T043606Z` with zero InfoQueue errors and three passing baselines, and byte-exact Physics; one-minute graphics stress reached 15,007 frames and 413 scene loads cleanly. |
 | Validation for coverage reorganization | Direct coverage and all six CPU lanes pass; 418/418 doctests and 2,410,159 assertions, ten unchanged subsystem percentages, 114/114 project/filter rows, zero gate-named test files, and clear independent review. |
@@ -105,8 +105,12 @@ bypasses. The final inventory is 1,176 discovered / 86 gated / 86 ruled / zero
 unruled, ambiguous, or transitional. All ruling reasons are concrete,
 independent review is clear, `validate_fast` passes, and all six CPU lanes pass
 with 418/418 tests and 2,410,186 assertions. Plan 14 then left the live ledger
-under rule 4. Plan 13 T0 is binding.
+under rule 4. Plan 13 T0 then reproduced each 44,401-row physics run
+byte-exactly, matched the SkullScope query packet, and passed the four-case /
+47-assertion focused terrain-support oracle. No direct shoreline-scale test
+exists yet; T3 owns that known coverage gap. T1 is binding.
 Evidence:
+`Agentic/Reports/2026-07-27/terrain-legacy-contact-seed-t0-baseline.md` and
 `Agentic/Reports/2026-07-27/new-aggregate-ruling-gate-closure.md` and
 `Agentic/Reports/2026-07-27/new-aggregate-ruling-gate-na1.md` and
 `Agentic/Reports/2026-07-27/new-aggregate-ruling-gate-na0.md` and

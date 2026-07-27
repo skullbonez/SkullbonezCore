@@ -1,10 +1,10 @@
 # Terrain Legacy And Contact Seed Remediation
 
 Date: 2026-07-26
-Status: NOT STARTED — drafted from the 2026-07-26 from-source architecture
+Status: IN PROGRESS — drafted from the 2026-07-26 from-source architecture
 review of `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 13 of the Architecture Follow-Up Campaign
-Round 5. Runs last in the campaign. 0/5 phases complete.
+Round 5. Runs last in the campaign. 1/5 phases complete; T1 is binding.
 Impact area: `World/Terrain.{h,cpp}`, `Physics/PhysicsTerrainView.{h,cpp}`,
 `Physics/PersistentContactSolver.cpp`, `Runtime/Debug/PhysicsDebugVisualizer.cpp`
 Owner: physics + world
@@ -106,7 +106,7 @@ approximation with a named constant, a stated assumption, and a test.
 
 ## Phases
 
-- [ ] **T0 — Establish the byte-exactness harness first.**
+- [x] **T0 — Establish the byte-exactness harness first.**
   Before touching any source, capture the current 44,401-row physics regression
   CSV and the SkullScope terrain query baselines from the current Debug binary, and
   confirm they match the committed baselines exactly. Identify the smallest
