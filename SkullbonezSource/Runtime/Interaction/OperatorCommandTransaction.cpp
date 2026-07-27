@@ -4,9 +4,9 @@ Purpose:
   Enforces the operator-command transaction's adjacent phase walk.
 
 Summary:
-  OC1 establishes the fatal phase boundary around copied command values. OC2
-  moves the existing concrete-owner command kernels into these phase methods
-  without changing this cursor contract.
+  The cursor is the fatal boundary around copied command values and synchronous
+  concrete-owner phase calls. Completion is an ordinary final edge in the same
+  adjacent-only contract.
 
 Mental model:
   Each method passes one turnstile. Calling a phase twice, skipping ahead, or

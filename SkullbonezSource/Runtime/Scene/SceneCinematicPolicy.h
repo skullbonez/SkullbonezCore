@@ -5,8 +5,9 @@ Purpose:
 
 Summary:
   Scene style changes mutate render-facing scene state and object materials
-  without rebuilding the active simulation. The caller still owns when a user
-  action makes a run interactive; this module owns applying the style payload.
+  without rebuilding the active simulation. This policy also owns cinematic UI
+  clamping/override bits and the pure sun-direction projection shared by render
+  passes. Callers retain interaction and transaction ordering.
 
 Glossary:
   Asset system: Runtime-owned registry used to resolve logical scene/style asset
@@ -19,6 +20,7 @@ Invariants:
   - Helpers do not create or destroy scene models.
   - Helpers borrow active cinematic, model state, and asset metadata only for
     the call.
+  - UI mutations update both persistent and UI-origin override masks together.
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneController.Style.cpp

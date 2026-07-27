@@ -4,15 +4,17 @@ Purpose:
   Implements shared input value policy and UI-command application helpers.
 
 Summary:
-  InputFrameExecution owns the frame sequence. This file supplies the pure or
-  synchronous helper operations that translate one sampled input/UI turn into
-  typed owner calls without retaining the borrowed owners.
+  InputFrameExecution owns the frame sequence. This file normalizes one sampled
+  input/UI turn, walks the operator-command transaction around existing owner
+  barriers, and supplies synchronous helpers for the remaining typed calls.
 
 Glossary:
   Attach return pose: The visible camera pose captured before Attach takes over
     so the operator can return to the same view later.
   UI frame result: Bounded facts produced while applying one UI command batch;
     later input phases use them without reaching back into UI widget state.
+  Acceptance ledger: Value-only facts emitted by the ordered command phases and
+    consumed at the existing action-recording barriers.
   Lane R result: Recoverable scene-control or capture failure reported without
     treating the command as successfully applied.
 
@@ -20,9 +22,11 @@ Invariants:
   - Every owner reference is a synchronous borrow and is never retained.
   - Helpers return accepted-command facts; rejected owner work is not reported
     as applied to replay or later frame phases.
+  - Operator-command completion precedes scene-request submission.
 
 Related:
   - SkullbonezSource/Runtime/App/InputFrameExecution.cpp owns the fixed frame sequence.
+  - SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.h
   - SkullbonezSource/Runtime/Scene/SceneRequestExecution.cpp owns scene-request execution.
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md

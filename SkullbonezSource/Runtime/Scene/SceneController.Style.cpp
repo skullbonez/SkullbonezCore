@@ -34,6 +34,8 @@ Related:
 #include "../../Physics/ColliderStore.h"
 #include "../../Scene/AuthoredScene.h"
 
+#include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -43,6 +45,17 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
+Math::Vector::Vector3 CinematicSkySunDirection( const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
+{
+    constexpr float twoPi = 6.28318530718f;
+    const float azimuth = std::clamp( cinematic.sunAzimuth, 0.0f, 1.0f ) * twoPi;
+    const float elevation = -0.08f + std::clamp( cinematic.sunElevation, 0.0f, 1.0f ) * 1.13f;
+    const float cosElevation = cosf( elevation );
+    Math::Vector::Vector3 direction( sinf( azimuth ) * cosElevation, sinf( elevation ), cosf( azimuth ) * cosElevation );
+    direction.Normalise();
+    return direction;
+}
+
 SkullbonezCore::Core::CinematicRenderConfig& ActiveSceneCinematicConfig( SceneSessionState& scene,
                                                                          SkullbonezCore::Core::EngineConfig& config )
 {

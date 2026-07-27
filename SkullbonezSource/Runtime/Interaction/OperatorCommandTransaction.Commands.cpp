@@ -1,13 +1,13 @@
 /*
 File: SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.Commands.cpp
 Purpose:
-  Owns UI-driven runtime tuning for cinematic rendering, ordinary rendering,
-  tornado gameplay settings, and worker-thread overrides.
+  Implements ordered operator-command phases and shared cinematic UI kernels.
 
 Summary:
-  Runtime input decides when a UI command is accepted. This file decides how
-  accepted values clamp or delegate to bounded owner APIs, mutate config, and
-  persist as scene overrides where relevant.
+  Each phase advances the transaction cursor before it reads the copied command
+  packet, borrows the concrete owners it needs, applies bounded mutations, and
+  records accepted actions in the transaction's value-only ledger. Cinematic
+  kernels are shared with stress through `SceneCinematicPolicy`.
 
 Glossary:
   Cinematic config: HDR/post-processing and style settings for the active look.
@@ -18,6 +18,7 @@ Glossary:
   Worker override: Runtime request for the worker-pool thread count.
 
 Invariants:
+  - Every public phase advances its one legal cursor edge before mutation.
   - Render and cinematic UI values are clamped before they mutate live config.
   - Scene override masks must be updated with the value they describe.
   - Tornado commands mutate Gameplay-owned field/system/visual values in place.
@@ -42,8 +43,6 @@ Related:
 
 #include <algorithm>
 #include <cmath>
-
-using SkullbonezCore::Math::Vector::Vector3;
 
 namespace SkullbonezCore
 {
@@ -203,17 +202,6 @@ uint64_t CinematicOverrideMaskForUIFeature( UICinematicFeature feature )
 }
 
 } // namespace
-
-Vector3 CinematicSkySunDirection( const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
-{
-    constexpr float twoPi = 6.28318530718f;
-    const float azimuth = std::clamp( cinematic.sunAzimuth, 0.0f, 1.0f ) * twoPi;
-    const float elevation = -0.08f + std::clamp( cinematic.sunElevation, 0.0f, 1.0f ) * 1.13f;
-    const float cosElevation = cosf( elevation );
-    Vector3 direction( sinf( azimuth ) * cosElevation, sinf( elevation ), cosf( azimuth ) * cosElevation );
-    direction.Normalise();
-    return direction;
-}
 
 void OperatorCommandTransaction::ApplyDeviceAndMode( RuntimeRenderer& renderer, Rendering::Dx12RenderDevice& renderDevice )
 {
