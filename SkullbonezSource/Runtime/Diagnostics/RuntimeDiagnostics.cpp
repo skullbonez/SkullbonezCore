@@ -434,6 +434,8 @@ void RuntimeDiagnostics::TickPerfLog( RunPerfLogState& perfLog, int pass, int fr
     }
 
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
+    (void)physicsTimeSeconds;
+    (void)renderTimeSeconds;
 
     if ( !perfLog.perfHeaderWritten )
     {

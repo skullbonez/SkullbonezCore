@@ -700,6 +700,14 @@ review cleared the canonical publisher-token authority after two remediation
 passes. Permanent closure evidence is
 `../Reports/2026-07-27/store-capacity-memory-reporting-closure.md`.
 
+The denominator then fell 38 to 33 on 2026-07-27 when
+`ceremonial-aggregate-elimination` closed CA0-CA4 and left the live inventory
+under rule 4. All 35 authority-free couriers are gone without renamed
+equivalents, the full-tree signature maximum remains 12, and the final
+inventories contain zero signalled, unruled, stale, or `remove` rows.
+Permanent closure evidence is
+`../Reports/2026-07-27/ceremonial-aggregate-elimination-closure.md`.
+
 ### Binding Owner Rulings — 2026-07-27: Round 5 Open Decisions Closed
 
 The owner ruled all three blocking Round 5 decisions on 2026-07-27 so the campaign
@@ -740,12 +748,13 @@ owner code style, and the space-scene velocity-drag preview are closed, and the
 completed TODO was deleted under inventory rule 4. Permanent evidence is
 `../Reports/2026-07-26/nightrunner-26-july-closure.md`.
 
-NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 4/38 (10%).
+NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 0/33 (0%).
 `governance-shape-to-judgment-conversion`, `extraction-scar-remediation`, and
 `scene-sized-store-capacity` closed on 2026-07-27 and left the live inventory
-under rule 4. Plan 3 `store-capacity-memory-reporting` closed MR0-MR3 and left
-the live inventory on 2026-07-27. Plan 4 `ceremonial-aggregate-elimination`
-closed CA0 through CA3 on 2026-07-27; CA4 is the binding next task.
+under rule 4. Plan 3 `store-capacity-memory-reporting` and plan 4
+`ceremonial-aggregate-elimination` closed and left the live inventory on
+2026-07-27. Plan 5 remains blocked on plan 6, so plan 6
+`render-backend-service-bag-removal` RB0 is the binding next task.
 
 G0 recorded five rule gaps with the admitting `AGENTS.md` text for each; evidence
 is `../Reports/2026-07-26/governance-shape-to-judgment-g0-census.md`. The measured
@@ -2046,9 +2055,9 @@ requires owner divergence authority and the campaign is byte-exact throughout.
 | 1 | [governance-shape-to-judgment-conversion](../Reports/2026-07-27/governance-shape-to-judgment-conversion-closure.md) | Complete | 6/6 | Closed 2026-07-27 and removed from the live ledger under rule 4 |
 | 2 | [scene-sized-store-capacity](../Reports/2026-07-27/scene-sized-store-capacity-closure.md) | Complete | 8/8 | Closed 2026-07-27 and removed from the live ledger under rule 4; 98 retained rows are scene-committed and the final 200-body payload is 89.06% smaller |
 | 3 | [store-capacity-memory-reporting](../Reports/2026-07-27/store-capacity-memory-reporting-closure.md) | Complete | 4/4 | Closed 2026-07-27 and removed from the live ledger under rule 4; 95 sorted production rows expose capacity/live/session peaks, and the three-scene handoff identifies the retained contact-bound candidates |
-| 4 | [ceremonial-aggregate-elimination](TODO/ceremonial-aggregate-elimination.md) | In progress | 4/5 | CA3 removed the final 18 authority-free couriers; inventory, unit, DX12, and graphics-stress gates pass without baseline changes. **Binding next task: CA4** |
+| 4 | [ceremonial-aggregate-elimination](../Reports/2026-07-27/ceremonial-aggregate-elimination-closure.md) | Complete | 5/5 | Closed 2026-07-27 and removed from the live ledger under rule 4; all 35 couriers are gone, independent no-bag review is clear, and the default full gate passes byte-exact baselines |
 | 5 | [runtime-frame-view-retirement](TODO/runtime-frame-view-retirement.md) | Not started | 0/4 | After plan 6, so FV2 need not preserve `renderBackendView`. Endpoint ratified 2026-07-27: concrete operands, no frame transaction |
-| 6 | [render-backend-service-bag-removal](TODO/render-backend-service-bag-removal.md) | Not started | 0/4 | After plan 1. Completes the removal PB3's review started |
+| 6 | [render-backend-service-bag-removal](TODO/render-backend-service-bag-removal.md) | Not started | 0/4 | After plan 1. Completes the removal PB3's review started. **Binding next task: RB0** |
 | 7 | [extraction-scar-remediation](../Reports/2026-07-27/extraction-scar-remediation-closure.md) | Complete | 3/3 | Closed 2026-07-27 and removed from the live ledger under rule 4; 88 repairs removed and the sole WorkerPool retain preserved |
 | 8 | [scene-runtime-verb-partition-consolidation](TODO/scene-runtime-verb-partition-consolidation.md) | Not started | 0/4 | After plan 4 deletes the three `SceneRuntime*Context` types |
 | 9 | [operator-command-invariant-ownership](TODO/operator-command-invariant-ownership.md) | Not started | 0/4 | After plan 4's CA1 hands over any operation left wide |

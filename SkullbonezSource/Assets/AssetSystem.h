@@ -10,8 +10,8 @@ Summary:
   below.
 
 Glossary:
-  Asset context: Borrowed view that lets parsing or tool code resolve asset
-    records without using the active process-global bridge.
+  Asset-system borrow: Frame- or operation-local pointer/reference that lets
+    parsing or tool code resolve records without a process-global bridge.
 
 Invariants:
   - AssetId values are AssetSystem-owned identities and must not be invented by
