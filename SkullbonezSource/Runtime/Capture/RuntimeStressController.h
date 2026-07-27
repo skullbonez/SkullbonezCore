@@ -73,12 +73,10 @@ struct OverlayDebugState;
 struct RunLaunchOptions;
 struct RunStartupState;
 struct RunTimerState;
-struct RuntimeRenderBackendView;
 
 SkullbonezCore::Core::SbResult RunUIStressActions( RuntimeFrameHostView& host,
                                                    RuntimeFrameInteractionView& interactionOwners,
-                                                   RuntimeFrameSceneView& sceneOwners,
-                                                   RuntimeRenderBackendView& renderBackendView, RuntimeRenderer& renderer,
+                                                   RuntimeFrameSceneView& sceneOwners, RuntimeRenderer& renderer,
                                                    ReplayRuntime& replayRuntime, RunCameraMode replayRestoreCameraMode );
 
 } // namespace Runtime

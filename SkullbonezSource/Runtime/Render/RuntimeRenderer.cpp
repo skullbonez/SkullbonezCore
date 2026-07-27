@@ -1039,7 +1039,7 @@ void RuntimeRenderer::ExecuteBackbufferAcquireThroughRenderGraph( const Backbuff
 
 ShadowPassOutput RuntimeRenderer::ExecuteShadowThroughRenderGraph( const ShadowPassInputs& pass )
 {
-    Rendering::Dx12GraphTransientPool& renderGraph = *m_resources.Backend().renderGraph;
+    Rendering::Dx12GraphTransientPool& renderGraph = m_resources.RenderGraph();
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     const GraphFramebufferResources
         terrainShadow = AddGraphFramebuffer( graph, renderGraph, m_resources.PassResources().shadows.terrainTarget.get(),
@@ -1125,7 +1125,7 @@ void RuntimeRenderer::ExecuteSkyboxThroughRenderGraph( const RenderCameraLightin
 
 ReflectionPassOutput RuntimeRenderer::ExecuteReflectionThroughRenderGraph( const ReflectionPassInputs& pass )
 {
-    Rendering::Dx12GraphTransientPool& renderGraph = *m_resources.Backend().renderGraph;
+    Rendering::Dx12GraphTransientPool& renderGraph = m_resources.RenderGraph();
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     const bool useDxrCandidate = pass.rayTracing && pass.renderDiagnostics.GetCapabilities().supportsDxrReflection &&
                                  pass.waterRayTracingReflection && !pass.waterNoReflection &&
@@ -1645,12 +1645,7 @@ int RuntimeRenderer::RenderUiText( RunTimerState& timers, const RuntimeRenderMod
     // so callers own each operation-specific ABI record until this method returns.
     // Invariant: no record collects the UI union; focused passes register in
     // visual order and share exactly one compile/execute cycle.
-    Rendering::Dx12Diagnostics* renderDiagnostics = m_resources.Backend().renderDiagnostics;
-
-    if ( !renderDiagnostics )
-    {
-        SB_FATAL( "RunRender", "UI text submission requires renderer-owned diagnostics." );
-    }
+    Rendering::Dx12Diagnostics* renderDiagnostics = &m_resources.RenderDiagnostics();
 
     const int drawCallStart = renderDiagnostics->GetFrameDrawCallCount();
     DRAW_CALL_TRACE_SCOPE( *renderDiagnostics, "Frame/UI" );
@@ -1688,13 +1683,7 @@ int RuntimeRenderer::RenderUiText( RunTimerState& timers, const RuntimeRenderMod
 
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
 
-    if ( !m_resources.Backend().renderGraph )
-    {
-        SB_FATAL( "RunRender", "UiTextPass graph has no render command context." );
-    }
-
-    const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph,
-                                                                                   *m_resources.Backend().renderGraph );
+    const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph, m_resources.RenderGraph() );
 
     constexpr uint32_t INVALID_PASS = 0xFFFFFFFFu;
     uint32_t callbackCount = 0;
@@ -1706,9 +1695,9 @@ int RuntimeRenderer::RenderUiText( RunTimerState& timers, const RuntimeRenderMod
     const uint32_t chromePass = graph.AddPass( "UiChrome", Rendering::RenderGraphQueueType::Graphics );
     graph.AddWrite( chromePass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
     chrome.pass = &m_resources.UiText();
-    chrome.renderGraph = m_resources.Backend().renderGraph;
-    chrome.renderTextures = m_resources.Backend().renderTextures;
-    chrome.renderGeometry = m_resources.Backend().renderGeometry;
+    chrome.renderGraph = &m_resources.RenderGraph();
+    chrome.renderTextures = &m_resources.RenderTextures();
+    chrome.renderGeometry = &m_resources.RenderGeometry();
     chrome.renderDiagnostics = renderDiagnostics;
     graph.SetPassCallback<ExecuteUiChromeGraphCallback>( chromePass, chrome, true, "Frame/UI/Chrome" );
     ++callbackCount;
@@ -1737,44 +1726,44 @@ int RuntimeRenderer::RenderUiText( RunTimerState& timers, const RuntimeRenderMod
 
         operatorPreparePass = addOperatorPass( "UiOperatorPrepare" );
         operatorPrepare.pass = &m_resources.UiText();
-        operatorPrepare.renderGraph = m_resources.Backend().renderGraph;
-        operatorPrepare.renderTextures = m_resources.Backend().renderTextures;
-        operatorPrepare.renderGeometry = m_resources.Backend().renderGeometry;
+        operatorPrepare.renderGraph = &m_resources.RenderGraph();
+        operatorPrepare.renderTextures = &m_resources.RenderTextures();
+        operatorPrepare.renderGeometry = &m_resources.RenderGeometry();
         operatorPrepare.renderDiagnostics = renderDiagnostics;
         graph.SetPassCallback<ExecuteUiOperatorPrepareGraphCallback>( operatorPreparePass, operatorPrepare, true,
                                                                       "Frame/UI/Operator/Prepare" );
 
         operatorDiagnosticsPass = addOperatorPass( "UiOperatorDiagnostics" );
         operatorDiagnostics.pass = &m_resources.UiText();
-        operatorDiagnostics.renderGraph = m_resources.Backend().renderGraph;
+        operatorDiagnostics.renderGraph = &m_resources.RenderGraph();
         operatorDiagnostics.renderDiagnostics = renderDiagnostics;
         graph.SetPassCallback<ExecuteUiOperatorDiagnosticsGraphCallback>( operatorDiagnosticsPass, operatorDiagnostics, true,
                                                                           "Frame/UI/Operator/Diagnostics" );
 
         operatorSettingsPass = addOperatorPass( "UiOperatorSettings" );
         operatorSettings.pass = &m_resources.UiText();
-        operatorSettings.renderGraph = m_resources.Backend().renderGraph;
+        operatorSettings.renderGraph = &m_resources.RenderGraph();
         graph.SetPassCallback<ExecuteUiOperatorSettingsGraphCallback>( operatorSettingsPass, operatorSettings, true,
                                                                        "Frame/UI/Operator/Settings" );
 
         operatorInteractionPass = addOperatorPass( "UiOperatorInteraction" );
         operatorInteraction.pass = &m_resources.UiText();
-        operatorInteraction.renderGraph = m_resources.Backend().renderGraph;
+        operatorInteraction.renderGraph = &m_resources.RenderGraph();
         graph.SetPassCallback<ExecuteUiOperatorInteractionGraphCallback>( operatorInteractionPass, operatorInteraction, true,
                                                                           "Frame/UI/Operator/Interaction" );
 
         operatorPresentationPass = addOperatorPass( "UiOperatorPresentation" );
         operatorPresentation.pass = &m_resources.UiText();
-        operatorPresentation.renderGraph = m_resources.Backend().renderGraph;
+        operatorPresentation.renderGraph = &m_resources.RenderGraph();
         graph.SetPassCallback<ExecuteUiOperatorPresentationGraphCallback>( operatorPresentationPass, operatorPresentation,
                                                                            true, "Frame/UI/Operator/Presentation" );
 
         operatorSubmissionPass = addOperatorPass( "UiOperatorSubmission" );
         operatorSubmission.pass = &m_resources.UiText();
-        operatorSubmission.renderGraph = m_resources.Backend().renderGraph;
-        operatorSubmission.renderResources = m_resources.Backend().renderResources;
-        operatorSubmission.renderTextures = m_resources.Backend().renderTextures;
-        operatorSubmission.renderGeometry = m_resources.Backend().renderGeometry;
+        operatorSubmission.renderGraph = &m_resources.RenderGraph();
+        operatorSubmission.renderResources = &m_resources.RenderResources();
+        operatorSubmission.renderTextures = &m_resources.RenderTextures();
+        operatorSubmission.renderGeometry = &m_resources.RenderGeometry();
         operatorSubmission.renderDiagnostics = renderDiagnostics;
         graph.SetPassCallback<ExecuteUiOperatorSubmissionGraphCallback>( operatorSubmissionPass, operatorSubmission, true,
                                                                          "Frame/UI/Operator/Submission" );
@@ -1787,9 +1776,9 @@ int RuntimeRenderer::RenderUiText( RunTimerState& timers, const RuntimeRenderMod
         overlayPass = graph.AddPass( "UiOverlay", Rendering::RenderGraphQueueType::Graphics );
         graph.AddWrite( overlayPass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
         overlay.pass = &m_resources.UiText();
-        overlay.renderGraph = m_resources.Backend().renderGraph;
-        overlay.renderTextures = m_resources.Backend().renderTextures;
-        overlay.renderGeometry = m_resources.Backend().renderGeometry;
+        overlay.renderGraph = &m_resources.RenderGraph();
+        overlay.renderTextures = &m_resources.RenderTextures();
+        overlay.renderGeometry = &m_resources.RenderGeometry();
         overlay.renderDiagnostics = renderDiagnostics;
         graph.SetPassCallback<ExecuteUiOverlayGraphCallback>( overlayPass, overlay, true, "Frame/UI/Overlay" );
         ++callbackCount;
@@ -1802,9 +1791,9 @@ int RuntimeRenderer::RenderUiText( RunTimerState& timers, const RuntimeRenderMod
         replayPass = graph.AddPass( "UiReplay", Rendering::RenderGraphQueueType::Graphics );
         graph.AddWrite( replayPass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
         replay.pass = &m_resources.UiText();
-        replay.renderGraph = m_resources.Backend().renderGraph;
-        replay.renderTextures = m_resources.Backend().renderTextures;
-        replay.renderGeometry = m_resources.Backend().renderGeometry;
+        replay.renderGraph = &m_resources.RenderGraph();
+        replay.renderTextures = &m_resources.RenderTextures();
+        replay.renderGeometry = &m_resources.RenderGeometry();
         replay.renderDiagnostics = renderDiagnostics;
         graph.SetPassCallback<ExecuteUiReplayGraphCallback>( replayPass, replay, true, "Frame/UI/Replay" );
         ++callbackCount;
@@ -1817,9 +1806,9 @@ int RuntimeRenderer::RenderUiText( RunTimerState& timers, const RuntimeRenderMod
         finalizePass = graph.AddPass( "UiFinalize", Rendering::RenderGraphQueueType::Graphics );
         graph.AddWrite( finalizePass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
         finalize.pass = &m_resources.UiText();
-        finalize.renderGraph = m_resources.Backend().renderGraph;
-        finalize.renderTextures = m_resources.Backend().renderTextures;
-        finalize.renderGeometry = m_resources.Backend().renderGeometry;
+        finalize.renderGraph = &m_resources.RenderGraph();
+        finalize.renderTextures = &m_resources.RenderTextures();
+        finalize.renderGeometry = &m_resources.RenderGeometry();
         finalize.renderDiagnostics = renderDiagnostics;
         graph.SetPassCallback<ExecuteUiFinalizeGraphCallback>( finalizePass, finalize, true, "Frame/UI/Finalize" );
         ++callbackCount;
@@ -1860,17 +1849,24 @@ RenderResourceContext RuntimeRenderer::BuildRenderResourceContext( bool cinemati
 {
     return RenderResourceContext { cinematicRender,
                                    m_resources.Assets(),
-                                   *m_resources.Backend().renderResources,
-                                   *m_resources.Backend().renderTextures,
-                                   *m_resources.Backend().renderGeometry,
+                                   m_resources.RenderResources(),
+                                   m_resources.RenderTextures(),
+                                   m_resources.RenderGeometry(),
                                    (std::max)( 1, m_window.ClientWidth() ),
                                    (std::max)( 1, m_window.ClientHeight() ) };
 }
 
 
-RuntimeRenderer::RuntimeRenderer( RuntimeRenderBackendView backend, const RenderWorldView& world, SceneSessionState& scene )
-    : m_resources( backend, world, scene ), m_cameras( world.cameras ), m_window( world.window ),
-      m_world( world.worldEnvironment ), m_collisionVisualizer( world.overlayResources.m_collisionOverlay ),
+RuntimeRenderer::RuntimeRenderer( Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame,
+                                  Rendering::Dx12GraphTransientPool& renderGraph,
+                                  Rendering::Dx12ResourceBuilder& renderResources,
+                                  Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
+                                  Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner* raytracing,
+                                  const RenderWorldView& world, SceneSessionState& scene )
+    : m_resources( renderDevice, renderFrame, renderGraph, renderResources, renderTextures, renderGeometry,
+                   renderDiagnostics, raytracing, world, scene ),
+      m_cameras( world.cameras ), m_window( world.window ), m_world( world.worldEnvironment ),
+      m_collisionVisualizer( world.overlayResources.m_collisionOverlay ),
       m_broadphaseVisualizer( world.overlayResources.m_broadphaseOverlay ),
       m_physicsDebugVisualizer( world.overlayResources.m_physicsDebugOverlay ), m_profiler( world.profiler ),
       m_fullscreenQuadPass( m_resources.PassResources().fullscreen ),
@@ -1899,6 +1895,11 @@ RuntimeRenderer::RuntimeRenderer( RuntimeRenderBackendView backend, const Render
 
 
 RuntimeRenderer::~RuntimeRenderer() = default;
+
+const char* RuntimeRenderer::RendererName() const
+{
+    return m_resources.RenderDiagnostics().GetRendererName();
+}
 
 
 void RuntimeRenderer::BeginProfilerFrame()
@@ -1985,7 +1986,7 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     // path. RenderPreparedFrame may only append to that active frame and may never
     // replace the graph after earlier frame work has been recorded.
 
-    if ( m_frameGraphFinalized || m_frameGraphRenderGraph != m_resources.Backend().renderGraph )
+    if ( m_frameGraphFinalized || m_frameGraphRenderGraph != &m_resources.RenderGraph() )
     {
         SB_FATAL( "RunRender", "World rendering requires the current active frame graph." );
     }
@@ -1993,18 +1994,22 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     const RuntimeRenderFramePolicy& policy = context.framePolicy;
     const ReplayRenderFrameView& replayFrame = context.replayFrame;
     RuntimeTools& runtimeTools = context.toolOverlay.tools;
-    m_resources.UiText().SetRayTracingCapability( m_resources.Backend().raytracing );
+    m_resources.UiText().SetRayTracingCapability( m_resources.Raytracing() );
     const SkullbonezCore::Core::OrdinaryRenderConfig& ordinaryRender = m_resources.Config().ordinaryRender;
     SkullbonezCore::Core::CinematicRenderConfig ordinaryShadowConfig = renderConfig;
     ordinaryShadowConfig.shadow = ordinaryRender.shadow;
     const SkullbonezCore::Core::CinematicRenderConfig& activeShadowStyle = cinematicRender ? renderConfig
                                                                                            : ordinaryShadowConfig;
 
-    const auto& backend = m_resources.Backend();
-    const bool renderReady = backend.renderFrame && backend.renderGraph && backend.renderResources &&
-                             backend.renderTextures && backend.renderGeometry && backend.renderDiagnostics;
+    Rendering::Dx12FrameOwner& renderFrame = m_resources.RenderFrame();
+    Rendering::Dx12GraphTransientPool& renderGraph = m_resources.RenderGraph();
+    Rendering::Dx12ResourceBuilder& renderResources = m_resources.RenderResources();
+    Rendering::Dx12TextureOwner& renderTextures = m_resources.RenderTextures();
+    Rendering::Dx12GeometryOwner& renderGeometry = m_resources.RenderGeometry();
+    Rendering::Dx12Diagnostics& renderDiagnostics = m_resources.RenderDiagnostics();
+    Rendering::Dx12RaytracingOwner* raytracing = m_resources.Raytracing();
 
-    const bool shadowMapsEnabled = activeShadowStyle.shadow.enabled && renderReady && !policy.textOnly;
+    const bool shadowMapsEnabled = activeShadowStyle.shadow.enabled && !policy.textOnly;
 
     const RenderResourceContext resourceContext = BuildRenderResourceContext( cinematicRender );
     {
@@ -2013,11 +2018,6 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     }
 
     const bool useCinematicTarget = cinematicRender && m_sceneTargetPass.IsReady();
-
-    if ( !renderReady )
-    {
-        SB_FATAL( "RunRender", "World rendering requires complete backend frame resources." );
-    }
 
     // Invariant: sample the interpolated render camera after SetCamera().
     // Concrete phases borrow this owner-free value so sky, reflection, water,
@@ -2049,8 +2049,12 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     const Matrix4 reflectionView = Matrix4::LookAt( reflectionEye, reflectionCenter, reflectionUp );
     const Matrix4 reflectionViewProjection = camera.projection * reflectionView;
     const RuntimeRenderModelFrameView& models = context.renderModels;
-    PrimitiveRenderContext primitive { *backend.renderResources,      *backend.renderTextures, *backend.renderGeometry,
-                                       *backend.renderDiagnostics,    m_resources.Assets(),    m_resources.Config(),
+    PrimitiveRenderContext primitive { renderResources,
+                                       renderTextures,
+                                       renderGeometry,
+                                       renderDiagnostics,
+                                       m_resources.Assets(),
+                                       m_resources.Config(),
                                        m_resources.PrimitiveBatches() };
 
     // These passes currently borrow subsystem-owned mesh/material resources,
@@ -2073,7 +2077,7 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
         // If the cinematic target could not be created, this same graph-owned
         // frame edge clears the fallback backbuffer instead of reviving a
         // direct backend transition path.
-        ExecuteBackbufferAcquireThroughRenderGraph( { *backend.renderGraph, *backend.renderFrame, true } );
+        ExecuteBackbufferAcquireThroughRenderGraph( { renderGraph, renderFrame, true } );
     }
 
     const SkullbonezCore::Core::CinematicRenderConfig* activeCinematic = cinematicRender ? &renderConfig : nullptr;
@@ -2100,9 +2104,9 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
         const ShadowPassInputs shadowInputs { camera,
                                               models,
                                               primitive,
-                                              *backend.renderFrame,
-                                              *backend.renderTextures,
-                                              *backend.renderDiagnostics,
+                                              renderFrame,
+                                              renderTextures,
+                                              renderDiagnostics,
                                               &m_resources.GpuTiming(),
                                               windowWidth,
                                               windowHeight,
@@ -2150,9 +2154,8 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     {
         PROFILE_GPU_BEGIN( &m_resources.GpuTiming(), "Frame/Render/Skybox" );
         {
-            DRAW_CALL_TRACE_SCOPE( *backend.renderDiagnostics, "Frame/Render/Skybox" );
-            ExecuteSkyboxThroughRenderGraph( camera, *backend.renderGeometry, *backend.renderTextures,
-                                             *backend.renderGraph );
+            DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Frame/Render/Skybox" );
+            ExecuteSkyboxThroughRenderGraph( camera, renderGeometry, renderTextures, renderGraph );
         }
         PROFILE_GPU_END( &m_resources.GpuTiming(), "Frame/Render/Skybox" );
     }
@@ -2171,11 +2174,11 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
                                                       primitive,
                                                       m_resources.Assets(),
                                                       m_resources.Textures(),
-                                                      *backend.renderTextures,
-                                                      *backend.renderFrame,
-                                                      *backend.renderDiagnostics,
+                                                      renderTextures,
+                                                      renderFrame,
+                                                      renderDiagnostics,
                                                       &m_resources.GpuTiming(),
-                                                      backend.raytracing,
+                                                      raytracing,
                                                       reflectionView,
                                                       reflectionViewProjection,
                                                       waterY,
@@ -2196,9 +2199,8 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
 
     if ( useCinematicTarget )
     {
-        ExecuteSceneTargetBeginThroughRenderGraph( camera, renderConfig, *backend.renderGeometry, *backend.renderTextures,
-                                                   *backend.renderFrame, *backend.renderGraph, *backend.renderDiagnostics,
-                                                   m_resources.GpuTiming() );
+        ExecuteSceneTargetBeginThroughRenderGraph( camera, renderConfig, renderGeometry, renderTextures, renderFrame,
+                                                   renderGraph, renderDiagnostics, m_resources.GpuTiming() );
     }
 
     // Opaque bodies render before terrain/water unless debug transparency asks
@@ -2211,8 +2213,8 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
                                               primitive,
                                               m_resources.Assets(),
                                               m_resources.Textures(),
-                                              *backend.renderTextures,
-                                              *backend.renderDiagnostics,
+                                              renderTextures,
+                                              renderDiagnostics,
                                               &m_resources.GpuTiming(),
                                               ObjectPassMode::Opaque,
                                               activeCinematic,
@@ -2230,8 +2232,8 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     // that cinematic post passes read later.
     const TerrainPassInputs terrainInputs { camera,
                                             m_resources.Textures(),
-                                            *backend.renderTextures,
-                                            *backend.renderDiagnostics,
+                                            renderTextures,
+                                            renderDiagnostics,
                                             &m_resources.GpuTiming(),
                                             activeCinematic,
                                             terrainShadowFrame,
@@ -2244,8 +2246,8 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     // Water is deliberately downstream of ReflectionPass; it samples the
     // reflection texture but never rebuilds it.
     const WaterPassInputs waterInputs { camera,
-                                        *backend.renderTextures,
-                                        *backend.renderDiagnostics,
+                                        renderTextures,
+                                        renderDiagnostics,
                                         &m_resources.GpuTiming(),
                                         reflection,
                                         activeCinematic,
@@ -2259,8 +2261,8 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
 
     ExecuteWaterThroughRenderGraph( { waterInputs, useCinematicTarget } );
 
-    const bool worldExtensionRendered = ExecuteWorldExtensionThroughRenderGraph( { camera, context.worldExtension, *backend.renderTextures, *backend.renderGeometry, *backend.renderDiagnostics,
-                                                                                   m_resources.GpuTiming(), useCinematicTarget } );
+    const bool worldExtensionRendered = ExecuteWorldExtensionThroughRenderGraph( { camera, context.worldExtension, renderTextures, renderGeometry, renderDiagnostics, m_resources.GpuTiming(),
+                                                                                   useCinematicTarget } );
 
     if ( debugTransparentBodyPass )
     {
@@ -2269,8 +2271,8 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
                                                    primitive,
                                                    m_resources.Assets(),
                                                    m_resources.Textures(),
-                                                   *backend.renderTextures,
-                                                   *backend.renderDiagnostics,
+                                                   renderTextures,
+                                                   renderDiagnostics,
                                                    &m_resources.GpuTiming(),
                                                    ObjectPassMode::Transparent,
                                                    activeCinematic,
@@ -2290,8 +2292,8 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
                                              primitive,
                                              m_resources.Assets(),
                                              m_resources.Textures(),
-                                             *backend.renderTextures,
-                                             *backend.renderDiagnostics,
+                                             renderTextures,
+                                             renderDiagnostics,
                                              &m_resources.GpuTiming(),
                                              ObjectPassMode::Transparent,
                                              activeCinematic,
@@ -2318,9 +2320,9 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     const DebugOverlayPassInputs debugInputs { camera,
                                                models,
                                                m_resources.Assets(),
-                                               *backend.renderResources,
-                                               *backend.renderGeometry,
-                                               *backend.renderDiagnostics,
+                                               renderResources,
+                                               renderGeometry,
+                                               renderDiagnostics,
                                                &m_resources.GpuTiming(),
                                                debugSnapshot,
                                                runtimeTools,
@@ -2333,8 +2335,8 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
 
     if ( useCinematicTarget )
     {
-        cinematicPostOutput = ExecuteCinematicPostThroughRenderGraph( { camera, renderConfig, *backend.renderGeometry, *backend.renderTextures, *backend.renderFrame,
-                                                                        *backend.renderGraph, *backend.renderDiagnostics, m_resources.GpuTiming(), windowWidth, windowHeight } );
+        cinematicPostOutput = ExecuteCinematicPostThroughRenderGraph( { camera, renderConfig, renderGeometry, renderTextures, renderFrame, renderGraph, renderDiagnostics,
+                                                                        m_resources.GpuTiming(), windowWidth, windowHeight } );
 
         volumetricReady = cinematicPostOutput.volumetricReady;
     }
@@ -2425,21 +2427,17 @@ RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceRelea
         { "launcher_laser", BackendResourceStep::LauncherLaser },
     };
 
-    const auto& backend = m_resources.Backend();
     const auto logLifecycleStep = [&]( const char* step ) { m_resources.Log().Write( context.phaseName, step ); };
 
-    if ( backend.renderFrame )
+    logLifecycleStep( "flush_before_resource_release" );
+    const SkullbonezCore::Core::SbResult flushResult = m_resources.RenderFrame().DrainForResourceRelease();
+
+    if ( !flushResult.ok )
     {
-        logLifecycleStep( "flush_before_resource_release" );
-        const SkullbonezCore::Core::SbResult flushResult = backend.renderFrame->DrainForResourceRelease();
 
-        if ( !flushResult.ok )
-        {
-
-            // Lane R: return before the first release. The destructor caller
-            // converts this non-returnable teardown failure to Lane F.
-            return flushResult;
-        }
+        // Lane R: return before the first release. The destructor caller
+        // converts this non-returnable teardown failure to Lane F.
+        return flushResult;
     }
 
     // Lifetime: RuntimeRenderer owns the ordered teardown recipe because pass
@@ -2459,13 +2457,13 @@ RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceRelea
             m_resources.ReleaseHelperResources();
             break;
         case BackendResourceStep::CollisionVisualizer:
-            m_collisionVisualizer.ResetResources( backend.renderGeometry );
+            m_collisionVisualizer.ResetResources( &m_resources.RenderGeometry() );
             break;
         case BackendResourceStep::UIResources:
             context.ui.ResetPresentationState();
             break;
         case BackendResourceStep::RenderPassResources:
-            ReleaseBackendOwnedResources( backend.renderGeometry );
+            ReleaseBackendOwnedResources( &m_resources.RenderGeometry() );
             break;
         case BackendResourceStep::ProfilerQueries:
             m_resources.InvalidateProfilerResources();
@@ -2481,7 +2479,7 @@ RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceRelea
             m_resources.ReleaseSkyResources();
             break;
         case BackendResourceStep::LauncherLaser:
-            context.tools.Laser().ResetResources( backend.renderGeometry );
+            context.tools.Laser().ResetResources( &m_resources.RenderGeometry() );
             break;
         }
     }
@@ -2490,7 +2488,7 @@ RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceRelea
 }
 
 
-void RuntimeRenderer::BeginFrameGraph( Rendering::Dx12GraphTransientPool& renderGraph )
+void RuntimeRenderer::BeginFrameGraph()
 {
 
     if ( m_frameGraphRenderGraph && !m_frameGraphFinalized )
@@ -2504,24 +2502,18 @@ void RuntimeRenderer::BeginFrameGraph( Rendering::Dx12GraphTransientPool& render
     // shared until Present or an explicit capture-only completion.
     m_renderPassGraphScratch.Clear();
     m_frameGraphSnapshot = Rendering::RenderSceneSnapshot();
-    m_frameGraphRenderGraph = &renderGraph;
+    m_frameGraphRenderGraph = &m_resources.RenderGraph();
     m_frameGraphFinalized = false;
 }
 
 
 void RuntimeRenderer::PrepareUiFrameTarget()
 {
-    const auto& backend = m_resources.Backend();
-
-    if ( !backend.renderGraph || !backend.renderFrame )
-    {
-        SB_FATAL( "Runtime/UI", "Operator editor frame has no render command context." );
-    }
 
     // Text-only and ImGui-only frames do not necessarily execute a world or
     // tonemap pass. This graph callback is their normal backbuffer acquisition;
     // on ordinary frames it validates the already-render-target state.
-    ExecuteBackbufferAcquireThroughRenderGraph( { *backend.renderGraph, *backend.renderFrame, false } );
+    ExecuteBackbufferAcquireThroughRenderGraph( { m_resources.RenderGraph(), m_resources.RenderFrame(), false } );
 }
 
 
@@ -2621,12 +2613,7 @@ void RuntimeRenderer::FinalizeFrameGraphInternal( const char* declarationOnlyPas
 
 RenderDiagnosticsReadout RuntimeRenderer::BuildDiagnosticsReadout() const
 {
-    Rendering::Dx12Diagnostics* renderDiagnostics = m_resources.Backend().renderDiagnostics;
-
-    if ( !renderDiagnostics )
-    {
-        SB_FATAL( "RunRender", "Operator diagnostics require renderer-owned diagnostics." );
-    }
+    Rendering::Dx12Diagnostics* renderDiagnostics = &m_resources.RenderDiagnostics();
 
     RenderDiagnosticsReadout readout;
     sprintf_s( readout.rendererName.data(), readout.rendererName.size(), "%s", renderDiagnostics->GetRendererName() );
@@ -2646,17 +2633,7 @@ bool RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
         return false;
     }
 
-    const auto& backend = m_resources.Backend();
-    const bool renderReady = backend.renderFrame != nullptr && backend.renderGraph != nullptr &&
-                             backend.renderResources != nullptr && backend.renderTextures != nullptr &&
-                             backend.renderGeometry != nullptr && backend.renderDiagnostics != nullptr;
-
-    if ( !renderReady )
-    {
-        return false;
-    }
-
-    const bool cinematicRender = context.cinematicRequested && renderReady && !policy.textOnly;
+    const bool cinematicRender = context.cinematicRequested && !policy.textOnly;
 
     // Why: persistent render owners are already members of RuntimeRenderer.
     // Only the top-level frame transaction and derived cinematic values cross

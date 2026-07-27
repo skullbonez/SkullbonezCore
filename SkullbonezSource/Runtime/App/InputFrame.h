@@ -83,7 +83,6 @@ struct OverlayDebugState;
 struct RunLaunchOptions;
 struct RunStartupState;
 struct RunTimerState;
-struct RuntimeRenderBackendView;
 struct RuntimeViewModel;
 
 struct RuntimeUIFrameResult

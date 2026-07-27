@@ -16,7 +16,7 @@ Glossary:
 
 Invariants:
   - Every stored owner borrow outlives this lifecycle owner.
-  - Backend-owned resources are released before the enclosing backend view dies.
+  - Backend-owned resources are released before the concrete backend owners die.
   - Preview projection never exposes framebuffer or pass-resource ownership.
 
 Related:
@@ -47,8 +47,11 @@ namespace Runtime
 class RenderResourceLifecycle
 {
   public:
-    RenderResourceLifecycle( RuntimeRenderBackendView backend, const RenderWorldView& world,
-                             const SceneSessionState& scene );
+    RenderResourceLifecycle( Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame,
+                             Rendering::Dx12GraphTransientPool& renderGraph, Rendering::Dx12ResourceBuilder& renderResources,
+                             Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
+                             Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner* raytracing,
+                             const RenderWorldView& world, const SceneSessionState& scene );
     ~RenderResourceLifecycle();
 
     SkullbonezCore::Core::SbResult InitialiseProcessResources( bool dumpTextureAssets );
@@ -65,19 +68,38 @@ class RenderResourceLifecycle
   private:
     friend class RuntimeRenderer;
 
-    // Concept: only capabilities that participate in renderer resource setup,
-    // frame recording, or release survive construction. Capture, shader
-    // development, and development-UI owners remain at the composition root.
-    struct BackendEpochOwners
+    Rendering::Dx12FrameOwner& RenderFrame() const
     {
-        Rendering::Dx12FrameOwner* renderFrame = nullptr;
-        Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
-        Rendering::Dx12ResourceBuilder* renderResources = nullptr;
-        Rendering::Dx12TextureOwner* renderTextures = nullptr;
-        Rendering::Dx12GeometryOwner* renderGeometry = nullptr;
-        Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
-        Rendering::Dx12RaytracingOwner* raytracing = nullptr;
-    };
+        return m_renderFrame;
+    }
+    Rendering::Dx12RenderDevice& RenderDevice() const
+    {
+        return m_renderDevice;
+    }
+    Rendering::Dx12GraphTransientPool& RenderGraph() const
+    {
+        return m_renderGraph;
+    }
+    Rendering::Dx12ResourceBuilder& RenderResources() const
+    {
+        return m_renderResources;
+    }
+    Rendering::Dx12TextureOwner& RenderTextures() const
+    {
+        return m_renderTextures;
+    }
+    Rendering::Dx12GeometryOwner& RenderGeometry() const
+    {
+        return m_renderGeometry;
+    }
+    Rendering::Dx12Diagnostics& RenderDiagnostics() const
+    {
+        return m_renderDiagnostics;
+    }
+    Rendering::Dx12RaytracingOwner* Raytracing() const
+    {
+        return m_raytracing;
+    }
 
     // Lifetime: teardown remains ordered by RuntimeRenderer because pass
     // consumers must release between these owned phases. Each command mutates
@@ -88,10 +110,6 @@ class RenderResourceLifecycle
     void ReleaseTextureResources();
     void ReleaseSkyResources();
 
-    const BackendEpochOwners& Backend() const
-    {
-        return m_backend;
-    }
     RenderResourceLifecycleLog& Log()
     {
         return m_lifecycleLog;
@@ -143,10 +161,14 @@ class RenderResourceLifecycle
         return m_uiTextPass;
     }
 
-    // Concept: this is a cohesive backend-epoch owner, not a generic service
-    // bag. Every member either creates, names, previews, or releases resources
-    // whose handles become invalid together when the backend is rebuilt.
-    BackendEpochOwners m_backend;
+    Rendering::Dx12RenderDevice& m_renderDevice;
+    Rendering::Dx12FrameOwner& m_renderFrame;
+    Rendering::Dx12GraphTransientPool& m_renderGraph;
+    Rendering::Dx12ResourceBuilder& m_renderResources;
+    Rendering::Dx12TextureOwner& m_renderTextures;
+    Rendering::Dx12GeometryOwner& m_renderGeometry;
+    Rendering::Dx12Diagnostics& m_renderDiagnostics;
+    Rendering::Dx12RaytracingOwner* m_raytracing;
     RenderResourceLifecycleLog m_lifecycleLog;
     Assets::AssetSystem& m_assets;
     Textures::TextureCollection m_textures;

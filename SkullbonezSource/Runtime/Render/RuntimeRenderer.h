@@ -231,7 +231,11 @@ class RuntimeRenderer
         bool cinematicRequested = false;
     };
 
-    RuntimeRenderer( RuntimeRenderBackendView backend, const RenderWorldView& world, SceneSessionState& scene );
+    RuntimeRenderer( Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame,
+                     Rendering::Dx12GraphTransientPool& renderGraph, Rendering::Dx12ResourceBuilder& renderResources,
+                     Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
+                     Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner* raytracing,
+                     const RenderWorldView& world, SceneSessionState& scene );
     ~RuntimeRenderer();
 
     // Runs after Core FrameBegin and before draw-call counters reset. This
@@ -266,7 +270,36 @@ class RuntimeRenderer
 
     // Opens the one frame-owned graph before Run chooses world or text-only
     // rendering. The caller must close it exactly once through a finalizer below.
-    void BeginFrameGraph( Rendering::Dx12GraphTransientPool& renderGraph );
+    void BeginFrameGraph();
+    Rendering::Dx12FrameOwner& RenderFrame() const
+    {
+        return m_resources.RenderFrame();
+    }
+    Rendering::Dx12RenderDevice& RenderDevice() const
+    {
+        return m_resources.RenderDevice();
+    }
+    Rendering::Dx12GraphTransientPool& RenderGraph() const
+    {
+        return m_resources.RenderGraph();
+    }
+    Rendering::Dx12ResourceBuilder& RenderResources() const
+    {
+        return m_resources.RenderResources();
+    }
+    Rendering::Dx12TextureOwner& RenderTextures() const
+    {
+        return m_resources.RenderTextures();
+    }
+    Rendering::Dx12GeometryOwner& RenderGeometry() const
+    {
+        return m_resources.RenderGeometry();
+    }
+    Rendering::Dx12Diagnostics& RenderDiagnostics() const
+    {
+        return m_resources.RenderDiagnostics();
+    }
+    const char* RendererName() const;
     void PrepareUiFrameTarget();
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     SkullbonezCore::Core::SbResult RenderDevelopmentUi( DevelopmentTools::ImGuiEditorOwner& editor );

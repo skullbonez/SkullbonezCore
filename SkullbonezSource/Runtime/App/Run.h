@@ -51,7 +51,9 @@ Related:
 #pragma once
 
 
+#include <cassert>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 #include "../../Core/SbResult.h"
@@ -172,8 +174,11 @@ class Run
     // owner, so declaration order destroys the renderer first.
     std::unique_ptr<RuntimeOverlayDiagnostics> m_overlayDiagnostics;
     std::unique_ptr<RuntimeValidationHarness> m_validationHarness;                               // Owns opt-in live-style and graphics-stress controls.
-    RuntimeRenderBackendView m_renderBackendView;                                                // Borrowed active renderer capabilities for renderer users.
-    RuntimeRenderer m_renderer;                                                                  // Owns runtime render passes and frame render ordering.
+    std::optional<RuntimeRenderer> m_renderer;                                                   // Engaged once startup binds the concrete backend owners.
+    Rendering::Dx12BackbufferCapture* m_backbufferCapture = nullptr;                             // Required capture capability; startup binding
+
+    // validated until RB2 makes it a reference.
+    Rendering::Dx12ShaderDevelopment* m_shaderDevelopment = nullptr;                             // Optional developer-only shader reload capability.
 
     // Concept: these value-only results carry decisions between adjacent frame
     // phases. They are stack state, not replacement owners or retained context.
@@ -181,6 +186,22 @@ class Run
     struct FrameSimulationPhaseResult;
     struct FrameRenderPhaseResult;
     struct FramePresentationFacts;
+
+    RuntimeRenderer& Renderer()
+    {
+        assert( m_renderer.has_value() );
+        return *m_renderer;
+    }
+    const RuntimeRenderer& Renderer() const
+    {
+        assert( m_renderer.has_value() );
+        return *m_renderer;
+    }
+    Rendering::Dx12BackbufferCapture& BackbufferCapture() const
+    {
+        assert( m_backbufferCapture );
+        return *m_backbufferCapture;
+    }
 
     bool PumpFrameMessages( int& messageExitCode );                                              // Bounded Win32 drain; true ends the frame loop.
     double BeginFrameTurn();                                                                     // Starts timing/profiling and validates renderer composition.
@@ -233,8 +254,18 @@ class Run
   public:
     Run( Window& window, std::vector<std::string> sceneQueue, SkullbonezCore::Core::EngineConfig& config,
          Threading::WorkerPool& workerPool, SkullbonezCore::Core::Profiler* profiler,
-         RuntimeRenderBackendView renderBackendView,
          SkullbonezCore::Core::DevelopmentTools::TracyClientOwner* tracyClientOwner = nullptr ); // sceneQueue empty string selects generated demo mode.
+    SkullbonezCore::Core::SbResult
+    BindRenderBackend( Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame,
+                       Rendering::Dx12GraphTransientPool& renderGraph, Rendering::Dx12ResourceBuilder& renderResources,
+                       Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
+                       Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12BackbufferCapture& backbufferCapture,
+                       Rendering::Dx12RaytracingOwner* raytracing, Rendering::Dx12ShaderDevelopment* shaderDevelopment
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+                       ,
+                       Rendering::Dx12ImGuiRendererOwner* developmentUiRenderer
+#endif
+    );
     ~Run();
     void Initialise();                                                                           // Initialises shared resources and loads first scene
     const SkullbonezCore::Core::SbResult& LastSceneLoadResult() const;                           // Initialise scene-load result for CLI startup checks.

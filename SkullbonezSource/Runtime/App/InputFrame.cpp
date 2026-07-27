@@ -44,6 +44,7 @@ Related:
 #include "RunTimerState.h"
 #include "Window.h"
 #include "../Render/RuntimeRenderHost.h"
+#include "../Render/RuntimeRenderer.h"
 #include "../../Core/Profiler.h"
 #include "../Interaction/RuntimeInteractionCommands.h"
 #include "../Scene/SceneRuntimeCreate.h"
@@ -639,7 +640,6 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
     Assets::AssetSystem& assets = host.assets;
     Threading::WorkerPool& workerPool = host.workerPool;
     SimulationSystem& simulation = sceneOwners.simulation;
-    RuntimeRenderBackendView& renderBackendView = presentationOwners.renderBackendView;
     RenderDefaultsStore& renderDefaults = presentationOwners.renderDefaults;
     RuntimeRenderer& renderer = presentationOwners.renderer;
 
@@ -864,7 +864,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
         updateInputMode( RuntimeInputAction::ToggleEditor, source );
     };
 
-    if ( ApplyRenderVsyncUICommand( renderer, renderBackendView.renderDevice, uiCommands.renderer ) )
+    if ( ApplyRenderVsyncUICommand( renderer, &renderer.RenderDevice(), uiCommands.renderer ) )
     {
         recordUIAction( RuntimeInputAction::ToggleVsync );
     }
@@ -1049,7 +1049,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
 
     const RuntimePresentationUICommandResult
         presentationCommands = ApplyRuntimePresentationUICommands( debug, sceneController.State(), config, launchOptions,
-                                                                   renderDefaults, renderBackendView.renderDevice != nullptr,
+                                                                   renderDefaults, true,
                                                                    timers.simulationTimer.GetTimeSinceLastStart(),
                                                                    uiCommands.sceneOptions, uiCommands.renderTuning,
                                                                    uiCommands.water );
@@ -1139,7 +1139,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
     const SceneGeneratedUICommandResult modelCountCommand = modelCountTransaction.Execute( config, sceneController,
                                                                                            ui.SceneNavigation().overrides,
                                                                                            camera, simulation, runtimeTools,
-                                                                                           renderBackendView.renderFrame );
+                                                                                           &renderer.RenderFrame() );
 
     if ( !modelCountCommand.action.status.ok )
     {
@@ -1166,7 +1166,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
                                                                      .Execute( config, sceneController,
                                                                                ui.SceneNavigation().overrides, camera,
                                                                                simulation, runtimeTools,
-                                                                               renderBackendView.renderFrame );
+                                                                               &renderer.RenderFrame() );
 
     if ( !solverBallCountCommand.action.status.ok )
     {
@@ -1190,7 +1190,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
                                                                     .Execute( config, sceneController,
                                                                               ui.SceneNavigation().overrides, camera,
                                                                               simulation, runtimeTools,
-                                                                              renderBackendView.renderFrame );
+                                                                              &renderer.RenderFrame() );
 
     if ( !solverBoxCountCommand.action.status.ok )
     {

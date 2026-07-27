@@ -41,14 +41,17 @@ using namespace SkullbonezCore::Runtime;
 namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 namespace Rendering = SkullbonezCore::Rendering;
 
-RenderResourceLifecycle::RenderResourceLifecycle( RuntimeRenderBackendView backend, const RenderWorldView& world,
+RenderResourceLifecycle::RenderResourceLifecycle( Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame,
+                                                  Rendering::Dx12GraphTransientPool& renderGraph, Rendering::Dx12ResourceBuilder& renderResources,
+                                                  Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
+                                                  Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner* raytracing, const RenderWorldView& world,
                                                   const SceneSessionState& scene )
-    : m_backend { backend.renderFrame,    backend.renderGraph,       backend.renderResources, backend.renderTextures,
-                  backend.renderGeometry, backend.renderDiagnostics, backend.raytracing },
-      m_lifecycleLog( backend.renderDevice, scene ), m_assets( world.assets ), m_terrain( world.terrain ),
-      m_config( world.config ),
-      m_primitiveBatches( std::in_place, backend.renderResources, backend.renderTextures, backend.renderGeometry ),
-      m_gpuTiming( world.profiler, backend.renderDiagnostics ), m_uiTextPass( world.profiler, m_gpuTiming )
+    : m_renderDevice( renderDevice ), m_renderFrame( renderFrame ), m_renderGraph( renderGraph ),
+      m_renderResources( renderResources ), m_renderTextures( renderTextures ), m_renderGeometry( renderGeometry ),
+      m_renderDiagnostics( renderDiagnostics ), m_raytracing( raytracing ), m_lifecycleLog( &renderDevice, scene ),
+      m_assets( world.assets ), m_terrain( world.terrain ), m_config( world.config ),
+      m_primitiveBatches( std::in_place, &renderResources, &renderTextures, &renderGeometry ),
+      m_gpuTiming( world.profiler, &renderDiagnostics ), m_uiTextPass( world.profiler, m_gpuTiming )
 {
 }
 
@@ -58,9 +61,9 @@ RenderResourceLifecycle::~RenderResourceLifecycle() = default;
 
 SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseProcessResources( bool dumpTextureAssets )
 {
-    Rendering::Dx12ResourceBuilder& renderResources = *m_backend.renderResources;
-    Rendering::Dx12TextureOwner& renderTextures = *m_backend.renderTextures;
-    Rendering::Dx12GeometryOwner& renderGeometry = *m_backend.renderGeometry;
+    Rendering::Dx12ResourceBuilder& renderResources = m_renderResources;
+    Rendering::Dx12TextureOwner& renderTextures = m_renderTextures;
+    Rendering::Dx12GeometryOwner& renderGeometry = m_renderGeometry;
 
     m_textures.BindAssetSystem( &m_assets );
     m_textures.BindRenderContexts( &renderTextures, &renderTextures );
@@ -122,16 +125,15 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseProcessResourc
 SkullbonezCore::Core::SbResult RenderResourceLifecycle::EnsureUiTextResources( int screenW, int screenH )
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
-    return m_uiTextPass.EnsureGpuResources( *m_backend.renderResources, *m_backend.renderTextures, *m_backend.renderGeometry,
-                                            m_assets, screenW, screenH );
+    return m_uiTextPass.EnsureGpuResources( m_renderResources, m_renderTextures, m_renderGeometry, m_assets, screenW,
+                                            screenH );
 }
 
 
 SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseSceneRayTracing( int modelCapacity )
 {
-    Rendering::Dx12RaytracingOwner* rayTracing = m_backend.raytracing;
-    Rendering::Dx12Diagnostics* renderDiagnostics = m_backend.renderDiagnostics;
-    const bool supported = renderDiagnostics && renderDiagnostics->GetCapabilities().supportsDxrReflection && rayTracing;
+    Rendering::Dx12RaytracingOwner* rayTracing = m_raytracing;
+    const bool supported = m_renderDiagnostics.GetCapabilities().supportsDxrReflection && rayTracing;
 
     if ( !supported )
     {
@@ -143,22 +145,8 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseSceneRayTracin
     if ( sphereGeometry.instancedMeshHandle == 0 )
     {
 
-        if ( !m_backend.renderResources || !m_backend.renderTextures || !m_backend.renderGeometry )
-        {
-
-            // Lane F: capability publication without the resource facets needed
-            // to build the renderer-owned primitive mesh is invalid wiring.
-            SB_FATAL( "RenderResourceLifecycle",
-                      "DXR reflection initialization requires concrete resource owners. resources=%d geometry=%d",
-                      m_backend.renderResources ? 1 : 0, m_backend.renderGeometry ? 1 : 0 );
-        }
-
-        const Rendering::PrimitiveRenderContext primitiveContext { *m_backend.renderResources,
-                                                                   *m_backend.renderTextures,
-                                                                   *m_backend.renderGeometry,
-                                                                   *renderDiagnostics,
-                                                                   m_assets,
-                                                                   m_config,
+        const Rendering::PrimitiveRenderContext primitiveContext { m_renderResources,   m_renderTextures, m_renderGeometry,
+                                                                   m_renderDiagnostics, m_assets,         m_config,
                                                                    PrimitiveBatches() };
 
         PrimitiveBatches().EnsureSphereMesh( primitiveContext );
@@ -250,7 +238,7 @@ void RenderResourceLifecycle::ReleaseHelperResources()
 
 void RenderResourceLifecycle::ReleaseUiTextResources()
 {
-    m_uiTextPass.ReleaseGpuResources( m_backend.renderTextures, m_backend.renderGeometry );
+    m_uiTextPass.ReleaseGpuResources( &m_renderTextures, &m_renderGeometry );
 }
 
 

@@ -249,9 +249,7 @@ double Run::BeginFrameTurn()
     // Lifetime: every facet is a startup-owned borrow for this synchronous
     // frame turn. A missing facet is a composition invariant failure.
 
-    if ( !m_renderBackendView.renderDevice || !m_renderBackendView.renderDiagnostics ||
-         !m_renderBackendView.renderResources || !m_renderBackendView.renderFrame || !m_renderBackendView.renderGraph ||
-         !m_renderBackendView.renderTextures || !m_renderBackendView.renderGeometry )
+    if ( !m_renderer.has_value() )
     {
         SB_FATAL( "RunFrame", "Run::Execute requires a render backend." );
     }
@@ -278,7 +276,8 @@ RuntimeFrameSceneView Run::BuildFrameSceneView()
 
 RuntimeFramePresentationView Run::BuildFramePresentationView()
 {
-    return RuntimeFramePresentationView { m_renderDefaults, *m_validationHarness, m_renderBackendView, m_renderer };
+    return RuntimeFramePresentationView { m_renderDefaults, *m_validationHarness, Renderer(), m_backbufferCapture,
+                                          m_shaderDevelopment };
 }
 
 void Run::BeginFrameDiagnosticsPhase()
@@ -286,8 +285,8 @@ void Run::BeginFrameDiagnosticsPhase()
 
     // Frame boundary: publish prior-frame GPU counters before resetting the
     // diagnostics storage that records this turn.
-    m_renderer.BeginProfilerFrame();
-    m_renderBackendView.renderDiagnostics->ResetFrameDrawCalls();
+    Renderer().BeginProfilerFrame();
+    Renderer().RenderDiagnostics().ResetFrameDrawCalls();
 }
 
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
@@ -299,7 +298,7 @@ InteractionAutomationFrameResult Run::RunAutomationBeforeInputPhase( RuntimeFram
     const InteractionAutomationFrameResult result = TickInteractionAutomationBeforeInput( m_interactionAutomation, m_window,
                                                                                           interaction, scene,
                                                                                           automationReplayView,
-                                                                                          m_renderer.FrameGraphSnapshot() );
+                                                                                          Renderer().FrameGraphSnapshot() );
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     const InteractionAutomationDevelopmentUiApplyResult
@@ -470,7 +469,7 @@ Run::FrameRenderPhaseResult Run::PrepareRenderPhase( RuntimeFrameHostView& host,
     // Concept: graphics stress is render/runtime churn, not UI command work. It
     // runs once per rendered frame in headless and interactive configurations.
     presentation.validationHarness.ExecuteGraphicsStressFrame( host, interaction, scene, presentation, m_replayRuntime,
-                                                               *presentation.renderBackendView.renderDiagnostics,
+                                                               presentation.renderer.RenderDiagnostics(),
                                                                legacyDevelopmentUiActive );
 
     const float presentationAlpha = ResolvePresentationAlpha( scene.config, simulation.capturePresentationPinned,
@@ -482,7 +481,7 @@ Run::FrameRenderPhaseResult Run::PrepareRenderPhase( RuntimeFrameHostView& host,
         SkullbonezCore::Core::SbResult finishResult = SkullbonezCore::Core::SbResult::Success();
         {
             CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Render );
-            finishResult = presentation.renderBackendView.renderFrame->FinishAndReopen( *presentation.renderBackendView.renderDiagnostics );
+            finishResult = presentation.renderer.RenderFrame().FinishAndReopen( presentation.renderer.RenderDiagnostics() );
         }
         PROFILE_END( host.profiler, "Frame/PipelineSync" );
 
@@ -508,16 +507,11 @@ void Run::RenderWorldPhase( const RuntimeRenderModelFrameView& renderModels, flo
     PROFILE_BEGIN( m_profiler, "Frame/Render" );
     {
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Render );
-        DRAW_CALL_TRACE_SCOPE( *m_renderBackendView.renderDiagnostics, "Frame/Render" );
-
-        if ( !m_renderBackendView.renderGraph )
-        {
-            SB_FATAL( "RunFrame", "A rendered frame requires the startup-bound render command context." );
-        }
+        DRAW_CALL_TRACE_SCOPE( Renderer().RenderDiagnostics(), "Frame/Render" );
 
         // Invariant: graph ownership begins before Render can take its text-only
         // path. World, UI, capture, and Present close the same graph exactly once.
-        m_renderer.BeginFrameGraph( *m_renderBackendView.renderGraph );
+        Renderer().BeginFrameGraph();
         Render( renderModels, presentationAlpha );
     }
     PROFILE_END( m_profiler, "Frame/Render" );
@@ -595,7 +589,7 @@ Run::RenderOperatorUiPhase( RuntimeFrameHostView& host, RuntimeFrameInteractionV
 
         if ( imguiResult.status.ok )
         {
-            imguiResult.status = m_renderer.RenderDevelopmentUi( m_imguiEditor );
+            imguiResult.status = Renderer().RenderDevelopmentUi( m_imguiEditor );
         }
 
         if ( !imguiResult.status.ok )
@@ -643,8 +637,7 @@ void Run::RunPostDrawDiagnosticsPhase( RuntimeFrameInteractionView& interaction,
     PROFILE_BEGIN( m_profiler, "Frame/PostDraw/LiveStyleCapture" );
     {
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Capture );
-        m_validationHarness->SavePendingLiveStyleCapture( m_diagnosticsRuntime.Capture(),
-                                                          m_renderBackendView.RequireBackbufferCapture() );
+        m_validationHarness->SavePendingLiveStyleCapture( m_diagnosticsRuntime.Capture(), BackbufferCapture() );
     }
     PROFILE_END( m_profiler, "Frame/PostDraw/LiveStyleCapture" );
 
@@ -663,9 +656,8 @@ void Run::RunPostDrawDiagnosticsPhase( RuntimeFrameInteractionView& interaction,
                                                                       m_sceneController,
                                                                       m_replayRuntime.BuildAutomationView(),
                                                                       automationDevelopmentUiView,
-                                                                      m_renderer.FrameGraphSnapshot(),
-                                                                      m_diagnosticsRuntime.Capture(),
-                                                                      m_renderBackendView.RequireBackbufferCapture() );
+                                                                      Renderer().FrameGraphSnapshot(),
+                                                                      m_diagnosticsRuntime.Capture(), BackbufferCapture() );
 
     if ( !automationAfterRender.status.ok )
     {
@@ -702,8 +694,8 @@ SkullbonezCore::Core::SbResult Run::PresentFramePhase()
 
         // Invariant: the production graph has one declaration-only Present edge;
         // finalize it before the swap-chain owner submits this frame.
-        m_renderer.FinalizeFrameGraph();
-        presentResult = m_renderBackendView.renderFrame->Present( *m_renderBackendView.renderDiagnostics );
+        Renderer().FinalizeFrameGraph();
+        presentResult = Renderer().RenderFrame().Present( Renderer().RenderDiagnostics() );
     }
     PROFILE_END( m_profiler, "Frame/VsyncWait" );
 
@@ -1050,7 +1042,7 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
                                                               m_sceneController.State().currentFrame,
                                                               m_timers.simulationTimer.GetTimeSinceLastStart() * 1000.0,
                                                               scenePath ? scenePath->c_str() : nullptr,
-                                                              m_renderBackendView.RequireBackbufferCapture() );
+                                                              BackbufferCapture() );
 
     if ( result.restartFrame )
     {
@@ -1058,7 +1050,7 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
         // Capture automation can synchronously replace scene-owned render
         // resources below. Close and clear graph borrows before that mutation;
         // this restart path deliberately records no Present declaration.
-        m_renderer.FinalizeCaptureOnlyFrameGraph();
+        Renderer().FinalizeCaptureOnlyFrameGraph();
     }
 
     PROFILE_END( m_profiler, "Frame/PostDraw/Screenshots" );
@@ -1085,12 +1077,11 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
 
     if ( result.completion == RuntimeCaptureCompletion::ScreenshotAndExit )
     {
-        m_diagnosticsRuntime.LogSceneFinished( m_sceneController, m_renderBackendView.renderDiagnostics,
-                                               "screenshot_and_exit" );
+        m_diagnosticsRuntime.LogSceneFinished( m_sceneController, &Renderer().RenderDiagnostics(), "screenshot_and_exit" );
     }
     else if ( result.completion == RuntimeCaptureCompletion::Screenshot )
     {
-        m_diagnosticsRuntime.LogSceneFinished( m_sceneController, m_renderBackendView.renderDiagnostics, "screenshot" );
+        m_diagnosticsRuntime.LogSceneFinished( m_sceneController, &Renderer().RenderDiagnostics(), "screenshot" );
     }
 #endif
 
@@ -1120,14 +1111,14 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
         {
             SceneLoadTransaction sceneLoad;
             sceneLoad.CaptureSubmittedState( m_camera, CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
-                                             m_overlayDiagnostics->PresentationSnapshot(),
-                                             m_renderBackendView.RendererName(), m_timers.simulationTimer.GetTotalTime() );
+                                             m_overlayDiagnostics->PresentationSnapshot(), Renderer().RendererName(),
+                                             m_timers.simulationTimer.GetTotalTime() );
 
             advanced = sceneLoad
                            .Load( m_sceneController, request, m_config, m_launchOptions,
                                   m_renderDefaults.CinematicBaseline(), m_startup, m_assets, m_workerPool,
-                                  m_diagnosticsRuntime, m_renderBackendView.renderFrame, m_renderBackendView.renderResources,
-                                  m_renderer )
+                                  m_diagnosticsRuntime, &Renderer().RenderFrame(), &Renderer().RenderResources(),
+                                  Renderer() )
                            .ok;
 
             sceneLoad.ApplyRuntimeReactions( m_launchOptions, m_timers, *m_overlayDiagnostics, m_sceneController,
@@ -1135,8 +1126,7 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
                                              m_replayRuntime );
 
             sceneLoad.ApplyPresentationOutputs( m_window, *m_operatorUi, *m_validationHarness, m_launchOptions,
-                                                m_renderBackendView.renderDevice, m_renderer.VsyncEnabled(),
-                                                m_sceneController );
+                                                &Renderer().RenderDevice(), Renderer().VsyncEnabled(), m_sceneController );
         }
 
         if ( !advanced )
@@ -1179,7 +1169,7 @@ void Run::TickAutoCycle( const SceneFrameProceedPolicy& proceedPolicy )
                                                             m_sceneController.Scene().SceneEntityCount(),
                                                             m_camera.autoCycleInterval, m_camera.autoCycleAccum,
                                                             m_camera.autoCycleShotsTaken, m_camera.trackBallRow.value,
-                                                            m_renderBackendView.RequireBackbufferCapture() );
+                                                            BackbufferCapture() );
 
     if ( !result.captureResult.ok )
     {
@@ -1200,7 +1190,7 @@ void Run::TickAutoCycle( const SceneFrameProceedPolicy& proceedPolicy )
     }
 
 #ifdef _DEBUG
-    m_diagnosticsRuntime.LogSceneFinished( m_sceneController, m_renderBackendView.renderDiagnostics, "auto_cycle" );
+    m_diagnosticsRuntime.LogSceneFinished( m_sceneController, &Renderer().RenderDiagnostics(), "auto_cycle" );
 #endif
 
     if ( result.automation == RuntimeCaptureAutomation::Quit )
@@ -1237,8 +1227,7 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
 
     if ( result.finishReason )
     {
-        m_diagnosticsRuntime.LogSceneFinished( m_sceneController, m_renderBackendView.renderDiagnostics,
-                                               result.finishReason );
+        m_diagnosticsRuntime.LogSceneFinished( m_sceneController, &Renderer().RenderDiagnostics(), result.finishReason );
     }
 #endif
 
@@ -1254,21 +1243,21 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
     {
         SceneLoadTransaction sceneLoad;
         sceneLoad.CaptureSubmittedState( m_camera, CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
-                                         m_overlayDiagnostics->PresentationSnapshot(), m_renderBackendView.RendererName(),
+                                         m_overlayDiagnostics->PresentationSnapshot(), Renderer().RendererName(),
                                          m_timers.simulationTimer.GetTotalTime() );
 
         loadSucceeded = sceneLoad
                             .Load( m_sceneController, result.loadRequest, m_config, m_launchOptions,
                                    m_renderDefaults.CinematicBaseline(), m_startup, m_assets, m_workerPool,
-                                   m_diagnosticsRuntime, m_renderBackendView.renderFrame,
-                                   m_renderBackendView.renderResources, m_renderer )
+                                   m_diagnosticsRuntime, &Renderer().RenderFrame(), &Renderer().RenderResources(),
+                                   Renderer() )
                             .ok;
 
         sceneLoad.ApplyRuntimeReactions( m_launchOptions, m_timers, *m_overlayDiagnostics, m_sceneController, m_inputRouter,
                                          m_interaction, m_camera, m_attachedCamera, m_runtimeTools, m_replayRuntime );
 
         sceneLoad.ApplyPresentationOutputs( m_window, *m_operatorUi, *m_validationHarness, m_launchOptions,
-                                            m_renderBackendView.renderDevice, m_renderer.VsyncEnabled(), m_sceneController );
+                                            &Renderer().RenderDevice(), Renderer().VsyncEnabled(), m_sceneController );
     }
 
     if ( loadSucceeded && result.restartSimulationTimerAfterLoad )

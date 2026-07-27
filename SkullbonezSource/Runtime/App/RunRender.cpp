@@ -44,7 +44,7 @@ namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 void Run::Render( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha )
 {
     const OverlayDebugState debug = m_overlayDiagnostics->PresentationSnapshot();
-    m_renderer.ResourceLifecycle().SetUiTextRayTracingCapability( nullptr );
+    Renderer().ResourceLifecycle().SetUiTextRayTracingCapability( nullptr );
 
     // In text_only mode all 3D rendering is skipped. UiTextPass handles the display.
 
@@ -100,9 +100,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
                                                      ->BuildFramePolicy( m_timers.simulationTimer.GetTimeSinceLastStart(),
                                                                          m_timers.simulationTimer.GetTotalTime() );
 
-    const bool renderReady = m_renderBackendView.renderFrame && m_renderBackendView.renderGraph &&
-                             m_renderBackendView.renderResources && m_renderBackendView.renderTextures &&
-                             m_renderBackendView.renderGeometry && m_renderBackendView.renderDiagnostics;
+    const bool renderReady = m_renderer.has_value();
 
     if ( !renderReady )
     {
@@ -176,7 +174,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     // Invariant: Gameplay preallocates its bounded visual maximum during owner
     // construction. Steady rendering receives no allocation-phase exemption.
     worldExtension = m_sceneController.Scene().Tornado().PrepareVisualFrame( visualTime );
-    const bool replaySubmissionRendered = m_renderer.RenderFrameEntry( RuntimeRenderer::FrameEntryContext { renderModels, framePolicy, replayFrame, toolOverlay, worldExtension,
+    const bool replaySubmissionRendered = Renderer().RenderFrameEntry( RuntimeRenderer::FrameEntryContext { renderModels, framePolicy, replayFrame, toolOverlay, worldExtension,
                                                                                                             activeCinematic, cinematicRequested } );
 
     m_replayRuntime.CompleteRenderFrame( replaySubmissionRendered, m_sceneController.State().currentFrame,

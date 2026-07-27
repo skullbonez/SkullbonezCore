@@ -191,7 +191,7 @@ int RunApp( Window* window, ParsedArgs& args, SkullbonezCore::Core::EngineConfig
     // DX12 backend and Win32 window are torn down by the process owner.
     {
         std::unique_ptr<Run> cRun = std::make_unique<Run>( *window, std::move( args.sceneList ), cfg, workerPool, profiler,
-                                                           renderBackendView, tracyClientOwner );
+                                                           tracyClientOwner );
 
         const RunStartupOverrides startupOverrides = BuildRunStartupOverrides( args );
         auto reportRunResult = [&]( const SkullbonezCore::Core::SbResult& result ) -> int
@@ -233,6 +233,27 @@ int RunApp( Window* window, ParsedArgs& args, SkullbonezCore::Core::EngineConfig
 
             return 1;
         };
+
+        const SkullbonezCore::Core::SbResult bindResult = cRun->BindRenderBackend( *renderBackendView.renderDevice,
+                                                                                   *renderBackendView.renderFrame,
+                                                                                   *renderBackendView.renderGraph,
+                                                                                   *renderBackendView.renderResources,
+                                                                                   *renderBackendView.renderTextures,
+                                                                                   *renderBackendView.renderGeometry,
+                                                                                   *renderBackendView.renderDiagnostics,
+                                                                                   *renderBackendView.backbufferCapture,
+                                                                                   renderBackendView.raytracing,
+                                                                                   renderBackendView.shaderDevelopment
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+                                                                                   ,
+                                                                                   renderBackendView.developmentUiRenderer
+#endif
+        );
+
+        if ( !bindResult.ok )
+        {
+            return reportRunResult( bindResult );
+        }
 
         const SkullbonezCore::Core::SbResult startupResult = cRun->ApplyStartupOverrides( startupOverrides );
 

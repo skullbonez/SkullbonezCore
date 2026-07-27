@@ -54,6 +54,11 @@ namespace UI
 {
 class InGameUI;
 } // namespace UI
+namespace Rendering
+{
+class Dx12BackbufferCapture;
+class Dx12ShaderDevelopment;
+} // namespace Rendering
 namespace Runtime
 {
 class ApplicationExitState;
@@ -76,7 +81,6 @@ struct RunStartupState;
 struct RunTimerState;
 enum class RuntimeGizmoDragKind;
 enum class RuntimeInteractionGestureKind;
-struct RuntimeRenderBackendView;
 
 // Lifetime: process services are borrowed synchronously for platform and
 // diagnostics work. This slice intentionally excludes input, scene, and render
@@ -159,13 +163,15 @@ struct RuntimeFramePresentationView
 {
     RenderDefaultsStore& renderDefaults;
     RuntimeValidationHarness& validationHarness;
-    RuntimeRenderBackendView& renderBackendView;
     RuntimeRenderer& renderer;
+    Rendering::Dx12BackbufferCapture* backbufferCapture;
+    Rendering::Dx12ShaderDevelopment* shaderDevelopment;
 
     RuntimeFramePresentationView( RenderDefaultsStore& renderDefaultsValue, RuntimeValidationHarness& validationHarnessValue,
-                                  RuntimeRenderBackendView& renderBackendViewValue, RuntimeRenderer& rendererValue )
-        : renderDefaults( renderDefaultsValue ), validationHarness( validationHarnessValue ),
-          renderBackendView( renderBackendViewValue ), renderer( rendererValue )
+                                  RuntimeRenderer& rendererValue, Rendering::Dx12BackbufferCapture* backbufferCaptureValue,
+                                  Rendering::Dx12ShaderDevelopment* shaderDevelopmentValue )
+        : renderDefaults( renderDefaultsValue ), validationHarness( validationHarnessValue ), renderer( rendererValue ),
+          backbufferCapture( backbufferCaptureValue ), shaderDevelopment( shaderDevelopmentValue )
     {
     }
     RuntimeFramePresentationView( const RuntimeFramePresentationView& ) = delete;

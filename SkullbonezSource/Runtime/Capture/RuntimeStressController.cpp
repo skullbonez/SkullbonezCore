@@ -135,8 +135,7 @@ class StressHarness
 
 // Lifetime: every borrow is consumed by one deterministic action and cannot be
 // retained as a replacement shell context.
-void ApplyUIStressAction( SkullbonezCore::UI::InGameUI& ui, RuntimeFrameSceneView& sceneOwners,
-                          RuntimeRenderBackendView& renderBackendView, RuntimeRenderer& renderer,
+void ApplyUIStressAction( SkullbonezCore::UI::InGameUI& ui, RuntimeFrameSceneView& sceneOwners, RuntimeRenderer& renderer,
                           ReplayRuntime& replayRuntime, UIStressState& stress, bool allowRuntimeChurn )
 {
     RuntimeOverlayPresentationEdit presentationEdit = sceneOwners.overlays.EditPresentation();
@@ -179,10 +178,7 @@ void ApplyUIStressAction( SkullbonezCore::UI::InGameUI& ui, RuntimeFrameSceneVie
     case 8:
         renderer.SetVsyncEnabled( !renderer.VsyncEnabled() );
 
-        if ( renderBackendView.renderDevice )
-        {
-            renderBackendView.renderDevice->SetVsyncEnabled( renderer.VsyncEnabled() );
-        }
+        renderer.RenderDevice().SetVsyncEnabled( renderer.VsyncEnabled() );
 
         break;
     case 9:
@@ -888,9 +884,8 @@ float GraphicsStressController::RandomCinematicParamValue( UI::UICinematicParam 
 // scene, UI, renderer, or input owner after the action batch returns.
 SkullbonezCore::Core::SbResult
 SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host, RuntimeFrameInteractionView& interactionOwners,
-                                             RuntimeFrameSceneView& sceneOwners, RuntimeRenderBackendView& renderBackendView,
-                                             RuntimeRenderer& renderer, ReplayRuntime& replayRuntime,
-                                             RunCameraMode replayRestoreCameraMode )
+                                             RuntimeFrameSceneView& sceneOwners, RuntimeRenderer& renderer,
+                                             ReplayRuntime& replayRuntime, RunCameraMode replayRestoreCameraMode )
 {
     DiagnosticsRuntime& diagnosticsRuntime = host.diagnosticsRuntime;
     Window* window = &host.window;
@@ -972,7 +967,7 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host, Runtime
 
             const SkullbonezCore::Core::SbResult actionResult = executeSceneGeneratedControlAction( transaction
                                                                                                         .Execute( config, sceneController, ui.SceneNavigation().overrides, camera, simulation, runtimeTools,
-                                                                                                                  renderBackendView.renderFrame )
+                                                                                                                  &renderer.RenderFrame() )
                                                                                                         .action );
 
             if ( !actionResult.ok )
@@ -996,7 +991,7 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host, Runtime
 
             const SkullbonezCore::Core::SbResult actionResult = executeSceneGeneratedControlAction( transaction
                                                                                                         .Execute( config, sceneController, ui.SceneNavigation().overrides, camera, simulation, runtimeTools,
-                                                                                                                  renderBackendView.renderFrame )
+                                                                                                                  &renderer.RenderFrame() )
                                                                                                         .action );
 
             if ( !actionResult.ok )
@@ -1010,7 +1005,7 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host, Runtime
 
     for ( int i = 0; i < actionCount; ++i )
     {
-        ApplyUIStressAction( ui, sceneOwners, renderBackendView, renderer, replayRuntime, stress, allowRuntimeChurn );
+        ApplyUIStressAction( ui, sceneOwners, renderer, replayRuntime, stress, allowRuntimeChurn );
     }
 
     return SkullbonezCore::Core::SbResult::Success();
@@ -1039,7 +1034,6 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
     AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
     UI::InGameUI& ui = interactionOwners.operatorUi;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
-    RuntimeRenderBackendView& renderBackendView = presentationOwners.renderBackendView;
     RuntimeRenderer& renderer = presentationOwners.renderer;
     SceneController& sceneController = sceneOwners.sceneController;
 
@@ -1073,13 +1067,13 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
 
         SceneLoadTransaction sceneLoad;
         sceneLoad.CaptureSubmittedState( camera, CaptureSceneLoadNavigationState( ui.SceneNavigation() ),
-                                         sceneOwners.overlays.PresentationSnapshot(), renderBackendView.RendererName(),
+                                         sceneOwners.overlays.PresentationSnapshot(), renderer.RendererName(),
                                          timers.simulationTimer.GetTotalTime() );
 
         const bool loaded = sceneLoad
                                 .Load( sceneController, request, config, launchOptions, defaultCinematicRender, startup,
-                                       assets, workerPool, diagnosticsRuntime, renderBackendView.renderFrame,
-                                       renderBackendView.renderResources, renderer )
+                                       assets, workerPool, diagnosticsRuntime, &renderer.RenderFrame(),
+                                       &renderer.RenderResources(), renderer )
                                 .ok;
 
         if ( !legacyDevelopmentUiActive )
@@ -1094,7 +1088,7 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
                                          interaction, camera, attachedCamera, runtimeTools, replayRuntime );
 
         sceneLoad.ApplyPresentationOutputs( *window, ui, presentationOwners.validationHarness, launchOptions,
-                                            renderBackendView.renderDevice, renderer.VsyncEnabled(), sceneController );
+                                            &renderer.RenderDevice(), renderer.VsyncEnabled(), sceneController );
 
         return loaded;
     };
@@ -1127,16 +1121,11 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
 
         stress.RecordDescriptorResize();
 
-        if ( !renderBackendView.renderTextures )
-        {
-            SB_FATAL( "GraphicsStress", "Descriptor churn requires the DX12 texture owner." );
-        }
-
         const uint8_t churnPixel[4] = { 255u, 0u, 255u, 255u };
 
-        const uint32_t churnTexture = renderBackendView.renderTextures
-                                          ->CreateTexture2D( churnPixel, 1, 1, 4, Rendering::TextureMipPolicy::SingleLevel,
-                                                             Rendering::TextureFilterPolicy::Nearest );
+        const uint32_t churnTexture = renderer.RenderTextures().CreateTexture2D( churnPixel, 1, 1, 4,
+                                                                                 Rendering::TextureMipPolicy::SingleLevel,
+                                                                                 Rendering::TextureFilterPolicy::Nearest );
 
         if ( churnTexture == 0 )
         {
@@ -1144,7 +1133,7 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
                       stress.DescriptorResizeCount() );
         }
 
-        renderBackendView.renderTextures->DeleteTexture( churnTexture );
+        renderer.RenderTextures().DeleteTexture( churnTexture );
         stress.RecordTextureChurn();
     }
 

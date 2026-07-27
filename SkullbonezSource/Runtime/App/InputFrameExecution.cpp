@@ -127,7 +127,6 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
     SkullbonezCore::UI::InGameUI& ui = interactionOwners.operatorUi;
     RuntimeValidationHarness& validationHarness = presentationOwners.validationHarness;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
-    RuntimeRenderBackendView& renderBackendView = presentationOwners.renderBackendView;
     RuntimeRenderer& renderer = presentationOwners.renderer;
     SceneController& sceneController = sceneOwners.sceneController;
 
@@ -170,8 +169,8 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
 
         presentationEdit.Commit();
         const SkullbonezCore::Core::SbResult
-            result = SkullbonezCore::Runtime::RunUIStressActions( host, interactionOwners, sceneOwners, renderBackendView,
-                                                                  renderer, replayRuntime,
+            result = SkullbonezCore::Runtime::RunUIStressActions( host, interactionOwners, sceneOwners, renderer,
+                                                                  replayRuntime,
                                                                   NormalizeCameraModeForCurrentScene( replayRuntime.BuildInputView().restoreCameraMode ) );
 
         presentationEdit.Refresh();
@@ -187,7 +186,7 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
             return false;
         }
 
-        Rendering::Dx12BackbufferCapture* backbufferCapture = renderBackendView.backbufferCapture;
+        Rendering::Dx12BackbufferCapture* backbufferCapture = presentationOwners.backbufferCapture;
 
         if ( !backbufferCapture )
         {
@@ -441,19 +440,19 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
         SceneLoadTransaction sceneLoad;
         sceneLoad.CaptureSubmittedState( camera,
                                          CaptureSceneLoadNavigationState( interactionOwners.operatorUi.SceneNavigation() ),
-                                         debug, renderBackendView.RendererName(), timers.simulationTimer.GetTotalTime() );
+                                         debug, renderer.RendererName(), timers.simulationTimer.GetTotalTime() );
 
         const bool loaded = sceneLoad
                                 .Load( sceneController, request, config, launchOptions, renderDefaults.CinematicBaseline(),
-                                       startup, assets, workerPool, diagnosticsRuntime, renderBackendView.renderFrame,
-                                       renderBackendView.renderResources, renderer )
+                                       startup, assets, workerPool, diagnosticsRuntime, &renderer.RenderFrame(),
+                                       &renderer.RenderResources(), renderer )
                                 .ok;
 
         sceneLoad.ApplyRuntimeReactions( launchOptions, timers, sceneOwners.overlays, sceneController, inputRouter,
                                          interaction, camera, attachedCamera, runtimeTools, replayRuntime );
 
         sceneLoad.ApplyPresentationOutputs( window, interactionOwners.operatorUi, validationHarness, launchOptions,
-                                            renderBackendView.renderDevice, renderer.VsyncEnabled(), sceneController );
+                                            &renderer.RenderDevice(), renderer.VsyncEnabled(), sceneController );
 
         presentationEdit.Refresh();
         return loaded;
@@ -609,11 +608,7 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
                                                                     renderer.VsyncEnabled(), renderer.PipelineSyncEnabled(),
                                                                     config.bodySimulation.contactEpsilon,
                                                                     config.physicsMaterial.frictionCoeff, debug,
-                                                                    renderBackendView.renderDiagnostics
-                                                                        ? renderBackendView.renderDiagnostics
-                                                                              ->GetRendererName()
-                                                                        : "DirectX 12",
-                                                                    simulationSeconds },
+                                                                    renderer.RendererName(), simulationSeconds },
                                                                   debug );
             }
 #endif
@@ -698,14 +693,14 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
         case RuntimeInputAction::ReportRendererRuntimeRetired:
         case RuntimeInputAction::ToggleBroadphaseOverlay:
             HandleDiagnosticsKeyboardShortcut( debug, camera.trackBallRow.value, sceneController.Scene().SceneEntityCount(),
-                                               renderBackendView.renderDiagnostics, SceneState().isSceneMode,
+                                               &renderer.RenderDiagnostics(), SceneState().isSceneMode,
                                                timers.simulationTimer.GetTimeSinceLastStart(), event.action, true );
 
             break;
         case RuntimeInputAction::ReloadShadersFromSource:
         {
 
-            if ( !renderBackendView.shaderDevelopment )
+            if ( !presentationOwners.shaderDevelopment )
             {
                 fprintf( stderr, "Shader hot reload unavailable: active backend has no development capability.\n" );
                 break;
@@ -715,7 +710,7 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
             // bake, manifest parse, reflection maps, and process launch belong
             // to BackendInit rather than steady input/render accounting.
             SkullbonezCore::Core::Allocation::RuntimeAllocationScope allocationScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::BackendInit );
-            const SkullbonezCore::Core::SbResult reloadResult = renderBackendView.shaderDevelopment
+            const SkullbonezCore::Core::SbResult reloadResult = presentationOwners.shaderDevelopment
                                                                     ->ReloadShadersFromSource();
 
             if ( !reloadResult.ok )
@@ -1099,20 +1094,19 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
     const SceneLoadNavigationState sceneLoadNavigation = CaptureSceneLoadNavigationState( interactionOwners.operatorUi.SceneNavigation() );
 
     SceneLoadTransaction sceneLoad;
-    sceneLoad.CaptureSubmittedState( camera, sceneLoadNavigation, debug, renderBackendView.RendererName(),
+    sceneLoad.CaptureSubmittedState( camera, sceneLoadNavigation, debug, renderer.RendererName(),
                                      timers.simulationTimer.GetTotalTime() );
 
     const bool processedScene = sceneController.ExecutePending( sceneLoad, config, launchOptions,
                                                                 renderDefaults.CinematicBaseline(), startup, assets,
-                                                                workerPool, diagnosticsRuntime,
-                                                                renderBackendView.renderFrame,
-                                                                renderBackendView.renderResources, renderer );
+                                                                workerPool, diagnosticsRuntime, &renderer.RenderFrame(),
+                                                                &renderer.RenderResources(), renderer );
 
     sceneLoad.ApplyRuntimeReactions( launchOptions, timers, sceneOwners.overlays, sceneController, inputRouter, interaction,
                                      camera, attachedCamera, runtimeTools, replayRuntime );
 
     sceneLoad.ApplyPresentationOutputs( window, interactionOwners.operatorUi, validationHarness, launchOptions,
-                                        renderBackendView.renderDevice, renderer.VsyncEnabled(), sceneController );
+                                        &renderer.RenderDevice(), renderer.VsyncEnabled(), sceneController );
 
     presentationEdit.Refresh();
 

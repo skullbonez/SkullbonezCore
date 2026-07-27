@@ -1,12 +1,12 @@
 # Render Backend Service Bag Removal
 
 Date: 2026-07-26
-Status: IN PROGRESS — RB0 closed on 2026-07-27 with every construction,
-transport, and consumption site classified; RB1 is binding. Originally drafted
+Status: IN PROGRESS — RB0-RB1 closed on 2026-07-27; the backend bag is now
+startup-only and RB2 is binding. Originally drafted
 from the 2026-07-26 from-source architecture review of
 `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 6 of the Architecture Follow-Up Campaign
-Round 5. Sequences before `runtime-frame-view-retirement`. 1/4 phases complete.
+Round 5. Sequences before `runtime-frame-view-retirement`. 2/4 phases complete.
 Impact area: `Runtime/Render/RuntimeRenderHost.h`, `Runtime/App/Run.*`,
 `Runtime/Render/RenderResourceLifecycle.h`, `Runtime/Render/RuntimeRenderer.h`,
 `Runtime/Capture/RuntimeStressController.h`, `Runtime/RuntimeFrameViews.h`
@@ -107,7 +107,7 @@ inspected everywhere.
   Evidence:
   `../../Reports/2026-07-27/render-backend-service-bag-removal-rb0-census.md`.
 
-- [ ] **RB1 — Supply required capabilities as concrete operands.**
+- [x] **RB1 — Supply required capabilities as concrete operands.**
   Replace the bag with the concrete owner references each consumer needs.
   `RuntimeRenderer` already retains backend authority per PB3, so most consumers
   should receive nothing new — they should ask `RuntimeRenderer`. Delete the
@@ -116,6 +116,11 @@ inspected everywhere.
   consumer needs a narrower set. Acceptance: no consumer receives a pointer it
   does not dereference; no operation exceeds 12 parameters; DX12 validation is
   zero-error; DX12 baselines unchanged.
+  Closed 2026-07-27. `Run`, frame views, input, stress, renderer, and lifecycle
+  no longer receive the bag. The duplicate lifecycle bag is deleted, the
+  operation maximum remains 12, the DX12 gate is zero-error with accepted
+  baselines, and bounded graphics stress is crash-free. Evidence:
+  `../../Reports/2026-07-27/render-backend-service-bag-removal-rb1-bindings.md`.
 
 - [ ] **RB2 — Make optional capability presence an explicit composition decision.**
   Raytracing, shader development, and the development UI renderer become an
