@@ -12,10 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-26th-JUL-26` |
 | Current baseline | Nightrunner 26 July is complete at N26-1 through N26-3: replay scrub spikes removed, owner code style ratified, and selected-body velocity-drag preview published. |
-| Current objective | Architecture Follow-Up Campaign Round 5. Owner rulings unblocked plans 11 and 5; AF2 closes first, FV1 follows, and plan 12 remains sequenced after plan 5. |
-| Active/future progress | 3/10 (30%). Plans 5, 11, and 12 are the live queue; completed plans remain excluded under rule 4. |
+| Current objective | Architecture Follow-Up Campaign Round 5. Plan 11 is closed; Plan 5 FV1 is binding under the owner-ruled `Run` coordinator exception, and plan 12 remains sequenced after plan 5. |
+| Active/future progress | 1/7 (14%). Plans 5 and 12 are the live queue; completed plan 11 is excluded under rule 4. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | Terrain T4 `validate_full.bat` passes and re-confirms the 44,401-line byte-exact Physics oracle. Format, 421/421 tests and 2,410,268 assertions, deep Physics/SkullScope, and performance also pass; independent review ended `ZERO BLOCKERS`. |
+| Last broad local gate | Allocator AF2 passes the default full and performance gates with `foreign_frees=0`; 421/421 tests and 2,410,268 assertions, allocation-policy scans, and one-minute graphics stress pass. Independent review ended `ZERO BLOCKERS`. |
 | Validation for coverage reorganization | Direct coverage and all six CPU lanes pass; 418/418 doctests and 2,410,159 assertions, ten unchanged subsystem percentages, 114/114 project/filter rows, zero gate-named test files, and clear independent review. |
 | Validation for governance G0-G4 | `tools\validate_fast.bat` passes in 112.9 s: aggregate 1,205 candidates / 10 signalled / 10 ruled / 0 unruled, scars 89 / 89 / 0, zero build warnings/errors. `tools\validate_all_cpu_tests.bat` passes in 60.4 s: all six lanes, 402 doctests / 2,403,914 assertions, and every coverage floor. Independent review ended `ZERO BLOCKERS`; comment audit 29/29. |
 | Validation for scene capacity SC0-SC1 | Current-source declaration census 43 fixed + 50 vector = 93 rows and 112,042,496-byte Debug payload lower bound. SC1 passes 408 doctests / 2,403,974 assertions, `validate_fast`, `validate_perf`, `validate_full`, byte-exact physics regression, standalone smoke, allocation guard, allocation-policy scans, aggregate governance, and a 32/32 touched-source comment audit. Independent review ended `ZERO BLOCKERS`. |
@@ -28,7 +28,7 @@ plan inventory.
 
 ## Live Queue
 
-NOW. Architecture Follow-Up Campaign Round 5 is live at 3/10 phases, registered
+NOW. Architecture Follow-Up Campaign Round 5 is live at 1/7 phases, registered
 2026-07-26 from the same-day from-source architecture review of
 `nightrunner-26th-JUL-26` at tip `35f6de4e` (review read only source and tests;
 no plans, reports, or git history). The owner added plan 14 on 2026-07-27.
@@ -91,7 +91,11 @@ guarded whole-header copy and process-specific ownership cookie, and Profile
 passes 418/418 with 2,410,186 assertions. Plan 11 reached 2/3 when genuine
 provenance proved incompatible with literal instruction identity. The owner
 retained the safe cookie/header snapshot and replaced that clause with a clean
-`validate_perf.bat` no-regression contract, so AF2 is now binding. The owner
+`validate_perf.bat` no-regression contract. AF2 then closed with guarded
+whole-header provenance, zero foreign frees across performance and graphics
+stress, clean policy scans, all 421 tests, the default full gate, and
+independent review at `ZERO BLOCKERS`. Plan 11 left the live inventory under
+rule 4. The owner
 also allowed direct member reach in the `Run` phase coordinator while delegated
 operations remain concrete and at or below 12 parameters, unblocking plan 5.
 Plan 14 NA0 re-measured 1,167 discovered types and 84 bounded
@@ -131,6 +135,7 @@ assertions, byte-exact Physics, deep Physics, SkullScope, performance, and the
 default full gate pass. Plan 13 is complete and removed from the live ledger
 under rule 4; plans 5 and 11 remain blocked and plan 12 waits for plan 5.
 Evidence:
+`Agentic/Reports/2026-07-27/allocator-foreign-pointer-safety-closure.md` and
 `Agentic/Reports/2026-07-27/terrain-legacy-contact-seed-remediation-closure.md`
 and `Agentic/Reports/2026-07-27/terrain-contact-seed-t3.md` and
 `Agentic/Reports/2026-07-27/terrain-index-safety-t2.md` and

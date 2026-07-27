@@ -773,10 +773,9 @@ owner code style, and the space-scene velocity-drag preview are closed, and the
 completed TODO was deleted under inventory rule 4. Permanent evidence is
 `../Reports/2026-07-26/nightrunner-26-july-closure.md`.
 
-NOW. Architecture Follow-Up Campaign Round 5 is live at 3/10 (30%). The owner
-accepted all three recommended rulings: plan 11 AF2 is binding with measured
-provenance cost, plan 5 FV1 may retain direct member reach in the `Run` phase
-coordinator, and plan 12 runs after plan 5.
+NOW. Architecture Follow-Up Campaign Round 5 is live at 1/7 (14%). Plan 11
+closed AF2 and left the live inventory under rule 4. Plan 5 FV1 is binding under
+the owner-ruled `Run` coordinator exception; plan 12 runs after plan 5.
 `governance-shape-to-judgment-conversion`, `extraction-scar-remediation`, and
 `scene-sized-store-capacity` closed on 2026-07-27 and left the live inventory
 under rule 4. Plan 3 `store-capacity-memory-reporting` and plan 4
@@ -809,7 +808,10 @@ only after independent review found and the candidate closed two magic-only
 provenance bypasses with a guarded whole-header copy and a process-specific
 ownership cookie. The owner retained that safe provenance and replaced literal
 instruction identity with a clean `validate_perf.bat` no-regression contract,
-unblocking AF2. The owner also permitted direct `Run` coordinator member reach
+unblocking AF2. AF2 then closed with zero foreign frees across performance and
+graphics stress, clear independent review, clean allocation-policy scans, all
+421 tests, and the default full gate. Plan 11 left the live inventory under
+rule 4. The owner also permitted direct `Run` coordinator member reach
 while delegated operations remain concrete and at or below 12 parameters,
 unblocking plan 5. Plan 12 remains sequenced after plan 5. Plan 14 NA0 then ran
 while plans 5 and 11 were blocked,
@@ -2148,7 +2150,7 @@ requires owner divergence authority and the campaign is byte-exact throughout.
 | 8 | [scene-runtime-verb-partition-consolidation](../Reports/2026-07-27/scene-runtime-verb-partition-closure.md) | Complete | 4/4 | Closed 2026-07-27 and removed from the live ledger under rule 4; seven verb units are gone, residual names match owners/domains, and review plus all final gates are clear |
 | 9 | [operator-command-invariant-ownership](../Reports/2026-07-27/operator-command-invariant-ownership-closure.md) | Complete | 4/4 | Closed 2026-07-27 and removed from the live ledger under rule 4; one value-only transaction owns phase order, arbitration, and the ledger, and every final gate is clear |
 | 10 | [coverage-gate-test-reorganization](../Reports/2026-07-27/coverage-gate-test-reorganization-closure.md) | Complete | 3/3 | Closed 2026-07-27 and removed from the live ledger under rule 4; subsystem-owned tests preserve every assertion and exact coverage result |
-| 11 | [allocator-foreign-pointer-safety](TODO/allocator-foreign-pointer-safety.md) | In progress | 2/3 | **Binding next task: AF2.** Safe provenance retained; measured `validate_perf` no-regression replaces the impossible zero-instruction clause |
+| 11 | [allocator-foreign-pointer-safety](../Reports/2026-07-27/allocator-foreign-pointer-safety-closure.md) | Complete | 3/3 | Closed 2026-07-27 and removed from the live ledger under rule 4; guarded complete-header provenance, zero foreign frees, measured performance, and independent review are clear |
 | 12 | [sbresult-frame-path-cost](TODO/sbresult-frame-path-cost.md) | Waiting | 0/3 | Owner-ratified sequence after plan 5 settles the frame-phase signatures; "no change, documented" remains a permitted SR0 outcome |
 | 13 | [terrain-legacy-and-contact-seed-remediation](../Reports/2026-07-27/terrain-legacy-contact-seed-remediation-closure.md) | Complete | 5/5 | Closed 2026-07-27 and removed from the live ledger under rule 4; axes and bounds are explicit, the ratified seed is fully pinned, review is clear, and every final gate passes byte-exact |
 | 14 | [new-aggregate-ruling-gate](../Reports/2026-07-27/new-aggregate-ruling-gate-closure.md) | Complete | 3/3 | Closed 2026-07-27 and removed from the live ledger under rule 4; 86 bounded rows are ruled, the transition is unusable, bypass review is clear, and all CPU gates pass |
