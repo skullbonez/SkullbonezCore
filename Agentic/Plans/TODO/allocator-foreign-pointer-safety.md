@@ -4,7 +4,7 @@ Date: 2026-07-26
 Status: IN PROGRESS — drafted from the 2026-07-26 from-source architecture
 review of `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 11 of the Architecture Follow-Up Campaign
-Round 5. 1/3 phases complete; AF1 is binding.
+Round 5. 2/3 phases complete; AF2 is binding.
 Impact area: `Core/Allocation/RuntimeAllocationTracker.cpp`
 Owner: core allocation
 Priority: High severity, low frequency — this is the sharpest memory-safety edge
@@ -97,7 +97,7 @@ the outcome is a bounded, diagnosable decision rather than undefined behavior.
   the owned-pointer path executes the same instructions as before, verified by
   the perf gate showing no regression.
 
-- [ ] **AF1 — Bound the foreign-pointer fallback.**
+- [x] **AF1 — Bound the foreign-pointer fallback.**
   Replace the unconditional `std::free( pointer )` with a decision the hook can
   defend. At minimum: count foreign frees per process, report them with the
   pointer value and the current phase, and make the count visible in the

@@ -726,6 +726,7 @@ DiagnosticsRuntime::RefreshMainMemoryStats( const SkullbonezCore::Core::MainMemo
     stats.process = RuntimeDiagnostics::SampleProcessMemory( includePrivateWorkingSet );
     stats.replay = replay;
     stats.gameObjects = gameObjects;
+    stats.foreignFreeCount = SkullbonezCore::Core::Allocation::RuntimeAllocationForeignFreeCount();
     stats.trackedEngineBytes = stats.replay.totalBytes + stats.gameObjects.totalBytes + stats.otherTrackedBytes;
 
     if ( stats.process.available )
@@ -908,6 +909,7 @@ bool DiagnosticsRuntime::WriteMainMemoryDump( const SkullbonezCore::Core::MainMe
              "  \"tracked_overshoot_bytes\": %llu,\n"
              "  \"reconciled_total_bytes\": %llu,\n"
              "  \"reconciliation_delta_bytes\": %llu,\n"
+             "  \"foreign_free_count\": %llu,\n"
              "  \"scene\": {\n"
              "    \"current_frame\": %d,\n"
              "    \"target_frames\": %d,\n"
@@ -934,7 +936,8 @@ bool DiagnosticsRuntime::WriteMainMemoryDump( const SkullbonezCore::Core::MainMe
              static_cast<unsigned long long>( stats.unattributedProcessBytes ),
              static_cast<unsigned long long>( stats.trackedOvershootBytes ),
              static_cast<unsigned long long>( stats.reconciledTotalBytes ),
-             static_cast<unsigned long long>( stats.reconciliationDeltaBytes ), scene.currentFrame, scene.targetFrameCount,
+             static_cast<unsigned long long>( stats.reconciliationDeltaBytes ),
+             static_cast<unsigned long long>( stats.foreignFreeCount ), scene.currentFrame, scene.targetFrameCount,
              scene.modelCount, scene.isTestComplete ? "true" : "false" );
 
     fclose( file );

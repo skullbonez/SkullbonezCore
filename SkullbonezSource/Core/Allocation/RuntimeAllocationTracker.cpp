@@ -54,6 +54,7 @@ Related:
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
+#include <limits>
 #include <new>
 
 #if defined( _MSC_VER )
@@ -121,6 +122,11 @@ std::atomic<int> s_guardMode { static_cast<int>( RuntimeAllocationGuardMode::Off
 // thread's phase with another thread's owner-zero allocation.
 thread_local RuntimeAllocationPhase s_currentPhase = RuntimeAllocationPhase::Startup;
 std::atomic<uint64_t> s_gameplayViolations { 0 };
+std::atomic<uint64_t> s_foreignFrees { 0 };
+
+// Invariant: the process counter never resets. A newly selected guard mode
+// starts a fresh validation interval without erasing lifetime diagnostics.
+std::atomic<uint64_t> s_foreignFreeGuardBaseline { 0 };
 std::atomic<uint64_t> s_totalAllocations { 0 };
 std::atomic<uint64_t> s_totalBytes { 0 };
 PhaseCounters s_phaseCounters[static_cast<int>( RuntimeAllocationPhase::Count )] = {};
@@ -153,6 +159,12 @@ std::size_t NormalizeAlignment( std::size_t alignment ) noexcept
 
         while ( rounded < alignment )
         {
+
+            if ( rounded > std::numeric_limits<std::size_t>::max() / 2u )
+            {
+                return 0u;
+            }
+
             rounded <<= 1u;
         }
 
@@ -160,6 +172,33 @@ std::size_t NormalizeAlignment( std::size_t alignment ) noexcept
     }
 
     return alignment;
+}
+
+bool TryComputeAllocationSize( std::size_t size, std::size_t alignment, std::size_t& totalSize ) noexcept
+{
+
+    if ( alignment == 0u )
+    {
+        return false;
+    }
+
+    constexpr std::size_t maximum = std::numeric_limits<std::size_t>::max();
+    const std::size_t alignmentPadding = alignment - 1u;
+
+    if ( alignmentPadding > maximum - sizeof( AllocationHeader ) )
+    {
+        return false;
+    }
+
+    const std::size_t overhead = alignmentPadding + sizeof( AllocationHeader );
+
+    if ( size > maximum - overhead )
+    {
+        return false;
+    }
+
+    totalSize = size + overhead;
+    return true;
 }
 
 void UpdateHighWater( std::atomic<uint64_t>& highWater, uint64_t value ) noexcept
@@ -347,11 +386,29 @@ void RecordFree( const AllocationHeader& header ) noexcept
     SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::RecordFree( header.owner, header.size );
 }
 
-void* AllocateTrackedMemory( std::size_t requestedSize, std::size_t requestedAlignment, void* callsite ) noexcept
+void* AllocateTrackedMemory( std::size_t requestedSize, std::size_t requestedAlignment, void* callsite,
+                             bool* overflowed = nullptr ) noexcept
 {
     const std::size_t size = requestedSize == 0u ? 1u : requestedSize;
     const std::size_t alignment = NormalizeAlignment( requestedAlignment );
-    const std::size_t totalSize = size + alignment - 1u + sizeof( AllocationHeader );
+    std::size_t totalSize = 0u;
+
+    if ( !TryComputeAllocationSize( size, alignment, totalSize ) )
+    {
+
+        if ( overflowed )
+        {
+            *overflowed = true;
+        }
+
+        return nullptr;
+    }
+
+    if ( overflowed )
+    {
+        *overflowed = false;
+    }
+
     void* raw = std::malloc( totalSize );
 
     if ( !raw )
@@ -433,6 +490,57 @@ bool TryReadAllocationHeaderMagic( const AllocationHeader* header, uint32_t& mag
 #endif
 }
 
+[[noreturn]] void FatalForeignFree( void* pointer, RuntimeAllocationPhase phase, RuntimeReserveOwnerHandle owner,
+                                    const char* headerState, uint64_t foreignFreeCount ) noexcept
+{
+    char message[384] = {};
+    std::snprintf( message, sizeof( message ),
+                   "FATAL[Runtime/Allocation]: unprovable foreign pointer delete. pointer=%p phase=%s owner=%u "
+                   "header=%s foreign_free_count=%llu\n",
+                   pointer, SkullbonezCore::Core::Allocation::RuntimeAllocationPhaseName( phase ),
+                   static_cast<unsigned int>( owner ), headerState, static_cast<unsigned long long>( foreignFreeCount ) );
+
+#if defined( _WIN32 )
+    OutputDebugStringA( message );
+#endif
+    std::fputs( message, stderr );
+    std::fflush( stderr );
+
+#if defined( _MSC_VER )
+    __debugbreak();
+#endif
+
+    std::abort();
+}
+
+void HandleForeignFree( void* pointer, const char* headerState ) noexcept
+{
+    const RuntimeAllocationPhase phase = CurrentPhase();
+    const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::CurrentOwner();
+    const uint64_t foreignFreeCount = s_foreignFrees.fetch_add( 1u, std::memory_order_relaxed ) + 1u;
+
+#if defined( _DEBUG ) || defined( SKULLBONEZ_PROFILE_ENABLED ) || defined( SKULLBONEZ_TEST_PROFILE_ALLOCATION_FATAL )
+    FatalForeignFree( pointer, phase, owner, headerState, foreignFreeCount );
+#else
+    char message[384] = {};
+    std::snprintf( message, sizeof( message ),
+                   "[allocation-guard] FOREIGN_FREE pointer=%p phase=%s owner=%u header=%s foreign_free_count=%llu\n",
+                   pointer, SkullbonezCore::Core::Allocation::RuntimeAllocationPhaseName( phase ),
+                   static_cast<unsigned int>( owner ), headerState, static_cast<unsigned long long>( foreignFreeCount ) );
+
+#if defined( _WIN32 )
+    OutputDebugStringA( message );
+#endif
+    std::fputs( message, stderr );
+    std::fflush( stderr );
+
+    // Invariant: the owner ruled Release foreign frees counted and reported.
+    // Hazard: fallback assumes the foreign allocator is this process's CRT;
+    // s_foreignFrees is the tripwire for that intentionally shipped risk.
+    std::free( pointer );
+#endif
+}
+
 void FreeTrackedMemory( void* pointer ) noexcept
 {
 
@@ -448,20 +556,13 @@ void FreeTrackedMemory( void* pointer ) noexcept
 
     if ( !TryReadAllocationHeaderMagic( header, headerMagic ) )
     {
-
-        // AF0 bounds only the inaccessible-header case. AF1 owns the diagnostic
-        // and configuration-specific decision for all unprovable foreign frees.
+        HandleForeignFree( pointer, "unreadable" );
         return;
     }
 
     if ( headerMagic != ALLOCATION_HEADER_MAGIC )
     {
-
-        // Hazard: shutdown or third-party code can call these global delete
-        // overloads for storage not produced by our hook. A bad magic value
-        // means the safest ownership-preserving behavior is to free the pointer
-        // exactly as received and skip counters.
-        std::free( pointer );
+        HandleForeignFree( pointer, "bad_magic" );
         return;
     }
 
@@ -484,11 +585,11 @@ void FreeTrackedMemory( void* pointer ) noexcept
     std::free( raw );
 }
 
-[[noreturn]] void FatalAllocationFailure( std::size_t size, std::size_t alignment ) noexcept
+[[noreturn]] void FatalAllocationFailure( std::size_t size, std::size_t alignment, const char* reason ) noexcept
 {
     char message[256] = {};
     std::snprintf( message, sizeof( message ),
-                   "FATAL[Runtime/Allocation]: global operator new exhausted memory. size=%llu alignment=%llu\n",
+                   "FATAL[Runtime/Allocation]: global operator new failed. reason=%s size=%llu alignment=%llu\n", reason,
                    static_cast<unsigned long long>( size ), static_cast<unsigned long long>( alignment ) );
 
 #if defined( _WIN32 )
@@ -507,15 +608,16 @@ void FreeTrackedMemory( void* pointer ) noexcept
 void* AllocateOrFatal( std::size_t size, std::size_t alignment, void* callsite )
 {
     const std::size_t normalizedAlignment = NormalizeAlignment( alignment );
+    bool overflowed = false;
 
-    if ( void* pointer = AllocateTrackedMemory( size, normalizedAlignment, callsite ) )
+    if ( void* pointer = AllocateTrackedMemory( size, normalizedAlignment, callsite, &overflowed ) )
     {
         return pointer;
     }
 
     // Lane F / Hazard: malloc has already failed inside the global allocation
     // hook, so this path must not call SB_FATAL or any SkullbonezCore::Core::EngineLog-backed helper.
-    FatalAllocationFailure( size, normalizedAlignment );
+    FatalAllocationFailure( size, normalizedAlignment, overflowed ? "size_arithmetic_overflow" : "exhausted_memory" );
 }
 } // namespace
 
@@ -544,6 +646,7 @@ void SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode mode ) noexcept
 {
     s_guardMode.store( static_cast<int>( mode ), std::memory_order_relaxed );
     ResetRuntimeAllocationCounters();
+    s_foreignFreeGuardBaseline.store( RuntimeAllocationForeignFreeCount(), std::memory_order_relaxed );
     SetRuntimeAllocationPhase( RuntimeAllocationPhase::Startup );
 }
 
@@ -615,12 +718,19 @@ bool RuntimeAllocationGuardEnabled() noexcept
 
 bool RuntimeAllocationGuardHasGameplayViolations() noexcept
 {
-    return RuntimeAllocationGuardViolationCount() > 0u || RuntimeReserveAllocator::HasPolicyViolations();
+    return RuntimeAllocationGuardViolationCount() > 0u ||
+           RuntimeAllocationForeignFreeCount() > s_foreignFreeGuardBaseline.load( std::memory_order_relaxed ) ||
+           RuntimeReserveAllocator::HasPolicyViolations();
 }
 
 uint64_t RuntimeAllocationGuardViolationCount() noexcept
 {
     return s_gameplayViolations.load( std::memory_order_relaxed );
+}
+
+uint64_t RuntimeAllocationForeignFreeCount() noexcept
+{
+    return s_foreignFrees.load( std::memory_order_relaxed );
 }
 
 void ResetRuntimeAllocationCounters() noexcept
@@ -661,11 +771,14 @@ void PrintRuntimeAllocationSummary( FILE* out ) noexcept
     }
 
     const RuntimeAllocationGuardMode mode = GetRuntimeAllocationGuardMode();
-    fprintf( out, "[allocation-guard] mode=%s total_allocations=%llu total_bytes=%llu gameplay_violations=%llu\n",
+    fprintf( out,
+             "[allocation-guard] mode=%s total_allocations=%llu total_bytes=%llu gameplay_violations=%llu "
+             "foreign_frees=%llu\n",
              RuntimeAllocationGuardModeName( mode ),
              static_cast<unsigned long long>( s_totalAllocations.load( std::memory_order_relaxed ) ),
              static_cast<unsigned long long>( s_totalBytes.load( std::memory_order_relaxed ) ),
-             static_cast<unsigned long long>( RuntimeAllocationGuardViolationCount() ) );
+             static_cast<unsigned long long>( RuntimeAllocationGuardViolationCount() ),
+             static_cast<unsigned long long>( RuntimeAllocationForeignFreeCount() ) );
 
     for ( int phaseIndex = 0; phaseIndex < static_cast<int>( RuntimeAllocationPhase::Count ); ++phaseIndex )
     {

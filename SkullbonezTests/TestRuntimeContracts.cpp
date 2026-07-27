@@ -22,6 +22,11 @@
 //   - Blocking task tests release the worker before local state is destroyed.
 //   - Every threaded worker test shuts its pool down before local task state expires.
 //   - Disabled development-profiler macros never evaluate caller expressions.
+//   - Foreign page-boundary deletes reach allocation Lane F without faulting
+//     while probing their inaccessible candidate header.
+//   - Release foreign frees are proved in a child so their process-lifetime
+//     counter cannot contaminate later parent-process diagnostics.
+//   - Allocation-size overflow reaches allocation Lane F before CRT malloc.
 //
 // Related:
 //   - SkullbonezSource/Core/Log.h
@@ -57,6 +62,7 @@
 #include <array>
 #include <atomic>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <initializer_list>
 #include <limits>
@@ -258,6 +264,22 @@ void ExpectFatalCase( const char* caseName, std::initializer_list<const char*> e
 #endif
 }
 
+#if !defined( _DEBUG ) && !defined( SKULLBONEZ_PROFILE_ENABLED ) && !defined( SKULLBONEZ_TEST_PROFILE_ALLOCATION_FATAL )
+void ExpectCleanChildCase( const char* caseName, std::initializer_list<const char*> expectedDiagnostics )
+{
+    const FatalChildResult child = RunFatalChild( caseName );
+    INFO( "clean child output: " << child.output );
+    REQUIRE( child.launched );
+    REQUIRE_FALSE( child.timedOut );
+    CHECK( child.exitCode == 0 );
+
+    for ( const char* expected : expectedDiagnostics )
+    {
+        CHECK( child.output.find( expected ) != std::string::npos );
+    }
+}
+#endif
+
 struct WorkerFatalProbe
 {
     void ExecuteWorkerTask()
@@ -319,6 +341,60 @@ bool RunRuntimeFatalCase( const char* caseName )
         values.push_back( 1 );
         values.push_back( 2 );
         return true;
+    }
+
+    if ( std::strcmp( caseName, "allocation-foreign-page-boundary" ) == 0 )
+    {
+        SYSTEM_INFO systemInfo = {};
+        GetSystemInfo( &systemInfo );
+        const std::size_t pageSize = static_cast<std::size_t>( systemInfo.dwPageSize );
+        void* region = VirtualAlloc( nullptr, pageSize * 2u, MEM_RESERVE, PAGE_NOACCESS );
+
+        if ( !region )
+        {
+            return false;
+        }
+
+        auto* foreignPointer = static_cast<unsigned char*>( region ) + pageSize;
+
+        if ( VirtualAlloc( foreignPointer, pageSize, MEM_COMMIT, PAGE_READWRITE ) != foreignPointer )
+        {
+            VirtualFree( region, 0u, MEM_RELEASE );
+            return false;
+        }
+
+        SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase( RuntimeAllocationPhase::Diagnostics );
+        ::operator delete( foreignPointer );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "allocation-size-overflow" ) == 0 )
+    {
+        static_cast<void>( ::operator new( ( std::numeric_limits<std::size_t>::max )() ) );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "allocation-foreign-crt-release" ) == 0 )
+    {
+        SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Measure );
+        SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase( RuntimeAllocationPhase::Diagnostics );
+        void* foreignPointer = std::malloc( 64u );
+
+        if ( !foreignPointer )
+        {
+            return false;
+        }
+
+        ::operator delete( foreignPointer );
+        const bool counted =
+            SkullbonezCore::Core::Allocation::RuntimeAllocationForeignFreeCount() == 1u;
+
+        const bool guardFailed =
+            SkullbonezCore::Core::Allocation::RuntimeAllocationGuardHasGameplayViolations();
+
+        SkullbonezCore::Core::Allocation::PrintRuntimeAllocationSummary( stdout );
+        return counted && guardFailed;
     }
 
     if ( std::strcmp( caseName, "physics-fixed-list-compile-capacity" ) == 0 )
@@ -722,6 +798,18 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
 
     ExpectFatalCase( "point-joint-scene-capacity", { "FATAL[Physics/PointJoint]", "owner=Physics/PhysicsWorld",
                                                      "requested=9", "capacity=8", "retained_capacity=12" } );
+#if defined( _DEBUG ) || defined( SKULLBONEZ_PROFILE_ENABLED ) || defined( SKULLBONEZ_TEST_PROFILE_ALLOCATION_FATAL )
+    ExpectFatalCase( "allocation-foreign-page-boundary",
+                     { "FATAL[Runtime/Allocation]", "unprovable foreign pointer delete", "phase=diagnostics",
+                       "owner=0", "header=unreadable", "foreign_free_count=1" } );
+#else
+    ExpectCleanChildCase( "allocation-foreign-crt-release",
+                          { "[allocation-guard] FOREIGN_FREE", "phase=diagnostics", "owner=0", "header=bad_magic",
+                            "foreign_free_count=1", "mode=measure", "foreign_frees=1", "VIOLATION:" } );
+#endif
+    ExpectFatalCase( "allocation-size-overflow",
+                     { "FATAL[Runtime/Allocation]", "global operator new failed",
+                       "reason=size_arithmetic_overflow", "size=18446744073709551615" } );
 }
 
 TEST_CASE( "Operator command transaction enforces every phase edge through Lane F" )

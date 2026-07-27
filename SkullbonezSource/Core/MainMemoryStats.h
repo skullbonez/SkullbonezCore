@@ -276,6 +276,7 @@ struct MainMemoryStats
     uint64_t trackedOvershootBytes = 0;
     uint64_t reconciledTotalBytes = 0;
     uint64_t reconciliationDeltaBytes = 0;
+    uint64_t foreignFreeCount = 0;                          // Process-lifetime global-delete ownership failures.
     double sampleTimeSeconds = 0.0;
 };
 } // namespace Core

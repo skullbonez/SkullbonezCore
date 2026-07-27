@@ -791,13 +791,28 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw, const S
     }
     else
     {
-        snprintf( text, sizeof( text ), "models %llu/%llu  replay %llu/%llu samples",
-                  static_cast<unsigned long long>( memory.gameObjects.modelCount ),
-                  static_cast<unsigned long long>( memory.gameObjects.modelCapacity ),
-                  static_cast<unsigned long long>( memory.replay.presentationSamples ),
-                  static_cast<unsigned long long>( memory.replay.solverSamples ) );
+        const bool hasForeignFrees = memory.foreignFreeCount > 0u;
 
-        draw.Text( x, row0 + 92.0f, 8.8f, 0.48f, 0.60f, 0.64f, text );
+        if ( hasForeignFrees )
+        {
+            snprintf( text, sizeof( text ), "FOREIGN FREES %llu  models %llu/%llu  replay %llu/%llu samples",
+                      static_cast<unsigned long long>( memory.foreignFreeCount ),
+                      static_cast<unsigned long long>( memory.gameObjects.modelCount ),
+                      static_cast<unsigned long long>( memory.gameObjects.modelCapacity ),
+                      static_cast<unsigned long long>( memory.replay.presentationSamples ),
+                      static_cast<unsigned long long>( memory.replay.solverSamples ) );
+        }
+        else
+        {
+            snprintf( text, sizeof( text ), "models %llu/%llu  replay %llu/%llu samples",
+                      static_cast<unsigned long long>( memory.gameObjects.modelCount ),
+                      static_cast<unsigned long long>( memory.gameObjects.modelCapacity ),
+                      static_cast<unsigned long long>( memory.replay.presentationSamples ),
+                      static_cast<unsigned long long>( memory.replay.solverSamples ) );
+        }
+
+        draw.Text( x, row0 + 92.0f, 8.8f, hasForeignFrees ? 0.95f : 0.48f, hasForeignFrees ? 0.48f : 0.60f,
+                   hasForeignFrees ? 0.34f : 0.64f, text );
     }
 
     char pastPair[36] = {};
