@@ -1,10 +1,12 @@
 # Render Backend Service Bag Removal
 
 Date: 2026-07-26
-Status: NOT STARTED — drafted from the 2026-07-26 from-source architecture
-review of `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
+Status: IN PROGRESS — RB0 closed on 2026-07-27 with every construction,
+transport, and consumption site classified; RB1 is binding. Originally drafted
+from the 2026-07-26 from-source architecture review of
+`nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 6 of the Architecture Follow-Up Campaign
-Round 5. Sequences before `runtime-frame-view-retirement`. 0/4 phases complete.
+Round 5. Sequences before `runtime-frame-view-retirement`. 1/4 phases complete.
 Impact area: `Runtime/Render/RuntimeRenderHost.h`, `Runtime/App/Run.*`,
 `Runtime/Render/RenderResourceLifecycle.h`, `Runtime/Render/RuntimeRenderer.h`,
 `Runtime/Capture/RuntimeStressController.h`, `Runtime/RuntimeFrameViews.h`
@@ -87,7 +89,7 @@ inspected everywhere.
 
 ## Phases
 
-- [ ] **RB0 — Census consumers and capability requirements.**
+- [x] **RB0 — Census consumers and capability requirements.**
   For every construction and consumption site of `RuntimeRenderBackendView`,
   record which of the eleven pointers it actually dereferences, whether it
   null-tests them, and which owner already holds the concrete pointer at that
@@ -98,6 +100,12 @@ inspected everywhere.
   has a minimum required pointer set; no site's needs are unknown; the report
   states whether any consumer genuinely needs more than a handful of owners, which
   would indicate a consumer that should itself be decomposed.
+  Closed 2026-07-27. Successful startup is the sole eleven-pointer
+  construction, no external consumer needs more than five owners, and only the
+  ratified renderer/lifecycle authority touches the eight-owner render epoch.
+  All four capture accessor calls are required-capability rediscovery.
+  Evidence:
+  `../../Reports/2026-07-27/render-backend-service-bag-removal-rb0-census.md`.
 
 - [ ] **RB1 — Supply required capabilities as concrete operands.**
   Replace the bag with the concrete owner references each consumer needs.
