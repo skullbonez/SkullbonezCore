@@ -34,6 +34,8 @@
 //   - Development tool scopes do not mask an ordinary gameplay allocation.
 //   - Tracker cases restore the process-wide guard to Off before returning.
 //   - A new capacity session resets the visible and list-local peak lazily.
+//   - A foreign page-boundary pointer cannot make global delete read an
+//     inaccessible predecessor page.
 //
 // Related:
 //   - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h
@@ -48,6 +50,9 @@
 #include "../SkullbonezSource/Physics/PhysicsFixedList.h"
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 #include "../SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h"
+#endif
+#if defined( _WIN32 )
+#include "../SkullbonezSource/Core/PlatformWin32.h"
 #endif
 
 #include <algorithm>
@@ -1000,4 +1005,29 @@ TEST_CASE( "PhysicsFixedList: object size no longer scales with compile-time cap
 {
     CHECK( sizeof( PhysicsFixedList<uint8_t, 8192> ) == sizeof( PhysicsFixedList<uint8_t, 8> ) );
     CHECK( sizeof( PhysicsFixedList<uint8_t, 8192> ) <= 64u );
+}
+
+
+TEST_CASE( "Runtime allocation tracker: foreign page-boundary delete does not read inaccessible predecessor" )
+{
+#if defined( _WIN32 ) && defined( _MSC_VER )
+    SYSTEM_INFO systemInfo = {};
+    GetSystemInfo( &systemInfo );
+    const std::size_t pageSize = static_cast<std::size_t>( systemInfo.dwPageSize );
+    REQUIRE( pageSize > sizeof( void* ) );
+
+    void* region = VirtualAlloc( nullptr, pageSize * 2u, MEM_RESERVE, PAGE_NOACCESS );
+    REQUIRE( region != nullptr );
+    auto* foreignPointer = static_cast<unsigned char*>( region ) + pageSize;
+    REQUIRE( VirtualAlloc( foreignPointer, pageSize, MEM_COMMIT, PAGE_READWRITE ) == foreignPointer );
+    foreignPointer[0] = 0x5Au;
+
+    ::operator delete( foreignPointer );
+
+    MEMORY_BASIC_INFORMATION memory = {};
+    REQUIRE( VirtualQuery( foreignPointer, &memory, sizeof( memory ) ) == sizeof( memory ) );
+    CHECK( memory.State == MEM_COMMIT );
+    CHECK( foreignPointer[0] == 0x5Au );
+    CHECK( VirtualFree( region, 0u, MEM_RELEASE ) != 0 );
+#endif
 }

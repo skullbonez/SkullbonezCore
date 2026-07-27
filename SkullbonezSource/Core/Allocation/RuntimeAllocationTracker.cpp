@@ -15,6 +15,8 @@ Glossary:
     header; scopes on other threads cannot overwrite it.
   Reentrancy guard: Thread-local flag that prevents tracker internals from
     recursively recording their own emergency work.
+  Foreign pointer: Address passed to global delete without a readable tracker
+    header produced by this hook.
   Active bytes: Tracked bytes allocated but not freed at the time of reporting.
   Development tool owner: A thread-local, hard-capped ImGui or Tracy scope that
     is permitted only when the shared development capability is compiled.
@@ -33,6 +35,8 @@ Invariants:
   - Allocation phase and reserve owner are both calling-thread state. Keeping
     only one thread-local would create impossible phase/owner pairs.
   - Heavy-mode allocation/free events pair only within one viewer connection.
+  - A foreign pointer cannot fault the process while the hook probes for its
+    header; only a readable matching header admits tracker-owned field access.
 
 Related:
   - SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h
@@ -403,6 +407,32 @@ void* AllocateTrackedMemory( std::size_t requestedSize, std::size_t requestedAli
     return reinterpret_cast<void*>( userAddress );
 }
 
+bool TryReadAllocationHeaderMagic( const AllocationHeader* header, uint32_t& magic ) noexcept
+{
+#if defined( _WIN32 ) && defined( _MSC_VER )
+
+    // Hazard: a foreign pointer can sit at the first byte of a committed page
+    // while the candidate header lies in an inaccessible predecessor page.
+    // MSVC SEH is table-based on the successful path and confines that one
+    // ownership-token read without a VirtualQuery syscall or hook registry.
+    __try
+    {
+        magic = header->magic;
+        return true;
+    }
+    __except ( EXCEPTION_EXECUTE_HANDLER )
+    {
+        return false;
+    }
+#else
+
+    // The shipping global hook is Win32/MSVC-owned. Other toolchain builds keep
+    // the existing direct probe until they acquire an equivalent signal guard.
+    magic = header->magic;
+    return true;
+#endif
+}
+
 void FreeTrackedMemory( void* pointer ) noexcept
 {
 
@@ -414,7 +444,17 @@ void FreeTrackedMemory( void* pointer ) noexcept
     auto* header = reinterpret_cast<AllocationHeader*>( reinterpret_cast<unsigned char*>( pointer ) -
                                                         sizeof( AllocationHeader ) );
 
-    if ( header->magic != ALLOCATION_HEADER_MAGIC )
+    uint32_t headerMagic = 0u;
+
+    if ( !TryReadAllocationHeaderMagic( header, headerMagic ) )
+    {
+
+        // AF0 bounds only the inaccessible-header case. AF1 owns the diagnostic
+        // and configuration-specific decision for all unprovable foreign frees.
+        return;
+    }
+
+    if ( headerMagic != ALLOCATION_HEADER_MAGIC )
     {
 
         // Hazard: shutdown or third-party code can call these global delete

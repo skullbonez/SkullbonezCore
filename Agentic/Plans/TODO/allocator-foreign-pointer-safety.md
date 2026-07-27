@@ -1,10 +1,10 @@
 # Allocator Foreign Pointer Safety
 
 Date: 2026-07-26
-Status: NOT STARTED — drafted from the 2026-07-26 from-source architecture
+Status: IN PROGRESS — drafted from the 2026-07-26 from-source architecture
 review of `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 11 of the Architecture Follow-Up Campaign
-Round 5. 0/3 phases complete.
+Round 5. 1/3 phases complete; AF1 is binding.
 Impact area: `Core/Allocation/RuntimeAllocationTracker.cpp`
 Owner: core allocation
 Priority: High severity, low frequency — this is the sharpest memory-safety edge
@@ -85,7 +85,7 @@ the outcome is a bounded, diagnosable decision rather than undefined behavior.
 
 ## Phases
 
-- [ ] **AF0 — Establish provable ownership before reading the header.**
+- [x] **AF0 — Establish provable ownership before reading the header.**
   Make the ownership test safe for a pointer the hook did not produce. Options to
   evaluate and rule with evidence, not preference: a page-residency probe before
   the read (`VirtualQuery` on Windows, which is not an allocation);

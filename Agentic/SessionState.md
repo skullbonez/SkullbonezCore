@@ -12,8 +12,8 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-26th-JUL-26` |
 | Current baseline | Nightrunner 26 July is complete at N26-1 through N26-3: replay scrub spikes removed, owner code style ratified, and selected-body velocity-drag preview published. |
-| Current objective | Architecture Follow-Up Campaign Round 5. Plan 5 is blocked at FV1; `allocator-foreign-pointer-safety` AF0 is binding. |
-| Active/future progress | 1/18 (6%). Round 5 is the live queue; completed plans are excluded under rule 4. |
+| Current objective | Architecture Follow-Up Campaign Round 5. Plan 5 is blocked at FV1; `allocator-foreign-pointer-safety` AF1 is binding. |
+| Active/future progress | 2/18 (11%). Round 5 is the live queue; completed plans are excluded under rule 4. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | Operator-command OC3 `validate_full.bat` passes: 418/418 doctests and every CPU/runtime lane, Automation smoke, DX12 run `20260727T043606Z` with zero InfoQueue errors and three passing baselines, and byte-exact Physics; one-minute graphics stress reached 15,007 frames and 413 scene loads cleanly. |
 | Validation for coverage reorganization | Direct coverage and all six CPU lanes pass; 418/418 doctests and 2,410,159 assertions, ten unchanged subsystem percentages, 114/114 project/filter rows, zero gate-named test files, and clear independent review. |
@@ -28,7 +28,7 @@ plan inventory.
 
 ## Live Queue
 
-NOW. Architecture Follow-Up Campaign Round 5 is live at 1/18, registered
+NOW. Architecture Follow-Up Campaign Round 5 is live at 2/18, registered
 2026-07-26 from the same-day from-source architecture review of
 `nightrunner-26th-JUL-26` at tip `35f6de4e` (review read only source and tests;
 no plans, reports, or git history). The owner added plan 14 on 2026-07-27.
@@ -77,7 +77,11 @@ direct coverage baselines. CG1 deleted the gate-named file and preserved
 418/418 cases, 2,410,159 assertions, and every exact coverage percentage. CG2
 installed the permanent rule, passed all six CPU lanes, and closed with clear
 independent review; plan 10 then left the live ledger under rule 4. Plan 11 AF0
-is now binding because plan 5 remains blocked. Evidence:
+now confines the candidate-header magic read to a table-based MSVC exception
+guard, proves an inaccessible predecessor page cannot fault global delete, and
+adds no registry, lock, allocation, system call, or extra header read to the
+owned path. Tests, format, allocation policy, and the full performance gate pass
+without regression. AF1 is binding because plan 5 remains blocked. Evidence:
 `Agentic/Reports/2026-07-27/scene-sized-store-capacity-sc0-census.md` and
 `Agentic/Reports/2026-07-27/scene-sized-store-capacity-sc2-shape-storage.md` and
 `Agentic/Reports/2026-07-27/scene-sized-store-capacity-sc3-binding.md` and
