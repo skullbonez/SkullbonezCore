@@ -1,10 +1,12 @@
 # Scene Runtime Verb Partition Consolidation
 
 Date: 2026-07-26
-Status: NOT STARTED — drafted from the 2026-07-26 from-source architecture
-review of `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
+Status: IN PROGRESS — SR0 closed 2026-07-27 with every operation ruled to a
+concrete owner, existing GV transaction, or pure domain policy. SR1 is binding.
+Drafted from the 2026-07-26 from-source architecture review of
+`nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 8 of the Architecture Follow-Up Campaign
-Round 5. Starts after `ceremonial-aggregate-elimination` closes. 0/4 phases
+Round 5. Starts after `ceremonial-aggregate-elimination` closes. 1/4 phases
 complete.
 Impact area: `Runtime/Scene/SceneRuntime*.{h,cpp}`,
 `Runtime/Scene/SceneController.*`, `Runtime/Scene/SceneRequestExecution.cpp`,
@@ -81,7 +83,7 @@ named after a verb.
 
 ## Phases
 
-- [ ] **SR0 — Census ownership and rule each unit's destination.**
+- [x] **SR0 — Census ownership and rule each unit's destination.**
   For every operation in the eight units, record: the state it mutates, the owner
   that owns that state, whether the operation is ordered with respect to others,
   and whether any group shares a sequencing or arbitration invariant. Rule each
@@ -93,6 +95,12 @@ named after a verb.
   Acceptance: every operation has one ruled destination; any proposed new
   transaction has its exact phase order and arbitration rule written before
   implementation; no operation is ruled "keep as free function over a context".
+  Closed 2026-07-27. The exhaustive operation/state/owner/order ruling is in
+  `../../Reports/2026-07-27/scene-runtime-verb-partition-sr0-census.md`.
+  Seven units dissolve; style splits between `SceneController` and pure
+  `SceneCinematicPolicy`; GV3 receives an owner-name-only rename. No new
+  transaction is justified because load/reset/UI work is already ordered by
+  GV2 and generated-control work by GV3.
 
 - [ ] **SR1 — Move the state-owning operations to their owners.**
   Implement destinations (a) and (b): style, UI options, defaults, and reset

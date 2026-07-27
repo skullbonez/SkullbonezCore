@@ -12,8 +12,8 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-26th-JUL-26` |
 | Current baseline | Nightrunner 26 July is complete at N26-1 through N26-3: replay scrub spikes removed, owner code style ratified, and selected-body velocity-drag preview published. |
-| Current objective | Architecture Follow-Up Campaign Round 5. Plan 5 is blocked at FV1; `scene-runtime-verb-partition-consolidation` SR0 is binding. |
-| Active/future progress | 5/33 (15%). Round 5 is the live queue; completed plans are excluded under rule 4. |
+| Current objective | Architecture Follow-Up Campaign Round 5. Plan 5 is blocked at FV1; `scene-runtime-verb-partition-consolidation` SR1 is binding. |
+| Active/future progress | 6/33 (18%). Round 5 is the live queue; completed plans are excluded under rule 4. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | Render-backend RB3 `validate_full.bat` passes: 417 doctests / 2,409,561 assertions, all coverage/boundary lanes, zero-error DX12 with committed baselines, and byte-exact 44,401-line Physics regression. `validate_perf.bat` reports no DX12 or Physics regressions. |
 | Validation for governance G0-G4 | `tools\validate_fast.bat` passes in 112.9 s: aggregate 1,205 candidates / 10 signalled / 10 ruled / 0 unruled, scars 89 / 89 / 0, zero build warnings/errors. `tools\validate_all_cpu_tests.bat` passes in 60.4 s: all six lanes, 402 doctests / 2,403,914 assertions, and every coverage floor. Independent review ended `ZERO BLOCKERS`; comment audit 29/29. |
@@ -27,7 +27,7 @@ plan inventory.
 
 ## Live Queue
 
-NOW. Architecture Follow-Up Campaign Round 5 is live at 5/33, registered
+NOW. Architecture Follow-Up Campaign Round 5 is live at 6/33, registered
 2026-07-26 from the same-day from-source architecture review of
 `nightrunner-26th-JUL-26` at tip `35f6de4e` (review read only source and tests;
 no plans, reports, or git history). The owner added plan 14 on 2026-07-27.
@@ -43,8 +43,9 @@ composition, and closed RB0-RB3 with clear independent review and unchanged
 baselines. `runtime-frame-view-retirement` FV0 measured the corrected current
 surface, but FV1 proved the fixed-step coordinator cannot satisfy the
 concrete-only endpoint, 12-parameter ceiling, short schedule, and carrier ban
-simultaneously. Plan 5 is blocked at 1/4 pending owner direction; plan 8 SR0 is
-binding.
+simultaneously. Plan 5 is blocked at 1/4 pending owner direction; plan 8 SR0
+ruled every operation to a concrete owner, existing GV transaction, or pure
+domain policy, and SR1 is binding.
 `scene-sized-store-capacity` SC0 corrected the dense-store census from the
 review's 65 rows to 93 current rows and measured a 112,042,496-byte Debug
 payload lower bound per engine. SC1 then introduced registered runtime backing,
@@ -55,12 +56,14 @@ joint topology before mutation while preserving monotonic backing, generated RNG
 and Replay's existing owner. Plan 7 then removed all 88 repair-ruled extraction
 scars, preserved the sole WorkerPool retain, and left the live ledger under
 rule 4. SC4 converted the 24 hot contact, narrowphase, broadphase, and force rows
-and deleted contact-tick growth. Plan 8 SR0 is now binding. Evidence:
+and deleted contact-tick growth. Plan 8 SR1 is now binding. Evidence:
 `Agentic/Reports/2026-07-27/scene-sized-store-capacity-sc0-census.md` and
 `Agentic/Reports/2026-07-27/scene-sized-store-capacity-sc2-shape-storage.md` and
 `Agentic/Reports/2026-07-27/scene-sized-store-capacity-sc3-binding.md` and
 `Agentic/Reports/2026-07-27/scene-sized-store-capacity-sc4-hot-stage-lists.md` and
 `Agentic/Reports/2026-07-27/extraction-scar-remediation-closure.md`.
+Plan 8 SR0 evidence:
+`Agentic/Reports/2026-07-27/scene-runtime-verb-partition-sr0-census.md`.
 
 SC2 removed the headline collider-row inflation: `ColliderRecord` is now 80
 bytes and borrows per-kind sphere, box, or hull backing; a zero-hull scene
