@@ -12,7 +12,7 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-26th-JUL-26` |
 | Current baseline | Nightrunner 26 July is complete at N26-1 through N26-3: replay scrub spikes removed, owner code style ratified, and selected-body velocity-drag preview published. |
-| Current objective | Architecture Follow-Up Campaign Round 5. `runtime-frame-view-retirement` FV0 is closed, so FV1 direct-helper conversion is binding. |
+| Current objective | Architecture Follow-Up Campaign Round 5. Plan 5 is blocked at FV1; `scene-runtime-verb-partition-consolidation` SR0 is binding. |
 | Active/future progress | 5/33 (15%). Round 5 is the live queue; completed plans are excluded under rule 4. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | Render-backend RB3 `validate_full.bat` passes: 417 doctests / 2,409,561 assertions, all coverage/boundary lanes, zero-error DX12 with committed baselines, and byte-exact 44,401-line Physics regression. `validate_perf.bat` reports no DX12 or Physics regressions. |
@@ -41,7 +41,10 @@ Permanent closure evidence is
 capture required, made optional capability presence explicit at startup
 composition, and closed RB0-RB3 with clear independent review and unchanged
 baselines. `runtime-frame-view-retirement` FV0 measured the corrected current
-surface and named every over-ceiling decomposition; FV1 is the binding task.
+surface, but FV1 proved the fixed-step coordinator cannot satisfy the
+concrete-only endpoint, 12-parameter ceiling, short schedule, and carrier ban
+simultaneously. Plan 5 is blocked at 1/4 pending owner direction; plan 8 SR0 is
+binding.
 `scene-sized-store-capacity` SC0 corrected the dense-store census from the
 review's 65 rows to 93 current rows and measured a 112,042,496-byte Debug
 payload lower bound per engine. SC1 then introduced registered runtime backing,
@@ -52,7 +55,7 @@ joint topology before mutation while preserving monotonic backing, generated RNG
 and Replay's existing owner. Plan 7 then removed all 88 repair-ruled extraction
 scars, preserved the sole WorkerPool retain, and left the live ledger under
 rule 4. SC4 converted the 24 hot contact, narrowphase, broadphase, and force rows
-and deleted contact-tick growth. Plan 5 FV1 is now binding. Evidence:
+and deleted contact-tick growth. Plan 8 SR0 is now binding. Evidence:
 `Agentic/Reports/2026-07-27/scene-sized-store-capacity-sc0-census.md` and
 `Agentic/Reports/2026-07-27/scene-sized-store-capacity-sc2-shape-storage.md` and
 `Agentic/Reports/2026-07-27/scene-sized-store-capacity-sc3-binding.md` and

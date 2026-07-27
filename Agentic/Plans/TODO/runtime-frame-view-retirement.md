@@ -1,8 +1,10 @@
 # Runtime Frame View Retirement
 
 Date: 2026-07-26
-Status: IN PROGRESS — FV0 closed on 2026-07-27 with the current 12-phase,
-six-helper, and 21-consumer census; FV1 is binding. Drafted from the 2026-07-26
+Status: BLOCKED — FV0 closed on 2026-07-27. FV1 proved that the concrete-only
+endpoint, 12-parameter ceiling, short `Run::Execute` schedule, and ban on every
+coordination carrier cannot all hold for the fixed-step loop. Owner direction
+is required; plan 8 proceeds meanwhile. Drafted from the 2026-07-26
 from-source architecture review of `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 5 of the Architecture Follow-Up Campaign
 Round 5. 1/4 phases complete.
@@ -120,6 +122,12 @@ of what that phase can affect.
   with a new aggregate. Acceptance: no frame phase mixes view
   access with direct member access; `Run::Execute` remains a phase schedule;
   physics CSV byte-exact; frame order and marker boundaries unchanged.
+  **BLOCKED 2026-07-27.** `TickPhysics` must retain one coordinator across the
+  fixed-step loop and conditional per-tick replay/post-step hook. Its honest
+  concrete signature is 18; keeping `Run` member reach, moving the loop into
+  `Run::Execute`, or introducing a carrier each violates a separate binding
+  constraint. No source edit was made. Evidence:
+  `../../Reports/2026-07-27/runtime-frame-view-retirement-fv1-blocker.md`.
 
 - [ ] **FV2 — Convert the remaining phases and delete the views.**
   Apply concrete operands to `RunInputPhase`, `RunSimulationPhase`,
