@@ -8,7 +8,7 @@ Result: PASS
 
 | Residual name | Resolved name / shape |
 |---|---|
-| `SceneRuntime.{h,cpp}` | `SceneSessionState.{h,cpp}`; `SceneSession` owns the request queue, session state, and lifecycle ledger |
+| `SceneRuntime.{h,cpp}` | `SceneSessionState.{h,cpp}`; `SceneSession` owns the scene-path queue, session state, and lifecycle ledger |
 | `SceneRuntimeCoordinator.h` | `SceneLoadRequest.h`; the header contains the value used to request a scene load |
 | `SceneRuntimeGeneratedControls.{h,cpp}` | `SceneGeneratedControlTransaction.{h,cpp}`; the existing GV3 transaction now carries its owner name |
 | `SceneRuntimeStyle.h` | `SceneCinematicPolicy.h`; the surviving operation is a pure cinematic policy |
@@ -18,8 +18,8 @@ Result: PASS
 `SceneController` publicly extends the lightweight `SceneSession` owner. This
 folds the old `SceneRuntime` surface into the controller without a forwarding
 facade or a `Runtime()` sub-owner escape hatch, while preserving a render-free
-owner that unit tests can instantiate. `SceneSession` owns the queue, state, and
-lifecycle ledger. `SceneController::RecordLifecycleEvent` adds the controller's
+owner that unit tests can instantiate. `SceneSession` owns the scene-path queue,
+state, and lifecycle ledger. `SceneController::RecordLifecycleEvent` adds the controller's
 `SceneWorld` topology-publication precondition and then records through that
 owner.
 

@@ -9,6 +9,14 @@ Summary:
   views. Runtime supplies the filesystem implementation but retains no UI
   pointer or scene-controller authority.
 
+Glossary:
+  Scene browser: UI-owned paths and labels for authored scene files discovered
+    under the configured data root.
+  Stable pointer view: C-string pointers rebuilt only after the owning name
+    strings reach their final storage for this refresh.
+  Normalized path: Scene path using forward slashes for platform-independent
+    comparison.
+
 Invariants:
   - Paths and names are populated before namePtrs is rebuilt.
   - Paths compare with normalized separators.

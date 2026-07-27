@@ -5,7 +5,8 @@ Purpose:
 
 Summary:
   SceneSessionState holds values that reset or advance with scene loads.
-  SceneController owns this state together with queue and lifecycle policy.
+  SceneSession owns this state together with the scene-path queue and lifecycle
+  ledger; SceneController inherits that cohesive owner.
 
 Glossary:
   Scene queue: Ordered list of authored scene paths, where an empty path means
@@ -17,7 +18,7 @@ Glossary:
 
 Invariants:
   - `SceneSessionState::ResetForLoad` resets per-load state but preserves
-    controller-owned queue and manual-run state.
+    session-owned scene-path queue and manual-run state.
   - Empty scene paths mean generated demo scene and are not filesystem paths.
   - Lifecycle generation advances once before the first mutation of every load
     attempt that crossed preflight, including attempts that later fail.
@@ -60,37 +61,38 @@ std::string NormalizeSceneQueuePath( const std::string& path );
 
 struct SceneSessionState
 {
-    void ResetForLoad( const SkullbonezCore::Core::CinematicRenderConfig&
-                           cinematicDefaults ); // Resets per-load state while preserving queue/manual-run ownership.
+
+    // Resets per-load state while preserving session-owned manual-run values.
+    void ResetForLoad( const SkullbonezCore::Core::CinematicRenderConfig& cinematicDefaults );
     Physics::PhysicsSceneObjectId AllocateSceneObjectId();
     Physics::PhysicsSceneObjectId AllocateSceneObjectIdRange( int count );
     void ResetSceneObjectIdCursor( const Physics::PhysicsBodyStore& bodyStore );
     GameObjects::SceneSessionSaveState GetSaveState() const;
 
-    int currentSceneIndex = -1;                 // Index into scene queue (-1 = not yet loaded)
-    int loadCount = 0;                          // Number of scene/generated loads since startup
-    int manualResetCount = 0;                   // Number of user-triggered resets since startup
-    bool isSceneMode = false;                   // Scene file mode (deterministic, data-driven)
-    bool isScenePhysics = true;                 // Physics enabled in scene mode
-    bool isSceneText = true;                    // Text overlay enabled in scene mode
-    int targetFrameCount = -1;                  // Frames to render before holding (-1 = unlimited)
-    int currentFrame = 0;                       // Per-load frame counter used by scene completion gates.
-    int modelCount = 0;                         // Number of models in the active scene
-    int solverBallCount = 0;                    // Exact solver ball count when generated through solver_balls
-    int solverBoxCount = 0;                     // Exact solver box count when generated through solver_boxes
-    unsigned int rngSeed = 0;                   // Effective RNG seed used to build the current scene
-    unsigned int rngState = 1;                  // Local deterministic generator state for scene object setup
-    uint32_t nextSceneObjectId = 1;             // Next per-load body/collider id assigned by scene creation.
-    float timeScale = 1.0f;                     // Physics time multiplier
-    bool isFixedStep = false;                   // One physics tick per render frame at PHYSICS_FIXED_DT (deterministic)
-    bool isExitOnComplete = false;              // Exit automatically when targetFrameCount is reached
-    bool isTestComplete = false;                // True after targetFrameCount without --exit; appends "- TEST COMPLETE" to HUD.
-    bool isFinishLogged = false;                // Debug event log guard for scene completion
-    bool isInteractiveRun = false;              // User/UI controlled scene flow: completion automation may hold/advance but never
+    int currentSceneIndex = -1;           // Index into scene queue (-1 = not yet loaded)
+    int loadCount = 0;                    // Number of scene/generated loads since startup
+    int manualResetCount = 0;             // Number of user-triggered resets since startup
+    bool isSceneMode = false;             // Scene file mode (deterministic, data-driven)
+    bool isScenePhysics = true;           // Physics enabled in scene mode
+    bool isSceneText = true;              // Text overlay enabled in scene mode
+    int targetFrameCount = -1;            // Frames to render before holding (-1 = unlimited)
+    int currentFrame = 0;                 // Per-load frame counter used by scene completion gates.
+    int modelCount = 0;                   // Number of models in the active scene
+    int solverBallCount = 0;              // Exact solver ball count when generated through solver_balls
+    int solverBoxCount = 0;               // Exact solver box count when generated through solver_boxes
+    unsigned int rngSeed = 0;             // Effective RNG seed used to build the current scene
+    unsigned int rngState = 1;            // Local deterministic generator state for scene object setup
+    uint32_t nextSceneObjectId = 1;       // Next per-load body/collider id assigned by scene creation.
+    float timeScale = 1.0f;               // Physics time multiplier
+    bool isFixedStep = false;             // One physics tick per render frame at PHYSICS_FIXED_DT (deterministic)
+    bool isExitOnComplete = false;        // Exit automatically when targetFrameCount is reached
+    bool isTestComplete = false;          // True after targetFrameCount without --exit; appends "- TEST COMPLETE" to HUD.
+    bool isFinishLogged = false;          // Debug event log guard for scene completion
+    bool isInteractiveRun = false;        // User/UI controlled scene flow: completion automation may hold/advance but never
 
     // quit
-    bool isEditableScene = false;               // Scene-tab-created file that should save live object state back to its scene file
-    bool hasFlatSlope = false;                  // Active terrain was authored as flat_slope and can be preserved by live scene saves
+    bool isEditableScene = false;         // Scene-tab-created file that should save live object state back to its scene file
+    bool hasFlatSlope = false;            // Active terrain was authored as flat_slope and can be preserved by live scene saves
     float flatBaseY = 0.0f;
     float flatSlopeX = 0.0f;
     float flatSlopeZ = 0.0f;
@@ -105,12 +107,12 @@ struct SceneSessionState
     bool hasCinematicGamma = false;
     float cinematicGamma = 2.2f;
     uint64_t cinematicOverrideMask = 0;
-    uint64_t uiCinematicOverrideMask = 0;       // Cine-tab values edited by sliders/toggles and eligible for Save Defaults
+    uint64_t uiCinematicOverrideMask = 0; // Cine-tab values edited by sliders/toggles and eligible for Save Defaults
     SkullbonezCore::Core::CinematicRenderConfig cinematicRender;
 };
 
-// Owns the queue/session/lifecycle ledger shared by SceneController and
-// render-free policy tests. SceneController inherits this surface directly;
+// Owns the scene-path queue/session/lifecycle ledger shared by SceneController
+// and render-free policy tests. SceneController inherits this surface directly;
 // there is no forwarding sub-owner or runtime escape hatch.
 class SceneSession
 {

@@ -108,7 +108,7 @@ void SceneSessionState::ResetForLoad( const SkullbonezCore::Core::CinematicRende
 {
 
     // Lifetime: This clears per-load runtime state only. Queue position, scene
-    // paths, and manual reset counts stay with SceneController.
+    // paths, and manual reset counts stay with the enclosing SceneSession.
     isScenePhysics = true;
     isSceneText = true;
     targetFrameCount = -1;
